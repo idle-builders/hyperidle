@@ -11,8 +11,8 @@
  *  - packages/server/src/routes/agents.ts is created with all five endpoints
  *  - packages/server/src/app.ts registers the agent routes at /api/agents
  *  - packages/db/drizzle/0021_X3_agent_config.sql migration adds the columns
- *  - packages/db/src/schema.ts adds soulPrompt, harnessType, modelTierPreference to users
- *  - packages/db/src/seed.ts inserts soul_template:* factorySettings rows
+ *  - packages/db/src/schema.ts adds systemPrompt, harnessType, modelTierPreference to users
+ *  - packages/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
 import { factorySettings, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
@@ -89,7 +89,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 
 	// Seed a product_manager template in factorySettings (needed for AC-8)
 	await db.insert(factorySettings).values({
-		key: "soul_template:product_manager",
+		key: "system_template:product_manager",
 		value: "# You are the Product Manager\n\nYour job is to clarify requirements for {{product}}.",
 		updatedAt: NOW,
 	});
@@ -132,7 +132,7 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("id");
 		expect(agent).toHaveProperty("name");
 		expect(agent).toHaveProperty("role");
-		expect(agent).toHaveProperty("soulPrompt");
+		expect(agent).toHaveProperty("systemPrompt");
 		expect(agent).toHaveProperty("harnessType");
 		expect(agent).toHaveProperty("modelTierPreference");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
@@ -267,7 +267,7 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when soulPrompt exceeds 50,000 characters", async ({ db, app }) => {
+	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -275,7 +275,7 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 			body: JSON.stringify({
 				name: "Big Prompt Bot",
 				role: "builder",
-				soulPrompt: "x".repeat(50_001),
+				systemPrompt: "x".repeat(50_001),
 			}),
 		});
 		expect(res.status).toBe(400);
@@ -349,12 +349,12 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ soulPrompt: "New persona text", modelTierPreference: "reasoning" }),
+			body: JSON.stringify({ systemPrompt: "New persona text", modelTierPreference: "reasoning" }),
 		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.soulPrompt).toBe("New persona text");
+		expect(body.systemPrompt).toBe("New persona text");
 		expect(body.modelTierPreference).toBe("reasoning");
 	});
 
@@ -363,7 +363,7 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ soulPrompt: "Updated prompt" }),
+			body: JSON.stringify({ systemPrompt: "Updated prompt" }),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 		// name should be unchanged
@@ -391,12 +391,12 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 400 when soulPrompt exceeds 50,000 characters", async ({ db, app }) => {
+	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ soulPrompt: "x".repeat(50_001) }),
+			body: JSON.stringify({ systemPrompt: "x".repeat(50_001) }),
 		});
 		expect(res.status).toBe(400);
 	});
@@ -413,16 +413,16 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(body.harnessType).toBe("aider");
 	});
 
-	test("can set soulPrompt to null (removes persona)", async ({ db, app }) => {
+	test("can set systemPrompt to null (removes persona)", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ soulPrompt: null }),
+			body: JSON.stringify({ systemPrompt: null }),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.soulPrompt).toBeNull();
+		expect(body.systemPrompt).toBeNull();
 	});
 });
 

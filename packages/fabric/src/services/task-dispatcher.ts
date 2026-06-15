@@ -78,7 +78,7 @@ export interface TaskDispatcherDeps {
 	readonly adapterPool: any;
 	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary — fabric cannot statically depend on server types
 	readonly workspace: any;
-	readonly workspaceBasePath: string;
+	readonly sandboxBasePath: string;
 	/**
 	 * Optional: resolve a model tier to a concrete ResolvedModel (provider, model,
 	 * apiKey, baseUrl). Server-factory.ts provides the implementation closing over
@@ -305,7 +305,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 						taskId: entry.taskId,
 						agentId: entry.agentId,
 						productId: entry.teamId,
-						workspaceBasePath: deps.workspaceBasePath,
+						sandboxBasePath: deps.sandboxBasePath,
 						resolvedModel,
 					},
 				);

@@ -2,7 +2,7 @@
  * Session Provisioning — RED phase tests for D5.
  *
  * `provisionSession` is the end-to-end orchestrator that wires together every
- * earlier building block (cost cap, workspace spawn, knowledge materialize,
+ * earlier building block (cost cap, sandbox spawn, knowledge assembly,
  * file watcher, agent start, event streaming, cost tracking, cleanup).
  *
  * These tests are written BEFORE the implementation exists — every test is
@@ -60,8 +60,8 @@ import {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
-import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import {
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
@@ -130,7 +130,7 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 		// (flaky under parallel load — pre-existing in B4's own tests).
 		if (this.config.fileWrites) {
 			for (const w of this.config.fileWrites) {
-				const full = path.join(config.workspacePath, w.relativePath);
+				const full = path.join(config.sandboxPath, w.relativePath);
 				fs.mkdirSync(path.dirname(full), { recursive: true });
 				fs.writeFileSync(full, w.content, "utf-8");
 			}
@@ -260,7 +260,7 @@ async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promi
 		});
 	}
 
-	// Seed a knowledge item so materialize has something to write.
+	// Seed a knowledge item so assembleContext has something to write.
 	await db.insert(knowledgeItems).values({
 		id: "ki-seed-1",
 		title: "Seed Principle",
@@ -282,7 +282,7 @@ function baseParams(
 		taskId: "task-1",
 		agentId: "agent-1",
 		productId: "p1",
-		workspaceBasePath: basePath,
+		sandboxBasePath: basePath,
 		...overrides,
 	};
 }
@@ -294,14 +294,14 @@ describe("Session Provisioning (D5)", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
-	let workspace: LocalWorkspaceAdapter;
+	let workspace: LocalSandboxAdapter;
 
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-session-provisioning-"));
-		workspace = new LocalWorkspaceAdapter();
+		workspace = new LocalSandboxAdapter();
 		clearDeduplicationCache();
 	});
 
@@ -335,21 +335,21 @@ describe("Session Provisioning (D5)", () => {
 					const [sessionRow] = await db
 						.select()
 						.from(sessions)
-						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
+						.where(eq(sessions.sandboxSnapshot, cfg.sandboxPath));
 
 					if (!sessionRow) throw new Error("AC1 setup error: no session row");
 					processWriteback(
 						{
 							db,
-							workspacePath: cfg.workspacePath,
+							sandboxPath: cfg.sandboxPath,
 							sessionId: sessionRow.id,
-							manifestPath: path.join(cfg.workspacePath, ".fabric/manifest.json"),
+							manifestPath: path.join(cfg.sandboxPath, ".fabric/manifest.json"),
 						},
 						[
 							{
 								type: "create",
 								relativePath,
-								fullPath: path.join(cfg.workspacePath, relativePath),
+								fullPath: path.join(cfg.sandboxPath, relativePath),
 							},
 						],
 					);
@@ -379,9 +379,9 @@ describe("Session Provisioning (D5)", () => {
 			// Verify the session still ends cleanly (cost is tracked in result, not DB)
 
 			// (c) workspace cleaned on normal end
-			const workspacePath = session?.workspaceSnapshot ?? "";
-			expect(workspacePath).toBeTruthy();
-			expect(fs.existsSync(workspacePath)).toBe(false);
+			const sessionPath = session?.sandboxSnapshot ?? "";
+			expect(sessionPath).toBeTruthy();
+			expect(fs.existsSync(sessionPath)).toBe(false);
 
 			// (d) returned outcome matches
 			expect(result.outcome).toBe("completed");
@@ -421,21 +421,21 @@ describe("Session Provisioning (D5)", () => {
 					const [sessionRow] = await db
 						.select()
 						.from(sessions)
-						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
+						.where(eq(sessions.sandboxSnapshot, cfg.sandboxPath));
 
 					if (!sessionRow) throw new Error("AC3 setup error: no session row");
 					processWriteback(
 						{
 							db,
-							workspacePath: cfg.workspacePath,
+							sandboxPath: cfg.sandboxPath,
 							sessionId: sessionRow.id,
-							manifestPath: path.join(cfg.workspacePath, ".fabric/manifest.json"),
+							manifestPath: path.join(cfg.sandboxPath, ".fabric/manifest.json"),
 						},
 						[
 							{
 								type: "create",
 								relativePath,
-								fullPath: path.join(cfg.workspacePath, relativePath),
+								fullPath: path.join(cfg.sandboxPath, relativePath),
 							},
 						],
 					);
@@ -459,8 +459,8 @@ describe("Session Provisioning (D5)", () => {
 			expect(session?.endedAt).toBeTruthy();
 
 			// Workspace NOT destroyed on crash (per C3 crashSession invariant).
-			expect(session?.workspaceSnapshot).toBeTruthy();
-			expect(fs.existsSync(session?.workspaceSnapshot ?? "")).toBe(true);
+			expect(session?.sandboxSnapshot).toBeTruthy();
+			expect(fs.existsSync(session?.sandboxSnapshot ?? "")).toBe(true);
 
 			// Pre-crash writes must survive the crash via the writeback layer.
 			// Strict assertion: a knowledge_items row attributed to THIS session
@@ -545,23 +545,23 @@ describe("Session Provisioning (D5)", () => {
 						const [sessionRow] = await db
 							.select()
 							.from(sessions)
-							.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
+							.where(eq(sessions.sandboxSnapshot, cfg.sandboxPath));
 
 						if (!sessionRow) {
-							throw new Error(`AC5 setup error: no session row for workspace ${cfg.workspacePath}`);
+							throw new Error(`AC5 setup error: no session row for workspace ${cfg.sandboxPath}`);
 						}
 						processWriteback(
 							{
 								db,
-								workspacePath: cfg.workspacePath,
+								sandboxPath: cfg.sandboxPath,
 								sessionId: sessionRow.id,
-								manifestPath: path.join(cfg.workspacePath, ".fabric/manifest.json"),
+								manifestPath: path.join(cfg.sandboxPath, ".fabric/manifest.json"),
 							},
 							[
 								{
 									type: "create",
 									relativePath,
-									fullPath: path.join(cfg.workspacePath, relativePath),
+									fullPath: path.join(cfg.sandboxPath, relativePath),
 								},
 							],
 						);
@@ -579,7 +579,7 @@ describe("Session Provisioning (D5)", () => {
 
 			// Kick off all three concurrently via Promise.all. better-sqlite3
 			// serializes the actual writes internally, but the provisioning
-			// phases (workspace spawn, materialize, watcher start, harness
+			// phases (sandbox spawn, assemble context, watcher start, harness
 			// start) overlap — we verify that independence holds.
 			const results: ProvisionSessionResult[] = await Promise.all(
 				taskIds.map((taskId, i) => {
@@ -599,10 +599,10 @@ describe("Session Provisioning (D5)", () => {
 			const ids = new Set(results.map((r) => r.sessionId));
 			expect(ids.size).toBe(3);
 
-			// Distinct workspaces (via sessions.workspaceSnapshot)
+			// Distinct workspaces (via sessions.sandboxSnapshot)
 			const sessionRows = await db.select().from(sessions);
 			expect(sessionRows.length).toBe(3);
-			const paths = new Set(sessionRows.map((s) => s.workspaceSnapshot));
+			const paths = new Set(sessionRows.map((s) => s.sandboxSnapshot));
 			expect(paths.size).toBe(3);
 
 			// Strict isolation: every session has exactly one knowledge_items
@@ -922,7 +922,7 @@ describe("Session Provisioning (D5)", () => {
 			await seedDomain(db);
 
 			// Mock workspace adapter whose spawn always throws (e.g. disk full).
-			const failingWorkspace: WorkspaceAdapter = {
+			const failingWorkspace: SandboxAdapter = {
 				spawn: async () => {
 					throw new Error("ENOSPC: no space left on device");
 				},
@@ -992,7 +992,7 @@ describe("Session Provisioning (D5)", () => {
 			const agentProse = "Thinking out loud: will pick this back up tomorrow.";
 			await db.update(tasks).set({ notes: agentProse }).where(eq(tasks.id, "task-1"));
 
-			const failingWorkspace: WorkspaceAdapter = {
+			const failingWorkspace: SandboxAdapter = {
 				spawn: async () => {
 					throw new Error("ENOSPC: H2 path");
 				},
@@ -1113,8 +1113,8 @@ describe("Session Provisioning (D5)", () => {
 				maxConcurrentSessions: 1,
 				costCap: null,
 				costActual: 0,
-				// X3: soulPromptPath deprecated; soulPrompt holds inline text now
-				soulPrompt: "# Facilitator\n\nYou are a facilitator.",
+				// X3: systemPromptPath deprecated; systemPrompt holds inline text now
+				systemPrompt: "# Facilitator\n\nYou are a facilitator.",
 				skills:
 					'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
 				createdAt: NOW,
@@ -1205,7 +1205,7 @@ describe("Session Provisioning (D5)", () => {
 		});
 	});
 
-	// @lore X3: Path traversal test on soul_prompt_path removed — the attack surface was
-	// eliminated by storing soul prompts inline in the DB (soulPrompt column). The
-	// validateSoulPromptPath function and SOUL_PROMPT_DIR_RELATIVE constant were deleted.
+	// @lore X3: Path traversal test on system_prompt_path removed — the attack surface was
+	// eliminated by storing system prompts inline in the DB (systemPrompt column). The
+	// validateSystemPromptPath function and SYSTEM_PROMPT_DIR_RELATIVE constant were deleted.
 });

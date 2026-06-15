@@ -92,7 +92,7 @@ export function SettingsPage(): JSX.Element {
 						<SettingsAgents />
 					</section>
 
-					{/* AD8b AC-2: Assistant section — soul prompt editor, between Agents and Appearance */}
+					{/* AD8b AC-2: Assistant section — system prompt editor, between Agents and Appearance */}
 					{user && (
 						<section
 							id="settings-section-assistant"

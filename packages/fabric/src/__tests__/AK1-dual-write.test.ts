@@ -5,12 +5,12 @@
  * The sandbox setup must write BOTH AGENTS.md AND CLAUDE.md with identical content.
  *
  * writeSandboxAgentsMd(sandboxPath, assembledPrompt) is the renamed function from
- * writeWorkspaceCLAUDEmd(workspacePath, composedPrompt).
+ * writeWorkspaceCLAUDEmd(sandboxPath, assembledPrompt).
  *
  * RED PHASE: Fails until:
- *   - prompt-composition.ts exports writeSandboxAgentsMd() (renamed from writeWorkspaceCLAUDEmd)
+ *   - context-assembly-prompt.ts exports writeSandboxAgentsMd() (renamed from writeWorkspaceCLAUDEmd)
  *   - writeSandboxAgentsMd() writes BOTH AGENTS.md AND CLAUDE.md to sandboxPath
- *   - writeSandboxAgentsMd() param is sandboxPath (not workspacePath)
+ *   - writeSandboxAgentsMd() param is sandboxPath
  */
 
 import * as fs from "node:fs";
@@ -18,10 +18,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
-// @lore AK1: importing the renamed function — RED until writeSandboxAgentsMd is exported from prompt-composition.ts.
+// @lore AK1: importing the renamed function — RED until writeSandboxAgentsMd is exported from context-assembly-prompt.ts.
 // Import the module as a namespace so we can access the (not-yet-exported) function at runtime
 // without a compile-time error blocking the RED phase.
-import * as PromptComposition from "../prompt-composition.js";
+import * as PromptComposition from "../context-assembly-prompt.js";
 
 /** Cast helper — fails at runtime with "writeSandboxAgentsMd is not a function" until green phase. */
 const writeSandboxAgentsMd = (
@@ -70,9 +70,9 @@ describe("AK1 — writeSandboxAgentsMd dual-write", () => {
 		expect(agentsMd).toBe(claudeMd);
 	});
 
-	test("accepts sandboxPath as first parameter (not workspacePath)", () => {
+	test("accepts sandboxPath as first parameter", () => {
 		// This is a type-level check — the function must accept sandboxPath.
-		// If the function signature still uses workspacePath as the semantics,
+		// If the function signature still uses the old semantics,
 		// the rename would be incomplete. This test uses a valid directory so
 		// it actually executes, proving the param is used correctly.
 		const content = "# Test";

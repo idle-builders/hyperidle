@@ -16,17 +16,17 @@
 
 **S-2.3** Semantic search (optional): Postgres + pgvector for cross-product querying at scale. SQLite FTS5 on `knowledge_items` as the lightweight default.
 
-**S-2.4** Session context packs: TOON format for ~40% token savings over JSON. Materialized by the Knowledge Fabric at session start.
+**S-2.4** Session context packs: TOON format for ~40% token savings over JSON. Assembled by the Knowledge Fabric at session start.
 
-**S-2.5** Knowledge Fabric sync: materialization at session start (SQLite → workspace files), continuous writeback via file watcher during session (workspace diffs → SQLite updates, 500ms debounce). Optimistic concurrency via `version` column. Per-field last-writer-wins for structured data conflicts; facilitator review for prose conflicts. See KNOWLEDGE_ARCHITECTURE.md §5.
+**S-2.5** Knowledge Fabric sync: context assembly at session start (SQLite → workspace files), continuous writeback via file watcher during session (workspace diffs → SQLite updates, 500ms debounce). Optimistic concurrency via `version` column. Per-field last-writer-wins for structured data conflicts; facilitator review for prose conflicts. See KNOWLEDGE_ARCHITECTURE.md §5.
 
 ### S-3: Agent Runtime
 
 **S-3.1** HyperIdle is a process layer, not an agent harness. It does not contain a tool-use loop or a model-calling loop. Those live in the harness.
 
-**S-3.2** The system supports harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Current harness: Claude Agent SDK via LocalWorkspaceAdapter (desktop gate).
+**S-3.2** The system supports harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Current harness: Claude Agent SDK via LocalSandboxAdapter (desktop gate).
 
-**S-3.3** Workspaces are abstracted behind a thin interface: `spawn`, `exec`, `read`, `write`, `snapshot`, `destroy`. The desktop app uses LocalWorkspaceAdapter (filesystem-level isolation on the same machine).
+**S-3.3** Workspaces are abstracted behind a thin interface: `spawn`, `exec`, `read`, `write`, `snapshot`, `destroy`. The desktop app uses LocalSandboxAdapter (filesystem-level isolation on the same machine).
 
 **S-3.4** Model tier assignment happens at session creation time. The Scheduler picks the tier (Reasoning / Workhorse / Fast) based on task risk tier, routine type, and cost posture. The deployer configures which actual models map to each tier.
 

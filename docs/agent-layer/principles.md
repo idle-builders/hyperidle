@@ -1,6 +1,6 @@
 ## 1. Principles
 
-1. **Agent = soul + context + skills.** Soul is who they are (system prompt). Context is what they know (L0–L4 memory, loaded JIT). Skills are what they can do (packaged scripts calling CLIs/APIs). All three are composable and independently swappable.
+1. **Agent = system prompt + context + skills.** The system prompt defines who they are. Context is what they know (L0–L4 memory, loaded JIT). Skills are what they can do (packaged scripts calling CLIs/APIs). All three are composable and independently swappable.
 
 2. **Process first, agents second.** Design how work flows, then staff it with agents — not the other way round. An agent exists because a role exists in the process, not because someone wanted to create an agent.
 

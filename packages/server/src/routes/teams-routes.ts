@@ -374,7 +374,7 @@ export function createTeamRoutes(
 		});
 
 		// AE2: create one agent per role from defaultRoster().
-		// For each role, look up soul template and catalog metadata.
+		// For each role, look up system template and catalog metadata.
 		const agentIds: string[] = [];
 		let leadAgentId: string | null = null;
 		let firstProductManagerId: string | null = null;
@@ -383,15 +383,15 @@ export function createTeamRoutes(
 			const catalogEntry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
 			const label = catalogEntry?.label ?? role;
 
-			// Look up soul template from factorySettings if hasTemplate=true.
-			let soulPrompt: string | null = null;
+			// Look up system template from factorySettings if hasTemplate=true.
+			let systemPrompt: string | null = null;
 			if (catalogEntry?.hasTemplate) {
 				const [templateRow] = await db
 					.select()
 					.from(factorySettings)
-					.where(eq(factorySettings.key, `soul_template:${role}`))
+					.where(eq(factorySettings.key, `system_template:${role}`))
 					.limit(1);
-				soulPrompt = templateRow?.value ?? null;
+				systemPrompt = templateRow?.value ?? null;
 			}
 
 			const agentId = `agent-${role}-${crypto.randomUUID()}`;
@@ -406,7 +406,7 @@ export function createTeamRoutes(
 				maxConcurrentSessions: role === "builder" ? 3 : 1,
 				teamId: teamMembersId,
 				agentCategory: "team",
-				soulPrompt,
+				systemPrompt,
 				// AH2: New agents get runnable defaults — no config needed after onboarding.
 				harnessType: "builtin",
 				modelId: "claude-sonnet-4-6",

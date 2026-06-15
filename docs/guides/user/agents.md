@@ -16,7 +16,7 @@
 ### How Agents Work
 
 Agents run in **sessions** — bounded work units on a specific task. Each session:
-1. Gets a materialized workspace (code, context, knowledge)
+1. Gets a assembled workspace (code, context, knowledge)
 2. Works toward the task's done conditions
 3. Creates review items when they need your approval
 4. Finishes and captures learnings

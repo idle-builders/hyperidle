@@ -29,7 +29,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import type { AdapterMeta } from "../harness/adapter-pool.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import { provisionSession } from "../services/session-provisioning.js";
 import { test } from "../test-fixtures.js";
@@ -142,7 +142,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeScriptedAdapter(), LOCAL_META);
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -156,7 +156,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 			taskId: "task-pool-1",
 			agentId: "agent-pool-1",
 			productId: "p1",
-			workspaceBasePath: tmpDir,
+			sandboxBasePath: tmpDir,
 		});
 
 		expect(result.outcome).toBe("completed");
@@ -177,7 +177,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 		pool.register("local", makeScriptedAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.select(); // fill the only slot
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -191,7 +191,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 				taskId: "task-pool-1",
 				agentId: "agent-pool-1",
 				productId: "p1",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			}),
 		).rejects.toThrow();
 
@@ -230,7 +230,7 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 			LOCAL_META,
 		);
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
@@ -242,7 +242,7 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 			taskId: "task-pool-1",
 			agentId: "agent-pool-1",
 			productId: "p1",
-			workspaceBasePath: tmpDir,
+			sandboxBasePath: tmpDir,
 		});
 
 		expect(result.outcome).toBe("completed");

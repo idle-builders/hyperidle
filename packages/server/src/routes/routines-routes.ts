@@ -33,7 +33,7 @@ import { and, avg, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
+import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { deriveInitials } from "../services/agent-utils.js";
@@ -51,8 +51,8 @@ import { type ProvisionSessionDeps, provisionSession } from "../services/session
  */
 export interface RoutineProvisionDeps {
 	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: WorkspaceAdapter;
-	readonly workspaceBasePath?: string;
+	readonly workspaceAdapter?: SandboxAdapter;
+	readonly sandboxBasePath?: string;
 }
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
@@ -631,7 +631,7 @@ export function createRoutineRoutes(
 		// AA2: Full provisionSession path when adapters are present.
 		// Reuses the 11-phase provisioning orchestrator with routine context.
 		if (provisionDeps?.adapterPool && provisionDeps.workspaceAdapter) {
-			const workspaceBasePath = provisionDeps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+			const sandboxBasePath = provisionDeps.sandboxBasePath ?? "/tmp/hyperidle-workspaces";
 
 			// Insert the routine_run row before provisioning (outcome="running").
 			// The session lifecycle hook (endSession/crashSession) will update it on completion.
@@ -663,7 +663,7 @@ export function createRoutineRoutes(
 					taskId: referenceTaskId,
 					agentId: routine.ownerAgentId,
 					productId: routine.teamId,
-					workspaceBasePath,
+					sandboxBasePath,
 					routineId,
 				});
 

@@ -62,7 +62,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { createServer } from "../server-factory.js";
 import { test } from "../test-fixtures.js";
 
@@ -118,7 +118,7 @@ function makeStubPool(adapter: HarnessAdapter): AdapterPool {
 const NOW = new Date().toISOString();
 
 describe("AF7 AC1: production createServer wires the dispatcher", () => {
-	let workspaceBasePath: string;
+	let sandboxBasePath: string;
 	let dbDir: string;
 
 	beforeEach(() => {
@@ -135,13 +135,13 @@ describe("AF7 AC1: production createServer wires the dispatcher", () => {
 		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "af7-dispatch-db-"));
 		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
 		clearProvisionSessionFn();
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "af7-dispatch-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "af7-dispatch-"));
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		clearProvisionSessionFn();
-		fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		fs.rmSync(dbDir, { recursive: true, force: true });
 	});
 
@@ -201,8 +201,8 @@ describe("AF7 AC1: production createServer wires the dispatcher", () => {
 		const server = await createServer(0, {
 			db,
 			adapterPool: makeStubPool(stub),
-			workspaceAdapter: new LocalWorkspaceAdapter(),
-			workspaceBasePath,
+			workspaceAdapter: new LocalSandboxAdapter(),
+			sandboxBasePath,
 		});
 
 		try {

@@ -33,7 +33,7 @@ vi.mock("node:child_process", async () => {
 });
 
 // Top-level import: vi.mock is hoisted, so the mock is active before this resolves.
-const { DockerWorkspaceAdapter } = await import("../harness/docker-workspace-adapter.js");
+const { DockerSandboxAdapter } = await import("../harness/docker-sandbox-adapter.js");
 
 beforeEach(() => {
 	spawnCalls.length = 0;
@@ -45,28 +45,28 @@ afterEach(() => {
 	spawnCalls.length = 0;
 });
 
-describe("DockerWorkspaceAdapter lifecycle", () => {
+describe("DockerSandboxAdapter lifecycle", () => {
 	it("exec on unknown workspace throws with descriptive message", async () => {
-		const adapter = new DockerWorkspaceAdapter();
+		const adapter = new DockerSandboxAdapter();
 
 		const fakeHandle = { workspaceId: "nonexistent-ws", path: "/tmp/fake" };
 		await expect(adapter.exec(fakeHandle, "echo hello")).rejects.toThrow(
-			"Unknown workspace: nonexistent-ws",
+			"Unknown sandbox: nonexistent-ws",
 		);
 	});
 
 	it("destroy on unknown workspace throws with descriptive message", async () => {
-		const adapter = new DockerWorkspaceAdapter();
+		const adapter = new DockerSandboxAdapter();
 
 		const fakeHandle = { workspaceId: "nonexistent-ws", path: "/tmp/fake" };
-		await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown workspace: nonexistent-ws");
+		await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown sandbox: nonexistent-ws");
 	});
 
 	it("spawn throws when docker run exits with non-zero code", async () => {
 		nextExitCode = 1;
 		nextStdout = "";
 
-		const adapter = new DockerWorkspaceAdapter();
+		const adapter = new DockerSandboxAdapter();
 
 		await expect(adapter.spawn("/tmp/test-base")).rejects.toThrow(
 			"Failed to start Docker container",

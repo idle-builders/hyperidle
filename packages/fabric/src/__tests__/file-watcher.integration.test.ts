@@ -15,8 +15,8 @@ import {
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
+import type { Manifest } from "../context-assembly.js";
 import { startWatcher } from "../file-watcher.js";
-import type { Manifest } from "../materialization.js";
 import { startPollingWatcher } from "../polling-watcher.js";
 import { processWriteback, readManifest, type WritebackChange } from "../writeback.js";
 
@@ -36,7 +36,7 @@ function createManifest(workspace: string, sessionId: string): string {
 	const manifestPath = path.join(workspace, ".fabric/manifest.json");
 	const manifest: Manifest = {
 		session_id: sessionId,
-		materialized_at: new Date().toISOString(),
+		assembled_at: new Date().toISOString(),
 		items: {},
 	};
 	fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -137,7 +137,7 @@ describe("writeback", () => {
 		];
 
 		const result = await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
+			{ db, sandboxPath: workspace, sessionId, manifestPath },
 			changes,
 		);
 
@@ -178,10 +178,7 @@ describe("writeback", () => {
 				fullPath: filePath,
 			},
 		];
-		await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
-			createChanges,
-		);
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, createChanges);
 
 		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
@@ -197,7 +194,7 @@ describe("writeback", () => {
 			},
 		];
 		const result = await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
+			{ db, sandboxPath: workspace, sessionId, manifestPath },
 			modifyChanges,
 		);
 
@@ -216,7 +213,7 @@ describe("writeback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/to-delete.md");
 		fs.writeFileSync(filePath, "Content to be deleted");
 
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath },
 		]);
 
@@ -226,10 +223,9 @@ describe("writeback", () => {
 
 		// Now delete
 		fs.unlinkSync(filePath);
-		const result = await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
-			[{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath }],
-		);
+		const result = await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
+			{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath },
+		]);
 
 		expect(result.deleted).toBe(1);
 
@@ -262,7 +258,7 @@ describe("writeback", () => {
 		}
 
 		const result = await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
+			{ db, sandboxPath: workspace, sessionId, manifestPath },
 			changes,
 		);
 
@@ -281,7 +277,7 @@ describe("writeback", () => {
 		const filePath = path.join(workspace, "knowledge/practices/conflict-test.md");
 		fs.writeFileSync(filePath, "Original content");
 
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/conflict-test.md", fullPath: filePath },
 		]);
 
@@ -296,16 +292,13 @@ describe("writeback", () => {
 
 		// Now try to modify via writeback (manifest still says version 1)
 		fs.writeFileSync(filePath, "Agent's new content");
-		const result = await processWriteback(
-			{ db, workspacePath: workspace, sessionId, manifestPath },
-			[
-				{
-					type: "modify",
-					relativePath: "knowledge/practices/conflict-test.md",
-					fullPath: filePath,
-				},
-			],
-		);
+		const result = await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
+			{
+				type: "modify",
+				relativePath: "knowledge/practices/conflict-test.md",
+				fullPath: filePath,
+			},
+		]);
 
 		expect(result.conflicts).toBe(1);
 
@@ -325,7 +318,7 @@ describe("writeback", () => {
 		const filePath = path.join(workspace, "knowledge/decisions/arch-choice.md");
 		fs.writeFileSync(filePath, "We chose X because Y");
 
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/decisions/arch-choice.md", fullPath: filePath },
 		]);
 
@@ -337,7 +330,7 @@ describe("writeback", () => {
 
 		// Modify the file
 		fs.writeFileSync(filePath, "Updated decision");
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "modify", relativePath: "knowledge/decisions/arch-choice.md", fullPath: filePath },
 		]);
 
@@ -354,7 +347,7 @@ describe("writeback", () => {
 		const notesPath = path.join(workspace, "work/session-notes.md");
 		fs.writeFileSync(notesPath, "# Session Notes\nImportant observation");
 
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "modify", relativePath: "work/session-notes.md", fullPath: notesPath },
 		]);
 
@@ -389,7 +382,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 200,
@@ -420,7 +413,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 300,
@@ -451,7 +444,7 @@ describe("file-watcher (fs.watch)", () => {
 		// stop() is the one that should flush via its final poll.
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 5000,
@@ -488,7 +481,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		const watcher = startWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 500,
@@ -555,7 +548,7 @@ describe("polling-watcher", () => {
 
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 500, // poll interval
@@ -586,13 +579,13 @@ describe("polling-watcher", () => {
 		fs.writeFileSync(filePath, "Original polled");
 
 		// Create the item in DB and manifest first
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/existing-poll.md", fullPath: filePath },
 		]);
 
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 500,
@@ -621,13 +614,13 @@ describe("polling-watcher", () => {
 		const filePath = path.join(workspace, "knowledge/practices/delete-poll.md");
 		fs.writeFileSync(filePath, "To delete via poll");
 
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, sandboxPath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/delete-poll.md", fullPath: filePath },
 		]);
 
 		const watcher = startPollingWatcher({
 			db,
-			workspacePath: workspace,
+			sandboxPath: workspace,
 			sessionId,
 			manifestPath,
 			debounceMs: 500,

@@ -23,9 +23,9 @@ describe("SessionResult (AC9)", () => {
 		const adapter = new MockHarnessAdapter();
 		const handle = await adapter.startSession({
 			sessionId: "test-session",
-			workspacePath: "/tmp/ws",
-			soulPromptPath: "/tmp/soul.md",
-			composedPrompt: "",
+			sandboxPath: "/tmp/ws",
+			systemPromptPath: "/tmp/system-prompt.md",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -40,9 +40,9 @@ describe("SessionResult (AC9)", () => {
 		const adapter = new MockHarnessAdapter();
 		const handle = await adapter.startSession({
 			sessionId: "test-session",
-			workspacePath: "/tmp/ws",
-			soulPromptPath: "/tmp/soul.md",
-			composedPrompt: "",
+			sandboxPath: "/tmp/ws",
+			systemPromptPath: "/tmp/system-prompt.md",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

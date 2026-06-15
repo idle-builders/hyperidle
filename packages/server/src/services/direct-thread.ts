@@ -1,6 +1,6 @@
 /**
  * L1 step5 (W14): the direct-message thread reuse pattern was duplicated
- * between `routes/agents.ts` and `skill-tools/send-message.ts`. Both
+ * between `routes/agents.ts` and `tools/send-message.ts`. Both
  * looked up `host_kind='agent', host_id=recipient`, JSON-parsed the
  * `participants` column, and matched the 2-person thread containing both
  * ids. This helper is the single source of truth.

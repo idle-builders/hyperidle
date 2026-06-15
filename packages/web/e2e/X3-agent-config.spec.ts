@@ -27,7 +27,7 @@ const MOCK_AGENTS = [
 		id: "e2e-agent-pm",
 		name: "E2E Product Manager",
 		role: "product_manager",
-		soulPrompt: "# PM\n\nYou manage product for {{product}}.",
+		systemPrompt: "# PM\n\nYou manage product for {{product}}.",
 		harnessType: "claude-code",
 		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 1,
@@ -38,7 +38,7 @@ const MOCK_AGENTS = [
 		id: "e2e-agent-builder",
 		name: "E2E Builder Bot",
 		role: "builder",
-		soulPrompt: null,
+		systemPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 2,
@@ -281,15 +281,17 @@ test.describe("X3 AC-11: Settings UI add form creates agent with template pre-fi
 		await expect(agentsSection.getByLabel(/name/i)).toBeVisible();
 	});
 
-	test("changing role to product_manager pre-fills soul prompt with template", async ({ page }) => {
+	test("changing role to product_manager pre-fills system prompt with template", async ({
+		page,
+	}) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
 		await agentsSection.getByRole("button", { name: /add agent/i }).click();
 
 		// Select product_manager role
 		await agentsSection.getByLabel(/role/i).selectOption("product_manager");
 
-		// Soul prompt should be pre-filled with the template
-		await expect(agentsSection.getByLabel(/soul prompt/i)).toContainText("Product Manager", {
+		// system prompt should be pre-filled with the template
+		await expect(agentsSection.getByLabel(/system prompt/i)).toContainText("Product Manager", {
 			timeout: 5000,
 		});
 	});

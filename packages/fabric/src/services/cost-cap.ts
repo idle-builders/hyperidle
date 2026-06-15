@@ -99,7 +99,7 @@ function tryRecordDedupKey(
 	agentId?: string,
 	teamId?: string,
 ): boolean {
-	// Lazy registration: only materialize the per-session entry when we
+	// Lazy registration: only create the per-session entry when we
 	// actually have a key to record. Sessions that never breach a cap
 	// produce zero entries (I3 review C2). Cleanup-on-reset still works
 	// because a session with no keys has no entries to clear.

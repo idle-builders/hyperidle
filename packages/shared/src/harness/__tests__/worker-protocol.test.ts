@@ -92,16 +92,16 @@ describe("ServerToWorkerMessage", () => {
 			sessionId: "sess-4",
 			config: {
 				sessionId: "sess-4",
-				workspacePath: "/workspace/test",
-				soulPromptPath: "/workspace/prompts/builder.md",
-				composedPrompt: "",
+				sandboxPath: "/workspace/test",
+				systemPromptPath: "/workspace/prompts/builder.md",
+				assembledPrompt: "",
 				modelTier: "workhorse",
 				tools: ["Read", "Write"],
 			},
 		};
 		if (msg.type === "dispatch") {
 			expect(msg.sessionId).toBe("sess-4");
-			expect(msg.config.workspacePath).toBe("/workspace/test");
+			expect(msg.config.sandboxPath).toBe("/workspace/test");
 		} else {
 			throw new Error("Expected type === dispatch");
 		}
@@ -172,9 +172,9 @@ describe("ServerDispatchMessage shape", () => {
 			sessionId: "sess-dispatch",
 			config: {
 				sessionId: "sess-dispatch",
-				workspacePath: "/tmp/ws",
-				soulPromptPath: "",
-				composedPrompt: "",
+				sandboxPath: "/tmp/ws",
+				systemPromptPath: "",
+				assembledPrompt: "",
 				modelTier: "fast",
 				tools: [],
 			},

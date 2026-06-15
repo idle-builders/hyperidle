@@ -22,7 +22,7 @@ tasks (id, bet_id, product_id, team_id, owner_agent_id, title,
        cross_team, thread_id, notes, created_at, updated_at)
 
 sessions (id, task_id, agent_id, model_tier, started_at, ended_at,
-          state, workspace_snapshot, cost, outcome, notes)
+          state, sandbox_snapshot, cost, outcome, notes)
 
 teams (id, product_id, members, lead_agent_id, capacity,
        active_bets, cost_cap, cost_actual, formed_at, dissolved_at)
@@ -73,7 +73,7 @@ responses (id, item_id, decision, inline_anchor, edits, feedback,
            approver_id, view, responded_at)
 
 -- Agent registry (each agent belongs to exactly one team, or is central)
-agents (id, name, soul_prompt_path, team_id, role, skills, status,
+agents (id, name, system_prompt_path, team_id, role, skills, status,
         max_concurrent_sessions, cost_cap, cost_actual, created_at)
 
 -- Product registry
@@ -150,7 +150,7 @@ The scheduler does not call models. It reads the Primitive Store, evaluates trig
 
 **What it is.** The sync layer between one canonical knowledge store and two client types (humans via web UI, agents via file workspaces). Full design in KNOWLEDGE_ARCHITECTURE.md §4–7.
 
-**Core architecture.** All knowledge lives in a single `knowledge_items` table in the same SQLite database as the Primitive Store. The Knowledge Fabric projects this store into two formats: a rich API for the human-facing Knowledge view, and materialized file workspaces for agent sessions. Sync is continuous — materialization at session start, then a file watcher on `knowledge/` and `work/` directories writes back changes incrementally as the agent works. Optimistic concurrency with per-field last-writer-wins for rare conflicts. No dependency on a clean session-end hook.
+**Core architecture.** All knowledge lives in a single `knowledge_items` table in the same SQLite database as the Primitive Store. The Knowledge Fabric projects this store into two formats: a rich API for the human-facing Knowledge view, and assembled file workspaces for agent sessions. Sync is continuous — context assembly at session start, then a file watcher on `knowledge/` and `work/` directories writes back changes incrementally as the agent works. Optimistic concurrency with per-field last-writer-wins for rare conflicts. No dependency on a clean session-end hook.
 
 **The canonical store:**
 
@@ -165,18 +165,18 @@ knowledge_items (
 
 One table. Every piece of knowledge — from L4 factory principles to L1 task failures — is a row. `layer` determines scope implicitly (L2=product, L3=practice, L4=factory). `scope_id` identifies which product or practice community. `topic` groups items within a scope. `kind` classifies the item type (pattern, anti_pattern, brief, principle, decision, failure, reflection, focus). The `version` column enables optimistic concurrency control.
 
-**Agent workspace projection.** When a session starts, the materialization engine queries `knowledge_items` for the relevant slice and writes files to the agent's workspace in three zones: `context/` (read-only reference material), `work/` (session scratch), `knowledge/` (proposed knowledge changes). A hidden `.fabric/manifest.json` tracks versions for conflict detection at writeback.
+**Agent workspace projection.** When a session starts, the context assembly engine queries `knowledge_items` for the relevant slice and writes files to the agent's workspace in three zones: `context/` (read-only reference material), `work/` (session scratch), `knowledge/` (proposed knowledge changes). A hidden `.fabric/manifest.json` tracks versions for conflict detection at writeback.
 
 **Human projection.** The API layer reads from `knowledge_items` and serves the Knowledge view (practice scope via `layer='L3'`, product scope via `layer='L2'`, factory scope via `layer='L4'`). Edits write directly to SQLite with version checks.
 
-**Materialization budget.** The fabric applies relevance scoring (task match, role match, recency, confidence, usage frequency) and a token budget to limit what gets loaded into each session. See KNOWLEDGE_ARCHITECTURE.md §7.
+**Context assembly budget.** The fabric applies relevance scoring (task match, role match, recency, confidence, usage frequency) and a token budget to limit what gets loaded into each session. See KNOWLEDGE_ARCHITECTURE.md §7.
 
 **Semantic search (optional).** For deployments needing cross-product knowledge search ("how did we handle CSV import before?"):
 - Default: SQLite FTS5 (full-text search) on `knowledge_items`. Zero extra infrastructure.
 - Scale option: Postgres + pgvector. Same schema, vector embeddings added as a column.
 
 **Interfaces.**
-- `materialize(session_id, task, agent, product, role) → workspace_path` — builds the agent workspace.
+- `assemble context(session_id, task, agent, product, role) → workspace_path` — builds the agent workspace.
 - `writeback(session_id, workspace_path) → list[change]` — diffs the workspace and writes changes back.
 - `read_knowledge(layer, filters) → list[items]` — API for the Knowledge view.
 - `write_knowledge(item_id, changes, expected_version) → result` — optimistic write for the Knowledge view.
@@ -268,7 +268,7 @@ bet_revised              → Audit log, UI push
 ```typescript
 interface HarnessAdapter {
   startSession(params: {
-    agent: AgentConfig;       // soul, skills, identity
+    agent: AgentConfig;       // system prompt, skills, identity
     context: TOONPack;        // L0 session context
     task: Task;               // what to work on
     workspace: WorkspaceRef;  // where to work
@@ -301,7 +301,7 @@ The adapter also handles:
 **Technology.** One module per workspace type:
 
 ```typescript
-interface WorkspaceAdapter {
+interface SandboxAdapter {
   spawn(config: WorkspaceConfig): Promise<WorkspaceRef>;
   exec(ref: WorkspaceRef, command: string): Promise<ExecResult>;
   read(ref: WorkspaceRef, path: string): Promise<Buffer>;

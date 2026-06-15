@@ -2,10 +2,10 @@
  * AK1 — Renamed API fields: integration tests (RED phase)
  *
  * Asserts that the renamed vocabulary is exposed at the API boundary:
- *   - Agent API (GET /api/agents) returns `systemPrompt`, NOT `soulPrompt`
- *   - Assistant API (GET /api/users/:id/assistant) returns `systemPrompt`, NOT `soulPrompt`
- *   - PATCH /api/users/:id/assistant accepts `systemPrompt` (not `soulPrompt`)
- *   - Agent POST/PATCH accept `systemPrompt` field (not `soulPrompt`)
+ *   - Agent API (GET /api/agents) returns `systemPrompt`, NOT `systemPrompt (old: soulPrompt)`
+ *   - Assistant API (GET /api/users/:id/assistant) returns `systemPrompt`, NOT `systemPrompt (old: soulPrompt)`
+ *   - PATCH /api/users/:id/assistant accepts `systemPrompt` (not the old name)
+ *   - Agent POST/PATCH accept `systemPrompt` field (not the old name)
  *
  * RED PHASE: Fails until:
  *   - packages/server/src/routes/agents.ts renames `soulPrompt` → `systemPrompt`

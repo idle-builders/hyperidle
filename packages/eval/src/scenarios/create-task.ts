@@ -35,7 +35,7 @@ const ctDecompositionPmMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager for a marketing team.
+			agentSystemPrompt: `You are a product manager for a marketing team.
 Your job is to decompose large bets into concrete, scoped tasks.
 Each task must have a clear title, description, and explicit done condition.
 Never create tasks that are vague or without a done condition.`,
@@ -61,7 +61,7 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -135,7 +135,7 @@ const ctSubtaskBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on infrastructure tasks.
+			agentSystemPrompt: `You are a builder agent working on infrastructure tasks.
 When you discover sub-problems during your work that require separate tracking, create subtasks.
 Use create_task to record these sub-problems with clear titles and done conditions.`,
 			taskTitle: "Migrate CI pipeline from CircleCI to GitHub Actions",
@@ -160,7 +160,7 @@ You must create at least 2 subtasks.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -246,7 +246,7 @@ const ctDecompositionPmHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager in the healthcare domain.
+			agentSystemPrompt: `You are a product manager in the healthcare domain.
 Your job is to decompose compliance and regulatory bets into concrete, auditable tasks.
 Healthcare tasks must include regulatory requirements in their done conditions.
 Be specific about which regulation (HIPAA, HL7 FHIR, HITECH) applies to each task.`,
@@ -278,7 +278,7 @@ Create at least 3 tasks with regulatory references in their done conditions.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

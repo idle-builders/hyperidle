@@ -26,7 +26,7 @@ L0      Session    minutes     pure agent working set (ephemeral)
 
 **L2 — Product.** The department of a single product. Two parts:
 
-- *Human-readable:* stable markdown files — `BRIEF.md` (what the product is), `ARCHITECTURE.md` (how it is built), `BRAND.md` (voice and positioning), `PRINCIPLES.md` (hard rules). These are the product's soul.
+- *Human-readable:* stable markdown files — `BRIEF.md` (what the product is), `ARCHITECTURE.md` (how it is built), `BRAND.md` (voice and positioning), `PRINCIPLES.md` (hard rules). These are the product's core identity.
 - *Agent-native:* structured rows in the canonical store — decisions, handoffs, cycle reflections, active and historical bets.
 
 **L3 — Practice.** The highest-leverage layer. Knowledge from one product is available to every agent in the same practice. The Acme Builder who discovers the right approach to chunked uploads writes it into the building practice. The Ambrovia Builder gets it at the next relevant session — no "did you know Acme solved this?" moment, no copy-paste.
@@ -59,7 +59,7 @@ All knowledge traces back to one table: `knowledge_items`. Every item has an ID,
 
 Both projections read and write the same store. No synchronization problem because there is one source of truth.
 
-At session start, the Knowledge Fabric materializes a relevant slice. It reads L4 factory principles, L2 product knowledge, and L3 practices relevant to the agent's role and task. A Builder on payments does not get growth marketing practices. Task description, agent role, and tag matching determine what loads.
+At session start, the Knowledge Fabric assembles context a relevant slice. It reads L4 factory principles, L2 product knowledge, and L3 practices relevant to the agent's role and task. A Builder on payments does not get growth marketing practices. Task description, agent role, and tag matching determine what loads.
 
 When an agent writes new knowledge during a session, it writes to the workspace's `knowledge/` directory. The Fabric detects the change, diffs against the canonical store, and writes it back as a captured item. The capture is automatic — no separate "document your learnings" step.
 
@@ -72,7 +72,7 @@ Every knowledge item moves through a lifecycle:
 1. **Captured** — raw, unvalidated. Auto-created from task outcomes, session notes, failures.
 2. **Provisional** — picked up by a facilitator, organized, linked, tagged.
 3. **Validated** — confirmed useful and accurate. By human review, or auto-promoted when the same pattern appears independently across multiple products.
-4. **Active** — in use by agents. Referenced in sessions, materialized into workspaces, cited in decisions.
+4. **Active** — in use by agents. Referenced in sessions, assembled into workspaces, cited in decisions.
 5. **Stale** — not accessed recently. Decaying.
 6. **Archived** — retired. History preserved, no longer served to agents.
 
@@ -107,7 +107,7 @@ Practice-level patterns flow to practice knowledge as captured entries. Rule-sha
 2. **React** — agents comment: "we saw the same on Ambrovia," "this contradicts last month," "product-specific, not practice-level."
 3. **Synthesize** — the Practice Facilitator decides which become practice items, which are product-specific, and which are noise.
 
-At the next session start, any agent whose practice updated gets the new knowledge through materialization. No notification needed. The knowledge is present in the workspace because that is what materialization does.
+At the next session start, any agent whose practice updated gets the new knowledge through context assembly. No notification needed. The knowledge is present in the workspace because that is what context assembly does.
 
 ---
 

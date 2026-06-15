@@ -12,6 +12,7 @@ export { default as pocSessionNotes } from "./poc-session-notes.js";
 
 // X8 scenario arrays — ordered by feature complexity (LOW → MEDIUM → HIGH → non-session)
 
+export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
 // Non-session (interactions 20-24)
 export { builtinRoutinesScenarios } from "./builtin-routines.js";
 export { composedPromptScenarios } from "./composed-prompt.js";
@@ -24,7 +25,6 @@ export { delegationScenarios } from "./delegation.js";
 export { handoffToScenarios } from "./handoff-to.js";
 export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";
 export { logTaskScenarios } from "./log-task.js";
-export { materializedKnowledgeScenarios } from "./materialized-knowledge.js";
 export { promoteKnowledgeScenarios } from "./promote-knowledge.js";
 export { queryPracticeScenarios } from "./query-practice.js";
 export { readInboxScenarios } from "./read-inbox.js";

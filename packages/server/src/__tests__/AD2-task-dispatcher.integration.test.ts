@@ -46,7 +46,7 @@ import type {
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { provisionSession } from "../services/session-provisioning.js";
 import { transitionTask } from "../services/task-state-machine.js";
 import { test } from "../test-fixtures.js";
@@ -207,17 +207,17 @@ function makeDispatcherDeps(
 	db: HyperIdleDb,
 	eventBus: EventBusType,
 	adapter: HarnessAdapter,
-	workspaceBasePath: string,
+	sandboxBasePath: string,
 	poolMaxConcurrent = 4,
 ): TaskDispatcherDeps {
 	const adapterPool = makeBuiltinPool(adapter, poolMaxConcurrent);
-	const workspace = new LocalWorkspaceAdapter();
+	const workspace = new LocalSandboxAdapter();
 	return {
 		db,
 		eventBus,
 		adapterPool,
 		workspace,
-		workspaceBasePath,
+		sandboxBasePath,
 	};
 }
 
@@ -237,12 +237,12 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 			const { agentId, taskId } = await seedDomain(db, "ac1-a");
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			// Transition task: proposed → accepted (the event fires synchronously)
@@ -263,7 +263,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 			// Session was created — it may be active or done (fast harness completes immediately)
 			expect(["active", "done"]).toContain(sessionRows[0]?.state);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
@@ -271,7 +271,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -328,7 +328,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 				updatedAt: NOW,
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			await transitionTask(db, eventBus, taskId, "accepted");
@@ -339,7 +339,7 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 			const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 			expect(sessionRows).toHaveLength(0);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -360,7 +360,7 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -442,7 +442,7 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 				state: "active",
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			// Simulate handoff: end agent A's session + change ownerAgentId to agent B
@@ -486,7 +486,7 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 
 			expect(agentBSessions).toHaveLength(1);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -507,7 +507,7 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -517,7 +517,7 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 				costActual: 200, // $2 in cents — already over cap
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			await transitionTask(db, eventBus, taskId, "accepted");
@@ -542,7 +542,7 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 				.where(eq(tasks.id, taskId));
 			expect(taskRow?.state).toBe("accepted");
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -560,7 +560,7 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 	});
 
 	test("queues task when agent is at maxConcurrentSessions=1", async ({ db, eventBus }) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -592,7 +592,7 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 				state: "active",
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			// Transition task to accepted — should be queued (agent at limit)
@@ -611,12 +611,12 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 			const taskSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 			expect(taskSessions).toHaveLength(0);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
 	test("dispatches queued task when blocking session ends", async ({ db, eventBus }) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -646,7 +646,7 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 				state: "active",
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			// Transition task to accepted — goes into queue
@@ -687,7 +687,7 @@ describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacit
 			const taskSessions = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 			expect(taskSessions[0]?.agentId).toBe(agentId);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -708,7 +708,7 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -732,8 +732,8 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 				db,
 				eventBus,
 				adapterPool: pool,
-				workspace: new LocalWorkspaceAdapter(),
-				workspaceBasePath,
+				workspace: new LocalSandboxAdapter(),
+				sandboxBasePath,
 			};
 			dispose = registerTaskDispatcher(deps);
 
@@ -748,20 +748,20 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 				{ timeout: 10_000 },
 			);
 
-			// Assert: builtin adapter was selected (captured configs have workspacePath)
+			// Assert: builtin adapter was selected (captured configs have sandboxPath)
 			expect(adapter.capturedConfigs).toHaveLength(1);
 			const capturedConfig = adapter.capturedConfigs[0];
 			expect(capturedConfig).toBeDefined();
 
 			// Assert: workspace created does NOT contain a .git directory
 			// (non-code workspace — no git repo initialization)
-			const workspacePath = capturedConfig?.workspacePath;
-			if (workspacePath) {
-				const gitPath = path.join(workspacePath, ".git");
+			const sandboxPath = capturedConfig?.sandboxPath;
+			if (sandboxPath) {
+				const gitPath = path.join(sandboxPath, ".git");
 				expect(fs.existsSync(gitPath)).toBe(false);
 			}
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
@@ -769,7 +769,7 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const builtinAdapter = new CapturingHarnessAdapter();
 			const claudeCodeAdapter = new CapturingHarnessAdapter();
@@ -799,8 +799,8 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 				db,
 				eventBus,
 				adapterPool: pool,
-				workspace: new LocalWorkspaceAdapter(),
-				workspaceBasePath,
+				workspace: new LocalSandboxAdapter(),
+				sandboxBasePath,
 			};
 			dispose = registerTaskDispatcher(deps);
 
@@ -818,7 +818,7 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 			expect(builtinAdapter.capturedConfigs).toHaveLength(1);
 			expect(claudeCodeAdapter.capturedConfigs).toHaveLength(0);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -839,7 +839,7 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 
@@ -896,7 +896,7 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 				state: "active",
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(deps);
 
 			// Transition both tasks to accepted — both should be queued
@@ -923,7 +923,7 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 			expect(entry2).toBeDefined();
 			expect(entry2?.agentId).toBe(agentId2);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
@@ -951,7 +951,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 			const { agentId, taskId } = await seedDomain(db, "ac-idem", {}, { state: "accepted" });
@@ -970,7 +970,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 				state: "active",
 			});
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 
 			// Register dispatcher — triggers startup sweep
 			dispose = registerTaskDispatcher(deps);
@@ -986,7 +986,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 			// Adapter should NOT have been called (no startSession)
 			expect(adapter.capturedConfigs).toHaveLength(0);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
@@ -994,12 +994,12 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 			const { taskId } = await seedDomain(db, "ac-idem2");
 
-			const deps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const deps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 
 			// First registration
 			const dispose1 = registerTaskDispatcher(deps);
@@ -1037,7 +1037,7 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 			// Should have exactly the same number of sessions (no duplicates)
 			expect(sessionsAfterSecond).toHaveLength(firstCount);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -1088,7 +1088,7 @@ describe("AD2 AC-sweep-race: stale startupSweep does not pollute new registratio
 		db,
 		eventBus,
 	}) => {
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			// Arrange: accepted task + a blocking session (fills the concurrency slot
 			// so that the stale gen's queue-push is the observable action, not the drain).
@@ -1172,12 +1172,12 @@ describe("AD2 AC-sweep-race: stale startupSweep does not pollute new registratio
 			}) as typeof db;
 
 			// Act step 1: register with delayedDb — gen-1 sweep starts but stalls at barrier.
-			const delayedDeps = makeDispatcherDeps(delayedDb, eventBus, adapter, workspaceBasePath);
+			const delayedDeps = makeDispatcherDeps(delayedDb, eventBus, adapter, sandboxBasePath);
 			const dispose1 = registerTaskDispatcher(delayedDeps);
 
 			// Act step 2: synchronously dispose gen-1 and re-register with real db (gen → gen+2).
 			dispose1();
-			const realDeps = makeDispatcherDeps(db, eventBus, adapter, workspaceBasePath);
+			const realDeps = makeDispatcherDeps(db, eventBus, adapter, sandboxBasePath);
 			dispose = registerTaskDispatcher(realDeps);
 
 			// Act step 3: release barrier — stale gen-1 sweep can now proceed.
@@ -1229,7 +1229,7 @@ describe("AD2 AC-sweep-race: stale startupSweep does not pollute new registratio
 			expect(sessionRows).toHaveLength(1);
 			expect(sessionRows[0]?.agentId).toBe(agentId);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });
@@ -1247,7 +1247,7 @@ describe("AD2 Task1 prerequisite: provisionSession succeeds when task already in
 		// When a task is already in_progress (handoff re-dispatch case), provisionSession
 		// should skip the transitionTask call instead of throwing InvalidTransitionError.
 
-		const workspaceBasePath = makeWorkspaceBasePath();
+		const sandboxBasePath = makeWorkspaceBasePath();
 		try {
 			const adapter = new CapturingHarnessAdapter();
 			const { agentId, taskId, teamId } = await seedDomain(db, "t1-prereq");
@@ -1259,14 +1259,14 @@ describe("AD2 Task1 prerequisite: provisionSession succeeds when task already in
 				.where(eq(tasks.id, taskId));
 
 			const pool = makeBuiltinPool(adapter);
-			const workspace = new LocalWorkspaceAdapter();
+			const workspace = new LocalSandboxAdapter();
 
 			// Import provisionSession to verify it handles in_progress task correctly
 			const { provisionSession: ps } = await import("../services/session-provisioning.js");
 
 			const result = await ps(
 				{ db, eventBus, adapterPool: pool, workspace },
-				{ taskId, agentId, productId: teamId, workspaceBasePath },
+				{ taskId, agentId, productId: teamId, sandboxBasePath },
 			);
 
 			// Should complete without throwing
@@ -1282,7 +1282,7 @@ describe("AD2 Task1 prerequisite: provisionSession succeeds when task already in
 			// The task stays in_progress; session transitions reflect the session state, not task state.
 			expect(["in_progress", "done"]).toContain(taskRow?.state);
 		} finally {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 });

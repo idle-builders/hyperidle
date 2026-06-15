@@ -7,7 +7,7 @@ The single boundary deciding **who may read/write what**, and how secrets are pr
 The **Principal** is the *authenticated* acting identity bound to a request — `c.get("userId")`, set by `createAuthMiddleware` from a verified credential. Every authorization decision is made against the Principal and nothing else.
 
 - A Principal exists only when a credential was *verified*. A value from a client-supplied header is never a Principal.
-- The Principal is **not** the agent **identity** (persona/soul of `agent-identity.md`) and **not** the `X-Identity` header.
+- The Principal is **not** the agent **identity** (persona/system prompt of `agent-identity.md`) and **not** the `X-Identity` header.
 - Routes consume `c.get("userId")`; they never re-derive identity from headers.
 
 ## Access boundary

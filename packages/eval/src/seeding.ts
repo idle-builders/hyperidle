@@ -6,7 +6,7 @@
  * reinventing DB seeding.
  *
  * @lore X7: We do NOT use seed() from @hyperidle/db. The existing seed()
- * reads from docs/souls/ on disk (requires monorepo root CWD) and inserts
+ * reads from docs/system-prompts/ on disk (requires monorepo root CWD) and inserts
  * too many fixtures (practice facilitators, routines, etc.) irrelevant to
  * most eval scenarios. These helpers insert only what the scenario needs.
  */
@@ -102,7 +102,7 @@ export async function seedFounder(
 	return { founderId };
 }
 
-/** Create an AI agent with soul prompt, role, tools, and optional harness preference. */
+/** Create an AI agent with system prompt, role, tools, and optional harness preference. */
 export async function seedAgent(
 	db: HyperIdleDb,
 	opts: {
@@ -110,7 +110,7 @@ export async function seedAgent(
 		name: string;
 		role: UserRole;
 		teamMembersId: string;
-		soulPrompt?: string;
+		systemPrompt?: string;
 		harnessType?: string;
 		modelTierPreference?: ModelTier;
 		/** W7: costCapMinor for cost-warning scenarios (maps to users.costCapMinor). */
@@ -130,7 +130,7 @@ export async function seedAgent(
 		role: opts.role,
 		status: "active",
 		teamId: opts.teamMembersId,
-		soulPrompt: opts.soulPrompt ?? null,
+		systemPrompt: opts.systemPrompt ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
 		costCapMinor: opts.costCapMinor ?? null,
@@ -216,7 +216,7 @@ export async function seedTask(
  *
  * @lore X7: Two inserts are required: knowledgeItems (kernel) +
  * knowledgeStrategyFabric (strategy extension). The fabric row is needed
- * for knowledge materialization to work correctly during provisioning.
+ * for knowledge context assembly to work correctly during provisioning.
  * See arch critique WARNING #3 and schema.ts lines 478-501.
  */
 export async function seedKnowledge(
@@ -251,7 +251,7 @@ export async function seedKnowledge(
 		updatedAt: now,
 	});
 
-	// Always insert the strategy fabric row so materialize() can find it.
+	// Always insert the strategy fabric row so assembleContext() can find it.
 	await db.insert(knowledgeStrategyFabric).values({
 		id: randomUUID(),
 		knowledgeItemId: itemId,
@@ -289,7 +289,7 @@ export async function seedMinimalWorld(
 	db: HyperIdleDb,
 	opts?: {
 		agentRole?: UserRole;
-		agentSoulPrompt?: string;
+		agentSystemPrompt?: string;
 		taskTitle?: string;
 		taskDescription?: string;
 		betDescription?: string;
@@ -301,7 +301,7 @@ export async function seedMinimalWorld(
 		teamMembersId: string;
 	}
 > {
-	const workspaceBasePath = `/tmp/eval-workspace-${randomUUID()}`;
+	const sandboxBasePath = `/tmp/eval-workspace-${randomUUID()}`;
 
 	const { teamId, teamMembersId } = await seedTeam(db);
 	const { founderId } = await seedFounder(db);
@@ -314,7 +314,7 @@ export async function seedMinimalWorld(
 		role: agentRole,
 		teamMembersId,
 		agentCategory,
-		soulPrompt: opts?.agentSoulPrompt ?? buildDefaultSoulPrompt(agentRole),
+		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
 		harnessType: "builtin",
 	});
 
@@ -358,7 +358,7 @@ export async function seedMinimalWorld(
 		agentId,
 		betId,
 		taskId,
-		workspaceBasePath,
+		sandboxBasePath,
 	};
 }
 
@@ -674,10 +674,10 @@ export async function seedMultiAgentWorld(
 	db: HyperIdleDb,
 	opts?: {
 		agentRole?: UserRole;
-		agentSoulPrompt?: string;
+		agentSystemPrompt?: string;
 		secondAgentRole?: UserRole;
 		secondAgentName?: string;
-		secondAgentSoulPrompt?: string;
+		secondAgentSystemPrompt?: string;
 		taskTitle?: string;
 		taskDescription?: string;
 		betDescription?: string;
@@ -692,7 +692,7 @@ export async function seedMultiAgentWorld(
 > {
 	const base = await seedMinimalWorld(db, {
 		agentRole: opts?.agentRole,
-		agentSoulPrompt: opts?.agentSoulPrompt,
+		agentSystemPrompt: opts?.agentSystemPrompt,
 		taskTitle: opts?.taskTitle,
 		taskDescription: opts?.taskDescription,
 		betDescription: opts?.betDescription,
@@ -708,7 +708,7 @@ export async function seedMultiAgentWorld(
 		role: secondRole,
 		teamMembersId: base.teamMembersId,
 		agentCategory: secondAgentCategory,
-		soulPrompt: opts?.secondAgentSoulPrompt ?? buildDefaultSoulPrompt(secondRole),
+		systemPrompt: opts?.secondAgentSystemPrompt ?? buildDefaultSystemPrompt(secondRole),
 		harnessType: "builtin",
 	});
 
@@ -722,7 +722,7 @@ export async function seedMultiAgentWorld(
 // Internals
 // ---------------------------------------------------------------------------
 
-function buildDefaultSoulPrompt(role: UserRole): string {
+function buildDefaultSystemPrompt(role: UserRole): string {
 	return `You are an AI ${role} agent in an agentic operating system.
 Your job is to complete assigned tasks using the available tools.
 Be thorough, accurate, and document your work with session notes.

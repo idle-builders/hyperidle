@@ -1,5 +1,5 @@
 /**
- * AB3 — AgentEditDialog: soul-first edit dialog for a roster agent.
+ * AB3 — AgentEditDialog: system-prompt-first edit dialog for a roster agent.
  *
  * Opens when `agent` is non-null. Closes when `agent` becomes null.
  *
@@ -8,8 +8,8 @@
  * - Team/personal agents: no note, config fields enabled.
  *
  * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
- * isDirty tracks whether soulPrompt has changed from the initial value.
- * Authoring surface — guards on Esc when soul text is modified.
+ * isDirty tracks whether systemPrompt has changed from the initial value.
+ * Authoring surface — guards on Esc when system prompt text is modified.
  */
 
 // hearth-internal-padding
@@ -33,7 +33,7 @@ export interface AgentEditDialogProps {
 }
 
 interface EditFormValues {
-	soulPrompt: string;
+	systemPrompt: string;
 	harnessType: string;
 	modelTierPreference: string;
 	maxConcurrentSessions: number;
@@ -41,7 +41,7 @@ interface EditFormValues {
 
 function agentToForm(agent: AgentConfig): EditFormValues {
 	return {
-		soulPrompt: agent.soulPrompt ?? "",
+		systemPrompt: agent.systemPrompt ?? "",
 		harnessType: agent.harnessType ?? "",
 		modelTierPreference: agent.modelTierPreference ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
@@ -56,12 +56,12 @@ export function AgentEditDialog({
 }: AgentEditDialogProps): JSX.Element {
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<EditFormValues>({
-		soulPrompt: "",
+		systemPrompt: "",
 		harnessType: "",
 		modelTierPreference: "",
 		maxConcurrentSessions: 1,
 	});
-	const [initialSoulPrompt, setInitialSoulPrompt] = useState("");
+	const [initialSystemPrompt, setInitialSystemPrompt] = useState("");
 	const [configVisible, setConfigVisible] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [templateLoading, setTemplateLoading] = useState(false);
@@ -74,12 +74,12 @@ export function AgentEditDialog({
 		if (agent !== null) {
 			const form = agentToForm(agent);
 			setFormValues(form);
-			setInitialSoulPrompt(form.soulPrompt);
+			setInitialSystemPrompt(form.systemPrompt);
 			setConfigVisible(false);
 		}
 	}, [agent]);
 
-	const isDirty = formValues.soulPrompt !== initialSoulPrompt;
+	const isDirty = formValues.systemPrompt !== initialSystemPrompt;
 
 	const handleSave = useCallback(async (): Promise<void> => {
 		if (!agent) return;
@@ -89,7 +89,7 @@ export function AgentEditDialog({
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					soulPrompt: formValues.soulPrompt || null,
+					systemPrompt: formValues.systemPrompt || null,
 					harnessType: formValues.harnessType || null,
 					modelTierPreference: formValues.modelTierPreference || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
@@ -120,7 +120,7 @@ export function AgentEditDialog({
 			});
 			if (!res.ok) return;
 			const json = (await res.json()) as { role: string; content: string };
-			setFormValues((prev) => ({ ...prev, soulPrompt: json.content }));
+			setFormValues((prev) => ({ ...prev, systemPrompt: json.content }));
 		} catch (err) {
 			if (err instanceof Error && err.name === "AbortError") return;
 		} finally {
@@ -140,7 +140,7 @@ export function AgentEditDialog({
 	const initials = deriveInitials(agentName);
 
 	const showTemplateButton =
-		!formValues.soulPrompt && catalogEntry?.hasTemplate === true && !templateLoading;
+		!formValues.systemPrompt && catalogEntry?.hasTemplate === true && !templateLoading;
 
 	return (
 		<Dialog
@@ -173,14 +173,14 @@ export function AgentEditDialog({
 				</div>
 			</div>
 
-			{/* Soul section */}
+			{/* System prompt section */}
 			<div className="mt-[18px]">
 				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
-					SOUL
+					SYSTEM PROMPT
 				</h3>
 				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
-					Personality, style, and values. You define the soul; the system provides tools, context,
-					and knowledge.
+					Personality, style, and values. You define the system prompt; the harness provides tools,
+					context, and knowledge.
 				</p>
 
 				{isStrategy && (
@@ -189,18 +189,18 @@ export function AgentEditDialog({
 						style={{ background: "rgba(217,119,6,0.06)" }}
 					>
 						<p className="text-[12px] text-[var(--text-secondary)]">
-							This agent is managed by your strategy. Your soul edits are preserved, but operational
-							configuration may be refreshed on strategy updates.
+							This agent is managed by your strategy. Your system prompt edits are preserved, but
+							operational configuration may be refreshed on strategy updates.
 						</p>
 					</div>
 				)}
 
 				<textarea
-					aria-label="Soul Prompt"
+					aria-label="System prompt"
 					className="textarea textarea-bordered w-full mt-[6px]"
 					rows={12}
-					value={formValues.soulPrompt}
-					onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
+					value={formValues.systemPrompt}
+					onChange={(e) => setFormValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
 					placeholder="Describe this agent's personality, communication style, and values..."
 					disabled={saving}
 				/>

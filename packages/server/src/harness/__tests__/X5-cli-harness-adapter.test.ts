@@ -24,7 +24,7 @@ import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
 	return {
 		binary: "fake-tool",
-		args: ["--dir", "{{workspace}}", "--model", "{{model}}"],
+		args: ["--dir", "{{sandbox}}", "--model", "{{model}}"],
 		envMap: {
 			FAKE_API_KEY: "{{apiKey}}",
 			FAKE_BASE_URL: "{{baseUrl}}",
@@ -38,10 +38,10 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 
 function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 	return {
-		workspacePath: "/workspace/test-123",
+		sandboxPath: "/workspace/test-123",
 		sessionId: "test-session",
-		soulPromptPath: "",
-		composedPrompt: "Do the task.",
+		systemPromptPath: "",
+		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: ["Read", "Write"],
 		resolvedModel: {
@@ -88,12 +88,12 @@ function makeFakeChild(): {
 // ── Template variable resolution ─────────────────────────────────────────────
 
 describe("CliHarnessAdapter — template variable resolution", () => {
-	it("resolves {{workspace}} in args", async () => {
+	it("resolves {{sandbox}} in args", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--dir", "{{workspace}}"] }), {
+		const adapter = new CliHarnessAdapter(makeConfig({ args: ["--dir", "{{sandbox}}"] }), {
 			spawnFn: spawnSpy,
 		});
 		const sessionConfig = makeSessionConfig();
@@ -102,7 +102,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		expect(spawnCall[1]).toContain("/workspace/test-123");
-		expect(spawnCall[1]).not.toContain("{{workspace}}");
+		expect(spawnCall[1]).not.toContain("{{sandbox}}");
 	});
 
 	it("resolves {{model}} in args", async () => {
@@ -247,7 +247,7 @@ describe("CliHarnessAdapter startSession", () => {
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["--dir", "{{workspace}}", "--model", "{{model}}"] }),
+			makeConfig({ args: ["--dir", "{{sandbox}}", "--model", "{{model}}"] }),
 			{ spawnFn: spawnSpy },
 		);
 		await adapter.startSession(makeSessionConfig());
@@ -266,13 +266,13 @@ describe("CliHarnessAdapter startSession", () => {
 		expect(options?.shell).toBeFalsy();
 	});
 
-	it("uses workspacePath as cwd", async () => {
+	it("uses sandboxPath as cwd", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(makeConfig({ args: [] }), { spawnFn: spawnSpy });
-		await adapter.startSession(makeSessionConfig({ workspacePath: "/my/workspace" }));
+		await adapter.startSession(makeSessionConfig({ sandboxPath: "/my/workspace" }));
 
 		const options = spawnSpy!.mock.calls[0]![2] as Record<string, unknown>;
 		expect(options?.cwd).toBe("/my/workspace");

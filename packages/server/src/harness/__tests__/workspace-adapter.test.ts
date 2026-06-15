@@ -2,9 +2,9 @@ import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DockerWorkspaceAdapter } from "../docker-workspace-adapter.js";
-import { LocalWorkspaceAdapter } from "../local-workspace-adapter.js";
-import type { WorkspaceAdapter, WorkspaceHandle } from "../workspace-adapter.js";
+import { DockerSandboxAdapter } from "../docker-sandbox-adapter.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
+import type { SandboxAdapter, SandboxHandle } from "../sandbox-adapter.js";
 
 let testBaseDir: string;
 
@@ -17,17 +17,17 @@ afterAll(async () => {
 	await rm(testBaseDir, { recursive: true, force: true });
 });
 
-describe("WorkspaceAdapter interface (D3)", () => {
-	describe("LocalWorkspaceAdapter", () => {
-		it("implements WorkspaceAdapter interface", () => {
-			const adapter: WorkspaceAdapter = new LocalWorkspaceAdapter();
+describe("SandboxAdapter interface (D3)", () => {
+	describe("LocalSandboxAdapter", () => {
+		it("implements SandboxAdapter interface", () => {
+			const adapter: SandboxAdapter = new LocalSandboxAdapter();
 			expect(typeof adapter.spawn).toBe("function");
 			expect(typeof adapter.exec).toBe("function");
 			expect(typeof adapter.destroy).toBe("function");
 		});
 
 		it("spawn creates directory and returns handle", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			expect(handle.workspaceId).toBeDefined();
@@ -41,7 +41,7 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("exec('ls') lists workspace directory", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			// Create a test file
@@ -55,7 +55,7 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("destroy removes directory", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			// Verify it exists
@@ -68,7 +68,7 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("workspace is isolated — cannot access files outside workspace", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			// Try to list parent directory — should only show workspace contents
@@ -84,8 +84,8 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("5 concurrent workspaces spawn without conflict", async () => {
-			const adapter = new LocalWorkspaceAdapter();
-			const handles: WorkspaceHandle[] = [];
+			const adapter = new LocalSandboxAdapter();
+			const handles: SandboxHandle[] = [];
 
 			// Spawn 5 workspaces concurrently
 			const spawnPromises = Array.from({ length: 5 }, () => adapter.spawn(testBaseDir));
@@ -112,7 +112,7 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("file changes are visible to host-side check", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			// Write a file from inside the workspace via exec
@@ -127,21 +127,21 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 
 		it("exec throws for unknown workspace", async () => {
-			const adapter = new LocalWorkspaceAdapter();
-			const fakeHandle: WorkspaceHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
+			const adapter = new LocalSandboxAdapter();
+			const fakeHandle: SandboxHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
 
-			await expect(adapter.exec(fakeHandle, "ls")).rejects.toThrow("Unknown workspace");
+			await expect(adapter.exec(fakeHandle, "ls")).rejects.toThrow("Unknown sandbox");
 		});
 
 		it("destroy throws for unknown workspace", async () => {
-			const adapter = new LocalWorkspaceAdapter();
-			const fakeHandle: WorkspaceHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
+			const adapter = new LocalSandboxAdapter();
+			const fakeHandle: SandboxHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
 
-			await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown workspace");
+			await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown sandbox");
 		});
 
 		it("exec returns stderr and non-zero exit code on failure", async () => {
-			const adapter = new LocalWorkspaceAdapter();
+			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
 			const result = await adapter.exec(handle, "ls /nonexistent-path-12345");
@@ -152,16 +152,16 @@ describe("WorkspaceAdapter interface (D3)", () => {
 		});
 	});
 
-	describe("DockerWorkspaceAdapter", () => {
-		it("implements WorkspaceAdapter interface", () => {
-			const adapter: WorkspaceAdapter = new DockerWorkspaceAdapter();
+	describe("DockerSandboxAdapter", () => {
+		it("implements SandboxAdapter interface", () => {
+			const adapter: SandboxAdapter = new DockerSandboxAdapter();
 			expect(typeof adapter.spawn).toBe("function");
 			expect(typeof adapter.exec).toBe("function");
 			expect(typeof adapter.destroy).toBe("function");
 		});
 
 		it("can be constructed with custom options", () => {
-			const adapter = new DockerWorkspaceAdapter({
+			const adapter = new DockerSandboxAdapter({
 				image: "ubuntu:latest",
 				mountPath: "/work",
 			});

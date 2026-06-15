@@ -22,9 +22,9 @@ import { registerRelevanceListener } from "./services/relevance-listener.js";
 import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
+import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
-import { startWorkspaceReaper } from "./services/workspace-reaper.js";
 
 const bootstrapLog = createLogger({ pkg: "fabric" });
 
@@ -140,11 +140,9 @@ export function bootstrapFabric(ctx: {
 
 		// AF7 §6 (Z8-039): TTL workspace reaper. Reclaims terminal/orphan workspace
 		// dirs older than the TTL, preserving active dirs and the crash post-mortem
-		// window. workspaceBasePath comes from dispatcherDeps (already in scope at
+		// window. sandboxBasePath comes from dispatcherDeps (already in scope at
 		// the boot path) — fabric takes it as data, not a server fs import.
-		disposers.push(
-			startWorkspaceReaper(db, { workspaceBasePath: ctx.dispatcherDeps.workspaceBasePath }),
-		);
+		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
 	}
 
 	// AF16 T17 (Z8-097): start the retention TTL reaper (6-hour interval).

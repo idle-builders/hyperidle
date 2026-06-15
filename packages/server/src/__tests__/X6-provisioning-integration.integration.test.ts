@@ -29,7 +29,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import * as llmClientModule from "../harness/llm-client.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { test } from "../test-fixtures.js";
 
@@ -111,10 +111,10 @@ async function seedDomain(db: HyperIdleDb): Promise<{ agentId: string; taskId: s
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("X6 AC-15: builtin harness — no double tool execution on provisioning", () => {
-	let workspaceBasePath: string;
+	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		workspaceBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x6-test-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "x6-test-"));
 
 		// LLM mock: planning response (text only → loop terminates immediately)
 		// @lore X6: vi.spyOn is used instead of vi.mock so the spy is applied to
@@ -129,8 +129,8 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		if (fs.existsSync(workspaceBasePath)) {
-			fs.rmSync(workspaceBasePath, { recursive: true, force: true });
+		if (fs.existsSync(sandboxBasePath)) {
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		}
 	});
 
@@ -154,7 +154,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			db,
 			eventBus,
 			adapterPool: pool,
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 		};
 
 		const resolvedModel = {
@@ -168,7 +168,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			agentId,
 			taskId,
 			productId: "x6-team",
-			workspaceBasePath,
+			sandboxBasePath,
 			modelTier: "workhorse",
 			resolvedModel,
 		});
@@ -242,7 +242,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			db,
 			eventBus,
 			adapterPool: pool,
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 		};
 
 		const resolvedModel = {
@@ -264,7 +264,7 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			agentId,
 			taskId,
 			productId: "x6-team",
-			workspaceBasePath,
+			sandboxBasePath,
 			modelTier: "workhorse",
 			resolvedModel,
 		});

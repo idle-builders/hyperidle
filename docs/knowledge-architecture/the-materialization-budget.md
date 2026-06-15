@@ -1,6 +1,6 @@
-## 7. The Materialization Budget
+## 7. The Context assembly Budget
 
-Not all knowledge is equal. Loading everything into every session wastes tokens and context window. The Knowledge Fabric applies a **materialization budget** — a cap on how much knowledge gets loaded, enforced by relevance scoring.
+Not all knowledge is equal. Loading everything into every session wastes tokens and context window. The Knowledge Fabric applies a **context assembly budget** — a cap on how much knowledge gets loaded, enforced by relevance scoring.
 
 ### Scoring factors
 
@@ -25,7 +25,7 @@ Reserve:
   - 10% for L4 factory context
 
 The 20% knowledge budget (~40K tokens) determines how many practices
-and product docs get materialized. At ~200 tokens per TOON practice,
+and product docs get assembled. At ~200 tokens per TOON practice,
 that's ~200 practices — far more than any session needs.
 ```
 

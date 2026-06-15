@@ -91,10 +91,10 @@ function makeConfig(sessionId: string): SessionConfig {
 	// does not exist on SessionConfig yet (compile error until the green phase).
 	return {
 		sessionId,
-		workspacePath: `/workspace/${sessionId}`,
-		soulPromptPath: "",
+		sandboxPath: `/workspace/${sessionId}`,
+		systemPromptPath: "",
 		// Marker lets the shared callLlm mock answer per-session deterministically.
-		composedPrompt: `You are a helpful assistant. session:${sessionId}`,
+		assembledPrompt: `You are a helpful assistant. session:${sessionId}`,
 		modelTier: "workhorse",
 		tools: [`tool_${sessionId}`],
 		resolvedModel: RESOLVED_MODEL,

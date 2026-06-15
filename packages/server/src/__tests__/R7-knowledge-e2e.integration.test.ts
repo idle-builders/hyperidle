@@ -3,7 +3,7 @@
  *
  * AC-1: Agent's write_memory creates items in KnowledgeList (status: "draft", triage tab)
  * AC-2: Agent's promote_knowledge moves items from draft → active (triage → curated)
- * AC-5: Knowledge items from session N materialize into session N+1 workspace
+ * AC-5: Knowledge items from session N appear in session N+1 workspace
  *
  * @lore R7: write_memory defaults to "draft" so agent-created items land in triage.
  * promote_knowledge allows draft → active so facilitators can graduate items to curated.
@@ -25,10 +25,10 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { promoteKnowledgeTool } from "../skill-tools/promote-knowledge.js";
-import type { ToolContext } from "../skill-tools/tool-registry.js";
-import { writeMemoryTool } from "../skill-tools/write-memory.js";
 import { test } from "../test-fixtures.js";
+import { promoteKnowledgeTool } from "../tools/promote-knowledge.js";
+import type { ToolContext } from "../tools/tool-registry.js";
+import { writeMemoryTool } from "../tools/write-memory.js";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -67,14 +67,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, workspacePath: string): ToolContext {
+function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext {
 	return {
 		db,
 		eventBus: new EventBus(),
 		agentId: AGENT_ID,
 		sessionId: "session-r7",
 		taskId: "task-r7",
-		workspacePath,
+		sandboxPath,
 		watcher: { stop: (): void => {} },
 	};
 }
@@ -86,8 +86,8 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 	}) => {
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac1-${Date.now()}`);
-		const ctx = makeContext(db, workspacePath);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac1-${Date.now()}`);
+		const ctx = makeContext(db, sandboxPath);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -117,8 +117,8 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 	}) => {
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac1b-${Date.now()}`);
-		const ctx = makeContext(db, workspacePath);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac1b-${Date.now()}`);
+		const ctx = makeContext(db, sandboxPath);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -144,7 +144,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 
 		// AC: scopeKind should be "product" (not the default "factory")
 		expect(kernelRow?.scopeKind).toBe("product");
-		// AC: scopeId should be the team's id so materialize() can find it
+		// AC: scopeId should be the team's id so assembleContext() can find it
 		expect(kernelRow?.scopeId).toBe(TEAM_ID);
 	});
 
@@ -152,8 +152,8 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		// R7 fix: the fabric extension table (knowledgeStrategyFabric.scopeId) must
 		// match the team ID for fetchAllForLayer(db, "L2", productId) to find the item.
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac1c-${Date.now()}`);
-		const ctx = makeContext(db, workspacePath);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac1c-${Date.now()}`);
+		const ctx = makeContext(db, sandboxPath);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -188,8 +188,8 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		// Verify that items created by write_memory appear in the knowledge list endpoint
 		// with status="draft" — the KnowledgeList triage tab filters on status === "draft"
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac1d-${Date.now()}`);
-		const ctx = makeContext(db, workspacePath);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac1d-${Date.now()}`);
+		const ctx = makeContext(db, sandboxPath);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -221,7 +221,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	test("promote_knowledge transitions a draft item to active status", async ({ db }) => {
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac2a-${Date.now()}`);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac2a-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		// Add facilitator user
@@ -239,7 +239,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			agentId: "agent-fac-r7",
 			sessionId: "session-r7",
 			taskId: "task-r7",
-			workspacePath,
+			sandboxPath,
 			watcher: { stop: (): void => {} },
 		};
 
@@ -290,7 +290,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		// so isKnowledgeStatus("draft") returns true and draft → active succeeds.
 		// Previously documented the INVALID_STATE failure mode; updated in write-code phase.
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac2b-${Date.now()}`);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac2b-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		await db.insert(users).values({
@@ -307,7 +307,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			agentId: "agent-fac-r7",
 			sessionId: "session-r7",
 			taskId: "task-r7",
-			workspacePath,
+			sandboxPath,
 			watcher: { stop: (): void => {} },
 		};
 
@@ -341,7 +341,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({ db }) => {
 		// End-to-end: agent writes item (lands in triage as "draft"), facilitator promotes to "active" (curated)
 		await seedBase(db);
-		const workspacePath = path.join(os.tmpdir(), `r7-ac2c-${Date.now()}`);
+		const sandboxPath = path.join(os.tmpdir(), `r7-ac2c-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		await db.insert(users).values({
@@ -358,7 +358,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			agentId: AGENT_ID,
 			sessionId: "session-r7",
 			taskId: "task-r7",
-			workspacePath,
+			sandboxPath,
 			watcher: { stop: (): void => {} },
 		};
 		const facCtx: ToolContext = {
@@ -412,25 +412,25 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	});
 });
 
-// ── AC-5: Knowledge from session N materializes into session N+1 ───────────
+// ── AC-5: Knowledge from session N appears in session N+1 ───────────
 
-describe("R7 AC-5: write_memory items materialize into subsequent sessions", () => {
-	let workspacePath = ""; // initialized in beforeEach
+describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
+	let sandboxPath = ""; // initialized in beforeEach
 
 	beforeEach(() => {
-		workspacePath = fs.mkdtempSync(path.join("/tmp", "r7-mat-"));
+		sandboxPath = fs.mkdtempSync(path.join("/tmp", "r7-mat-"));
 	});
 
 	afterEach(() => {
-		if (workspacePath) fs.rmSync(workspacePath, { recursive: true, force: true });
+		if (sandboxPath) fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	test("an item written by write_memory with layer=L2 appears in materialize() output for the same productId", async ({
+	test("an item written by write_memory with layer=L2 appears in assembleContext() output for the same productId", async ({
 		db,
 	}) => {
 		await seedBase(db);
-		const ctx = makeContext(db, workspacePath);
-		const { materialize } = await import("@hyperidle/fabric");
+		const ctx = makeContext(db, sandboxPath);
+		const { assembleContext } = await import("@hyperidle/fabric");
 
 		// Arrange: write a knowledge item via write_memory
 		const writeResult = await writeMemoryTool.handler(
@@ -446,9 +446,9 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 		expect(writeResult.success).toBe(true);
 		if (!writeResult.success) return;
 
-		// Act: materialize a new session workspace for the same team
-		const matResult = await materialize(db, {
-			workspacePath,
+		// Act: assemble context for a new session for the same team
+		const matResult = await assembleContext(db, {
+			sandboxPath,
 			sessionId: "session-r7-next",
 			taskId: "task-r7",
 			agentId: AGENT_ID,
@@ -456,12 +456,12 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 			productId: TEAM_ID, // same team
 		});
 
-		// Assert: the item is present in the materialized workspace
+		// Assert: the item is present in the assembled workspace
 		// The item is written to context/product/ zone for L2 items
 		expect(matResult.itemCount).toBeGreaterThan(0);
 
 		// Verify the specific item filename appears in the manifest
-		const manifestPath = path.join(workspacePath, ".fabric/manifest.json");
+		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
 		expect(fs.existsSync(manifestPath)).toBe(true);
 		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
 			items: Record<string, { source_path: string }>;
@@ -473,14 +473,14 @@ describe("R7 AC-5: write_memory items materialize into subsequent sessions", () 
 		expect(found).toBe(true);
 	});
 
-	test("write_memory items ARE materialized even without explicit teamId in ToolContext (R7 fix verified)", async ({
+	test("write_memory items ARE assembled even without explicit teamId in ToolContext (R7 fix verified)", async ({
 		db,
 	}) => {
 		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
 		// is absent, ensuring scopeId is always set for items tied to a team task.
 		// Previously documented the null-scopeId broken state; updated in write-code phase.
 		await seedBase(db);
-		const ctx = makeContext(db, workspacePath);
+		const ctx = makeContext(db, sandboxPath);
 
 		// Write an item without explicit teamId in ctx (derived from task instead)
 		const writeResult = await writeMemoryTool.handler(

@@ -68,10 +68,10 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 
 function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 	return {
-		workspacePath: "/workspace/af10",
+		sandboxPath: "/workspace/af10",
 		sessionId: "af10-cli-session",
-		soulPromptPath: "",
-		composedPrompt: "Do the task.",
+		systemPromptPath: "",
+		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: [],
 		resolvedModel: {

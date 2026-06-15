@@ -335,7 +335,7 @@ export async function handleAgentProfile(
 		teamName,
 		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
-		soulPrompt: agent.soulPrompt ?? null,
+		systemPrompt: agent.systemPrompt ?? null,
 		harnessType: agent.harnessType ?? null,
 		modelTierPreference: agent.modelTierPreference ?? null,
 		maxConcurrentSessions: agent.maxConcurrentSessions,
