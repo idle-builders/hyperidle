@@ -118,6 +118,13 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 		};
 	}
 
+	// AK6: scaffoldAgents stub — ContributorStrategy test is not about agent creation.
+	async scaffoldAgents(
+		_req: import("@hyperidle/shared").ScaffoldRequest<HyperIdleDb>,
+	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
+		return [];
+	}
+
 	toRecord(): ContributorRecord {
 		const call = this.assembleContextCalls[0];
 		return {

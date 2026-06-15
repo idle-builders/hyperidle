@@ -1,5 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+// AK6: FactoryRosterSpec type stub — the green phase reads `roster` instead of
+// hard-coding PRACTICE_COMMUNITIES / seed-agent-cos inline. For now the type
+// is imported so the signature compiles; the actual reading is green-phase work.
+import type { FactoryRosterSpec } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import { factorySettings, knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
@@ -60,7 +64,17 @@ function readSystemPromptTemplate(docsRoot: string, filename: string): string | 
  * data (demo team), and team-provisioning. The split enforces hard-rule 1:
  * "No team_id on factory rows." and hard-rule 5: "No demo data in production."
  */
-export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
+/**
+ * AK6 RED PHASE: `roster` param is added to the signature so tests compile
+ * and fail at the assertion level (missing-impl, not type error). The GREEN
+ * phase builder replaces the hard-coded PRACTICE_COMMUNITIES / seed-agent-cos
+ * loop with roster-driven writes. Until then, `roster` is accepted but unused
+ * (the `_roster` prefix suppresses the unused-param lint rule).
+ */
+export async function applyFactoryBootstrap(
+	db: HyperIdleDb,
+	_roster?: FactoryRosterSpec,
+): Promise<void> {
 	const now = new Date().toISOString();
 
 	// ── system:propagation — authors review threads when bets enter review ──

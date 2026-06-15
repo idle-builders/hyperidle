@@ -33,10 +33,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
+	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	IngestionHandle,
 	IngestionRequest,
+	ScaffoldRequest,
 	Strategy,
 } from "@hyperidle/shared";
 
@@ -99,5 +101,16 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 				// and no knowledge persistence. dispose() is a no-op by design.
 			},
 		};
+	},
+
+	/**
+	 * AK6: RED PHASE STUB — the Minimal Strategy's scaffoldAgents is not yet implemented.
+	 * The green phase builder implements the 3-trigger switch in T3.
+	 *
+	 * This stub allows the port contract to be enforced by TypeScript
+	 * while keeping AK6-scaffold-agents.test.ts failing at the behavior level.
+	 */
+	async scaffoldAgents(_req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
+		throw new Error("minimalStrategy.scaffoldAgents not implemented — AK6 green phase required");
 	},
 };

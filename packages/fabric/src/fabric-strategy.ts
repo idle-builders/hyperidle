@@ -24,10 +24,12 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
+	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	IngestionHandle,
 	IngestionRequest,
+	ScaffoldRequest,
 	Strategy,
 } from "@hyperidle/shared";
 import { assembleContext } from "./context-assembly.js";
@@ -81,5 +83,17 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 				watcher.stop();
 			},
 		};
+	},
+
+	/**
+	 * AK6: RED PHASE STUB — the Fabric's scaffoldAgents is not yet implemented.
+	 * The green phase builder implements composeRoster + scaffoldAgents in
+	 * packages/fabric/src/roster.ts and wires it here.
+	 *
+	 * This stub allows the port contract to be enforced by TypeScript
+	 * while keeping the red-phase tests failing at the behavior level.
+	 */
+	async scaffoldAgents(_req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
+		throw new Error("fabricStrategy.scaffoldAgents not implemented — AK6 green phase required");
 	},
 };
