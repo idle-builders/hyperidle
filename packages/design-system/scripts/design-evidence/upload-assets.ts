@@ -70,21 +70,26 @@ export async function uploadShots(
 		]);
 		// Branch exists — no-op
 	} catch {
-		// Branch doesn't exist — create orphan from empty tree.
-		// @lore AJ4: `gh api -f tree=[]` sends the *string* "[]" (form field), not
-		// a JSON array. GitHub POST /git/trees requires a proper JSON body with an
-		// actual array value. Use `--input -` + piped JSON so gh sends the body
-		// verbatim (Content-Type: application/json) instead of form-encoding.
+		// Branch doesn't exist — create orphan branch via the Git Data API.
+		//
+		// @lore AJ4: Two issues with the original implementation:
+		// 1. `gh api -f tree=[]` sends the *string* "[]" (form field), not a JSON
+		//    array. GitHub POST /git/trees receives Content-Type form-encoded → 422.
+		//    Fix: use `--input -` + piped JSON body.
+		// 2. GitHub POST /git/trees rejects `{"tree":[]}` — an empty tree array is
+		//    invalid per the API (422 "Invalid tree info"). Fix: create an empty blob
+		//    (the empty-blob sha is deterministic: e69de29…) then build a tree with a
+		//    single `.gitkeep` entry before creating the orphan commit.
 
-		// 1. Create empty tree — pipe JSON body via stdin
 		const { spawn: spawnFn } = await import("node:child_process");
 
-		async function ghApiJson(endpoint: string, bodyObj: unknown): Promise<string> {
+		/** POST to a GitHub API endpoint with a JSON body piped via stdin. */
+		async function ghApiPostJson(endpoint: string, bodyObj: unknown, jqFilter = ".sha"): Promise<string> {
 			return new Promise((resolve, reject) => {
 				const body = JSON.stringify(bodyObj);
 				const child = spawnFn(
 					"gh",
-					["api", "--method", "POST", endpoint, "--input", "-", "--jq", ".sha"],
+					["api", "--method", "POST", endpoint, "--input", "-", "--jq", jqFilter],
 					{ stdio: ["pipe", "pipe", "pipe"] },
 				);
 				let out = "";
@@ -96,7 +101,7 @@ export async function uploadShots(
 					err += d.toString();
 				});
 				child.on("close", (code) => {
-					if (code !== 0) reject(new Error(`gh api failed (${code}): ${err}`));
+					if (code !== 0) reject(new Error(`gh api POST ${endpoint} failed (${code}): ${err.trim()}`));
 					else resolve(out.trim());
 				});
 				child.stdin.write(body);
@@ -104,16 +109,33 @@ export async function uploadShots(
 			});
 		}
 
-		const treeSha = await ghApiJson(`repos/${repoWithOwner}/git/trees`, { tree: [] });
+		// 1. Create empty blob (empty-blob sha is deterministic: e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+		//    but we create it via the API to stay stateless — the API is idempotent for identical content)
+		const blobSha = await ghApiPostJson(`repos/${repoWithOwner}/git/blobs`, {
+			content: "",
+			encoding: "utf-8",
+		});
 
-		// 2. Create commit with no parents — also send JSON body via stdin
-		const commitSha = await ghApiJson(`repos/${repoWithOwner}/git/commits`, {
+		// 2. Create tree with a .gitkeep sentinel — GitHub requires at least one entry
+		const treeSha = await ghApiPostJson(`repos/${repoWithOwner}/git/trees`, {
+			tree: [
+				{
+					path: ".gitkeep",
+					mode: "100644",
+					type: "blob",
+					sha: blobSha,
+				},
+			],
+		});
+
+		// 3. Create orphan commit (no parents)
+		const commitSha = await ghApiPostJson(`repos/${repoWithOwner}/git/commits`, {
 			message: `init pr-evidence/${prNumber}`,
 			tree: treeSha,
 			parents: [],
 		});
 
-		// 3. Create the ref — small payload, use -F flags (scalar values are fine)
+		// 4. Create the ref
 		await execFileAsync("gh", [
 			"api",
 			"--method",
