@@ -1,5 +1,22 @@
 ## Handling Common Situations
 
+### No Tasks After Committing a Bet
+
+After you commit a bet, the task section briefly shows "Planning the work" while the PM agent breaks the bet into tasks. If that state persists or a blocker appears:
+
+**"No one can take this work"** — The team has no active AI agent eligible to own tasks.
+1. Click **Add an agent** in the blocked state, or navigate to the team page directly.
+2. Add an agent with a team role (builder, product manager, growth, etc.).
+3. Commit the bet again — the PM agent will now have eligible owners to assign tasks to.
+
+**"Couldn't plan the work"** — The PM agent turn failed or produced an empty breakdown.
+1. Review the bet's goal and done condition — make them specific and actionable.
+2. Click **Commit** again from the overflow menu (`···`) on the bet.
+
+**Still planning after several minutes** — This should not happen. A hung turn resolves to a blocker automatically on the next server restart. If it persists, restart the server.
+
+---
+
 ### An Agent is Blocked
 
 1. Sidebar shows a blocked agent with duration
