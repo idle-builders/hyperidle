@@ -388,8 +388,9 @@ export {
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 } from "./promotion-pipeline.js";
-// prompt-composition (X1 + AA2)
+// prompt-composition (X1 + AA2 + AH3)
 export type {
+	AssistantPromptResult,
 	PromptCompositionInput,
 	PromptCompositionResult,
 	RoutinePromptCompositionInput,
@@ -397,6 +398,7 @@ export type {
 } from "./prompt-composition.js";
 export {
 	buildTemplateVariables,
+	composeAssistantPrompt,
 	composePrompt,
 	composeRoutinePrompt,
 	stripFrontmatter,

@@ -9,10 +9,10 @@
  *   - packages/shared/src/errors.ts exports ProviderTimeoutError
  */
 
-import { describe, expect, test } from "vitest";
 // These imports fail until the green phase creates them:
 // ASSISTANT_TURN_TIMEOUT_MS lives in @hyperidle/shared (shared client/server boundary per §1.7)
 import { ASSISTANT_TURN_TIMEOUT_MS, ProviderTimeoutError } from "@hyperidle/shared";
+import { describe, expect, test } from "vitest";
 
 describe("AH3: ASSISTANT_TURN_TIMEOUT_MS constant", () => {
 	test("is a positive finite number", () => {

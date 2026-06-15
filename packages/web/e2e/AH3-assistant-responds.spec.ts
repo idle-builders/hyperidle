@@ -110,11 +110,14 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 
 		// Simulate the server returning a missing_key notice message after send
 		// (the real server does this when no credential is configured)
-		let callCount = 0;
 		await page.route("**/api/threads/t-assistant-ah3/messages", async (route) => {
 			if (route.request().method() === "POST") {
 				// Return success for the POST (message is accepted)
-				await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "msg-ah3-1" }) });
+				await route.fulfill({
+					status: 201,
+					contentType: "application/json",
+					body: JSON.stringify({ id: "msg-ah3-1" }),
+				});
 			} else {
 				await route.continue();
 			}
@@ -128,29 +131,30 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 		await page.route("**/api/threads/assistant", async (route) => {
 			if (route.request().method() === "GET") {
 				refreshCount++;
-				const threadData = refreshCount === 1
-					? ASSISTANT_THREAD_WITH_WELCOME
-					: {
-						...ASSISTANT_THREAD_WITH_WELCOME,
-						messages: [
-							...ASSISTANT_THREAD_WITH_WELCOME.messages,
-							{
-								id: "msg-ah3-notice-1",
-								threadId: "t-assistant-ah3",
-								senderId: "ast-test-founder",
-								type: "plain",
-								payload: {
-									text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
-									notice: { kind: "missing_key" },
-								},
-								clientKey: "ck-notice-1",
-								deletedAt: null,
-								redactedAt: null,
-								resolvedAt: null,
-								createdAt: new Date().toISOString(),
-							},
-						],
-					};
+				const threadData =
+					refreshCount === 1
+						? ASSISTANT_THREAD_WITH_WELCOME
+						: {
+								...ASSISTANT_THREAD_WITH_WELCOME,
+								messages: [
+									...ASSISTANT_THREAD_WITH_WELCOME.messages,
+									{
+										id: "msg-ah3-notice-1",
+										threadId: "t-assistant-ah3",
+										senderId: "ast-test-founder",
+										type: "plain",
+										payload: {
+											text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
+											notice: { kind: "missing_key" },
+										},
+										clientKey: "ck-notice-1",
+										deletedAt: null,
+										redactedAt: null,
+										resolvedAt: null,
+										createdAt: new Date().toISOString(),
+									},
+								],
+							};
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -214,7 +218,7 @@ test.skip("AH5 lane: send message → thinking row appears → replaced by real 
 	await trigger.click();
 
 	// Note welcome text BEFORE sending
-	const welcomeText = await page.getByRole("dialog").locator("text").first().textContent() ?? "";
+	const welcomeText = (await page.getByRole("dialog").locator("text").first().textContent()) ?? "";
 
 	// Send a message
 	const composer = page.getByRole("textbox");
@@ -230,7 +234,10 @@ test.skip("AH5 lane: send message → thinking row appears → replaced by real 
 
 	// Step (c): reply text is DISTINCT from welcome text
 	// The overlay should now have an assistant message that is NOT the welcome text
-	const replyTexts = await page.getByRole("dialog").locator("[data-sender-kind=ai]").allTextContents();
+	const replyTexts = await page
+		.getByRole("dialog")
+		.locator("[data-sender-kind=ai]")
+		.allTextContents();
 	const lastReply = replyTexts[replyTexts.length - 1] ?? "";
 	expect(lastReply).not.toBe(welcomeText);
 	expect(lastReply.length).toBeGreaterThan(0);

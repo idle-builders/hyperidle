@@ -62,12 +62,14 @@ export {
 } from "./credential.js";
 export {
 	ActiveRoutinesError,
+	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	InvalidTransitionError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
+	ProviderTimeoutError,
 	VersionConflictError,
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
@@ -249,6 +251,7 @@ export type {
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,
 	ArtifactViewShape,
+	AssistantNotice,
 	BlockRef,
 	EntityRef,
 	HeadCollapseResult,

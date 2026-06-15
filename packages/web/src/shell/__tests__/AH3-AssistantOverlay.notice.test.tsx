@@ -121,7 +121,9 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 		// Must render guidance card for missing_key
 		expect(screen.getByText(/no api key/i)).toBeInTheDocument();
 		// Must have an affordance pointing to Credentials settings
-		expect(screen.getByRole("button", { name: /credentials/i }) || screen.getByText(/credentials/i)).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: /credentials/i }) || screen.getByText(/credentials/i),
+		).toBeTruthy();
 	});
 
 	it("renders missing_harness guidance card with Open Agent settings affordance", () => {
@@ -240,67 +242,61 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 		vi.restoreAllMocks();
 	});
 
-	it(
-		"thread whose last message is human AND older than ASSISTANT_TURN_TIMEOUT_MS shows Retry card (not spinner)",
-		() => {
-			// Last message is a human message, older than the timeout window
-			vi.mocked(useAssistantThread).mockReturnValue(
-				makeData([
-					{
-						id: "msg-stale-1",
-						threadId: "t-overlay-ah3",
-						senderId: "u-founder",
-						type: "plain",
-						payload: { text: "Can you help me with this?" },
-						clientKey: "ck-stale-1",
-						deletedAt: null,
-						redactedAt: null,
-						resolvedAt: null,
-						createdAt: STALE_ISO,
-					},
-				]),
-			);
+	it("thread whose last message is human AND older than ASSISTANT_TURN_TIMEOUT_MS shows Retry card (not spinner)", () => {
+		// Last message is a human message, older than the timeout window
+		vi.mocked(useAssistantThread).mockReturnValue(
+			makeData([
+				{
+					id: "msg-stale-1",
+					threadId: "t-overlay-ah3",
+					senderId: "u-founder",
+					type: "plain",
+					payload: { text: "Can you help me with this?" },
+					clientKey: "ck-stale-1",
+					deletedAt: null,
+					redactedAt: null,
+					resolvedAt: null,
+					createdAt: STALE_ISO,
+				},
+			]),
+		);
 
-			renderOverlay();
+		renderOverlay();
 
-			// Must NOT show an infinite spinner
-			expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
+		// Must NOT show an infinite spinner
+		expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
 
-			// Must show a Retry card (provider_error shape)
-			// Either "try again" copy OR a retry button
-			const hasRetry =
-				screen.queryByRole("button", { name: /retry/i }) !== null ||
-				screen.queryByText(/try again/i) !== null;
-			expect(hasRetry).toBe(true);
-		},
-	);
+		// Must show a Retry card (provider_error shape)
+		// Either "try again" copy OR a retry button
+		const hasRetry =
+			screen.queryByRole("button", { name: /retry/i }) !== null ||
+			screen.queryByText(/try again/i) !== null;
+		expect(hasRetry).toBe(true);
+	});
 
-	it(
-		"thread whose last message is human AND within ASSISTANT_TURN_TIMEOUT_MS shows thinking indicator",
-		() => {
-			vi.mocked(useAssistantThread).mockReturnValue(
-				makeData([
-					{
-						id: "msg-recent-1",
-						threadId: "t-overlay-ah3",
-						senderId: "u-founder",
-						type: "plain",
-						payload: { text: "What do you think?" },
-						clientKey: "ck-recent-1",
-						deletedAt: null,
-						redactedAt: null,
-						resolvedAt: null,
-						createdAt: RECENT_ISO,
-					},
-				]),
-			);
+	it("thread whose last message is human AND within ASSISTANT_TURN_TIMEOUT_MS shows thinking indicator", () => {
+		vi.mocked(useAssistantThread).mockReturnValue(
+			makeData([
+				{
+					id: "msg-recent-1",
+					threadId: "t-overlay-ah3",
+					senderId: "u-founder",
+					type: "plain",
+					payload: { text: "What do you think?" },
+					clientKey: "ck-recent-1",
+					deletedAt: null,
+					redactedAt: null,
+					resolvedAt: null,
+					createdAt: RECENT_ISO,
+				},
+			]),
+		);
 
-			renderOverlay();
+		renderOverlay();
 
-			// Must show "thinking…" indicator (not the Retry card for a stale turn)
-			expect(screen.getByText(/thinking/i)).toBeInTheDocument();
-		},
-	);
+		// Must show "thinking…" indicator (not the Retry card for a stale turn)
+		expect(screen.getByText(/thinking/i)).toBeInTheDocument();
+	});
 
 	it("thread whose last message is from the assistant shows neither thinking nor Retry", () => {
 		vi.mocked(useAssistantThread).mockReturnValue(

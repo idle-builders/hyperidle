@@ -42,6 +42,7 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
+import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
@@ -173,6 +174,15 @@ interface AppOptions {
 	 * Used when writing `.mcp.json` to the workspace during session provisioning.
 	 */
 	mcpBaseUrl?: string;
+	/**
+	 * AH3: Optional assistant turn dependencies. When provided, a human plain
+	 * message on the assistant thread fires runAssistantTurn (fire-and-forget).
+	 * When absent, the trigger is a no-op (kernel-only mode, chrome tests).
+	 *
+	 * @lore AH3 §1.5: AH5's real-model lane supplies these deps at boot time.
+	 * Integration tests supply them per-test via createTestApp({ assistantTurnDeps }).
+	 */
+	assistantTurnDeps?: AssistantTurnDeps;
 	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
@@ -395,7 +405,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route("/threads", createThreadRoutes(options.db, eventBus));
+		api.route("/threads", createThreadRoutes(options.db, eventBus, options.assistantTurnDeps));
 		api.route("/users", createUserRoutes(options.db, eventBus));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route(

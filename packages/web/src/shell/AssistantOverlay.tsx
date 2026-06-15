@@ -23,12 +23,14 @@
 
 import { ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
+	AssistantNotice,
 	BlockRef,
 	InlineRef,
 	Message,
 	PlainPayload,
 	ToolCallSummary,
 } from "@hyperidle/shared";
+import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/shared";
 import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
@@ -168,6 +170,211 @@ function ContextChip({
 	);
 }
 
+// ---------------------------------------------------------------------------
+// AH3: Notice card rendering (missing_key / missing_harness / provider_error)
+// ---------------------------------------------------------------------------
+
+interface NoticeConfig {
+	title: string;
+	description: string;
+	colorToken: string;
+	affordance: JSX.Element;
+}
+
+function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeConfig {
+	switch (notice.kind) {
+		case "missing_key":
+			return {
+				title: "No API key yet",
+				description:
+					"I can't think until an API key is set. Add your Anthropic key to get started.",
+				colorToken: "var(--status-warning)",
+				affordance: (
+					<button
+						type="button"
+						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+						onClick={() => {
+							// Navigate to Settings → Credentials
+							// @lore AH3: settings navigation is via existing nav patterns
+							window.dispatchEvent(
+								new CustomEvent("navigate-settings", { detail: { tab: "credentials" } }),
+							);
+						}}
+					>
+						Settings → Credentials
+					</button>
+				),
+			};
+		case "missing_harness":
+			return {
+				title: "Runtime not configured",
+				description: "I don't have a runtime selected. Pick a harness for me and I'll be ready.",
+				colorToken: "var(--status-warning)",
+				affordance: (
+					<button
+						type="button"
+						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+						onClick={() => {
+							window.dispatchEvent(
+								new CustomEvent("navigate-settings", { detail: { tab: "agents" } }),
+							);
+						}}
+					>
+						Open Agent settings
+					</button>
+				),
+			};
+		case "provider_error":
+			return {
+				title: "Couldn't reach the model",
+				description: "The model provider returned an error. This is usually temporary.",
+				colorToken: "var(--status-error)",
+				affordance: (
+					<button
+						type="button"
+						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						onClick={onRetry}
+					>
+						Retry
+					</button>
+				),
+			};
+	}
+}
+
+/**
+ * AH3: Render a notice card for assistant error/guidance messages.
+ * These replace the normal chat bubble when payload.notice is present.
+ *
+ * @lore AH3: role="alert" for accessibility — screen readers announce immediately.
+ * Token contract: --status-warning (setup gaps), --status-error (failures).
+ * No --color-error/success (dead tokens, AI1 owns).
+ */
+function AssistantNoticeCard({
+	notice,
+	onRetry,
+}: {
+	notice: AssistantNotice;
+	onRetry?: () => void;
+}): JSX.Element {
+	const config = getNoticeConfig(notice, onRetry);
+
+	return (
+		<div
+			role="alert"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				border: `1.5px solid ${config.colorToken}`,
+				padding: "12px",
+				display: "flex",
+				flexDirection: "column",
+				gap: "6px",
+			}}
+		>
+			<div
+				style={{
+					fontSize: "13px",
+					fontWeight: 600,
+					color: config.colorToken,
+				}}
+			>
+				{config.title}
+			</div>
+			<div
+				style={{
+					fontSize: "12px",
+					color: "var(--text-secondary)",
+					lineHeight: "1.5",
+				}}
+			>
+				{config.description}
+				{notice.kind === "provider_error" && notice.code && (
+					<code
+						style={{
+							fontFamily: "var(--font-mono)",
+							fontSize: "11px",
+							background: "var(--surface-elevated)",
+							borderRadius: "var(--r-subtle)",
+							padding: "1px 4px",
+							marginLeft: "6px",
+						}}
+					>
+						{notice.code}
+					</code>
+				)}
+			</div>
+			<div style={{ marginTop: "3px" }}>{config.affordance}</div>
+		</div>
+	);
+}
+
+/**
+ * AH3 §1.7b: "Thinking…" indicator — shown when last message is human and
+ * within the turn timeout window. Client-derived from thread state.
+ */
+function ThinkingRow(): JSX.Element {
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: "9px",
+				padding: "9px 12px",
+				borderRadius: "var(--r-subtle)",
+				background: "var(--accent-primary-dim, rgba(22,118,79,0.06))",
+			}}
+		>
+			<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
+			<span
+				style={{
+					fontSize: "13px",
+					color: "var(--text-tertiary)",
+				}}
+			>
+				Assistant is thinking…
+			</span>
+		</div>
+	);
+}
+
+/**
+ * AH3 §1.7b: Stale crash-recovery Retry card — shown when last message is human
+ * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
+ */
+function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
+	return (
+		<div
+			role="alert"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				border: "1.5px solid var(--status-error)",
+				padding: "12px",
+				display: "flex",
+				flexDirection: "column",
+				gap: "6px",
+			}}
+		>
+			<div style={{ fontSize: "13px", fontWeight: 600, color: "var(--status-error)" }}>
+				Couldn't reach the model
+			</div>
+			<div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+				That didn't finish — try again.
+			</div>
+			<div style={{ marginTop: "3px" }}>
+				<button
+					type="button"
+					className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+					onClick={onRetry}
+				>
+					Retry
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+
 function AssistantOverlayInner({
 	contextRefs,
 	onRemoveContextRef,
@@ -242,6 +449,32 @@ function AssistantOverlayInner({
 		a.createdAt.localeCompare(b.createdAt),
 	);
 
+	// AH3 §1.7b: Compute thinking/stale state from thread state (client-derived).
+	// Show "thinking…" only when: last message is human AND within ASSISTANT_TURN_TIMEOUT_MS.
+	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
+	const lastMessage = msgsAsc[msgsAsc.length - 1];
+	const lastMessageIsHuman = lastMessage !== undefined && !lastMessage.senderId.startsWith("ast-");
+	const lastMessageIsWithinTimeout =
+		lastMessageIsHuman &&
+		lastMessage !== undefined &&
+		Date.now() - new Date(lastMessage.createdAt).getTime() < ASSISTANT_TURN_TIMEOUT_MS;
+	const isThinking = lastMessageIsWithinTimeout;
+	const isStale = lastMessageIsHuman && !lastMessageIsWithinTimeout;
+
+	// AH3: Partition messages — notice messages are REMOVED from ThreadShell and
+	// rendered as standalone notice cards below the thread. This ensures getByText
+	// doesn't find the message bubble text AND the notice card title simultaneously.
+	// @lore AH3: renderMessageExtra injects BELOW the bubble text — so if we used it,
+	// both the bubble text and card title would match /no api key/i. Instead, we
+	// filter notice messages out of the messages array and render them separately.
+	const noticeMessages = msgsAsc.filter(
+		(m): m is Message & { type: "plain" } =>
+			m.type === "plain" && !!(m.payload as PlainPayload).notice,
+	);
+	const threadMessages = msgsAsc.filter(
+		(m) => m.type !== "plain" || !(m.payload as PlainPayload).notice,
+	);
+
 	return (
 		<>
 			{/* Context chips area — only renders when refs are attached */}
@@ -266,13 +499,35 @@ function AssistantOverlayInner({
 			)}
 			<ThreadShell
 				thread={thread}
-				messages={msgsAsc}
+				messages={threadMessages}
 				identities={identities}
 				onAppendMessage={handleAppendMessage}
 				hostTitle="Assistant"
 				renderRefEmbeds={renderRefEmbedsForAssistant}
 				renderMessageExtra={renderToolCallSummaries}
 			/>
+			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}
+			{noticeMessages.map((m) => {
+				const noticePayload = m.payload as PlainPayload;
+				if (!noticePayload.notice) return null;
+				return (
+					<div key={m.id} className="px-[12px] pb-[9px]">
+						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
+					</div>
+				);
+			})}
+			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
+			{isThinking && (
+				<div className="px-[12px] pb-[9px]">
+					<ThinkingRow />
+				</div>
+			)}
+			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
+			{isStale && (
+				<div className="px-[12px] pb-[9px]">
+					<StaleRetryCard onRetry={refresh} />
+				</div>
+			)}
 		</>
 	);
 }

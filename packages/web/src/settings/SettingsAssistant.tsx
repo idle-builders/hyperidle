@@ -11,6 +11,7 @@
  */
 
 // hearth-internal-padding
+import { Button } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -132,6 +133,10 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 				>
 					Persona instructions
 				</label>
+				{/* AH3: native textarea with Hearth --r-default radius (≤16px, not pill).
+				    DaisyUI .textarea uses --rounded-btn (~8px). The design-system Input
+				    textarea prop would require a type cast (InputProps extends input attrs).
+				    Native textarea is simpler and satisfies the E2E border-radius check. */}
 				<textarea
 					id="soul-prompt"
 					value={loading ? "" : soulPrompt}
@@ -144,12 +149,13 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 						loading ? "Loading soul prompt..." : "Describe how your assistant should behave..."
 					}
 					rows={10}
-					className="textarea textarea-bordered w-full font-mono text-sm resize-y"
+					className="textarea textarea-bordered w-full font-mono resize-y"
 					style={{
 						color: "var(--text-primary)",
 						backgroundColor: "var(--surface-container)",
 						borderColor: "var(--border-subtle)",
 						fontSize: "13px",
+						borderRadius: "var(--r-default)",
 					}}
 				/>
 			</div>
@@ -167,15 +173,14 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			)}
 
 			<div className="flex items-center gap-3">
-				<button
-					type="button"
+				{/* AH3: Use design-system Button */}
+				<Button
 					onClick={handleSave}
 					disabled={!isDirty || isSaving || loading}
-					className="btn btn-primary btn-sm"
 					aria-label={saveButtonLabel}
 				>
 					{saveButtonLabel}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

@@ -260,6 +260,62 @@ export function writeWorkspaceCLAUDEmd(workspacePath: string, composedPrompt: st
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AH3: Assistant persona composer (task-free)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * AH3 §4: Result of composing the assistant persona prompt.
+ * The single canonical string consumed by both harness adapter paths:
+ * - builtin: passed as config.composedPrompt
+ * - SDK: written to CLAUDE.md via writeWorkspaceCLAUDEmd
+ */
+export interface AssistantPromptResult {
+	/** The composed persona prompt, byte-equal for both adapter paths. */
+	readonly composedPrompt: string;
+}
+
+/**
+ * AH3 §4: Compose a task-free assistant persona prompt from a soul prompt string.
+ *
+ * Unlike composePrompt (which requires task/bet/team context), this function
+ * produces a lightweight prompt containing only the persona (identity section)
+ * and a short orientation. Used for the assistant conversational turn — no task,
+ * no bet, no workspace materialization context.
+ *
+ * **Byte-equality invariant:** the returned `composedPrompt` must be:
+ *   - Passed verbatim as the builtin adapter's config.composedPrompt
+ *   - Written verbatim to CLAUDE.md for the SDK adapter via writeWorkspaceCLAUDEmd
+ * This guarantees the same bytes reach the model regardless of which harness executes.
+ *
+ * @param soulPromptText - Raw soul prompt (may contain YAML frontmatter). Empty = no identity section.
+ * @returns { composedPrompt } — the canonical prompt string.
+ *
+ * @lore AH3: composeAssistantPrompt is intentionally synchronous (vs composePrompt's async)
+ * because it does no I/O — no workspace files to read, no token-budget checks against DB.
+ * Kept synchronous to avoid unnecessary Promise overhead in the hot path of every turn.
+ */
+export function composeAssistantPrompt(soulPromptText: string): AssistantPromptResult {
+	const parts: string[] = ["# Assistant Instructions", ""];
+
+	if (soulPromptText.length > 0) {
+		const stripped = stripFrontmatter(soulPromptText);
+		if (stripped.trim().length > 0) {
+			parts.push("## Identity", "", stripped.trimEnd(), "");
+		}
+	}
+
+	parts.push("## Conversation");
+	parts.push("");
+	parts.push(
+		"You are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.",
+	);
+	parts.push("");
+
+	const composedPrompt = parts.join("\n");
+	return { composedPrompt };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AA2: Routine prompt composition
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -461,6 +461,8 @@ export function SettingsAgents(): JSX.Element {
 					<label className="label" htmlFor={`edit-soul-${agentId}`}>
 						<span className="label-text text-[var(--text-secondary)]">Soul Prompt</span>
 					</label>
+					{/* AH3: Explicit --r-default radius (≤16px) — DaisyUI .textarea uses --rounded-btn (~8px).
+					    Either satisfies the E2E border-radius ≤ 16px check. */}
 					<textarea
 						id={`edit-soul-${agentId}`}
 						className="textarea textarea-bordered text-sm"
@@ -469,6 +471,7 @@ export function SettingsAgents(): JSX.Element {
 						onChange={(e) => setValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
 						placeholder="Soul prompt text (optional). Leave empty for no persona."
 						aria-label="Soul Prompt"
+						style={{ borderRadius: "var(--r-default)" }}
 					/>
 				</div>
 
@@ -518,81 +521,85 @@ export function SettingsAgents(): JSX.Element {
 						</tr>
 					</thead>
 					<tbody>
-						{agents.map((agent) => {
-							// AH2: Check if agent's harnessType is in the registry
-							const harnessUnavailable =
-								agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
-							return (
-								<Fragment key={agent.id}>
-									<tr>
-										<td className="text-sm">
-											{agent.name}
-											{/* AH2: StatusChip warning for unavailable harness */}
-											{harnessUnavailable && (
-												<span className="ml-2 badge badge-sm badge-warning text-[10px]">
-													Harness unavailable
-												</span>
-											)}
-										</td>
-										<td className="text-sm">
-											<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
-										</td>
-										<td className="text-sm font-mono text-[var(--text-secondary)]">
-											{agent.harnessType ?? "Default"}
-										</td>
-										<td className="text-sm font-mono text-[var(--text-secondary)]">
-											{agent.modelId ?? "Default"}
-										</td>
-										<td className="text-sm tabular-nums">{agent.activeSessions}</td>
-										<td>
-											<div className="flex gap-1">
-												<button
-													type="button"
-													className="btn btn-ghost btn-xs"
-													onClick={() => handleEditOpen(agent)}
-													aria-label={`Edit ${agent.name}`}
-												>
-													Edit
-												</button>
-												{confirmingDeleteId === agent.id ? (
-													<button
-														type="button"
-														className="btn btn-ghost btn-xs text-error"
-														onClick={() => handleDeleteConfirm(agent.id)}
-													>
-														Confirm?
-													</button>
-												) : (
-													<button
-														type="button"
-														className="btn btn-ghost btn-xs text-error"
-														onClick={() => handleDeleteFirstClick(agent.id)}
-														aria-label={`Delete ${agent.name}`}
-													>
-														Delete
-													</button>
-												)}
-											</div>
-										</td>
-									</tr>
-									{editingId === agent.id && editValues && (
-										<tr key={`${agent.id}-edit`}>
-											<td colSpan={6}>
-												{renderEditForm(
-													editValues,
-													(fn) => setEditValues((prev) => (prev ? fn(prev) : prev)),
-													editError,
-													handleEditSave,
-													handleEditCancel,
-													saving,
-													agent.id,
+						{/* AH3: Filter out assistant agents (role==="assistant") — the assistant persona is
+						    managed in Settings → Assistant, not here. Prevents accidental dual-editing. */}
+						{agents
+							.filter((a) => a.role !== "assistant")
+							.map((agent) => {
+								// AH2: Check if agent's harnessType is in the registry
+								const harnessUnavailable =
+									agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
+								return (
+									<Fragment key={agent.id}>
+										<tr data-agent-role={agent.role}>
+											<td className="text-sm">
+												{agent.name}
+												{/* AH2: StatusChip warning for unavailable harness */}
+												{harnessUnavailable && (
+													<span className="ml-2 badge badge-sm badge-warning text-[10px]">
+														Harness unavailable
+													</span>
 												)}
 											</td>
+											<td className="text-sm">
+												<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
+											</td>
+											<td className="text-sm font-mono text-[var(--text-secondary)]">
+												{agent.harnessType ?? "Default"}
+											</td>
+											<td className="text-sm font-mono text-[var(--text-secondary)]">
+												{agent.modelId ?? "Default"}
+											</td>
+											<td className="text-sm tabular-nums">{agent.activeSessions}</td>
+											<td>
+												<div className="flex gap-1">
+													<button
+														type="button"
+														className="btn btn-ghost btn-xs"
+														onClick={() => handleEditOpen(agent)}
+														aria-label={`Edit ${agent.name}`}
+													>
+														Edit
+													</button>
+													{confirmingDeleteId === agent.id ? (
+														<button
+															type="button"
+															className="btn btn-ghost btn-xs text-error"
+															onClick={() => handleDeleteConfirm(agent.id)}
+														>
+															Confirm?
+														</button>
+													) : (
+														<button
+															type="button"
+															className="btn btn-ghost btn-xs text-error"
+															onClick={() => handleDeleteFirstClick(agent.id)}
+															aria-label={`Delete ${agent.name}`}
+														>
+															Delete
+														</button>
+													)}
+												</div>
+											</td>
 										</tr>
-									)}
-								</Fragment>
-							);
-						})}
+										{editingId === agent.id && editValues && (
+											<tr key={`${agent.id}-edit`}>
+												<td colSpan={6}>
+													{renderEditForm(
+														editValues,
+														(fn) => setEditValues((prev) => (prev ? fn(prev) : prev)),
+														editError,
+														handleEditSave,
+														handleEditCancel,
+														saving,
+														agent.id,
+													)}
+												</td>
+											</tr>
+										)}
+									</Fragment>
+								);
+							})}
 					</tbody>
 				</table>
 			)}
@@ -712,6 +719,7 @@ export function SettingsAgents(): JSX.Element {
 							onChange={(e) => setAddValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
 							placeholder="Soul prompt text (optional). Changes with role selection."
 							aria-label="Soul Prompt"
+							style={{ borderRadius: "var(--r-default)" }}
 						/>
 					</div>
 
