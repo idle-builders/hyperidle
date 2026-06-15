@@ -109,7 +109,8 @@ export function buildEvidenceReport(changed: ChangedStory[], hosted: HostedShot[
 			if (shot.side === "after") effectiveAfter ??= shot;
 		}
 		if (effectiveBefore ?? effectiveAfter) {
-			renderMode = (effectiveBefore?.render ?? effectiveAfter?.render) === "inline" ? "inline" : "link";
+			renderMode =
+				(effectiveBefore?.render ?? effectiveAfter?.render) === "inline" ? "inline" : "link";
 		}
 
 		if (effectiveBefore ?? effectiveAfter) {

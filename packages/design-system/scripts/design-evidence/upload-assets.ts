@@ -84,7 +84,11 @@ export async function uploadShots(
 		const { spawn: spawnFn } = await import("node:child_process");
 
 		/** POST to a GitHub API endpoint with a JSON body piped via stdin. */
-		async function ghApiPostJson(endpoint: string, bodyObj: unknown, jqFilter = ".sha"): Promise<string> {
+		async function ghApiPostJson(
+			endpoint: string,
+			bodyObj: unknown,
+			jqFilter = ".sha",
+		): Promise<string> {
 			return new Promise((resolve, reject) => {
 				const body = JSON.stringify(bodyObj);
 				const child = spawnFn(
@@ -101,7 +105,8 @@ export async function uploadShots(
 					err += d.toString();
 				});
 				child.on("close", (code) => {
-					if (code !== 0) reject(new Error(`gh api POST ${endpoint} failed (${code}): ${err.trim()}`));
+					if (code !== 0)
+						reject(new Error(`gh api POST ${endpoint} failed (${code}): ${err.trim()}`));
 					else resolve(out.trim());
 				});
 				child.stdin.write(body);

@@ -299,11 +299,7 @@ async function captureRealShots(
 	 * Registers the viewer handle in `viewers` for cleanup. Throws on failure —
 	 * caller catches and degrades.
 	 */
-	async function renderSide(
-		side: "before" | "after",
-		port: number,
-		cwd: string,
-	): Promise<void> {
+	async function renderSide(side: "before" | "after", port: number, cwd: string): Promise<void> {
 		const viewer = await startViewer(port, cwd);
 		viewers.push(viewer);
 		for (const story of modules) {
