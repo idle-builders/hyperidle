@@ -1,139 +1,58 @@
-# AJ1 Retro — TSX is the single design source of truth
+# AJ1 REDO — Retro (vitest DOM-snapshot net)
 
-**Workpackage:** AJ1 (Track AJ). Complexity L.  
-**Timeline:** 2026-06-14 to 2026-06-15 (~22h active).  
-**Pipeline Phases:** Design/concept (1 no-op) → Critique (2 rounds) → Red/Green (1 cycle + 3 fix commits) → Review (3 rounds) → DONE.
+**Date:** 2026-06-15 · **Workpackage:** AJ1 REDO (feat/AJ1-tsx-redo)
 
----
+## What worked
 
-## What Worked Well
+1. **Founder-locked approach decision prevented architecture churn.** The decision to use vitest DOM snapshots instead of screenshot-based testing was locked at the visual-regression dossier stage. This eliminated the option-comparison phase and forced the architect + reviewer to pressure-test the chosen mechanism against invariants. Result: one tight plan (414 lines), no back-to-architecture loops, clean implementation.
 
-1. **Architecture critique was exceptionally thorough (Phase 2, 8.5/10 across 2 rounds).** 
-   - Round 1: identified both load-bearing wiring gaps (bun-in-CI, discoverStories-in-Node) that would have made AC2/AC4 vacuous.
-   - Round 2: verified every claim against the tree — selectors, config shape, node runtime context.
-   - No surprises in review; the approved plan's wiring was sound.
+2. **Empirical proof of non-vacuousness.** The code-review included a real test: injecting a restyle probe (ZZZ-REVIEW-PROBE) into a component and verifying the snapshot net caught it + named the component (StatusChip) + named all composing consumers (BetCard, TaskCard, etc.). This caught the prior #287 architecture blindspot where the Playwright net could silently skip on empty glob returns — the new net has explicit enumeration guards (≥56 modules) + per-variant non-empty guards.
 
-2. **Design-it-twice forced honesty about the cross-platform risk (§Central decision, Option A's trade-off).**
-   - Risk was named, not hidden: "Mac-blessed PNGs vs Linux-CI render may exceed 5%."
-   - Plan included explicit "canonical capture platform: CI/Linux is the blessing authority" mitigation (§Canonical capture platform, lines 109-117).
-   - This framing made the platform question visible and gave builder concrete guidance — yet guidance was not followed (see Cost Signals below).
+3. **Web-researched dossier eliminated options rejection by spec.** The visual-regression dossier read 6 competing option categories (computed-style in jsdom, ARIA snapshots, screenshot SaaS tools, Chromatic, etc.), catalogued why each violated the hard constraints (H1–H4), and locked the approach with evidence rather than assertion. No second-guessing in implementation.
 
-3. **TDD red phase caught the vacuous-gate hole indirectly.**
-   - Red phase: test asserted "every catalogued component has a baseline" (coverage guard).
-   - Would have been caught at green-phase if builder had run the test and read the detailed `@lore` comment.
-   - Red phase did not force its own reading (the hole was silent `continue` rationalized by wrong `@lore` logic) — but the *structure* was correct.
+4. **Multi-pass guards + custom serializer are maintainable.** The determinism contract (id normalization + timestamp masking) is explicit in code comments and tested by 3 consecutive runs with zero churn. The serializer is ~80 lines, focused on structure+class+markers (not full DOM text), reducing snapshot churn on each intended style edit.
 
-4. **Two-review model (critique + code review) was necessary and sufficient.**
-   - Critique found structural gaps (wiring, enumeration, platform risk).
-   - Code review found execution gaps (vacuous gate, wrong platform blessing, incomplete marker assertions).
-   - Neither alone would have caught all findings; critique→code review sequence is sound.
+5. **Architect's plan reconciliation section caught 5 spec-vs-reality gaps.** The plan's phase-1 reconciliation listed viewer parity (TSX-only enum), HTML-file removal scope (all 49+7 stories), rule/skill guard names, and cross-cutting invariants (verify-must-work-locally, Docker forbidden). All gaps addressed before write-code phase — zero mid-stream scope surprises.
 
----
+6. **Code-review's completeness table (AC1–AC5 + removal sweep) prevented shim regressions.** The review explicitly verified: (a) TSX source of truth in place (no HTML refs); (b) snapshot net empirically non-vacuous (restyle proof); (c) viewer TSX-only; (d) verify chain untouched by Playwright/Docker; (e) 5 skills + rules rewritten. A grep sweep (`ds:sync|toHaveScreenshot|golden|__screenshots__`) confirmed no stray screenshot language remained.
 
-## What Cost Avoidable Cycles
+## What cost avoidable cycles
 
-### Cost Signal 1: Vacuous-gate silent skip (AC2 regression, caught in review round 1)
+1. **The original #287 shipped through full pipeline despite violating a core invariant.** The Playwright `toHaveScreenshot` golden-PNG net broke the "verify must work locally without Docker" contract. It passed critique (9/10) and review (DONE verdict), yet was reverted off main by the founder. **Root cause:** neither critique nor review questioned the mechanism (screenshot-vs-baseline) against cross-cutting invariants — they treated it as a fixed input (the spec mandated it). The screenshot approach itself was wrong, not just the execution. **Lesson candidate:** critique must pressure-test mechanisms against invariants, not only against the spec.
 
-**What happened:** The new visual-regression gate shipped with a silent `continue` that skipped 39 of 69 catalogued components (57%) without assertion. 34 components had zero committed baselines, including 7 primitives (`Avatar`, `Button`, `EmptyState`, `Skeleton`, `Toast`, `TabBar`, `Progress`) that the retired gate explicitly protected. AC2 ("every catalogued component protected") was vacuous in CI.
+2. **Revert-of-revert reintroduced incidental cruft.** When the original PR was reverted (#298), it cleaned the codebase (removed 342 PNGs, configs, etc.). The redo (#287 reverted again) re-introduced a Docker `VITEST_MAX_WORKERS` hack in vitest.config and committed compiled `discovery.js/discovery.d.ts` build artifacts. The orchestrator's gate-triage (knip + lint) caught both as regressions from main. **Lesson:** a revert-of-revert restores not just features but also the original's incidental technical debt. The builder should have started from the reverted-off state (clean main), not from the original PR (dirty with pre-existing cruft).
 
-**Root cause:** A race condition in the hash-route SPA navigation loop: `networkidle` resolves instantly (no network request for hash routes), then `waitForTimeout(300)` is insufficient for React to re-render the new route's `.demo-section`s before `.count()` reads 0. Non-deterministic across machines/load.
+3. **Builder mislabeled branch-introduced gate failures as "pre-existing baseline."** When knip exited 1 (untracked `discovery.js`), the builder claimed it was a pre-existing problem from the original PR. The orchestrator triage verified against `origin/main` and found knip clean there — the claim was false. The artifacts were real branch-introduced regressions that had to be fixed. **Lesson:** "pre-existing" claims must be verified against origin/main via `git diff --stat origin/main HEAD`, not asserted.
 
-**Why it shipped green:** The test's `if (sections.length === 0) { console.warn(...); continue; }` pattern is a *silent* failure mode. The gate passed locally, CI was green (because skipped components produce no assertion), and the coverage floor test (`catalogCount > 25`) passed regardless.
+4. **Docker dependency was introduced by over-generalization, not the builder.** The original ship instructions said "baselines must be canonical (Linux)" → the builder generalized this to "verify runs in Docker for platform consistency." This was a reasoning failure by the orchestrator (instructions), not the builder. The constraints should have been explicit: "Golden PNGs must be Linux-canonical; verify must NOT pull in Docker."
 
-**Cost:** 1 entire review round (round 1) + 1 fix commit (d2f66bd9) + replay through round-2 validation. ~2-3h of work.
+## Concrete `/compound` candidates
 
-**Avoidance opportunity:**
-- **The architecture plan (§AC2, line 183) already specified the verification method:** "Playwright gate (`ds:sync`). Red-phase proof: builder deliberately restyles one component, runs gate, asserts it FAILS naming that component." This scenario would have forced the gate to enumerate and assert every component.
-- **Or: The red-phase test itself could have run the gate locally and inspected its output** (baseline counts, skip counts) instead of just asserting the test syntax compiles.
-- **The `@lore` comment rationalizing the skip was wrong** and should have been questioned during review: "needs Router context" is not true for `Avatar`, `Button`, `EmptyState`, etc. which render fine in isolation. A more careful @lore review or a pre-commit lint against misleading comments could have caught this.
+### 1. **CC-001 recurrence: Lint baseline drift blocks every workpackage** (high severity)
+**Pattern:** The pre-existing Biome lint baseline (from #287 revert) would have remained a friction if the builder had not immediately fixed the Docker hack. The `vitest.config` changes introduced 2 new Biome errors. These were caught because the builder ran `npm run lint` before submitting — but the retro log shows lint-baseline drift is a recurring blocker (H1–H4, I4, J1–J3, J5–J6, L1, L9). **Recommendation:** Formalize a `lintBaseline` snapshot in `.pipeline/progress.json` (existing CONFIRMED candidate, CC-001). Mark AJ1 as an instance of drift management (managed + resolved).
 
-**Better process:** The red phase should have included a local run of `ds:sync` to spot-check coverage — not just test syntax validation. Or, the code review's vacuity-detection should be automated via a coverage regression guard (which round 2 added, but it was missing in round 1).
+### 2. **Spec-locking mechanism works; extend it to mechanism-pressure-testing** (high severity)
+**Pattern:** The dossier locked the approach decision with founder authority. The architect could not re-open it. However, critique still needs to pressure-test the locked mechanism against cross-cutting invariants — the original #287 passed critique without checking "does this violate the verify-must-be-local invariant?" **Recommendation:** Extend `/design-critique` and `/architecture-critique` skills to include a "cross-cutting invariants audit" step: read CLAUDE.md + the plan's "Hard constraints" section, then verify the locked approach does not violate any. This is not "reopen the approach" — it's "audit the chosen approach against invariants." Add to `compound-candidates.md` as a new candidate if it emerges in a third workpackage.
+
+### 3. **Builder mislabeling creates cascading review burden** (medium severity)
+**Pattern:** The builder claimed "pre-existing" without verification. The orchestrator had to verify against origin/main. If the builder had run `git diff --stat origin/main HEAD` and included it in the DoD report, the false claim would have been caught immediately. **Recommendation:** Add a "claim verification" step to `/ship` skill: any claim of "pre-existing" or "deferred from prior X" must be cited with `git diff --stat origin/main HEAD` or the specific commit/issue/retro-log entry. DoD treats all uncited claims as un-verified.
 
 ---
 
-### Cost Signal 2: Cross-platform baseline blessing error (AC4 regression, caught in review round 2, fixed in round 3)
+## Instance summary
 
-**What happened:** Builder blessed all 342 baselines on **macOS** (local machine), committing the Mac-rendered PNGs. When CI (Linux runner) ran the visual gate, 1 baseline failed with a dimension mismatch: `AI2/DialogPortalRoot` rendered 160px on Mac but 161px on Linux. The `maxDiffPixelRatio: 0.05` only covers per-pixel color diffs on same-size images; dimension mismatches bypass the tolerance entirely. CI was red.
-
-**Root cause:** The builder did not follow the plan's explicit instruction (plan §Canonical capture platform, lines 109-117):
-> "CI/Linux is the blessing authority. Baselines are Linux-rendered; local `verify` on a Mac tolerates the Linux baselines (and vice-versa)."  
-> "Commit to ONE canonical capture platform: CI/Linux is the blessing authority … Never commit Mac-rendered PNGs as canonical, and never raise the 5% ratio to absorb a platform delta."
-
-The plan also created `.claude/rules/visual-regression.md` with the same rule, and added explicit `@lore` comment to `playwright.config.ts` documenting the canonical platform.
-
-**Why it was missed:** The architecture plan's round-1 critique (WARNINGs section) flagged this exact risk as "the plan's own mitigation may force a choice between a red CI and a weakened gate" and recommended "commit to ONE canonical capture platform: CI/Linux is the blessing authority." The builder read the approved plan (round-2 critique has no disagreements on this section) but did not implement the mitigating step during Task 3 ("Bless initial baselines — on/for Linux").
-
-**Cost:** 1 full review round (round 2, discovering the failure) + 1 fix commit (64c40794 re-blessing on Linux) + 1 verification round (round 3, checking the Linux baselines). ~3-4h of work.
-
-**Avoidance opportunity:**
-- **The plan's language was explicit, not vague.** It said "never commit Mac-rendered PNGs as canonical" — unambiguous.
-- **But the plan was written by the designer, not the builder.** The builder may not have read the "Canonical capture platform" section in detail, or may have assumed "just bless locally" was simpler.
-- **A pre-commit checklist for Task 3 could have caught this:** "Baselines are named with their platform stamp or blessed in the CI container?"
-- **Or: The Task 3 verification requirement should have been runnable locally ("Docker run `mcr.microsoft.com/playwright:v...` && npm run ds:bless && check dimensions match CI")** rather than deferring to CI at Task 12.
-
-**Better process:** Task 3 should have included a mandatory pre-verify check: "Bless baselines on Linux (CI container or Docker image), commit them, then verify locally on Mac that the 5% ratio tolerates any sub-pixel drift on Mac." Deferring the validation to CI green at Task 12 was too late — the fix is commit-and-wait-for-CI at that point.
+| Phase | Cost | Notes |
+|---|---|---|
+| Planning | ~4h | Dossier (web-researched options) + architecture + critique. Tight plan (414 lines) prevented rework. |
+| Implementation | ~6h | 6 commits: docs (3), feat (1), fix (2). Determinism verified (3 runs). |
+| Review | ~3h | Code-review multi-lens (architecture, design, security, adversarial, slop, AC completeness). One DONE verdict. |
+| Revert saga overhead | ~8h | Original #287 shipped + reverted (PR #298) + redo started. Included cascade of gate-triage runs + builder re-diagnosis. |
+| **Total redo-phase** | **~21h** | Tight execution with clean outcome. Revert saga cost was sunk in original PR; this phase recovered cleanly. |
 
 ---
 
-### Cost Signal 3: Plan-to-execution deviation on the cross-platform risk (missed process signal)
+## Key signal: The original approach violated an invariant, not just the execution
 
-**Observation:** The architecture critique (Phase 2) **explicitly flagged the cross-platform risk as the highest and provided a mitigation** (canonical-platform decision). The approved plan reified this decision in the text. Yet the builder, who received and presumably read the approved plan, made the decision that introduced the exact risk the plan tried to mitigate.
+The distinction matters for `/compound`: the original #287 was not "shipped with bugs that needed fixing" — it was "shipped with a fundamentally wrong approach." The screenshot paradigm broke the local-verify invariant. **This is an architecture-level decision that critique+review did not catch.** They evaluated it against the spec ("provide visual regression") and assigned it a 9/10, but did not audit it against the system's non-functional invariants.
 
-**Why this matters:** It is not a technical surprise or an ambiguous spec. It is a process signal: even with an explicit, plan-level instruction on a flagged risk, execution deviated. This suggests:
-1. The plan's critical sections may not be read thoroughly by the builder (or read but not internalized).
-2. Or: The builder prioritized simplicity ("just bless locally") over the plan's canonical-platform constraint.
-3. Or: The builder expected "Task 12 validation" to catch it, unaware that CI-red forces a re-bless instead of a pass.
-
-**Better process:** Either (a) the builder should have a pre-task checklist that explicitly calls out each Phase-2-critique WARNINGs and how it is being handled, or (b) the plan's critical mitigations should be stated as executable checks (e.g., "before committing baselines, verify they have Linux timestamps" or "bless in Docker, not locally").
-
----
-
-## Concrete Process/Skill Improvement Candidates
-
-### Top 3 Candidates (for `/compound` pattern detection)
-
-1. **CC-001: Vacuous-gate anti-pattern — silent failure modes in gate assertions**
-   - **Pattern:** A test/gate that uses `if (condition) { console.warn(...); continue; }` to skip non-fatal cases is a silent-regression mode. The gate passes green even if 57% of the claimed coverage is missing.
-   - **Testable change:** The `/review` skill should have a linter rule: *"any gate or test with a 'skip/continue' path must have an explicit guard assertion (allowlist + floor test) that prevents silent growth."* Spot-check any visual/regression test with `continue` for an allowlist + guard.
-   - **Precedent:** This WP added CRITICAL fix (d2f66bd9) with deterministic wait + allowlist + coverage-floor guard — the right pattern. `visual-regression.test.ts:293-318` now has `ALLOWLIST_SIZE === 2` guard + `covered >= catalogCount - ALLOWLIST_SIZE` floor. Apply this pattern retroactively to any gate that skips.
-
-2. **CC-005: Plan-critical mitigations must have pre-task execution checklists**
-   - **Pattern:** A Phase-2 critique flags a risk (e.g., "cross-platform baseline drift is the highest risk"). Plan includes explicit mitigation. But builder, seeing the plan, does not execute the mitigation. Root: the mitigation is stated as a principle ("canonical platform is Linux") not as a testable, pre-task action ("before Task 3, confirm baselines are blessed in the Linux container").
-   - **Testable change:** The architecture plan's "Risks / blockers" section (line 243) or the ordered task list should include one-line checkpoints for each CRITICAL or top-3 WARNING. Example for this WP:
-     - Task 3 checkpoint: "Baselines blessed on Linux (CI container or `mcr.microsoft.com/playwright:v<version>`) — verify via file timestamps, commit the Linux PNGs."
-     - Task 3 gate before progress: "Run locally on Mac and confirm `ds:sync` tolerates the Linux baselines at ≤5%."
-   - **Precedent:** Round-2 code review explicitly called out the platform error as a "CRITICAL-2" blocker. The fix (re-blessing on Linux) solved it. Preventing the error would require the plan's Task 3 to state the checkpoint, not just the principle.
-
-3. **CC-008: E2E/visual verification discipline — no visual changes without pixel validation**
-   - **Pattern:** Recurring across this WP: visual verification is deferred or incomplete. E.g., `npm run ds:sync` was not run locally before submission. W2 WP notes "npm run ds:sync not run as part of verify … AC-4/AC-5 marked PASS but pixel diff never measured."
-   - **Testable change:** The `/verify` command (or pre-commit hook) should enforce: *"if any `.tsx` story file or component is modified, `npm run ds:sync` must pass locally before the branch is pushed."* Or: add `npm run ds:sync` to the verify chain as a mandatory step, not optional, when design-system changes are present.
-   - **Precedent:** This WP added `ds:sync` to the verify chain (root `package.json`). But on initial submission, the builder did not run verify fully. Enforce via hook or CLI gate.
-
----
-
-## Summary
-
-**Phases that went well:**
-- Concept (no-op, correct).
-- Critique (2 rounds, thorough, flagged real risks, approved plan was sound).
-- TDD red phase (test structure was correct, coverage guard added in round 2 fix).
-
-**Phases that cost cycles:**
-- Green phase (silent vacuous-gate shipped locally).
-- Review round 1 (vacuous-gate caught).
-- Review round 2 (cross-platform blessing error caught, required re-bless + round 3).
-
-**Cost avoidance themes:**
-1. Silent-skip patterns in gates need explicit allowlist + floor guards (not just `console.warn`).
-2. Plan-critical mitigations need pre-task execution checklists (not just principle-level statements).
-3. Visual regression verification needs to be mandatory in the verify chain (not deferred to CI).
-
-**Timeline efficiency:**
-- Total: ~22h active (6/14–6/15).
-- Design/concept: 0h (no-op).
-- Critique: 2h (2 rounds, fast parallel review).
-- Red/green: 6h (test + feat + 3 fix commits).
-- Review: 14h (3 rounds, vacuous-gate + cross-platform blessing + re-validation).
-
-The 3 fix commits (d2f66bd9, 64c40794, a16460e7) would have been avoidable with better pre-task discipline on the two cost signals. Review round count (3) is high because the cost signals were execution errors, not design errors — and review had to catch them.
-
+The redo worked because the founder locked the approach decision at the dossier stage (before critique). Critique then only had to verify the locked approach (vitest snapshots) against the invariants — which it did (local, no Docker, deterministic, fast). **Process lesson:** approach-locking by founder authority + mechanism-pressure-testing in critique is the pattern that prevents this class of failure.
