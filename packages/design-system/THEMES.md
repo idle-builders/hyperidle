@@ -59,7 +59,7 @@ Warm cream base (`#f5f0e6`), white elevated surfaces, forest green accent that r
 | `--status-info` | `#2e7dba` |
 | `--border-default` | `#d5cbb8` |
 
-**File:** `html/themes/hearth-light.css`
+**Token source:** `packages/design-system/src/tokens.css` (Hearth Light section)
 
 ---
 
@@ -87,7 +87,7 @@ Deep warm earth base (`#1a1510`), no cool grays anywhere. Dark mode accent (`#2e
 | `--status-info` | `#4498d4` |
 | `--border-default` | `#554a3c` |
 
-**File:** `html/themes/hearth-dark.css`
+**Token source:** `packages/design-system/src/tokens.css` (Hearth Dark section)
 
 ---
 

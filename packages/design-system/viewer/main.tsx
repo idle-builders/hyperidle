@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
 	discoverStories,
@@ -16,6 +16,11 @@ import "./viewer.css";
  *   symlinks; design-system has no runtime dep on @hyperidle/web. The
  *   workbench is a developer-only build target — it must NOT leak the web
  *   package into design-system's published exports.
+ *
+ * @lore AJ1: HTML mode removed. TSX is the single design source of truth.
+ *   The htmlGlobs / HTML_AVAILABLE_TITLES / isHtmlAvailable / RenderMode /
+ *   HtmlComponentView / HTML-TSX toolbar toggle were all removed here.
+ *   The viewer renders only live TSX stories. See plans/AJ1/architecture.md.
  */
 
 const dsStoryGlobs = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx", {
@@ -91,31 +96,6 @@ function useDensity(): [Density, (d: Density) => void] {
 	}, [density]);
 
 	return [density, setDensity];
-}
-
-/* ── HTML availability feature-detect ───────────────────────────────
- *
- * @lore K12: HTML mode is feature-detected via HEAD because Tier 3 shells
- *   and web composites have no .html reference; an empty iframe or 404
- *   isn't useful. The spec calls for a HEAD request, but Vite's dev server
- *   returns 200 with the SPA shell for any unmatched path (SPA fallback),
- *   so HEAD reports false-positive availability for every title. We instead
- *   build a set of available titles at build time via import.meta.glob
- *   over `../html/*.html` — the same source of truth Vite serves from
- *   `publicDir: "../html"`. This is the cheapest correct behavior.
- */
-
-const htmlGlobs = import.meta.glob("../html/*.html", { query: "?url" }) as Record<string, unknown>;
-const HTML_AVAILABLE_TITLES = new Set(
-	Object.keys(htmlGlobs).map((path) => {
-		const file = path.split("/").pop() ?? "";
-		return file.replace(/\.html$/, "");
-	}),
-);
-
-function isHtmlAvailable(title: string | null): boolean {
-	if (!title) return false;
-	return HTML_AVAILABLE_TITLES.has(title);
 }
 
 /* ── Content wrappers ──────────────────────────────────────────────
@@ -251,80 +231,14 @@ function TsxComponentView({ module }: { module: StoryModule }): React.JSX.Elemen
 	);
 }
 
-/* ── Component page (HTML mode — iframe) ─────────────────────────── */
-
-function HtmlComponentView({
-	name,
-	theme,
-	density,
-}: {
-	name: string;
-	theme: Theme;
-	density: Density;
-}): React.JSX.Element {
-	const iframeRef = useRef<HTMLIFrameElement>(null);
-
-	// Sync theme + density into iframe by setting data-theme/data-density on
-	// its <html> and toggling the theme switcher CSS files. We also hide the
-	// iframe's own theme switcher since the parent toolbar controls it.
-	useEffect(() => {
-		const iframe = iframeRef.current;
-		if (!iframe) return;
-		const trySync = (): void => {
-			try {
-				const doc = iframe.contentDocument;
-				if (!doc) return;
-				doc.documentElement.setAttribute("data-theme", theme);
-				doc.documentElement.setAttribute("data-density", density);
-				// Toggle the theme CSS files the _switcher.js created
-				for (const link of doc.querySelectorAll<HTMLLinkElement>("link[data-theme]")) {
-					link.disabled = link.dataset.theme !== theme;
-				}
-				// Hide the iframe's own theme switcher
-				const switcher = doc.getElementById("__theme-switcher");
-				if (switcher) switcher.style.display = "none";
-			} catch {
-				// cross-origin — can't access iframe content
-			}
-		};
-		iframe.addEventListener("load", trySync);
-		trySync();
-		return () => iframe.removeEventListener("load", trySync);
-	}, [theme, density]);
-
-	return (
-		<iframe
-			ref={iframeRef}
-			key={name}
-			src={`/${name}.html`}
-			title={`${name} — HTML`}
-			style={{
-				width: "100%",
-				height: "calc(100vh - 48px)",
-				border: "none",
-				background: "var(--surface-page)",
-				display: "block",
-			}}
-		/>
-	);
-}
-
 /* ── Toolbar ─────────────────────────────────────────────────────── */
 
-type RenderMode = "html" | "tsx";
-
 function Toolbar({
-	mode,
-	onModeChange,
-	showModeToggle,
 	theme,
 	onThemeChange,
 	density,
 	onDensityChange,
 }: {
-	mode: RenderMode;
-	onModeChange: (m: RenderMode) => void;
-	showModeToggle: boolean;
 	theme: Theme;
 	onThemeChange: (t: Theme) => void;
 	density: Density;
@@ -332,24 +246,6 @@ function Toolbar({
 }): React.JSX.Element {
 	return (
 		<div className="toolbar">
-			{showModeToggle && (
-				<div className="toolbar-pill">
-					<button
-						type="button"
-						className={`toolbar-btn ${mode === "html" ? "toolbar-btn--active" : ""}`}
-						onClick={() => onModeChange("html")}
-					>
-						HTML
-					</button>
-					<button
-						type="button"
-						className={`toolbar-btn ${mode === "tsx" ? "toolbar-btn--active" : ""}`}
-						onClick={() => onModeChange("tsx")}
-					>
-						TSX
-					</button>
-				</div>
-			)}
 			<div className="toolbar-pill">
 				<button
 					type="button"
@@ -401,41 +297,22 @@ function App(): React.JSX.Element {
 		[],
 	);
 	const [route, navigate] = useHashRoute();
-	const [mode, setMode] = useState<RenderMode>("html");
 	const [theme, setTheme] = useTheme();
 	const [density, setDensity] = useDensity();
 
 	const activeModule = modules.find((m) => m.title === route);
 	const isComponentPage = route !== "" && activeModule;
-	const htmlAvailable = isHtmlAvailable(activeModule ? activeModule.title : null);
-
-	// Force TSX mode when HTML isn't available for the active component.
-	useEffect(() => {
-		if (isComponentPage && !htmlAvailable && mode === "html") {
-			setMode("tsx");
-		}
-	}, [htmlAvailable, mode, isComponentPage]);
-
-	const showModeToggle = !!isComponentPage && htmlAvailable;
-	const effectiveMode: RenderMode = !htmlAvailable ? "tsx" : mode;
 
 	return (
 		<>
 			<Toolbar
-				mode={effectiveMode}
-				onModeChange={setMode}
-				showModeToggle={showModeToggle}
 				theme={theme}
 				onThemeChange={setTheme}
 				density={density}
 				onDensityChange={setDensity}
 			/>
 			{isComponentPage ? (
-				effectiveMode === "tsx" ? (
-					<TsxComponentView module={activeModule} />
-				) : (
-					<HtmlComponentView name={activeModule.title} theme={theme} density={density} />
-				)
+				<TsxComponentView module={activeModule} />
 			) : (
 				<Catalog modules={modules} onNavigate={navigate} />
 			)}
