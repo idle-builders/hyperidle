@@ -226,6 +226,8 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 
 Hand control back to the founder.
 
+**Note — running interactively:** The founder can run interactive mode (`PIPELINE_INTERACTIVE=1`, the canonical rule defined in `pipeline/SKILL.md` "## Run modes") when they intend to steer — `/concept` surfaces a post-lock recap with a confirm/redirect gate (run upstream, before the pipeline), and `/ship` surfaces a ship summary before merge (AJ2). This is a run-time opt-in, not a spec field. The recap is a `/concept` behavior (upstream of the pipeline), not a pipeline phase; no new spec-template field is needed here.
+
 ## Target
 
 $ARGUMENTS
