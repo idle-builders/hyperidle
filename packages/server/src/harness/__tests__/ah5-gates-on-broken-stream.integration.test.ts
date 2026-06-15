@@ -41,7 +41,7 @@ import type {
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 import { provisionSession } from "../../services/session-provisioning.js";
 import { test } from "../../test-fixtures.js";
 
@@ -201,7 +201,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 			maxConcurrent: 5,
 		});
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const fakeResolvedModel = {
 			provider: "openrouter" as const,
 			model: "deepseek/deepseek-chat-v3-0324:nitro",
@@ -215,7 +215,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 				taskId: TEST_TASK_ID,
 				agentId: TEST_AGENT_ID,
 				productId: TEST_TEAM_ID,
-				workspaceBasePath: "/tmp/ah5-gate-test",
+				sandboxBasePath: "/tmp/ah5-gate-test",
 				resolvedModel: fakeResolvedModel,
 			},
 		);
@@ -252,7 +252,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 			maxConcurrent: 5,
 		});
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const fakeResolvedModel = {
 			provider: "openrouter" as const,
 			model: "deepseek/deepseek-chat-v3-0324:nitro",
@@ -276,7 +276,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 				taskId: "ah5-gate-task-2",
 				agentId: TEST_AGENT_ID,
 				productId: TEST_TEAM_ID,
-				workspaceBasePath: "/tmp/ah5-gate-test-2",
+				sandboxBasePath: "/tmp/ah5-gate-test-2",
 				resolvedModel: fakeResolvedModel,
 			},
 		);
@@ -311,7 +311,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 			maxConcurrent: 5,
 		});
 
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 		const fakeResolvedModel = {
 			provider: "openrouter" as const,
 			model: "deepseek/deepseek-chat-v3-0324:nitro",
@@ -335,7 +335,7 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 				taskId: "ah5-gate-task-3",
 				agentId: TEST_AGENT_ID,
 				productId: TEST_TEAM_ID,
-				workspaceBasePath: "/tmp/ah5-gate-test-3",
+				sandboxBasePath: "/tmp/ah5-gate-test-3",
 				resolvedModel: fakeResolvedModel,
 			},
 		);

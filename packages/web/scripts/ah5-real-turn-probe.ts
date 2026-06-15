@@ -64,7 +64,7 @@ import {
 } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
 import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
-import { LocalWorkspaceAdapter } from "@hyperidle/server/harness/local-workspace-adapter";
+import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
 import {
 	encryptCredentialValue,
 	getServerSecret,
@@ -230,7 +230,7 @@ pool.register("ah5-probe-builtin", builtinAdapter, {
 	maxConcurrent: 1,
 });
 
-const workspace = new LocalWorkspaceAdapter();
+const workspace = new LocalSandboxAdapter();
 const eventBus = new EventBus();
 
 // ---------------------------------------------------------------------------
@@ -285,7 +285,7 @@ const result = await provisionSession(
 		taskId,
 		agentId,
 		productId: teamId,
-		workspaceBasePath: "/tmp/ah5-probe-workspaces",
+		sandboxBasePath: "/tmp/ah5-probe-workspaces",
 		resolvedModel,
 	},
 );

@@ -133,7 +133,7 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 // ---------------------------------------------------------------------------
 const handle = await createServer(AH5_API_PORT, {
 	db,
-	workspaceBasePath: "/tmp/ah5-e2e-workspaces",
+	sandboxBasePath: "/tmp/ah5-e2e-workspaces",
 });
 
 // 5. Signal readiness — playwright.ah5.config.ts waits for this line.
