@@ -233,7 +233,7 @@ Appetite uses **money + tokens, never duration**. Bets carry `costCapMinor`/`cos
 
 The Knowledge view is the company's wiki. Think Confluence, not Jira. The human searches, filters, selects, reads, edits, and **creates** knowledge items directly. Knowledge items can be authored at any of seven scopes: factory, product, practice, team, bet, task, or user-private. Both humans and agents contribute to the knowledge base — agents through their workspaces, humans through this view and the KnowledgeCreateDialog. Threads (§4.5) can be attached to knowledge items for discussion, and per-block discussion (§4.6) allows anchoring comments to specific sections.
 
-Both humans and agents also need to *find* knowledge items in this catalogue — the human through the Knowledge view UI, the agent through the materialization engine at session start. The access patterns are similar: browse by practice or product, filter by kind and status, search by keyword.
+Both humans and agents also need to *find* knowledge items in this catalogue — the human through the Knowledge view UI, the agent through the context assembly engine at session start. The access patterns are similar: browse by practice or product, filter by kind and status, search by keyword.
 
 It reads from and writes to the canonical `knowledge_items` store via the Knowledge Fabric (see KNOWLEDGE_ARCHITECTURE.md §4). It is not an approval gate — knowledge flows freely between teams without per-change human review. Knowledge is *async curation* that prevents AI-only drift.
 

@@ -38,7 +38,7 @@ const pkDraftTriagePfConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator reviewing draft knowledge items.
+			agentSystemPrompt: `You are a practice facilitator reviewing draft knowledge items.
 When a draft item is ready for community use (well-written, accurate, actionable), promote it to "active".
 Use promote_knowledge with toStatus="active" for items that pass your triage review.
 Provide a reason that explains why the item is ready for community access.`,
@@ -84,7 +84,7 @@ After promoting, document your triage decision in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -151,7 +151,7 @@ const pkPipelinePfDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator managing the DevOps knowledge pipeline.
+			agentSystemPrompt: `You are a practice facilitator managing the DevOps knowledge pipeline.
 When a captured knowledge item has been reviewed and meets quality standards, promote it to provisional.
 Use promote_knowledge with toStatus="provisional" for captured items that pass review.
 The provisional stage means the item is under consideration for the community knowledge base.`,
@@ -196,7 +196,7 @@ Document the promotion decision in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -244,7 +244,7 @@ const pkConflictBlockedPmHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager reviewing healthcare knowledge.
+			agentSystemPrompt: `You are a product manager reviewing healthcare knowledge.
 When you try to promote a knowledge item to "validated" and get a CONFLICT_OPEN error,
 it means an unresolved conflict exists on the item.
 Note this in session notes and do NOT retry the promotion.
@@ -298,7 +298,7 @@ When this happens:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -347,7 +347,7 @@ const pkArchiveCosMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
-			agentSoulPrompt: `You are a system agent responsible for knowledge quality.
+			agentSystemPrompt: `You are a system agent responsible for knowledge quality.
 When you identify stale or outdated knowledge that is no longer relevant, archive it.
 Use promote_knowledge with toStatus="archived" and provide a reason explaining why the item is outdated.
 Archiving keeps the knowledge base clean without permanently deleting history.`,
@@ -386,7 +386,7 @@ Document your archival decision in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

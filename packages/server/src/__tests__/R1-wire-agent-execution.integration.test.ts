@@ -45,7 +45,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
@@ -182,7 +182,7 @@ async function seedDomain(
 		updatedAt: NOW,
 	});
 
-	// Seed a knowledge item so materialize has something to write during provisioning.
+	// Seed a knowledge item so assembleContext has something to write during provisioning.
 	await db.insert(knowledgeItems).values({
 		id: "ki-r1",
 		title: "R1 Seed Principle",
@@ -200,12 +200,12 @@ async function seedDomain(
 
 describe("R1: Wire Agent Execution (route-level)", () => {
 	let tmpDir: string;
-	let workspaceAdapter: LocalWorkspaceAdapter;
+	let workspaceAdapter: LocalSandboxAdapter;
 
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-wire-tests-"));
-		workspaceAdapter = new LocalWorkspaceAdapter();
+		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
 	});
 
@@ -248,7 +248,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				// error here until the green phase adds them to AppOptions.
 				adapterPool: makePool(harness),
 				workspaceAdapter,
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 				credentialResolver: validResolver,
 			});
 
@@ -316,7 +316,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				adapterPool: makePool(harness),
 				workspaceAdapter,
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 				// NullCredentialResolver: resolve() always returns null.
 				credentialResolver: new NullCredentialResolver(),
 			});
@@ -371,7 +371,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				adapterPool: makePool(harness),
 				workspaceAdapter,
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 				credentialResolver: validResolver,
 			});
 
@@ -490,7 +490,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				adapterPool: makePool(harness),
 				workspaceAdapter,
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 				credentialResolver: validResolver,
 			});
 
@@ -530,7 +530,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				adapterPool: makePool(harness),
 				workspaceAdapter,
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 				credentialResolver: validResolver,
 			});
 

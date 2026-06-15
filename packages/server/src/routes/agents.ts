@@ -5,7 +5,7 @@
  * POST   /api/agents              — create new agent (founder-only)
  * PATCH  /api/agents/:id         — update agent config (founder-only)
  * DELETE /api/agents/:id         — soft-delete to "retired" (founder-only)
- * GET    /api/agents/templates/:role — fetch soul prompt template from factorySettings
+ * GET    /api/agents/templates/:role — fetch system prompt template from factorySettings
  *
  * @lore X3: Separate from /api/users because the self-edit guard on PATCH /api/users/:id
  * returns 403 when the authenticated user tries to edit another user. Agent management
@@ -21,7 +21,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, sessions, teamMembers, users } from "@hyperidle/db";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -48,7 +48,7 @@ const createAgentSchema = z.object({
 	name: z.string().min(1).max(200),
 	role: z.string().min(1).max(100),
 	agentCategory: z.enum(AGENT_CATEGORIES).optional(),
-	soulPrompt: z.string().max(50_000).nullable().optional(),
+	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
@@ -60,7 +60,7 @@ const createAgentSchema = z.object({
 const patchAgentSchema = z.object({
 	name: z.string().min(1).max(200).optional(),
 	role: z.string().min(1).max(100).optional(),
-	soulPrompt: z.string().max(50_000).nullable().optional(),
+	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
@@ -79,7 +79,7 @@ function buildPatchUpdateSet(data: PatchAgentData): Record<string, unknown> {
 	const updateSet: Record<string, unknown> = {};
 	if (data.name !== undefined) updateSet.name = data.name;
 	if (data.role !== undefined) updateSet.role = data.role;
-	if ("soulPrompt" in data) updateSet.soulPrompt = data.soulPrompt ?? null;
+	if ("systemPrompt" in data) updateSet.systemPrompt = data.systemPrompt ?? null;
 	if ("harnessType" in data) updateSet.harnessType = data.harnessType ?? null;
 	if ("modelTierPreference" in data)
 		updateSet.modelTierPreference = data.modelTierPreference ?? null;
@@ -184,7 +184,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 	// path prefix first.
 	router.get("/templates/:role", requireBoundary({ kind: "public-data" }), async (c) => {
 		const role = c.req.param("role");
-		const key = `soul_template:${role}`;
+		const key = `system_template:${role}`;
 
 		const [row] = await db
 			.select({ value: factorySettings.value })
@@ -221,7 +221,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			name: agent.name,
 			role: agent.role,
 			agentCategory: agent.agentCategory ?? null,
-			soulPrompt: agent.soulPrompt ?? null,
+			systemPrompt: agent.systemPrompt ?? null,
 			harnessType: agent.harnessType ?? null,
 			modelTierPreference: agent.modelTierPreference ?? null,
 			modelId: agent.modelId ?? null,
@@ -269,6 +269,19 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			return c.json(validationError, 422);
 		}
 
+		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
+		// rather than a FK constraint 500. teamId references team_members.id.
+		if (data.teamId) {
+			const [tmRow] = await db
+				.select({ id: teamMembers.id })
+				.from(teamMembers)
+				.where(eq(teamMembers.id, data.teamId))
+				.limit(1);
+			if (!tmRow) {
+				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
+			}
+		}
+
 		// Derive agentCategory: explicit field > catalog lookup > default "team"
 		const agentCatalogEntry = findRoleCatalogEntry(data.role);
 		const agentCategory = data.agentCategory ?? agentCatalogEntry?.category ?? "team";
@@ -283,7 +296,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			role: data.role,
 			agentCategory,
 			status: "active",
-			soulPrompt: data.soulPrompt ?? null,
+			systemPrompt: data.systemPrompt ?? null,
 			harnessType: effectiveHarnessType,
 			modelTierPreference: data.modelTierPreference ?? null,
 			modelId: effectiveModelId,
@@ -299,7 +312,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 				name: data.name,
 				role: data.role,
 				agentCategory,
-				soulPrompt: data.soulPrompt ?? null,
+				systemPrompt: data.systemPrompt ?? null,
 				harnessType: effectiveHarnessType,
 				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
@@ -386,7 +399,7 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			name: updated.name,
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
-			soulPrompt: updated.soulPrompt ?? null,
+			systemPrompt: updated.systemPrompt ?? null,
 			harnessType: updated.harnessType ?? null,
 			modelTierPreference: updated.modelTierPreference ?? null,
 			modelId: updated.modelId ?? null,

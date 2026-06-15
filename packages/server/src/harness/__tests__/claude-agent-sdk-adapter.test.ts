@@ -15,10 +15,10 @@ const KNOWN_MODELS = {
 } as const;
 
 const TEST_CONFIG: SessionConfig = {
-	workspacePath: "/workspace/test",
+	sandboxPath: "/workspace/test",
 	sessionId: "test-session",
-	soulPromptPath: "/workspace/prompts/builder.md",
-	composedPrompt: "",
+	systemPromptPath: "/workspace/prompts/builder.md",
+	assembledPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write", "Bash"],
 };

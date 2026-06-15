@@ -14,7 +14,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
 import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
-import { LocalWorkspaceAdapter } from "@hyperidle/server/harness/local-workspace-adapter";
+import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
 import { provisionSession } from "@hyperidle/server/services/session-provisioning";
 import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 import type { TriggerResult } from "./types.js";
@@ -24,14 +24,14 @@ export interface EvalProvisionDeps {
 	readonly eventBus: EventBus;
 	readonly resolvedModel: ResolvedModel;
 	readonly resolvedFastModel?: ResolvedModel;
-	readonly workspaceBasePath: string;
+	readonly sandboxBasePath: string;
 }
 
 /**
  * Run provisionSession for an eval scenario.
  *
  * Assembles AdapterPool (with BuiltinHarnessAdapter only),
- * LocalWorkspaceAdapter, and calls provisionSession directly.
+ * LocalSandboxAdapter, and calls provisionSession directly.
  * MCP bridge is omitted (optional in ProvisionSessionDeps).
  *
  * Returns the ProvisionSessionResult mapped to TriggerResult with wall-clock
@@ -53,7 +53,7 @@ export async function runEvalSession(
 		readonly teamId: string;
 	},
 ): Promise<TriggerResult> {
-	const workspace = new LocalWorkspaceAdapter();
+	const workspace = new LocalSandboxAdapter();
 	const pool = new AdapterPool();
 
 	// Register a BuiltinHarnessAdapter with maxIterations: 20 to limit eval cost.
@@ -83,7 +83,7 @@ export async function runEvalSession(
 			// ProvisionSessionParams.productId is the field name (kept for backward
 			// compat) but the value is always a teams.id (which IS the teamId).
 			productId: params.teamId,
-			workspaceBasePath: deps.workspaceBasePath,
+			sandboxBasePath: deps.sandboxBasePath,
 			resolvedModel: deps.resolvedModel,
 			resolvedFastModel: deps.resolvedFastModel,
 			// No cost cap during eval — cost is tracked but not capped.

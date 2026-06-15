@@ -36,7 +36,7 @@ const ltProgressTrackingBuilderLegal: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on legal contract analysis.
+			agentSystemPrompt: `You are a builder agent working on legal contract analysis.
 Your job is to review contracts and log your findings as you work.
 Use the log_task tool to document your progress at multiple points during the review.
 Log at least once mid-task and once when you complete major milestones.`,
@@ -78,7 +78,7 @@ Your logs should be specific and actionable, not generic.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -121,7 +121,7 @@ const ltMultiEntryBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing DevOps infrastructure.
+			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 Use log_task to document your work at multiple stages.
 You MUST call log_task at least twice: once after completing each phase.
 Each log entry should describe what was completed in that phase.`,
@@ -150,7 +150,7 @@ You must call log_task at least twice — once per phase.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -176,7 +176,7 @@ const ltDiscoveryPmConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager coordinating a consulting engagement.
+			agentSystemPrompt: `You are a product manager coordinating a consulting engagement.
 Your job is to coordinate stakeholders and document your findings.
 Use log_task to document coordination insights, stakeholder decisions, and open questions.
 Log your discoveries as you work through the coordination challenges.`,
@@ -201,7 +201,7 @@ Your log entries should reflect PM-level insights (stakeholder coordination, not
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

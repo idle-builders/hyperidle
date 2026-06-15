@@ -18,11 +18,12 @@
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import { type HyperIdleDb, orgEdges, teamMembers, teams, users } from "@hyperidle/db";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { upsertOrgEdge } from "../services/org-edges.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
@@ -131,35 +132,13 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			}
 		}
 
-		// Check if the exact tuple already exists using the composite unique index
-		// (from_user_id, mechanism, target) — avoids a full-table scan + JS filter.
-		// @lore P2 WARNING-ADV1: replaced the previous .all().find() JS-filter with a
-		// 3-column WHERE clause that hits the org_edges_unique composite index directly.
-		const [existing] = await db
-			.select()
-			.from(orgEdges)
-			.where(
-				and(
-					eq(orgEdges.fromUserId, fromUserId),
-					eq(orgEdges.mechanism, mechanism),
-					eq(orgEdges.target, target),
-				),
-			)
-			.limit(1);
-
-		if (existing) {
-			// Upsert: return existing edge with 200
-			return c.json(existing, 200);
-		}
-
-		// Create new edge
-		const id = crypto.randomUUID();
-		const createdAt = new Date().toISOString();
-
-		await db.insert(orgEdges).values({ id, fromUserId, mechanism, target, createdAt });
-
-		const [created] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);
-		return c.json(created, 201);
+		// Upsert via shared helper — idempotent on (from_user_id, mechanism, target).
+		// @lore AH4: Refactored from SELECT-then-INSERT to upsertOrgEdge (INSERT …
+		// ON CONFLICT DO NOTHING + re-select) for TOCTOU safety under concurrent pg Pool.
+		// The mechanism-specific target validation above is preserved; upsertOrgEdge
+		// trusts that the target has already been validated by the caller.
+		const { edge, created } = await upsertOrgEdge(db, { fromUserId, mechanism, target });
+		return c.json(edge, created ? 201 : 200);
 	});
 
 	// DELETE /edges/:id — delete an edge

@@ -7,8 +7,8 @@ Click the **Settings** button in the Sidebar to open Settings. Sections stack ve
 | **Profile** | Your name, email, avatar |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
-| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, soul prompt |
-| **Assistant** | Your personal AI assistant soul prompt and settings |
+| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, system prompt |
+| **Assistant** | Your personal AI assistant system prompt and settings |
 | **Appearance** | Theme (light / dark / system) |
 | **Credentials** | Desktop app: saved credentials and API keys |
 | **Notifications** | Per-type toggles, quiet hours |
@@ -26,6 +26,18 @@ The **Org chart** section shows reporting lines between humans in your team. You
 - **Delete an edge** — click the delete button on any row
 
 If you are the only human in the system, a guidance hint appears above the form. You can still add **Function** edges to describe your role before adding other humans.
+
+**Teams connect automatically.** When you create a team via Setup or the Teams page, a **Team** org edge is created automatically connecting you (the founder) to the new team. You do not need to add that edge manually.
+
+### Adding Agents
+
+In **Settings → Agents**, click **+ Add Agent** to create a new agent. The add form asks:
+
+- **Team** — which team this agent belongs to. Populated from your existing teams. Select a team before saving; the agent lands in that team immediately.
+- **Name** — the agent's display name
+- Other configuration (role, harness, model tier, max sessions)
+
+The **Team** field is required if you have existing teams. If no teams exist yet, run Setup first to create your initial team.
 
 ### Per-Agent Model and Harness
 

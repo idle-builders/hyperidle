@@ -2,9 +2,9 @@
 
 Concurrent edits are rare but possible. Two scenarios:
 
-**Agent vs. human:** A human edits a practice in the Knowledge view while an agent is in a session that materialized the same practice. The human's edit goes directly to SQLite (§4.1). When the agent next writes to that same practice file, the file watcher's writeback detects a version mismatch.
+**Agent vs. human:** A human edits a practice in the Knowledge view while an agent is in a session that assembled the same practice. The human's edit goes directly to SQLite (§4.1). When the agent next writes to that same practice file, the file watcher's writeback detects a version mismatch.
 
-**Agent vs. agent:** Two agents in concurrent sessions both materialized the same practice. Both propose edits. The first writeback succeeds. The second finds a version mismatch.
+**Agent vs. agent:** Two agents in concurrent sessions both assembled the same practice. Both propose edits. The first writeback succeeds. The second finds a version mismatch.
 
 ### 6.1 Resolution strategy: per-field LWW
 
@@ -61,7 +61,7 @@ Open conflicts surface in the relevant facilitator's queue with high attention s
 
 When conflicting guidance exists across layers, higher layers win: **L4 > L3 > L2 > L1.** A factory principle always overrides a practice recommendation. A practice recommendation overrides a product-level convention. Within L2, human-authored items (briefs, principles) carry more weight than agent-drafted items (decisions, task learnings), encoded via the `confidence` field.
 
-This matters at materialization time: when the Knowledge Fabric assembles the `session.toon` context pack, it can flag contradictions between layers and include the higher-layer item as authoritative. It also matters at promotion time: a proposed L3 practice that contradicts an existing L4 principle is flagged for human review rather than auto-promoted.
+This matters at context assembly time: when the Knowledge Fabric assembles the `session.toon` context pack, it can flag contradictions between layers and include the higher-layer item as authoritative. It also matters at promotion time: a proposed L3 practice that contradicts an existing L4 principle is flagged for human review rather than auto-promoted.
 
 ### 6.4 Edit log
 

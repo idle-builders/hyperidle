@@ -38,7 +38,7 @@ const taStandardAgentBuilderSales: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on a sales operations task.
+			agentSystemPrompt: `You are a builder agent working on a sales operations task.
 You have access to the standard tool set: write_memory, query_practice, write_session_notes, create_artifact,
 create_item, create_task, log_task, read_inbox, send_message, submit_review, handoff_to.
 Complete your task using only these tools. Do not attempt to use route_item, score_attention, or promote_knowledge.`,
@@ -63,7 +63,7 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -115,7 +115,7 @@ const taFacilitatorWorkflowPmConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager with facilitator-level access.
+			agentSystemPrompt: `You are a product manager with facilitator-level access.
 In addition to standard tools, you have access to: route_item, score_attention, promote_knowledge, create_conflict_review.
 Use your facilitator tools when appropriate for knowledge governance tasks.
 When reviewing knowledge, use promote_knowledge to move items through the pipeline.`,
@@ -151,7 +151,7 @@ After promoting the item, document your curation decision in session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -205,7 +205,7 @@ const taLayerEnforcementGrowthMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "growth",
-			agentSoulPrompt: `You are a growth agent specializing in marketing analytics.
+			agentSystemPrompt: `You are a growth agent specializing in marketing analytics.
 You can write knowledge using write_memory, but only at layers L0-L2.
 If you try to write at L3 or L4, the system will return FORBIDDEN.
 When that happens, self-correct by writing at L0 or L1 instead.
@@ -232,7 +232,7 @@ Document this experience in session notes — what you tried and what the restri
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -308,7 +308,7 @@ Document this experience in session notes — what you tried and what the restri
 //
 // @lore W12: This scenario uses a custom/unknown role ("custom_analyst") not in
 // the catalog. communityForRole("custom_analyst") returns "ops" (fallback).
-// findRoleCatalogEntry("custom_analyst") returns undefined. No soul prompt
+// findRoleCatalogEntry("custom_analyst") returns undefined. No system prompt
 // template exists. The agent should function with base tools and generic identity.
 // This tests the open-vocabulary role path that AB0 enabled.
 // ---------------------------------------------------------------------------
@@ -322,7 +322,7 @@ const taUnknownRoleFallback: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			// AB0: "custom_analyst" is not in the role catalog — tests fallback path.
 			// communityForRole returns "ops", findRoleCatalogEntry returns undefined.
-			// No soul prompt template — agent gets buildDefaultSoulPrompt generic text.
+			// No system prompt template — agent gets buildDefaultSystemPrompt generic text.
 			// UserRole is string so no cast needed; any string is valid.
 			agentRole: "custom_analyst",
 			taskTitle: "Analyze project status and document findings",
@@ -346,7 +346,7 @@ Use the tools available to you. Complete the task without attempting facilitator
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

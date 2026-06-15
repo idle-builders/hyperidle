@@ -288,6 +288,13 @@ export {
 // routine-session-reaper (AF6 §4)
 export type { ReapStaleRoutineSessionsOpts } from "./services/routine-session-reaper.js";
 export { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
+// sandbox-reaper (AF7 §6, renamed AK1)
+export type { SandboxReaperOptions } from "./services/sandbox-reaper.js";
+export {
+	reapSandboxesOnce,
+	SANDBOX_REAPER_INTERVAL_MS,
+	startSandboxReaper,
+} from "./services/sandbox-reaper.js";
 // session-review-creator
 export { registerSessionReviewCreator } from "./services/session-review-creator.js";
 // silence-policy
@@ -305,13 +312,6 @@ export {
 	getDispatchQueueSnapshot,
 	registerTaskDispatcher,
 } from "./services/task-dispatcher.js";
-// workspace-reaper (AF7 §6)
-export type { WorkspaceReaperOptions } from "./services/workspace-reaper.js";
-export {
-	reapWorkspacesOnce,
-	startWorkspaceReaper,
-	WORKSPACE_REAPER_INTERVAL_MS,
-} from "./services/workspace-reaper.js";
 
 // --- Strategy types (O1: moved from @hyperidle/shared) ---
 
@@ -337,6 +337,28 @@ export {
 	resolveConflict,
 	resolveConflictRecord,
 } from "./conflict-resolution.js";
+export type {
+	ContextAssemblyConfig,
+	ContextAssemblyResult,
+	Manifest,
+	ManifestEntry,
+} from "./context-assembly.js";
+export { assembleContext } from "./context-assembly.js";
+// context-assembly-prompt (X1 + AA2)
+export type {
+	PromptCompositionInput,
+	PromptCompositionResult,
+	RoutinePromptCompositionInput,
+	ToolSummary,
+} from "./context-assembly-prompt.js";
+export {
+	assemblePrompt,
+	assembleRoutinePrompt,
+	buildTemplateVariables,
+	stripFrontmatter,
+	substituteTemplateVars,
+	writeSandboxAgentsMd,
+} from "./context-assembly-prompt.js";
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
 export type { KnowledgeEventEmitterLike, KnowledgeItemUpdatedEvent } from "./events.js";
 export {
@@ -362,13 +384,6 @@ export {
 	update,
 } from "./knowledge-repository.js";
 export { isValidLayer, layerDepth } from "./layers.js";
-export type {
-	Manifest,
-	ManifestEntry,
-	MaterializationConfig,
-	MaterializationResult,
-} from "./materialization.js";
-export { materialize } from "./materialization.js";
 export { startPollingWatcher } from "./polling-watcher.js";
 export type {
 	AutoPromotionResult,
@@ -388,21 +403,6 @@ export {
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 } from "./promotion-pipeline.js";
-// prompt-composition (X1 + AA2)
-export type {
-	PromptCompositionInput,
-	PromptCompositionResult,
-	RoutinePromptCompositionInput,
-	ToolSummary,
-} from "./prompt-composition.js";
-export {
-	buildTemplateVariables,
-	composePrompt,
-	composeRoutinePrompt,
-	stripFrontmatter,
-	substituteTemplateVars,
-	writeWorkspaceCLAUDEmd,
-} from "./prompt-composition.js";
 export type {
 	RelevanceConfig,
 	RelevanceInput,

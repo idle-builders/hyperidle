@@ -400,7 +400,7 @@ See Hidden Gems section HG-4.
 **Test Coverage:** `KnowledgeTopicGroup.stories.tsx`, `knowledge-ia.spec.ts`
 
 **What works:** Items grouped by topic when `topicGroupId` is populated. KnowledgeTopicGroup component collapses/expands groups. Smooth interaction.
-**What's rough:** Topic groups only appear when fabric has run materialization — seed data may not trigger grouping, so most users see a flat list.
+**What's rough:** Topic groups only appear when fabric has run context assembly — seed data may not trigger grouping, so most users see a flat list.
 **Recommendation:** Add a tooltip or info chip: "Items are grouped by topic after AI curation" to explain why the list might be flat initially.
 
 #### Knowledge Search / Filter
@@ -475,7 +475,7 @@ See Hidden Gems section HG-2 and QW-7.
 **Test Coverage:** `CurationSuggestionCard.test.tsx`, `CurationSuggestionCard.stories.tsx`
 
 **What works:** Card shows a knowledge item with confidence score and "Accept" / "Reject" actions. Accepts/rejects via API. Clean design.
-**Why it's hidden:** Curation suggestions only appear after the knowledge fabric runs materialization and promotion pipeline. On a fresh install with seed data, no suggestions are generated. Users who never see the fabric run will never encounter this component.
+**Why it's hidden:** Curation suggestions only appear after the knowledge fabric runs context assembly and promotion pipeline. On a fresh install with seed data, no suggestions are generated. Users who never see the fabric run will never encounter this component.
 **Recommendation:** Add a "Suggested items" section to the Knowledge List (not just Detail) that shows top-scored suggestions globally. Also show a sample card in the onboarding tour.
 
 ---
@@ -689,7 +689,7 @@ See Hidden Gems section HG-7.
 **Discoverability:** 2 — settings section, non-obvious
 **Test Coverage:** `SettingsAgents.stories.tsx`, `X3-agent-config.spec.ts`, `settings.spec.ts`
 
-**What works:** Table of agents (Name, Role, Harness, Model Tier, Sessions, Actions). Inline edit form expands below selected agent. Add agent form with role selection + template soul prompt fetch. Two-click delete with 3-second auto-revert. Keyboard Escape closes forms.
+**What works:** Table of agents (Name, Role, Harness, Model Tier, Sessions, Actions). Inline edit form expands below selected agent. Add agent form with role selection + template system prompt fetch. Two-click delete with 3-second auto-revert. Keyboard Escape closes forms.
 **What's rough:** Section is not surfaced from the SETTINGS_SECTIONS public array — it is rendered but may not be linked from the settings nav by default.
 **Recommendation:** Verify that the Agents section appears in the settings nav for all user roles. Add to the public SETTINGS_SECTIONS array if missing.
 
@@ -783,7 +783,7 @@ These features have no direct UI but are callable via API and are foundational t
 **Category:** Launch-Ready
 **UI Path:** API-only: tools injected into agent prompts via harness
 **Discoverability:** 1
-**Test Coverage:** Various `skill-tools/__tests__/*.test.ts` files
+**Test Coverage:** Various `tools/__tests__/*.test.ts` files
 
 **What works:** 18+ skill tools (create-artifact, create-item, send-message, promote-knowledge, query-practice, etc.). Each validated through unit tests.
 **What's rough:** No UI listing available skill tools. Agents have no visibility into what tools they have been given.

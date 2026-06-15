@@ -330,7 +330,7 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 	// is available; a flag-set-but-prereq-missing case logs a warning and SKIPS
 	// (never throws, never registers a broken adapter).
 	//
-	// @lore Z8-050: DockerWorkspaceAdapter is a WorkspaceAdapter (workspace
+	// @lore Z8-050: DockerSandboxAdapter is a SandboxAdapter (workspace
 	// lifecycle), NOT a HarnessAdapter — it cannot live in this HarnessAdapter
 	// pool. It is selected via the workspace-adapter wiring in server-factory, not
 	// here. We document the flag (HYPERIDLE_ENABLE_DOCKER) at its construction site;

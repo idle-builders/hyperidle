@@ -114,7 +114,7 @@ export interface AgentConfig {
 	id: string;
 	name: string;
 	role: string;
-	soulPrompt: string | null;
+	systemPrompt: string | null;
 	harnessType: string | null;
 	modelTierPreference: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */

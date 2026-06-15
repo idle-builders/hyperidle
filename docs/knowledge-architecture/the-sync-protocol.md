@@ -1,12 +1,12 @@
 ## 5. The Sync Protocol
 
-Two phases: materialization at session start, then continuous writeback via file watcher throughout the session. No dependency on a session-end hook — knowledge flows back to the canonical store incrementally, as the agent works.
+Two phases: context assembly at session start, then continuous writeback via file watcher throughout the session. No dependency on a session-end hook — knowledge flows back to the canonical store incrementally, as the agent works.
 
-### 5.1 Materialization (session start)
+### 5.1 Context assembly (session start)
 
 ```
 Session provisioner calls Knowledge Fabric:
-  fabric.materialize(session_id, task, agent, product, role)
+  fabric.assemble context(session_id, task, agent, product, role)
 
 Knowledge Fabric:
   1. Queries knowledge_items for the relevant slice
@@ -27,7 +27,7 @@ A file watcher (e.g., `inotify` on Linux, `FSEvents` on macOS, or a polling fall
 File watcher detects change in knowledge/ or work/:
   1. Debounce: wait 500ms for additional writes to settle
   2. For knowledge/ changes:
-     a. Modified files → diff against materialized version
+     a. Modified files → diff against assembled version
      b. New files → new knowledge_items rows (status: CAPTURED)
      c. Deleted files → flag for facilitator review (not auto-deleted)
      d. For each changed item:
@@ -59,7 +59,7 @@ Because writeback is continuous, the final pass is a lightweight delta — usual
 
 ### 5.4 Why continuous sync
 
-The original design was session-boundary sync: materialize at start, write back at end. This had a critical fragility — it depended on a clean session-end hook that may never fire if the agent crashes, the container is killed, or the harness doesn't support pre-termination callbacks. With continuous sync: no data loss on crash; humans see progress in real time; no hoarding incentive; simpler harness adapter contract (the adapter doesn't need to guarantee a session-end callback).
+The original design was session-boundary sync: assemble context at start, write back at end. This had a critical fragility — it depended on a clean session-end hook that may never fire if the agent crashes, the container is killed, or the harness doesn't support pre-termination callbacks. With continuous sync: no data loss on crash; humans see progress in real time; no hoarding incentive; simpler harness adapter contract (the adapter doesn't need to guarantee a session-end callback).
 
 ### 5.5 Session notes and knowledge promotion
 

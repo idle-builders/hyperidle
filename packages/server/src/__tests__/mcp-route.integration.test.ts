@@ -29,7 +29,7 @@ import type {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import {
@@ -37,8 +37,8 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
-import { buildToolRegistry, type ToolContext } from "../skill-tools/tool-registry.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { buildToolRegistry, type ToolContext } from "../tools/tool-registry.js";
 
 // ---------------------------------------------------------------------------
 // Scripted mock harness (mirrors session-provisioning.test.ts pattern)
@@ -149,7 +149,7 @@ function baseParams(basePath: string): ProvisionSessionParams {
 		taskId: "task-1",
 		agentId: "agent-1",
 		productId: "p1",
-		workspaceBasePath: basePath,
+		sandboxBasePath: basePath,
 	};
 }
 
@@ -197,7 +197,7 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: bridgeRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
@@ -229,7 +229,7 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: bridgeRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
@@ -286,7 +286,7 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(new CapturingHarness()),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: bridgeRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
@@ -329,7 +329,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 		class McpJsonCapturingHarness implements HarnessAdapter {
 			async startSession(config: SessionConfig): Promise<SessionHandle> {
 				// Read .mcp.json at startSession time — it must exist by Phase 8
-				const mcpJsonPath = path.join(config.workspacePath, ".mcp.json");
+				const mcpJsonPath = path.join(config.sandboxPath, ".mcp.json");
 				if (fs.existsSync(mcpJsonPath)) {
 					mcpJsonContent = fs.readFileSync(mcpJsonPath, "utf-8");
 				}
@@ -363,7 +363,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(new McpJsonCapturingHarness()),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: bridgeRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
@@ -395,7 +395,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 
 		class TokenValidatingHarness implements HarnessAdapter {
 			async startSession(config: SessionConfig): Promise<SessionHandle> {
-				const mcpJsonPath = path.join(config.workspacePath, ".mcp.json");
+				const mcpJsonPath = path.join(config.sandboxPath, ".mcp.json");
 				if (fs.existsSync(mcpJsonPath)) {
 					const content = fs.readFileSync(mcpJsonPath, "utf-8");
 					const parsed = JSON.parse(content) as {
@@ -434,7 +434,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(new TokenValidatingHarness()),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: bridgeRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
@@ -453,11 +453,11 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 	}) => {
 		await seedDomain(db);
 
-		let workspacePath: string | undefined;
+		let sandboxPath: string | undefined;
 
 		class WorkspaceCapturingHarness implements HarnessAdapter {
 			async startSession(config: SessionConfig): Promise<SessionHandle> {
-				workspacePath = config.workspacePath;
+				sandboxPath = config.sandboxPath;
 				return { sessionId: "no-mcp-json-session" };
 			}
 
@@ -488,15 +488,15 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(new WorkspaceCapturingHarness()),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			// mcpBridgeRegistry intentionally omitted
 		};
 
 		await provisionSession(deps, baseParams(tmpDir));
 
 		// .mcp.json should NOT be written when registry is absent
-		if (workspacePath) {
-			const mcpJsonPath = path.join(workspacePath, ".mcp.json");
+		if (sandboxPath) {
+			const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
 			expect(fs.existsSync(mcpJsonPath)).toBe(false);
 		}
 	});
@@ -542,7 +542,7 @@ describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 		};
 
 		const result = await provisionSession(deps, baseParams(tmpDir));
@@ -577,7 +577,7 @@ describe("AC2: MCP route HTTP token routing", () => {
 			agentId: "a",
 			sessionId: "s",
 			taskId: "t",
-			workspacePath: os.tmpdir(),
+			sandboxPath: os.tmpdir(),
 			watcher: { stop: (): void => {} },
 		};
 		const toolRegistry = buildToolRegistry(ctx, { role: "builder" });
@@ -655,7 +655,7 @@ describe("Critique: bridge creation failure → graceful degradation", () => {
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspace: new LocalWorkspaceAdapter(),
+			workspace: new LocalSandboxAdapter(),
 			mcpBridgeRegistry: failingRegistry,
 			mcpBaseUrl: MCP_BASE_URL,
 		};
