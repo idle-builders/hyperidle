@@ -1,5 +1,41 @@
 # AI7 — Code Review (Phase 4)
 
+**Verdict: DONE.** (Re-review of fix commit `4222264f` + attestation `66ffbff8`, 2026-06-15.)
+
+The two Phase-4 blockers (F1 h1→h2 protected-test regression; F2 `work-team-page` testid relocation)
+are resolved correctly, without touching protected assertions, without forcing tests green, and without
+collateral. AC4 holds. The five other lenses remain clean. Original NOT-DONE record retained below.
+
+## Re-review verification (fix commit 4222264f)
+
+| Check | Result |
+|---|---|
+| All 5 originally-failing tests pass | YES — targeted run of `WorkProduct.test.tsx`, `WorkRoutine.AA1.test.tsx`, `WorkTeam.AG1.test.tsx`, `AI7-PageHeader.test.tsx`, `catalog-snapshot.test.tsx` → 5 files / 340 tests pass. |
+| Protected `level: 1` assertions UNCHANGED | YES — `WorkRoutine.AA1.test.tsx:118` (`level: 1, "Daily digest"`) and `WorkProduct.test.tsx:121` (`level: 1, "HyperIdle Core"`) both retain original `level: 1`. Neither file touched by `4222264f` or `e9292001` (last edited by AG4). They pass because PageHeader now defaults `level=1` → `<h1>`. Not edited to force green. |
+| Only the two protected assertions assert `level: 1` in web pkg | YES — `grep heading level: 1` returns exactly those two sites. |
+| No double-h1 collision in migrated pages | YES — `grep '<h1'` across WorkTeam/WorkRoutine/AgentProfile = NONE. PageHeader is the sole h1 on every migrated page. |
+| AgentProfile second-heading concern (designer amendment) | RESOLVED — AgentProfile renders **zero** literal heading elements and no `role="heading"`. The identity-block name was moved entirely INTO PageHeader title (lines 221/230: "Name/status live in PageHeader"). Not relegated to h2/h3 — removed as a heading. So the page carries exactly one h1 (PageHeader). The amendment's intent (no two competing h1s) is satisfied; no a11y regression. |
+| Snapshot re-bless legitimate | YES — `.snap` diff = 16 changed lines, all `<h1>`/`<h2>` open/close on 4 PageHeader variants (TitleOnly, LongTitleTruncates, WithBreadcrumbAndActions, WithSubtitle). Zero non-heading lines changed. Nothing silently blessed. |
+| F2 testid restored to scroll body | YES — `data-testid="work-team-page"` moved off scaffold root (`flex flex-col h-full`, now testid-free) back onto the `flex-1 overflow-y-auto` scroll body whose first child is the `max-w-[960px] mx-auto` column. AG1 197/206/213 green. `@lore` documents the placement contract. |
+| Attestation honest | YES — `status: passed`, `partial: false`, `smartSkipped: []`, tools `[test, test:integration]`, real exit recorded. Commit message drops the false "pre-existing" labeling and states 5742/5742, zero failures. `dirty: true` = the established pre-commit-attestation ordering (verify-attest runs the staged tree, then commits); CI re-runs fast lanes live. Tree clean (only untracked `.pipeline/progress/AI7.json`). |
+
+## Six lenses (re-pass on the fix)
+
+- **Architecture** — PASS. `level?: 1 | 2` default 1 matches the Phase-2 amendment (`e9292001`). `pageTitleClassName` stays the single visual source for both tags; only the DOM tag swaps (`TitleTag = level === 2 ? "h2" : "h1"`). Treatment is level-invariant, proven by the new `level={2}` class-parity test. Migration contract (testid on the same element as origin/main) restored.
+- **Design** — PASS. Visual treatment unchanged (20px/600/`tracking-[-0.01em]`/`truncate`/`min-w-0`); snapshot confirms class string identical across the tag swap.
+- **Security** — PASS / N/A. Presentational; no new surface.
+- **Adversarial** — PASS. No forced-green: protected assertions untouched, fix moved the implementation to meet them. No saboteur signal. No `any`/`!`/unsafe cast added. `TitleTag` capitalized-variable JSX pattern is correct React. `level: 1 | 2` is a closed union — no arbitrary level injection.
+- **Simplification** — PASS. The `level` prop is a 2-value union with a single ternary, not a generic heading-level machine. Minimal. No dead code.
+- **AI Slop** — PASS. The added `@lore` blocks (level rationale, F2 testid-placement contract) are load-bearing — they encode exactly the contract that broke in Phase 4. No filler. The third new test (`level={2}` class parity) is meaningful, not padding: it pins the level-invariance claim.
+
+## Remaining findings
+
+None blocking. Minor observation (not a defect): the `level` prop is currently unused by all 10 migrated pages (all default to h1). It exists as the reconciliation affordance for a future sub-page whose title is not the document top heading. Documented as such in the `@lore`. Acceptable — it is the smallest mechanism that resolves the F1 design/test conflict cleanly.
+
+---
+
+# ORIGINAL Phase-4 review (NOT DONE — retained for trail)
+
 **Verdict: NOT DONE.**
 
 AC4 (no regression) is violated. The builder's attestation claims "5 pre-existing test failures, zero
@@ -18,131 +54,4 @@ Proof method: copied each page file's `origin/main` version over the AI7 version
 | `WorkTeam.AG1.test.tsx:206` (`max-w-[960px]` on first child) | PASS | FAIL | same — `firstElementChild` is now `<header>`, not the `max-w` column |
 | `WorkTeam.AG1.test.tsx:213` (`mx-auto` on first child) | PASS | FAIL | same |
 
-## AC table
-
-| AC | Status | Evidence |
-|---|---|---|
-| AC1 — one title + one section treatment; no per-page forks; no undefined utility classes | PASS | `git grep -nE 'font-heading\|tracking-wider'` in `pages/` returns only one comment line in non-migrated `knowledge/KnowledgeCreateDialog.tsx` (AI2's file, a doc comment not a class). Primitives encode the one treatment; token form `tracking-[var(--tracking-caps-sm)]` used (not the literal). |
-| AC2 — one scroll rule on every page and every return branch | PASS (structure) | Every WorkTeam (5) / WorkRoutine (4) / AgentProfile (4) branch roots `flex flex-col h-full` + `shrink-0` PageHeader + `flex-1 overflow-y-auto` body. PageHeader carries `shrink-0`. |
-| AC3 — story-backed DS primitives; repeated class strings gone; new page composes the primitive | PASS | `PageHeader`/`SectionLabel` + `.stories.tsx` exist and export from `index.ts`; both gates fire as scoped (RuleTester proves both arms); KnowledgeCreate composes `pageTitleClassName` by reference. |
-| **AC4 — no regression to page content/actions/navigation** | **FAIL** | 5 tests pass on `origin/main`, fail on AI7 (table above). Builder's "pre-existing" claim is false. |
-| AC5 — cross-page consistency via the snapshot net | PASS | 8 new snapshot variants blessed; enumeration guard bumped 56→58 at both numeric sites + message template + test name + comments. |
-
-## Lens findings
-
-### Architecture — PASS
-- Human-interface layer only; no Meta/Agent reach. Matches the plan.
-- Prop interfaces match `architecture.md` § Type signatures exactly. `pageTitleClassName` exported and used by
-  the primitive's own `<h2>` (single source of truth).
-- WorkTeam migration respects the AG1 boundary: only the header strip + per-branch scaffold root changed; the
-  body sections (`team-burn-vs-cap`, `team-active-bets`, `team-routines`, `team-agents`) are preserved, just
-  re-indented inside the new scroll body. AI7 did **not** touch body composition. Good — except it relocated the
-  `work-team-page` testid (see Adversarial F2).
-
-### Design — PASS (with the h2 caveat under Adversarial F1)
-- TSX matches `design/approved.md`: 20px/600/`tracking-[-0.01em]` title, 13px/600/uppercase caps token section.
-- States present in stories (TitleOnly, WithBreadcrumbAndActions, WithSubtitle, LongTitleTruncates; Default,
-  WithTrailing, WithDivider, AsH2).
-- Tokens only — no hardcoded colors, on-grid spacing, `dsProps` markers present.
-- a11y: `truncate` + `min-w-0` keeps full title text in DOM; semantic `<header>` + heading elements.
-
-### Security — PASS / N/A
-Presentational-only. Slots take `ReactNode` (React-escaped). No `dangerouslySetInnerHTML`, no routes, no inputs,
-no secrets. Correct N/A across STRIDE.
-
-### Adversarial
-
-**F1 (BLOCKER, root cause of 2/5 failures) — PageHeader `<h2>` breaks two `level: 1` protected assertions.**
-`design/approved.md` deliberately chose h2 for the page title (sections nest at h3) — a sound *document-outline*
-decision in isolation. But on `origin/main` both WorkTeam (`WorkTeam.tsx:269`) and WorkRoutine (`WorkRoutine.tsx:196`)
-render the page title as `<h1>`, and two component tests assert `heading { level: 1 }`:
-- `WorkProduct.test.tsx:121` → `"HyperIdle Core"`
-- `WorkRoutine.AA1.test.tsx:118` → `"Daily digest"` — **explicitly listed in `architecture.md` `protectedTests`,
-  whose assertions "must NOT change."**
-
-AI7 shipped both red and mislabeled them pre-existing. Per AC4 + the protectedTests contract this is a regression.
-This is also a real document-outline question the plan never reconciled against these tests: switching the page
-title from h1→h2 means **no page has an h1** unless something else provides it. The design decision and the
-existing tests disagree, and that disagreement was never resolved — it was shipped as a "pre-existing failure."
-
-**F2 (BLOCKER, root cause of 3/5 failures) — `work-team-page` testid relocated, contradicting the migration contract.**
-`architecture.md` § Migrations (line ~159): *"Every page root keeps its `data-testid` … so existing
-component/e2e tests stay green."* On `origin/main`, `work-team-page` sits on the **scroll body**
-(`flex-1 overflow-y-auto`, `WorkTeam.tsx:111`) whose first child is the `max-w-[960px] mx-auto` column. AI7 moved
-the testid up to the new scaffold root (`flex flex-col h-full`, `WorkTeam.tsx:113`). Now:
-- `work-team-page.className` no longer contains `overflow-y-auto` → `WorkTeam.AG1.test.tsx:197` fails
-- its `firstElementChild` is the `<header>`, not the `max-w` column → `:206` + `:213` fail
-
-`WorkTeam.AG1.test.tsx` passes 35/35 on `origin/main`. These are AG1's `[RED]` tests for a feature AG1 hasn't
-built — but they were *green by accident* against the current DOM, and AI7 broke them. Two readings, both end at
-NOT DONE:
-1. If the AG1 `[RED]` tests are "naming a future surface" (MEMORY: tests may name unreachable surfaces), they
-   should have been red on `origin/main` already — they weren't, so AI7 caused a real DOM change under them.
-2. Either way AI7 changed which element carries `work-team-page` and what its first child is — a structural
-   regression the migration contract forbids.
-
-No saboteur/backdoor signals. No `any`/`!`/unsafe-cast in the primitives. The `rawNode as JSXAttribute` casts in
-the two rules match the established ESLint-visitor convention (precedent rules do the same with `biome-ignore`).
-
-### Simplification — PASS
-`SectionLabel`'s `[...].filter(Boolean).join(" ")` class assembly is idiomatic and warranted (conditional divider).
-No single-use helpers, dead code, or premature generics. The two-rule split (vs one mega-rule) is the ratified,
-precedent-matching choice.
-
-### AI Slop — PASS
-Comments are load-bearing `@lore` (the negative-em allowlist, the W1 identifier escape hatch, the h3-default
-rationale) — not filler. No "TODO: implement", no "simplified version", no defensive over-engineering. Naming is
-honest.
-
-## "Builder must preserve" list (Phase 2 re-critique §136) — all verified intact
-
-1. **warn-elsewhere config block** — `eslint.config.ts:206-224`, `no-undefined-font-heading: "warn"` on
-   `packages/web/src/**` outside pages. Present. `npm run lint:eslint` exits 0.
-2. **`tracking-wider` self-gate on `/pages/`** — `no-undefined-font-heading.ts:35,105` (`isInPages` +
-   `inPages && isHeading`). Present. (Implementation adds an extra `isHeading` gate — narrower than plan,
-   defensible; RuleTester covers it with `<h2>`/`<span>` cases.)
-3. **two-file `ignores`** — `eslint.config.ts:184-185` (SettingsPage, SetupFlow). Present.
-4. **literal-only collector + KnowledgeCreate negative case** — rules use
-   `collectClassStringsFromJSXAttribute`; `AI7-no-handrolled-page-header.test.ts:116` is the identifier-reference
-   negative case. Present.
-5. **every-branch scaffold rooting** — WorkTeam 5 / WorkRoutine 4 / AgentProfile 4 branches all root
-   `flex flex-col h-full`. Verified by grep. Present.
-
-## Other verification
-
-- `npm run check` — PASS (13 packages, 0 type errors).
-- `npm run lint` / `lint:eslint` — PASS (exit 0; only biome warnings/infos, no errors). The out-of-scope
-  `font-heading` files (ArtifactSection, TaskSheet, DesignSystem, …) warn-not-error under `--quiet` as designed.
-- WorkTeam body composition (AG1 sharedFile) — untouched; header + scaffold root only.
-- `mock-data-purge/inventory.*` change — benign (KnowledgeDetail line numbers shifted +2 by the added DS import;
-  regenerated correctly).
-
-## Required fixes for the builder
-
-1. **Resolve the h1→h2 / protected-test conflict (F1).** The design wants the page title at h2; two protected
-   tests assert h1. Pick one and make them consistent — do **not** ship red:
-   - Either keep PageHeader at h2 and update the two assertions (`WorkProduct.test.tsx:121`,
-     `WorkRoutine.AA1.test.tsx:118`) from `level: 1` → `level: 2`. But `WorkRoutine.AA1.test.tsx` is a
-     `protectedTests` entry — changing its level assertion needs an explicit, documented call that the heading
-     *level* is presentation (not behavior) and that no page should carry an h1; capture it as `@lore` and note
-     it in the review trail. Confirm no remaining surface relies on a page-level h1 (none found:
-     only these two tests assert `level: 1` across the web package).
-   - Or give PageHeader an `as`/`level` affordance so migrated pages keep h1 where a test/outline depends on it.
-   The decision must be reconciled, not deferred. The current state (shipped red, mislabeled pre-existing) is the
-   defect.
-
-2. **Restore the `work-team-page` testid contract (F2).** Per the migration contract, the testid must stay on the
-   element it identified on `origin/main` — the scroll body (`flex-1 overflow-y-auto`) whose first child is the
-   `max-w-[960px] mx-auto` column. Options:
-   - Keep the scaffold root as a bare `<div className="flex flex-col h-full">` (no testid) and put `work-team-page`
-     back on the inner `flex-1 overflow-y-auto` scroll body, with the `max-w` column as its first child — exactly
-     the origin DOM relationship the AG1 tests assert. (PageHeader is a sibling of the scroll body inside the
-     scaffold, so the testid relocation isn't required by the scaffold.)
-   - This restores all 3 `WorkTeam.AG1.test.tsx` assertions without touching AG1's tests.
-   Re-run `npx vitest run packages/web/src/__tests__/WorkTeam.AG1.test.tsx` → 35/35.
-
-3. **Re-run the full suite and re-attest honestly.** After 1+2, `npm run test` must be 5740/5740 (or whatever the
-   true zero-regression count is). The attestation message must not claim "pre-existing" for failures AI7 caused.
-
-After these, AC4 holds and AI7 is shippable — the rest of the implementation (primitives, gates, scaffold,
-snapshot net) is correct and matches the ratified plan.
+(Full original AC table + lens findings + required-fix instructions preserved in git history at `b5715072`.)
