@@ -22,12 +22,7 @@
  * the backend is configureServer-only (no transform/generateBundle).
  */
 
-import {
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveComponentTarget } from "./resolve-component.js";
 import type { AnnotationState, AnnotationTarget } from "./types.js";
 
@@ -95,7 +90,7 @@ export function AnnotationOverlay({
 	const noteCount = currentRoundData?.annotations.length ?? 0;
 
 	// ---- Outline helpers -------------------------------------------------
-	function applyHoverOutline(el: Element | null): void {
+	const applyHoverOutline = useCallback((el: Element | null): void => {
 		// Remove from previously hovered element
 		if (hoveredRef.current && hoveredRef.current !== el) {
 			(hoveredRef.current as HTMLElement).style.outline = "";
@@ -106,14 +101,19 @@ export function AnnotationOverlay({
 		} else {
 			hoveredRef.current = null;
 		}
-	}
+	}, []);
 
-	function clearHoverOutline(): void {
+	const clearHoverOutline = useCallback((): void => {
 		applyHoverOutline(null);
-	}
+	}, [applyHoverOutline]);
 
 	// ---- One-shot arm listeners -----------------------------------------
 	const listenerCleanupRef = useRef<(() => void) | null>(null);
+
+	const isOwnNode = useCallback((target: EventTarget | null): boolean => {
+		if (!(target instanceof Element)) return false;
+		return !!(pillRef.current?.contains(target) || popoverRef.current?.contains(target));
+	}, []);
 
 	const disarm = useCallback((): void => {
 		setArmed(false);
@@ -122,15 +122,7 @@ export function AnnotationOverlay({
 			listenerCleanupRef.current();
 			listenerCleanupRef.current = null;
 		}
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-	const isOwnNode = useCallback(
-		(target: EventTarget | null): boolean => {
-			if (!(target instanceof Element)) return false;
-			return !!(pillRef.current?.contains(target) || popoverRef.current?.contains(target));
-		},
-		[],
-	);
+	}, [clearHoverOutline]);
 
 	const arm = useCallback((): void => {
 		setArmed(true);
@@ -177,7 +169,7 @@ export function AnnotationOverlay({
 			storyRoot.removeEventListener("mousemove", handleMouseMove);
 			storyRoot.removeEventListener("click", handleCapturingClick, true);
 		};
-	}, [storyRoot, isOwnNode]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [storyRoot, isOwnNode, applyHoverOutline, clearHoverOutline]);
 
 	// Cleanup on unmount
 	useEffect(() => {
@@ -196,6 +188,30 @@ export function AnnotationOverlay({
 			}, 0);
 		}
 	}, [selected]);
+
+	// ---- Save --------------------------------------------------------------
+	const handleSave = useCallback(async (): Promise<void> => {
+		if (!selected || saving) return;
+		setSaving(true);
+		setError(null);
+		try {
+			const payload = { story, variant, note, target: selected };
+			const res = await fetch("/__annotations", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			if (!res.ok) throw new Error("Server error");
+			const data = (await res.json()) as { state: AnnotationState };
+			setState(data.state);
+			setSelected(null);
+			setNote("");
+		} catch {
+			setError("Couldn't save — the viewer middleware may be down. Retry?");
+		} finally {
+			setSaving(false);
+		}
+	}, [selected, saving, story, variant, note]);
 
 	// ---- Keyboard handler (Esc / Cmd+Enter) ----------------------------
 	useEffect(() => {
@@ -217,7 +233,7 @@ export function AnnotationOverlay({
 		};
 		document.addEventListener("keydown", onKey);
 		return () => document.removeEventListener("keydown", onKey);
-	}, [selected, armed, note, disarm]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [selected, armed, disarm, handleSave]);
 
 	// ---- Toggle arm --------------------------------------------------------
 	const toggleArm = (): void => {
@@ -225,30 +241,6 @@ export function AnnotationOverlay({
 			disarm();
 		} else {
 			arm();
-		}
-	};
-
-	// ---- Save --------------------------------------------------------------
-	const handleSave = async (): Promise<void> => {
-		if (!selected || saving) return;
-		setSaving(true);
-		setError(null);
-		try {
-			const payload = { story, variant, note, target: selected };
-			const res = await fetch("/__annotations", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			if (!res.ok) throw new Error("Server error");
-			const data = (await res.json()) as { state: AnnotationState };
-			setState(data.state);
-			setSelected(null);
-			setNote("");
-		} catch {
-			setError("Couldn't save — the viewer middleware may be down. Retry?");
-		} finally {
-			setSaving(false);
 		}
 	};
 
@@ -314,8 +306,7 @@ export function AnnotationOverlay({
 				<div ref={popoverRef} className="anno-popover" role="dialog" aria-modal="true">
 					{/* Target echo — verbatim including "unknown" or data-ds-only weak labels */}
 					<div className="anno-target" title={`${selected.component} · ${selected.element}`}>
-						<span className="anno-target-component">{selected.component}</span>
-						{" · "}
+						<span className="anno-target-component">{selected.component}</span> &middot;{" "}
 						<span className="anno-target-element">{selected.element}</span>
 					</div>
 
@@ -362,9 +353,7 @@ export function AnnotationOverlay({
 					<ul className="anno-list">
 						{currentRoundData.annotations.map((a) => (
 							<li key={a.id}>
-								<span className="anno-list-component">{a.target.component}</span>
-								{" — "}
-								{a.note}
+								<span className="anno-list-component">{a.target.component}</span> &mdash; {a.note}
 							</li>
 						))}
 					</ul>
