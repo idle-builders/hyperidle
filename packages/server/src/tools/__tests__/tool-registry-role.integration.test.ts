@@ -86,12 +86,13 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("B3: assistant registry includes all 20 tools (15 + 5 AE3 management tools)", ({ db }) => {
+	test("B3: assistant registry includes all 21 tools (15 + 5 AE3 management tools + 1 AK4 draft tool)", ({ db }) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
-		expect(names).toHaveLength(20);
+		// + 1 AK4 draft tool: edit_bet = 21
+		expect(names).toHaveLength(21);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}
