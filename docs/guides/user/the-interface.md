@@ -44,3 +44,19 @@ HyperIdle uses a consistent dismissal grammar across all overlays:
 - **Confirmation dialogs** (kill a bet, destructive actions) always close on Escape — they are never guarded, because confirming a destructive action is intentional and reversible via the cancel button.
 
 Overlay layers stack predictably: drawers (task sheets) sit below notification popovers, which sit below modal dialogs. Opening overlays in any order always produces the correct visual stack.
+
+## Assistant Overlay
+
+The **Assistant** button in the bottom-right corner opens your personal AI assistant chat overlay. The assistant responds inline as you type.
+
+**Setup notices** — If the assistant can't respond, it shows a guidance card explaining why:
+
+| Card | Meaning | Action |
+|---|---|---|
+| No API key yet | No Anthropic key is configured | Click **Settings → Credentials** to add your key |
+| Runtime not configured | No harness is selected for the assistant | Click **Open Agent settings** to pick a harness |
+| Couldn't reach the model | The provider returned a temporary error | Click **Retry** to try again |
+
+**Thinking indicator** — After you send a message, the overlay shows "Assistant is thinking…" while waiting for a reply. If the assistant hasn't responded after 2 minutes (a crash), the thinking indicator is replaced with a **Retry** button so you can re-send without waiting forever.
+
+**Customizing the assistant** — Go to **Settings → Assistant** to edit your assistant's persona instructions (soul prompt). Changes take effect on the next message.
