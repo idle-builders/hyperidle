@@ -104,7 +104,7 @@ This enforces "the Kernel imports no concrete Strategy" statically. Both `sessio
 
 ### What AK2 does NOT move (deferred to AK2b)
 
-Cost enforcement, prompt composition, and session-context DB reads (`cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`) are conceptually Kernel but **physically still live in `packages/fabric`**. The Kernel imports them directly — this is not banned by the AK2 guard (those symbols are not behind the port). Moving them out of `packages/fabric` into `packages/server` or a new `packages/kernel` is the scope of a follow-up workpackage (AK2b / kernel package extraction). The runtime seam is real; physical packaging is pending.
+Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`) are conceptually Kernel but **physically still live in `packages/fabric`**. The Kernel imports them directly — this is not banned by the AK2 guard (those symbols are not behind the port). Moving them out of `packages/fabric` into `packages/server` or a new `packages/kernel` is the scope of a follow-up workpackage (AK2b / kernel package extraction). The runtime seam is real; physical packaging is pending.
 
 ---
 
