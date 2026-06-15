@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -37,6 +37,7 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
@@ -145,9 +146,12 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "af10-prov-"));
 		clearDeduplicationCache();
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}

@@ -45,7 +45,7 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 		sessionId: "session-1",
 		taskId: "task-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-sendmsg-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

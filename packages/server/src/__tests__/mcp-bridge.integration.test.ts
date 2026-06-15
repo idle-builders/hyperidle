@@ -40,7 +40,7 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 		sessionId: "session-test",
 		taskId: "task-test",
 		sandboxPath: path.join(os.tmpdir(), `x2-bridge-test-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

@@ -22,13 +22,14 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
@@ -91,9 +92,12 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-integration-"));
 		clearDeduplicationCache();
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}

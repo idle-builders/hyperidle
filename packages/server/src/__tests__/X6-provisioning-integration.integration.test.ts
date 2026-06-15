@@ -24,6 +24,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
@@ -31,6 +32,7 @@ import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import * as llmClientModule from "../harness/llm-client.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ── Mock callLlm so the builtin harness loop doesn't make real LLM calls ─────
@@ -125,9 +127,12 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 			content: [{ type: "text" as const, text: "Task plan: I will complete this task now." }],
 			usage: { inputTokens: 100, outputTokens: 50 },
 		});
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		vi.restoreAllMocks();
 		if (fs.existsSync(sandboxBasePath)) {
 			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
