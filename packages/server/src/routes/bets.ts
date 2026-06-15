@@ -282,7 +282,7 @@ async function patchDescription(
 			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
 		};
 	}
-	return { ok: true, row: updated as unknown as Record<string, unknown> };
+	return { ok: true, row: updated as Record<string, unknown> };
 }
 
 type WireMoney = { minor: number; currency: string } | null;
@@ -346,7 +346,7 @@ async function patchCostAppetite(
 			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
 		};
 	}
-	return { ok: true, row: updated as unknown as Record<string, unknown> };
+	return { ok: true, row: updated as Record<string, unknown> };
 }
 
 /**

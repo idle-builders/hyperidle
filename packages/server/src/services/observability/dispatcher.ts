@@ -254,9 +254,9 @@ export function createObservabilityDispatcher(deps: DispatcherDeps): Observabili
 	}, deps.config.flushIntervalMs);
 	// @lore `unref` is a Node/Bun extension missing in browser-ish test
 	// runtimes; without it the interval keeps the process alive in CLI
-	// contexts.
-	const timerHandle = state.timer as unknown as { unref?: () => void };
-	if (typeof timerHandle.unref === "function") timerHandle.unref();
+	// contexts. NodeJS.Timeout (the type of ReturnType<typeof setInterval>
+	// in a Node context) already declares `.unref()` — no cast needed.
+	if (typeof state.timer?.unref === "function") state.timer.unref();
 
 	async function flush(): Promise<FlushOutcome> {
 		const outcome = await drain();
