@@ -50,6 +50,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 5. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
 6. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
 7. **Sizing fits the rule.**
+8. **Human-design-review forecast.** Estimate whether the WP introduces a **new essential / base / primitive component or a large redesign** → forecast `Yes`; otherwise `No`. Record it in the required **Human design review.** spec field (see template). This is an advisory forecast surfaced early so the founder sees which work will park — it does not gate; `/design`'s `DESIGN-CLASS` is authoritative at design time.
 
 ---
 
@@ -87,6 +88,8 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 **Depends on.** A bulleted list of workpackage IDs, or "None." For each declared dep, one sentence on *why this workpackage cannot start until that one is `done`*.
 
 **Complexity.** S | M | L — drives scheduler dispatch (see sizing rule).
+
+**Human design review.** Yes | No — `<one-line reason>`. **A required, highlighted field.** Forecast at planning time whether this workpackage will need founder design review: a **new essential / base / primitive component or a large redesign → Yes**; a routine tweak, a backend/infra/concept-only WP, or an extension of an existing component → No. This is an **advisory forecast**, NOT the trigger: the authoritative gate is `/design`'s `DESIGN-CLASS` at design time (a WP forecast `No` that `/design` later classifies `novel` still parks for review). The field exists so the founder sees up front which work will park. Example: `**Human design review.** Yes — introduces a new base list-primitive; its shape is what's being decided.` (This formalizes the convention TRACK-AJ already shows on every WP.)
 
 **Acceptance criteria.** A bulleted list of observable, testable statements — see "Writing Good ACs" below. These are the single source of truth flowing through all pipeline phases: `/concept` checks scope against them, `/design` produces variants for them, `/architecture` writes tasks to satisfy them, `/write-tests` produces one failing test per AC, `/write-code` makes those tests pass, and `/review` audits code against them.
 

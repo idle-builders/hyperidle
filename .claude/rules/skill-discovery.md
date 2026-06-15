@@ -6,6 +6,7 @@ Before responding to ANY implementation or review request, check if a skill shou
 
 **Individual skills** — domain knowledge loaded INTO an agent session. They define a specific act, not a step. They never launch agents.
 - `/concept`, `/design`, `/architecture` (designer — production)
+- `/human-design-review` (designer + founder — conditional stakes-gated phase after `/design-critique`; founder annotates the rendered variant in the browser, designer revises the TSX to approval. Novel `DESIGN-CLASS` only; a novel design in an autonomous run parks)
 - `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + 6 lenses + AC completeness)
 - `/write-tests`, `/write-code`, `/write-docs`, `/visual-polish` (builder)
 - `/ship` (builder — verify + attestation + PR)
@@ -28,6 +29,7 @@ User request arrives
     │
     ├── Is it about defining a primitive or domain concept? → /concept <story>
     ├── Is it about exploring UI/UX direction? ──→ /design <story>
+    ├── Is it about a founder annotating a rendered design variant? → /human-design-review <story>
     ├── Is it about producing the technical plan? → /architecture <story>
     ├── Is it about building a feature? ─────────→ /pipeline <story>
     ├── Is it about running multiple stories? ───→ /pipeline <target>

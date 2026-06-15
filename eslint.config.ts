@@ -656,4 +656,47 @@ export default [
 			"design/no-unknown-cast": "error",
 		},
 	},
+
+	// AJ3: the isolation harness (packages/web/src/preview/**) is a dev/story/test
+	// surface. It must NEVER reach a backend — importing @hyperidle/server or
+	// @hyperidle/db would defeat the no-backend contract that lets a design mount
+	// in the viewer/jsdom with no server, db, or real data. Static "must not
+	// import X" property → lint rule, not a test (CLAUDE.md). Shape copied from
+	// the __fixtures__ no-restricted-imports block.
+	//
+	// @lore AJ3: placed LAST in the config array on purpose. ESLint flat config
+	// REPLACES (does not merge) a rule's options when a later config object
+	// re-sets the same rule for overlapping files. Several broader
+	// `packages/web/src/**` blocks set `no-restricted-imports` (fixtures ban,
+	// api-typesafety server ban, format-time dead-import ban) — being last makes
+	// THIS block authoritative for preview/**, so it must re-state the full
+	// server+db ban itself rather than relying on any earlier block.
+	{
+		files: ["packages/web/src/preview/**/*.{ts,tsx}"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: [
+								"@hyperidle/server",
+								"@hyperidle/server/**",
+								"@hyperidle/db",
+								"@hyperidle/db/**",
+							],
+							message:
+								"AJ3: the isolation harness (preview/**) must not import a backend. The no-backend contract lets a design mount with no server/db/real data. Use fixtures + thin mock providers.",
+						},
+					],
+				},
+			],
+		},
+	},
 ];

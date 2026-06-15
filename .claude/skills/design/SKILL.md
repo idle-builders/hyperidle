@@ -151,8 +151,13 @@ Each variant produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
    - Mobile adaptation: how it maps to the three-tab mobile layout
    - The **signature** — the one thing that makes this variant unmistakably itself
    - Trade-offs: what this variant is bad at
-2. **`variant.tsx`** — a self-contained TSX sketch that **embodies** the variant. Renders in the design-system viewer at `:8098` (add a temporary story export in `packages/design-system/src/` or `packages/web/src/`). Uses design-system tokens and real data shapes from the workpackage, demonstrates the primary state. The TSX sketch IS the variant; describing motion in prose while the render uses default 200ms transitions = fail. (AJ1: TSX is the single design source of truth — HTML mockups are retired. AJ3 will introduce a first-class TSX variant-authoring workflow.)
-3. **`screenshot.png`** — Playwright screenshot of the TSX sketch rendered in the viewer at desktop width. (Run `npx playwright screenshot "http://localhost:8098/#<ComponentName>" screenshot.png --wait-for-timeout=2000`.)
+2. **The variant as a discoverable `.stories.tsx` story rendered in isolation.** Author the variant as a named story export the viewer discovers (in `packages/design-system/src/*.stories.tsx` for a DS primitive, or `packages/web/src/{shell,components}/*.stories.tsx` for a web surface). The story **embodies** the variant: design-system tokens, real data *shapes* from the workpackage, primary state shown. The TSX story IS the variant — describing motion in prose while the render uses default transitions = fail. **One story = prototype = annotation surface = (post-build) catalog entry** — no parallel mockup medium. (AJ1: TSX is the single design source of truth — HTML mockups are retired. AJ3: variants are first-class TSX stories rendered in isolation.)
+
+   **Render in isolation — no backend, no routing, no real data is ever required to show and annotate a design.**
+   - A **presentational** surface (props in, callbacks are noops — like `TaskSheet` / `GlobalSearchPanel` / every DS primitive) needs nothing extra: render it bare with fixture props.
+   - A **page-level / data-fed / context-consuming** surface (one that reaches for `useNavigate` / `useParams` / `useContext(AssistantContext)`) wraps its render in `<MockProviders>` from `packages/web/src/preview` plus an existing fixture under `packages/web/src/pages/__fixtures__/` or `packages/web/src/fixtures/`. `MockProviders` is the thinnest shim (a `MemoryRouter` + an `AssistantContext` default) that makes those hooks not throw — it never boots the real app, router config, or data layer.
+   - **Canonical example:** `packages/web/src/pages/WorkBetCreate.stories.tsx` mounts a full page-fed variant via `MockProviders route="/work/bet/new"`. Follow its shape for any page variant. Seed a new fixture only if the surface has no existing one — do not pre-build fixtures for surfaces you aren't rendering.
+3. **`screenshot.png`** — a screenshot of the story rendered in the viewer at desktop width, kept as a **looked-at artifact for the critique only** — explicitly NOT a regression baseline and never compared as an image diff. Regression is the **vitest DOM-snapshot net** (`.claude/rules/visual-regression.md`). (Dev convenience: `npx playwright screenshot "http://localhost:8098/#<StoryTitle>" screenshot.png --wait-for-timeout=2000`. The `<StoryTitle>` is the story module's `title`, which the viewer maps to its hash route.)
 
 The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
 
@@ -203,6 +208,8 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 `approved.md` is the **input contract** to `/architecture`. The architect does NOT re-decide visual hierarchy, component vocabulary, or interaction grammar.
 
+**After `/design-critique`, a `novel` `DESIGN-CLASS` triggers `/human-design-review`** — the founder opens the rendered variant in the viewer and annotates it element-by-element before the design is locked for build (pipeline Phase 2.5). `routine` / `routine-low-conf` proceed straight to build. The gate reads the `DESIGN-CLASS:` line emitted in Phase 0a — do not duplicate or re-derive it. See `/human-design-review`.
+
 ## Anti-patterns
 
 - Three flavors of one thing. Variants must differ on shape, not accent.
@@ -216,24 +223,24 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 ```
 plans/<workpackage-id>/design/
-├── brief.md                    # the interrogated brief
+├── brief.md                    # the interrogated brief (carries the DESIGN-CLASS line)
 ├── <variant-a-slug>/
 │   ├── spec.md
-│   ├── variant.tsx             # TSX sketch (AJ1: TSX is the design source of truth)
-│   └── screenshot.png
+│   └── screenshot.png          # looked-at artifact, NOT a regression baseline
 ├── <variant-b-slug>/
 │   ├── spec.md
-│   ├── variant.tsx
 │   └── screenshot.png
 ├── <variant-c-slug>/
 │   ├── spec.md
-│   ├── variant.tsx
 │   └── screenshot.png
 ├── comparison.md               # side-by-side table + screenshots
 ├── synthesis.md                # which variant wins, what gets pulled in, rejection list
 └── approved.md                 # the locked design — input to /architecture
 ```
 
+Each variant's embodiment is a discoverable `.stories.tsx` story (in `packages/design-system/src/` or `packages/web/src/{shell,components,pages}/`), NOT a `variant.tsx` file under `plans/`. The story is the single medium — prototype, annotation surface, and (post-build) catalog entry. The `screenshot.png` is a critique convenience; the DOM-snapshot net is the regression mechanism.
+
 
 - `/architecture` — consumes `approved.md` as fixed input; never re-litigates the visual contract; runs its own in-session architectural critique
-- `/visual-polish` — used later, AFTER implementation, to bring the rendered TSX to pixel parity with the approved mockup
+- `/human-design-review` — conditional phase after `/design-critique`; for a `novel` `DESIGN-CLASS` the founder annotates the rendered story in the viewer and the designer revises the TSX until approval (the approved story flows straight into build — no HTML→TSX rebuild)
+- `/visual-polish` — used later, AFTER implementation, to bring the rendered TSX to pixel parity with the approved design
