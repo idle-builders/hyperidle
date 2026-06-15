@@ -21,7 +21,7 @@
  * not a design-system custom component. It lives in packages/web/src/shell/.
  */
 
-import { ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
+import { BetCard, ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
 	AssistantNotice,
 	BlockRef,
@@ -32,9 +32,11 @@ import type {
 } from "@hyperidle/shared";
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/shared";
 import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { useAssistantThread } from "../hooks/useAssistantThread";
+import { useBet } from "../hooks/useBet.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 /**
@@ -82,6 +84,73 @@ function ToolCallRow({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element {
 }
 
 /**
+ * AK4 Task 6: Render a draft bet card below its toolCall row.
+ *
+ * When `toolCall.name` is `create_bet` or `edit_bet` and `status === 'ok'`,
+ * parse `betId` from `toolCall.output` JSON, fetch via `useBet`, and render:
+ *   - While loading: a skeleton placeholder (`data-testid="bet-draft-card-skeleton"`)
+ *   - On data: a `BetCard` with `onClick → navigate('/work/bets/:betId')`
+ *     (`data-testid="bet-draft-card"`)
+ *   - On error or status !== 'ok': nothing (ToolCallRow already shows the error)
+ *
+ * @lore AK4: betId is parsed from the already-structured `output` JSON (design-it-twice A1).
+ * The model CANNOT inject a betId — it is server-forced (CRITICAL-2 auth boundary).
+ * All bet cards point at the same server-bound betId regardless of which toolCall rendered it.
+ */
+function BetDraftCardForToolCall({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element | null {
+	const navigate = useNavigate();
+
+	// Only render for ok create_bet / edit_bet
+	const isDraftBetTool =
+		(toolCall.name === "create_bet" || toolCall.name === "edit_bet") && toolCall.status === "ok";
+
+	let betId: string | undefined;
+	if (isDraftBetTool) {
+		try {
+			const parsed = JSON.parse(toolCall.output) as { betId?: string };
+			betId = parsed.betId;
+		} catch {
+			// unparseable output — no card
+		}
+	}
+
+	// useBet is always called (hooks must not be conditional) but with undefined when not applicable
+	const { data, loading } = useBet(isDraftBetTool && betId ? betId : undefined);
+
+	if (!(isDraftBetTool && betId)) return null;
+
+	if (loading) {
+		return (
+			<div
+				data-testid="bet-draft-card-skeleton"
+				style={{
+					height: "80px",
+					borderRadius: "var(--r-subtle)",
+					background: "var(--surface-elevated)",
+					animation: "pulse 1.5s ease-in-out infinite",
+					marginTop: "6px",
+				}}
+			/>
+		);
+	}
+
+	if (!data) return null;
+
+	const capturedBetId = betId;
+	return (
+		<div data-testid="bet-draft-card" style={{ marginTop: "6px" }}>
+			<BetCard
+				title={data.title}
+				team={data.team ?? ""}
+				status={data.status}
+				description={data.description}
+				onClick={() => navigate(`/work/bets/${capturedBetId}`)}
+			/>
+		</div>
+	);
+}
+
+/**
  * AD8b B3.1: Render tool-call summary rows for a plain message.
  *
  * When a plain message has payload.toolCalls, renders tinted rows stacked
@@ -90,6 +159,9 @@ function ToolCallRow({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element {
  * @lore AD8b: Tool-call summaries are embedded on the assistant's plain
  * response message (not a separate message type). This keeps the thread
  * timeline clean while surfacing what the assistant actually did.
+ *
+ * @lore AK4: For `create_bet`/`edit_bet` ok toolCalls, `BetDraftCardForToolCall`
+ * renders a BetCard alongside the ToolCallRow. Error toolCalls show only the row.
  */
 function renderToolCallSummaries(message: Message): ReactNode {
 	if (message.type !== "plain") return null;
@@ -103,7 +175,10 @@ function renderToolCallSummaries(message: Message): ReactNode {
 		>
 			{payload.toolCalls.map((tc, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: tool calls in a message are ordered and stable
-				<ToolCallRow key={i} toolCall={tc} />
+				<div key={i}>
+					<ToolCallRow toolCall={tc} />
+					<BetDraftCardForToolCall toolCall={tc} />
+				</div>
 			))}
 		</div>
 	);

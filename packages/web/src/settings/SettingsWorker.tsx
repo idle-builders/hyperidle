@@ -15,6 +15,7 @@
  * to verify its imports.
  */
 
+import { Button, Input, StatusChip, Toggle } from "@hyperidle/design-system";
 import { type JSX, useEffect, useState } from "react";
 
 interface WorkerStatus {
@@ -48,23 +49,20 @@ const DEFAULT_STATUS: WorkerStatus = {
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
 /**
- * Status badge for the worker connection state.
- * Three states: connected (green), connecting (warning), disconnected (ghost).
+ * StatusChip for the worker connection state.
+ * Pinned color map (design §1.9):
+ * - connected → healthy (green): steady state
+ * - connecting → paused (blue/info): transitional, calmer than disconnected
+ * - disconnected → behind (amber): attention-needed, device should be connected
+ *
+ * @lore AG7: color=meaning: disconnected is amber (behind) NOT blue, connecting
+ * is blue (paused/in-progress). Never invert: transitional must read calmer than degraded.
  */
-function ConnectionBadge({ state }: { state: ConnectionState }): JSX.Element {
-	const badgeClass =
-		state === "connected"
-			? "badge-success"
-			: state === "connecting"
-				? "badge-warning"
-				: "badge-ghost";
+function ConnectionStatusChip({ state }: { state: ConnectionState }): JSX.Element {
+	const status = state === "connected" ? "healthy" : state === "connecting" ? "paused" : "behind";
 	const label =
 		state === "connected" ? "Connected" : state === "connecting" ? "Connecting" : "Disconnected";
-	return (
-		<span className={`badge badge-sm ${badgeClass}`} role="status">
-			{label}
-		</span>
-	);
+	return <StatusChip status={status} label={label} />;
 }
 
 /**
@@ -104,11 +102,11 @@ export function SettingsWorker(): JSX.Element {
 	// Non-electron: no bridge available
 	if (!electron) {
 		return (
-			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-secondary)]">
+			<div className="flex flex-col gap-[12px]">
+				<p className="text-[13px] text-[var(--text-secondary)]">
 					Worker mode requires the desktop app.
 				</p>
-				<p className="text-xs text-[var(--text-tertiary)]">
+				<p className="text-[12px] text-[var(--text-tertiary)]">
 					Install HyperIdle on your machine to register it as a worker.
 				</p>
 			</div>
@@ -118,11 +116,11 @@ export function SettingsWorker(): JSX.Element {
 	// Electron, but not in shared mode
 	if (!sharedMode) {
 		return (
-			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-secondary)]">
+			<div className="flex flex-col gap-[12px]">
+				<p className="text-[13px] text-[var(--text-secondary)]">
 					Worker mode is only available in shared backend mode.
 				</p>
-				<p className="text-xs text-[var(--text-tertiary)]">
+				<p className="text-[12px] text-[var(--text-tertiary)]">
 					Switch to a shared backend server to register this device as a worker.
 				</p>
 			</div>
@@ -155,44 +153,36 @@ export function SettingsWorker(): JSX.Element {
 	};
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-[18px]">
 			{/* Toggle */}
-			<div className="flex items-center gap-3">
-				<label className="flex items-center gap-2 cursor-pointer">
-					<input
-						type="checkbox"
-						className="toggle toggle-sm"
-						checked={status.enabled}
-						onChange={() => void handleToggle()}
-						aria-label="Register this device as a worker"
-					/>
-					<span className="text-sm text-[var(--text-secondary)]">
-						Register this device as a worker
-					</span>
-				</label>
-			</div>
+			<Toggle
+				on={status.enabled}
+				label="Register this device as a worker"
+				onChange={() => void handleToggle()}
+			/>
 
 			{/* Max concurrent sessions */}
-			<div className="flex items-center gap-3">
-				<span className="text-sm text-[var(--text-secondary)]">Max concurrent sessions</span>
-				<input
-					type="number"
-					className="input input-xs input-bordered w-16"
-					min={1}
-					max={8}
-					value={maxConcurrent}
-					onChange={(e) => setMaxConcurrent(Number(e.target.value))}
-					aria-label="Max concurrent sessions"
-				/>
+			<div className="flex items-center gap-[12px]">
+				<span className="text-[13px] text-[var(--text-secondary)]">Max concurrent sessions</span>
+				<div className="w-[88px]">
+					<Input
+						type="number"
+						min={1}
+						max={8}
+						value={String(maxConcurrent)}
+						onChange={(e) => setMaxConcurrent(Number(e.target.value))}
+						aria-label="Max concurrent sessions"
+					/>
+				</div>
 			</div>
 
 			{/* Status section — only shown when enabled */}
 			{status.enabled && (
-				<div className="flex flex-col gap-3 border-t border-base-300 pt-3">
+				<div className="flex flex-col gap-[12px] border-t border-[var(--border-subtle)] pt-[12px]">
 					{/* Connection status */}
-					<div className="flex items-center gap-3">
-						<span className="text-sm text-[var(--text-secondary)]">Status</span>
-						<ConnectionBadge
+					<div className="flex items-center gap-[12px]">
+						<span className="text-[13px] text-[var(--text-secondary)]">Status</span>
+						<ConnectionStatusChip
 							state={
 								status.connected ? "connected" : status.enabled ? "connecting" : "disconnected"
 							}
@@ -200,33 +190,33 @@ export function SettingsWorker(): JSX.Element {
 					</div>
 
 					{/* Active sessions */}
-					<div className="flex items-center gap-3">
-						<span className="text-sm text-[var(--text-secondary)]">Active sessions</span>
-						<span className="text-sm font-mono text-[var(--text-primary)]">
+					<div className="flex items-center gap-[12px]">
+						<span className="text-[13px] text-[var(--text-secondary)]">Active sessions</span>
+						<span className="text-[13px] font-mono text-[var(--text-primary)]">
 							{status.activeSessions} / {status.maxConcurrent}
 						</span>
 					</div>
 
 					{/* Pause / Resume */}
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-[9px]">
 						{status.paused ? (
-							<button
-								type="button"
-								className="btn btn-ghost btn-sm"
+							<Button
+								variant="ghost"
+								size="sm"
 								onClick={() => void handleResume()}
 								aria-label="Resume worker"
 							>
 								Resume
-							</button>
+							</Button>
 						) : (
-							<button
-								type="button"
-								className="btn btn-ghost btn-sm"
+							<Button
+								variant="ghost"
+								size="sm"
 								onClick={() => void handlePause()}
 								aria-label="Pause worker"
 							>
 								Pause
-							</button>
+							</Button>
 						)}
 					</div>
 				</div>
