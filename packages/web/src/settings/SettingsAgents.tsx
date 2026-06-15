@@ -24,7 +24,7 @@
  * input removed — unregistered harnesses are rejected by the API anyway.
  */
 
-import { Select } from "@hyperidle/design-system";
+import { Input, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, MODEL_CATALOG } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -486,20 +486,21 @@ export function SettingsAgents(): JSX.Element {
 					</div>
 				</div>
 
-				<div className="form-control">
-					<label className="label" htmlFor={`edit-system-prompt-${agentId}`}>
-						<span className="label-text text-[var(--text-secondary)]">System prompt</span>
-					</label>
-					<textarea
-						id={`edit-system-prompt-${agentId}`}
-						className="textarea textarea-bordered text-sm"
-						rows={8}
-						value={values.systemPrompt}
-						onChange={(e) => setValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-						placeholder="System prompt text (optional). Leave empty for no persona."
-						aria-label="System prompt"
-					/>
-				</div>
+				{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
+				<Input
+					id={`edit-system-prompt-${agentId}`}
+					label="System prompt"
+					textarea
+					rows={8}
+					value={values.systemPrompt}
+					onChange={(e) =>
+						setValues((prev) => ({
+							...prev,
+							systemPrompt: e.target.value,
+						}))
+					}
+					placeholder="System prompt text (optional). Leave empty for no persona."
+				/>
 
 				{/* AH2 DESIGN-1: Inline 422 error above Save/Cancel */}
 				{error && (
@@ -547,81 +548,85 @@ export function SettingsAgents(): JSX.Element {
 						</tr>
 					</thead>
 					<tbody>
-						{agents.map((agent) => {
-							// AH2: Check if agent's harnessType is in the registry
-							const harnessUnavailable =
-								agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
-							return (
-								<Fragment key={agent.id}>
-									<tr>
-										<td className="text-sm">
-											{agent.name}
-											{/* AH2: StatusChip warning for unavailable harness */}
-											{harnessUnavailable && (
-												<span className="ml-2 badge badge-sm badge-warning text-[10px]">
-													Harness unavailable
-												</span>
-											)}
-										</td>
-										<td className="text-sm">
-											<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
-										</td>
-										<td className="text-sm font-mono text-[var(--text-secondary)]">
-											{agent.harnessType ?? "Default"}
-										</td>
-										<td className="text-sm font-mono text-[var(--text-secondary)]">
-											{agent.modelId ?? "Default"}
-										</td>
-										<td className="text-sm tabular-nums">{agent.activeSessions}</td>
-										<td>
-											<div className="flex gap-1">
-												<button
-													type="button"
-													className="btn btn-ghost btn-xs"
-													onClick={() => handleEditOpen(agent)}
-													aria-label={`Edit ${agent.name}`}
-												>
-													Edit
-												</button>
-												{confirmingDeleteId === agent.id ? (
-													<button
-														type="button"
-														className="btn btn-ghost btn-xs text-error"
-														onClick={() => handleDeleteConfirm(agent.id)}
-													>
-														Confirm?
-													</button>
-												) : (
-													<button
-														type="button"
-														className="btn btn-ghost btn-xs text-error"
-														onClick={() => handleDeleteFirstClick(agent.id)}
-														aria-label={`Delete ${agent.name}`}
-													>
-														Delete
-													</button>
-												)}
-											</div>
-										</td>
-									</tr>
-									{editingId === agent.id && editValues && (
-										<tr key={`${agent.id}-edit`}>
-											<td colSpan={6}>
-												{renderEditForm(
-													editValues,
-													(fn) => setEditValues((prev) => (prev ? fn(prev) : prev)),
-													editError,
-													handleEditSave,
-													handleEditCancel,
-													saving,
-													agent.id,
+						{/* AH3: Filter out assistant agents (role==="assistant") — the assistant persona is
+						    managed in Settings → Assistant, not here. Prevents accidental dual-editing. */}
+						{agents
+							.filter((a) => a.role !== "assistant")
+							.map((agent) => {
+								// AH2: Check if agent's harnessType is in the registry
+								const harnessUnavailable =
+									agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
+								return (
+									<Fragment key={agent.id}>
+										<tr data-agent-role={agent.role}>
+											<td className="text-sm">
+												{agent.name}
+												{/* AH2: StatusChip warning for unavailable harness */}
+												{harnessUnavailable && (
+													<span className="ml-2 badge badge-sm badge-warning text-[10px]">
+														Harness unavailable
+													</span>
 												)}
 											</td>
+											<td className="text-sm">
+												<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
+											</td>
+											<td className="text-sm font-mono text-[var(--text-secondary)]">
+												{agent.harnessType ?? "Default"}
+											</td>
+											<td className="text-sm font-mono text-[var(--text-secondary)]">
+												{agent.modelId ?? "Default"}
+											</td>
+											<td className="text-sm tabular-nums">{agent.activeSessions}</td>
+											<td>
+												<div className="flex gap-1">
+													<button
+														type="button"
+														className="btn btn-ghost btn-xs"
+														onClick={() => handleEditOpen(agent)}
+														aria-label={`Edit ${agent.name}`}
+													>
+														Edit
+													</button>
+													{confirmingDeleteId === agent.id ? (
+														<button
+															type="button"
+															className="btn btn-ghost btn-xs text-error"
+															onClick={() => handleDeleteConfirm(agent.id)}
+														>
+															Confirm?
+														</button>
+													) : (
+														<button
+															type="button"
+															className="btn btn-ghost btn-xs text-error"
+															onClick={() => handleDeleteFirstClick(agent.id)}
+															aria-label={`Delete ${agent.name}`}
+														>
+															Delete
+														</button>
+													)}
+												</div>
+											</td>
 										</tr>
-									)}
-								</Fragment>
-							);
-						})}
+										{editingId === agent.id && editValues && (
+											<tr key={`${agent.id}-edit`}>
+												<td colSpan={6}>
+													{renderEditForm(
+														editValues,
+														(fn) => setEditValues((prev) => (prev ? fn(prev) : prev)),
+														editError,
+														handleEditSave,
+														handleEditCancel,
+														saving,
+														agent.id,
+													)}
+												</td>
+											</tr>
+										)}
+									</Fragment>
+								);
+							})}
 					</tbody>
 				</table>
 			)}
@@ -745,20 +750,21 @@ export function SettingsAgents(): JSX.Element {
 						</div>
 					</div>
 
-					<div className="form-control">
-						<label className="label" htmlFor="add-agent-system-prompt">
-							<span className="label-text text-[var(--text-secondary)]">System prompt</span>
-						</label>
-						<textarea
-							id="add-agent-system-prompt"
-							className="textarea textarea-bordered text-sm"
-							rows={8}
-							value={addValues.systemPrompt}
-							onChange={(e) => setAddValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-							placeholder="System prompt text (optional). Changes with role selection."
-							aria-label="System prompt"
-						/>
-					</div>
+					{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
+					<Input
+						id="add-agent-system-prompt"
+						label="System prompt"
+						textarea
+						rows={8}
+						value={addValues.systemPrompt}
+						onChange={(e) =>
+							setAddValues((prev) => ({
+								...prev,
+								systemPrompt: e.target.value,
+							}))
+						}
+						placeholder="System prompt text (optional). Changes with role selection."
+					/>
 
 					{/* AH2 DESIGN-1: Inline 422 error for add form */}
 					{addError && (

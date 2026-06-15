@@ -149,6 +149,23 @@ export interface ToolCallSummary {
 	readonly status: "ok" | "error";
 }
 
+/**
+ * AH3: Assistant notice discriminator. Extends PlainPayload with an optional
+ * field so error/guidance messages share the same message type as normal chat
+ * but render with special styling keyed on notice.kind.
+ *
+ * @lore AH3 §design-it-twice §B: New `assistant_notice` MessageType was rejected
+ * because it would touch the message zod schema, all renderers, and the AF4
+ * payload-drift lore — wide blast radius for three notice states. Optional field
+ * on PlainPayload keeps the blast radius minimal; the overlay branches on
+ * `payload.notice?.kind`.
+ */
+export interface AssistantNotice {
+	readonly kind: "missing_key" | "missing_harness" | "provider_error";
+	/** Non-sensitive provider code (e.g. "rate_limited"). Allowlisted — never raw error.message. */
+	readonly code?: string;
+}
+
 export interface PlainPayload {
 	readonly text: string;
 	readonly refs?: ReadonlyArray<InlineRef>;
@@ -158,6 +175,15 @@ export interface PlainPayload {
 	 * instead post a review message (not a plain message with toolCalls).
 	 */
 	readonly toolCalls?: ReadonlyArray<ToolCallSummary>;
+	/**
+	 * AH3: Optional notice discriminator for assistant error/guidance messages.
+	 * When present, the overlay renders the message as a guidance card with an
+	 * action affordance instead of a normal chat bubble.
+	 *
+	 * @lore AH3: notice is always absent on normal assistant replies. Its presence
+	 * is the signal to switch from chat rendering to error-state rendering.
+	 */
+	readonly notice?: AssistantNotice;
 }
 
 export interface ReviewPayload {

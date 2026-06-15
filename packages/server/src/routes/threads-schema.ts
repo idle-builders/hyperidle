@@ -98,15 +98,33 @@ const toolCallSummarySchema = z.object({
 });
 
 /**
+ * AH3: Assistant notice schema — mirrors AssistantNotice in @hyperidle/shared.
+ *
+ * @lore AH3 H2: This schema MUST be present on the READ path (plainPayloadSchemaWithToolCalls).
+ * Zod strips unknown keys by default; without this field the `notice` written by
+ * persistTurnFailure is silently dropped on DB read-back, making the overlay's
+ * noticeMessages filter find nothing. Same class of bug as AD8b's toolCalls addition.
+ */
+const assistantNoticeSchema = z.object({
+	kind: z.enum(["missing_key", "missing_harness", "provider_error"]),
+	code: z.string().optional(),
+});
+
+/**
  * AD8b: Plain payload with optional tool-call metadata attached by the assistant.
  * Extends plainPayloadSchema with an optional `toolCalls` array.
+ * AH3: Also extends with optional `notice` so assistant notice messages survive DB read-back.
  *
  * @lore AD8b: Low/medium-risk assistant tool results are embedded as toolCalls
  * on the plain message payload. High-risk tools post a review message instead
  * and never appear as toolCalls on a plain message.
+ * @lore AH3 H2: `notice` is server-authored only; clients never send it. Adding it to
+ * the READ schema (this schema) is the required fix — the WRITE schema (plainPayloadSchema /
+ * messageInputSchema) intentionally omits it to reject client-supplied notices.
  */
 export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
 	toolCalls: z.array(toolCallSummarySchema).optional(),
+	notice: assistantNoticeSchema.optional(),
 });
 
 const reviewPayloadSchema = z.object({

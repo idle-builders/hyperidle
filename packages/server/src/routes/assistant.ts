@@ -18,6 +18,8 @@
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
+	DEFAULT_AGENT_MODEL_ID,
+	DEFAULT_AGENT_MODEL_PROVIDER,
 	type EventBus,
 	type HostKind,
 	type Message,
@@ -26,6 +28,16 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
+
+/**
+ * AH3: Default system prompt for lazy-created assistant agents.
+ * @lore AH3 N2: Lazy-create paths must also set harness/model/systemPrompt defaults
+ * to match what registration creates. Without this, a test user seeded directly
+ * into the DB (bypassing registration) would get a null-harness assistant agent.
+ */
+const BUILTIN_ASSISTANT_SYSTEM_PROMPT =
+	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
+
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -287,6 +299,8 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		if (!agentRow) {
 			const now = new Date().toISOString();
+			// @lore AH3 N2: Lazy-create sets harness/model/systemPrompt defaults.
+			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 			await db.insert(users).values({
 				id: assistantAgentId,
 				kind: "ai",
@@ -294,6 +308,10 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				role: "assistant",
 				agentCategory: "individual",
 				status: "active",
+				harnessType: "builtin",
+				modelId: DEFAULT_AGENT_MODEL_ID,
+				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
+				systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
@@ -310,6 +328,9 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		return c.json({
 			id: agentRow.id,
 			name: agentRow.name,
+			harnessType: agentRow.harnessType ?? null,
+			modelId: agentRow.modelId ?? null,
+			modelProvider: agentRow.modelProvider ?? null,
 			systemPrompt: agentRow.systemPrompt ?? null,
 		});
 	});
@@ -372,6 +393,8 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		if (!agentRow) {
 			const now = new Date().toISOString();
+			// @lore AH3 N2: Lazy-create (PATCH path) also sets defaults.
+			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 			await db.insert(users).values({
 				id: assistantAgentId,
 				kind: "ai",
@@ -379,6 +402,10 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				role: "assistant",
 				agentCategory: "individual",
 				status: "active",
+				harnessType: "builtin",
+				modelId: DEFAULT_AGENT_MODEL_ID,
+				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
+				systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});

@@ -12,6 +12,7 @@
 import type { Message, Thread } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
+import { getWsClient } from "../services/ws-client.js";
 
 export interface AssistantThreadData {
 	thread: Thread;
@@ -109,6 +110,29 @@ export function useAssistantThread(): AssistantThreadState {
 	const refresh = useCallback((): void => {
 		setTick((n) => n + 1);
 	}, []);
+
+	// AH3: Subscribe to per-thread WS channel so assistant replies appear
+	// without manual reload. Mirrors useThreadDetail.ts WS subscription pattern.
+	// @lore AH3: WS is unavailable in JSDOM — mocked in test-setup.ts.
+	// Thread ID is available only after the first fetch succeeds (data?.thread.id).
+	useEffect(() => {
+		const threadId = data?.thread.id;
+		if (!threadId) return;
+		const ws = getWsClient();
+		const unsubscribe = ws.subscribe(`thread:${threadId}`, (payload) => {
+			if (typeof payload !== "object" || payload === null) return;
+			const msg = payload as Record<string, unknown>;
+			if (
+				msg.threadId === threadId &&
+				(msg.type === "thread_message_appended" ||
+					msg.type === "thread_resolved" ||
+					msg.type === "thread_reopened")
+			) {
+				setTick((n) => n + 1);
+			}
+		});
+		return unsubscribe;
+	}, [data?.thread.id]);
 
 	return { status, data, error, retry, refresh };
 }

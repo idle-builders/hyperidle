@@ -344,8 +344,9 @@ export type {
 	ManifestEntry,
 } from "./context-assembly.js";
 export { assembleContext } from "./context-assembly.js";
-// context-assembly-prompt (X1 + AA2)
+// context-assembly-prompt (X1 + AA2 + AH3)
 export type {
+	AssistantPromptResult,
 	PromptCompositionInput,
 	PromptCompositionResult,
 	RoutinePromptCompositionInput,
@@ -355,6 +356,7 @@ export {
 	assemblePrompt,
 	assembleRoutinePrompt,
 	buildTemplateVariables,
+	composeAssistantPrompt,
 	stripFrontmatter,
 	substituteTemplateVars,
 	writeSandboxAgentsMd,
