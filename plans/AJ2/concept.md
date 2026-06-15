@@ -22,8 +22,9 @@ This workpackage introduces no product primitive. It introduces three load-beari
 **Identity.** Interactive mode is an **opt-in run mode of `/pipeline`** that adds founder touchpoints at the two expensive-to-get-wrong moments (after `/concept` locks, before the human merge). It is a single boolean signal read once at the start of a pipeline run. It is a *mode of running*, not a new phase, not a new persona, not a new artifact.
 
 **Essential properties.**
-- **Off by default.** Absence of the signal = autonomous mode = today's behavior, byte-for-byte in committed output.
-- **Read once, threaded down.** The orchestrator reads it at run start and passes it to exactly the two touchpoint dispatches. Sub-skills do not re-derive it from the environment independently of the orchestrator's decision.
+- **Off by default — one canonical truthiness rule.** The signal is the env var `PIPELINE_INTERACTIVE`. **Interactive mode is on iff the value is exactly the literal string `1`; every other value — unset, empty, `0`, `true`, anything else — is autonomous.** This rule is stated once canonically (in `pipeline/SKILL.md` and, because `/concept` runs upstream standalone, a byte-identical second copy in `concept/SKILL.md`); every other touchpoint references it rather than re-deriving its own check. Autonomous mode = today's behavior, byte-for-byte in committed output.
+- **Two touchpoints, two homes.** Interactive mode governs the **ship summary** (in-pipeline, in `/ship`) and — via the same env var read by `/concept` upstream — the **concept recap** (upstream-of-pipeline, in `/concept`). The pipeline only threads the ship touchpoint; the recap is reached during the founder's standalone `/concept` run before the pipeline is invoked.
+- **Read once per consumer, never re-derived.** `/pipeline` reads it once at run start and threads the ship touchpoint; `/concept` reads it itself when run upstream; both apply the single canonical rule. No consumer invents its own truthiness check.
 - **Additive-only.** Enabling it adds two human gates; it removes nothing, reorders nothing, and changes no committed artifact.
 - **Per-run, not per-machine.** It is a property of one invocation, not persistent config.
 
@@ -35,9 +36,9 @@ This workpackage introduces no product primitive. It introduces three load-beari
 
 **Composition.** Interactive mode carries one signal (the env var). It governs two touchpoints: the **concept recap** (Noun 2) and the **ship summary** (Noun 3). It composes with `PIPELINE_AB_MODE` orthogonally.
 
-**Lifecycle.** Read once at pipeline start → held for the run → consulted at the two touchpoint sites → discarded at run end. No persisted state.
+**Lifecycle.** Read by `/concept` at the upstream recap moment; read once at pipeline start for the ship touchpoint → held for the run → consulted at the ship summary site → discarded at run end. No persisted state. (The recap touchpoint fires before the pipeline run even begins.)
 
-**Authority.** The founder sets it (by exporting the env var before invoking `/pipeline`). The orchestrator reads it and owns threading it to the touchpoints. No sub-skill flips it.
+**Authority.** The founder sets it (by exporting the env var before running `/concept` and `/pipeline`). `/concept` reads it directly for the upstream recap; the orchestrator reads it and owns threading it to the **ship** touchpoint. No sub-skill flips it. Both consumers apply the single canonical truthiness rule.
 
 **Contracts.**
 - **Cardinality:** one signal per run, governing exactly two touchpoints.
@@ -51,7 +52,7 @@ This workpackage introduces no product primitive. It introduces three load-beari
 
 **Classification:** New process noun (a human-readable gate output). NOT an artifact file.
 
-**Identity.** The concept recap is a **plain-language, chat-surfaced account of what `/concept` just locked**, presented to the founder for a confirm-or-redirect decision *after the concept locks and before design/architecture proceed*. It is prose in the conversation, derived from the already-written `concept.md` — a translation of the locked concept into a founder-readable summary plus a decision gate.
+**Identity.** The concept recap is a **plain-language, chat-surfaced account of what `/concept` just locked**, presented to the founder for a confirm-or-redirect decision *at the end of the `/concept` run, before the founder hands the locked concept to the pipeline*. It is prose in the conversation, derived from the already-written `concept.md` — a translation of the locked concept into a founder-readable summary plus a decision gate. It lives **inside `/concept`**, which the founder runs upstream — the pipeline does NOT run `/concept` (`pipeline/SKILL.md` lines 42–46), so the recap is upstream-of-pipeline, never a pipeline phase.
 
 **Essential properties.**
 - **Derived, not authored.** It restates the locked `concept.md` (Phase 5 fields) in plain language. It introduces no new decisions of its own; it surfaces decisions already made.
@@ -67,7 +68,7 @@ This workpackage introduces no product primitive. It introduces three load-beari
 
 **Composition.** Reads from the locked `concept.md`. Emits one `AskUserQuestion` with two options (confirm / redirect). Redirect re-enters concept work; confirm releases the pipeline to `/design`/`/architecture`.
 
-**Lifecycle.** `/concept` locks the doc → (if interactive) recap is emitted → founder confirms or redirects → confirm: proceed to next phase; redirect: return to concept work, do NOT proceed. In autonomous mode this lifecycle collapses to "lock → proceed."
+**Lifecycle.** `/concept` locks the doc → (if interactive) recap is emitted → founder confirms or redirects → confirm: `/concept` returns, founder invokes the pipeline on the confirmed concept; redirect: return to concept work, re-emit recap, do NOT release for the pipeline. **The redirect loop is bounded at 3 rounds** — after a 3rd redirect without confirm, the concept is marked `blocked: concept-contested` and is not released to the pipeline (mirrors the pipeline's universal max-3 loop discipline). In autonomous mode this lifecycle collapses to "lock → proceed."
 
 **Authority.** `/concept` emits the recap (it owns the locked concept). The founder owns the verdict. The orchestrator gates phase progression on the verdict.
 
@@ -75,7 +76,8 @@ This workpackage introduces no product primitive. It introduces three load-beari
 - **Cardinality:** one recap per `/concept` lock, in interactive mode only.
 - **Fires:** after `/concept` locks (after Phase 6 self-critique, doc committed), before `/design`/`/architecture` proceed.
 - **Hard rule:** the recap and its gate change nothing about the committed concept doc. Confirm/redirect controls *progression*, not *content* — redirect re-runs concept work to produce a new locked doc; it does not hand-edit the recap.
-- **Redirect semantics:** "redirect" = "the locked concept is wrong, go back" — it returns control to concept work and does NOT let downstream phases proceed on the rejected concept.
+- **Redirect semantics:** "redirect" = "the locked concept is wrong, go back" — it returns control to concept work and does NOT release the concept to the pipeline on the rejected concept.
+- **Bounded redirect (max 3):** the confirm/redirect loop is capped at 3 redirect rounds, like every other pipeline loop. After the 3rd redirect without a confirm, the concept is marked `blocked: concept-contested` (sibling to the pipeline's `concept-or-spec-misalignment`) and is not released. The founder retains the final say, but the loop terminates deterministically — an unbounded human-gated loop would be a hole in this gate's own closure contract.
 
 ---
 
@@ -88,6 +90,7 @@ This workpackage introduces no product primitive. It introduces three load-beari
 **Essential properties.**
 - **Five content beats:** (1) what shipped — one-paragraph plain-English description; (2) which ACs were covered; (3) which files changed; (4) the retro cost signal (from Phase 6 retro); (5) residual risk — anything the founder should weigh before merging.
 - **Distinct from CI status.** CI-green says "the gates passed." The ship summary says "here is *what* passed and what it means." Both are present; the summary does not replace the CI check.
+- **No-fabricate fallback.** The retro template does not guarantee a named "cost signal" or "residual risk" field. When a beat's source is absent, the summary states **"not recorded"** — it never estimates, infers, or invents a value. A fabricated cost or invented risk is worse than an honest "not recorded": it misleads the merge decision the summary exists to inform.
 - **Pre-merge, post-CI-green.** It fires after `/ship` confirms CI green (step 7) and before the human merges (step 8). The merge still waits for the human — the summary informs that wait, it does not automate it.
 - **Ephemeral.** Chat prose. Not a committed file. Sourced from existing artifacts; maintains no new on-disk state.
 
@@ -130,8 +133,10 @@ This workpackage introduces no product primitive. It introduces three load-beari
 3. **The recap and summary are chat prose, not artifact files.** No new on-disk files for the pipeline to maintain. They are derived views of existing artifacts.
 4. **The cron/autonomous path never blocks on a touchpoint.** No `AskUserQuestion` is emitted when the signal is absent. A/B mode stays autonomous (no interactive touchpoints).
 5. **CI-green before merge stays mandatory; the human still merges.** The ship summary informs the existing human-merge wait; it does not automate it.
-6. **The recap's redirect returns to concept work; it does not proceed.** Confirm/redirect gates *progression*, not concept-doc content.
-7. **AJ2 must not pre-empt AJ3.** AJ2's touchpoints are opt-in/presence-style and additive; AJ3's design review is stakes-gated and can *park* an autonomous run. They are different mechanisms — AJ2 introduces no parking and no stakes gate.
+6. **The recap's redirect returns to concept work; it does not proceed.** Confirm/redirect gates *progression*, not concept-doc content. **The redirect loop is bounded at 3 rounds**; after 3, the concept is `blocked: concept-contested` and is not released to the pipeline.
+7. **The recap lives in `/concept`, upstream of the pipeline.** The pipeline does not run `/concept` (lines 42–46), so the recap is NOT a pipeline phase — it fires at the end of the founder's standalone `/concept` run. Only the ship summary is a pipeline-owned touchpoint.
+8. **One canonical `PIPELINE_INTERACTIVE` rule.** Interactive iff value == `1`; every other value autonomous. Stated once, referenced everywhere; no consumer re-derives its own truthiness check.
+9. **AJ2 must not pre-empt AJ3.** AJ2's touchpoints are opt-in/presence-style and additive; AJ3's design review is stakes-gated and can *park* an autonomous run. They are different mechanisms — AJ2 introduces no parking and no stakes gate.
 
 ## Rejection list (consolidated)
 
