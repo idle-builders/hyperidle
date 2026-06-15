@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { decode, encode } from "@hyperidle/shared";
+import { decode, encodeTyped } from "@hyperidle/shared";
 
 // @lore Runner-owned durable state surface for the pipeline. memory =
 // story-level static context; brief = per-step persona handover delta;
@@ -94,14 +94,10 @@ function ensureDirFor(filePath: string): void {
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
-function toRecord<T>(value: T): Record<string, unknown> {
-	return value as unknown as Record<string, unknown>;
-}
-
 export function writeMemory(cwd: string, storyId: string, data: MemoryData): string {
 	const p = memoryPath(cwd, storyId);
 	ensureDirFor(p);
-	writeFileSync(p, encode(toRecord(data)));
+	writeFileSync(p, encodeTyped(data));
 	return p;
 }
 
@@ -146,7 +142,7 @@ function normalizeMemory(raw: Record<string, unknown>): MemoryData {
 export function writeBrief(cwd: string, storyId: string, data: BriefData): string {
 	const p = briefPath(cwd, storyId);
 	ensureDirFor(p);
-	writeFileSync(p, encode(toRecord(data)));
+	writeFileSync(p, encodeTyped(data));
 	return p;
 }
 
@@ -173,7 +169,7 @@ export function writePrefetch(
 ): string {
 	const p = prefetchPath(cwd, storyId, persona);
 	ensureDirFor(p);
-	writeFileSync(p, encode(toRecord(truncatePrefetch(data, data.capBytes ?? PREFETCH_CAP_BYTES))));
+	writeFileSync(p, encodeTyped(truncatePrefetch(data, data.capBytes ?? PREFETCH_CAP_BYTES)));
 	return p;
 }
 
@@ -233,17 +229,15 @@ export interface SessionContextInput {
 export function formatSessionContext(input: SessionContextInput): string {
 	const sections: string[] = [];
 	if (input.memory) {
-		sections.push(`## Story context (stable):\n${encode(toRecord(input.memory))}`);
+		sections.push(`## Story context (stable):\n${encodeTyped(input.memory)}`);
 	}
 	if (input.brief) {
-		sections.push(`## Just-handed-off:\n${encode(toRecord(input.brief))}`);
+		sections.push(`## Just-handed-off:\n${encodeTyped(input.brief)}`);
 	}
 	if (input.prefetch) {
 		const truncated = truncatePrefetch(input.prefetch, input.prefetch.capBytes);
 		sections.push(
-			`## Pre-fetched (cap ${truncated.capBytes}B, used ${truncated.totalBytes}B):\n${encode(
-				toRecord(truncated),
-			)}`,
+			`## Pre-fetched (cap ${truncated.capBytes}B, used ${truncated.totalBytes}B):\n${encodeTyped(truncated)}`,
 		);
 	}
 	return sections.join("\n\n");
@@ -262,7 +256,7 @@ export interface AdversarialContextInput {
 export function formatAdversarialContext(input: AdversarialContextInput): string {
 	const sections: string[] = [];
 	if (input.memory) {
-		sections.push(`## Story context (stable):\n${encode(toRecord(input.memory))}`);
+		sections.push(`## Story context (stable):\n${encodeTyped(input.memory)}`);
 	}
 	if (input.brief) {
 		const paths = input.brief.artifactPaths.length

@@ -94,11 +94,10 @@ export class DesktopWorkerClient {
 		adapter?: HarnessAdapter,
 	) {
 		this.options = options;
-		// Use provided WebSocket constructor or the global one
-		this.wsConstructor = (wsConstructorOverride ?? WebSocket) as unknown as new (
-			url: string,
-			// biome-ignore lint/suspicious/noExplicitAny: cast for vi.fn() mock compatibility
-		) => any;
+		// Use provided WebSocket constructor or the global one. `typeof WebSocket`
+		// is assignable to the stored `new (url: string) => any` construct signature
+		// (extra optional ctor params + WebSocket→any return), so no cast is needed.
+		this.wsConstructor = wsConstructorOverride ?? WebSocket;
 		this.adapter = adapter ?? null;
 	}
 

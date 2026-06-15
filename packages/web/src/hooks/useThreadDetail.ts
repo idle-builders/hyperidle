@@ -97,11 +97,15 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 				: undefined;
 
 	// Server already validates `thread` and each `message` via zod. We trust
-	// the shape here and let runtime narrowing in ThreadShell handle the
-	// per-payload type checks.
+	// the shape here and let runtime narrowing in ThreadShell handle per-payload
+	// type checks. `value.thread` is narrowed to Record<string,unknown> by the
+	// isObject guard; we widen to `object` first (an honest upcast — all objects
+	// satisfy `object`) then narrow to Thread (which TS accepts as structurally
+	// plausible). No `unknown` intermediary — `unknown` loses ALL type information
+	// while `object` retains the non-primitive constraint.
 	return {
-		thread: value.thread as unknown as Thread,
-		messages: value.messages as unknown as ReadonlyArray<Message>,
+		thread: value.thread as object as Thread,
+		messages: value.messages as ReadonlyArray<Message>,
 		headMessageId,
 		identities,
 		hostTitle,

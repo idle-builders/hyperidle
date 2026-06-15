@@ -38,7 +38,9 @@ export function validationHook(
 			code: API_ERROR_CODES.VALIDATION_ERROR,
 			details: { issues: result.error?.issues ?? [] },
 		};
-		return c.json(response, 400) as unknown as Response;
+		// c.json() returns `Response & TypedResponse<...>` which extends Response;
+		// a single widening cast suffices (no unknown intermediary needed).
+		return c.json(response, 400) as Response;
 	}
 }
 

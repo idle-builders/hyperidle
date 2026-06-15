@@ -7,7 +7,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { decode, encode } from "@hyperidle/shared";
+import { decodeTyped, encodeTyped } from "@hyperidle/shared";
 import type { PipelineState, Story, StoryProgress } from "./types.js";
 
 export const PROGRESS_DIR = ".pipeline/progress";
@@ -42,8 +42,8 @@ function atomicWriteJson(path: string, value: unknown): void {
 	atomicWriteString(path, JSON.stringify(value, null, "\t"));
 }
 
-function atomicWriteToon(path: string, value: Record<string, unknown>): void {
-	atomicWriteString(path, encode(value));
+function atomicWriteToon<T extends object>(path: string, value: T): void {
+	atomicWriteString(path, encodeTyped(value));
 }
 
 function dirOf(path: string): string {
@@ -61,7 +61,7 @@ function legacyStoryPath(id: string): string {
 
 function readStoryFile(path: string): StoryProgress {
 	if (path.endsWith(".toon")) {
-		return decode(readFileSync(path, "utf-8")) as unknown as StoryProgress;
+		return decodeTyped<StoryProgress>(readFileSync(path, "utf-8"));
 	}
 	return JSON.parse(readFileSync(path, "utf-8")) as StoryProgress;
 }
@@ -75,7 +75,7 @@ export function loadStoryProgress(id: string): StoryProgress | null {
 }
 
 export function saveStoryProgress(progress: StoryProgress): void {
-	atomicWriteToon(storyPath(progress.id), progress as unknown as Record<string, unknown>);
+	atomicWriteToon(storyPath(progress.id), progress);
 }
 
 export function loadAllProgress(): StoryProgress[] {
@@ -123,7 +123,7 @@ export function migrateLegacyIfPresent(): void {
 		const path = storyPath(story.id);
 		if (existsSync(path)) continue;
 		if (existsSync(legacyStoryPath(story.id))) continue;
-		atomicWriteToon(path, story as unknown as Record<string, unknown>);
+		atomicWriteToon(path, story);
 	}
 
 	if (!existsSync(RUN_PATH)) {

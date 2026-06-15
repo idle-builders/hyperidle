@@ -537,9 +537,9 @@ export async function resetCosts(
 			break;
 		}
 		case "factory": {
-			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
+			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
 			await db.update(users).set({ costActual: 0 });
-			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
+			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
 			await db.update(teamMembers).set({ costActual: 0 });
 			break;
 		}

@@ -18,7 +18,7 @@
 import type { Rule } from "eslint";
 import type { VariableDeclarator } from "estree";
 import type { JSXAttribute } from "estree-jsx";
-import { collectClassStringsFromJSXAttribute, createRule } from "../util.js";
+import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from "../util.js";
 
 // DaisyUI hand-roll markers that indicate a bypassed primitive
 const FORBIDDEN_PATTERNS = ["select-bordered", "select-sm"];
@@ -61,7 +61,7 @@ export const noHandrolledSelect: Rule.RuleModule = createRule({
 					for (const forbidden of FORBIDDEN_PATTERNS) {
 						if (text.includes(forbidden)) {
 							context.report({
-								node: node as unknown as Rule.Node,
+								node: asReportNode(node),
 								messageId: "handrolledSelect",
 								data: { cls: forbidden },
 							});
@@ -79,7 +79,7 @@ export const noHandrolledSelect: Rule.RuleModule = createRule({
 					/selectStyle/i.test(node.id.name)
 				) {
 					context.report({
-						node: node as unknown as Rule.Node,
+						node: asReportNode(node),
 						messageId: "handrolledSelectStyle",
 					});
 				}

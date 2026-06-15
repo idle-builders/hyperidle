@@ -33,7 +33,7 @@ type Component = FunctionDeclaration | FunctionExpression | ArrowFunctionExpress
  * is explicitly discouraged by the @types/estree maintainers.
  */
 function asJSXNode(node: { type: string }): JSXElement | JSXFragment {
-	// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+	// Single bridge cast after a `.type === "JSXElement"` runtime guard (see above).
 	return node as JSXElement | JSXFragment;
 }
 

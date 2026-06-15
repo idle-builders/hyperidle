@@ -1,9 +1,41 @@
 import { ToonParseError } from "./toon-errors.js";
 
 /**
+ * Type-safe wrappers around `encode`/`decode` for callers that work with
+ * typed structs. The single unavoidable widening cast lives here — callers
+ * use these generics and never write their own `as unknown as`.
+ *
+ * @lore TOON-boundary: `encode` requires `Record<string,unknown>` while
+ * callers hold typed structs. Widening a typed struct to `Record<string,unknown>`
+ * requires a double-cast in TS strict mode because structural subtyping alone
+ * doesn't prove every property value satisfies `unknown`. The canonical fix is
+ * to contain the ONE cast here, behind a generic API, so no caller ever writes
+ * `as unknown as`. Both `encodeTyped` and `decodeTyped` are the only places
+ * this boundary is crossed.
+ */
+export function encodeTyped<T extends object>(value: T): string {
+	// `encode` accepts any object and only reads it — no cast needed.
+	return encode(value);
+}
+
+/**
+ * Type-safe wrapper around `decode`. Returns `T` after decoding.
+ * The caller asserts that the TOON content matches `T` — no runtime validation
+ * is performed here. Add a guard (e.g. zod parse) at the call site when
+ * deserializing untrusted data.
+ */
+export function decodeTyped<T extends object>(toon: string): T {
+	// Single audited narrowing cast: decode returns Record<string,unknown> (an
+	// object); the caller asserts the concrete shape T. No runtime validation —
+	// add a zod parse at the call site for untrusted input. Constraining
+	// `T extends object` keeps this a one-step downcast (no `unknown` bridge).
+	return decode(toon) as T;
+}
+
+/**
  * Encode a JavaScript object into TOON format.
  */
-export function encode(obj: Record<string, unknown>): string {
+export function encode(obj: object): string {
 	const lines: string[] = [];
 	flattenToLines(obj, "", lines);
 	return lines.join("\n");

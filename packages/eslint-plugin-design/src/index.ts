@@ -26,6 +26,7 @@ import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawSettingsTextarea } from "./rules/no-raw-settings-textarea.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
+import { noUnknownCast } from "./rules/no-unknown-cast.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
@@ -48,6 +49,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-raw-overlay-z": noRawOverlayZ,
 	"no-dialog-boilerplate": noDialogBoilerplate,
 	"no-raw-settings-textarea": noRawSettingsTextarea,
+	"no-unknown-cast": noUnknownCast,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,

@@ -39,20 +39,35 @@ function findColorLiteral(text: string): string | null {
 	return null;
 }
 
-type AnyNode = { type: string; parent?: AnyNode; [k: string]: unknown };
+/**
+ * Internal traversal node type. ESLint attaches `parent` to every visited node
+ * at runtime; `WalkNode` reflects that for the `isInStylingContext` parent-chain
+ * traversal without requiring estree's closed union.
+ *
+ * @lore refactor/no-unknown-cast-eslint-plugins: Replaced the old `AnyNode`
+ * (index-signature type) that forced `as unknown as AnyNode` at every call site.
+ * `WalkNode` is private to this file; callers pass nodes directly since the helper
+ * parameter is `unknown` — no cast needed at call sites.
+ */
+type WalkNode = { type: string; parent?: WalkNode; [k: string]: unknown };
 
 /**
  * Walk up the AST from a string literal to determine whether it sits in a
  * styling context: inside a `style={{...}}` object, inside a `className`
  * attribute (literal/expression), or inside a `cn()`/`clsx()` arg.
+ *
+ * Accepts `unknown` so the ESLint visitor can pass the typed node directly
+ * without a cast at the call site. The function narrows internally via WalkNode.
  */
-function isInStylingContext(node: AnyNode): boolean {
-	let cur: AnyNode | undefined = node.parent;
+function isInStylingContext(startNode: unknown): boolean {
+	const asWalk = (n: unknown): WalkNode | undefined =>
+		n && typeof n === "object" ? (n as WalkNode) : undefined;
+	let cur: WalkNode | undefined = asWalk((startNode as { parent?: unknown } | null)?.parent);
 	while (cur) {
 		// `style={{ color: "#fff" }}` — value of a Property whose containing
 		// JSXAttribute name is `style`.
 		if (cur.type === "Property") {
-			let p: AnyNode | undefined = cur.parent;
+			let p: WalkNode | undefined = cur.parent;
 			while (p) {
 				if (p.type === "JSXAttribute") {
 					const name = p.name as { type?: string; name?: string } | undefined;
@@ -130,7 +145,7 @@ export const noHardcodedColor: Rule.RuleModule = createRule({
 			Literal(node) {
 				if (typeof node.value !== "string") return;
 				if (!hasColorLiteral(node.value)) return;
-				if (!isInStylingContext(node as unknown as AnyNode)) return;
+				if (!isInStylingContext(node)) return;
 				const found = findColorLiteral(node.value) ?? node.value;
 				context.report({
 					node,
@@ -144,7 +159,7 @@ export const noHardcodedColor: Rule.RuleModule = createRule({
 				if (!hasColorLiteral(raw)) return;
 				// TemplateElement's parent is TemplateLiteral; for styling-context
 				// detection we walk from the enclosing TemplateLiteral.
-				const tpl = (node as unknown as AnyNode).parent;
+				const tpl = (node as { parent?: unknown }).parent;
 				if (!tpl) return;
 				if (!isInStylingContext(tpl)) return;
 				const found = findColorLiteral(raw) ?? raw;

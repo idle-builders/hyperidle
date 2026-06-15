@@ -24,6 +24,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { enumValues } from "../schemas/common.schema.js";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
@@ -36,7 +37,7 @@ const SUMMARY_CAP = 10;
  */
 const wiremoneySchema = z.object({
 	minor: z.number().int().min(0),
-	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
+	currency: z.enum(enumValues(CURRENCY_CODES)),
 });
 
 /**
@@ -143,7 +144,7 @@ const startBetSchema = z.object({
  * Only valid for bets in completed or killed status.
  */
 const betOutcomeSchema = z.object({
-	verdict: z.enum(BET_OUTCOME_VERDICTS as unknown as [string, ...string[]]),
+	verdict: z.enum(enumValues(BET_OUTCOME_VERDICTS)),
 	summary: z.string().max(2000).optional(),
 });
 
@@ -152,7 +153,7 @@ const betOutcomeSchema = z.object({
  * Only valid for completed or killed bets.
  */
 const betRetroSchema = z.object({
-	verdict: z.enum(BET_OUTCOME_VERDICTS as unknown as [string, ...string[]]),
+	verdict: z.enum(enumValues(BET_OUTCOME_VERDICTS)),
 	summary: z.string().max(2000),
 	learnings: z.string().max(4000).optional(),
 });
@@ -282,7 +283,7 @@ async function patchDescription(
 			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
 		};
 	}
-	return { ok: true, row: updated as unknown as Record<string, unknown> };
+	return { ok: true, row: updated as Record<string, unknown> };
 }
 
 type WireMoney = { minor: number; currency: string } | null;
@@ -346,7 +347,7 @@ async function patchCostAppetite(
 			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
 		};
 	}
-	return { ok: true, row: updated as unknown as Record<string, unknown> };
+	return { ok: true, row: updated as Record<string, unknown> };
 }
 
 /**

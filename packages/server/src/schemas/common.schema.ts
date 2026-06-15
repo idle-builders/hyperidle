@@ -17,15 +17,24 @@ import { CURRENCY_CODES } from "@hyperidle/shared";
 import { z } from "zod";
 
 /**
+ * Narrow a readonly string array to the non-empty tuple form `z.enum()` requires.
+ *
+ * The shared constants (CURRENCY_CODES, BET_STATUSES, …) are typed as
+ * `readonly string[]`, but `z.enum()` needs `[U, ...U[]]`. This is a single,
+ * audited cast that asserts non-emptiness (the sources are compile-time-constant
+ * non-empty arrays) and — unlike the old `as unknown as [string, ...string[]]` —
+ * preserves the literal union so the schema validates the exact value set.
+ */
+export const enumValues = <T extends string>(values: readonly T[]): [T, ...T[]] =>
+	values as [T, ...T[]];
+
+/**
  * WireMoney: structured money value on the wire.
  * minor = integer cents/pence (no floats), currency = ISO 4217 code.
  */
 export const wireMoneySchema = z.object({
 	minor: z.number().int().min(0),
-	// @lore api-typesafety: CURRENCY_CODES is a readonly string[] from @hyperidle/shared.
-	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
-	// is the idiomatic escape hatch — CURRENCY_CODES is guaranteed non-empty at compile time.
-	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
+	currency: z.enum(enumValues(CURRENCY_CODES)),
 });
 
 /**

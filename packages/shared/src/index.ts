@@ -309,7 +309,7 @@ export {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "./thread.js";
-export { decode, encode } from "./toon-codec.js";
+export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {
 	Artifact,

@@ -75,6 +75,8 @@ gh pr create --title "<type>(<scope>): <description>" \
   --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nnpm run verify — all green (attestation attached)"
 ```
 
+The PR `## Summary` is for the human — lead with **what was built and what the human can now do/see**, then the key surfaces touched. Not a phase log. See "Outcome-first summary" below.
+
 If a draft PR already exists (pipeline mode), flip it ready:
 
 ```bash
@@ -138,6 +140,8 @@ Read `PIPELINE_INTERACTIVE` per **the canonical rule** (defined in `pipeline/SKI
 - Beats 1–3: these source from the PR body, reviewer AC table, and `git diff --stat`, which always exist by ship time; if the AC table is somehow missing → **"AC coverage: not available — see PR review"**.
 
 Emit as chat prose. **No `AskUserQuestion`** — the human-merge decision (step 8) is already the gate. The summary is briefing for that decision, not a second gate. It is distinct from raw CI pass/fail: CI-green says "the gates passed"; the summary says "here is what passed and what it means." A summary that merely echoes "CI green" has not satisfied this step.
+
+**Frame it outcome-first.** Lead with the product — what the human can now do or see — in plain words, and keep it skimmable. Beat 1 is the user-visible outcome (name the feature, not the workpackage ID), not a phase log. Do not headline pipeline mechanics — phase numbers, persona names, review-round counts, critique scores, attestation/HMAC internals, verify tool lists, CI-polling. A process detail only earns a line if it materially affects the human (e.g. a deferred follow-up they must track).
 
 ### 8. Merge decision
 
