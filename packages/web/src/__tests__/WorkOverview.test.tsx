@@ -45,9 +45,27 @@ const BASE_TEAM = {
 	agentHealthWarning: false,
 };
 
-const TEAM_A = { ...BASE_TEAM, id: "team-a", name: "Alpha Team", status: "healthy" as const, activeBets: 3 };
-const TEAM_B = { ...BASE_TEAM, id: "team-b", name: "Beta Team", status: "blocked" as const, activeBets: 1 };
-const TEAM_C = { ...BASE_TEAM, id: "team-c", name: "Gamma Team", status: "behind" as const, activeBets: 0 };
+const TEAM_A = {
+	...BASE_TEAM,
+	id: "team-a",
+	name: "Alpha Team",
+	status: "healthy" as const,
+	activeBets: 3,
+};
+const TEAM_B = {
+	...BASE_TEAM,
+	id: "team-b",
+	name: "Beta Team",
+	status: "blocked" as const,
+	activeBets: 1,
+};
+const TEAM_C = {
+	...BASE_TEAM,
+	id: "team-c",
+	name: "Gamma Team",
+	status: "behind" as const,
+	activeBets: 0,
+};
 
 afterEach(() => {
 	vi.clearAllMocks();

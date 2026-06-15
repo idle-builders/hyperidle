@@ -269,7 +269,8 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 			<MemoryRouter initialEntries={["/setup"]}>
 				<Routes>
 					<Route path="/setup" element={<SetupFlow />} />
-					<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+					{/* AD9: /work/portfolio retired → /work */}
+					<Route path="/work" element={<WorkOverviewStub />} />
 				</Routes>
 			</MemoryRouter>,
 		);

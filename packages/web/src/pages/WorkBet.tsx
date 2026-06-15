@@ -919,8 +919,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<div className="mb-[6px]">
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio" },
-							{ label: bet.team, to: "/work/portfolio" },
+							{ label: "Work", to: "/work" },
+							{ label: bet.team, to: "/work" },
 							{ label: bet.title },
 						]}
 						leading={

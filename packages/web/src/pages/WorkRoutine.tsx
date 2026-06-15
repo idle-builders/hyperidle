@@ -148,8 +148,8 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				headers: { "Content-Type": "application/json" },
 			});
 			if (res.ok) {
-				// Navigate back to portfolio after successful delete
-				navigate("/work/portfolio");
+				// Navigate back to Work overview after successful delete (AD9: was /work/portfolio)
+				navigate("/work");
 			}
 		} finally {
 			setActionPending(false);

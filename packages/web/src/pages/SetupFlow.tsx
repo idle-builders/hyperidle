@@ -9,17 +9,18 @@
  * 1. POST /api/users — create human user (name only, no email)
  * 2. POST /api/teams — create first team (name derived from repo path or "My Team")
  * 3. Set credential via bridge (window.__HYPERIDLE__.credentials.set)
- * On success: navigate to /work/portfolio?onboarding=true.
+ * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
  * @lore R2: Simplified from P4 — removed email, backend mode, team name fields.
  * Team name is derived from repo folder basename or defaults to "My Team".
- * Navigates to /work/portfolio (was /conversations).
+ * Navigates to /work (was /work/portfolio, was /conversations). AD9: unconditional
+ * → /work; WorkOverview handles 1-team short-circuit → team page.
  * @lore visual-parity: Redesigned to match onboarding.html exactly — 3-card
  * abstract visual, step title, step description, left-aligned layout, form-group
  * spacing of 18px, design-system Input + Button components.
  * @lore AE2: Added function selector (preset pills + custom chips) and roster preview.
- * Navigates to /work/portfolio?onboarding=true to trigger assistant overlay auto-open.
+ * Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  */
 
 import { Button, Input } from "@hyperidle/design-system";
@@ -137,7 +138,7 @@ export function SetupFlow(): JSX.Element {
 		if (folder) setRepoPath(folder);
 	}, []);
 
-	// AE2: Submit and navigate to /work/portfolio?onboarding=true
+	// AE2: Submit and navigate to /work?onboarding=true (AD9: was /work/portfolio)
 	const handleSubmit = useCallback(
 		async (e: FormEvent): Promise<void> => {
 			e.preventDefault();
@@ -202,8 +203,9 @@ export function SetupFlow(): JSX.Element {
 					});
 				}
 
-				// AE2: Navigate to /work/portfolio?onboarding=true to trigger assistant overlay auto-open.
-				navigate("/work/portfolio?onboarding=true");
+				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
+				// AD9: was /work/portfolio; WorkOverview handles 1-team short-circuit.
+				navigate("/work?onboarding=true");
 			} catch (err: unknown) {
 				setSubmitError(err instanceof Error ? err.message : "Something went wrong");
 				setSubmitting(false);

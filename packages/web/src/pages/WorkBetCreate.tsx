@@ -98,7 +98,7 @@ export function WorkBetCreate(): JSX.Element {
 			const confirmed = window.confirm("Leave without saving? Your draft will be lost.");
 			if (!confirmed) return;
 		}
-		navigate("/work/portfolio");
+		navigate("/work");
 	};
 
 	return (
@@ -108,7 +108,7 @@ export function WorkBetCreate(): JSX.Element {
 				{/* Breadcrumb */}
 				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
 					<Link
-						to="/work/portfolio"
+						to="/work"
 						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
 					>
 						Work

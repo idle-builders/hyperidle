@@ -32,7 +32,7 @@ function renderShell(initialPath: string): ReturnType<typeof render> {
 					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work", element: <div>Work Overview Page</div> },
-				{ path: "work/portfolio", element: <div>Portfolio Page (redirects to /work)</div> },
+					{ path: "work/portfolio", element: <div>Portfolio Page (redirects to /work)</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
 				],

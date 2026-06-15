@@ -103,10 +103,7 @@ function renderPage(
 					}
 				/>
 				{/* AD9: /work/portfolio retired → /work */}
-				<Route
-					path="/work"
-					element={<div data-testid="work-overview-page">Work Overview</div>}
-				/>
+				<Route path="/work" element={<div data-testid="work-overview-page">Work Overview</div>} />
 				<Route path="/work/bet/:betId" element={<div data-testid="work-bet-page">Bet</div>} />
 			</Routes>
 		</MemoryRouter>,

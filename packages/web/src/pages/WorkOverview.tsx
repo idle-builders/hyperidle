@@ -83,7 +83,8 @@ export function WorkOverviewView({
 					</h2>
 				</header>
 				<div className="flex-1 overflow-y-auto">
-					<div className="max-w-[800px] mx-auto w-full">
+					{/* AD9: pt-[18px] (--space-6) loading gap so first skeleton bar clears the header border-b */}
+					<div className="max-w-[800px] mx-auto w-full pt-[18px]">
 						<SkeletonList rows={4} ariaLabel="Loading teams" />
 					</div>
 				</div>
@@ -123,7 +124,7 @@ export function WorkOverviewView({
 	return (
 		<div className="flex flex-col h-full" data-testid="work-overview-page">
 			<header className="shrink-0 flex items-center justify-between px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<div className="flex flex-col gap-[2px]">
+				<div className="flex flex-col gap-[3px]">
 					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
 						Teams
 					</h2>
@@ -137,18 +138,28 @@ export function WorkOverviewView({
 			</header>
 			<div className="flex-1 overflow-y-auto">
 				<div className="max-w-[800px] mx-auto w-full">
-					<ItemList variant="flush" as="ul">
+					{/* isEmpty always false here — view is only reached with 2+ teams */}
+					<ItemList variant="flush" as="ul" isEmpty={false}>
 						{sorted.map((team) => {
 							const betCount = team.activeBets;
-							const subtitle = `${betCount} active ${betCount === 1 ? "bet" : "bets"}`;
+							const betLabel = `${betCount} active ${betCount === 1 ? "bet" : "bets"}`;
 							return (
 								<Row
 									key={team.id}
 									as="li"
 									data-testid="team-row"
 									title={team.name}
-									subtitle={subtitle}
 									cells={[
+										{
+											// AD9: Active-bet count as a numeric end cell (tabular-nums),
+											// placed BEFORE the StatusChip. Row reads:
+											// [name .......... N active bets] [StatusChip]
+											// Supersedes 1st-pass subtitle decision (founder 2nd-pass review).
+											content: betLabel,
+											align: "end" as const,
+											numeric: true,
+											"data-testid": "team-active-bets",
+										},
 										{
 											content: <StatusChip status={team.status} />,
 											align: "end" as const,

@@ -2,7 +2,7 @@
  * ArtifactSection — shared section wrapper for the artifact view family.
  *
  * Renders artifacts fetched from useArtifacts in one of three layouts:
- *  - "gallery": ArtifactGalleryCard grid (WorkPortfolio)
+ *  - "gallery": ArtifactGalleryCard grid (formerly WorkPortfolio; AD9: WorkPortfolio retired)
  *  - "stack":   ArtifactStackItem list (WorkTeam, WorkBet)
  *  - "single":  ArtifactPreview for items[0] (TaskSheet)
  *

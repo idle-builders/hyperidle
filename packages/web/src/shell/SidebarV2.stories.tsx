@@ -23,16 +23,12 @@
  * the subpage).
  */
 
+import { dsShellProps, ItemList, Row, SearchField } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
-import { ItemList, Row } from "@hyperidle/design-system";
-import { SearchField } from "@hyperidle/design-system";
-import { dsShellProps } from "@hyperidle/design-system";
 import type { ViewId } from "./shell-types";
-import { VIEW_IDS, VIEW_ICONS } from "./shell-types";
+import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
 export default { title: "Shell/SidebarV2 (AD9 new)" };
-
-const noop = (): void => undefined;
 
 // ---------------------------------------------------------------------------
 // Fixtures — one head-of-list per section (the fast-nav list is the head of
@@ -111,7 +107,9 @@ function TopLevelItem({
 				// --text-primary so the active row reads as one solid weight; inactive
 				// stays --text-tertiary for the quiet/active contrast.
 				className={
-					active ? "inline-flex text-[var(--text-primary)]" : "inline-flex text-[var(--text-tertiary)]"
+					active
+						? "inline-flex text-[var(--text-primary)]"
+						: "inline-flex text-[var(--text-tertiary)]"
 				}
 				aria-hidden="true"
 			>
@@ -206,7 +204,9 @@ function SettingsFooter({
 			>
 				<span
 					className={
-						active ? "inline-flex text-[var(--text-primary)]" : "inline-flex text-[var(--text-tertiary)]"
+						active
+							? "inline-flex text-[var(--text-primary)]"
+							: "inline-flex text-[var(--text-tertiary)]"
 					}
 					aria-hidden="true"
 				>
@@ -269,6 +269,7 @@ function SidebarV2({ initialView = "conversations" }: { initialView?: ViewId }):
 				    horizontal breathing room changes. */}
 				<div className="relative flex w-full items-center">
 					<SearchField placeholder="Search" value={search} onChange={setSearch} />
+					{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: <kbd> is not focusable — pointer-events-none + no tabIndex; decorative shortcut hint for sighted users only */}
 					<kbd
 						className="pointer-events-none absolute right-[8px] inline-flex h-[18px] min-w-[24px] items-center justify-center px-[6px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium"
 						aria-hidden="true"

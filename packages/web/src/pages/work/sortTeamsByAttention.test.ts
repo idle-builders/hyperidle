@@ -5,9 +5,9 @@
  * No agentHealthWarning tie-break (removed per founder design-review).
  */
 
+import type { TeamListItem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { sortTeamsByAttention } from "./sortTeamsByAttention.js";
-import type { TeamListItem } from "@hyperidle/shared";
 
 const BASE: Omit<TeamListItem, "id" | "name" | "status"> = {
 	phase: "build",
@@ -38,10 +38,7 @@ describe("sortTeamsByAttention", () => {
 	});
 
 	it("returns only blocked when all blocked (preserves input order within rank — name asc)", () => {
-		const input = [
-			team("b2", "Zeta Team", "blocked"),
-			team("b1", "Alpha Team", "blocked"),
-		];
+		const input = [team("b2", "Zeta Team", "blocked"), team("b1", "Alpha Team", "blocked")];
 		const result = sortTeamsByAttention(input);
 		expect(result.map((t) => t.id)).toEqual(["b1", "b2"]);
 	});
@@ -89,10 +86,7 @@ describe("sortTeamsByAttention", () => {
 	});
 
 	it("does not mutate the input array", () => {
-		const input = [
-			team("h", "Healthy", "healthy"),
-			team("b", "Blocked", "blocked"),
-		];
+		const input = [team("h", "Healthy", "healthy"), team("b", "Blocked", "blocked")];
 		const copy = [...input];
 		sortTeamsByAttention(input);
 		expect(input.map((t) => t.id)).toEqual(copy.map((t) => t.id));

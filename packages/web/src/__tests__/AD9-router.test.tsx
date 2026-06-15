@@ -8,7 +8,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider, Navigate } from "react-router-dom";
+import { createMemoryRouter, Navigate, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Mock useTeams to return 2 teams (so WorkOverview shows the list)
@@ -42,8 +42,36 @@ function stubFetch(): void {
 					ok: true,
 					json: async () => ({
 						teams: [
-							{ id: "t1", name: "Alpha", status: "healthy", activeBets: 2, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
-							{ id: "t2", name: "Beta", status: "behind", activeBets: 1, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+							{
+								id: "t1",
+								name: "Alpha",
+								status: "healthy",
+								activeBets: 2,
+								phase: "build",
+								leadAgentId: null,
+								shipped: 0,
+								shipRate: "—",
+								progress: { done: 0, total: 0 },
+								routineCount: 0,
+								agentCount: 0,
+								activeAgentCount: 0,
+								agentHealthWarning: false,
+							},
+							{
+								id: "t2",
+								name: "Beta",
+								status: "behind",
+								activeBets: 1,
+								phase: "build",
+								leadAgentId: null,
+								shipped: 0,
+								shipRate: "—",
+								progress: { done: 0, total: 0 },
+								routineCount: 0,
+								agentCount: 0,
+								activeAgentCount: 0,
+								agentHealthWarning: false,
+							},
 						],
 					}),
 				} as Response;
@@ -66,8 +94,36 @@ describe("AC5 — /work/portfolio redirects to /work overview (2+ teams)", () =>
 		mockUseTeams.mockReturnValue({
 			data: {
 				teams: [
-					{ id: "t1", name: "Alpha", status: "healthy" as const, activeBets: 2, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
-					{ id: "t2", name: "Beta", status: "behind" as const, activeBets: 1, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+					{
+						id: "t1",
+						name: "Alpha",
+						status: "healthy" as const,
+						activeBets: 2,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
+					{
+						id: "t2",
+						name: "Beta",
+						status: "behind" as const,
+						activeBets: 1,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
 				],
 			},
 			loading: false,
@@ -106,7 +162,21 @@ describe("AC5 — /work/portfolio redirects to /work overview (2+ teams)", () =>
 		mockUseTeams.mockReturnValue({
 			data: {
 				teams: [
-					{ id: "t1", name: "Alpha", status: "healthy" as const, activeBets: 2, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+					{
+						id: "t1",
+						name: "Alpha",
+						status: "healthy" as const,
+						activeBets: 2,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
 				],
 			},
 			loading: false,
@@ -151,8 +221,36 @@ describe("AC5 — /work route renders WorkOverview", () => {
 		mockUseTeams.mockReturnValue({
 			data: {
 				teams: [
-					{ id: "t1", name: "Alpha", status: "healthy" as const, activeBets: 0, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
-					{ id: "t2", name: "Beta", status: "behind" as const, activeBets: 1, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+					{
+						id: "t1",
+						name: "Alpha",
+						status: "healthy" as const,
+						activeBets: 0,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
+					{
+						id: "t2",
+						name: "Beta",
+						status: "behind" as const,
+						activeBets: 1,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
 				],
 			},
 			loading: false,
@@ -187,8 +285,36 @@ describe("AC5 — /work route renders WorkOverview", () => {
 		mockUseTeams.mockReturnValue({
 			data: {
 				teams: [
-					{ id: "t1", name: "Alpha", status: "healthy" as const, activeBets: 0, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
-					{ id: "t2", name: "Beta", status: "behind" as const, activeBets: 0, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+					{
+						id: "t1",
+						name: "Alpha",
+						status: "healthy" as const,
+						activeBets: 0,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
+					{
+						id: "t2",
+						name: "Beta",
+						status: "behind" as const,
+						activeBets: 0,
+						phase: "build",
+						leadAgentId: null,
+						shipped: 0,
+						shipRate: "—",
+						progress: { done: 0, total: 0 },
+						routineCount: 0,
+						agentCount: 0,
+						activeAgentCount: 0,
+						agentHealthWarning: false,
+					},
 				],
 			},
 			loading: false,
