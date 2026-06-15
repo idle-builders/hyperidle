@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Block — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { font-family: var(--ui); color: var(--text); background: var(--surface-page); margin: 0; padding: 24px; }
+    .demo-grid { display: flex; flex-direction: column; gap: 24px; max-width: 720px; }
+    .demo-section { display: flex; flex-direction: column; gap: 8px; }
+    .demo-section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); }
+    .block { position: relative; display: grid; grid-template-columns: 32px 1fr; gap: 8px; padding: 6px 0; }
+    .block:hover { background: color-mix(in oklab, var(--text-secondary) 8%, transparent); }
+    .block:focus-visible { outline: 1px solid var(--accent-primary); outline-offset: -1px; }
+    .block-gutter { display: flex; justify-content: flex-end; align-items: flex-start; padding-top: 2px; opacity: 0; }
+    .block:hover .block-gutter, .block:focus-within .block-gutter { opacity: 1; }
+    .block-body h1, .block-body h2, .block-body h3, .block-body h4, .block-body h5, .block-body h6 {
+       color: var(--text-primary); margin: 0; line-height: 1.2; letter-spacing: -0.005em;
+    }
+    .block-body p { margin: 0; line-height: 1.6; color: var(--text); }
+    .block-body code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-elevated); padding: 1px 4px; border-radius: var(--r-subtle); }
+    .block-body pre { font-family: var(--mono); font-size: 12px; line-height: 1.5; background: var(--surface-elevated); padding: 12px; border-radius: var(--r-default); overflow-x: auto; margin: 0; }
+    .block-body blockquote { border-left: 2px solid var(--border-strong); padding-left: 12px; color: var(--text-secondary); margin: 0; }
+    .block-body ul, .block-body ol { padding-left: 20px; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+    .block-body hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 12px 0; }
+    .block-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .block-body table th { background: var(--surface-container); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); text-align: left; }
+    .block-body table td { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-variant-numeric: tabular-nums; }
+    .block-body figure { margin: 0; border: 1px solid var(--border-subtle); border-radius: var(--r-default); overflow: hidden; }
+    .block-body figure img { display: block; max-width: 100%; height: auto; }
+    .block-body figcaption { font-size: 12px; color: var(--text-tertiary); padding: 6px 12px; }
+    .block-unknown { border-left: 2px solid var(--status-warning); padding-left: 12px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="demo-grid">
+      <div class="demo-section">
+        <div class="demo-section-title">All Block Kinds</div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="heading" data-block-id="0123456789abcdef0123456789abcdef" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><h2>Heading example</h2></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="paragraph" data-block-id="abc" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><p>A paragraph with <strong>bold</strong>, <em>emphasis</em>, and <code>inline code</code>.</p></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="list" data-block-id="def" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><ul><li>First</li><li>Second</li></ul></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="quote" data-block-id="ghi" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><blockquote><p>Quoted line.</p></blockquote></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="code" data-block-id="jkl" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><pre><code>const x = 1</code></pre></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="divider" data-block-id="mno" data-state="default" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body"><hr /></div>
+        </div>
+
+        <div class="block" data-ds-component="block" data-ds-tier="2" data-ds-source="design-system" data-ds-kind="unknown" data-block-id="pqr" data-state="unknown" tabindex="0">
+          <div class="block-gutter"></div>
+          <div class="block-body block-unknown"><pre><code>?</code></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

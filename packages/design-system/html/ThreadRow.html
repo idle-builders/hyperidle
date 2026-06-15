@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ThreadRow — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── ThreadRow ──
+       Hearth thread list item: unread dot, title + preview, overlapping
+       small avatars, message count badge, timestamp. Bottom border divider.
+       Fixed Hearth spacing. From 03-hearth.html Thread List screen. */
+
+    .thread-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background 240ms ease;
+    }
+    .thread-row:hover {
+      background: rgba(44, 36, 26, 0.02);
+    }
+    .thread-row:last-child {
+      border-bottom: none;
+    }
+    .thread-row:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: -2px;
+    }
+
+    /* Unread indicator */
+    .thread-row__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
+      flex-shrink: 0;
+    }
+    .thread-row__dot--read {
+      background: transparent;
+    }
+
+    /* Title + preview */
+    .thread-row__info {
+      flex: 1;
+      min-width: 0;
+    }
+    .thread-row__title {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .thread-row--unread .thread-row__title {
+      font-weight: 600;
+    }
+    .thread-row__preview {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .thread-row--unread .thread-row__preview {
+      color: var(--text-secondary);
+    }
+
+    /* Right side: avatars, count, time */
+    .thread-row__meta {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-shrink: 0;
+    }
+    .thread-row__time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    /* Overlapping small avatars */
+    .thread-avatars {
+      display: flex;
+    }
+    .thread-avatars .avatar {
+      width: 24px;
+      height: 24px;
+      font-size: 9px;
+      margin-left: -6px;
+      border: 2px solid var(--surface-elevated);
+    }
+    .thread-avatars .avatar:first-child {
+      margin-left: 0;
+    }
+
+    /* Avatar base */
+    .avatar {
+      border-radius: var(--r-pill);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      background: var(--surface-page);
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      line-height: 1;
+      user-select: none;
+      border: 1.5px solid var(--border-default);
+    }
+    .avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 6px;
+      border-radius: var(--r-pill);
+      line-height: 1.4;
+      min-width: 20px;
+      text-align: center;
+      justify-content: center;
+    }
+    .badge--green {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+    .badge--default {
+      background: var(--surface-container);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Avatar({ initials, agent }) {
+      return <div className={`avatar ${agent ? 'avatar--agent' : ''}`}>{initials}</div>;
+    }
+
+    function ThreadRow({ unread, title, preview, avatars, count, countVariant, time }) {
+      return (
+        <div
+          className={`thread-row ${unread ? 'thread-row--unread' : ''}`}
+          role="button"
+          tabIndex={0}
+          data-component="ThreadRow"
+          data-tier="2"
+          data-uses="Avatar,AvatarGroup,Badge"
+          data-daisyui=""
+          data-used-by="ConversationsChat,ThreadList"
+        >
+          <div className={`thread-row__dot ${!unread ? 'thread-row__dot--read' : ''}`}></div>
+          <div className="thread-row__info">
+            <div className="thread-row__title">{title}</div>
+            <div className="thread-row__preview">{preview}</div>
+          </div>
+          <div className="thread-row__meta">
+            <div className="thread-avatars">
+              {avatars.map((a, i) => <Avatar key={i} initials={a.initials} agent={a.agent} />)}
+            </div>
+            <span className={`badge badge--${countVariant || 'default'}`}>{count}</span>
+            <span className="thread-row__time">{time}</span>
+          </div>
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Thread List</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <ThreadRow
+                unread
+                title="Passkey rollout plan — phase 1 scope"
+                preview="Atlas: Drafted 3-phase plan. Shadow enrollment starts Monday."
+                avatars={[{ initials: 'TG' }, { initials: 'AT', agent: true }]}
+                count={8}
+                countVariant="green"
+                time="2:38 PM"
+              />
+              <ThreadRow
+                unread
+                title="Session migration risk assessment"
+                preview="Kim: We need to handle the 12k active sessions before switching..."
+                avatars={[{ initials: 'KL' }, { initials: 'JS' }]}
+                count={5}
+                time="1:22 PM"
+              />
+              <ThreadRow
+                title="WebAuthn browser compatibility matrix"
+                preview="Atlas: Coverage across target browsers is 96.3%. Safari 16+ required."
+                avatars={[{ initials: 'AT', agent: true }]}
+                count={3}
+                time="11:05 AM"
+              />
+              <ThreadRow
+                title="Password deprecation timeline"
+                preview="Tobias: Let's target end of Q2. Need comms plan for existing users."
+                avatars={[{ initials: 'TG' }, { initials: 'MR' }, { initials: 'AT', agent: true }]}
+                count={14}
+                time="Yesterday"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

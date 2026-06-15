@@ -244,7 +244,7 @@ describe("U8 — Hearth restyle structural elements", () => {
 		});
 
 		it("outer element does NOT have explicit border (mockup uses shadow only)", () => {
-			// visual-parity-audit: BetCard story/baseline uses shadow-default only, no explicit border
+			// visual-parity-audit: BetCard.html mockup uses shadow-default only, no explicit border
 			act(() => {
 				root.render(
 					createElement(BetCard, {

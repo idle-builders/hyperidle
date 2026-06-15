@@ -5,15 +5,15 @@
  * selectSmokeModel, and writes the chosen routedId + ranked fallback list
  * to a JSON file (default: /tmp/ah5-model-selection.json).
  *
- * Called once per CI run (from ah5-smoke.yml, before the lane boots).
+ * Called once per local lane run (from `scripts/ah5-smoke-local.ts`, before the lane boots).
  * The ah5-test-server.ts reads RESOLVE_MODEL_FILE to pick up the result.
  *
- * @lore AH5: Model selection is run ONCE per CI job, not per test. The result
+ * @lore AH5: Model selection is run ONCE per local lane run, not per test. The result
  * is written to a file so the test-server and the probe both read the same
  * selection. This avoids N×API calls and ensures consistency.
  *
  * @lore AH5: If no qualifying model is found (empty ranked[]), this script
- * exits non-zero. The CI job fails early with a clear error — not silently.
+ * exits non-zero. The local lane fails early with a clear error — not silently.
  * An empty ranked[] is a real signal (policy too strict, or OpenRouter has
  * no qualifying models), not a flake.
  *
@@ -32,13 +32,13 @@ import {
 	selectSmokeModel,
 } from "@hyperidle/eval/smoke";
 
-// @lore AH5 N4: RESOLVE_MODEL_FILE must be set for consistent local runs.
+// @lore AH5 N4: RESOLVE_MODEL_FILE must be set for consistent local lane runs.
 // The default falls back to <repo>/tmp/ah5-model-selection.json (relative to
-// this script), while CI uses /tmp/ah5-model-selection.json (an absolute path).
-// The probe and test-server read RESOLVE_MODEL_FILE from env — if the env var is
-// unset in a local run, the caller and this script may write/read different paths.
-// Always set RESOLVE_MODEL_FILE when running the full lane locally:
+// this script). The `npm run smoke:ah5` orchestrator sets this automatically to
+// /tmp/ah5-model-selection.json (an absolute path). If running this script directly:
 //   RESOLVE_MODEL_FILE=/tmp/ah5-model-selection.json npx tsx packages/web/scripts/ah5-resolve-model.ts
+// The probe and test-server read RESOLVE_MODEL_FILE from env — if unset, the caller
+// and this script may write/read different paths.
 const OUT_FILE =
 	process.env.RESOLVE_MODEL_FILE ??
 	path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../tmp/ah5-model-selection.json");

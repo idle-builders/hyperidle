@@ -35,8 +35,7 @@ Deep reference, only when the dimension is in scope: `references/hierarchy.md`, 
 Read the variants produced by `/design` at `plans/<workpackage-id>/design/<variant-slug>/`.
 
 ```
-1. Screenshot each variant's TSX sketch in the viewer at :8098 (or read its spec.md if no sketch)
-   AJ1: TSX is the design source of truth — reference variant.tsx, not mockup.html.
+1. Screenshot each variant's mockup.html (or read its spec.md if no mockup)
 2. Score it (0-10) against the 9 dimensions below
 3. List specific findings (CRITICAL / WARNING / SUGGESTION)
 4. Fix the highest-priority issue
@@ -150,20 +149,20 @@ The retro reads `rounds=<n>` to track design-quality drift over time.
 
 ## Screenshot Workflow
 
-The design-system viewer at `:8098` is the primary feedback surface (AJ1: TSX is the design source of truth):
+When the dev server is running (`npm run dev` on :5173):
 
 ```bash
-# Screenshot a catalogued component's TSX story in the viewer
-npx playwright screenshot \
-  "http://localhost:8098/#ComponentName" \
+# Screenshot a specific component
+cd packages/web && npx playwright screenshot \
+  "http://localhost:5173/designsystem#ComponentName" \
   /tmp/critique-ComponentName.png \
   --wait-for-timeout=2000
 
-# Screenshot a variant TSX sketch added to the viewer for design review
+# Screenshot an HTML mockup
 npx playwright screenshot \
-  "http://localhost:8098/#VariantSketch" \
-  /tmp/critique-variant.png \
-  --wait-for-timeout=2000
+  "file://<absolute-path>/mockup.html" \
+  /tmp/critique-mockup.png \
+  --wait-for-timeout=1000
 ```
 
 Read the screenshot. Evaluate it visually. Do not evaluate design from code alone.
@@ -177,7 +176,7 @@ These checks go beyond what AST linters catch. Token/scale violations (hardcoded
 - **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding even when both files individually pass lint.
 - **Component reuse over inline reimplementation.** The design system has primitives (Tier 1), blocks (Tier 2), regions (Tier 3), and utilities (EmptyState, ErrorState, Skeleton). Read `packages/design-system/src/` to know what exists. Reimplementing any of these inline is **CRITICAL**.
 - **Token compliance.** Every color, spacing value, radius, and font size must trace back to a design token. Read `packages/design-system/DESIGN.md` for the canonical values.
-- **Theme portability.** The design system has two theme variants (Hearth Dark, Hearth Light) defined in `packages/design-system/src/tokens.css`. Components must use semantic tokens (not hardcoded values) so they work across themes.
+- **Theme portability.** The design system may have multiple style variants in `packages/design-system/html/themes/`. Components must use semantic tokens (not hardcoded values) so they work across themes.
 
 ### Density-Tier Consistency (K10/K11)
 

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen — Work: Bet Detail</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; }
+    .app-shell { display: flex; height: 100vh; background: var(--surface-container); gap: 3px; padding: 3px; }
+    .sidebar { width: 200px; flex-shrink: 0; padding: 12px; display: flex; flex-direction: column; }
+    .sidebar-brand { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 6px 12px; margin-bottom: 18px; letter-spacing: -0.01em; }
+    .sidebar-section { margin-bottom: 18px; }
+    .sidebar-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
+    .sidebar-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
+    .sidebar-dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); flex-shrink: 0; }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow: hidden; }
+    .main-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .main-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+    .header-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: var(--r-pill); line-height: 1.4; white-space: nowrap; }
+    .badge--green { background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); }
+    .badge--amber { background: rgba(217, 119, 6, 0.1); color: var(--accent-secondary); }
+    .badge--default { background: var(--surface-container); color: var(--text-secondary); }
+    .badge--agent { background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); font-weight: 600; font-size: 10px; letter-spacing: 0.04em; }
+
+    .avatar { border-radius: var(--r-pill); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; background: var(--surface-page); color: var(--text-secondary); flex-shrink: 0; font-family: var(--font-sans); line-height: 1; user-select: none; border: 1.5px solid var(--border-default); }
+    .avatar--sm { width: 24px; height: 24px; font-size: 9px; }
+    .avatar--md { width: 36px; height: 36px; font-size: 13px; }
+    .avatar--agent { background: rgba(22, 118, 79, 0.08); border-color: var(--accent-primary); color: var(--accent-primary); }
+    .avatar-group { display: flex; }
+    .avatar-group .avatar { margin-left: -6px; border: 2px solid var(--surface-elevated); }
+    .avatar-group .avatar:first-child { margin-left: 0; }
+
+    /* Breadcrumb */
+    .breadcrumb { font-size: 13px; color: var(--text-tertiary); margin-bottom: 6px; }
+    .breadcrumb a { color: var(--accent-primary); text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+
+    /* Content area */
+    .detail-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 800px; margin: 0 auto; width: 100%; }
+
+    /* Stats row */
+    .stats-row { display: flex; gap: 18px; }
+    .stat-card { background: var(--surface-page); border-radius: var(--r-default); padding: 18px; flex: 1; }
+    .stat-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
+    .stat-sub { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+    .progress-track { height: 8px; background: var(--surface-container); border-radius: var(--r-pill); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: var(--r-pill); background: var(--accent-primary); }
+
+    /* Description */
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle); }
+    .description { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+
+    /* Task list */
+    .task-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background 240ms ease; }
+    .task-row:hover { background: rgba(44, 36, 26, 0.02); }
+    .task-row:last-child { border-bottom: none; }
+    .sidebar-bottom { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .sidebar-search-hint { padding: 6px 12px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+    .kbd { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-container); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+    .sidebar-avatar { width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+    .task-info { flex: 1; min-width: 0; }
+    .task-title { font-size: 15px; color: var(--text-primary); }
+    .task-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+    /* Composer */
+    .comment-input { flex: 1; font-family: var(--font-sans); font-size: 15px; padding: 9px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-default); background: var(--surface-page); color: var(--text-placeholder); outline: none; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 7px 12px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn-ghost { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: var(--r-pill); border: 1.5px solid var(--border-default); cursor: pointer; background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { color: var(--text-primary); border-color: var(--accent-primary); }
+
+    .btn-overflow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-family: var(--font-sans);
+      line-height: 1;
+    }
+    .btn-overflow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+    .artifact-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background 240ms ease;
+    }
+    .artifact-row:hover { background: rgba(44, 36, 26, 0.02); }
+    .artifact-row:last-child { border-bottom: none; }
+    .artifact-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-subtle);
+      background: var(--surface-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+    .artifact-name { font-size: 14px; color: var(--text-primary); }
+    .artifact-meta { font-size: 12px; color: var(--text-tertiary); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Avatar({ initials, agent, size = 'sm' }) {
+      return <div className={`avatar avatar--${size} ${agent ? 'avatar--agent' : ''}`}>{initials}</div>;
+    }
+
+    function Demo() {
+      return (
+        <div className="app-shell">
+          <div className="sidebar">
+            <div className="sidebar-brand">HyperIdle</div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Conversations</div>
+              <div className="sidebar-view sidebar-view--active">Work</div>
+              <div className="sidebar-item sidebar-item--active" style={{ paddingLeft: 24 }}>Product</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Infrastructure</div>
+              <div className="sidebar-item" style={{ paddingLeft: 24 }}>Growth</div>
+              <div className="sidebar-view">Knowledge</div>
+            </div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="main">
+            <div className="main-header">
+              <div>
+                <div className="breadcrumb">
+                  <a href="#">Work</a> / <a href="#">Product</a> / Auth migration
+                </div>
+                <h2>Auth migration</h2>
+              </div>
+              <div className="header-badges">
+                <span className="badge badge--green">Active</span>
+                <span className="badge badge--amber">$2,400 budget</span>
+                <span className="badge badge--default">Week 3 of 6</span>
+                <button className="btn-overflow">···</button>
+              </div>
+            </div>
+            <div className="detail-body">
+              {/* Stats */}
+              <div className="stats-row">
+                <div className="stat-card">
+                  <div className="stat-label">Progress</div>
+                  <div className="stat-value">35%</div>
+                  <div style={{ marginTop: 9 }}>
+                    <div className="progress-track"><div className="progress-fill" style={{ width: '35%' }}></div></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Budget spent</div>
+                  <div className="stat-value">$840</div>
+                  <div className="stat-sub">of $2,400 appetite</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Team</div>
+                  <div style={{ marginTop: 9, display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <div className="avatar-group">
+                      <Avatar initials="TG" />
+                      <Avatar initials="KL" />
+                      <Avatar initials="AT" agent />
+                    </div>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>3 members</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Pitch</span>
+                  <button className="btn-ghost" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Edit</button>
+                </div>
+                <div className="description">
+                  Replace password-based auth with WebAuthn passkeys. Target: 60% reduction in auth support tickets. Three phases: shadow enrollment (users prompted on next login), dual-auth window (both methods accepted), then password deprecation. Current sessions remain valid through phase 2.
+                </div>
+              </div>
+
+              {/* Tasks */}
+              <div>
+                <div className="section-title">Tasks</div>
+                <div className="task-row">
+                  <div className="task-info">
+                    <div className="task-title">Deploy passkey shadow enrollment</div>
+                    <div className="task-meta">Atlas &middot; In progress &middot; Started 2 days ago</div>
+                  </div>
+                  <span className="badge badge--green">In progress</span>
+                </div>
+                <div className="task-row">
+                  <div className="task-info">
+                    <div className="task-title">WebAuthn browser compatibility testing</div>
+                    <div className="task-meta">Atlas &middot; Done &middot; 96.3% coverage confirmed</div>
+                  </div>
+                  <span className="badge badge--default">Done</span>
+                </div>
+                <div className="task-row">
+                  <div className="task-info">
+                    <div className="task-title">Session migration handler</div>
+                    <div className="task-meta">Kim &middot; Planned</div>
+                  </div>
+                  <span className="badge badge--default">Planned</span>
+                </div>
+                <div className="task-row">
+                  <div className="task-info">
+                    <div className="task-title">Auth metrics dashboard</div>
+                    <div className="task-meta">Atlas &middot; Planned</div>
+                  </div>
+                  <span className="badge badge--default">Planned</span>
+                </div>
+                <div className="task-row">
+                  <div className="task-info">
+                    <div className="task-title">Password deprecation comms plan</div>
+                    <div className="task-meta">Tobias &middot; Planned</div>
+                  </div>
+                  <span className="badge badge--default">Planned</span>
+                </div>
+              </div>
+
+              {/* Artifacts */}
+              <div>
+                <div className="section-title">Artifacts</div>
+                <div className="artifact-row">
+                  <div className="artifact-icon">📄</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="artifact-name">Passkey enrollment — deployment plan</div>
+                    <div className="artifact-meta">Action summary · Atlas · 2 days ago</div>
+                  </div>
+                </div>
+                <div className="artifact-row">
+                  <div className="artifact-icon">📊</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="artifact-name">Browser compatibility matrix</div>
+                    <div className="artifact-meta">Data metrics · Atlas · 3 days ago</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comment area */}
+              <div>
+                <div className="section-title">Discussion</div>
+                <div style={{ display: 'flex', gap: 9, alignItems: 'stretch' }}>
+                  <input className="comment-input" type="text" placeholder="Write a message..." />
+                  <button className="btn">Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>

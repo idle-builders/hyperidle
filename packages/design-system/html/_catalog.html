@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HyperIdle Design System — Catalog</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+body { overflow: auto; }
+#root { max-width: 1024px; margin: 0 auto; }
+
+h1 {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.catalog-version {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+.tier-heading {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--surface-elevated);
+  margin-bottom: 12px;
+  margin-top: 32px;
+}
+
+.tier-heading:first-of-type { margin-top: 0; }
+
+.component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.component-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-container);
+  border-radius: var(--r-default);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background var(--motion-fast) ease;
+}
+.component-link:hover {
+  background: var(--surface-elevated);
+}
+
+.component-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.component-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.component-uses {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.composition-section {
+  margin-top: 48px;
+}
+
+.dep-graph {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  background: var(--surface-elevated);
+  padding: 16px;
+  border-radius: var(--r-default);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.dep-graph .tier-label { color: var(--text-tertiary); }
+.dep-graph .arrow { color: var(--text-tertiary); }
+.dep-graph .name { color: var(--accent-primary); }
+</style>
+</head>
+<body>
+<div id="root">
+  <h1>HyperIdle Design System</h1>
+  <div class="catalog-version">14 components &middot; 3 tiers &middot; factory-dark</div>
+
+  <div class="tier-heading">Tier 1 &mdash; Primitives</div>
+  <div class="component-grid">
+    <a class="component-link" href="StatusChip.html">
+      <div>
+        <div class="component-name">StatusChip</div>
+        <div class="component-meta">6 states</div>
+        <div class="component-uses">Used by: ThreadRow, BetCard, TaskCard, KnowledgeRow, NotificationRow, Rail</div>
+      </div>
+    </a>
+    <a class="component-link" href="Tag.html">
+      <div>
+        <div class="component-name">Tag</div>
+        <div class="component-meta">plain + 3 kinds</div>
+        <div class="component-uses">Used by: ThreadRow, BetCard, TaskCard, KnowledgeRow, NotificationRow</div>
+      </div>
+    </a>
+    <a class="component-link" href="KeyValue.html">
+      <div>
+        <div class="component-name">KeyValue</div>
+        <div class="component-meta">inline / stacked</div>
+        <div class="component-uses">Used by: BetCard, TaskCard, Rail</div>
+      </div>
+    </a>
+    <a class="component-link" href="NavItem.html">
+      <div>
+        <div class="component-name">NavItem</div>
+        <div class="component-meta">icon + label + count</div>
+        <div class="component-uses">Used by: IconRail, Submenu</div>
+      </div>
+    </a>
+    <a class="component-link" href="SearchField.html">
+      <div>
+        <div class="component-name">SearchField</div>
+        <div class="component-meta">input + kbd hint</div>
+        <div class="component-uses">Used by: Submenu, GlobalSearchPanel, PitchSelector</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="tier-heading">Tier 2 &mdash; Blocks</div>
+  <div class="component-grid">
+    <a class="component-link" href="ThreadRow.html">
+      <div>
+        <div class="component-name">ThreadRow</div>
+        <div class="component-meta">avatar + title + status</div>
+        <div class="component-uses">Uses: StatusChip, Tag</div>
+      </div>
+    </a>
+    <a class="component-link" href="BetCard.html">
+      <div>
+        <div class="component-name">BetCard</div>
+        <div class="component-meta">product + progress</div>
+        <div class="component-uses">Uses: StatusChip, Tag, KeyValue</div>
+      </div>
+    </a>
+    <a class="component-link" href="TaskCard.html">
+      <div>
+        <div class="component-name">TaskCard</div>
+        <div class="component-meta">status + owner</div>
+        <div class="component-uses">Uses: StatusChip, Tag, KeyValue</div>
+      </div>
+    </a>
+    <a class="component-link" href="KnowledgeRow.html">
+      <div>
+        <div class="component-name">KnowledgeRow</div>
+        <div class="component-meta">layer + category</div>
+        <div class="component-uses">Uses: StatusChip, Tag</div>
+      </div>
+    </a>
+    <a class="component-link" href="NotificationRow.html">
+      <div>
+        <div class="component-name">NotificationRow</div>
+        <div class="component-meta">severity + action</div>
+        <div class="component-uses">Uses: StatusChip, Tag</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="tier-heading">Utility</div>
+  <div class="component-grid">
+    <a class="component-link" href="EmptyState.html">
+      <div>
+        <div class="component-name">EmptyState</div>
+        <div class="component-meta">title + description</div>
+      </div>
+    </a>
+    <a class="component-link" href="ErrorState.html">
+      <div>
+        <div class="component-name">ErrorState</div>
+        <div class="component-meta">alert + retry</div>
+      </div>
+    </a>
+    <a class="component-link" href="Skeleton.html">
+      <div>
+        <div class="component-name">Skeleton</div>
+        <div class="component-meta">list + card shapes</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="composition-section">
+    <div class="tier-heading">Composition Graph</div>
+    <div class="dep-graph"><span class="tier-label">TIER 3 (shell)    </span><span class="arrow">&rarr;</span> <span class="tier-label">TIER 2 (blocks)</span> <span class="arrow">&rarr;</span> <span class="tier-label">TIER 1 (primitives)</span>
+
+<span class="name">Canvas</span>         <span class="arrow">&rarr;</span> <span class="name">BetCard</span>         <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span>
+<span class="name">Kanban</span>         <span class="arrow">&rarr;</span> <span class="name">TaskCard</span>        <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span>
+<span class="name">PitchSelector</span>  <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>, <span class="name">KeyValue</span> (inline card)
+<span class="name">Submenu</span>        <span class="arrow">&rarr;</span> <span class="name">ThreadRow</span>       <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>
+<span class="name">Rail</span>           <span class="arrow">&rarr;</span> <span class="name">NotificationRow</span> <span class="arrow">&rarr;</span> <span class="name">StatusChip</span>, <span class="name">Tag</span>
+<span class="name">Submenu</span>        <span class="arrow">&rarr;</span> <span class="name">SearchField</span>
+<span class="name">Rail</span>           <span class="arrow">&rarr;</span> <span class="name">KeyValue</span>, <span class="name">StatusChip</span></div>
+  </div>
+</div>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

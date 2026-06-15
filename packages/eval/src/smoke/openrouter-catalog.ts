@@ -57,7 +57,7 @@ export interface ModelEndpoints {
 }
 
 // ---------------------------------------------------------------------------
-// Live HTTP fetchers (only called in the CI lane which has the key)
+// Live HTTP fetchers (only called in the local lane which has the key)
 // ---------------------------------------------------------------------------
 
 const BASE_URL = "https://openrouter.ai/api/v1";

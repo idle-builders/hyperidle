@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Button — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Button ──
+       Pill-shaped always (radius-pill). Five variants: primary (forest green),
+       secondary (bordered), ghost (transparent), destructive (red), amber.
+       Two sizes: default and small. From 03-hearth.html component library. */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1;
+      padding: 10px 18px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: all 240ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      white-space: nowrap;
+      user-select: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    /* Primary — forest green fill */
+    .btn--primary {
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+      border-color: var(--accent-primary);
+    }
+    .btn--primary:hover {
+      background: var(--accent-primary-hover);
+      border-color: var(--accent-primary-hover);
+    }
+
+    /* Secondary — bordered, elevated bg */
+    .btn--secondary {
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      border-color: var(--border-default);
+    }
+    .btn--secondary:hover {
+      border-color: var(--border-strong);
+      background: var(--surface-page);
+    }
+
+    /* Ghost — transparent, accent text */
+    .btn--ghost {
+      background: transparent;
+      color: var(--accent-primary);
+      border-color: transparent;
+    }
+    .btn--ghost:hover {
+      background: rgba(22, 118, 79, 0.06);
+    }
+
+    /* Destructive — red fill */
+    .btn--destructive {
+      background: var(--status-error);
+      color: var(--text-on-accent);
+      border-color: var(--status-error);
+    }
+    .btn--destructive:hover {
+      background: #c53e30;
+      border-color: #c53e30;
+    }
+
+    /* Amber — secondary accent fill */
+    .btn--amber {
+      background: var(--accent-secondary);
+      color: var(--text-on-accent);
+      border-color: var(--accent-secondary);
+    }
+    .btn--amber:hover {
+      background: #b86305;
+      border-color: #b86305;
+    }
+
+    /* Small size */
+    .btn--sm {
+      font-size: 12px;
+      padding: 7px 12px;
+    }
+
+    /* Disabled */
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Button({ variant = 'primary', size, disabled, children }) {
+      const cls = [
+        'btn',
+        `btn--${variant}`,
+        size === 'sm' && 'btn--sm',
+      ].filter(Boolean).join(' ');
+      return (
+        <button
+          className={cls}
+          disabled={disabled}
+          data-ds-component="Button"
+          data-tier="0"
+          data-uses=""
+          data-daisyui=""
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Default Size</div>
+            <div className="demo-row">
+              <Button variant="primary">Create bet</Button>
+              <Button variant="secondary">Cancel</Button>
+              <Button variant="ghost">Learn more</Button>
+              <Button variant="destructive">Delete</Button>
+              <Button variant="amber">Highlight</Button>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Small Size</div>
+            <div className="demo-row">
+              <Button variant="primary" size="sm">Small primary</Button>
+              <Button variant="secondary" size="sm">Small secondary</Button>
+              <Button variant="ghost" size="sm">Small ghost</Button>
+              <Button variant="destructive" size="sm">Small destructive</Button>
+              <Button variant="amber" size="sm">Small amber</Button>
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Disabled</div>
+            <div className="demo-row">
+              <Button variant="primary" disabled>Disabled primary</Button>
+              <Button variant="secondary" disabled>Disabled secondary</Button>
+              <Button variant="ghost" disabled>Disabled ghost</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

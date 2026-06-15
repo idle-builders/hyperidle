@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NavItem — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── NavItem ──
+       Sidebar navigation item. Matches 03-hearth.html sidebar: no left-border
+       accent, active uses elevated bg + subtle shadow, 13px font, 6px 12px
+       padding. Status dot (8px) for bets. No density tokens. */
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 200px;
+      padding: 0 12px;
+    }
+
+    .nav-item {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 6px;
+      text-align: left;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      border-radius: var(--r-subtle);
+      border: none;
+      background: none;
+      cursor: pointer;
+      transition: background 240ms ease;
+      font-family: var(--font-sans);
+    }
+
+    .nav-item:hover {
+      background: rgba(44, 36, 26, 0.04);
+    }
+
+    .nav-item--active {
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      font-weight: 500;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .nav-item__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+      flex-shrink: 0;
+    }
+
+    .nav-item__label {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-item__count {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+      min-width: 18px;
+      text-align: center;
+    }
+
+    /* Section label */
+    .nav-section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 9px;
+      padding: 0 12px;
+    }
+
+    .nav-divider {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: 12px 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function NavItem({ active, dot, label, count }) {
+      return (
+        <button
+          className={`nav-item ${active ? 'nav-item--active' : ''}`}
+          data-component="NavItem"
+          data-tier="1"
+          data-uses=""
+          data-daisyui=""
+        >
+          {dot && <span className="nav-item__dot" style={{ background: dot }}></span>}
+          <span className="nav-item__label">{label}</span>
+          {count !== undefined && <span className="nav-item__count">{count}</span>}
+        </button>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Sidebar — Bets Section</div>
+            <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-default)', padding: '12px 0' }}>
+              <div className="nav-section-label">Bets</div>
+              <div className="nav-list">
+                <NavItem active dot="var(--accent-primary)" label="Auth migration" count={3} />
+                <NavItem dot="var(--accent-secondary)" label="Search rewrite" />
+                <NavItem dot="var(--status-info)" label="Onboarding v3" />
+                <NavItem dot="var(--accent-primary)" label="Billing overhaul" />
+              </div>
+              <hr className="nav-divider" />
+              <div className="nav-section-label">Teams</div>
+              <div className="nav-list">
+                <NavItem label="Product" />
+                <NavItem label="Infrastructure" />
+                <NavItem label="Growth" />
+                <NavItem label="Design" />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

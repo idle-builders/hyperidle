@@ -174,7 +174,7 @@ export function preFilterModels(
  * Pure predicate: is the observed cost within the cap?
  *
  * @lore AH5: Fail closed — if totalCostCents > capCents the assertion fails.
- * Called by the probe and by the CI budget-assert step.
+ * Called by the probe and by the local budget-assert step.
  */
 export function isWithinCostCap(totalCostCents: number, capCents: number): boolean {
 	return totalCostCents <= capCents;
