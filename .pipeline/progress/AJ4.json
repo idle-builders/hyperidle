@@ -1,9 +1,11 @@
 {
   "id": "AJ4",
-  "status": "in_progress",
-  "currentStep": "5-write-docs",
+  "status": "done",
+  "currentStep": "shipped",
   "complexity": "M",
   "track": "AJ",
-  "decision": "local-only Playwright screenshots for PR design evidence (founder 2026-06-15); not the CI gate, not committed PNGs",
-  "startedAt": "2026-06-15T00:00:00Z"
+  "decision": "local-only Playwright screenshots for PR design evidence (founder 2026-06-15); orphan pr-evidence/<pr> branch hosting; not the CI gate, not committed PNGs",
+  "startedAt": "2026-06-15T00:00:00Z",
+  "completedAt": "2026-06-15T23:00:00Z",
+  "pr": 322
 }
