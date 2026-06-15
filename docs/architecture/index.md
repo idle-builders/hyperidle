@@ -17,7 +17,7 @@ This document describes the parts of HyperIdle, how they interface with each oth
 - [The Human Interface: The Factory](./the-human-interface-the-factory.md)
 - [Key Interfaces Between Components](./key-interfaces-between-components.md)
 - [Technology Summary](./technology-summary.md)
-- [Kernel ↔ Strategy split](./kernel-strategy-split.md) — boundary contract + AS-BUILT (AK2): Strategy Port, registry, Fabric adapter, minimal reference Strategy, ESLint guard, deferred AK2b physical-relocation work
+- [Kernel ↔ Strategy split](./kernel-strategy-split.md) — boundary contract + AS-BUILT (AK2): Strategy Port, registry, Fabric adapter, minimal reference Strategy, ESLint guard, deferred AK2b physical-relocation work + AS-BUILT (AK3): decomposition seam, boot wiring, decompositionStatus on bets
 - [Deployment Architecture](./deployment-architecture.md)
 - [Data Flow Examples](./data-flow-examples.md)
 - [What This Architecture Does Not Include](./what-this-architecture-does-not-include.md)

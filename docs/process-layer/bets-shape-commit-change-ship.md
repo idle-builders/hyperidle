@@ -4,35 +4,42 @@
 
 Shaping happens before commitment. A Product Manager (sometimes with the assistant for portfolio-level bets) writes a pitch — problem, appetite, sketches, rabbit-hole notes, no-gos. The pitch lands on the Work view as a `shaped` card. Pitches accumulate on the canvas during the cycle; only the founder can move them into the betting zone.
 
-Shaping is *not* decomposition. The pitch describes what success looks like, not what tasks will produce it. Decomposition happens *after* commitment, by the team, decentralized.
+Shaping is *not* decomposition. The pitch describes what success looks like, not what tasks will produce it. Decomposition happens *after* commitment.
 
 ### 5.2 Commit
 
-The founder drags a pitch into the betting zone on the Work view (`HUMAN_INTERFACE_LAYER.md` §4.3). At this moment:
+The founder commits a bet from the bet detail view. At that moment:
 
-1. The pitch becomes a Bet object with status `committed`.
-2. The team for the product picks it up — the bet is added to the team's `active_bets`. Most of the time this is the team's only active bet (focus is the goal). Sometimes a team carries more than one in parallel — when work doesn't touch all functions, when something urgent has to ship alongside the main thrust, when two independent threads of work both need to move. Multiple parallel bets are allowed but treated as a cost on focus, not a default.
-3. The assistant drafts an explicit `done_condition` based on the pitch and posts it as a review thread for the founder. The founder can approve as-is, edit, or reshape.
-4. Once the done condition is approved, the bet moves to `in_progress` and the team begins decomposition.
+1. The bet moves from `draft` to `active`.
+2. The Kernel immediately begins decomposition — a PM agent runs a task-free turn, reads the bet's goal and done condition, and produces a task breakdown.
+3. The bet's task section shows "Planning the work" while decomposition runs. Tasks appear as soon as the PM agent finishes.
 
-The `done_condition` is non-negotiable in one sense: the bet is not in `in_progress` until it has one. But it's revisable in another sense: the team can propose changes to it as they learn (see §5.4).
+Commit is a **human verdict that obliges the system to start work**. It is the handoff from shaping to doing. After commit, every active bet has either a task breakdown or an explicit, visible reason why one couldn't be produced — there is no "work will start eventually" limbo.
 
-### 5.3 Decompose (decentralized, by the team)
+The `done_condition` guides what the PM agent produces. It is revisable during the bet (see §5.4) but must be set before committing.
 
-This is the part that most agent frameworks get wrong. They assign decomposition to a planner agent. We don't. **Each team member decomposes the part of the bet that belongs to their work stream**, using knowledge from their own practice (L3) to know what tasks are typical for this kind of work.
+### 5.3 Decompose (v1: PM agent; destination: decentralized by the team)
 
-Concretely:
+**As-built (v1):** When a bet is committed, a single PM agent runs a task-free turn — it reads the bet's goal and done condition and returns a structured task breakdown. The Kernel inserts these as tasks owned by eligible team agents (active AI agents on the bet's team). Each task is immediately accepted, which triggers the existing task → session dispatch path. No human approves the initial breakdown; the founder sees it on the bet surface after the fact.
 
-1. The bet enters `in_progress`. Every team member is notified through the bet's thread.
-2. Each member reads the pitch and the done condition.
-3. Each member queries their practice (L3) for the patterns they know about. The Writer queries the writing practice for "what tasks does shipping a landing-page copy bet typically involve?" The Frontend Builder queries the frontend practice. The Growth Analyst queries the growth practice.
-4. Each member proposes the tasks they'll own as `proposed` Task objects on the bet, with dependencies on other members' tasks where needed.
-5. The Product Manager (the team lead) reviews the assembled task list, dedupes overlap, identifies gaps, and either accepts or asks for revision. This is intra-team — not a human review.
-6. Once accepted, tasks move to `accepted` and members begin sessions on them.
+The PM agent's context comes through the active Strategy port (`assembleContext`). Under the Minimal Strategy the PM decomposes from the bet alone (no additional knowledge). Under the Fabric it receives practice context that can sharpen the breakdown.
 
-This is plan-and-execute, but the *plan* is collectively authored by the team using practice knowledge as the source of patterns. Replanning is expected: as members work, they discover new tasks (added as `proposed`), retire stale ones (moved to `killed`), and revise dependencies. Each change is a small event the team handles internally. The bet's task list is *the current plan*.
+**Terminal outcomes (closed set):** decomposition always ends in one of two states:
 
-The Product Manager does not micromanage. Its role is to keep the bet honest against the done condition and to flag when the team is drifting.
+- **`done`** — ≥1 task was produced and accepted; agents begin sessions.
+- **`blocked`** — the PM couldn't produce a breakdown. Two reasons:
+  - `no_eligible_agent` — the team has no active AI agent capable of owning tasks. The bet surface shows "No one can take this work" with a link to add an agent to the team.
+  - `empty` / `failed` — the PM produced nothing or the turn failed. The bet surface shows "Couldn't plan the work" with a prompt to try committing again.
+
+There is no third outcome. A bet that has been active for more than the decomposition window has either tasks or a visible blocker — the permanent "Tasks will appear here once agents start work" promise over an empty list is forbidden.
+
+**Crash safety:** if the server process dies during decomposition, a boot-time sweep resolves any in-flight bet to `blocked/failed`. The UI never shows a perpetual "Planning the work" state.
+
+**Idempotency:** the `draft→active` transition triggers decomposition at most once per bet. Duplicate events are dropped by a CAS guard on the `decompositionStatus` column.
+
+**Destination (decentralized):** the v1 centralized model is a deliberate stepping stone. The goal described in `decomposition-practice-grounded-decentralized.md` — each team member decomposes their own stream using practice knowledge, the PM integrates — is still the intended destination. v1 ships the smallest real seam that makes commit load-bearing; the decentralized model requires practice knowledge (L3) to be populated, which is a separate workpackage. When the decentralized model ships, `decompositionStatus` and the dispatch path remain; only the decomposition source changes.
+
+Replanning is normal: as work progresses, the PM proposes new tasks (`proposed`), retires stale ones (`killed`), and revises dependencies. The plan is the current state of the task list, not a separate document.
 
 ### 5.4 Change (bets are allowed to evolve)
 
