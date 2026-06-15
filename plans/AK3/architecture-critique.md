@@ -1,5 +1,12 @@
 # Architecture Critique: AK3 — Committing a bet starts work
 
+ARCHITECTURE-SCORE: 8/10  rounds=2  score-line: SA:9 LI:9 AC:8 DM:8 N:8 MD:8 FMC:8 S:8 V:8
+
+> **Round 2 verdict: APPROVED (8/10, zero CRITICALs).** All three round-1 CRITICALs + the four WARNINGs are genuinely resolved against the actual code (each spot-checked below, not trusted from the plan's self-description). The core PM-turn mechanism is now specified against real types and buildable with zero question marks. See the **Round 2** section at the bottom for the per-item verification. The round-1 body below is retained for history.
+
+---
+## (Round 1 — superseded; retained for history)
+
 ARCHITECTURE-SCORE: 6/10  rounds=1  score-line: SA:8 LI:8 AC:7 DM:8 N:8 MD:7 FMC:5 S:6 V:7
 
 Scored against codebase reality, not the plan's self-description. Every reconciliation claim was grep-verified. The plan is structurally strong — correct boundary placement, real dispatch reuse, honest design-it-twice, full AC→verification table, populated protected-tests and route-checklist. It is held back to **6** by one load-bearing technical claim that does not survive contact with the code (the AH3 precedent does **not** do what the plan says it does for the two hardest parts), and by failure-mode gaps around the CAS guard and the "running" status terminal-window.
@@ -58,3 +65,36 @@ The two claims that **fail** the reality check are in §Plan-reconciliation row 
 
 ## Verdict
 **NEEDS REVISION.** Score 6/10 with 3 CRITICALs. The plan's skeleton is sound and most of it is buildable as-is, but the two AH3-misattribution CRITICALs (Strategy port + session-less tool execution) mean the **core mechanism of how the PM turn runs and creates tasks is not yet specified against the real code** — the cited precedent does the opposite of what the plan needs for exactly those two steps. Plus the CAS crash-orphan hole is a latent C1/AC3 violation the plan must close. Resolve all three CRITICALs (and the cost-bypass WARNING, which is really a fourth correctness gap) before `/write-tests`.
+
+---
+
+# Round 2 — re-critique of the revised plan
+
+**Method:** spot-checked the actual code the revised plan cites — did not trust the plan's claims. Files read: `strategy-port.ts`, `minimal-strategy.ts`, `assistant-turn.ts`, `cost-cap.ts`, `tool-registry.ts`, `builtin-harness-adapter.ts`, `handoff-protocol.ts`, `router.tsx`, `WorkTeam.tsx`, `bet-state-machine.ts`, `agent-roles.ts`.
+
+## CRITICALs — all RESOLVED
+
+- **CRITICAL-1 (Strategy port) — RESOLVED.** The plan now picks path (a): a synthetic `ContextAssemblyRequest` (`§The PM turn (a)`). Verified against `strategy-port.ts:29-47` — the request shape matches the type field-for-field: `db, sandboxPath, sessionId, taskId, agentId, agentRole, teamId, isRoutine`, all of which are present in the plan's literal. `agentRole: pmAgent.role` is `UserRole` (a string) — valid. Verified `minimal-strategy.ts:83-89`: `assembleContext` touches only `req.sandboxPath` (scaffold dirs) and `req.sessionId` (manifest); `req.db` is **passed but never read** and `req.taskId`/`req.isRoutine` are ignored. So the synthetic `decomp-${betId}` session/task ids never hit a DB row — they're safe. The `try/catch → markBlocked(…, "failed")` honours the port's documented "assembleContext MAY throw" contract (`strategy-port.ts:106-108`); the service owns mkdir-before / rm-in-finally. The C5 port-compliance claim is now honest (it genuinely calls the port, unlike AH3's inline path). **Closed.**
+
+- **CRITICAL-2 (session-less tool exec) — RESOLVED.** Verified `tool-registry.ts:39-54`: `ToolContext` requires non-optional `agentId, sessionId, taskId, sandboxPath, ingestion` — confirming a task-free harness tool-call has no grounded ToolContext. `builtin-harness-adapter.ts:7-10` `@lore` confirms the registry is session-scoped. The revised plan makes **deterministic `insertProposedBetTasks` the v1 primary path**: the PM turn runs `tools:[]` (exactly like AH3, `assistant-turn.ts:398`) and returns a structured `DecompositionTaskInput[]`; the server inserts directly with no ToolContext. The harness-tool `propose_bet_tasks` path is deferred behind the `runDecompositionTurn` seam (test-injectable override, same idiom as `AssistantTurnDeps.runTurn`/`turnTimeoutMs`, `assistant-turn.ts:74-77`). Concrete, buildable, zero session-less question marks. **Closed.**
+
+- **CRITICAL-3 (CAS crash-orphan) — RESOLVED.** `resolveOrphanedDecompositions(db)` flips any `decomposition_status='running'` bet → `blocked/failed`, registered at boot **before** the subscriber starts (`§Boot wiring`). The argument that any `'running'` at boot is provably a dead in-process turn is sound (decomposition runs in-process, never resumes across restart — mirrors AH3 `@lore §1.7`). This makes `'running'` eventually-terminal under crash, closing the C1/AC3 hole. An integration test on the sweep is in the AC3 row. **Closed.**
+
+## WARNINGs — all addressed
+
+- **W-4 (cost) — RESOLVED.** Verified `cost-cap.ts:165` — `checkCostCap(db, eventBus, params)` exists, takes `{ agentId, teamId?, … }`, returns `CostCapResult` (does not throw for over-cap; throws only on agent-not-found). The plan adds it as a pre-flight (step 4) before the turn; `!allowed → blocked/failed`. It's a direct Kernel import from `@hyperidle/fabric`, not behind the port, not in the AK2 ESLint ban-list (only `assembleContext`/`startWatcher`/`FileWatcher` are banned) — consistent with boundary §3 ("cost stays Kernel-side"). The v1 trade-off (pre-flight cap, no per-event `recordCostAndCheck` accrual) is stated and defensible for a single bounded human-gated turn. **Addressed.**
+- **W-5 (`sandbox` rename) — RESOLVED.** `BetDecompositionDeps.sandbox: SandboxAdapter`; the plan correctly notes the long-standing `ProvisionSessionDeps.workspace` field stays out of scope. New surface uses the locked noun.
+- **W-6 (named timeout) — RESOLVED.** `DECOMPOSITION_TURN_TIMEOUT_MS = 120_000` in shared; `turnTimeoutMs?` override for fast-timeout AC6 test.
+- **W-7 (round-robin owner) — RESOLVED.** Fallback specified (role-match first, else round-robin over eligible), invariant stated ("every produced task lands on an eligible agent"), and an explicit AC2 unit test asserts a `growth` task on a builder-only team still lands on a builder. `betId` bound from the bet, not agent input. Eligibility join verified against `handoff-protocol.ts:188-202` (teamMembers→users by role+status+group); `findRoleCatalogEntry`/`AGENT_ROLE_CATALOG` verified exported from `agent-roles.ts:203` / `index.ts`.
+- **W-8 (precedence) — RESOLVED.** `§Web` pins precedence to `approved.md` (`tasks>0` first) and explicitly marks the `honest-task-state/spec.md`/`variant.tsx` draft-first ordering superseded.
+- **R4 ("Add an agent" route) — RESOLVED.** Verified `router.tsx:78` (`path: "work/team/:teamId"` → `WorkTeam`) and `WorkTeam.tsx:473` (`add-agent-btn`). Link target `/work/team/{teamId}` is real; AC4 component test asserts it.
+
+## Remaining (non-blocking SUGGESTIONs — do NOT gate)
+
+- `markBlocked` is referenced in the §PM-turn snippet but not declared in the `§Decomposition service` signature block. Trivial — it's an internal helper the builder will add; not a contract gap.
+- AC5's "no outbound side effect" remains a hard-to-assert positive, but the plan strengthened it to a concrete enumeration (`tools:[]` + only `tasks` rows + 2 `bets` columns + emits) — acceptable.
+
+These are not worth another round.
+
+## Verdict — Round 2
+**APPROVED. Score 8/10, zero CRITICALs.** All three round-1 CRITICALs are closed against the real code (Strategy-port synthetic request honours the type and the minimal Strategy reads no synthetic row; deterministic insert is the buildable v1 primary with the harness-tool path correctly deferred; the boot sweep closes the crash-orphan hole). The four WARNINGs are resolved. The plan is now buildable as written — the core PM-turn mechanism is specified against real types with no question marks. The builder may proceed to `/write-tests`.
