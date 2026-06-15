@@ -28,13 +28,7 @@
  * providers; other providers reject apiKey in the request body.
  */
 
-import {
-	ErrorState,
-	Input,
-	Select,
-	SkeletonList,
-	StatusChip,
-} from "@hyperidle/design-system";
+import { ErrorState, Input, Select, SkeletonList, StatusChip } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/shared";
 // hearth-internal-padding
 import { MODEL_PROVIDERS } from "@hyperidle/shared";

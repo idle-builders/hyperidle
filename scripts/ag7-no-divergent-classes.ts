@@ -112,6 +112,105 @@ const FORBIDDEN_TOKENS: readonly ForbiddenToken[] = [
 		re: wholeTokenRe("gap-6"),
 		reason: "DaisyUI 24px alias — use literal gap-[24px] or gap-[18px]",
 	},
+	// --- Margin alias tokens (whole-token, AQ-001 off-grid) ---
+	// ml-1=4px, ml-2=8px, ml-4=16px are off-grid; ml-3=12px is on-grid but an alias.
+	// All four are forbidden — use literal ml-[Npx] with a Hearth grid value.
+	{
+		label: "ml-1",
+		kind: "whole-token",
+		re: wholeTokenRe("ml-1"),
+		reason: "4px alias — OFF-GRID (AQ-001) — use ml-[3px] or ml-[6px]",
+	},
+	{
+		label: "ml-2",
+		kind: "whole-token",
+		re: wholeTokenRe("ml-2"),
+		reason: "8px alias — OFF-GRID (AQ-001) — use ml-[9px]",
+	},
+	{
+		label: "ml-3",
+		kind: "whole-token",
+		re: wholeTokenRe("ml-3"),
+		reason: "12px alias — use literal ml-[12px]",
+	},
+	{
+		label: "ml-4",
+		kind: "whole-token",
+		re: wholeTokenRe("ml-4"),
+		reason: "16px alias — OFF-GRID (AQ-001) — use ml-[18px] or ml-[12px]",
+	},
+	{
+		label: "mr-1",
+		kind: "whole-token",
+		re: wholeTokenRe("mr-1"),
+		reason: "4px alias — OFF-GRID (AQ-001) — use mr-[3px] or mr-[6px]",
+	},
+	{
+		label: "mr-2",
+		kind: "whole-token",
+		re: wholeTokenRe("mr-2"),
+		reason: "8px alias — OFF-GRID (AQ-001) — use mr-[9px]",
+	},
+	{
+		label: "mr-3",
+		kind: "whole-token",
+		re: wholeTokenRe("mr-3"),
+		reason: "12px alias — use literal mr-[12px]",
+	},
+	{
+		label: "mr-4",
+		kind: "whole-token",
+		re: wholeTokenRe("mr-4"),
+		reason: "16px alias — OFF-GRID (AQ-001) — use mr-[18px] or mr-[12px]",
+	},
+	{
+		label: "mt-1",
+		kind: "whole-token",
+		re: wholeTokenRe("mt-1"),
+		reason: "4px alias — OFF-GRID (AQ-001) — use mt-[3px] or mt-[6px]",
+	},
+	{
+		label: "mt-2",
+		kind: "whole-token",
+		re: wholeTokenRe("mt-2"),
+		reason: "8px alias — OFF-GRID (AQ-001) — use mt-[9px]",
+	},
+	{
+		label: "mt-3",
+		kind: "whole-token",
+		re: wholeTokenRe("mt-3"),
+		reason: "12px alias — use literal mt-[12px]",
+	},
+	{
+		label: "mt-4",
+		kind: "whole-token",
+		re: wholeTokenRe("mt-4"),
+		reason: "16px alias — OFF-GRID (AQ-001) — use mt-[18px] or mt-[12px]",
+	},
+	{
+		label: "mb-1",
+		kind: "whole-token",
+		re: wholeTokenRe("mb-1"),
+		reason: "4px alias — OFF-GRID (AQ-001) — use mb-[3px] or mb-[6px]",
+	},
+	{
+		label: "mb-2",
+		kind: "whole-token",
+		re: wholeTokenRe("mb-2"),
+		reason: "8px alias — OFF-GRID (AQ-001) — use mb-[9px]",
+	},
+	{
+		label: "mb-3",
+		kind: "whole-token",
+		re: wholeTokenRe("mb-3"),
+		reason: "12px alias — use literal mb-[12px]",
+	},
+	{
+		label: "mb-4",
+		kind: "whole-token",
+		re: wholeTokenRe("mb-4"),
+		reason: "16px alias — OFF-GRID (AQ-001) — use mb-[18px] or mb-[12px]",
+	},
 	// --- Font-size alias tokens (whole-token, AQ-004 off-scale) ---
 	{
 		label: "text-sm",

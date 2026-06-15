@@ -564,7 +564,7 @@ export function SettingsAgents(): JSX.Element {
 												 * @lore AG7: behind=amber per design §1.9 — harness unavailable
 												 * is a degraded/recoverable state, NOT blue (paused) or red (blocked). */}
 												{harnessUnavailable && (
-													<span className="ml-2">
+													<span className="ml-[9px]">
 														<StatusChip status="behind" label="Harness unavailable" />
 													</span>
 												)}
