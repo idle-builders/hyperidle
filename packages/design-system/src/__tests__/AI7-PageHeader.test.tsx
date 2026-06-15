@@ -78,11 +78,7 @@ describe("AI7 — PageHeader component", () => {
 			render(
 				<PageHeader
 					title={
-						<input
-							data-testid="editable-title"
-							aria-label="Page title"
-							defaultValue="Draft"
-						/>
+						<input data-testid="editable-title" aria-label="Page title" defaultValue="Draft" />
 					}
 				/>,
 			);
@@ -99,18 +95,15 @@ describe("AI7 — PageHeader component", () => {
 
 		it("passing `leading` renders it before the title row", () => {
 			render(
-				<PageHeader
-					title="Page"
-					leading={<span data-testid="breadcrumb">Work / Page</span>}
-				/>,
+				<PageHeader title="Page" leading={<span data-testid="breadcrumb">Work / Page</span>} />,
 			);
 			const crumb = screen.getByTestId("breadcrumb");
 			expect(crumb).toBeInTheDocument();
 			// Leading must appear before the h2 in DOM order
 			const h2 = screen.getByRole("heading", { level: 2 });
-			expect(
-				crumb.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_FOLLOWING,
-			).toBeGreaterThan(0);
+			expect(crumb.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(
+				0,
+			);
 		});
 	});
 
@@ -138,7 +131,9 @@ describe("AI7 — PageHeader component", () => {
 			// No shrink-0 actions cluster (the h2 row uses justify-between but no separate shrink-0 wrapper)
 			// The actions wrapper has shrink-0 AND items-center — the header already has shrink-0 so
 			// we check for the actions items-center flex wrapper inside the title row
-			const actionsClusters = container.querySelectorAll(".flex.items-center.gap-\\[9px\\].shrink-0");
+			const actionsClusters = container.querySelectorAll(
+				".flex.items-center.gap-\\[9px\\].shrink-0",
+			);
 			expect(actionsClusters).toHaveLength(0);
 		});
 
@@ -146,7 +141,11 @@ describe("AI7 — PageHeader component", () => {
 			render(
 				<PageHeader
 					title="Page"
-					actions={<button type="button" data-testid="create-btn">Create</button>}
+					actions={
+						<button type="button" data-testid="create-btn">
+							Create
+						</button>
+					}
 				/>,
 			);
 			expect(screen.getByTestId("create-btn")).toBeInTheDocument();

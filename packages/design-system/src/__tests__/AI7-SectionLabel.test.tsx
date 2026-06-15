@@ -95,7 +95,11 @@ describe("AI7 — SectionLabel component", () => {
 			render(
 				<SectionLabel
 					label="Members"
-					trailing={<button type="button" data-testid="trailing-slot">New</button>}
+					trailing={
+						<button type="button" data-testid="trailing-slot">
+							New
+						</button>
+					}
 				/>,
 			);
 			expect(screen.getByTestId("trailing-slot")).toBeInTheDocument();
@@ -162,11 +166,7 @@ describe("AI7 — SectionLabel component", () => {
 
 	describe("ReactNode label", () => {
 		it("renders a ReactNode label (not just a string)", () => {
-			render(
-				<SectionLabel
-					label={<span data-testid="node-label">Members</span>}
-				/>,
-			);
+			render(<SectionLabel label={<span data-testid="node-label">Members</span>} />);
 			expect(screen.getByTestId("node-label")).toBeInTheDocument();
 		});
 	});

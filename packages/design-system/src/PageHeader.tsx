@@ -66,12 +66,12 @@ export function PageHeader({
 
 			<div className="flex items-center justify-between gap-[12px]">
 				<h2 className={pageTitleClassName}>{title}</h2>
-				{actions && (
-					<div className="flex items-center gap-[9px] shrink-0">{actions}</div>
-				)}
+				{actions && <div className="flex items-center gap-[9px] shrink-0">{actions}</div>}
 			</div>
 
-			{subtitle && <div className="mt-[3px] text-[13px] text-[var(--text-tertiary)]">{subtitle}</div>}
+			{subtitle && (
+				<div className="mt-[3px] text-[13px] text-[var(--text-tertiary)]">{subtitle}</div>
+			)}
 		</header>
 	);
 }
