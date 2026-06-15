@@ -14,7 +14,6 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 
 - Dev server running on `localhost:5173` (`npm run dev` from repo root) for app-level polish
 - Design system viewer running on `localhost:8098` (`npm run ds:serve`) for component-level polish
-- Playwright installed (`npx playwright install chromium`)
 - Reference: the approved design at `plans/<workpackage-id>/design/approved.md`
 
 ## Workflow
@@ -30,13 +29,9 @@ npm run ds:serve
 
 For app-level pages: use `http://localhost:5173/<route>`.
 
-### 2. Capture a screenshot and evaluate
+### 2. Evaluate visually
 
-```bash
-npx playwright screenshot "http://localhost:8098/#<ComponentName>" /tmp/polish-<name>.png --wait-for-timeout=2000
-```
-
-Read the PNG. Look at pixels, not code. Identify:
+Navigate to `http://localhost:8098/#<ComponentName>` in the browser or via agent visual assessment of the live viewer. Look at pixels, not code. Identify:
 - **Layout differences** — element positions, flex/grid structure, spacing
 - **Color differences** — wrong tokens, missing dark theme colors, contrast
 - **Typography** — wrong font, size, weight, letter-spacing
@@ -53,7 +48,7 @@ npm run test -- catalog-snapshot
 
 The vitest snapshot net flags structural/class drift (DOM elements, className composition, data-ds-* markers, aria attrs). If it fails, the component has changed from the last blessed state — review the text diff to understand what changed.
 
-For *painted-pixel* comparison (colors, spacing, layout rendered): use the live viewer (`npm run ds:serve` → `:8098/#<ComponentName>`) and the Playwright screenshot above. The snapshot net does not check painted pixels (jsdom does not lay out or apply the cascade — that is the accepted trade for zero-Docker verify; see `.claude/rules/visual-regression.md`).
+For *painted-pixel* comparison (colors, spacing, layout rendered): use the live TSX viewer (`npm run ds:serve` → `http://localhost:8098/#<ComponentName>`) and inspect visually in the browser or via agent visual assessment. The snapshot net does not check painted pixels (jsdom does not lay out or apply the cascade — that is the accepted trade for zero-Docker verify; see `.claude/rules/visual-regression.md`).
 
 ### 4. Fix
 
@@ -66,7 +61,7 @@ Make targeted CSS/component changes. One concern per iteration:
 
 ### 5. Re-compare
 
-Re-screenshot (`npx playwright screenshot …`). Check if the visual diff improved. If it regressed, revert the last change.
+Open (or refresh) `http://localhost:8098/#<ComponentName>` in the live viewer. Check if the visual diff improved. If it regressed, revert the last change.
 
 ### 6. Convergence
 
@@ -97,7 +92,6 @@ Commit the updated `.snap` in the same PR as the component change. Read the diff
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
 - **Check the approved design first** — when story and reference disagree, the approved design at `plans/<workpackage-id>/design/approved.md` is the source of truth
 - **One change at a time** — so you can attribute regression to specific modifications
-- **Disable animations** — add freeze CSS before screenshot so no animation-dependent layout shifts
 
 ## Output
 
