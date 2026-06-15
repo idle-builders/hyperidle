@@ -184,6 +184,17 @@ describe("AD8b — SettingsAssistant component", () => {
 		});
 	});
 
+	// AG7 AC: SettingsAssistant renders no internal <h2> (heading-conformance)
+	it("does not render an internal h2 heading (SectionTitle is the only heading)", async () => {
+		mockFetchSuccess();
+		render(<SettingsAssistant userId="u-founder" />);
+
+		// No h2 element should exist inside SettingsAssistant
+		// (the SectionTitle is rendered by SettingsPage, outside this component)
+		const headings = document.querySelectorAll("h2");
+		expect(headings.length).toBe(0);
+	});
+
 	it("shows error message when save fails", async () => {
 		const user = userEvent.setup();
 		mockFetchError();

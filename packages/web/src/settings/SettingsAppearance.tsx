@@ -67,7 +67,7 @@ export function SettingsAppearance(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[18px] max-w-none">
 			<span className="text-[13px] font-[500] text-[var(--text-primary)]">Theme</span>
-			<div className="flex items-center gap-3 flex-wrap">
+			<div className="flex items-center gap-[12px] flex-wrap">
 				{THEME_OPTIONS.map((option) => {
 					const isActive = theme === option.value;
 					return (
@@ -85,7 +85,7 @@ export function SettingsAppearance(): JSX.Element {
 									? "border-[var(--accent-primary)]"
 									: "border-[var(--border-default)] hover:border-[var(--border-strong)]",
 							].join(" ")}
-							style={isActive ? { boxShadow: "0 0 0 3px rgba(22,118,79,0.1)" } : undefined}
+							style={isActive ? { boxShadow: "0 0 0 3px var(--accent-primary-dim)" } : undefined}
 							onClick={() => handleThemeChange(option.value)}
 						>
 							{/* W3 AC-50: color swatch preview — 48px tall, rounded top, no border */}

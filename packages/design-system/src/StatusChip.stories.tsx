@@ -39,8 +39,9 @@ export const WithLabelProp = (): React.JSX.Element => (
 
 export const UnknownFallback = (): React.JSX.Element => (
 	<div className="flex flex-wrap gap-2">
-		{/* Runtime tolerance: unknown strings and undefined fall back to a neutral chip */}
-		<StatusChip status={"unknown" as "healthy"} />
+		{/* Explicit "unknown" sentinel — no credential / absence-is-not-an-error. */}
+		<StatusChip status="unknown" />
+		{/* Runtime tolerance: undefined and unrecognised strings still fall back to neutral grey. */}
 		<StatusChip status={undefined as unknown as "healthy"} />
 		<StatusChip status={"some-new-status" as "healthy"} />
 	</div>

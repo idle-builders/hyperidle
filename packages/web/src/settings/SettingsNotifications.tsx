@@ -30,14 +30,7 @@ export function SettingsNotifications(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px]">
-			<p
-				style={{
-					fontFamily: "var(--font-sans)",
-					fontSize: "13px",
-					color: "var(--text-secondary)",
-					marginBottom: "6px",
-				}}
-			>
+			<p className="text-[13px] text-[var(--text-secondary)]">
 				Each type below is a real notification source. Muting a type suppresses all future
 				notifications of that kind from entering your inbox.
 			</p>
