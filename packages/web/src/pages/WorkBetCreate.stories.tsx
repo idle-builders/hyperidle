@@ -6,15 +6,18 @@
  */
 
 import type { JSX } from "react";
-import { MemoryRouter } from "react-router-dom";
+// AJ3: page-fed variant mounts via the shared isolation harness instead of a
+// local ad-hoc MemoryRouter wrapper. One story = prototype = annotation
+// surface = catalog entry. See packages/web/src/preview + plans/AJ3.
+import { MockProviders } from "../preview";
 import { WorkBetCreate } from "./WorkBetCreate";
 
-// Storybook scaffold — stories render in MemoryRouter for routing hooks
+// Storybook scaffold — stories render through MockProviders for routing hooks
 function PageWrapper({ children }: { children: React.ReactNode }): JSX.Element {
 	return (
-		<MemoryRouter initialEntries={["/work/bet/new"]}>
+		<MockProviders route="/work/bet/new">
 			<div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>{children}</div>
-		</MemoryRouter>
+		</MockProviders>
 	);
 }
 

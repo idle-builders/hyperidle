@@ -44,7 +44,11 @@ const DEFAULT_ASSISTANT: AssistantContextValue = {
 	attachContext: () => undefined,
 };
 
-export function MockProviders({ children, route = "/", assistant }: MockProvidersProps): JSX.Element {
+export function MockProviders({
+	children,
+	route = "/",
+	assistant,
+}: MockProvidersProps): JSX.Element {
 	return (
 		<MemoryRouter initialEntries={[route]}>
 			<AssistantContext.Provider value={{ ...DEFAULT_ASSISTANT, ...assistant }}>
