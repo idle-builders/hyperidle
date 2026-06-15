@@ -21,6 +21,8 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
+import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
 import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { DbCredentialResolver } from "./services/credential-resolver.js";
@@ -264,6 +266,24 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// Kernel-only testing). No other Kernel code changes are required (AC4).
 	setActiveStrategy(fabricStrategy);
 
+	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
+	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
+	// race with the sweep (subscriber isn't listening yet at this point).
+	// @lore AK3: 'running' at boot = orphaned in-process turn (no restart resume).
+	await resolveOrphanedDecompositions(db);
+
+	// AK3 §2: Register the kernel-side bet decomposition subscriber.
+	// Deps: all already available from the dispatcherDeps wiring above.
+	const disposeBetDecomp = registerBetDecomposition({
+		db,
+		eventBus,
+		adapterPool,
+		sandbox: workspaceAdapter,
+		sandboxBasePath,
+		resolveModel: makeResolveModel(db, credentialResolver),
+		credentialResolver,
+	});
+
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
 	const mcpBaseUrl = `http://localhost:${port}`;
@@ -375,6 +395,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		// the WS disposer first, `disposeApp` would still run, but background
 		// handlers could observe events during shutdown against a torn-down
 		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
+		// AK3: unsubscribe the bet decomposition subscriber.
+		disposeBetDecomp();
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();

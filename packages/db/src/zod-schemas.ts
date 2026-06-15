@@ -42,7 +42,20 @@ import {
 export const selectTeamSchema = createSelectSchema(teams);
 export const selectUserSchema = createSelectSchema(users);
 export const selectTeamMemberSchema = createSelectSchema(teamMembers);
-export const selectBetSchema = createSelectSchema(bets);
+/**
+ * AK3: decompositionStatus and decompositionBlockerReason are nullable columns
+ * with no DB default. drizzle-zod generates them as required-nullable, which
+ * breaks pre-existing test fixtures that omit these fields. Mark them optional
+ * so existing fixtures (and sparse API responses) don't need to include them.
+ *
+ * @lore AK3: nullable columns added after schema freeze must be .optional() in
+ * the Zod schema to avoid breaking pre-existing test fixtures that don't know
+ * about the new columns. Pattern: createSelectSchema + column overrides.
+ */
+export const selectBetSchema = createSelectSchema(bets, {
+	decompositionStatus: (s) => s.optional(),
+	decompositionBlockerReason: (s) => s.optional(),
+});
 export const selectTaskSchema = createSelectSchema(tasks);
 export const selectSessionSchema = createSelectSchema(sessions);
 export const selectRoutineSchema = createSelectSchema(routines);
