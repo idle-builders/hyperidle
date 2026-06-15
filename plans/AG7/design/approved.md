@@ -2,6 +2,11 @@
 
 ```
 DESIGN-CLASS: routine  ref=Input,Select,Toggle,Button,Skeleton,ErrorState,EmptyState,Row,StatusChip  pattern=SettingsPage(existing)
+DESIGN-CRITIQUE: score=8/10 APPROVED (reviewer Phase 2). See design-critique.md.
+  Carry into build: (1) StatusChip status→color is explicit (paused=info/blue, behind=warning/amber) —
+  pin "Connecting"/"Harness unavailable" to the intended color, not just a union member.
+  (2) primitive label prop enlarges dense Models/Agents sub-labels 12px→13px (intended unification, confirm fit).
+  (3) the real card-vs-flat rule is "row containing an inline form → card; pure display row → flush" — not "list data → card".
 ```
 
 This is a **consistency/presentation pass**, not a redesign. No new surface, no new primitive, no behavior change. Every visual element already has a canonical component. The "design" is the per-section mapping from today's divergent construction onto the one shared set of patterns, plus the unified header/label/hint/spacing/control spec and the card-vs-flat rule.
