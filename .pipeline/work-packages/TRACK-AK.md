@@ -4,12 +4,17 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **The load-bearing finding.** Committing a bet is inert. `POST /api/bets/:id/commit` flips `draft→active` and emits `bet_state_changed`, but no subscriber acts on `toState=active` — `lifecycle-propagation` handles only `completed`/`killed`, and no decomposition code exists. Meanwhile the bet detail UI promises *"Your team will pick this up"* / *"Tasks will appear here once agents start work."* — never kept. This is the spine of the Plan→Interact→Review→Repeat wedge.
 
-**Boundary is locked.** `docs/architecture/kernel-strategy-split.md` is the fixed input for this track. The cut is **functional, not stable/volatile** (that framing is rejected): **Kernel** = the application + the agent-running runtime (conversations, work plan/review, knowledge *editing*, users, and running agents — harness, sandbox, session, tools/Skills/hooks, cost). **Strategy** = the knowledge/context layer behind a port (context assembly in, learning ingestion out, and the background knowledge work). The **Fabric** is one Strategy implementation; its 4-layer knowledge-management design is **deeply researched and out of scope to change** — the only requirement on it is that it keeps working unchanged behind the shifted boundary.
+**Boundary is locked (refined 2026-06-15).** `docs/architecture/kernel-strategy-split.md` is the fixed input for this track. The cut is **functional, not stable/volatile** (that framing is rejected): **Kernel** = the application + the agent-running runtime (conversations, work plan/review, knowledge *editing*, users — humans **and agents** are users — and running agents — harness, sandbox, session, tools/Skills/hooks, cost), plus the **interaction-surface events** it emits (`bet committed`, `work to decompose`). **Strategy** = the knowledge/context layer behind a port (context assembly in, learning ingestion out, the background knowledge work) **and — per the 2026-06-15 refinement (§2a) — agent identity as knowledge**: the AGENTS.md is a knowledge file, so the agent roster, team-scaffolding, and *which agent fills a session* (selection/assignment) are Strategy. The **Fabric** is one Strategy implementation; its 4-layer knowledge-management design is **deeply researched and out of scope to change** — the only requirement on it is that it keeps working unchanged behind the shifted boundary.
 
-**Dependency order (build top-to-bottom).** AK1 (rename) → AK2 (split) → AK3 (commit→work); AK4 and AK5 need only AK1 and can run in parallel once it lands.
+**The boundary refinement (AK6–AK8).** AK3 shipped under the original "decomposition is Kernel" framing. The founder refined the boundary: *who an agent is* is knowledge, so **agent selection/assignment and decomposition-policy are Strategy**, triggered by a **Kernel-owned event**; the Kernel keeps the mechanism (spawn sandbox, attach session to the agent's user-id, meter cost) and the trigger. AK6 moves the agent roster + AGENTS.md behind the Strategy; AK7 adds the Kernel event + the port's selection seam (Strategy picks an agent → resolves to a Kernel user-id); AK8 rewires decomposition as a Strategy response to that event, with AK3-as-built becoming the Minimal Strategy's default-PM fallback. See `docs/architecture/kernel-strategy-split.md` §2a.
+
+**Dependency order (build top-to-bottom).** AK1 (rename) → AK2 (split) → AK3 (commit→work); AK4 and AK5 need only AK1. The boundary-refinement chain: AK2 → AK6 (roster-as-knowledge) → AK7 (selection seam + Kernel events) → AK8 (event-driven decomposition; also needs AK3).
 
 ```
-AK1 rename ─┬─► AK2 split ─► AK3 commit→work
+AK1 rename ─┬─► AK2 split ─┬─► AK3 commit→work ───────────────────┐
+            │              └─► AK6 roster-as-knowledge            │
+            │                     └─► AK7 selection seam          │
+            │                            └─► AK8 event decompose ◄┘
             ├─► AK4 assistant-drafts-bet
             └─► AK5 knowledge→bet
 ```
@@ -210,3 +215,120 @@ AK1 rename ─┬─► AK2 split ─► AK3 commit→work
 **Out of scope.** Bidirectional sync between the knowledge item and the bet. Agent-initiated auto-promotion of knowledge into bets.
 
 **Effort.** M (~1d)
+
+---
+
+### AK6 — Agent identity is Strategy-owned knowledge
+
+**Workpackage.** As a maintainer and a future third-party contributor, I want which agents exist, who each one is (its AGENTS.md), and which agents are scaffolded into a team to be owned by the active Strategy rather than wired into the Kernel — so that swapping the Strategy swaps the company's agents and personas, a Minimal Strategy yields a single plain agent, and the Kernel still keeps a stable user identity for every agent so sessions attach exactly as today. This makes "personas are knowledge" (the 2026-06-15 boundary refinement, `docs/architecture/kernel-strategy-split.md` §2a) real in the system, not just on paper.
+
+**Why this matters.** The maintainer and the founder both benefit: the whole "nail the Kernel in isolation" USP requires that a Kernel running the Minimal Strategy carries *no* hard-coded roster — today it still would, so the isolation is fake. A contributor cannot ship an alternative set of agents without forking the Kernel. The cost of not building it: the agent roster stays a Kernel concern, contradicting §2a, and the selection/decomposition seams (AK7/AK8) have nothing clean to select *from*.
+
+**What exists today.** Agents are Kernel users (the users table includes AI-agent users with stable ids); teams carry an agent roster via membership groups; the AGENTS.md convention is established (AK1); the role catalog tags each role `category` (team/strategy/individual). The Strategy port (AK2) exposes only `assembleContext` + `beginLearningIngestion`. The Minimal Strategy (`packages/strategy-minimal`) does no knowledge work and inherits whatever roster the Kernel provides.
+
+**What's genuinely missing.** An ownership seam where the active Strategy owns the agent roster, each agent's AGENTS.md (as a managed knowledge artifact), and which agents scaffold into a team — while the Kernel keeps the user-id for each agent. No such boundary exists; roster composition is Kernel-side today.
+
+**Depends on.** AK2 — the Strategy port and registry must exist before roster ownership can be attached to a Strategy.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- The set of agents that exist and populate a team is determined by the active Strategy, not by Kernel code; selecting a different Strategy yields a different set with no change to Kernel code.
+- Under the Minimal Strategy, a team is scaffolded with a single plain agent whose AGENTS.md carries no injected knowledge.
+- Under the Fabric Strategy, the agents and personas present today are unchanged — no regression.
+- Every agent the Strategy scaffolds resolves to a stable Kernel user-id, so a session attaches to it exactly as today.
+- An agent's AGENTS.md is owned by the Strategy as a knowledge artifact (it can evolve through the Strategy's knowledge management), not held as a fixed Kernel asset.
+
+**Validation scenarios.**
+- Given the Minimal Strategy is active, when a team is scaffolded, then exactly one plain agent exists for it with an empty-knowledge AGENTS.md and a valid Kernel user-id.
+- Given the Fabric Strategy is active, then the agents and personas present today exist unchanged.
+- Given a contributor registers a Strategy defining a different roster, then those agents populate teams with zero Kernel code change.
+
+**Plan calls.** Concept-introducing — run `/concept` first: it reshapes the ownership of the load-bearing nouns "agent roster" and "agent identity" (the noun is *agent-as-knowledge*). Then standard architecture on the roster-ownership seam and the Strategy↔user-id mapping; design-it-twice on where the roster lives and how the AGENTS.md is owned. Run `/design` (routine) only if the team-settings surface changes to reflect Strategy-owned agents.
+
+**Contracts / constraints.**
+- Honour `docs/architecture/kernel-strategy-split.md` §2a: Kernel keeps user-ids; Strategy owns roster + AGENTS.md + team-scaffolding; the Kernel hard-codes no agent definition.
+- No behaviour change when the Fabric is the active Strategy (preservation).
+- Forward-only migrations if ownership fields move.
+
+**Out of scope.** The work-time selection/assignment seam (AK7). Event-driven decomposition (AK8). The unified human-attention concept. Redesigning the Fabric's knowledge management.
+
+**Effort.** L (~4–6d)
+
+---
+
+### AK7 — The Strategy selects the agent for a unit of work
+
+**Workpackage.** As a maintainer, I want the Kernel to emit an interaction-surface event when there is work needing an agent and have the active Strategy answer with *which* agent (and its context) should take it — resolving to a Kernel user-id the session attaches to — so that "who does this work, with what knowledge" is a Strategy decision while the Kernel keeps spawning and running the session. Today the Kernel both picks the agent (eligibility + round-robin) and assembles context; selection is hard-coded Kernel mechanics with no Strategy input.
+
+**Why this matters.** The maintainer benefits directly: every flow that spawns an agent (decomposition today, the Assistant, future flows) currently re-implements Kernel-side selection — exactly the policy that should vary by Strategy per §2a. Without this seam the Fabric cannot apply knowledge-matched assignment and the Minimal Strategy cannot simply return its single agent. The cost of not building it: selection logic keeps multiplying Kernel-side and the boundary refinement stays half-real.
+
+**What exists today.** AK3's `findEligibleTeamAgents` + round-robin assignment (Kernel-side); the Strategy port (`assembleContext` + `beginLearningIngestion`); the `provision-registry` → `session-provisioning` path that attaches a session to an owner user-id; AK6 makes the roster Strategy-owned. The Kernel event bus carries `bet_state_changed`, `task_state_changed`, `thread_message_appended`.
+
+**What's genuinely missing.** A Kernel-owned event signalling "there is work needing an agent" plus a port seam where the active Strategy returns the chosen agent (→ user-id) and its context. No selection seam exists on the port.
+
+**Depends on.** AK6 — the Strategy must own the roster before it can select from it. AK2 — the port.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- When work needs an agent, the Kernel emits an interaction-surface event rather than choosing the agent itself.
+- The active Strategy selects which agent takes the work; the Kernel attaches the resulting session to that agent's Kernel user-id without inspecting the agent's persona.
+- Under the Minimal Strategy, selection returns the team's single plain agent; under the Fabric, selection reflects knowledge-matched assignment with no regression vs today's eligible-agent behaviour.
+- A new flow can obtain "the right agent for this work" through the seam without re-implementing eligibility/selection in Kernel code.
+- The existing task→session dispatch path is reused — no second provisioning route.
+
+**Validation scenarios.**
+- Given the Minimal Strategy, when the Kernel emits a work event for team T, then T's single plain agent is selected and a session attaches to its user-id.
+- Given the Fabric Strategy, when the same event fires, then an eligible knowledge-matched agent is selected (no regression vs current assignment) and the session attaches correctly.
+- Given a Strategy that selects an agent off the team, then the Kernel still resolves a valid user-id and attaches, or the seam rejects per contract — selection can never produce an unattachable session.
+
+**Plan calls.** Concept-introducing — run `/concept` first: the "work event" and "selection seam" nouns plus the user-id resolution contract. Standard architecture on the port extension and event shape; multi-version exploration on the shape — Strategy *subscribes to a Kernel event* vs Kernel *calls a port method* — settled per §2a's event pattern. Skip `/design` (backend seam) unless a surface exposes selection.
+
+**Contracts / constraints.**
+- §2a: Kernel emits the event and owns user-ids; Strategy owns selection; the Kernel never inspects an AGENTS.md.
+- Exactly one active Strategy; the Kernel imports no concrete Strategy.
+- Reuse the existing dispatch→session path; no fork.
+- The Minimal Strategy must satisfy the seam trivially; no regression when the Fabric is active.
+
+**Out of scope.** Rewiring decomposition onto the event (AK8). The unified human-attention gate. Cross-team selection.
+
+**Effort.** L (~4–6d)
+
+---
+
+### AK8 — Decomposition becomes a Strategy response to a Kernel event
+
+**Workpackage.** As a founder, I want committing a bet to emit a Kernel "work to decompose" event that the active Strategy handles — the Fabric breaking the bet down with a knowledge-matched PM and assignment, the Minimal Strategy doing the trivial single-agent breakdown — so that *how* work is decomposed and *who* takes it is a Strategy decision, not a Kernel-hardcoded PM. AK3's kernel-side PM path becomes the Minimal Strategy's default fallback rather than the permanent decomposition route.
+
+**Why this matters.** This is the step that makes the commit→work seam — the spine of the Plan→Interact→Review→Repeat wedge — honour the refined boundary (§2a). AK3's fixed PM can't vary by Strategy, so the Fabric can't bring knowledge to decomposition and a contributor can't swap the decomposition policy. The founder benefits: decomposition quality becomes a Strategy concern that can improve monthly without touching the Kernel. The cost of not building it: decomposition stays frozen at the Minimal-fallback behaviour for every Strategy.
+
+**What exists today.** AK3's full commit→decomposition path: the `bet_state_changed(active)` subscriber, `runBetDecomposition`, the kernel-side PM turn, round-robin assignment, the four-state bet surface, crash recovery, and CAS idempotency. AK6 (Strategy-owned roster) and AK7 (Kernel work event + selection seam). The Fabric and Minimal Strategies.
+
+**What's genuinely missing.** The trigger is still a Kernel subscriber running a Kernel PM. It must become a Kernel-emitted event the active Strategy handles, with AK3's path demoted to the Minimal Strategy's default response.
+
+**Depends on.** AK7 — the work event and selection seam must exist. AK3 — its as-built path becomes the Minimal fallback.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- Committing a bet emits a Kernel-owned "work to decompose" event; the Kernel does not itself decide the decomposition.
+- The active Strategy produces the task breakdown in response: under the Minimal Strategy this is AK3's default/trivial breakdown; under the Fabric it is a knowledge-matched decomposition with no regression vs AK3's observable outcome (tasks created, owned by eligible agents, flowing into dispatch).
+- Every AK3 guarantee holds regardless of active Strategy: a committed bet never sits indefinitely at zero tasks under a false promise; no-eligible-agent yields an explicit blocker; the bet surface reflects real task state; User Sovereignty preserved (no irreversible external action bypassing review gates).
+- Selecting a different Strategy changes the decomposition behaviour with no Kernel code change.
+
+**Validation scenarios.**
+- Given the Minimal Strategy, when a bet is committed, then AK3's default breakdown runs — ≥1 task owned by the team's single agent, flowing into dispatch.
+- Given the Fabric Strategy, when a bet is committed, then a knowledge-matched breakdown runs with no regression vs AK3's observable outcome.
+- Given any active Strategy, when the team has no eligible agent, then the founder sees an explicit blocker rather than a false promise.
+
+**Plan calls.** Run `/concept` first only if AK6/AK7 shifted the nouns; otherwise standard architecture on moving the AK3 subscriber behind the Kernel event + Strategy handler and demoting AK3's path to the Minimal default. Reuse AK7's selection seam and the existing dispatch path. Skip `/design` — AK3's four-state surface is reused unchanged unless the blocked/decomposing states change.
+
+**Contracts / constraints.**
+- §2a: the Kernel emits the event; the Strategy decomposes and assigns. Reuse AK3's UI and dispatch path; no fork.
+- Preserve every AK3 acceptance guarantee under both Strategies; no regression when the Fabric is active.
+- AK3's kernel-side path is retained as the Minimal Strategy's fallback, not deleted.
+
+**Out of scope.** The unified human-attention gate (separate concept). Cross-team decomposition. Decomposition quality (an eval concern, not an AC).
+
+**Effort.** L (~3–5d)
