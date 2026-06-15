@@ -51,6 +51,8 @@ import type { ZodError, z } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import type { AssistantTurnDeps } from "../services/assistant-turn.js";
+import { persistTurnFailure, runAssistantTurn } from "../services/assistant-turn.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
@@ -604,7 +606,19 @@ function err(
 	return { body: { error, code }, status };
 }
 
-export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+/**
+ * AH3: Optional assistant turn deps. When present, a human plain message
+ * on the assistant thread fires runAssistantTurn (fire-and-forget).
+ * When absent (pure-unit tests, chrome tests), the trigger is a no-op.
+ *
+ * @lore AH3 §1.5: AH5's real-model lane MUST pass these deps into its
+ * server boot or the live path silently no-ops. Required step in AH5.
+ */
+export function createThreadRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	assistantTurnDeps?: AssistantTurnDeps,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// --- GET /api/threads/assistant ----------------------------------------
@@ -1316,6 +1330,28 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				timestamp: Date.now(),
 			};
 			eventBus.emit(appendedEvent);
+
+			// AH3 §1.5: Fire assistant turn for human plain messages on the assistant thread.
+			// Guard: only trigger when sender is human (not ast-*), message is plain,
+			// and the thread is the assistant thread. Fire-and-forget — POST returns 201
+			// immediately; reply arrives via WS.
+			//
+			// @lore AH3 §1.5: assistantTurnDeps is optional — when absent (chrome tests,
+			// kernel-only mode), the trigger is a no-op. AH5 supplies real deps in its
+			// server boot. Re-entrancy is guarded inside runAssistantTurn (in-memory set).
+			if (
+				assistantTurnDeps &&
+				input.type === "plain" &&
+				!senderId.startsWith("ast-") &&
+				isAssistantThread(threadRow.hostKind, threadRow.hostId, participants)
+			) {
+				const hostUserId = threadRow.hostId;
+				void runAssistantTurn(assistantTurnDeps, {
+					userId: hostUserId,
+					threadId,
+					triggerMessageId: messageId,
+				}).catch((e: unknown) => persistTurnFailure(db, eventBus, hostUserId, threadId, e));
+			}
 
 			if (input.type === "verdict" && resolvesMessageRow) {
 				const resolvedEvent: ThreadResolvedEvent = {

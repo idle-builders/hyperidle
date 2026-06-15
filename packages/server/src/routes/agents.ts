@@ -337,6 +337,93 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 			return c.json({ error: "Cannot modify system agents", code: "FORBIDDEN" }, 403);
 		}
 
+		// AH3 §4: MANDATORY server-side reject of systemPrompt writes to ast-* agents.
+		// The canonical edit surface is PATCH /api/users/:id/assistant.
+		// UI omission alone is insufficient — a raw API call could bypass it.
+		//
+		// @lore AH3 §4: We check the body BEFORE full parse to catch this early.
+		// We need to read the body to check for systemPrompt, then re-use it below.
+		// We do this check inside the parsed data block below.
+		if (id.startsWith("ast-")) {
+			// We must parse the body first to check if systemPrompt is being written.
+			// Parse it here and check; if systemPrompt is present, reject.
+			let earlyBody: unknown;
+			try {
+				earlyBody = await c.req.json();
+			} catch {
+				return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
+			}
+			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+			if (typeof earlyBody === "object" && earlyBody !== null && "systemPrompt" in earlyBody) {
+				return c.json(
+					{
+						error:
+							"Cannot edit assistant persona via the Agents API. Use PATCH /api/users/:id/assistant instead.",
+						code: "ASSISTANT_SOUL_EDIT_FORBIDDEN",
+					},
+					403,
+				);
+			}
+			// Non-systemPrompt fields: allow through (other config changes ok)
+			// Re-parse with schema
+			const parsed = patchAgentSchema.safeParse(earlyBody);
+			if (!parsed.success) {
+				return c.json(
+					{ error: "Validation error", code: "VALIDATION_ERROR", issues: parsed.error.issues },
+					400,
+				);
+			}
+
+			const data = parsed.data;
+			const effectiveHarnessType =
+				"harnessType" in data ? (data.harnessType ?? null) : (existing.harnessType ?? null);
+			const effectiveProvider =
+				"modelProvider" in data ? (data.modelProvider ?? null) : (existing.modelProvider ?? null);
+			const effectiveModelId =
+				"modelId" in data ? (data.modelId ?? null) : (existing.modelId ?? null);
+
+			const validationError = validateAgentConfig(
+				effectiveHarnessType,
+				effectiveProvider,
+				effectiveModelId,
+				adapterPool ?? null,
+			);
+			if (validationError) {
+				return c.json(validationError, 422);
+			}
+
+			const updateSet = buildPatchUpdateSet(data);
+			if (Object.keys(updateSet).length > 0) {
+				await db.update(users).set(updateSet).where(eq(users.id, id));
+			}
+
+			const [updated] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+			if (!updated) {
+				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
+			}
+			const [activeCount] = await db
+				.select({ count: count() })
+				.from(sessions)
+				.where(and(eq(sessions.agentId, id), eq(sessions.state, "active")))
+				.limit(1);
+
+			return c.json({
+				id: updated.id,
+				name: updated.name,
+				role: updated.role,
+				agentCategory: updated.agentCategory ?? null,
+				// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+				systemPrompt: updated.systemPrompt ?? null,
+				harnessType: updated.harnessType ?? null,
+				modelTierPreference: updated.modelTierPreference ?? null,
+				modelId: updated.modelId ?? null,
+				modelProvider: updated.modelProvider ?? null,
+				maxConcurrentSessions: updated.maxConcurrentSessions,
+				status: updated.status,
+				activeSessions: activeCount?.count ?? 0,
+			});
+		}
+
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();

@@ -11,6 +11,7 @@
  */
 
 // hearth-internal-padding
+import { Button, Input } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -125,15 +126,13 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			</div>
 
 			<div className="flex flex-col gap-3">
-				<label
-					htmlFor="system-prompt"
-					className="text-sm font-medium"
-					style={{ color: "var(--text-primary)" }}
-				>
-					Persona instructions
-				</label>
-				<textarea
+				{/* AH3 D4: Migrated to design-system Input textarea. Prose font (not mono)
+				    per design approved.md W2. The Input component uses --r-default radius
+				    and design token colors — no inline style patches needed. */}
+				<Input
 					id="system-prompt"
+					label="Persona instructions"
+					textarea
 					value={loading ? "" : systemPrompt}
 					onChange={(e) => {
 						setSystemPrompt(e.target.value);
@@ -144,13 +143,6 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 						loading ? "Loading system prompt..." : "Describe how your assistant should behave..."
 					}
 					rows={10}
-					className="textarea textarea-bordered w-full font-mono text-sm resize-y"
-					style={{
-						color: "var(--text-primary)",
-						backgroundColor: "var(--surface-container)",
-						borderColor: "var(--border-subtle)",
-						fontSize: "13px",
-					}}
 				/>
 			</div>
 
@@ -167,15 +159,14 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			)}
 
 			<div className="flex items-center gap-3">
-				<button
-					type="button"
+				{/* AH3: Use design-system Button */}
+				<Button
 					onClick={handleSave}
 					disabled={!isDirty || isSaving || loading}
-					className="btn btn-primary btn-sm"
 					aria-label={saveButtonLabel}
 				>
 					{saveButtonLabel}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

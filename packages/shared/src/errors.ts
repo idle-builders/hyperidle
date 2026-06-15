@@ -85,3 +85,32 @@ export class NoEligibleHarnessError extends Error {
 		this.name = "NoEligibleHarnessError";
 	}
 }
+
+/**
+ * AH3: Thrown when a provider hangs and never emits a completion or error event
+ * within ASSISTANT_TURN_TIMEOUT_MS. Maps explicitly to the `provider_error` notice
+ * class — NOT the default unmapped branch — so it does not trip console.error.
+ *
+ * @lore AH3: A hung provider (no throw, no completion) must be bounded by a wall-clock
+ * timeout so the "never silent" guarantee holds even when the provider connection stalls.
+ * This error travels through persistTurnFailure just like any other provider error.
+ */
+export class ProviderTimeoutError extends Error {
+	constructor() {
+		super("Provider did not respond within the turn timeout window.");
+		this.name = "ProviderTimeoutError";
+	}
+}
+
+/**
+ * AH3: Wall-clock timeout for one assistant turn. After this many milliseconds
+ * with no completion/error event from the harness, the turn aborts and persists
+ * a `provider_error` notice. Exported from @hyperidle/shared so both server
+ * (timeout enforcement) and client (crash-recovery indicator, §1.7b) use the
+ * same boundary value.
+ *
+ * @lore AH3: 120_000ms = 2 minutes. Long enough for a slow but real response;
+ * short enough that a hung provider surfaces within a visible session rather
+ * than stranding the UI in "thinking…" forever.
+ */
+export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;

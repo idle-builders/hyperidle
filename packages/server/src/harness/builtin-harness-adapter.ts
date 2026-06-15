@@ -12,6 +12,7 @@
  */
 
 import type {
+	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
@@ -357,37 +358,47 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		}
 
 		try {
-			// PLANNING TURN
-			await this.runPlanningTurn(session);
+			// @lore AH3 H3: Branch on config.messages to distinguish conversational
+			// assistant turns from task-planning sessions. When messages are present,
+			// run a single chat completion (the user's question → assistant's answer).
+			// When absent, run the full task-planning loop (existing task session path).
+			// This is the fix that stops the adapter from answering PLANNING_PROMPT
+			// instead of the user's actual question.
+			if (session.config.messages && session.config.messages.length > 0) {
+				await this.runChatTurn(session);
+			} else {
+				// Task session path — planning loop unchanged
+				await this.runPlanningTurn(session);
 
-			if (session.aborted) {
-				session.done = true;
-				session.notifyStream?.();
-				return;
-			}
-
-			// EXECUTE LOOP
-			while (!session.done && session.iterationCount < this.options.maxIterations) {
 				if (session.aborted) {
-					break;
+					session.done = true;
+					session.notifyStream?.();
+					return;
 				}
 
-				// Check reflection checkpoint
-				if (
-					session.toolCallCount > 0 &&
-					session.toolCallCount % this.options.reflectionInterval === 0
-				) {
-					await this.injectReflection(session);
-					if (session.aborted || session.done) break;
+				// EXECUTE LOOP
+				while (!session.done && session.iterationCount < this.options.maxIterations) {
+					if (session.aborted) {
+						break;
+					}
+
+					// Check reflection checkpoint
+					if (
+						session.toolCallCount > 0 &&
+						session.toolCallCount % this.options.reflectionInterval === 0
+					) {
+						await this.injectReflection(session);
+						if (session.aborted || session.done) break;
+					}
+
+					await this.runExecuteTurn(session);
+					session.iterationCount++;
 				}
 
-				await this.runExecuteTurn(session);
-				session.iterationCount++;
-			}
-
-			// MAX ITERATIONS REACHED
-			if (!(session.done || session.aborted)) {
-				await this.runMaxIterationsTurn(session);
+				// MAX ITERATIONS REACHED
+				if (!(session.done || session.aborted)) {
+					await this.runMaxIterationsTurn(session);
+				}
 			}
 
 			// Loop completed normally (not via abort or error)
@@ -405,6 +416,49 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			session.done = true;
 			session.notifyStream?.();
 		}
+	}
+
+	/**
+	 * Run a single conversational chat completion.
+	 *
+	 * @lore AH3 H3: This is the assistant turn's execution path. Unlike the
+	 * task-planning loop (runPlanningTurn → execute loop → reflect), a chat turn
+	 * is a single LLM call: seed messages from the thread transcript, call the
+	 * model once, emit completion. No tools, no reflection, no planning prompt.
+	 * The persona system prompt (config.composedPrompt) still applies.
+	 */
+	private async runChatTurn(session: BuiltinSession): Promise<void> {
+		const config = session.config;
+		if (!config) throw new Error("BuiltinHarnessAdapter: session config is null in chat turn");
+		const resolvedModel = config.resolvedModel;
+		if (!resolvedModel) throw new Error("resolvedModel is required");
+
+		// Seed session messages from thread transcript
+		const conversationMessages = config.messages as readonly ConversationMessage[];
+		for (const msg of conversationMessages) {
+			session.messages.push({
+				role: msg.role,
+				content: msg.content,
+			});
+		}
+
+		// @lore AK1: composedPrompt → assembledPrompt per AK1 harness-vocab rename.
+		const response = await callLlm({
+			model: resolvedModel,
+			messages: session.messages,
+			tools: [], // No tools in conversational mode
+			system: config.assembledPrompt,
+			maxTokens: this.options.maxOutputTokens,
+		});
+
+		this.trackUsage(session, response.usage, config.modelTier);
+
+		const text = extractTextFromContent(response.content);
+		if (text) {
+			this.emitEvent(session, { type: "completion", text });
+		}
+
+		session.done = true;
 	}
 
 	private async runPlanningTurn(session: BuiltinSession): Promise<void> {

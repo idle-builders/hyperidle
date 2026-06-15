@@ -7,7 +7,22 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+import {
+	API_ERROR_CODES,
+	DEFAULT_AGENT_MODEL_ID,
+	DEFAULT_AGENT_MODEL_PROVIDER,
+	type EventBus,
+	type ItemCreatedEvent,
+} from "@hyperidle/shared";
+
+/**
+ * AH3: Default system prompt for new assistant agents.
+ * The canonical persona text written at registration + lazy-create time.
+ * Editors use PATCH /api/users/:id/assistant to update it.
+ */
+const BUILTIN_ASSISTANT_SYSTEM_PROMPT =
+	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
+
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -131,7 +146,11 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 		// Its ID is deterministic: "ast-{userId}" for easy lookup.
 		// @lore AD8b: The assistant agent is created once per human user at registration.
 		// It is the AI counterpart that participates in the user's assistant thread.
+		// @lore AH3 N2: AH2 shipped without harness/model/systemPrompt defaults on the
+		// assistant insert. AH3 closes this gap — all four fields must be non-null so
+		// runAssistantTurn can proceed without lazy-defaults on every turn.
 		const assistantAgentId = `ast-${id}`;
+		// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 		await db.insert(users).values({
 			id: assistantAgentId,
 			kind: "ai",
@@ -139,6 +158,10 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 			role: "assistant",
 			agentCategory: "individual",
 			status: "active",
+			harnessType: "builtin",
+			modelId: DEFAULT_AGENT_MODEL_ID,
+			modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
+			systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
