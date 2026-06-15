@@ -623,4 +623,37 @@ export default [
 			],
 		},
 	},
+
+	// no-unknown-cast — ban `X as unknown as T` double-assertions across all
+	// product source. Laundering a value through `unknown` defeats the type
+	// checker (.claude/rules/typescript.md: "no unsafe `as` casts"); real bugs
+	// have shipped behind it. A dedicated `design/no-unknown-cast` rule (not
+	// `no-restricted-syntax`) is used so it does not clobber the other
+	// no-restricted-syntax blocks above on overlapping files.
+	//
+	// Production-only: tests, stories, specs, fixtures, e2e, and the live TSX
+	// viewer build dir are exempt — mock/fixture construction legitimately
+	// fabricates partial shapes.
+	{
+		files: ["packages/*/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/*/src/**/__tests__/**",
+			"packages/*/src/**/*.test.{ts,tsx}",
+			"packages/*/src/**/*.spec.{ts,tsx}",
+			"packages/*/src/**/*.stories.tsx",
+			"packages/*/src/**/__fixtures__/**",
+			"packages/*/src/**/e2e/**",
+			"packages/*/src/**/_dev/**",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-unknown-cast": "error",
+		},
+	},
 ];

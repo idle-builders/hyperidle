@@ -131,7 +131,7 @@ export async function claimInvite(
 		await tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id));
 
 		// Step 7: create LoginSession
-		const { token } = await createLoginSession(tx as unknown as HyperIdleDb, userId);
+		const { token } = await createLoginSession(tx, userId);
 
 		return { ok: true as const, user, token };
 	});

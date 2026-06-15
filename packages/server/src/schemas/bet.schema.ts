@@ -92,6 +92,12 @@ export const betDetailResponseSchema = z.object({
 // zod 4.4.3 `SomeType` (the z.array() arg). Bridge the internal schema type
 // (NON-boundary, not a request/response payload cast) so z.array() accepts it.
 // Same parsed shape; version-alignment is out of AF4 scope (§9).
+// @lore no-unknown-cast exception: this is a cross-zod-VERSION brand bridge
+// (drizzle-zod's zod-3.25 `$ZodType` vs server's zod-4.4.3 `SomeType`), not a
+// shape assertion — the two types are structurally identical but nominally
+// distinct, so TS requires the `unknown` hop. The real fix is aligning zod
+// versions (out of scope). Disabled here, not weakened globally.
+// eslint-disable-next-line design/no-unknown-cast
 export const betListItemSchema = selectBetSchema as unknown as z.ZodTypeAny;
 
 /**

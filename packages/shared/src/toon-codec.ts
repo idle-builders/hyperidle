@@ -14,9 +14,8 @@ import { ToonParseError } from "./toon-errors.js";
  * this boundary is crossed.
  */
 export function encodeTyped<T extends object>(value: T): string {
-	// @lore single audited cast: T→Record<string,unknown> is safe because
-	// `encode` only reads values via Object.entries — no mutation, no type confusion.
-	return encode(value as unknown as Record<string, unknown>);
+	// `encode` accepts any object and only reads it — no cast needed.
+	return encode(value);
 }
 
 /**
@@ -25,16 +24,18 @@ export function encodeTyped<T extends object>(value: T): string {
  * is performed here. Add a guard (e.g. zod parse) at the call site when
  * deserializing untrusted data.
  */
-export function decodeTyped<T>(toon: string): T {
-	// @lore single audited cast: decode returns Record<string,unknown>; the
-	// caller asserts the shape as T. Equivalent to JSON.parse with a type param.
-	return decode(toon) as unknown as T;
+export function decodeTyped<T extends object>(toon: string): T {
+	// Single audited narrowing cast: decode returns Record<string,unknown> (an
+	// object); the caller asserts the concrete shape T. No runtime validation —
+	// add a zod parse at the call site for untrusted input. Constraining
+	// `T extends object` keeps this a one-step downcast (no `unknown` bridge).
+	return decode(toon) as T;
 }
 
 /**
  * Encode a JavaScript object into TOON format.
  */
-export function encode(obj: Record<string, unknown>): string {
+export function encode(obj: object): string {
 	const lines: string[] = [];
 	flattenToLines(obj, "", lines);
 	return lines.join("\n");
