@@ -3,18 +3,19 @@
   "title": "Settings design-consistency pass",
   "track": "AG",
   "complexity": "M",
-  "status": "in_progress",
-  "currentStep": "1-design",
+  "status": "done",
+  "currentStep": "shipped",
   "branch": "feat/AG7-settings-consistency",
   "pr": 318,
   "worktree": ".worktrees/AG7",
   "startedAt": "2026-06-15",
+  "completedAt": "2026-06-15",
   "phases": {
-    "1-design": "in_progress",
-    "2-critique": "pending",
-    "3-build": "pending",
-    "4-review": "pending",
-    "5-docs": "pending",
-    "6-retro": "pending"
+    "1-design": "done",
+    "2-critique": "done",
+    "3-build": "done",
+    "4-review": "done",
+    "5-docs": "done",
+    "6-retro": "done"
   }
 }
