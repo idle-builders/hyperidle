@@ -25,6 +25,6 @@ Components live in `packages/design-system` (Tier 1 primitives + Tier 2 blocks).
 
 **Visual feedback:** The live TSX viewer at `:8098` is the primary feedback surface. Run `npm run ds:serve` to start it. Bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
 
-**Visual regression gate:** `npm run ds:sync` runs the Playwright TSX-vs-golden-baseline gate. Screenshots each live TSX story section and diffs against committed PNG baselines at ≤5%. Runs in `npm run verify` and as a dedicated CI step. To re-bless baselines after an intentional visual change: `npm run ds:bless`. See `.claude/rules/visual-regression.md`.
+**Visual regression gate:** The vitest DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`, runs in `npm run test`) renders every catalogued story and snapshots normalized DOM+class text. An intended component change → review the text diff → re-bless with `vitest -u` (or `npm run ds:bless`). See `.claude/rules/visual-regression.md`.
 
 Every custom component must have a `.stories.tsx` file. Stories are a required deliverable, not optional documentation.

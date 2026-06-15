@@ -1,6 +1,6 @@
 ---
 name: visual-polish
-description: "Iteratively improve a component/page's visual fidelity against its reference story using the live TSX viewer and golden baseline comparison."
+description: "Iteratively improve a component/page's visual fidelity against its reference story using the live TSX viewer and snapshot net."
 argument-hint: "<component-name|all>"
 user-invocable: true
 min_tool_calls: 18
@@ -45,13 +45,15 @@ Read the PNG. Look at pixels, not code. Identify:
 
 Reference the approved design (`plans/<workpackage-id>/design/approved.md`) for design intent when differences are ambiguous.
 
-### 3. Run the visual regression gate
+### 3. Check the snapshot net
 
 ```bash
-npm run ds:sync
+npm run test -- catalog-snapshot
 ```
 
-This diffs the live TSX story against committed golden PNG baselines at ≤5%. If the gate fails, the component has drifted from the last blessed state.
+The vitest snapshot net flags structural/class drift (DOM elements, className composition, data-ds-* markers, aria attrs). If it fails, the component has changed from the last blessed state — review the text diff to understand what changed.
+
+For *painted-pixel* comparison (colors, spacing, layout rendered): use the live viewer (`npm run ds:serve` → `:8098/#<ComponentName>`) and the Playwright screenshot above. The snapshot net does not check painted pixels (jsdom does not lay out or apply the cascade — that is the accepted trade for zero-Docker verify; see `.claude/rules/visual-regression.md`).
 
 ### 4. Fix
 
@@ -64,32 +66,34 @@ Make targeted CSS/component changes. One concern per iteration:
 
 ### 5. Re-compare
 
-Re-run the comparison (`npm run ds:sync`). Check if the diff improved. If it regressed, revert the last change.
+Re-screenshot (`npx playwright screenshot …`). Check if the visual diff improved. If it regressed, revert the last change.
 
 ### 6. Convergence
 
 Stop when:
-- `npm run ds:sync` passes AND no critical visual differences in visual assessment
+- Snapshot net passes (`npm run test -- catalog-snapshot`) AND no critical visual differences in visual assessment
 - OR 8 iterations reached (cap to prevent context rot)
 - OR remaining differences are due to dynamic content (timestamps, counts, avatars)
 
-After an intentional visual change, re-bless the baseline:
+After an intentional visual change, re-bless the snapshot baseline:
 
 ```bash
-npm run ds:bless  # on Linux/CI for canonical baselines — see .claude/rules/visual-regression.md
+npm run ds:bless  # or: npx vitest run -u — see .claude/rules/visual-regression.md
 ```
+
+Commit the updated `.snap` in the same PR as the component change. Read the diff before committing — never blind re-bless.
 
 ## Thresholds
 
 | Score | Status | Action |
 |-------|--------|--------|
-| Gate passes | Excellent | Done — commit + re-bless if intentional change |
-| Gate fails <5 components | Needs work | Continue iterating |
-| Gate fails many | Major | Layout/structural issues to fix |
+| Snapshot net passes + visual match | Excellent | Done — commit + re-bless if intentional change |
+| Snapshot net fails <5 variants | Needs work | Continue iterating |
+| Snapshot net fails many | Major | Layout/structural issues to fix |
 
 ## Important Rules
 
-- **Never raise the 5% threshold** — fix the component or re-bless deliberately
+- **Never blind re-bless** — always read the `.snap` diff before running `vitest -u`. Blind re-bless degrades the net to noise.
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
 - **Check the approved design first** — when story and reference disagree, the approved design at `plans/<workpackage-id>/design/approved.md` is the source of truth
 - **One change at a time** — so you can attribute regression to specific modifications
@@ -98,8 +102,8 @@ npm run ds:bless  # on Linux/CI for canonical baselines — see .claude/rules/vi
 ## Output
 
 After polishing, report:
-- Starting state (gate pass/fail, which components diffed)
-- Final state (gate passes)
+- Starting state (snapshot net pass/fail, which variants diffed; visual assessment)
+- Final state (snapshot net passes)
 - Number of iterations
 - Key changes made (file:line summary)
 - Remaining known differences (if any) and why they're acceptable

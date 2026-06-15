@@ -83,6 +83,26 @@ const FORBIDDEN_PATTERNS: Array<{ re: RegExp; label: string }> = [
 		re: /mockup\.html.*embodies the variant|embodies.*variant.*mockup\.html/i,
 		label: '"mockup.html embodies the variant" — HTML-as-design-reference language (AJ1)',
 	},
+	// AJ1 REDO: screenshot-regression-net language must not re-enter skills/rules.
+	// NOTE: "screenshot" and "Playwright" alone are NOT banned — manual screenshot-review
+	// acts (drive the running app, look at pixels) are legitimate and must survive.
+	// Only the REGRESSION-NET language (golden baseline gate) is forbidden here.
+	{
+		re: /golden (png|baseline)/i,
+		label: '"golden PNG/baseline" — screenshot regression-net language (AJ1 REDO: replaced by vitest DOM-snapshot net)',
+	},
+	{
+		re: /toHaveScreenshot/,
+		label: '"toHaveScreenshot" — Playwright screenshot assertion (AJ1 REDO: deleted; use vitest DOM-snapshot net)',
+	},
+	{
+		re: /__screenshots__/,
+		label: '"__screenshots__" — deleted golden-PNG directory (AJ1 REDO: removed)',
+	},
+	{
+		re: /ds:sync.*screenshot|ds:sync.*pixel|ds:sync.*baseline/i,
+		label: '"ds:sync…screenshot/pixel/baseline" — screenshot gate language (AJ1 REDO: ds:sync deleted)',
+	},
 ];
 
 // ---------------------------------------------------------------------------

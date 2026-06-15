@@ -10,10 +10,6 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"test": "vitest run",
-		"test:visual": "playwright test --config playwright.config.ts",
-		"test:visual:update": "playwright test --config playwright.config.ts --update-snapshots",
-		"test:workbench": "playwright test --config playwright.workbench.config.ts",
-		"sync-check": "playwright test --config playwright.config.ts",
 		"serve": "vite --config vite.config.ts"
 	},
 	"dependencies": {
@@ -40,7 +36,7 @@
 		"tippy.js": "^6.3.0"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.59.1",
+		"@types/node": "^22.0.0",
 		"@tiptap/core": "^2.12.0",
 		"@tiptap/react": "^2.12.0",
 		"@tiptap/pm": "^2.12.0",

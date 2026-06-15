@@ -11,7 +11,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline", "vitepress", "playwright"],
+			"ignoreBinaries": ["bin/pipeline", "vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
@@ -32,10 +32,7 @@
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
 			],
-			"ignoreDependencies": ["autoprefixer", "postcss"],
-			"playwright": {
-				"config": ["playwright.config.ts", "playwright.workbench.config.ts"]
-			}
+			"ignoreDependencies": ["autoprefixer", "postcss"]
 		},
 		"packages/web": {
 			"entry": [

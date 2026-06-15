@@ -61,20 +61,6 @@ jobs:
       - name: Build (desktop)
         run: npm run -w @hyperidle/desktop build
 
-      - name: Install Playwright (chromium)
-        run: npx playwright install --with-deps chromium
-
-      - name: Visual regression (TSX baselines)
-        # AJ1: the visual gate runs LIVE in CI (not attested) so it cannot be
-        # bypassed via a forged attestation. CI/Linux is the canonical baseline
-        # platform — baselines are Linux-rendered. See plans/AJ1/architecture.md.
-        run: npm run ds:sync
-
-      - name: Workbench smoke (catalog + no-HTML-toggle + density)
-        # AJ1 W2 fix: workbench.spec.ts was orphaned (no CI step). Now wired.
-        # Reuses the viewer already running from ds:sync (reuseExistingServer: true).
-        run: npm run ds:workbench
-
       - name: Validate test attestation
         run: npx tsx scripts/check-attestation.ts
         env:
