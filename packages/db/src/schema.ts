@@ -164,6 +164,22 @@ export const bets = pgTable(
 		outcomeRecordedAt: text("outcome_recorded_at"),
 		/** AC1: User ID of the actor who last recorded the outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
+		/**
+		 * AK3: Decomposition lifecycle state.
+		 * null = never decomposed | 'running' = in-flight | 'done' = tasks created | 'blocked' = failed
+		 *
+		 * @lore AK3: CAS guard (NULL→'running') prevents concurrent re-fires of the
+		 * same decomposition. A boot-time sweep (resolveOrphanedDecompositions) flips
+		 * any 'running' bet to 'blocked/failed' on restart — in-process turns die with
+		 * the process, so 'running' at boot always means orphaned.
+		 */
+		decompositionStatus: text("decomposition_status"),
+		/**
+		 * AK3: Why a decomposition ended in 'blocked'.
+		 * null | 'no_eligible_agent' | 'empty' | 'failed'
+		 * Only meaningful when decompositionStatus = 'blocked'.
+		 */
+		decompositionBlockerReason: text("decomposition_blocker_reason"),
 	},
 	(table) => [
 		index("bets_team_id_idx").on(table.teamId),

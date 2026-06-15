@@ -43,13 +43,28 @@ Work is organized in three levels:
 
 **Bet Detail** — Click a bet to see its full pitch, progress bar, cost tracker, task list, and comment thread.
 
+#### What the task section shows
+
+The Tasks section on a bet detail page shows one of four states:
+
+| State | What you see | What it means |
+|---|---|---|
+| Tasks present | Task rows with status chips | Agents are working or work is queued |
+| Not committed | "Not committed yet" | The bet is still in draft; commit to start work |
+| Planning | "Planning the work" with a live pulse | The PM agent is breaking the bet into tasks — takes a moment |
+| Blocked — no agent | "No one can take this work" + Add an agent link | The team has no agent eligible to own tasks; add one to proceed |
+| Blocked — failed | "Couldn't plan the work" | The PM turn failed; try committing again after refining the goal |
+
+The "Tasks will appear here once agents start work" placeholder no longer appears on committed bets — either tasks are there, or an honest reason explains why they aren't.
+
 #### Weekly Planning Workflow
 
 1. Open **Work > Portfolio**
 2. Click a team in the sidebar or navigate via a bet's team link to enter **Team View**
 3. Click **"New bet"** to create a bet (title, pitch, team, appetite)
-4. Review active bets and their progress
-5. Done — agents start working
+4. Open the bet and click **Commit** — agents immediately begin breaking the bet into tasks
+5. Watch the task section: tasks appear within seconds once the PM agent finishes planning
+6. Review active bets and their progress
 
 ---
 

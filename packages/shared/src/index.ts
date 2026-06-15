@@ -1,3 +1,5 @@
+// ── AK3: Bet decomposition types + constants ──
+
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,
@@ -26,6 +28,12 @@ export { API_ERROR_CODES } from "./api-types.js";
 // ── S1: Per-user auth types ──
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
+export type {
+	DecompositionBlockerReason,
+	DecompositionStatus,
+	DecompositionTaskInput,
+} from "./bet-decomposition.js";
+export { DECOMPOSITION_TURN_TIMEOUT_MS } from "./bet-decomposition.js";
 // ── Block primitive (L2) ──
 export type {
 	Block,

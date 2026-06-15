@@ -108,15 +108,66 @@ Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`,
 
 ---
 
-## 4. Prior gap (closed by AK2)
+## 4. As-built — AK3 (shipped 2026-06-15)
 
-Pre-AK2: `provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) was a genuine seam the dispatcher called through, but the production `provisionSession` hard-imported the Fabric (`assembleContext`, `startWatcher`, `checkCostCap`) — violating the boundary. O2 had moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split was not yet real. AK2 closed this gap.
+**Decomposition is Kernel.** When a bet is committed (`draft→active`), the Kernel runs a PM agent turn that produces a task breakdown. The Strategy feeds the PM context via the port; it does not own or trigger decomposition.
 
-Decomposition (a committed bet → tasks, **AK3**) is **Kernel** — work-planning plus running a PM agent; the Strategy only feeds that PM agent context via the port. It was never a kernel-vs-strategy question.
+### The decomposition seam
+
+```
+POST /bets/:id/commit
+  → transitionBet(draft→active)  [unchanged]
+  → emits bet_state_changed(toState=active)
+  → registerBetDecomposition subscriber  [NEW, kernel-side, server-factory.ts]
+      CAS bets.decompositionStatus NULL→'running'  [idempotency gate]
+      → runBetDecomposition(betId)  [NEW, packages/server/src/services/bet-decomposition.ts]
+          1. findEligibleTeamAgents(bet.teamId)
+          2. pick PM agent (product_manager role preferred)
+          3. checkCostCap(db, eventBus, { agentId, teamId })  [direct Kernel import]
+          4. mkdir scratch sandbox + getActiveStrategy().assembleContext(synthetic req)
+          5. run PM turn (tools:[]) → structured task list
+          6. insertProposedBetTasks → task_state_changed(accepted) → existing dispatcher
+          7. markTerminal('done' | 'blocked')
+          8. finally: rm scratch sandbox (best-effort)
+```
+
+**Key design decisions:**
+
+- **Strategy port called with a synthetic request.** `assembleContext` is called with `isRoutine: true` and synthetic `sessionId`/`taskId` strings (no real session or task row exists at decomposition time). The scratch sandbox is a real directory created and removed by the decomposition service. Under the Minimal Strategy this produces an empty scaffold. Under the Fabric it provides practice context.
+- **v1 inserts tasks server-side (no tool call).** The PM turn runs `tools: []` and returns a JSON array. The server inserts via `insertProposedBetTasks` directly — no session-less tool call is needed. A future `propose_bet_tasks` harness tool would call `insertProposedBetTasks` as its body unchanged.
+- **Idempotency via CAS.** The `NULL → 'running'` CAS on `bets.decompositionStatus` is the dedup guard. A duplicate `bet_state_changed(active)` whose CAS affects 0 rows returns immediately.
+- **Crash recovery at boot.** `resolveOrphanedDecompositions(db)` runs at startup before the subscriber is registered. It flips any `'running'` bet to `blocked/failed` — an in-process turn that died with the previous process can never resume.
+- **Owner assignment.** Each produced task gets `ownerAgentId` set to an eligible team agent (active AI user in the team's membership group whose role maps to `category === 'team'` in the role catalog). Exact role match first; round-robin fallback over the eligible list. `betId` is bound from the bet, not from agent output (cross-bet injection prevention).
+- **Decomposition status on `bets`.** Two new columns: `decompositionStatus` (`null | 'running' | 'done' | 'blocked'`) and `decompositionBlockerReason` (`null | 'no_eligible_agent' | 'empty' | 'failed'`). GET `/bets/:id` returns both. `WorkBet.tsx` renders a four-state tasks section: tasks present, draft, blocked (reason-specific copy + "Add an agent" link), decomposing.
+- **Cost stays Kernel-side.** `checkCostCap` is imported directly from `@hyperidle/fabric` by the decomposition service — it is not behind the Strategy port. This is consistent with §2 and §3 ("cost enforcement stays Kernel-side").
+
+### New files (server package)
+
+| File | Role |
+|---|---|
+| `packages/server/src/services/bet-decomposition.ts` | `runBetDecomposition`, `findEligibleTeamAgents`, `insertProposedBetTasks`, `resolveOrphanedDecompositions` |
+| `packages/server/src/services/bet-decomposition-subscriber.ts` | `registerBetDecomposition` — event bus wiring, registered at boot in `server-factory.ts` |
+
+### Boot wiring addition (`server-factory.ts`)
+
+```ts
+// AK3: crash-recovery sweep BEFORE the subscriber starts.
+await resolveOrphanedDecompositions(db);
+// AK3: kernel-side decomposition subscriber.
+const disposeBetDecomp = registerBetDecomposition({ db, eventBus, adapterPool, sandbox: workspaceAdapter, sandboxBasePath, resolveModel, credentialResolver });
+```
+
+`disposeBetDecomp()` is added to the shutdown chain alongside other disposers.
 
 ---
 
-## 5. Vocabulary (locked, industry-aligned)
+## 5. Prior gap (closed by AK2)
+
+Pre-AK2: `provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) was a genuine seam the dispatcher called through, but the production `provisionSession` hard-imported the Fabric (`assembleContext`, `startWatcher`, `checkCostCap`) — violating the boundary. O2 had moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split was not yet real. AK2 closed this gap.
+
+---
+
+## 6. Vocabulary (locked, industry-aligned)
 
 Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-AK / AK1**, sequenced before the split.
 
@@ -141,10 +192,10 @@ Note: "Strategy" the *layer* is distinct from "strategy agent" the *agent type* 
 
 ---
 
-## 6. Rationale
+## 7. Rationale
 
 The founder's USP is "nail the Kernel first." That only works if the Kernel is a complete application that runs agents *without* the knowledge magic, with the knowledge magic (the fast-moving part) as a swappable Strategy. The Minimal Strategy is the proof and the contributor template; the Fabric is the rich default, preserved unchanged behind the boundary. The nouns must be industry-standard so the seam and the contributor story are legible to anyone in the 2025–2026 agent-infra space — homegrown terms can't carry that.
 
-## 7. Out of scope here
+## 8. Out of scope here
 - The Fabric's internal knowledge-management design (deeply researched; preserved, not redefined).
 - **Unified human-attention scoring** (who/what pulls the human in) — a separate concept; AK3's human-gate depends on it.
