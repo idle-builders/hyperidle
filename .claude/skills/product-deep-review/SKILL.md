@@ -57,7 +57,7 @@ Prioritize findings by **user impact**, not code tidiness.
 Look at pixels, across states and breakpoints — not code.
 
 - Screenshot every meaningful state via Playwright (`cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/pdr-<name>.png --wait-for-timeout=3000`), desktop first, then mobile (three-tab form factor).
-- Compare against the approved design reference where one exists (`cd packages/web && npm run visual:compare <reference>`); include match %.
+- Compare against the approved design reference where one exists — open the component story in the live TSX viewer (`npm run ds:serve`, navigate to `http://localhost:8098/#<ComponentName>`). The vitest DOM-snapshot net (`npm run test`) flags structural/class drift automatically; for painted-pixel comparison use the live viewer or `npx playwright screenshot http://localhost:8098/#<ComponentName> /tmp/pdr-ds.png`.
 - Judge against the Lucid design system: density (8-12px), token compliance, all states styled (hover/focus/active/disabled), motion (80/150/250ms), accessibility (focus order, aria, keyboard), and anti-slop (no oversized padding, purple gradients, hero sections, decorative icons).
 - Read the PNGs. Cite screenshot paths in findings.
 
