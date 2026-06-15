@@ -6,8 +6,8 @@ DaisyUI (used as-is)
   kbd badge tabs menu dropdown modal drawer alert toast tooltip
   skeleton breadcrumbs avatar divider collapse loading
 
-Tier 1 — Primitives (5)
-  StatusChip · Tag · KeyValue · NavItem · SearchField
+Tier 1 — Primitives (7)
+  StatusChip · Tag · KeyValue · NavItem · SearchField · PageHeader · SectionLabel
 
 Tier 2 — Blocks (6)
   ThreadRow · BetCard · PitchCard · TaskCard · KnowledgeRow · NotificationRow
@@ -22,6 +22,6 @@ Tier 4 — Pages (9)
   Knowledge/List · Knowledge/Detail · Settings
 ```
 
-Totals: 5 + 6 + 6 = **17 custom components** for the entire app. That's the simplicity bar. Adding an 18th needs a written reason in this file.
+Totals: 7 + 6 + 6 = **19 custom components** for the entire app. That's the simplicity bar. Adding a 20th needs a written reason in this file.
 
 ---
