@@ -25,25 +25,51 @@ import {
 	scaleForCurrency,
 	type WireMoney,
 } from "@hyperidle/shared";
-import { type JSX, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { type JSX, useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+// eslint-disable-next-line design/no-mock-data-import -- fixture fallback same as KnowledgeDetail; tracked in #93
+import { knowledgeItems as knowledgeFixtures } from "../fixtures/knowledge-data";
+import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 export function WorkBetCreate(): JSX.Element {
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+
+	// AK5: ?fromKnowledge=<id> pre-fill path (multi-team promotion route).
+	// @lore AK5: carry-forward critique WARNING — this is the ONLY place sourceKnowledgeItemId
+	// can silently drop on the multi-team path. Verify it reaches handleCreate's payload.
+	const fromKnowledgeId = searchParams.get("fromKnowledge") ?? undefined;
 
 	// useTeams() is called unconditionally (rules of hooks). Matches WorkPortfolio:72,86.
 	const { data: teamsData } = useTeams();
 	const teams = teamsData?.teams ?? [];
 	const singleTeam = teams.length === 1;
 
-	const [body, setBody] = useState("");
+	// AK5: fetch knowledge item body for pre-fill when ?fromKnowledge= is present.
+	// Falls back to fixture data (same dual-source pattern as KnowledgeDetail) so the
+	// pre-fill works in test environments where the API is not available.
+	const { data: knowledgeData } = useKnowledgeItem(fromKnowledgeId);
+	const knowledgeFixtureItem = fromKnowledgeId
+		? (knowledgeFixtures.find((i) => i.id === fromKnowledgeId) ?? null)
+		: null;
+	const knowledgeBody = knowledgeData?.body ?? knowledgeFixtureItem?.content ?? null;
+
+	const [body, setBody] = useState(knowledgeBody ?? "");
 	const [teamId, setTeamId] = useState("");
 	const [appetiteAmount, setAppetiteAmount] = useState("");
 	const [appetiteCurrency, setAppetiteCurrency] = useState("USD");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// AK5: when knowledgeBody loads asynchronously (API response arrives after mount),
+	// seed the body if it was not yet available at mount time.
+	useEffect(() => {
+		if (knowledgeBody != null && body === "") {
+			setBody(knowledgeBody);
+		}
+	}, [knowledgeBody, body]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	const derivedTitle = body.trim() ? deriveTitleFromPitch(body, "") : "";
@@ -63,6 +89,12 @@ export function WorkBetCreate(): JSX.Element {
 			teamId: resolvedTeamId,
 			description: trimmedBody,
 		};
+
+		// AK5: carry sourceKnowledgeItemId into the POST payload — the ONLY place on the
+		// multi-team path where provenance can silently drop (architecture-critique carry-forward #2).
+		if (fromKnowledgeId !== undefined) {
+			payload.sourceKnowledgeItemId = fromKnowledgeId;
+		}
 
 		const amt = Number.parseFloat(appetiteAmount);
 		if (Number.isFinite(amt) && amt > 0) {
@@ -179,7 +211,7 @@ export function WorkBetCreate(): JSX.Element {
 							style={{ minHeight: "300px" }}
 						>
 							<BodyEditor
-								initialContent=""
+								initialContent={body}
 								onChange={(md: string) => setBody(md)}
 								placeholder="Describe the bet — problem, appetite, no-gos…"
 								variant="full"

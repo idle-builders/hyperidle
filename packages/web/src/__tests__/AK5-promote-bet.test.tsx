@@ -379,7 +379,9 @@ describe("AK5 — WorkBetCreate: ?fromKnowledge= pre-fill (multi-team path)", ()
 			// The textarea's value should contain some content from the knowledge item
 			// (the exact text depends on fixture k1's body). It must NOT be empty.
 			// When not implemented, it will be "" → test fails (red).
-			expect(editor).toHaveValue(expect.not.stringMatching(/^$/));
+			// Note: toHaveValue() does not support asymmetric matchers in jest-dom (compareAsSet
+			// uses ===, not this.equals). Use not.toHaveValue("") — semantically identical.
+			expect(editor).not.toHaveValue("");
 		});
 	});
 

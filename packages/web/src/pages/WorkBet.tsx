@@ -1017,6 +1017,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							{activateError}
 						</p>
 					)}
+					{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
+					{bet.sourceKnowledge != null && (
+						<RRLink
+							to={`/knowledge/${bet.sourceKnowledge.id}`}
+							data-testid="bet-provenance-link"
+							className="mt-[6px] text-[13px] text-[var(--accent-primary)] hover:underline"
+						>
+							From knowledge: {bet.sourceKnowledge.title}
+						</RRLink>
+					)}
 				</div>
 			</header>
 
