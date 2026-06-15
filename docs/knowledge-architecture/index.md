@@ -23,7 +23,7 @@ For how the human interface is designed — views, navigation, interaction gramm
 - [Learned](./learned.md)
 - [Proposed](./proposed.md)
 - [Conflict Resolution](./conflict-resolution.md)
-- [The Context assembly Budget](./the-context assembly-budget.md)
+- [The Context Assembly Budget](./the-context-assembly-budget.md)
 - [Future Upgrade: Real-Time Co-Editing](./future-upgrade-real-time-co-editing.md)
 - [The Facilitators — the most undervalued role in the factory](./the-facilitators-the-most-undervalued-role-in-the-factory.md)
 - [The Facilitator Stack in Action](./the-facilitator-stack-in-action.md)

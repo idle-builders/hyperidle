@@ -54,7 +54,7 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.workspaceId).toBeDefined();
+		expect(handle.sandboxId).toBeDefined();
 		await adapter.destroy(handle);
 	});
 
@@ -63,7 +63,7 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.workspaceId).toBeDefined();
+		expect(handle.sandboxId).toBeDefined();
 		await adapter.destroy(handle);
 	});
 

@@ -68,8 +68,8 @@ export class DockerSandboxAdapter implements SandboxAdapter {
 	}
 
 	async spawn(baseDir: string): Promise<SandboxHandle> {
-		const workspaceId = `docker-ws-${nextId++}-${Date.now()}`;
-		const hostPath = join(baseDir, workspaceId);
+		const sandboxId = `docker-sb-${nextId++}-${Date.now()}`;
+		const hostPath = join(baseDir, sandboxId);
 		await mkdir(hostPath, { recursive: true });
 
 		const args = [
@@ -94,8 +94,8 @@ export class DockerSandboxAdapter implements SandboxAdapter {
 			if (!containerId) {
 				throw new Error("Docker returned empty container ID");
 			}
-			this.containers.set(workspaceId, { containerId, hostPath });
-			return { workspaceId, path: hostPath };
+			this.containers.set(sandboxId, { containerId, hostPath });
+			return { sandboxId, path: hostPath };
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			throw new Error(`Failed to start Docker container: ${message}`);
@@ -103,9 +103,9 @@ export class DockerSandboxAdapter implements SandboxAdapter {
 	}
 
 	async exec(handle: SandboxHandle, command: string): Promise<ExecResult> {
-		const container = this.containers.get(handle.workspaceId);
+		const container = this.containers.get(handle.sandboxId);
 		if (!container) {
-			throw new Error(`Unknown sandbox: ${handle.workspaceId}`);
+			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
 		}
 
 		// I2 S5: pass `command` as a single argv element. The host shell
@@ -122,9 +122,9 @@ export class DockerSandboxAdapter implements SandboxAdapter {
 	}
 
 	async destroy(handle: SandboxHandle): Promise<void> {
-		const container = this.containers.get(handle.workspaceId);
+		const container = this.containers.get(handle.sandboxId);
 		if (!container) {
-			throw new Error(`Unknown sandbox: ${handle.workspaceId}`);
+			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
 		}
 
 		try {
@@ -134,6 +134,6 @@ export class DockerSandboxAdapter implements SandboxAdapter {
 		}
 
 		await rm(container.hostPath, { recursive: true, force: true });
-		this.containers.delete(handle.workspaceId);
+		this.containers.delete(handle.sandboxId);
 	}
 }

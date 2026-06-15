@@ -1,11 +1,12 @@
 /**
  * Sandbox adapter interface — sandboxed file system for agent sessions (D3).
- * @lore AK1: Renamed from workspace-adapter.ts. SandboxHandle (AK1 rename),
- * SandboxAdapter → SandboxAdapter.
+ * @lore AK1: Renamed from workspace-adapter.ts (AK1 vocabulary rename).
+ * The run-unit type was previously named Workspace*; all identifiers now use Sandbox*.
+ * workspaceId field renamed to sandboxId per AK1 plan §63.
  */
 
 export interface SandboxHandle {
-	readonly workspaceId: string;
+	readonly sandboxId: string;
 	readonly path: string;
 }
 

@@ -72,11 +72,11 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 	}
 
 	async spawn(baseDir: string): Promise<SandboxHandle> {
-		const workspaceId = `local-ws-${nextId++}-${Date.now()}`;
-		const path = join(baseDir, workspaceId);
+		const sandboxId = `local-sb-${nextId++}-${Date.now()}`;
+		const path = join(baseDir, sandboxId);
 		await mkdir(path, { recursive: true });
-		const handle: SandboxHandle = { workspaceId, path };
-		this.sandboxes.set(workspaceId, handle);
+		const handle: SandboxHandle = { sandboxId, path };
+		this.sandboxes.set(sandboxId, handle);
 		return handle;
 	}
 
@@ -88,19 +88,19 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 	// is genuinely asynchronous even without an explicit `await` keyword.
 	// biome-ignore lint/suspicious/useAwait: see @lore above
 	async exec(handle: SandboxHandle, command: string): Promise<ExecResult> {
-		if (!this.sandboxes.has(handle.workspaceId)) {
-			throw new Error(`Unknown sandbox: ${handle.workspaceId}`);
+		if (!this.sandboxes.has(handle.sandboxId)) {
+			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
 		}
 		return runShell(command, handle.path);
 	}
 
 	async destroy(handle: SandboxHandle): Promise<void> {
-		if (!this.sandboxes.has(handle.workspaceId)) {
-			throw new Error(`Unknown sandbox: ${handle.workspaceId}`);
+		if (!this.sandboxes.has(handle.sandboxId)) {
+			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
 		}
 
 		await rm(handle.path, { recursive: true, force: true });
-		this.sandboxes.delete(handle.workspaceId);
+		this.sandboxes.delete(handle.sandboxId);
 	}
 
 	/** Check if a sandbox directory still exists. */

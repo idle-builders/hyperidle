@@ -49,7 +49,7 @@ describe("DockerSandboxAdapter lifecycle", () => {
 	it("exec on unknown workspace throws with descriptive message", async () => {
 		const adapter = new DockerSandboxAdapter();
 
-		const fakeHandle = { workspaceId: "nonexistent-ws", path: "/tmp/fake" };
+		const fakeHandle = { sandboxId: "nonexistent-ws", path: "/tmp/fake" };
 		await expect(adapter.exec(fakeHandle, "echo hello")).rejects.toThrow(
 			"Unknown sandbox: nonexistent-ws",
 		);
@@ -58,7 +58,7 @@ describe("DockerSandboxAdapter lifecycle", () => {
 	it("destroy on unknown workspace throws with descriptive message", async () => {
 		const adapter = new DockerSandboxAdapter();
 
-		const fakeHandle = { workspaceId: "nonexistent-ws", path: "/tmp/fake" };
+		const fakeHandle = { sandboxId: "nonexistent-ws", path: "/tmp/fake" };
 		await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown sandbox: nonexistent-ws");
 	});
 

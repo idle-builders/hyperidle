@@ -30,7 +30,7 @@ describe("SandboxAdapter interface (D3)", () => {
 			const adapter = new LocalSandboxAdapter();
 			const handle = await adapter.spawn(testBaseDir);
 
-			expect(handle.workspaceId).toBeDefined();
+			expect(handle.sandboxId).toBeDefined();
 			expect(handle.path).toContain(testBaseDir);
 
 			// Directory should exist
@@ -93,7 +93,7 @@ describe("SandboxAdapter interface (D3)", () => {
 			handles.push(...results);
 
 			// All should have unique IDs and paths
-			const ids = new Set(handles.map((h) => h.workspaceId));
+			const ids = new Set(handles.map((h) => h.sandboxId));
 			const paths = new Set(handles.map((h) => h.path));
 			expect(ids.size).toBe(5);
 			expect(paths.size).toBe(5);
@@ -128,14 +128,14 @@ describe("SandboxAdapter interface (D3)", () => {
 
 		it("exec throws for unknown workspace", async () => {
 			const adapter = new LocalSandboxAdapter();
-			const fakeHandle: SandboxHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
+			const fakeHandle: SandboxHandle = { sandboxId: "nonexistent", path: "/tmp/nonexistent" };
 
 			await expect(adapter.exec(fakeHandle, "ls")).rejects.toThrow("Unknown sandbox");
 		});
 
 		it("destroy throws for unknown workspace", async () => {
 			const adapter = new LocalSandboxAdapter();
-			const fakeHandle: SandboxHandle = { workspaceId: "nonexistent", path: "/tmp/nonexistent" };
+			const fakeHandle: SandboxHandle = { sandboxId: "nonexistent", path: "/tmp/nonexistent" };
 
 			await expect(adapter.destroy(fakeHandle)).rejects.toThrow("Unknown sandbox");
 		});
