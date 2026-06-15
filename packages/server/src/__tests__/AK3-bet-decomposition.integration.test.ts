@@ -27,9 +27,18 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type {
+	EventBus,
+	HarnessAdapter,
+	HarnessCapabilities,
+	ResolvedModel,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import {
 	findEligibleTeamAgents,
@@ -37,6 +46,7 @@ import {
 	resolveOrphanedDecompositions,
 	runBetDecomposition,
 } from "../services/bet-decomposition.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // AK3 red phase: DecompositionTaskInput lives in @hyperidle/shared once exported.
@@ -510,5 +520,113 @@ describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		// null or absent — either way the field must not be missing from the shape
 		expect("decompositionStatus" in body).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AC5: User Sovereignty — no tool surface (AC5)
+// The real PM turn builds a SessionConfig with tools:[] — the LLM has no tool
+// surface during decomposition. CRITICAL-2 v1 inserts tasks server-side, never
+// via a harness tool call from the LLM.
+// ---------------------------------------------------------------------------
+
+describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
+	// Register a no-op Strategy so getActiveStrategy() doesn't throw.
+	// The real PM path calls assembleContext before the LLM turn;
+	// a no-op prevents the early-return blocked/failed path at line ~343.
+	// @lore AK3: fabricStrategy needs fabric DB internals we don't have in this
+	// test context. A minimal no-op Strategy is the cleanest solution to reach
+	// the startSession call without pulling in the full Fabric stack.
+	beforeEach(() => {
+		setActiveStrategy({
+			assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
+			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+		});
+	});
+
+	afterEach(() => {
+		clearActiveStrategy();
+	});
+
+	test("SessionConfig passed to startSession carries tools:[] (no tool surface for decomposition LLM)", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-ac5" });
+		await db.insert(bets).values(makeBet("bet-ac5", teamId, "active"));
+
+		// Capture the SessionConfig that runRealPmTurn passes to startSession.
+		// The mock adapter yields a non-JSON completion so the bet resolves to
+		// blocked/empty — we only care that tools:[] appears in the config.
+		const capturedConfigs: SessionConfig[] = [];
+
+		const mockAdapter: HarnessAdapter = {
+			async startSession(config: SessionConfig): Promise<SessionHandle> {
+				capturedConfigs.push(config);
+				return { sessionId: "mock-ac5-session" };
+			},
+			// biome-ignore lint/suspicious/useAwait: async generator stub — must satisfy HarnessAdapter interface
+			async *streamEvents(_handle: SessionHandle): AsyncGenerator<never> {
+				// Yield nothing — drainForCompletion returns "" → JSON.parse fails → empty list → blocked/empty
+			},
+			async stopSession(_handle: SessionHandle): Promise<SessionResult> {
+				return {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: { workhorse: { prompt: 0, completion: 0 } } },
+				};
+			},
+			getCapabilities(): HarnessCapabilities {
+				return {
+					preCompactionTrigger: false,
+					subAgents: false,
+					modelProviders: ["anthropic"],
+					mcpSupport: false,
+				};
+			},
+		};
+
+		// Minimal mock adapterPool: select() returns a SelectedEntry wrapping the mock adapter.
+		// release() is a no-op. No real AdapterPool instantiated.
+		// @lore AK3: We use a structural mock here (not an AdapterPool instance) because
+		// AdapterPool.register() requires AdapterMeta fields we don't care about in this test.
+		// The BetDecompositionDeps type expects AdapterPool but uses only select() + release().
+		const mockAdapterPool = {
+			select(_req?: unknown): SelectedEntry | null {
+				return { id: "mock-adapter", adapter: mockAdapter, meta: {} as SelectedEntry["meta"] };
+			},
+			release(_id: string): void {
+				/* no-op */
+			},
+		} as unknown as AdapterPool;
+
+		const mockResolveModel = vi.fn().mockResolvedValue({
+			provider: "anthropic",
+			model: "claude-opus-4-5",
+			apiKey: "test-key",
+			baseUrl: "https://api.anthropic.com",
+		} satisfies ResolvedModel);
+
+		const deps: BetDecompositionDeps = {
+			db,
+			eventBus,
+			adapterPool: mockAdapterPool,
+			sandbox: {
+				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
+				destroy: vi.fn(),
+			} as unknown as BetDecompositionDeps["sandbox"],
+			sandboxBasePath: "/tmp/ac5-test",
+			resolveModel: mockResolveModel,
+			// No runDecompositionTurn override — exercises the real PM path (runRealPmTurn).
+		};
+
+		await runBetDecomposition(deps, "bet-ac5");
+
+		// The real PM path must have called startSession.
+		expect(capturedConfigs.length).toBeGreaterThanOrEqual(1);
+		// AC5: every SessionConfig sent to the harness must carry tools:[] (no tool surface).
+		for (const cfg of capturedConfigs) {
+			expect(cfg.tools).toEqual([]);
+		}
 	});
 });

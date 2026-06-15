@@ -149,6 +149,22 @@ describe("AK3: WorkBet task section — Blocked/no_eligible_agent state (AC4)", 
 		expect(screen.getByText(/no one can take this work/i)).toBeInTheDocument();
 	});
 
+	it("renders an icon (amber alert glyph) inside the no_eligible_agent blocked state (WARNING-1)", () => {
+		// approved.md binding: BOTH blocked variants must carry the amber alert glyph.
+		const bet = makeBetDetail({
+			id: "bet-nea-icon",
+			status: "active",
+			decompositionStatus: "blocked",
+			decompositionBlockerReason: "no_eligible_agent",
+			teamId: "team-1",
+			tasks: [],
+		});
+		renderBet(bet);
+		const blockedEl = screen.getByTestId("bet-tasks-blocked");
+		const svg = blockedEl.querySelector("svg");
+		expect(svg).not.toBeNull();
+	});
+
 	it("shows 'Add an agent' action link targeting /work/team/:teamId (AC4)", () => {
 		const bet = makeBetDetail({
 			id: "bet-nea",
@@ -203,6 +219,23 @@ describe("AK3: WorkBet task section — Blocked/failed state (AC4)", () => {
 		renderBet(bet);
 		expect(screen.queryByRole("link", { name: /add an agent/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /add an agent/i })).not.toBeInTheDocument();
+	});
+
+	it("renders an icon (amber alert glyph) inside the blocked state (WARNING-1)", () => {
+		// approved.md binding: blocked state must carry icon + iconBg="var(--accent-secondary-dim)"
+		// EmptyState only renders the icon container when icon prop is provided.
+		// We assert the SVG is present inside bet-tasks-blocked.
+		const bet = makeBetDetail({
+			status: "active",
+			decompositionStatus: "blocked",
+			decompositionBlockerReason: "failed",
+			tasks: [],
+		});
+		renderBet(bet);
+		const blockedEl = screen.getByTestId("bet-tasks-blocked");
+		// An SVG (the alert glyph) must be present inside the blocked empty-state container.
+		const svg = blockedEl.querySelector("svg");
+		expect(svg).not.toBeNull();
 	});
 
 	it("renders bet-tasks-blocked for empty reason", () => {
