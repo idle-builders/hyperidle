@@ -74,3 +74,53 @@ The plan is well-scoped, scope-disciplined, line-accurate, and verification-hone
 **Overall score: 7.8 / 10**
 
 **Verdict: NEEDS-REVISION** (score ≥7 but two CRITICAL findings present).
+
+---
+
+## Round 2 re-critique
+
+Re-scored the revised `architecture.md` + `concept.md` against the round-1 findings, with a fresh pass for revision-introduced issues. All feasibility claims re-verified against the live skill files (pipeline pre-condition lines 42–46; concept Phase 1 line ~60, Phase 5 doc structure lines 112–131, Phase 6 line 133; ship steps 7/8 lines 86/121; pipeline loop rules lines 234–237).
+
+### Per-finding resolution
+
+**CRITICAL-1 — RESOLVED.** The recap is now homed unambiguously inside `/concept` (new "## Recap gate" section after Phase 6, before "## Output", §4b), firing at the END of the upstream standalone `/concept` run — *before* the founder ever invokes `/pipeline`. The pipeline owns ONLY the ship summary; §4a explicitly forbids any Phase-1 recap dispatch and leaves the Phase-1 block untouched. The firing site is now deterministic ("after Phase 6 self-critique, doc committed, before control returns to the founder") and fully consistent with the "pipeline does NOT run `/concept`" pre-condition — the plan reconciles it by placement, not by amending the pre-condition. **End-to-end AC check passes:** "before design/architecture proceed" holds because the gate sits upstream of the pipeline run entirely; the pipeline's design/architecture phases cannot start until the founder confirms and *then* invokes `/pipeline` on the confirmed concept. The arch (§5, line 5) walks this through correctly.
+
+**CRITICAL-2 — RESOLVED.** Redirect loop bounded at max 3 → after the 3rd redirect without Confirm, concept marked `blocked: concept-contested` and not released (§2 "Bounded redirect loop", §4b "Bound", concept Contract 6/8). Mirrors the pipeline's universal max-3 discipline; the new reason is named as a sibling to `concept-or-spec-misalignment` (line 237, verified). Downstream catch is the pipeline's existing `concept-missing`/misalignment fail-fast. Terminates deterministically.
+
+**WARNING-1 — RESOLVED.** §5(a) names a concrete "structural parity guard" as a repeatable reviewer-diff checklist assertion — the invariant "no touchpoint instruction outside a `PIPELINE_INTERACTIVE == 1` guard" with four enumerated per-file checks — and explicitly distinguishes it from a forbidden `readFileSync`/grep fake test (correctly citing CLAUDE.md: static property → checklist/lint, not a runtime test). It runs alongside, not instead of, the founder walkthrough (§5b). Adequate for a markdown-only WP.
+
+**WARNING-2 — RESOLVED.** No-fabricate fallbacks present and per-beat (§3 "No-fabricate fallback rule"): beat 4 → "cost signal: not recorded", beat 5 → "residual risk: none recorded", beats 1–3 → "not available — see PR review", with the one-line rule "a beat with no source says 'not recorded,' never a guess." Multi-noun collapse rule present (§2): central noun's three beats in full, each satellite one line drawn from its Contracts hard rule (fallback: Definition), capped at the New/Reshaped noun count.
+
+**WARNING-3 — RESOLVED.** One canonical truthiness rule stated verbatim once (§1, "THE CANONICAL TRUTHINESS RULE"): interactive iff value is exactly the literal `1`. Two byte-identical copies (pipeline + concept) — justified because `/concept` runs standalone upstream and cannot depend on the pipeline section being in context; the byte-identity is called out so no drift is possible. `/ship` and `/work-planning` reference, never re-derive. The orchestrator's threaded instruction is authoritative inside the pipeline; direct-read is the standalone fallback only. Not re-derived by consumers.
+
+### New findings (fresh pass on the revision)
+
+No new CRITICAL or WARNING. The split (recap upstream-in-`/concept`, summary in-pipeline-in-`/ship`) is internally consistent and the concept doc's Contracts 7–8 lock it. Three NICE-TO-HAVE only:
+
+**NTH-4 (new) — `blocked: concept-contested` has no progress-file home in `/concept`.** `/concept` is a standalone founder skill with no progress-JSON/blocked-marking machinery (verified: no `blocked`/`progress` write mechanism in `concept/SKILL.md` — that lives in `/pipeline`). The plan's "marks the concept `blocked: concept-contested` and stops" is therefore a *chat verdict that gates whether the founder hands the concept to the pipeline*, not a file write. This is actually correct (no progress file exists upstream of the pipeline), but the builder could mistakenly try to write a progress file from a skill that has none. One line clarifying "this is a returned verdict in chat, not a progress-file write" would prevent that.
+
+**NTH-5 (new) — concept-doc has no field literally named "Hard rule".** §2's multi-noun collapse sources the satellite line from "that noun's Contracts 'Hard rule'". The Phase 5 template (verified, line 98) names the field "Hard rules" (plural) inside the Contracts block, not "Hard rule". Trivial naming drift; the explicit "or if none, its Definition" fallback means the builder cannot be stranded. Cosmetic.
+
+**NTH-1/2/3 from round 1** remain addressed: "Recap gate" naming adopted (not "Phase 7"); the A/B-skip byte-identity is stated (§1 "A/B and cron stay autonomous", §3 autonomous behavior); the redirect-note channel is named as the `AskUserQuestion` response text (§2, §4b).
+
+### Final score
+
+| Dimension | R1 | R2 |
+|---|---|---|
+| 1 Spec/contract fidelity | 8 | 9 |
+| 2 Autonomous parity / mode-gating | 8 | 9 |
+| 3 Mode-selection mechanism | 9 | 9 |
+| 4 Content-contract completeness | 8 | 9 |
+| 5 Redirect semantics | 6 | 9 |
+| 6 Layering / persona separation | 9 | 9 |
+| 7 Scope discipline | 9 | 9 |
+| 8 Verification honesty | 8 | 9 |
+| 9 Feasibility / edit precision | 7 | 8 |
+
+**Overall: 8.9 / 10**
+
+### Verdict
+
+Both CRITICAL findings genuinely resolved by placement (recap → `/concept`, upstream of the pipeline) and by a bounded loop (max 3 → `concept-contested`); all three WARNINGs resolved with concrete, named mechanisms. No new CRITICAL or WARNING introduced — only two cosmetic NICE-TO-HAVEs. The end-to-end AC ("recap before design/architecture proceed") holds because the gate sits entirely upstream of the pipeline run.
+
+**Verdict: APPROVED** (score ≥7, zero CRITICAL).
