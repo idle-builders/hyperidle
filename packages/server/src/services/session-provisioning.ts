@@ -3,16 +3,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, routines, sessions, tasks, users } from "@hyperidle/db";
 import {
-	assembleContext,
 	assemblePrompt,
 	assembleRoutinePrompt,
 	buildRoutineSessionContextData,
 	buildSessionContextData,
 	checkCostCap,
-	type FileWatcher,
-	type FileWatcherConfig,
 	recordCostAndCheck,
-	startWatcher,
 	type ToolSummary,
 	writeSandboxAgentsMd,
 } from "@hyperidle/fabric";
@@ -21,6 +17,7 @@ import {
 	CostCapExceededError,
 	type EventBus,
 	type HarnessAdapter,
+	type IngestionHandle,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
@@ -42,6 +39,7 @@ import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
+import { getActiveStrategy } from "./strategy-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -235,7 +233,8 @@ export interface AdmittedSession {
 	readonly modelTier: ModelTier;
 	readonly sandboxHandle: SandboxHandle;
 	readonly sandboxPath: string;
-	readonly watcher: FileWatcher;
+	/** AK2: was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
+	readonly ingestion: IngestionHandle;
 	readonly selectedAdapter: SelectedEntry;
 	readonly harness: HarnessAdapter;
 	readonly adapterId: string;
@@ -399,7 +398,7 @@ export async function admitSession(
 	let sessionId: string;
 	let sandboxHandle: SandboxHandle;
 	let sandboxPath: string;
-	let watcher: FileWatcher;
+	let ingestion: IngestionHandle;
 	try {
 		// ── Phase 4: spawn sandbox via adapter.
 		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
@@ -420,25 +419,36 @@ export async function admitSession(
 			...(params.routineId ? { routineId: params.routineId } : {}),
 		});
 
-		// ── Phase 6: assemble context into the sandbox.
-		await assembleContext(db, {
+		// ── Phase 6: assemble context into the sandbox (via Strategy Port).
+		// @lore AK2 §5a: was `assembleContext(db, {...})` hard-imported from
+		// @hyperidle/fabric. Now routed through the Strategy Port so the Kernel
+		// is decoupled from any concrete Strategy. The try/catch revert behaviour
+		// is preserved exactly — assembleContext may throw; revertTaskToAccepted
+		// runs and the error propagates.
+		const strategy = getActiveStrategy();
+		await strategy.assembleContext({
+			db,
 			sandboxPath,
 			sessionId,
 			taskId: params.taskId,
 			agentId: params.agentId,
 			agentRole,
-			productId: params.productId,
+			teamId: params.productId,
+			isRoutine: !!params.routineId,
 		});
 
-		// ── Phase 7: start the file watcher.
+		// ── Phase 7: begin learning ingestion (via Strategy Port).
+		// @lore AK2 §5a: was `startWatcher(watcherConfig)` returning FileWatcher.
+		// Now calls beginLearningIngestion → IngestionHandle. The handle's dispose()
+		// replaces watcher.stop() at every teardown site. The Fabric adapter's
+		// beginLearningIngestion delegates to startWatcher byte-identically (AC3).
 		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-		const watcherConfig: FileWatcherConfig = {
+		ingestion = strategy.beginLearningIngestion({
 			db,
 			sandboxPath,
 			sessionId,
 			manifestPath,
-		};
-		watcher = startWatcher(watcherConfig);
+		});
 	} catch (err) {
 		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;
 		await revertTaskToAccepted(db, eventBus, params.taskId, reason);
@@ -460,7 +470,7 @@ export async function admitSession(
 		agentId: params.agentId,
 		taskId: params.taskId,
 		sandboxPath,
-		watcher,
+		ingestion,
 		// @lore AF4/§5: traceId correlates observability events for this session
 		// (H3). The provisioning path owns the session, so it mints the id (the
 		// crash/end consumers key events on it). Behaviour-neutral — previously the
@@ -491,7 +501,7 @@ export async function admitSession(
 		modelTier,
 		sandboxHandle,
 		sandboxPath,
-		watcher,
+		ingestion,
 		selectedAdapter,
 		harness,
 		adapterId,
@@ -536,7 +546,7 @@ export async function runSession(
 		modelTier,
 		sandboxHandle,
 		sandboxPath,
-		watcher,
+		ingestion,
 		selectedAdapter,
 		harness,
 		adapterId,
@@ -550,6 +560,9 @@ export async function runSession(
 	let aborted = false;
 
 	// ── Phase 8: build tool registry bound to this context.
+	// @lore AK2 §5a: toolContext no longer carries a `watcher` field — the IngestionHandle
+	// is not a ToolContext concern. Tools that previously used watcher.stop() go through
+	// the session teardown paths (endSession/crashSession) which hold sessionContext.
 	const toolContext: ToolContext = {
 		db,
 		eventBus,
@@ -558,7 +571,7 @@ export async function runSession(
 		taskId: params.taskId,
 		teamId,
 		sandboxPath,
-		watcher,
+		ingestion,
 	};
 	const registry = buildToolRegistry(toolContext, { role: agentRole });
 

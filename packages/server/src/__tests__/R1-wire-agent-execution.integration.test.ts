@@ -32,7 +32,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import type {
 	DomainEvent,
 	HarnessAdapter,
@@ -47,6 +47,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
@@ -207,9 +208,12 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-wire-tests-"));
 		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		vi.unstubAllEnvs();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });

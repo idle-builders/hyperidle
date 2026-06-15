@@ -25,7 +25,8 @@
 			"@hyperidle/design-system": ["./packages/design-system/src"],
 			"@hyperidle/api-contract": ["./packages/api-contract/src"],
 			"@hyperidle/desktop": ["./packages/desktop/src"],
-			"@hyperidle/eval": ["./packages/eval/src"]
+			"@hyperidle/eval": ["./packages/eval/src"],
+			"@hyperidle/strategy-minimal": ["./packages/strategy-minimal/src"]
 		}
 	},
 	"references": [
@@ -38,7 +39,8 @@
 		{ "path": "packages/eslint-plugin-authz" },
 		{ "path": "packages/api-contract" },
 		{ "path": "packages/desktop" },
-		{ "path": "packages/eval" }
+		{ "path": "packages/eval" },
+		{ "path": "packages/strategy-minimal" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]

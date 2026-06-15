@@ -19,11 +19,10 @@
  * @hyperidle/eval are accessible from node_modules even though packages/web
  * doesn't list them as deps. This is intentional for E2E test helpers.
  *
- * @lore AH5: OPENROUTER_API_KEY must be in process.env (injected by the CI
- * workflow or set locally). If absent, the server boots but the credential
- * row is absent — any real LLM call will fail with MissingCredentialError.
- * The lane guard in ah5-smoke.yml checks the secret is non-empty before
- * triggering.
+ * @lore AH5: OPENROUTER_API_KEY must be in process.env (set in your local shell).
+ * If absent, the server boots but the credential row is absent — any real LLM call
+ * will fail with MissingCredentialError. The `npm run smoke:ah5` orchestrator
+ * fails closed if the key is missing before this server starts.
  *
  * @lore AH5: The RESOLVE_MODEL_FILE env var, if set, points to a JSON file
  * written by ah5-resolve-model.ts containing { routedId, ranked }.
@@ -98,7 +97,8 @@ if (openrouterApiKey) {
 } else {
 	process.stdout.write(
 		"[ah5-test-server] WARNING: OPENROUTER_API_KEY not set. " +
-			"Real LLM calls will fail with MissingCredentialError.\n",
+			"Real LLM calls will fail with MissingCredentialError. " +
+			"Run via `npm run smoke:ah5` which fails closed if the key is absent.\n",
 	);
 }
 

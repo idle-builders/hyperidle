@@ -165,7 +165,7 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 			agentId: "a1",
 			taskId: "task-1",
 			sandboxPath: "/tmp/test",
-			watcher: { stop: () => {} } as SessionContext["watcher"],
+			ingestion: { dispose: () => {} } as SessionContext["ingestion"],
 			traceId: "trace-1",
 		};
 		const metadata: HandoffMetadata = {

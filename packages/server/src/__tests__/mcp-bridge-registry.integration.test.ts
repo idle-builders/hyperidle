@@ -33,7 +33,7 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 		sessionId: "session-reg-test",
 		taskId: "task-reg-test",
 		sandboxPath: path.join(os.tmpdir(), `x2-registry-test-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

@@ -252,8 +252,11 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				agentId: session.agentId,
 				taskId,
 				sandboxPath: resolvedWorkspacePath,
-				watcher: {
-					stop: (): void => {
+				// AK2: was `watcher: { stop() {} }` — renamed to `ingestion: { dispose() {} }`.
+				// This is a no-op handle for the handoff path which doesn't need
+				// real ingestion teardown (the handoff sets state=done, not completed).
+				ingestion: {
+					dispose: (): void => {
 						/* no-op */
 					},
 				},

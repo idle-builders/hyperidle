@@ -100,7 +100,7 @@ describe("write_session_notes tool", () => {
 			sessionId: "session-1",
 			taskId: "task-1",
 			sandboxPath,
-			watcher: { stop: (): void => {} },
+			ingestion: { dispose: (): void => {} },
 		};
 	}
 

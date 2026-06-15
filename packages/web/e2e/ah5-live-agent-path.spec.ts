@@ -5,8 +5,8 @@
  *   onboarding → assistant agent configured → send prescriptive message
  *   → real OpenRouter LLM call → write_session_notes tool call → UI shows result.
  *
- * This spec runs ONLY in the ah5-smoke.yml CI workflow (not part of the default
- * test:e2e run). It requires OPENROUTER_API_KEY in the environment.
+ * This spec runs ONLY in the local lane (`npm run -w @hyperidle/web test:e2e:ah5`),
+ * not as part of the default test:e2e run. It requires OPENROUTER_API_KEY in your shell.
  *
  * AH5-own gating proof: the provisionSession-driven real-turn probe
  * (scripts/ah5-real-turn-probe.ts) is the primary AC4 proof. This UI spec
@@ -158,13 +158,13 @@ test.describe("AH5 AC5 — cost report artifact", () => {
 	test.fixme("ah5-cost.json is written and contains totalCostCents > 0", async () => {
 		/**
 		 * @lore AH5: This test is fixme-gated because it depends on the probe
-		 * having run (which happens in CI via the ah5-smoke.yml workflow step).
-		 * In local Playwright runs, the probe is a separate script. The CI
-		 * budget-assert step validates ah5-cost.json independently.
+		 * having run (step 5 of `npm run smoke:ah5`, before the Playwright lane).
+		 * The probe is a separate script; in direct Playwright runs, it has not run.
+		 * The local lane budget-assert step validates ah5-cost.json independently.
 		 *
 		 * To un-fixme: integrate probe execution into a globalSetup that runs
 		 * before the Playwright tests, then assert on the written file.
-		 * Or: run the probe as a separate step and skip this test (the CI job
+		 * Or: run the probe as a separate step and skip this test (the local lane
 		 * validates the cost via ah5-assert-budget.ts).
 		 */
 	});

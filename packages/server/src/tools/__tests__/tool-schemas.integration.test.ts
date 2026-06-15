@@ -41,7 +41,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 		sessionId: "session-x",
 		taskId: "task-x",
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-schemas-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 
@@ -70,7 +70,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 				sessionId: "session-x",
 				taskId: "task-x",
 				sandboxPath: path.join(os.tmpdir(), "hi-d4-schemas-each"),
-				watcher: { stop: (): void => {} },
+				ingestion: { dispose: (): void => {} },
 			},
 			{ role: "assistant" },
 		);

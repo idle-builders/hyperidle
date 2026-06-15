@@ -30,7 +30,7 @@ function makeCtx(db: HyperIdleDb, label = "ad8b"): ToolContext {
 		sessionId: "session-ad8b",
 		taskId: "task-ad8b",
 		sandboxPath: path.join(os.tmpdir(), `hi-${label}-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

@@ -90,7 +90,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 		sessionId: "session-1",
 		taskId: "task-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-handoff-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

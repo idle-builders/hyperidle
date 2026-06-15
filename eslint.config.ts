@@ -496,6 +496,60 @@ export default [
 		},
 	},
 
+	// AK2 — Strategy Port static guard (AC4).
+	//
+	// The Kernel (packages/server/src/**) must NOT import a concrete Strategy
+	// implementation. The port contract is:
+	//   1. assembleContext, startWatcher, FileWatcher, FileWatcherConfig from
+	//      @hyperidle/fabric are now behind the Strategy Port — use getActiveStrategy()
+	//      from packages/server/src/services/strategy-registry.ts instead.
+	//   2. The whole @hyperidle/strategy-minimal package is banned from Kernel
+	//      non-composition-root files (the Kernel must not know which Strategy
+	//      is active — only the composition root picks one).
+	//
+	// Allowlisted: server-factory.ts (the composition root — the ONLY place
+	// permitted to import a concrete Strategy). Test files are also exempt.
+	//
+	// @lore AK2 §7: The residual fabric symbols (cost-cap, session-context,
+	// context-assembly-prompt) are NOT banned here — they are Kernel-conceptual
+	// code physically living in @hyperidle/fabric pending AK2b relocation.
+	// AK2 bans ONLY the two port-crossing symbols (assembleContext + startWatcher)
+	// and the minimal Strategy package.
+	{
+		files: ["packages/server/src/**/*.ts"],
+		ignores: [
+			"packages/server/src/server-factory.ts", // composition root — may import a concrete Strategy
+			"packages/server/src/**/__tests__/**",
+			"packages/server/src/**/*.test.ts",
+			"packages/server/src/**/*.spec.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["@hyperidle/strategy-minimal", "@hyperidle/strategy-minimal/*"],
+							message:
+								"Kernel must not import a concrete Strategy. Use the Strategy type from @hyperidle/shared via getActiveStrategy().",
+						},
+					],
+					paths: [
+						{
+							name: "@hyperidle/fabric",
+							importNames: ["assembleContext", "startWatcher", "FileWatcher", "FileWatcherConfig"],
+							message:
+								"context assembly + ingestion are behind the Strategy Port — use getActiveStrategy() from strategy-registry.ts, not a direct Fabric import. (AK2 AC4)",
+						},
+					],
+				},
+			],
+		},
+	},
+
 	// AI3 — One-clock static gate (AC-2/AC-5).
 	//
 	// Bans two categories of local timestamp formatting in packages/web/src + packages/design-system/src:

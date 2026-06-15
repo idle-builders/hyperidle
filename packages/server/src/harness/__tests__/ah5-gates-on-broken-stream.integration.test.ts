@@ -30,6 +30,7 @@
  */
 
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -43,6 +44,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 import { provisionSession } from "../../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
@@ -178,9 +180,12 @@ describe("AH5 AC4 — broken-stream gate: production seam provisionSession", () 
 		vi.stubEnv("HYPERIDLE_API_KEY", "ah5-gate-test-key");
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "ah5-gate-cred-key-32chars!!!!");
 		vi.stubEnv("HYPERIDLE_PROFILE", "laptop");
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		vi.unstubAllEnvs();
 	});
 

@@ -19,6 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -37,6 +38,7 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 import { buildToolRegistry, type ToolContext } from "../tools/tool-registry.js";
 
@@ -162,9 +164,12 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-integration-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -309,9 +314,12 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-json-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -511,9 +519,12 @@ describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-fallback-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -578,7 +589,7 @@ describe("AC2: MCP route HTTP token routing", () => {
 			sessionId: "s",
 			taskId: "t",
 			sandboxPath: os.tmpdir(),
-			watcher: { stop: (): void => {} },
+			ingestion: { dispose: (): void => {} },
 		};
 		const toolRegistry = buildToolRegistry(ctx, { role: "builder" });
 		const bridge = await createMcpBridge({
@@ -609,9 +620,12 @@ describe("Critique: bridge creation failure → graceful degradation", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "x2-mcp-degrade-"));
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}

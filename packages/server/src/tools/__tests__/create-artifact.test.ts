@@ -74,7 +74,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus, taskId = "task-1"): To
 		sessionId: "session-r6",
 		taskId,
 		sandboxPath: path.join(os.tmpdir(), `hi-r6-createartifact-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

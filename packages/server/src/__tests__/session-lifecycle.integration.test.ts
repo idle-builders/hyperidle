@@ -11,6 +11,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import {
 	ConcurrencyLimitError,
 	type SessionEndedEvent,
@@ -25,6 +26,7 @@ import {
 	endSession,
 	type SessionContext,
 } from "../services/session-lifecycle.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 async function seedAll(db: HyperIdleDb): Promise<void> {
@@ -95,9 +97,14 @@ describe("Session Lifecycle", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-lifecycle-"));
+		// AK2 §4a: register the Fabric Strategy so createSession can route through
+		// the Strategy Port (getActiveStrategy() throws if unset — fail-loud registry).
+		setActiveStrategy(fabricStrategy);
 	});
 
 	afterEach(() => {
+		// AK2 §4a: clear the Strategy registration after each test.
+		clearActiveStrategy();
 		// Clean up any leftover workspace dirs
 		for (const ctx of cleanupContexts) {
 			if (fs.existsSync(ctx.sandboxPath)) {
@@ -110,7 +117,7 @@ describe("Session Lifecycle", () => {
 		}
 	});
 
-	// AC1: Create session -> active, sandbox exists, assembled files present, watcher running
+	// AC1: Create session -> active, sandbox exists, assembled files present, ingestion running
 	test("creates session with active state, sandbox, assembled files, and watcher", async ({
 		db,
 		eventBus,
@@ -132,11 +139,12 @@ describe("Session Lifecycle", () => {
 		const manifestPath = path.join(ctx.sandboxPath, ".fabric/manifest.json");
 		expect(fs.existsSync(manifestPath)).toBe(true);
 
-		// Watcher is running (has a stop method)
-		expect(typeof ctx.watcher.stop).toBe("function");
+		// AK2: was `typeof ctx.watcher.stop` — renamed to `ctx.ingestion.dispose`
+		// as a direct consequence of the IngestionHandle rename (plan §4a / §5b).
+		expect(typeof ctx.ingestion.dispose).toBe("function");
 
 		// Clean up
-		ctx.watcher.stop();
+		ctx.ingestion.dispose();
 	});
 
 	// AC2: End session -> done, watcher stopped, final pass complete, session_ended event fires
@@ -216,7 +224,7 @@ describe("Session Lifecycle", () => {
 		await expect(createSession(db, eventBus, params)).rejects.toThrow(ConcurrencyLimitError);
 
 		// Clean up
-		ctx1.watcher.stop();
+		ctx1.ingestion.dispose();
 	});
 
 	// AC6: Session sandbox_snapshot contains path to sandbox
@@ -229,7 +237,7 @@ describe("Session Lifecycle", () => {
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session?.sandboxSnapshot).toBe(ctx.sandboxPath);
 
-		ctx.watcher.stop();
+		ctx.ingestion.dispose();
 	});
 
 	// AC7: After session end, workspace cleaned up (deleted)
@@ -261,6 +269,6 @@ describe("Session Lifecycle", () => {
 		expect(startedEvents[0]!.agentId).toBe("agent-1");
 		expect(startedEvents[0]!.taskId).toBe("task-1");
 
-		ctx.watcher.stop();
+		ctx.ingestion.dispose();
 	});
 });

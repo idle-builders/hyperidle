@@ -36,7 +36,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 		sessionId: "session-x",
 		taskId: "task-x",
 		sandboxPath: path.join(os.tmpdir(), `hi-i2-role-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

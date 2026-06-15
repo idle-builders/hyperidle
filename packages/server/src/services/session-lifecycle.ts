@@ -2,20 +2,16 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyperidle/db";
-import {
-	assembleContext,
-	type FileWatcher,
-	type FileWatcherConfig,
-	releaseSessionDedup,
-	startWatcher,
-} from "@hyperidle/fabric";
+import { releaseSessionDedup } from "@hyperidle/fabric";
 import {
 	ConcurrencyLimitError,
 	type EventBus,
+	type IngestionHandle,
 	type ModelTier,
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import { getActiveStrategy } from "./strategy-registry.js";
 
 export interface CreateSessionParams {
 	taskId: string;
@@ -32,7 +28,14 @@ export interface SessionContext {
 	agentId: string;
 	taskId: string;
 	sandboxPath: string;
-	watcher: FileWatcher;
+	/**
+	 * AK2: was `watcher: FileWatcher` (direct Fabric import). Renamed to
+	 * `ingestion: IngestionHandle` as part of the Strategy port decoupling.
+	 * The IngestionHandle.dispose() replaces FileWatcher.stop() at every
+	 * teardown site (endSession + crashSession). The Fabric adapter's
+	 * beginLearningIngestion delegates to startWatcher byte-identically (AC3).
+	 */
+	ingestion: IngestionHandle;
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
 	/**
@@ -128,7 +131,20 @@ async function updateRoutineRunOnSessionEnd(
 
 /**
  * Create a new agent session: check concurrency, set up workspace,
- * assemble context, start file watcher, emit event.
+ * assemble context, start ingestion, emit event.
+ *
+ * @lore AK2 §5b: This is the second Kernel provisioning path identified in
+ * the architecture critique. `createSession` was hard-importing assembleContext,
+ * startWatcher, FileWatcher, FileWatcherConfig from @hyperidle/fabric (lines 5–11
+ * pre-AK2). It is now fully decoupled via the Strategy Port: getActiveStrategy()
+ * replaces the direct Fabric imports for context assembly (P6) and ingestion (P7).
+ *
+ * createSession has no production caller (sessions-routes.ts uses the unrelated
+ * createSessionRoutes). It is exercised only by integration tests
+ * (session-lifecycle.integration.test.ts, routines-aa2.integration.test.ts,
+ * AA3-routine-cost.integration.test.ts). It is migrated — not deleted — because
+ * the integration tests still exercise it as a Kernel-isolation path and it is
+ * subject to the AC4 ESLint static guard.
  */
 export async function createSession(
 	db: HyperIdleDb,
@@ -172,25 +188,34 @@ export async function createSession(
 		sandboxSnapshot: sandboxPath,
 	});
 
-	// 4. Assemble context into sandbox
-	await assembleContext(db, {
+	// 4. Assemble context into sandbox (via Strategy Port).
+	// @lore AK2 §5b: was `await assembleContext(db, {...})` hard-imported from
+	// @hyperidle/fabric. Replaced by Strategy Port to satisfy AC4 (Kernel imports
+	// no specific Strategy). isRoutine is false — createSession has no routine flag
+	// in its params (no production routine caller for this path).
+	const strategy = getActiveStrategy();
+	await strategy.assembleContext({
+		db,
 		sandboxPath,
 		sessionId,
 		taskId: params.taskId,
 		agentId: params.agentId,
 		agentRole: params.agentRole,
-		productId: params.productId,
+		teamId: params.productId,
+		isRoutine: false,
 	});
 
-	// 5. Start file watcher
+	// 5. Begin learning ingestion (via Strategy Port).
+	// @lore AK2 §5b: was `startWatcher(watcherConfig)` returning FileWatcher.
+	// Replaced by beginLearningIngestion → IngestionHandle. The field is named
+	// `ingestion` (was `watcher`) throughout SessionContext, endSession, crashSession.
 	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-	const watcherConfig: FileWatcherConfig = {
+	const ingestion = strategy.beginLearningIngestion({
 		db,
 		sandboxPath,
 		sessionId,
 		manifestPath,
-	};
-	const watcher = startWatcher(watcherConfig);
+	});
 
 	// 6. Emit session_started event
 	eventBus.emit({
@@ -208,13 +233,13 @@ export async function createSession(
 		agentId: params.agentId,
 		taskId: params.taskId,
 		sandboxPath,
-		watcher,
+		ingestion,
 		traceId,
 	};
 }
 
 /**
- * End a session gracefully: stop watcher, update DB, emit event, clean up workspace.
+ * End a session gracefully: flush ingestion, update DB, emit event, clean up workspace.
  *
  * @param routineRunOutcome - AA3: Optional override for the routine_run outcome.
  *   When "budget_exhausted", the routine_run is recorded with that outcome directly
@@ -228,8 +253,10 @@ export async function endSession(
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
 ): Promise<void> {
-	// 1. Stop watcher (final pass/flush)
-	context.watcher.stop();
+	// 1. Dispose ingestion handle (final flush).
+	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
+	// as part of Strategy port decoupling. dispose() must not throw (port contract).
+	context.ingestion.dispose();
 
 	// 2. Update session row.
 	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
@@ -300,7 +327,7 @@ export async function endSession(
 
 /**
  * Crash a session: same as end but state=crashed, outcome=crashed,
- * with try-catch around watcher.stop().
+ * with try-catch around ingestion.dispose().
  */
 export async function crashSession(
 	db: HyperIdleDb,
@@ -309,11 +336,15 @@ export async function crashSession(
 	costInCents: number,
 	baselineCost?: number,
 ): Promise<void> {
-	// 1. Try to stop watcher (may fail in crash scenario)
+	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
+	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to
+	// `context.ingestion.dispose()`. The port contract guarantees dispose() does
+	// not throw, but the try/catch is belt-and-suspenders — crash-path teardown
+	// is defensive (behaviour-identical to the old try { watcher.stop() } catch {}).
 	try {
-		context.watcher.stop();
+		context.ingestion.dispose();
 	} catch {
-		// Watcher may already be in a bad state during crash
+		// Ingestion handle may already be in a bad state during crash — swallow.
 	}
 
 	// 2. Update session row.
