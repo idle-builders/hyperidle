@@ -15,7 +15,7 @@
 // hearth-internal-padding
 
 import type { Status } from "@hyperidle/design-system";
-import { StatusChip } from "@hyperidle/design-system";
+import { Button, Input, ItemList, Row, StatusChip } from "@hyperidle/design-system";
 import { CREDENTIAL_CATALOG, type CredentialName, type CredentialState } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -208,120 +208,104 @@ export function CredentialsTab(): JSX.Element {
 			)}
 
 			{/* Credential rows */}
-			{CREDENTIAL_CATALOG.map((entry) => {
-				const state = stateMap.get(entry.name) ?? "unknown";
-				const isPresent = state !== "absent" && state !== "unknown";
-				const isEditing = editingName === entry.name;
-				const chipStatus = credentialStateToStatus(state);
-				const chipLabel = credentialStateLabel(state);
+			<ItemList variant="flush" isEmpty={CREDENTIAL_CATALOG.length === 0}>
+				{CREDENTIAL_CATALOG.map((entry) => {
+					const state = stateMap.get(entry.name) ?? "unknown";
+					const isPresent = state !== "absent" && state !== "unknown";
+					const isEditing = editingName === entry.name;
+					const chipStatus = credentialStateToStatus(state);
+					const chipLabel = credentialStateLabel(state);
 
-				return (
-					<div
-						key={entry.name}
-						data-testid={`credential-row-${entry.name}`}
-						className="flex flex-col gap-[9px] py-[9px] border-b border-[var(--border-subtle)] last:border-b-0"
-					>
-						<div className="flex items-start justify-between gap-[12px]">
-							{/* Left: label + description */}
-							<div className="flex flex-col gap-[3px] min-w-0">
-								<span className="text-[13px] font-[500] text-[var(--text-primary)] leading-[1.4]">
-									{entry.label}
-								</span>
-								<span className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">
-									{entry.description}
-								</span>
-							</div>
+					return (
+						<div key={entry.name} className="flex flex-col">
+							<Row
+								data-testid={`credential-row-${entry.name}`}
+								title={entry.label}
+								subtitle={entry.description}
+								actions={
+									<div className="flex items-center gap-[9px] shrink-0">
+										<span data-testid="credential-state-chip">
+											<StatusChip status={chipStatus} label={chipLabel} />
+										</span>
 
-							{/* Right: status chip + actions */}
-							<div className="flex items-center gap-[9px] shrink-0">
-								<span data-testid="credential-state-chip">
-									<StatusChip status={chipStatus} label={chipLabel} />
-								</span>
-
-								{isPresent && entry.testable && (
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs"
-										disabled={validatingName === entry.name}
-										onClick={() => void handleValidate(entry.name)}
-									>
-										{validatingName === entry.name ? (
-											<span className="loading loading-spinner loading-xs" />
-										) : (
-											"Validate"
+										{isPresent && entry.testable && (
+											<Button
+												variant="ghost"
+												size="sm"
+												disabled={validatingName === entry.name}
+												onClick={() => void handleValidate(entry.name)}
+											>
+												{validatingName === entry.name ? "Validating…" : "Validate"}
+											</Button>
 										)}
-									</button>
-								)}
 
-								<button
-									type="button"
-									className="btn btn-ghost btn-xs"
-									onClick={() => {
-										setEditingName(isEditing ? null : entry.name);
-										setEditValue("");
-										setSaveError(null);
-									}}
-								>
-									{isPresent ? "Update" : "Set"}
-								</button>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setEditingName(isEditing ? null : entry.name);
+												setEditValue("");
+												setSaveError(null);
+											}}
+										>
+											{isPresent ? "Update" : "Set"}
+										</Button>
 
-								{isPresent && (
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs text-[var(--status-error)]"
-										onClick={() => void handleDelete(entry.name)}
-									>
-										Remove
-									</button>
-								)}
-							</div>
-						</div>
-
-						{/* Inline edit form */}
-						{isEditing && (
-							<div className="flex flex-col gap-[9px]">
-								<input
-									type="password"
-									className="input input-sm input-bordered w-full"
-									value={editValue}
-									onChange={(e) => setEditValue(e.target.value)}
-									placeholder={`Enter ${entry.label}`}
-								/>
-								{saveError && editingName === entry.name && (
-									<p className="text-[12px] text-[var(--status-error)] leading-[1.4]" role="alert">
-										{saveError}
-									</p>
-								)}
-								<div className="flex gap-[9px]">
-									<button
-										type="button"
-										className="btn btn-primary btn-xs"
-										disabled={savingName === entry.name || !editValue.trim()}
-										onClick={() => void handleSave(entry.name)}
-									>
-										{savingName === entry.name ? (
-											<span className="loading loading-spinner loading-xs" />
-										) : (
-											"Save"
+										{isPresent && (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-[var(--status-error)]"
+												onClick={() => void handleDelete(entry.name)}
+											>
+												Remove
+											</Button>
 										)}
-									</button>
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs"
-										onClick={() => {
-											setEditingName(null);
-											setEditValue("");
-											setSaveError(null);
-										}}
-									>
-										Cancel
-									</button>
+									</div>
+								}
+							/>
+
+							{/* Inline edit form — stays as sibling div below Row */}
+							{isEditing && (
+								<div className="flex flex-col gap-[9px] py-[9px] px-[12px]">
+									<Input
+										type="password"
+										value={editValue}
+										onChange={(e) => setEditValue(e.target.value)}
+										placeholder={`Enter ${entry.label}`}
+									/>
+									{saveError && editingName === entry.name && (
+										<p className="text-[12px] text-[var(--status-error)] leading-[1.4]" role="alert">
+											{saveError}
+										</p>
+									)}
+									<div className="flex gap-[9px]">
+										<Button
+											variant="primary"
+											size="sm"
+											disabled={savingName === entry.name || !editValue.trim()}
+											onClick={() => void handleSave(entry.name)}
+										>
+											{savingName === entry.name ? "Saving…" : "Save"}
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setEditingName(null);
+												setEditValue("");
+												setSaveError(null);
+											}}
+										>
+											Cancel
+										</Button>
+									</div>
 								</div>
-							</div>
-						)}
-					</div>
-				);
-			})}
+							)}
+						</div>
+					);
+				})}
+			</ItemList>
 		</div>
 	);
 }
