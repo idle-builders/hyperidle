@@ -120,7 +120,9 @@ done
 
 **Ship is only complete when `gh pr checks` returns green.** Do not declare success before this.
 
-### 7a. Ship summary (interactive mode only)
+### 7a. Ship-summary check (interactive mode only)
+
+This is the pipeline's **ship-summary check** (see `pipeline/SKILL.md` "Ship-summary check" in the Ship dispatch). It is a check, not a recap: it passes only when every AC is *evidenced* (cite the Phase-4 `/review` AC table, not Builder's say-so) and the summary says something CI-green does not. A summary that only echoes "CI green," or lists an AC it cannot evidence, FAILS — surface the gap to the founder instead of emitting it.
 
 Read `PIPELINE_INTERACTIVE` per **the canonical rule** (defined in `pipeline/SKILL.md` "## Run modes" and `concept/SKILL.md` "## Recap gate" — interactive iff value is exactly the literal string `1`; everything else, including unset/empty/`0`/`true`, is autonomous). Do not restate the truthiness check here — reference the canonical rule.
 
@@ -184,7 +186,7 @@ gh pr checks <number>  # poll until green
 - **Never `git add -A`** — stage specific files
 - **Never force push** — history is shared
 - **Never `--no-verify`** — hooks exist for a reason
-- **Never merge** — leave the PR for the human; the ship summary (interactive mode) briefs the human, it does not merge for them
+- **Never merge** — leave the PR for the human; the ship-summary check (interactive mode) holds the change accountable to the human, it does not merge for them
 - **One PR per workpackage** in pipeline mode
 - **Attestation must be the last commit** — no code after it
 

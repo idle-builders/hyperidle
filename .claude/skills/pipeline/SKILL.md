@@ -42,7 +42,7 @@ Record session start time.
 
 **Canonical `PIPELINE_INTERACTIVE` rule** — interactive mode is on if and only if `PIPELINE_INTERACTIVE` is exactly the literal string `1`. Every other value — unset, empty, `0`, `true`, `yes`, anything else — is autonomous mode. This rule is stated once here and is the single source of truth; every consumer (`/concept`, `/ship`) references it rather than re-deriving its own truthiness check.
 
-Read once at run start. The run mode governs exactly **one** pipeline-owned touchpoint: the **ship summary** (before the human merge, in the Ship phase). In autonomous mode (the default), no touchpoints fire.
+Read once at run start. The run mode governs exactly **one** pipeline-owned touchpoint: the **ship-summary check** (before the human merge, in the Ship phase — see "Ship-summary check" in the dispatch block; it is its own accountability check on top of the CI-green gate, not a recap of `/ship`). In autonomous mode (the default), no touchpoints fire.
 
 **The concept recap is NOT a pipeline touchpoint.** It lives in `/concept`, which the founder runs upstream before invoking the pipeline (see "## Pre-condition" — the pipeline does not run `/concept`). By the time `/pipeline` starts, the concept is already confirmed (or `blocked: concept-contested`). The pipeline never owns, dispatches, or re-runs the concept recap.
 
@@ -135,7 +135,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 4 | **reviewer** + **builder** | high | `/review` + fix loop | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes; reviewer re-reviews. Reviews code, not docs (docs come next). Verdict DONE required before proceeding. |
 | 5 | **builder** | medium | `/write-docs` | Print the concept essence + as-built implementation into `docs/`, then retire superseded `plans/<id>/` artifacts. Runs after review so docs describe the final, reviewed code. |
 | 6 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Must run before ship so retro prose is included in the verified tree. |
-| ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. (+ ship summary before human merge in interactive mode) |
+| ship | **builder** | medium | `/ship` | Merge main → verify → attest → push → PR ready → CI green. Not a tracked phase — the merge commit on main is proof of completion. (+ ship-summary check before human merge in interactive mode) |
 | — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after retro. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
@@ -246,13 +246,35 @@ Ship (after retro — not a tracked phase):
   and waits for CI green. If CI red, builder fixes and re-ships
   (max 3 attempts). /ship is not done until CI green.
 
-  If PIPELINE_INTERACTIVE is exactly "1" (canonical rule): after
-  /ship reaches CI-green and before the human merges, the builder
-  emits the ship summary (five beats: what shipped / ACs covered /
-  files changed / retro cost signal / residual risk; no-fabricate
-  fallback applies — any beat with no source says "not recorded").
-  The merge still waits for the human. In autonomous mode this
-  step is absent; CI-green-before-merge is unchanged.
+Ship-summary check (interactive mode only — its OWN check, not a
+recap of /ship):
+  CI-green is the GATE — it answers "did the machine pass?".
+  The ship summary is a SEPARATE, pipeline-owned CHECK on top of
+  that gate — it answers "is this change accountable to a human
+  before it merges?". It runs nothing and re-verifies nothing; it
+  forces the orchestrator to confirm the change is legible and
+  complete, then surfaces that to the founder. Treat it as a pass/
+  fail check, not a courtesy briefing.
+
+  Fires only when PIPELINE_INTERACTIVE is exactly "1" (canonical
+  rule), after /ship reaches CI-green and before the human merges.
+  In autonomous mode the check is absent and the committed artifact
+  set is unchanged. The merge always waits for the human; this
+  check never merges and never blocks an autonomous run.
+
+  The builder (via /ship step 7a) emits the five beats: what
+  shipped / ACs covered / files changed / retro cost signal /
+  residual risk. The check PASSES only when:
+    - every acceptance criterion is EVIDENCED, not just listed —
+      cite the Phase-4 /review AC table, not Builder's say-so;
+    - any beat with no source reads "not recorded" (no-fabricate),
+      and "residual risk: none recorded" is a reviewable claim the
+      founder can challenge, not filler;
+    - the summary says something CI-green does not — a summary that
+      only echoes "CI is green" FAILS the check.
+  On failure (an AC can't be evidenced, or the summary is hollow),
+  surface the gap to the founder before merge — do not emit a
+  summary that launders an unaccountable change as done.
 ```
 
 ### Loop rules
@@ -297,7 +319,7 @@ The agent that created the design cannot objectively score it. Moving critique t
 
 ### Why interactive mode is strictly additive (AJ2)
 
-The default autonomous stance (CLAUDE.md: "There is NO human. Never pause.") is sacrosanct — cron runs, A/B replays, and unattended pipelines must never block on a touchpoint. Interactive mode adds exactly two human-facing moments (concept recap upstream in `/concept`, ship summary in `/ship`) by opt-in env var (`PIPELINE_INTERACTIVE=1`). Neither touchpoint alters the committed artifact set: the same run, autonomous or interactive, commits the same files. The ship summary is briefing, not a gate; the concept recap is a gate, but it lives upstream in `/concept`, not inside the pipeline.
+The default autonomous stance (CLAUDE.md: "There is NO human. Never pause.") is sacrosanct — cron runs, A/B replays, and unattended pipelines must never block on a touchpoint. Interactive mode adds exactly two human-facing moments (concept recap upstream in `/concept`, ship summary in `/ship`) by opt-in env var (`PIPELINE_INTERACTIVE=1`). Neither touchpoint alters the committed artifact set: the same run, autonomous or interactive, commits the same files. The ship summary is its own **accountability check** — not a merge gate: it never blocks or performs the human's merge, but the pipeline must not emit a hollow one (an unevidenced AC or a bare "CI green" echo fails the check). The concept recap is a true gate, but it lives upstream in `/concept`, not inside the pipeline.
 
 The recap lives in `/concept` (not the pipeline) because the pipeline pre-condition explicitly states "the pipeline does NOT run `/concept`." By the time the pipeline starts, the concept is already confirmed (or `blocked: concept-contested`). Moving the recap into the pipeline would contradict that pre-condition — a structural change the strictly-additive contract forbids. The split (recap upstream, summary in-pipeline) is the spine of AJ2: each touchpoint lives where its owning skill already runs, so no phase order or persona boundary changes.
 
