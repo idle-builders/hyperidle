@@ -4,9 +4,9 @@
  * Fetches from GET /api/agents (the existing list endpoint) and filters
  * client-side to agents whose id appears in rosterAgentIds.
  *
- * @lore AB3: We do NOT extend the team endpoint with soul/config data.
+ * @lore AB3: We do NOT extend the team endpoint with system-prompt/config data.
  * Team endpoint stays lean (serves portfolio + other consumers). Agent
- * config (including soulPrompt up to 50KB) is fetched separately and
+ * config (including systemPrompt up to 50KB) is fetched separately and
  * cached for the duration of the page session.
  *
  * @lore AB3: The caller MUST memoize the rosterAgentIds array (e.g.

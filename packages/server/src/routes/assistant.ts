@@ -1,10 +1,10 @@
 /**
- * AD8b Task 4 + 8 — GET /api/threads/assistant + soul prompt CRUD.
+ * AD8b Task 4 + 8 — GET /api/threads/assistant + system prompt CRUD.
  *
  * Routes:
  *   GET /api/threads/assistant         — resolve-or-create the assistant thread
  *   GET /api/users/:userId/assistant   — get assistant agent for user
- *   PATCH /api/users/:userId/assistant — update soul prompt
+ *   PATCH /api/users/:userId/assistant — update system prompt
  *
  * AC-6 (Reviewer C1 fix): Thread starts pinned=false. Query by
  * hostKind="user" + hostId=userId, NOT by pinned=true.
@@ -49,10 +49,10 @@ import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js"
 // (thread scoping, participant checks) MUST derive identity from c.get("userId")
 // (the authenticated Principal set by auth middleware). X-Identity is a client-
 // supplied header — using it for authz allows IDOR.
-const SOUL_PROMPT_MAX_LENGTH = 50_000;
+const SYSTEM_PROMPT_MAX_LENGTH = 50_000;
 
 const patchSoulPromptSchema = z.object({
-	soulPrompt: z.string().max(SOUL_PROMPT_MAX_LENGTH),
+	systemPrompt: z.string().max(SYSTEM_PROMPT_MAX_LENGTH),
 });
 
 function rowToThread(row: {
@@ -190,7 +190,7 @@ export function createAssistantThreadRoute(
 		// @lore AF11-IDOR: identity for data-scoping MUST come from c.get("userId")
 		// (the authenticated Principal set by auth middleware), never from X-Identity
 		// header which is client-supplied and enables IDOR. readSenderId is only
-		// legitimate for message attribution (e.g., PATCH soul-prompt sender).
+		// legitimate for message attribution (e.g., PATCH system-prompt sender).
 		const userId = c.get("userId");
 		const assistantAgentId = assistantAgentIdForUser(userId);
 
@@ -254,16 +254,16 @@ export function createAssistantThreadRoute(
 }
 
 // ---------------------------------------------------------------------------
-// Soul prompt CRUD: GET + PATCH /api/users/:userId/assistant
+// System prompt CRUD: GET + PATCH /api/users/:userId/assistant
 // ---------------------------------------------------------------------------
 
 /**
- * Create routes for assistant soul prompt management.
+ * Create routes for assistant system prompt management.
  * Mounted at /api/users/:userId/assistant in the users router.
  *
  * AC-2:
- *   GET  — returns { id, name, soulPrompt }
- *   PATCH — updates soulPrompt; 400 for >50_000 chars; 403 for other user
+ *   GET  — returns { id, name, systemPrompt }
+ *   PATCH — updates systemPrompt; 400 for >50_000 chars; 403 for other user
  */
 export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -299,7 +299,8 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		if (!agentRow) {
 			const now = new Date().toISOString();
-			// @lore AH3 N2: Lazy-create sets harness/model/soulPrompt defaults.
+			// @lore AH3 N2: Lazy-create sets harness/model/systemPrompt defaults.
+			// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
 			await db.insert(users).values({
 				id: assistantAgentId,
 				kind: "ai",
@@ -310,7 +311,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				harnessType: "builtin",
 				modelId: DEFAULT_AGENT_MODEL_ID,
 				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
+				systemPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
@@ -330,7 +331,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			harnessType: agentRow.harnessType ?? null,
 			modelId: agentRow.modelId ?? null,
 			modelProvider: agentRow.modelProvider ?? null,
-			soulPrompt: agentRow.soulPrompt ?? null,
+			systemPrompt: agentRow.systemPrompt ?? null,
 		});
 	});
 
@@ -370,10 +371,10 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		// Check length limit explicitly (Zod .max() gives a nice error but we
 		// also re-check to ensure 400 even if Zod fails differently)
-		if (parsed.data.soulPrompt.length > SOUL_PROMPT_MAX_LENGTH) {
+		if (parsed.data.systemPrompt.length > SYSTEM_PROMPT_MAX_LENGTH) {
 			return c.json(
 				{
-					error: `soulPrompt must be at most ${SOUL_PROMPT_MAX_LENGTH} characters`,
+					error: `systemPrompt must be at most ${SYSTEM_PROMPT_MAX_LENGTH} characters`,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				},
 				400,
@@ -393,6 +394,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		if (!agentRow) {
 			const now = new Date().toISOString();
 			// @lore AH3 N2: Lazy-create (PATCH path) also sets defaults.
+			// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
 			await db.insert(users).values({
 				id: assistantAgentId,
 				kind: "ai",
@@ -403,7 +405,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				harnessType: "builtin",
 				modelId: DEFAULT_AGENT_MODEL_ID,
 				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
+				systemPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
@@ -419,13 +421,13 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		await db
 			.update(users)
-			.set({ soulPrompt: parsed.data.soulPrompt })
+			.set({ systemPrompt: parsed.data.systemPrompt })
 			.where(eq(users.id, assistantAgentId));
 
 		return c.json({
 			id: agentRow.id,
 			name: agentRow.name,
-			soulPrompt: parsed.data.soulPrompt,
+			systemPrompt: parsed.data.systemPrompt,
 		});
 	});
 

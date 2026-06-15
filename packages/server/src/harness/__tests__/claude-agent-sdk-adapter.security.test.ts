@@ -16,10 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
 
 const TEST_CONFIG: SessionConfig = {
-	workspacePath: "/workspace/test",
+	sandboxPath: "/workspace/test",
 	sessionId: "test-session",
-	soulPromptPath: "/workspace/prompts/builder.md",
-	composedPrompt: "",
+	systemPromptPath: "/workspace/prompts/builder.md",
+	assembledPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write", "Bash"],
 };

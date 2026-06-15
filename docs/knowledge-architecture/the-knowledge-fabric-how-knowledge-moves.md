@@ -34,7 +34,7 @@ Optimistic locking via the `version` column. No locks held during editing. Confl
 
 ### 4.2 Projection for agents (Workspace)
 
-When the Knowledge Fabric provisions a session, it **materializes** a slice of SQLite into files in the agent's workspace.
+When the Knowledge Fabric provisions a session, it **assembles context** a slice of SQLite into files in the agent's workspace.
 
 **Workspace layout:**
 
@@ -45,7 +45,7 @@ workspace/
 
   context/                     # READ-ONLY — reference material
     product/
-      BRIEF.md                 # L2 prose, materialized from knowledge_items
+      BRIEF.md                 # L2 prose, assembled from knowledge_items
       ARCHITECTURE.md
       BRAND.md
       PRINCIPLES.md            # product-level principles
@@ -79,12 +79,12 @@ The three-zone split makes the agent's intent unambiguous. Anything the agent wr
 
 **The manifest** (hidden in `.fabric/manifest.json`, invisible to the agent):
 
-Tracks the version of every materialized item so the writeback can detect conflicts.
+Tracks the version of every assembled item so the writeback can detect conflicts.
 
 ```json
 {
   "session_id": "sess-042",
-  "materialized_at": "2026-04-10T09:00:00Z",
+  "assembled_at": "2026-04-10T09:00:00Z",
   "items": {
     "ki-practice-file-handling": {
       "version": 14,
@@ -101,7 +101,7 @@ Tracks the version of every materialized item so the writeback can detect confli
 }
 ```
 
-**Materialization — what gets loaded:**
+**Context assembly — what gets loaded:**
 
 ```
 Given: task T, owned by agent A, on team for product P, agent's role R
@@ -115,7 +115,7 @@ Load:
   L0:            assembled from all of the above                 → session.toon
 ```
 
-"Load what you need, nothing more" — not every practice gets materialized. The Knowledge Fabric uses the task description, the agent's role, and tag matching to select the relevant subset. A Builder working on file uploads doesn't need Growth practices about email subject lines.
+"Load what you need, nothing more" — not every practice gets assembled. The Knowledge Fabric uses the task description, the agent's role, and tag matching to select the relevant subset. A Builder working on file uploads doesn't need Growth practices about email subject lines.
 
 **Format choice per item** (TOON spec: [github.com/toon-format/toon](https://github.com/toon-format/toon)):
 
@@ -129,8 +129,8 @@ Load:
 
 Practices are loaded as TOON (compact, token-efficient) in `context/` for reading, but the editable copy in `knowledge/` is markdown — because agents write markdown naturally and diffs are cleaner.
 
-**Why materialization, not FUSE:**
+**Why context assembly, not FUSE:**
 
-FUSE (Filesystem in Userspace) would let agents see SQLite rows as a virtual filesystem without copying files. Elegant in theory. In practice: doesn't work in containers (Docker, E2B, Daytona — agent runtime environments — don't support FUSE without privileged mode, which is a security hole); every file read becomes a DB query (unpredictable latency, agents that `grep -r` hammer the database); agent harnesses expect real files (Claude Code, Goose, OpenHands read files, write files, run `diff`); no offline capability (if the FUSE daemon crashes, the workspace disappears mid-session). Materialization is boring and correct.
+FUSE (Filesystem in Userspace) would let agents see SQLite rows as a virtual filesystem without copying files. Elegant in theory. In practice: doesn't work in containers (Docker, E2B, Daytona — agent runtime environments — don't support FUSE without privileged mode, which is a security hole); every file read becomes a DB query (unpredictable latency, agents that `grep -r` hammer the database); agent harnesses expect real files (Claude Code, Goose, OpenHands read files, write files, run `diff`); no offline capability (if the FUSE daemon crashes, the workspace disappears mid-session). Context assembly is boring and correct.
 
 ---

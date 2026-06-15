@@ -41,7 +41,7 @@ Individual agents are scoped to one human user. Each human gets exactly one assi
 |-------|------|--------------------|
 | **Assistant** | Personal operator. | Acts on the user's behalf: creates bets, edits blocks, creates tasks, updates task status, submits reviews, queries knowledge, sends messages to other agents. Converses with the user through a pinned thread. |
 
-The assistant is a clean concept — a personal operator, not a factory-wide facilitator. It sees what the user can see and does what the user can do. It does not have factory-wide omniscience. Each user's assistant has its own soul, its own thread, and its own session history.
+The assistant is a clean concept — a personal operator, not a factory-wide facilitator. It sees what the user can see and does what the user can do. It does not have factory-wide omniscience. Each user's assistant has its own system prompt, its own thread, and its own session history.
 
 **Lifecycle.** The assistant agent and its thread are created at user registration (or lazily on first overlay open). The thread starts unpinned and pins after the first real response. Once pinned, it stays pinned.
 

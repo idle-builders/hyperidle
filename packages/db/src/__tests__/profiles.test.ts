@@ -6,19 +6,19 @@ describe("H4 AC1/AC4: Deployment profile resolution", () => {
 		expect(PROFILE_DEFAULTS.laptop).toMatchObject({
 			profile: "laptop",
 			dbDriver: "pglite",
-			workspaceAdapter: "local",
+			sandboxAdapter: "local",
 			requiresDockerCompose: false,
 		});
 		expect(PROFILE_DEFAULTS.vps).toMatchObject({
 			profile: "vps",
 			dbDriver: "postgres",
-			workspaceAdapter: "docker",
+			sandboxAdapter: "docker",
 			requiresDockerCompose: true,
 		});
 		expect(PROFILE_DEFAULTS.cloud).toMatchObject({
 			profile: "cloud",
 			dbDriver: "postgres",
-			workspaceAdapter: "e2b",
+			sandboxAdapter: "e2b",
 			requiresDockerCompose: false,
 		});
 	});

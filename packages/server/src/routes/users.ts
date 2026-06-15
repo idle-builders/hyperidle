@@ -150,6 +150,7 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 		// assistant insert. AH3 closes this gap — all four fields must be non-null so
 		// runAssistantTurn can proceed without lazy-defaults on every turn.
 		const assistantAgentId = `ast-${id}`;
+		// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
 		await db.insert(users).values({
 			id: assistantAgentId,
 			kind: "ai",
@@ -160,7 +161,7 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 			harnessType: "builtin",
 			modelId: DEFAULT_AGENT_MODEL_ID,
 			modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-			soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
+			systemPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
@@ -424,7 +425,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		},
 	);
 
-	// AD8b Task 8 — soul prompt CRUD: GET + PATCH /api/users/:userId/assistant
+	// AD8b Task 8 — system prompt CRUD: GET + PATCH /api/users/:userId/assistant
 	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.
 	// In this router the /:id handler is a GET, so we mount /:userId/assistant
 	// explicitly. Hono routes by registration order — the more specific path

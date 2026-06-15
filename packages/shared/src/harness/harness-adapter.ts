@@ -36,11 +36,20 @@ export interface SessionConfig {
 	 * other adapters may keep their handles internal and ignore it.
 	 */
 	readonly sessionId: string;
-	readonly workspacePath: string;
-	/** @deprecated Use composedPrompt instead. Retained for path validation. */
-	readonly soulPromptPath: string;
-	/** X1: fully composed prompt text, written as CLAUDE.md in the workspace. */
-	readonly composedPrompt: string;
+	/**
+	 * Absolute path to the provisioned sandbox directory.
+	 * @lore AK1: Renamed per AK1 harness-vocab plan. The cwd VALUE
+	 * inside the sandbox is still /workspace; only this field NAME changes.
+	 */
+	readonly sandboxPath: string;
+	/** @deprecated Use assembledPrompt instead. Retained for path validation. */
+	readonly systemPromptPath: string;
+	/**
+	 * X1: Fully assembled context prompt text, written as AGENTS.md + CLAUDE.md in the sandbox.
+	 * @lore AK1: Renamed from composedPrompt (harness-vocab rename). Same content,
+	 * new name: "assembled prompt" replaces "composed prompt".
+	 */
+	readonly assembledPrompt: string;
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
 	/**

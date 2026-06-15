@@ -6,7 +6,7 @@
  *   "Claude integration test: provision real session → agent runs → session
  *    completes."
  *
- * It uses `ClaudeAgentSdkAdapter` (D2) and `LocalWorkspaceAdapter` (D3).
+ * It uses `ClaudeAgentSdkAdapter` (D2) and `LocalSandboxAdapter` (D3).
  */
 
 import * as fs from "node:fs";
@@ -27,7 +27,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { test } from "../test-fixtures.js";
 
@@ -103,7 +103,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		"provisions a real Claude session and completes with cost > 0",
 		async ({ db, eventBus }) => {
 			await seedDomain(db);
-			const workspace = new LocalWorkspaceAdapter();
+			const workspace = new LocalSandboxAdapter();
 			const adapterPool = new AdapterPool();
 			adapterPool.register("local", new ClaudeAgentSdkAdapter(), {
 				name: "local",
@@ -117,7 +117,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 				taskId: "task-1",
 				agentId: "agent-1",
 				productId: "p1",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			});
 
 			expect(result.outcome).toBe("completed");

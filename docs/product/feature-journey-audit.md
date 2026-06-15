@@ -89,7 +89,7 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | Knowledge Detail (TipTap) | WORKS | **BENEFITS** | Auto-save (1500ms), 409 conflict detection, edit toggle. Production-grade. |
 | Knowledge Creation (4 kinds) | WORKS | **BENEFITS** | 4 of 8 kinds exposed in creation (right asymmetry -- agents create the other 4). All 7 scopes. |
 | Per-block discussion | WORKS | **BENEFITS** | Anchored messages, orphan detection, anchor-lost indicator. Differentiator. |
-| Knowledge Fabric | WORKS | **BENEFITS** | Materialization, writeback, relevance + attention scoring. The compounding engine. |
+| Knowledge Fabric | WORKS | **BENEFITS** | Context assembly, writeback, relevance + attention scoring. The compounding engine. |
 | Related items sidebar | WORKS | **BENEFITS** | BacklinksCard with API-driven data. Day 14+. |
 | Topic health indicators | WORKS | **BENEFITS** | Fresh/some_stale/mostly_stale from archived ratio. Day 14+. |
 | Knowledge Actions (Flag/Archive) | API WORKS, UI DEAD | **HURTS** | Buttons visible, click does nothing. Dead buttons erode trust. Wire or hide. |
@@ -101,11 +101,11 @@ The systemic risk is **dead wiring** -- features where the backend is complete a
 | Feature | Code Status | Verdict | Notes |
 |---|---|---|---|
 | Agent Profile | WORKS | **BENEFITS** | Full operational picture: identity, config, skills, activity, health. |
-| Agent Configuration (edit) | WORKS | **BENEFITS** | Soul prompt, harness, model tier, max sessions. Core knob. |
+| Agent Configuration (edit) | WORKS | **BENEFITS** | System prompt, harness, model tier, max sessions. Core knob. |
 | Agent Creation | WORKS | **BENEFITS** | Role dropdown, POST /api/agents. Day 1 operation. |
 | Agent soft-delete | WORKS | **NEUTRAL** | Two-click, status='retired'. Rare operation. |
 | Auto-provisioning | FUNCTION EXISTS, NEVER CALLED | **HURTS** | defaultRoster() ignores team functions. Hardcodes builder + PM. False affordance. |
-| Soul prompt templates | 8 of 15 roles | **BENEFITS** | Core roles covered. Biggest reducer of blank-page paralysis. |
+| System prompt templates | 8 of 15 roles | **BENEFITS** | Core roles covered. Biggest reducer of blank-page paralysis. |
 | Skills viewing | WORKS | **NEUTRAL** | Read-only display. Useful information, no action possible. |
 | Autonomy editing | API WORKS, NO UI | **HURTS** | PATCH endpoint creates audit threads. Profile shows read-only number. Advertises but doesn't deliver. |
 | Skill graduation | NOT IMPLEMENTED | **DEFER** | No auto-increment on session completion. Day 60+ feature. |
@@ -210,7 +210,7 @@ A button that does nothing is worse than no button. Knowledge Flag/Archive, auto
 
 ### Theme 3: The Strongest Subsystems Are Invisible
 
-Blocks (10 kinds, pure derivation, anchored messages, orphan detection), lifecycle propagation (session to task to bet, CAS protection, propagation log), and knowledge fabric (materialization, writeback, relevance + attention scoring) are production-quality. They are also invisible to the user. The user experiences them as "the pitch renders nicely" and "tasks move to review when agents finish." This is correct -- infrastructure should be invisible.
+Blocks (10 kinds, pure derivation, anchored messages, orphan detection), lifecycle propagation (session to task to bet, CAS protection, propagation log), and knowledge fabric (context assembly, writeback, relevance + attention scoring) are production-quality. They are also invisible to the user. The user experiences them as "the pitch renders nicely" and "tasks move to review when agents finish." This is correct -- infrastructure should be invisible.
 
 ### Theme 4: Five Lines of Code Unlock Half the Feature Set
 

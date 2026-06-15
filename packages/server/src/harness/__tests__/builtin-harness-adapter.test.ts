@@ -52,10 +52,10 @@ const RESOLVED_FAST_MODEL = {
 
 function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 	return {
-		workspacePath: "/workspace/test",
+		sandboxPath: "/workspace/test",
 		sessionId: "test-session",
-		soulPromptPath: "/workspace/prompts/builder.md",
-		composedPrompt: "You are a helpful assistant.",
+		systemPromptPath: "/workspace/prompts/builder.md",
+		assembledPrompt: "You are a helpful assistant.",
 		modelTier: "workhorse",
 		tools: ["write_session_notes"],
 		resolvedModel: RESOLVED_MODEL,

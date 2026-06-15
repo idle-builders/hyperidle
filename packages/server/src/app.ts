@@ -5,7 +5,7 @@ import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import type { AdapterPool } from "./harness/adapter-pool.js";
-import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
+import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
@@ -133,7 +133,7 @@ interface AppOptions {
 	 * path, not via X-API-Key.
 	 *
 	 * @lore X2: The MCP route must be mounted before auth middleware so external
-	 * harnesses (e.g. Claude Code) can call skill-tools via MCP without needing
+	 * harnesses (e.g. Claude Code) can call agent tools via MCP without needing
 	 * the user API key. The 64-char hex token in the URL is the credential.
 	 */
 	registerMcpRoute?: (apiRouter: Hono) => void;
@@ -151,14 +151,14 @@ interface AppOptions {
 	 */
 	adapterPool?: AdapterPool;
 	/**
-	 * Workspace adapter for provisioning/destroying agent workspaces (R1).
+	 * Sandbox adapter for provisioning/destroying agent sandboxes (R1).
 	 */
-	workspaceAdapter?: WorkspaceAdapter;
+	workspaceAdapter?: SandboxAdapter;
 	/**
 	 * Base path where workspaces are created. Defaults to a tmp directory in
 	 * production (R1).
 	 */
-	workspaceBasePath?: string;
+	sandboxBasePath?: string;
 	/**
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
@@ -413,7 +413,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			createRoutineRoutes(options.db, eventBus, {
 				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
-				workspaceBasePath: options.workspaceBasePath,
+				sandboxBasePath: options.sandboxBasePath,
 			}),
 		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
@@ -430,7 +430,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			createSessionRoutes(options.db, eventBus, activityBuffer, {
 				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
-				workspaceBasePath: options.workspaceBasePath,
+				sandboxBasePath: options.sandboxBasePath,
 				credentialResolver: options.credentialResolver,
 				mcpBridgeRegistry: options.mcpBridgeRegistry,
 				mcpBaseUrl: options.mcpBaseUrl,

@@ -3,8 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { AnySchema as McpAnySchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolRegistry } from "../skill-tools/tool-registry.js";
-import type { ToolResult } from "../skill-tools/tool-result.js";
+import type { ToolRegistry } from "../tools/tool-registry.js";
+import type { ToolResult } from "../tools/tool-result.js";
 
 /**
  * The `inputSchema` type the MCP SDK's `registerTool` config accepts. Extracted

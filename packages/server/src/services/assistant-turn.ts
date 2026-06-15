@@ -256,7 +256,8 @@ async function runTurnInternal(
 			harnessType: "builtin",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
-			soulPrompt: BUILTIN_SOUL_PROMPT,
+			// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
+			systemPrompt: BUILTIN_SOUL_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
@@ -276,7 +277,8 @@ async function runTurnInternal(
 
 	const harnessType = agentRow.harnessType ?? "builtin";
 	const modelProvider = agentRow.modelProvider ?? "anthropic";
-	const soulPromptText = agentRow.soulPrompt ?? BUILTIN_SOUL_PROMPT;
+	// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
+	const soulPromptText = agentRow.systemPrompt ?? BUILTIN_SOUL_PROMPT;
 
 	// --- Step 2: Resolve model + credential ---
 	// resolveAgentModel handles both credential resolution and per-agent model selection.
@@ -380,17 +382,19 @@ async function runTurnInternal(
 	let sessionHandle: import("@hyperidle/shared").SessionHandle | null = null;
 
 	try {
-		// @lore AH3: SessionConfig workspacePath/soulPromptPath are required by the interface
-		// but not used by the builtin adapter during a conversational turn (no task workspace).
-		// We pass empty strings — the adapter uses composedPrompt + messages instead.
+		// @lore AH3: SessionConfig sandboxPath/systemPromptPath are required by the interface
+		// but not used by the builtin adapter during a conversational turn (no task sandbox).
+		// We pass empty strings — the adapter uses assembledPrompt + messages instead.
 		// resolvedModel is REQUIRED by the builtin adapter (throws if missing — H1 fix).
 		// No `as unknown` cast: the type system now guards all required fields.
 		// messages carries the thread transcript so the adapter delivers the user's question.
+		// @lore AK1: composedPrompt→assembledPrompt, workspacePath→sandboxPath,
+		// soulPromptPath→systemPromptPath per AK1 harness-vocab rename.
 		const sessionConfig: SessionConfig = {
 			sessionId: crypto.randomUUID(),
-			composedPrompt,
-			workspacePath: "",
-			soulPromptPath: "",
+			assembledPrompt: composedPrompt,
+			sandboxPath: "",
+			systemPromptPath: "",
 			modelTier: "workhorse",
 			tools: [],
 			resolvedModel,

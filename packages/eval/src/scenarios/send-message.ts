@@ -32,7 +32,7 @@ const smCoordinationPmFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager coordinating frontend development.
+			agentSystemPrompt: `You are a product manager coordinating frontend development.
 When you need to assign or prioritize work for a builder teammate, use send_message.
 Your messages should clearly communicate priorities and any relevant constraints.`,
 			secondAgentRole: "builder",
@@ -60,7 +60,7 @@ Use send_message with the builder's agentId as the recipient.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -145,7 +145,7 @@ const smHandoffContextBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on infrastructure.
+			agentSystemPrompt: `You are a builder agent working on infrastructure.
 When you complete an investigation or reach a stopping point, proactively share your findings with your team.
 Use send_message to summarize what you found, what decisions you made, and what work remains.
 This context helps teammates who pick up your work.`,
@@ -173,7 +173,7 @@ Your message should summarize: root cause, fix applied, and what still needs to 
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -216,7 +216,7 @@ const smThreadReuseBuilderConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on consulting deliverables.
+			agentSystemPrompt: `You are a builder agent working on consulting deliverables.
 When sending messages to teammates, the system automatically reuses existing direct threads.
 Use send_message to communicate with your PM teammate about the deliverable status.`,
 			secondAgentRole: "product_manager",
@@ -249,7 +249,7 @@ Use send_message to tell the PM:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

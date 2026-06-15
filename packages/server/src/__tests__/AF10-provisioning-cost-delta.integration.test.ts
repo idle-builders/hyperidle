@@ -31,7 +31,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import {
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
@@ -180,14 +180,14 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 
 		const harness = new ScriptedHarness(costEvents);
 		const adapterPool = makePool(harness);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId: "task-af10",
 			agentId: "agent-af10",
 			productId: "p1",
-			workspaceBasePath: tmpDir,
+			sandboxBasePath: tmpDir,
 		};
 
 		await provisionSession(deps, params);
@@ -220,14 +220,14 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 
 		const harness = new ScriptedHarness(costEvents);
 		const adapterPool = makePool(harness);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId: "task-af10-b",
 			agentId: "agent-af10-b",
 			productId: "p1-b",
-			workspaceBasePath: tmpDir,
+			sandboxBasePath: tmpDir,
 		};
 
 		await provisionSession(deps, params);
@@ -265,14 +265,14 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 
 		const harness = new ScriptedHarness(costEvents);
 		const adapterPool = makePool(harness);
-		const workspace = new LocalWorkspaceAdapter();
+		const workspace = new LocalSandboxAdapter();
 
 		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
 		const params: ProvisionSessionParams = {
 			taskId: "task-af10-c",
 			agentId: "agent-af10-c",
 			productId: "p1-c",
-			workspaceBasePath: tmpDir,
+			sandboxBasePath: tmpDir,
 		};
 
 		await provisionSession(deps, params);

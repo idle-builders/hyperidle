@@ -7,8 +7,8 @@
  *   - byte-equality: same string consumed by builtin adapter config AND written
  *     to CLAUDE.md for the SDK adapter
  *
- * These tests FAIL until:
- *   - packages/fabric/src/prompt-composition.ts exports composeAssistantPrompt
+ * These tests PASS when:
+ *   - packages/fabric/src/context-assembly-prompt.ts exports composeAssistantPrompt (AK1 rename)
  *   - packages/fabric/src/index.ts exports composeAssistantPrompt
  */
 
@@ -16,8 +16,9 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-// This import fails until the green phase creates the function:
-import { composeAssistantPrompt, writeWorkspaceCLAUDEmd } from "../prompt-composition.js";
+// @lore AK1: Import path updated from prompt-composition.js to context-assembly-prompt.js
+// (AK1 harness-vocab rename). writeSandboxAgentsMd → writeSandboxAgentsMd.
+import { composeAssistantPrompt, writeSandboxAgentsMd } from "../context-assembly-prompt.js";
 
 describe("AH3: composeAssistantPrompt", () => {
 	test("returns an object with composedPrompt string", () => {
@@ -63,14 +64,14 @@ describe("AH3: byte-equality persona invariant (§4)", () => {
 		}
 	});
 
-	test("composedPrompt equals CLAUDE.md content written by writeWorkspaceCLAUDEmd (SDK side byte-equality)", () => {
+	test("composedPrompt equals CLAUDE.md content written by writeSandboxAgentsMd (SDK side byte-equality)", () => {
 		const soul = "You are a precise and helpful assistant.";
 		const expected = composeAssistantPrompt(soul).composedPrompt;
 
 		// Simulate what the SDK adapter path does:
 		// it writes CLAUDE.md from composeAssistantPrompt output
 		tmpDir = mkdtempSync(join(tmpdir(), "ah3-test-"));
-		writeWorkspaceCLAUDEmd(tmpDir, expected);
+		writeSandboxAgentsMd(tmpDir, expected);
 
 		const fileContent = readFileSync(join(tmpDir, "CLAUDE.md"), "utf8");
 
@@ -100,7 +101,7 @@ describe("AH3: byte-equality persona invariant (§4)", () => {
 
 		// SDK side — write to file, read back
 		tmpDir = mkdtempSync(join(tmpdir(), "ah3-xharn-"));
-		writeWorkspaceCLAUDEmd(tmpDir, builtinComposedPrompt);
+		writeSandboxAgentsMd(tmpDir, builtinComposedPrompt);
 		const sdkFileContent = readFileSync(join(tmpDir, "CLAUDE.md"), "utf8");
 
 		// All three must be byte-equal

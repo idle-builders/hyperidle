@@ -104,7 +104,7 @@ export async function seedDemoWorld(
 			teamId: teamMembersId,
 			status: "active",
 			maxConcurrentSessions: 1,
-			soulPromptPath: "docs/souls/product-manager.md",
+			systemPromptPath: "docs/system-prompts/product-manager.md",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -165,23 +165,24 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 
-	// ── Backfill soulPrompt on demo agents from factory_settings role templates ──
-	// @lore AF17: applyFactoryBootstrap() populates soul_template:<role> rows and
+	// ── Backfill systemPrompt on demo agents from factory_settings role templates ──
+	// @lore AF17: applyFactoryBootstrap() populates system_template:<role> rows and
 	// backfills factory agents. Demo agents are created AFTER bootstrap, so they miss
 	// the backfill. We query factory_settings here and apply templates to demo agents.
 	// This mirrors what the old monolithic seed.ts did for all agents in one pass.
+	// @lore AK1: key prefix renamed from old variant to "system_template:" in AK1 harness-vocab rename.
 	const DEMO_AGENT_ROLES = ["builder", "product_manager"] as const;
-	const templateKeys = DEMO_AGENT_ROLES.map((r) => `soul_template:${r}`);
+	const templateKeys = DEMO_AGENT_ROLES.map((r) => `system_template:${r}`);
 	const templates = await db
 		.select({ key: factorySettings.key, value: factorySettings.value })
 		.from(factorySettings)
 		.where(inArray(factorySettings.key, templateKeys));
 
 	for (const { key, value } of templates) {
-		const role = key.replace("soul_template:", "");
+		const role = key.replace("system_template:", "");
 		await db
 			.update(users)
-			.set({ soulPrompt: value })
+			.set({ systemPrompt: value })
 			.where(and(inArray(users.id, ["demo-agent-builder", "demo-agent-pm"]), eq(users.role, role)));
 	}
 

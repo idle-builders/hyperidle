@@ -34,7 +34,7 @@ const roiRiskOverridePmFinance: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager reviewing items in the finance domain.
+			agentSystemPrompt: `You are a product manager reviewing items in the finance domain.
 When you see an item with an incorrect risk tier, use route_item to correct it.
 Financial compliance items with regulatory implications should always be classified as high risk.
 Use route_item with riskTier="high" to override the risk assessment when needed.`,
@@ -81,7 +81,7 @@ This will route the item to the conversations view for immediate attention.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -143,7 +143,7 @@ const roiKindReclassifyPfConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator reviewing community items.
+			agentSystemPrompt: `You are a practice facilitator reviewing community items.
 When you find items with valuable reusable knowledge, reclassify them using route_item.
 Set kind="knowledge" to route items to the knowledge view for community benefit.
 This helps preserve institutional knowledge for future practitioners.`,
@@ -187,7 +187,7 @@ This routes it to the knowledge view for community access.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -250,7 +250,7 @@ const roiVerbOverrideCosMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
-			agentSoulPrompt: `You are a system agent managing portfolio items.
+			agentSystemPrompt: `You are a system agent managing portfolio items.
 When you identify items that represent significant investments requiring bet-level commitment, use route_item.
 Set verb="bet" to route high-value items to the work view for proper bet management.
 This escalates the item from a casual conversation to a tracked organizational bet.`,
@@ -296,7 +296,7 @@ This routes it to the work view for portfolio management.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

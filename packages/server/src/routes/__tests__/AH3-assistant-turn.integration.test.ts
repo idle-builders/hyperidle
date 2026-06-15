@@ -82,6 +82,7 @@ async function seedHumanUser(db: HyperIdleDb, id: string, name: string): Promise
 }
 
 async function seedAssistantAgent(db: HyperIdleDb, userId: string): Promise<void> {
+	// @lore AK1: systemPrompt replaces soulPrompt per AK1 harness-vocab rename.
 	await db.insert(users).values({
 		id: `ast-${userId}`,
 		kind: "ai",
@@ -91,7 +92,7 @@ async function seedAssistantAgent(db: HyperIdleDb, userId: string): Promise<void
 		harnessType: "builtin",
 		modelId: "claude-sonnet-4-6",
 		modelProvider: "anthropic",
-		soulPrompt: "You are a helpful assistant.",
+		systemPrompt: "You are a helpful assistant.",
 		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
@@ -454,22 +455,23 @@ describe("AH3 AC3: PATCH to ast-* agent soulPrompt via Agents API is rejected 40
 		expect(body.code).toBe("ASSISTANT_SOUL_EDIT_FORBIDDEN");
 	});
 
-	test("PATCH /api/users/:id/assistant (canonical route) succeeds for soulPrompt update", async ({
+	test("PATCH /api/users/:id/assistant (canonical route) succeeds for systemPrompt update", async ({
 		db,
 		eventBus,
 	}) => {
 		await seedHumanUser(db, "u-ah3-a2", "Soul Update User");
 		const app = await createTestApp({ db, eventBus });
 
+		// @lore AK1: wire field renamed from soulPrompt to systemPrompt (AK1 harness-vocab rename).
 		const res = await app.request("/api/users/u-ah3-a2/assistant", {
 			method: "PATCH",
 			headers: authHeaders({ "X-Identity": "u-ah3-a2" }),
-			body: JSON.stringify({ soulPrompt: "My custom persona" }),
+			body: JSON.stringify({ systemPrompt: "My custom persona" }),
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { soulPrompt: string };
-		expect(body.soulPrompt).toBe("My custom persona");
+		const body = (await res.json()) as { systemPrompt: string };
+		expect(body.systemPrompt).toBe("My custom persona");
 	});
 });
 
@@ -485,7 +487,7 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /api/users creates assistant agent with harnessType=builtin, modelId, modelProvider, soulPrompt", async ({
+	test("POST /api/users creates assistant agent with harnessType=builtin, modelId, modelProvider, systemPrompt", async ({
 		db: _db,
 		app,
 	}) => {
@@ -507,15 +509,16 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 		const assistant = (await assistantRes.json()) as Record<string, unknown>;
 
 		// All four fields must be non-null after registration
+		// @lore AK1: field renamed from soulPrompt to systemPrompt per AK1 harness-vocab rename.
 		expect(assistant.harnessType).toBeDefined();
 		expect(assistant.harnessType).not.toBeNull();
 		expect(assistant.modelId).toBeDefined();
 		expect(assistant.modelId).not.toBeNull();
 		expect(assistant.modelProvider).toBeDefined();
 		expect(assistant.modelProvider).not.toBeNull();
-		expect(assistant.soulPrompt).toBeDefined();
-		// soulPrompt may be empty string but must be a string (not null)
-		expect(typeof assistant.soulPrompt).toBe("string");
+		expect(assistant.systemPrompt).toBeDefined();
+		// systemPrompt may be empty string but must be a string (not null)
+		expect(typeof assistant.systemPrompt).toBe("string");
 	});
 
 	test("lazy-create assistant via GET /api/threads/assistant gives agent with non-null harnessType", async ({
@@ -639,11 +642,13 @@ describe("AH3 H1: happy-path completion — scripted adapter stub → reply pers
 		// runAssistantTurn now always builds resolvedModel before calling startSession.
 		// We verify that BuiltinHarnessAdapter.startSession throws without resolvedModel.
 		const builtin = new BuiltinHarnessAdapter();
+		// @lore AK1: composedPrompt→assembledPrompt, workspacePath→sandboxPath,
+		// soulPromptPath→systemPromptPath per AK1 harness-vocab rename.
 		const badConfig = {
 			sessionId: "test-no-model",
-			composedPrompt: "System",
-			workspacePath: "",
-			soulPromptPath: "",
+			assembledPrompt: "System",
+			sandboxPath: "",
+			systemPromptPath: "",
 			modelTier: "workhorse" as const,
 			tools: [],
 			// resolvedModel intentionally ABSENT

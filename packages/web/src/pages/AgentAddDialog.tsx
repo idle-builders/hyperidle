@@ -9,12 +9,12 @@
  * team_members.id, not teams.id. Passing team.id would fail the FK constraint.
  *
  * @lore AI2: Migrated from native <dialog> + showModal() boilerplate to the
- * Dialog primitive. isDirty is true when the user has modified name or soulPrompt
+ * Dialog primitive. isDirty is true when the user has modified name or systemPrompt
  * from the initial empty state. Authoring surface — guards on dismissal when dirty.
  */
 
 // hearth-internal-padding
-import { Button, Dialog, Select } from "@hyperidle/design-system";
+import { Button, Dialog, KeyValue, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -24,6 +24,8 @@ export interface AgentAddDialogProps {
 	open: boolean;
 	/** team_members.id — NOT teams.id. See @lore above. */
 	teamMembersId: string;
+	/** Display name of the destination team. Shown read-only above the name field. */
+	teamName: string;
 	onClose: () => void;
 	/** Called after successful create. Triggers refetch in parent. */
 	onCreated: () => void;
@@ -32,7 +34,7 @@ export interface AgentAddDialogProps {
 interface AddFormValues {
 	name: string;
 	role: string;
-	soulPrompt: string;
+	systemPrompt: string;
 	harnessType: string;
 	modelTierPreference: string;
 	maxConcurrentSessions: number;
@@ -41,7 +43,7 @@ interface AddFormValues {
 const INITIAL_FORM: AddFormValues = {
 	name: "",
 	role: "builder",
-	soulPrompt: "",
+	systemPrompt: "",
 	harnessType: "",
 	modelTierPreference: "",
 	maxConcurrentSessions: 1,
@@ -53,6 +55,7 @@ const TEAM_ROLES = AGENT_ROLE_CATALOG.filter((e) => e.category === "team");
 export function AgentAddDialog({
 	open,
 	teamMembersId,
+	teamName,
 	onClose,
 	onCreated,
 }: AgentAddDialogProps): JSX.Element {
@@ -68,7 +71,7 @@ export function AgentAddDialog({
 		}
 	}, [open]);
 
-	const isDirty = formValues.name.trim().length > 0 || formValues.soulPrompt.trim().length > 0;
+	const isDirty = formValues.name.trim().length > 0 || formValues.systemPrompt.trim().length > 0;
 
 	// Fetch template for the selected role (abort on rapid changes)
 	const fetchTemplate = useCallback(async (role: string): Promise<void> => {
@@ -83,7 +86,7 @@ export function AgentAddDialog({
 			});
 			if (!res.ok) return;
 			const json = (await res.json()) as { role: string; content: string };
-			setFormValues((prev) => ({ ...prev, soulPrompt: json.content }));
+			setFormValues((prev) => ({ ...prev, systemPrompt: json.content }));
 		} catch (err) {
 			if (err instanceof Error && err.name === "AbortError") return;
 		} finally {
@@ -95,7 +98,7 @@ export function AgentAddDialog({
 
 	const handleRoleChange = useCallback(
 		(newRole: string): void => {
-			setFormValues((prev) => ({ ...prev, role: newRole, soulPrompt: "" }));
+			setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
 			void fetchTemplate(newRole);
 		},
 		[fetchTemplate],
@@ -111,7 +114,7 @@ export function AgentAddDialog({
 				body: JSON.stringify({
 					name: formValues.name.trim(),
 					role: formValues.role,
-					soulPrompt: formValues.soulPrompt || null,
+					systemPrompt: formValues.systemPrompt || null,
 					harnessType: formValues.harnessType || null,
 					modelTierPreference: formValues.modelTierPreference || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
@@ -157,6 +160,11 @@ export function AgentAddDialog({
 				</>
 			}
 		>
+			{/* AH4: placement context — read-only team name shown before identity fields */}
+			<div className="mb-[12px]">
+				<KeyValue label="TEAM" value={teamName} layout="inline" />
+			</div>
+
 			{/* Header — editable name + role select */}
 			<div className="flex flex-col gap-[12px]">
 				<div className="form-control">
@@ -191,21 +199,21 @@ export function AgentAddDialog({
 				)}
 			</div>
 
-			{/* Soul section */}
+			{/* System prompt section */}
 			<div className="mt-[18px]">
 				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
-					SOUL
+					SYSTEM PROMPT
 				</h3>
 				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
-					Personality, style, and values. You define the soul; the system provides tools, context,
-					and knowledge.
+					Personality, style, and values. You define the system prompt; the harness provides tools,
+					context, and knowledge.
 				</p>
 				<textarea
-					aria-label="Soul Prompt"
+					aria-label="System prompt"
 					className="textarea textarea-bordered w-full mt-[6px]"
 					rows={10}
-					value={formValues.soulPrompt}
-					onChange={(e) => setFormValues((prev) => ({ ...prev, soulPrompt: e.target.value }))}
+					value={formValues.systemPrompt}
+					onChange={(e) => setFormValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
 					placeholder="Describe this agent's personality, communication style, and values..."
 					disabled={creating}
 				/>

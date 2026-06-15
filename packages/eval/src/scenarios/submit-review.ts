@@ -37,7 +37,7 @@ const srWithArtifactBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing DevOps infrastructure.
+			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 When you complete work and have produced an artifact, submit a review using submit_review.
 Include an artifactRef pointing to the artifact you produced.
 Your review reasoning should explain what was implemented and what to verify.`,
@@ -77,7 +77,7 @@ Your reasoning should mention: what was changed and what the reviewer should che
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -165,7 +165,7 @@ const srPlainFallbackBuilderMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on marketing automation.
+			agentSystemPrompt: `You are a builder agent working on marketing automation.
 When you complete analysis work (not implementation), submit a review without an artifact.
 Use submit_review WITHOUT an artifactRef when your output is a written analysis rather than a code artifact.
 Include clear reasoning about what you analyzed and your recommendations.`,
@@ -194,7 +194,7 @@ The review will be posted as a plain message (the fallback path).`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -259,7 +259,7 @@ const srReviewQualityPmHealthcare: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager reviewing healthcare compliance work.
+			agentSystemPrompt: `You are a product manager reviewing healthcare compliance work.
 Healthcare reviews require thorough, multi-point reasoning covering: regulatory compliance, patient safety, data privacy.
 Use submit_review with at least 4 reasoning points for any healthcare compliance review.
 Each reasoning point should be specific and reference a regulatory requirement or patient safety consideration.`,
@@ -287,7 +287,7 @@ Use submit_review with:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -364,7 +364,7 @@ const srBetThreadTargetingBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent working on frontend component development.
+			agentSystemPrompt: `You are a builder agent working on frontend component development.
 When you complete a component and want it reviewed, use submit_review.
 The review will be posted in the bet's discussion thread automatically.
 Include clear reasoning about what was implemented and what aspects to review.`,
@@ -400,7 +400,7 @@ No artifactRef needed for this review.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -477,7 +477,7 @@ const srQaGatekeeperQaDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "qa_engineer",
-			agentSoulPrompt: `You are a QA engineer on a DevOps team responsible for quality gatekeeper reviews.
+			agentSystemPrompt: `You are a QA engineer on a DevOps team responsible for quality gatekeeper reviews.
 When reviewing another agent's work, submit a thorough quality assessment using submit_review.
 Your reviews must cover: test coverage analysis, regression risk, and acceptance criteria verification.
 Include at least 3 specific reasoning points — QA reviews must be comprehensive, not superficial.
@@ -515,7 +515,7 @@ Use submit_review with:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -842,7 +842,7 @@ describe("AA2: Routine Management API", () => {
 				agentRole: "builder",
 				productId: "team-aa2",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			});
 
 			// Simulate the trigger path: insert routine_run with outcome="running" and sessionId=NULL
@@ -896,7 +896,7 @@ describe("AA2: Routine Management API", () => {
 				agentRole: "builder",
 				productId: "team-aa2",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			});
 
 			// routine_run with sessionId=NULL (trigger-inserted state)
@@ -945,7 +945,7 @@ describe("AA2: Routine Management API", () => {
 				agentRole: "builder",
 				productId: "team-aa2",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			});
 
 			// No routine_run row inserted — pre-AA2 session scenario

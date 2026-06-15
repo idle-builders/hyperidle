@@ -3,7 +3,7 @@
  *
  * AC coverage:
  * AC-1: Agent cards show name, role description, and category tag for non-team agents.
- * AC-2: Clicking agent card opens edit dialog pre-filled with soul textarea.
+ * AC-2: Clicking agent card opens edit dialog pre-filled with system prompt textarea.
  * AC-3: Edit dialog respects category — strategy agents show note + disabled config.
  * AC-4: Config section save calls PATCH /api/agents/:id with updated values.
  * AC-5: "+ Add agent" button opens create dialog; Create calls POST /api/agents.
@@ -109,7 +109,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-builder-1",
 		name: "Atlas Builder",
 		role: "builder",
-		soulPrompt: "You are a meticulous builder who values clean code.",
+		systemPrompt: "You are a meticulous builder who values clean code.",
 		harnessType: "claude-code",
 		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 2,
@@ -121,7 +121,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-scout-1",
 		name: "Scout Agent",
 		role: "scout",
-		soulPrompt: null,
+		systemPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
@@ -133,7 +133,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-cos-1",
 		name: "System Agent",
 		role: "assistant",
-		soulPrompt: null,
+		systemPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
@@ -258,10 +258,10 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: Edit dialog opens with soul textarea pre-filled
+// AC-2: Edit dialog opens with system prompt textarea pre-filled
 // ---------------------------------------------------------------------------
 
-describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
+describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -296,7 +296,7 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		});
 	});
 
-	it("edit dialog contains guidance text about soul", async () => {
+	it("edit dialog contains guidance text about system prompt", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -314,7 +314,7 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 		});
 	});
 
-	it("edit dialog soul textarea is pre-filled with agent's soulPrompt", async () => {
+	it("edit dialog system prompt textarea is pre-filled with agent's systemPrompt", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -322,14 +322,16 @@ describe("AB3 AC-2 — Edit dialog soul textarea pre-filled", () => {
 			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click the builder row's Customize button (has soulPrompt set)
-		const rowForSoul = screen.getAllByTestId("agent-row")[0];
-		const btnForSoul = rowForSoul?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(btnForSoul).toBeDefined();
-		await user.click((btnForSoul as HTMLElement) ?? document.body);
+		// Click the builder row's Customize button (has systemPrompt set)
+		const rowForSystemPrompt = screen.getAllByTestId("agent-row")[0];
+		const btnForSystemPrompt = rowForSystemPrompt?.querySelector(
+			'[data-testid="agent-customize-btn"]',
+		);
+		expect(btnForSystemPrompt).toBeDefined();
+		await user.click((btnForSystemPrompt as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /soul/i });
+			const textarea = screen.getByRole("textbox", { name: /system prompt/i });
 			expect(textarea).toBeInTheDocument();
 			expect((textarea as HTMLTextAreaElement).value).toContain("You are a meticulous builder");
 		});
@@ -496,12 +498,12 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("clicking Save calls PATCH /api/agents/:id with updated soul", async () => {
+	it("clicking Save calls PATCH /api/agents/:id with updated system prompt", async () => {
 		const user = userEvent.setup();
 
 		// Mock PATCH to return success
 		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], soulPrompt: "Updated soul text." }),
+			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], systemPrompt: "Updated system prompt text." }),
 			{ status: 200 },
 		);
 		mockApiFetch
@@ -525,10 +527,10 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
 		});
 
-		// Update soul textarea
-		const textarea = screen.getByRole("textbox", { name: /soul/i });
+		// Update system prompt textarea
+		const textarea = screen.getByRole("textbox", { name: /system prompt/i });
 		await user.clear(textarea);
-		await user.type(textarea, "Updated soul text.");
+		await user.type(textarea, "Updated system prompt text.");
 
 		// Click Save
 		const saveBtn = screen.getByRole("button", { name: /^save$/i });
@@ -545,7 +547,7 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 				string,
 				unknown
 			>;
-			expect(body.soulPrompt).toBe("Updated soul text.");
+			expect(body.systemPrompt).toBe("Updated system prompt text.");
 		});
 	});
 
@@ -673,7 +675,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				id: "new-agent-1",
 				name: "New Custom Agent",
 				role: "builder",
-				soulPrompt: null,
+				systemPrompt: null,
 				harnessType: null,
 				modelTierPreference: null,
 				maxConcurrentSessions: 1,

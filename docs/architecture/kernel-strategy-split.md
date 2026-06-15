@@ -2,7 +2,7 @@
 
 **Status:** Authoritative (founder-aligned 2026-06-14). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. It **supersedes** the older "kernel = stable / fabric = volatile" framing scattered in other docs (e.g. `technology-summary.md`'s package table) — that framing is rejected. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 
-Originating research (local, not tracked): `plans/reviews/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md`. Build track: `.pipeline/work-packages/TRACK-AK.md`.
+Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md` (both tracked under `plans/AK/`). Build track: `.pipeline/work-packages/TRACK-AK.md`.
 
 ---
 
@@ -23,7 +23,7 @@ Consequence: **knowledge *editing* is Kernel** (a person editing a doc is an app
 
 Strategy is the full knowledge-management loop:
 
-1. **Context assembly (in).** At session start, decide what knowledge + memory to assemble into the agent's context window. (Industry: *context assembly* under *context engineering*. Today: `materialize` + `composePrompt`.)
+1. **Context assembly (in).** At session start, decide what knowledge + memory to assemble into the agent's context window. (Industry: *context assembly* under *context engineering*. Today: `assemble context` + `assemblePrompt`.)
 2. **Learning ingestion (out).** After a session, capture/score what was produced and write it back into the knowledge base.
 3. **Autonomous knowledge work (background).** Routines and Strategy-spawned agents that run *across the whole knowledge base* to improve it over time — the "improvement" class the industry is circling (Claude's *dreaming*, Hermes' *automatic skill generation*). In HyperIdle this is realised by the **Fabric's deeply-researched knowledge-management design (out of scope to change).** These run on the Kernel's agent-running runtime but are *directed by* the Strategy.
 
@@ -38,7 +38,7 @@ The **Strategy Port** is the surface the Kernel exposes for (1) and (2); respons
 
 ## 3. Current state and the gap
 
-`provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) is a genuine seam the dispatcher calls through. But the production `provisionSession` (`packages/server/src/services/session-provisioning.ts`, Kernel) **hard-imports** the Fabric (`materialize`, `composePrompt`, `checkCostCap`) — violating the stated "the kernel never imports from fabric" rule. O2 already moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split is not yet real. Closing this (defining the port, building the Minimal Strategy, removing the hard import while the Fabric runs unchanged) is **TRACK-AK / AK2**.
+`provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) is a genuine seam the dispatcher calls through. But the production `provisionSession` (`packages/server/src/services/session-provisioning.ts`, Kernel) **hard-imports** the Fabric (`assemble context`, `assemblePrompt`, `checkCostCap`) — violating the stated "the kernel never imports from fabric" rule. O2 already moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split is not yet real. Closing this (defining the port, building the Minimal Strategy, removing the hard import while the Fabric runs unchanged) is **TRACK-AK / AK2**.
 
 Decomposition (a committed bet → tasks, **AK3**) is **Kernel** — work-planning plus running a PM agent; the Strategy only feeds that PM agent context via the port. It was never a kernel-vs-strategy question.
 
@@ -51,19 +51,19 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Concept | Canonical term | Drop |
 |---|---|---|
 | Structure around the model | **harness** (harness adapter) | — |
-| Agent behaviour instruction | **system prompt** | ~~soul~~, ~~soul prompt~~ (zero industry use) |
+| Agent behaviour instruction | **system prompt** | ~~old term~~ (zero industry use) |
 | Project/agent instruction file | **AGENTS.md** (Linux-Foundation cross-vendor standard) | — |
 | Isolated place an agent runs | **sandbox** (sandbox adapter), cwd `/workspace` | ~~workspace~~ as the unit |
 | One run of agent work | **session** | — |
-| Capability the agent calls | **tool** (+ **MCP** for external) | part of ~~skill-tools~~ |
-| Packaged procedural know-how | **Skill** (Agent Skill) | part of ~~skill-tools~~ |
+| Capability the agent calls | **tool** (+ **MCP** for external) | part of ~~tools~~ |
+| Packaged procedural know-how | **Skill** (Agent Skill) | part of ~~tools~~ |
 | Lifecycle interceptor | **hook** | — |
 | Delegated isolated worker | **subagent** | — |
-| Assembling knowledge into context | **context assembly** (under **context engineering**) | ~~materialization~~, ~~prompt composition~~ |
+| Assembling knowledge into context | **context assembly** (under **context engineering**) | ~~context assembly~~, ~~context assembly~~ |
 | The knowledge/context layer | **Strategy** (kept); current impl = **Fabric** (one impl) | — |
 | Agent memory | **short-term / long-term**, episodic/semantic/procedural | — |
 
-`skill-tools` splits into **Skills** + **tools** (+ **MCP**) — three distinct concepts.
+`tools` splits into **Skills** + **tools** (+ **MCP**) — three distinct concepts.
 
 Note: "Strategy" the *layer* is distinct from "strategy agent" the *agent type* (team/strategy/individual) — same word, different axis; context disambiguates.
 
@@ -71,7 +71,7 @@ Note: "Strategy" the *layer* is distinct from "strategy agent" the *agent type* 
 
 ## 5. Rationale
 
-The founder's USP is "nail the Kernel first." That only works if the Kernel is a complete application that runs agents *without* the knowledge magic, with the knowledge magic (the fast-moving part) as a swappable Strategy. The Minimal Strategy is the proof and the contributor template; the Fabric is the rich default, preserved unchanged behind the boundary. The nouns must be industry-standard so the seam and the contributor story are legible to anyone in the 2025–2026 agent-infra space — homegrown terms like "soul" and "materialization" can't carry that.
+The founder's USP is "nail the Kernel first." That only works if the Kernel is a complete application that runs agents *without* the knowledge magic, with the knowledge magic (the fast-moving part) as a swappable Strategy. The Minimal Strategy is the proof and the contributor template; the Fabric is the rich default, preserved unchanged behind the boundary. The nouns must be industry-standard so the seam and the contributor story are legible to anyone in the 2025–2026 agent-infra space — homegrown terms can't carry that.
 
 ## 6. Out of scope here
 - The Fabric's internal knowledge-management design (deeply researched; preserved, not redefined).

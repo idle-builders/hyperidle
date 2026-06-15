@@ -11,13 +11,13 @@
  * - Fetches registered harnesses from GET /api/harnesses on mount
  * - Table: Name | Role | Harness | Model | Sessions | Actions
  * - Inline edit row: expands below selected agent with form
- * - Add form: below table, role change fetches template to pre-fill soul prompt
+ * - Add form: below table, role change fetches template to pre-fill system prompt
  * - Delete: two-click confirmation with 3-second timeout to revert
  *
  * @lore X3: SettingsAgents follows the SettingsOrgChart pattern — fetch on
  * mount, table display, inline expand for editing. No useSettings hook —
  * uses its own GET /api/agents fetch because the settings response `users`
- * array does not include the X3 config fields (soulPrompt, harnessType, etc.).
+ * array does not include the X3 config fields (systemPrompt, harnessType, etc.).
  *
  * @lore AH2: Harness Select is populated from GET /api/harnesses (registry-driven).
  * Model Select is populated from MODEL_CATALOG (closed catalog). Free-text harness
@@ -43,13 +43,22 @@ interface HarnessEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Org teams type (from GET /api/org)
+// ---------------------------------------------------------------------------
+
+interface OrgTeam {
+	id: string; // teamMembers.id — correct FK for users.teamId
+	name: string;
+}
+
+// ---------------------------------------------------------------------------
 // Edit form state
 // ---------------------------------------------------------------------------
 
 interface EditFormValues {
 	name: string;
 	role: string;
-	soulPrompt: string;
+	systemPrompt: string;
 	harnessType: string;
 	modelId: string;
 	maxConcurrentSessions: number;
@@ -59,7 +68,7 @@ function agentToEditValues(agent: AgentConfig): EditFormValues {
 	return {
 		name: agent.name,
 		role: agent.role,
-		soulPrompt: agent.soulPrompt ?? "",
+		systemPrompt: agent.systemPrompt ?? "",
 		harnessType: agent.harnessType ?? "",
 		modelId: agent.modelId ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
@@ -96,6 +105,8 @@ export function SettingsAgents(): JSX.Element {
 	const { showToast } = useToast();
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessEntry[]>([]);
+	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
+	const [orgTeamsStatus, setOrgTeamsStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editValues, setEditValues] = useState<EditFormValues | null>(null);
@@ -105,11 +116,13 @@ export function SettingsAgents(): JSX.Element {
 	const [addValues, setAddValues] = useState<EditFormValues>({
 		name: "",
 		role: "builder",
-		soulPrompt: "",
+		systemPrompt: "",
 		harnessType: "",
 		modelId: "",
 		maxConcurrentSessions: 1,
 	});
+	// AH4: selected teamId for the add form (teamMembers.id from GET /api/org)
+	const [addTeamId, setAddTeamId] = useState<string | null>(null);
 	const [addError, setAddError] = useState<string | null>(null);
 	const [adding, setAdding] = useState(false);
 	// Two-click delete state
@@ -119,9 +132,10 @@ export function SettingsAgents(): JSX.Element {
 	const loadAgents = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const [agentsRes, harnessesRes] = await Promise.all([
+			const [agentsRes, harnessesRes, orgRes] = await Promise.all([
 				apiFetch("/api/agents"),
 				apiFetch("/api/harnesses"),
+				apiFetch("/api/org"),
 			]);
 			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
@@ -133,9 +147,22 @@ export function SettingsAgents(): JSX.Element {
 					setHarnesses(harnessesJson);
 				}
 			}
+			// AH4: load teams from GET /api/org; default addTeamId to first team's id
+			if (orgRes.ok) {
+				const orgJson = (await orgRes.json()) as { teams?: OrgTeam[] };
+				const teamList = Array.isArray(orgJson.teams) ? orgJson.teams : [];
+				setOrgTeams(teamList);
+				setOrgTeamsStatus("ready");
+				if (teamList.length > 0) {
+					setAddTeamId(teamList[0]?.id ?? null);
+				}
+			} else {
+				setOrgTeamsStatus("error");
+			}
 			setStatus("ready");
 		} catch {
 			setStatus("error");
+			setOrgTeamsStatus("error");
 		}
 	}, []);
 
@@ -172,7 +199,7 @@ export function SettingsAgents(): JSX.Element {
 			});
 			if (!res.ok) return;
 			const json = (await res.json()) as { role: string; content: string };
-			setAddValues((prev) => ({ ...prev, soulPrompt: json.content }));
+			setAddValues((prev) => ({ ...prev, systemPrompt: json.content }));
 		} catch (err) {
 			if (err instanceof Error && err.name === "AbortError") return;
 		} finally {
@@ -206,7 +233,7 @@ export function SettingsAgents(): JSX.Element {
 				body: JSON.stringify({
 					name: editValues.name,
 					role: editValues.role,
-					soulPrompt: editValues.soulPrompt || null,
+					systemPrompt: editValues.systemPrompt || null,
 					harnessType: editValues.harnessType || null,
 					modelId: editValues.modelId || null,
 					maxConcurrentSessions: editValues.maxConcurrentSessions,
@@ -246,10 +273,12 @@ export function SettingsAgents(): JSX.Element {
 				body: JSON.stringify({
 					name: addValues.name,
 					role: addValues.role,
-					soulPrompt: addValues.soulPrompt || null,
+					systemPrompt: addValues.systemPrompt || null,
 					harnessType: addValues.harnessType || null,
 					modelId: addValues.modelId || null,
 					maxConcurrentSessions: addValues.maxConcurrentSessions,
+					// AH4: include selected teamId (teamMembers.id); null = explicit unassigned
+					teamId: addTeamId,
 				}),
 			});
 
@@ -270,7 +299,7 @@ export function SettingsAgents(): JSX.Element {
 			setAddValues({
 				name: "",
 				role: "builder",
-				soulPrompt: "",
+				systemPrompt: "",
 				harnessType: "",
 				modelId: "",
 				maxConcurrentSessions: 1,
@@ -281,7 +310,7 @@ export function SettingsAgents(): JSX.Element {
 		} finally {
 			setAdding(false);
 		}
-	}, [addValues, showToast]);
+	}, [addValues, addTeamId, showToast]);
 
 	const handleDeleteFirstClick = useCallback((agentId: string): void => {
 		if (deleteTimeoutRef.current) {
@@ -460,17 +489,17 @@ export function SettingsAgents(): JSX.Element {
 				{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
 				<Input
 					id={`edit-soul-${agentId}`}
-					label="Soul Prompt"
+					label="System prompt"
 					textarea
 					rows={8}
-					value={values.soulPrompt}
+					value={values.systemPrompt}
 					onChange={(e) =>
 						setValues((prev) => ({
 							...prev,
-							soulPrompt: e.target.value,
+							systemPrompt: e.target.value,
 						}))
 					}
-					placeholder="Soul prompt text (optional). Leave empty for no persona."
+					placeholder="System prompt text (optional). Leave empty for no persona."
 				/>
 
 				{/* AH2 DESIGN-1: Inline 422 error above Save/Cancel */}
@@ -605,6 +634,22 @@ export function SettingsAgents(): JSX.Element {
 			{/* Add form or button */}
 			{addMode ? (
 				<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+					{/* AH4: Team placement picker — first field, above name (design spec: placement before identity) */}
+					<Select
+						label="Team"
+						size="sm"
+						value={addTeamId ?? ""}
+						onChange={(e) => setAddTeamId(e.target.value || null)}
+						disabled={orgTeamsStatus === "loading" || orgTeams.length === 0}
+						options={
+							orgTeamsStatus === "loading"
+								? [{ value: "", label: "Loading teams…", disabled: true }]
+								: orgTeams.length === 0
+									? [{ value: "", label: "No teams — run Setup to create one", disabled: true }]
+									: orgTeams.map((t) => ({ value: t.id, label: t.name }))
+						}
+					/>
+
 					<div className="flex gap-2 flex-wrap">
 						<div className="form-control flex-1 min-w-[140px]">
 							<label className="label" htmlFor="add-agent-name">
@@ -634,7 +679,7 @@ export function SettingsAgents(): JSX.Element {
 								value={addValues.role}
 								onChange={(e) => {
 									const newRole = e.target.value;
-									setAddValues((prev) => ({ ...prev, role: newRole, soulPrompt: "" }));
+									setAddValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
 									void fetchTemplate(newRole);
 								}}
 								aria-label="Role"
@@ -708,17 +753,17 @@ export function SettingsAgents(): JSX.Element {
 					{/* AH3 D4: Migrated to design-system Input textarea (prose font, --r-default radius). */}
 					<Input
 						id="add-agent-soul"
-						label="Soul Prompt"
+						label="System prompt"
 						textarea
 						rows={8}
-						value={addValues.soulPrompt}
+						value={addValues.systemPrompt}
 						onChange={(e) =>
 							setAddValues((prev) => ({
 								...prev,
-								soulPrompt: e.target.value,
+								systemPrompt: e.target.value,
 							}))
 						}
-						placeholder="Soul prompt text (optional). Changes with role selection."
+						placeholder="System prompt text (optional). Changes with role selection."
 					/>
 
 					{/* AH2 DESIGN-1: Inline 422 error for add form */}
@@ -738,11 +783,12 @@ export function SettingsAgents(): JSX.Element {
 								setAddValues({
 									name: "",
 									role: "builder",
-									soulPrompt: "",
+									systemPrompt: "",
 									harnessType: "",
 									modelId: "",
 									maxConcurrentSessions: 1,
 								});
+								setAddTeamId(orgTeams.length > 0 ? (orgTeams[0]?.id ?? null) : null);
 							}}
 						>
 							Cancel

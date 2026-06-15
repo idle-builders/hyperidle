@@ -6,7 +6,7 @@ A knowledge layer for an agentic company. Five layers, each with its own rhythm,
 
 The core move: **separate what humans read from what agents process, and optimize each for its reader.** Most agent systems dump everything into markdown files and hope for the best. Markdown is for humans. Agents work better with structured data they can query. We present the same knowledge differently to each — through the **Knowledge Fabric** (§4–7 below), which projects one canonical SQLite store into rich web UI for humans and file-based workspaces for agents.
 
-For how the human interface is designed — views, navigation, interaction grammar — see `HUMAN_INTERFACE_LAYER.md`. This document covers: the five knowledge layers, the canonical store, the sync protocol, conflict resolution, materialization, the facilitator agents, and design trade-offs.
+For how the human interface is designed — views, navigation, interaction grammar — see `HUMAN_INTERFACE_LAYER.md`. This document covers: the five knowledge layers, the canonical store, the sync protocol, conflict resolution, context assembly, the facilitator agents, and design trade-offs.
 
 ---
 
@@ -23,7 +23,7 @@ For how the human interface is designed — views, navigation, interaction gramm
 - [Learned](./learned.md)
 - [Proposed](./proposed.md)
 - [Conflict Resolution](./conflict-resolution.md)
-- [The Materialization Budget](./the-materialization-budget.md)
+- [The Context Assembly Budget](./the-context-assembly-budget.md)
 - [Future Upgrade: Real-Time Co-Editing](./future-upgrade-real-time-co-editing.md)
 - [The Facilitators — the most undervalued role in the factory](./the-facilitators-the-most-undervalued-role-in-the-factory.md)
 - [The Facilitator Stack in Action](./the-facilitator-stack-in-action.md)

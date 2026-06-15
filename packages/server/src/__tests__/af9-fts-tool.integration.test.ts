@@ -19,9 +19,9 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
-import { queryPracticeTool } from "../skill-tools/query-practice.js";
-import type { ToolContext } from "../skill-tools/tool-registry.js";
 import { describe, expect, test } from "../test-fixtures.js";
+import { queryPracticeTool } from "../tools/query-practice.js";
+import type { ToolContext } from "../tools/tool-registry.js";
 
 function makeContext(db: HyperIdleDb): ToolContext {
 	return {
@@ -30,7 +30,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 		agentId: "agent-a",
 		sessionId: "session-1",
 		taskId: "task-1",
-		workspacePath: path.join(os.tmpdir(), `hi-af9-fts-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `hi-af9-fts-${Date.now()}`),
 		watcher: { stop: (): void => {} },
 	};
 }

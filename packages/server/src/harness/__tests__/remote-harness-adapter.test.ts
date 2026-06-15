@@ -50,10 +50,10 @@ class MockWebSocket {
 }
 
 const TEST_CONFIG: SessionConfig = {
-	workspacePath: "/workspace/test",
+	sandboxPath: "/workspace/test",
 	sessionId: "test-session",
-	soulPromptPath: "/workspace/prompts/builder.md",
-	composedPrompt: "",
+	systemPromptPath: "/workspace/prompts/builder.md",
+	assembledPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write"],
 };
@@ -100,10 +100,10 @@ describe("RemoteHarnessAdapter startSession", () => {
 		const dispatched = JSON.parse(ws.sentAt(0)) as {
 			type: string;
 			sessionId: string;
-			config: { workspacePath: string };
+			config: { sandboxPath: string };
 		};
 		expect(dispatched.type).toBe("dispatch");
-		expect(dispatched.config.workspacePath).toBe("/workspace/test");
+		expect(dispatched.config.sandboxPath).toBe("/workspace/test");
 		expect(dispatched.sessionId).toBeTruthy();
 
 		const handle = await startPromise;

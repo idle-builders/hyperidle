@@ -19,7 +19,7 @@ import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMcpBridge, type McpBridgeInstance } from "../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { buildToolRegistry, type ToolContext } from "../skill-tools/tool-registry.js";
+import { buildToolRegistry, type ToolContext } from "../tools/tool-registry.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,7 +32,7 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 		agentId: "agent-reg-test",
 		sessionId: "session-reg-test",
 		taskId: "task-reg-test",
-		workspacePath: path.join(os.tmpdir(), `x2-registry-test-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `x2-registry-test-${Date.now()}`),
 		watcher: { stop: (): void => {} },
 	};
 }

@@ -37,7 +37,7 @@ const wsnQualityGrowthSales: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "growth",
-			agentSoulPrompt: `You are a growth agent specializing in sales pipeline optimization.
+			agentSystemPrompt: `You are a growth agent specializing in sales pipeline optimization.
 Your job is to analyze sales metrics and document insights for the team.
 Always write thorough session notes that capture: what you analyzed, key findings, and recommended next steps.
 When given a sales analysis task, document your methodology and conclusions clearly.`,
@@ -64,7 +64,7 @@ Your session notes must be substantive — not generic boilerplate.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -107,7 +107,7 @@ const wsnAppendBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing DevOps infrastructure.
+			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
 Your job is to implement tasks in phases and document each phase.
 When completing multi-phase work, use write_session_notes with append=true after each phase to progressively build your documentation.
 Document phase 1 first, then append phase 2 notes to the existing notes.`,
@@ -136,7 +136,7 @@ Your final session notes should contain documentation of BOTH phases.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -29,7 +29,8 @@ logs/
 test-output.toon
 .verify-attestation.json
 .verify.pid
-plans/*
+# plans/ is tracked — pipeline artifacts persist across worktrees and are retired
+# at the /write-docs step once their essence lives in docs/ + code. (Was: plans/*)
 packages/*/plans/
 packages/design-system/03-hearth.html
 packages/design-system/inspiration/
@@ -52,3 +53,7 @@ scripts/token-resolution-guard.js
 scripts/token-resolution-guard.js.map
 scripts/token-resolution-guard.d.ts
 scripts/token-resolution-guard.d.ts.map
+scripts/harness-vocab-guard.js
+scripts/harness-vocab-guard.js.map
+scripts/harness-vocab-guard.d.ts
+scripts/harness-vocab-guard.d.ts.map

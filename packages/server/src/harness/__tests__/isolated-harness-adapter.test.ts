@@ -135,10 +135,10 @@ describe("IsolatedHarnessAdapter env allowlist", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -185,10 +185,10 @@ describe("IsolatedHarnessAdapter env allowlist", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -242,10 +242,10 @@ describe("IsolatedHarnessAdapter duration limit", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		const handle = await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -301,10 +301,10 @@ describe("IsolatedHarnessAdapter stopSession SIGKILL escalation", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		const handle = await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -355,10 +355,10 @@ describe("IsolatedHarnessAdapter event streaming", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		const handle = await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});
@@ -430,10 +430,10 @@ describe("IsolatedHarnessAdapter stopSession", () => {
 		const adapter = new IsolatedHarnessAdapter(resolver, config);
 
 		const handle = await adapter.startSession({
-			workspacePath: "/workspace/test",
+			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			soulPromptPath: "",
-			composedPrompt: "",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

@@ -145,7 +145,8 @@ export interface AgentProfileResponse {
 	readonly createdAt: string;
 
 	// --- Configuration ---
-	readonly soulPrompt: string | null;
+	/** @lore AK1: Renamed per AK1 harness-vocab plan. */
+	readonly systemPrompt: string | null;
 	readonly harnessType: string | null;
 	readonly modelTierPreference: string | null;
 	readonly maxConcurrentSessions: number;

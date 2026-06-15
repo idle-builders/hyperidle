@@ -31,13 +31,13 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-/** Seed factory soul templates so team creation can resolve them. */
+/** Seed factory system templates so team creation can resolve them. */
 async function seedFactoryTemplates(db: HyperIdleDb): Promise<void> {
 	const roles = ["product_manager", "builder", "qa_engineer", "facilitator", "designer"];
 	for (const role of roles) {
 		await db
 			.insert(factorySettings)
-			.values({ key: `soul_template:${role}`, value: `You are a ${role} agent.`, updatedAt: NOW })
+			.values({ key: `system_template:${role}`, value: `You are a ${role} agent.`, updatedAt: NOW })
 			.onConflictDoNothing();
 	}
 }

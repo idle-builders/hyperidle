@@ -6,7 +6,11 @@ import { getRelativePath, isWatchedPath, processWriteback } from "./writeback.js
 
 export interface FileWatcherConfig {
 	db: HyperIdleDb;
-	workspacePath: string;
+	/**
+	 * Absolute path to the agent's sandbox directory.
+	 * @lore AK1: Renamed per harness-vocab plan (AK1).
+	 */
+	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
 	debounceMs?: number;
@@ -18,7 +22,7 @@ export interface FileWatcher {
 
 const DEFAULT_DEBOUNCE_MS = 500;
 
-/** Start watching a materialized workspace for file changes. */
+/** Start watching a sandbox for file changes. */
 export function startWatcher(config: FileWatcherConfig): FileWatcher {
 	const debounceMs = config.debounceMs ?? DEFAULT_DEBOUNCE_MS;
 	const pendingChanges = new Map<string, WritebackChange>();
@@ -26,8 +30,8 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 	let stopped = false;
 	const watchers: fs.FSWatcher[] = [];
 
-	const knowledgeDir = path.join(config.workspacePath, "knowledge");
-	const workDir = path.join(config.workspacePath, "work");
+	const knowledgeDir = path.join(config.sandboxPath, "knowledge");
+	const workDir = path.join(config.sandboxPath, "work");
 
 	function flush(): void {
 		if (pendingChanges.size === 0) return;
@@ -37,14 +41,14 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 
 		// @lore file-watcher flush: processWriteback is async, so errors inside
 		// it become Promise rejections — a sync try/catch does NOT catch them.
-		// Attach a .catch() to suppress ENOENT when the workspace directory is
-		// removed (test cleanup, session end with workspace reaper) before the
+		// Attach a .catch() to suppress ENOENT when the sandbox directory is
+		// removed (test cleanup, session end with sandbox reaper) before the
 		// debounce timer fires. Stop the watcher on ENOENT to prevent further
-		// flushes — the workspace is gone and there is nothing left to flush.
+		// flushes — the sandbox is gone and there is nothing left to flush.
 		processWriteback(
 			{
 				db: config.db,
-				workspacePath: config.workspacePath,
+				sandboxPath: config.sandboxPath,
 				sessionId: config.sessionId,
 				manifestPath: config.manifestPath,
 			},
@@ -82,7 +86,7 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		if (stopped || !filename) return;
 
 		const fullPath = path.join(dir, filename);
-		const relativePath = getRelativePath(config.workspacePath, fullPath);
+		const relativePath = getRelativePath(config.sandboxPath, fullPath);
 
 		if (!isWatchedPath(relativePath)) return;
 

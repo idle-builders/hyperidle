@@ -31,7 +31,7 @@ const MOCK_AGENTS = [
 		id: "agent-pm-1",
 		name: "Acme PM",
 		role: "product_manager",
-		soulPrompt: "# PM\n\nYou are the product manager.",
+		systemPrompt: "# PM\n\nYou are the product manager.",
 		harnessType: "claude-code",
 		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 1,
@@ -42,7 +42,7 @@ const MOCK_AGENTS = [
 		id: "agent-builder-1",
 		name: "Builder Bot",
 		role: "builder",
-		soulPrompt: null,
+		systemPrompt: null,
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 2,
@@ -470,7 +470,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 		});
 	});
 
-	it("changing role to product_manager pre-fills soul prompt textarea with template", async () => {
+	it("changing role to product_manager pre-fills system prompt textarea with template", async () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
@@ -485,7 +485,9 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 
 		// Should fetch the template and pre-fill the textarea
 		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /soul prompt/i }) as HTMLTextAreaElement;
+			const textarea = screen.getByRole("textbox", {
+				name: /system prompt/i,
+			}) as HTMLTextAreaElement;
 			expect(textarea.value).toContain("Product Manager");
 		});
 	});

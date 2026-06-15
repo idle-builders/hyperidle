@@ -64,7 +64,7 @@ async function seedAll(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 
-	// Seed a knowledge item so materialization has content
+	// Seed a knowledge item so context assembly has content
 	await db.insert(knowledgeItems).values({
 		id: "ki-1",
 		title: "Test Principle",
@@ -85,7 +85,7 @@ function makeParams(basePath: string): CreateSessionParams {
 		agentRole: "builder",
 		productId: "p1",
 		modelTier: "workhorse",
-		workspaceBasePath: basePath,
+		sandboxBasePath: basePath,
 	};
 }
 
@@ -100,8 +100,8 @@ describe("Session Lifecycle", () => {
 	afterEach(() => {
 		// Clean up any leftover workspace dirs
 		for (const ctx of cleanupContexts) {
-			if (fs.existsSync(ctx.workspacePath)) {
-				fs.rmSync(ctx.workspacePath, { recursive: true, force: true });
+			if (fs.existsSync(ctx.sandboxPath)) {
+				fs.rmSync(ctx.sandboxPath, { recursive: true, force: true });
 			}
 		}
 		cleanupContexts.length = 0;
@@ -110,8 +110,8 @@ describe("Session Lifecycle", () => {
 		}
 	});
 
-	// AC1: Create session -> active, workspace exists, materialized files present, watcher running
-	test("creates session with active state, workspace, materialized files, and watcher", async ({
+	// AC1: Create session -> active, sandbox exists, assembled files present, watcher running
+	test("creates session with active state, sandbox, assembled files, and watcher", async ({
 		db,
 		eventBus,
 	}) => {
@@ -126,10 +126,10 @@ describe("Session Lifecycle", () => {
 		expect(session?.state).toBe("active");
 
 		// Workspace directory exists
-		expect(fs.existsSync(ctx.workspacePath)).toBe(true);
+		expect(fs.existsSync(ctx.sandboxPath)).toBe(true);
 
-		// Materialized files present (manifest written by materialize)
-		const manifestPath = path.join(ctx.workspacePath, ".fabric/manifest.json");
+		// Assembled files present (manifest written by assembleContext)
+		const manifestPath = path.join(ctx.sandboxPath, ".fabric/manifest.json");
 		expect(fs.existsSync(manifestPath)).toBe(true);
 
 		// Watcher is running (has a stop method)
@@ -219,15 +219,15 @@ describe("Session Lifecycle", () => {
 		ctx1.watcher.stop();
 	});
 
-	// AC6: Session workspace_snapshot contains path to workspace
-	test("stores workspace path in workspace_snapshot", async ({ db, eventBus }) => {
+	// AC6: Session sandbox_snapshot contains path to sandbox
+	test("stores sandbox path in sandbox_snapshot", async ({ db, eventBus }) => {
 		await seedAll(db);
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
 
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
-		expect(session?.workspaceSnapshot).toBe(ctx.workspacePath);
+		expect(session?.sandboxSnapshot).toBe(ctx.sandboxPath);
 
 		ctx.watcher.stop();
 	});
@@ -239,11 +239,11 @@ describe("Session Lifecycle", () => {
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
 
-		expect(fs.existsSync(ctx.workspacePath)).toBe(true);
+		expect(fs.existsSync(ctx.sandboxPath)).toBe(true);
 
 		await endSession(db, eventBus, ctx, 0);
 
-		expect(fs.existsSync(ctx.workspacePath)).toBe(false);
+		expect(fs.existsSync(ctx.sandboxPath)).toBe(false);
 	});
 
 	// AC1 supplement: session_started event fires on create

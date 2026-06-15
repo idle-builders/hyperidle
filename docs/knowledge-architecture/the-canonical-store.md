@@ -56,7 +56,7 @@ Strategy signals computed by the Knowledge Fabric. Joined to kernel by `knowledg
 | team | — | No layer. Between L2 and L3. |
 | user | — | No layer. Private, below fabric concern. |
 
-Items without a layer assignment are not materialized by the fabric into agent sessions unless explicitly promoted (scope change to a layer-mapped scope kind).
+Items without a layer assignment are not assembled by the fabric into agent sessions unless explicitly promoted (scope change to a layer-mapped scope kind).
 
 ### Kernel vs. strategy — the separation
 

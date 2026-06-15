@@ -38,7 +38,8 @@ export const users = pgTable("users", {
 	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
 	kind: text("kind").notNull().default("ai"),
 	name: text("name").notNull(),
-	soulPromptPath: text("soul_prompt_path"),
+	/** @lore X3: Renamed from old per-agent path column in AK1 (harness-vocab rename). Deprecated — content stored inline in systemPrompt. */
+	systemPromptPath: text("system_prompt_path"),
 	// @lore U1: users.team_id still references team_members.id (agent membership group).
 	// The column name stays `team_id` to avoid a blast-radius rename of every
 	// users.teamId reference across the codebase. The FK target table was renamed
@@ -59,13 +60,13 @@ export const users = pgTable("users", {
 	avatarUrl: text("avatar_url"),
 	createdAt: text("created_at").notNull(),
 	/**
-	 * X3: Inline soul prompt text. Replaces soulPromptPath.
-	 * null = no persona section in composed prompt.
-	 * @lore X3: soulPromptPath is deprecated (not dropped yet — additive migration).
-	 * Soul prompt content is now stored inline in the DB, eliminating the file-read
-	 * attack surface and the soulPromptPath validation logic.
+	 * X3: Inline system prompt text. Replaces systemPromptPath (per-agent path column).
+	 * null = no persona section in assembled context.
+	 * @lore X3: The path column is deprecated (not dropped yet — additive migration).
+	 * System prompt content is stored inline in the DB, eliminating file-read attack surface.
+	 * @lore AK1: Renamed from the old per-agent prompt column (harness-vocab rename rollout).
 	 */
-	soulPrompt: text("soul_prompt"),
+	systemPrompt: text("system_prompt"),
 	/** X3: Harness type preference. null = any adapter eligible. */
 	harnessType: text("harness_type"),
 	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
@@ -225,7 +226,8 @@ export const sessions = pgTable(
 		startedAt: text("started_at").notNull(),
 		endedAt: text("ended_at"),
 		state: text("state").notNull(),
-		workspaceSnapshot: text("workspace_snapshot"),
+		/** @lore AK1: AK1 harness-vocab rename. Old name was the sandbox-as-workspace variant. New column name: sandbox_snapshot. */
+		sandboxSnapshot: text("sandbox_snapshot"),
 		outcome: text("outcome"),
 		notes: text("notes"),
 		/**

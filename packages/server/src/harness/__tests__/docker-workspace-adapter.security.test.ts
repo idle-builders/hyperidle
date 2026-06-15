@@ -1,5 +1,5 @@
 /**
- * I2 — S5/S6: DockerWorkspaceAdapter must use `child_process.spawn` with
+ * I2 — S5/S6: DockerSandboxAdapter must use `child_process.spawn` with
  * an argv array, not shell-string interpolation.
  *
  * Today the adapter does:
@@ -65,10 +65,10 @@ afterEach(() => {
 	spawnCalls.length = 0;
 });
 
-describe("I2 S5/S6 — DockerWorkspaceAdapter shell-injection safety", () => {
+describe("I2 S5/S6 — DockerSandboxAdapter shell-injection safety", () => {
 	it("S5: exec() passes a command with shell metacharacters as a single literal argv element", async () => {
-		const { DockerWorkspaceAdapter } = await import("../docker-workspace-adapter.js");
-		const adapter = new DockerWorkspaceAdapter();
+		const { DockerSandboxAdapter } = await import("../docker-sandbox-adapter.js");
+		const adapter = new DockerSandboxAdapter();
 
 		const handle = await adapter.spawn("/tmp/dummy-base");
 		// Drop the spawn-time docker run call so we only assert on the exec.
@@ -97,8 +97,8 @@ describe("I2 S5/S6 — DockerWorkspaceAdapter shell-injection safety", () => {
 	});
 
 	it("S6: spawn() (workspace creation) builds argv as an array — no interpolation", async () => {
-		const { DockerWorkspaceAdapter } = await import("../docker-workspace-adapter.js");
-		const adapter = new DockerWorkspaceAdapter({
+		const { DockerSandboxAdapter } = await import("../docker-sandbox-adapter.js");
+		const adapter = new DockerSandboxAdapter({
 			image: "node:20",
 			// Inject a metacharacter into mountPath. With the safe argv form
 			// this stays as one argv element; with shell interpolation it
@@ -129,8 +129,8 @@ describe("I2 S5/S6 — DockerWorkspaceAdapter shell-injection safety", () => {
 	});
 
 	it("S6: destroy() uses argv form too (no shell interpolation around container id)", async () => {
-		const { DockerWorkspaceAdapter } = await import("../docker-workspace-adapter.js");
-		const adapter = new DockerWorkspaceAdapter();
+		const { DockerSandboxAdapter } = await import("../docker-sandbox-adapter.js");
+		const adapter = new DockerSandboxAdapter();
 
 		const handle = await adapter.spawn("/tmp/dummy-base");
 		spawnCalls.length = 0;

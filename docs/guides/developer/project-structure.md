@@ -7,7 +7,7 @@ hyperidle/
 │   ├── server/      # Hono API server (port 3001)
 │   ├── web/         # React + Vite frontend (port 5173)
 │   ├── shared/      # Shared types, constants, TOON codec
-│   ├── fabric/      # Knowledge materialization, file watching, writeback
+│   ├── fabric/      # Knowledge context assembly, file watching, writeback
 │   └── pipeline/    # CLI for batch story processing (Ink React)
 ├── docs/            # Architecture, requirements, work packages
 ├── bin/             # Shell wrappers (setup, pipeline)

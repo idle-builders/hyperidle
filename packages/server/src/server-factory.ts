@@ -14,9 +14,9 @@ import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared"
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
-import { DisabledWorkspaceAdapter } from "./harness/disabled-workspace-adapter.js";
-import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
-import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
+import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
+import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
+import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
@@ -61,8 +61,8 @@ function makeResolveModel(
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
 	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: WorkspaceAdapter;
-	readonly workspaceBasePath?: string;
+	readonly workspaceAdapter?: SandboxAdapter;
+	readonly sandboxBasePath?: string;
 }
 
 /**
@@ -234,17 +234,17 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
 	// path so the dispatcher wire can run against a stub pool (no real LLM).
 	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());
-	// Server profiles (production, non-laptop) run no agents — LocalWorkspaceAdapter
+	// Server profiles (production, non-laptop) run no agents — LocalSandboxAdapter
 	// refuses to construct there. Use a disabled no-op adapter so the server boots;
-	// it fails loudly only if something actually tries to provision a workspace.
+	// it fails loudly only if something actually tries to provision a sandbox.
 	const isServerProfile =
 		process.env.NODE_ENV === "production" &&
 		(process.env.HYPERIDLE_PROFILE ?? "laptop") !== "laptop";
 	const workspaceAdapter =
 		deps?.workspaceAdapter ??
-		(isServerProfile ? new DisabledWorkspaceAdapter() : new LocalWorkspaceAdapter());
-	const workspaceBasePath =
-		deps?.workspaceBasePath ??
+		(isServerProfile ? new DisabledSandboxAdapter() : new LocalSandboxAdapter());
+	const sandboxBasePath =
+		deps?.sandboxBasePath ??
 		process.env.HYPERIDLE_WORKSPACES_DIR ??
 		path.join(os.tmpdir(), "hyperidle-workspaces");
 
@@ -294,7 +294,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 				dispatcherDeps: {
 					adapterPool,
 					workspace: workspaceAdapter,
-					workspaceBasePath,
+					sandboxBasePath,
 					resolveModel: makeResolveModel(db, credentialResolver),
 					mcpBridgeRegistry,
 					mcpBaseUrl,
@@ -302,7 +302,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 			}),
 		adapterPool,
 		workspaceAdapter,
-		workspaceBasePath,
+		sandboxBasePath,
 		credentialResolver,
 		mcpBridgeRegistry,
 		mcpBaseUrl,

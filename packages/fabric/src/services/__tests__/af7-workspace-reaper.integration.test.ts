@@ -12,17 +12,17 @@
  * post-mortem and nothing ever reclaims it, so `HYPERIDLE_WORKSPACES_DIR`
  * accumulates dead trees forever.
  *
- * Plan §6 fix: a TTL-guarded reaper `startWorkspaceReaper(db, { workspaceBasePath,
+ * Plan §6 fix: a TTL-guarded reaper `startSandboxReaper(db, { sandboxBasePath,
  * ttlMs })` (a new fabric service) sweeps the base path: terminal-session and
  * orphan dirs OLDER than the TTL are removed; active-session dirs and dirs
  * younger than the TTL (the crash post-mortem window) survive.
  *
- * RED expectation: `startWorkspaceReaper` does not exist in `@hyperidle/fabric`
+ * RED expectation: `startSandboxReaper` does not exist in `@hyperidle/fabric`
  * yet — importing it is a compile error (feature absent). The single reaper-pass
  * assertions therefore cannot pass.
  *
  * We export the sweep so a test can run exactly one pass deterministically; the
- * plan's `startWorkspaceReaper` returns a disposer and schedules via setInterval,
+ * plan's `startSandboxReaper` returns a disposer and schedules via setInterval,
  * and exposes a `reapOnce` (or equivalent) for a single deterministic pass.
  */
 
@@ -33,7 +33,7 @@ import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } fr
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 // RED: this export does not exist yet (AF7 §6 adds it).
-import { reapWorkspacesOnce } from "../workspace-reaper.js";
+import { reapSandboxesOnce } from "../sandbox-reaper.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -108,7 +108,7 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 			endedAt: oldEndedAt,
 			state: "crashed",
 			outcome: "crashed",
-			workspaceSnapshot: crashedDir,
+			sandboxSnapshot: crashedDir,
 		});
 
 		// Active session — its workspace must survive.
@@ -121,10 +121,10 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 			modelTier: "workhorse",
 			startedAt: nowIso,
 			state: "active",
-			workspaceSnapshot: activeDir,
+			sandboxSnapshot: activeDir,
 		});
 
-		await reapWorkspacesOnce(db, { workspaceBasePath: baseDir, ttlMs });
+		await reapSandboxesOnce(db, { sandboxBasePath: baseDir, ttlMs });
 
 		expect(fs.existsSync(crashedDir)).toBe(false);
 		expect(fs.existsSync(activeDir)).toBe(true);
@@ -148,10 +148,10 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 			endedAt: recentEndedAt,
 			state: "crashed",
 			outcome: "crashed",
-			workspaceSnapshot: recentDir,
+			sandboxSnapshot: recentDir,
 		});
 
-		await reapWorkspacesOnce(db, { workspaceBasePath: baseDir, ttlMs });
+		await reapSandboxesOnce(db, { sandboxBasePath: baseDir, ttlMs });
 
 		// Younger than TTL — the crash post-mortem window is preserved.
 		expect(fs.existsSync(recentDir)).toBe(true);
@@ -167,7 +167,7 @@ describe("AF7 AC6: workspace reaper reclaims terminal/orphan dirs past TTL", () 
 		const past = new Date(Date.now() - HOUR_MS);
 		fs.utimesSync(orphanDir, past, past);
 
-		await reapWorkspacesOnce(db, { workspaceBasePath: baseDir, ttlMs });
+		await reapSandboxesOnce(db, { sandboxBasePath: baseDir, ttlMs });
 
 		expect(fs.existsSync(orphanDir)).toBe(false);
 	});
