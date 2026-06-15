@@ -12,8 +12,11 @@
  *   8. Emit a summary.
  *
  * Usage:
- *   export OPENROUTER_API_KEY=<your-key>
  *   npm run smoke:ah5
+ *
+ * The script loads .env automatically via `--env-file-if-exists=.env` (Fix4).
+ * If the key is not in .env, set it in your shell first:
+ *   export OPENROUTER_API_KEY=<your-key> && npm run smoke:ah5
  *
  * Optional env vars:
  *   AH5_MODEL_OVERRIDE  — skip live selection; use this routedId directly

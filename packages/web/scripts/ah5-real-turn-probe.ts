@@ -20,10 +20,13 @@
  * auth middleware setup while still exercising the SAME production code path
  * that the HTTP route calls.
  *
- * @lore AH5: The prescriptive prompt explicitly names the tool:
+ * @lore AH5: The prescriptive instruction is seeded via task.description, which
+ * flows through buildTaskSection/assemblePrompt into the system prompt:
  * "Call the write_session_notes tool with notes set to 'AH5-SMOKE-OK'.
  *  Do not respond with prose; emit only the tool call."
  * Determinism comes from the prescriptive prompt, not model intelligence.
+ * Fix2: before this fix, the task had no description → "No description provided."
+ * in the system prompt → model never called the tool → 100% failure rate.
  *
  * @lore AH5: Cost is read from result.totalCostCents (the already-aggregated
  * total from provisionSession/runSession). We do NOT re-derive cost from
@@ -204,11 +207,20 @@ await db.insert(bets).values({
 	costAppetiteCurrency: "USD",
 	createdAt: now,
 });
+// @lore AH5 Fix2: The task MUST carry a prescriptive description so
+// buildTaskSection/assemblePrompt injects a concrete instruction into the
+// system prompt. Without description, the assembled prompt says "No description
+// provided." and the model has no instruction to call the tool — the probe
+// fails 100% of the time. The description IS the prescriptive prompt the spec
+// always required ("a prescriptive prompt names the exact tool + arguments").
 await db.insert(tasks).values({
 	id: taskId,
 	betId,
 	teamId,
 	title: "AH5 Smoke Probe Task",
+	description:
+		"Call the write_session_notes tool with notes set to 'AH5-SMOKE-OK'. Do not respond with prose; emit only the tool call.",
+	doneCondition: "write_session_notes tool called with notes === 'AH5-SMOKE-OK'",
 	state: "accepted",
 	createdAt: now,
 	updatedAt: now,

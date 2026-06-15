@@ -249,18 +249,24 @@ describe("selectSmokeModel — :free exclusion", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — ranking", () => {
-	it("ranks by throughput desc (gemini > deepseek > qwen by p50 throughput)", () => {
-		// gemini: 78.5, deepseek: 52.3, qwen: 35.2
-		// All pass with a relaxed policy
+	it("ranks by price asc (Fix 3: cheaper model wins over higher-throughput expensive model)", () => {
+		// Fix 3 regression: before the fix, ranker was throughput-first which picked
+		// expensive large models (e.g. nvidia/nemotron-3-super-120b at $X) over cheap
+		// alternatives. After Fix 3, price-asc is the PRIMARY key.
+		//
+		// Fixture models with 2025-01-01 cutoff and $1.0/1M ceiling:
+		//   qwen ($0.40, throughput 35.2)   ← should WIN (cheapest)
+		//   grok ($0.50, throughput 65)
+		//   gemini ($0.60, throughput 78.5)  ← would win under old throughput-first
 		const policy: SmokeModelPolicy = {
 			...DEFAULT_SMOKE_POLICY,
 			minCreatedUnixSec: 1_735_689_600, // 2025-01-01
 			maxCompletionPricePerMillion: 1.0,
 		};
 		const ids = [
-			"deepseek/deepseek-chat-v3-0324",
 			"google/gemini-2.5-flash-preview-05-20",
 			"qwen/qwen3-235b-a22b",
+			"x-ai/grok-3-mini",
 		];
 		const input = buildInput({
 			models: buildModels(ids),
@@ -269,12 +275,78 @@ describe("selectSmokeModel — ranking", () => {
 		});
 		const result = selectSmokeModel(input);
 		expect(result.ranked.length).toBeGreaterThan(1);
-		// First ranked must have highest throughput
+		// PRIMARY key: price asc — cheapest must be first
 		const first = result.ranked[0];
 		expect(first).toBeDefined();
 		for (const other of result.ranked.slice(1)) {
-			expect(first!.bestThroughputP50).toBeGreaterThanOrEqual(other.bestThroughputP50);
+			expect(first!.completionPricePerMillion).toBeLessThanOrEqual(other.completionPricePerMillion);
 		}
+		// Specifically: qwen ($0.40) wins over gemini ($0.60) despite gemini having higher throughput
+		expect(first!.id).toBe("qwen/qwen3-235b-a22b");
+	});
+
+	it("breaks price tie by throughput desc", () => {
+		// Two models with equal price — throughput is the secondary key.
+		const models: OpenRouterModel[] = [
+			{
+				id: "slow-cheap",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000020" }, // $0.20/1M
+				supported_parameters: ["tools"],
+				context_length: 128000,
+			},
+			{
+				id: "fast-cheap",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000020" }, // $0.20/1M — same price
+				supported_parameters: ["tools"],
+				context_length: 128000,
+			},
+		];
+		const makeEndpoints = (
+			id: string,
+			throughput: number,
+			latency: number,
+		): [string, ModelEndpoints] => [
+			id,
+			{
+				id,
+				endpoints: [
+					{
+						provider_name: "P1",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000020" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: throughput },
+						latency_last_30m: { p50: latency },
+						status: "active",
+					},
+					{
+						provider_name: "P2",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000020" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: throughput },
+						latency_last_30m: { p50: latency },
+						status: "active",
+					},
+				],
+			},
+		];
+		const endpointsMap = new Map<string, ModelEndpoints>([
+			makeEndpoints("slow-cheap", 20.0, 0.5),
+			makeEndpoints("fast-cheap", 80.0, 0.5), // same price, higher throughput — wins
+		]);
+		const input: SelectionInput = {
+			models,
+			endpointsByModel: endpointsMap,
+			policy: DEFAULT_SMOKE_POLICY,
+		};
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(2);
+		const top = result.ranked[0];
+		expect(top).toBeDefined();
+		expect(top!.id).toBe("fast-cheap"); // higher throughput wins price tie
 	});
 
 	it("breaks throughput tie by latency asc", () => {
