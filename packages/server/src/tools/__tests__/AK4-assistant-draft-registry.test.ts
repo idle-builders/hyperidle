@@ -26,14 +26,16 @@ import * as path from "node:path";
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { test } from "../../test-fixtures.js";
 // These imports will FAIL until the green phase creates these symbols:
-import { buildAssistantDraftRegistry } from "../../tools/assistant-draft-registry.js";
-import { resolveDraftTeamId } from "../../tools/assistant-draft-registry.js";
+import {
+	buildAssistantDraftRegistry,
+	resolveDraftTeamId,
+} from "../../tools/assistant-draft-registry.js";
 import { editBetTool } from "../../tools/edit-bet.js";
-import { ALL_TOOL_DEFINITIONS, toolsForRole } from "../../tools/tool-registry.js";
 import type { ToolContext } from "../../tools/tool-registry.js";
+import { ALL_TOOL_DEFINITIONS, toolsForRole } from "../../tools/tool-registry.js";
 
 const NOW = "2026-06-15T00:00:00.000Z";
 
@@ -111,9 +113,7 @@ describe("AK4 AC3b: buildAssistantDraftRegistry — exactly 2 tools, no commit/k
 // ── resolveDraftTeamId unit ───────────────────────────────────────────────────
 
 describe("AK4 resolveDraftTeamId: two-hop users.teamId → teamMembers.teamId = teams.id", () => {
-	test("resolves users.teamId (teamMembers.id) → teamMembers.teamId (teams.id)", async ({
-		db,
-	}) => {
+	test("resolves users.teamId (teamMembers.id) → teamMembers.teamId (teams.id)", async ({ db }) => {
 		const TEAM_ID = "team-resolve-test";
 		const TM_ID = "tm-resolve-test";
 		const USER_ID = "u-resolve-test";
@@ -192,10 +192,7 @@ describe("AK4 Task 5: edit_bet draft-only guard", () => {
 		});
 
 		const ctx = makeContext(db);
-		const result = await editBetTool.handler(
-			{ betId: BET_ID, description: "Attempted edit" },
-			ctx,
-		);
+		const result = await editBetTool.handler({ betId: BET_ID, description: "Attempted edit" }, ctx);
 
 		expect(result.status).toBe("error");
 
@@ -282,9 +279,7 @@ describe("AK4 team-inject unit: create_bet wrapper hard-injects resolvedTeamId",
 		expect(bet!.teamId).toBe(TEAM_ID);
 	});
 
-	test("create_bet via registry with undefined resolvedTeamId → returns error", async ({
-		db,
-	}) => {
+	test("create_bet via registry with undefined resolvedTeamId → returns error", async ({ db }) => {
 		const ctx = makeContext(db);
 		const registry = buildAssistantDraftRegistry(ctx, {
 			resolvedTeamId: undefined, // no team

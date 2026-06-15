@@ -15,16 +15,16 @@
  */
 
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
-import { type HarnessEvent, EventBus } from "@hyperidle/shared";
+import type {} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
+import type { LlmResponse } from "../../harness/llm-types.js";
 import type { AssistantTurnDeps } from "../../services/assistant-turn.js";
 import { runAssistantTurn } from "../../services/assistant-turn.js";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { test } from "../../test-fixtures.js";
-import type { LlmResponse } from "../../harness/llm-types.js";
 
 // ── Mock callLlm at network boundary ─────────────────────────────────────────
 // Same seam as builtin-harness-adapter.test.ts.
@@ -40,13 +40,6 @@ const callLlmMock = vi.mocked(callLlm);
 const NOW = "2026-06-15T00:00:00.000Z";
 const TEAM_ID = "team-ak4-test";
 const TEAM_MEMBER_ID = "tm-ak4-test";
-
-const RESOLVED_MODEL = {
-	provider: "anthropic" as const,
-	model: "claude-sonnet-4-6",
-	apiKey: "sk-test-ak4",
-	baseUrl: "https://api.anthropic.com",
-};
 
 /** LlmResponse with text end_turn */
 function makeTextResponse(text: string, inputTokens = 100, outputTokens = 50): LlmResponse {
@@ -97,9 +90,7 @@ async function seedTeamAndUser(
 	userId: string,
 ): Promise<void> {
 	// Team
-	await db
-		.insert(teams)
-		.values({ id: TEAM_ID, name: "AK4 Team", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: TEAM_ID, name: "AK4 Team", phase: "build", createdAt: NOW });
 	// TeamMembers group (agent membership group)
 	await db.insert(teamMembers).values({
 		id: TEAM_MEMBER_ID,
@@ -215,15 +206,10 @@ describe("AK4 AC1: text-only turn → plain reply persisted + thread_message_app
 
 		// Assert: ast-* plain reply persisted
 		const { messages } = await import("@hyperidle/db");
-		const allMsgs = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, threadId));
+		const allMsgs = await db.select().from(messages).where(eq(messages.threadId, threadId));
 
 		const replyMsg = allMsgs.find(
-			(m) =>
-				m.senderId === "ast-u-ak4-ac1" &&
-				!JSON.parse(m.payload).notice,
+			(m) => m.senderId === "ast-u-ak4-ac1" && !JSON.parse(m.payload).notice,
 		);
 		expect(replyMsg).toBeDefined();
 
@@ -311,15 +297,10 @@ describe("AK4 AC2: create_bet tool_use → bets row status=draft + payload.toolC
 
 		// Assert: persisted reply has payload.toolCalls with create_bet ok + parseable betId
 		const { messages } = await import("@hyperidle/db");
-		const allMsgs = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, threadId));
+		const allMsgs = await db.select().from(messages).where(eq(messages.threadId, threadId));
 
 		const replyMsg = allMsgs.find(
-			(m) =>
-				m.senderId === "ast-u-ak4-ac2" &&
-				!JSON.parse(m.payload).notice,
+			(m) => m.senderId === "ast-u-ak4-ac2" && !JSON.parse(m.payload).notice,
 		);
 		expect(replyMsg).toBeDefined();
 
@@ -581,16 +562,15 @@ describe("AK4 AC4: second turn edit_bet → same betId mutated, bet count stays 
 
 		// Assert: reply has toolCalls with edit_bet ok
 		const { messages } = await import("@hyperidle/db");
-		const allMsgs = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, threadId));
+		const allMsgs = await db.select().from(messages).where(eq(messages.threadId, threadId));
 
-		const editReply = allMsgs.findLast(
-			(m) =>
-				m.senderId === "ast-u-ak4-ac4" &&
-				!JSON.parse(m.payload).notice,
-		);
+		// Find last assistant reply (reverse the array then use find)
+		const editReply = [...allMsgs]
+			.reverse()
+			.find(
+				(m) =>
+					m.senderId === "ast-u-ak4-ac4" && !(JSON.parse(m.payload) as { notice?: unknown }).notice,
+			);
 		expect(editReply).toBeDefined();
 		const editPayload = JSON.parse(editReply!.payload) as {
 			toolCalls?: Array<{ name: string; status: string }>;
@@ -664,15 +644,10 @@ describe("AK4 AC4-loop-bound: tool-use cap at MAX_TOOL_ITERATIONS=3, never-silen
 
 		// (b) a plain reply IS persisted (never-silent invariant)
 		const { messages } = await import("@hyperidle/db");
-		const allMsgs = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, threadId));
+		const allMsgs = await db.select().from(messages).where(eq(messages.threadId, threadId));
 
 		const replyMsg = allMsgs.find(
-			(m) =>
-				m.senderId === "ast-u-ak4-loop" &&
-				!JSON.parse(m.payload).notice,
+			(m) => m.senderId === "ast-u-ak4-loop" && !JSON.parse(m.payload).notice,
 		);
 		expect(replyMsg).toBeDefined();
 

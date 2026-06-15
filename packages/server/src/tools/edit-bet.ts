@@ -35,6 +35,15 @@ async function handler(
 		return { status: "error", message: `Bet not found: ${input.betId}` };
 	}
 
+	// @lore AK4 Task 5: draft-only guard — the assistant may only edit a bet while
+	// it is still in draft status. Once committed (active), completed, or killed,
+	// the bet is immutable from the conversational turn. Belt-and-suspenders with the
+	// transcript-binding liveness check (resolveCurrentDraftBetId never rebinds a
+	// committed bet), but this guard prevents any cross-path bypass.
+	if (existing.status !== "draft") {
+		return { status: "error", message: "Can only edit a draft bet." };
+	}
+
 	const updates: Partial<{
 		description: string;
 		doneCondition: string | null;
