@@ -44,10 +44,10 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
 /**
- * Default soul prompt for new assistant agents.
+ * Builtin soul prompt for new assistant agents.
  * Used when an assistant agent is lazy-created with no existing soulPrompt.
  */
-const DEFAULT_SOUL_PROMPT =
+const BUILTIN_SOUL_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 /**
@@ -238,7 +238,7 @@ async function runTurnInternal(
 			harnessType: "builtin",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
-			soulPrompt: DEFAULT_SOUL_PROMPT,
+			soulPrompt: BUILTIN_SOUL_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});
@@ -258,7 +258,7 @@ async function runTurnInternal(
 
 	const harnessType = agentRow.harnessType ?? "builtin";
 	const modelProvider = agentRow.modelProvider ?? "anthropic";
-	const soulPromptText = agentRow.soulPrompt ?? DEFAULT_SOUL_PROMPT;
+	const soulPromptText = agentRow.soulPrompt ?? BUILTIN_SOUL_PROMPT;
 
 	// --- Step 2: Resolve model + credential ---
 	// For the builtin harness, we need an API key. Check via credential resolver if available.

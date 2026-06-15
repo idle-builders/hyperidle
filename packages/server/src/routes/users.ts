@@ -20,7 +20,7 @@ import {
  * The canonical persona text written at registration + lazy-create time.
  * Editors use PATCH /api/users/:id/assistant to update it.
  */
-const DEFAULT_ASSISTANT_SOUL_PROMPT =
+const BUILTIN_ASSISTANT_SOUL_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -160,7 +160,7 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 			harnessType: "builtin",
 			modelId: DEFAULT_AGENT_MODEL_ID,
 			modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-			soulPrompt: DEFAULT_ASSISTANT_SOUL_PROMPT,
+			soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		});

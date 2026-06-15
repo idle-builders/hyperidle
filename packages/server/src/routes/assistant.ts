@@ -35,7 +35,7 @@ import {
  * to match what registration creates. Without this, a test user seeded directly
  * into the DB (bypassing registration) would get a null-harness assistant agent.
  */
-const DEFAULT_ASSISTANT_SOUL_PROMPT =
+const BUILTIN_ASSISTANT_SOUL_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 import { and, eq } from "drizzle-orm";
@@ -310,7 +310,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				harnessType: "builtin",
 				modelId: DEFAULT_AGENT_MODEL_ID,
 				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				soulPrompt: DEFAULT_ASSISTANT_SOUL_PROMPT,
+				soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
@@ -403,7 +403,7 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				harnessType: "builtin",
 				modelId: DEFAULT_AGENT_MODEL_ID,
 				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				soulPrompt: DEFAULT_ASSISTANT_SOUL_PROMPT,
+				soulPrompt: BUILTIN_ASSISTANT_SOUL_PROMPT,
 				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
