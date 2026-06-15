@@ -28,13 +28,14 @@ A stateless DS primitive that owns the title treatment + pinning + bottom rule. 
 **Props / slots:**
 | Prop | Type | Role |
 |---|---|---|
-| `title` | `ReactNode` (required) | Rendered as `<h2>` with the title treatment. Truncates on overflow. |
+| `title` | `ReactNode` (required) | Rendered as a heading with the title treatment (tag set by `level`, default `<h1>`). Truncates on overflow. |
+| `level` | `1 \| 2?` | Heading level for the title's DOM tag. **Default `1`** — a page title is the top of the document outline, so the page's PageHeader title is its single `<h1>`. Pass `2` only for a sub-page whose title is NOT the document's top heading. **No migrated page needs `2`.** AMENDMENT (Phase-4 review): replaces the earlier "always `<h2>`" rule, which broke two protected `level: 1` assertions (WorkTeam, WorkRoutine) and left migrated pages with no h1. The visual treatment is level-invariant — `pageTitleClassName` (20px/600/-0.01em) is identical for both; only the tag changes. |
 | `leading` | `ReactNode?` | Breadcrumb / nav cluster row above the title. Wrapped in `mb-[6px]` when present. |
 | `subtitle` | `ReactNode?` | Meta line below the title row (e.g. "Phase: build · Lead: Dana"). |
 | `actions` | `ReactNode?` | Trailing cluster on the title row (StatusChip, Buttons). |
 | `data-testid` | `string?` | Passthrough for page-level test hooks. |
 
-- Renders semantic `<header>`. Spreads `dsProps("PageHeader", "1")`.
+- Renders semantic `<header>` wrapping the title heading (`<h1>` by default, `<h2>` when `level={2}`). Spreads `dsProps("PageHeader", "1")`.
 - Page injects `Breadcrumb`/`NavHistoryCluster`/`StatusChip`/`Button` as nodes — PageHeader imports none of them (stays router-agnostic + dependency-free, mirroring `Breadcrumb`'s `LinkComponent` discipline).
 
 **States:**
@@ -54,7 +55,7 @@ The uppercase opener of a body section.
 | Prop | Type | Role |
 |---|---|---|
 | `label` | `ReactNode` (required) | The uppercase label text. |
-| `as` | `"h2" \| "h3" \| "h4"?` | Heading element for the document outline. Default `h3` (PageHeader title is the page's `h2`). Pages that use it as the top heading pass `as="h2"`. |
+| `as` | `"h2" \| "h3" \| "h4"?` | Heading element for the document outline. Default `h3` — a section opener nests below the page title (now the page's single `h1`, PageHeader default level=1). Pages that use SectionLabel as the top body heading (KnowledgeDetail sidebar) pass `as="h2"`. |
 | `trailing` | `ReactNode?` | Same-row trailing slot (a count, a "New"/"Create" button). |
 | `divider` | `boolean?` | Optional bottom rule. Default **false** (de-facto majority has no divider on the label); WorkTask/WorkBet pass `true`. |
 | `data-testid` | `string?` | Passthrough. |
@@ -62,6 +63,8 @@ The uppercase opener of a body section.
 - Spreads `dsProps("SectionLabel", "1")`. Renders the heading element named by `as`.
 
 **Rejected as essential, offered as knobs:** the bottom divider (optional, default off); the heading level (`as`, because document outline differs per page).
+
+> **AMENDMENT (Phase-4 review) — PageHeader heading level.** The original ratified rule "PageHeader title always renders `<h2>`" conflicted with reality on `origin/main`: WorkTeam (`WorkTeam.tsx:269`) and WorkRoutine (`WorkRoutine.tsx:196`) render their page title as `<h1>`, and two protected tests assert `level: 1` (`WorkRoutine.AA1.test.tsx:118` + `WorkProduct.test.tsx:121`, the renamed WorkTeam suite). Hardcoding `<h2>` would break both assertions and leave every migrated page with no `<h1>` (a page with no h1 is a poor a11y outline). **Resolution:** PageHeader gains `level?: 1 | 2`, **default `1`** — a page title is the top of its outline, so each primary page's PageHeader title is its single `<h1>`. The visual treatment is unchanged: `pageTitleClassName` (20px/600/-0.01em) is identical regardless of level; only the DOM tag swaps. **No migrated page needs a non-default level** — all ten title PageHeaders use the default `1`. SectionLabel's default stays `h3`.
 
 ### 4. Out of scope (stays inline, page-owned)
 - **Metric-tile labels** (11px/12px uppercase inside KeyValue tiles in WorkTask/WorkBet) — different scale + role; NOT SectionLabel. Untouched.
@@ -78,7 +81,7 @@ All ten adopt the scaffold + PageHeader; section-bearing pages adopt SectionLabe
 | `WorkTask.tsx` | conformant; `SECTION_TITLE` const | `<PageHeader>`; replace `SECTION_TITLE` const + usages with `<SectionLabel divider>`. Tile labels (11px) untouched. |
 | `Conversations.tsx` | conformant | `<PageHeader title=… subtitle=… actions=…>` (header has live-dot meta + actions). |
 | `KnowledgeList.tsx` | conformant | `<PageHeader title=… actions=…>`; filter pills stay. |
-| `KnowledgeDetail.tsx` | conformant (h1 title) | `<PageHeader title=… actions=…>` (title becomes h2); sidebar 12px labels → `<SectionLabel as="h2">` 13px. |
+| `KnowledgeDetail.tsx` | conformant (h1 title) | `<PageHeader title=… actions=…>` (title **stays h1** — PageHeader default level=1, so the existing h1 is preserved); sidebar 12px labels → `<SectionLabel as="h2">` 13px. |
 | `KnowledgeCreate.tsx` | **inline-style title on `<input>`** | Keep the editable `<input>`; its font/weight/tracking comes from the standard, not inline `style`. PageHeader's title slot accepts the `<input>` node, and the input composes the **exported `pageTitleClassName`** const (`className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}`) — the title treatment is owned by the primitive and shared by reference, not by a literal class fork. Actions slot holds Cancel/Create. (Architecture chose the exported-const affordance over a per-file lint exemption — see architecture.md §W1.) |
 | `WorkTeam.tsx` | **scroll-away header; `text-sm font-heading uppercase tracking-wider` title; `text-xs font-heading` sections; 5 return branches (loading + 3 error/not-found + populated)** | Adopt scaffold (root → `flex flex-col h-full` + scrolling body) **on EVERY return branch**; populated branch: `<PageHeader title={team.name} leading={Breadcrumb} subtitle={phase·lead} actions={StatusChip}>`; loading/error/not-found branches: scaffold + minimal `<PageHeader>` + body-hosted state; section `<h2>`s → `<SectionLabel>`. **AG1 owns the body composition below the header — coordinate.** |
 | `WorkRoutine.tsx` | **no pinned strip; `text-sm font-heading` title; `text-xs font-heading` sections; 4 return branches (loading + error + not-found + populated)** | Same scaffold + PageHeader + SectionLabel migration as WorkTeam, **applied to all 4 branches**. |
@@ -105,5 +108,5 @@ No Playwright golden PNGs, no Docker, no pixel diffs.
 
 ## Open questions for the architect
 - Exact gate mechanism for AC5 #2 (ESLint rule vs an existing grep-based check) — architecture decides; concept's hard rule #2 is the spec.
-- KnowledgeCreate: **RESOLVED (W1).** PageHeader exports a `pageTitleClassName` const (the canonical title class string the primitive's own `<h2>` uses). KnowledgeCreate passes its `<input>` as the `title` node and composes `pageTitleClassName` onto it. This is an exported reference, not a literal combo, so `no-handrolled-page-header` does not fire — no per-file config exemption, no new structural prop. Chosen over a config `ignores` exemption because it keeps the title treatment owned by the primitive (the whole point of AI7) and survives future editable-title pages.
+- KnowledgeCreate: **RESOLVED (W1).** PageHeader exports a `pageTitleClassName` const (the canonical title class string the primitive's own title heading — `<h1>` by default — uses). KnowledgeCreate passes its `<input>` as the `title` node and composes `pageTitleClassName` onto it. This is an exported reference, not a literal combo, so `no-handrolled-page-header` does not fire — no per-file config exemption, no new structural prop. Chosen over a config `ignores` exemption because it keeps the title treatment owned by the primitive (the whole point of AI7) and survives future editable-title pages.
 - Mobile: pages already render in the three-tab mobile shell; PageHeader inherits the same strip. No mobile-specific adaptation beyond what pages do today (the `leading` cluster already hides on mobile via `sidebarMobile` checks the page owns).

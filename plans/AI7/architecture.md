@@ -17,6 +17,7 @@
 | `SectionHeader` name | Private file-local component in `Sidebar.tsx` (nav cluster). | Use `SectionLabel` (concept-chosen) to avoid confusion. No DS export collision. |
 | KnowledgeCreate title is inline-style on `<input>` (editable title) | Confirmed (KnowledgeCreate.tsx:125–147 `style={{fontSize:20,fontWeight:600,letterSpacing:"-0.01em",...}}` on the title `<input>`). An editable title can't be an `<h2>`, and applying the raw `text-[20px] font-[600] tracking-[-0.01em]` literal to the page-owned `<input>` would trip `no-handrolled-page-header` (the combo on a non-`PageHeader` element). | **Affordance (chosen over a per-file lint exemption — cleaner, keeps the title treatment owned by the primitive):** `PageHeader.tsx` exports a `pageTitleClassName` const = the canonical title class string (`text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate`). The primitive's own `<h2>` is rendered with this exact const. KnowledgeCreate passes its `<input>` as the `title` node and sets `className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}`; inline `style` font props removed. `no-handrolled-page-header` treats a `className` that references the imported `pageTitleClassName` identifier as compliant (it only flags the **literal** combo on a non-`PageHeader` element) — so the editable input composes the primitive's style without a literal fork and without a config exemption. See AC3(c) note + design/approved.md §KnowledgeCreate. |
 | `dsProps` signature | `dsProps(name, "0"|"1"|"2")` from `ds-attrs.ts`. | Both primitives spread `dsProps("PageHeader"|"SectionLabel", "1")`. |
+| Design ratified PageHeader title = always `<h2>` | **Conflict (Phase-4 review):** WorkTeam (`WorkTeam.tsx:269`) + WorkRoutine (`WorkRoutine.tsx:196`) render the page title as `<h1>`; two protected tests assert `level: 1` (`WorkRoutine.AA1.test.tsx:118`, `WorkProduct.test.tsx:121`). Always-`<h2>` would break both AND leave migrated pages with no h1 (poor a11y outline). | **AMENDMENT — `PageHeader` gains `level?: 1 \| 2`, default `1`.** A page title is the top of its outline → it is the page's single `<h1>`. Default 1 preserves both protected assertions verbatim. Treatment is level-invariant (`pageTitleClassName` identical for h1/h2; only the tag swaps). No migrated page needs `level={2}` — all ten use the default. |
 | `require-stories-sibling` + `require-ds-attribute` are error on DS src | Confirmed (eslint.config.ts:218–219). | Each primitive ships a sibling `.stories.tsx` + the `data-ds-*` marker — satisfied by design. |
 
 No spec→codebase gap requires a migration/scaffold step beyond what's listed. No schema, route, or table involved.
@@ -28,7 +29,7 @@ No spec→codebase gap requires a migration/scaffold step beyond what's listed. 
 | AC1 | One title treatment + one section treatment across primary pages; no per-page font-size/tracking forks; no undefined utility classes. | (a) `npm run check` green. (b) `design/no-undefined-font-heading` lint rule: **error on `packages/web/src/pages/**`, `warn` on the rest of `packages/web/src/**`**. The `font-heading` arm (undefined utility — a real defect anywhere) fires across web src; the `tracking-wider` arm (valid utility, only a deviation on the title/section scale) fires **only inside `pages/**`**. A RuleTester unit test asserts: flags `font-heading`; flags `tracking-wider` for a `pages/**` filename and passes it for a non-`pages` filename; passes clean code. (c) The two primitives' snapshot variants pin the exact treatment. |
 | AC2 | One scroll rule (pinned header + scrolling body) on **every primary page and every return branch of it** (loading / error / not-found / populated). | Component test (`PageHeader.test.tsx`) asserts the rendered `<header>` carries `shrink-0`. The multi-branch pages (WorkTeam 5 branches, WorkRoutine 4, AgentProfile 4) must adopt the scaffold on EVERY return branch (tasks 18–20) — not just the happy path. Verification: where existing per-page component tests already render the loading/error/not-found branch (e.g. WorkRoutine.AA1, AppShell tests), assert the branch root still mounts the scaffold + a pinned `<header>` / `data-testid` page root; add a branch-rendering assertion to the page test if absent. Pinned-vs-scroll-away is a structural property → enforced by the migration (each branch root = `flex flex-col h-full`) + reviewed in the diff. |
 | AC3 | Header anatomy as catalogued, story-backed DS primitives; repeated header class strings gone from page files; a new page composes the primitive. | (a) `PageHeader.tsx` + `SectionLabel.tsx` exported from `packages/design-system/src/index.ts` (typecheck proves importable). (b) `*.stories.tsx` siblings exist → `require-stories-sibling` (error) + auto-enumerated by the snapshot net. (c) `design/no-handrolled-page-header` lint rule (error on `pages/**`, with `SettingsPage.tsx` + `SetupFlow.tsx` exempted via the block's `ignores` — see task 10) flags inline title strings (`text-[20px] font-[600] tracking-[-0.01em]` outside a `PageHeader`) — RuleTester unit test. |
-| AC4 | No regression to any page's content, actions, navigation. | Existing per-page component tests (`WorkBet.*.test.tsx`, `WorkTask.*`, `WorkRoutine.AA1.test.tsx`, `AppShell.*`, etc.) stay green unchanged. `data-testid`s preserved on every page root + every action. Run `npm run test` + `npm run test:integration`. |
+| AC4 | No regression to any page's content, actions, navigation. | Existing per-page component tests (`WorkBet.*.test.tsx`, `WorkTask.*`, `WorkRoutine.AA1.test.tsx`, `WorkProduct.test.tsx` [= the renamed WorkTeam suite], `AppShell.*`, etc.) stay green unchanged. **Two of them assert the page title is `level: 1` — `WorkRoutine.AA1.test.tsx:118` and `WorkProduct.test.tsx:121` (`getByRole("heading", { level: 1 })`); the PageHeader default level=1 preserves both without touching the assertions.** `data-testid`s preserved on every page root + every action. Run `npm run test` + `npm run test:integration`. |
 | AC5 | Cross-page consistency proven by a visual sweep — **DOM-snapshot net, not Playwright**. | (a) `PageHeader` + `SectionLabel` stories auto-enumerate into `catalog-snapshot.test.tsx`; committed `.snap` is the canonical serialized treatment. (b) Enumeration guard bumped `>= 56` → `>= 58` at both numeric sites AND the message-template string + test-name string updated to read "58 / 51 root" (see task 6); `npm run test` proves the new count. (c) `no-undefined-font-heading` (error on `pages/**`, warn elsewhere) + `no-handrolled-page-header` (error on `pages/**`, Settings/SetupFlow exempt) prove adoption: zero forks remain on the 10 migrated pages. (d) Live TSX viewer at :8098 for the design-critique eyeball. |
 
 ## Type signatures / contracts
@@ -36,8 +37,21 @@ No spec→codebase gap requires a migration/scaffold step beyond what's listed. 
 ```ts
 // packages/design-system/src/PageHeader.tsx
 export interface PageHeaderProps {
-  /** Page title. Rendered as <h2> with the canonical title treatment; truncates on overflow. */
+  /** Page title. Rendered with the canonical title treatment; truncates on overflow.
+   *  Tag is `level` (default 1) — see `level` below. */
   title: ReactNode;
+  /**
+   * Heading level for the title's DOM tag: `<h1>` or `<h2>`. Default **1**.
+   * AMENDMENT (Phase-4 review): a page title is the top of the document outline, so the
+   * primitive's title must be the page's single `<h1>` by default. The earlier "always <h2>"
+   * rule broke the protected `level: 1` assertions (WorkRoutine.AA1:118, WorkProduct.test.tsx:121)
+   * and left migrated pages with no h1. The class string (`pageTitleClassName`) is identical for
+   * both levels — ONLY the tag changes, never the visual treatment (20px/600/-0.01em).
+   * Default 1 = every primary page's title is its single h1. Pass `level={2}` only for a page
+   * whose title is NOT the document's top heading (a sub-page nested under another h1).
+   * NO migrated page needs level=2 today — all ten title PageHeaders use the default (level 1).
+   */
+  level?: 1 | 2;
   /** Orientation row above the title (Breadcrumb + NavHistoryCluster). Injected by the page. */
   leading?: ReactNode;
   /** Meta line below the title row (e.g. "Phase: build · Lead: Dana"). */
@@ -63,10 +77,13 @@ export interface SectionLabelProps {
   label: ReactNode;
   /**
    * Heading element for the document outline. Default "h3".
-   * RECONCILED: concept.md floated "h2" as the default; architecture sets the default to
-   * "h3" because the PageHeader title is the page's single h2 — a section opener nests one
-   * level below it. Pages where SectionLabel IS the top heading (KnowledgeDetail sidebar)
-   * pass as="h2" explicitly. h3 is the canonical default; design/approved.md already agrees.
+   * RECONCILED + AMENDED: concept.md floated "h2" as the default; architecture keeps the default
+   * "h3" because a section opener nests one level below the page title. With the Phase-4 amendment
+   * the page title is now the single `<h1>` (PageHeader default level=1), so a section's `<h3>`
+   * sits one level under an implied `<h2>` band — outline order h1 (title) › h2/h3 (sections) is
+   * preserved; the absolute number is less load-bearing than "below the title". Pages where
+   * SectionLabel IS the top body heading (KnowledgeDetail sidebar) pass as="h2" explicitly.
+   * h3 stays the canonical default; design/approved.md agrees.
    */
   as?: "h2" | "h3" | "h4";
   /** Same-row trailing slot (count, "New"/"Create" button). */
@@ -81,7 +98,7 @@ export function SectionLabel(props: SectionLabelProps): JSX.Element;
 
 **Encoded class strings (final, token-corrected):**
 - PageHeader strip: `shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]`
-- PageHeader title: `text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate` — exported as the `pageTitleClassName` const; the primitive's `<h2>` and KnowledgeCreate's editable `<input>` both use this identifier (no literal fork)
+- PageHeader title: `text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate` — exported as the `pageTitleClassName` const; the primitive's title element (`<h1>` by default, `<h2>` when `level={2}`) and KnowledgeCreate's editable `<input>` all use this identifier (no literal fork). **The class string is level-invariant — `level` swaps the tag only, never the treatment.**
 - PageHeader title row: `flex items-center justify-between gap-[12px]`
 - PageHeader actions: `flex items-center gap-[9px] shrink-0`
 - PageHeader subtitle: `mt-[3px] text-[13px] text-[var(--text-tertiary)]`
@@ -89,13 +106,13 @@ export function SectionLabel(props: SectionLabelProps): JSX.Element;
 - SectionLabel row: `flex items-center justify-between gap-[12px]` + (`mb-[9px]` | with divider `pb-[6px] mb-[9px] border-b border-[var(--border-subtle)]`)
 - SectionLabel label: `text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]`  ← **token form, not `tracking-[0.06em]`** (no-hardcoded-tracking is error on DS src)
 
-Both spread `dsProps("PageHeader"|"SectionLabel", "1")` on the outermost element. PageHeader renders `<header>`; SectionLabel renders the `as` element (default `h3`).
+Both spread `dsProps("PageHeader"|"SectionLabel", "1")` on the outermost element. PageHeader renders `<header>` wrapping a title heading whose tag is `h1` (default) or `h2` (when `level={2}`); SectionLabel renders the `as` element (default `h3`).
 
 ## Ordered task list
 
 **Phase A — primitives (red → green).**
 0. (Red-phase precheck) Builder confirms `tracking-[-0.01em]` is on the negative-em allowlist of `design/no-hardcoded-tracking` (the rule forbids positive-em literals like `tracking-[0.06em]`, requiring the token, but negative-em title kerning is allowlisted). Verify by reading the rule's allowlist before writing `PageHeader.tsx`; if the allowlist is absent, the title kerning must move to a token — but per current rule source it is allowlisted, so the literal stays. This is the only literal-em the primitives carry; SectionLabel caps use `tracking-[var(--tracking-caps-sm)]`.
-1. `packages/design-system/src/PageHeader.tsx` — implement per contract. Export `pageTitleClassName` const (W1) and render the `<h2>` with it. + `PageHeader.test.tsx` (component test: title renders as h2 with treatment; `shrink-0` present; leading/subtitle/actions slots render when passed, omitted when not; long title truncates; `data-testid` passthrough).
+1. `packages/design-system/src/PageHeader.tsx` — implement per contract. Export `pageTitleClassName` const (W1) and render the title element with it. **`level?: 1 | 2`, default 1 (AMENDMENT):** the title tag is `<h1>` by default, `<h2>` when `level={2}`; `pageTitleClassName` is applied identically for both — only the tag name changes. + `PageHeader.test.tsx` (component test: title renders at `role="heading", level: 1` by default with treatment; `level={2}` → level 2 with the SAME class string; `shrink-0` present; leading/subtitle/actions slots render when passed, omitted when not; long title truncates; `data-testid` passthrough).
 2. `packages/design-system/src/PageHeader.stories.tsx` — `default { title: "PageHeader", tier: "1" }`; variants: `TitleOnly`, `WithBreadcrumbAndActions`, `WithSubtitle`, `LongTitleTruncates`. (Stub Breadcrumb/Button as plain nodes, mirroring `Breadcrumb.stories.tsx`.)
 3. `packages/design-system/src/SectionLabel.tsx` + `SectionLabel.test.tsx` (label renders; `as` controls element; `trailing` renders; `divider` toggles the border classes; caps token present).
 4. `packages/design-system/src/SectionLabel.stories.tsx` — variants: `Default`, `WithTrailing`, `WithDivider`, `AsH2`.
@@ -125,11 +142,11 @@ Both spread `dsProps("PageHeader"|"SectionLabel", "1")` on the outermost element
 13. `WorkTask.tsx` — `<PageHeader>`; remove `SECTION_TITLE` const, replace usages with `<SectionLabel divider>`. Tile labels (11px) untouched.
 14. `Conversations.tsx` — `<PageHeader title subtitle actions>` (two header sites: list + thread branch).
 15. `KnowledgeList.tsx` — `<PageHeader title actions>`; filter pills stay.
-16. `KnowledgeDetail.tsx` — `<PageHeader title actions>` (h1→h2 via primitive); sidebar 12px labels → `<SectionLabel as="h2">`.
+16. `KnowledgeDetail.tsx` — `<PageHeader title actions>` (title stays `<h1>` — PageHeader default level=1, so the existing h1 title is preserved, not downgraded); sidebar 12px labels → `<SectionLabel as="h2">`.
 17. `KnowledgeCreate.tsx` — `<PageHeader>` with the title `<input>` as the `title` node. Drop the inline font `style` block (L134–146); set `className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}` on the `<input>` (import `pageTitleClassName` from the design system). Cancel/Create in `actions`. Preserve `data-testid="knowledge-create-title"` + `aria-label`. Per W1, the `pageTitleClassName` reference is an expression, not the literal combo, so `no-handrolled-page-header` does not fire.
 18. `WorkTeam.tsx` — **EVERY return branch adopts the scaffold (`flex flex-col h-full` + `flex-1 overflow-y-auto` body), not just the happy path.** WorkTeam has 5 return branches: loading (≈L110), three error/not-found branches (≈L126, L149, L167), and the populated branch (≈L180). Each must root the scaffold so AC2 (pinned header + scrolling body) holds for loading/error/not-found, not only the happy case — otherwise those states render scroll-away/headerless and AC2 fails. The populated branch gets `<PageHeader title={team.name} leading={Breadcrumb+NavHistoryCluster} subtitle={phase·lead} actions={StatusChip}>`; the loading/error branches get a minimal `<PageHeader title="Team" />` (or the existing branch's title) inside the scaffold, with the EmptyState/spinner in the scrolling body. Section `<h2>`s → `<SectionLabel>`. **Header + scaffold only — AG1 owns body composition. Coordinate; do not restructure the populated body.** Preserve every branch's `data-testid` (AC4).
 19. `WorkRoutine.tsx` — same scaffold + PageHeader + SectionLabel migration. **All 4 return branches adopt the scaffold:** loading (≈L67), error (≈L76), not-found (≈L84), populated (≈L176). Loading/error/not-found branches root the scaffold with a minimal PageHeader + body-hosted state; populated branch gets the full PageHeader. AC2 must hold for every branch.
-20. `AgentProfile.tsx` — add scaffold + `<PageHeader title={agent name}>` (identity block stays in body); section h2s (`text-[11px] font-heading`) → `<SectionLabel>`. **All 4 return branches adopt the scaffold:** loading (≈L86), two error/not-found branches (≈L101, L119), populated (≈L150). Loading/error/not-found root the scaffold with a minimal PageHeader (title="Agent" or branch title) + body-hosted state; populated gets the agent-name PageHeader. AC2 must hold for every branch.
+20. `AgentProfile.tsx` — add scaffold + `<PageHeader title={agent name}>` (default level=1 → agent name is the page's single h1; identity block stays in body). **Drop the identity-block name at `AgentProfile.tsx:200` from `<h1>` (15px) to `<h2>`/`<h3>` so it doesn't compete with the new page-title h1** (no test asserts its level — free outline fix). Section h2s (`text-[11px] font-heading`) → `<SectionLabel>`. **All 4 return branches adopt the scaffold:** loading (≈L86), two error/not-found branches (≈L101, L119), populated (≈L150). Loading/error/not-found root the scaffold with a minimal PageHeader (title="Agent" or branch title) + body-hosted state; populated gets the agent-name PageHeader. AC2 must hold for every branch.
 
 **Phase E — verify.**
 21. `npm run check && npm run lint && npm run test && npm run test:integration` all green. Confirm `git grep -nE "font-heading|tracking-wider" packages/web/src/pages` returns nothing. Confirm both gates fire (toggle-test in RuleTester already proves this).
@@ -159,9 +176,10 @@ Presentational-only change; no new trust boundary. XSS surface unchanged — slo
 - No testid renames. Every page root keeps its `data-testid` (`work-team-page`, `work-routine-page`, `agent-profile-page`, etc.) so existing component/e2e tests stay green. Breadcrumb testIds (`team-breadcrumb-back`, `routine-breadcrumb-back`) preserved (passed through `leading`).
 
 ## protectedTests
-- `packages/web/src/__tests__/WorkRoutine.AA1.test.tsx`
+- `packages/web/src/__tests__/WorkRoutine.AA1.test.tsx` — **asserts `level: 1` title (line 118). PageHeader default level=1 preserves it.**
+- `packages/web/src/__tests__/WorkProduct.test.tsx` — **the renamed WorkTeam suite (`describe("WorkTeam")`, `work-team-page` testid); asserts `level: 1` title (line 121). PageHeader default level=1 preserves it.** (AMENDMENT: this file was missing from the list; it carries the second protected h1 assertion and was the half of the Phase-4 conflict the "always h2" rule would have silently broken.)
 - `packages/web/src/__tests__/AppShell.*.test.tsx` (all)
-- Any existing `WorkBet`/`WorkTask`/`KnowledgeDetail`/`Conversations` component tests asserting page content/actions/nav.
+- Any existing `WorkBet`/`WorkTask`/`KnowledgeDetail`/`Conversations` component tests asserting page content/actions/nav. (KnowledgeDetail + Conversations assert title by **text**, not heading level — confirmed no `level:` assertion — so a tag change would be safe there even if one occurred; none does, both keep level 1 / 2 unchanged.)
 These assert content/behavior that AC4 forbids regressing — their assertions must NOT change. New primitive tests + new RuleTester tests are additive.
 
 ## sharedFiles
@@ -185,4 +203,5 @@ These assert content/behavior that AC4 forbids regressing — their assertions m
 - **R1 (highest):** `WorkTeam.tsx` overlap with AG1. If AG1 lands first with a recomposed body, AI7 wraps that body in the scaffold + PageHeader. If AI7 lands first, AG1 rebases its body changes inside AI7's `flex-1 overflow-y-auto`. Mitigation: AI7 touches only the header + scaffold root on WorkTeam; the body JSX is left structurally intact for AG1.
 - **R2:** `no-handrolled-page-header` false-positives. Two known surfaces, both handled: (1) legitimately different 20px headings — mitigated by scoping the signature to the full *combination* (`text-[20px]`+`font-[600]`+`tracking-[-0.01em]`), uniquely the page-title; RuleTester negative case covers a 20px non-title heading. (2) `SettingsPage.tsx` (AG7) + `SetupFlow.tsx` (onboarding) carry the exact combo but are out of AI7's migration scope — exempted via `eslint.config.ts` block `ignores` (task 10). (3) KnowledgeCreate's editable `<input>` composes `pageTitleClassName` (an identifier expression, not the literal) → does not fire (W1, task 8 negative case). RuleTester covers all three negatives.
 - **R3:** Conversations has two header render sites (list + thread); both must migrate or the gate flags one. Phase D task 14 covers both.
-- **R4:** AgentProfile has no current page-title header; adding one changes its top structure. Mitigation: PageHeader title = agent name; the existing identity block (avatar + meta) stays as the first body section, not in the header. Verify against `AgentProfile` component test (AC4).
+- **R4:** AgentProfile has no current page-title header; adding one changes its top structure. Mitigation: PageHeader title = agent name; the existing identity block (avatar + meta) stays as the first body section, not in the header. The identity-block name at `AgentProfile.tsx:200` is currently `<h1>` (15px) but is NOT the page title — once the PageHeader (`<h1>`, level=1) becomes the page's top heading, the identity name should drop to `<h2>`/`<h3>` to avoid two competing h1s. (No AgentProfile test asserts a heading level — confirmed no test file — so this is a free outline correction, not a protected-test risk.)
+- **R5 (AMENDMENT — Phase-4 design-contract conflict, resolved):** Design ratified PageHeader title as always `<h2>`, but WorkTeam/WorkRoutine render `<h1>` and two protected tests assert `level: 1` (one of which, `WorkProduct.test.tsx`, was missing from the original protectedTests list). Resolution: `PageHeader` gains `level?: 1 | 2`, default `1`; the title is the page's single h1 by default; the visual treatment is level-invariant. All ten migrated pages use the default. The builder MUST: (1) implement `level` with default 1; (2) keep `pageTitleClassName` on the title element regardless of level; (3) add a `PageHeader.test.tsx` assertion that the default title renders at `role="heading", level: 1` and that `level={2}` yields level 2 with the SAME class string; (4) leave both protected `level: 1` assertions untouched.
