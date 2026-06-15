@@ -158,8 +158,8 @@ describe("X4 AC: SettingsModels loading and error states", () => {
 
 		render(<SettingsModels />);
 
-		// Should show at least one skeleton element
-		const skeletons = document.querySelectorAll(".skeleton");
+		// Should show at least one skeleton element (SkeletonList renders role="status")
+		const skeletons = document.querySelectorAll('[role="status"]');
 		expect(skeletons.length).toBeGreaterThan(0);
 	});
 

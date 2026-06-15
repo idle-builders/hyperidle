@@ -191,8 +191,8 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		);
 		render(<SettingsAgents />);
 
-		// Should show loading skeletons
-		const skeletons = document.querySelectorAll(".skeleton");
+		// Should show loading skeletons (SkeletonList renders role="status")
+		const skeletons = document.querySelectorAll('[role="status"]');
 		expect(skeletons.length).toBeGreaterThan(0);
 	});
 

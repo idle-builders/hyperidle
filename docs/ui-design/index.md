@@ -18,4 +18,5 @@ Version 0.3 · Electron desktop app · Light / Dark / System (Hearth theme)
 - [Build order](./build-order.md)
 - [Relation to other docs](./relation-to-other-docs.md)
 - [Component budget](./component-budget.md)
+- [Settings consistency contract](./settings-consistency.md)
 

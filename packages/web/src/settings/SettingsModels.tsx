@@ -28,7 +28,7 @@
  * providers; other providers reject apiKey in the request body.
  */
 
-import { Select } from "@hyperidle/design-system";
+import { ErrorState, Input, Select, SkeletonList, StatusChip } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/shared";
 // hearth-internal-padding
 import { MODEL_PROVIDERS } from "@hyperidle/shared";
@@ -118,19 +118,17 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 	const hasCredentialStatus = config.provider === "openrouter" || config.provider === "anthropic";
 
 	return (
-		<div className="flex flex-col gap-3 p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="flex flex-col gap-[12px] p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex items-center gap-[12px] flex-wrap">
-				<span className="text-sm font-medium text-[var(--text-primary)] w-[80px] shrink-0">
+				<span className="text-[13px] font-medium text-[var(--text-primary)] w-[80px] shrink-0">
 					{tierLabel(tier)}
 				</span>
 
 				{/* Provider select */}
-				<div className="form-control flex-1 min-w-[140px]">
-					<label className="label" htmlFor={`${tier}-provider`}>
-						<span className="label-text text-[var(--text-secondary)] text-[12px]">Provider</span>
-					</label>
+				<div className="flex-1 min-w-[140px]">
 					<Select
 						id={`${tier}-provider`}
+						label="Provider"
 						size="sm"
 						value={config.provider}
 						onChange={(e) => onChange(tier, "provider", e.target.value)}
@@ -140,13 +138,11 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 				</div>
 
 				{/* Model input */}
-				<div className="form-control flex-1 min-w-[180px]">
-					<label className="label" htmlFor={`${tier}-model`}>
-						<span className="label-text text-[var(--text-secondary)] text-[12px]">Model</span>
-					</label>
+				<div className="flex-1 min-w-[180px]">
 					{config.provider === "anthropic" ? (
 						<Select
 							id={`${tier}-model`}
+							label="Model"
 							size="sm"
 							value={config.model}
 							onChange={(e) => onChange(tier, "model", e.target.value)}
@@ -154,10 +150,10 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 							options={KNOWN_ANTHROPIC_MODELS.map((m) => ({ value: m, label: m }))}
 						/>
 					) : (
-						<input
+						<Input
 							id={`${tier}-model`}
+							label="Model"
 							type="text"
-							className="input input-sm input-bordered"
 							value={config.model}
 							onChange={(e) => onChange(tier, "model", e.target.value)}
 							placeholder="e.g. anthropic/claude-sonnet-4"
@@ -166,59 +162,51 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 					)}
 				</div>
 
-				{/* Credential status dot for anthropic/openrouter */}
+				{/* Credential status chip for anthropic/openrouter.
+				 * @lore AG7: "No credential" uses neutral "unknown" visual (grey chip)
+				 * per design §1.9 (absence is not an error). StatusChip handles any
+				 * string not in KNOWN_STATUSES by rendering the "unknown" style —
+				 * this is the documented runtime escape hatch (StatusChip.tsx lore). */}
 				{hasCredentialStatus && (
-					<div className="flex items-center gap-[6px] self-end pb-[6px]">
-						<span
-							className={`inline-block w-2 h-2 rounded-full ${hasApiKey ? "bg-success" : "bg-warning"}`}
-							title={hasApiKey ? "Credential present" : "Credential not configured"}
+					<div className="self-end pb-[6px]">
+						<StatusChip
+							status={hasApiKey ? "healthy" : "unknown"}
+							label={hasApiKey ? "Credential set" : "No credential"}
 						/>
-						<span className="text-[12px] text-[var(--text-tertiary)]">
-							{hasApiKey ? "Credential set" : "No credential"}
-						</span>
 					</div>
 				)}
 			</div>
 
 			{/* openai-compatible: baseUrl and apiKey */}
 			{isOpenAiCompatible && (
-				<div className="flex flex-col gap-3 pl-[80px]">
-					<div className="form-control">
-						<label className="label" htmlFor={`${tier}-base-url`}>
-							<span className="label-text text-[var(--text-secondary)] text-[12px]">Base URL</span>
-						</label>
-						<input
-							id={`${tier}-base-url`}
-							type="url"
-							className="input input-sm input-bordered"
-							value={config.baseUrl}
-							onChange={(e) => onChange(tier, "baseUrl", e.target.value)}
-							placeholder="https://api.together.xyz/v1"
-							aria-label="Base URL"
-						/>
-					</div>
+				<div className="flex flex-col gap-[12px] pl-[80px]">
+					<Input
+						id={`${tier}-base-url`}
+						label="Base URL"
+						type="url"
+						value={config.baseUrl}
+						onChange={(e) => onChange(tier, "baseUrl", e.target.value)}
+						placeholder="https://api.together.xyz/v1"
+						aria-label="Base URL"
+					/>
 
-					<div className="form-control">
-						<label className="label" htmlFor={`${tier}-api-key`}>
-							<span className="label-text text-[var(--text-secondary)] text-[12px]">API Key</span>
-						</label>
-						<div className="flex items-center gap-[6px]">
-							<input
+					<div className="flex items-center gap-[6px]">
+						<div className="flex-1">
+							<Input
 								id={`${tier}-api-key`}
+								label="API Key"
 								type="password"
-								className="input input-sm input-bordered flex-1"
 								value={config.apiKey}
 								onChange={(e) => onChange(tier, "apiKey", e.target.value)}
 								placeholder={hasApiKey ? "Key stored — enter to replace" : "Enter API key"}
 								aria-label="API Key"
 							/>
-							{hasApiKey && (
-								<span
-									className="inline-block w-2 h-2 rounded-full bg-success shrink-0"
-									title="API key stored"
-								/>
-							)}
 						</div>
+						{hasApiKey && (
+							<div className="self-end pb-[3px]">
+								<StatusChip status="healthy" label="Stored" />
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -355,25 +343,24 @@ export function SettingsModels(): JSX.Element {
 	// ---------------------------------------------------------------------------
 
 	if (status === "loading") {
-		return (
-			<div className="flex flex-col gap-3">
-				<div className="skeleton h-[60px] w-full" />
-				<div className="skeleton h-[60px] w-full" />
-				<div className="skeleton h-[60px] w-full" />
-			</div>
-		);
+		return <SkeletonList rows={3} ariaLabel="Loading model config" />;
 	}
 
 	if (status === "error") {
 		return (
-			<p className="text-sm text-error">Failed to load model configuration. Please try again.</p>
+			<ErrorState
+				compact
+				title="Couldn't load model config"
+				description="Failed to load model configuration. Please try again."
+				onRetry={() => void loadConfig()}
+			/>
 		);
 	}
 
 	if (!editState) return <></>;
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex flex-col gap-[12px]">
 			{/* AH2: System default helper copy — clarifies scope */}
 			<p className="text-[12px] text-[var(--text-tertiary)]">
 				System default models. Used only when an agent has no per-agent model configured. Set
