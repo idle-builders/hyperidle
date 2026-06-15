@@ -21,18 +21,18 @@
  * non-NULL at the point we'd need to update it we short-circuit early (idempotency).
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, users, type User } from "@hyperidle/db";
+import fs from "node:fs";
+import path from "node:path";
+import { bets, type HyperIdleDb, tasks, teamMembers, type User, users } from "@hyperidle/db";
+import { checkCostCap } from "@hyperidle/fabric";
 import {
-	type DecompositionBlockerReason,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
+	type DecompositionBlockerReason,
 	type DecompositionTaskInput,
 	type EventBus,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { checkCostCap } from "@hyperidle/fabric";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import fs from "node:fs";
-import path from "node:path";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import type { CredentialResolver } from "./credential-resolver.js";
@@ -50,7 +50,9 @@ export interface BetDecompositionDeps {
 	/** Renamed from `workspace` per locked harness vocab (AK1). */
 	readonly sandbox: SandboxAdapter;
 	readonly sandboxBasePath: string;
-	readonly resolveModel?: (tier: string) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
+	readonly resolveModel?: (
+		tier: string,
+	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
 	readonly credentialResolver?: CredentialResolver;
 	/**
 	 * AC6: fast-timeout injection. Mirrors AssistantTurnDeps.turnTimeoutMs.
@@ -86,10 +88,7 @@ export interface BetDecompositionDeps {
  * (domain entity). The join goes: teams.id → teamMembers.teamId → teamMembers.id → users.teamId.
  * This mirrors the handoff-protocol.ts eligibility join (L184-202).
  */
-export async function findEligibleTeamAgents(
-	db: HyperIdleDb,
-	betTeamId: string,
-): Promise<User[]> {
+export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string): Promise<User[]> {
 	// 1. Resolve membership group IDs for this team (1:1 invariant in practice).
 	const memberGroups = await db
 		.select({ id: teamMembers.id })
@@ -104,11 +103,7 @@ export async function findEligibleTeamAgents(
 		.select()
 		.from(users)
 		.where(
-			and(
-				eq(users.kind, "ai"),
-				eq(users.status, "active"),
-				inArray(users.teamId, memberGroupIds),
-			),
+			and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, memberGroupIds)),
 		);
 
 	// 3. Filter to category='team' via the role catalog.
@@ -382,7 +377,12 @@ export async function runBetDecomposition(
 		}
 
 		// --- 7. Insert tasks → accepted ---
-		await insertProposedBetTasks({ db, eventBus }, { id: bet.id, teamId: bet.teamId }, eligible, taskList);
+		await insertProposedBetTasks(
+			{ db, eventBus },
+			{ id: bet.id, teamId: bet.teamId },
+			eligible,
+			taskList,
+		);
 		await markTerminal(db, betId, "done", null);
 	} finally {
 		// --- 8. rm scratch sandbox dir (best-effort) ---
@@ -416,7 +416,7 @@ async function runRealPmTurn(
 	scratchSandboxPath: string,
 	timeoutMs: number,
 ): Promise<DecompositionTaskInput[]> {
-	if (!deps.adapterPool || !deps.resolveModel) {
+	if (!(deps.adapterPool && deps.resolveModel)) {
 		throw new Error("adapterPool and resolveModel are required for the real PM turn");
 	}
 
@@ -438,8 +438,8 @@ async function runRealPmTurn(
 		throw new Error("No model resolved for PM decomposition");
 	}
 
-	const systemPrompt = pm.systemPrompt ??
-		"You are a product manager. Break down the provided bet into a task list.";
+	const systemPrompt =
+		pm.systemPrompt ?? "You are a product manager. Break down the provided bet into a task list.";
 
 	const userMessage = [
 		`**Bet goal:** ${bet.description}`,
