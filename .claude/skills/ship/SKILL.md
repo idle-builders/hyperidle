@@ -39,7 +39,25 @@ If there are merge conflicts, resolve them. If the only conflict is `.verify-att
 
 After resolving conflicts, commit the merge. The working tree must be **completely clean** before proceeding.
 
+### 2a. Docs-only fast-path (worktrack / pipeline / plans rewrites)
+
+If **every** changed file in the branch ends in `.md`, skip verify + attestation entirely — there is no runtime behavior to attest. CI knows this too: the required `npm run verify` check detects a docs-only diff and reports green in ~20s without running the suite (see `.github/workflows/ci.yml` "Detect docs-only change").
+
+Check the diff against the merge base:
+
+```bash
+git fetch origin main
+# any line that is NOT *.md → not docs-only → run the full flow (step 3 on)
+git diff --name-only origin/main...HEAD | grep -viE '\.md$' && echo "NOT docs-only" || echo "docs-only"
+```
+
+If **docs-only**: skip steps 3–4 (no `npm run verify`, no attestation commit). Go straight to step 5 (push) → step 6 (PR) → step 7 (CI green). The fast-path is conservative — a single non-`.md` file (code, `.yaml`, `.json`, `.jsonl`, lockfile, the workflow itself) means it is **not** docs-only and the full flow applies.
+
+If **not docs-only**: continue to step 3.
+
 ### 3. Pre-flight validation (MANDATORY — do not skip)
+
+> Skip this step and step 4 only on the docs-only fast-path (step 2a). Otherwise non-negotiable.
 
 ```bash
 npm run verify
@@ -181,6 +199,7 @@ gh pr checks <number>  # poll until green
 ## Rules
 
 - **Never ship failing verify** — fix first
+- **Docs-only fast-path is the ONLY skip of verify/attestation** — every changed file must end in `.md` (step 2a). One non-`.md` file forces the full flow.
 - **Never skip the merge-main step** — attestation conflicts are the #1 CI failure cause
 - **Never declare ship complete before CI is green** — local green is not enough
 - **Never `git add -A`** — stage specific files
