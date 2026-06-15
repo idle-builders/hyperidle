@@ -1,12 +1,12 @@
 /**
- * W3 — Work Pages AC-13 through AC-25: Red phase tests.
+ * W3 — Work Pages surviving tests (AD9 migration).
  *
- * AC-13: Status filter tabs (All/Active/Completed/Draft) as horizontal pills in portfolio header.
- * AC-14: Team pill filters (styling: border + text, not filled).
+ * AC-13 (portfolio filter pills), AC-14 (team filter pills), AC-18 (bet grid) —
+ * RETIRED with WorkPortfolio. Only WorkBet and BetCard tests survive.
+ *
+ * Surviving ACs:
  * AC-15: Bet cards have no status dots.
  * AC-16: Bet cards show description, progress bar, avatar group, budget badge.
- * AC-17: "New bet" button in header.
- * AC-18: Bet grid max-width 960px, centered.
  * AC-19: Overflow action menu "..." in bet detail header.
  * AC-20: Stat cards row in bet detail.
  * AC-21: "Pitch" section with Edit button in bet detail.
@@ -21,7 +21,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { MOCK_BETS } from "../../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../../pages/WorkBet";
-import { WorkPortfolio } from "../../pages/WorkPortfolio";
 import type { BetDetail } from "../../types/bet";
 
 // Mocks for WorkBet
@@ -34,59 +33,6 @@ vi.mock("../../components/ArtifactThreadsSummary", () => ({
 vi.mock("../../hooks/useHostThread", () => ({
 	useHostThread: () => ({ data: null, error: null, isLoading: false, refresh: vi.fn() }),
 }));
-
-// Mocks for WorkPortfolio
-// @lore AG2: Status filter only shows when ≥2 distinct status buckets.
-// Fixture has active + draft to ensure showStatusFilter=true for AC-13 tests.
-vi.mock("../../hooks/useBets", () => ({
-	useBets: () => ({
-		bets: [
-			{
-				id: "b1",
-				title: "User Auth Flow",
-				teamId: "t1",
-				team: "Alpha Core",
-				status: "active",
-				appetite: "$2k",
-				description: "Migrate auth to JWT with refresh rotation.",
-				progress: { done: 3, total: 8 },
-				budget: "$200",
-				outcomeVerdict: null,
-			},
-			{
-				id: "b2",
-				title: "Auth Draft",
-				teamId: "t1",
-				team: "Alpha Core",
-				status: "draft",
-				appetite: "$1k",
-				description: "Draft for auth phase 2.",
-				progress: { done: 0, total: 0 },
-				budget: "$0",
-				outcomeVerdict: null,
-			},
-		],
-		loading: false,
-		refresh: vi.fn(),
-	}),
-}));
-vi.mock("../../hooks/useTeams", () => ({
-	useTeams: () => ({
-		data: { teams: [{ id: "t1", name: "Alpha Core" }] },
-		loading: false,
-		error: null,
-	}),
-}));
-
-function renderPortfolio(): ReturnType<typeof render> {
-	return render(
-		<MemoryRouter initialEntries={["/work/portfolio"]}>
-			<Routes>
-				<Route path="/work/portfolio" element={<WorkPortfolio />} />
-			</Routes>
-		</MemoryRouter>,
-	);
-}
 
 function renderBet(betId = "b1"): ReturnType<typeof render> {
 	const bet = MOCK_BETS[betId]!;
@@ -102,37 +48,6 @@ function renderBet(betId = "b1"): ReturnType<typeof render> {
 		</MemoryRouter>,
 	);
 }
-
-// ---------------------------------------------------------------------------
-// AC-13: Status filter tabs in portfolio
-// ---------------------------------------------------------------------------
-describe("W3 AC-13 — Status filter pills in portfolio header", () => {
-	it("renders All/Active/Completed/Draft status filter pills", () => {
-		renderPortfolio();
-		// All four status filter options must be present
-		expect(screen.getByRole("button", { name: /^all$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^active$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^completed$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^draft$/i })).toBeInTheDocument();
-	});
-
-	it("status filter pills are in the content header (not in sidebar)", () => {
-		renderPortfolio();
-		const statusAll = screen.getByRole("button", { name: /^all$/i });
-		// The pills must live in the content area, not in a sidebar nav
-		const portfolioPage = document.querySelector("[data-testid='work-portfolio-page']");
-		expect(portfolioPage).toContainElement(statusAll);
-	});
-
-	it("clicking Active filters bets by active status", async () => {
-		const user = userEvent.setup();
-		renderPortfolio();
-		await user.click(screen.getByRole("button", { name: /^active$/i }));
-		// After filter, only active bets shown — the active button should be pressed/selected
-		const activeBtn = screen.getByRole("button", { name: /^active$/i });
-		expect(activeBtn).toHaveAttribute("aria-pressed", "true");
-	});
-});
 
 // ---------------------------------------------------------------------------
 // AC-15: Bet cards have no status dots
@@ -216,20 +131,6 @@ describe("W3 AC-16 — BetCard extended props", () => {
 			/>,
 		);
 		expect(screen.getByText("$200 / $2k")).toBeInTheDocument();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-18: Bet grid max-width 960px, centered
-// ---------------------------------------------------------------------------
-describe("W3 AC-18 — Bet grid max-width 960px", () => {
-	it("bet-grid container has max-width 960px class", () => {
-		renderPortfolio();
-		const grid = document.querySelector("[data-testid='bet-grid']");
-		expect(grid).not.toBeNull();
-		// Should have max-w-[960px] and mx-auto
-		expect(grid?.className).toMatch(/max-w-\[960px\]/);
-		expect(grid?.className).toMatch(/mx-auto/);
 	});
 });
 

@@ -15,7 +15,8 @@ import type { JSX } from "react";
 import { createMemoryRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
-import { WorkPortfolio } from "../pages/WorkPortfolio";
+// AD9: WorkPortfolio retired → WorkOverview
+import { WorkOverview } from "../pages/WorkOverview";
 import { WorkTeam } from "../pages/WorkTeam";
 
 function stubFetch(): void {
@@ -62,6 +63,20 @@ function RedirectProductToTeam(): JSX.Element {
 	return <Navigate to={`/work/team/${productId ?? ""}`} replace />;
 }
 
+// AD9: useTeams mock so WorkOverview renders list (2 teams, no 1-team redirect)
+vi.mock("../hooks/useTeams", () => ({
+	useTeams: () => ({
+		data: {
+			teams: [
+				{ id: "t1", name: "Alpha", status: "healthy" as const, activeBets: 0, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+				{ id: "t2", name: "Beta", status: "behind" as const, activeBets: 0, phase: "build", leadAgentId: null, shipped: 0, shipRate: "—", progress: { done: 0, total: 0 }, routineCount: 0, agentCount: 0, activeAgentCount: 0, agentHealthWarning: false },
+			],
+		},
+		loading: false,
+		error: null,
+	}),
+}));
+
 function renderRoute(initialPath: string): { router: ReturnType<typeof createMemoryRouter> } {
 	stubFetch();
 	const router = createMemoryRouter(
@@ -71,7 +86,9 @@ function renderRoute(initialPath: string): { router: ReturnType<typeof createMem
 				element: <AppShell />,
 				children: [
 					{ path: "conversations", element: <div>Conversations</div> },
-					{ path: "work/portfolio", element: <WorkPortfolio /> },
+					// AD9: /work → WorkOverview; /work/portfolio → redirect to /work
+					{ path: "work", element: <WorkOverview /> },
+					{ path: "work/portfolio", element: <Navigate to="/work" replace /> },
 					// AC-13: new route with teamId param
 					{ path: "work/team/:teamId", element: <WorkTeam /> },
 					// AC-13: redirect from old path
@@ -141,41 +158,12 @@ describe("WorkTeam — AC-14: uses teamId param", () => {
 	});
 });
 
-describe("WorkPortfolio — AC-15: navigates to /work/team/", () => {
-	it("WorkPortfolio renders team cards that link to /work/team/:id", async () => {
-		// Stub teams for portfolio
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(async (input: RequestInfo | URL) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.includes("/api/auth/me")) {
-					return {
-						ok: true,
-						json: async () => ({ id: "u-test", name: "T", email: "", avatarUrl: null }),
-					} as Response;
-				}
-				if (url.includes("/api/teams") || url.includes("/api/portfolios")) {
-					return {
-						ok: true,
-						json: async () => ({
-							teams: [
-								{
-									id: "team-a",
-									name: "Team Alpha",
-									active: true,
-									slug: "alpha",
-									lead: null,
-									phase: "active",
-									bets: [],
-								},
-							],
-						}),
-					} as Response;
-				}
-				return { ok: true, json: async () => ({ threads: [], nextCursor: null }) } as Response;
-			}),
-		);
-
+// AD9: WorkPortfolio retired. WorkOverview is the new Work landing.
+// These tests verify the AD9 routing is correct (replaces AC-15 WorkPortfolio tests).
+describe("WorkOverview — AD9: /work renders team list (replaces portfolio)", () => {
+	it("WorkOverview renders at /work and shows team rows", async () => {
+		stubFetch();
+		// useTeams is mocked at module level — 2 teams
 		const router = createMemoryRouter(
 			[
 				{
@@ -183,52 +171,24 @@ describe("WorkPortfolio — AC-15: navigates to /work/team/", () => {
 					element: <AppShell />,
 					children: [
 						{ path: "conversations", element: <div>Conversations</div> },
-						{ path: "work/portfolio", element: <WorkPortfolio /> },
+						{ path: "work", element: <WorkOverview /> },
 						{ path: "work/team/:teamId", element: <WorkTeam /> },
-						// Old route redirect in place
 						{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 					],
 				},
 			],
-			{ initialEntries: ["/work/portfolio"] },
+			{ initialEntries: ["/work"] },
 		);
 
-		const { container } = render(<RouterProvider router={router} />);
+		render(<RouterProvider router={router} />);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 		});
-
-		// Wait for team cards to load — they may take a moment due to fetch
-		await waitFor(
-			() => {
-				// Check for links or buttons that navigate to /work/team/ (not /work/product/)
-				const teamLinks = container.querySelectorAll("a[href*='/work/team/']");
-				const teamButtons = container.querySelectorAll("button[data-navigate*='/work/team/']");
-				// At least one navigation element should point to /work/team/
-				// This may also be checked via the router state after a click
-				const allNavigators = [...teamLinks, ...teamButtons];
-				if (allNavigators.length === 0) {
-					// The portfolio may use onClick with navigate(); check there are no /work/product/ links
-					const oldLinks = container.querySelectorAll("a[href*='/work/product/']");
-					expect(oldLinks.length).toBe(0);
-				} else {
-					expect(allNavigators.length).toBeGreaterThan(0);
-				}
-			},
-			{ timeout: 3000 },
-		);
 	});
 
-	it("WorkPortfolio does NOT contain any /work/product/ navigation links after U6", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(async () => ({
-				ok: true,
-				json: async () => ({ teams: [], threads: [], nextCursor: null }),
-			})),
-		);
-
+	it("/work does NOT contain any /work/product/ navigation links", async () => {
+		stubFetch();
 		const router = createMemoryRouter(
 			[
 				{
@@ -236,17 +196,17 @@ describe("WorkPortfolio — AC-15: navigates to /work/team/", () => {
 					element: <AppShell />,
 					children: [
 						{ path: "conversations", element: <div>Conversations</div> },
-						{ path: "work/portfolio", element: <WorkPortfolio /> },
+						{ path: "work", element: <WorkOverview /> },
 					],
 				},
 			],
-			{ initialEntries: ["/work/portfolio"] },
+			{ initialEntries: ["/work"] },
 		);
 
 		const { container } = render(<RouterProvider router={router} />);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 		});
 
 		// No links to the old /work/product/ path should exist
