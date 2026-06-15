@@ -29,6 +29,25 @@ export interface EvidenceReport {
 }
 
 /**
+ * Index hosted shots by `title::variant` → `{ before?, after?, render }`.
+ * Single source of truth — used for both summarySection and PR markdown.
+ */
+function indexHostedByVariant(
+	hosted: HostedShot[],
+): Map<string, { before?: string; after?: string; render: "link" | "inline" }> {
+	const map = new Map<string, { before?: string; after?: string; render: "link" | "inline" }>();
+	for (const shot of hosted) {
+		const key = `${shot.target.title}::${shot.target.variant}`;
+		const entry = map.get(key) ?? { render: shot.render };
+		if (shot.side === "before") entry.before = shot.url;
+		if (shot.side === "after") entry.after = shot.url;
+		entry.render = shot.render;
+		map.set(key, entry);
+	}
+	return map;
+}
+
+/**
  * Build the evidence report from a changed-set and uploaded shots.
  *
  * @param changed - Output of changedStories() — modules with ≥1 changed variant
@@ -40,12 +59,8 @@ export function buildEvidenceReport(changed: ChangedStory[], hosted: HostedShot[
 		return { prMarkdown: "", summarySection: [] };
 	}
 
-	// Index hosted shots by title+side for quick lookup
-	const hostedByTitleSide = new Map<string, HostedShot>();
-	for (const shot of hosted) {
-		const key = `${shot.target.title}::${shot.side}`;
-		hostedByTitleSide.set(key, shot);
-	}
+	// Single variant-keyed index — no duplicate lookup paths
+	const byVariant = indexHostedByVariant(hosted);
 
 	// Split changed into imaged (first CAP) and overflow (remainder)
 	const imagedModules = changed.slice(0, EVIDENCE_MODULE_CAP);
@@ -53,42 +68,17 @@ export function buildEvidenceReport(changed: ChangedStory[], hosted: HostedShot[
 
 	// Build summarySection — one entry per changed module (all, not just imaged)
 	const summarySection: EvidenceReport["summarySection"] = changed.map((story) => {
-		const storyUrl = storyViewerUrl(story.title);
-
-		// Find before/after shots for any variant in this module
-		const beforeShot = hostedByTitleSide.get(`${story.title}::before`);
-		const afterShot = hostedByTitleSide.get(`${story.title}::after`);
-
 		const shots: { variant: string; before?: string; after?: string }[] = [];
-		// Group shots by variant — look for any variant's before/after
-		const variantShotMap = new Map<string, { before?: string; after?: string }>();
-		for (const shot of hosted) {
-			if (shot.target.title !== story.title) continue;
-			const { variant } = shot.target;
-			const entry = variantShotMap.get(variant) ?? {};
-			if (shot.side === "before") entry.before = shot.url;
-			if (shot.side === "after") entry.after = shot.url;
-			variantShotMap.set(variant, entry);
+		for (const variant of story.variants) {
+			const entry = byVariant.get(`${story.title}::${variant}`);
+			if (entry) {
+				shots.push({ variant, before: entry.before, after: entry.after });
+			}
 		}
-
-		// Also add module-level shots if variant-level not found (per-module B1 approach)
-		if (variantShotMap.size === 0 && (beforeShot ?? afterShot)) {
-			// Use the first variant name as the key for module-level shots
-			const firstVariant = story.variants[0] ?? "Default";
-			variantShotMap.set(firstVariant, {
-				before: beforeShot?.url,
-				after: afterShot?.url,
-			});
-		}
-
-		for (const [variant, urlPair] of variantShotMap) {
-			shots.push({ variant, ...urlPair });
-		}
-
 		return {
 			title: story.title,
 			variants: story.variants,
-			storyUrl,
+			storyUrl: storyViewerUrl(story.title),
 			shots,
 		};
 	});
@@ -108,24 +98,21 @@ export function buildEvidenceReport(changed: ChangedStory[], hosted: HostedShot[
 		const variantList = story.variants.join(", ");
 		lines.push(`### ${story.title} — [open story](${storyUrl})  ·  variants: ${variantList}`);
 
-		const beforeShot = hostedByTitleSide.get(`${story.title}::before`);
-		const afterShot = hostedByTitleSide.get(`${story.title}::after`);
+		// Pick the first variant that has any hosted shot
+		let effectiveBefore: HostedShot | undefined;
+		let effectiveAfter: HostedShot | undefined;
+		let renderMode: "link" | "inline" = "link";
 
-		// Also check variant-level shots
-		const variantBeforeShot = hosted.find(
-			(s) => s.target.title === story.title && s.side === "before",
-		);
-		const variantAfterShot = hosted.find(
-			(s) => s.target.title === story.title && s.side === "after",
-		);
-
-		const effectiveBefore = beforeShot ?? variantBeforeShot;
-		const effectiveAfter = afterShot ?? variantAfterShot;
+		for (const shot of hosted) {
+			if (shot.target.title !== story.title) continue;
+			if (shot.side === "before") effectiveBefore ??= shot;
+			if (shot.side === "after") effectiveAfter ??= shot;
+		}
+		if (effectiveBefore ?? effectiveAfter) {
+			renderMode = (effectiveBefore?.render ?? effectiveAfter?.render) === "inline" ? "inline" : "link";
+		}
 
 		if (effectiveBefore ?? effectiveAfter) {
-			const renderMode =
-				(effectiveBefore?.render ?? effectiveAfter?.render) === "inline" ? "inline" : "link";
-
 			if (renderMode === "inline") {
 				const beforeMd = effectiveBefore
 					? `![before (main)](${effectiveBefore.url})`
