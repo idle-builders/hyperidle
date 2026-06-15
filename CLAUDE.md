@@ -106,9 +106,9 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 - `progress/` — per-workpackage progress JSON files
 - `retro-log.jsonl` — cross-workpackage retro observations (feeds `/compound`)
 
-**Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
+**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/write-docs`):
 
-- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<workpackage-id>/<artifact>.md`.
+- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (a concept spanning a whole track uses the track folder `plans/<track>/`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
 - `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 
 ---
@@ -145,7 +145,7 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ## Explore Agent
 
-Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/retro` (Phase 5) and any read-heavy research tasks.
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/retro` (Phase 6) and any read-heavy research tasks.
 
 ---
 
