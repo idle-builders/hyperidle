@@ -12,43 +12,53 @@
  * immediately — not just the live lane.
  */
 
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import type { ModelEndpoints, OpenRouterModel } from "../openrouter-catalog.js";
 import { narrowModelEndpoints, narrowModels } from "../openrouter-catalog.js";
-import type { SelectionInput } from "../select-smoke-model.js";
-import { isWithinCostCap, selectSmokeModel } from "../select-smoke-model.js";
 import type { SmokeModelPolicy } from "../policy.js";
 import { DEFAULT_SMOKE_POLICY } from "../policy.js";
-import fixtureData from "./fixtures/openrouter-endpoints.captured.json" assert { type: "json" };
+import type { SelectionInput } from "../select-smoke-model.js";
+import { isWithinCostCap, selectSmokeModel } from "../select-smoke-model.js";
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const fixtureData = require("./fixtures/openrouter-endpoints.captured.json") as {
+	models: unknown[];
+	endpointsByModel: Record<string, { id?: unknown; endpoints?: unknown[] }>;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers: build typed inputs from fixture
 // ---------------------------------------------------------------------------
 
 function buildModels(ids?: string[]): readonly OpenRouterModel[] {
-  const all = fixtureData.models as unknown[];
-  const narrowed = narrowModels(all);
-  if (!ids) return narrowed;
-  return narrowed.filter((m) => ids.includes(m.id));
+	const all = fixtureData.models as unknown[];
+	const narrowed = narrowModels(all);
+	if (!ids) return narrowed;
+	return narrowed.filter((m) => ids.includes(m.id));
 }
 
 function buildEndpointsMap(ids?: string[]): ReadonlyMap<string, ModelEndpoints> {
-  const map = new Map<string, ModelEndpoints>();
-  for (const [modelId, rawData] of Object.entries(fixtureData.endpointsByModel)) {
-    if (ids && !ids.includes(modelId)) continue;
-    const narrowed = narrowModelEndpoints(modelId, rawData as { id?: unknown; endpoints?: unknown[] });
-    map.set(modelId, narrowed);
-  }
-  return map;
+	const map = new Map<string, ModelEndpoints>();
+	for (const [modelId, rawData] of Object.entries(fixtureData.endpointsByModel)) {
+		if (ids && !ids.includes(modelId)) continue;
+		const narrowed = narrowModelEndpoints(
+			modelId,
+			rawData as { id?: unknown; endpoints?: unknown[] },
+		);
+		map.set(modelId, narrowed);
+	}
+	return map;
 }
 
 function buildInput(overrides: Partial<SelectionInput> = {}): SelectionInput {
-  return {
-    models: buildModels(),
-    endpointsByModel: buildEndpointsMap(),
-    policy: DEFAULT_SMOKE_POLICY,
-    ...overrides,
-  };
+	return {
+		models: buildModels(),
+		endpointsByModel: buildEndpointsMap(),
+		policy: DEFAULT_SMOKE_POLICY,
+		...overrides,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -56,34 +66,36 @@ function buildInput(overrides: Partial<SelectionInput> = {}): SelectionInput {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — per-provider tools gate", () => {
-  it("disqualifies a model whose only endpoint lacks tools support (openai/gpt-oss-20b)", () => {
-    // gpt-oss-20b has model-level supported_parameters without "tools" and
-    // its only endpoint also lacks "tools". Must be disqualified.
-    const input = buildInput({
-      models: buildModels(["openai/gpt-oss-20b"]),
-      endpointsByModel: buildEndpointsMap(["openai/gpt-oss-20b"]),
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("disqualifies a model whose only endpoint lacks tools support (openai/gpt-oss-20b)", () => {
+		// gpt-oss-20b has model-level supported_parameters without "tools" and
+		// its only endpoint also lacks "tools". Must be disqualified.
+		const input = buildInput({
+			models: buildModels(["openai/gpt-oss-20b"]),
+			endpointsByModel: buildEndpointsMap(["openai/gpt-oss-20b"]),
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(0);
+	});
 
-  it("qualifies a model with 2+ endpoints that support tools and pass the uptime floor", () => {
-    // qwen3-235b-a22b: 2 endpoints with tools support, uptime >= 0.99, price $0.40/1M.
-    // Use a 2025-01-01 cutoff policy since qwen3 was created in May 2025.
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600, // 2025-01-01
-      maxCompletionPricePerMillion: 0.50,
-    };
-    const input = buildInput({
-      models: buildModels(["qwen/qwen3-235b-a22b"]),
-      endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(1);
-    expect(result.ranked[0].id).toBe("qwen/qwen3-235b-a22b");
-  });
+	it("qualifies a model with 2+ endpoints that support tools and pass the uptime floor", () => {
+		// qwen3-235b-a22b: 2 endpoints with tools support, uptime >= 0.99, price $0.40/1M.
+		// Use a 2025-01-01 cutoff policy since qwen3 was created in May 2025.
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600, // 2025-01-01
+			maxCompletionPricePerMillion: 0.5,
+		};
+		const input = buildInput({
+			models: buildModels(["qwen/qwen3-235b-a22b"]),
+			endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(1);
+		const first = result.ranked[0];
+		expect(first).toBeDefined();
+		expect(first!.id).toBe("qwen/qwen3-235b-a22b");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -91,47 +103,47 @@ describe("selectSmokeModel — per-provider tools gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — generation gate", () => {
-  it("disqualifies a 2024-created model even if under price ceiling (meta-llama/llama-3.3-70b-instruct)", () => {
-    // llama-3.3-70b-instruct: created 1733443200 = 2024-12-06. Must be disqualified.
-    const input = buildInput({
-      models: buildModels(["meta-llama/llama-3.3-70b-instruct"]),
-      endpointsByModel: buildEndpointsMap(["meta-llama/llama-3.3-70b-instruct"]),
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("disqualifies a 2024-created model even if under price ceiling (meta-llama/llama-3.3-70b-instruct)", () => {
+		// llama-3.3-70b-instruct: created 1733443200 = 2024-12-06. Must be disqualified.
+		const input = buildInput({
+			models: buildModels(["meta-llama/llama-3.3-70b-instruct"]),
+			endpointsByModel: buildEndpointsMap(["meta-llama/llama-3.3-70b-instruct"]),
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(0);
+	});
 
-  it("qualifies a recently-created model that passes other gates", () => {
-    // qwen3-235b-a22b: created 1747094400 = 2025-05-13, completion $0.40/1M (under ceiling).
-    // Has 2 qualifying endpoints. Use a 2025-01-01 cutoff to test the "passes" branch.
-    const policy2025: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600, // 2025-01-01
-      maxCompletionPricePerMillion: 0.50, // qwen3 at $0.40 is under ceiling
-    };
-    const input = buildInput({
-      models: buildModels(["qwen/qwen3-235b-a22b"]),
-      endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
-      policy: policy2025,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(1);
-  });
+	it("qualifies a recently-created model that passes other gates", () => {
+		// qwen3-235b-a22b: created 1747094400 = 2025-05-13, completion $0.40/1M (under ceiling).
+		// Has 2 qualifying endpoints. Use a 2025-01-01 cutoff to test the "passes" branch.
+		const policy2025: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600, // 2025-01-01
+			maxCompletionPricePerMillion: 0.5, // qwen3 at $0.40 is under ceiling
+		};
+		const input = buildInput({
+			models: buildModels(["qwen/qwen3-235b-a22b"]),
+			endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
+			policy: policy2025,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(1);
+	});
 
-  it("disqualifies when created is below cutoff", () => {
-    // llama-3.3: created 1733443200 < any reasonable 2025 cutoff
-    const strictPolicy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600, // 2025-01-01
-    };
-    const input = buildInput({
-      models: buildModels(["meta-llama/llama-3.3-70b-instruct"]),
-      endpointsByModel: buildEndpointsMap(["meta-llama/llama-3.3-70b-instruct"]),
-      policy: strictPolicy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("disqualifies when created is below cutoff", () => {
+		// llama-3.3: created 1733443200 < any reasonable 2025 cutoff
+		const strictPolicy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600, // 2025-01-01
+		};
+		const input = buildInput({
+			models: buildModels(["meta-llama/llama-3.3-70b-instruct"]),
+			endpointsByModel: buildEndpointsMap(["meta-llama/llama-3.3-70b-instruct"]),
+			policy: strictPolicy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(0);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -139,34 +151,36 @@ describe("selectSmokeModel — generation gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — price ceiling gate", () => {
-  it("disqualifies a model above the completion price ceiling (openai/gpt-4.5-preview at $15/1M)", () => {
-    // gpt-4.5-preview: completion = "0.00001500" = $15/1M. Ceiling is $0.50.
-    const input = buildInput({
-      models: buildModels(["openai/gpt-4.5-preview"]),
-      endpointsByModel: buildEndpointsMap(["openai/gpt-4.5-preview"]),
-      policy: { ...DEFAULT_SMOKE_POLICY, minCreatedUnixSec: 1_735_689_600 },
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("disqualifies a model above the completion price ceiling (openai/gpt-4.5-preview at $15/1M)", () => {
+		// gpt-4.5-preview: completion = "0.00001500" = $15/1M. Ceiling is $0.50.
+		const input = buildInput({
+			models: buildModels(["openai/gpt-4.5-preview"]),
+			endpointsByModel: buildEndpointsMap(["openai/gpt-4.5-preview"]),
+			policy: { ...DEFAULT_SMOKE_POLICY, minCreatedUnixSec: 1_735_689_600 },
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(0);
+	});
 
-  it("qualifies a model under the price ceiling", () => {
-    // gemini-2.5-flash: completion = "0.00000060" = $0.60/1M — over the $0.50 ceiling!
-    // Use qwen3 instead: "0.00000040" = $0.40/1M — under ceiling.
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600, // 2025-01-01 — qwen3 created 2025-05-13
-      maxCompletionPricePerMillion: 0.50,
-    };
-    const input = buildInput({
-      models: buildModels(["qwen/qwen3-235b-a22b"]),
-      endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(1);
-    expect(result.ranked[0].completionPricePerMillion).toBeLessThanOrEqual(0.50);
-  });
+	it("qualifies a model under the price ceiling", () => {
+		// gemini-2.5-flash: completion = "0.00000060" = $0.60/1M — over the $0.50 ceiling!
+		// Use qwen3 instead: "0.00000040" = $0.40/1M — under ceiling.
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600, // 2025-01-01 — qwen3 created 2025-05-13
+			maxCompletionPricePerMillion: 0.5,
+		};
+		const input = buildInput({
+			models: buildModels(["qwen/qwen3-235b-a22b"]),
+			endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(1);
+		const top = result.ranked[0];
+		expect(top).toBeDefined();
+		expect(top!.completionPricePerMillion).toBeLessThanOrEqual(0.5);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -174,43 +188,45 @@ describe("selectSmokeModel — price ceiling gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — redundancy gate", () => {
-  it("disqualifies a model with only one qualifying provider (openai/gpt-4.5-preview single provider)", () => {
-    // gpt-4.5-preview has only 1 endpoint. Even if it had tools, it fails redundancy.
-    // But price also fails, so let's use a custom model with 1 endpoint.
-    // We'll use a policy that allows gpt-4.5-preview price but still check redundancy.
-    // Actually: gpt-4.5-preview has 1 endpoint, so toolProviderCount will be ≤1.
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600,
-      maxCompletionPricePerMillion: 20, // allow any price
-    };
-    const input = buildInput({
-      models: buildModels(["openai/gpt-4.5-preview"]),
-      endpointsByModel: buildEndpointsMap(["openai/gpt-4.5-preview"]),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    // gpt-4.5-preview has only 1 endpoint → fails redundancy gate
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("disqualifies a model with only one qualifying provider (openai/gpt-4.5-preview single provider)", () => {
+		// gpt-4.5-preview has only 1 endpoint. Even if it had tools, it fails redundancy.
+		// But price also fails, so let's use a custom model with 1 endpoint.
+		// We'll use a policy that allows gpt-4.5-preview price but still check redundancy.
+		// Actually: gpt-4.5-preview has 1 endpoint, so toolProviderCount will be ≤1.
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600,
+			maxCompletionPricePerMillion: 20, // allow any price
+		};
+		const input = buildInput({
+			models: buildModels(["openai/gpt-4.5-preview"]),
+			endpointsByModel: buildEndpointsMap(["openai/gpt-4.5-preview"]),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		// gpt-4.5-preview has only 1 endpoint → fails redundancy gate
+		expect(result.ranked).toHaveLength(0);
+	});
 
-  it("qualifies when exactly 2 providers meet the uptime floor (qwen3 has 2)", () => {
-    // qwen3-235b-a22b: 2 endpoints, both tools-capable, uptime >= 0.99, price $0.40/1M.
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600,
-      maxCompletionPricePerMillion: 0.50,
-      minToolProviders: 2,
-    };
-    const input = buildInput({
-      models: buildModels(["qwen/qwen3-235b-a22b"]),
-      endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(1);
-    expect(result.ranked[0].toolProviderCount).toBeGreaterThanOrEqual(2);
-  });
+	it("qualifies when exactly 2 providers meet the uptime floor (qwen3 has 2)", () => {
+		// qwen3-235b-a22b: 2 endpoints, both tools-capable, uptime >= 0.99, price $0.40/1M.
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600,
+			maxCompletionPricePerMillion: 0.5,
+			minToolProviders: 2,
+		};
+		const input = buildInput({
+			models: buildModels(["qwen/qwen3-235b-a22b"]),
+			endpointsByModel: buildEndpointsMap(["qwen/qwen3-235b-a22b"]),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(1);
+		const topQwen = result.ranked[0];
+		expect(topQwen).toBeDefined();
+		expect(topQwen!.toolProviderCount).toBeGreaterThanOrEqual(2);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -218,14 +234,14 @@ describe("selectSmokeModel — redundancy gate", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — :free exclusion", () => {
-  it("drops :free variants before any other gate", () => {
-    const input = buildInput({
-      models: buildModels(["anthropic/claude-3-haiku:free"]),
-      endpointsByModel: buildEndpointsMap(),
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(0);
-  });
+	it("drops :free variants before any other gate", () => {
+		const input = buildInput({
+			models: buildModels(["anthropic/claude-3-haiku:free"]),
+			endpointsByModel: buildEndpointsMap(),
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(0);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -233,147 +249,152 @@ describe("selectSmokeModel — :free exclusion", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — ranking", () => {
-  it("ranks by throughput desc (gemini > deepseek > qwen by p50 throughput)", () => {
-    // gemini: 78.5, deepseek: 52.3, qwen: 35.2
-    // All pass with a relaxed policy
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600, // 2025-01-01
-      maxCompletionPricePerMillion: 1.0,
-    };
-    const ids = [
-      "deepseek/deepseek-chat-v3-0324",
-      "google/gemini-2.5-flash-preview-05-20",
-      "qwen/qwen3-235b-a22b",
-    ];
-    const input = buildInput({
-      models: buildModels(ids),
-      endpointsByModel: buildEndpointsMap(ids),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked.length).toBeGreaterThan(1);
-    // First ranked must have highest throughput
-    const first = result.ranked[0];
-    for (const other of result.ranked.slice(1)) {
-      expect(first.bestThroughputP50).toBeGreaterThanOrEqual(other.bestThroughputP50);
-    }
-  });
+	it("ranks by throughput desc (gemini > deepseek > qwen by p50 throughput)", () => {
+		// gemini: 78.5, deepseek: 52.3, qwen: 35.2
+		// All pass with a relaxed policy
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600, // 2025-01-01
+			maxCompletionPricePerMillion: 1.0,
+		};
+		const ids = [
+			"deepseek/deepseek-chat-v3-0324",
+			"google/gemini-2.5-flash-preview-05-20",
+			"qwen/qwen3-235b-a22b",
+		];
+		const input = buildInput({
+			models: buildModels(ids),
+			endpointsByModel: buildEndpointsMap(ids),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked.length).toBeGreaterThan(1);
+		// First ranked must have highest throughput
+		const first = result.ranked[0];
+		expect(first).toBeDefined();
+		for (const other of result.ranked.slice(1)) {
+			expect(first!.bestThroughputP50).toBeGreaterThanOrEqual(other.bestThroughputP50);
+		}
+	});
 
-  it("breaks throughput tie by latency asc", () => {
-    // Create synthetic tie by adjusting endpoint data
-    // We use two models from fixture with same throughput but different latency
-    // We test the tiebreak by building custom inputs
-    const models: OpenRouterModel[] = [
-      {
-        id: "modelA",
-        created: 1_767_225_600,
-        pricing: { prompt: "0.00000010", completion: "0.00000020" },
-        supported_parameters: ["tools"],
-        context_length: 128000,
-      },
-      {
-        id: "modelB",
-        created: 1_767_225_600,
-        pricing: { prompt: "0.00000010", completion: "0.00000020" },
-        supported_parameters: ["tools"],
-        context_length: 128000,
-      },
-    ];
-    const makeEndpoints = (
-      id: string,
-      throughput: number,
-      latency: number,
-    ): [string, ModelEndpoints] => [
-      id,
-      {
-        id,
-        endpoints: [
-          {
-            provider_name: "P1",
-            supported_parameters: ["tools"],
-            pricing: { prompt: "0.00000010", completion: "0.00000020" },
-            uptime_last_30m: 0.999,
-            throughput_last_30m: { p50: throughput },
-            latency_last_30m: { p50: latency },
-            status: "active",
-          },
-          {
-            provider_name: "P2",
-            supported_parameters: ["tools"],
-            pricing: { prompt: "0.00000010", completion: "0.00000020" },
-            uptime_last_30m: 0.999,
-            throughput_last_30m: { p50: throughput },
-            latency_last_30m: { p50: latency },
-            status: "active",
-          },
-        ],
-      },
-    ];
-    const endpointsMap = new Map<string, ModelEndpoints>([
-      makeEndpoints("modelA", 50.0, 0.80), // higher latency
-      makeEndpoints("modelB", 50.0, 0.30), // lower latency — wins
-    ]);
-    const input: SelectionInput = {
-      models,
-      endpointsByModel: endpointsMap,
-      policy: DEFAULT_SMOKE_POLICY,
-    };
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(2);
-    expect(result.ranked[0].id).toBe("modelB"); // lower latency wins
-  });
+	it("breaks throughput tie by latency asc", () => {
+		// Create synthetic tie by adjusting endpoint data
+		// We use two models from fixture with same throughput but different latency
+		// We test the tiebreak by building custom inputs
+		const models: OpenRouterModel[] = [
+			{
+				id: "modelA",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000020" },
+				supported_parameters: ["tools"],
+				context_length: 128000,
+			},
+			{
+				id: "modelB",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000020" },
+				supported_parameters: ["tools"],
+				context_length: 128000,
+			},
+		];
+		const makeEndpoints = (
+			id: string,
+			throughput: number,
+			latency: number,
+		): [string, ModelEndpoints] => [
+			id,
+			{
+				id,
+				endpoints: [
+					{
+						provider_name: "P1",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000020" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: throughput },
+						latency_last_30m: { p50: latency },
+						status: "active",
+					},
+					{
+						provider_name: "P2",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000020" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: throughput },
+						latency_last_30m: { p50: latency },
+						status: "active",
+					},
+				],
+			},
+		];
+		const endpointsMap = new Map<string, ModelEndpoints>([
+			makeEndpoints("modelA", 50.0, 0.8), // higher latency
+			makeEndpoints("modelB", 50.0, 0.3), // lower latency — wins
+		]);
+		const input: SelectionInput = {
+			models,
+			endpointsByModel: endpointsMap,
+			policy: DEFAULT_SMOKE_POLICY,
+		};
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(2);
+		const ranked0 = result.ranked[0];
+		expect(ranked0).toBeDefined();
+		expect(ranked0!.id).toBe("modelB"); // lower latency wins
+	});
 
-  it("breaks equal throughput+latency tie by price asc", () => {
-    const models: OpenRouterModel[] = [
-      {
-        id: "cheap",
-        created: 1_767_225_600,
-        pricing: { prompt: "0.00000010", completion: "0.00000010" }, // $0.10/1M
-        supported_parameters: ["tools"],
-      },
-      {
-        id: "expensive",
-        created: 1_767_225_600,
-        pricing: { prompt: "0.00000010", completion: "0.00000030" }, // $0.30/1M
-        supported_parameters: ["tools"],
-      },
-    ];
-    const makeEps = (id: string): [string, ModelEndpoints] => [
-      id,
-      {
-        id,
-        endpoints: [
-          {
-            provider_name: "P1",
-            supported_parameters: ["tools"],
-            pricing: { prompt: "0.00000010", completion: "0.00000010" },
-            uptime_last_30m: 0.999,
-            throughput_last_30m: { p50: 50.0 },
-            latency_last_30m: { p50: 0.40 },
-            status: "active",
-          },
-          {
-            provider_name: "P2",
-            supported_parameters: ["tools"],
-            pricing: { prompt: "0.00000010", completion: "0.00000010" },
-            uptime_last_30m: 0.999,
-            throughput_last_30m: { p50: 50.0 },
-            latency_last_30m: { p50: 0.40 },
-            status: "active",
-          },
-        ],
-      },
-    ];
-    const input: SelectionInput = {
-      models,
-      endpointsByModel: new Map([makeEps("cheap"), makeEps("expensive")]),
-      policy: DEFAULT_SMOKE_POLICY,
-    };
-    const result = selectSmokeModel(input);
-    expect(result.ranked).toHaveLength(2);
-    expect(result.ranked[0].id).toBe("cheap");
-  });
+	it("breaks equal throughput+latency tie by price asc", () => {
+		const models: OpenRouterModel[] = [
+			{
+				id: "cheap",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000010" }, // $0.10/1M
+				supported_parameters: ["tools"],
+			},
+			{
+				id: "expensive",
+				created: 1_767_225_600,
+				pricing: { prompt: "0.00000010", completion: "0.00000030" }, // $0.30/1M
+				supported_parameters: ["tools"],
+			},
+		];
+		const makeEps = (id: string): [string, ModelEndpoints] => [
+			id,
+			{
+				id,
+				endpoints: [
+					{
+						provider_name: "P1",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000010" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: 50.0 },
+						latency_last_30m: { p50: 0.4 },
+						status: "active",
+					},
+					{
+						provider_name: "P2",
+						supported_parameters: ["tools"],
+						pricing: { prompt: "0.00000010", completion: "0.00000010" },
+						uptime_last_30m: 0.999,
+						throughput_last_30m: { p50: 50.0 },
+						latency_last_30m: { p50: 0.4 },
+						status: "active",
+					},
+				],
+			},
+		];
+		const input: SelectionInput = {
+			models,
+			endpointsByModel: new Map([makeEps("cheap"), makeEps("expensive")]),
+			policy: DEFAULT_SMOKE_POLICY,
+		};
+		const result = selectSmokeModel(input);
+		expect(result.ranked).toHaveLength(2);
+		const ranked0b = result.ranked[0];
+		expect(ranked0b).toBeDefined();
+		expect(ranked0b!.id).toBe("cheap");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -381,24 +402,24 @@ describe("selectSmokeModel — ranking", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — :nitro routing", () => {
-  it("sets routedId to <id>:nitro for every candidate", () => {
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600,
-      maxCompletionPricePerMillion: 1.0,
-    };
-    const ids = ["deepseek/deepseek-chat-v3-0324", "google/gemini-2.5-flash-preview-05-20"];
-    const input = buildInput({
-      models: buildModels(ids),
-      endpointsByModel: buildEndpointsMap(ids),
-      policy,
-    });
-    const result = selectSmokeModel(input);
-    expect(result.ranked.length).toBeGreaterThan(0);
-    for (const candidate of result.ranked) {
-      expect(candidate.routedId).toBe(`${candidate.id}:nitro`);
-    }
-  });
+	it("sets routedId to <id>:nitro for every candidate", () => {
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600,
+			maxCompletionPricePerMillion: 1.0,
+		};
+		const ids = ["deepseek/deepseek-chat-v3-0324", "google/gemini-2.5-flash-preview-05-20"];
+		const input = buildInput({
+			models: buildModels(ids),
+			endpointsByModel: buildEndpointsMap(ids),
+			policy,
+		});
+		const result = selectSmokeModel(input);
+		expect(result.ranked.length).toBeGreaterThan(0);
+		for (const candidate of result.ranked) {
+			expect(candidate.routedId).toBe(`${candidate.id}:nitro`);
+		}
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -406,39 +427,49 @@ describe("selectSmokeModel — :nitro routing", () => {
 // ---------------------------------------------------------------------------
 
 describe("selectSmokeModel — delisting fallback", () => {
-  it("when ranked[0] model is removed from input, ranked[0] becomes the previous ranked[1]", () => {
-    const policy: SmokeModelPolicy = {
-      ...DEFAULT_SMOKE_POLICY,
-      minCreatedUnixSec: 1_735_689_600,
-      maxCompletionPricePerMillion: 1.0,
-    };
-    const ids = ["deepseek/deepseek-chat-v3-0324", "google/gemini-2.5-flash-preview-05-20", "qwen/qwen3-235b-a22b"];
+	it("when ranked[0] model is removed from input, ranked[0] becomes the previous ranked[1]", () => {
+		const policy: SmokeModelPolicy = {
+			...DEFAULT_SMOKE_POLICY,
+			minCreatedUnixSec: 1_735_689_600,
+			maxCompletionPricePerMillion: 1.0,
+		};
+		const ids = [
+			"deepseek/deepseek-chat-v3-0324",
+			"google/gemini-2.5-flash-preview-05-20",
+			"qwen/qwen3-235b-a22b",
+		];
 
-    // Full run
-    const fullInput = buildInput({
-      models: buildModels(ids),
-      endpointsByModel: buildEndpointsMap(ids),
-      policy,
-    });
-    const fullResult = selectSmokeModel(fullInput);
-    expect(fullResult.ranked.length).toBeGreaterThan(1);
+		// Full run
+		const fullInput = buildInput({
+			models: buildModels(ids),
+			endpointsByModel: buildEndpointsMap(ids),
+			policy,
+		});
+		const fullResult = selectSmokeModel(fullInput);
+		expect(fullResult.ranked.length).toBeGreaterThan(1);
 
-    const winner = fullResult.ranked[0].id;
-    const runnerUp = fullResult.ranked[1].id;
+		const winnerCandidate = fullResult.ranked[0];
+		const runnerUpCandidate = fullResult.ranked[1];
+		expect(winnerCandidate).toBeDefined();
+		expect(runnerUpCandidate).toBeDefined();
+		const winner = winnerCandidate!.id;
+		const runnerUp = runnerUpCandidate!.id;
 
-    // Remove winner
-    const remainingIds = ids.filter((id) => id !== winner);
-    const fallbackInput = buildInput({
-      models: buildModels(remainingIds),
-      endpointsByModel: buildEndpointsMap(remainingIds),
-      policy,
-    });
-    const fallbackResult = selectSmokeModel(fallbackInput);
+		// Remove winner
+		const remainingIds = ids.filter((id) => id !== winner);
+		const fallbackInput = buildInput({
+			models: buildModels(remainingIds),
+			endpointsByModel: buildEndpointsMap(remainingIds),
+			policy,
+		});
+		const fallbackResult = selectSmokeModel(fallbackInput);
 
-    expect(fallbackResult.ranked.length).toBeGreaterThan(0);
-    // The runner-up from the full run must now be ranked[0]
-    expect(fallbackResult.ranked[0].id).toBe(runnerUp);
-  });
+		expect(fallbackResult.ranked.length).toBeGreaterThan(0);
+		// The runner-up from the full run must now be ranked[0]
+		const fallbackTop = fallbackResult.ranked[0];
+		expect(fallbackTop).toBeDefined();
+		expect(fallbackTop!.id).toBe(runnerUp);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -446,43 +477,41 @@ describe("selectSmokeModel — delisting fallback", () => {
 // ---------------------------------------------------------------------------
 
 describe("narrowModels + narrowModelEndpoints — fixture shape integrity", () => {
-  it("narrowed models match expected field types from real fixture", () => {
-    const models = buildModels();
-    expect(models.length).toBeGreaterThan(0);
-    for (const m of models) {
-      expect(typeof m.id).toBe("string");
-      expect(m.id.length).toBeGreaterThan(0);
-      expect(typeof m.created).toBe("number");
-      expect(m.created).toBeGreaterThan(0);
-      expect(typeof m.pricing.prompt).toBe("string");
-      expect(typeof m.pricing.completion).toBe("string");
-      // pricing strings must be parseable as numbers
-      expect(isNaN(parseFloat(m.pricing.completion))).toBe(false);
-    }
-  });
+	it("narrowed models match expected field types from real fixture", () => {
+		const models = buildModels();
+		expect(models.length).toBeGreaterThan(0);
+		for (const m of models) {
+			expect(typeof m.id).toBe("string");
+			expect(m.id.length).toBeGreaterThan(0);
+			expect(typeof m.created).toBe("number");
+			expect(m.created).toBeGreaterThan(0);
+			expect(typeof m.pricing.prompt).toBe("string");
+			expect(typeof m.pricing.completion).toBe("string");
+			// pricing strings must be parseable as numbers
+			expect(isNaN(Number.parseFloat(m.pricing.completion))).toBe(false);
+		}
+	});
 
-  it("narrowed endpoints match expected field types from real fixture", () => {
-    const map = buildEndpointsMap();
-    expect(map.size).toBeGreaterThan(0);
-    for (const [, me] of map) {
-      for (const ep of me.endpoints) {
-        expect(typeof ep.provider_name).toBe("string");
-        expect(Array.isArray(ep.supported_parameters)).toBe(true);
-        // uptime is number or null
-        expect(
-          ep.uptime_last_30m === null || typeof ep.uptime_last_30m === "number",
-        ).toBe(true);
-        // throughput is {p50:number} or null
-        if (ep.throughput_last_30m !== null) {
-          expect(typeof ep.throughput_last_30m.p50).toBe("number");
-        }
-        // latency is {p50:number} or null
-        if (ep.latency_last_30m !== null) {
-          expect(typeof ep.latency_last_30m.p50).toBe("number");
-        }
-      }
-    }
-  });
+	it("narrowed endpoints match expected field types from real fixture", () => {
+		const map = buildEndpointsMap();
+		expect(map.size).toBeGreaterThan(0);
+		for (const [, me] of map) {
+			for (const ep of me.endpoints) {
+				expect(typeof ep.provider_name).toBe("string");
+				expect(Array.isArray(ep.supported_parameters)).toBe(true);
+				// uptime is number or null
+				expect(ep.uptime_last_30m === null || typeof ep.uptime_last_30m === "number").toBe(true);
+				// throughput is {p50:number} or null
+				if (ep.throughput_last_30m !== null) {
+					expect(typeof ep.throughput_last_30m.p50).toBe("number");
+				}
+				// latency is {p50:number} or null
+				if (ep.latency_last_30m !== null) {
+					expect(typeof ep.latency_last_30m.p50).toBe("number");
+				}
+			}
+		}
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -490,24 +519,24 @@ describe("narrowModels + narrowModelEndpoints — fixture shape integrity", () =
 // ---------------------------------------------------------------------------
 
 describe("isWithinCostCap", () => {
-  it("returns true when cost equals the cap", () => {
-    expect(isWithinCostCap(5, 5)).toBe(true);
-  });
+	it("returns true when cost equals the cap", () => {
+		expect(isWithinCostCap(5, 5)).toBe(true);
+	});
 
-  it("returns true when cost is under the cap", () => {
-    expect(isWithinCostCap(3, 5)).toBe(true);
-  });
+	it("returns true when cost is under the cap", () => {
+		expect(isWithinCostCap(3, 5)).toBe(true);
+	});
 
-  it("returns false when cost exceeds the cap", () => {
-    expect(isWithinCostCap(6, 5)).toBe(false);
-  });
+	it("returns false when cost exceeds the cap", () => {
+		expect(isWithinCostCap(6, 5)).toBe(false);
+	});
 
-  it("returns false when cost is 0 but cap is negative (edge)", () => {
-    // cap must be non-negative; 0 <= -1 is false
-    expect(isWithinCostCap(0, -1)).toBe(false);
-  });
+	it("returns false when cost is 0 but cap is negative (edge)", () => {
+		// cap must be non-negative; 0 <= -1 is false
+		expect(isWithinCostCap(0, -1)).toBe(false);
+	});
 
-  it("returns true for zero cost and zero cap", () => {
-    expect(isWithinCostCap(0, 0)).toBe(true);
-  });
+	it("returns true for zero cost and zero cap", () => {
+		expect(isWithinCostCap(0, 0)).toBe(true);
+	});
 });

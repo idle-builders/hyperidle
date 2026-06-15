@@ -5,9 +5,14 @@
  * Workspace hoisting makes @hyperidle/eval available to scripts/ in packages/web.
  */
 
-export type { OpenRouterModel, OpenRouterEndpoint, ModelEndpoints } from "./openrouter-catalog.js";
-export { fetchSmokeCatalog, fetchModelEndpoints, narrowModels, narrowModelEndpoints } from "./openrouter-catalog.js";
+export type { ModelEndpoints, OpenRouterEndpoint, OpenRouterModel } from "./openrouter-catalog.js";
+export {
+	fetchModelEndpoints,
+	fetchSmokeCatalog,
+	narrowModelEndpoints,
+	narrowModels,
+} from "./openrouter-catalog.js";
 export type { SmokeModelPolicy } from "./policy.js";
 export { DEFAULT_SMOKE_POLICY } from "./policy.js";
-export type { SmokeCandidate, SelectionInput, SelectionResult } from "./select-smoke-model.js";
-export { selectSmokeModel, isWithinCostCap } from "./select-smoke-model.js";
+export type { SelectionInput, SelectionResult, SmokeCandidate } from "./select-smoke-model.js";
+export { isWithinCostCap, selectSmokeModel } from "./select-smoke-model.js";

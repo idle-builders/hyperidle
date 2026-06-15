@@ -27,30 +27,30 @@ import type { SmokeModelPolicy } from "./policy.js";
 
 /** A qualifying candidate after all gates pass. */
 export interface SmokeCandidate {
-  readonly id: string;
-  /** `${id}:nitro` — routes to the fastest provider. */
-  readonly routedId: string;
-  readonly completionPricePerMillion: number;
-  /** Count of tool-capable providers above the uptime floor. */
-  readonly toolProviderCount: number;
-  /** Best throughput p50 over qualifying endpoints (tokens/s). 0 if no data. */
-  readonly bestThroughputP50: number;
-  /** Best (lowest) latency p50 over qualifying endpoints (s). Infinity if no data. */
-  readonly bestLatencyP50: number;
+	readonly id: string;
+	/** `${id}:nitro` — routes to the fastest provider. */
+	readonly routedId: string;
+	readonly completionPricePerMillion: number;
+	/** Count of tool-capable providers above the uptime floor. */
+	readonly toolProviderCount: number;
+	/** Best throughput p50 over qualifying endpoints (tokens/s). 0 if no data. */
+	readonly bestThroughputP50: number;
+	/** Best (lowest) latency p50 over qualifying endpoints (s). Infinity if no data. */
+	readonly bestLatencyP50: number;
 }
 
 /** Input to selectSmokeModel. */
 export interface SelectionInput {
-  readonly models: readonly OpenRouterModel[];
-  /** Endpoints keyed by model id. Fetch only for price/age survivors. */
-  readonly endpointsByModel: ReadonlyMap<string, ModelEndpoints>;
-  readonly policy: SmokeModelPolicy;
+	readonly models: readonly OpenRouterModel[];
+	/** Endpoints keyed by model id. Fetch only for price/age survivors. */
+	readonly endpointsByModel: ReadonlyMap<string, ModelEndpoints>;
+	readonly policy: SmokeModelPolicy;
 }
 
 /** Output of selectSmokeModel. */
 export interface SelectionResult {
-  /** Ranked survivors, best first. Empty array → no qualifying model found. */
-  readonly ranked: readonly SmokeCandidate[];
+	/** Ranked survivors, best first. Empty array → no qualifying model found. */
+	readonly ranked: readonly SmokeCandidate[];
 }
 
 // ---------------------------------------------------------------------------
@@ -70,71 +70,71 @@ export interface SelectionResult {
  * 6. Set routedId = `${id}:nitro`.
  */
 export function selectSmokeModel(input: SelectionInput): SelectionResult {
-  const { models, endpointsByModel, policy } = input;
+	const { models, endpointsByModel, policy } = input;
 
-  const candidates: SmokeCandidate[] = [];
+	const candidates: SmokeCandidate[] = [];
 
-  for (const model of models) {
-    // Gate 1: exclude :free variants
-    if (model.id.endsWith(":free")) continue;
+	for (const model of models) {
+		// Gate 1: exclude :free variants
+		if (model.id.endsWith(":free")) continue;
 
-    // Gate 2: generation cutoff
-    if (model.created < policy.minCreatedUnixSec) continue;
+		// Gate 2: generation cutoff
+		if (model.created < policy.minCreatedUnixSec) continue;
 
-    // Gate 3: price ceiling (completion price only, per-1M USD)
-    const completionPricePerMillion = parseFloat(model.pricing.completion) * 1e6;
-    if (isNaN(completionPricePerMillion) || completionPricePerMillion > policy.maxCompletionPricePerMillion) {
-      continue;
-    }
+		// Gate 3: price ceiling (completion price only, per-1M USD)
+		const completionPricePerMillion = Number.parseFloat(model.pricing.completion) * 1e6;
+		if (
+			isNaN(completionPricePerMillion) ||
+			completionPricePerMillion > policy.maxCompletionPricePerMillion
+		) {
+			continue;
+		}
 
-    // Gate 4: per-provider endpoint gates
-    const modelEndpoints = endpointsByModel.get(model.id);
-    if (!modelEndpoints) continue; // no endpoint data → skip (not enough info)
+		// Gate 4: per-provider endpoint gates
+		const modelEndpoints = endpointsByModel.get(model.id);
+		if (!modelEndpoints) continue; // no endpoint data → skip (not enough info)
 
-    const qualifyingEndpoints = modelEndpoints.endpoints.filter((ep) => {
-      const hasTools = ep.supported_parameters.includes("tools");
-      const uptimeOk =
-        ep.uptime_last_30m !== null && ep.uptime_last_30m >= policy.minUptimeLast30m;
-      const statusOk = ep.status !== "deprecated" && ep.status !== "disabled";
-      return hasTools && uptimeOk && statusOk;
-    });
+		const qualifyingEndpoints = modelEndpoints.endpoints.filter((ep) => {
+			const hasTools = ep.supported_parameters.includes("tools");
+			const uptimeOk = ep.uptime_last_30m !== null && ep.uptime_last_30m >= policy.minUptimeLast30m;
+			const statusOk = ep.status !== "deprecated" && ep.status !== "disabled";
+			return hasTools && uptimeOk && statusOk;
+		});
 
-    // Redundancy gate: need at least minToolProviders providers
-    if (qualifyingEndpoints.length < policy.minToolProviders) continue;
+		// Redundancy gate: need at least minToolProviders providers
+		if (qualifyingEndpoints.length < policy.minToolProviders) continue;
 
-    // Build candidate metrics
-    const bestThroughputP50 =
-      qualifyingEndpoints
-        .map((ep) => ep.throughput_last_30m?.p50 ?? 0)
-        .reduce((max, v) => Math.max(max, v), 0);
+		// Build candidate metrics
+		const bestThroughputP50 = qualifyingEndpoints
+			.map((ep) => ep.throughput_last_30m?.p50 ?? 0)
+			.reduce((max, v) => Math.max(max, v), 0);
 
-    const bestLatencyP50 =
-      qualifyingEndpoints
-        .map((ep) => ep.latency_last_30m?.p50 ?? Infinity)
-        .reduce((min, v) => Math.min(min, v), Infinity);
+		const bestLatencyP50 = qualifyingEndpoints
+			.map((ep) => ep.latency_last_30m?.p50 ?? Number.POSITIVE_INFINITY)
+			.reduce((min, v) => Math.min(min, v), Number.POSITIVE_INFINITY);
 
-    candidates.push({
-      id: model.id,
-      routedId: `${model.id}:nitro`,
-      completionPricePerMillion,
-      toolProviderCount: qualifyingEndpoints.length,
-      bestThroughputP50,
-      bestLatencyP50,
-    });
-  }
+		candidates.push({
+			id: model.id,
+			routedId: `${model.id}:nitro`,
+			completionPricePerMillion,
+			toolProviderCount: qualifyingEndpoints.length,
+			bestThroughputP50,
+			bestLatencyP50,
+		});
+	}
 
-  // Rank: throughput desc → latency asc → price asc
-  const ranked = candidates.slice().sort((a, b) => {
-    if (b.bestThroughputP50 !== a.bestThroughputP50) {
-      return b.bestThroughputP50 - a.bestThroughputP50;
-    }
-    if (a.bestLatencyP50 !== b.bestLatencyP50) {
-      return a.bestLatencyP50 - b.bestLatencyP50;
-    }
-    return a.completionPricePerMillion - b.completionPricePerMillion;
-  });
+	// Rank: throughput desc → latency asc → price asc
+	const ranked = candidates.slice().sort((a, b) => {
+		if (b.bestThroughputP50 !== a.bestThroughputP50) {
+			return b.bestThroughputP50 - a.bestThroughputP50;
+		}
+		if (a.bestLatencyP50 !== b.bestLatencyP50) {
+			return a.bestLatencyP50 - b.bestLatencyP50;
+		}
+		return a.completionPricePerMillion - b.completionPricePerMillion;
+	});
 
-  return { ranked };
+	return { ranked };
 }
 
 // ---------------------------------------------------------------------------
@@ -148,5 +148,5 @@ export function selectSmokeModel(input: SelectionInput): SelectionResult {
  * Called by the probe and by the CI budget-assert step.
  */
 export function isWithinCostCap(totalCostCents: number, capCents: number): boolean {
-  return totalCostCents <= capCents;
+	return totalCostCents <= capCents;
 }
