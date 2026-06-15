@@ -19,6 +19,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { teamMembers, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import z from "zod";
 import { createBetTool } from "./create-bet.js";
 import { editBetTool } from "./edit-bet.js";
 import {
@@ -150,6 +151,34 @@ export interface AssistantDraftRegistryParams {
 // ---------------------------------------------------------------------------
 
 /**
+ * Relaxed schema for the create_bet wrapper — teamId is optional because
+ * the server always hard-injects resolvedTeamId, so the model cannot supply
+ * (or redirect) the teamId. The wrapper validates these fields then passes
+ * the full args + injected teamId to the real createBetTool handler.
+ *
+ * @lore AK4: teamId MUST be omitted from the LLM's input schema to prevent
+ * the model from hallucinating/injecting a teamId (security hard-constraint).
+ * The Claude tool spec exposed to the model will not list teamId as a field.
+ */
+const createBetDraftInputSchema = z.object({
+	description: z.string().min(1).max(65_536),
+	doneCondition: z.string().max(65_536).optional(),
+	hypothesis: z.string().max(65_536).optional(),
+	// teamId intentionally ABSENT — server hard-injects it
+});
+
+/**
+ * Relaxed schema for the edit_bet wrapper — betId is optional because
+ * the server always forces it to currentDraftBetId.
+ */
+const editBetDraftInputSchema = z.object({
+	description: z.string().min(1).max(65_536).optional(),
+	doneCondition: z.string().max(65_536).optional(),
+	hypothesis: z.string().max(65_536).optional(),
+	// betId intentionally ABSENT — server forces it to currentDraftBetId
+});
+
+/**
  * Build a 2-tool registry for the conversational assistant draft-bet turn.
  *
  * The registry contains EXACTLY [create_bet, edit_bet]:
@@ -175,20 +204,19 @@ export function buildAssistantDraftRegistry(
 	const createBetWrapped: RegisteredTool = toRegistered({
 		name: createBetTool.name,
 		description: createBetTool.description,
-		inputSchema: createBetTool.inputSchema,
+		// Use the relaxed schema (no teamId) — server injects it
+		inputSchema: createBetDraftInputSchema,
 		handler: async (args, toolCtx) => {
 			// Hard-inject: ignore any model-supplied teamId
 			if (!resolvedTeamId) {
 				return err("NO_TEAM", "No team found for this user — cannot create a draft bet.");
 			}
-			const overriddenArgs = {
-				...(args as Record<string, unknown>),
+			const argsRecord = args as z.infer<typeof createBetDraftInputSchema>;
+			const fullArgs = {
+				...argsRecord,
 				teamId: resolvedTeamId,
 			};
-			const result = await createBetTool.handler(
-				overriddenArgs as Parameters<typeof createBetTool.handler>[0],
-				toolCtx,
-			);
+			const result = await createBetTool.handler(fullArgs, toolCtx);
 			if (result.status === "ok") {
 				return ok(result.value);
 			}
@@ -200,20 +228,19 @@ export function buildAssistantDraftRegistry(
 	const editBetWrapped: RegisteredTool = toRegistered({
 		name: editBetTool.name,
 		description: editBetTool.description,
-		inputSchema: editBetTool.inputSchema,
+		// Use the relaxed schema (no betId) — server forces it
+		inputSchema: editBetDraftInputSchema,
 		handler: async (args, toolCtx) => {
 			// Force betId: ignore any model-supplied betId
 			if (!currentDraftBetId) {
 				return err("NO_DRAFT", "No draft to edit yet — describe the bet and I'll draft it first.");
 			}
-			const overriddenArgs = {
-				...(args as Record<string, unknown>),
+			const argsRecord = args as z.infer<typeof editBetDraftInputSchema>;
+			const fullArgs = {
+				...argsRecord,
 				betId: currentDraftBetId,
 			};
-			const result = await editBetTool.handler(
-				overriddenArgs as Parameters<typeof editBetTool.handler>[0],
-				toolCtx,
-			);
+			const result = await editBetTool.handler(fullArgs, toolCtx);
 			if (result.status === "ok") {
 				return ok(result.value);
 			}
