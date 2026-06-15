@@ -12,6 +12,7 @@
  */
 
 import type {
+	CapturedToolCall,
 	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -419,19 +420,34 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	}
 
 	/**
-	 * Run a single conversational chat completion.
+	 * Run a conversational chat turn with a bounded tool-use loop.
 	 *
 	 * @lore AH3 H3: This is the assistant turn's execution path. Unlike the
 	 * task-planning loop (runPlanningTurn → execute loop → reflect), a chat turn
-	 * is a single LLM call: seed messages from the thread transcript, call the
-	 * model once, emit completion. No tools, no reflection, no planning prompt.
-	 * The persona system prompt (config.composedPrompt) still applies.
+	 * uses the thread transcript as seed messages and runs AT MOST MAX_TOOL_ITERATIONS
+	 * tool-use rounds before emitting a completion (never silent).
+	 *
+	 * @lore AK4: Bounded loop added (MAX_TOOL_ITERATIONS=3). If registry is
+	 * present (injected via setSessionToolRegistry), tool_use blocks are executed
+	 * via executeToolCalls. CapturedToolCall[] is accumulated and surfaced on the
+	 * CompletionEvent so runAssistantTurn can attach them to payload.toolCalls.
+	 * No planning prompt, no reflection, no sandbox — task-free.
+	 *
+	 * Never-silent: if the cap is hit without a text end_turn, the fallback copy
+	 * is emitted so the client always receives a response.
 	 */
 	private async runChatTurn(session: BuiltinSession): Promise<void> {
 		const config = session.config;
 		if (!config) throw new Error("BuiltinHarnessAdapter: session config is null in chat turn");
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
+
+		// @lore AK4: MAX_TOOL_ITERATIONS caps the conversational tool-use loop.
+		// 3 iterations: matches the accepted v1 tradeoff (one bet, one refinement,
+		// one recovery). ASSISTANT_TURN_TIMEOUT_MS still wraps the whole turn.
+		const MAX_TOOL_ITERATIONS = 3;
+		const CAP_FALLBACK =
+			"I started shaping that but ran out of steps — say 'continue' and I'll keep going.";
 
 		// Seed session messages from thread transcript
 		const conversationMessages = config.messages as readonly ConversationMessage[];
@@ -442,20 +458,75 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			});
 		}
 
+		const capturedToolCalls: CapturedToolCall[] = [];
+		let lastText = "";
+		let toolIterations = 0;
+
 		// @lore AK1: composedPrompt → assembledPrompt per AK1 harness-vocab rename.
-		const response = await callLlm({
-			model: resolvedModel,
-			messages: session.messages,
-			tools: [], // No tools in conversational mode
-			system: config.assembledPrompt,
-			maxTokens: this.options.maxOutputTokens,
-		});
+		while (true) {
+			const response = await callLlm({
+				model: resolvedModel,
+				messages: session.messages,
+				// When registry is injected, expose its tool surface; otherwise no tools.
+				tools: session.registry ? session.toolDefs : [],
+				system: config.assembledPrompt,
+				maxTokens: this.options.maxOutputTokens,
+			});
 
-		this.trackUsage(session, response.usage, config.modelTier);
+			this.trackUsage(session, response.usage, config.modelTier);
 
-		const text = extractTextFromContent(response.content);
-		if (text) {
-			this.emitEvent(session, { type: "completion", text });
+			const text = extractTextFromContent(response.content);
+			if (text) {
+				lastText = text;
+			}
+
+			const toolUseBlocks = response.content.filter(
+				(b): b is LlmToolUseBlock => b.type === "tool_use",
+			);
+
+			if (toolUseBlocks.length > 0 && session.registry && toolIterations < MAX_TOOL_ITERATIONS) {
+				// Append assistant message with tool calls
+				session.messages.push({
+					role: "assistant",
+					content: response.content,
+				});
+
+				// Execute tool calls (real handlers via registry)
+				const results = await this.executeToolCalls(session, toolUseBlocks);
+
+				// Accumulate CapturedToolCall[] for surface in CompletionEvent
+				for (let i = 0; i < toolUseBlocks.length; i++) {
+					const block = toolUseBlocks[i];
+					const result = results[i];
+					if (!(block && result)) continue;
+					capturedToolCalls.push({
+						name: block.name,
+						input: block.input,
+						output: result.content,
+						status: result.isError ? "error" : "ok",
+					});
+				}
+
+				// Append tool results as a user message
+				session.messages.push({
+					role: "user",
+					content: results,
+				});
+
+				toolIterations++;
+				continue;
+			}
+
+			// End of loop: emit completion with accumulated tool calls
+			const finalText = lastText || (toolUseBlocks.length > 0 ? CAP_FALLBACK : "");
+			const emitText = finalText || CAP_FALLBACK;
+
+			this.emitEvent(session, {
+				type: "completion",
+				text: emitText,
+				...(capturedToolCalls.length > 0 ? { toolCalls: capturedToolCalls } : {}),
+			});
+			break;
 		}
 
 		session.done = true;

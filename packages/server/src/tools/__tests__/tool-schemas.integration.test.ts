@@ -31,6 +31,8 @@ const EXPECTED_TOOL_NAMES = [
 	"create_bet",
 	"create_routine",
 	"update_routine",
+	// AK4: bet draft/edit tool for assistant conversational drafting
+	"edit_bet",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {

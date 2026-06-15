@@ -10,6 +10,7 @@ import { createItemTool } from "./create-item.js";
 import { createRoutineTool } from "./create-routine.js";
 import { createTaskTool } from "./create-task.js";
 import { createTeamTool } from "./create-team.js";
+import { editBetTool } from "./edit-bet.js";
 import { handoffToTool } from "./handoff-to.js";
 import { logTaskTool } from "./log-task.js";
 import { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -216,6 +217,9 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
 	// @lore AE3: createBetTool uses AssistantToolShape; wrapForRegistry returns
 	// the already-erased RegisteredTool shape.
 	wrapForRegistry(createBetTool, ["assistant"]),
+	// @lore AK4: editBetTool registered for assistant role so buildAssistantDraftRegistry
+	// can assemble it. It was previously only in the dead assistant-tools.ts path.
+	wrapForRegistry(editBetTool, ["assistant"]),
 	toRegistered(createRoutineTool),
 	toRegistered(updateRoutineTool),
 ];

@@ -1,5 +1,21 @@
 ## 5. Bets: Shape, Commit, Change, Ship
 
+### 5.0 Bet origination — two entry points
+
+A bet can originate in two ways:
+
+**Form-first (hand-typed):** The founder opens the bet authoring surface directly (New Bet in the Portfolio), writes the goal and description, and saves a `draft` bet.
+
+**Conversation-first (AK4):** The founder describes an idea in the Assistant thread. The Assistant can produce a draft bet — a goal and a concept body — directly from the conversation, surfaced as a `BetCard` in the thread. The founder reviews the draft, edits it in the normal bet authoring surface (WorkBet), and commits when satisfied.
+
+In both cases the bet enters the lifecycle at `draft` and proceeds identically from there. The Assistant **never commits a bet autonomously** — commit is always a human action (`POST /bets/:id/commit`). A draft created by the Assistant is just as editable, discardable, or reviewable as one typed by hand.
+
+**Conversational iteration (AK4):** The founder can continue talking in the same thread to refine the draft — narrow the scope, adjust the appetite language, rewrite the done condition. The Assistant updates the *same* draft in place (one living draft per conversational thread, edited via `edit_bet`). Prior cards remain in the thread history. A second `create_bet` call in the same conversation would orphan the first draft as a stale history entry; the newest draft is always the live target.
+
+**Authority boundary:** The Assistant can only author or update a `draft` bet. Once the founder commits it (`draft → active`), the conversational path stops targeting that bet — re-iteration in the thread would begin a new draft. The Assistant has no commit, ship, or kill tool. This is the User Sovereignty line: the AI recommends and drafts; the human decides the irreversible.
+
+**Tool surface (AC3b):** The conversational tool-use loop injects a registry of exactly `[create_bet, edit_bet]` — provably no `create_team`, `add_agent`, `create_routine`, `submit_review`, `handoff_to`, commit, or kill tool. The model cannot redirect the team (server-resolved and hard-injected) or target a different bet (server-bound to the current draft).
+
 ### 5.1 Shape
 
 Shaping happens before commitment. A Product Manager (sometimes with the assistant for portfolio-level bets) writes a pitch — problem, appetite, sketches, rabbit-hole notes, no-gos. The pitch lands on the Work view as a `shaped` card. Pitches accumulate on the canvas during the cycle; only the founder can move them into the betting zone.

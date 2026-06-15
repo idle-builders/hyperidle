@@ -134,6 +134,7 @@ export {
 	TIME_PLACEHOLDER,
 } from "./format/time.js";
 export type {
+	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
 	CostUpdateEvent,

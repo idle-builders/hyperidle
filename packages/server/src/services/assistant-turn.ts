@@ -39,15 +39,23 @@ import {
 	ProviderTimeoutError,
 	type SessionConfig,
 	type ThreadMessageAppendedEvent,
+	type ToolCallSummary,
 } from "@hyperidle/shared";
 import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
 	resolveModelTier,
 } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
+import {
+	buildAssistantDraftRegistry,
+	resolveCurrentDraftBetId,
+	resolveDraftTeamId,
+} from "../tools/assistant-draft-registry.js";
+import type { ToolContext } from "../tools/tool-registry.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -373,10 +381,56 @@ async function runTurnInternal(
 	// runAssistantTurn was called, so loading the full thread up to now includes it.
 	// The builtin adapter branches on config.messages: when non-empty it runs a single
 	// chat completion seeded with these messages instead of the task-planning loop.
-	const conversationMessages = await loadThreadTranscript(db, threadId, `ast-${userId}`);
+	const transcriptRows = await loadRawTranscript(db, threadId);
+	const conversationMessages = mapTranscriptToMessages(transcriptRows, `ast-${userId}`);
 
-	// --- Step 5: Compose persona ---
-	const { composedPrompt } = composeAssistantPrompt(systemPromptText);
+	// --- Step 4a: Resolve tool registry params (AK4) ---
+	// @lore AK4: resolve team + draft binding BEFORE startSession so the registry
+	// is ready for injection. Both resolutions are cheap single-row DB lookups.
+	// Task-free ToolContext: synthetic sessionId, empty taskId/sandboxPath.
+	// teamId is NOT set on ctx — it is hard-injected by the create_bet wrapper.
+	const sessionId = crypto.randomUUID();
+	const resolvedTeamId = await resolveDraftTeamId(db, userId);
+	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, `ast-${userId}`);
+
+	const toolContext: ToolContext = {
+		db,
+		eventBus,
+		agentId: assistantAgentId,
+		sessionId,
+		taskId: "", // task-free conversational turn
+		sandboxPath: "", // no sandbox IO
+		ingestion: { dispose: () => {} }, // no-op — bet tools don't use ingestion
+	};
+
+	// Build a 2-tool-only registry and inject via setSessionToolRegistry BEFORE startSession.
+	// @lore AK4 CRITICAL-2: NEVER inject buildToolRegistry(ctx,{role:'assistant'}) here —
+	// it yields the full assistant role surface (create_team, add_agent, submit_review, ...).
+	// The dedicated 2-tool builder is the authority boundary (AC3b).
+	const draftRegistry = buildAssistantDraftRegistry(toolContext, {
+		resolvedTeamId,
+		currentDraftBetId,
+	});
+
+	// Inject registry into the adapter BEFORE startSession.
+	// @lore AK4: Only BuiltinHarnessAdapter has setSessionToolRegistry (on the concrete
+	// class, not on HarnessAdapter interface). Narrow via meta.type === "builtin" and cast.
+	// This follows the same X6 provisioning pattern in session-provisioning.ts ~L586.
+	if (selected.meta.type === "builtin" && selected.adapter instanceof BuiltinHarnessAdapter) {
+		selected.adapter.setSessionToolRegistry(sessionId, draftRegistry);
+	}
+
+	// When a draft exists, nudge the model toward edit_bet; else toward create_bet.
+	// @lore AK4 Task 4: system nudge prevents the model from creating a second draft
+	// when one already exists. The server FORCES betId regardless (edit_bet wrapper),
+	// but the nudge reduces unnecessary create_bet calls.
+	const { composedPrompt: basePrompt } = composeAssistantPrompt(systemPromptText);
+	const nudge = currentDraftBetId
+		? `\n\n[CONTEXT: You previously drafted bet ${currentDraftBetId}. Use edit_bet to refine it; do not create a new bet unless the user explicitly asks for one.]`
+		: `\n\n[CONTEXT: No draft bet exists yet. If the user wants to shape a bet, use create_bet to draft one.]`;
+	const composedPrompt = basePrompt + nudge;
+
+	// --- Step 5: (persona composed above) ---
 
 	// --- Step 6: Start session + drain under timeout ---
 	let sessionHandle: import("@hyperidle/shared").SessionHandle | null = null;
@@ -389,13 +443,15 @@ async function runTurnInternal(
 		// No `as unknown` cast: the type system now guards all required fields.
 		// messages carries the thread transcript so the adapter delivers the user's question.
 		// @lore AK1: assembledPrompt/sandboxPath/systemPromptPath are the post-rename session config fields (harness-vocab rename).
+		// @lore AK4: SessionConfig.tools stays [] — the builtin adapter ignores it and uses
+		// session.toolDefs (populated by setSessionToolRegistry). Dead field; documented.
 		const sessionConfig: SessionConfig = {
-			sessionId: crypto.randomUUID(),
+			sessionId,
 			assembledPrompt: composedPrompt,
 			sandboxPath: "",
 			systemPromptPath: "",
 			modelTier: "workhorse",
-			tools: [],
+			tools: [], // dead field — adapter uses session.toolDefs from setSessionToolRegistry
 			resolvedModel,
 			resolvedFastModel,
 			messages: conversationMessages,
@@ -421,25 +477,39 @@ async function runTurnInternal(
 			return;
 		}
 
-		const result = drainRace;
+		const drainResult = drainRace;
 
-		if (result.type === "error") {
+		if (drainResult.type === "error") {
 			await persistTurnFailure(
 				db,
 				eventBus,
 				userId,
 				threadId,
-				new Error(result.message ?? "Provider returned an error"),
+				new Error(drainResult.message ?? "Provider returned an error"),
 			);
 			return;
 		}
 
 		// completion — persist the assistant reply
-		const replyText = result.text;
+		const replyText = drainResult.text;
 		const messageId = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		const replyPayload: PlainPayload = { text: replyText };
+		// Map CapturedToolCall[] → ToolCallSummary[] for the persisted payload
+		const toolCallSummaries: ToolCallSummary[] | undefined =
+			drainResult.toolCalls && drainResult.toolCalls.length > 0
+				? drainResult.toolCalls.map((tc) => ({
+						name: tc.name,
+						input: tc.input,
+						output: tc.output,
+						status: tc.status,
+					}))
+				: undefined;
+
+		const replyPayload: PlainPayload = {
+			text: replyText,
+			...(toolCallSummaries ? { toolCalls: toolCallSummaries } : {}),
+		};
 		await db.insert(messages).values({
 			id: messageId,
 			senderId: assistantAgentId,
@@ -479,21 +549,19 @@ async function runTurnInternal(
 // ---------------------------------------------------------------------------
 
 /**
- * Load the thread's plain conversational messages in chronological order,
- * mapped to ConversationMessage[{role, content}]. Skips notice messages and
- * non-text content.
+ * Load the raw thread rows for this thread, ordered chronologically.
+ * Used both for transcript → ConversationMessage mapping AND for draft binding
+ * (resolveCurrentDraftBetId needs senderId + payload).
  *
- * @lore AH3 H3: Called from runTurnInternal to deliver the thread transcript
- * to the adapter via SessionConfig.messages. Without this, the adapter starts
- * with messages:[] and answers PLANNING_PROMPT, never the user's question.
+ * @lore AK4: Split from mapTranscriptToMessages so both uses (conversation seed
+ * and draft-betId binding) share one DB query instead of two sequential queries.
  */
-async function loadThreadTranscript(
+async function loadRawTranscript(
 	db: HyperIdleDb,
 	threadId: string,
-	assistantAgentId: string,
-): Promise<ConversationMessage[]> {
+): Promise<Array<{ senderId: string; payload: string; type: string }>> {
 	try {
-		const rows = await db
+		return await db
 			.select({
 				senderId: messages.senderId,
 				payload: messages.payload,
@@ -502,35 +570,47 @@ async function loadThreadTranscript(
 			.from(messages)
 			.where(eq(messages.threadId, threadId))
 			.orderBy(asc(messages.createdAt));
-
-		const result: ConversationMessage[] = [];
-		for (const row of rows) {
-			if (row.type !== "plain") continue;
-
-			let parsed: { text?: string; notice?: unknown };
-			try {
-				parsed = JSON.parse(row.payload) as { text?: string; notice?: unknown };
-			} catch {
-				continue;
-			}
-
-			// Skip notice messages (error cards — not conversational turns)
-			if (parsed.notice !== undefined) continue;
-			// Skip messages without text
-			if (typeof parsed.text !== "string" || parsed.text.trim() === "") continue;
-
-			const role: "user" | "assistant" = row.senderId === assistantAgentId ? "assistant" : "user";
-			result.push({ role, content: parsed.text });
-		}
-		return result;
 	} catch (err) {
-		logger.error("[assistant-turn] loadThreadTranscript failed — proceeding with empty history", {
+		logger.error("[assistant-turn] loadRawTranscript failed — proceeding with empty history", {
 			threadId,
 			error: err instanceof Error ? err.message : String(err),
 		});
-		// Non-fatal: better to reply with persona-only than to crash the turn entirely.
 		return [];
 	}
+}
+
+/**
+ * Map raw transcript rows to ConversationMessage[{role, content}].
+ * Skips notice messages and non-text content.
+ *
+ * @lore AH3 H3: Called from runTurnInternal to deliver the thread transcript
+ * to the adapter via SessionConfig.messages. Without this, the adapter starts
+ * with messages:[] and answers PLANNING_PROMPT, never the user's question.
+ */
+function mapTranscriptToMessages(
+	rows: ReadonlyArray<{ senderId: string; payload: string; type: string }>,
+	assistantAgentId: string,
+): ConversationMessage[] {
+	const result: ConversationMessage[] = [];
+	for (const row of rows) {
+		if (row.type !== "plain") continue;
+
+		let parsed: { text?: string; notice?: unknown };
+		try {
+			parsed = JSON.parse(row.payload) as { text?: string; notice?: unknown };
+		} catch {
+			continue;
+		}
+
+		// Skip notice messages (error cards — not conversational turns)
+		if (parsed.notice !== undefined) continue;
+		// Skip messages without text
+		if (typeof parsed.text !== "string" || parsed.text.trim() === "") continue;
+
+		const role: "user" | "assistant" = row.senderId === assistantAgentId ? "assistant" : "user";
+		result.push({ role, content: parsed.text });
+	}
+	return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +619,13 @@ async function loadThreadTranscript(
 
 const TIMEOUT_SENTINEL = Symbol("TIMEOUT_SENTINEL");
 
-type DrainResult = { type: "completion"; text: string } | { type: "error"; message: string };
+type DrainResult =
+	| {
+			type: "completion";
+			text: string;
+			toolCalls?: import("@hyperidle/shared").CapturedToolCall[];
+	  }
+	| { type: "error"; message: string };
 
 /**
  * Drain stream events from the adapter's streamEvents method.
@@ -549,6 +635,10 @@ type DrainResult = { type: "completion"; text: string } | { type: "error"; messa
  * H1 (missing resolvedModel went unnoticed because stub adapters bypassed startSession
  * validation). Test stubs must now implement the real HarnessAdapter interface —
  * implement `streamEvents` on the adapter object, not on the session handle.
+ *
+ * @lore AK4: Returns CapturedToolCall[] from CompletionEvent.toolCalls when present
+ * (populated by runChatTurn's bounded loop). Maps them to payload.toolCalls on the
+ * persisted reply. No change for task-session completions (toolCalls is undefined there).
  */
 async function drainStreamEvents(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
@@ -561,7 +651,11 @@ async function drainStreamEvents(
 		for await (const event of stream) {
 			if (event.type === "completion") {
 				completionText = event.text;
-				return { type: "completion", text: completionText };
+				return {
+					type: "completion",
+					text: completionText,
+					...(event.toolCalls ? { toolCalls: [...event.toolCalls] } : {}),
+				};
 			}
 			if (event.type === "error") {
 				return {
