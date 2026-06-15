@@ -10,8 +10,8 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	changedStories,
 	type ChangedStory,
+	changedStories,
 } from "../../scripts/design-evidence/changed-stories.js";
 
 // ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ import {
  *   `;
  */
 function buildSnap(entries: Record<string, string>): string {
-	const lines: string[] = ['// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html', ""];
+	const lines: string[] = ["// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html", ""];
 	for (const [key, body] of Object.entries(entries)) {
 		lines.push(`exports[\`${key}\`] = \``);
 		if (body) {
@@ -45,8 +45,8 @@ function buildSnap(entries: Record<string, string>): string {
 describe("changedStories — identical snaps", () => {
 	test("returns empty array when branch and base are identical", () => {
 		const snap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"row-dot\" />",
-			"AG6/RowDot > ErrorTone 1": "<div class=\"row-dot error\" />",
+			"AG6/RowDot > Success 1": '<div class="row-dot" />',
+			"AG6/RowDot > ErrorTone 1": '<div class="row-dot error" />',
 		});
 		const result: ChangedStory[] = changedStories(snap, snap);
 		expect(result).toEqual([]);
@@ -65,10 +65,10 @@ describe("changedStories — identical snaps", () => {
 describe("changedStories — changed variant", () => {
 	test("returns the changed story when a variant body differs", () => {
 		const baseSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"row-dot\" />",
+			"AG6/RowDot > Success 1": '<div class="row-dot" />',
 		});
 		const branchSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"row-dot success-tone\" />",
+			"AG6/RowDot > Success 1": '<div class="row-dot success-tone" />',
 		});
 
 		const result = changedStories(branchSnap, baseSnap);
@@ -80,12 +80,12 @@ describe("changedStories — changed variant", () => {
 
 	test("groups multiple changed variants under the same title", () => {
 		const baseSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"success\" />",
-			"AG6/RowDot > ErrorTone 1": "<div class=\"error\" />",
+			"AG6/RowDot > Success 1": '<div class="success" />',
+			"AG6/RowDot > ErrorTone 1": '<div class="error" />',
 		});
 		const branchSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"success changed\" />",
-			"AG6/RowDot > ErrorTone 1": "<div class=\"error changed\" />",
+			"AG6/RowDot > Success 1": '<div class="success changed" />',
+			"AG6/RowDot > ErrorTone 1": '<div class="error changed" />',
 		});
 
 		const result = changedStories(branchSnap, baseSnap);
@@ -99,12 +99,12 @@ describe("changedStories — changed variant", () => {
 
 	test("only reports the actually changed variant within a module", () => {
 		const baseSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"success\" />",
-			"AG6/RowDot > ErrorTone 1": "<div class=\"error\" />",
+			"AG6/RowDot > Success 1": '<div class="success" />',
+			"AG6/RowDot > ErrorTone 1": '<div class="error" />',
 		});
 		const branchSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"success changed\" />",
-			"AG6/RowDot > ErrorTone 1": "<div class=\"error\" />", // unchanged
+			"AG6/RowDot > Success 1": '<div class="success changed" />',
+			"AG6/RowDot > ErrorTone 1": '<div class="error" />', // unchanged
 		});
 
 		const result = changedStories(branchSnap, baseSnap);
@@ -117,12 +117,12 @@ describe("changedStories — changed variant", () => {
 
 	test("reports stories from different modules as separate entries", () => {
 		const baseSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"rowdot\" />",
-			"Avatar > Default 1": "<div class=\"avatar\" />",
+			"AG6/RowDot > Success 1": '<div class="rowdot" />',
+			"Avatar > Default 1": '<div class="avatar" />',
 		});
 		const branchSnap = buildSnap({
-			"AG6/RowDot > Success 1": "<div class=\"rowdot changed\" />",
-			"Avatar > Default 1": "<div class=\"avatar changed\" />",
+			"AG6/RowDot > Success 1": '<div class="rowdot changed" />',
+			"Avatar > Default 1": '<div class="avatar changed" />',
 		});
 
 		const result = changedStories(branchSnap, baseSnap);
@@ -142,7 +142,7 @@ describe("changedStories — added story (first-time / new story)", () => {
 	test("reports a branch-only story as changed", () => {
 		const baseSnap = buildSnap({});
 		const branchSnap = buildSnap({
-			"NewComponent > Default 1": "<div class=\"new\" />",
+			"NewComponent > Default 1": '<div class="new" />',
 		});
 
 		const result = changedStories(branchSnap, baseSnap);
@@ -176,7 +176,7 @@ describe("changedStories — added story (first-time / new story)", () => {
 describe("changedStories — deleted story", () => {
 	test("reports a base-only story as changed (removed)", () => {
 		const baseSnap = buildSnap({
-			"OldComponent > Default 1": "<div class=\"old\" />",
+			"OldComponent > Default 1": '<div class="old" />',
 		});
 		const branchSnap = buildSnap({});
 
@@ -213,7 +213,7 @@ describe("changedStories — escaped backtick + \\${ in body (parser regression 
 	 * because the .snap file on disk stores them escaped.
 	 */
 	function buildRawSnap(entries: Record<string, string>): string {
-		const lines: string[] = ['// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html', ""];
+		const lines: string[] = ["// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html", ""];
 		for (const [key, body] of Object.entries(entries)) {
 			// Key is NOT escaped — it goes inside the outer `…` of exports[`key`]
 			// Body IS the raw stored text (already contains \` / \${ as stored)
@@ -227,8 +227,8 @@ describe("changedStories — escaped backtick + \\${ in body (parser regression 
 
 	// Body with escaped backtick and \${ — identical on both sides → should be UNCHANGED
 	const bodyWithEscapes = [
-		"  <div class=\"code-block\">",
-		"    \"text with \\`escaped backtick\\` and \\${template} inside\"",
+		'  <div class="code-block">',
+		'    "text with \\`escaped backtick\\` and \\${template} inside"',
 		"  </div>",
 	].join("\n");
 
@@ -244,14 +244,14 @@ describe("changedStories — escaped backtick + \\${ in body (parser regression 
 
 	test("reports block as changed when one char inside the escaped-backtick body differs", () => {
 		const baseBody = [
-			"  <div class=\"code-block\">",
-			"    \"text with \\`escaped backtick\\` and \\${template} inside\"",
+			'  <div class="code-block">',
+			'    "text with \\`escaped backtick\\` and \\${template} inside"',
 			"  </div>",
 		].join("\n");
 
 		const branchBody = [
-			"  <div class=\"code-block changed\">",
-			"    \"text with \\`escaped backtick\\` and \\${template} inside\"",
+			'  <div class="code-block changed">',
+			'    "text with \\`escaped backtick\\` and \\${template} inside"',
 			"  </div>",
 		].join("\n");
 
@@ -269,9 +269,9 @@ describe("changedStories — escaped backtick + \\${ in body (parser regression 
 		// If the parser used a naive non-greedy regex, it would stop at the first \`
 		// and report a wrong (truncated) body for each key — causing false positives.
 		const multiEscapeBody = [
-			"  \"line one with \\`backtick\\`\"",
-			"  \"line two with \\`another\\` and \\${expr}\"",
-			"  \"line three clean\"",
+			'  "line one with \\`backtick\\`"',
+			'  "line two with \\`another\\` and \\${expr}"',
+			'  "line three clean"',
 		].join("\n");
 
 		const snap = buildRawSnap({
@@ -285,7 +285,7 @@ describe("changedStories — escaped backtick + \\${ in body (parser regression 
 		// Change something unrelated to escaped backticks
 		const snap2 = buildRawSnap({
 			"MultiEscape > Variant 1": multiEscapeBody,
-			"OtherModule > Default 1": "<div class=\"changed\" />",
+			"OtherModule > Default 1": '<div class="changed" />',
 		});
 
 		const result = changedStories(snap2, snap);

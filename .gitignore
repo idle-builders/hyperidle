@@ -64,3 +64,9 @@ packages/design-system/viewer/*.js
 packages/design-system/viewer/*.d.ts
 packages/design-system/viewer/*.js.map
 packages/design-system/viewer/*.d.ts.map
+# design-evidence scripts compiled outputs (tsx/vitest transform emits these alongside .ts sources;
+# biome.json excludes them too — biome ignores .gitignore per project_biome_no_gitignore lore)
+packages/design-system/scripts/design-evidence/*.js
+packages/design-system/scripts/design-evidence/*.d.ts
+packages/design-system/scripts/design-evidence/*.js.map
+packages/design-system/scripts/design-evidence/*.d.ts.map

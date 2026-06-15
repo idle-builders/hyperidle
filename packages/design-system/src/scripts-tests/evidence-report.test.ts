@@ -13,12 +13,12 @@
  */
 
 import { describe, expect, test } from "vitest";
+import type { ChangedStory } from "../../scripts/design-evidence/changed-stories.js";
 import {
 	buildEvidenceReport,
 	EVIDENCE_MODULE_CAP,
 	type EvidenceReport,
 } from "../../scripts/design-evidence/evidence-report.js";
-import type { ChangedStory } from "../../scripts/design-evidence/changed-stories.js";
 import type { HostedShot } from "../../scripts/design-evidence/upload-assets.js";
 
 // ---------------------------------------------------------------------------
@@ -60,9 +60,7 @@ describe("buildEvidenceReport — empty input (AC3)", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildEvidenceReport — PR markdown (AC1)", () => {
-	const changed: ChangedStory[] = [
-		makeChanged("AG6/RowDot", ["Success", "ErrorTone"]),
-	];
+	const changed: ChangedStory[] = [makeChanged("AG6/RowDot", ["Success", "ErrorTone"])];
 
 	const hosted: HostedShot[] = [
 		makeHosted("AG6/RowDot", "Success", "before"),

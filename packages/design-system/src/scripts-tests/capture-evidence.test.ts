@@ -28,9 +28,9 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	runCaptureEvidence,
 	type CaptureEvidenceOptions,
 	type CaptureEvidenceResult,
+	runCaptureEvidence,
 } from "../../scripts/design-evidence/capture-evidence.js";
 
 // ---------------------------------------------------------------------------

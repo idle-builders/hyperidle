@@ -41,6 +41,7 @@
 		"ds:serve": "npm run -w @hyperidle/design-system serve",
 		"ds:bless": "vitest run -u packages/design-system/src/__tests__/catalog-snapshot.test.tsx",
 		"ds:inspect": "npx tsx packages/design-system/scripts/inspect-page.ts",
+		"ds:evidence": "npx tsx packages/design-system/scripts/design-evidence/capture-evidence.ts",
 		"obs:env": "npx tsx scripts/obs.ts env",
 		"obs:smoke": "npx tsx scripts/obs.ts smoke",
 		"obs:run": "npx tsx scripts/obs.ts run",

@@ -167,6 +167,9 @@
 			"!packages/design-system/viewer/*.js",
 			"!packages/design-system/viewer/*.d.ts",
 			"!packages/design-system/viewer/*.map",
+			"!packages/design-system/scripts/design-evidence/*.js",
+			"!packages/design-system/scripts/design-evidence/*.d.ts",
+			"!packages/design-system/scripts/design-evidence/*.map",
 			"!docs/product/.vitepress/cache",
 			"!docs/product/.vitepress/dist",
 			"!.vitepress/cache"
