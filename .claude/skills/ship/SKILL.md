@@ -75,6 +75,8 @@ gh pr create --title "<type>(<scope>): <description>" \
   --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nnpm run verify — all green (attestation attached)"
 ```
 
+The PR `## Summary` is for the human — lead with **what was built and what the human can now do/see**, then the key surfaces touched. Not a phase log. See "Outcome-first summary" below.
+
 If a draft PR already exists (pipeline mode), flip it ready:
 
 ```bash
@@ -117,6 +119,19 @@ done
 4. Max 3 push attempts. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
 
 **Ship is only complete when `gh pr checks` returns green.** Do not declare success before this.
+
+### 7b. Outcome-first summary (MANDATORY — this is what the human reads)
+
+When CI is green, write a short chat summary for the human. Lead with the **product**, not the pipeline. The human is skim-reading to decide whether to merge — give them outcome, not process.
+
+Order, 60–120 words:
+
+1. **What now exists / what the human can do** — the user-visible change in one line. "Users can now reset their password from the login screen." / "Routine scheduler boots on server start and fires due routines." Name the feature, not the workpackage ID.
+2. **What changed at a glance** — 3–5 key surfaces or files. "New `ResetPassword` page (`packages/web`), `/auth/reset` route (`packages/server`), email template."
+3. **Status — one line only** — `PR #123 · CI green · ready to merge`.
+4. **If blocked** — state the outcome plainly: "Blocked: CI red after 3 fixes — Postgres migration timeout." No retry play-by-play.
+
+Do **not** put in the summary: phase numbers, persona names, review-round counts, critique scores, attestation/HMAC internals, verify tool lists, CI-polling mechanics. Those belong in the retro log, not the human's chat. If a process detail materially affects the human (e.g. a deferred follow-up they must track), state it as one plain sentence.
 
 ### 8. Merge decision
 

@@ -90,6 +90,10 @@ Stories touching authentication, schema migrations, or `packages/server/src/agen
 
 **Squash before flipping ready.** Builder squashes the persona-prose commits before `/ship` flips `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at ship time, not before — the retro (Phase 6) still needs the per-phase history to extract cost signals.
 
+**Commit at task boundaries in the green phase.** A large L/M full-stack green phase routinely exceeds one builder session (observed: U1, S1, AF8, AH5). The builder commits at every completed task boundary (`feat(<id>): task N — <desc>`), not only once at full green, so a session timeout never strands uncommitted work in the tree. For L workpackages whose task list is clearly larger than a single green-phase budget, split the green phase across builders by design — don't bank on one session.
+
+**Builder-timeout resume protocol.** If a builder session times out mid-green, do NOT restart from scratch and do NOT finish its work yourself (orchestrator stays in role). Spawn builder #2 with: "Assess working-tree state (`git status`, `git log --oneline origin/main..HEAD`); the last `feat(<id>): task N` commit is your resume point; continue from task N+1; do not redo committed tasks." Builder #2 runs verify and continues the phase.
+
 ### Ship (after retro)
 
 Ship runs AFTER retro so that the retro prose commit is included in the verified tree. If ship runs before retro, the retro commit invalidates the attestation (check-attestation rejects "source files changed after verify ran").
@@ -237,6 +241,19 @@ Ship (after retro — not a tracked phase):
 - If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
 After ship: verify CI is green (already asserted by /ship). Move to next story.
+
+### Final summary to the human (outcome-first)
+
+When the batch is done/blocked, write ONE summary for the human. Lead with **what was built and what they can now do** — the pipeline mechanics are not the story. The human skim-reads this to know what shipped and decide what to merge.
+
+Per workpackage, 2–4 lines:
+- **What now exists / works** — user-visible outcome in plain words (not the workpackage ID/title verbatim).
+- **Key surfaces** — 3–5 files/pages/routes touched.
+- **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`.
+
+For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …") then the per-WP lines.
+
+Do **not** report: phase numbers, persona names, critique scores, review-round counts, attestation internals, verify tool lists. Keep it scannable. (Mirrors `/ship` step 7b.)
 
 ---
 
