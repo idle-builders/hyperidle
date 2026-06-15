@@ -189,7 +189,7 @@ await db.insert(users).values({
 	role: "builder",
 	status: "active",
 	teamId: teamMembersId, // @lore U1: references team_members.id
-	soulPrompt: "You are a helpful assistant that follows precise instructions.",
+	systemPrompt: "You are a helpful assistant that follows precise instructions.",
 	harnessType: "builtin",
 	modelProvider: "openrouter",
 	modelId: smokeModelId,
