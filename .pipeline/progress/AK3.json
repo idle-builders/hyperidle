@@ -1,0 +1,17 @@
+{
+  "id": "AK3",
+  "title": "Committing a bet starts work",
+  "track": "AK",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "3-write-code",
+  "startedAt": "2026-06-15T00:00:00Z",
+  "baseRef": "origin/main",
+  "baseSha": "57a2a395f4ee372077a07dbe6eab5834a05dcae2",
+  "notes": "Depends AK2 (merged PR#297). Commit\u2192work: bet_state_changed(active) triggers kernel-side decomposition into accepted tasks owned by team agents, flowing into existing task\u2192session dispatch. UI reflects real task state. No-eligible-agent \u2192 explicit blocker. Decomposition is Kernel; PM agent context via Strategy port.",
+  "critique": {
+    "design": 8,
+    "architecture": 8,
+    "verdict": "APPROVED"
+  }
+}

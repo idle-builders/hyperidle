@@ -13,7 +13,9 @@
  */
 
 import { basename } from "node:path";
-import type { Rule } from "eslint";
+import type { JSSyntaxElement, Rule } from "eslint";
+import type { TemplateElement } from "estree";
+import type { JSXAttribute } from "estree-jsx";
 
 /**
  * Allowed Hearth 6px-grid spacing values used by the spacing/density rule.
@@ -141,14 +143,19 @@ export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "2xl",
  * parse. We intentionally do not chase template literals or `clsx()` — those
  * are out of scope for the regex-based screenshot-detectable tells (the
  * higher-level `/design-lint` skill catches dynamic cases).
+ *
+ * Accepts JSXAttribute directly so callers no longer need to cast.
  */
-export function getClassNameLiteral(
-	attr: { value?: { type?: string; value?: unknown } | null } | null,
-): string | null {
-	if (!attr?.value) return null;
+export function getClassNameLiteral(attr: JSXAttribute | null): string | null {
+	if (!attr) return null;
+	if (attr.type !== "JSXAttribute") return null;
 	const v = attr.value;
-	if (v.type === "Literal" && typeof v.value === "string") {
-		return v.value;
+	if (!v) return null;
+	// estree-jsx JSXSimpleAttribute.value is ESTree.BaseExpression | null.
+	// We narrow to Literal by checking the type discriminant.
+	const vAny = v as { type?: string; value?: unknown };
+	if (vAny.type === "Literal" && typeof vAny.value === "string") {
+		return vAny.value as string;
 	}
 	return null;
 }
@@ -166,7 +173,27 @@ const CLASSNAME_HELPER_NAMES: ReadonlySet<string> = new Set([
 	"twJoin",
 ]);
 
-type AnyNode = { type: string; [k: string]: unknown };
+/**
+ * Internal traversal node type — has an index signature so the `walk` helper
+ * can read arbitrary properties (node.value, node.quasis, etc.) without a cast
+ * on every access. NOT exported; external callers receive `JSSyntaxElement`.
+ *
+ * @lore refactor/no-unknown-cast-eslint-plugins: Previously the only AnyNode
+ * type was used everywhere, which forced `as unknown as AnyNode` at call sites
+ * to bridge estree-jsx → AnyNode (index-signature mismatch). Now the exported
+ * output type is `JSSyntaxElement` (structurally compatible with all ESTree /
+ * estree-jsx nodes via a single `as JSSyntaxElement`), while the internal walk
+ * keeps this private shape to avoid per-property casts inside the traversal switch.
+ */
+type WalkNode = { type: string; [k: string]: unknown };
+
+/**
+ * Public node type used in exported API surfaces. `JSSyntaxElement` is
+ * `{ type: string; loc?: ESTree.SourceLocation | null }` — satisfied by every
+ * ESTree and estree-jsx node, so callers can pass any node with a single
+ * `as JSSyntaxElement` instead of the old `as unknown as AnyNode`.
+ */
+type AnyNode = JSSyntaxElement;
 
 /**
  * Walk an arbitrary expression and collect every static class-string we can
@@ -181,22 +208,20 @@ export function collectClassStringsFromExpression(
 	const out: Array<{ text: string; node: AnyNode }> = [];
 	function walk(n: unknown): void {
 		if (!n || typeof n !== "object") return;
-		const node = n as AnyNode;
+		const node = n as WalkNode;
 		switch (node.type) {
 			case "Literal": {
 				if (typeof node.value === "string") {
-					out.push({ text: node.value as string, node });
+					out.push({ text: node.value as string, node: node as JSSyntaxElement });
 				}
 				return;
 			}
 			case "TemplateLiteral": {
-				const quasis = node.quasis as Array<{
-					value: { cooked?: string; raw: string };
-				}>;
+				const quasis = node.quasis as Array<TemplateElement>;
 				for (const q of quasis) {
 					const text = q.value.cooked ?? q.value.raw;
 					if (typeof text === "string" && text.length > 0) {
-						out.push({ text, node: q as unknown as AnyNode });
+						out.push({ text, node: q as JSSyntaxElement });
 					}
 				}
 				const exprs = node.expressions as unknown[];
@@ -257,13 +282,13 @@ export function collectClassStringsFromExpression(
  * cn()/clsx() args that the JSXAttribute visitor already handled.
  */
 export function isInsideClassNameAttribute(node: { parent?: unknown }): boolean {
-	let cur = (node as { parent?: AnyNode }).parent;
+	let cur = (node as { parent?: WalkNode }).parent;
 	while (cur) {
 		if (cur.type === "JSXAttribute") {
 			const name = (cur as { name?: { type?: string; name?: string } }).name;
 			return name?.type === "JSXIdentifier" && (name.name === "className" || name.name === "style");
 		}
-		cur = (cur as { parent?: AnyNode }).parent;
+		cur = (cur as { parent?: WalkNode }).parent;
 	}
 	return false;
 }
@@ -278,11 +303,11 @@ export function collectClassStringsFromJSXAttribute(
 	attr: unknown,
 ): Array<{ text: string; node: AnyNode }> {
 	if (!attr || typeof attr !== "object") return [];
-	const a = attr as { value?: AnyNode | null };
+	const a = attr as { value?: WalkNode | null };
 	const v = a.value;
 	if (!v) return [];
 	if (v.type === "Literal" && typeof v.value === "string") {
-		return [{ text: v.value as string, node: v }];
+		return [{ text: v.value as string, node: v as JSSyntaxElement }];
 	}
 	if (v.type === "JSXExpressionContainer") {
 		return collectClassStringsFromExpression(v.expression);
@@ -296,4 +321,24 @@ export function collectClassStringsFromJSXAttribute(
  */
 export function createRule(rule: Rule.RuleModule): Rule.RuleModule {
 	return rule;
+}
+
+/**
+ * Cast any ESTree / estree-jsx node to `JSSyntaxElement` for passing to
+ * `context.report({ node })`. This is the single audited boundary replacing
+ * all `node as unknown as Rule.Node` casts in rule files.
+ *
+ * `JSSyntaxElement` is `{ type: string; loc?: ESTree.SourceLocation | null }`
+ * — a structural supertype that every AST node satisfies. ESLint's `context.report`
+ * internally accepts any `JSSyntaxElement`, not just the `Rule.Node` union of
+ * standard ESTree nodes. The single `as JSSyntaxElement` here is safe because:
+ *   1. All ESTree and estree-jsx nodes have `type: string` and `loc`.
+ *   2. `context.report` only uses `loc` to report the source position.
+ *
+ * @lore refactor/no-unknown-cast-eslint-plugins: Replaces all `node as unknown
+ * as Rule.Node` double-casts spread across rule files. Centralising the cast
+ * makes it auditable and eliminates the `unknown` intermediate.
+ */
+export function asReportNode(node: { type: string }): JSSyntaxElement {
+	return node as JSSyntaxElement;
 }

@@ -16,7 +16,12 @@
 
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import { collectClassStringsFromJSXAttribute, createRule, RAW_TAILWIND_PALETTE } from "../util.js";
+import {
+	asReportNode,
+	collectClassStringsFromJSXAttribute,
+	createRule,
+	RAW_TAILWIND_PALETTE,
+} from "../util.js";
 
 const PALETTE_GROUP = RAW_TAILWIND_PALETTE.join("|");
 const RAW_PALETTE_REGEX = new RegExp(
@@ -59,14 +64,14 @@ export const noRawTailwindColor: Rule.RuleModule = createRule({
 				for (const { text, node: strNode } of strings) {
 					for (const match of text.matchAll(RAW_PALETTE_REGEX)) {
 						context.report({
-							node: strNode as unknown as Rule.Node,
+							node: asReportNode(strNode),
 							messageId: "rawColor",
 							data: { cls: match[0] },
 						});
 					}
 					for (const match of text.matchAll(UNDEFINED_TOKEN_OPACITY_REGEX)) {
 						context.report({
-							node: strNode as unknown as Rule.Node,
+							node: asReportNode(strNode),
 							messageId: "undefinedTokenClass",
 							data: { cls: match[0] },
 						});

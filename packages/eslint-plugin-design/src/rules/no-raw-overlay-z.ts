@@ -21,7 +21,7 @@
 
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import { collectClassStringsFromJSXAttribute, createRule } from "../util.js";
+import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from "../util.js";
 
 // Named z-index classes that are forbidden on overlay surfaces
 // (the AI2 token scale uses --z-drawer:30 --z-overlay:40 --z-scrim:50 --z-dialog:60)
@@ -69,7 +69,7 @@ export const noRawOverlayZ: Rule.RuleModule = createRule({
 						const bad = checkToken(token);
 						if (bad !== null) {
 							context.report({
-								node: node as unknown as Rule.Node,
+								node: asReportNode(node),
 								messageId: "rawZ",
 								data: { cls: bad },
 							});

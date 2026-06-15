@@ -52,29 +52,40 @@ const HEADLESS_PARENT_NAMES: ReadonlySet<string> = new Set([
 	"SelectButton",
 ]);
 
-type AnyNode = { type: string; parent?: AnyNode; [k: string]: unknown };
+/**
+ * Internal traversal node — has an index signature for property access without
+ * per-property casts. Private to this file; public API uses typed estree-jsx nodes.
+ *
+ * @lore refactor/no-unknown-cast-eslint-plugins: Replaces the old `AnyNode`
+ * (same shape) to signal it is NOT exported. The call sites now pass `node`
+ * (JSXOpeningElement) directly since the helpers accept `unknown`, eliminating
+ * all `as unknown as AnyNode` casts.
+ */
+type WalkNode = { type: string; parent?: WalkNode; [k: string]: unknown };
 
 /**
  * Walk the ancestor chain and return the nearest ancestor JSXOpeningElement
  * that is a <form> element, or null.
  *
+ * Accepts `unknown` so the visitor can pass `node` (JSXOpeningElement) directly.
+ *
  * AST structure: JSXOpeningElement (<button>) → parent: JSXElement → parent:
  * JSXElement (<form>) which has openingElement: JSXOpeningElement (<form>).
  * We walk JSXElement ancestors and check their openingElement tag name.
  */
-function findEnclosingForm(node: AnyNode): JSXOpeningElement | null {
-	let cur = node.parent;
+function findEnclosingForm(startNode: unknown): JSXOpeningElement | null {
+	const asWalk = (n: unknown): WalkNode | undefined =>
+		n && typeof n === "object" ? (n as WalkNode) : undefined;
+	let cur = asWalk((startNode as { parent?: unknown } | null)?.parent);
 	while (cur) {
 		if (cur.type === "JSXElement") {
-			const openingEl = (cur as AnyNode & { openingElement?: unknown }).openingElement as
-				| JSXOpeningElement
-				| undefined;
+			const openingEl = cur.openingElement as JSXOpeningElement | undefined;
 			if (openingEl) {
 				const tagName = openingEl.name.type === "JSXIdentifier" ? openingEl.name.name : null;
 				if (tagName === "form") return openingEl;
 			}
 		}
-		cur = (cur as AnyNode).parent;
+		cur = asWalk(cur.parent);
 	}
 	return null;
 }
@@ -100,19 +111,21 @@ function formHasAction(formEl: JSXOpeningElement): boolean {
  * Returns true when the immediate JSX parent element (the component wrapping
  * this <button>) is one of the known headless-control trigger parents.
  *
+ * Accepts `unknown` so the visitor can pass `node` (JSXOpeningElement) directly.
+ *
  * AST: JSXOpeningElement (<button>) → parent: JSXElement → parent: JSXElement (wrapper)
  * We check the first JSXElement ancestor's openingElement tag name.
  */
-function isHeadlessTriggerChild(node: AnyNode): boolean {
+function isHeadlessTriggerChild(startNode: unknown): boolean {
+	const asWalk = (n: unknown): WalkNode | undefined =>
+		n && typeof n === "object" ? (n as WalkNode) : undefined;
 	// Walk to the JSXElement that contains the button's JSXOpeningElement
-	const cur = node.parent; // JSXElement (<button>)
+	const cur = asWalk((startNode as { parent?: unknown } | null)?.parent); // JSXElement (<button>)
 	if (!cur) return false;
 	// Now look at the parent JSXElement (the wrapper component)
-	const wrapper = cur.parent;
+	const wrapper = asWalk(cur.parent);
 	if (!wrapper || wrapper.type !== "JSXElement") return false;
-	const openingEl = (wrapper as AnyNode & { openingElement?: unknown }).openingElement as
-		| JSXOpeningElement
-		| undefined;
+	const openingEl = wrapper.openingElement as JSXOpeningElement | undefined;
 	if (!openingEl) return false;
 	const tagName = openingEl.name.type === "JSXIdentifier" ? openingEl.name.name : null;
 	return tagName !== null && HEADLESS_PARENT_NAMES.has(tagName);
@@ -160,11 +173,11 @@ export const noOpButton: Rule.RuleModule = createRule({
 				if (hasOnClick) return;
 
 				// (c) Headless trigger child → always valid
-				if (isHeadlessTriggerChild(node as unknown as AnyNode)) return;
+				if (isHeadlessTriggerChild(node)) return;
 
 				// (b) type="submit" — only valid inside an action-bearing form
 				if (typeValue === "submit") {
-					const enclosingForm = findEnclosingForm(node as unknown as AnyNode);
+					const enclosingForm = findEnclosingForm(node);
 					if (enclosingForm && formHasAction(enclosingForm)) return;
 					// No enclosing form with action → dangling submit
 					context.report({
