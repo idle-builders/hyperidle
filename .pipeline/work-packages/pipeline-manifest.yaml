@@ -1129,6 +1129,21 @@ stories:
     track: AK
     depends: [AK1]
     complexity: M
+  - id: AK6
+    title: Agent identity is Strategy-owned knowledge
+    track: AK
+    depends: [AK2]
+    complexity: L
+  - id: AK7
+    title: The Strategy selects the agent for a unit of work
+    track: AK
+    depends: [AK6]
+    complexity: L
+  - id: AK8
+    title: Decomposition becomes a Strategy response to a Kernel event
+    track: AK
+    depends: [AK7, AK3]
+    complexity: L
 
   # Track AL: Review Experience
   - id: AL1

@@ -1,6 +1,6 @@
 # Kernel ↔ Strategy split
 
-**Status:** Authoritative (founder-aligned 2026-06-14). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. It **supersedes** the older "kernel = stable / fabric = volatile" framing scattered in other docs (e.g. `technology-summary.md`'s package table) — that framing is rejected. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
+**Status:** Authoritative (founder-aligned 2026-06-14; boundary **refined** 2026-06-15 — see §2a "Agents are knowledge"). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. It **supersedes** the older "kernel = stable / fabric = volatile" framing scattered in other docs (e.g. `technology-summary.md`'s package table) — that framing is rejected. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 
 Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md` (both tracked under `plans/AK/`). Build track: `.pipeline/work-packages/TRACK-AK.md`.
 
@@ -10,8 +10,8 @@ Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/conc
 
 The cut is by **function**, not by how often a part changes (the stable/volatile criterion is rejected).
 
-- **Kernel = the application itself, including the agent-running runtime.** Conversations, work planning & review, knowledge **editing**, user management — and everything required to *run agents*: the **harness** (incl. tools, Skills, hooks), the **sandbox**, the **session**, **cost**. The Kernel is what the user operates and what executes agents. A Kernel with a no-op Strategy is a complete, usable application.
-- **Strategy = the knowledge/context layer.** It owns **what an agent knows** and **how knowledge compounds over time** — nothing else. This is the genuinely fast-moving part of the agentic space (it changes monthly), which is why it is swappable.
+- **Kernel = the application itself, including the agent-running runtime.** Conversations, work planning & review, knowledge **editing**, **user management — humans and agents alike are users** (every agent has a Kernel user-id that a session attaches to), and everything required to *run agents*: the **harness** (incl. tools, Skills, hooks), the **sandbox**, the **session**, **cost**. The Kernel also owns the **interaction-surface events** — `bet committed`, `message appended`, `work to decompose` — actions triggered by a human or by an agent sandbox; it *emits* them, and a Strategy may subscribe. The Kernel holds **no agent definitions, no roster, and no knowledge**: it spawns an empty sandbox and runs whatever agent the Strategy puts in it. A Kernel with a no-op Strategy is a complete, usable application.
+- **Strategy = the knowledge/context layer.** It owns **what an agent knows** and **how knowledge compounds over time** — nothing else. Crucially, *who an agent is* is part of *what it knows*: the **AGENTS.md is a knowledge file**, so the agent **roster** (which agents exist), which agents are **scaffolded into a team**, **which agent fills a given session** (selection/assignment), and how each AGENTS.md **evolves** are all Strategy. This is not a widening of the layer — it is recognizing that personas *are* knowledge. This is the genuinely fast-moving part of the agentic space (it changes monthly), which is why it is swappable.
 
 **Test** for "is X Kernel or Strategy?": *Is X about running the company / running agents (Kernel), or about what agents know and how that knowledge improves itself (Strategy)?*
 
@@ -33,6 +33,37 @@ The **Strategy Port** is the surface the Kernel exposes for (1) and (2); respons
 - **Fabric** = the current rich Strategy (all of `packages/fabric/src/services/*`). **One** implementation of the Strategy role — not *the* role. Its knowledge-management design is settled; the only requirement on it through this split is **preservation**: it must keep working exactly as intended behind the boundary. *A Strategy Port the Fabric cannot fully satisfy is the wrong port.*
 
 **Hard rules:** exactly one active Strategy at a time; the Kernel calls the port, never a concrete Strategy; the port must be satisfiable by a no-op (Minimal) implementation; **cost enforcement stays Kernel-side**, not in the port.
+
+---
+
+## 2a. Refinement — agents are knowledge (founder-aligned 2026-06-15)
+
+The original boundary put "running a PM agent" and agent selection on the Kernel side and treated decomposition as "never a kernel-vs-strategy question" (§4 below, as-built AK3). **That is corrected here.** The sharpening: *who an agent is* is knowledge, so the parts of work-organization that decide **which agent** and **with what knowledge** belong to the **Strategy**, while the **Kernel** keeps the mechanism and the trigger.
+
+**The clean three-way cut of any "spawn an agent to do work" flow:**
+
+| Piece | Owner | Why |
+|---|---|---|
+| **Trigger** — an interaction surface fires ("work to decompose", "message arrived") | **Kernel** | It's app lifecycle — a human or a sandbox acted. The Kernel *emits the event*; it does not decide the response. |
+| **Selection** — which agent (which AGENTS.md), scaffolded into which team, with what context | **Strategy** | The AGENTS.md is a knowledge file; "who knows what" is the Strategy's whole job. The Minimal Strategy returns a single plain agent; the Fabric returns a knowledge-matched one. |
+| **Execution** — spawn the sandbox, attach the session to the agent's user-id, run it, meter cost | **Kernel** | Pure mechanism. The Kernel never inspects the AGENTS.md; it runs whatever the Strategy handed it. |
+
+**The user-id seam (how selection and execution meet).** Agents are Kernel users (§1). When the Kernel emits "decompose for team T", the active Strategy answers with *which agent*; that answer must **resolve to a Kernel user-id** so the Kernel can attach the session to the right user. The port carries the selection request out and the chosen agent (→ user-id) back; the Kernel owns the user-id table, the Strategy owns the choice.
+
+**Consequences:**
+- **The Strategy owns the agent roster and team-scaffolding**, not the Kernel. The Kernel retains the *user identity* (id/account) for every agent; the Strategy owns *who that agent is* (AGENTS.md, persona, skills) and *which agents populate a team*.
+- **Decomposition is a Strategy response to a Kernel event**, not a Kernel-hardcoded PM. The Kernel emits `work to decompose`; the active Strategy handles it. The Fabric decomposes richly (a PM agent + knowledge-matched assignment); the Minimal Strategy does the trivial thing (a single plain agent / 1:1).
+- **AK3-as-built (kernel-side default PM, round-robin assignment) becomes the Minimal Strategy's default fallback** — the simplest possible response, not the Kernel's permanent decomposition path.
+- This matches the doc's own event pattern for Strategy responsibility 3 (§2: the Strategy "subscribes to events… the Kernel does not call it; it runs alongside"). Decomposition and selection join that pattern.
+
+**This is a class of surfaces, not just decomposition.** A codebase sweep (`plans/AK/agent-decision-surfaces.md`, 2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts make the seam absent today:
+
+- **Entity creation emits no events.** Team / agent / user creation happen *inline in routes* — there is no `team_created` / `agent_added` / `user_created` event — so there is no place for a Strategy to attach and own "what agent gets created." The "what" (roster, personas, the assistant's system prompt) is hard-coded Kernel-side.
+- **Selection is knowledge-blind.** Which agent takes a unit of work is role-eligibility + round-robin + pre-set owner, with zero Strategy/knowledge input. The only skill-aware selection anywhere is routine delegation (`findDelegate`).
+
+So AK6's first job is to **emit the creation triggers as events / a creation seam** (without it there is nothing to own), and AK7's is to **make selection consult the Strategy** (generalizing the lone `findDelegate` precedent).
+
+The build-out is **TRACK-AK / AK6 → AK7 → AK8** (agent-creation behind the Strategy + creation events → selection seam + work events → event-driven decomposition). AK6 covers *all* creation surfaces above; AK7 covers *all* selection surfaces; AK8 (decomposition) is one application of both. Until those land, §4's AK3 path is the live behavior. Full inventory + file:line citations: `plans/AK/agent-decision-surfaces.md`.
 
 ---
 
@@ -110,7 +141,9 @@ Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`,
 
 ## 4. As-built — AK3 (shipped 2026-06-15)
 
-**Decomposition is Kernel.** When a bet is committed (`draft→active`), the Kernel runs a PM agent turn that produces a task breakdown. The Strategy feeds the PM context via the port; it does not own or trigger decomposition.
+> **Superseded framing — read §2a first.** AK3 shipped under the original "decomposition is Kernel" framing. The boundary was refined 2026-06-15 (§2a): decomposition is a **Strategy** response to a **Kernel-owned event**, and agent selection/assignment is **Strategy**. AK3-as-built (below) is retained as the **Minimal Strategy's default-PM fallback**; AK6–AK8 move the trigger to a Kernel event and the selection/decomposition behind the port. The description below remains accurate as *the current live behavior* until AK8 lands.
+
+**Decomposition (current, pre-AK8).** When a bet is committed (`draft→active`), the Kernel runs a PM agent turn that produces a task breakdown. The Strategy feeds the PM context via the port. Per §2a this kernel-side path becomes the Minimal Strategy's fallback once AK8 rewires the trigger as an event the active Strategy handles.
 
 ### The decomposition seam
 
