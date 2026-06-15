@@ -1,6 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { FileWatcher } from "@hyperidle/fabric";
-import type { EventBus, UserRole } from "@hyperidle/shared";
+import type { EventBus, IngestionHandle, UserRole } from "@hyperidle/shared";
 import z from "zod";
 import { addAgentTool } from "./add-agent.js";
 import type { AssistantToolShape } from "./assistant-tool-result.js";
@@ -45,7 +44,13 @@ export interface ToolContext {
 	readonly taskId: string;
 	readonly teamId?: string;
 	readonly sandboxPath: string;
-	readonly watcher: FileWatcher;
+	/**
+	 * AK2: was `watcher: FileWatcher` (direct Fabric import). Renamed to
+	 * `ingestion: IngestionHandle` as part of Strategy port decoupling. The
+	 * handoff-to tool uses this to reconstruct a SessionContext for the
+	 * handoff path (which calls endSession/crashSession that dispose it).
+	 */
+	readonly ingestion: IngestionHandle;
 }
 
 /**

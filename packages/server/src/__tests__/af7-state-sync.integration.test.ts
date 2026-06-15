@@ -42,14 +42,14 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-/** Minimal SessionContext for endSession/crashSession (watcher is a no-op). */
+/** Minimal SessionContext for endSession/crashSession (ingestion is a no-op). */
 function makeContext(sessionId: string, agentId: string, taskId: string): SessionContext {
 	return {
 		sessionId,
 		agentId,
 		taskId,
 		sandboxPath: "/tmp/af7-nonexistent",
-		watcher: { stop: () => {} } as SessionContext["watcher"],
+		ingestion: { dispose: () => {} } as SessionContext["ingestion"],
 		traceId: "trace-af7",
 	};
 }

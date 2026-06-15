@@ -24,7 +24,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/fabric";
+import { checkAndFireRoutine, fabricStrategy } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -33,6 +33,7 @@ import {
 	createSession,
 	endSession,
 } from "../services/session-lifecycle.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-aa3";
@@ -889,9 +890,14 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 		beforeEach(() => {
 			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "af10-routine-cost-"));
+			// AK2 §4a: register the Fabric Strategy so createSession routes through
+			// the Strategy Port (fail-loud registry throws if unset).
+			setActiveStrategy(fabricStrategy);
 		});
 
 		afterEach(() => {
+			// AK2 §4a: clear the Strategy registration after each test.
+			clearActiveStrategy();
 			if (fs.existsSync(tmpDir)) {
 				fs.rmSync(tmpDir, { recursive: true, force: true });
 			}

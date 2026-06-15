@@ -64,7 +64,7 @@ function makeContext(db: HyperIdleDb, eventBus: import("@hyperidle/shared").Even
 		sessionId: "session-1",
 		taskId: "task-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-r5-createtask-${Date.now()}`),
-		watcher: { stop: (): void => {} },
+		ingestion: { dispose: (): void => {} },
 	};
 }
 

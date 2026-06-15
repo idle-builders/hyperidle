@@ -1,31 +1,58 @@
 /**
- * AK2 — Strategy Registry stub (RED phase type declaration).
+ * AK2 — Strategy Registry.
  *
- * This file provides the type signatures only. Implementation is the green phase
- * (build task #2). All functions throw until implemented.
+ * Stores exactly one active Strategy per process. The Kernel reads this at
+ * every session-boundary call site (admitSession P6/P7, createSession).
  *
- * @lore AK2 §2: The registry stores exactly one active Strategy per process.
- * Fail-loud: getActiveStrategy() throws if unset — a misboot is a bug, not a
- * silent no-op. A silent fallback would mask a wiring regression where the Fabric
- * should be active.
+ * @lore AK2 §2: Fail-loud is intentional — a missing registration is a boot
+ * bug, not a recoverable state. A silent fallback would mask a wiring
+ * regression where the Fabric should be active instead. Boot always registers
+ * exactly one Strategy (server-factory.ts composition root).
+ *
+ * Follows the same idiom as provision-registry.ts (setProvisionSessionFn /
+ * getProvisionSessionFn) — a lean module-scope variable with explicit
+ * set/get/clear. clearActiveStrategy is test teardown only.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { Strategy } from "@hyperidle/shared";
 
+// The registry is db-bound at the Kernel boundary: TDb = HyperIdleDb.
+// @hyperidle/shared stays db-agnostic (see strategy-port.ts @lore for why
+// TDb is a type parameter and not a direct HyperIdleDb import in shared).
 type KernelStrategy = Strategy<HyperIdleDb>;
 
-/** Register the active Strategy. Called once at boot (e.g. in server-factory.ts). */
-export function setActiveStrategy(_s: KernelStrategy): void {
-	throw new Error("strategy-registry not yet implemented (AK2 green phase #2)");
+let active: KernelStrategy | null = null;
+
+/**
+ * Register the active Strategy. Called once at boot (e.g. in server-factory.ts).
+ * May be called again to swap Strategies — the last registration wins.
+ */
+export function setActiveStrategy(s: KernelStrategy): void {
+	active = s;
 }
 
-/** Get the active Strategy. Throws if no Strategy has been registered. */
+/**
+ * Get the active Strategy.
+ *
+ * Throws if no Strategy has been registered — a misboot is a bug, not a
+ * recoverable state. Every session-boundary call site should encounter a
+ * registered Strategy or fail fast so the misconfiguration is immediately
+ * visible (not silently degraded).
+ */
 export function getActiveStrategy(): KernelStrategy {
-	throw new Error("No active Strategy registered — call setActiveStrategy at boot");
+	if (!active) {
+		throw new Error("No active Strategy registered — call setActiveStrategy at boot");
+	}
+	return active;
 }
 
-/** Reset the registry. For test teardown only. */
+/**
+ * Reset the registry to unregistered state.
+ *
+ * For test teardown ONLY. Never call this in production code — a process
+ * with no active Strategy will throw on the next session attempt.
+ */
 export function clearActiveStrategy(): void {
-	throw new Error("strategy-registry not yet implemented (AK2 green phase #2)");
+	active = null;
 }

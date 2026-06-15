@@ -9,7 +9,7 @@ import {
 	type HyperIdleDb,
 	resolveProfile,
 } from "@hyperidle/db";
-import { bootstrapFabric, setProvisionSessionFn } from "@hyperidle/fabric";
+import { bootstrapFabric, fabricStrategy, setProvisionSessionFn } from "@hyperidle/fabric";
 import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -27,6 +27,7 @@ import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { resolveModelTier } from "./services/model-gateway.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
+import { setActiveStrategy } from "./services/strategy-registry.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -254,6 +255,14 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// (the leaf registry exists precisely for this — provision-registry.ts). Do NOT
 	// add a static import of provisionSession into fabric.
 	setProvisionSessionFn(provisionSession);
+
+	// AK2 §6: Register the Fabric as the active Strategy at boot. Default = Fabric
+	// (no behaviour change from pre-AK2). This is the composition root — the ONLY
+	// place in Kernel code permitted to import a concrete Strategy implementation
+	// (see ESLint no-restricted-imports guard in eslint.config.ts, AC4).
+	// To select a different Strategy: swap this one line (e.g. minimalStrategy for
+	// Kernel-only testing). No other Kernel code changes are required (AC4).
+	setActiveStrategy(fabricStrategy);
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();

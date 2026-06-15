@@ -57,7 +57,7 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 		agentId: ctx.agentId,
 		taskId: ctx.taskId,
 		sandboxPath: ctx.sandboxPath,
-		watcher: ctx.watcher,
+		ingestion: ctx.ingestion,
 		// @lore AF4/§5: `handoff()` reads only sessionId/agentId/taskId from this
 		// context and never the traceId; `ToolContext` carries no traceId, so we
 		// mint one to satisfy the required field. Behaviour-neutral (the value is

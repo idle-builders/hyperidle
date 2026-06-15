@@ -2,6 +2,12 @@
 
 export { bootstrapFabric } from "./bootstrap.js";
 
+// --- Strategy adapter (AK2) ---
+// fabricStrategy implements the Strategy Port (packages/shared/src/strategy-port.ts)
+// by delegating to the existing Fabric assembleContext + startWatcher functions.
+// Import and register in server-factory.ts (the composition root).
+export { fabricStrategy } from "./fabric-strategy.js";
+
 // --- Strategy services (O3: moved from packages/server to packages/fabric) ---
 
 // approval-rate
