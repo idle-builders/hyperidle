@@ -120,22 +120,32 @@ done
 
 **Ship is only complete when `gh pr checks` returns green.** Do not declare success before this.
 
-### 7b. Outcome-first summary (MANDATORY — this is what the human reads)
+### 7a. Ship summary (interactive mode only)
 
-When CI is green, write a short chat summary for the human. Lead with the **product**, not the pipeline. The human is skim-reading to decide whether to merge — give them outcome, not process.
+Read `PIPELINE_INTERACTIVE` per **the canonical rule** (defined in `pipeline/SKILL.md` "## Run modes" and `concept/SKILL.md` "## Recap gate" — interactive iff value is exactly the literal string `1`; everything else, including unset/empty/`0`/`true`, is autonomous). Do not restate the truthiness check here — reference the canonical rule.
 
-Order, 60–120 words:
+**If not interactive:** skip this step entirely. Proceed to step 8 unchanged — no summary, no founder prompt. In A/B mode `PIPELINE_INTERACTIVE` is absent, so this step is skipped; step 8's A/B branch is byte-identical to pre-AJ2 behavior.
 
-1. **What now exists / what the human can do** — the user-visible change in one line. "Users can now reset their password from the login screen." / "Routine scheduler boots on server start and fires due routines." Name the feature, not the workpackage ID.
-2. **What changed at a glance** — 3–5 key surfaces or files. "New `ResetPassword` page (`packages/web`), `/auth/reset` route (`packages/server`), email template."
-3. **Status — one line only** — `PR #123 · CI green · ready to merge`.
-4. **If blocked** — state the outcome plainly: "Blocked: CI red after 3 fixes — Postgres migration timeout." No retry play-by-play.
+**If interactive (`PIPELINE_INTERACTIVE` == `1`):** after CI-green (step 7) and before the human merges (step 8), emit the ship summary as readable chat prose. The summary must contain five beats:
 
-Do **not** put in the summary: phase numbers, persona names, review-round counts, critique scores, attestation/HMAC internals, verify tool lists, CI-polling mechanics. Those belong in the retro log, not the human's chat. If a process detail materially affects the human (e.g. a deferred follow-up they must track), state it as one plain sentence.
+1. **What shipped** — one-paragraph plain-English description of the change (sourced from the PR title/body + workpackage outcome).
+2. **Which ACs were covered** — the reviewer's AC table result (from Phase 4 `/review`'s AC-completeness audit).
+3. **Which files changed** — the changed-file list (from `git diff --stat` against `origin/main`).
+4. **Retro cost signal** — the cost signal the retro emitted (from `plans/<id>/retro.md`, Phase 6 retro).
+5. **Residual risk** — anything the founder should weigh before merging (from the retro's risk notes + reviewer findings that were accepted/deferred).
+
+**No-fabricate fallback rule — one line:** a beat with no source says "not recorded," never a guess.
+- Beat 4 (retro cost signal): if `retro.md` carries no explicit cost signal → **"cost signal: not recorded"**.
+- Beat 5 (residual risk): if neither retro nor accepted/deferred reviewer findings name a risk → **"residual risk: none recorded"**.
+- Beats 1–3: these source from the PR body, reviewer AC table, and `git diff --stat`, which always exist by ship time; if the AC table is somehow missing → **"AC coverage: not available — see PR review"**.
+
+Emit as chat prose. **No `AskUserQuestion`** — the human-merge decision (step 8) is already the gate. The summary is briefing for that decision, not a second gate. It is distinct from raw CI pass/fail: CI-green says "the gates passed"; the summary says "here is what passed and what it means." A summary that merely echoes "CI green" has not satisfied this step.
+
+**Frame it outcome-first.** Lead with the product — what the human can now do or see — in plain words, and keep it skimmable. Beat 1 is the user-visible outcome (name the feature, not the workpackage ID), not a phase log. Do not headline pipeline mechanics — phase numbers, persona names, review-round counts, critique scores, attestation/HMAC internals, verify tool lists, CI-polling. A process detail only earns a line if it materially affects the human (e.g. a deferred follow-up they must track).
 
 ### 8. Merge decision
 
-**Do NOT merge automatically.** The `/ship` skill stops at "CI-green PR open." Merging is a human decision — the A/B harness depends on PRs staying open and re-runnable.
+**Do NOT merge automatically.** The `/ship` skill stops at "CI-green PR open." Merging is a human decision — the A/B harness depends on PRs staying open and re-runnable. In interactive mode, the founder reads the ship summary (step 7a) before deciding; the merge stance is otherwise unchanged.
 
 When the human is ready: `gh pr merge --squash`.
 
@@ -174,7 +184,7 @@ gh pr checks <number>  # poll until green
 - **Never `git add -A`** — stage specific files
 - **Never force push** — history is shared
 - **Never `--no-verify`** — hooks exist for a reason
-- **Never merge** — leave the PR for the human
+- **Never merge** — leave the PR for the human; the ship summary (interactive mode) briefs the human, it does not merge for them
 - **One PR per workpackage** in pipeline mode
 - **Attestation must be the last commit** — no code after it
 
