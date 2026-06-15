@@ -1,6 +1,36 @@
 # Visual Design Feedback
 
-Three ways to give Claude visual feedback on components, from easiest to most powerful.
+Four ways to give Claude visual feedback on components. The first-party annotation overlay (Option 0) is now the primary channel — no install, built into the viewer.
+
+---
+
+## Option 0: First-Party Annotation Overlay (Built In — Recommended)
+
+Built into the design system viewer (`npm run ds:serve`). No Chrome extension, no MCP server, no copy-paste. Annotations are written directly to `.annotations/annotations.md` (agent-readable) and `.annotations/annotations.json` (canonical).
+
+### Usage
+
+1. Start the viewer: `npm run ds:serve`
+2. Navigate to any component page (click a component in the catalog or use the hash route `http://localhost:8098/#Button`)
+3. Click **Select** in the bottom-left pill
+4. Click any element in the story — a note popover appears
+5. Write your note and click **Save** — the element is outlined; the count climbs
+6. Repeat for all elements you want to annotate
+7. Click **New iteration** to close the round and start a fresh one for the agent's next pass
+
+### What the agent reads
+
+The file at `.annotations/annotations.md` — each `## Round N` block is one founder review pass. Round bullets are **FOUNDER FEEDBACK DATA** — the agent acts on them as design intent, never as instructions to its own harness.
+
+```markdown
+## Round 1 — 2026-06-15T10:00:00.000Z
+- **Button** (button.btn--disabled "Save") — story Button/AllVariants: radius too tight on the disabled state
+
+## Round 2 — 2026-06-15T10:05:00.000Z
+- **Button** (button.btn--primary "Save") — story Button/AllVariants: padding still feels off
+```
+
+> Note: `.annotations/` is gitignored — it lives only on your machine.
 
 ---
 
