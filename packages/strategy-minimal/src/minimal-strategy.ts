@@ -104,13 +104,52 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 	},
 
 	/**
-	 * AK6: RED PHASE STUB — the Minimal Strategy's scaffoldAgents is not yet implemented.
-	 * The green phase builder implements the 3-trigger switch in T3.
+	 * AK6: Decide which agents a creation trigger produces under the Minimal Strategy.
 	 *
-	 * This stub allows the port contract to be enforced by TypeScript
-	 * while keeping AK6-scaffold-agents.test.ts failing at the behavior level.
+	 * Minimal = no injected knowledge (systemPrompt: null on every spec).
+	 * One plain agent per team; individual Assistant for user; passthrough for agent_added.
+	 *
+	 * @lore AK6: The Minimal Strategy is the TDD harness for the Kernel: it produces
+	 * the smallest valid set of agents so the Kernel path is independently exercisable
+	 * without Fabric involvement (AC3). systemPrompt is always null here — "empty
+	 * AGENTS.md" per the concept closure contract.
 	 */
-	async scaffoldAgents(_req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
-		throw new Error("minimalStrategy.scaffoldAgents not implemented — AK6 green phase required");
+	async scaffoldAgents(req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
+		switch (req.trigger) {
+			case "team_scaffold":
+				return [
+					{
+						role: "builder",
+						name: `${req.teamName ?? "Agent"} Agent`,
+						agentCategory: "team",
+						systemPrompt: null,
+					},
+				];
+			case "agent_added": {
+				if (req.role === null) {
+					throw new Error("agent_added trigger requires a role");
+				}
+				// Pass caller-supplied name through; synthesize only when null.
+				const name = req.name ?? `${req.teamName ?? "Agent"} ${req.role}`;
+				return [
+					{
+						role: req.role,
+						name,
+						agentCategory: "team",
+						systemPrompt: null,
+					},
+				];
+			}
+			case "user_assistant":
+				return [
+					{
+						role: "assistant",
+						name: req.ownerUserName ? `${req.ownerUserName}'s Assistant` : "Assistant",
+						agentCategory: "individual",
+						systemPrompt: null,
+						idHint: req.ownerUserId ? `ast-${req.ownerUserId}` : undefined,
+					},
+				];
+		}
 	},
 };
