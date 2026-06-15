@@ -1007,6 +1007,12 @@ stories:
     track: AH
     depends: [AH1, AH2]
     complexity: M
+  # AH6 supersedes AH5's synthetic probe with real interface scenarios (record/replay + live refresh).
+  - id: AH6
+    title: Real assistant-interaction e2e lane (record/replay + live refresh)
+    track: AH
+    depends: [AH1, AH2, AH3]
+    complexity: L
 
   # Track AG: Work View Experience
   - id: AG1

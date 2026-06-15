@@ -71,6 +71,8 @@ This track makes the configuration surface coherent and the agent runtime actual
 
 **What's genuinely missing.** Model selection as a per-agent property (provider + model id, chosen against the current model catalog), the removal or demotion of the global three-tier table to a sane default rather than the primary control, and harness selection as a constrained choice over actually-registered adapters with no free-text path and no agent left harness-less. Onboarding-created agents must come out with a working default harness and model.
 
+> **Proof note (added with AH6).** AH2's ACs (per-agent model + harness selection/resolution) are met by existing tests — "actually runs against a live model" is narrative, not a testable AC, so AH2 is **not** reopened standalone. The one genuine gap is that every real call to date drives only the global tier seam (`resolveModelTier`); the **per-agent real-turn seam** (`resolveAgentModel` against a live model, cost > 0) is proven by **AH6**, which folds that assertion into its lane.
+
 **Depends on.** None. (Pairs with AH1 for an end-to-end runnable agent; AH3 depends on both.)
 
 **Complexity.** L
@@ -111,6 +113,8 @@ This track makes the configuration surface coherent and the agent runtime actual
 **What exists today.** The Assistant agent (`ast-{userId}`) and overlay (AD8b) exist; onboarding seeds a welcome message. Sending a message writes a message row, but whether anything consumes that message and provisions an agent turn is unproven — there may be no trigger, no harness on the assistant agent (AH2), and no key reaching the runtime (AH1), any of which leaves the turn dead and, critically, silent. Persona is editable in two places: Settings → Assistant (`PATCH /api/users/:id/assistant`) and Settings → Agents (the assistant agent's `soulPrompt`); separately the two harness adapters source persona differently (`CLAUDE.md` vs inline `soul_prompt`). A shared input style applies a single-line border-radius to `<textarea>`, producing the pill shape. (The 2026-06-12 consistency review adds two specifics for the rework: `SettingsAssistant.tsx` bypasses the design-system `Input` entirely — raw `<textarea>` + raw button — and colors its save feedback with undefined tokens `--color-error`/`--color-success`, which fall back to literal browser red/green; **AI1** fixes the dead tokens, and AH3's consolidated persona surface should be built on the design-system `Input`/`Button` rather than restyling the raw elements.)
 
 **What's genuinely missing.** A proven trigger path from "user sent a message to the assistant" to a streamed agent response visible in the overlay, with a clear, surfaced error state whenever the turn cannot run (missing key, no harness, provider failure) — never silence. A single canonical persona surface that the running agent demonstrably reads regardless of harness. And a textarea that renders as a proper multi-line box.
+
+> **Proof note (added with AH6).** AH3's headline AC ("the Assistant visibly responds") was merged proven by a **mocked** e2e spec — the real-model proof of the streaming response (the assistant DM round-trip, reply distinct from the seeded welcome) is delivered by **AH6**, which enables `AH3-assistant-responds.spec.ts`'s `test.skip` Scenario-1 through AH6's record/replay + live-refresh lane. AH3's ACs are unchanged; this is a cross-reference, not a reopen.
 
 **Depends on.** AH1 (the key must reach the runtime), AH2 (the assistant agent must have a working harness and model). These are the other two root causes of the silence; AH3 owns the trigger, the visible response/error, the soul consolidation, and the textarea fix.
 
@@ -233,3 +237,55 @@ Current best fits — all 2026, tool-capable, cheap, multi-provider (verified 20
 **Out of scope.** Judging agent *output quality* — that is the agent-layer evals' job and the evals run more expensive models; this lane only proves the path is alive and a tool call fires, not that the answer is good (wiring the existing evals into CI is a sensible sibling follow-up). On-device/local-model inference as a future cost optimization. Replacing or deleting the existing mocked E2E specs (they still have value for UI-chrome coverage).
 
 **Effort.** M (~1d)
+
+---
+
+### AH6 — Real assistant-interaction e2e lane (record/replay + live refresh)
+
+**Workpackage.** As a maintainer, I want the essential agent interactions a user actually performs — messaging the Assistant and watching it answer, asking it to do something and seeing the tool action land in the UI — covered by real-model-backed end-to-end tests that run for free, offline, and deterministically every day, and that are validated against a live cheap model on demand. So that the interactions the founder cares about are proven against the real model path through the real interface, instead of a synthetic probe that drives a contrived internal task no user ever issues. This replaces AH5's synthetic smoke probe with real interface scenarios, and turns "the Assistant works" into something the everyday test net asserts and a live run periodically re-confirms.
+
+**Why this matters.** AH5 established the hard rule that every workpackage in this track is proven by a real-LLM Playwright lane — but AH5 shipped last, and its real UI assertions ship as `test.fixme()` / `test.skip()`, so the essential agent interactions have zero real-LLM coverage today. The only thing actually exercising a real model is a synthetic probe (`ah5-real-turn-probe.ts`) that drives `provisionSession` with a contrived `write_session_notes("AH5-SMOKE-OK")` task — divorced from any interaction a founder performs. That means the headline AH3 outcome ("the Assistant visibly responds") was merged proven only by mocked specs. The maintainer needs a real-path net that fails when the message→turn→stream→render path or the tool-call path regresses, runs at $0 on every commit so it is always on, and is periodically re-validated against the genuine model so the cassettes do not silently drift from reality. Without this, the same class of dead-Assistant regression that reached the founder can recur green.
+
+**What exists today.** AH5 built the reusable live-lane infrastructure: a cheap-model selector that queries OpenRouter's live catalog (`ah5-resolve-model.ts`), an encrypted-credential test-server harness (`ah5-test-server.ts`), and a budget cap / cost reporter (`ah5-assert-budget.ts`), plus the no-mock guard. It also built the synthetic probe (`ah5-real-turn-probe.ts`) and the `AH5-SMOKE-OK` task that this workpackage removes. The real interface scenarios already exist as disabled tests: `AH3-assistant-responds.spec.ts` carries the assistant DM round-trip as a `test.skip` (Scenario-1, "reply distinct from welcome"), and `ah5-live-agent-path.spec.ts` carries the real tool-call-in-the-UI scenario as a `test.fixme`. AH3 (merged, PR #291) wired `runAssistantTurn` into the POST-message route (`packages/server/src/routes/threads.ts`), so the trigger those disabled tests waited on now exists and they can be enabled. The single LLM interception choke point is `callLlm` in `packages/server/src/harness/builtin-harness-adapter.ts`. Both resolver seams exist in `model-gateway.ts`: `resolveModelTier` (global tier) and `resolveAgentModel` (per-agent), and `assistant-turn.ts` already routes through `resolveAgentModel` — but no real call to date has exercised the per-agent seam end-to-end.
+
+**What's genuinely missing.** A record/replay layer at the `callLlm` choke point so the essential interactions run real-model-shaped responses for free and deterministically from committed cassettes, plus an on-demand live "refresh" run that re-records those cassettes against the real cheap model and is the actual ship-gate proof of the real model path. The disabled real-interface scenarios (assistant DM round-trip; real tool action in the UI; thinking→answered streaming) must be enabled and become the lane's content, and the synthetic probe must be retired. And the per-agent model seam (`resolveAgentModel`) — which AH2 added but no real call has ever driven — must be exercised by a real turn so AH2's intent is finally proven against a live model.
+
+**Why replay alone is not the proof.** A committed cassette proves the UI renders correctly given a model-shaped response; it does not prove the real model still produces such a response, nor that the credential, gateway, per-agent resolution, and provider path still work end-to-end. Per the track rule that a live-proof lane must actually execute before a workpackage is DONE, the replay is the fast everyday regression net and the live refresh run is the ship-gate proof. Both are required; neither substitutes for the other.
+
+**Depends on.**
+- AH1 — the credential must reach the runtime; the live refresh run resolves a real key end-to-end through the same resolver, which AH1 establishes. AH6 cannot prove the real path until the key reaches the runtime.
+- AH2 — the assistant agent must carry a per-agent model and a registered harness; AH6's per-agent-seam assertion drives `resolveAgentModel`, which AH2 added, and the live run cannot exercise it until per-agent model selection exists.
+- AH3 — the message→turn trigger (`runAssistantTurn` in the POST-message route) is the path AH6 enables and asserts; AH6's scenarios are AH3's `test.skip`/`test.fixme` cases, which cannot be enabled until that trigger is merged.
+
+(AH6 is correctly ordered after AH1–AH3, all merged, and supersedes AH5's synthetic probe.)
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- Each essential agent interaction — the assistant DM round-trip, a real user-requested tool action visible in the UI, and the thinking→answered streaming transition — is covered by a real-model-backed end-to-end test driven through the real interface, not a synthetic internal task.
+- The everyday run of these tests is $0, offline, and deterministic: it replays committed cassettes through the LLM choke point and runs inside the normal e2e lane with no API key set and no network call.
+- A local live "refresh" run exercises the real model path end-to-end, re-records the cassettes, and asserts loose real-output invariants — a non-empty reply distinct from the seeded welcome text, the expected tool actually fired and its effect visible in the UI, and a real, positive cost within a configured cap — and this live run is the workpackage's definition-of-done proof that the real path executes.
+- A real turn routes through the per-agent model seam (`resolveAgentModel`, not only the global `resolveModelTier`) and reaches a live model with a measured cost greater than zero, proving AH2's per-agent intent end-to-end for the first time.
+- Each live refresh run's cost is bounded by a configured budget cap, reported, fail-closed if exceeded, and is cents per run; the lane is local-only with no GitHub Actions workflow.
+- The synthetic AH5 artifacts are removed: `ah5-real-turn-probe.ts` and the `write_session_notes("AH5-SMOKE-OK")` task no longer exist as the live-path proof.
+- AH5's reusable infrastructure — the cheap-model selector, the encrypted-credential test-server, and the budget cap — is reused by this lane rather than rebuilt.
+
+**Validation scenarios.**
+- **(Playwright, live refresh, required)** Given the lane configured with an OpenRouter key locally, when the refresh run drives onboarding → open the Assistant → send a message and then issue a prescriptive tool request, then the run records real model output and a screenshot/report shows a real reply distinct from the welcome text, the requested tool call fired with its effect visible in the overlay, and a positive cost within the cap.
+- **(Playwright, replay, required)** Given `OPENROUTER_API_KEY` unset and no network, when the everyday e2e lane runs the same scenarios against committed cassettes, then all three interactions pass deterministically and offline with no live model call.
+- **(Playwright, required)** Given a deliberately re-broken message→turn trigger or stream path, when the lane runs (replay or refresh), then it fails — proving the lane guards the interaction path, not merely exercises it.
+- Given a live refresh turn, when its model resolution is observed, then it passed through `resolveAgentModel` (per-agent), not only `resolveModelTier`, and the reported cost is greater than zero.
+
+**Plan calls.** `/architecture` required — the record/replay layer at the `callLlm` choke point (cassette keying by prompt hash, where cassettes live, how replay activates in the normal e2e lane key-free), how the live refresh run re-records and asserts invariants, how it reuses AH5's selector/test-server/budget cap, and how the per-agent-seam assertion is observed. No `/concept` (no new nouns — cassette/replay/refresh are standard test-infra terms; Assistant, Harness, Tool established). No `/design` (test infrastructure, not a user surface). Note for the architecture pass: the single interception point is `callLlm` in `builtin-harness-adapter.ts`; do not intercept above the gateway or the per-agent resolution seam goes uncovered.
+
+**Contracts / constraints.**
+- Single interception choke point: record and replay happen at `callLlm` in `packages/server/src/harness/builtin-harness-adapter.ts` — not at the HTTP route, the gateway, or the UI, so credential resolution, the model gateway, and per-agent model resolution remain on the proof path.
+- The everyday replay run must require no API key and make no network call; cassettes are committed and deterministic.
+- The live refresh run is LOCAL ONLY — never a GitHub Actions workflow (this is the AH5 architecture error that caused PR #301's revert; do not repeat it).
+- The live run is budget-capped and fails closed if the cap is exceeded; the OpenRouter key is never committed.
+- Real-output assertions are loose invariants (non-empty, distinct from welcome, expected tool fired, cost > 0 ≤ cap) — never an exact-string match on model output, since judging answer quality is the evals' job.
+- Reuse AH5's cheap-model selector, encrypted-credential test-server, and budget cap; no parallel real-path harness.
+
+**Out of scope.** Converting the determinism-only mocked e2e specs — the ~77 of 80 specs that legitimately mock for UI-chrome determinism stay mocked; only the ~3 real-LLM-worthy interactions move to this lane. Judging answer quality or agent decision-making — that is the agent-layer evals' job, on more expensive models. Adding new assistant tools or capabilities. Reopening AH2 as a standalone workpackage — its per-agent seam proof folds into AH6 here. A GitHub Actions live lane (explicitly excluded).
+
+**Effort.** L (~1.5d)
