@@ -230,7 +230,13 @@ function makeDispatcherDeps(
 describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -353,7 +359,13 @@ describe("AD2 AC1: session auto-provisioned when task accepted with ownerAgentId
 describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -500,7 +512,13 @@ describe("AD2 AC2: session provisioned for new agent after handoff", () => {
 describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisioned)", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -556,7 +574,13 @@ describe("AD2 AC3: cost cap exceeded causes task to queue (no session provisione
 describe("AD2 AC4: concurrency limit causes queuing; session dispatch on capacity free", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -838,7 +862,13 @@ describe("AD2 AC5: non-coding tasks dispatch with builtin harness (no git worksp
 describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -950,7 +980,13 @@ describe("AD2 AC6: GET /api/dispatch-queue returns queued entries", () => {
 describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
@@ -1058,7 +1094,13 @@ describe("AD2 AC-idempotency: dispatcher restart does not duplicate sessions", (
 describe("AD2 AC-sweep-race: stale startupSweep does not pollute new registration queue", () => {
 	let dispose: (() => void) | undefined;
 
+	beforeEach(() => {
+		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
+		setActiveStrategy(fabricStrategy);
+	});
+
 	afterEach(() => {
+		clearActiveStrategy();
 		dispose?.();
 		dispose = undefined;
 	});
