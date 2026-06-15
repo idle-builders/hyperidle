@@ -68,6 +68,9 @@ export {
 	CREDENTIAL_STATES,
 	isCredentialName,
 } from "./credential.js";
+// ── AJ3: design-review gate-decision helper ──
+export type { DesignClass, DesignReviewDecision } from "./design-review-decision.js";
+export { designReviewDecision } from "./design-review-decision.js";
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
