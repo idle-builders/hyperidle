@@ -70,7 +70,7 @@ Check every component against its spec. If the spec says 4 columns, count the co
 
 ### Visual verification
 
-Look at pixels, not code. Run `cd packages/web && npm run visual:compare <reference-name>` to generate pixel diffs. Read the reference.png, implementation.png, and diff.png. Include screenshot paths and match percentages in findings.
+Look at pixels, not code. Open the component story in the live TSX viewer (`npm run ds:serve`, then navigate to `http://localhost:8098/#<ComponentName>`). The vitest DOM-snapshot net (`npm run test`) catches class/markup/marker regression; for *painted-pixel* review open the story in the live viewer (`npm run ds:serve` → `:8098/#<ComponentName>`) and look, or `npx playwright screenshot http://localhost:8098/#<ComponentName> /tmp/review.png` to read the PNG. Include screenshot paths and diff evidence in findings.
 
 ---
 

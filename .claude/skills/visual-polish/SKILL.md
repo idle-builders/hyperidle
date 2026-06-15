@@ -1,47 +1,56 @@
 ---
 name: visual-polish
-description: "Iteratively improve a component/page's visual fidelity against its reference mockup using pixel comparison and Claude vision evaluation."
-argument-hint: "<reference-name|all>"
+description: "Iteratively improve a component/page's visual fidelity against its reference story using the live TSX viewer and snapshot net."
+argument-hint: "<component-name|all>"
 user-invocable: true
 min_tool_calls: 18
 ---
 
 # Visual Polish
 
-Iterative visual fidelity improvement loop. Compare the live implementation against reference mockups, identify differences, fix them, and re-compare until the design matches.
+Iterative visual fidelity improvement loop. Compare the live implementation against the TSX story in the viewer, identify differences, fix them, and re-compare until the design matches.
 
 ## Prerequisites
 
-- Dev server running on `localhost:5173` (`npm run dev` from repo root)
-- Playwright installed (`cd packages/web && bunx playwright install chromium`)
-- Reference mockups attached to `plans/<workpackage-id>/design/approved.md`
+- Dev server running on `localhost:5173` (`npm run dev` from repo root) for app-level polish
+- Design system viewer running on `localhost:8098` (`npm run ds:serve`) for component-level polish
+- Reference: the approved design at `plans/<workpackage-id>/design/approved.md`
 
 ## Workflow
 
-### 1. Capture & Compare
+### 1. Open the story
+
+For design-system components:
 
 ```bash
-cd packages/web && npm run visual:compare <reference-name>
+npm run ds:serve
+# open http://localhost:8098/#<ComponentName>
 ```
 
-This produces in `packages/web/visual-reports/<name>/`:
-- `reference.png` — screenshot of the reference HTML mockup
-- `implementation.png` — screenshot of the live app
-- `diff.png` — pixel diff (magenta = differences)
-- `report.json` — structured metrics (matchPercent, diffPixels, totalPixels)
+For app-level pages: use `http://localhost:5173/<route>`.
 
-### 2. Evaluate
+### 2. Evaluate visually
 
-Read ALL three images. Look at pixels, not code. Identify:
+Navigate to `http://localhost:8098/#<ComponentName>` in the browser or via agent visual assessment of the live viewer. Look at pixels, not code. Identify:
 - **Layout differences** — element positions, flex/grid structure, spacing
 - **Color differences** — wrong tokens, missing dark theme colors, contrast
 - **Typography** — wrong font, size, weight, letter-spacing
 - **Missing elements** — icons, badges, indicators not implemented
 - **Extra elements** — implementation has things the reference doesn't
 
-Reference the design synthesis docs (`plans/design-synthesis/`) for design intent when differences are ambiguous.
+Reference the approved design (`plans/<workpackage-id>/design/approved.md`) for design intent when differences are ambiguous.
 
-### 3. Fix
+### 3. Check the snapshot net
+
+```bash
+npm run test -- catalog-snapshot
+```
+
+The vitest snapshot net flags structural/class drift (DOM elements, className composition, data-ds-* markers, aria attrs). If it fails, the component has changed from the last blessed state — review the text diff to understand what changed.
+
+For *painted-pixel* comparison (colors, spacing, layout rendered): use the live TSX viewer (`npm run ds:serve` → `http://localhost:8098/#<ComponentName>`) and inspect visually in the browser or via agent visual assessment. The snapshot net does not check painted pixels (jsdom does not lay out or apply the cascade — that is the accepted trade for zero-Docker verify; see `.claude/rules/visual-regression.md`).
+
+### 4. Fix
 
 Make targeted CSS/component changes. One concern per iteration:
 1. Layout structure first (flex, grid, widths, positions)
@@ -50,43 +59,45 @@ Make targeted CSS/component changes. One concern per iteration:
 4. Spacing and padding fourth
 5. Details last (borders, shadows, icons, badges)
 
-### 4. Re-compare
+### 5. Re-compare
 
-Run the comparison again. Check if matchPercent improved. If it regressed, revert the last change.
+Open (or refresh) `http://localhost:8098/#<ComponentName>` in the live viewer. Check if the visual diff improved. If it regressed, revert the last change.
 
-### 5. Convergence
+### 6. Convergence
 
 Stop when:
-- `matchPercent >= 90%` AND no critical visual differences in Claude vision assessment
+- Snapshot net passes (`npm run test -- catalog-snapshot`) AND no critical visual differences in visual assessment
 - OR 8 iterations reached (cap to prevent context rot)
 - OR remaining differences are due to dynamic content (timestamps, counts, avatars)
+
+After an intentional visual change, re-bless the snapshot baseline:
+
+```bash
+npm run ds:bless  # or: npx vitest run -u — see .claude/rules/visual-regression.md
+```
+
+Commit the updated `.snap` in the same PR as the component change. Read the diff before committing — never blind re-bless.
 
 ## Thresholds
 
 | Score | Status | Action |
 |-------|--------|--------|
-| ≥ 95% | Excellent | Done — commit |
-| 90-95% | Good | Review remaining diffs — likely acceptable |
-| 80-90% | Needs work | Continue iterating |
-| < 80% | Poor | Major layout/structural issues to fix |
+| Snapshot net passes + visual match | Excellent | Done — commit + re-bless if intentional change |
+| Snapshot net fails <5 variants | Needs work | Continue iterating |
+| Snapshot net fails many | Major | Layout/structural issues to fix |
 
 ## Important Rules
 
-- **Never chase 100%** — dynamic content, font rendering, and anti-aliasing make perfect matches impossible
+- **Never blind re-bless** — always read the `.snap` diff before running `vitest -u`. Blind re-bless degrades the net to noise.
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
-- **Check the design synthesis first** — when reference and implementation disagree on a design decision, the synthesis docs (`plans/design-synthesis/`) are the source of truth
-- **One change at a time** — so you can attribute score changes to specific modifications
-- **Disable animations** — the comparison script already injects freeze CSS, but verify no animation-dependent layout shifts
-
-## Reference Mapping
-
-The full mapping lives in `packages/web/scripts/visual-compare-map.ts`. Each reference maps to a route + optional setup function.
+- **Check the approved design first** — when story and reference disagree, the approved design at `plans/<workpackage-id>/design/approved.md` is the source of truth
+- **One change at a time** — so you can attribute regression to specific modifications
 
 ## Output
 
 After polishing, report:
-- Starting fidelity score
-- Final fidelity score
+- Starting state (snapshot net pass/fail, which variants diffed; visual assessment)
+- Final state (snapshot net passes)
 - Number of iterations
 - Key changes made (file:line summary)
 - Remaining known differences (if any) and why they're acceptable

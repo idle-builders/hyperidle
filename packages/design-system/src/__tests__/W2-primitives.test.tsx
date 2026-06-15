@@ -2,9 +2,9 @@
  * W2 — Foundation Primitives existence + DOM marker tests.
  *
  * AC-3: All 10 Tier 0 primitives exist as TSX with stories.
- * AC-4: ds:sync passes for new primitives (this unit test verifies
- *       the primitives render the correct data-ds-component attribute;
- *       the full pixel diff is in visual-regression.test.ts / ds:sync).
+ * AC-4: The vitest DOM-snapshot net (catalog-snapshot.test.tsx) catches
+ *       class/markup/marker regressions for all catalogued stories.
+ *       This unit test verifies primitives render the correct data-ds-component attribute.
  *
  * These tests FAIL in the red phase because the primitive files
  * do not yet exist.

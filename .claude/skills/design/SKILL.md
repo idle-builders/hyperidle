@@ -32,7 +32,7 @@ Read all of the following in one parallel batch of Read calls — these files ar
 1. The workpackage in `.pipeline/work-packages/TRACK-<letter>.md`.
 2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
-4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
+4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-regression.md`.
 5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
 
 For deeper reference material on specific critique dimensions (read on demand when scoring in Phase 2 — each cross-links a section of `packages/design-system/AESTHETICS.md`):
@@ -50,7 +50,7 @@ Without these, the Phase 2 critique becomes vibes-grading. Read the relevant ref
 Before interrogation, classify the story along two axes:
 
 1. **Existing component reference** — does the spec name an existing component family (e.g. "extend `ThreadRow`", "another tab in `SessionDrawer`")?
-2. **Pattern match** — does `packages/design-system/html/` contain a similar embodied pattern (same primitive, same shape)?
+2. **Pattern match** — does a similar embodied pattern exist in the live catalog at `:8098` or in the `packages/design-system/src/*.stories.tsx` files?
 
 Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confidence flag (see below).
 
@@ -60,14 +60,14 @@ Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confid
 | `routine` | 1, with a "did we consider X / Y / Z?" check on the rejected directions | only on `approved.md` |
 | `routine` (low-confidence) | 2, A vs. B | per-variant + on `approved.md` |
 
-**Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but `packages/design-system/html/` has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
+**Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but the live catalog has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
 
 **Hard rule for new design-system primitives.** L1 (Thread), L2 (Block), L3 (Artifact) and any future named primitive in TRACK-L are **always `novel`** regardless of axis match. The shape itself is what's being decided.
 
 Output one machine-greppable line at the top of `brief.md`:
 
 ```
-DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
+DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<story-name-or-none>
 ```
 
 ## Phase 0b — Reuse inventory (hard gate)
@@ -151,10 +151,10 @@ Each variant produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
    - Mobile adaptation: how it maps to the three-tab mobile layout
    - The **signature** — the one thing that makes this variant unmistakably itself
    - Trade-offs: what this variant is bad at
-2. **`mockup.html`** (preferred) — a self-contained HTML file that **embodies** the variant. Imports the design system tokens (link to `packages/design-system/src/tokens.css`), uses real data shapes from the workpackage, demonstrates the primary state. The mockup IS the variant; describing motion in prose while the mockup uses default 200ms transitions = fail.
-3. **`screenshot.png`** — Playwright screenshot of `mockup.html` at desktop width. (Run `npx playwright screenshot file://<absolute-path>/mockup.html screenshot.png --wait-for-timeout=1000`.)
+2. **`variant.tsx`** — a self-contained TSX sketch that **embodies** the variant. Renders in the design-system viewer at `:8098` (add a temporary story export in `packages/design-system/src/` or `packages/web/src/`). Uses design-system tokens and real data shapes from the workpackage, demonstrates the primary state. The TSX sketch IS the variant; describing motion in prose while the render uses default 200ms transitions = fail. (AJ1: TSX is the single design source of truth — HTML mockups are retired. AJ3 will introduce a first-class TSX variant-authoring workflow.)
+3. **`screenshot.png`** — Playwright screenshot of the TSX sketch rendered in the viewer at desktop width. (Run `npx playwright screenshot "http://localhost:8098/#<ComponentName>" screenshot.png --wait-for-timeout=2000`.)
 
-If HTML mockups are too heavy for the workpackage (small primitive, well-understood shape), produce *spec + a TSX sketch in the design-system playground* instead. The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
+The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
 
 ## Phase 2 — Build the comparison
 
@@ -219,15 +219,15 @@ plans/<workpackage-id>/design/
 ├── brief.md                    # the interrogated brief
 ├── <variant-a-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx             # TSX sketch (AJ1: TSX is the design source of truth)
 │   └── screenshot.png
 ├── <variant-b-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx
 │   └── screenshot.png
 ├── <variant-c-slug>/
 │   ├── spec.md
-│   ├── mockup.html
+│   ├── variant.tsx
 │   └── screenshot.png
 ├── comparison.md               # side-by-side table + screenshots
 ├── synthesis.md                # which variant wins, what gets pulled in, rejection list

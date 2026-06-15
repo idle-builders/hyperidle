@@ -66,7 +66,7 @@ export interface SelectionResult {
  * 3. Drop models where completion price > policy.maxCompletionPricePerMillion.
  * 4. For each survivor, check endpoint gates: tools support + uptime floor.
  *    Disqualify if toolProviderCount < policy.minToolProviders (redundancy gate).
- * 5. Rank survivors: bestThroughputP50 desc → bestLatencyP50 asc → price asc.
+ * 5. Rank survivors: price asc → bestThroughputP50 desc → bestLatencyP50 asc.
  * 6. Set routedId = `${id}:nitro`.
  */
 export function selectSmokeModel(input: SelectionInput): SelectionResult {
@@ -123,15 +123,22 @@ export function selectSmokeModel(input: SelectionInput): SelectionResult {
 		});
 	}
 
-	// Rank: throughput desc → latency asc → price asc
+	// @lore AH5 Fix3: Ranker changed from throughput-first to price-first.
+	// The spec said "rank by throughput, price as tiebreaker" but the first live
+	// run showed throughput-first picks expensive large models (nvidia/nemotron-3-super-120b)
+	// with worse tool compliance over cheap alternatives. Since the lane is local
+	// (CI latency no longer matters), price-first selects the best value model.
+	// Tiebreakers: throughput desc → latency asc. Deviation noted in TRACK-AH.md §AH5.
+	//
+	// Rank: price asc → throughput desc → latency asc
 	const ranked = candidates.slice().sort((a, b) => {
+		if (a.completionPricePerMillion !== b.completionPricePerMillion) {
+			return a.completionPricePerMillion - b.completionPricePerMillion;
+		}
 		if (b.bestThroughputP50 !== a.bestThroughputP50) {
 			return b.bestThroughputP50 - a.bestThroughputP50;
 		}
-		if (a.bestLatencyP50 !== b.bestLatencyP50) {
-			return a.bestLatencyP50 - b.bestLatencyP50;
-		}
-		return a.completionPricePerMillion - b.completionPricePerMillion;
+		return a.bestLatencyP50 - b.bestLatencyP50;
 	});
 
 	return { ranked };

@@ -24,10 +24,16 @@ import { fileURLToPath } from "node:url";
 // probe: packages/web/scripts/ah5-real-turn-probe.ts → ../playwright-report-ah5/
 // local lane report: packages/web/playwright-report-ah5/
 // Both resolve to the same directory: packages/web/playwright-report-ah5/
-const COST_FILE = path.resolve(
+//
+// @lore AH5 Fix: Playwright's HTML reporter clears playwright-report-ah5/ before
+// writing, which deletes ah5-cost.json. The orchestrator backs it up to /tmp/ah5-cost.json
+// before launching Playwright. This script checks the primary path first, then the backup.
+const COST_FILE_PRIMARY = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
 	"../playwright-report-ah5/ah5-cost.json",
 );
+const COST_FILE_BACKUP = "/tmp/ah5-cost.json";
+const COST_FILE = fs.existsSync(COST_FILE_PRIMARY) ? COST_FILE_PRIMARY : COST_FILE_BACKUP;
 
 const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");
 

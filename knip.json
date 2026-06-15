@@ -3,7 +3,6 @@
 	"ignore": [
 		"**/.claude/**",
 		"docs/product/.vitepress/**",
-		"packages/design-system/html/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
 		"plans/**"
@@ -34,14 +33,7 @@
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
 			],
-			"ignoreDependencies": ["autoprefixer", "postcss"],
-			"playwright": {
-				"config": [
-					"playwright.config.ts",
-					"playwright.l1.config.ts",
-					"playwright.workbench.config.ts"
-				]
-			}
+			"ignoreDependencies": ["autoprefixer", "postcss"]
 		},
 		"packages/web": {
 			"entry": [
