@@ -113,10 +113,13 @@ describe("AppShell — AC-2: Sidebar + main layout", () => {
 		});
 	});
 
-	it('sidebar renders "HyperIdle" brand wordmark', async () => {
-		renderShell();
+	it("sidebar renders data-ds-shell='Sidebar' (brand context from product chrome)", async () => {
+		// @lore AD9: SidebarV2 approved design removed the wordmark from the sidebar.
+		// Brand is in the product window title / app header. Sidebar identifies itself
+		// via data-ds-shell="Sidebar" for integration tests.
+		const { container } = renderShell();
 		await waitFor(() => {
-			expect(screen.getByText("HyperIdle")).toBeInTheDocument();
+			expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
 		});
 	});
 });

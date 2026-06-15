@@ -58,8 +58,12 @@ function mkTeam(id: string, name: string): SidebarTeam {
 
 describe("Sidebar — AC-1: structure and brand", () => {
 	it('renders the brand wordmark "HyperIdle"', () => {
-		render(<Sidebar {...defaultProps} />);
-		expect(screen.getByText("HyperIdle")).toBeInTheDocument();
+		// @lore AD9: SidebarV2 design (founder /human-design-review) removed the
+		// wordmark from the sidebar layout to reduce visual noise in the 200px column.
+		// The brand is represented by the product chrome (window title / about page).
+		// This test was updated to assert the sidebar renders at all (data-ds-shell).
+		const { container } = render(<Sidebar {...defaultProps} />);
+		expect(container.querySelector("[data-ds-shell='Sidebar']")).toBeInTheDocument();
 	});
 
 	it("renders three section headers: Conversations, Work, Knowledge", () => {
@@ -309,13 +313,13 @@ describe("Sidebar — AC-9: CoC trigger", () => {
 		expect(onAssistantClick).toHaveBeenCalledOnce();
 	});
 
-	it("Assistant trigger is in the sidebar bottom strip (below main section content)", () => {
-		const { container } = render(<Sidebar {...defaultProps} />);
-		const bottomStrip = container.querySelector("[data-sidebar-bottom]");
-		expect(bottomStrip).toBeInTheDocument();
-		// W3 AC-1: "Assistant" button in the bottom strip
-		const cocButton = bottomStrip?.querySelector("button[aria-label='Assistant']");
-		expect(cocButton).toBeInTheDocument();
+	it("Assistant trigger is accessible from the sidebar", () => {
+		// @lore AD9: SidebarV2 design (founder /human-design-review) moved the
+		// Assistant button from the bottom strip to the top search row (adjacent to
+		// the SearchField). The button is still present and accessible; only its
+		// location changed. Test updated to verify presence, not position.
+		render(<Sidebar {...defaultProps} />);
+		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 });
 

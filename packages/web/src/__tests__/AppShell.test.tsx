@@ -65,6 +65,7 @@ function renderShell(
 					// L9: canonical conversation routes replace legacy /review and /chat.
 					{ path: "conversations", element: <div>{childContent}</div> },
 					{ path: "conversations/:threadId", element: <div>{childContent}</div> },
+					{ path: "work", element: <div>Work Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
@@ -114,7 +115,8 @@ describe("AppShell", () => {
 		await user.click(workButton);
 
 		await waitFor(() => {
-			expect(screen.getByText("Portfolio Page")).toBeInTheDocument();
+			// AD9: was "Portfolio Page" at /work/portfolio; now "Work Page" at /work
+			expect(screen.getByText("Work Page")).toBeInTheDocument();
 		});
 	});
 
@@ -226,7 +228,9 @@ describe("AppShell", () => {
 			// I4 N1: work result id must produce /work/bet/<id>.
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
-			const input = await screen.findByRole("textbox");
+			// AD9: Sidebar adds a second textbox (search hint). Use placeholder to target
+			// the GlobalSearchPanel input specifically.
+			const input = await screen.findByPlaceholderText(/search conversations/i);
 			await user.type(input, "Bet");
 			await waitFor(() => expect(screen.getByText("Bet Fortytwo")).toBeInTheDocument());
 			await user.click(screen.getByText("Bet Fortytwo"));
@@ -238,7 +242,7 @@ describe("AppShell", () => {
 		it("navigates knowledge result to /knowledge/{id}", async () => {
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
-			const input = await screen.findByRole("textbox");
+			const input = await screen.findByPlaceholderText(/search conversations/i);
 			await user.type(input, "Arch");
 			await waitFor(() => expect(screen.getByText("Arch doc")).toBeInTheDocument());
 			await user.click(screen.getByText("Arch doc"));
@@ -269,7 +273,7 @@ describe("AppShell", () => {
 			});
 			const { user, router } = renderShellWithProbes("/knowledge");
 			await user.keyboard("{Meta>}k{/Meta}");
-			const input = await screen.findByRole("textbox");
+			const input = await screen.findByPlaceholderText(/search conversations/i);
 			await user.type(input, "Review");
 			await waitFor(() => expect(screen.getByText("Review session")).toBeInTheDocument());
 			await user.click(screen.getByText("Review session"));
