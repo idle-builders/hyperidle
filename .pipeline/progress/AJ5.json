@@ -1,0 +1,9 @@
+{
+  "id": "AJ5",
+  "status": "in_progress",
+  "currentStep": "3-write-tests",
+  "track": "AJ",
+  "complexity": "M",
+  "startedAt": "2026-06-15T20:15:55Z",
+  "notes": "First-party design annotation in the viewer (de-hoaxes AJ3 external-MCP loop). Concept + architecture locked pre-pipeline. Dispatching /design for the overlay UX."
+}
