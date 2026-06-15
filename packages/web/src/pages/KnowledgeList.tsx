@@ -36,6 +36,7 @@ import {
 	ErrorState,
 	ItemList,
 	knowledgeStatusToStatus,
+	PageHeader,
 	Row,
 	ScopePicker,
 	SkeletonList,
@@ -948,87 +949,86 @@ export function KnowledgeList({
 
 	return (
 		<div className="flex flex-col h-full" data-testid="knowledge-list-page">
-			{/* Header: when systemEmpty, show only the title.
-			    When populated, show tabs + search + "New" button. */}
-			<header className="shrink-0 flex items-center justify-between px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<div className="flex items-center gap-[12px]">
-					<span className="sr-only">Knowledge Base</span>
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
+			{/* AI7: PageHeader — Knowledge title + tabs + search + New button in actions.
+			    When systemEmpty: title only. When populated: tabs + search + New in actions. */}
+			<PageHeader
+				title={
+					<>
+						<span className="sr-only">Knowledge Base</span>
 						Knowledge
-					</h2>
-					{/* Curated/Triage tabs — hidden when knowledge base is empty */}
-					{!systemEmpty && (
-						<div
-							role="tablist"
-							aria-label="Knowledge view"
-							className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-							data-testid="knowledge-tabs"
-						>
-							<button
-								type="button"
-								role="tab"
-								aria-selected={tab === "curated"}
-								className={
-									tab === "curated"
-										? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-										: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-								}
-								onClick={() => {
-									tabManuallySelectedRef.current = true;
-									setTab("curated");
-								}}
+					</>
+				}
+				actions={
+					!systemEmpty ? (
+						<div className="flex items-center gap-[9px]">
+							{/* Curated/Triage tabs */}
+							<div
+								role="tablist"
+								aria-label="Knowledge view"
+								className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
+								data-testid="knowledge-tabs"
 							>
-								Curated
-							</button>
-							<button
-								type="button"
-								role="tab"
-								aria-selected={tab === "triage"}
-								className={
-									tab === "triage"
-										? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-										: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-								}
-								onClick={() => {
-									tabManuallySelectedRef.current = true;
-									setTab("triage");
+								<button
+									type="button"
+									role="tab"
+									aria-selected={tab === "curated"}
+									className={
+										tab === "curated"
+											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+									}
+									onClick={() => {
+										tabManuallySelectedRef.current = true;
+										setTab("curated");
+									}}
+								>
+									Curated
+								</button>
+								<button
+									type="button"
+									role="tab"
+									aria-selected={tab === "triage"}
+									className={
+										tab === "triage"
+											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+									}
+									onClick={() => {
+										tabManuallySelectedRef.current = true;
+										setTab("triage");
+									}}
+								>
+									Triage
+								</button>
+							</div>
+							{/* Search + New */}
+							{/* hearth-internal-padding */}
+							<input
+								type="search"
+								aria-label="Search knowledge"
+								data-testid="knowledge-search"
+								placeholder="Search…"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								style={{
+									width: "200px",
+									borderRadius: "var(--r-pill)",
+									border: "1.5px solid var(--border-default)",
+									padding: "7px 12px",
+									fontSize: "13px",
+									background: "var(--surface-page)",
+									color: "var(--text-primary)",
+									outline: "none",
 								}}
-							>
-								Triage
-							</button>
+							/>
+							{/* AI5: shared Button primitive. */}
+							<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
+								+ New
+							</Button>
 						</div>
-					)}
-				</div>
-				{/* Search + New — hidden when knowledge base is empty */}
-				{!systemEmpty && (
-					<div className="flex items-center gap-[9px]">
-						{/* Visual parity: search input between tabs and + New button */}
-						{/* hearth-internal-padding */}
-						<input
-							type="search"
-							aria-label="Search knowledge"
-							data-testid="knowledge-search"
-							placeholder="Search…"
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							style={{
-								width: "200px",
-								borderRadius: "var(--r-pill)",
-								border: "1.5px solid var(--border-default)",
-								padding: "7px 12px",
-								fontSize: "13px",
-								background: "var(--surface-page)",
-								color: "var(--text-primary)",
-								outline: "none",
-							}}
-						/>
-						{/* AI5: shared Button primitive. */}
-						<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
-							+ New
-						</Button>
-					</div>
-				)}
-			</header>
+					) : undefined
+				}
+			/>
 
 			<div className="flex-1 overflow-y-auto">
 				{systemEmpty ? (

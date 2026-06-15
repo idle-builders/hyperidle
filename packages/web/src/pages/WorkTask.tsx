@@ -22,6 +22,8 @@ import {
 	Breadcrumb,
 	ErrorState,
 	LiveDot,
+	PageHeader,
+	SectionLabel,
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
@@ -41,9 +43,6 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
  * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
  */
 
-/** Section title class — uppercase label with border-bottom divider. */
-const SECTION_TITLE_CLASS =
-	"text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]";
 
 export interface WorkTaskProps {
 	/** Override bet ID from route params — used by tests outside the router. */
@@ -135,10 +134,14 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	if (betLoading) {
 		return (
 			<div data-testid="task-detail-loading" className="flex flex-col h-full">
-				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
-					<div className="skeleton h-[20px] w-[320px]" />
-				</header>
+				<PageHeader
+					title={
+						<>
+							<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
+							<div className="skeleton h-[20px] w-[320px]" />
+						</>
+					}
+				/>
 				<div role="status" aria-busy="true" className="flex-1 overflow-y-auto p-[24px]">
 					<div className="skeleton h-[120px] w-full rounded-[var(--r-default)]" />
 				</div>
@@ -183,43 +186,40 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 	return (
 		<div data-testid="task-detail-page" className="flex flex-col h-full">
-			{/* Fixed bordered header: breadcrumb + h2 title + status badge + overflow */}
-			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */}
-				<div data-testid="task-breadcrumb" className="mb-[6px]">
-					<Breadcrumb
-						segments={[
-							{ label: "Work", to: "/work/portfolio" },
-							{ label: bet.team, to: "/work/portfolio" },
-							{ label: bet.title, to: `/work/bet/${bet.id}` },
-							{ label: task.title },
-						]}
-						leading={
-							!sidebarMobile ? (
-								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-							) : undefined
-						}
-						LinkComponent={RRLink}
-					/>
-				</div>
-				{/* Title row */}
-				<div className="flex items-start justify-between gap-[12px]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] mt-[4px]">
-						{task.title}
-					</h2>
-					{/* AC-2: "More actions" overflow button removed — no task-level overflow
-					    actions are defined for WorkTask (archive, scope, etc. are not yet
-					    modelled here). A button with no onClick is a no-op; removing is
-					    correct per AC-2. Add back when real actions exist. */}
-					<div className="flex items-center gap-[6px] shrink-0">
+			{/* AI7: PageHeader owns the pinned title strip. */}
+			<PageHeader
+				title={task.title}
+				leading={
+					/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
+					<div data-testid="task-breadcrumb">
+						<Breadcrumb
+							segments={[
+								{ label: "Work", to: "/work/portfolio" },
+								{ label: bet.team, to: "/work/portfolio" },
+								{ label: bet.title, to: `/work/bet/${bet.id}` },
+								{ label: task.title },
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
+						/>
+					</div>
+				}
+				actions={
+					/* AC-2: "More actions" overflow button removed — no task-level overflow
+					   actions defined. Add back when real actions exist. */
+					<div className="flex items-center gap-[6px]">
 						{task.state === "in_progress" && <LiveDot />}
 						<StatusChip
 							status={taskStateToStatus(task.state)}
 							label={TASK_STATE_LABEL[task.state]}
 						/>
 					</div>
-				</div>
-			</header>
+				}
+			/>
 
 			{/* Scrollable body */}
 			<div className="flex-1 overflow-y-auto">
@@ -316,7 +316,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-29: Sessions section */}
 					<section data-testid="task-sessions-section">
-						<div className={SECTION_TITLE_CLASS}>Sessions</div>
+						<SectionLabel divider>Sessions</SectionLabel>
 						{sessions.length === 0 ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
 						) : (
@@ -338,7 +338,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-31: Artifacts section */}
 					<section aria-label="Artifacts">
-						<div className={SECTION_TITLE_CLASS}>Artifacts</div>
+						<SectionLabel divider>Artifacts</SectionLabel>
 						<ArtifactSection
 							filter={{ axis: "task", taskId: taskId ?? "" }}
 							layout="stack"
@@ -349,7 +349,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-30: Discussion section */}
 					<section aria-label="Discussion">
-						<div className={SECTION_TITLE_CLASS}>Discussion</div>
+						<SectionLabel divider>Discussion</SectionLabel>
 						<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
 					</section>
 				</div>

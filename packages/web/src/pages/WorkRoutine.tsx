@@ -18,8 +18,10 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	PageHeader,
 	Progress,
 	routineStateToStatus,
+	SectionLabel,
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -65,28 +67,39 @@ export function WorkRoutine({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-loading">
-				<SkeletonCard ariaLabel="Loading routine header" />
-				<SkeletonCard ariaLabel="Loading run history" />
+			<div className="flex flex-col h-full" data-testid="work-routine-loading">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="flex flex-col gap-[12px] p-[24px]">
+						<SkeletonCard ariaLabel="Loading routine header" />
+						<SkeletonCard ariaLabel="Loading run history" />
+					</div>
+				</div>
 			</div>
 		);
 	}
 
 	if (error !== null && error !== undefined) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-error">
-				<ErrorState title="Failed to load routine" description={error.message} />
+			<div className="flex flex-col h-full" data-testid="work-routine-error">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<ErrorState title="Failed to load routine" description={error.message} />
+				</div>
 			</div>
 		);
 	}
 
 	if (data === null) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-not-found">
-				<EmptyState
-					title="Routine not found"
-					description="This routine does not exist or has been removed."
-				/>
+			<div className="flex flex-col h-full" data-testid="work-routine-not-found">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<EmptyState
+						title="Routine not found"
+						description="This routine does not exist or has been removed."
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -174,10 +187,12 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 			: "Never";
 
 	return (
-		<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-page">
-			{/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */}
-			<section aria-label="Routine header">
-				<div className="mb-1">
+		<div className="flex flex-col h-full" data-testid="work-routine-page">
+			{/* AI7: PageHeader owns the pinned title strip. */}
+			<PageHeader
+				title={routine.name}
+				leading={
+					/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */
 					<Breadcrumb
 						segments={[
 							{ label: "Work", to: "/work/portfolio", testId: "routine-breadcrumb-back" },
@@ -191,29 +206,24 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						}
 						LinkComponent={RRLink}
 					/>
-				</div>
-				<div className="flex items-center gap-[12px] flex-wrap">
-					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
-						{routine.name}
-					</h1>
-					<StatusChip status={routineStateToStatus(currentState)} />
-				</div>
-				<div className="mt-1 text-xs text-[var(--text-tertiary)]">
-					{routine.agentName} · {routine.triggerType}
-				</div>
-				{routine.description && (
-					<p className="mt-2 text-xs text-[var(--text-secondary)]">{routine.description}</p>
-				)}
-			</section>
+				}
+				subtitle={
+					<span className="text-[13px] text-[var(--text-tertiary)]">
+						{routine.agentName} · {routine.triggerType}
+						{routine.description && ` — ${routine.description}`}
+					</span>
+				}
+				actions={<StatusChip status={routineStateToStatus(currentState)} />}
+			/>
+			<div className="flex-1 overflow-y-auto">
+			<div className="flex flex-col gap-[12px] p-[24px]">
 
 			{/* Configuration section — KV grid + action buttons */}
 			<section
 				aria-label="Routine configuration"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Configuration
-				</h2>
+				<SectionLabel as="h2">Configuration</SectionLabel>
 
 				{/* KV grid */}
 				<div className="flex flex-col gap-[9px]">
@@ -317,9 +327,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 				data-testid="routine-last-run-summary"
 			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Last Run Summary
-				</h2>
+				<SectionLabel as="h2">Last Run Summary</SectionLabel>
 				{routine.lastRunSummary ? (
 					<p className="text-xs text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
 				) : (
@@ -329,9 +337,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 
 			{/* Recent runs section */}
 			<section aria-label="Run history" data-testid="routine-run-history">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Recent Runs
-				</h2>
+					<SectionLabel as="h2">Recent Runs</SectionLabel>
 				{runs.length === 0 ? (
 					<p className="text-xs text-[var(--text-secondary)]">No runs recorded yet.</p>
 				) : (
@@ -343,6 +349,8 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				)}
 			</section>
 		</div>
+		</div>
+	</div>
 	);
 }
 
@@ -357,9 +365,7 @@ function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
 			className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			data-testid="routine-budget"
 		>
-			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-				Budget
-			</h2>
+			<SectionLabel as="h2">Budget</SectionLabel>
 			<div className="flex flex-col gap-[9px]">
 				<KeyValue
 					label="Avg cost per run"

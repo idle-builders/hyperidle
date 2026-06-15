@@ -32,7 +32,7 @@
  */
 
 // hearth-internal-padding
-import { BetCard, Button, EmptyState, SkeletonCard } from "@hyperidle/design-system";
+import { BetCard, Button, EmptyState, PageHeader, SkeletonCard } from "@hyperidle/design-system";
 import { BET_OUTCOME_VERDICTS, formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -159,12 +159,7 @@ export function WorkPortfolio(): JSX.Element {
 	if (betsLoading) {
 		return (
 			<div className="flex flex-col h-full" data-testid="work-portfolio-page">
-				{/* Loading header skeleton */}
-				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						All bets
-					</h2>
-				</header>
+				<PageHeader title="All bets" />
 				<div className="flex-1 overflow-y-auto">
 					<div
 						className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] max-w-[960px] mx-auto w-full p-[18px_24px]"
@@ -189,80 +184,81 @@ export function WorkPortfolio(): JSX.Element {
 			data-testid="work-portfolio-page"
 		>
 			{/*
-			 * Header row 1: title (always) + count sub-line + summary spans + "New bet" (always).
+			 * @lore AI7: PageHeader owns the pinned title strip (title + "New bet").
+			 * Subtitle slot carries the count sub-line + summary spans inline.
+			 * Filter zone moves to body — it is not part of the permanent header.
 			 * @lore AG2 AC-4: "New bet" header button is unconditional — frame invariant
 			 * across 0/1/50 bets. The empty state provides a separate "Create bet" CTA.
 			 */}
-			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<div className="flex items-center gap-[12px] flex-wrap">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						All bets
-					</h2>
-
-					{/* Count sub-line — shown when bets exist */}
-					{portfolioCount && (
-						<span className="text-[13px] text-[var(--text-tertiary)]">{portfolioCount}</span>
-					)}
-
-					{/* AA1: Routine summary line — shown when any team has routines */}
-					{teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0 && (
-						<span
-							data-testid="portfolio-routine-summary"
-							className="text-[12px] text-[var(--text-tertiary)]"
-						>
-							{totalActiveRoutines} routine{totalActiveRoutines !== 1 ? "s" : ""} across{" "}
-							{teams.filter((t) => (t.routineCount ?? 0) > 0).length} team
-							{teams.filter((t) => (t.routineCount ?? 0) > 0).length !== 1 ? "s" : ""}
-						</span>
-					)}
-
-					{/*
-					 * AB2 AC-5: Agent summary line — shown when any team has agents.
-					 * Shows total agent count, active count, and health warning dot.
-					 * @lore AB2: Mirrors routine summary pattern — only rendered when
-					 * there's data to show (totalAgentCount > 0). Health dot uses
-					 * title= attribute for tooltip and role="img" for accessibility.
-					 */}
-					{teamsData !== null && teamsData !== undefined && totalAgentCount > 0 && (
-						<span
-							data-testid="portfolio-agent-summary"
-							className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]"
-						>
-							{anyAgentHealthWarning && (
-								<span
-									role="img"
-									aria-label="One or more agents need attention"
-									title="One or more agents need attention"
-									className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
-								/>
+			<PageHeader
+				title="All bets"
+				subtitle={
+					(portfolioCount ||
+						(teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0) ||
+						(teamsData !== null && teamsData !== undefined && totalAgentCount > 0)) ? (
+						<span className="flex items-center gap-[12px] flex-wrap">
+							{/* Count sub-line — shown when bets exist */}
+							{portfolioCount && (
+								<span className="text-[13px] text-[var(--text-tertiary)]">{portfolioCount}</span>
 							)}
-							{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""}, {totalActiveAgentCount}{" "}
-							active
+							{/* AA1: Routine summary line */}
+							{teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0 && (
+								<span
+									data-testid="portfolio-routine-summary"
+									className="text-[12px] text-[var(--text-tertiary)]"
+								>
+									{totalActiveRoutines} routine{totalActiveRoutines !== 1 ? "s" : ""} across{" "}
+									{teams.filter((t) => (t.routineCount ?? 0) > 0).length} team
+									{teams.filter((t) => (t.routineCount ?? 0) > 0).length !== 1 ? "s" : ""}
+								</span>
+							)}
+							{/*
+							 * AB2 AC-5: Agent summary line — shown when any team has agents.
+							 * @lore AB2: Health dot uses title= for tooltip and role="img" for a11y.
+							 */}
+							{teamsData !== null && teamsData !== undefined && totalAgentCount > 0 && (
+								<span
+									data-testid="portfolio-agent-summary"
+									className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]"
+								>
+									{anyAgentHealthWarning && (
+										<span
+											role="img"
+											aria-label="One or more agents need attention"
+											title="One or more agents need attention"
+											className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
+										/>
+									)}
+									{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""},{" "}
+									{totalActiveAgentCount} active
+								</span>
+							)}
 						</span>
-					)}
-
-					{/* "New bet" button — ALWAYS present (frame invariant, AG2 AC-4) */}
-					{/* AG3: navigates to full-page /work/bet/new instead of opening dialog */}
+					) : undefined
+				}
+				actions={
+					/* AG3: navigates to full-page /work/bet/new instead of opening dialog */
 					<Button
 						variant="primary"
 						size="sm"
-						className="ml-auto"
 						onClick={() => navigate("/work/bet/new")}
 						data-testid="new-bet-btn"
 					>
 						New bet
 					</Button>
-				</div>
+				}
+			/>
 
+			{/* Scrollable body */}
+			<div className="flex-1 overflow-y-auto">
 				{/*
-				 * Header row 2 — filter zone: rendered iff showFilterZone.
-				 * Each control is further gated on its own predicate.
+				 * Filter zone — rendered iff showFilterZone (moved from header per AI7).
 				 * @lore AG2: AG5 boundary — keep inline pill/segmented controls; do NOT
 				 * introduce a new dropdown primitive here (AG5 owns that later).
 				 */}
 				{showFilterZone && (
 					<div
-						className="mt-[12px] flex items-center gap-[12px] flex-wrap"
+						className="px-[24px] py-[12px] border-b border-[var(--border-subtle)] flex items-center gap-[12px] flex-wrap"
 						data-testid="portfolio-filter-zone"
 					>
 						{/* W3 AC-13: tab-bar-pill segmented status filter — only when ≥2 buckets */}
@@ -290,8 +286,6 @@ export function WorkPortfolio(): JSX.Element {
 						 * AG2 AC-2: Verdict filter pills — multi-select.
 						 * ONLY shown when hasAnyRecordedOutcome === true (≥1 bet with recorded outcome).
 						 * Zone-level honesty: once shown, all five pills render for vocabulary completeness.
-						 * @lore AG2: This is the founder's complaint fixed — "weird selectors always shown
-						 * but they have no meaning". Now gated on actual outcome data.
 						 */}
 						{showVerdictFilter && (
 							<div
@@ -367,10 +361,7 @@ export function WorkPortfolio(): JSX.Element {
 						)}
 					</div>
 				)}
-			</header>
 
-			{/* Scrollable body */}
-			<div className="flex-1 overflow-y-auto">
 				{/* AG2: Two empty states — portfolio-empty and filter-excluded-empty.
 				    The legacy "No bets for this team" team-scoped empty is RETIRED.
 				    @lore AG2 WARNING-arch-1: team filter that excludes all bets is semantically
@@ -489,7 +480,6 @@ export function WorkPortfolio(): JSX.Element {
 				)}
 			</div>
 
-			{/* AG3: BetCreateDialog removed — bet creation now uses WorkBetCreate page at /work/bet/new */}
 		</div>
 	);
 }

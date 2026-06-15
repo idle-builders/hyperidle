@@ -29,9 +29,11 @@ import {
 	EmptyState,
 	ErrorState,
 	ItemList,
+	PageHeader,
 	Row,
 	RowDot,
 	routineStateToStatus,
+	SectionLabel,
 	SkeletonCard,
 	StatusChip,
 	Tag,
@@ -108,12 +110,15 @@ export function WorkTeam({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-					<SkeletonCard ariaLabel="Loading team header" />
-					<SkeletonCard ariaLabel="Loading burn vs cap" />
-					<SkeletonCard ariaLabel="Loading active bets" />
-					<SkeletonCard ariaLabel="Loading roster" />
+			<div className="flex flex-col h-full" data-testid="work-team-page">
+				<PageHeader title="Team" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+						<SkeletonCard ariaLabel="Loading team header" />
+						<SkeletonCard ariaLabel="Loading burn vs cap" />
+						<SkeletonCard ariaLabel="Loading active bets" />
+						<SkeletonCard ariaLabel="Loading roster" />
+					</div>
 				</div>
 			</div>
 		);
@@ -124,21 +129,27 @@ export function WorkTeam({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-						<EmptyState
-							title="Team not found"
-							description="The team you are looking for does not exist or has been removed."
-							dataTestId="team-not-found"
-						/>
+				<div className="flex flex-col h-full" data-testid="work-team-page">
+					<PageHeader title="Team" />
+					<div className="flex-1 overflow-y-auto">
+						<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+							<EmptyState
+								title="Team not found"
+								description="The team you are looking for does not exist or has been removed."
+								dataTestId="team-not-found"
+							/>
+						</div>
 					</div>
 				</div>
 			);
 		}
 		return (
-			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-					<ErrorState title="Failed to load team" description={error.message} />
+			<div className="flex flex-col h-full" data-testid="work-team-page">
+				<PageHeader title="Team" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+						<ErrorState title="Failed to load team" description={error.message} />
+					</div>
 				</div>
 			</div>
 		);
@@ -147,13 +158,16 @@ export function WorkTeam({
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
-			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-					<EmptyState
-						title="Team not found"
-						description="The team you are looking for does not exist or has been removed."
-						dataTestId="team-not-found"
-					/>
+			<div className="flex flex-col h-full" data-testid="work-team-page">
+				<PageHeader title="Team" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+						<EmptyState
+							title="Team not found"
+							description="The team you are looking for does not exist or has been removed."
+							dataTestId="team-not-found"
+						/>
+					</div>
 				</div>
 			</div>
 		);
@@ -165,13 +179,16 @@ export function WorkTeam({
 	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
 	if (!data.team) {
 		return (
-			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-					<EmptyState
-						title="Team not found"
-						description="The team you are looking for does not exist or has been removed."
-						dataTestId="team-not-found"
-					/>
+			<div className="flex flex-col h-full" data-testid="work-team-page">
+				<PageHeader title="Team" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+						<EmptyState
+							title="Team not found"
+							description="The team you are looking for does not exist or has been removed."
+							dataTestId="team-not-found"
+						/>
+					</div>
 				</div>
 			</div>
 		);
@@ -246,36 +263,35 @@ function WorkTeamLoaded({
 			: 0;
 
 	return (
-		<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
+		<div className="flex flex-col h-full" data-testid="work-team-page">
+			{/* AI7: PageHeader owns the pinned title strip. */}
+			<PageHeader
+				title={team.name}
+				leading={
+					/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */
+					<Breadcrumb
+						segments={[
+							{ label: "Work", to: "/work/portfolio", testId: "team-breadcrumb-back" },
+							{ label: team.name },
+						]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
+				}
+				subtitle={
+					<span className="text-[13px] text-[var(--text-tertiary)]">
+						Phase: {team.phase}
+						{leadName && ` · Lead: ${leadName}`}
+					</span>
+				}
+				actions={<StatusChip status={team.status} />}
+			/>
+			<div className="flex-1 overflow-y-auto">
 			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-				{/* R1 — Team header */}
-				<section aria-label="Team header">
-					{/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */}
-					<div className="mb-1">
-						<Breadcrumb
-							segments={[
-								{ label: "Work", to: "/work/portfolio", testId: "team-breadcrumb-back" },
-								{ label: team.name },
-							]}
-							leading={
-								!sidebarMobile ? (
-									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-								) : undefined
-							}
-							LinkComponent={RRLink}
-						/>
-					</div>
-					<div className="flex items-center gap-[12px] flex-wrap">
-						<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
-							{team.name}
-						</h1>
-						<StatusChip status={team.status} />
-					</div>
-					<div className="mt-1 text-xs text-[var(--text-tertiary)]">
-						<span>Phase: {team.phase}</span>
-						{leadName && <span className="ml-3">Lead: {leadName}</span>}
-					</div>
-				</section>
 
 				{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
 				<section aria-label="Team summary" data-testid="team-burn-vs-cap">
@@ -344,9 +360,7 @@ function WorkTeamLoaded({
 
 				{/* R2 — Active bets */}
 				<section aria-label="Active bets" data-testid="team-active-bets">
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-						Active Bets
-					</h2>
+					<SectionLabel as="h2">Active Bets</SectionLabel>
 					{activeBets.length === 0 ? (
 						<>
 							<EmptyState
@@ -392,20 +406,22 @@ function WorkTeamLoaded({
 
 				{/* R5 — Routines (AA1): sits after active bets, before roster */}
 				<section aria-label="Team routines" data-testid="team-routines">
-					<div className="flex items-center mb-2">
-						<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] flex-1">
-							Routines
-						</h2>
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							onClick={() => setCreateRoutineOpen(true)}
-							data-testid="new-routine-btn"
-						>
-							+ New routine
-						</Button>
-					</div>
+					<SectionLabel
+						as="h2"
+						trailing={
+							<Button
+								variant="ghost"
+								size="sm"
+								type="button"
+								onClick={() => setCreateRoutineOpen(true)}
+								data-testid="new-routine-btn"
+							>
+								+ New routine
+							</Button>
+						}
+					>
+						Routines
+					</SectionLabel>
 					<ItemList
 						variant="contained"
 						isEmpty={routines.length === 0}
@@ -461,20 +477,22 @@ function WorkTeamLoaded({
 
 				{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
 				<section aria-label="Team agents" data-testid="team-agents">
-					<div className="flex items-center mb-2">
-						<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] flex-1">
-							Agents
-						</h2>
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							onClick={() => setAddDialogOpen(true)}
-							data-testid="add-agent-btn"
-						>
-							+ Add agent
-						</Button>
-					</div>
+					<SectionLabel
+						as="h2"
+						trailing={
+							<Button
+								variant="ghost"
+								size="sm"
+								type="button"
+								onClick={() => setAddDialogOpen(true)}
+								data-testid="add-agent-btn"
+							>
+								+ Add agent
+							</Button>
+						}
+					>
+						Agents
+					</SectionLabel>
 
 					{/* AB3 first-time hint — moved position, same logic */}
 					{hintReviewAgents.visible && roster.length > 0 && (
@@ -669,6 +687,7 @@ function WorkTeamLoaded({
 							.map((m) => ({ id: m.agentId, name: m.name }))}
 					/>
 				)}
+			</div>
 			</div>
 		</div>
 	);

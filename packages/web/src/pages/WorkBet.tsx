@@ -31,6 +31,8 @@ import {
 	ErrorState,
 	LiveDot,
 	Menu,
+	PageHeader,
+	SectionLabel,
 	Select,
 	SkeletonCard,
 	SkeletonList,
@@ -834,10 +836,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	if (loading || (!overrideBet && fetched.loading)) {
 		return (
 			<div className="flex flex-col h-full" data-testid="work-bet-page">
-				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					<div className="skeleton h-[13px] w-[120px] mb-[6px]" />
-					<div className="skeleton h-[20px] w-[280px]" />
-				</header>
+				<PageHeader
+					title={
+						<>
+							<div className="skeleton h-[13px] w-[120px] mb-[6px]" />
+							<div className="skeleton h-[20px] w-[280px]" />
+						</>
+					}
+				/>
 				<div className="flex-1 overflow-y-auto p-[24px]">
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonList rows={4} ariaLabel="Loading tasks" />
@@ -913,10 +919,11 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	return (
 		<div className="flex flex-col h-full" data-testid="work-bet-page">
-			{/* W3: Fixed bordered header — breadcrumb + title + badges + overflow */}
-			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */}
-				<div className="mb-[6px]">
+			{/* AI7: PageHeader owns the pinned title strip. */}
+			<PageHeader
+				title={bet.title}
+				leading={
+					/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
 					<Breadcrumb
 						segments={[
 							{ label: "Work", to: "/work/portfolio" },
@@ -930,13 +937,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						}
 						LinkComponent={RRLink}
 					/>
-				</div>
-				{/* Title row */}
-				<div className="flex items-start justify-between gap-[12px]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						{bet.title}
-					</h2>
-					<div className="flex items-center gap-[9px] shrink-0">
+				}
+				actions={
+					<div className="flex items-center gap-[9px]">
 						<AssistantAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
 						<StatusChip
 							status={betStatusToStatus(bet.status)}
@@ -949,8 +952,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						)}
 						{/* W3 AC-19: overflow action menu */}
 						{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
-						    Menu component handles panel/items/Escape/click-outside/keyboard.
-						    C5: overflow-dropdown-${bet.id} id and [&[open]]:block toggle removed. */}
+						    Menu component handles panel/items/Escape/click-outside/keyboard. */}
 						<div className="relative" data-testid="bet-overflow-menu">
 							<button
 								type="button"
@@ -1011,14 +1013,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							/>
 						</div>
 					</div>
-					{/* AF12: activate failure surface (e.g. team at capacity → clean 400). */}
-					{activateError && (
-						<p role="alert" className="mt-[6px] text-[13px] text-error">
+				}
+				subtitle={
+					/* AF12: activate failure surface (e.g. team at capacity → clean 400). */
+					activateError ? (
+						<p role="alert" className="text-[13px] text-error">
 							{activateError}
 						</p>
-					)}
-				</div>
-			</header>
+					) : undefined
+				}
+			/>
 
 			{/* Scrollable body */}
 			<div className="flex-1 overflow-y-auto">
@@ -1153,9 +1157,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					{/* AC2: Outcome section — only shown for completed/killed bets */}
 					{(bet.status === "completed" || bet.status === "killed") && (
 						<section data-testid="outcome-section" aria-label="Outcome">
-							<div className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
-								Outcome
-							</div>
+							<SectionLabel divider>Outcome</SectionLabel>
 
 							{outcomeEditMode === "view" ? (
 								<div className="flex flex-col gap-[9px]">
@@ -1385,45 +1387,49 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						</section>
 					)}
 
-					{/* W3 AC-21: Pitch section with Edit button */}
+					{/* W3 AC-21: Pitch section with save indicator */}
 					<section data-testid="bet-pitch-section" aria-label="Pitch">
-						<div className="flex items-center justify-between text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
-							<span>Pitch</span>
-							{/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
-							    For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */}
-							{canEditDescription && (
-								<span
-									className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px] normal-case tracking-normal font-[500]"
-									aria-live="polite"
-									data-testid="pitch-save-indicator"
-								>
-									{saveStatus === "saving" && "Saving..."}
-									{saveStatus === "saved" && (
-										<>
-											<svg
-												width="12"
-												height="12"
-												viewBox="0 0 12 12"
-												fill="none"
-												aria-hidden="true"
-											>
-												<path
-													d="M2 6l3 3 5-5"
-													stroke="currentColor"
-													strokeWidth="1.5"
-													strokeLinecap="round"
-													strokeLinejoin="round"
-												/>
-											</svg>
-											Saved
-										</>
-									)}
-									{saveStatus === "error" && (
-										<span className="text-[var(--status-error)]">Save failed</span>
-									)}
-								</span>
-							)}
-						</div>
+						<SectionLabel
+							divider
+							trailing={
+								/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
+								   For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */
+								canEditDescription ? (
+									<span
+										className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
+										aria-live="polite"
+										data-testid="pitch-save-indicator"
+									>
+										{saveStatus === "saving" && "Saving..."}
+										{saveStatus === "saved" && (
+											<>
+												<svg
+													width="12"
+													height="12"
+													viewBox="0 0 12 12"
+													fill="none"
+													aria-hidden="true"
+												>
+													<path
+														d="M2 6l3 3 5-5"
+														stroke="currentColor"
+														strokeWidth="1.5"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+													/>
+												</svg>
+												Saved
+											</>
+										)}
+										{saveStatus === "error" && (
+											<span className="text-[var(--status-error)]">Save failed</span>
+										)}
+									</span>
+								) : undefined
+							}
+						>
+							Pitch
+						</SectionLabel>
 						{/* T3: Conditional rendering based on bet status mutability. */}
 						{canEditDescription ? (
 							<div className="flex flex-col gap-2" data-testid="bet-description-editor">
@@ -1502,9 +1508,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					 * The permanent "Tasks will appear" empty state is replaced by honest state-specific copy.
 					 */}
 					<section aria-label="Tasks">
-						<div className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
-							Tasks
-						</div>
+						<SectionLabel divider>Tasks</SectionLabel>
 
 						{bet.tasks.length > 0 ? (
 							/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */

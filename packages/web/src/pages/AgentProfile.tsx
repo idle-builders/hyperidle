@@ -33,6 +33,8 @@ import {
 	ErrorState,
 	KeyValue,
 	LiveDot,
+	PageHeader,
+	SectionLabel,
 	SkeletonCard,
 	StatusChip,
 	sessionOutcomeToStatus,
@@ -84,10 +86,15 @@ export function AgentProfile({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-				<SkeletonCard ariaLabel="Loading agent profile header" />
-				<SkeletonCard ariaLabel="Loading agent configuration" />
-				<SkeletonCard ariaLabel="Loading agent activity" />
+			<div className="flex flex-col h-full" data-testid="agent-profile-page">
+				<PageHeader title="Agent" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="flex flex-col gap-[12px] p-[24px]">
+						<SkeletonCard ariaLabel="Loading agent profile header" />
+						<SkeletonCard ariaLabel="Loading agent configuration" />
+						<SkeletonCard ariaLabel="Loading agent activity" />
+					</div>
+				</div>
 			</div>
 		);
 	}
@@ -96,30 +103,39 @@ export function AgentProfile({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-					<EmptyState
-						title="Agent not found"
-						description="The agent you are looking for does not exist."
-						dataTestId="agent-not-found"
-					/>
+				<div className="flex flex-col h-full" data-testid="agent-profile-page">
+					<PageHeader title="Agent" />
+					<div className="flex-1 overflow-y-auto p-[24px]">
+						<EmptyState
+							title="Agent not found"
+							description="The agent you are looking for does not exist."
+							dataTestId="agent-not-found"
+						/>
+					</div>
 				</div>
 			);
 		}
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-				<ErrorState title="Failed to load agent profile" description={error.message} />
+			<div className="flex flex-col h-full" data-testid="agent-profile-page">
+				<PageHeader title="Agent" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<ErrorState title="Failed to load agent profile" description={error.message} />
+				</div>
 			</div>
 		);
 	}
 
 	if (data === null) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-				<EmptyState
-					title="Agent not found"
-					description="The agent you are looking for does not exist."
-					dataTestId="agent-not-found"
-				/>
+			<div className="flex flex-col h-full" data-testid="agent-profile-page">
+				<PageHeader title="Agent" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<EmptyState
+						title="Agent not found"
+						description="The agent you are looking for does not exist."
+						dataTestId="agent-not-found"
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -148,19 +164,34 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 	const agentParentLabel = data.teamName ?? "Agents";
 
 	return (
-		<div className="flex flex-col gap-[12px] h-full" data-testid="agent-profile-page">
-			{/* AG4: DS Breadcrumb replaces hand-rolled "← {teamName}" chip */}
-			<div className="mb-1">
-				<Breadcrumb
-					segments={[{ label: agentParentLabel, to: agentParentPath }, { label: data.name }]}
-					leading={
-						!sidebarMobile ? (
-							<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-						) : undefined
-					}
-					LinkComponent={RRLink}
-				/>
-			</div>
+		<div className="flex flex-col h-full" data-testid="agent-profile-page">
+			{/* AI7: PageHeader owns the pinned title strip.
+			    AG4: DS Breadcrumb in leading prop. Identity block stays in body scroll. */}
+			<PageHeader
+				title={data.name}
+				leading={
+					<Breadcrumb
+						segments={[{ label: agentParentLabel, to: agentParentPath }, { label: data.name }]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
+				}
+				actions={
+					<div className="flex items-center gap-[6px]">
+						{isActive && <LiveDot />}
+						<StatusChip
+							status={agentOperationalStatusToStatus(operationalStatus)}
+							label={AGENT_OPERATIONAL_STATUS_LABEL[operationalStatus]}
+						/>
+					</div>
+				}
+			/>
+			<div className="flex-1 overflow-y-auto">
+			<div className="flex flex-col gap-[12px] p-[24px]">
 
 			{/* F2: Health banner — only shown when degraded, has role="alert" */}
 			{data.healthSignals.degraded && (
@@ -188,7 +219,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				</div>
 			)}
 
-			{/* Header */}
+			{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
 			<section
 				aria-label="Agent identity"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
@@ -197,14 +228,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 					<Avatar initials={initials} size="md" agent />
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center gap-[9px] flex-wrap">
-							<h1 className="text-[15px] font-semibold text-[var(--text-primary)]">{data.name}</h1>
-							{/* AI4 Decision 3a: Operational status chip — StatusChip + LiveDot for active */}
-							{operationalStatus === "active" && <LiveDot />}
-							<StatusChip
-								status={agentOperationalStatusToStatus(operationalStatus)}
-								label={AGENT_OPERATIONAL_STATUS_LABEL[operationalStatus]}
-							/>
-							{/* Category tag */}
+							{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
 							{data.agentCategory && data.agentCategory !== "team" && (
 								<Tag
 									label={
@@ -247,9 +271,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				data-testid="agent-config-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[12px]">
-					Configuration
-				</h2>
+				<SectionLabel as="h2">Configuration</SectionLabel>
 				<div className="grid grid-cols-2 gap-x-[24px] gap-y-[6px]">
 					<KeyValue label="Role" value={data.role} />
 					<KeyValue label="Harness" value={data.harnessType ?? "Any"} />
@@ -277,9 +299,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				data-testid="agent-capabilities-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[9px]">
-					Harness Capabilities
-				</h2>
+				<SectionLabel as="h2">Harness Capabilities</SectionLabel>
 				<div className="flex flex-wrap gap-[6px]">
 					<CapabilityBadge label="Tool use" supported={data.harnessCapabilities.toolUse} />
 					<CapabilityBadge label="MCP" supported={data.harnessCapabilities.mcpSupport} />
@@ -294,9 +314,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				data-testid="agent-track-record-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[9px]">
-					Review Track Record
-				</h2>
+				<SectionLabel as="h2">Review Track Record</SectionLabel>
 				{data.reviewTrackRecord.totalVerdicts === 0 ? (
 					<p className="text-[12px] text-[var(--text-tertiary)]">No reviews recorded yet.</p>
 				) : (
@@ -324,9 +342,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				data-testid="agent-activity-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[9px]">
-					Recent Activity
-				</h2>
+				<SectionLabel as="h2">Recent Activity</SectionLabel>
 				{data.recentSessions.length === 0 ? (
 					<p className="text-[12px] text-[var(--text-tertiary)]">No sessions recorded.</p>
 				) : (
@@ -376,9 +392,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				data-testid="agent-performance-section"
 				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			>
-				<h2 className="text-[11px] font-heading font-semibold uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] mb-[9px]">
-					Performance
-				</h2>
+				<SectionLabel as="h2">Performance</SectionLabel>
 				<div className="flex gap-[24px] flex-wrap">
 					<KeyValue label="Sessions" value={String(data.performance.totalSessions)} />
 					<KeyValue
@@ -390,6 +404,8 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 				</div>
 			</section>
 		</div>
+		</div>
+	</div>
 	);
 }
 

@@ -6,6 +6,8 @@ import {
 	Button,
 	knowledgeStatusToStatus,
 	Menu,
+	PageHeader,
+	SectionLabel,
 	StatusChip,
 } from "@hyperidle/design-system";
 import {
@@ -311,9 +313,7 @@ function BacklinksCard({
 			data-testid="knowledge-backlinks-card"
 			className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]"
 		>
-			<div className="text-[12px] font-[600] text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-[12px]">
-				Backlinks
-			</div>
+			<SectionLabel as="h2">Backlinks</SectionLabel>
 			{items.length > 0 ? (
 				<ul className="flex flex-col">
 					{items.map((ri) => (
@@ -633,35 +633,30 @@ function KnowledgeDetailView({
 
 	return (
 		<div className="flex flex-col h-full" data-testid="knowledge-detail-page">
-			{/* Fixed header — matches .main-header in knowledge-detail.html mockup */}
-			<header className="px-[24px] py-[18px] border-b border-[var(--border-subtle)] flex items-start justify-between gap-[12px] shrink-0">
-				<div className="flex-1 min-w-0">
-					{/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */}
-					<div className="mb-[6px]">
-						<Breadcrumb
-							segments={[
-								{ label: "Knowledge", to: "/knowledge" },
-								...(item.scope ? [{ label: item.scope }] : []),
-								...(item.topic ? [{ label: item.topic }] : []),
-							]}
-							leading={
-								!sidebarMobile ? (
-									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-								) : undefined
-							}
-							LinkComponent={RRLink}
-						/>
-					</div>
-					{/* Title */}
-					<h1 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						{item.title}
-					</h1>
-					{/* Badge row — metadata bar
-					    @lore AD6: kind Tag and layer Tag removed from the metadata bar.
-					    They are internal taxonomy fields, not user-facing scope indicators.
-					    Kind still appears in the metadata aside (Kind row). */}
+			{/* AI7: PageHeader — h1→h2 via primitive; leading=Breadcrumb; subtitle=metadata bar; actions=Edit/overflow */}
+			<PageHeader
+				title={item.title}
+				leading={
+					/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
+					<Breadcrumb
+						segments={[
+							{ label: "Knowledge", to: "/knowledge" },
+							...(item.scope ? [{ label: item.scope }] : []),
+							...(item.topic ? [{ label: item.topic }] : []),
+						]}
+						leading={
+							!sidebarMobile ? (
+								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+							) : undefined
+						}
+						LinkComponent={RRLink}
+					/>
+				}
+				subtitle={
+					/* Badge row — metadata bar
+					   @lore AD6: kind Tag and layer Tag removed from the metadata bar. */
 					<div
-						className="flex items-center gap-[6px] flex-wrap mt-[9px]"
+						className="flex items-center gap-[6px] flex-wrap"
 						data-testid="knowledge-metadata-bar"
 					>
 						<StatusChip status={knowledgeStatusToStatus(item.status)} />
@@ -685,39 +680,39 @@ function KnowledgeDetailView({
 							{item.timestamp}
 						</span>
 					</div>
-				</div>
-				{/* Action buttons */}
-				<div className="flex items-center gap-[6px] shrink-0">
-					{/* W3 AC-44: save indicator in header (only in edit mode) */}
-					{editing && <SaveIndicator saveStatus={saveStatus} />}
-					{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
-					{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
-					{!(editing || isReadOnly) ? (
-						/* AI5: shared Button primitive. */
-						<Button variant="primary" size="sm" onClick={startEdit}>
-							Edit
-						</Button>
-					) : editing ? (
-						<Button variant="primary" size="sm" onClick={exitEdit}>
-							Done
-						</Button>
-					) : null}
-					{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
-					{!editing && (
-						<KnowledgeOverflowMenu
-							overflowOpen={overflowOpen}
-							onToggle={() => setOverflowOpen((prev) => !prev)}
-							onClose={closeOverflow}
-							onArchive={() => void handleArchive()}
-							onChangeScope={() => {
-								setScopeChangeOpen(true);
-								closeOverflow();
-							}}
-							archiving={archiving}
-						/>
-					)}
-				</div>
-			</header>
+				}
+				actions={
+					<div className="flex items-center gap-[6px]">
+						{/* W3 AC-44: save indicator in header (only in edit mode) */}
+						{editing && <SaveIndicator saveStatus={saveStatus} />}
+						{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
+						{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
+						{!(editing || isReadOnly) ? (
+							<Button variant="primary" size="sm" onClick={startEdit}>
+								Edit
+							</Button>
+						) : editing ? (
+							<Button variant="primary" size="sm" onClick={exitEdit}>
+								Done
+							</Button>
+						) : null}
+						{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
+						{!editing && (
+							<KnowledgeOverflowMenu
+								overflowOpen={overflowOpen}
+								onToggle={() => setOverflowOpen((prev) => !prev)}
+								onClose={closeOverflow}
+								onArchive={() => void handleArchive()}
+								onChangeScope={() => {
+									setScopeChangeOpen(true);
+									closeOverflow();
+								}}
+								archiving={archiving}
+							/>
+						)}
+					</div>
+				}
+			/>
 
 			{/* Scrollable body */}
 			<div className="flex-1 overflow-y-auto" data-testid="knowledge-detail-body">
@@ -851,9 +846,7 @@ function KnowledgeDetailView({
 
 						{/* Metadata card */}
 						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
-							<div className="text-[12px] font-[600] text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-[12px]">
-								Metadata
-							</div>
+							<SectionLabel as="h2">Metadata</SectionLabel>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Kind</span>
 								{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
