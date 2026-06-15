@@ -172,5 +172,7 @@ describe("SettingsProfile", () => {
 		render(<SettingsProfile />);
 		// Should not crash and should show some loading indicator
 		expect(screen.queryByRole("button", { name: /save profile/i })).not.toBeInTheDocument();
+		// AG7: SkeletonList renders role="status" for loading state
+		expect(document.querySelector('[role="status"]')).toBeInTheDocument();
 	});
 });

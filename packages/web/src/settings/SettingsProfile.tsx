@@ -9,7 +9,7 @@
  * AC-25: Profile edits do NOT silently revert (dirty tracking)
  */
 
-import { Button, Input } from "@hyperidle/design-system";
+import { Button, ErrorState, Input, SkeletonList } from "@hyperidle/design-system";
 import { type ChangeEvent, type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -63,15 +63,20 @@ export function SettingsProfile(): JSX.Element {
 
 	if (status === "loading") {
 		return (
-			<div className="flex flex-col gap-[18px] max-w-[400px]">
-				<div className="skeleton h-8 w-full" />
-				<div className="skeleton h-8 w-full" />
+			<div className="max-w-[400px]">
+				<SkeletonList rows={2} ariaLabel="Loading profile" />
 			</div>
 		);
 	}
 
 	if (status === "error" || !user) {
-		return <p className="text-sm text-error">Failed to load profile. Please try again.</p>;
+		return (
+			<ErrorState
+				compact
+				title="Couldn't load profile"
+				description="Failed to load your profile. Please try again."
+			/>
+		);
 	}
 
 	return (
@@ -97,8 +102,7 @@ export function SettingsProfile(): JSX.Element {
 
 			<div>
 				<Button size="sm" type="button" disabled={!isDirty || saving} onClick={handleSave}>
-					{saving && <span className="loading loading-spinner loading-xs" />}
-					Save profile
+					{saving ? "Saving…" : "Save profile"}
 				</Button>
 			</div>
 		</div>

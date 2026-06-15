@@ -155,7 +155,7 @@ describe("S4 AC-6 — SettingsWorker: shared mode, worker disabled", () => {
 		render(<SettingsWorker />);
 
 		await waitFor(() => {
-			const toggle = screen.getByRole("checkbox", { name: /register.*worker/i });
+			const toggle = screen.getByRole("switch", { name: /register.*worker/i });
 			expect(toggle).not.toBeChecked();
 		});
 	});
@@ -203,7 +203,7 @@ describe("S4 AC-6 — SettingsWorker: shared mode, worker enabled+connected", ()
 		render(<SettingsWorker />);
 
 		await waitFor(() => {
-			const toggle = screen.getByRole("checkbox", { name: /register.*worker/i });
+			const toggle = screen.getByRole("switch", { name: /register.*worker/i });
 			expect(toggle).toBeChecked();
 		});
 	});
@@ -280,10 +280,10 @@ describe("S4 AC-1/AC-7 — SettingsWorker: interactions", () => {
 		render(<SettingsWorker />);
 
 		await waitFor(() => {
-			expect(screen.getByRole("checkbox", { name: /register.*worker/i })).toBeInTheDocument();
+			expect(screen.getByRole("switch", { name: /register.*worker/i })).toBeInTheDocument();
 		});
 
-		const toggle = screen.getByRole("checkbox", { name: /register.*worker/i });
+		const toggle = screen.getByRole("switch", { name: /register.*worker/i });
 		await user.click(toggle);
 
 		expect(workerBridge.enable).toHaveBeenCalledWith(expect.any(Number));
@@ -298,11 +298,11 @@ describe("S4 AC-1/AC-7 — SettingsWorker: interactions", () => {
 		render(<SettingsWorker />);
 
 		await waitFor(() => {
-			const toggle = screen.getByRole("checkbox", { name: /register.*worker/i });
+			const toggle = screen.getByRole("switch", { name: /register.*worker/i });
 			expect(toggle).toBeChecked();
 		});
 
-		const toggle = screen.getByRole("checkbox", { name: /register.*worker/i });
+		const toggle = screen.getByRole("switch", { name: /register.*worker/i });
 		await user.click(toggle);
 
 		expect(enabledBridge.disable).toHaveBeenCalled();

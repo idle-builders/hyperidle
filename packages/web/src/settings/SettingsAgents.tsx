@@ -24,7 +24,16 @@
  * input removed — unregistered harnesses are rejected by the API anyway.
  */
 
-import { Input, Select } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	Input,
+	Select,
+	SkeletonList,
+	StatusChip,
+	Tag,
+} from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, MODEL_CATALOG } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -349,16 +358,18 @@ export function SettingsAgents(): JSX.Element {
 	// ---------------------------------------------------------------------------
 
 	if (status === "loading") {
-		return (
-			<div className="flex flex-col gap-3">
-				<div className="skeleton h-8 w-full" />
-				<div className="skeleton h-8 w-full" />
-			</div>
-		);
+		return <SkeletonList rows={2} ariaLabel="Loading agents" />;
 	}
 
 	if (status === "error") {
-		return <p className="text-sm text-error">Failed to load agents. Please try again.</p>;
+		return (
+			<ErrorState
+				compact
+				title="Couldn't load agents"
+				description="Failed to load agents. Please try again."
+				onRetry={() => void loadAgents()}
+			/>
+		);
 	}
 
 	// AH2: Set of registered harness types for availability checking
@@ -390,16 +401,13 @@ export function SettingsAgents(): JSX.Element {
 		agentId: string,
 	): JSX.Element {
 		return (
-			<div className="flex flex-col gap-[12px] p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
-				<div className="flex gap-2 flex-wrap">
-					<div className="form-control flex-1 min-w-[140px]">
-						<label className="label" htmlFor={`edit-name-${agentId}`}>
-							<span className="label-text text-[var(--text-secondary)]">Name</span>
-						</label>
-						<input
+			<div className="flex flex-col gap-[12px] p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+				<div className="flex gap-[9px] flex-wrap">
+					<div className="flex-1 min-w-[140px]">
+						<Input
 							id={`edit-name-${agentId}`}
+							label="Name"
 							type="text"
-							className="input input-sm input-bordered"
 							value={values.name}
 							onChange={(e) => {
 								setValues((prev) => ({ ...prev, name: e.target.value }));
@@ -409,12 +417,10 @@ export function SettingsAgents(): JSX.Element {
 						/>
 					</div>
 
-					<div className="form-control flex-1 min-w-[140px]">
-						<label className="label" htmlFor={`edit-role-${agentId}`}>
-							<span className="label-text text-[var(--text-secondary)]">Role</span>
-						</label>
+					<div className="flex-1 min-w-[140px]">
 						<Select
 							id={`edit-role-${agentId}`}
+							label="Role"
 							size="sm"
 							value={values.role}
 							onChange={(e) => {
@@ -430,12 +436,10 @@ export function SettingsAgents(): JSX.Element {
 					</div>
 
 					{/* AH2: Harness Select — constrained to registered types */}
-					<div className="form-control flex-1 min-w-[140px]">
-						<label className="label" htmlFor={`edit-harness-${agentId}`}>
-							<span className="label-text text-[var(--text-secondary)]">Harness</span>
-						</label>
+					<div className="flex-1 min-w-[140px]">
 						<Select
 							id={`edit-harness-${agentId}`}
+							label="Harness"
 							size="sm"
 							className="max-md:text-[16px]"
 							value={values.harnessType}
@@ -449,12 +453,10 @@ export function SettingsAgents(): JSX.Element {
 					</div>
 
 					{/* AH2: Model Select from MODEL_CATALOG — replaces Model Tier */}
-					<div className="form-control flex-1 min-w-[140px]">
-						<label className="label" htmlFor={`edit-model-${agentId}`}>
-							<span className="label-text text-[var(--text-secondary)]">Model</span>
-						</label>
+					<div className="flex-1 min-w-[140px]">
 						<Select
 							id={`edit-model-${agentId}`}
+							label="Model"
 							size="sm"
 							className="max-md:text-[16px]"
 							value={values.modelId}
@@ -467,22 +469,21 @@ export function SettingsAgents(): JSX.Element {
 						/>
 					</div>
 
-					<div className="form-control flex-1 min-w-[100px]">
-						<label className="label" htmlFor={`edit-sessions-${agentId}`}>
-							<span className="label-text text-[var(--text-secondary)]">Max Sessions</span>
-						</label>
-						<input
-							id={`edit-sessions-${agentId}`}
-							type="number"
-							className="input input-sm input-bordered"
-							value={values.maxConcurrentSessions}
-							min={1}
-							max={20}
-							onChange={(e) =>
-								setValues((prev) => ({ ...prev, maxConcurrentSessions: Number(e.target.value) }))
-							}
-							aria-label="Max Sessions"
-						/>
+					<div className="flex-1 min-w-[100px]">
+						<div className="w-[88px]">
+							<Input
+								id={`edit-sessions-${agentId}`}
+								label="Max Sessions"
+								type="number"
+								value={String(values.maxConcurrentSessions)}
+								min={1}
+								max={20}
+								onChange={(e) =>
+									setValues((prev) => ({ ...prev, maxConcurrentSessions: Number(e.target.value) }))
+								}
+								aria-label="Max Sessions"
+							/>
+						</div>
 					</div>
 				</div>
 
@@ -504,24 +505,18 @@ export function SettingsAgents(): JSX.Element {
 
 				{/* AH2 DESIGN-1: Inline 422 error above Save/Cancel */}
 				{error && (
-					<p className="text-sm text-[var(--status-error)]" role="alert">
+					<p className="text-[12px] text-[var(--status-error)]" role="alert">
 						{error}
 					</p>
 				)}
 
-				<div className="flex gap-2 justify-end">
-					<button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+				<div className="flex gap-[9px] justify-end">
+					<Button variant="ghost" size="sm" onClick={onCancel}>
 						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-primary btn-sm"
-						onClick={onSave}
-						disabled={isSaving}
-					>
-						{isSaving && <span className="loading loading-spinner loading-xs" />}
-						Save
-					</button>
+					</Button>
+					<Button variant="primary" size="sm" onClick={onSave} disabled={isSaving}>
+						{isSaving ? "Saving…" : "Save"}
+					</Button>
 				</div>
 			</div>
 		);
@@ -532,9 +527,13 @@ export function SettingsAgents(): JSX.Element {
 	// ---------------------------------------------------------------------------
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex flex-col gap-[12px]">
 			{agents.length === 0 && !addMode ? (
-				<p className="text-sm text-[var(--text-tertiary)]">No agents configured.</p>
+				<EmptyState
+					compact
+					title="No agents configured"
+					description="Add an agent to configure name, role, harness, model, and sessions."
+				/>
 			) : (
 				<table className="table table-xs w-full">
 					<thead>
@@ -559,52 +558,56 @@ export function SettingsAgents(): JSX.Element {
 								return (
 									<Fragment key={agent.id}>
 										<tr data-agent-role={agent.role}>
-											<td className="text-sm">
+											<td className="text-[13px]">
 												{agent.name}
-												{/* AH2: StatusChip warning for unavailable harness */}
+												{/* AH2: StatusChip amber warning for unavailable harness.
+												 * @lore AG7: behind=amber per design §1.9 — harness unavailable
+												 * is a degraded/recoverable state, NOT blue (paused) or red (blocked). */}
 												{harnessUnavailable && (
-													<span className="ml-2 badge badge-sm badge-warning text-[10px]">
-														Harness unavailable
+													<span className="ml-[9px]">
+														<StatusChip status="behind" label="Harness unavailable" />
 													</span>
 												)}
 											</td>
-											<td className="text-sm">
-												<span className="badge badge-sm badge-ghost font-mono">{agent.role}</span>
+											<td className="text-[13px]">
+												<Tag label={agent.role} />
 											</td>
-											<td className="text-sm font-mono text-[var(--text-secondary)]">
+											<td className="text-[13px] font-mono text-[var(--text-secondary)]">
 												{agent.harnessType ?? "Default"}
 											</td>
-											<td className="text-sm font-mono text-[var(--text-secondary)]">
+											<td className="text-[13px] font-mono text-[var(--text-secondary)]">
 												{agent.modelId ?? "Default"}
 											</td>
-											<td className="text-sm tabular-nums">{agent.activeSessions}</td>
+											<td className="text-[13px] tabular-nums">{agent.activeSessions}</td>
 											<td>
-												<div className="flex gap-1">
-													<button
-														type="button"
-														className="btn btn-ghost btn-xs"
+												<div className="flex gap-[6px]">
+													<Button
+														variant="ghost"
+														size="sm"
 														onClick={() => handleEditOpen(agent)}
 														aria-label={`Edit ${agent.name}`}
 													>
 														Edit
-													</button>
+													</Button>
 													{confirmingDeleteId === agent.id ? (
-														<button
-															type="button"
-															className="btn btn-ghost btn-xs text-error"
+														<Button
+															variant="ghost"
+															size="sm"
+															className="text-[var(--status-error)]"
 															onClick={() => handleDeleteConfirm(agent.id)}
 														>
 															Confirm?
-														</button>
+														</Button>
 													) : (
-														<button
-															type="button"
-															className="btn btn-ghost btn-xs text-error"
+														<Button
+															variant="ghost"
+															size="sm"
+															className="text-[var(--status-error)]"
 															onClick={() => handleDeleteFirstClick(agent.id)}
 															aria-label={`Delete ${agent.name}`}
 														>
 															Delete
-														</button>
+														</Button>
 													)}
 												</div>
 											</td>
@@ -633,7 +636,7 @@ export function SettingsAgents(): JSX.Element {
 
 			{/* Add form or button */}
 			{addMode ? (
-				<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+				<div className="flex flex-col gap-[12px] p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 					{/* AH4: Team placement picker — first field, above name (design spec: placement before identity) */}
 					<Select
 						label="Team"
@@ -650,15 +653,12 @@ export function SettingsAgents(): JSX.Element {
 						}
 					/>
 
-					<div className="flex gap-2 flex-wrap">
-						<div className="form-control flex-1 min-w-[140px]">
-							<label className="label" htmlFor="add-agent-name">
-								<span className="label-text text-[var(--text-secondary)]">Name</span>
-							</label>
-							<input
+					<div className="flex gap-[9px] flex-wrap">
+						<div className="flex-1 min-w-[140px]">
+							<Input
 								id="add-agent-name"
+								label="Name"
 								type="text"
-								className="input input-sm input-bordered"
 								value={addValues.name}
 								onChange={(e) => {
 									setAddValues((prev) => ({ ...prev, name: e.target.value }));
@@ -669,12 +669,10 @@ export function SettingsAgents(): JSX.Element {
 							/>
 						</div>
 
-						<div className="form-control flex-1 min-w-[140px]">
-							<label className="label" htmlFor="add-agent-role">
-								<span className="label-text text-[var(--text-secondary)]">Role</span>
-							</label>
+						<div className="flex-1 min-w-[140px]">
 							<Select
 								id="add-agent-role"
+								label="Role"
 								size="sm"
 								value={addValues.role}
 								onChange={(e) => {
@@ -691,12 +689,10 @@ export function SettingsAgents(): JSX.Element {
 						</div>
 
 						{/* AH2: Harness Select — constrained to registered types */}
-						<div className="form-control flex-1 min-w-[140px]">
-							<label className="label" htmlFor="add-agent-harness">
-								<span className="label-text text-[var(--text-secondary)]">Harness</span>
-							</label>
+						<div className="flex-1 min-w-[140px]">
 							<Select
 								id="add-agent-harness"
+								label="Harness"
 								size="sm"
 								className="max-md:text-[16px]"
 								value={addValues.harnessType}
@@ -710,12 +706,10 @@ export function SettingsAgents(): JSX.Element {
 						</div>
 
 						{/* AH2: Model Select from MODEL_CATALOG */}
-						<div className="form-control flex-1 min-w-[140px]">
-							<label className="label" htmlFor="add-agent-model">
-								<span className="label-text text-[var(--text-secondary)]">Model</span>
-							</label>
+						<div className="flex-1 min-w-[140px]">
 							<Select
 								id="add-agent-model"
+								label="Model"
 								size="sm"
 								className="max-md:text-[16px]"
 								value={addValues.modelId}
@@ -728,25 +722,24 @@ export function SettingsAgents(): JSX.Element {
 							/>
 						</div>
 
-						<div className="form-control flex-1 min-w-[100px]">
-							<label className="label" htmlFor="add-agent-sessions">
-								<span className="label-text text-[var(--text-secondary)]">Max Sessions</span>
-							</label>
-							<input
-								id="add-agent-sessions"
-								type="number"
-								className="input input-sm input-bordered"
-								value={addValues.maxConcurrentSessions}
-								min={1}
-								max={20}
-								onChange={(e) =>
-									setAddValues((prev) => ({
-										...prev,
-										maxConcurrentSessions: Number(e.target.value),
-									}))
-								}
-								aria-label="Max Sessions"
-							/>
+						<div className="flex-1 min-w-[100px]">
+							<div className="w-[88px]">
+								<Input
+									id="add-agent-sessions"
+									label="Max Sessions"
+									type="number"
+									value={String(addValues.maxConcurrentSessions)}
+									min={1}
+									max={20}
+									onChange={(e) =>
+										setAddValues((prev) => ({
+											...prev,
+											maxConcurrentSessions: Number(e.target.value),
+										}))
+									}
+									aria-label="Max Sessions"
+								/>
+							</div>
 						</div>
 					</div>
 
@@ -768,15 +761,15 @@ export function SettingsAgents(): JSX.Element {
 
 					{/* AH2 DESIGN-1: Inline 422 error for add form */}
 					{addError && (
-						<p className="text-sm text-[var(--status-error)]" role="alert">
+						<p className="text-[12px] text-[var(--status-error)]" role="alert">
 							{addError}
 						</p>
 					)}
 
-					<div className="flex gap-2 justify-end">
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm"
+					<div className="flex gap-[9px] justify-end">
+						<Button
+							variant="ghost"
+							size="sm"
 							onClick={() => {
 								setAddMode(false);
 								setAddError(null);
@@ -792,26 +785,21 @@ export function SettingsAgents(): JSX.Element {
 							}}
 						>
 							Cancel
-						</button>
-						<button
-							type="button"
-							className="btn btn-primary btn-sm"
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={handleAddSave}
 							disabled={adding || !addValues.name}
 						>
-							{adding && <span className="loading loading-spinner loading-xs" />}
-							Save
-						</button>
+							{adding ? "Saving…" : "Save"}
+						</Button>
 					</div>
 				</div>
 			) : (
-				<button
-					type="button"
-					className="btn btn-ghost btn-sm self-start"
-					onClick={() => setAddMode(true)}
-				>
+				<Button variant="ghost" size="sm" className="self-start" onClick={() => setAddMode(true)}>
 					+ Add Agent
-				</button>
+				</Button>
 			)}
 		</div>
 	);

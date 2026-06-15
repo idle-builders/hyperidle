@@ -32,8 +32,16 @@
  */
 
 // hearth-internal-padding
-import { Select } from "@hyperidle/design-system";
-import type React from "react";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	Input,
+	ItemList,
+	Row,
+	Select,
+	SkeletonList,
+} from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
@@ -68,19 +76,6 @@ interface OrgData {
 }
 
 const MECHANISMS: OrgEdgeMechanism[] = ["direct", "function", "team"];
-
-/** Shared Hearth token styling for form inputs */
-const inputStyle: React.CSSProperties = {
-	fontFamily: "var(--font-sans)",
-	fontSize: "15px",
-	padding: "10px 12px",
-	border: "1.5px solid var(--border-default)",
-	borderRadius: "var(--r-default)",
-	background: "var(--surface-elevated)",
-	color: "var(--text-primary)",
-	outline: "none",
-	width: "100%",
-};
 
 export function SettingsOrgChart(): JSX.Element {
 	const { showToast } = useToast();
@@ -173,19 +168,17 @@ export function SettingsOrgChart(): JSX.Element {
 	}, [fromUserId, mechanism, target, showToast]);
 
 	if (status === "loading") {
-		return (
-			<div className="flex flex-col gap-[12px]">
-				<div className="skeleton h-8 w-full" />
-				<div className="skeleton h-8 w-full" />
-			</div>
-		);
+		return <SkeletonList rows={2} ariaLabel="Loading org chart" />;
 	}
 
 	if (status === "error" || !data) {
 		return (
-			<p className="text-[13px] text-[var(--status-error)]">
-				Failed to load org chart. Please try again.
-			</p>
+			<ErrorState
+				compact
+				title="Couldn't load org chart"
+				description="Failed to load org chart. Please try again."
+				onRetry={() => void loadOrg()}
+			/>
 		);
 	}
 
@@ -213,53 +206,47 @@ export function SettingsOrgChart(): JSX.Element {
 	const effectiveMechanism = isSolo && !showAddForm ? "function" : mechanism;
 
 	return (
-		<div className="flex flex-col gap-[12px]">
+		<div className="flex flex-col gap-[18px]">
 			{/* Solo guidance hint (shown above the form, not instead of it) */}
 			{soloHint}
 
-			{/* Edge table */}
+			{/* Edge list */}
 			{edges.length === 0 ? (
-				<p className="text-[13px] text-[var(--text-tertiary)]">No edges defined.</p>
+				<EmptyState
+					compact
+					title="No edges yet"
+					description="Add a reporting line, function, or team relationship to define your org chart."
+				/>
 			) : (
-				<table className="table table-xs w-full">
-					<thead>
-						<tr>
-							<th className="text-[var(--text-tertiary)]">From</th>
-							<th className="text-[var(--text-tertiary)]">Mechanism</th>
-							<th className="text-[var(--text-tertiary)]">Target</th>
-							<th />
-						</tr>
-					</thead>
-					<tbody>
-						{edges.map((edge) => (
-							<tr key={edge.id}>
-								<td className="text-[13px]">{userName(edge.fromUserId)}</td>
-								<td className="text-[13px] font-mono text-[var(--text-secondary)]">
-									{edge.mechanism}
-								</td>
-								<td className="text-[13px]">{edge.target}</td>
-								<td>
-									<button
-										type="button"
-										className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--status-error)] cursor-pointer hover:border-[var(--status-error)] transition-colors duration-[var(--motion-fast)]"
-										onClick={() => void handleDelete(edge.id)}
-										disabled={deletingId === edge.id}
-										aria-label={`Delete edge ${edge.id}`}
-									>
-										{deletingId === edge.id ? "…" : "Delete"}
-									</button>
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
+				<ItemList variant="flush" isEmpty={false}>
+					{edges.map((edge) => (
+						<Row
+							key={edge.id}
+							title={userName(edge.fromUserId)}
+							subtitle={edge.target}
+							cells={[{ content: edge.mechanism }]}
+							actions={
+								<Button
+									variant="destructive"
+									size="sm"
+									onClick={() => void handleDelete(edge.id)}
+									disabled={deletingId === edge.id}
+									aria-label={`Delete edge ${edge.id}`}
+								>
+									{deletingId === edge.id ? "…" : "Delete"}
+								</Button>
+							}
+						/>
+					))}
+				</ItemList>
 			)}
 
 			{/* Add Edge */}
 			{!showAddForm ? (
-				<button
-					type="button"
-					className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] self-start transition-colors duration-[var(--motion-fast)]"
+				<Button
+					variant="ghost"
+					size="sm"
+					className="self-start"
 					onClick={() => {
 						// Default to "function" in solo mode
 						if (isSolo) setMechanism("function");
@@ -268,7 +255,7 @@ export function SettingsOrgChart(): JSX.Element {
 					data-testid="add-edge-btn"
 				>
 					+ Add Edge
-				</button>
+				</Button>
 			) : (
 				<AddEdgeForm
 					users={users}
@@ -337,15 +324,10 @@ function AddEdgeForm({
 		<div className="flex flex-col gap-[12px] p-[18px] border-[1.5px] border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[12px] flex-wrap">
 				{/* From */}
-				<div className="flex flex-col gap-[6px] flex-1 min-w-[120px]">
-					<label
-						htmlFor="org-from"
-						className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
-					>
-						From
-					</label>
+				<div className="flex-1 min-w-[120px]">
 					<Select
 						id="org-from"
+						label="From"
 						value={fromUserId}
 						onChange={(e) => onFromChange(e.target.value)}
 						aria-label="From user"
@@ -356,15 +338,10 @@ function AddEdgeForm({
 				</div>
 
 				{/* Mechanism */}
-				<div className="flex flex-col gap-[6px] flex-1 min-w-[120px]">
-					<label
-						htmlFor="org-mechanism"
-						className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
-					>
-						Mechanism
-					</label>
+				<div className="flex-1 min-w-[120px]">
 					<Select
 						id="org-mechanism"
+						label="Mechanism"
 						value={mechanism}
 						onChange={(e) => onMechanismChange(e.target.value as OrgEdgeMechanism)}
 						aria-label="Mechanism"
@@ -374,16 +351,11 @@ function AddEdgeForm({
 				</div>
 
 				{/* Target — context-aware by mechanism */}
-				<div className="flex flex-col gap-[6px] flex-1 min-w-[120px]">
-					<label
-						htmlFor="org-target"
-						className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
-					>
-						Target
-					</label>
+				<div className="flex-1 min-w-[120px]">
 					{mechanism === "direct" ? (
 						<Select
 							id="org-target"
+							label="Target"
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							aria-label="Target user"
@@ -400,6 +372,7 @@ function AddEdgeForm({
 						 * Now sourced from GET /api/org `teams` array. */
 						<Select
 							id="org-target"
+							label="Target"
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							aria-label="Target team"
@@ -422,10 +395,10 @@ function AddEdgeForm({
 						/>
 					) : (
 						/* mechanism === "function": free-text input */
-						<input
+						<Input
 							id="org-target"
+							label="Target"
 							type="text"
-							style={inputStyle}
 							value={target}
 							onChange={(e) => onTargetChange(e.target.value)}
 							placeholder="e.g. engineering, support"
@@ -448,23 +421,18 @@ function AddEdgeForm({
 			)}
 
 			<div className="flex gap-[9px] justify-end">
-				<button
-					type="button"
-					className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-					onClick={onCancel}
-					disabled={adding}
-				>
+				<Button variant="ghost" size="sm" onClick={onCancel} disabled={adding}>
 					Cancel
-				</button>
-				<button
-					type="button"
-					className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
+				</Button>
+				<Button
+					variant="primary"
+					size="sm"
 					onClick={onAdd}
 					disabled={!canAdd}
 					data-testid="org-add-submit"
 				>
 					{adding ? "Adding…" : "Add"}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);
