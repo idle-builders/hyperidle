@@ -43,8 +43,8 @@ export function startPollingWatcher(config: FileWatcherConfig): FileWatcher {
 	let stopped = false;
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-	const knowledgeDir = path.join(config.workspacePath, "knowledge");
-	const workDir = path.join(config.workspacePath, "work");
+	const knowledgeDir = path.join(config.sandboxPath, "knowledge");
+	const workDir = path.join(config.sandboxPath, "work");
 
 	// Take initial snapshot
 	let previousSnapshot = new Map<string, FileSnapshot>();
@@ -65,7 +65,7 @@ export function startPollingWatcher(config: FileWatcherConfig): FileWatcher {
 
 		// Detect new and modified files
 		for (const [fullPath, currentStats] of currentSnapshot) {
-			const relativePath = getRelativePath(config.workspacePath, fullPath);
+			const relativePath = getRelativePath(config.sandboxPath, fullPath);
 			if (!isWatchedPath(relativePath)) continue;
 
 			const previous = previousSnapshot.get(fullPath);
@@ -81,7 +81,7 @@ export function startPollingWatcher(config: FileWatcherConfig): FileWatcher {
 		// Detect deleted files
 		for (const [fullPath] of previousSnapshot) {
 			if (!currentSnapshot.has(fullPath)) {
-				const relativePath = getRelativePath(config.workspacePath, fullPath);
+				const relativePath = getRelativePath(config.sandboxPath, fullPath);
 				if (!isWatchedPath(relativePath)) continue;
 				changes.push({ type: "delete", relativePath, fullPath });
 			}
@@ -93,7 +93,7 @@ export function startPollingWatcher(config: FileWatcherConfig): FileWatcher {
 			processWriteback(
 				{
 					db: config.db,
-					workspacePath: config.workspacePath,
+					sandboxPath: config.sandboxPath,
 					sessionId: config.sessionId,
 					manifestPath: config.manifestPath,
 				},

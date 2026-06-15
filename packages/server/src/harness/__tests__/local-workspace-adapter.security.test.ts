@@ -1,5 +1,5 @@
 /**
- * I2 — S4: LocalWorkspaceAdapter refuses to operate when
+ * I2 — S4: LocalSandboxAdapter refuses to operate when
  * `NODE_ENV === "production"`.
  *
  * The adapter executes commands directly on the host filesystem with no
@@ -14,7 +14,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { LocalWorkspaceAdapter } from "../local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 
 let baseDir: string;
 const originalEnv = { ...process.env };
@@ -36,40 +36,40 @@ afterEach(() => {
 	process.env = { ...originalEnv };
 });
 
-describe("I2 S4 / review A3 — LocalWorkspaceAdapter production guard", () => {
+describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 	it("constructor throws when NODE_ENV === 'production' on a server profile", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
-		expect(() => new LocalWorkspaceAdapter()).toThrow(/not allowed/i);
+		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
 	});
 
-	it("error message recommends DockerWorkspaceAdapter", () => {
+	it("error message recommends DockerSandboxAdapter", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
-		expect(() => new LocalWorkspaceAdapter()).toThrow(/Docker/i);
+		expect(() => new LocalSandboxAdapter()).toThrow(/Docker/i);
 	});
 
 	it("spawn() succeeds in NODE_ENV=test (the default for the suite)", async () => {
 		process.env.NODE_ENV = "test";
-		const adapter = new LocalWorkspaceAdapter();
+		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.workspaceId).toBeDefined();
+		expect(handle.sandboxId).toBeDefined();
 		await adapter.destroy(handle);
 	});
 
 	it("spawn() succeeds when NODE_ENV is unset (dev convenience)", async () => {
 		process.env.NODE_ENV = undefined;
-		const adapter = new LocalWorkspaceAdapter();
+		const adapter = new LocalSandboxAdapter();
 
 		const handle = await adapter.spawn(baseDir);
-		expect(handle.workspaceId).toBeDefined();
+		expect(handle.sandboxId).toBeDefined();
 		await adapter.destroy(handle);
 	});
 
 	it("constructing in production gates exec() too — no handle can leak past the constructor", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
-		expect(() => new LocalWorkspaceAdapter()).toThrow(/not allowed/i);
+		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
 	});
 });

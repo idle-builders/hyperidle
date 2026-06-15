@@ -37,14 +37,14 @@ const sessLifecycleGrowthSales: EvalScenario = {
 	feature: "session",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const workspaceBasePath = `/tmp/eval-workspace-sess-${Date.now()}`;
+		const sandboxBasePath = `/tmp/eval-workspace-sess-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Growth Agent",
 			role: "growth",
 			teamMembersId,
-			soulPrompt: `You are a growth agent analyzing sales pipeline data.
+			systemPrompt: `You are a growth agent analyzing sales pipeline data.
 Your job is to review the sales context and document key findings in session notes.
 Write substantive session notes covering: what you analyzed, key findings, and next steps.`,
 			harnessType: "builtin",
@@ -81,7 +81,7 @@ Use write_session_notes to document your analysis.`,
 			agentId,
 			betId,
 			taskId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -91,7 +91,7 @@ Use write_session_notes to document your analysis.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -145,7 +145,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 	feature: "session",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const workspaceBasePath = `/tmp/eval-workspace-tier-${Date.now()}`;
+		const sandboxBasePath = `/tmp/eval-workspace-tier-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 
@@ -154,7 +154,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			name: "DevOps Builder",
 			role: "builder",
 			teamMembersId,
-			soulPrompt: "You are a DevOps builder. Complete the task and write session notes.",
+			systemPrompt: "You are a DevOps builder. Complete the task and write session notes.",
 			harnessType: "builtin",
 		});
 
@@ -184,7 +184,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			agentId,
 			betId,
 			taskId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -194,7 +194,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -240,14 +240,14 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 	feature: "session",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const workspaceBasePath = `/tmp/eval-workspace-cleanup-${Date.now()}`;
+		const sandboxBasePath = `/tmp/eval-workspace-cleanup-${Date.now()}`;
 		const { teamId, teamMembersId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Frontend Builder",
 			role: "builder",
 			teamMembersId,
-			soulPrompt: "You are a frontend builder. Complete the task and write session notes.",
+			systemPrompt: "You are a frontend builder. Complete the task and write session notes.",
 			harnessType: "builtin",
 		});
 
@@ -277,7 +277,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			agentId,
 			betId,
 			taskId,
-			workspaceBasePath,
+			sandboxBasePath,
 		};
 	},
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
@@ -287,7 +287,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -303,11 +303,11 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 				id: "workspace_destroyed",
 				label: "Workspace Directory Cleaned Up After Session",
 				judge: (ctx: JudgeContext): Promise<DimensionScore> => {
-					// The workspace path is based on workspaceBasePath + sessionId
+					// The workspace path is based on sandboxBasePath + sessionId
 					// After session completion, the workspace dir should be removed
 					// Check if the base workspace path or session-specific subdirectory still exists
-					const workspaceBasePath = ctx.seedResult.workspaceBasePath;
-					const sessionWorkspace = `${workspaceBasePath}/${ctx.triggerResult.sessionId}`;
+					const sandboxBasePath = ctx.seedResult.sandboxBasePath;
+					const sessionWorkspace = `${sandboxBasePath}/${ctx.triggerResult.sessionId}`;
 
 					let sessionDirExists = false;
 					let baseDirExists = false;
@@ -319,7 +319,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 					}
 
 					try {
-						baseDirExists = fs.existsSync(workspaceBasePath);
+						baseDirExists = fs.existsSync(sandboxBasePath);
 					} catch {
 						baseDirExists = false;
 					}

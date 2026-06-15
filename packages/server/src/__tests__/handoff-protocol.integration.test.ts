@@ -108,7 +108,7 @@ function makeSessionContext(sessionId: string, agentId: string, taskId: string):
 		sessionId,
 		agentId,
 		taskId,
-		workspacePath: "/tmp/test-workspace",
+		sandboxPath: "/tmp/test-workspace",
 		watcher: { stop: () => {} } as SessionContext["watcher"],
 		traceId: "trace-test",
 	};

@@ -48,7 +48,7 @@ function makeContext(sessionId: string, agentId: string, taskId: string): Sessio
 		sessionId,
 		agentId,
 		taskId,
-		workspacePath: "/tmp/af7-nonexistent",
+		sandboxPath: "/tmp/af7-nonexistent",
 		watcher: { stop: () => {} } as SessionContext["watcher"],
 		traceId: "trace-af7",
 	};

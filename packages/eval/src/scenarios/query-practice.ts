@@ -32,7 +32,7 @@ const qpProactiveSearchBuilderFrontend: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent implementing accessible UI components.
+			agentSystemPrompt: `You are a builder agent implementing accessible UI components.
 Before implementing, always search for existing practice knowledge using query_practice.
 Reference the knowledge you find in your session notes when explaining your implementation approach.`,
 			taskTitle: "Implement accessible modal component following team patterns",
@@ -85,7 +85,7 @@ Mention specific patterns or guidelines from the knowledge base.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -140,7 +140,7 @@ const qpFacilitatorCurationPfDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
+			agentSystemPrompt: `You are a practice facilitator for the DevOps community.
 Before creating new practices, always query existing ones to avoid duplication.
 Use query_practice systematically to survey what the community already knows.
 Document your curation reasoning in session notes.`,
@@ -193,7 +193,7 @@ Note in your session notes:
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -247,7 +247,7 @@ const qpLayerFilterPmFinance: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager in the finance domain.
+			agentSystemPrompt: `You are a product manager in the finance domain.
 When searching for knowledge, use the layer parameter to filter for practice-level knowledge (L3).
 This helps you find community-wide patterns rather than product-specific documentation.`,
 			taskTitle: "Find practice-level financial workflow guidelines",
@@ -297,7 +297,7 @@ You should find and reference the L3 practice knowledge.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

@@ -37,7 +37,7 @@ const wmKindSelectionBuilderDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			agentSoulPrompt: `You are a builder agent in a DevOps team.
+			agentSystemPrompt: `You are a builder agent in a DevOps team.
 When capturing knowledge, choose the most specific kind that matches the content:
 - "failure": post-mortems, incidents, what went wrong
 - "decision": architectural or technical decisions
@@ -68,7 +68,7 @@ Choose the most appropriate kind for an incident post-mortem.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -167,7 +167,7 @@ const wmLayerEnforcementGrowthMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "growth",
-			agentSoulPrompt: `You are a growth agent at a marketing agency.
+			agentSystemPrompt: `You are a growth agent at a marketing agency.
 You discovered a pattern that applies across all company products.
 Try to capture it as L3 practice knowledge using write_memory.
 If write_memory returns an error about layer restrictions, acknowledge the restriction and save it at an accessible layer instead.`,
@@ -188,7 +188,7 @@ Document what happened in your session notes.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -278,7 +278,7 @@ const wmFacilitatorL4CosConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
-			agentSoulPrompt: `You are a system agent at a consulting firm.
+			agentSystemPrompt: `You are a system agent at a consulting firm.
 Your role is to capture factory-wide principles that apply across all products and teams.
 When writing knowledge, use layer L4 for cross-product principles and company-wide guidelines.
 Use write_memory with layer="factory" to capture factory-wide knowledge.`,
@@ -303,7 +303,7 @@ Choose kind "context" or "pattern" — these are foundational company principles
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -386,7 +386,7 @@ const wmReflectionBrandvoiceMarketing: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "brand_voice",
-			agentSoulPrompt: `You are the brand voice agent. Your identity IS the brand.
+			agentSystemPrompt: `You are the brand voice agent. Your identity IS the brand.
 You observe how the brand is expressed and capture brand consistency learnings.
 When capturing knowledge, use kind="reflection" for brand observations.
 Your knowledge items should reflect on: how well we stayed on brand, what worked, what drifted.`,
@@ -409,7 +409,7 @@ This reflection will help the team maintain brand consistency going forward.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

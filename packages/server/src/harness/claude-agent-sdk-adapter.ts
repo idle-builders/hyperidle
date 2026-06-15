@@ -153,7 +153,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 
 		const queryOptions: Record<string, unknown> = {
 			model,
-			cwd: config.workspacePath,
+			cwd: config.sandboxPath,
 			tools: config.tools as string[],
 			abortController,
 			permissionMode: unsafeMode ? "bypassPermissions" : "default",

@@ -9,14 +9,14 @@ Every AI agent belongs to exactly one of three structural categories. The catego
 | Category | Binding | Provisioned by | Editability | Examples |
 |---|---|---|---|---|
 | **Team** | Bound to a team (`teamId` non-null) | Default roster per team function | Fully user-controlled | builder, designer, product_manager, qa_engineer, growth, ops |
-| **Strategy** | Factory-wide (`teamId` null) | Strategy at factory setup | Soul editable; operational config strategy-managed | facilitator <!-- @lore AD8c: renamed from practice_facilitator -->, scout, infra, platform |
+| **Strategy** | Factory-wide (`teamId` null) | Strategy at factory setup | System prompt editable; operational config strategy-managed | facilitator <!-- @lore AD8c: renamed from practice_facilitator -->, scout, infra, platform |
 | **Personal** | Bound to a human user (`teamId` null) | Per-user at setup | Fully user-controlled | chief_of_staff <!-- @lore AD8a: role renamed to "assistant" in AD8b --> |
 
 Category is a closed enum (`team | strategy | personal`). Adding a fourth requires a concept-doc update. Category is immutable after agent creation.
 
 ### Agent Role
 
-The functional specialty of an agent. An open string with a catalog of known roles providing metadata (soul template, tool access, community mapping, team functions). Unknown roles are valid -- they receive base tools and no template.
+The functional specialty of an agent. An open string with a catalog of known roles providing metadata (system prompt template, tool access, community mapping, team functions). Unknown roles are valid -- they receive base tools and no template.
 
 Known roles and their catalog entries are defined in `packages/shared/src/agent-roles.ts`.
 
@@ -28,17 +28,17 @@ A domain label on a team that determines which agent roles appear in the default
 
 Known functions: `development`, `product`, `design`, `marketing`, `sales`, `operations`, `support`, `research`. The catalog is open -- users can define custom functions.
 
-### Soul and Agent Prompt Composition
+### System and Agent Context Assembly
 
 | Layer | Authored by | Stored | Composed when |
 |---|---|---|---|
-| **Soul** (user personality) | User | `users.soulPrompt` | Written at creation, edited anytime |
+| **System prompt** (user personality) | User | `users.system_prompt` | Written at creation, edited anytime |
 | **Role definition** | Strategy (catalog) | `AGENT_ROLE_CATALOG` | Read at session start |
 | **Session context** | System | Computed from DB | Session start |
-| **Knowledge items** | Knowledge fabric | Materialized to workspace | Session start |
+| **Knowledge items** | Knowledge fabric | Assembled to workspace | Session start |
 | **Tool descriptions** | Tool registry | `ALL_TOOL_DEFINITIONS` | Session start |
 
-The soul is always the first section of the composed agent prompt. It is not mixed into or overridden by strategy content. The user defines the soul; the system provides everything else.
+The system prompt is always the first section of the composed agent prompt. It is not mixed into or overridden by strategy content. The user defines the system prompt; the system provides everything else.
 
 ### Default Roster
 

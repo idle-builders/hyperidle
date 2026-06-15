@@ -125,7 +125,7 @@ An AC describes the **observable state** a user, agent, or system is in after th
 | Bad AC | Why it's bad | Better version |
 |---|---|---|
 | "A `docs/product/index.md` exists containing a pitch, architecture overview, and concept list" | Prescribes file path and page structure — that's design/architecture work | "A first-time reader can explain what HyperIdle does in their own words after reading the product entry point" |
-| "The profile page shows name, role, team, soul prompt summary, harness type, model tier, creation date, and status" | Prescribes the exact UI layout — that's design work | "A team lead can see an agent's complete operational picture — identity, configuration, capabilities, activity, and health — in one view" |
+| "The profile page shows name, role, team, system prompt summary, harness type, model tier, creation date, and status" | Prescribes the exact UI layout — that's design work | "A team lead can see an agent's complete operational picture — identity, configuration, capabilities, activity, and health — in one view" |
 | "Add `valid_from` timestamp and `valid_until` nullable timestamp columns to the kernel table" | Prescribes schema — that's architecture work | "Knowledge items track when they became valid and when they were superseded, queryable by date" |
 | "The routine detail sheet reuses the TaskSheet component pattern" | Prescribes component reuse — that's design/architecture | "Clicking a routine shows its run history and configuration without leaving the Work page" |
 | "Uses the existing BodyEditor component (T1)" | Names a specific component — that's architecture | "The authoring flow provides rich text editing for knowledge item bodies" |

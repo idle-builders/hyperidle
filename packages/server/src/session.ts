@@ -7,8 +7,8 @@
  * deep imports from external packages must use subpath exports.
  */
 export { AdapterPool } from "./harness/adapter-pool.js";
-export { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
-export type { WorkspaceAdapter, WorkspaceHandle } from "./harness/workspace-adapter.js";
+export { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
+export type { SandboxAdapter, SandboxHandle } from "./harness/sandbox-adapter.js";
 export {
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,

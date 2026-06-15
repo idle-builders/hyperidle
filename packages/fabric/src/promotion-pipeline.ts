@@ -565,7 +565,7 @@ export async function runStaleSweep(
  * (concurrent modification) or a last-second open-conflict check fired.
  *
  * @lore G3 gate parity: this function duplicates the gate logic from
- * `packages/server/src/skill-tools/promote-knowledge.ts` intentionally —
+ * `packages/server/src/tools/promote-knowledge.ts` intentionally —
  * promote-knowledge is a server-layer tool and the fabric layer must not
  * import from server. The transaction shape and CONFLICT_OPEN gate must
  * stay in lockstep; any change to one requires the corresponding change

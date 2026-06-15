@@ -13,7 +13,7 @@ import {
  * Strip YAML frontmatter from markdown content.
  *
  * @lore X3: This function is intentionally duplicated from
- * packages/fabric/src/prompt-composition.ts. The reason: @hyperidle/db must NOT
+ * packages/fabric/src/context-assembly-prompt.ts. The reason: @hyperidle/db must NOT
  * import from @hyperidle/fabric (wrong dependency direction — db is a leaf package
  * that fabric depends on, not vice versa). Extracting to @hyperidle/shared would
  * add a utility function to a types-only package. At 1 line of regex, duplication
@@ -24,11 +24,13 @@ function stripFrontmatter(content: string): string {
 }
 
 /**
- * Read a soul prompt template from docs/souls/ and strip frontmatter.
+ * Read a system prompt template from docs/system-prompts/ and strip frontmatter.
  * Returns null if the file does not exist (graceful degradation).
+ * @lore AK1: Directory renamed from the old agent-persona directory to "system-prompts/" in
+ * AK1 harness-vocabulary rename rollout.
  */
-function readSoulTemplate(docsRoot: string, filename: string): string | null {
-	const filePath = path.join(docsRoot, "souls", filename);
+function readSystemPromptTemplate(docsRoot: string, filename: string): string | null {
+	const filePath = path.join(docsRoot, "system-prompts", filename);
 	try {
 		const content = fs.readFileSync(filePath, "utf8");
 		return stripFrontmatter(content);
@@ -45,7 +47,7 @@ function readSoulTemplate(docsRoot: string, filename: string): string | null {
  *   - `system:propagation` system user
  *   - `seed-agent-cos` system-assistant singleton (individual category)
  *   - one facilitator agent per community of practice (strategy category, team_id null)
- *   - `factory_settings`: cost_cap, cost_cycle, soul_template:<role> entries
+ *   - `factory_settings`: cost_cap, cost_cycle, system_template:<role> entries
  *   - `knowledge_items` + `knowledge_strategy_fabric`: the factory principle seed-ki-1
  *
  * Does NOT insert teams, team_members, routines, bets, tasks, or any human users.
@@ -101,12 +103,12 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 		.onConflictDoNothing();
 
 	// Patch the System Agent row with facilitator metadata (idempotent).
-	// @lore AD8a: soulPromptPath set to null — docs/souls/chief-of-staff.md is deleted.
+	// @lore AD8a: systemPromptPath set to null — docs/system-prompts/chief-of-staff.md is deleted (renamed to assistant).
 	// AH2: also set runnable defaults on PATCH so existing rows get them on upgrade.
 	await db
 		.update(users)
 		.set({
-			soulPromptPath: null,
+			systemPromptPath: null,
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
 			harnessType: "builtin",
 			modelId: "claude-sonnet-4-6",
@@ -116,7 +118,7 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 
 	// ── Facilitator agents — one per community of practice ──
 	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
-	// "Facilitator" (role: facilitator). Soul file renamed to facilitator.md.
+	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
 	// Factory agents: agentCategory="strategy", team_id=null.
 	for (const community of PRACTICE_COMMUNITIES) {
 		await db
@@ -130,7 +132,7 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 				teamId: null,
 				status: "active",
 				maxConcurrentSessions: 1,
-				soulPromptPath: "docs/souls/facilitator.md",
+				systemPromptPath: "docs/system-prompts/facilitator.md",
 				skills: JSON.stringify({
 					scope: community,
 					tools: FACILITATOR_TOOLS,
@@ -154,14 +156,15 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
 
-	// ── Soul prompt templates from docs/souls/ ──
+	// ── System prompt templates from docs/system-prompts/ ──
 	// @lore X3: We read files at bootstrap time. If a file is missing, the template
 	// is silently skipped (graceful degradation). Process CWD during seeding is the
 	// monorepo root where docs/ lives.
+	// @lore AK1: Directory renamed from old variant to docs/system-prompts/ in AK1 harness-vocab rename.
 	const docsRoot = path.resolve(process.cwd(), "docs");
-	const soulTemplates: Array<{ role: string; filename: string }> = [
+	const systemPromptTemplates: Array<{ role: string; filename: string }> = [
 		{ role: "product_manager", filename: "product-manager.md" },
-		// @lore AD8c: role renamed from practice_facilitator; soul file renamed to facilitator.md
+		// @lore AD8c: role renamed from practice_facilitator; prompt file renamed to facilitator.md
 		{ role: "facilitator", filename: "facilitator.md" },
 		{ role: "builder", filename: "builder.md" },
 		{ role: "growth", filename: "growth.md" },
@@ -172,14 +175,14 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 
 	const templateValues: Record<string, string> = {};
 
-	for (const { role, filename } of soulTemplates) {
-		const content = readSoulTemplate(docsRoot, filename);
+	for (const { role, filename } of systemPromptTemplates) {
+		const content = readSystemPromptTemplate(docsRoot, filename);
 		if (content !== null) {
 			templateValues[role] = content;
 			await db
 				.insert(factorySettings)
 				.values({
-					key: `soul_template:${role}`,
+					key: `system_template:${role}`,
 					value: content,
 					updatedAt: now,
 				})
@@ -190,7 +193,7 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 		}
 	}
 
-	// ── Backfill soulPrompt on factory agents from role-based templates ──
+	// ── Backfill systemPrompt on factory agents from role-based templates ──
 	// Scoped to factory agents only (system:propagation, seed-agent-cos, seed-agent-pf-*)
 	// to avoid clobbering team agents provisioned at onboarding.
 	const factoryAgentIds = [
@@ -201,7 +204,7 @@ export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
 	for (const [role, template] of Object.entries(templateValues)) {
 		await db
 			.update(users)
-			.set({ soulPrompt: template })
+			.set({ systemPrompt: template })
 			.where(and(eq(users.role, role), eq(users.kind, "ai"), inArray(users.id, factoryAgentIds)));
 	}
 

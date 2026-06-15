@@ -992,7 +992,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 				agentRole: "builder",
 				productId: "team-af10-rt",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			};
 
 			const ctx = await createSession(db, eventBus, params);
@@ -1040,7 +1040,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 				agentRole: "builder",
 				productId: "team-af10-rt",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			};
 
 			const ctx1 = await createSession(db, eventBus, params);
@@ -1099,7 +1099,7 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 				agentRole: "builder",
 				productId: "team-af10-rt",
 				modelTier: "workhorse",
-				workspaceBasePath: tmpDir,
+				sandboxBasePath: tmpDir,
 			};
 			const ctx = await createSession(db, eventBus, params);
 			ctx.routineId = "routine-af10";

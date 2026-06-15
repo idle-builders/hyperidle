@@ -1,14 +1,14 @@
 /**
  * AD8b — SettingsAssistant component tests (RED phase).
  *
- * AC-2: The assistant's soul prompt is editable by the user in settings.
- *   - SettingsAssistant renders a textarea with soul prompt
+ * AC-2: The assistant's system prompt is editable by the user in settings.
+ *   - SettingsAssistant renders a textarea with system prompt
  *   - Save button is disabled when clean (no changes)
  *   - Save button is enabled when textarea content has changed (dirty state)
  *   - Save button shows "Saving..." while saving
  *   - Shows "Saved" briefly after successful save
  *   - Shows error message when save fails
- *   - Loading state: textarea is disabled with placeholder "Loading soul prompt..."
+ *   - Loading state: textarea is disabled with placeholder "Loading system prompt..."
  *
  * These tests FAIL until SettingsAssistant.tsx is created.
  */
@@ -24,13 +24,13 @@ import { SettingsAssistant } from "../SettingsAssistant.js";
 
 const MOCK_SOUL_PROMPT = "You are a helpful assistant focused on product development.";
 
-function mockFetchSuccess(soulPrompt = MOCK_SOUL_PROMPT): void {
+function mockFetchSuccess(systemPrompt = MOCK_SOUL_PROMPT): void {
 	vi.spyOn(globalThis, "fetch").mockImplementation(async (url, opts) => {
 		const method = (opts?.method ?? "GET").toUpperCase();
 		const urlStr = typeof url === "string" ? url : url.toString();
 
 		if (urlStr.includes("/assistant") && method === "GET") {
-			return new Response(JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt }), {
+			return new Response(JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
 			});
@@ -38,7 +38,7 @@ function mockFetchSuccess(soulPrompt = MOCK_SOUL_PROMPT): void {
 		if (urlStr.includes("/assistant") && method === "PATCH") {
 			const body = JSON.parse(opts?.body as string);
 			return new Response(
-				JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt: body.soulPrompt }),
+				JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: body.systemPrompt }),
 				{ status: 200, headers: { "Content-Type": "application/json" } },
 			);
 		}
@@ -52,7 +52,7 @@ function mockFetchError(): void {
 		const urlStr = typeof url === "string" ? url : url.toString();
 		if (urlStr.includes("/assistant") && method === "GET") {
 			return new Response(
-				JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt: MOCK_SOUL_PROMPT }),
+				JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: MOCK_SOUL_PROMPT }),
 				{ status: 200, headers: { "Content-Type": "application/json" } },
 			);
 		}
@@ -80,20 +80,20 @@ describe("AD8b — SettingsAssistant component", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders a textarea for the soul prompt", async () => {
+	it("renders a textarea for the system prompt", async () => {
 		mockFetchSuccess();
 		render(<SettingsAssistant userId="u-founder" />);
 
 		// Wait for loading to complete
 		await waitFor(() => {
-			expect(screen.queryByPlaceholderText(/loading soul prompt/i)).not.toBeInTheDocument();
+			expect(screen.queryByPlaceholderText(/loading system prompt/i)).not.toBeInTheDocument();
 		});
 
 		const textarea = screen.getByRole("textbox");
 		expect(textarea).toBeInTheDocument();
 	});
 
-	it("shows soul prompt text after loading", async () => {
+	it("shows system prompt text after loading", async () => {
 		mockFetchSuccess(MOCK_SOUL_PROMPT);
 		render(<SettingsAssistant userId="u-founder" />);
 
@@ -120,7 +120,7 @@ describe("AD8b — SettingsAssistant component", () => {
 
 		// Wait for load
 		await waitFor(() => {
-			expect(screen.queryByPlaceholderText(/loading soul prompt/i)).not.toBeInTheDocument();
+			expect(screen.queryByPlaceholderText(/loading system prompt/i)).not.toBeInTheDocument();
 		});
 
 		const textarea = screen.getByRole("textbox");
@@ -141,7 +141,7 @@ describe("AD8b — SettingsAssistant component", () => {
 
 			if (urlStr.includes("/assistant") && method === "GET") {
 				return new Response(
-					JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt: "Initial" }),
+					JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: "Initial" }),
 					{ status: 200, headers: { "Content-Type": "application/json" } },
 				);
 			}
@@ -150,7 +150,7 @@ describe("AD8b — SettingsAssistant component", () => {
 				await new Promise((r) => setTimeout(r, 100));
 				const body = JSON.parse(opts?.body as string);
 				return new Response(
-					JSON.stringify({ id: "ast-agent-1", name: "Assistant", soulPrompt: body.soulPrompt }),
+					JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: body.systemPrompt }),
 					{ status: 200, headers: { "Content-Type": "application/json" } },
 				);
 			}
@@ -160,7 +160,7 @@ describe("AD8b — SettingsAssistant component", () => {
 		render(<SettingsAssistant userId="u-founder" />);
 
 		await waitFor(() => {
-			expect(screen.queryByPlaceholderText(/loading soul prompt/i)).not.toBeInTheDocument();
+			expect(screen.queryByPlaceholderText(/loading system prompt/i)).not.toBeInTheDocument();
 		});
 
 		const textarea = screen.getByRole("textbox");
@@ -174,13 +174,13 @@ describe("AD8b — SettingsAssistant component", () => {
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument();
 	});
 
-	it("shows helper text about soul prompt usage", async () => {
+	it("shows helper text about system prompt usage", async () => {
 		mockFetchSuccess();
 		render(<SettingsAssistant userId="u-founder" />);
 
 		// Helper text is visible (may appear even before load)
 		await waitFor(() => {
-			expect(screen.getByText(/soul prompt/i)).toBeInTheDocument();
+			expect(screen.getByText(/system prompt/i)).toBeInTheDocument();
 		});
 	});
 
@@ -190,7 +190,7 @@ describe("AD8b — SettingsAssistant component", () => {
 		render(<SettingsAssistant userId="u-founder" />);
 
 		await waitFor(() => {
-			expect(screen.queryByPlaceholderText(/loading soul prompt/i)).not.toBeInTheDocument();
+			expect(screen.queryByPlaceholderText(/loading system prompt/i)).not.toBeInTheDocument();
 		});
 
 		const textarea = screen.getByRole("textbox");

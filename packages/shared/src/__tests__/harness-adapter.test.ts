@@ -11,20 +11,20 @@ import { MockHarnessAdapter } from "../harness/index.js";
 
 const TEST_CONFIG: SessionConfig = {
 	sessionId: "test-session",
-	workspacePath: "/workspace/test",
-	soulPromptPath: "/workspace/prompts/builder.md",
-	composedPrompt: "",
+	sandboxPath: "/workspace/test",
+	systemPromptPath: "/workspace/prompts/builder.md",
+	assembledPrompt: "",
 	modelTier: "workhorse",
 	tools: ["read_file", "write_file", "run_command"],
 };
 
 describe("HarnessAdapter interface (D1)", () => {
 	describe("SessionConfig", () => {
-		it("includes workspace path, soul prompt path, composed prompt, model tier, and tools list", () => {
+		it("includes sandbox path, system prompt path, assembled prompt, model tier, and tools list", () => {
 			const config: SessionConfig = TEST_CONFIG;
-			expect(config.workspacePath).toBe("/workspace/test");
-			expect(config.soulPromptPath).toBe("/workspace/prompts/builder.md");
-			expect(config.composedPrompt).toBe("");
+			expect(config.sandboxPath).toBe("/workspace/test");
+			expect(config.systemPromptPath).toBe("/workspace/prompts/builder.md");
+			expect(config.assembledPrompt).toBe("");
 			expect(config.modelTier).toBe("workhorse");
 			expect(config.tools).toEqual(["read_file", "write_file", "run_command"]);
 		});

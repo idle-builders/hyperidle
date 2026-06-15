@@ -32,7 +32,7 @@ const ccrDetectConflictPfDevops: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSoulPrompt: `You are a practice facilitator for the DevOps community.
+			agentSystemPrompt: `You are a practice facilitator for the DevOps community.
 When you find knowledge items that contain contradictory guidance, use create_conflict_review.
 Provide the knowledgeItemId, your proposed correction (proposedBody), and the versionBase.
 Document clear reasoning for why the content conflicts with established practice.`,
@@ -70,7 +70,7 @@ Your proposed body should clearly state the correct practice.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -154,7 +154,7 @@ const ccrDedupGuardPmFinance: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
-			agentSoulPrompt: `You are a product manager reviewing financial knowledge.
+			agentSystemPrompt: `You are a product manager reviewing financial knowledge.
 When you identify contradictory content, try to create a conflict review using create_conflict_review.
 If the system tells you a conflict already exists from you for this item, acknowledge it in your session notes.
 Document what happened and do not attempt to submit a second conflict for the same item.`,
@@ -199,7 +199,7 @@ If you get a DUPLICATE error, note this in your session notes and move on.`,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
@@ -253,7 +253,7 @@ const ccrVersionGuardCosConsulting: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
-			agentSoulPrompt: `You are a system agent reviewing consulting knowledge.
+			agentSystemPrompt: `You are a system agent reviewing consulting knowledge.
 When you identify knowledge that needs correction, try create_conflict_review.
 If you receive an INVALID_INPUT error about the version being ahead of current, acknowledge this in session notes.
 This means the knowledge has already been updated and your proposed conflict is based on stale information.`,
@@ -288,7 +288,7 @@ When you get the INVALID_INPUT error, note it in session notes and do not retry.
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
 				resolvedFastModel: ctx.resolvedFastModel,
-				workspaceBasePath: ctx.seedResult.workspaceBasePath,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,

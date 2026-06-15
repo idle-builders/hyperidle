@@ -190,18 +190,18 @@ describe("AC-1: POST /api/teams with functions creates agents via defaultRoster(
 		vi.unstubAllEnvs();
 	});
 
-	// AC-1f: agents with templates have non-null soulPrompt
-	test("Agents for roles with hasTemplate=true get non-null soulPrompt when template seeded", async ({
+	// AC-1f: agents with templates have non-null systemPrompt
+	test("Agents for roles with hasTemplate=true get non-null systemPrompt when template seeded", async ({
 		db,
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		// Seed a soul template for the builder role
+		// Seed a system template for the builder role
 		await db
 			.insert(factorySettings)
 			.values({
-				key: "soul_template:builder",
+				key: "system_template:builder",
 				value: "You are a builder agent. You write code.",
 				updatedAt: NOW,
 			})
@@ -219,8 +219,8 @@ describe("AC-1: POST /api/teams with functions creates agents via defaultRoster(
 
 		const builderAgent = agents.find((a) => a.role === "builder");
 		expect(builderAgent).toBeDefined();
-		expect(builderAgent?.soulPrompt).not.toBeNull();
-		expect(builderAgent?.soulPrompt).toBe("You are a builder agent. You write code.");
+		expect(builderAgent?.systemPrompt).not.toBeNull();
+		expect(builderAgent?.systemPrompt).toBe("You are a builder agent. You write code.");
 
 		vi.unstubAllEnvs();
 	});

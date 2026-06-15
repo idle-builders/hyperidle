@@ -45,7 +45,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
@@ -216,8 +216,8 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspaceAdapter: new LocalWorkspaceAdapter(),
-			workspaceBasePath: tmpDir,
+			workspaceAdapter: new LocalSandboxAdapter(),
+			sandboxBasePath: tmpDir,
 			credentialResolver: validResolver,
 		});
 
@@ -288,8 +288,8 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspaceAdapter: new LocalWorkspaceAdapter(),
-			workspaceBasePath: tmpDir,
+			workspaceAdapter: new LocalSandboxAdapter(),
+			sandboxBasePath: tmpDir,
 			credentialResolver: validResolver,
 		});
 
@@ -317,8 +317,8 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 			db,
 			eventBus,
 			adapterPool: makePool(harness),
-			workspaceAdapter: new LocalWorkspaceAdapter(),
-			workspaceBasePath: tmpDir,
+			workspaceAdapter: new LocalSandboxAdapter(),
+			sandboxBasePath: tmpDir,
 			credentialResolver: validResolver,
 		});
 
@@ -351,8 +351,8 @@ describe("AF7 AC2: POST /api/sessions is non-blocking (202 + active row)", () =>
 			db,
 			eventBus,
 			adapterPool: makePool(harness, "builtin"),
-			workspaceAdapter: new LocalWorkspaceAdapter(),
-			workspaceBasePath: tmpDir,
+			workspaceAdapter: new LocalSandboxAdapter(),
+			sandboxBasePath: tmpDir,
 		});
 
 		const res = await app.request("/api/sessions", {

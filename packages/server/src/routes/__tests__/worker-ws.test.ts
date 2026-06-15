@@ -268,9 +268,9 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		// Start a session on the adapter to get a sessionId
 		const handle = await selected?.adapter.startSession({
 			sessionId: "test-session",
-			workspacePath: "/workspace/test",
-			soulPromptPath: "",
-			composedPrompt: "",
+			sandboxPath: "/workspace/test",
+			systemPromptPath: "",
+			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
 		});

@@ -1,11 +1,11 @@
 /**
- * AD8b — GET /api/threads/assistant + soul prompt CRUD endpoints (RED phase).
+ * AD8b — GET /api/threads/assistant + system prompt CRUD endpoints (RED phase).
  *
  * AC-1: Each human user has exactly one assistant agent (kind=ai,
  *       agentCategory=individual, role=assistant) created at user registration.
  *
- * AC-2: Soul prompt is editable via GET/PATCH /api/users/:userId/assistant.
- *       - PATCH updates soulPrompt; GET returns updated value.
+ * AC-2: System prompt is editable via GET/PATCH /api/users/:userId/assistant.
+ *       - PATCH updates systemPrompt; GET returns updated value.
  *       - PATCH with >50_000 chars returns 400.
  *       - PATCH for another user's assistant returns 403.
  *
@@ -197,10 +197,10 @@ describe("AD8b — GET /api/threads/assistant", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: GET + PATCH /api/users/:userId/assistant (soul prompt CRUD)
+// AC-2: GET + PATCH /api/users/:userId/assistant (system prompt CRUD)
 // ---------------------------------------------------------------------------
 
-describe("AD8b — GET/PATCH /api/users/:userId/assistant (soul prompt)", () => {
+describe("AD8b — GET/PATCH /api/users/:userId/assistant (system prompt)", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -209,84 +209,87 @@ describe("AD8b — GET/PATCH /api/users/:userId/assistant (soul prompt)", () => 
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/users/:id/assistant returns 200 with id, name, soulPrompt", async ({
+	test("GET /api/users/:id/assistant returns 200 with id, name, systemPrompt", async ({
 		db,
 		app,
 	}) => {
-		await seedUser(db, "u-soul-1", "Soul User");
-		const res = await app.request("/api/users/u-soul-1/assistant", {
+		await seedUser(db, "u-sp-1", "System Prompt User");
+		const res = await app.request("/api/users/u-sp-1/assistant", {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-soul-1" }),
+			headers: authHeaders({ "X-Identity": "u-sp-1" }),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).toHaveProperty("id");
 		expect(body).toHaveProperty("name");
-		expect(body).toHaveProperty("soulPrompt");
+		expect(body).toHaveProperty("systemPrompt");
 	});
 
-	test("PATCH /api/users/:id/assistant updates soulPrompt and returns 200", async ({ db, app }) => {
-		await seedUser(db, "u-soul-2", "Patcher");
+	test("PATCH /api/users/:id/assistant updates systemPrompt and returns 200", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-sp-2", "Patcher");
 		const newPrompt = "You are a helpful assistant focused on product development.";
-		const res = await app.request("/api/users/u-soul-2/assistant", {
+		const res = await app.request("/api/users/u-sp-2/assistant", {
 			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-soul-2" }),
-			body: JSON.stringify({ soulPrompt: newPrompt }),
+			headers: authHeaders({ "X-Identity": "u-sp-2" }),
+			body: JSON.stringify({ systemPrompt: newPrompt }),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { soulPrompt: string };
-		expect(body.soulPrompt).toBe(newPrompt);
+		const body = (await res.json()) as { systemPrompt: string };
+		expect(body.systemPrompt).toBe(newPrompt);
 	});
 
-	test("PATCH then GET returns the updated soul prompt", async ({ db, app }) => {
-		await seedUser(db, "u-soul-3", "Round Trip");
+	test("PATCH then GET returns the updated system prompt", async ({ db, app }) => {
+		await seedUser(db, "u-sp-3", "Round Trip");
 		const newPrompt = "Round trip prompt test.";
 
-		await app.request("/api/users/u-soul-3/assistant", {
+		await app.request("/api/users/u-sp-3/assistant", {
 			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-soul-3" }),
-			body: JSON.stringify({ soulPrompt: newPrompt }),
+			headers: authHeaders({ "X-Identity": "u-sp-3" }),
+			body: JSON.stringify({ systemPrompt: newPrompt }),
 		});
 
-		const res = await app.request("/api/users/u-soul-3/assistant", {
+		const res = await app.request("/api/users/u-sp-3/assistant", {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-soul-3" }),
+			headers: authHeaders({ "X-Identity": "u-sp-3" }),
 		});
-		const body = (await res.json()) as { soulPrompt: string };
-		expect(body.soulPrompt).toBe(newPrompt);
+		const body = (await res.json()) as { systemPrompt: string };
+		expect(body.systemPrompt).toBe(newPrompt);
 	});
 
-	test("PATCH with soulPrompt exceeding 50_000 chars returns 400", async ({ db, app }) => {
-		await seedUser(db, "u-soul-4", "Oversized");
+	test("PATCH with systemPrompt exceeding 50_000 chars returns 400", async ({ db, app }) => {
+		await seedUser(db, "u-sp-4", "Oversized");
 		const oversizedPrompt = "x".repeat(50_001);
-		const res = await app.request("/api/users/u-soul-4/assistant", {
+		const res = await app.request("/api/users/u-sp-4/assistant", {
 			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-soul-4" }),
-			body: JSON.stringify({ soulPrompt: oversizedPrompt }),
+			headers: authHeaders({ "X-Identity": "u-sp-4" }),
+			body: JSON.stringify({ systemPrompt: oversizedPrompt }),
 		});
 		expect(res.status).toBe(400);
 	});
 
 	test("PATCH another user's assistant returns 403", async ({ db, app }) => {
-		await seedUser(db, "u-soul-5a", "User A");
-		await seedUser(db, "u-soul-5b", "User B");
+		await seedUser(db, "u-sp-5a", "User A");
+		await seedUser(db, "u-sp-5b", "User B");
 
 		// User A tries to edit User B's assistant
-		const res = await app.request("/api/users/u-soul-5b/assistant", {
+		const res = await app.request("/api/users/u-sp-5b/assistant", {
 			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-soul-5a" }),
-			body: JSON.stringify({ soulPrompt: "Malicious prompt" }),
+			headers: authHeaders({ "X-Identity": "u-sp-5a" }),
+			body: JSON.stringify({ systemPrompt: "Malicious prompt" }),
 		});
 		expect(res.status).toBe(403);
 	});
 
 	test("GET another user's assistant returns 403", async ({ db, app }) => {
-		await seedUser(db, "u-soul-6a", "User 6A");
-		await seedUser(db, "u-soul-6b", "User 6B");
+		await seedUser(db, "u-sp-6a", "User 6A");
+		await seedUser(db, "u-sp-6b", "User 6B");
 
-		const res = await app.request("/api/users/u-soul-6b/assistant", {
+		const res = await app.request("/api/users/u-sp-6b/assistant", {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-soul-6a" }),
+			headers: authHeaders({ "X-Identity": "u-sp-6a" }),
 		});
 		expect(res.status).toBe(403);
 	});
