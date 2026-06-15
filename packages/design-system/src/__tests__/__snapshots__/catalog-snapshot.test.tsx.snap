@@ -4635,9 +4635,9 @@ exports[`PageHeader > LongTitleTruncates 1`] = `
 "<div style="background: var(--surface-page, #faf8f5); max-width: 400px;">
   <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
     <div class="flex items-center justify-between gap-[12px]">
-      <h2 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
         "A Very Long Page Title That Would Overflow On Narrow Screens With Extra Words"
-      </h2>
+      </h1>
     </div>
   </header>
 </div>
@@ -4648,9 +4648,9 @@ exports[`PageHeader > TitleOnly 1`] = `
 "<div style="background: var(--surface-page, #faf8f5);">
   <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
     <div class="flex items-center justify-between gap-[12px]">
-      <h2 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
         "Portfolio"
-      </h2>
+      </h1>
     </div>
   </header>
 </div>
@@ -4672,9 +4672,9 @@ exports[`PageHeader > WithBreadcrumbAndActions 1`] = `
       </nav>
     </div>
     <div class="flex items-center justify-between gap-[12px]">
-      <h2 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
         "Ship onboarding redesign"
-      </h2>
+      </h1>
       <div class="flex items-center gap-[9px] shrink-0">
         <button style="padding: 6px 12px; border: medium; border-radius: var(--r-pill, 9999px); background: var(--accent-primary, #16764f); color: rgb(255, 255, 255); font-size: 13px; cursor: pointer;" type="button">
           "New task"
@@ -4690,9 +4690,9 @@ exports[`PageHeader > WithSubtitle 1`] = `
 "<div style="background: var(--surface-page, #faf8f5);">
   <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
     <div class="flex items-center justify-between gap-[12px]">
-      <h2 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
         "Acme Corp"
-      </h2>
+      </h1>
     </div>
     <div class="mt-[3px] text-[13px] text-[var(--text-tertiary)]">
       "Phase: build · Lead: Dana"

@@ -263,7 +263,7 @@ function WorkTeamLoaded({
 			: 0;
 
 	return (
-		<div className="flex flex-col h-full" data-testid="work-team-page">
+		<div className="flex flex-col h-full">
 			{/* AI7: PageHeader owns the pinned title strip. */}
 			<PageHeader
 				title={team.name}
@@ -290,7 +290,17 @@ function WorkTeamLoaded({
 				}
 				actions={<StatusChip status={team.status} />}
 			/>
-			<div className="flex-1 overflow-y-auto">
+			{/*
+			 * @lore AI7 F2: work-team-page testid lives on the scroll body, not the scaffold root.
+			 * AG1's [RED] tests (WorkTeam.AG1.test.tsx:197/206/213) assert:
+			 * - work-team-page.className contains "overflow-y-auto"
+			 * - work-team-page.firstElementChild contains "max-w-[960px]" + "mx-auto"
+			 * Placing the testid on the scaffold root (flex flex-col h-full) breaks all three
+			 * because the root's firstElementChild is <header>, not the max-w column.
+			 * Migration contract (architecture.md §Migrations): every page root keeps its
+			 * data-testid on the same element as origin/main.
+			 */}
+			<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
 				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
 					{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
 					<section aria-label="Team summary" data-testid="team-burn-vs-cap">

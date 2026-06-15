@@ -27,8 +27,9 @@ import { dsProps } from "./ds-attrs.js";
 
 /**
  * Canonical page-title class string.
- * The primitive's own <h2> uses this const. KnowledgeCreate's editable <input>
- * imports and composes it with additional classes (no literal fork).
+ * The primitive's own title heading uses this const (regardless of `level`).
+ * KnowledgeCreate's editable <input> imports and composes it with additional
+ * classes (no literal fork).
  *
  * @lore AI7: The class string is the single source of truth for the page-title
  * treatment. Any drift fails the PageHeader.test.tsx pin assertions loudly.
@@ -37,8 +38,25 @@ export const pageTitleClassName =
 	"text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
 
 export interface PageHeaderProps {
-	/** Page title. Rendered as <h2> with the canonical title treatment; truncates on overflow. */
+	/**
+	 * Page title. Rendered with the canonical title treatment; truncates on overflow.
+	 * Tag is `<h1>` by default (see `level`).
+	 */
 	title: ReactNode;
+	/**
+	 * Heading level for the title's DOM tag: `<h1>` or `<h2>`. Default **1**.
+	 *
+	 * @lore AI7 (AMENDMENT — Phase-4 review): A page title is the top of the
+	 * document outline, so the primitive's title must be the page's single `<h1>`
+	 * by default. The earlier "always <h2>" rule broke two protected `level: 1`
+	 * assertions (WorkRoutine.AA1:118, WorkProduct.test.tsx:121) and left migrated
+	 * pages with no h1 (poor a11y outline). Default 1 = each primary page's
+	 * PageHeader title is its single h1. Pass `level={2}` only for a sub-page
+	 * whose title is NOT the document's top heading (none of the 10 migrated pages
+	 * today). The class string (`pageTitleClassName`) is identical for both levels —
+	 * ONLY the DOM tag changes, never the visual treatment (20px/600/-0.01em).
+	 */
+	level?: 1 | 2;
 	/** Orientation row above the title (Breadcrumb + NavHistoryCluster). Injected by the page. */
 	leading?: ReactNode;
 	/** Meta line below the title row (e.g. "Phase: build · Lead: Dana"). */
@@ -51,11 +69,13 @@ export interface PageHeaderProps {
 
 export function PageHeader({
 	title,
+	level = 1,
 	leading,
 	subtitle,
 	actions,
 	"data-testid": testId,
 }: PageHeaderProps): JSX.Element {
+	const TitleTag = level === 2 ? "h2" : "h1";
 	return (
 		<header
 			className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]"
@@ -65,7 +85,7 @@ export function PageHeader({
 			{leading && <div className="mb-[6px]">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
-				<h2 className={pageTitleClassName}>{title}</h2>
+				<TitleTag className={pageTitleClassName}>{title}</TitleTag>
 				{actions && <div className="flex items-center gap-[9px] shrink-0">{actions}</div>}
 			</div>
 

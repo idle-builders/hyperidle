@@ -29,11 +29,27 @@ describe("AI7 — PageHeader component", () => {
 			expect(header.className).toContain("shrink-0");
 		});
 
-		it("renders title text in an <h2> element", () => {
+		it("renders title text in an <h1> element by default (AMENDMENT: level defaults to 1)", () => {
 			render(<PageHeader title="My Page" />);
+			const heading = screen.getByRole("heading", { level: 1 });
+			expect(heading).toBeInTheDocument();
+			expect(heading.textContent).toBe("My Page");
+		});
+
+		it("renders title text in an <h2> element when level={2}", () => {
+			render(<PageHeader title="My Page" level={2} />);
 			const heading = screen.getByRole("heading", { level: 2 });
 			expect(heading).toBeInTheDocument();
 			expect(heading.textContent).toBe("My Page");
+		});
+
+		it("level={2} title carries the same pageTitleClassName as default (visual treatment is level-invariant)", () => {
+			const { container } = render(<PageHeader title="My Page" level={2} />);
+			const h2 = container.querySelector("h2");
+			expect(h2?.className).toContain("text-[20px]");
+			expect(h2?.className).toContain("font-[600]");
+			expect(h2?.className).toContain("tracking-[-0.01em]");
+			expect(h2?.className).toContain("truncate");
 		});
 	});
 
@@ -56,15 +72,15 @@ describe("AI7 — PageHeader component", () => {
 			expect(pageTitleClassName).toContain("truncate");
 		});
 
-		it("h2 element uses pageTitleClassName (the primitive's own <h2> uses the const)", () => {
+		it("h1 element uses pageTitleClassName (the primitive's own <h1> uses the const by default)", () => {
 			const { container } = render(<PageHeader title="My Page" />);
-			const h2 = container.querySelector("h2");
-			expect(h2).toBeInTheDocument();
-			// Each token from pageTitleClassName should appear in the h2 className
-			expect(h2?.className).toContain("text-[20px]");
-			expect(h2?.className).toContain("font-[600]");
-			expect(h2?.className).toContain("tracking-[-0.01em]");
-			expect(h2?.className).toContain("truncate");
+			const h1 = container.querySelector("h1");
+			expect(h1).toBeInTheDocument();
+			// Each token from pageTitleClassName should appear in the h1 className
+			expect(h1?.className).toContain("text-[20px]");
+			expect(h1?.className).toContain("font-[600]");
+			expect(h1?.className).toContain("tracking-[-0.01em]");
+			expect(h1?.className).toContain("truncate");
 		});
 	});
 
@@ -99,9 +115,9 @@ describe("AI7 — PageHeader component", () => {
 			);
 			const crumb = screen.getByTestId("breadcrumb");
 			expect(crumb).toBeInTheDocument();
-			// Leading must appear before the h2 in DOM order
-			const h2 = screen.getByRole("heading", { level: 2 });
-			expect(crumb.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(
+			// Leading must appear before the h1 in DOM order (default level=1)
+			const h1 = screen.getByRole("heading", { level: 1 });
+			expect(crumb.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(
 				0,
 			);
 		});
@@ -179,9 +195,9 @@ describe("AI7 — PageHeader component", () => {
 			const { container } = render(
 				<PageHeader title="A Very Long Page Title That Would Overflow On Narrow Screens" />,
 			);
-			const h2 = container.querySelector("h2");
-			expect(h2?.className).toContain("truncate");
-			expect(h2?.className).toContain("min-w-0");
+			const h1 = container.querySelector("h1");
+			expect(h1?.className).toContain("truncate");
+			expect(h1?.className).toContain("min-w-0");
 		});
 	});
 
