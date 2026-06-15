@@ -84,7 +84,7 @@ export function selectSmokeModel(input: SelectionInput): SelectionResult {
 		// Gate 3: price ceiling (completion price only, per-1M USD)
 		const completionPricePerMillion = Number.parseFloat(model.pricing.completion) * 1e6;
 		if (
-			isNaN(completionPricePerMillion) ||
+			Number.isNaN(completionPricePerMillion) ||
 			completionPricePerMillion > policy.maxCompletionPricePerMillion
 		) {
 			continue;
@@ -135,6 +135,35 @@ export function selectSmokeModel(input: SelectionInput): SelectionResult {
 	});
 
 	return { ranked };
+}
+
+// ---------------------------------------------------------------------------
+// Pre-filter helper (pure) — single source of truth for cheap model gates
+// ---------------------------------------------------------------------------
+
+/**
+ * Pre-filter the model catalog before fetching per-model endpoint data.
+ *
+ * Applies the three cheap model-level gates:
+ *   1. Exclude ids ending `:free`.
+ *   2. Exclude models created before policy.minCreatedUnixSec.
+ *   3. Exclude models where completion price > policy.maxCompletionPricePerMillion.
+ *
+ * @lore AH5 N3: Exported so ah5-resolve-model.ts can use the same gates as
+ * selectSmokeModel without duplicating the logic. Drift between the two was
+ * identified in the code review (W4/N3). One source of truth here.
+ */
+export function preFilterModels(
+	models: readonly OpenRouterModel[],
+	policy: SmokeModelPolicy,
+): readonly OpenRouterModel[] {
+	return models.filter((m) => {
+		if (m.id.endsWith(":free")) return false;
+		if (m.created < policy.minCreatedUnixSec) return false;
+		const price = Number.parseFloat(m.pricing.completion) * 1e6;
+		if (Number.isNaN(price) || price > policy.maxCompletionPricePerMillion) return false;
+		return true;
+	});
 }
 
 // ---------------------------------------------------------------------------

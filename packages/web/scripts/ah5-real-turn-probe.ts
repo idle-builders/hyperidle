@@ -3,8 +3,8 @@
  *
  * This probe is the AH5-own gating proof: it runs a REAL OpenRouter turn
  * through the production path (provisionSession → runSession →
- * BuiltinHarnessAdapter → resolveAgentModel → callLlm) with NO mocks on
- * the credential, LLM, or harness path.
+ * BuiltinHarnessAdapter → callLlm) with NO mocks on the credential, LLM,
+ * or harness path.
  *
  * Asserts:
  *   1. result.outcome === "completed"
@@ -36,6 +36,15 @@
  *
  * @lore AH5: If RESOLVE_MODEL_FILE is set, the probe reads the selected model
  * from there. Otherwise it uses AH5_FALLBACK_MODEL_ID or a static default.
+ *
+ * @lore AH5 W4: The probe resolves the model via resolveModelTier("workhorse", ...)
+ * (the global tier path), NOT via resolveAgentModel (the per-agent AH2 path).
+ * The agent row IS seeded with modelProvider/modelId, but provisionSession
+ * consumes the pre-resolved model — it never reads the per-agent model from
+ * the users row. The real seam exercised here is: modelGateway.workhorse config
+ * → resolveModelTier → DbCredentialResolver → callLlm. The per-agent seam
+ * (resolveAgentModel) is AH3's responsibility, not the probe's. The agent row's
+ * model columns are seeded for completeness but are not the live seam.
  */
 
 import { randomUUID } from "node:crypto";
@@ -76,7 +85,12 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 // ---------------------------------------------------------------------------
 
 const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");
-const COST_REPORT_PATH = path.resolve(scriptDir, "../../playwright-report-ah5/ah5-cost.json");
+// @lore AH5 W2: Cost report lives in packages/web/playwright-report-ah5/ so the
+// CI artifact upload (path: packages/web/playwright-report-ah5/) and the
+// budget-assert script (COST_FILE resolved from packages/web/scripts/) both
+// point to the same file. Using packages/playwright-report-ah5/ (one dir up)
+// caused a silent mismatch — the upload step never found the file.
+const COST_REPORT_PATH = path.resolve(scriptDir, "../playwright-report-ah5/ah5-cost.json");
 
 // Env guards
 const HYPERIDLE_API_KEY = "ah5-probe-api-key";
@@ -244,9 +258,18 @@ process.stdout.write(
 // Track tool_call events
 // ---------------------------------------------------------------------------
 
-const toolCallEvents: Array<{ toolName: string; args: unknown }> = [];
+interface ToolCallRecordedEvent {
+	type: "tool_call_recorded";
+	toolName: string;
+	argsSummary: string;
+	sessionId: string;
+	streamId: string;
+	timestamp: number;
+}
+
+const toolCallEvents: ToolCallRecordedEvent[] = [];
 eventBus.on("tool_call_recorded", (event) => {
-	toolCallEvents.push({ toolName: (event as { toolName?: string }).toolName ?? "", args: event });
+	toolCallEvents.push(event as ToolCallRecordedEvent);
 });
 
 // ---------------------------------------------------------------------------
@@ -286,7 +309,7 @@ const costReport = {
 	model: smokeModelId,
 	outcome: result.outcome,
 	durationMs,
-	toolCallEvents,
+	toolCallEvents: toolCallEvents.map((e) => ({ toolName: e.toolName, argsSummary: e.argsSummary })),
 	timestamp: new Date().toISOString(),
 };
 fs.writeFileSync(COST_REPORT_PATH, JSON.stringify(costReport, null, 2), "utf-8");
@@ -317,16 +340,68 @@ if (result.totalCostCents > MAX_COST_CENTS) {
 	failed = true;
 }
 
-// Log tool call observations
+// ---------------------------------------------------------------------------
+// Assert: write_session_notes tool call with correct notes (AC3 — always run)
+//
+// @lore AH5: This assertion is NOT gated behind AH3. The probe drives
+// provisionSession DIRECTLY — it does NOT depend on the UI message→turn trigger
+// that AH3 provides. The tool-call assertion is always-run and gating.
+//
+// The ONLY thing that remains test.fixme()-gated (in the Playwright spec) is
+// the UI-trigger assertion: sending a message through the AssistantOverlay and
+// watching the tool-call summary row render. That path requires AH3.
+//
+// This probe's path: provisionSession → runSession → BuiltinHarnessAdapter →
+// callLlm (real OpenRouter call) → tool_call_recorded event.
+// This path is fully live today, AH3-independent.
+//
+// If the model emits prose instead of the tool call, that is a model-quality
+// signal the lane must surface, not suppress. The prescriptive prompt
+// ("Call the write_session_notes tool with notes set to 'AH5-SMOKE-OK'.
+//  Do not respond with prose; emit only the tool call.") is designed to make
+// the tool call deterministic. If it is not deterministic for a given model,
+// that model should not pass the lane — fail closed.
+// ---------------------------------------------------------------------------
+
 process.stdout.write(`[ah5-probe] Tool calls observed: ${toolCallEvents.length}\n`);
-const writeNotesEvent = toolCallEvents.find((e) => e.toolName === "write_session_notes");
-if (writeNotesEvent) {
-	process.stdout.write("[ah5-probe] write_session_notes tool call observed.\n");
+for (const evt of toolCallEvents) {
+	process.stdout.write(`[ah5-probe]   tool_call: ${evt.toolName}\n`);
 }
 
-// We don't fail on tool call absence here — the prescriptive prompt may
-// produce prose without a tool call on some models. The key liveness proof
-// is outcome=completed + cost > 0 + cost <= cap.
+const writeNotesEvent = toolCallEvents.find((e) => e.toolName === "write_session_notes");
+
+if (!writeNotesEvent) {
+	process.stderr.write(
+		"[ah5-probe] FAIL: No 'write_session_notes' tool_call_recorded event observed.\n" +
+			"  AC3 requires ≥1 real tool-using action via the prescriptive prompt.\n" +
+			"  The prescriptive prompt explicitly instructs the model to call write_session_notes.\n" +
+			"  If the model emitted prose instead, this is a model-quality signal — fail closed.\n",
+	);
+	failed = true;
+} else {
+	// Verify the notes argument via argsSummary (JSON-stringified tool args).
+	// argsSummary is produced by summarizeToolArgs which JSON.stringify(args).
+	// Expected: '{"notes":"AH5-SMOKE-OK"}'
+	let notes: string | undefined;
+	try {
+		const parsed = JSON.parse(writeNotesEvent.argsSummary) as Record<string, unknown>;
+		notes = parsed["notes"] as string | undefined;
+	} catch {
+		// argsSummary not valid JSON — treat as missing notes
+	}
+	if (notes !== "AH5-SMOKE-OK") {
+		process.stderr.write(
+			`[ah5-probe] FAIL: write_session_notes called but notes="${String(notes)}" !== "AH5-SMOKE-OK".\n` +
+				`  argsSummary: ${writeNotesEvent.argsSummary}\n` +
+				"  The prescriptive prompt requires notes to be exactly 'AH5-SMOKE-OK'.\n",
+		);
+		failed = true;
+	} else {
+		process.stdout.write(
+			`[ah5-probe] write_session_notes tool call observed with notes="${notes}". AC3 PASS.\n`,
+		);
+	}
+}
 
 await client.close();
 

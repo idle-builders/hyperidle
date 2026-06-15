@@ -128,9 +128,6 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 	process.stdout.write(`[ah5-test-server] Using default smoke model: ${smokeModelId}\n`);
 }
 
-// Export for the probe script to import (when run in the same process context).
-export const resolvedSmokeModelId = smokeModelId;
-
 // ---------------------------------------------------------------------------
 // 4. Boot the Hono server with the already-migrated in-memory DB.
 // ---------------------------------------------------------------------------

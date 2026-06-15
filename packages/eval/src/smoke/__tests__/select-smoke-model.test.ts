@@ -488,7 +488,7 @@ describe("narrowModels + narrowModelEndpoints — fixture shape integrity", () =
 			expect(typeof m.pricing.prompt).toBe("string");
 			expect(typeof m.pricing.completion).toBe("string");
 			// pricing strings must be parseable as numbers
-			expect(isNaN(Number.parseFloat(m.pricing.completion))).toBe(false);
+			expect(Number.isNaN(Number.parseFloat(m.pricing.completion))).toBe(false);
 		}
 	});
 

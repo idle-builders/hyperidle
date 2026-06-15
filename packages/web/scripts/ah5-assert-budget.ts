@@ -20,9 +20,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// @lore AH5 W2: Must match the path the probe writes and the CI upload path.
+// probe: packages/web/scripts/ah5-real-turn-probe.ts → ../playwright-report-ah5/
+// CI upload: packages/web/playwright-report-ah5/
+// All three resolve to the same directory: packages/web/playwright-report-ah5/
 const COST_FILE = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
-	"../../playwright-report-ah5/ah5-cost.json",
+	"../playwright-report-ah5/ah5-cost.json",
 );
 
 const MAX_COST_CENTS = Number(process.env.AH5_MAX_COST_CENTS ?? "5");

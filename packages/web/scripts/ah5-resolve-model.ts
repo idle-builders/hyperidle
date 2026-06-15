@@ -28,9 +28,17 @@ import {
 	DEFAULT_SMOKE_POLICY,
 	fetchModelEndpoints,
 	fetchSmokeCatalog,
+	preFilterModels,
 	selectSmokeModel,
 } from "@hyperidle/eval/smoke";
 
+// @lore AH5 N4: RESOLVE_MODEL_FILE must be set for consistent local runs.
+// The default falls back to <repo>/tmp/ah5-model-selection.json (relative to
+// this script), while CI uses /tmp/ah5-model-selection.json (an absolute path).
+// The probe and test-server read RESOLVE_MODEL_FILE from env — if the env var is
+// unset in a local run, the caller and this script may write/read different paths.
+// Always set RESOLVE_MODEL_FILE when running the full lane locally:
+//   RESOLVE_MODEL_FILE=/tmp/ah5-model-selection.json npx tsx packages/web/scripts/ah5-resolve-model.ts
 const OUT_FILE =
 	process.env.RESOLVE_MODEL_FILE ??
 	path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../tmp/ah5-model-selection.json");
@@ -45,13 +53,9 @@ process.stdout.write("[ah5-resolve-model] Fetching OpenRouter model catalog...\n
 const allModels = await fetchSmokeCatalog(apiKey);
 
 // Pre-filter: drop :free, pre-2026-gen, above price ceiling before fetching endpoints.
-const preFiltered = allModels.filter((m) => {
-	if (m.id.endsWith(":free")) return false;
-	if (m.created < DEFAULT_SMOKE_POLICY.minCreatedUnixSec) return false;
-	const price = Number.parseFloat(m.pricing.completion) * 1e6;
-	if (isNaN(price) || price > DEFAULT_SMOKE_POLICY.maxCompletionPricePerMillion) return false;
-	return true;
-});
+// @lore AH5 N3: Uses preFilterModels (single source of truth from select-smoke-model.ts)
+// rather than duplicating the gates here. Avoids drift between the two call sites.
+const preFiltered = preFilterModels(allModels, DEFAULT_SMOKE_POLICY);
 
 process.stdout.write(
 	`[ah5-resolve-model] Pre-filter survivors: ${preFiltered.length}/${allModels.length}\n`,
