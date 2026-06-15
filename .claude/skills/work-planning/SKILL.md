@@ -48,7 +48,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
    - Net: the hard line is the *track* concept (flag/hold if underdefined); per-WP concept work still pending is a *flag carried into the spec*, not a registration blocker. This mirrors the runtime gate enforced in `/pipeline`.
 4. **Justification check.** The workpackage must have a clear answer to: "Who specifically benefits, and what's the cost of NOT building this?" If the only argument is "it would be nice," "other products have it," or "the research says so," the workpackage is not justified. Features are complexity — every one makes the system harder to understand, maintain, and explain. The burden of proof is on the workpackage to earn its existence. Refuse to register if the justification is weak.
 5. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
-6. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
+6. **Dependencies are real blockers — and a proof vehicle is one.** For each declared dependency, write one sentence on why this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — drop it. But "cannot be **verified**" blocks as hard as "cannot be implemented": if a workpackage's proof strategy is "prove the ACs through the lane / harness / contract defined in WP-Y," then WP-Y is a hard dependency. Order dependencies **before** their consumers in the manifest; a proof vehicle ordered after its consumers ships them unverifiable. (Track AH did this — AH5 defined the real-LLM lane every other AH workpackage had to prove through, but was ordered last, so AH1–AH4 shipped with mocked tests.)
 7. **Sizing fits the rule.**
 8. **Human-design-review forecast.** Estimate whether the WP introduces a **new essential / base / primitive component or a large redesign** → forecast `Yes`; otherwise `No`. Record it in the required **Human design review.** spec field (see template). This is an advisory forecast surfaced early so the founder sees which work will park — it does not gate; `/design`'s `DESIGN-CLASS` is authoritative at design time.
 
@@ -182,7 +182,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 ## Registration steps (perform in order, in one commit)
 
 1. **Append the spec to the track file.** Add the new H3 section at the bottom of `.pipeline/work-packages/TRACK-<letter>.md` per the template above. If the track doesn't exist yet, create the file with the standard preamble (scope rules, reference docs, dependency-graph pointer to `.pipeline/work-packages/dependency-graph.md`) before appending.
-2. **Append to the manifest.** Add an entry to `.pipeline/work-packages/pipeline-manifest.yaml` under the existing `stories:` list:
+2. **Append to the manifest.** Add an entry to `.pipeline/work-packages/pipeline-manifest.yaml` under the existing `stories:` list, placing the new entry **after** any workpackages it depends on (dependencies before consumers):
     ```yaml
       - id: <ID>
         title: <Title — same as the spec H3>
@@ -204,6 +204,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 - The "Why this matters" section cannot name a specific person whose life gets measurably better. "It would be nice" or "completeness" or "other products have it" are not justifications. Simplicity is a feature — the default answer to "should we build this?" is no.
 - The dependency justification reduces to "they're related" or "the same area." Drop the dep; the scheduler will serialize via `done` ordering only when truly needed.
 - The workpackage would create a cycle with an existing dependency. The manifest validator will catch it; do not register.
+- A workpackage's proof strategy names a harness, lane, or contract defined in another WP that is currently ordered **after** it in the manifest. Re-sequence before registering — do not paper over it by accepting a mocked-only test strategy.
 - The workpackage is sized S but has >3 AC or touches >1 subsystem. Re-size to M, or split.
 - The **overall track concept** is undefined or too vague to give the workpackages a stable frame. Hold and recommend a track-level `/concept`; flag the open conceptual questions. (A *per-workpackage* noun that needs its own `/concept` is fine — defer it via a Plan-calls note; it does not block registration.)
 
@@ -222,6 +223,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 | "This feature is clearly needed" | Every feature adds complexity. Simplicity is the default. The question isn't "would this be useful?" — most things would. The question is "is the cost of NOT having this higher than the cost of maintaining it forever?" If you can't articulate the cost of not building it, don't build it. |
 | "The AC needs to specify the exact columns / pages / components" | No. ACs describe outcomes. `/design` decides which pages and components. `/architecture` decides which columns and endpoints. An AC that prescribes the solution bypasses both phases and produces a spec that's brittle to any design change. |
 | "This AC is too vague for the builder" | The builder doesn't read ACs directly — they read the plan from `/architecture`, which translates each AC into specific tasks, types, and verification methods. ACs are the contract with the reviewer, not the builder's instruction manual. |
+| "Order the harness/lane WP last, wire deps later" | A consumer whose proof strategy names a not-yet-built harness has a broken review gate by design. Proof-strategy deps bind exactly like implementation deps — sequence the harness first. (See the AH5 note in pre-flight #6.) |
 
 ---
 
