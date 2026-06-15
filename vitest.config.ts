@@ -27,6 +27,7 @@ export default defineConfig({
 			"packages/eslint-plugin-design",
 			"packages/eslint-plugin-authz",
 			"packages/pipeline",
+			"packages/strategy-minimal",
 		],
 	},
 });

@@ -33,6 +33,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/fabric": "*",
 		"@hyperidle/shared": "*",
+		"@hyperidle/strategy-minimal": "*",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"drizzle-orm": "^0.39.0",
 		"hono": "^4.7.0",
