@@ -38,7 +38,7 @@ Read the variants produced by `/design` at `plans/<workpackage-id>/design/<varia
 
 ```
 1. Screenshot each variant's TSX sketch in the viewer at :8098 (or read its spec.md if no sketch)
-   AJ1: TSX is the design source of truth — reference variant.tsx, not mockup.html.
+   AJ1/AJ3: TSX is the design source of truth — each variant is a discoverable `.stories.tsx` story rendered in isolation, not an HTML mockup.
 2. Score it (0-10) against the 9 dimensions below
 3. List specific findings (CRITICAL / WARNING / SUGGESTION)
 4. Fix the highest-priority issue

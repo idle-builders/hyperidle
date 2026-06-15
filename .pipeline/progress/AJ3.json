@@ -4,7 +4,7 @@
   "track": "AJ",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "3-builder",
+  "currentStep": "6-retro",
   "gate": "local-green",
   "depends": [
     "AJ1"
@@ -12,5 +12,5 @@
   "startedAt": "2026-06-15T00:00:00Z",
   "attempts": 1,
   "note": "AJ1 done (TSX-first viewer, DOM-snapshot net — NOT Playwright/golden-PNG). AJ3 builds: /design TSX-story variants, isolation harness (fixtures + mock providers), /human-design-review skill (stakes-gated on DESIGN-CLASS=novel), pipeline park-for-review, /work-planning + /concept planning-time review estimate, MCP annotation wiring + graceful degradation. Live human-annotation walkthrough is founder-walkthrough proof (track-wide proof bar), not autonomously executable.",
-  "reviewVerdict": "arch-APPROVED-9/10"
+  "reviewVerdict": "code-DONE"
 }
