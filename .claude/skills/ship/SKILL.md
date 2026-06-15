@@ -103,6 +103,10 @@ gh pr ready
 
 Main is protected — commits only land via pull request.
 
+### 6a. Design-change evidence (always — both modes)
+
+Run `npm run ds:evidence -- --pr "$PR_NUMBER"`. It diffs the committed `.snap` against `origin/main`, and — only if a design-system surface changed appearance — captures before/after renders locally and embeds them (with openable story links) into the PR body. No design change → it strips any prior design section and emits nothing. This is a **ship artifact, not a gate**: a capture failure logs a warning and does not block the ship. Runs identically in autonomous and interactive runs.
+
 ### 7. Wait for CI green (MANDATORY — do not skip)
 
 Poll until CI reports a result. **Ship is not complete until CI is green.**
@@ -146,13 +150,14 @@ Read `PIPELINE_INTERACTIVE` per **the canonical rule** (defined in `pipeline/SKI
 
 **If not interactive:** skip this step entirely. Proceed to step 8 unchanged — no summary, no founder prompt. In A/B mode `PIPELINE_INTERACTIVE` is absent, so this step is skipped; step 8's A/B branch is byte-identical to pre-AJ2 behavior.
 
-**If interactive (`PIPELINE_INTERACTIVE` == `1`):** after CI-green (step 7) and before the human merges (step 8), emit the ship summary as readable chat prose. The summary must contain five beats:
+**If interactive (`PIPELINE_INTERACTIVE` == `1`):** after CI-green (step 7) and before the human merges (step 8), emit the ship summary as readable chat prose. The summary must contain five beats, plus a conditional sixth:
 
 1. **What shipped** — one-paragraph plain-English description of the change (sourced from the PR title/body + workpackage outcome).
 2. **Which ACs were covered** — the reviewer's AC table result (from Phase 4 `/review`'s AC-completeness audit).
 3. **Which files changed** — the changed-file list (from `git diff --stat` against `origin/main`).
 4. **Retro cost signal** — the cost signal the retro emitted (from `plans/<id>/retro.md`, Phase 6 retro).
 5. **Residual risk** — anything the founder should weigh before merging (from the retro's risk notes + reviewer findings that were accepted/deferred).
+6. **Design section (only when `ds:evidence` reported a non-empty changed-set):** list each changed surface with its openable story URL and its before/after evidence links. Source this from the `EvidenceReport.summarySection` that `ds:evidence` wrote to `plans/<id>/design-evidence.json` (a transient run artifact, not committed). If the changed-set was empty, the ship summary has **no** design section. This beat is content, not a new gate — the no-fabricate rule applies: no evidence file ⇒ omit the section entirely (never invent surfaces). If the file is present but malformed / not valid JSON / missing the `summarySection` key → treat as absent (omit the section, never throw).
 
 **No-fabricate fallback rule — one line:** a beat with no source says "not recorded," never a guess.
 - Beat 4 (retro cost signal): if `retro.md` carries no explicit cost signal → **"cost signal: not recorded"**.
