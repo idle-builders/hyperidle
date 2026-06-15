@@ -1,6 +1,8 @@
 # AJ4 — Phase 4 Code Review
 
-**Verdict: NOT DONE** (one MAJOR functional defect in the PRIMARY hosting mechanic + zero live-proof of the upload/capture path, which the plan mandated as task 4/11). The pure logic is solid and all 55 unit tests pass green; the non-blocking invariant holds for `runCaptureEvidence`. But the headline deliverable — before/after evidence images reaching the PR — rests on a `gh api` call that is very likely broken and was never executed against a real PR.
+> **ROUND 2 VERDICT: DONE** (see bottom of file). The NOT DONE below is the round-1 record.
+
+**Verdict (round 1): NOT DONE** (one MAJOR functional defect in the PRIMARY hosting mechanic + zero live-proof of the upload/capture path, which the plan mandated as task 4/11). The pure logic is solid and all 55 unit tests pass green; the non-blocking invariant holds for `runCaptureEvidence`. But the headline deliverable — before/after evidence images reaching the PR — rests on a `gh api` call that is very likely broken and was never executed against a real PR.
 
 Design lens: **SKIPPED** — no UI surface (markdown/prose output only). Confirmed correct, matches concept §/design-skip and arch-critique.
 
@@ -59,3 +61,33 @@ Clean. No TODOs-on-implemented-code, no "for now"/"simplified version" tells, no
 1. **MAJOR-1:** fix the `gh api` empty-tree call (`-f tree=[]` sends a string → 422); then live-prove the upload on a scratch PR (arch task 4/11a) and record it. This is the gating item.
 2. **MAJOR-2:** persist the *real* `EvidenceReport` (with hosted shots) to `design-evidence.json`, not `buildEvidenceReport(finalChanged, [])`.
 3. MINOR-1 (fatal handler exit 0), MINOR-2/3 (refactor the triple-lookup + extract render-side helper → clears the complexity warnings), MINOR-4 (optional quoted-body fixture).
+
+---
+
+# Round 2 Re-Review — Verdict: **DONE**
+
+Builder applied 6 commits (`da33e196..f4f67083`). All 2 MAJOR + the gating MINOR resolved. Targeted suite **58/58 green** (+3 over round 1, the new MAJOR-2 regression guards). `npm run check` → 0 errors (all 13 packages PASS). `npm run lint` → exit 0 (warnings only, zero errors). Snapshot net (`catalog-snapshot.test.tsx`) untouched — confirmed absent from the fix diff; enumeration/non-empty guards frozen. Diff scope unchanged outside `design-evidence/` + its tests + plans.
+
+## Finding-by-finding resolution
+
+| Finding | Round 1 | Round 2 | Evidence |
+|---|---|---|---|
+| **MAJOR-1** orphan-branch upload broken + unproven | NOT DONE (gating) | **RESOLVED** | `upload-assets.ts:87-115` `ghApiPostJson` uses `--input -` + stdin JSON for blob/tree/commit — no residual `-f tree=[]` string-flag anywhere. Seeds `.gitkeep` empty-blob (`e69de29…`, canonical git empty-blob sha) → tree → orphan commit (`parents:[]`) → ref, matching the proven command sequence exactly. Reachable from `runCaptureEvidence`→`captureRealShots`→`upload(prNumber, allShots)` (capture-evidence.ts:342). `live-proof.md` is credible: PR #322 on the real private `ambrovia/hyperidle`, sha chain internally consistent (distinct blob/tree/commit shas, empty-blob sha is the real canonical value), uploaded PNG confirmed via API (`size:69`, a 1×1 PNG). Code-matches-proof confirmed. |
+| **MAJOR-2** empty hosted shots in persisted artifact | NOT DONE | **RESOLVED** | `CaptureEvidenceResult.hostedShots` now threaded through `runCaptureEvidence` (capture-evidence.ts:65,106,159). CLI persists `buildEvidenceReport(finalChanged, result.hostedShots)` (line 467) — not `[]`. Regression test `capture-evidence.test.ts:236-264` asserts `result.hostedShots` carries the real before/after URLs (length 2, `.url` contains `after.png`/`before.png`); plus empty-on-throw and empty-on-no-change guards. |
+| **M1** fatal handler exited 1 | NOT DONE | **RESOLVED** | `main().catch` → `process.exit(0)` (capture-evidence.ts:517-519). Never-block-ship contract now total. |
+| **M2/M3** complexity warnings | — | **PARTIAL (non-blocking)** | `buildEvidenceReport` genuinely simplified — dead per-module B1 path removed, single `indexHostedByVariant` index; render loops unified into one `renderSide` helper. Behavior preserved (all evidence-report + capture tests green). BUT biome `noExcessiveCognitiveComplexity` warnings are **not cleared** — now 40 (`runCaptureEvidence`), 33 (`captureRealShots`), 47 (`buildEvidenceReport`); the MAJOR-1 fix also adds a `useAwait` warn on `ghApiPostJson`. **All warn-level** (`biome.json:42 level:"warn"`) → `npm run lint` exits 0, does not block ship. These join 60 pre-existing complexity warnings repo-wide. Not a blocker; logged as residual cleanup. |
+| **M4** quoted-body fixture | optional | not added | Optional; no defect. |
+
+## AC re-audit (final code)
+
+| AC | Round 1 | Round 2 |
+|---|---|---|
+| **AC1** before/after sourced from the regression diff | PARTIAL (image delivery unproven) | **MET** — `changedStories(.snap)` detection unchanged + sound; image delivery via `uploadShots` now live-proven on PR #322. |
+| **AC2** ship summary lists openable stories + screenshots | PARTIAL (empty hosted) | **MET** — real `hostedShots` threaded into the persisted `design-evidence.json`; `summarySection.shots[].before/after` now carry actual blob-viewer URLs; tested. |
+| **AC3** no design change ⇒ no screenshots/section | MET | **MET** — `changed.length===0` → `prMarkdown:""`, `hostedShots:[]`, no file written, stale block stripped. Unit-tested. |
+| **AC4** always-on, no `PIPELINE_INTERACTIVE` guard | MET | **MET** — step 6a unguarded; non-blocking total now that the fatal handler exits 0. |
+
+## Residual (non-blocking, for /retro or follow-up)
+- 3 AJ4 complexity warnings + 1 `useAwait` warning remain (warn-level, lint exits 0). The intent of M2/M3 — *clear* the warnings — was not achieved; the refactor improved readability but the metric did not drop below 25. Could be suppressed with a justified `biome-ignore` or extracted further; not gating.
+
+**Gating items: none. Verdict: DONE.**
