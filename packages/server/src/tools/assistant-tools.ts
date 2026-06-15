@@ -11,6 +11,14 @@
  * edit_block) use AssistantToolShape (status-discriminated result). The
  * toolsForAssistant() wrapper adapts them to the harness ToolDefinition
  * interface (success-boolean ToolResult).
+ *
+ * @lore AK4: HIGH_RISK_TOOLS and toolsForAssistant() are DEAD CODE — imported
+ * by nothing in production. The "dispatcher checks this set" gate described in
+ * HIGH_RISK_TOOLS was never built. The actual conversational tool authority
+ * boundary is buildAssistantDraftRegistry (tools/assistant-draft-registry.ts)
+ * which injects EXACTLY [create_bet, edit_bet] for the conversational turn.
+ * Do NOT wire HIGH_RISK_TOOLS into a new pre-execution gate — the draft IS the
+ * approval surface; commit is the human gate (concept hard-rule #3).
  */
 
 import { createArtifactTool } from "./create-artifact.js";

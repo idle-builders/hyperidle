@@ -9,6 +9,7 @@ export type {
 } from "./harness-adapter.js";
 
 export type {
+	CapturedToolCall,
 	CompletionEvent,
 	CostUpdateEvent,
 	ErrorEvent,

@@ -169,12 +169,12 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
-	it("registers exactly 20 tools (all tools for assistant role, including AE3 management tools)", () => {
+	it("registers exactly 21 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet)", () => {
 		// The McpServer's internal _registeredTools is private; we verify via
 		// the registry definitions count. AC1 acceptance: all definitions from
 		// the registry are registered.
-		// 15 (pre-AE3) + 5 (AE3 management tools) = 20
-		expect(registry.definitions).toHaveLength(20);
+		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) = 21
+		expect(registry.definitions).toHaveLength(21);
 		// The bridge was created with this registry, so it must have 20 tools.
 		// We'll verify via a tools/list MCP request in the integration test;
 		// here we assert the registry shape is correct.
@@ -192,7 +192,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 	});
 
 	it("each registered tool has the expected name from the registry", () => {
-		// Verify the registry definition names are the 20 canonical tools (15 pre-AE3 + 5 AE3)
+		// Verify the registry definition names are the 21 canonical tools (15 pre-AE3 + 5 AE3 + 1 AK4)
 		const expectedNames = [
 			"read_inbox",
 			"send_message",
@@ -215,6 +215,8 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 			"create_bet",
 			"create_routine",
 			"update_routine",
+			// AK4: bet draft/edit tool for assistant conversational drafting
+			"edit_bet",
 		].sort();
 
 		const actualNames = registry.definitions.map((d) => d.name).sort();

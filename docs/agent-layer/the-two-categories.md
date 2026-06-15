@@ -47,6 +47,12 @@ The assistant is a clean concept — a personal operator, not a factory-wide fac
 
 **Guardrails.** Actions are risk-assessed. Low-risk actions execute and report. High-risk actions surface as review messages in the thread — the user approves or rejects before execution.
 
+**Draft-bet capability (AK4).** The Assistant can hold a real back-and-forth conversation with the founder and, when the conversation calls for it, produce a draft bet from the thread. The draft appears as a `BetCard` in the thread; the founder reviews, edits in WorkBet, and commits. The Assistant **never commits autonomously** — commit is always a human action. One living draft per conversation; iteration refines it in place via `edit_bet`. Once the founder commits the draft, the conversational path no longer targets it.
+
+The conversational tool-use loop runs with a bounded registry of exactly two tools: `create_bet` and `edit_bet`. No other tools are available in this path — the Assistant cannot create teams, add agents, submit reviews, or take any irreversible action from the thread. The team for any draft is resolved server-side and hard-injected; the model cannot redirect it. This is the User Sovereignty line drawn in code.
+
+**Turn lifecycle (task-free).** The conversational turn (`runAssistantTurn`) is task-free — no session row is provisioned, no sandbox is allocated. The turn reuses the Kernel harness + `BuiltinHarnessAdapter` with a bounded (`MAX_TOOL_ITERATIONS=3`) tool-use loop, injecting only the 2-tool draft registry. The turn always produces a persisted reply (never silent) even on cap exhaustion.
+
 Schema: `users.agentCategory = 'individual'`
 
 ### 3.4 Type is not role
