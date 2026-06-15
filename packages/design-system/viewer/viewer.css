@@ -373,8 +373,31 @@ button {
 	font-family: var(--font-mono);
 }
 
-/* Hover/selected/saved outlines (applied via JS inline style) */
-/* .anno-hover, .anno-selected, .anno-saved are applied inline via style attr */
+/*
+ * Hover / selected / saved outlines (applied via JS class toggle on story elements).
+ *
+ * .anno-hover   — transient: tracks pointer while armed; accent-primary at visible alpha.
+ * .anno-selected — persistent while popover is open: highlights the captured element.
+ * .anno-saved   — best-effort re-applied on load; doubled outline (AQ-007 cut-out trick):
+ *                 a --surface-elevated halo (box-shadow) + --accent-primary line (outline)
+ *                 so it clears ≥3:1 against arbitrary story backgrounds in both Hearth themes.
+ */
+.anno-hover {
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 1px;
+}
+
+.anno-selected {
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 1px;
+}
+
+.anno-saved {
+	/* AQ-007 doubled outline: accent line + elevated-surface halo */
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px var(--surface-elevated) !important;
+}
 
 /* Notes list panel */
 .anno-list-panel {

@@ -89,14 +89,17 @@ export function AnnotationOverlay({
 	const currentRoundData = state?.rounds.find((r) => r.round === currentRound);
 	const noteCount = currentRoundData?.annotations.length ?? 0;
 
+	// Ref for the DOM element captured by click (distinct from the AnnotationTarget data)
+	const capturedElRef = useRef<Element | null>(null);
+
 	// ---- Outline helpers -------------------------------------------------
 	const applyHoverOutline = useCallback((el: Element | null): void => {
 		// Remove from previously hovered element
 		if (hoveredRef.current && hoveredRef.current !== el) {
-			(hoveredRef.current as HTMLElement).style.outline = "";
+			hoveredRef.current.classList.remove("anno-hover");
 		}
 		if (el) {
-			(el as HTMLElement).style.outline = "2px solid var(--accent-primary-dim)";
+			el.classList.add("anno-hover");
 			hoveredRef.current = el;
 		} else {
 			hoveredRef.current = null;
@@ -106,6 +109,17 @@ export function AnnotationOverlay({
 	const clearHoverOutline = useCallback((): void => {
 		applyHoverOutline(null);
 	}, [applyHoverOutline]);
+
+	// Apply/clear the .anno-selected class on the captured element
+	const applyCapturedOutline = useCallback((el: Element | null): void => {
+		if (capturedElRef.current) {
+			capturedElRef.current.classList.remove("anno-selected");
+		}
+		capturedElRef.current = el;
+		if (el) {
+			el.classList.add("anno-selected");
+		}
+	}, []);
 
 	// ---- One-shot arm listeners -----------------------------------------
 	const listenerCleanupRef = useRef<(() => void) | null>(null);
@@ -156,6 +170,7 @@ export function AnnotationOverlay({
 
 			if (e.target instanceof Element) {
 				const resolved = resolveComponentTarget(e.target);
+				applyCapturedOutline(e.target);
 				setSelected(resolved);
 				setNote("");
 				setError(null);
@@ -169,7 +184,7 @@ export function AnnotationOverlay({
 			storyRoot.removeEventListener("mousemove", handleMouseMove);
 			storyRoot.removeEventListener("click", handleCapturingClick, true);
 		};
-	}, [storyRoot, isOwnNode, applyHoverOutline, clearHoverOutline]);
+	}, [storyRoot, isOwnNode, applyHoverOutline, clearHoverOutline, applyCapturedOutline]);
 
 	// Cleanup on unmount
 	useEffect(() => {
@@ -189,6 +204,39 @@ export function AnnotationOverlay({
 		}
 	}, [selected]);
 
+	// ---- Focus trap in popover (W2) ----------------------------------------
+	// Cycles Tab/Shift+Tab across: textarea → Save → Cancel → (wrap)
+	// Esc is handled by the global keydown handler above (closes popover).
+	const handlePopoverKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
+		if (e.key !== "Tab") return;
+		const popover = popoverRef.current;
+		if (!popover) return;
+
+		// Collect focusable nodes in DOM order
+		const focusable = Array.from(
+			popover.querySelectorAll<HTMLElement>("textarea, button:not(:disabled)"),
+		);
+		if (focusable.length === 0) return;
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const active = document.activeElement;
+
+		if (e.shiftKey) {
+			// Shift+Tab: if on first, wrap to last
+			if (active === first) {
+				e.preventDefault();
+				last?.focus();
+			}
+		} else {
+			// Tab: if on last, wrap to first
+			if (active === last) {
+				e.preventDefault();
+				first?.focus();
+			}
+		}
+	}, []);
+
 	// ---- Save --------------------------------------------------------------
 	const handleSave = useCallback(async (): Promise<void> => {
 		if (!selected || saving) return;
@@ -204,6 +252,12 @@ export function AnnotationOverlay({
 			if (!res.ok) throw new Error("Server error");
 			const data = (await res.json()) as { state: AnnotationState };
 			setState(data.state);
+			// Move captured element from .anno-selected → .anno-saved
+			if (capturedElRef.current) {
+				capturedElRef.current.classList.remove("anno-selected");
+				capturedElRef.current.classList.add("anno-saved");
+				capturedElRef.current = null;
+			}
 			setSelected(null);
 			setNote("");
 		} catch {
@@ -218,6 +272,7 @@ export function AnnotationOverlay({
 		const onKey = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
 				if (selected) {
+					applyCapturedOutline(null);
 					setSelected(null);
 					setNote("");
 					setError(null);
@@ -233,7 +288,7 @@ export function AnnotationOverlay({
 		};
 		document.addEventListener("keydown", onKey);
 		return () => document.removeEventListener("keydown", onKey);
-	}, [selected, armed, disarm, handleSave]);
+	}, [selected, armed, disarm, handleSave, applyCapturedOutline]);
 
 	// ---- Toggle arm --------------------------------------------------------
 	const toggleArm = (): void => {
@@ -303,7 +358,7 @@ export function AnnotationOverlay({
 
 			{/* Note popover — fixed above pill, only when element selected */}
 			{selected !== null && (
-				<div ref={popoverRef} className="anno-popover" role="dialog" aria-modal="true">
+				<div ref={popoverRef} className="anno-popover" role="dialog" aria-modal="true" onKeyDown={handlePopoverKeyDown}>
 					{/* Target echo — verbatim including "unknown" or data-ds-only weak labels */}
 					<div className="anno-target" title={`${selected.component} · ${selected.element}`}>
 						<span className="anno-target-component">{selected.component}</span> &middot;{" "}
@@ -335,6 +390,7 @@ export function AnnotationOverlay({
 							type="button"
 							className="toolbar-btn"
 							onClick={() => {
+								applyCapturedOutline(null);
 								setSelected(null);
 								setNote("");
 								setError(null);

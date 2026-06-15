@@ -474,3 +474,292 @@ describe("AC8 — Overlay pill structure", () => {
 		expect(popover).toBeNull();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// W1 — Outline class application (.anno-hover, .anno-selected, .anno-saved)
+// ---------------------------------------------------------------------------
+
+describe("W1 — Outline class application", () => {
+	test("hovering a story element while armed uses class toggle (not inline style)", async () => {
+		mockFetchGET(makeEmptyState());
+
+		const targetEl = document.createElement("button");
+		targetEl.className = "btn-primary";
+		storyRoot.appendChild(targetEl);
+
+		await act(async () => {
+			root.render(
+				createElement(AnnotationOverlay, {
+					story: "Button",
+					variant: "AllVariants",
+					storyRoot,
+				}),
+			);
+		});
+
+		// Dispatch mousemove from targetEl (listener is on storyRoot, bubbles up).
+		// The arm listener is only attached when armed, so we arm first.
+		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
+		await act(async () => {
+			armToggle?.click();
+		});
+
+		// Dispatch mousemove from targetEl — bubbles through storyRoot, firing handleMouseMove
+		await act(async () => {
+			targetEl.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+		});
+
+		// The implementation uses el.classList.add("anno-hover") — not inline styles.
+		// Verify the element has NO inline outline style (class-based approach confirmed).
+		expect(targetEl.style.outline).toBe("");
+		// And that .anno-hover class was applied via the mousemove handler
+		expect(targetEl.classList.contains("anno-hover")).toBe(true);
+	});
+
+	test("clicking a story element while armed applies .anno-selected to that element", async () => {
+		mockFetchGET(makeEmptyState());
+
+		const targetEl = document.createElement("div");
+		targetEl.setAttribute("data-testid", "clickable");
+		storyRoot.appendChild(targetEl);
+
+		await act(async () => {
+			root.render(
+				createElement(AnnotationOverlay, {
+					story: "Button",
+					variant: "AllVariants",
+					storyRoot,
+				}),
+			);
+		});
+
+		// Arm
+		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
+		await act(async () => {
+			armToggle?.click();
+		});
+
+		// Click story element — triggers capture + popover open + .anno-selected
+		await act(async () => {
+			targetEl.dispatchEvent(
+				new MouseEvent("click", { bubbles: true, cancelable: true, composed: true }),
+			);
+		});
+
+		// Popover should be open
+		const popover = container.querySelector(".anno-popover");
+		expect(popover).not.toBeNull();
+
+		// Captured element must have .anno-selected
+		expect(targetEl.classList.contains("anno-selected")).toBe(true);
+	});
+
+	test("Cancel clears .anno-selected from captured element", async () => {
+		mockFetchGET(makeEmptyState());
+
+		const targetEl = document.createElement("div");
+		storyRoot.appendChild(targetEl);
+
+		await act(async () => {
+			root.render(
+				createElement(AnnotationOverlay, {
+					story: "Button",
+					variant: "AllVariants",
+					storyRoot,
+				}),
+			);
+		});
+
+		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
+		await act(async () => { armToggle?.click(); });
+
+		await act(async () => {
+			targetEl.dispatchEvent(
+				new MouseEvent("click", { bubbles: true, cancelable: true, composed: true }),
+			);
+		});
+
+		expect(targetEl.classList.contains("anno-selected")).toBe(true);
+
+		// Click Cancel
+		const cancelBtn = Array.from(container.querySelectorAll<HTMLButtonElement>(".toolbar-btn")).find(
+			(b) => b.textContent === "Cancel",
+		);
+		await act(async () => { cancelBtn?.click(); });
+
+		expect(targetEl.classList.contains("anno-selected")).toBe(false);
+	});
+
+	test("Save transitions element from .anno-selected to .anno-saved", async () => {
+		const fetchMock = vi.fn((url: string, opts?: RequestInit) => {
+			const method = opts?.method ?? "GET";
+			if (method === "GET") {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ state: makeEmptyState() }),
+				});
+			}
+			return Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve({ state: makeStateWithNotes(1) }),
+			});
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const targetEl = document.createElement("div");
+		storyRoot.appendChild(targetEl);
+
+		await act(async () => {
+			root.render(
+				createElement(AnnotationOverlay, {
+					story: "Button",
+					variant: "AllVariants",
+					storyRoot,
+				}),
+			);
+		});
+
+		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
+		await act(async () => { armToggle?.click(); });
+
+		await act(async () => {
+			targetEl.dispatchEvent(
+				new MouseEvent("click", { bubbles: true, cancelable: true, composed: true }),
+			);
+		});
+
+		expect(targetEl.classList.contains("anno-selected")).toBe(true);
+
+		// Type a note and Save
+		const textarea = container.querySelector("textarea") as HTMLTextAreaElement | null;
+		await act(async () => {
+			if (textarea) {
+				textarea.value = "test note";
+				textarea.dispatchEvent(new Event("change", { bubbles: true }));
+			}
+		});
+
+		const saveBtn = container.querySelector(".anno-save") as HTMLButtonElement | null;
+		await act(async () => { saveBtn?.click(); });
+
+		// After save: .anno-selected removed, .anno-saved added
+		expect(targetEl.classList.contains("anno-selected")).toBe(false);
+		expect(targetEl.classList.contains("anno-saved")).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// W2 — Focus trap in popover
+// ---------------------------------------------------------------------------
+
+describe("W2 — Focus trap in popover", () => {
+	/** Helper: arm + click story element + await → popover opens */
+	async function openPopover(): Promise<HTMLElement> {
+		const targetEl = document.createElement("div");
+		storyRoot.appendChild(targetEl);
+
+		await act(async () => {
+			root.render(
+				createElement(AnnotationOverlay, {
+					story: "Button",
+					variant: "AllVariants",
+					storyRoot,
+				}),
+			);
+		});
+
+		const armToggle = container.querySelector(".anno-arm") as HTMLButtonElement | null;
+		await act(async () => {
+			armToggle?.click();
+		});
+
+		await act(async () => {
+			targetEl.dispatchEvent(
+				new MouseEvent("click", { bubbles: true, cancelable: true, composed: true }),
+			);
+		});
+
+		const popover = container.querySelector(".anno-popover") as HTMLElement | null;
+		if (!popover) throw new Error("Popover did not open");
+		return popover;
+	}
+
+	test("popover has aria-modal=true", async () => {
+		mockFetchGET(makeEmptyState());
+		const popover = await openPopover();
+		expect(popover.getAttribute("aria-modal")).toBe("true");
+	});
+
+	test("Tab on last focusable in popover wraps focus to textarea (first focusable)", async () => {
+		mockFetchGET(makeEmptyState());
+		const popover = await openPopover();
+
+		// Collect focusable: textarea, Save, Cancel (in DOM order)
+		const focusable = Array.from(
+			popover.querySelectorAll<HTMLElement>("textarea, button:not(:disabled)"),
+		);
+		expect(focusable.length).toBeGreaterThanOrEqual(2);
+
+		const last = focusable[focusable.length - 1]!;
+		const first = focusable[0]!;
+
+		// Put focus on the last focusable
+		last.focus();
+		expect(document.activeElement).toBe(last);
+
+		// Fire Tab keydown on the last element (bubbles to popover onKeyDown)
+		await act(async () => {
+			last.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+			);
+		});
+
+		// Focus trap should have moved focus to first
+		expect(document.activeElement).toBe(first);
+	});
+
+	test("Shift+Tab on first focusable wraps focus to last (Cancel button)", async () => {
+		// @lore AJ5-W2: Use fake timers to suppress the autofocus setTimeout(0)
+		// that fires when the popover opens. Without fake timers, the autofocus
+		// callback races with the focus trap's last?.focus() call inside act(),
+		// restoring focus to textarea and making the assertion flaky.
+		vi.useFakeTimers();
+		try {
+			mockFetchGET(makeEmptyState());
+			const popover = await openPopover();
+
+			// Advance fake timers to drain autofocus setTimeout(0)
+			await act(async () => {
+				vi.runAllTimers();
+			});
+
+			const focusable = Array.from(
+				popover.querySelectorAll<HTMLElement>("textarea, button:not(:disabled)"),
+			);
+			expect(focusable.length).toBeGreaterThanOrEqual(2);
+
+			const first = focusable[0]!;
+			const last = focusable[focusable.length - 1]!;
+
+			// Put focus on the first focusable (textarea)
+			await act(async () => { first.focus(); });
+			expect(document.activeElement).toBe(first);
+
+			// Fire Shift+Tab from first — should wrap to last (Cancel)
+			await act(async () => {
+				first.dispatchEvent(
+					new KeyboardEvent("keydown", {
+						key: "Tab",
+						shiftKey: true,
+						bubbles: true,
+						cancelable: true,
+					}),
+				);
+			});
+
+			expect(document.activeElement).toBe(last);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
