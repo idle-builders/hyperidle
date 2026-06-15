@@ -1,3 +1,10 @@
+// ── AK3: Bet decomposition types + constants ──
+export type {
+	DecompositionBlockerReason,
+	DecompositionStatus,
+	DecompositionTaskInput,
+} from "./bet-decomposition.js";
+export { DECOMPOSITION_TURN_TIMEOUT_MS } from "./bet-decomposition.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,

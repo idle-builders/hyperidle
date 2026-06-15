@@ -1496,18 +1496,18 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					 * replaced by a flat list of task-row buttons matching the mockup. Rows have
 					 * border-bottom dividers (last:border-b-0). No horizontal padding, no rounding.
 					 */}
+					{/*
+					 * AK3: Four-state tasks section.
+					 * Precedence (approved.md binding): tasks>0 first, then draft, then blocked, then decomposing.
+					 * The permanent "Tasks will appear" empty state is replaced by honest state-specific copy.
+					 */}
 					<section aria-label="Tasks">
 						<div className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)] mb-[9px]">
 							Tasks
 						</div>
 
-						{bet.tasks.length === 0 ? (
-							<EmptyState
-								title="No tasks yet"
-								description="Tasks will appear here once agents start work on this bet."
-								dataTestId="bet-tasks-empty"
-							/>
-						) : (
+						{bet.tasks.length > 0 ? (
+							/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
 							<div className="flex flex-col">
 								{sortedTasks.map((task) => {
 									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
@@ -1553,6 +1553,44 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									);
 								})}
 							</div>
+						) : bet.status === "draft" ? (
+							/* State 2: Draft — bet not yet committed. */
+							<EmptyState
+								title="Not committed yet"
+								description="Commit this bet and your team will break it into tasks."
+								dataTestId="bet-tasks-draft"
+							/>
+						) : bet.decompositionStatus === "blocked" ? (
+							/* State 3: Blocked — decomposition ended in a failure. */
+							<EmptyState
+								title={
+									bet.decompositionBlockerReason === "no_eligible_agent"
+										? "No one can take this work"
+										: "Couldn't plan the work"
+								}
+								description={
+									bet.decompositionBlockerReason === "no_eligible_agent"
+										? "This team has no agent eligible to own tasks for this bet, so work hasn't started. Add an agent to the team to get going."
+										: "Your team couldn't break this bet into tasks. Try committing again, or refine the bet's goal and done condition."
+								}
+								action={
+									bet.decompositionBlockerReason === "no_eligible_agent" && bet.teamId ? (
+										<RRLink to={`/work/team/${bet.teamId}`}>
+											<Button variant="secondary">Add an agent</Button>
+										</RRLink>
+									) : undefined
+								}
+								dataTestId="bet-tasks-blocked"
+							/>
+						) : (
+							/* State 4: Decomposing — active, 0 tasks, not blocked (running or null). */
+							<EmptyState
+								icon={<LiveDot />}
+								iconBg="var(--accent-primary-dim)"
+								title="Planning the work"
+								description="Your team is breaking this bet into tasks. This usually takes a moment."
+								dataTestId="bet-tasks-decomposing"
+							/>
 						)}
 					</section>
 
