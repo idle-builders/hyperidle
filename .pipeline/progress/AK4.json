@@ -3,11 +3,11 @@
   "title": "The Assistant can draft and shape a bet",
   "track": "AK",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "3-builder",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-15T20:13:00Z",
-  "completedAt": null,
+  "completedAt": "2026-06-15T20:55:00Z",
   "pr": 321,
   "branch": "feat/AK4-assistant-drafts-bet",
-  "notes": "Depends on AK1 (merged). AH3 already created assistant-turn.ts — designer must reconcile spec-vs-reality (spec claims Assistant never replies)."
+  "notes": "Depends on AK1 (merged). Spec 'never replies' was stale (AH3 shipped runAssistantTurn); AK4 wired a bounded tool-use loop + 2-tool draft registry (create_bet+edit_bet only). Arch-critique 6→8 (1 revise round); code-review DONE after 1 lint-fix round. 4/4 ACs proven through real runChatTurn loop."
 }
