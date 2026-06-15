@@ -643,6 +643,7 @@ function WorkTeamLoaded({
 					<AgentAddDialog
 						open={addDialogOpen}
 						teamMembersId={data.teamMembers.id}
+						teamName={data.team.name}
 						onClose={() => setAddDialogOpen(false)}
 						onCreated={() => {
 							refetchAgents();

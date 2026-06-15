@@ -43,6 +43,15 @@ interface HarnessEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Org teams type (from GET /api/org)
+// ---------------------------------------------------------------------------
+
+interface OrgTeam {
+	id: string; // teamMembers.id — correct FK for users.teamId
+	name: string;
+}
+
+// ---------------------------------------------------------------------------
 // Edit form state
 // ---------------------------------------------------------------------------
 
@@ -96,6 +105,8 @@ export function SettingsAgents(): JSX.Element {
 	const { showToast } = useToast();
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessEntry[]>([]);
+	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
+	const [orgTeamsStatus, setOrgTeamsStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editValues, setEditValues] = useState<EditFormValues | null>(null);
@@ -110,6 +121,8 @@ export function SettingsAgents(): JSX.Element {
 		modelId: "",
 		maxConcurrentSessions: 1,
 	});
+	// AH4: selected teamId for the add form (teamMembers.id from GET /api/org)
+	const [addTeamId, setAddTeamId] = useState<string | null>(null);
 	const [addError, setAddError] = useState<string | null>(null);
 	const [adding, setAdding] = useState(false);
 	// Two-click delete state
@@ -119,9 +132,10 @@ export function SettingsAgents(): JSX.Element {
 	const loadAgents = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const [agentsRes, harnessesRes] = await Promise.all([
+			const [agentsRes, harnessesRes, orgRes] = await Promise.all([
 				apiFetch("/api/agents"),
 				apiFetch("/api/harnesses"),
+				apiFetch("/api/org"),
 			]);
 			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
@@ -133,9 +147,22 @@ export function SettingsAgents(): JSX.Element {
 					setHarnesses(harnessesJson);
 				}
 			}
+			// AH4: load teams from GET /api/org; default addTeamId to first team's id
+			if (orgRes.ok) {
+				const orgJson = (await orgRes.json()) as { teams?: OrgTeam[] };
+				const teamList = Array.isArray(orgJson.teams) ? orgJson.teams : [];
+				setOrgTeams(teamList);
+				setOrgTeamsStatus("ready");
+				if (teamList.length > 0) {
+					setAddTeamId(teamList[0]?.id ?? null);
+				}
+			} else {
+				setOrgTeamsStatus("error");
+			}
 			setStatus("ready");
 		} catch {
 			setStatus("error");
+			setOrgTeamsStatus("error");
 		}
 	}, []);
 
@@ -250,6 +277,8 @@ export function SettingsAgents(): JSX.Element {
 					harnessType: addValues.harnessType || null,
 					modelId: addValues.modelId || null,
 					maxConcurrentSessions: addValues.maxConcurrentSessions,
+					// AH4: include selected teamId (teamMembers.id); null = explicit unassigned
+					teamId: addTeamId,
 				}),
 			});
 
@@ -281,7 +310,7 @@ export function SettingsAgents(): JSX.Element {
 		} finally {
 			setAdding(false);
 		}
-	}, [addValues, showToast]);
+	}, [addValues, addTeamId, showToast]);
 
 	const handleDeleteFirstClick = useCallback((agentId: string): void => {
 		if (deleteTimeoutRef.current) {
@@ -600,6 +629,22 @@ export function SettingsAgents(): JSX.Element {
 			{/* Add form or button */}
 			{addMode ? (
 				<div className="flex flex-col gap-2 p-3 border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+					{/* AH4: Team placement picker — first field, above name (design spec: placement before identity) */}
+					<Select
+						label="Team"
+						size="sm"
+						value={addTeamId ?? ""}
+						onChange={(e) => setAddTeamId(e.target.value || null)}
+						disabled={orgTeamsStatus === "loading" || orgTeams.length === 0}
+						options={
+							orgTeamsStatus === "loading"
+								? [{ value: "", label: "Loading teams…", disabled: true }]
+								: orgTeams.length === 0
+									? [{ value: "", label: "No teams — run Setup to create one", disabled: true }]
+									: orgTeams.map((t) => ({ value: t.id, label: t.name }))
+						}
+					/>
+
 					<div className="flex gap-2 flex-wrap">
 						<div className="form-control flex-1 min-w-[140px]">
 							<label className="label" htmlFor="add-agent-name">
@@ -737,6 +782,7 @@ export function SettingsAgents(): JSX.Element {
 									modelId: "",
 									maxConcurrentSessions: 1,
 								});
+								setAddTeamId(orgTeams.length > 0 ? (orgTeams[0]?.id ?? null) : null);
 							}}
 						>
 							Cancel

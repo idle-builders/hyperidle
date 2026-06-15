@@ -21,7 +21,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, sessions, teamMembers, users } from "@hyperidle/db";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -267,6 +267,19 @@ export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): H
 		);
 		if (validationError) {
 			return c.json(validationError, 422);
+		}
+
+		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
+		// rather than a FK constraint 500. teamId references team_members.id.
+		if (data.teamId) {
+			const [tmRow] = await db
+				.select({ id: teamMembers.id })
+				.from(teamMembers)
+				.where(eq(teamMembers.id, data.teamId))
+				.limit(1);
+			if (!tmRow) {
+				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
+			}
 		}
 
 		// Derive agentCategory: explicit field > catalog lookup > default "team"
