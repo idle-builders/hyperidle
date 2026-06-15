@@ -6,7 +6,7 @@
  */
 import { bets, type HyperIdleDb, routines, tasks, teams, users } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
-import { encode } from "@hyperidle/shared";
+import { encodeTyped } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
 export interface SessionContextConfig {
@@ -203,5 +203,5 @@ export async function buildSessionContext(
 	config: SessionContextConfig,
 ): Promise<string> {
 	const data = await buildSessionContextData(db, config);
-	return encode(data as unknown as Record<string, unknown>);
+	return encodeTyped(data);
 }

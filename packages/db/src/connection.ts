@@ -51,12 +51,10 @@ export function resolvePgPoolSize(opts: {
 	if (opts.maxConnections !== undefined) {
 		return parsePgPoolSize(opts.maxConnections);
 	}
-	// @lore N-phase2: `process.env` is available at runtime (Node/Bun), but
-	// @types/node is not in the db package devDeps. Cast via unknown to avoid
-	// a direct @types/node dependency while preserving the runtime behavior.
-	const procEnv =
-		(globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
-			?.env ?? {};
+	// @lore N-phase2: @types/node (root devDep) is included via tsconfig "types":["node"],
+	// so globalThis.process is already typed — no cast needed. The optional chain
+	// preserves the runtime guard for non-Node runtimes where process may be absent.
+	const procEnv = globalThis.process?.env ?? {};
 	const env = opts.env ?? procEnv;
 	const raw = env[PG_POOL_SIZE_ENV];
 	return parsePgPoolSize(raw);
@@ -109,9 +107,7 @@ export function createPostgresDb(url: string, opts?: { maxConnections?: number }
 	if (!url) {
 		throw new Error("createPostgresDb requires a non-empty DATABASE_URL");
 	}
-	const procEnvPoolSize = (
-		globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
-	).process?.env?.[PG_POOL_SIZE_ENV];
+	const procEnvPoolSize = globalThis.process?.env?.[PG_POOL_SIZE_ENV];
 	const poolSize = opts?.maxConnections ?? parsePgPoolSize(procEnvPoolSize) ?? DEFAULT_PG_POOL_SIZE;
 	const client = postgres(sanitizePostgresUrl(url), {
 		max: poolSize,
