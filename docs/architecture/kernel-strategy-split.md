@@ -36,15 +36,87 @@ The **Strategy Port** is the surface the Kernel exposes for (1) and (2); respons
 
 ---
 
-## 3. Current state and the gap
+## 3. As-built — AK2 (shipped 2026-06-15)
 
-`provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) is a genuine seam the dispatcher calls through. But the production `provisionSession` (`packages/server/src/services/session-provisioning.ts`, Kernel) **hard-imports** the Fabric (`assemble context`, `assemblePrompt`, `checkCostCap`) — violating the stated "the kernel never imports from fabric" rule. O2 already moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split is not yet real. Closing this (defining the port, building the Minimal Strategy, removing the hard import while the Fabric runs unchanged) is **TRACK-AK / AK2**.
+The seam described in §2 is now real in code. Pre-AK2, `session-provisioning.ts` and `session-lifecycle.ts` hard-imported `assembleContext` and `startWatcher` directly from `@hyperidle/fabric`. AK2 closed that gap.
+
+### The Strategy Port contract
+
+Defined in `packages/shared/src/strategy-port.ts` (exported from `@hyperidle/shared`). Two methods:
+
+```ts
+interface Strategy<TDb> {
+  assembleContext(req: ContextAssemblyRequest<TDb>): Promise<ContextAssemblyOutcome>;
+  beginLearningIngestion(req: IngestionRequest<TDb>): IngestionHandle;
+}
+```
+
+`TDb` is a type parameter, not a concrete import — `@hyperidle/shared` stays db-agnostic (importing `HyperIdleDb` into shared would invert the `db → shared` dependency direction). The Kernel binds `TDb = HyperIdleDb` at the registry boundary.
+
+**`assembleContext`** — called at P6 (session admission). The Strategy populates the sandbox's `context/`, `knowledge/`, `work/` directories and writes `.fabric/manifest.json`. The Kernel does not read assembled content — the agent reads it from disk.
+
+**`beginLearningIngestion`** — called at P7 (immediately after context assembly). Returns an `IngestionHandle`. The Kernel disposes the handle on every teardown path (complete / crash / budget_exhausted). `dispose()` must not throw — best-effort flush.
+
+**Responsibility 3 (background knowledge work) is NOT in the port.** The Strategy operates this autonomously via `bootstrapFabric` at boot. The Kernel does not call it.
+
+**Cost enforcement stays Kernel-side.** `checkCostCap`, `recordCostAndCheck`, `scaleForCurrency` are direct Kernel imports and never cross the port.
+
+### Strategy registry
+
+`packages/server/src/services/strategy-registry.ts` — a lean module-scope variable, same idiom as `provision-registry.ts`. Three exports: `setActiveStrategy`, `getActiveStrategy`, `clearActiveStrategy` (test teardown only).
+
+`getActiveStrategy()` throws immediately if no Strategy is registered — a missing registration is a boot bug, not a recoverable state. Boot always calls `setActiveStrategy` exactly once.
+
+### Boot wiring (composition root)
+
+`packages/server/src/server-factory.ts` registers the Fabric as the default:
+
+```ts
+setActiveStrategy(fabricStrategy);  // default; swap this line to select a different Strategy
+```
+
+This is the only place in Kernel code that may import a concrete Strategy. The ESLint guard (below) enforces this.
+
+### Fabric adapter (no behaviour change)
+
+`packages/fabric/src/fabric-strategy.ts` — a thin adapter that delegates to the existing `assembleContext` and `startWatcher` functions unchanged. The only translation: `req.teamId → productId` in the Fabric's config (a field-rename from the AK1 vocabulary rollout). The underlying Fabric functions and all Fabric-internal tests are untouched.
+
+### Minimal reference Strategy
+
+`packages/strategy-minimal` — a real workspace package (`@hyperidle/strategy-minimal`) that ships with a documented README and serves as the contributor template.
+
+`assembleContext`: creates empty `context/`, `knowledge/`, `work/`, `.fabric/` scaffold dirs + writes an empty-items `manifest.json`. Returns `{ itemCount: 0, durationMs: 0 }`. No knowledge injection.
+
+`beginLearningIngestion`: returns a no-op `IngestionHandle`. `dispose()` does nothing and never throws.
+
+Background responsibility: absent. No bootstrap, no routines, no spawned agents.
+
+The scaffold and empty manifest are written even though no context is assembled — the harness and crash post-mortems require them to exist.
+
+### ESLint static guard (AC4)
+
+`eslint.config.ts` scopes a `no-restricted-imports` rule to `packages/server/src/**`, excluding the composition root (`server-factory.ts`) and test files. The guard bans:
+
+- All of `@hyperidle/strategy-minimal` (full package ban from Kernel source)
+- `assembleContext`, `startWatcher`, `FileWatcher`, `FileWatcherConfig` from `@hyperidle/fabric`
+
+This enforces "the Kernel imports no concrete Strategy" statically. Both `session-provisioning.ts` and `session-lifecycle.ts` (the two independent provisioning paths) are clean against this guard.
+
+### What AK2 does NOT move (deferred to AK2b)
+
+Cost enforcement, prompt composition, and session-context DB reads (`cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`) are conceptually Kernel but **physically still live in `packages/fabric`**. The Kernel imports them directly — this is not banned by the AK2 guard (those symbols are not behind the port). Moving them out of `packages/fabric` into `packages/server` or a new `packages/kernel` is the scope of a follow-up workpackage (AK2b / kernel package extraction). The runtime seam is real; physical packaging is pending.
+
+---
+
+## 4. Prior gap (closed by AK2)
+
+Pre-AK2: `provision-registry.ts` (`setProvisionSessionFn`/`getProvisionSessionFn`) was a genuine seam the dispatcher called through, but the production `provisionSession` hard-imported the Fabric (`assembleContext`, `startWatcher`, `checkCostCap`) — violating the boundary. O2 had moved Strategy *fields* into extension tables (`knowledgeStrategyFabric`, `taskStrategyFabric`); the *package/runtime* split was not yet real. AK2 closed this gap.
 
 Decomposition (a committed bet → tasks, **AK3**) is **Kernel** — work-planning plus running a PM agent; the Strategy only feeds that PM agent context via the port. It was never a kernel-vs-strategy question.
 
 ---
 
-## 4. Vocabulary (locked, industry-aligned)
+## 5. Vocabulary (locked, industry-aligned)
 
 Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-AK / AK1**, sequenced before the split.
 
@@ -69,10 +141,10 @@ Note: "Strategy" the *layer* is distinct from "strategy agent" the *agent type* 
 
 ---
 
-## 5. Rationale
+## 6. Rationale
 
 The founder's USP is "nail the Kernel first." That only works if the Kernel is a complete application that runs agents *without* the knowledge magic, with the knowledge magic (the fast-moving part) as a swappable Strategy. The Minimal Strategy is the proof and the contributor template; the Fabric is the rich default, preserved unchanged behind the boundary. The nouns must be industry-standard so the seam and the contributor story are legible to anyone in the 2025–2026 agent-infra space — homegrown terms can't carry that.
 
-## 6. Out of scope here
+## 7. Out of scope here
 - The Fabric's internal knowledge-management design (deeply researched; preserved, not redefined).
 - **Unified human-attention scoring** (who/what pulls the human in) — a separate concept; AK3's human-gate depends on it.
