@@ -41,14 +41,14 @@ A stateless DS primitive that owns the title treatment + pinning + bottom rule. 
 - Title-only (no slots): renders just the strip + title.
 - All slots: leading + title + actions + subtitle (see screenshot).
 - Long title: `truncate` + `min-w-0` keeps the strip single-line; full text stays in DOM for a11y.
-- The header is stateless; empty/loading/error are the *page body's* concern — loading/error/not-found branches still render their own minimal headers or the PageHeader with a title (pages keep current behavior; see migration notes).
+- The header is stateless; empty/loading/error are the *page body's* concern. **AC2 requires the scaffold (pinned header + scrolling body) on EVERY return branch, not just the populated one** — loading / error / not-found branches each root the scaffold and render a minimal `<PageHeader title=…/>` with the spinner/EmptyState in the scrolling body. (Multi-branch pages: WorkTeam 5 branches, WorkRoutine 4, AgentProfile 4 — see migration notes + architecture tasks 18–20.)
 
 ### 3. SectionLabel primitive (AC1, AC3)
 The uppercase opener of a body section.
 
 **Encoded class strings:**
 - Row: `flex items-center justify-between gap-[12px]` + spacing (`mb-[9px]`; with divider: `pb-[6px] mb-[9px] border-b border-[var(--border-subtle)]`)
-- Label: `text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]`
+- Label: `text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]` (the token `--tracking-caps-sm` = 0.06em; NOT the literal `tracking-[0.06em]` — `design/no-hardcoded-tracking` is error on DS src and the rendered look is identical)
 
 **Props / slots:**
 | Prop | Type | Role |
@@ -79,10 +79,10 @@ All ten adopt the scaffold + PageHeader; section-bearing pages adopt SectionLabe
 | `Conversations.tsx` | conformant | `<PageHeader title=… subtitle=… actions=…>` (header has live-dot meta + actions). |
 | `KnowledgeList.tsx` | conformant | `<PageHeader title=… actions=…>`; filter pills stay. |
 | `KnowledgeDetail.tsx` | conformant (h1 title) | `<PageHeader title=… actions=…>` (title becomes h2); sidebar 12px labels → `<SectionLabel as="h2">` 13px. |
-| `KnowledgeCreate.tsx` | **inline-style title on `<input>`** | Keep the editable `<input>`, but its font/weight/tracking must come from the standard, not inline `style`. PageHeader's title slot accepts the `<input>` node styled with the title classes (the title treatment is shared via class, not inline style). Actions slot holds Cancel/Create. |
-| `WorkTeam.tsx` | **scroll-away header; `text-sm font-heading uppercase tracking-wider` title; `text-xs font-heading` sections** | Adopt scaffold (root → `flex flex-col h-full` + scrolling body); `<PageHeader title={team.name} leading={Breadcrumb} subtitle={phase·lead} actions={StatusChip}>`; section `<h2>`s → `<SectionLabel>`. **AG1 owns the body composition below the header — coordinate.** |
-| `WorkRoutine.tsx` | **no pinned strip; `text-sm font-heading` title; `text-xs font-heading` sections** | Same scaffold + PageHeader + SectionLabel migration as WorkTeam. |
-| `AgentProfile.tsx` | **no page-title header; `text-[11px] font-heading tracking-caps` section h2s** | Add scaffold + `<PageHeader>` (title = agent name; the identity block stays in the body); section h2s → `<SectionLabel>`. |
+| `KnowledgeCreate.tsx` | **inline-style title on `<input>`** | Keep the editable `<input>`; its font/weight/tracking comes from the standard, not inline `style`. PageHeader's title slot accepts the `<input>` node, and the input composes the **exported `pageTitleClassName`** const (`className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}`) — the title treatment is owned by the primitive and shared by reference, not by a literal class fork. Actions slot holds Cancel/Create. (Architecture chose the exported-const affordance over a per-file lint exemption — see architecture.md §W1.) |
+| `WorkTeam.tsx` | **scroll-away header; `text-sm font-heading uppercase tracking-wider` title; `text-xs font-heading` sections; 5 return branches (loading + 3 error/not-found + populated)** | Adopt scaffold (root → `flex flex-col h-full` + scrolling body) **on EVERY return branch**; populated branch: `<PageHeader title={team.name} leading={Breadcrumb} subtitle={phase·lead} actions={StatusChip}>`; loading/error/not-found branches: scaffold + minimal `<PageHeader>` + body-hosted state; section `<h2>`s → `<SectionLabel>`. **AG1 owns the body composition below the header — coordinate.** |
+| `WorkRoutine.tsx` | **no pinned strip; `text-sm font-heading` title; `text-xs font-heading` sections; 4 return branches (loading + error + not-found + populated)** | Same scaffold + PageHeader + SectionLabel migration as WorkTeam, **applied to all 4 branches**. |
+| `AgentProfile.tsx` | **no page-title header; `text-[11px] font-heading tracking-caps` section h2s; 4 return branches (loading + 2 error/not-found + populated)** | Add scaffold + `<PageHeader>` **on every branch** (populated: title = agent name, identity block stays in body; loading/error/not-found: minimal PageHeader + body-hosted state); section h2s → `<SectionLabel>`. |
 
 **`font-heading` purge:** appears in WorkTeam, WorkRoutine, AgentProfile (three files, not the spec's two). After migration: zero occurrences in page files. `tracking-wider` (WorkTeam, WorkRoutine) → gone with the same edits.
 
@@ -105,5 +105,5 @@ No Playwright golden PNGs, no Docker, no pixel diffs.
 
 ## Open questions for the architect
 - Exact gate mechanism for AC5 #2 (ESLint rule vs an existing grep-based check) — architecture decides; concept's hard rule #2 is the spec.
-- KnowledgeCreate: confirm the title `<input>` can take the shared title classes cleanly (it can — same font/weight/tracking, just on an `<input>` with `bg-transparent border-none outline-none`). Architecture specifies whether PageHeader exposes this via the `title` slot taking the input node, or a small `titleAs` affordance. Recommendation: pass the `<input>` as the `title` node (slot is `ReactNode`), apply title classes to the input. No new prop needed.
+- KnowledgeCreate: **RESOLVED (W1).** PageHeader exports a `pageTitleClassName` const (the canonical title class string the primitive's own `<h2>` uses). KnowledgeCreate passes its `<input>` as the `title` node and composes `pageTitleClassName` onto it. This is an exported reference, not a literal combo, so `no-handrolled-page-header` does not fire — no per-file config exemption, no new structural prop. Chosen over a config `ignores` exemption because it keeps the title treatment owned by the primitive (the whole point of AI7) and survives future editable-title pages.
 - Mobile: pages already render in the three-tab mobile shell; PageHeader inherits the same strip. No mobile-specific adaptation beyond what pages do today (the `leading` cluster already hides on mobile via `sidebarMobile` checks the page owns).
