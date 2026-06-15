@@ -6,6 +6,14 @@ Shaping happens before commitment. A Product Manager (sometimes with the assista
 
 Shaping is *not* decomposition. The pitch describes what success looks like, not what tasks will produce it. Decomposition happens *after* commitment.
 
+**Promoting a knowledge item into a bet.** Captured knowledge (L2 product items, practice findings) can seed a bet directly without retyping. From any knowledge item's overflow menu (`···`), choose **Promote to bet**. The item's body becomes the bet's description, pre-loaded into the normal bet authoring surface (AG3 full-page editor). Single-team setups promote in one click. Multi-team setups route through the bet create page (`/work/bet/new?fromKnowledge=`) where you pick a team before creating.
+
+The source knowledge item is **not mutated or archived** — it survives promotion unchanged. The new bet is created in `draft` status; the founder reviews, refines, and commits manually (User Sovereignty: promotion never auto-commits). The bet records a **provenance link** (`source_knowledge_item_id`) back to the item, so the origin is always recoverable. The link is one-directional and forward: it captures "this bet was seeded from that item" — it is distinct from the reverse link (`scopeKind="bet"`) which means "this knowledge item was produced under that bet."
+
+Provenance constraint: a knowledge item cited as provenance cannot be hard-deleted while the link exists (`onDelete: restrict`). Soft-archiving the item is always available.
+
+The provenance link appears in the bet detail header as "From knowledge: &lt;title&gt;" with a link back to the source item.
+
 ### 5.2 Commit
 
 The founder commits a bet from the bet detail view. At that moment:

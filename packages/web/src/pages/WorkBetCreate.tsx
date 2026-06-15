@@ -48,8 +48,8 @@ export function WorkBetCreate(): JSX.Element {
 	// AK5: fetch knowledge item body for pre-fill when ?fromKnowledge= is present.
 	// @lore AK5: No fixture fallback here — unlike KnowledgeDetail, this is a CREATE form.
 	// We show a loading state until the fetch resolves so the editor never mounts empty
-	// and immediately re-mounts with content (see key prop below). Fixture fallback was
-	// removed because it masked the async-empty-editor bug (reviewer critical finding #1).
+	// and immediately re-mounts with content (see knowledgeLoading gate below). Fixture
+	// fallback was removed because it masked the async-empty-editor bug (reviewer finding #1).
 	const { data: knowledgeData, isLoading: knowledgeLoading } = useKnowledgeItem(fromKnowledgeId);
 	const knowledgeBody = knowledgeData?.body ?? null;
 
@@ -61,8 +61,8 @@ export function WorkBetCreate(): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 
 	// AK5: when the knowledge fetch resolves, seed body state so derivedTitle and
-	// POST payload are correct. This runs after the editor mounts (key gate below
-	// ensures the editor only mounts once the body is available).
+	// POST payload are correct. This runs after the editor mounts (the knowledgeLoading
+	// ternary below defers BodyEditor mount until the body is available).
 	useEffect(() => {
 		if (knowledgeBody != null && body === "") {
 			setBody(knowledgeBody);
