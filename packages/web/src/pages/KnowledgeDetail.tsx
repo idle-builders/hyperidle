@@ -313,7 +313,7 @@ function BacklinksCard({
 			data-testid="knowledge-backlinks-card"
 			className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]"
 		>
-			<SectionLabel as="h2">Backlinks</SectionLabel>
+			<SectionLabel label="Backlinks" as="h2" />
 			{items.length > 0 ? (
 				<ul className="flex flex-col">
 					{items.map((ri) => (
@@ -846,7 +846,7 @@ function KnowledgeDetailView({
 
 						{/* Metadata card */}
 						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
-							<SectionLabel as="h2">Metadata</SectionLabel>
+							<SectionLabel label="Metadata" as="h2" />
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Kind</span>
 								{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}

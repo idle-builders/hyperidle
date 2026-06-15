@@ -43,7 +43,6 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
  * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
  */
 
-
 export interface WorkTaskProps {
 	/** Override bet ID from route params — used by tests outside the router. */
 	overrideBetId?: string;
@@ -316,7 +315,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-29: Sessions section */}
 					<section data-testid="task-sessions-section">
-						<SectionLabel divider>Sessions</SectionLabel>
+						<SectionLabel label="Sessions" divider />
 						{sessions.length === 0 ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
 						) : (
@@ -338,7 +337,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-31: Artifacts section */}
 					<section aria-label="Artifacts">
-						<SectionLabel divider>Artifacts</SectionLabel>
+						<SectionLabel label="Artifacts" divider />
 						<ArtifactSection
 							filter={{ axis: "task", taskId: taskId ?? "" }}
 							layout="stack"
@@ -349,7 +348,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 					{/* W3 AC-30: Discussion section */}
 					<section aria-label="Discussion">
-						<SectionLabel divider>Discussion</SectionLabel>
+						<SectionLabel label="Discussion" divider />
 						<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
 					</section>
 				</div>

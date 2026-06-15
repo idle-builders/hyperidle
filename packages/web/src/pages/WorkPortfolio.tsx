@@ -193,9 +193,9 @@ export function WorkPortfolio(): JSX.Element {
 			<PageHeader
 				title="All bets"
 				subtitle={
-					(portfolioCount ||
-						(teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0) ||
-						(teamsData !== null && teamsData !== undefined && totalAgentCount > 0)) ? (
+					portfolioCount ||
+					(teamsData !== null && teamsData !== undefined && totalActiveRoutines > 0) ||
+					(teamsData !== null && teamsData !== undefined && totalAgentCount > 0) ? (
 						<span className="flex items-center gap-[12px] flex-wrap">
 							{/* Count sub-line — shown when bets exist */}
 							{portfolioCount && (
@@ -229,8 +229,8 @@ export function WorkPortfolio(): JSX.Element {
 											className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
 										/>
 									)}
-									{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""},{" "}
-									{totalActiveAgentCount} active
+									{totalAgentCount} agent{totalAgentCount !== 1 ? "s" : ""}, {totalActiveAgentCount}{" "}
+									active
 								</span>
 							)}
 						</span>
@@ -479,7 +479,6 @@ export function WorkPortfolio(): JSX.Element {
 					</div>
 				)}
 			</div>
-
 		</div>
 	);
 }

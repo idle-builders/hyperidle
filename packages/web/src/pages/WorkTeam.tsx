@@ -291,403 +291,405 @@ function WorkTeamLoaded({
 				actions={<StatusChip status={team.status} />}
 			/>
 			<div className="flex-1 overflow-y-auto">
-			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-
-				{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
-				<section aria-label="Team summary" data-testid="team-burn-vs-cap">
-					{/*
-					 * @lore AG1: 4 stat tiles (Burn/Cap/Capacity/Status) replace the KeyValue
-					 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
-					 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
-					 * plans/AG1/design/approved.md §2 + §4a.
-					 */}
-					<div className="flex gap-[12px] flex-wrap">
-						{/* Burn tile */}
-						<StatTile
-							label="Burn"
-							value={formatMoney(burn.costActual)}
-							sub={`bets ${formatMoney(burn.betCostActual)} · routines ${formatMoney(burn.routineCostThisMonth)}/mo`}
-						/>
-						{/* Cap tile */}
-						<StatTile
-							label="Cap"
-							value={burn.costCap !== null ? formatMoney(burn.costCap) : "—"}
-							sub={burn.costCap !== null ? `${Math.round(capPercent * 100)}% used` : "no cap"}
-						/>
-						{/* Capacity tile */}
-						<StatTile
-							label="Capacity"
-							value={`${burn.activeBets} / ${burn.capacity}`}
-							sub="active bets"
-						/>
-						{/* Status tile — derives from roster; empty → "—"/"No agents" */}
-						{(() => {
-							if (roster.length === 0) {
-								return <StatTile label="Status" value="—" sub="No agents" />;
-							}
-							const hasAttention = roster.some((m) => (m.healthLevel ?? "healthy") !== "healthy");
-							const idleCount = roster.filter(
-								(m) => (m.operationalStatus ?? "idle") === "idle",
-							).length;
-							return (
-								<StatTile
-									label="Status"
-									value={hasAttention ? "Attention" : "Healthy"}
-									sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+					<section aria-label="Team summary" data-testid="team-burn-vs-cap">
+						{/*
+						 * @lore AG1: 4 stat tiles (Burn/Cap/Capacity/Status) replace the KeyValue
+						 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
+						 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
+						 * plans/AG1/design/approved.md §2 + §4a.
+						 */}
+						<div className="flex gap-[12px] flex-wrap">
+							{/* Burn tile */}
+							<StatTile
+								label="Burn"
+								value={formatMoney(burn.costActual)}
+								sub={`bets ${formatMoney(burn.betCostActual)} · routines ${formatMoney(burn.routineCostThisMonth)}/mo`}
+							/>
+							{/* Cap tile */}
+							<StatTile
+								label="Cap"
+								value={burn.costCap !== null ? formatMoney(burn.costCap) : "—"}
+								sub={burn.costCap !== null ? `${Math.round(capPercent * 100)}% used` : "no cap"}
+							/>
+							{/* Capacity tile */}
+							<StatTile
+								label="Capacity"
+								value={`${burn.activeBets} / ${burn.capacity}`}
+								sub="active bets"
+							/>
+							{/* Status tile — derives from roster; empty → "—"/"No agents" */}
+							{(() => {
+								if (roster.length === 0) {
+									return <StatTile label="Status" value="—" sub="No agents" />;
+								}
+								const hasAttention = roster.some((m) => (m.healthLevel ?? "healthy") !== "healthy");
+								const idleCount = roster.filter(
+									(m) => (m.operationalStatus ?? "idle") === "idle",
+								).length;
+								return (
+									<StatTile
+										label="Status"
+										value={hasAttention ? "Attention" : "Healthy"}
+										sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
+									/>
+								);
+							})()}
+						</div>
+						<div className="mt-[12px]">
+							{burn.costCap !== null && (
+								<progress
+									className="progress progress-primary w-full"
+									value={capPercent}
+									max={1}
+									aria-label={`${Math.round(capPercent * 100)}% of cap used`}
 								/>
-							);
-						})()}
-					</div>
-					<div className="mt-[12px]">
-						{burn.costCap !== null && (
-							<progress
-								className="progress progress-primary w-full"
-								value={capPercent}
-								max={1}
-								aria-label={`${Math.round(capPercent * 100)}% of cap used`}
-							/>
-						)}
-						{burn.costCap === null && (
-							<progress
-								className="progress w-full"
-								value={0}
-								max={1}
-								aria-label="Cost cap not set"
-							/>
-						)}
-					</div>
-				</section>
-
-				{/* R2 — Active bets */}
-				<section aria-label="Active bets" data-testid="team-active-bets">
-					<SectionLabel as="h2">Active Bets</SectionLabel>
-					{activeBets.length === 0 ? (
-						<>
-							<EmptyState
-								title="No active bets"
-								description="This team has no bets in flight."
-								dataTestId="team-active-bets-empty"
-							/>
-							{hintCreateBet.visible && (
-								<div
-									role="status"
-									data-testid={hintCreateBet.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
-								>
-									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-										{hintCreateBet.copy}
-									</p>
-									<div className="flex gap-2">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-											onClick={hintCreateBet.dismiss}
-										>
-											Got it
-										</button>
-									</div>
-								</div>
 							)}
-						</>
-					) : (
-						<div className="flex flex-col gap-[6px]">
-							{activeBets.map((bet) => (
-								<BetRow
-									key={bet.id}
-									bet={bet}
-									onNavigate={() => {
-										navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
-									}}
+							{burn.costCap === null && (
+								<progress
+									className="progress w-full"
+									value={0}
+									max={1}
+									aria-label="Cost cap not set"
 								/>
-							))}
+							)}
 						</div>
-					)}
-				</section>
+					</section>
 
-				{/* R5 — Routines (AA1): sits after active bets, before roster */}
-				<section aria-label="Team routines" data-testid="team-routines">
-					<SectionLabel
-						as="h2"
-						trailing={
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								onClick={() => setCreateRoutineOpen(true)}
-								data-testid="new-routine-btn"
-							>
-								+ New routine
-							</Button>
-						}
-					>
-						Routines
-					</SectionLabel>
-					<ItemList
-						variant="contained"
-						isEmpty={routines.length === 0}
-						empty={{
-							title: "No routines",
-							description: "This team has no recurring work configured.",
-							dataTestId: "team-routines-empty",
-						}}
-					>
-						{routines.map((routine) => {
-							const routineStatus = routineStateToStatus(routine.state);
-							const routineTone =
-								routineStatus === "healthy"
-									? ("success" as const)
-									: routineStatus === "error"
-										? ("error" as const)
-										: routineStatus === "paused"
-											? ("info" as const)
-											: ("neutral" as const);
-							const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
-							const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
-							return (
-								<Row
-									key={routine.id}
-									data-testid="routine-row"
-									lead={<RowDot tone={routineTone} />}
-									title={routine.name}
-									cells={[
-										{
-											content: (
-												<span
-													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
-													style={{ background: "rgba(22,118,79,0.08)" }}
-													aria-label={routine.agentName}
-													title={routine.agentName}
-												>
-													{routine.agentInitials}
-												</span>
-											),
-										},
-										{ content: routine.scheduleLabel, width: 80, align: "start" },
-										{ content: lastRunLabel, width: 60, numeric: true },
-										{ content: costLabel, width: 54, numeric: true },
-									]}
-									onClick={() => {
-										navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
-									}}
+					{/* R2 — Active bets */}
+					<section aria-label="Active bets" data-testid="team-active-bets">
+						<SectionLabel label="Active Bets" as="h2" />
+						{activeBets.length === 0 ? (
+							<>
+								<EmptyState
+									title="No active bets"
+									description="This team has no bets in flight."
+									dataTestId="team-active-bets-empty"
 								/>
-							);
-						})}
-					</ItemList>
-				</section>
-
-				{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
-				<section aria-label="Team agents" data-testid="team-agents">
-					<SectionLabel
-						as="h2"
-						trailing={
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								onClick={() => setAddDialogOpen(true)}
-								data-testid="add-agent-btn"
-							>
-								+ Add agent
-							</Button>
-						}
-					>
-						Agents
-					</SectionLabel>
-
-					{/* AB3 first-time hint — moved position, same logic */}
-					{hintReviewAgents.visible && roster.length > 0 && (
-						<div
-							role="status"
-							data-testid={hintReviewAgents.testId}
-							className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-							style={{ background: "rgba(22,118,79,0.03)" }}
-						>
-							<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-								{hintReviewAgents.copy}
-							</p>
-							<div className="flex gap-2">
-								<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
-									Got it
-								</Button>
+								{hintCreateBet.visible && (
+									<div
+										role="status"
+										data-testid={hintCreateBet.testId}
+										className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
+									>
+										<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+											{hintCreateBet.copy}
+										</p>
+										<div className="flex gap-2">
+											<button
+												type="button"
+												className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+												onClick={hintCreateBet.dismiss}
+											>
+												Got it
+											</button>
+										</div>
+									</div>
+								)}
+							</>
+						) : (
+							<div className="flex flex-col gap-[6px]">
+								{activeBets.map((bet) => (
+									<BetRow
+										key={bet.id}
+										bet={bet}
+										onNavigate={() => {
+											navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
+										}}
+									/>
+								))}
 							</div>
-						</div>
+						)}
+					</section>
+
+					{/* R5 — Routines (AA1): sits after active bets, before roster */}
+					<section aria-label="Team routines" data-testid="team-routines">
+						<SectionLabel
+							label="Routines"
+							as="h2"
+							trailing={
+								<Button
+									variant="ghost"
+									size="sm"
+									type="button"
+									onClick={() => setCreateRoutineOpen(true)}
+									data-testid="new-routine-btn"
+								>
+									+ New routine
+								</Button>
+							}
+						/>
+						<ItemList
+							variant="contained"
+							isEmpty={routines.length === 0}
+							empty={{
+								title: "No routines",
+								description: "This team has no recurring work configured.",
+								dataTestId: "team-routines-empty",
+							}}
+						>
+							{routines.map((routine) => {
+								const routineStatus = routineStateToStatus(routine.state);
+								const routineTone =
+									routineStatus === "healthy"
+										? ("success" as const)
+										: routineStatus === "error"
+											? ("error" as const)
+											: routineStatus === "paused"
+												? ("info" as const)
+												: ("neutral" as const);
+								const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
+								const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
+								return (
+									<Row
+										key={routine.id}
+										data-testid="routine-row"
+										lead={<RowDot tone={routineTone} />}
+										title={routine.name}
+										cells={[
+											{
+												content: (
+													<span
+														className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
+														style={{ background: "rgba(22,118,79,0.08)" }}
+														aria-label={routine.agentName}
+														title={routine.agentName}
+													>
+														{routine.agentInitials}
+													</span>
+												),
+											},
+											{ content: routine.scheduleLabel, width: 80, align: "start" },
+											{ content: lastRunLabel, width: 60, numeric: true },
+											{ content: costLabel, width: 54, numeric: true },
+										]}
+										onClick={() => {
+											navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
+										}}
+									/>
+								);
+							})}
+						</ItemList>
+					</section>
+
+					{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
+					<section aria-label="Team agents" data-testid="team-agents">
+						<SectionLabel
+							label="Agents"
+							as="h2"
+							trailing={
+								<Button
+									variant="ghost"
+									size="sm"
+									type="button"
+									onClick={() => setAddDialogOpen(true)}
+									data-testid="add-agent-btn"
+								>
+									+ Add agent
+								</Button>
+							}
+						/>
+
+						{/* AB3 first-time hint — moved position, same logic */}
+						{hintReviewAgents.visible && roster.length > 0 && (
+							<div
+								role="status"
+								data-testid={hintReviewAgents.testId}
+								className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
+								style={{ background: "rgba(22,118,79,0.03)" }}
+							>
+								<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+									{hintReviewAgents.copy}
+								</p>
+								<div className="flex gap-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										type="button"
+										onClick={hintReviewAgents.dismiss}
+									>
+										Got it
+									</Button>
+								</div>
+							</div>
+						)}
+
+						<ItemList
+							variant="contained"
+							isEmpty={roster.length === 0}
+							empty={{
+								title: "No agents",
+								description: "No agents are assigned to this team.",
+							}}
+						>
+							{roster.map((member) => {
+								const memberStatus = member.operationalStatus ?? "idle";
+								const healthLevel = member.healthLevel ?? "healthy";
+								const healthDetail = member.healthDetail ?? "Healthy";
+								const initials = member.name.slice(0, 2).toUpperCase();
+
+								const healthTone =
+									healthLevel === "healthy"
+										? ("success" as const)
+										: healthLevel === "warning"
+											? ("warning" as const)
+											: ("error" as const);
+
+								const statusTone =
+									memberStatus === "active"
+										? ("success" as const)
+										: memberStatus === "error"
+											? ("error" as const)
+											: undefined;
+
+								let contextText = (() => {
+									const catalogEntry = findRoleCatalogEntry(member.role);
+									return catalogEntry?.description ?? member.role;
+								})();
+								let contextIsError = false;
+								if (memberStatus === "active" && member.activeTaskTitle) {
+									contextText = member.activeTaskTitle;
+								} else if (memberStatus === "error") {
+									contextText = healthDetail;
+									contextIsError = true;
+								}
+
+								const categoryLabel =
+									member.agentCategory === "strategy"
+										? "Strategy"
+										: member.agentCategory === "individual"
+											? "Individual"
+											: (member.agentCategory ?? "");
+
+								// Category cell — first cell when non-team category.
+								// @lore AG6: team agents do NOT render agent-card-category testid
+								// (AB3 protected test: strategy + individual only, team = 0). The
+								// AG6 "first cell" test renders strategy agents where this is present.
+								const hasCategory = member.agentCategory && member.agentCategory !== "team";
+
+								return (
+									<Row
+										key={member.agentId}
+										data-testid="agent-row"
+										lead={
+											<>
+												<RowDot tone={healthTone} label={healthDetail} title={healthDetail} />
+												<Avatar initials={initials} size="sm" agent />
+											</>
+										}
+										title={
+											<>
+												{member.name}
+												{member.isLead && (
+													<span className="ml-1 text-[var(--accent-primary)] text-[10px]">
+														— Lead
+													</span>
+												)}
+											</>
+										}
+										cells={[
+											...(hasCategory
+												? [
+														{
+															content: <Tag label={categoryLabel} />,
+															"data-testid": "agent-card-category" as const,
+														},
+													]
+												: []),
+											{
+												content: memberStatus,
+												width: 48,
+												tone: statusTone,
+												"data-testid": "agent-status",
+											},
+											{
+												content: contextText,
+												width: 140,
+												align: "start",
+												tone: contextIsError ? ("error" as const) : undefined,
+												"data-testid": "agent-context",
+											},
+										]}
+										actions={
+											<button
+												type="button"
+												className="btn btn-ghost btn-xs shrink-0"
+												onClick={(e) => {
+													e.stopPropagation();
+													setEditingAgentId(member.agentId);
+												}}
+												data-testid="agent-customize-btn"
+											>
+												Customize
+											</button>
+										}
+										onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
+									/>
+								);
+							})}
+						</ItemList>
+					</section>
+
+					{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
+					{!skipArtifacts && (
+						<ArtifactSection
+							// @lore U1: `productId` → `teamId` in ArtifactSection filter.
+							filter={{ axis: "product", teamId: team.id }}
+							layout="stack"
+							limit={10}
+							heading="Artifacts"
+							emptyDescription="Artifacts appear as agents complete tasks for this team."
+							onOpen={onOpenArtifact}
+						/>
 					)}
 
-					<ItemList
-						variant="contained"
-						isEmpty={roster.length === 0}
-						empty={{
-							title: "No agents",
-							description: "No agents are assigned to this team.",
-						}}
-					>
-						{roster.map((member) => {
-							const memberStatus = member.operationalStatus ?? "idle";
-							const healthLevel = member.healthLevel ?? "healthy";
-							const healthDetail = member.healthDetail ?? "Healthy";
-							const initials = member.name.slice(0, 2).toUpperCase();
-
-							const healthTone =
-								healthLevel === "healthy"
-									? ("success" as const)
-									: healthLevel === "warning"
-										? ("warning" as const)
-										: ("error" as const);
-
-							const statusTone =
-								memberStatus === "active"
-									? ("success" as const)
-									: memberStatus === "error"
-										? ("error" as const)
-										: undefined;
-
-							let contextText = (() => {
-								const catalogEntry = findRoleCatalogEntry(member.role);
-								return catalogEntry?.description ?? member.role;
-							})();
-							let contextIsError = false;
-							if (memberStatus === "active" && member.activeTaskTitle) {
-								contextText = member.activeTaskTitle;
-							} else if (memberStatus === "error") {
-								contextText = healthDetail;
-								contextIsError = true;
-							}
-
-							const categoryLabel =
-								member.agentCategory === "strategy"
-									? "Strategy"
-									: member.agentCategory === "individual"
-										? "Individual"
-										: (member.agentCategory ?? "");
-
-							// Category cell — first cell when non-team category.
-							// @lore AG6: team agents do NOT render agent-card-category testid
-							// (AB3 protected test: strategy + individual only, team = 0). The
-							// AG6 "first cell" test renders strategy agents where this is present.
-							const hasCategory = member.agentCategory && member.agentCategory !== "team";
-
-							return (
-								<Row
-									key={member.agentId}
-									data-testid="agent-row"
-									lead={
-										<>
-											<RowDot tone={healthTone} label={healthDetail} title={healthDetail} />
-											<Avatar initials={initials} size="sm" agent />
-										</>
-									}
-									title={
-										<>
-											{member.name}
-											{member.isLead && (
-												<span className="ml-1 text-[var(--accent-primary)] text-[10px]">
-													— Lead
-												</span>
-											)}
-										</>
-									}
-									cells={[
-										...(hasCategory
-											? [
-													{
-														content: <Tag label={categoryLabel} />,
-														"data-testid": "agent-card-category" as const,
-													},
-												]
-											: []),
-										{
-											content: memberStatus,
-											width: 48,
-											tone: statusTone,
-											"data-testid": "agent-status",
-										},
-										{
-											content: contextText,
-											width: 140,
-											align: "start",
-											tone: contextIsError ? ("error" as const) : undefined,
-											"data-testid": "agent-context",
-										},
-									]}
-									actions={
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs shrink-0"
-											onClick={(e) => {
-												e.stopPropagation();
-												setEditingAgentId(member.agentId);
-											}}
-											data-testid="agent-customize-btn"
-										>
-											Customize
-										</button>
-									}
-									onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
-								/>
-							);
-						})}
-					</ItemList>
-				</section>
-
-				{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
-				{!skipArtifacts && (
-					<ArtifactSection
-						// @lore U1: `productId` → `teamId` in ArtifactSection filter.
-						filter={{ axis: "product", teamId: team.id }}
-						layout="stack"
-						limit={10}
-						heading="Artifacts"
-						emptyDescription="Artifacts appear as agents complete tasks for this team."
-						onOpen={onOpenArtifact}
-					/>
-				)}
-
-				{/* AB3: Edit dialog — only mounted when a card is being edited.
+					{/* AB3: Edit dialog — only mounted when a card is being edited.
 			    Mirrors the addDialogOpen pattern to avoid unconditional useToast calls. */}
-				{editingAgentId !== null && (
-					<AgentEditDialog
-						agent={editingAgent}
-						rosterMember={editingRosterMember}
-						onClose={() => setEditingAgentId(null)}
-						onSaved={() => {
-							refetchAgents();
-							setEditingAgentId(null);
-						}}
-					/>
-				)}
+					{editingAgentId !== null && (
+						<AgentEditDialog
+							agent={editingAgent}
+							rosterMember={editingRosterMember}
+							onClose={() => setEditingAgentId(null)}
+							onSaved={() => {
+								refetchAgents();
+								setEditingAgentId(null);
+							}}
+						/>
+					)}
 
-				{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
-				{addDialogOpen && (
-					<AgentAddDialog
-						open={addDialogOpen}
-						teamMembersId={data.teamMembers.id}
-						teamName={data.team.name}
-						onClose={() => setAddDialogOpen(false)}
-						onCreated={() => {
-							refetchAgents();
-							setAddDialogOpen(false);
-						}}
-					/>
-				)}
+					{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
+					{addDialogOpen && (
+						<AgentAddDialog
+							open={addDialogOpen}
+							teamMembersId={data.teamMembers.id}
+							teamName={data.team.name}
+							onClose={() => setAddDialogOpen(false)}
+							onCreated={() => {
+								refetchAgents();
+								setAddDialogOpen(false);
+							}}
+						/>
+					)}
 
-				{/* AA2: Routine create dialog */}
-				{createRoutineOpen && (
-					<RoutineCreateDialog
-						open={createRoutineOpen}
-						onClose={() => setCreateRoutineOpen(false)}
-						onCreated={() => {
-							// AF16 T3 (Z8-128): refetch team data so the new routine appears
-							// without a page reload. Mirrors the agent path (refetchAgents above).
-							refetchTeam?.();
-							setCreateRoutineOpen(false);
-						}}
-						teams={[{ id: team.id, name: team.name }]}
-						agents={roster
-							.filter((m) => m.role !== "human")
-							.map((m) => ({ id: m.agentId, name: m.name }))}
-					/>
-				)}
-			</div>
+					{/* AA2: Routine create dialog */}
+					{createRoutineOpen && (
+						<RoutineCreateDialog
+							open={createRoutineOpen}
+							onClose={() => setCreateRoutineOpen(false)}
+							onCreated={() => {
+								// AF16 T3 (Z8-128): refetch team data so the new routine appears
+								// without a page reload. Mirrors the agent path (refetchAgents above).
+								refetchTeam?.();
+								setCreateRoutineOpen(false);
+							}}
+							teams={[{ id: team.id, name: team.name }]}
+							agents={roster
+								.filter((m) => m.role !== "human")
+								.map((m) => ({ id: m.agentId, name: m.name }))}
+						/>
+					)}
+				</div>
 			</div>
 		</div>
 	);

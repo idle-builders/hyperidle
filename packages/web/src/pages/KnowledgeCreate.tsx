@@ -18,7 +18,14 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Breadcrumb, Button, PageHeader, pageTitleClassName, ScopePicker } from "@hyperidle/design-system";
+import {
+	BodyEditor,
+	Breadcrumb,
+	Button,
+	PageHeader,
+	pageTitleClassName,
+	ScopePicker,
+} from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate } from "react-router-dom";

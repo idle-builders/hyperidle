@@ -1157,7 +1157,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					{/* AC2: Outcome section — only shown for completed/killed bets */}
 					{(bet.status === "completed" || bet.status === "killed") && (
 						<section data-testid="outcome-section" aria-label="Outcome">
-							<SectionLabel divider>Outcome</SectionLabel>
+							<SectionLabel label="Outcome" divider />
 
 							{outcomeEditMode === "view" ? (
 								<div className="flex flex-col gap-[9px]">
@@ -1390,6 +1390,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					{/* W3 AC-21: Pitch section with save indicator */}
 					<section data-testid="bet-pitch-section" aria-label="Pitch">
 						<SectionLabel
+							label="Pitch"
 							divider
 							trailing={
 								/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
@@ -1427,9 +1428,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									</span>
 								) : undefined
 							}
-						>
-							Pitch
-						</SectionLabel>
+						/>
 						{/* T3: Conditional rendering based on bet status mutability. */}
 						{canEditDescription ? (
 							<div className="flex flex-col gap-2" data-testid="bet-description-editor">
@@ -1508,7 +1507,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					 * The permanent "Tasks will appear" empty state is replaced by honest state-specific copy.
 					 */}
 					<section aria-label="Tasks">
-						<SectionLabel divider>Tasks</SectionLabel>
+						<SectionLabel label="Tasks" divider />
 
 						{bet.tasks.length > 0 ? (
 							/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
