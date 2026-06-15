@@ -148,9 +148,7 @@ export function SettingsAssistant({ userId }: SettingsAssistantProps): JSX.Eleme
 			)}
 
 			{saveState === "saved" && !errorMessage && (
-				<p className="text-[13px] text-[var(--status-success)]">
-					Saved
-				</p>
+				<p className="text-[13px] text-[var(--status-success)]">Saved</p>
 			)}
 
 			<div className="flex items-center gap-[12px]">

@@ -275,7 +275,10 @@ export function CredentialsTab(): JSX.Element {
 										placeholder={`Enter ${entry.label}`}
 									/>
 									{saveError && editingName === entry.name && (
-										<p className="text-[12px] text-[var(--status-error)] leading-[1.4]" role="alert">
+										<p
+											className="text-[12px] text-[var(--status-error)] leading-[1.4]"
+											role="alert"
+										>
 											{saveError}
 										</p>
 									)}

@@ -24,7 +24,16 @@
  * input removed — unregistered harnesses are rejected by the API anyway.
  */
 
-import { Button, EmptyState, ErrorState, Input, Select, SkeletonList, StatusChip, Tag } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	Input,
+	Select,
+	SkeletonList,
+	StatusChip,
+	Tag,
+} from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, MODEL_CATALOG } from "@hyperidle/shared";
 // hearth-internal-padding
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -777,7 +786,12 @@ export function SettingsAgents(): JSX.Element {
 						>
 							Cancel
 						</Button>
-						<Button variant="primary" size="sm" onClick={handleAddSave} disabled={adding || !addValues.name}>
+						<Button
+							variant="primary"
+							size="sm"
+							onClick={handleAddSave}
+							disabled={adding || !addValues.name}
+						>
 							{adding ? "Saving…" : "Save"}
 						</Button>
 					</div>

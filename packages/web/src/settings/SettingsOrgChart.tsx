@@ -32,7 +32,16 @@
  */
 
 // hearth-internal-padding
-import { Button, EmptyState, ErrorState, Input, ItemList, Row, Select, SkeletonList } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	Input,
+	ItemList,
+	Row,
+	Select,
+	SkeletonList,
+} from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
@@ -412,12 +421,7 @@ function AddEdgeForm({
 			)}
 
 			<div className="flex gap-[9px] justify-end">
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={onCancel}
-					disabled={adding}
-				>
+				<Button variant="ghost" size="sm" onClick={onCancel} disabled={adding}>
 					Cancel
 				</Button>
 				<Button

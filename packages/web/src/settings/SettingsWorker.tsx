@@ -59,8 +59,7 @@ type ConnectionState = "connected" | "connecting" | "disconnected";
  * is blue (paused/in-progress). Never invert: transitional must read calmer than degraded.
  */
 function ConnectionStatusChip({ state }: { state: ConnectionState }): JSX.Element {
-	const status =
-		state === "connected" ? "healthy" : state === "connecting" ? "paused" : "behind";
+	const status = state === "connected" ? "healthy" : state === "connecting" ? "paused" : "behind";
 	const label =
 		state === "connected" ? "Connected" : state === "connecting" ? "Connecting" : "Disconnected";
 	return <StatusChip status={status} label={label} />;
