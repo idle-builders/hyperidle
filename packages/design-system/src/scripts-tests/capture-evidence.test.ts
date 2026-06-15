@@ -228,3 +228,62 @@ describe("runCaptureEvidence — empty changed set (AC3)", () => {
 		expect(renderCalled).toBe(false);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// MAJOR-2: hostedShots threaded into result (AC2 fix)
+// ---------------------------------------------------------------------------
+
+describe("runCaptureEvidence — hostedShots in result (MAJOR-2 regression guard)", () => {
+	test("result.hostedShots carries URLs returned by uploadShotsFn", async () => {
+		const fakeHosted = [
+			{
+				target: { title: "AG6/RowDot", variant: "Success" },
+				side: "after" as const,
+				url: "https://github.com/example/blob/pr-evidence/42/AG6__RowDot__Success__after.png",
+				render: "link" as const,
+			},
+			{
+				target: { title: "AG6/RowDot", variant: "Success" },
+				side: "before" as const,
+				url: "https://github.com/example/blob/pr-evidence/42/AG6__RowDot__Success__before.png",
+				render: "link" as const,
+			},
+		];
+
+		const options: CaptureEvidenceOptions = {
+			...BASE_OPTIONS,
+			uploadShotsFn: async () => fakeHosted,
+		};
+
+		const result = await runCaptureEvidence(options);
+
+		// The result must carry the real hosted URLs, not an empty array
+		expect(result.hostedShots).toHaveLength(2);
+		expect(result.hostedShots[0]?.url).toContain("after.png");
+		expect(result.hostedShots[1]?.url).toContain("before.png");
+	});
+
+	test("result.hostedShots is empty when uploadShotsFn throws (degraded)", async () => {
+		const options: CaptureEvidenceOptions = {
+			...BASE_OPTIONS,
+			uploadShotsFn: async () => {
+				throw new Error("network error");
+			},
+		};
+
+		const result = await runCaptureEvidence(options);
+		expect(result.exitCode).toBe(0);
+		expect(result.hostedShots).toEqual([]);
+	});
+
+	test("result.hostedShots is empty when changed set is empty", async () => {
+		const options: CaptureEvidenceOptions = {
+			...BASE_OPTIONS,
+			branchSnap: BASE_SNAP,
+			baseSnap: BASE_SNAP,
+		};
+
+		const result = await runCaptureEvidence(options);
+		expect(result.hostedShots).toEqual([]);
+	});
+});

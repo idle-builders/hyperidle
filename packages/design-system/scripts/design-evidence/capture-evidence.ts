@@ -57,6 +57,12 @@ export interface CaptureEvidenceResult {
 	degradedNote?: string;
 	/** PR markdown section produced (empty string if changed set is empty). */
 	prMarkdown: string;
+	/**
+	 * Hosted shots from the upload step — present so callers can persist the
+	 * full artifact (with real URLs) rather than an empty-hosted placeholder.
+	 * Empty array when no shots were captured or upload failed.
+	 */
+	hostedShots: import("./upload-assets.js").HostedShot[];
 }
 
 /**
@@ -81,7 +87,7 @@ export async function runCaptureEvidence(
 
 	// AC3: empty changed-set → no output
 	if (changed.length === 0) {
-		return { exitCode: 0, prMarkdown: "" };
+		return { exitCode: 0, prMarkdown: "", hostedShots: [] };
 	}
 
 	// Cap the imaged modules
@@ -150,6 +156,7 @@ export async function runCaptureEvidence(
 		exitCode: 0,
 		degradedNote,
 		prMarkdown: report.prMarkdown,
+		hostedShots,
 	};
 }
 
@@ -283,24 +290,39 @@ async function captureRealShots(
 	const afterPort = await probeFreePort();
 	const beforePort = baseWorktreeAdded ? await probeFreePort() : 0;
 
-	let afterViewer: { kill: () => void } | null = null;
-	let beforeViewer: { kill: () => void } | null = null;
+	// Track viewers for cleanup — stored here so the finally block can kill them
+	// regardless of where in the render pipeline we are.
+	const viewers: Array<{ kill: () => void }> = [];
+
+	/**
+	 * Render all module variants from a running viewer and push into allShots.
+	 * Registers the viewer handle in `viewers` for cleanup. Throws on failure —
+	 * caller catches and degrades.
+	 */
+	async function renderSide(
+		side: "before" | "after",
+		port: number,
+		cwd: string,
+	): Promise<void> {
+		const viewer = await startViewer(port, cwd);
+		viewers.push(viewer);
+		for (const story of modules) {
+			for (const variant of story.variants) {
+				const target: RenderTarget = { title: story.title, variant };
+				const shot = await render(
+					`http://localhost:${port}`,
+					target,
+					`/tmp/aj4-evidence/${prNumber}/${side}`,
+				);
+				allShots.push({ side, shot });
+			}
+		}
+	}
 
 	try {
 		// After shots (branch)
 		try {
-			afterViewer = await startViewer(afterPort, process.cwd());
-			for (const story of modules) {
-				for (const variant of story.variants) {
-					const target: RenderTarget = { title: story.title, variant };
-					const shot = await render(
-						`http://localhost:${afterPort}`,
-						target,
-						`/tmp/aj4-evidence/${prNumber}/after`,
-					);
-					allShots.push({ side: "after", shot });
-				}
-			}
+			await renderSide("after", afterPort, process.cwd());
 		} catch (err) {
 			degradedNote =
 				degradedNote ??
@@ -310,18 +332,7 @@ async function captureRealShots(
 		// Before shots (base worktree)
 		if (baseWorktreeAdded) {
 			try {
-				beforeViewer = await startViewer(beforePort, baseWorktreePath);
-				for (const story of modules) {
-					for (const variant of story.variants) {
-						const target: RenderTarget = { title: story.title, variant };
-						const shot = await render(
-							`http://localhost:${beforePort}`,
-							target,
-							`/tmp/aj4-evidence/${prNumber}/before`,
-						);
-						allShots.push({ side: "before", shot });
-					}
-				}
+				await renderSide("before", beforePort, baseWorktreePath);
 			} catch (err) {
 				degradedNote =
 					degradedNote ??
@@ -341,9 +352,8 @@ async function captureRealShots(
 			}
 		}
 	} finally {
-		// Teardown viewers
-		afterViewer?.kill();
-		beforeViewer?.kill();
+		// Teardown all viewers that were started
+		for (const v of viewers) v.kill();
 
 		// Force-remove base worktree (idempotent)
 		if (baseWorktreeAdded) {
@@ -441,7 +451,10 @@ async function main(): Promise<void> {
 			);
 		}
 
-		// Write design-evidence.json for the ship summary
+		// Write design-evidence.json for the ship summary — use the real hostedShots
+		// so the artifact carries actual blob-viewer URLs (not an empty-hosted placeholder).
+		// @lore AJ4: MAJOR-2 fix: previously passed [] instead of result.hostedShots,
+		// leaving shots[].before/after === undefined in the persisted artifact.
 		try {
 			const branchResult = await execFileAsync("git", ["branch", "--show-current"]);
 			const branch = branchResult.stdout.trim();
@@ -452,10 +465,10 @@ async function main(): Promise<void> {
 			const dir = evidencePath.substring(0, evidencePath.lastIndexOf("/"));
 			await fs.mkdir(dir, { recursive: true });
 
-			// Build the final report (with empty hosted — live links need the upload result)
+			// Re-use the final changed set + the real hosted shots from the upload step
 			const finalChanged = changedStories(branchSnap, baseSnap);
 			const { buildEvidenceReport } = await import("./evidence-report.js");
-			const report = buildEvidenceReport(finalChanged, []);
+			const report = buildEvidenceReport(finalChanged, result.hostedShots);
 			await fs.writeFile(evidencePath, JSON.stringify(report, null, 2), "utf8");
 		} catch {
 			// Non-blocking — ship summary just has no design section
@@ -502,8 +515,11 @@ const isMain =
 		process.argv[1].endsWith("capture-evidence.js"));
 
 if (isMain) {
+	// @lore AJ4: Exit 0 on fatal — the never-block-ship contract requires this script
+	// to be non-blocking end-to-end. A top-level error (e.g. bad argv) degrades
+	// silently rather than failing the ship step.
 	main().catch((err) => {
 		console.error("[design evidence] fatal:", err);
-		process.exit(1);
+		process.exit(0);
 	});
 }
