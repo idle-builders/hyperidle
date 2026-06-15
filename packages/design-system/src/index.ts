@@ -40,6 +40,9 @@ export { BodyEditor } from "./BodyEditor.js";
 // ── AG4: Breadcrumb — Tier 1 DS nav orientation strip ──
 export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
 export { Breadcrumb } from "./Breadcrumb.js";
+// ── AI7: PageHeader — canonical page-title strip (Tier 1) ──
+export type { PageHeaderProps } from "./PageHeader.js";
+export { PageHeader, pageTitleClassName } from "./PageHeader.js";
 export type { ButtonProps } from "./Button.js";
 export { Button } from "./Button.js";
 // T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import
@@ -116,6 +119,9 @@ export type { RowDotProps, RowTone } from "./RowDot.js";
 export { RowDot } from "./RowDot.js";
 export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
 export { ScopePicker } from "./ScopePicker.js";
+// ── AI7: SectionLabel — canonical uppercase section heading (Tier 1) ──
+export type { SectionLabelProps } from "./SectionLabel.js";
+export { SectionLabel } from "./SectionLabel.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 export type { SelectProps } from "./Select.js";
