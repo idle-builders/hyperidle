@@ -1,0 +1,13 @@
+{
+  "id": "AK4",
+  "title": "The Assistant can draft and shape a bet",
+  "track": "AK",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "3-builder",
+  "startedAt": "2026-06-15T20:13:00Z",
+  "completedAt": null,
+  "pr": 321,
+  "branch": "feat/AK4-assistant-drafts-bet",
+  "notes": "Depends on AK1 (merged). AH3 already created assistant-turn.ts — designer must reconcile spec-vs-reality (spec claims Assistant never replies)."
+}
