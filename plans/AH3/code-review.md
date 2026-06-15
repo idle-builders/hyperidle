@@ -83,3 +83,58 @@ Reading funnel / scanning (table of 3 notices) / progressive disclosure / activa
 4. C5 — a genuine `ast-*` loop-guard test.
 5. D4 — migrate both textareas to design-system `Input` (drop `font-mono`, add the grep-guard) or get the deviation re-approved.
 6. M4/S6/S7 — resolve the duplicate dispatch seam and the cast/duck-type escapes opened to ship H1.
+
+---
+
+# Round 2 — re-review
+
+**Verdict: NOT DONE.** All six round-1 findings (H1, H2, M3, C5, D4, M4/S6/S7) are genuinely closed — verified, not test-gamed. BUT closing H1 ("the turn no longer throws") exposed a deeper defect that H1 masked: **the user's message never reaches the model.** The turn now runs to a "completion," but it runs the builtin adapter's task-planning loop against an empty conversation with only the persona system prompt. The founder types a question; the model never sees it. AC1/AC5 (a real *answer to the message sent*) are unmet in substance. New blocker **H3**.
+
+Independent check (run, not trusted): `npm run check` PASS (12 pkgs). AH3 fast 25/25 PASS. AH3 integration 18/18 PASS. Suite is green — but green for the same reason as round 1: the happy-path test uses a `ScriptedAdapter` that hardcodes its reply regardless of input, so it is blind to whether the user's question is delivered.
+
+## Round-1 findings — closure status
+
+| Finding | Status | Evidence |
+|---|---|---|
+| **H1** model resolution | **CLOSED** | `assistant-turn.ts:287-337` calls `resolveAgentModel`/`resolveModelTier`; `SessionConfig` built as a typed object (`:374`), no `as unknown`. Companion test `:633` proves `BuiltinHarnessAdapter.startSession` throws without `resolvedModel`; the type system now guards the field. Turn reaches `startSession` without throwing. |
+| **H2** notice round-trip | **CLOSED** | `plainPayloadSchemaWithToolCalls` gains `notice: assistantNoticeSchema.optional()` (`threads-schema.ts:127`); kept off the write schema. Route round-trip test `:671` persists a `missing_key` notice → `GET /api/threads/assistant` → asserts `payload.notice.kind==="missing_key"` survives. Genuine. |
+| **M3** null-resolve → missing_key | **CLOSED** | `resolveAgentModel`/`resolveModelTier` throw `MissingCredentialError` on null `resolve()` (`model-gateway.ts:86,102,128`); service catches → `persistTurnFailure` (`assistant-turn.ts:310`). Test `:719` drives the full turn with a null resolver, asserts `missing_key`. Exercises the real path. |
+| **M4** double-dispatch | **CLOSED** | Dispatcher's dead `shouldDispatchForAssistant` dispatch branch removed (`assistant-dispatcher.ts`); it now owns ONLY pin-on-first-response. Single trigger seam, inline in `threads.ts:1334-1355`. No double-fire. |
+| **D4** textarea migration | **CLOSED** | Both `SettingsAssistant` and `SettingsAgents` textareas now `<Input textarea>`; `grep textarea-bordered packages/web/src/settings/` → zero. `font-mono` dropped. ESLint `design/no-raw-settings-textarea` added at `error` (`index.ts:72`), scoped to `packages/web/src/settings`. Rectangular + prose. |
+| **S6** `as unknown` cast | **CLOSED** | Gone — `SessionConfig` literal at `:374` is type-checked; required fields compiler-guarded. |
+| **S7** duck-typed stream | **CLOSED** | `drainStreamEvents` calls `adapter.streamEvents(handle)` against the real interface (`:475-501`); test stubs implement `streamEvents` on the adapter object (`:583,:371`), not on the handle. |
+| **C5** loop-guard real test | **CLOSED** | New test `:845` posts a real human message (count→1), then a valid `ast-*` message via DB+event, asserts count stays 1. Exercises the `!senderId.startsWith("ast-")` predicate. Would fail if the guard were deleted (POSTing the ast-* reply would re-fire → 2). No longer the schema-400 fraud. |
+
+## Deferral adjudications
+
+1. **Empty conversation history → REJECTED as framed; it is the symptom of H3 (below), not a clean deferral.** The `@lore` at `assistant-turn.ts:356-360` frames the gap as "prior conversation history deferred." That conflates two different things. *Prior* multi-turn memory is genuinely deferrable — no AC requires it (AC1 = single send→reply; persona scenario = "next turn reflects it," single-turn; AC5 = first answer). BUT the same gap also drops the **current triggering message** — the question the user just typed. `SessionConfig` has no `messages` field; `composeAssistantPrompt(soulPromptText)` embeds only persona + a generic "respond to the user's messages" instruction (`prompt-composition.ts:297-316`); the builtin adapter starts `messages: []` and runs `runPlanningTurn` with a task `PLANNING_PROMPT` (`builtin-harness-adapter.ts:361,410-415`). `triggerMessageId` is declared on `AssistantTurnParams:85` but **never read**. So the user's text reaches neither the system prompt nor the message list. This breaks AC1/AC5 (answer *to the message sent*) and the plan's own §1.4 ("the thread transcript as the message history") + §3 scenario-1.
+
+2. **`resolveModelTier("fast")` unused — RESOLVED, finding is stale.** Now wired: `:301` assigns `resolvedFastModel`, passed into `SessionConfig.resolvedFastModel` at `:382`. Not dead. No action.
+
+## New finding
+
+**H3 (HIGH, blocker) — the user's message never reaches the model; the assistant runs the task-planning loop against an empty conversation.**
+`runAssistantTurn` builds a `SessionConfig` with `composedPrompt` (persona only) and no user message — `SessionConfig` has no `messages`/transcript field, and the service never reads `triggerMessageId` nor loads the thread's messages. The builtin adapter (the assistant's default harness) begins `runLoop` with `runPlanningTurn`, injecting a task-execution `PLANNING_PROMPT` (`builtin-harness-adapter.ts:361,414`), then runs a multi-iteration execute/reflection loop. Net: a founder typing "what can you do?" gets a session that (a) never receives that text and (b) executes a task-planning agentic loop, not a conversational reply. Any "completion" it emits is a response to the planning prompt + persona, not to the user.
+
+Why the green suite misses it: the happy-path test (`:562`) registers a `ScriptedAdapter` whose `completionStream` yields a fixed `EXPECTED_REPLY` regardless of config/input, so it asserts "a reply persisted" without ever checking the user's question was delivered to a real adapter. The real builtin path is never exercised against a real user message (correctly deferred to AH5's live lane — but the *wiring* that AH5 would exercise is absent here).
+
+Fix direction (builder, round 3): give `runAssistantTurn` a seam to deliver the thread transcript (at minimum the triggering user message) to the adapter as the conversational input — e.g. extend `SessionConfig` (or a conversational variant) with a `messages` list and have the builtin adapter seed `session.messages` from it instead of/in addition to `runPlanningTurn`, OR route the assistant turn through a conversational entry on the adapter rather than the task `runLoop`. Then add a happy-path test whose adapter **echoes the received user message** (or asserts on the messages handed to `startSession`/`streamEvents`), so the test fails if the question isn't delivered. This is the §1.4 "conversational context (no task)" the plan mandated and the builder skipped.
+
+## Minor (non-blocking, note for round 3)
+
+- **agents.ts `ast-*` branch duplicates the full update+response block.** The 403 reject (`agents.ts:330-348`) is correct, but the non-soulPrompt path re-implements parse → `validateAgentConfig` → `buildPatchUpdateSet` → response shaping that already exists below for the general case. The early `await c.req.json()` also means the body is read twice on the non-ast path (re-parsed below). Simplification: reject on `soulPrompt` for `ast-*`, then fall through to the shared block rather than forking it. Not a correctness bug.
+- `BUILTIN_SOUL_PROMPT` string still duplicated across `assistant-turn.ts:57`, `users.ts`, `assistant.ts` (round-1 minor, unaddressed). One shared const would prevent drift.
+
+## AC table (round 2)
+
+| AC | Status | Evidence / gap |
+|---|---|---|
+| AC1 — visible streaming reply when configured | **NOT DONE** | Turn no longer throws (H1 closed) but the user message never reaches the model (H3). The reply is to the persona+planning prompt, not the question. Real-model streaming E2E correctly `.skip()`-deferred to AH5 (`spec.ts:209`). |
+| AC2 — can't run → specific notice, never silent | **DONE** | Three classes persist + survive read-back (H2). missing_key (null-resolve M3 + thrown), missing_harness, provider_error (incl. hung-provider timeout). No secret leak (test `:254`). All deterministic AH3 proofs present and passing. |
+| AC3 — persona one place; agent provably uses it | **PARTIAL** | Single-edit-surface fully met: UI omit + server 403 (`agents.ts`, test `:437`) + byte-equality persona test pass. "Provably uses it": persona DOES reach `composedPrompt`, so the persona-reflection scenario holds at the system-prompt level. But end-to-end "the reply reflects persona" is undermined by H3 (the turn isn't a real conversational answer). |
+| AC4 — rectangular textareas | **DONE** | Both migrated to `<Input textarea>`; ESLint guard active; zero raw textareas in settings; E2E rectangularity specs present. |
+| AC5 — first-time user with key gets a real answer | **NOT DONE** | Defaults backfilled (tested). Turn runs. But H3: no real answer to the user's message — the question is never delivered. |
+
+## What must change to reach DONE (round 3 — cap)
+1. **H3** — deliver the thread transcript (≥ the triggering user message) to the adapter as conversational input; stop running the task `runLoop` for a chat turn (§1.4). Add a happy-path test whose adapter **observes/echoes the user message**, failing if it isn't delivered.
+2. (Optional cleanup) de-duplicate the `agents.ts` `ast-*` branch; lift `BUILTIN_SOUL_PROMPT` to a shared const.
