@@ -33,7 +33,7 @@ Compensating nets for the blind spot:
 - Token re-mapping: `npm run token-guard:check` guards token definitions.
 - Off-scale/off-grid/AI-aesthetic: `npm run lint` via `eslint-plugin-design`.
 - Removed/renamed variant: `npm run check` (TypeScript strict).
-- Painted pixels: the **live TSX viewer at `:8098`** (`npm run ds:serve`) + human `/design` design-critique gate + manual `npx playwright screenshot` of the running app in `/review` and `/product-deep-review`.
+- Painted pixels: the **live TSX viewer at `:8098`** (`npm run ds:serve`) + human `/design` design-critique gate + manual `npx playwright screenshot` of the running app in `/review` and `/product-deep-review` + **PR design-evidence** (`npm run ds:evidence -- --pr <PR>`, run by `/ship` step 6a): before/after Playwright screenshots of changed stories, uploaded to an orphan `pr-evidence/<pr>` branch and linked in the PR body. Local-only, ship-time, not a gate — see `docs/guides/developer/design-system.md#pr-design-evidence-ship-time-local-only`.
 
 ## Snapshot location
 

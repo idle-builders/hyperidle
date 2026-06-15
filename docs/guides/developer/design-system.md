@@ -65,6 +65,19 @@ Rules:
 
 `/design` authors UX/UI variants as isolated `.stories.tsx` stories rendered live in the viewer — not HTML mockups. One story = prototype = annotation surface = catalog entry. A page/data/context variant mounts via `MockProviders` (above). Visual regression is the [DOM-snapshot net](../../../.claude/rules/visual-regression.md), not a screenshot baseline — a `npx playwright screenshot` of a variant is a looked-at artifact for critique, never the regression gate.
 
+### PR design-evidence (ship-time, local-only)
+
+When a workpackage changes a design-system component's rendered appearance (detected by diffing the committed `.snap` against `origin/main`), `npm run ds:evidence -- --pr <PR_NUMBER>` captures before/after Playwright screenshots of the changed stories and uploads them to an orphan `pr-evidence/<pr-number>` branch via `gh api`. It then injects a design-evidence block into the PR body with openable blob-viewer links for each changed surface.
+
+**Boundaries:**
+- **Trigger:** `.snap` diff vs `origin/main` — only fires when a story's serialized DOM/class text changed.
+- **Local-only, ship-time.** Run once by `/ship` step 6a after the PR is created. Never runs in CI.
+- **Not a gate.** A capture failure logs a warning and does not block the ship. The ship summary (interactive mode, step 7a) includes a design section only when evidence was captured.
+- **No committed PNGs.** Screenshots live on the orphan branch; nothing is committed to the feature branch or `main`.
+- **No design change → no output.** When the `.snap` diff is empty, `ds:evidence` strips any prior design section from the PR body and emits nothing.
+
+Script: `packages/design-system/scripts/design-evidence/capture-evidence.ts`
+
 ### Design Rules
 
 - **limited custom components** — everything else uses DaisyUI primitives directly
