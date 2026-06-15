@@ -15,7 +15,7 @@
 import { selectBetSchema } from "@hyperidle/db/zod-schemas";
 import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
 import { z } from "zod";
-import { progressSchema, wireMoneySchema } from "./common.schema.js";
+import { enumValues, progressSchema, wireMoneySchema } from "./common.schema.js";
 
 /**
  * Extended task states for the bet detail view.
@@ -39,11 +39,7 @@ export const betTaskRowSchema = z.object({
 	id: z.string(),
 	title: z.string(),
 	owner: z.string(),
-	// @lore api-typesafety: TASK_STATES_EXTENDED is a readonly string[] from @hyperidle/shared.
-	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
-	// is the idiomatic escape hatch — TASK_STATES_EXTENDED is guaranteed non-empty at
-	// compile time (it's a const array), so this is safe.
-	state: z.enum(TASK_STATES_EXTENDED as unknown as [string, ...string[]]),
+	state: z.enum(enumValues(TASK_STATES_EXTENDED)),
 	costActual: wireMoneySchema.nullable(),
 	latestSessionOutcome: z.string().nullable(),
 	latestSessionHarnessUrl: z.string().nullable(),
@@ -76,10 +72,7 @@ export const betDetailResponseSchema = z.object({
 	id: z.string(),
 	title: z.string(),
 	team: z.string(),
-	// @lore api-typesafety: BET_STATUSES is a readonly string[] from @hyperidle/shared.
-	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
-	// is the idiomatic escape hatch — BET_STATUSES is guaranteed non-empty at compile time.
-	status: z.enum(BET_STATUSES as unknown as [string, ...string[]]),
+	status: z.enum(enumValues(BET_STATUSES)),
 	costAppetite: wireMoneySchema.nullable(),
 	tokenAppetite: z.number().nullable().optional(),
 	costActual: wireMoneySchema.nullable(),

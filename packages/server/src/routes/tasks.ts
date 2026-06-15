@@ -7,6 +7,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { transitionTask } from "../services/task-state-machine.js";
@@ -29,7 +30,7 @@ const updateTaskSchema = z.object({
 	doneCondition: z.string().optional(),
 	ownerAgentId: z.string().optional(),
 	/** AC1: Optional task outcome verdict. Set during review — not by the state machine. */
-	outcomeVerdict: z.enum(TASK_OUTCOME_VERDICTS as unknown as [string, ...string[]]).optional(),
+	outcomeVerdict: z.enum(enumValues(TASK_OUTCOME_VERDICTS)).optional(),
 });
 
 // I2 V1: enum-validate at the boundary so an unknown state surfaces as
