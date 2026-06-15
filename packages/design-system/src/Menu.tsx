@@ -62,14 +62,14 @@ export function Menu({
 	useEffect(() => {
 		if (open) {
 			previousFocusRef.current = document.activeElement;
-			// React commits DOM before effects run, so items are already in the DOM here.
-			// No RAF needed — querying immediately is safe and avoids flaky focus races
-			// in test environments where RAF fires outside act() boundaries.
-			const first = menuRef.current?.querySelector<HTMLElement>(
-				"[role='menuitem']:not([disabled])",
-			);
-			first?.focus();
-			return undefined;
+			// Defer one tick so the menu has rendered its items before we query them.
+			const raf = requestAnimationFrame(() => {
+				const first = menuRef.current?.querySelector<HTMLElement>(
+					"[role='menuitem']:not([disabled])",
+				);
+				first?.focus();
+			});
+			return () => cancelAnimationFrame(raf);
 		}
 		// Closed: restore focus to trigger.
 		const prev = previousFocusRef.current;
