@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Composer — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Composer ──
+       Thread reply input: page-bg input with pill send button.
+       Matches 03-hearth.html thread composer. Fixed padding (no density). */
+
+    .composer {
+      display: flex;
+      gap: 9px;
+      padding: 12px 24px 18px;
+      align-items: flex-end;
+    }
+    .composer__input {
+      flex: 1;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-default);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      outline: none;
+      min-height: 40px;
+      resize: none;
+    }
+    .composer__input::placeholder {
+      color: var(--text-placeholder);
+    }
+    .composer__input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1);
+    }
+    .composer__send {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+      transition: all 240ms ease;
+      white-space: nowrap;
+    }
+    .composer__send:hover {
+      background: var(--accent-primary-hover);
+    }
+    .composer__send:active {
+      transform: scale(0.97);
+    }
+    .composer__send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Composer({ placeholder = "Reply to thread...", disabled }) {
+      return (
+        <div
+          className="composer"
+          data-component="Composer"
+          data-tier="2"
+          data-uses="Button"
+          data-daisyui=""
+          data-used-by="ConversationsChat,ThreadDetail"
+        >
+          <input
+            className="composer__input"
+            type="text"
+            placeholder={placeholder}
+            disabled={disabled}
+          />
+          <button className="composer__send" disabled={disabled}>Send</button>
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Default</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <Composer />
+            </div>
+          </div>
+          <div className="demo-section">
+            <div className="demo-section-title">Disabled</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <Composer disabled />
+            </div>
+          </div>
+          <div className="demo-section">
+            <div className="demo-section-title">Custom Placeholder</div>
+            <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-default)', overflow: 'hidden' }}>
+              <Composer placeholder="Add a comment..." />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

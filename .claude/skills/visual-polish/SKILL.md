@@ -1,59 +1,47 @@
 ---
 name: visual-polish
-description: "Iteratively improve a component/page's visual fidelity against its reference story using the live TSX viewer and golden baseline comparison."
-argument-hint: "<component-name|all>"
+description: "Iteratively improve a component/page's visual fidelity against its reference mockup using pixel comparison and Claude vision evaluation."
+argument-hint: "<reference-name|all>"
 user-invocable: true
 min_tool_calls: 18
 ---
 
 # Visual Polish
 
-Iterative visual fidelity improvement loop. Compare the live implementation against the TSX story in the viewer, identify differences, fix them, and re-compare until the design matches.
+Iterative visual fidelity improvement loop. Compare the live implementation against reference mockups, identify differences, fix them, and re-compare until the design matches.
 
 ## Prerequisites
 
-- Dev server running on `localhost:5173` (`npm run dev` from repo root) for app-level polish
-- Design system viewer running on `localhost:8098` (`npm run ds:serve`) for component-level polish
-- Playwright installed (`npx playwright install chromium`)
-- Reference: the approved design at `plans/<workpackage-id>/design/approved.md`
+- Dev server running on `localhost:5173` (`npm run dev` from repo root)
+- Playwright installed (`cd packages/web && bunx playwright install chromium`)
+- Reference mockups attached to `plans/<workpackage-id>/design/approved.md`
 
 ## Workflow
 
-### 1. Open the story
-
-For design-system components:
+### 1. Capture & Compare
 
 ```bash
-npm run ds:serve
-# open http://localhost:8098/#<ComponentName>
+cd packages/web && npm run visual:compare <reference-name>
 ```
 
-For app-level pages: use `http://localhost:5173/<route>`.
+This produces in `packages/web/visual-reports/<name>/`:
+- `reference.png` — screenshot of the reference HTML mockup
+- `implementation.png` — screenshot of the live app
+- `diff.png` — pixel diff (magenta = differences)
+- `report.json` — structured metrics (matchPercent, diffPixels, totalPixels)
 
-### 2. Capture a screenshot and evaluate
+### 2. Evaluate
 
-```bash
-npx playwright screenshot "http://localhost:8098/#<ComponentName>" /tmp/polish-<name>.png --wait-for-timeout=2000
-```
-
-Read the PNG. Look at pixels, not code. Identify:
+Read ALL three images. Look at pixels, not code. Identify:
 - **Layout differences** — element positions, flex/grid structure, spacing
 - **Color differences** — wrong tokens, missing dark theme colors, contrast
 - **Typography** — wrong font, size, weight, letter-spacing
 - **Missing elements** — icons, badges, indicators not implemented
 - **Extra elements** — implementation has things the reference doesn't
 
-Reference the approved design (`plans/<workpackage-id>/design/approved.md`) for design intent when differences are ambiguous.
+Reference the design synthesis docs (`plans/design-synthesis/`) for design intent when differences are ambiguous.
 
-### 3. Run the visual regression gate
-
-```bash
-npm run ds:sync
-```
-
-This diffs the live TSX story against committed golden PNG baselines at ≤5%. If the gate fails, the component has drifted from the last blessed state.
-
-### 4. Fix
+### 3. Fix
 
 Make targeted CSS/component changes. One concern per iteration:
 1. Layout structure first (flex, grid, widths, positions)
@@ -62,44 +50,43 @@ Make targeted CSS/component changes. One concern per iteration:
 4. Spacing and padding fourth
 5. Details last (borders, shadows, icons, badges)
 
-### 5. Re-compare
+### 4. Re-compare
 
-Re-run the comparison (`npm run ds:sync`). Check if the diff improved. If it regressed, revert the last change.
+Run the comparison again. Check if matchPercent improved. If it regressed, revert the last change.
 
-### 6. Convergence
+### 5. Convergence
 
 Stop when:
-- `npm run ds:sync` passes AND no critical visual differences in visual assessment
+- `matchPercent >= 90%` AND no critical visual differences in Claude vision assessment
 - OR 8 iterations reached (cap to prevent context rot)
 - OR remaining differences are due to dynamic content (timestamps, counts, avatars)
-
-After an intentional visual change, re-bless the baseline:
-
-```bash
-npm run ds:bless  # on Linux/CI for canonical baselines — see .claude/rules/visual-regression.md
-```
 
 ## Thresholds
 
 | Score | Status | Action |
 |-------|--------|--------|
-| Gate passes | Excellent | Done — commit + re-bless if intentional change |
-| Gate fails <5 components | Needs work | Continue iterating |
-| Gate fails many | Major | Layout/structural issues to fix |
+| ≥ 95% | Excellent | Done — commit |
+| 90-95% | Good | Review remaining diffs — likely acceptable |
+| 80-90% | Needs work | Continue iterating |
+| < 80% | Poor | Major layout/structural issues to fix |
 
 ## Important Rules
 
-- **Never raise the 5% threshold** — fix the component or re-bless deliberately
+- **Never chase 100%** — dynamic content, font rendering, and anti-aliasing make perfect matches impossible
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
-- **Check the approved design first** — when story and reference disagree, the approved design at `plans/<workpackage-id>/design/approved.md` is the source of truth
-- **One change at a time** — so you can attribute regression to specific modifications
-- **Disable animations** — add freeze CSS before screenshot so no animation-dependent layout shifts
+- **Check the design synthesis first** — when reference and implementation disagree on a design decision, the synthesis docs (`plans/design-synthesis/`) are the source of truth
+- **One change at a time** — so you can attribute score changes to specific modifications
+- **Disable animations** — the comparison script already injects freeze CSS, but verify no animation-dependent layout shifts
+
+## Reference Mapping
+
+The full mapping lives in `packages/web/scripts/visual-compare-map.ts`. Each reference maps to a route + optional setup function.
 
 ## Output
 
 After polishing, report:
-- Starting state (gate pass/fail, which components diffed)
-- Final state (gate passes)
+- Starting fidelity score
+- Final fidelity score
 - Number of iterations
 - Key changes made (file:line summary)
 - Remaining known differences (if any) and why they're acceptable

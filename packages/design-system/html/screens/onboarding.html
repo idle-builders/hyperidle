@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen — Setup / Onboarding</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; }
+
+    .onboarding {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--surface-page);
+      padding: 24px;
+    }
+
+    .onboarding-card {
+      background: var(--surface-elevated);
+      border-radius: var(--r-default);
+      box-shadow: var(--shadow-elevated);
+      padding: 48px;
+      max-width: 520px;
+      width: 100%;
+    }
+
+    .onboarding-brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+    .onboarding-tagline {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 36px;
+    }
+
+    .step-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 9px;
+      letter-spacing: -0.01em;
+    }
+    .step-desc {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .form-hint { font-size: 12px; color: var(--text-tertiary); }
+    .form-input { font-family: var(--font-sans); font-size: 15px; padding: 10px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-default); background: var(--surface-elevated); color: var(--text-primary); outline: none; width: 100%; }
+    .form-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1); }
+    .form-input::placeholder { color: var(--text-placeholder); }
+
+    .btn-row { display: flex; gap: 9px; align-items: center; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 13px; font-weight: 500; line-height: 1; padding: 10px 18px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; }
+    .btn--primary { background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn--ghost { background: transparent; color: var(--accent-primary); border-color: transparent; }
+
+    /* Welcome illustration (abstract) */
+    .welcome-visual {
+      display: flex;
+      gap: 9px;
+      margin-bottom: 24px;
+    }
+    .welcome-card {
+      flex: 1;
+      background: var(--surface-page);
+      border-radius: var(--r-subtle);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .welcome-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+    }
+    .welcome-line {
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--border-subtle);
+    }
+    .welcome-line--short { width: 60%; }
+    .welcome-line--long { width: 90%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Demo() {
+      return (
+        <div className="onboarding">
+          <div className="onboarding-card">
+            <div className="onboarding-brand">HyperIdle</div>
+            <div className="onboarding-tagline">Your agentic operating system. Humans steer, agents build.</div>
+
+            {/* Abstract illustration: mini app preview */}
+            <div className="welcome-visual">
+              <div className="welcome-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="welcome-dot" style={{ background: 'var(--accent-primary)' }}></div>
+                  <div className="welcome-line welcome-line--short"></div>
+                </div>
+                <div className="welcome-line welcome-line--long"></div>
+                <div className="welcome-line welcome-line--short"></div>
+              </div>
+              <div className="welcome-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="welcome-dot" style={{ background: 'var(--accent-secondary)' }}></div>
+                  <div className="welcome-line welcome-line--short"></div>
+                </div>
+                <div className="welcome-line welcome-line--long"></div>
+                <div className="welcome-line welcome-line--short"></div>
+              </div>
+              <div className="welcome-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="welcome-dot" style={{ background: 'var(--status-info)' }}></div>
+                  <div className="welcome-line welcome-line--short"></div>
+                </div>
+                <div className="welcome-line welcome-line--long"></div>
+                <div className="welcome-line welcome-line--short"></div>
+              </div>
+            </div>
+
+            <div className="step-title">Set up your workspace</div>
+            <div className="step-desc">Enter your name and API key to get started. Your agents need the API key to think and act on your behalf.</div>
+
+            <div className="form-group">
+              <label className="form-label">Your name</label>
+              <input className="form-input" type="text" placeholder="Tobias Grundtner" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Anthropic API key</label>
+              <input className="form-input" type="password" placeholder="sk-ant-..." />
+              <span className="form-hint">Required. Your key stays on this device.</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Project folder <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>(optional)</span></label>
+              <input className="form-input" type="text" placeholder="/Users/you/my-project" />
+              <span className="form-hint">Path to a git repository for agents to work in.</span>
+            </div>
+
+            <div className="btn-row">
+              <button className="btn btn--primary">Start HyperIdle</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>

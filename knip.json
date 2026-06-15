@@ -3,6 +3,7 @@
 	"ignore": [
 		"**/.claude/**",
 		"docs/product/.vitepress/**",
+		"packages/design-system/html/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js"
 	],
@@ -11,7 +12,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline", "vitepress", "playwright"],
+			"ignoreBinaries": ["bin/pipeline", "vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
@@ -34,7 +35,11 @@
 			],
 			"ignoreDependencies": ["autoprefixer", "postcss"],
 			"playwright": {
-				"config": ["playwright.config.ts", "playwright.workbench.config.ts"]
+				"config": [
+					"playwright.config.ts",
+					"playwright.l1.config.ts",
+					"playwright.workbench.config.ts"
+				]
 			}
 		},
 		"packages/web": {

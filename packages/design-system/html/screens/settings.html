@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen — Settings (All Sections)</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; }
+    .app-shell { display: flex; height: 100vh; background: var(--surface-container); gap: 3px; padding: 3px; }
+
+    /* Settings layout: sidebar nav + content panels */
+    .settings-nav { width: 200px; flex-shrink: 0; padding: 12px; display: flex; flex-direction: column; }
+    .settings-brand { font-size: 15px; font-weight: 700; color: var(--text-primary); padding: 6px 12px; margin-bottom: 18px; letter-spacing: -0.01em; }
+    .settings-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 9px; padding: 0 12px; }
+    .settings-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .settings-item--active { background: var(--surface-elevated); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-subtle); }
+    .sidebar-view { padding: 6px 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 12px 12px; }
+    .sidebar-bottom { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .sidebar-search-hint { padding: 6px 12px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+    .kbd { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-container); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+    .sidebar-avatar { width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+    .sidebar-item { padding: 6px 12px; font-size: 13px; color: var(--text-secondary); border-radius: var(--r-subtle); margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+    .settings-main { flex: 1; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle); display: flex; flex-direction: column; overflow-y: auto; }
+    .settings-header { padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); }
+    .settings-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+    .settings-header p { font-size: 13px; color: var(--text-tertiary); margin-top: 3px; }
+    .settings-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 680px; margin: 0 auto; width: 100%; }
+
+    /* Form elements */
+    .form-section { display: flex; flex-direction: column; gap: 18px; }
+    .form-section-title { font-size: 13px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle); }
+    .form-group { display: flex; flex-direction: column; gap: 6px; max-width: 400px; }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .form-hint { font-size: 12px; color: var(--text-tertiary); }
+    .form-input { font-family: var(--font-sans); font-size: 15px; padding: 10px 12px; border: 1.5px solid var(--border-default); border-radius: var(--r-default); background: var(--surface-elevated); color: var(--text-primary); outline: none; width: 100%; }
+    .form-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1); }
+    .form-input::placeholder { color: var(--text-placeholder); }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
+    .toggle-track { width: 44px; height: 24px; border-radius: var(--r-pill); background: var(--border-default); position: relative; flex-shrink: 0; margin-top: 1px; }
+    .toggle-track--on { background: var(--accent-primary); }
+    .toggle-thumb { width: 18px; height: 18px; background: var(--surface-elevated); border-radius: var(--r-pill); position: absolute; top: 3px; left: 3px; box-shadow: var(--shadow-subtle); }
+    .toggle-track--on .toggle-thumb { left: 23px; }
+    .toggle-text { display: flex; flex-direction: column; gap: 2px; }
+    .toggle-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .toggle-desc { font-size: 12px; color: var(--text-tertiary); line-height: 1.55; }
+
+    /* Theme selector */
+    .theme-options { display: flex; gap: 12px; }
+    .theme-option { width: 120px; padding: 12px; border-radius: var(--r-default); border: 1.5px solid var(--border-default); cursor: pointer; text-align: center; transition: border-color 240ms ease; }
+    .theme-option--active { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(22, 118, 79, 0.1); }
+    .theme-swatch { width: 100%; height: 48px; border-radius: var(--r-subtle); margin-bottom: 9px; }
+    .theme-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+    /* Credential row */
+    .cred-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+    .cred-row:last-child { border-bottom: none; }
+    .cred-info { flex: 1; }
+    .cred-name { font-size: 15px; color: var(--text-primary); }
+    .cred-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+    .cred-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(22, 118, 79, 0.08); color: var(--accent-primary); }
+
+    .btn { display: inline-flex; align-items: center; font-family: var(--font-sans); font-size: 13px; font-weight: 500; padding: 10px 18px; border-radius: var(--r-pill); border: 1.5px solid transparent; cursor: pointer; background: var(--accent-primary); color: var(--text-on-accent); }
+    .btn--sm { font-size: 12px; padding: 7px 12px; }
+    .btn--secondary { background: var(--surface-elevated); color: var(--text-primary); border-color: var(--border-default); }
+    .btn--destructive { background: var(--status-error); color: var(--text-on-accent); border-color: var(--status-error); }
+
+    /* Team list */
+    .team-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+    .team-row:last-child { border-bottom: none; }
+    .team-avatar { width: 36px; height: 36px; border-radius: var(--r-pill); background: var(--surface-page); border: 1.5px solid var(--border-default); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    .team-info { flex: 1; }
+    .team-name { font-size: 15px; color: var(--text-primary); font-weight: 500; }
+    .team-members { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    /* Show all settings panels stacked vertically for reference */
+    function Demo() {
+      return (
+        <div className="app-shell">
+          <div className="settings-nav">
+            <div className="settings-brand">HyperIdle</div>
+            <div className="sidebar-view">Conversations</div>
+            <div className="sidebar-view">Work</div>
+            <div className="sidebar-view">Knowledge</div>
+            <hr className="sidebar-divider" />
+            <div className="settings-label" style={{ marginBottom: 6 }}>Settings</div>
+            <div className="settings-item settings-item--active">Profile</div>
+            <div className="settings-item">Org chart</div>
+            <div className="settings-item">Appearance</div>
+            <div className="settings-item">Credentials</div>
+            <div className="settings-item">Notifications</div>
+            <div className="settings-item">Backend</div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar" style={{ borderColor: 'var(--accent-primary)' }}>TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-main">
+            <div className="settings-header">
+              <h2>Settings</h2>
+              <p>Manage your profile, team, and app preferences.</p>
+            </div>
+            <div className="settings-body">
+              {/* Profile */}
+              <div className="form-section">
+                <div className="form-section-title">Profile</div>
+                <div className="form-group">
+                  <label className="form-label">Display name</label>
+                  <input className="form-input" type="text" defaultValue="Tobias Grundtner" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input className="form-input" type="email" defaultValue="tobias@hyperidle.com" />
+                  <span className="form-hint">Used for notifications and login.</span>
+                </div>
+                <div>
+                  <button className="btn btn--sm">Save profile</button>
+                </div>
+              </div>
+
+              {/* Org chart */}
+              <div className="form-section">
+                <div className="form-section-title">Org chart</div>
+                <div className="team-row">
+                  <div className="team-avatar">P</div>
+                  <div className="team-info">
+                    <div className="team-name">Product</div>
+                    <div className="team-members">Tobias, Kim, Atlas (agent), Jordan</div>
+                  </div>
+                  <button className="btn--sm btn--secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 'var(--r-pill)', border: '1.5px solid var(--border-default)', background: 'var(--surface-elevated)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Edit</button>
+                </div>
+                <div className="team-row">
+                  <div className="team-avatar">I</div>
+                  <div className="team-info">
+                    <div className="team-name">Infrastructure</div>
+                    <div className="team-members">Jordan, Atlas (agent), Morgan</div>
+                  </div>
+                  <button className="btn--sm btn--secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 'var(--r-pill)', border: '1.5px solid var(--border-default)', background: 'var(--surface-elevated)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Edit</button>
+                </div>
+              </div>
+
+              {/* Appearance */}
+              <div className="form-section">
+                <div className="form-section-title">Appearance</div>
+                <div className="form-group" style={{ maxWidth: 'none' }}>
+                  <label className="form-label">Theme</label>
+                  <div className="theme-options">
+                    <div className="theme-option theme-option--active">
+                      <div className="theme-swatch" style={{ background: '#f5f0e6', border: '1px solid #e8e0d0' }}></div>
+                      <div className="theme-name">Light</div>
+                    </div>
+                    <div className="theme-option">
+                      <div className="theme-swatch" style={{ background: '#1a1510' }}></div>
+                      <div className="theme-name">Dark</div>
+                    </div>
+                    <div className="theme-option">
+                      <div className="theme-swatch" style={{ background: 'linear-gradient(135deg, #f5f0e6 50%, #1a1510 50%)' }}></div>
+                      <div className="theme-name">System</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Credentials */}
+              <div className="form-section">
+                <div className="form-section-title">Credentials</div>
+                <div className="cred-row">
+                  <div className="cred-info">
+                    <div className="cred-name">Anthropic API Key</div>
+                    <div className="cred-meta">sk-ant-...8f2a &middot; Added May 15</div>
+                  </div>
+                  <span className="cred-badge">Active</span>
+                  <button className="btn--sm btn--destructive" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 'var(--r-pill)', border: '1.5px solid var(--status-error)', background: 'var(--status-error)', color: 'var(--text-on-accent)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Remove</button>
+                </div>
+                <div className="cred-row">
+                  <div className="cred-info">
+                    <div className="cred-name">GitHub Personal Access Token</div>
+                    <div className="cred-meta">ghp_...x9k3 &middot; Added May 20</div>
+                  </div>
+                  <span className="cred-badge">Active</span>
+                  <button className="btn--sm btn--destructive" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 'var(--r-pill)', border: '1.5px solid var(--status-error)', background: 'var(--status-error)', color: 'var(--text-on-accent)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>Remove</button>
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <button className="btn btn--sm">Add credential</button>
+                </div>
+              </div>
+
+              {/* Notifications */}
+              <div className="form-section">
+                <div className="form-section-title">Notifications</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div className="toggle-row">
+                    <div className="toggle-track toggle-track--on"><div className="toggle-thumb"></div></div>
+                    <div className="toggle-text">
+                      <span className="toggle-name">Review requests</span>
+                      <span className="toggle-desc">Get notified when an agent needs your review</span>
+                    </div>
+                  </div>
+                  <div className="toggle-row">
+                    <div className="toggle-track toggle-track--on"><div className="toggle-thumb"></div></div>
+                    <div className="toggle-text">
+                      <span className="toggle-name">Cost alerts</span>
+                      <span className="toggle-desc">Notify when a bet exceeds 80% of its budget</span>
+                    </div>
+                  </div>
+                  <div className="toggle-row">
+                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                    <div className="toggle-text">
+                      <span className="toggle-name">Blocker notifications</span>
+                      <span className="toggle-desc">Alert when an agent is blocked and needs intervention</span>
+                    </div>
+                  </div>
+                  <div className="toggle-row">
+                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                    <div className="toggle-text">
+                      <span className="toggle-name">Email digests</span>
+                      <span className="toggle-desc">Receive a daily email summary of unread threads</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Backend */}
+              <div className="form-section">
+                <div className="form-section-title">Backend</div>
+                <div className="form-group">
+                  <label className="form-label">Mode</label>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Local (laptop)</div>
+                  <span className="form-hint">Agent sessions run locally on this machine.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>

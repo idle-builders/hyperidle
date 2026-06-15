@@ -16,7 +16,7 @@ export type Tier = "1" | "2" | "3" | "utility";
 
 export interface StoryMeta {
 	title: string;
-	/** Explicit variant display order. */
+	/** Explicit variant order matching the HTML demo section order. */
 	order?: string[];
 	/** Tier bucket for the catalog. Missing → "utility" + console.warn. */
 	tier?: Tier;

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toast — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Toast ──
+       Elevated card with thin left-border accent (the one structural status signal).
+       Four variants: success, error, warning, info. Icon circle + title + message.
+       Max 380px. From 03-hearth.html component library. */
+
+    .toast {
+      display: flex;
+      gap: 9px;
+      padding: 12px;
+      border-radius: var(--r-default);
+      background: var(--surface-elevated);
+      box-shadow: var(--shadow-default);
+      max-width: 380px;
+    }
+    .toast--success { border-left: 1.5px solid var(--status-success); }
+    .toast--error { border-left: 1.5px solid var(--status-error); }
+    .toast--warning { border-left: 1.5px solid var(--status-warning); }
+    .toast--info { border-left: 1.5px solid var(--status-info); }
+
+    .toast-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: var(--r-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .toast--success .toast-icon { background: rgba(22, 118, 79, 0.1); color: var(--status-success); }
+    .toast--error .toast-icon { background: rgba(220, 74, 58, 0.1); color: var(--status-error); }
+    .toast--warning .toast-icon { background: rgba(217, 119, 6, 0.1); color: var(--status-warning); }
+    .toast--info .toast-icon { background: rgba(46, 125, 186, 0.1); color: var(--status-info); }
+
+    .toast-content { flex: 1; }
+    .toast-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .toast-message {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+    .toast-close {
+      font-size: 17px;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      line-height: 1;
+      background: none;
+      border: none;
+      padding: 0;
+      transition: color 120ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      font-family: var(--font-sans);
+    }
+    .toast-close:hover { color: var(--text-primary); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Toast({ variant, icon, title, message }) {
+      return (
+        <div className={`toast toast--${variant}`} data-ds-component="Toast" data-tier="0">
+          <div className="toast-icon">{icon}</div>
+          <div className="toast-content">
+            <div className="toast-title">{title}</div>
+            <div className="toast-message">{message}</div>
+          </div>
+          <button className="toast-close">&times;</button>
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Toast Variants</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Toast variant="success" icon={'✓'} title="Bet approved" message="Auth migration is now active with a $2,400 budget." />
+              <Toast variant="error" icon="!" title="Deploy failed" message="Agent Atlas hit a rate limit on staging." />
+              <Toast variant="warning" icon={'⚠'} title="Budget alert" message="Search rewrite is at 85% of its budget." />
+              <Toast variant="info" icon="i" title="Agent update" message="Atlas finished indexing 340 knowledge items." />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>
