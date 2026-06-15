@@ -138,3 +138,59 @@ Fix direction (builder, round 3): give `runAssistantTurn` a seam to deliver the 
 ## What must change to reach DONE (round 3 — cap)
 1. **H3** — deliver the thread transcript (≥ the triggering user message) to the adapter as conversational input; stop running the task `runLoop` for a chat turn (§1.4). Add a happy-path test whose adapter **observes/echoes the user message**, failing if it isn't delivered.
 2. (Optional cleanup) de-duplicate the `agents.ts` `ast-*` branch; lift `BUILTIN_SOUL_PROMPT` to a shared const.
+
+---
+
+# Round 3 — final review (review cap)
+
+**Verdict: DONE.** H3 is genuinely closed. The user's triggering message now reaches the model as conversational input, the assistant runs a single chat completion (not the task-planning loop), the persona is the system prompt for that completion, and the two new tests genuinely discriminate (they fail if the message isn't delivered). All five round-1 and the round-2 H3 blocker are closed without regression. The two remaining minors are cosmetic, non-blocking, AC-neutral.
+
+Independent check (run, not trusted): `npm run check` PASS (12/12 packages). AH3 integration `AH3-assistant-turn.integration.test.ts` 20/20 PASS (was 18 in round 2; +2 H3 tests). AH3 fast tests 25/25 PASS (4 files: compose-assistant-prompt, assistant-turn-unit, plain-payload-notice, AssistantOverlay.notice).
+
+## H3 closure — traced, not asserted
+
+**1. The triggering user message reaches the model.** Full trace verified:
+- `threads.ts:1334-1355` fires `runAssistantTurn` with `triggerMessageId: messageId` (the just-inserted human message), guarded to human + plain + assistant-thread.
+- `assistant-turn.ts:374` calls `loadThreadTranscript(db, threadId, ast-${userId})`, which reads ALL plain messages on the thread `orderBy(asc(createdAt))`, skips notices/empty, maps `senderId === assistantAgentId → "assistant"` else `"user"`. The trigger message was inserted immediately before the turn fired, so it is present and chronologically last → correct role + ordering.
+- `assistant-turn.ts:398` puts the transcript on `SessionConfig.messages` (real typed field on `SessionConfig`, real `ConversationMessage` interface — no `as unknown`).
+- `builtin-harness-adapter.ts:367` branches on `config.messages?.length > 0` → `runChatTurn`. `runChatTurn:438-451` seeds `session.messages` from the transcript and calls `callLlm({ model, messages: session.messages, tools: [], system: config.composedPrompt })`. The user's text is in the `messages` payload sent to the provider. Confirmed.
+- `triggerMessageId` itself is unused inside `runTurnInternal` (prefixed `_`); not a defect — the transcript loader captures the trigger by loading the whole thread, and the lore at `assistant-turn.ts:368-371` documents this. Multi-turn prior history is genuinely deferred but the *current* question is delivered.
+
+**2. The new tests genuinely discriminate (not blind).**
+- H3a (`:929`): capturing adapter derives `capturedUserContent` from `config.messages` (last user msg) and echoes `Received: ${capturedUserContent}`; if `messages` were empty it would be `NO_USER_MESSAGE_RECEIVED`. Asserts `capturedUserContent === "What time is it?"` AND persisted reply `toContain("What time is it?")`. Reply is a pure function of the delivered input — would fail if H3 regressed.
+- H3b (`:1040`): validating adapter emits an `error` event (→ `provider_error` notice) unless `messages` contains the exact `UNIQUE_QUESTION` as a user message; asserts the persisted reply is exactly `"I see your question."` (i.e. no error) and `receivedMessages` contains the user msg. Discriminating in the negative direction too.
+- Neither is the round-2 `ScriptedAdapter` blind test (that one hardcoded its reply regardless of input). The H1 scripted test at `:562` is retained only as a "reply persists" smoke check, not the H3 proof.
+
+**3. Chat-turn vs planning-loop branch is sound.** `runChatTurn` runs ONE `callLlm`, no `PLANNING_PROMPT`, no `runExecuteTurn`/reflection/max-iterations, no tools, sets `session.done = true`. The task path (`messages` absent/empty → `runPlanningTurn` + execute loop) is byte-unchanged. Existing task/session tests not in the AH3 set are unaffected (no edits to the planning-turn code). Persona system prompt: `composeAssistantPrompt(soulPromptText)` → `composedPrompt` → passed as `system` to `callLlm` in the chat turn. Byte-equality (§4) intact — `composeAssistantPrompt` is the single composer for both adapter paths; the compose test (4-file fast suite) passes.
+
+**4. Never-silent holds across the chat path.** `runChatTurn` errors propagate through `runLoop`'s catch → `error` HarnessEvent → `drainStreamEvents` returns `{type:"error"}` → `persistTurnFailure` → `provider_error` notice. Missing key (null-resolve M3 + thrown), missing harness, and the hung-provider timeout all still map to their distinct notices on the chat path (the timeout race wraps the same `drainStreamEvents`). No new silent branch introduced.
+
+## AC table (round 3 — final)
+
+| AC | Status | Evidence |
+|---|---|---|
+| AC1 — visible streaming reply when configured | **DONE** (deterministic proof); real-model streaming correctly deferred to AH5 | Turn delivers the user message → chat completion → reply persisted + `thread_message_appended` emitted. H3a/H3b prove the reply is a function of the user's question. Real-model streaming E2E `.skip()`-deferred to AH5 (`spec.ts:209`), not dropped — lore-noted, RED-authored. |
+| AC2 — can't run → specific notice, never silent | **DONE** | Three notice classes persist + survive read-back (H2 schema fix); missing_key (null + thrown), missing_harness, provider_error (incl. hung-provider timeout) all tested. No secret leak (`:254`). Chat-path errors map to provider_error. |
+| AC3 — persona one place; agent provably uses it | **DONE** | Single edit surface: UI omit + server 403 `ASSISTANT_SOUL_EDIT_FORBIDDEN` (`agents.ts`, test `:437`) + byte-equality test. End-to-end use now provable: saved `soulPrompt` → `composeAssistantPrompt` → `composedPrompt` → `system` of the actual chat completion in `runChatTurn`. The round-2 gap (turn wasn't a real conversational answer) is closed by H3. |
+| AC4 — rectangular textareas | **DONE** | Both settings textareas on `<Input textarea>`; `grep textarea-bordered packages/web/src/settings/` → zero; ESLint `design/no-raw-settings-textarea` at error; E2E rectangularity specs present. |
+| AC5 — first-time user with key gets a real answer | **DONE** (deterministic); live answer = AH5 lane | Defaults backfilled at registration + both lazy-create paths (tested). Turn runs, delivers the message, returns a reply that is a function of the input. The live real-model answer-vs-welcome assertion is the AH5 `.skip()` lane. |
+
+## Validation scenarios
+
+- Scenario 1 (fresh install + key → real answer, distinct from welcome) — deterministic proof present (H3a/H3b); live-model assertion correctly `.skip()`-deferred to AH5 with lore. The wiring AH5 needs (`assistantTurnDeps` into server boot) exists (`app.ts`, `threads.ts`).
+- Scenario 2 (no key → visible error/guidance) — DONE; E2E no-key overlay spec active (`spec.ts:169`) + integration missing_key notice round-trip.
+- Scenario 3 (rectangular textareas, ≥2 instances) — DONE; two E2E specs (`spec.ts:323,346`) + ESLint guard.
+- Scenario 4 (edit persona → next turn reflects it; exactly one surface) — single-surface DONE; persona reaches the chat completion's system prompt (composer is the one canonical path). Live persona-reflection is the AH5 lane.
+
+## Two remaining minors — adjudication (NOT blockers)
+
+1. **`BUILTIN_SOUL_PROMPT` literal duplicated ×3** (`assistant-turn.ts:59`, `users.ts:24`, `assistant.ts:39`). All three strings are byte-identical today; risk is future drift, not a current bug. Cosmetic. Not an AC-breaker. Acceptable deferral — note for a follow-up cleanup.
+2. **`agents.ts` `ast-*` branch duplicates the update+response block** and reads the body twice on the non-soulPrompt path. The 403 reject is correct and tested; the duplication is a simplification/slop note, no correctness impact. Cosmetic. Not an AC-breaker. Acceptable deferral.
+
+Neither item touches a contract, an AC, or a security boundary. Both are safe to ship as-is and clean up later.
+
+## No regressions
+
+All round-1 fixes (H1, H2, M3, M4, D4, S6, S7, C5) remain closed — verified in the round-3 diff: typed `SessionConfig` literal (no `as unknown`), notice on read schema, null-resolve→missing_key, single dispatch seam, `<Input textarea>` + ESLint guard (zero raw textareas), real `streamEvents` interface, genuine `ast-*` loop-guard test. The H3 change is additive (`ConversationMessage`, `SessionConfig.messages`, `loadThreadTranscript`, `runChatTurn` branch) and does not weaken any of them.
+
+**Final: DONE. Pipeline may proceed to retro + ship.**
