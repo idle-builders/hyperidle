@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tooltip — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Tooltip ──
+       Inverted: primary text bg, elevated text color. Subtle radius (10px).
+       Arrow pointing down. Positioned above trigger. From 03-hearth.html. */
+
+    .tooltip-demo {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip-box {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text-primary);
+      color: var(--surface-elevated);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 9px;
+      border-radius: var(--r-subtle);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .tooltip-box::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid var(--text-primary);
+    }
+
+    /* Trigger styles for demo */
+    .btn-demo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+    }
+    .avatar-demo {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(22, 118, 79, 0.08);
+      border: 1.5px solid var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .badge-demo {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      line-height: 1.4;
+      white-space: nowrap;
+      background: rgba(217, 119, 6, 0.1);
+      color: var(--accent-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Tooltip Positions</div>
+            <div style={{ paddingTop: 48, display: 'flex', gap: 48 }}>
+              <div className="tooltip-demo" data-ds-component="Tooltip" data-tier="0">
+                <div className="tooltip-box">3 unread messages</div>
+                <button className="btn-demo">Inbox</button>
+              </div>
+              <div className="tooltip-demo" data-ds-component="Tooltip" data-tier="0">
+                <div className="tooltip-box">Agent: Atlas (Claude)</div>
+                <div className="avatar-demo">AT</div>
+              </div>
+              <div className="tooltip-demo" data-ds-component="Tooltip" data-tier="0">
+                <div className="tooltip-box">Budget remaining: $1,800</div>
+                <span className="badge-demo">$2,400</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

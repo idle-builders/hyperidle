@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ArtifactPreview — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { background: var(--surface-container); color: var(--text-primary); font-family: var(--ui); padding: 24px; }
+    .artifact-preview {
+      background: var(--surface-container);
+      border-radius: var(--r-default);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+    }
+    @media (max-width: 1024px) { .artifact-preview { grid-template-columns: 1fr; } }
+    .preview-header { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+    .preview-meta { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: var(--tracking-caps-sm); }
+    .preview-meta .id { margin-left: auto; color: var(--text-tertiary); }
+    .preview-title { font-size: 20px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+    .preview-body { background: var(--surface-elevated); border-radius: var(--r-subtle); min-height: 240px; padding: 16px; }
+    .preview-discussion { background: var(--surface-elevated); border-radius: var(--r-subtle); padding: 16px; color: var(--text-tertiary); font-size: 12px; }
+    .sep { color: var(--text-tertiary); }
+    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r-default); background: color-mix(in oklab, var(--text-secondary) 8%, transparent); color: var(--text-secondary); font-family: var(--mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="artifact-preview" data-component="ArtifactPreview" data-tier="2">
+    <div class="preview-header">
+      <div class="preview-meta">
+        <span class="artifact-kind-badge">DECISION</span>
+        <span class="sep">·</span>
+        <span>Pick auth library</span>
+        <span class="sep">·</span>
+        <span>$0.42 · 12.4k</span>
+        <span class="sep">·</span>
+        <span>12 min ago</span>
+        <span class="id">art_01HM…</span>
+      </div>
+      <div class="preview-title">Adopt Hono JWT — ships native, no extra dep</div>
+    </div>
+    <div class="preview-body" data-component="ArtifactPreviewSurface" data-size="full">
+      Rationale: built into the framework, supported by the same auth middleware we already use, removes one transitive dependency.
+    </div>
+    <div class="preview-discussion">No threads</div>
+  </div>
+</body>
+</html>

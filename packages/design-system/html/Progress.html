@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progress — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* ── Progress Bar ──
+       8px track on container bg. Pill-rounded. Two fill colors: green (healthy)
+       and amber (at-risk/warning). From 03-hearth.html component library. */
+
+    .progress-track {
+      height: 8px;
+      background: var(--surface-container);
+      border-radius: var(--r-pill);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: var(--r-pill);
+      transition: width 450ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .progress-fill--green { background: var(--accent-primary); }
+    .progress-fill--amber { background: var(--accent-secondary); }
+
+    /* Progress with label */
+    .progress-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .progress-value {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Progress({ label, value, variant = 'green' }) {
+      return (
+        <div className="progress-row" data-ds-component="Progress" data-tier="0">
+          {label && (
+            <div className="progress-header">
+              <span className="progress-label">{label}</span>
+              <span className="progress-value">{value}%</span>
+            </div>
+          )}
+          <div className="progress-track">
+            <div className={`progress-fill progress-fill--${variant}`} style={{ width: `${value}%` }}></div>
+          </div>
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Progress Bars</div>
+            <div className="demo-card" style={{ maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <Progress label="Auth migration" value={35} />
+              <Progress label="Search rewrite" value={68} />
+              <Progress label="Budget usage" value={85} variant="amber" />
+              <Progress label="Onboarding v3" value={100} />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Bare Track (no label)</div>
+            <div className="demo-card" style={{ maxWidth: 400 }}>
+              <div className="progress-track" data-ds-component="Progress" data-tier="0">
+                <div className="progress-fill progress-fill--green" style={{ width: '45%' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

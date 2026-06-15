@@ -1,0 +1,63 @@
+/**
+ * Hearth Light
+ *
+ * Warm cream surfaces. Forest green accent. System fonts. Organic motion.
+ * Light-first default for the Hearth design system.
+ *
+ * @lore U4 — Replaces lucid-light.css. Hearth is light-first; this is the
+ * default theme. All token names follow the Hearth token system (no surface-0
+ * through surface-6, no text-hi/mid/lo, no --primary/--warn/--ok/--danger).
+ */
+[data-theme="hearth-light"] {
+	/* Surfaces — warm cream tones */
+	--surface-page: #f5f0e6;
+	--surface-container: #ede7db;
+	--surface-elevated: #ffffff;
+	--surface-overlay: #ffffff;
+
+	/* Text — warm dark tones */
+	--text-primary: #2c241a;
+	--text-secondary: #6b5d4d;
+	--text-tertiary: #9a8d7e;
+	--text-placeholder: #bfb5a5;
+	--text-on-accent: #ffffff;
+
+	/* Accents — forest green */
+	--accent-primary: #16764f;
+	--accent-primary-dim: rgba(22, 118, 79, 0.08);
+	--accent-primary-hover: #105e3f;
+	--accent-secondary: #d97706;
+
+	/* Status */
+	--status-success: #16764f;
+	--status-warning: #d97706;
+	--status-error: #dc4a3a;
+	--status-info: #2e7dba;
+
+	/* Borders — solid warm tones */
+	--border-subtle: #e8e0d0;
+	--border-default: #d5cbb8;
+	--border-strong: #b5a890;
+
+	/* Shadows — warm-tinted */
+	--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
+	--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
+	--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
+
+	/* Radii — warm, rounded feel */
+	--r-none: 0;
+	--r-subtle: 10px;
+	--r-default: 16px;
+	--r-pill: 9999px;
+
+	/* Motion — gentler, warmer pacing */
+	--motion-fast: 120ms;
+	--motion-default: 240ms;
+	--motion-slow: 450ms;
+
+	/* Typography — system fonts */
+	--font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+
+	color-scheme: light;
+}

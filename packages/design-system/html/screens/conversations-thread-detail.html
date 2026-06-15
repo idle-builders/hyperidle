@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screen — Conversations: Thread Detail</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    #root { max-width: none; padding: 0; }
+    html, body { overflow: hidden; }
+
+    /* ── App Shell ── */
+    .app-shell {
+      display: flex;
+      height: 100vh;
+      background: var(--surface-container);
+      gap: 3px;
+      padding: 3px;
+    }
+
+    /* ── Sidebar (shared) ── */
+    .sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-brand {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      padding: 6px 12px;
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+    .sidebar-section { margin-bottom: 18px; }
+    .sidebar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 9px;
+      padding: 0 12px;
+    }
+    .sidebar-item {
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-radius: var(--r-subtle);
+      margin-bottom: 3px;
+      cursor: pointer;
+      transition: background 240ms ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-item:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-item--active {
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+      font-weight: 500;
+      box-shadow: var(--shadow-subtle);
+    }
+    .sidebar-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: var(--r-pill);
+      flex-shrink: 0;
+    }
+    .sidebar-divider {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: 12px 12px;
+    }
+    .sidebar-view {
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: var(--r-subtle);
+      margin-bottom: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-view:hover { background: rgba(44, 36, 26, 0.04); }
+    .sidebar-view--active { color: var(--text-primary); }
+    .sidebar-bottom {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sidebar-search-hint {
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kbd {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      background: var(--surface-container);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .sidebar-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      border: 1.5px solid var(--border-default);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    /* ── Main Panel ── */
+    .main {
+      flex: 1;
+      background: var(--surface-elevated);
+      border-radius: var(--r-subtle);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .main-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .main-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .header-badges {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .badge--green {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+    }
+    .badge--amber {
+      background: rgba(217, 119, 6, 0.1);
+      color: var(--accent-secondary);
+    }
+    .badge--agent {
+      background: rgba(22, 118, 79, 0.08);
+      color: var(--accent-primary);
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Messages ── */
+    .thread-messages {
+      flex: 1;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .message {
+      display: flex;
+      gap: 12px;
+    }
+    .message-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--r-pill);
+      background: var(--surface-page);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border-subtle);
+    }
+    .message-avatar--agent {
+      background: rgba(22, 118, 79, 0.08);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .message-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .message-header {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .message-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .message-time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .message-text {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .message-action {
+      margin-top: 9px;
+      background: rgba(22, 118, 79, 0.03);
+      border-radius: var(--r-subtle);
+      padding: 9px 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .message-action-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .message-action-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
+      flex-shrink: 0;
+    }
+    .action-status {
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .action-status--success { color: var(--status-success); }
+    .action-status--warning { color: var(--status-warning); }
+
+    /* ── Artifact Card ── */
+    .artifact-card {
+      margin-top: 9px;
+      background: var(--surface-page);
+      border-radius: var(--r-default);
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+    .artifact-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .artifact-type {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .artifact-status {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .artifact-status--ready { color: var(--status-success); }
+    .artifact-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .artifact-preview {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ── Secondary Button + Live Dot ── */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid var(--border-default);
+      cursor: pointer;
+      background: var(--surface-elevated);
+      color: var(--text-primary);
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--accent-primary);
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Composer ── */
+    .thread-composer {
+      padding: 12px 24px 18px;
+      display: flex;
+      gap: 9px;
+      align-items: stretch;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .composer-input {
+      flex: 1;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--r-default);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .composer-input::placeholder { color: var(--text-placeholder); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      padding: 7px 12px;
+      border-radius: var(--r-pill);
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      background: var(--accent-primary);
+      color: var(--text-on-accent);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Demo() {
+      return (
+        <div className="app-shell">
+          {/* Sidebar */}
+          <div className="sidebar">
+            <div className="sidebar-brand">HyperIdle</div>
+            <div className="sidebar-section">
+              <div className="sidebar-view sidebar-view--active">Conversations</div>
+              <div className="sidebar-item sidebar-item--active">
+                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
+                Auth migration
+              </div>
+              <div className="sidebar-item">
+                <span className="sidebar-dot" style={{ background: 'var(--accent-secondary)' }}></span>
+                Search rewrite
+              </div>
+              <div className="sidebar-item">
+                <span className="sidebar-dot" style={{ background: 'var(--status-info)' }}></span>
+                Onboarding v3
+              </div>
+              <div className="sidebar-item">
+                <span className="sidebar-dot" style={{ background: 'var(--accent-primary)' }}></span>
+                Billing overhaul
+              </div>
+            </div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Work</div>
+            </div>
+            <div className="sidebar-section">
+              <div className="sidebar-view">Knowledge</div>
+            </div>
+            <div className="sidebar-bottom">
+              <div className="sidebar-search-hint">
+                <span>Search</span>
+                <span className="kbd">⌘K</span>
+              </div>
+              <hr className="sidebar-divider" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px' }}>
+                <div className="sidebar-avatar">TG</div>
+                <div className="sidebar-item" style={{ padding: 0, marginBottom: 0, flex: 1 }}>Assistant</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main: Thread Detail */}
+          <div className="main">
+            <div className="main-header">
+              <h2>Passkey rollout plan</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div className="header-badges">
+                  <span className="badge badge--green">Product</span>
+                  <span className="badge badge--amber">$2,400 budget</span>
+                  <span className="badge badge--green">Active</span>
+                </div>
+                <button className="btn-secondary"><span className="live-dot"></span> Dial in</button>
+              </div>
+            </div>
+            <div className="thread-messages">
+              {/* Message 1: Human */}
+              <div className="message">
+                <div className="message-avatar">TG</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-name">Tobias</span>
+                    <span className="message-time">2:34 PM</span>
+                  </div>
+                  <div className="message-text">Let's start the passkey migration. Can you draft a rollout plan that doesn't break existing sessions?</div>
+                </div>
+              </div>
+              {/* Message 2: Agent */}
+              <div className="message">
+                <div className="message-avatar message-avatar--agent">AT</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-name">Atlas</span>
+                    <span className="badge badge--agent">Agent</span>
+                    <span className="message-time">2:35 PM</span>
+                  </div>
+                  <div className="message-text">I've drafted a 3-phase plan: shadow enrollment, dual-auth window, then password deprecation. Existing sessions stay valid through phase 2. Estimated 6 weeks end-to-end.</div>
+                  <div className="artifact-card">
+                    <div className="artifact-header">
+                      <span className="artifact-type">Action summary</span>
+                      <span className="artifact-status artifact-status--ready">Ready</span>
+                    </div>
+                    <div className="artifact-title">Deployment plan — 3 phases</div>
+                    <div className="artifact-preview">
+                      Phase 1: Shadow enrollment (week 1-2)<br/>
+                      Phase 2: Dual-auth window (week 3-4)<br/>
+                      Phase 3: Password deprecation (week 5-6)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Message 3: Human */}
+              <div className="message">
+                <div className="message-avatar">KL</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-name">Kim</span>
+                    <span className="message-time">2:41 PM</span>
+                  </div>
+                  <div className="message-text">What about the 12k active sessions? We need a migration path that doesn't force re-auth for everyone at once.</div>
+                </div>
+              </div>
+              {/* Message 4: Agent */}
+              <div className="message">
+                <div className="message-avatar message-avatar--agent">AT</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-name">Atlas</span>
+                    <span className="badge badge--agent">Agent</span>
+                    <span className="message-time">2:42 PM</span>
+                  </div>
+                  <div className="message-text">Good call. Updated the plan: phase 1 uses lazy enrollment — users get prompted on next login, not forced. Current sessions remain valid with existing cookies until natural expiry (30 days).</div>
+                  <div className="message-action" style={{ flexDirection: 'column', gap: 9, alignItems: 'stretch' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="message-action-label">
+                        <span className="message-action-dot"></span>
+                        Session migration strategy — review requested
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn" style={{ fontSize: 12, padding: '7px 12px' }}>Approve</button>
+                      <button className="btn-secondary">Reject</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Message 5: Human */}
+              <div className="message">
+                <div className="message-avatar">TG</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-name">Tobias</span>
+                    <span className="message-time">2:45 PM</span>
+                  </div>
+                  <div className="message-text">Perfect. Ship phase 1 to staging. Kim, can you own the monitoring dashboard?</div>
+                </div>
+              </div>
+            </div>
+            <div className="thread-composer">
+              <input className="composer-input" type="text" placeholder="Reply to thread..." disabled />
+              <button className="btn">Send</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Demo />, document.getElementById('root'));
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>
