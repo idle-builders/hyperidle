@@ -10,5 +10,5 @@
   "prNumber": 320,
   "startedAt": "2026-06-15T00:00:00Z",
   "completedAt": "2026-06-15T00:00:00Z",
-  "notes": "Promote knowledge item -> draft bet. Provenance: nullable FK bets.source_knowledge_item_id onDelete:restrict, migration 0035. Reuses AG3 authoring. Review DONE after 1 fix round (multi-team empty-editor CRITICAL). Verify green 5675 tests."
+  "notes": "Promote knowledge item -> draft bet. Provenance: nullable FK bets.source_knowledge_item_id onDelete:restrict, migration 0035. Reuses AG3 authoring. Review DONE after 1 fix round (multi-team empty-editor CRITICAL). Verify green 2922 tests."
 }
