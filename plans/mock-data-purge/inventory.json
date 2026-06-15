@@ -73,7 +73,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 120,
+    "line": 121,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +82,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 158,
+    "line": 177,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -91,10 +91,19 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 164,
+    "line": 183,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "packages/web/src/pages/WorkBetCreate.tsx",
+    "line": 31,
+    "symbol": "../fixtures/knowledge-data",
+    "kind": "import",
+    "shape": "import",
     "importerCount": 0,
     "triageHint": "borderline"
   }
