@@ -70,44 +70,58 @@ export async function uploadShots(
 		]);
 		// Branch exists — no-op
 	} catch {
-		// Branch doesn't exist — create orphan from empty tree
-		// 1. Create empty tree
-		const treeResult = await execFileAsync("gh", [
-			"api",
-			"--method",
-			"POST",
-			`repos/${repoWithOwner}/git/trees`,
-			"-f",
-			"tree=[]",
-			"--jq",
-			".sha",
-		]);
-		const treeSha = treeResult.stdout.trim();
+		// Branch doesn't exist — create orphan from empty tree.
+		// @lore AJ4: `gh api -f tree=[]` sends the *string* "[]" (form field), not
+		// a JSON array. GitHub POST /git/trees requires a proper JSON body with an
+		// actual array value. Use `--input -` + piped JSON so gh sends the body
+		// verbatim (Content-Type: application/json) instead of form-encoding.
 
-		// 2. Create commit with no parents
-		const commitResult = await execFileAsync("gh", [
-			"api",
-			"--method",
-			"POST",
-			`repos/${repoWithOwner}/git/commits`,
-			"-f",
-			`message=init pr-evidence/${prNumber}`,
-			"-f",
-			`tree=${treeSha}`,
-			"--jq",
-			".sha",
-		]);
-		const commitSha = commitResult.stdout.trim();
+		// 1. Create empty tree — pipe JSON body via stdin
+		const { spawn: spawnFn } = await import("node:child_process");
 
-		// 3. Create the ref
+		async function ghApiJson(endpoint: string, bodyObj: unknown): Promise<string> {
+			return new Promise((resolve, reject) => {
+				const body = JSON.stringify(bodyObj);
+				const child = spawnFn(
+					"gh",
+					["api", "--method", "POST", endpoint, "--input", "-", "--jq", ".sha"],
+					{ stdio: ["pipe", "pipe", "pipe"] },
+				);
+				let out = "";
+				let err = "";
+				child.stdout.on("data", (d: Buffer) => {
+					out += d.toString();
+				});
+				child.stderr.on("data", (d: Buffer) => {
+					err += d.toString();
+				});
+				child.on("close", (code) => {
+					if (code !== 0) reject(new Error(`gh api failed (${code}): ${err}`));
+					else resolve(out.trim());
+				});
+				child.stdin.write(body);
+				child.stdin.end();
+			});
+		}
+
+		const treeSha = await ghApiJson(`repos/${repoWithOwner}/git/trees`, { tree: [] });
+
+		// 2. Create commit with no parents — also send JSON body via stdin
+		const commitSha = await ghApiJson(`repos/${repoWithOwner}/git/commits`, {
+			message: `init pr-evidence/${prNumber}`,
+			tree: treeSha,
+			parents: [],
+		});
+
+		// 3. Create the ref — small payload, use -F flags (scalar values are fine)
 		await execFileAsync("gh", [
 			"api",
 			"--method",
 			"POST",
 			`repos/${repoWithOwner}/git/refs`,
-			"-f",
+			"-F",
 			`ref=refs/heads/${branchName}`,
-			"-f",
+			"-F",
 			`sha=${commitSha}`,
 		]);
 	}
