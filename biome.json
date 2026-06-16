@@ -169,7 +169,8 @@
 			"!packages/design-system/viewer/*.map",
 			"!docs/product/.vitepress/cache",
 			"!docs/product/.vitepress/dist",
-			"!.vitepress/cache"
+			"!.vitepress/cache",
+			"!.annotations"
 		]
 	},
 	"overrides": [
