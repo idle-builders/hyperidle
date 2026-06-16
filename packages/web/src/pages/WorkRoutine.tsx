@@ -18,8 +18,10 @@ import {
 	EmptyState,
 	ErrorState,
 	KeyValue,
+	PageHeader,
 	Progress,
 	routineStateToStatus,
+	SectionLabel,
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -65,28 +67,39 @@ export function WorkRoutine({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-loading">
-				<SkeletonCard ariaLabel="Loading routine header" />
-				<SkeletonCard ariaLabel="Loading run history" />
+			<div className="flex flex-col h-full" data-testid="work-routine-loading">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto">
+					<div className="flex flex-col gap-[12px] p-[24px]">
+						<SkeletonCard ariaLabel="Loading routine header" />
+						<SkeletonCard ariaLabel="Loading run history" />
+					</div>
+				</div>
 			</div>
 		);
 	}
 
 	if (error !== null && error !== undefined) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-error">
-				<ErrorState title="Failed to load routine" description={error.message} />
+			<div className="flex flex-col h-full" data-testid="work-routine-error">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<ErrorState title="Failed to load routine" description={error.message} />
+				</div>
 			</div>
 		);
 	}
 
 	if (data === null) {
 		return (
-			<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-not-found">
-				<EmptyState
-					title="Routine not found"
-					description="This routine does not exist or has been removed."
-				/>
+			<div className="flex flex-col h-full" data-testid="work-routine-not-found">
+				<PageHeader title="Routine" />
+				<div className="flex-1 overflow-y-auto p-[24px]">
+					<EmptyState
+						title="Routine not found"
+						description="This routine does not exist or has been removed."
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -174,10 +187,12 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 			: "Never";
 
 	return (
-		<div className="flex flex-col gap-[12px] h-full" data-testid="work-routine-page">
-			{/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */}
-			<section aria-label="Routine header">
-				<div className="mb-1">
+		<div className="flex flex-col h-full" data-testid="work-routine-page">
+			{/* AI7: PageHeader owns the pinned title strip. */}
+			<PageHeader
+				title={routine.name}
+				leading={
+					/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */
 					<Breadcrumb
 						segments={[
 							{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
@@ -191,157 +206,151 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 						}
 						LinkComponent={RRLink}
 					/>
-				</div>
-				<div className="flex items-center gap-[12px] flex-wrap">
-					<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-primary)] flex-1">
-						{routine.name}
-					</h1>
-					<StatusChip status={routineStateToStatus(currentState)} />
-				</div>
-				<div className="mt-1 text-xs text-[var(--text-tertiary)]">
-					{routine.agentName} · {routine.triggerType}
-				</div>
-				{routine.description && (
-					<p className="mt-2 text-xs text-[var(--text-secondary)]">{routine.description}</p>
-				)}
-			</section>
-
-			{/* Configuration section — KV grid + action buttons */}
-			<section
-				aria-label="Routine configuration"
-				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
-			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Configuration
-				</h2>
-
-				{/* KV grid */}
-				<div className="flex flex-col gap-[9px]">
-					<KeyValue label="Agent" value={routine.agentName} />
-					<KeyValue label="Schedule" value={routine.scheduleLabel} />
-					<KeyValue label="Trigger type" value={routine.triggerType} />
-					<KeyValue label="Autonomy level" value={autonomyLabel} />
-					<KeyValue
-						label="Next run"
-						value={routine.nextRunAt ? absoluteDateTime(routine.nextRunAt) : "On next event"}
-					/>
-					{/* AA3: Cumulative cost and cost caps moved to Budget section */}
-					<KeyValue label="Last run" value={lastRunLabel} />
-					{/* AA2: created date (always shown when present) */}
-					{routine.createdAt && (
-						<div className="flex flex-row gap-[6px] items-center justify-between">
-							<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
-								Created
-							</span>
-							<span
-								className="text-[15px] text-[var(--text-primary)]"
-								data-testid="routine-created"
-							>
-								{absoluteDate(routine.createdAt)}
-							</span>
-						</div>
-					)}
-				</div>
-
-				{/* Action buttons at bottom of config section */}
-				{showDeleteConfirm ? (
-					<div
-						className="flex items-center gap-[9px] mt-[18px]"
-						data-testid="routine-delete-inline"
+				}
+				subtitle={
+					<span className="text-[13px] text-[var(--text-tertiary)]">
+						{routine.agentName} · {routine.triggerType}
+						{routine.description && ` — ${routine.description}`}
+					</span>
+				}
+				actions={<StatusChip status={routineStateToStatus(currentState)} />}
+			/>
+			<div className="flex-1 overflow-y-auto">
+				<div className="flex flex-col gap-[12px] p-[24px]">
+					{/* Configuration section — KV grid + action buttons */}
+					<section
+						aria-label="Routine configuration"
+						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 					>
-						<span className="text-xs text-[var(--text-secondary)] flex-1">
-							Delete this routine? History will be preserved.
-						</span>
-						<Button
-							variant="destructive"
-							size="sm"
-							className="min-h-[44px]"
-							onClick={() => void handleDeleteConfirm()}
-							disabled={actionPending}
-							data-testid="routine-delete-confirm"
-						>
-							Confirm delete
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="min-h-[44px]"
-							onClick={() => setShowDeleteConfirm(false)}
-							disabled={actionPending}
-							data-testid="routine-delete-cancel"
-						>
-							Cancel
-						</Button>
-					</div>
-				) : (
-					<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={handleTogglePause}
-							disabled={actionPending}
-							data-testid={currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"}
-						>
-							{currentState === "active" ? "Pause" : "Resume"}
-						</Button>
-						<Button
-							variant="primary"
-							size="sm"
-							onClick={handleTriggerNow}
-							disabled={actionPending}
-							data-testid="routine-trigger-now-btn"
-						>
-							Trigger Now
-						</Button>
-						{/* AA2: spacer + delete button (right-aligned) */}
-						<div className="flex-1" />
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={() => setShowDeleteConfirm(true)}
-							disabled={actionPending}
-							data-testid="routine-delete-btn"
-						>
-							Delete
-						</Button>
-					</div>
-				)}
-			</section>
+						<SectionLabel label="Configuration" as="h2" />
 
-			{/* AA3: Budget section — between Configuration and Last Run Summary */}
-			{budget != null && <BudgetSection budget={budget} />}
+						{/* KV grid */}
+						<div className="flex flex-col gap-[9px]">
+							<KeyValue label="Agent" value={routine.agentName} />
+							<KeyValue label="Schedule" value={routine.scheduleLabel} />
+							<KeyValue label="Trigger type" value={routine.triggerType} />
+							<KeyValue label="Autonomy level" value={autonomyLabel} />
+							<KeyValue
+								label="Next run"
+								value={routine.nextRunAt ? absoluteDateTime(routine.nextRunAt) : "On next event"}
+							/>
+							{/* AA3: Cumulative cost and cost caps moved to Budget section */}
+							<KeyValue label="Last run" value={lastRunLabel} />
+							{/* AA2: created date (always shown when present) */}
+							{routine.createdAt && (
+								<div className="flex flex-row gap-[6px] items-center justify-between">
+									<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+										Created
+									</span>
+									<span
+										className="text-[15px] text-[var(--text-primary)]"
+										data-testid="routine-created"
+									>
+										{absoluteDate(routine.createdAt)}
+									</span>
+								</div>
+							)}
+						</div>
 
-			{/* AA2: Last run summary section */}
-			<section
-				aria-label="Last run summary"
-				className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
-				data-testid="routine-last-run-summary"
-			>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Last Run Summary
-				</h2>
-				{routine.lastRunSummary ? (
-					<p className="text-xs text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
-				) : (
-					<p className="text-xs text-[var(--text-tertiary)]">No previous runs</p>
-				)}
-			</section>
+						{/* Action buttons at bottom of config section */}
+						{showDeleteConfirm ? (
+							<div
+								className="flex items-center gap-[9px] mt-[18px]"
+								data-testid="routine-delete-inline"
+							>
+								<span className="text-xs text-[var(--text-secondary)] flex-1">
+									Delete this routine? History will be preserved.
+								</span>
+								<Button
+									variant="destructive"
+									size="sm"
+									className="min-h-[44px]"
+									onClick={() => void handleDeleteConfirm()}
+									disabled={actionPending}
+									data-testid="routine-delete-confirm"
+								>
+									Confirm delete
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="min-h-[44px]"
+									onClick={() => setShowDeleteConfirm(false)}
+									disabled={actionPending}
+									data-testid="routine-delete-cancel"
+								>
+									Cancel
+								</Button>
+							</div>
+						) : (
+							<div className="flex gap-[9px] mt-[18px]" data-testid="routine-actions">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={handleTogglePause}
+									disabled={actionPending}
+									data-testid={
+										currentState === "active" ? "routine-pause-btn" : "routine-resume-btn"
+									}
+								>
+									{currentState === "active" ? "Pause" : "Resume"}
+								</Button>
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={handleTriggerNow}
+									disabled={actionPending}
+									data-testid="routine-trigger-now-btn"
+								>
+									Trigger Now
+								</Button>
+								{/* AA2: spacer + delete button (right-aligned) */}
+								<div className="flex-1" />
+								<Button
+									variant="destructive"
+									size="sm"
+									onClick={() => setShowDeleteConfirm(true)}
+									disabled={actionPending}
+									data-testid="routine-delete-btn"
+								>
+									Delete
+								</Button>
+							</div>
+						)}
+					</section>
 
-			{/* Recent runs section */}
-			<section aria-label="Run history" data-testid="routine-run-history">
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-					Recent Runs
-				</h2>
-				{runs.length === 0 ? (
-					<p className="text-xs text-[var(--text-secondary)]">No runs recorded yet.</p>
-				) : (
-					<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
-						{runs.map((run, idx) => (
-							<RunRow key={run.id} run={run} isLast={idx === runs.length - 1} />
-						))}
-					</div>
-				)}
-			</section>
+					{/* AA3: Budget section — between Configuration and Last Run Summary */}
+					{budget != null && <BudgetSection budget={budget} />}
+
+					{/* AA2: Last run summary section */}
+					<section
+						aria-label="Last run summary"
+						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+						data-testid="routine-last-run-summary"
+					>
+						<SectionLabel label="Last Run Summary" as="h2" />
+						{routine.lastRunSummary ? (
+							<p className="text-xs text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
+						) : (
+							<p className="text-xs text-[var(--text-tertiary)]">No previous runs</p>
+						)}
+					</section>
+
+					{/* Recent runs section */}
+					<section aria-label="Run history" data-testid="routine-run-history">
+						<SectionLabel label="Recent Runs" as="h2" />
+						{runs.length === 0 ? (
+							<p className="text-xs text-[var(--text-secondary)]">No runs recorded yet.</p>
+						) : (
+							<div className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]">
+								{runs.map((run, idx) => (
+									<RunRow key={run.id} run={run} isLast={idx === runs.length - 1} />
+								))}
+							</div>
+						)}
+					</section>
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -357,9 +366,7 @@ function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
 			className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 			data-testid="routine-budget"
 		>
-			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-				Budget
-			</h2>
+			<SectionLabel label="Budget" as="h2" />
 			<div className="flex flex-col gap-[9px]">
 				<KeyValue
 					label="Avg cost per run"

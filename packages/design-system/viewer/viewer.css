@@ -260,3 +260,203 @@ button {
 	background: rgba(224, 231, 255, 0.14);
 	color: var(--primary);
 }
+
+/* ── AJ5: Annotation overlay (.anno-*) ───────────────────────────── */
+/* Token rule: .anno-* only — reused .toolbar-* keep their hardcoded values */
+
+/* Review pill — fixed bottom-left, sibling to the Toolbar (top-right) */
+.anno-pill {
+	position: fixed;
+	bottom: 8px;
+	left: 8px;
+	z-index: 99998;
+}
+
+/* Round label — passive indicator, no interaction */
+.anno-round {
+	font-family: var(--font-mono);
+	color: var(--text-tertiary);
+	letter-spacing: var(--tracking-caps-sm);
+	text-transform: uppercase;
+	cursor: default;
+	user-select: none;
+}
+
+/* Note count button — terse mono */
+.anno-count {
+	font-family: var(--font-mono);
+	color: var(--text-tertiary);
+	letter-spacing: var(--tracking-caps-sm);
+}
+
+/* Popover — fixed above the pill (bottom-left, rises from pill) */
+.anno-popover {
+	position: fixed;
+	bottom: 56px; /* above the pill: pill ~40px + 16px gap */
+	left: 8px;
+	z-index: 99999;
+	min-width: 320px;
+	max-width: 420px;
+	background: var(--surface-elevated);
+	border: 1px solid var(--border-default);
+	border-radius: var(--r-subtle);
+	box-shadow: var(--shadow-elevated);
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+	animation: anno-popover-in var(--motion-fast) var(--motion-ease);
+}
+
+@keyframes anno-popover-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.anno-popover {
+		animation: none;
+	}
+}
+
+/* Popover header — target echo (verbatim, even "unknown") */
+.anno-target {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-secondary);
+	letter-spacing: var(--tracking-caps-sm);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.anno-target-component {
+	color: var(--text-primary);
+	font-weight: 500;
+}
+
+.anno-target-element {
+	color: var(--text-tertiary);
+}
+
+/* Textarea */
+.anno-popover textarea {
+	width: 100%;
+	min-height: 72px;
+	background: var(--surface-page);
+	border: 1px solid var(--border-default);
+	border-radius: var(--r-subtle);
+	color: var(--text-primary);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 1.5;
+	padding: 9px 12px;
+	resize: vertical;
+	outline: none;
+	transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+.anno-popover textarea:focus {
+	border-color: var(--accent-primary);
+}
+
+/* Popover action row */
+.anno-popover-actions {
+	display: flex;
+	gap: 6px;
+}
+
+/* Save button — accent primary */
+.anno-save {
+	background: var(--accent-primary);
+	color: var(--text-on-accent);
+	border-radius: 6px;
+}
+
+.anno-save:hover:not(:disabled) {
+	background: var(--accent-primary-hover);
+}
+
+.anno-save:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Inline error */
+.anno-error {
+	font-size: 11px;
+	color: var(--status-error);
+	font-family: var(--font-mono);
+}
+
+/*
+ * Hover / selected / saved outlines (applied via JS class toggle on story elements).
+ *
+ * .anno-hover   — transient: tracks pointer while armed; accent-primary at visible alpha.
+ * .anno-selected — persistent while popover is open: highlights the captured element.
+ * .anno-saved   — best-effort re-applied on load; doubled outline (AQ-007 cut-out trick):
+ *                 a --surface-elevated halo (box-shadow) + --accent-primary line (outline)
+ *                 so it clears ≥3:1 against arbitrary story backgrounds in both Hearth themes.
+ */
+.anno-hover {
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 1px;
+}
+
+.anno-selected {
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 1px;
+}
+
+.anno-saved {
+	/* AQ-007 doubled outline: accent line + elevated-surface halo */
+	outline: 2px solid var(--accent-primary) !important;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px var(--surface-elevated) !important;
+}
+
+/* Notes list panel */
+.anno-list-panel {
+	position: fixed;
+	bottom: 56px;
+	left: 8px;
+	z-index: 99997;
+	min-width: 280px;
+	max-width: 360px;
+	background: var(--surface-elevated);
+	border: 1px solid var(--border-default);
+	border-radius: var(--r-subtle);
+	box-shadow: var(--shadow-elevated);
+	padding: 9px 12px;
+}
+
+.anno-list {
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 240px;
+	overflow-y: auto;
+}
+
+.anno-list li {
+	font-size: 12px;
+	color: var(--text-secondary);
+	line-height: 1.4;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.anno-list-component {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-primary);
+	font-weight: 500;
+}

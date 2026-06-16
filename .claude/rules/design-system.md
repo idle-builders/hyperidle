@@ -25,7 +25,7 @@ Components live in `packages/design-system` (Foundation/Primitives/Blocks). Shel
 
 **Design critique:** runs in-session inside `/design` (Phase 2) — evaluates components on 9 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish) with a 0-10 score. The previously separate `/design-critique` skill was collapsed into `/design` in block-1b.
 
-**Visual feedback:** The live TSX viewer at `:8098` is the primary feedback surface. Run `npm run ds:serve` to start it. Bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
+**Visual feedback:** The live TSX viewer at `:8098` is the primary feedback surface. Run `npm run ds:serve` to start it. The **first-party annotation overlay** (AJ5) is now the primary feedback tool — it lives in the bottom-left corner of every component page in the viewer. Click "Select", click an element, write a note, Save. Notes land in `.annotations/annotations.json` (canonical) and `.annotations/annotations.md` (agent-readable). "New iteration" starts a new review round. Fallback: bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
 
 **Visual regression gate:** The vitest DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`, runs in `npm run test`) renders every catalogued story and snapshots normalized DOM+class text. An intended component change → review the text diff → re-bless with `vitest -u` (or `npm run ds:bless`). See `.claude/rules/visual-regression.md`.
 

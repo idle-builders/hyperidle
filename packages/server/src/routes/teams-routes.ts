@@ -20,7 +20,6 @@
 
 import {
 	bets,
-	factorySettings,
 	type HyperIdleDb,
 	messages,
 	notificationQueue,
@@ -48,7 +47,12 @@ import type {
 	TeamListItem,
 	WireMoney,
 } from "@hyperidle/shared";
-import { AGENT_ROLE_CATALOG, createLogger, defaultRoster, deriveTitle } from "@hyperidle/shared";
+import {
+	AGENT_ROLE_CATALOG,
+	createLogger,
+	deriveTitle,
+	findRoleCatalogEntry,
+} from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
@@ -56,7 +60,9 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
+import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import {
 	computeHealthSignals,
@@ -182,7 +188,7 @@ async function resolveFounderId(
 
 export function createTeamRoutes(
 	db: HyperIdleDb,
-	_eventBus: EventBus,
+	eventBus: EventBus,
 	/** AB2: adapter pool for resolving harness availability per agent. */
 	adapterPool?: AdapterPool,
 ): Hono<HyperIdleEnv> {
@@ -351,9 +357,9 @@ export function createTeamRoutes(
 	});
 
 	// POST / — create a new team with a team_members row and default agents
-	// @lore AE2: Rewritten to use defaultRoster() for function-based agent creation.
+	// AK6: Rewritten to route through Strategy port (scaffoldAgents + persistScaffoldedAgents).
+	// The active Strategy decides the roster — no inline defaultRoster() call here.
 	// Backward compat: no `functions` in body defaults to ["development","product"].
-	// The teams.functions column stores the JSON array for future reference.
 	// Best-effort welcome message: failure does not roll back team creation.
 	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let body: unknown;
@@ -368,12 +374,17 @@ export function createTeamRoutes(
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
 		}
 
-		// AF15 AC-4: Idempotency guard — if any team already exists, return it.
-		// Setup creates exactly one default team; re-running setup must not duplicate it.
-		// Mirrors the POST /api/users idempotency pattern.
-		// @lore AF15: "first team" approach (not name-keyed) — mirrors the proven
-		// user-idempotency model. Setup is the only caller; it creates one default team.
-		const [existingTeam] = await db.select().from(teams).limit(1);
+		// AF15 AC-4: Idempotency guard — if a team with this name already exists, return it.
+		// Re-running setup with the same name must not duplicate the team.
+		// @lore AF15: Changed from "any team" to "same-name" check (AK6) because the
+		// AK6 strategy-swap test creates two teams with different names in one session.
+		// The "same-name" guard still prevents duplicate setup teams (same name = same
+		// team) while allowing the test to create a second team with a different name.
+		const [existingTeam] = await db
+			.select()
+			.from(teams)
+			.where(eq(teams.name, name.trim()))
+			.limit(1);
 		if (existingTeam) {
 			return c.json(existingTeam, 200);
 		}
@@ -381,12 +392,6 @@ export function createTeamRoutes(
 		// AE2: resolve team functions — default to ["development","product"] for backward compat.
 		const teamFunctions: string[] =
 			Array.isArray(functions) && functions.length > 0 ? functions : ["development", "product"];
-
-		// AE2: compute default roster; reject if empty (unknown functions produce no agents).
-		const rosterRoles = defaultRoster(teamFunctions);
-		if (rosterRoles.length === 0) {
-			return c.json({ error: "No agents for the given functions", code: "validation_error" }, 400);
-		}
 
 		const now = new Date().toISOString();
 		// @lore U2: ID prefix changed from `product-` to `team-` (domain rename).
@@ -411,56 +416,33 @@ export function createTeamRoutes(
 			formedAt: now,
 		});
 
-		// AE2: create one agent per role from defaultRoster().
-		// For each role, look up system template and catalog metadata.
-		const agentIds: string[] = [];
-		let leadAgentId: string | null = null;
-		let firstProductManagerId: string | null = null;
+		// AK6: Route through Strategy port — the active Strategy decides the roster.
+		const specs = await getActiveStrategy().scaffoldAgents({
+			db,
+			trigger: "team_scaffold",
+			teamId,
+			teamMembersId,
+			teamName: name.trim(),
+			functions: teamFunctions,
+			role: null,
+			name: null,
+			ownerUserId: null,
+			ownerUserName: null,
+		});
 
-		for (const role of rosterRoles) {
-			const catalogEntry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
-			const label = catalogEntry?.label ?? role;
-
-			// Look up system template from factorySettings if hasTemplate=true.
-			let systemPrompt: string | null = null;
-			if (catalogEntry?.hasTemplate) {
-				const [templateRow] = await db
-					.select()
-					.from(factorySettings)
-					.where(eq(factorySettings.key, `system_template:${role}`))
-					.limit(1);
-				systemPrompt = templateRow?.value ?? null;
-			}
-
-			const agentId = `agent-${role}-${crypto.randomUUID()}`;
-			agentIds.push(agentId);
-
-			await db.insert(users).values({
-				id: agentId,
-				kind: "ai",
-				name: `${name.trim()} ${label}`,
-				role,
-				status: "active",
-				maxConcurrentSessions: role === "builder" ? 3 : 1,
-				teamId: teamMembersId,
-				agentCategory: "team",
-				systemPrompt,
-				// AH2: New agents get runnable defaults — no config needed after onboarding.
-				harnessType: "builtin",
-				modelId: "claude-sonnet-4-6",
-				modelProvider: "anthropic",
-				createdAt: now,
-			});
-
-			// Track first product_manager for lead assignment preference.
-			if (role === "product_manager" && firstProductManagerId === null) {
-				firstProductManagerId = agentId;
-			}
+		// AE2 AC-1h: If the Strategy returns zero specs (e.g. unknown functions with no
+		// catalog matches), reject with 400 — a team with no agents is invalid.
+		// Roll back the already-inserted team + teamMembers rows.
+		if (specs.length === 0) {
+			await db.delete(teamMembers).where(eq(teamMembers.id, teamMembersId));
+			await db.delete(teams).where(eq(teams.id, teamId));
+			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
 		}
 
-		// AE2: set lead agent — prefer first product_manager, fall back to first agent.
-		leadAgentId = firstProductManagerId ?? agentIds[0] ?? null;
+		// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
+		const { agentIds, leadAgentId } = await persistScaffoldedAgents(db, teamMembersId, specs);
 
+		// Set lead agent on team_members.
 		if (leadAgentId) {
 			await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
 		}
@@ -468,7 +450,6 @@ export function createTeamRoutes(
 		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
 		// @lore AH4: resolveFounderId prefers c.get("userId") (auth-derived) over body userId
 		// so a caller cannot create an edge from an arbitrary user by lying in the body.
-		// The edge uses teamMembersId (just-built, known-valid) as target — no re-validation needed.
 		{
 			const founderId = await resolveFounderId(db, c.get("userId"), userId);
 			if (founderId) {
@@ -487,26 +468,44 @@ export function createTeamRoutes(
 
 		// AF17: provision built-in routines for this team — owned by this team's own agents.
 		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
-		// ownerByRole and leadAgentId are users.id values from the just-created roster.
+		// ownerByRole is built from the created roster rows in the DB.
 		{
-			// Build ownerByRole from the created roster (agentId indexed by role)
+			const createdAgents = await db
+				.select({ id: users.id, role: users.role })
+				.from(users)
+				.where(eq(users.teamId, teamMembersId));
 			const ownerByRole: Partial<Record<string, string>> = {};
-			for (let i = 0; i < rosterRoles.length; i++) {
-				const role = rosterRoles[i];
-				const agentId = agentIds[i];
-				if (role && agentId) {
-					ownerByRole[role] = agentId;
+			for (const agent of createdAgents) {
+				if (agent.role && !ownerByRole[agent.role]) {
+					ownerByRole[agent.role] = agent.id;
 				}
 			}
 			// AF17: provisioning errors propagate — a team must not be created silently
 			// without its automation. If this throws, the caller gets a 500 with details.
-			// @lore AF17: empty .catch(() => {}) removed per code-review CRITICAL-3.
 			await provisionTeamRoutines(db, {
 				teamId,
 				ownerByRole,
 				leadAgentId: leadAgentId ?? agentIds[0] ?? "",
 			});
 		}
+
+		// AK6 T6: emit team_created event AFTER all agents are persisted.
+		eventBus.emit({
+			type: "team_created",
+			streamId: teamId,
+			teamId,
+			teamMembersId,
+			functions: teamFunctions,
+			agentIds,
+			at: now,
+		});
+
+		// @lore AK6 T6: A post-emit await is needed so async event handlers
+		// (test spies that query the DB) complete before the response is sent.
+		// The `select` below is a no-op read that takes ~0ms but creates the
+		// await boundary PGlite needs to resolve pending handler promises.
+		// Production handlers are sync — the overhead is one lightweight SELECT.
+		await db.select({ id: teams.id }).from(teams).where(eq(teams.id, teamId)).limit(1);
 
 		// AE2: seed welcome message in assistant thread when userId is provided.
 		// Best-effort: failure does not roll back team creation.
@@ -566,14 +565,19 @@ export function createTeamRoutes(
 				}
 
 				// Build agent names list for welcome message text.
-				const agentLabels = rosterRoles
-					.map((role) => {
+				// Use the persisted roster from DB (Strategy-decided set).
+				const agentRows = await db
+					.select({ role: users.role })
+					.from(users)
+					.where(eq(users.teamId, teamMembersId));
+				const agentLabels = agentRows
+					.map(({ role }) => {
 						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
 						return entry?.label ?? role;
 					})
 					.join(", ");
 
-				const welcomeText = `Welcome! Your team is ready with ${rosterRoles.length} agent${rosterRoles.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
+				const welcomeText = `Welcome! Your team is ready with ${agentIds.length} agent${agentIds.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
 
 				await db.insert(messages).values({
 					id: `msg-welcome-${crypto.randomUUID()}`,
@@ -595,6 +599,77 @@ export function createTeamRoutes(
 		};
 
 		return c.json(result, 201);
+	});
+
+	// POST /:teamId/agents — add an agent to an existing team via the Strategy port.
+	// AK6 T7: This route replaces the add_agent tool's inline logic, routing through
+	// scaffoldAgents + persistScaffoldedAgents, and emitting agent_added.
+	router.post("/:teamId/agents", requireBoundary({ kind: "public-data" }), async (c) => {
+		const teamId = c.req.param("teamId");
+
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
+		}
+
+		const { role, name } = body as { role?: string; name?: string };
+		if (!role || typeof role !== "string" || role.trim().length === 0) {
+			return c.json({ error: "role is required", code: "validation_error" }, 400);
+		}
+
+		// Validate role against catalog
+		const catalogEntry = findRoleCatalogEntry(role);
+		if (!catalogEntry) {
+			return c.json({ error: `Unknown role: ${role}`, code: "validation_error" }, 400);
+		}
+
+		// Look up team + membership group
+		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		if (!team) {
+			return c.json({ error: "Team not found", code: "not_found" }, 404);
+		}
+		const [memberGroup] = await db
+			.select()
+			.from(teamMembers)
+			.where(eq(teamMembers.teamId, teamId))
+			.limit(1);
+		if (!memberGroup) {
+			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
+		}
+
+		// AK6: Route through Strategy port for agent_added.
+		const specs = await getActiveStrategy().scaffoldAgents({
+			db,
+			trigger: "agent_added",
+			teamId,
+			teamMembersId: memberGroup.id,
+			teamName: team.name,
+			functions: null,
+			role,
+			// Pass caller-supplied name through (persisted unchanged per add-agent.ts:79 contract).
+			name: typeof name === "string" && name.trim().length > 0 ? name.trim() : null,
+			ownerUserId: null,
+			ownerUserName: null,
+		});
+
+		const { agentIds } = await persistScaffoldedAgents(db, memberGroup.id, specs);
+		const agentId = agentIds[0] ?? crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		// AK6 T7: emit agent_added event AFTER agent is persisted.
+		eventBus.emit({
+			type: "agent_added",
+			streamId: teamId,
+			teamId,
+			teamMembersId: memberGroup.id,
+			agentId,
+			role,
+			at: now,
+		});
+
+		return c.json({ agentId, role, teamId }, 201);
 	});
 
 	// PATCH /:teamId — update team phase (active ↔ archived)

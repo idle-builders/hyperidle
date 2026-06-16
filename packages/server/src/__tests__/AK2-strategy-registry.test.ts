@@ -46,6 +46,10 @@ function makeInertStrategy(): Strategy<HyperIdleDb> {
 		beginLearningIngestion(_req: IngestionRequest<HyperIdleDb>): IngestionHandle {
 			return { dispose() {} };
 		},
+		// AK6: scaffoldAgents stub — not implemented in registry tests (not under test here)
+		async scaffoldAgents(_req) {
+			return [];
+		},
 	};
 }
 

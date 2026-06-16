@@ -99,6 +99,9 @@ export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
+// ── AI7: PageHeader — canonical page-title strip (Tier 1) ──
+export type { PageHeaderProps } from "./PageHeader.js";
+export { PageHeader, pageTitleClassName } from "./PageHeader.js";
 export type { ProgressProps } from "./Progress.js";
 export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.
@@ -118,6 +121,9 @@ export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
 export { ScopePicker } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
+// ── AI7: SectionLabel — canonical uppercase section heading (Tier 1) ──
+export type { SectionLabelProps } from "./SectionLabel.js";
+export { SectionLabel } from "./SectionLabel.js";
 export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
 export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";

@@ -1,6 +1,6 @@
 # Compound Candidates Tracker
 
-This file is the durable cross-retro index of recurring patterns surfaced by the compound agent. Each row represents a distinct friction or systemic behaviour observed in `.pipeline/retro-log.jsonl`.
+This file is the durable cross-retro index of recurring patterns surfaced by the compound agent. Each row represents a distinct friction or systemic behaviour observed in the `.pipeline/retro-log/*.jsonl` per-workpackage logs.
 
 **Status legend**
 - `CONFIRMED` — 3+ occurrences, evidence threshold met. Fix proposed.

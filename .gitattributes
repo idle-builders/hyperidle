@@ -1,0 +1,5 @@
+# Retro logs are append-only JSONL split one file per workpackage so parallel
+# branches never collide. Union merge is the belt-and-suspenders net for the rare
+# case two branches touch the same workpackage file: git concatenates both sides
+# instead of conflicting (entries are unique per workpackage+date, no dup risk).
+.pipeline/retro-log/*.jsonl merge=union

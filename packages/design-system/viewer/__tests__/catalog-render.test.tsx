@@ -87,6 +87,7 @@ interface MainExports {
 	// biome-ignore lint/style/useNamingConvention: React component type names are PascalCase by convention
 	TsxComponentView: React.ComponentType<{
 		module: StoryModule;
+		storyRootRef: React.RefObject<HTMLDivElement | null>;
 	}>;
 }
 
@@ -222,6 +223,8 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 	let container: HTMLDivElement;
 	let root: Root;
 
+	const fakeRef = { current: null } as React.RefObject<HTMLDivElement | null>;
+
 	const MODULE_WITH_THROWING_VARIANT: StoryModule = {
 		title: "BrokenPage",
 		group: { kind: "domain", name: "Work" },
@@ -260,6 +263,7 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 				root.render(
 					createElement(TsxComponentView, {
 						module: MODULE_WITH_THROWING_VARIANT,
+						storyRootRef: fakeRef,
 					}),
 				);
 			});
@@ -293,6 +297,7 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 				root.render(
 					createElement(TsxComponentView, {
 						module: MODULE_WITH_THROWING_VARIANT,
+						storyRootRef: fakeRef,
 					}),
 				);
 			});
