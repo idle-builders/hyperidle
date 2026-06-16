@@ -20,7 +20,7 @@ Before reading the retro log, read `.claude/process/compound-candidates.md`. Thi
 
 ### 1. Read the retro log
 
-Read `.pipeline/retro-log.jsonl`. Parse every entry. Group observations by tags. Map each observation against the candidate tracker from step 0 before counting recurrences.
+Read every `.pipeline/retro-log/*.jsonl` file (one per workpackage). Parse every entry across all files. Group observations by tags. Map each observation against the candidate tracker from step 0 before counting recurrences.
 
 ### 2. Identify patterns
 
@@ -102,7 +102,7 @@ After producing the review, update `.claude/process/compound-candidates.md`:
 
 ```
 Agent finishes work
-    → /retro appends observations to retro-log.jsonl
+    → /retro appends observations to retro-log/<workpackage>.jsonl
     → observations accumulate across workpackages
     → /compound runs periodically
     → identifies patterns at 3+ occurrences

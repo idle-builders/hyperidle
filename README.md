@@ -135,7 +135,7 @@ hyperidle/
 │   └── pipeline/    # Ink-based CLI for batch story processing
 ├── docs/            # Architecture, requirements, work packages
 ├── bin/             # Shell wrappers (setup, pipeline, service)
-└── .pipeline/       # Pipeline runtime state (run.json + progress/<id>.json per story, retro-log)
+└── .pipeline/       # Pipeline runtime state (run.json + progress/<id>.json + retro-log/<id>.jsonl per story)
 ```
 
 ---

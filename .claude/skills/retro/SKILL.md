@@ -20,11 +20,13 @@ Collect insights about `<target>` from every available source:
 
 **Before adding a `compoundCandidates` field**, check `.claude/process/compound-candidates.md` for existing candidate IDs. If a friction matches an existing CONFIRMED candidate, reference its ID (e.g. `"CC-002"`) instead of restating the issue. If the candidate is `RESOLVED` but the friction is back, change its status in the tracker to `RECURRED` and note which fix didn't stick. Only invent new free-text candidates for frictions with no matching tracker row.
 
-Append observations to `.pipeline/retro-log.jsonl` as one JSON line each:
+Append observations to `.pipeline/retro-log/<workpackage-id>.jsonl` — **one file per workpackage**, create it if absent. Each observation is one JSON line:
 
 ```json
 {"date": "2026-04-15", "workpackage": "A1", "type": "friction|failure|gap|success|escalation", "observation": "specific sentence", "severity": "low|medium|high|critical", "tags": ["consistent", "tags"]}
 ```
+
+The per-workpackage split is deliberate: a single shared log produces a merge conflict every time two branches each append. Writing to `.pipeline/retro-log/<workpackage-id>.jsonl` means parallel branches touch different files and never collide. Always write to the file named for the workpackage you are retro-ing — never a shared log. (If the target is a whole pipeline run spanning workpackages, write each entry to its own workpackage's file.)
 
 Record successes too — they confirm what's working. If something is actively broken and will break the next workpackage, record it as `escalation` with `critical` severity and output a warning.
 

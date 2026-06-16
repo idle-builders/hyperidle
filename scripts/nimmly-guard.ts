@@ -78,7 +78,7 @@ const SKIP_EXTENSIONS_SUFFIX = [".d.ts", ".d.ts.map"];
  * Excluded categories:
  *   - .pipeline/work-packages/  — workpackage spec files; AF17 spec describes the purge
  *   - .pipeline/progress/       — per-workpackage progress JSON; AF17.json has "Nimmly" in title
- *   - .pipeline/retro-log.jsonl — retro log; may reference Nimmly as workpackage context
+ *   - .pipeline/retro-log/      — per-workpackage retro logs; may reference Nimmly as workpackage context (.jsonl is not a scanned extension anyway)
  *   - plans/                    — intermediate architecture docs, critiques, design mockups
  *   - docs/archive/             — superseded history (not deployed)
  *
