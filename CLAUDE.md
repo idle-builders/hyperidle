@@ -104,7 +104,7 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 
 - `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`)
 - `progress/` — per-workpackage progress JSON files
-- `retro-log.jsonl` — cross-workpackage retro observations (feeds `/compound`)
+- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
 
 **Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/write-docs`):
 
