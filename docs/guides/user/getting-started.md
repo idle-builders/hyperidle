@@ -88,7 +88,7 @@ Fill in the three fields:
 2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint reads "Your key stays on this device."
 3. **Project folder** (optional) — a local git repository path for agents to work in, for example `/Users/sam/projects/my-app`. Leave blank for now.
 
-Click **Start HyperIdle**. A user record and Team are created; you land on **Work > Portfolio**.
+Click **Start HyperIdle**. A user record and Team are created; you land on **Work** (your team page, since you have one team).
 
 **Troubleshooting:**
 - `Failed to create user` — the server isn't running. Check that `npm run dev` is still active.
@@ -111,16 +111,15 @@ The server reads `ANTHROPIC_API_KEY` and passes it to agents. Use a `.env` file 
 
 ### 5. Orient yourself
 
-After setup you land on **Work > Portfolio**. Take 60 seconds to orient.
+After setup you land on **Work** (your team page — with one team, the Work overview skips the list and takes you straight there). Take 60 seconds to orient.
 
-**Sidebar (left panel)** — three sections:
-- **Conversations** — review items and agent messages
-- **Work** — your portfolio of Teams and Bets; expands to show Teams as sub-items
-- **Knowledge** — the factory's institutional memory
+**Sidebar (left panel)** — top to bottom:
+- **Search field** at the very top, with an **Assistant button** (robot icon) to its right.
+- **Three section buttons: Conversations / Work / Knowledge** — click to switch views. The active section's icon is brighter.
+- **Fast-nav list** (below a separator) — shows the head of the active section's items: threads, teams, or knowledge items. Updates when you switch sections.
+- **Settings** pinned at the bottom.
 
-At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and an Assistant button (opens the assistant overlay).
-
-**Main pane** — shows your Portfolio: a grid of Bet cards. No bets yet means an empty state with a **New bet** button.
+**Main pane** — shows your team. No bets yet means an empty state with a **New bet** button.
 
 ---
 
@@ -128,7 +127,7 @@ At the bottom of the Sidebar: `Cmd+K` search, your avatar (opens Settings), and 
 
 A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
 
-1. Click **New bet** in the Portfolio header (or in the empty-state centre if no bets exist yet).
+1. Click **New bet** in the Work overview header or in the team header (or in the empty-state centre if no bets exist yet).
 2. A full-page authoring surface opens with:
    - **Description editor** (required) — write the bet's pitch using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
    - **Title preview** — auto-derived from the first heading in your description.
@@ -136,7 +135,7 @@ A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
    - **Appetite** (optional) — set a cost budget for this bet.
 3. Click **Create**.
 
-**Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the portfolio grid.
+**Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
 
 To start agents, open the Bet, click the overflow menu (`···`) next to the status badge, and choose **Activate bet**. The status flips from `draft` to `active`. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 

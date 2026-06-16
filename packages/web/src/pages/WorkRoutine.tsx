@@ -180,7 +180,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				<div className="mb-1">
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio", testId: "routine-breadcrumb-back" },
+							{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
 							...(routine.teamName ? [{ label: routine.teamName }] : []),
 							{ label: routine.name },
 						]}

@@ -6,7 +6,7 @@
  */
 
 import type { RoutineDetail } from "@hyperidle/shared";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { WorkRoutine } from "../pages/WorkRoutine";
@@ -159,5 +159,14 @@ describe("WorkRoutine — AA1 Detail Page", () => {
 	it("shows error state when fetch errors", () => {
 		renderPage("routine-detail-1", undefined, false, new Error("Fetch failed"));
 		expect(screen.getByTestId("work-routine-error")).toBeInTheDocument();
+	});
+
+	// AD9: W4 — breadcrumb back-link must point to /work, not /work/portfolio
+	it("breadcrumb back-link navigates to /work", () => {
+		renderPage("routine-detail-1", MOCK_ROUTINE_DETAIL);
+		const backLink = screen.getByTestId("routine-breadcrumb-back");
+		fireEvent.click(backLink);
+		// MemoryRouter has /work registered — navigation succeeds if work-overview-page renders
+		expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 	});
 });
