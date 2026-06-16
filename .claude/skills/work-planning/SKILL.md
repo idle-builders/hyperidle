@@ -50,7 +50,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 5. **Existing-implementation check.** Before writing the spec, search the codebase for the capability being proposed. Read the relevant source files — schemas, routes, fabric services, UI pages. If the feature largely exists, the spec must document what's already built (in a "What exists today" paragraph) and identify only the genuine gap. Proposing to build something that already exists is the #1 failure mode in work-planning. When in doubt, spawn an Explore agent to audit the relevant subsystem.
 6. **Dependencies are real blockers — and a proof vehicle is one.** For each declared dependency, write one sentence on why this workpackage cannot start until that one is `done`. "Logically related" is not a blocker — drop it. But "cannot be **verified**" blocks as hard as "cannot be implemented": if a workpackage's proof strategy is "prove the ACs through the lane / harness / contract defined in WP-Y," then WP-Y is a hard dependency. Order dependencies **before** their consumers in the manifest; a proof vehicle ordered after its consumers ships them unverifiable. (Track AH did this — AH5 defined the real-LLM lane every other AH workpackage had to prove through, but was ordered last, so AH1–AH4 shipped with mocked tests.)
 7. **Sizing fits the rule.**
-8. **Human-design-review forecast.** Estimate whether the WP introduces a **new essential / base / primitive component or a large redesign** → forecast `Yes`; otherwise `No`. Record it in the required **Human design review.** spec field (see template). This is an advisory forecast surfaced early so the founder sees which work will park — it does not gate; `/design`'s `DESIGN-CLASS` is authoritative at design time.
+8. **Pre-build gates declared.** Every WP must declare both pre-build gates — **Concept** (required / not required) and **Design** (required / light / not required) — per "## Pre-build gates". Refuse to register a WP whose gates are unstated or hand-waved: a WP that touches a load-bearing noun with no `docs/` file to point at must mark `Concept: Required`; a WP with an open user-facing surface must mark `Design: Required` and carry its direction forks as design-exploration axes, never pre-resolve them. The **Human design review.** field is the sharper forecast of the Design gate (new essential/base/primitive component or large redesign → `Yes`); it is advisory — `/design`'s `DESIGN-CLASS` is authoritative at design time.
 
 ---
 
@@ -89,7 +89,11 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Complexity.** S | M | L — drives scheduler dispatch (see sizing rule).
 
-**Human design review.** Yes | No — `<one-line reason>`. **A required, highlighted field.** Forecast at planning time whether this workpackage will need founder design review: a **new essential / base / primitive component or a large redesign → Yes**; a routine tweak, a backend/infra/concept-only WP, or an extension of an existing component → No. This is an **advisory forecast**, NOT the trigger: the authoritative gate is `/design`'s `DESIGN-CLASS` at design time (a WP forecast `No` that `/design` later classifies `novel` still parks for review). The field exists so the founder sees up front which work will park. Example: `**Human design review.** Yes — introduces a new base list-primitive; its shape is what's being decided.` (This formalizes the convention TRACK-AJ already shows on every WP.)
+**Pre-build gates.** **A required, highlighted field.** Two explicit declarations so the founder (and `/pipeline`) know what must run *before* this WP is built — see "## Pre-build gates" below for the decision rules. State both, each with a one-line reason:
+- **Concept:** `Required — run /concept <id> first (introduces/reshapes: <noun>)` | `Not required — reuses concepts already locked in docs/<topic>/<file>.md`.
+- **Design:** `Required — novel surface; /design multi-variant + human review` | `Light — extends <existing component/page>; single-variant /design, no human-review park` | `Not required — backend/infra/concept-only; skip /design`.
+
+**Human design review.** Yes | No — `<one-line reason>`. **A required, highlighted field.** This is the sharper forecast of the **Design** gate above: a `Design: Required` WP that introduces a new essential/base/primitive component or large redesign forecasts `Yes`; `Design: Light` or `Not required` forecasts `No`. Forecast at planning time whether this workpackage will need founder design review: a **new essential / base / primitive component or a large redesign → Yes**; a routine tweak, a backend/infra/concept-only WP, or an extension of an existing component → No. This is an **advisory forecast**, NOT the trigger: the authoritative gate is `/design`'s `DESIGN-CLASS` at design time (a WP forecast `No` that `/design` later classifies `novel` still parks for review). The field exists so the founder sees up front which work will park. Example: `**Human design review.** Yes — introduces a new base list-primitive; its shape is what's being decided.` (This formalizes the convention TRACK-AJ already shows on every WP.)
 
 **Acceptance criteria.** A bulleted list of observable, testable statements — see "Writing Good ACs" below. These are the single source of truth flowing through all pipeline phases: `/concept` checks scope against them, `/design` produces variants for them, `/architecture` writes tasks to satisfy them, `/write-tests` produces one failing test per AC, `/write-code` makes those tests pass, and `/review` audits code against them.
 
@@ -103,6 +107,40 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Effort.** S (~Xmin) | M (~Xh) | L (~Xd) — same letter as Complexity, with a rough time estimate. The estimate is informational; the letter drives scheduler behavior. Examples: `S (~30min)`, `M (~4h)`, `L (~5d)`.
 ```
+
+---
+
+## Pre-build gates — concept and design, per workpackage
+
+Every workpackage must state, up front, **what thinking has to happen before code is written**. Two gates, declared independently in the **Pre-build gates** field. This is not bureaucracy — it is the signal the founder uses to decide what to run by hand (`/concept`, `/design`, design iteration + `/human-design-review`) versus what `/pipeline` can carry straight through. Get these wrong and either the pipeline builds on an unlocked concept (ACs churn mid-run) or a novel surface ships on its first-draft layout.
+
+### The Concept gate
+
+Mark **Concept: Required** when the WP **introduces or reshapes a load-bearing noun** — a primitive, a domain concept, a closed vocabulary, a new contract shape. The noun's identity, rejection list, and contracts must be locked (`/concept <id>`) before `/architecture`, or the build rests on sand.
+
+Mark **Concept: Not required** when the WP **only consumes nouns already locked** in `docs/<topic>/`. Name the file(s) it reuses. Extending a surface that uses settled primitives (e.g. "render existing X on a new page") is `Not required`.
+
+Rule of thumb: if you cannot point to the `docs/` file that already defines every load-bearing noun the WP touches, the concept is **Required**.
+
+### The Design gate
+
+Mark **Design: Required** when the WP creates or substantially reshapes a **user-facing surface whose form is genuinely open** — a new page, a new base/primitive component, a new interaction grammar, or a redesign. These need `/design`'s multi-variant exploration; novel ones park for `/human-design-review`. The founder decides direction by **seeing rendered variants**, not by reading prose — so direction forks (layout, IA, adoption style) belong here, never pre-resolved in the spec.
+
+Mark **Design: Light** when the WP **extends an existing component or page** in a way with one obvious form — a single-variant `/design` pass to place it, no human-review park.
+
+Mark **Design: Not required** when the WP is **backend, infra, data-model, or concept-only** with no rendered surface. Skip `/design` entirely (`Plan calls` should say so).
+
+### How the two gates compose
+
+| Concept | Design | Typical WP | What the founder runs before `/pipeline` builds it |
+|---|---|---|---|
+| Required | Required | A new primitive with a new surface (e.g. a new rendering grammar) | `/concept <id>` → `/design` (variants) → `/human-design-review` if novel |
+| Required | Not required | A backend primitive / contract / normalization layer | `/concept <id>` only |
+| Not required | Required | A new surface over settled primitives | `/design` (variants) → human review if novel |
+| Not required | Light | Extending an existing component | single-variant `/design`, then build |
+| Not required | Not required | Plumbing over settled concepts | straight to `/architecture` + build |
+
+A WP that is both gates **Required** is almost always **L**, and is a candidate to split (concept/backend WP first, surface WP second) so the concept locks before the surface is designed on top of it.
 
 ---
 
@@ -224,12 +262,19 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 | "The AC needs to specify the exact columns / pages / components" | No. ACs describe outcomes. `/design` decides which pages and components. `/architecture` decides which columns and endpoints. An AC that prescribes the solution bypasses both phases and produces a spec that's brittle to any design change. |
 | "This AC is too vague for the builder" | The builder doesn't read ACs directly — they read the plan from `/architecture`, which translates each AC into specific tasks, types, and verification methods. ACs are the contract with the reviewer, not the builder's instruction manual. |
 | "Order the harness/lane WP last, wire deps later" | A consumer whose proof strategy names a not-yet-built harness has a broken review gate by design. Proof-strategy deps bind exactly like implementation deps — sequence the harness first. (See the AH5 note in pre-flight #6.) |
+| "I'll leave the pre-build gates blank — the pipeline figures it out" | Then the founder can't see which WPs need a hand-run `/concept` or `/design` before build, and a novel surface ships on its first-draft layout. Declare both gates explicitly; carry direction forks (layout/IA/adoption style) as design-exploration axes, never pre-resolved in the spec. |
+| "The direction fork is important, I'll just decide it in the spec" | Direction forks are decided by *seeing rendered variants*, not by prose. Mark `Design: Required`, name the axes, and let `/design` + `/human-design-review` resolve them. A spec that pre-resolves the layout has skipped the one phase that catches the wrong layout. |
 
 ---
 
 ## After registration
 
-Hand control back to the founder.
+Hand control back to the founder, and **state the run order implied by the pre-build gates** so they can run them accordingly. Read the **Pre-build gates** field of each registered WP and report, in dependency order:
+- WPs marked **Concept: Required** → run `/concept <id>` first (lock the noun before anything builds on it).
+- WPs marked **Design: Required** → run `/design <id>` (and `/human-design-review` for novel surfaces) before build; surface the design-exploration axes the founder will decide by seeing rendered variants.
+- WPs both **Not required / Light** → can go straight to `/pipeline`, which will still gate per-WP at build time.
+
+The founder then runs concept/design by hand where it matters and lets `/pipeline` carry the rest. `/pipeline` enforces the same gates at runtime (`blocked: concept-missing` if a `Concept: Required` WP reaches architecture unlocked), so the declarations are a forecast the founder acts on early, not a substitute for the runtime gate.
 
 **Note — running interactively:** The founder can run interactive mode (`PIPELINE_INTERACTIVE=1`, the canonical rule defined in `pipeline/SKILL.md` "## Run modes") when they intend to steer — `/concept` surfaces a post-lock recap with a confirm/redirect gate (run upstream, before the pipeline), and `/ship` surfaces a ship summary before merge (AJ2). This is a run-time opt-in, not a spec field. The recap is a `/concept` behavior (upstream of the pipeline), not a pipeline phase; no new spec-template field is needed here.
 
