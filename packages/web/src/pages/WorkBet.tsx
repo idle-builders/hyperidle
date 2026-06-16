@@ -919,8 +919,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<div className="mb-[6px]">
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio" },
-							{ label: bet.team, to: "/work/portfolio" },
+							{ label: "Work", to: "/work" },
+							{ label: bet.team, to: "/work" },
 							{ label: bet.title },
 						]}
 						leading={
@@ -1016,6 +1016,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						<p role="alert" className="mt-[6px] text-[13px] text-error">
 							{activateError}
 						</p>
+					)}
+					{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
+					{bet.sourceKnowledge != null && (
+						<RRLink
+							to={`/knowledge/${bet.sourceKnowledge.id}`}
+							data-testid="bet-provenance-link"
+							className="mt-[6px] text-[13px] text-[var(--accent-primary)] hover:underline"
+						>
+							From knowledge: {bet.sourceKnowledge.title}
+						</RRLink>
 					)}
 				</div>
 			</header>

@@ -14,15 +14,20 @@ export interface UseTeamsResult {
 	data: TeamListResponse | null;
 	loading: boolean;
 	error: Error | null;
+	/** Trigger a fresh fetch — used by ErrorState onRetry (AC4). */
+	refetch: () => void;
 }
 
 export function useTeams(): UseTeamsResult {
-	const [state, setState] = useState<UseTeamsResult>({
+	const [state, setState] = useState<Omit<UseTeamsResult, "refetch">>({
 		data: null,
 		loading: true,
 		error: null,
 	});
+	// fetchKey increments to re-run the effect (refetch pattern).
+	const [fetchKey, setFetchKey] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchKey is a refetch counter — incrementing it re-runs the effect intentionally even though it isn't read inside the body.
 	useEffect(() => {
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
@@ -46,7 +51,10 @@ export function useTeams(): UseTeamsResult {
 		return (): void => {
 			cancelled = true;
 		};
-	}, []);
+	}, [fetchKey]);
 
-	return state;
+	return {
+		...state,
+		refetch: (): void => setFetchKey((k) => k + 1),
+	};
 }

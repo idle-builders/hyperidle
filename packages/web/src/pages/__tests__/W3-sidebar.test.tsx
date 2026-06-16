@@ -60,17 +60,21 @@ describe("W3 AC-1 — Sidebar bottom strip", () => {
 	});
 
 	it("renders an 'Assistant' label/button for CoC trigger", () => {
+		// @lore AD9: SidebarV2 design moved the assistant to an icon-only button at the
+		// top row (next to search field). No visible "Assistant" text — aria-label only.
+		// Test updated to use getByRole with accessible name.
 		render(<Sidebar {...makeProps()} />);
-		// Bottom strip has "Assistant" text for the assistant overlay trigger.
-		expect(screen.getByText(/assistant/i)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /assistant/i })).toBeInTheDocument();
 	});
 
-	it("renders user avatar in bottom strip with click → settings", () => {
+	it("renders settings button (click → settings)", () => {
+		// @lore AD9: SidebarV2 design replaced the avatar/user button in the bottom
+		// strip with a Settings gear button. The avatar button (sidebar-avatar-btn)
+		// is removed; the Settings button (sidebar-settings-btn) is the new affordance.
 		const onSettingsClick = vi.fn();
 		render(<Sidebar {...makeProps({ onSettingsClick })} />);
-		// Avatar in bottom strip should be a button / have onClick tied to settings
-		const avatarBtn = screen.getByTestId("sidebar-avatar-btn");
-		expect(avatarBtn).toBeInTheDocument();
+		const settingsBtn = screen.getByTestId("sidebar-settings-btn");
+		expect(settingsBtn).toBeInTheDocument();
 	});
 
 	it("calls onSearchClick when search hint is clicked", async () => {

@@ -34,8 +34,9 @@ export function FirstRunRedirect(): JSX.Element {
 		])
 			.then(([hasUser, hasTeams]) => {
 				if (cancelled) return;
-				// @lore R2: redirect to /work/portfolio (was /conversations)
-				setTarget(hasUser && hasTeams ? "/work/portfolio" : "/setup");
+				// @lore R2: redirect to /work (was /work/portfolio, was /conversations).
+				// AD9: unconditional → /work; WorkOverview handles 1-team → team-page short-circuit.
+				setTarget(hasUser && hasTeams ? "/work" : "/setup");
 			})
 			.catch(() => {
 				// @lore P4: On any API failure, default to /setup (not /conversations).

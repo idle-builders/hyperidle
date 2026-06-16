@@ -180,6 +180,20 @@ export const bets = pgTable(
 		 * Only meaningful when decompositionStatus = 'blocked'.
 		 */
 		decompositionBlockerReason: text("decomposition_blocker_reason"),
+		/**
+		 * AK5: provenance — the knowledge item this bet was promoted from.
+		 * null = hand-typed / assistant-drafted bet (no source). Forward, recoverable,
+		 * one-way link. NOT the reverse of knowledge.scopeKind="bet" (that means
+		 * "knowledge produced under this bet"). RESTRICT: a source item cannot be
+		 * hard-deleted while a bet cites it as provenance — provenance must outlive
+		 * convenience deletes (same rationale as knowledge_edit_log I3 HIGH-2).
+		 * @lore AK5: knowledge items have no hard-delete endpoint (only soft-delete via
+		 * POST /:id/archive → status:"archived"), so RESTRICT has zero live UX downside
+		 * but guarantees provenance integrity if a hard-delete is ever added.
+		 */
+		sourceKnowledgeItemId: text("source_knowledge_item_id").references(() => knowledgeItems.id, {
+			onDelete: "restrict",
+		}),
 	},
 	(table) => [
 		index("bets_team_id_idx").on(table.teamId),

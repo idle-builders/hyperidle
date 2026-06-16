@@ -1,5 +1,23 @@
 ## Handling Common Situations
 
+### Turning a Knowledge Item into a Bet
+
+When a captured insight is ready to become committed work, promote it directly — no retyping.
+
+1. Open the knowledge item in the **Knowledge** view.
+2. Click the overflow menu (`···`) in the top-right corner.
+3. Choose **Promote to bet**.
+
+**Single team:** the bet is created immediately and you land in the bet editor, body pre-filled with the item's content. Review, refine, then click **Commit** when ready.
+
+**Multiple teams:** you are taken to the bet create page (`Work → New bet`) with the body pre-filled. Pick your team, optionally set an appetite, then create.
+
+The source knowledge item is not changed. The new bet opens in `draft` status — you commit it manually when the pitch is ready. The bet header shows "From knowledge: &lt;title&gt;" with a link back to the original item, so the origin is always traceable.
+
+**Archived items cannot be promoted.** Archive the item only when you no longer need it as a promotion source, or after the derived bet has been committed.
+
+---
+
 ### No Tasks After Committing a Bet
 
 After you commit a bet, the task section briefly shows "Planning the work" while the PM agent breaks the bet into tasks. If that state persists or a blocker appears:

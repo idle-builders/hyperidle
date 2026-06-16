@@ -61,6 +61,12 @@ const createBetSchema = z
 		costAppetite: wiremoneySchema.nullable().optional(),
 		doneCondition: z.string().optional(),
 		hypothesis: z.string().optional(),
+		/**
+		 * AK5: optional provenance — the knowledge item this bet was promoted from.
+		 * When present: validated to exist (unknown id → 400); stored as FK on the row.
+		 * When absent: null (hand-typed / assistant-drafted bet — existing callers unchanged).
+		 */
+		sourceKnowledgeItemId: z.string().optional(),
 	})
 	// Reject old fields
 	.strict();
@@ -527,8 +533,21 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			costAppetiteMinor,
 			costAppetiteCurrency,
 			tokensActualJson: _tJson,
+			sourceKnowledgeItemId,
 			...restBet
 		} = bet;
+
+		// AK5: enrich with sourceKnowledge:{id,title} when provenance FK is set.
+		// Lookup happens per-bet (already on PK path) — no index needed.
+		let sourceKnowledge: { id: string; title: string } | null = null;
+		if (sourceKnowledgeItemId != null) {
+			const [srcItem] = await db
+				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, sourceKnowledgeItemId))
+				.limit(1);
+			sourceKnowledge = srcItem ?? null;
+		}
 
 		return c.json({
 			...restBet,
@@ -548,6 +567,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 					? { minor: costActualMinor, currency: costActualCurrency }
 					: null,
 			tokensActual,
+			// AK5: null when no provenance (hand-typed bet), enriched object when promoted.
+			sourceKnowledge,
 			tasks: betTasks.map((t) => ({
 				...t,
 				// O2: costActual/costCap mapped to WireMoney for display; strategy columns removed
@@ -579,6 +600,25 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
 			}
 
+			// AK5: validate sourceKnowledgeItemId refers to an existing knowledge item.
+			// Guards dangling provenance FK — the column has onDelete:"restrict".
+			if (body.sourceKnowledgeItemId !== undefined) {
+				const [srcItem] = await db
+					.select({ id: knowledgeItems.id })
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, body.sourceKnowledgeItemId))
+					.limit(1);
+				if (!srcItem) {
+					return c.json(
+						{
+							error: `Knowledge item '${body.sourceKnowledgeItemId}' not found`,
+							code: "VALIDATION_ERROR",
+						},
+						400,
+					);
+				}
+			}
+
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 			const actor = c.get("userId");
@@ -595,6 +635,19 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				},
 			];
 
+			// AK5: if promoting from a knowledge item, append a provenance entry so
+			// the audit trail records the origin even if the FK column were migrated away.
+			if (body.sourceKnowledgeItemId !== undefined) {
+				initialLog.push({
+					timestamp: now,
+					field: "source_knowledge_item",
+					old_value: null,
+					new_value: body.sourceKnowledgeItemId,
+					reason: "Promoted from knowledge item",
+					...(actor !== undefined ? { actor } : {}),
+				});
+			}
+
 			await db.insert(bets).values({
 				id,
 				teamId: body.teamId,
@@ -606,6 +659,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				costAppetiteMinor: body.costAppetite?.minor ?? null,
 				costAppetiteCurrency: body.costAppetite?.currency ?? null,
 				revisionLog: JSON.stringify(initialLog),
+				sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
 			});
 
 			const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);

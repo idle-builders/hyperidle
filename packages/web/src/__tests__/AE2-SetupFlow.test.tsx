@@ -22,12 +22,12 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupFlow } from "../pages/SetupFlow";
 
-/** Stub target page that captures the current URL for assertion. */
-function WorkPortfolioStub(): React.JSX.Element {
+/** AD9: Stub target page at /work that captures the current URL for assertion. */
+function WorkOverviewStub(): React.JSX.Element {
 	const location = useLocation();
 	return (
 		<div data-testid="portfolio-page">
-			work-portfolio
+			work-overview
 			<span data-testid="current-search">{location.search}</span>
 		</div>
 	);
@@ -75,7 +75,8 @@ function renderSetupFlow(initialPath = "/setup"): RenderResult {
 		<MemoryRouter initialEntries={[initialPath]}>
 			<Routes>
 				<Route path="/setup" element={<SetupFlow />} />
-				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+				{/* AD9: /work/portfolio retired → /work */}
+				<Route path="/work" element={<WorkOverviewStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -268,7 +269,8 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 			<MemoryRouter initialEntries={["/setup"]}>
 				<Routes>
 					<Route path="/setup" element={<SetupFlow />} />
-					<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+					{/* AD9: /work/portfolio retired → /work */}
+					<Route path="/work" element={<WorkOverviewStub />} />
 				</Routes>
 			</MemoryRouter>,
 		);
@@ -298,10 +300,10 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC-4 (navigation): Navigates to /work/portfolio?onboarding=true
+// AC-4 (navigation): Navigates to /work?onboarding=true (AD9: was /work/portfolio)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AE2-SetupFlow — navigation to /work/portfolio?onboarding=true", () => {
+describe("AE2-SetupFlow — navigation to /work?onboarding=true", () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			"fetch",
@@ -321,7 +323,7 @@ describe("AE2-SetupFlow — navigation to /work/portfolio?onboarding=true", () =
 		);
 	});
 
-	it("navigates to /work/portfolio?onboarding=true on successful submission", async () => {
+	it("navigates to /work?onboarding=true on successful submission (AD9)", async () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
