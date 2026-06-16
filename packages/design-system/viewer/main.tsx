@@ -1,6 +1,23 @@
-import { Component, StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	Component,
+	Fragment,
+	StrictMode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { AnnotationOverlay } from "./annotations/annotation-overlay.js";
+// @lore AJ6 stale-shadow: this imports `./discovery.js` (explicit .js, NodeNext
+// style) but the source on disk is discovery.ts. Vite/esbuild resolve .js→.ts
+// ONLY when no literal discovery.js exists. An out-of-band `tsc` that emits
+// discovery.js into viewer/ produces an orphaned compiled file that SHADOWS the
+// .ts — Vite serves the stale .js, and any export added to the .ts later (e.g.
+// GROUPS) is missing → "does not provide an export named X" → blank catalog.
+// Guard: `preserve` npm hook runs `clean:viewer` (rm -f viewer/*.js|*.d.ts|*.map)
+// before `serve`. The four .gitignore lines keep these artifacts out of git too.
 import {
 	type CatalogGroup,
 	discoverStories,
@@ -299,16 +316,14 @@ export function Catalog({
 					divider = <AxisDivider key="__axis-divider__" />;
 				}
 
+				// @lore AJ6: key the Fragment (the list item), not the inner section —
+				// a bare <>…</> in a .map() has no key and warns. Fragment renders no DOM,
+				// so this is snapshot-neutral.
 				return (
-					<>
+					<Fragment key={group.name}>
 						{divider}
-						<CatalogGroupSection
-							key={group.name}
-							group={group}
-							items={items}
-							onNavigate={onNavigate}
-						/>
-					</>
+						<CatalogGroupSection group={group} items={items} onNavigate={onNavigate} />
+					</Fragment>
 				);
 			})}
 
