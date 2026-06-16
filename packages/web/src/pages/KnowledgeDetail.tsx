@@ -65,6 +65,7 @@ import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
+import { useTeams } from "../hooks/useTeams.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
@@ -147,6 +148,24 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		confidence: 0.78,
 		topic: "Architecture",
 		relatedItems: ["k1"],
+	},
+	/**
+	 * AK5: archived knowledge item fixture used by the "Promote to bet" disabled test.
+	 * status:"archived" causes the promote menu item to be disabled (aria-disabled="true").
+	 */
+	// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
+	"k-archived": {
+		id: "k-archived",
+		title: "Archived Decision",
+		layer: "company",
+		kind: "belief",
+		status: "archived",
+		timestamp: "7d ago",
+		content: "This item was archived.",
+		scope: "practice",
+		originAgent: "Architect Agent",
+		confidence: 0.5,
+		topic: "Architecture",
 	},
 };
 
@@ -354,14 +373,19 @@ function KnowledgeOverflowMenu({
 	onClose,
 	onArchive,
 	onChangeScope,
+	onPromoteToBet,
 	archiving,
+	itemStatus,
 }: {
 	overflowOpen: boolean;
 	onToggle: () => void;
 	onClose: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
+	onPromoteToBet: () => void;
 	archiving: boolean;
+	/** AK5: used to disable "Promote to bet" when item is archived. */
+	itemStatus: string;
 }): JSX.Element {
 	const items: MenuItem[] = [
 		{
@@ -370,6 +394,14 @@ function KnowledgeOverflowMenu({
 			onSelect: onArchive,
 			disabled: archiving,
 			dataAttrs: { "data-testid": "knowledge-archive" },
+		},
+		{
+			// AK5: promote-to-bet action — disabled when item is archived.
+			id: "promote-bet",
+			label: "Promote to bet",
+			onSelect: onPromoteToBet,
+			disabled: itemStatus === "archived",
+			dataAttrs: { "data-testid": "knowledge-promote-bet" },
 		},
 		{
 			id: "change-scope",
@@ -472,6 +504,14 @@ function KnowledgeDetailView({
 	// AD6: Archive in-flight state + error.
 	const [archiving, setArchiving] = useState(false);
 	const [archiveError, setArchiveError] = useState<string | null>(null);
+
+	// AK5: Promote-to-bet error.
+	const [promoteError, setPromoteError] = useState<string | null>(null);
+
+	// AK5: team resolution for single-team promote (avoids team-picker dialog).
+	// Defensively handle undefined return (e.g. test environments where mock returns undefined).
+	const useTeamsResult = useTeams();
+	const teamsData = useTeamsResult?.data ?? null;
 
 	// W3 NB-4: overflow menu open state.
 	// AG5: click-outside + Escape now handled by Menu internally — removed the duplicated effects.
@@ -602,6 +642,54 @@ function KnowledgeDetailView({
 	}
 
 	/**
+	 * AK5: Promote-to-bet handler.
+	 * Single-team: POST /api/bets with sourceKnowledgeItemId → navigate to /work/bet/:id.
+	 * Multi-team: navigate to /work/bet/new?fromKnowledge=:id (team picker in WorkBetCreate).
+	 *
+	 * @lore AK5: team resolution uses useTeams() (already used in WorkBetCreate).
+	 * Single-team auto-resolves (the common factory case) — zero friction.
+	 * Multi-team falls back to the existing WorkBetCreate page which has the team Select
+	 * and already collects the required teamId before creating the bet.
+	 */
+	async function handlePromoteToBet(): Promise<void> {
+		closeOverflow();
+		const teams = teamsData?.teams ?? [];
+		const singleTeam = teams.length === 1;
+
+		if (!singleTeam) {
+			// Multi-team: navigate to WorkBetCreate with fromKnowledge param; provenance
+			// is carried through by WorkBetCreate's ?fromKnowledge= pre-fill path (task 7).
+			navigate(`/work/bet/new?fromKnowledge=${encodeURIComponent(effectiveKnowledgeId)}`);
+			return;
+		}
+
+		const teamId = teams[0]?.id ?? "";
+		if (!teamId) return;
+
+		setPromoteError(null);
+		try {
+			const res = await apiFetch("/api/bets", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					teamId,
+					description: savedContent || item.content,
+					sourceKnowledgeItemId: effectiveKnowledgeId,
+				}),
+			});
+			if (res.ok) {
+				const data = (await res.json()) as { id: string };
+				navigate(`/work/bet/${data.id}`);
+			} else {
+				const data = (await res.json().catch(() => ({}))) as { error?: string };
+				setPromoteError(data.error ?? `Promote failed: ${res.status}`);
+			}
+		} catch {
+			setPromoteError("Promote failed: network error");
+		}
+	}
+
+	/**
 	 * L18: "Discuss" handler — closes popover and sets thread prefill.
 	 * @lore L18: same pattern as WorkBet.handleDiscussBlock — DOM query for excerpt.
 	 */
@@ -713,7 +801,9 @@ function KnowledgeDetailView({
 								setScopeChangeOpen(true);
 								closeOverflow();
 							}}
+							onPromoteToBet={() => void handlePromoteToBet()}
 							archiving={archiving}
+							itemStatus={item.status}
 						/>
 					)}
 				</div>
@@ -746,6 +836,24 @@ function KnowledgeDetailView({
 									type="button"
 									className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
 									onClick={() => setArchiveError(null)}
+								>
+									Dismiss
+								</button>
+							</div>
+						)}
+
+						{/* AK5: Promote error — shown when POST /api/bets fails during promotion */}
+						{promoteError !== null && (
+							<div
+								role="alert"
+								className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+								data-testid="promote-error"
+							>
+								<span className="text-[var(--status-error)]">{promoteError}</span>
+								<button
+									type="button"
+									className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+									onClick={() => setPromoteError(null)}
 								>
 									Dismiss
 								</button>

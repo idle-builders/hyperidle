@@ -25,25 +25,49 @@ import {
 	scaleForCurrency,
 	type WireMoney,
 } from "@hyperidle/shared";
-import { type JSX, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { type JSX, useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 export function WorkBetCreate(): JSX.Element {
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+
+	// AK5: ?fromKnowledge=<id> pre-fill path (multi-team promotion route).
+	// @lore AK5: carry-forward critique WARNING — this is the ONLY place sourceKnowledgeItemId
+	// can silently drop on the multi-team path. Verify it reaches handleCreate's payload.
+	const fromKnowledgeId = searchParams.get("fromKnowledge") ?? undefined;
 
 	// useTeams() is called unconditionally (rules of hooks). Matches WorkPortfolio:72,86.
 	const { data: teamsData } = useTeams();
 	const teams = teamsData?.teams ?? [];
 	const singleTeam = teams.length === 1;
 
-	const [body, setBody] = useState("");
+	// AK5: fetch knowledge item body for pre-fill when ?fromKnowledge= is present.
+	// @lore AK5: No fixture fallback here — unlike KnowledgeDetail, this is a CREATE form.
+	// We show a loading state until the fetch resolves so the editor never mounts empty
+	// and immediately re-mounts with content (see knowledgeLoading gate below). Fixture
+	// fallback was removed because it masked the async-empty-editor bug (reviewer finding #1).
+	const { data: knowledgeData, isLoading: knowledgeLoading } = useKnowledgeItem(fromKnowledgeId);
+	const knowledgeBody = knowledgeData?.body ?? null;
+
+	const [body, setBody] = useState(knowledgeBody ?? "");
 	const [teamId, setTeamId] = useState("");
 	const [appetiteAmount, setAppetiteAmount] = useState("");
 	const [appetiteCurrency, setAppetiteCurrency] = useState("USD");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// AK5: when the knowledge fetch resolves, seed body state so derivedTitle and
+	// POST payload are correct. This runs after the editor mounts (the knowledgeLoading
+	// ternary below defers BodyEditor mount until the body is available).
+	useEffect(() => {
+		if (knowledgeBody != null && body === "") {
+			setBody(knowledgeBody);
+		}
+	}, [knowledgeBody, body]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	const derivedTitle = body.trim() ? deriveTitleFromPitch(body, "") : "";
@@ -63,6 +87,12 @@ export function WorkBetCreate(): JSX.Element {
 			teamId: resolvedTeamId,
 			description: trimmedBody,
 		};
+
+		// AK5: carry sourceKnowledgeItemId into the POST payload — the ONLY place on the
+		// multi-team path where provenance can silently drop (architecture-critique carry-forward #2).
+		if (fromKnowledgeId !== undefined) {
+			payload.sourceKnowledgeItemId = fromKnowledgeId;
+		}
 
 		const amt = Number.parseFloat(appetiteAmount);
 		if (Number.isFinite(amt) && amt > 0) {
@@ -178,14 +208,38 @@ export function WorkBetCreate(): JSX.Element {
 							className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
 							style={{ minHeight: "300px" }}
 						>
-							<BodyEditor
-								initialContent=""
-								onChange={(md: string) => setBody(md)}
-								placeholder="Describe the bet — problem, appetite, no-gos…"
-								variant="full"
-								minHeight="260px"
-								editable={!submitting}
-							/>
+							{/*
+							 * @lore AK5: On the ?fromKnowledge= path, defer mounting BodyEditor
+							 * until the knowledge fetch settles. TipTap captures initialContent
+							 * once at mount and never re-syncs (lore T1). Mounting with body=""
+							 * before the fetch resolves would leave the editor permanently empty.
+							 * On the normal create path (no fromKnowledgeId), render immediately.
+							 * knowledgeLoading is always false when fromKnowledgeId is undefined.
+							 *
+							 * initialContent uses knowledgeBody directly (not body state) on the
+							 * ?fromKnowledge= path: body state may still be "" when BodyEditor first
+							 * mounts (the seeding useEffect runs after render). knowledgeBody is
+							 * guaranteed non-null here because we gate on !knowledgeLoading and
+							 * knowledgeData.body is set by the time isLoading flips false.
+							 * The body state is still synced via onChange for POST payload.
+							 */}
+							{fromKnowledgeId != null && knowledgeLoading ? (
+								<div
+									className="flex items-center justify-center h-[260px] text-[13px] text-[var(--text-tertiary)]"
+									data-testid="bet-create-knowledge-loading"
+								>
+									Loading…
+								</div>
+							) : (
+								<BodyEditor
+									initialContent={fromKnowledgeId != null ? (knowledgeBody ?? "") : body}
+									onChange={(md: string) => setBody(md)}
+									placeholder="Describe the bet — problem, appetite, no-gos…"
+									variant="full"
+									minHeight="260px"
+									editable={!submitting}
+								/>
+							)}
 						</div>
 					</div>
 

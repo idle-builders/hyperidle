@@ -55,6 +55,12 @@ export const selectTeamMemberSchema = createSelectSchema(teamMembers);
 export const selectBetSchema = createSelectSchema(bets, {
 	decompositionStatus: (s) => s.optional(),
 	decompositionBlockerReason: (s) => s.optional(),
+	/**
+	 * AK5: nullable FK column added after schema freeze — mark optional so
+	 * pre-existing test fixtures that omit this field don't need to include it.
+	 * Same pattern as AK3 decompositionStatus/decompositionBlockerReason.
+	 */
+	sourceKnowledgeItemId: (s) => s.optional(),
 });
 export const selectTaskSchema = createSelectSchema(tasks);
 export const selectSessionSchema = createSelectSchema(sessions);

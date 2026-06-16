@@ -81,6 +81,12 @@ export const betDetailResponseSchema = z.object({
 	// @lore U1: `description` (formerly `pitch`)
 	description: z.string(),
 	tasks: z.array(betTaskRowSchema),
+	/**
+	 * AK5: provenance backlink — the knowledge item this bet was promoted from.
+	 * null = hand-typed / assistant-drafted bet (no source).
+	 * Enriched by GET /bets/:id from the knowledge_items row (id + title).
+	 */
+	sourceKnowledge: z.object({ id: z.string(), title: z.string() }).nullable().optional(),
 });
 
 /**
