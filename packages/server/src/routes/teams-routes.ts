@@ -358,7 +358,7 @@ export function createTeamRoutes(
 
 	// POST / — create a new team with a team_members row and default agents
 	// AK6: Rewritten to route through Strategy port (scaffoldAgents + persistScaffoldedAgents).
-	// @lore AE2: defaultRoster() still used for the pre-AK6 roster; the Strategy decides the set.
+	// The active Strategy decides the roster — no inline defaultRoster() call here.
 	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// Best-effort welcome message: failure does not roll back team creation.
 	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {

@@ -1,27 +1,29 @@
 import { randomUUID } from "node:crypto";
-import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
+import { teamMembers, teams, users } from "@hyperidle/db";
 import { provisionTeamRoutines } from "@hyperidle/fabric";
-import { defaultRoster, findRoleCatalogEntry } from "@hyperidle/shared";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import z from "zod";
+import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
 /**
  * `create_team` — Create a new team with the specified functions and auto-generate
- * an agent roster using the role catalog.
+ * an agent roster using the active Strategy.
  *
  * @lore AE3: The teams.functions column was never written to by any existing route.
  * This tool is the first writer. The column is `text` (nullable), and we store a
  * JSON array string. The Zod schema enforces min(1) so we always write a non-empty array.
  *
- * @lore AE3: Cross-team scope is intentional. The chief_of_staff (assistant) is a
- * factory-wide operator — it should be able to create teams and agents across any team.
+ * @lore AE3: Cross-team scope is intentional. The assistant is a factory-wide operator
+ * — it should be able to create teams and agents across any team.
  * No cross-team restriction is applied. The authorization boundary is role-based
  * ("only individual-category agents can use management tools"), not team-scoped.
  *
- * @lore AD8b: role string "chief_of_staff" will be renamed to "assistant" in AD8b.
- * Update the `roles` array in that migration.
+ * @lore AK6 T7: Rewritten to route through the Strategy port (scaffoldAgents +
+ * persistScaffoldedAgents). No inline defaultRoster() call — the active Strategy
+ * decides the roster composition.
  */
 const createTeamInputSchema = z.object({
 	name: z.string().min(1).max(200),
@@ -72,83 +74,59 @@ async function handler(
 		formedAt: now,
 	});
 
-	// Compute roster using the shared defaultRoster function
-	const rosterRoles = defaultRoster(input.functions);
+	// AK6 T7: Route through Strategy port — the active Strategy decides the roster.
+	const specs = await getActiveStrategy().scaffoldAgents({
+		db: ctx.db,
+		trigger: "team_scaffold",
+		teamId,
+		teamMembersId,
+		teamName: input.name,
+		functions: input.functions,
+		role: null,
+		name: null,
+		ownerUserId: null,
+		ownerUserName: null,
+	});
 
-	// Pre-fetch all relevant system templates in one query to avoid N+1
-	const templateKeys = rosterRoles.map((r) => `system_template:${r}`);
-	const [firstKey] = templateKeys;
-	const templateRows =
-		firstKey !== undefined
-			? await ctx.db
-					.select()
-					.from(factorySettings)
-					.where(
-						templateKeys.length === 1
-							? eq(factorySettings.key, firstKey)
-							: inArray(factorySettings.key, templateKeys),
-					)
-			: [];
+	// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
+	const { agentIds, leadAgentId } = await persistScaffoldedAgents(ctx.db, teamMembersId, specs);
 
-	const templateMap = new Map<string, string>(templateRows.map((row) => [row.key, row.value]));
-
-	const agentIds: string[] = [];
-	const roster: { role: string; name: string; agentId: string }[] = [];
-
-	let leadAgentId: string | null = null;
-
-	for (const role of rosterRoles) {
-		const agentId = `agent-${role}-${randomUUID()}`;
-		const catalogEntry = findRoleCatalogEntry(role);
-		const agentName = catalogEntry
-			? `${input.name} ${catalogEntry.label}`
-			: `${input.name} ${role}`;
-		const agentCategory = catalogEntry?.category ?? "team";
-		const templateKey = `system_template:${role}`;
-		const systemPrompt = templateMap.get(templateKey) ?? null;
-
-		await ctx.db.insert(users).values({
-			id: agentId,
-			kind: "ai",
-			name: agentName,
-			role,
-			agentCategory,
-			systemPrompt,
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: teamMembersId,
-			createdAt: now,
-		});
-
-		agentIds.push(agentId);
-		roster.push({ role, name: agentName, agentId });
-
-		// product_manager is the lead; if none, first agent is the lead
-		if (leadAgentId === null || role === "product_manager") {
-			leadAgentId = agentId;
-		}
-	}
+	// Build roster summary from the inserted rows.
+	const createdAgents = await ctx.db
+		.select({ id: users.id, role: users.role, name: users.name })
+		.from(users)
+		.where(eq(users.teamId, teamMembersId));
+	const roster = createdAgents.map((a) => ({
+		role: a.role ?? "",
+		name: a.name,
+		agentId: a.id,
+	}));
 
 	// Set the lead agent on the team members row
-	if (leadAgentId !== null) {
-		await ctx.db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+	const lead = leadAgentId ?? agentIds[0] ?? null;
+	if (lead !== null) {
+		await ctx.db
+			.update(teamMembers)
+			.set({ leadAgentId: lead })
+			.where(eq(teamMembers.id, teamMembersId));
 	}
 
 	// AF17: provision built-in routines for this team — owned by this team's own agents.
 	// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
-	// ownerByRole and leadAgentId are users.id values from the just-created roster.
+	// ownerByRole is built from the created roster rows in the DB.
 	{
 		const ownerByRole: Partial<Record<string, string>> = {};
 		for (const { role, agentId } of roster) {
-			ownerByRole[role] = agentId;
+			if (role && !ownerByRole[role]) {
+				ownerByRole[role] = agentId;
+			}
 		}
 		// AF17: provisioning errors propagate — tool invocation must fail loudly if
 		// routine provisioning fails, not silently create a team without automation.
-		// @lore AF17: empty .catch(() => {}) removed per code-review CRITICAL-3.
 		await provisionTeamRoutines(ctx.db, {
 			teamId,
 			ownerByRole,
-			leadAgentId: leadAgentId ?? agentIds[0] ?? "",
+			leadAgentId: lead ?? agentIds[0] ?? "",
 		});
 	}
 
@@ -160,11 +138,10 @@ async function handler(
 	});
 }
 
-// @lore AD8b: role string "chief_of_staff" renamed to "assistant" in AD8b.
 export const createTeamTool: ToolDefinition<CreateTeamInput> = {
 	name: "create_team",
 	description:
-		"Create a new team with the specified functions. Automatically generates an agent roster based on the functions using the role catalog. Each agent is created with appropriate system prompt templates.",
+		"Create a new team with the specified functions. Automatically generates an agent roster based on the active Strategy. Each agent is created with appropriate system prompt templates.",
 	inputSchema: createTeamInputSchema,
 	handler,
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
