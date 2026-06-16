@@ -94,7 +94,6 @@ interface MainExports {
 // Dynamic import to defer module evaluation until test body runs.
 async function importMain(): Promise<MainExports> {
 	return import("../main.js") as Promise<MainExports>;
-
 }
 
 describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () => {
