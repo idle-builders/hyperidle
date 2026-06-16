@@ -81,7 +81,7 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Why this matters.** 2-4 sentences making the case for building this. Who benefits and how? What's the cost of NOT building it? Every feature adds complexity — the burden of proof is on the workpackage to justify its existence. Name the specific person (founder, team lead, agent, facilitator) whose life gets measurably better and how. If you can only argue "it would be nice" or "other products have it," the workpackage isn't ready. If simplicity would be better served by NOT building this, say so and don't register.
 
-**What exists today.** One paragraph summarizing the relevant infrastructure and capabilities that already exist in the codebase. Name the specific tables, services, routes, or UI pages that this workpackage builds on. If this is greenfield, say "Nothing — this is a new capability." This paragraph prevents the architecture pass from rebuilding what already works and helps the builder understand what to extend vs create. Required for M and L workpackages; optional for S.
+**What exists today.** One paragraph summarizing the relevant infrastructure and capabilities that already exist in the codebase. Name the specific tables, services, routes, or UI pages that this workpackage builds on. If this is greenfield, say "Nothing — this is a new capability." This paragraph prevents the architecture pass from rebuilding what already works and helps the builder understand what to extend vs create. **This paragraph is informational — it names what exists so the architect has the full picture; it does NOT mandate reuse.** Whether to reuse, extend, or replace a named component/service is the designer's/architect's decision, made in `/design` and `/architecture`. Required for M and L workpackages; optional for S.
 
 **What's genuinely missing.** 2-3 sentences identifying the specific gap between what exists and what the workpackage delivers. This is the delta — the reason this workpackage needs to exist. If you cannot articulate the delta clearly, the workpackage may not be needed.
 
@@ -99,9 +99,9 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/review`) will run. They must collectively cover every AC.
 
-**Plan calls.** One short paragraph telling `/architecture` what kind of planning this workpackage needs. Most workpackages: "Standard architecture pass — types, contracts, ordered tasks." Foundational primitives: "Multi-version exploration; design-it-twice on the data shape." Pure-backend infra: "Skip /design step; plan + write-tests + write-code." If the workpackage is concept-introducing, name the noun and point at the concept doc.
+**Plan calls.** One short paragraph telling `/architecture` what *kind* of planning this workpackage needs. Most workpackages: "Standard architecture pass — types, contracts, ordered tasks." Foundational primitives: "Multi-version exploration; design-it-twice on the data shape." Pure-backend infra: "Skip /design step; plan + write-tests + write-code." If the workpackage is concept-introducing, name the noun and point at the concept doc. It states what planning to run and which gates apply — **NOT a list of components or services to reuse or build.** "What exists today" already names what exists (informationally); whether to reuse, extend, or replace it is the architect's call, not a Plan-calls directive.
 
-**Contracts / constraints.** Bullet list of hard rules the implementation must honor (e.g. "no new on-disk markdown dialect", "migration is forward-only", "no emojis", "back-compat preserved at the API level not the row level"). These are guarantees the reviewer will check, separate from AC.
+**Contracts / constraints.** Bullet list of hard rules the implementation must honor (e.g. "no new on-disk markdown dialect", "migration is forward-only", "no emojis", "back-compat preserved at the API level not the row level"). These are guarantees the reviewer will check, separate from AC. Constraints are about *primitives, semantics, data formats, vocabulary, scope, and invariants* — **NOT which components or services to reuse, extend, replace, or refrain from building.** "Reuse `X`", "don't fork a parallel `Y`", "extend, don't replace" are reuse-vs-build decisions that belong to `/design` and `/architecture`; stating them here forecloses the agent's judgment about what actually makes sense. If a reuse protects something real, state the *invariant* (e.g. "verdict semantics unchanged", "one coherent harness model", "renders generically from the capability descriptor — no per-backend branching") and let the architect choose how to honor it.
 
 **Out of scope.** Bullet list of things a reader might assume are part of this workpackage but are not. Future improvements, related workpackages, edge cases deliberately deferred.
 
@@ -210,6 +210,7 @@ If the AC describes what's on screen instead of what the user understands, it's 
 - "File changes" / "File paths"
 - "Types" / "Schema" / "API endpoints"
 - "Component breakdown"
+- Forced component/service reuse — "reuse `X` component", "don't fork a parallel `Y`", "extend, don't replace". Reuse-vs-build is `/design` / `/architecture` scope. (Naming what exists in "What exists today" is fine — that's informational, not a directive.)
 - "Visual design" / "Visual contract"
 - "Tech choices" / "Library choices"
 
@@ -264,6 +265,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 | "Order the harness/lane WP last, wire deps later" | A consumer whose proof strategy names a not-yet-built harness has a broken review gate by design. Proof-strategy deps bind exactly like implementation deps — sequence the harness first. (See the AH5 note in pre-flight #6.) |
 | "I'll leave the pre-build gates blank — the pipeline figures it out" | Then the founder can't see which WPs need a hand-run `/concept` or `/design` before build, and a novel surface ships on its first-draft layout. Declare both gates explicitly; carry direction forks (layout/IA/adoption style) as design-exploration axes, never pre-resolved in the spec. |
 | "The direction fork is important, I'll just decide it in the spec" | Direction forks are decided by *seeing rendered variants*, not by prose. Mark `Design: Required`, name the axes, and let `/design` + `/human-design-review` resolve them. A spec that pre-resolves the layout has skipped the one phase that catches the wrong layout. |
+| "I'll tell the architect to reuse the existing `X` component" | Reuse-vs-build is `/design`/`/architecture` scope — forcing it forecloses the agent's judgment about what actually makes sense. Name the *invariant* the reuse would protect (semantics, vocabulary, "renders from the descriptor") in Contracts and let them choose how; list what exists in "What exists today" (informational only). Don't copy reuse directives from a neighbouring track's spec — that's how the anti-pattern spreads. |
 
 ---
 
