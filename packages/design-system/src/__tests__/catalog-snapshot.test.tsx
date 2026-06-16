@@ -68,9 +68,9 @@ expect(
 ).toBeGreaterThan(0);
 expect(
 	modules.length,
-	`Expected ≥58 DS story modules (51 root + 7 kinds), got ${modules.length}. ` +
+	`Expected ≥59 DS story modules (52 root + 7 kinds), got ${modules.length}. ` +
 		`A glob-root path or story file may have been removed without updating this guard.`,
-).toBeGreaterThanOrEqual(58);
+).toBeGreaterThanOrEqual(59);
 
 // ---------------------------------------------------------------------------
 // Serializer — custom DOM walk for deterministic, churn-proof snapshots.

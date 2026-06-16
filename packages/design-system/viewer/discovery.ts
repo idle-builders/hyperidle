@@ -143,6 +143,8 @@ export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	Skeleton: "Foundation",
 	Menu: "Foundation",
 	Tokens: "Foundation",
+	PageHeader: "Foundation",
+	SectionLabel: "Foundation",
 	// Primitives — small composed
 	StatusChip: "Primitives",
 	Tag: "Primitives",
