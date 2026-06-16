@@ -657,6 +657,62 @@ export default [
 		},
 	},
 
+	// AJ6 AC8 — No import cycle: @hyperidle/design-system (src/**) and
+	// viewer/discovery.ts must NEVER import @hyperidle/web or any web/** path.
+	// Only viewer/main.tsx and other viewer/** files are the legal cross-importers
+	// (dev-only build target via Vite workspace symlinks).
+	//
+	// Scoped to:
+	//   packages/design-system/src/**          (published package exports)
+	//   packages/design-system/viewer/discovery.ts  (discovery contract used by tests)
+	//
+	// Explicitly EXCLUDING packages/design-system/viewer/** so main.tsx and other
+	// viewer files can continue cross-importing web stories via build-time globs.
+	//
+	// @lore AJ6 no-cycle: cross-package globs live ONLY in viewer/main.tsx.
+	// discovery.ts and design-system/src/ never import @hyperidle/web.
+	// A violation here is an import cycle: web → design-system → web would break
+	// the acyclic dependency direction that the monorepo depends on.
+	{
+		files: [
+			"packages/design-system/src/**/*.{ts,tsx}",
+			"packages/design-system/viewer/discovery.ts",
+		],
+		ignores: [
+			// The viewer/ directory is the LEGAL cross-importer — only main.tsx should
+			// use web globs, but we exclude the whole viewer/ to keep the rule simple
+			// (discovery.ts is explicitly listed in `files` above, overriding this).
+			"packages/design-system/viewer/**",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/web",
+							message:
+								"AJ6 AC8: design-system/src and viewer/discovery.ts must not import @hyperidle/web. Only viewer/main.tsx (the dev-only build target) may cross-import web. An import here creates an import cycle: web → design-system → web.",
+						},
+					],
+					patterns: [
+						{
+							group: ["../../web/**", "../../web/src/**", "**/web/src/**"],
+							message:
+								"AJ6 AC8: design-system/src and viewer/discovery.ts must not import web source files. Only viewer/main.tsx (the dev-only build target) may cross-import web via build-time globs.",
+						},
+					],
+				},
+			],
+		},
+	},
+
 	// AJ3: the isolation harness (packages/web/src/preview/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/server or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
