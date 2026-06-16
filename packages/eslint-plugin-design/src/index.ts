@@ -11,6 +11,7 @@ import type { ESLint, Linter, Rule } from "eslint";
 
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
+import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
 import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noHardcodedTracking } from "./rules/no-hardcoded-tracking.js";
@@ -26,6 +27,7 @@ import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawSettingsTextarea } from "./rules/no-raw-settings-textarea.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
+import { noUndefinedFontHeading } from "./rules/no-undefined-font-heading.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
@@ -34,7 +36,9 @@ import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
+	"no-handrolled-page-header": noHandrolledPageHeader,
 	"no-handrolled-select": noHandrolledSelect,
+	"no-undefined-font-heading": noUndefinedFontHeading,
 	"no-hardcoded-color": noHardcodedColor,
 	"no-hardcoded-tracking": noHardcodedTracking,
 	"no-local-status-builder": noLocalStatusBuilder,
@@ -56,7 +60,9 @@ export const rules: Record<string, Rule.RuleModule> = {
 };
 
 const recommendedRules: Linter.RulesRecord = {
+	"design/no-handrolled-page-header": "warn",
 	"design/no-handrolled-select": "error",
+	"design/no-undefined-font-heading": "warn",
 	"design/no-hardcoded-color": "warn",
 	"design/no-hardcoded-tracking": "warn",
 	"design/no-local-status-builder": "error",

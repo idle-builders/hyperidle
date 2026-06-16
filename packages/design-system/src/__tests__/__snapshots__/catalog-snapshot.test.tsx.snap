@@ -4631,6 +4631,77 @@ exports[`NotificationRow > WithInlineAction 1`] = `
 "
 `;
 
+exports[`PageHeader > LongTitleTruncates 1`] = `
+"<div style="background: var(--surface-page, #faf8f5); max-width: 400px;">
+  <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
+    <div class="flex items-center justify-between gap-[12px]">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+        "A Very Long Page Title That Would Overflow On Narrow Screens With Extra Words"
+      </h1>
+    </div>
+  </header>
+</div>
+"
+`;
+
+exports[`PageHeader > TitleOnly 1`] = `
+"<div style="background: var(--surface-page, #faf8f5);">
+  <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
+    <div class="flex items-center justify-between gap-[12px]">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+        "Portfolio"
+      </h1>
+    </div>
+  </header>
+</div>
+"
+`;
+
+exports[`PageHeader > WithBreadcrumbAndActions 1`] = `
+"<div style="background: var(--surface-page, #faf8f5);">
+  <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
+    <div class="mb-[6px]">
+      <nav style="font-size: 13px; color: var(--text-secondary, #6b5d4d);" aria-label="Breadcrumb">
+        <a style="color: inherit;" href="/work/portfolio">
+          "Work"
+        </a>
+        "/"
+        <span>
+          "Ship onboarding redesign"
+        </span>
+      </nav>
+    </div>
+    <div class="flex items-center justify-between gap-[12px]">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+        "Ship onboarding redesign"
+      </h1>
+      <div class="flex items-center gap-[9px] shrink-0">
+        <button style="padding: 6px 12px; border: medium; border-radius: var(--r-pill, 9999px); background: var(--accent-primary, #16764f); color: rgb(255, 255, 255); font-size: 13px; cursor: pointer;" type="button">
+          "New task"
+        </button>
+      </div>
+    </div>
+  </header>
+</div>
+"
+`;
+
+exports[`PageHeader > WithSubtitle 1`] = `
+"<div style="background: var(--surface-page, #faf8f5);">
+  <header class="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]" data-ds-component="PageHeader" data-ds-source="design-system" data-ds-tier="1">
+    <div class="flex items-center justify-between gap-[12px]">
+      <h1 class="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate">
+        "Acme Corp"
+      </h1>
+    </div>
+    <div class="mt-[3px] text-[13px] text-[var(--text-tertiary)]">
+      "Phase: build · Lead: Dana"
+    </div>
+  </header>
+</div>
+"
+`;
+
 exports[`Progress > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]" style="width: 320px;">
   <div class="flex flex-col gap-[6px]" data-ds-component="Progress" data-ds-source="design-system" data-ds-tier="0">
@@ -5488,6 +5559,53 @@ exports[`SearchField > WithValue 1`] = `
       </button>
     </span>
   </div>
+</div>
+"
+`;
+
+exports[`SectionLabel > AsH2 1`] = `
+"<div style="padding: 24px; background: var(--surface-page, #faf8f5);">
+  <h2 class="flex items-center justify-between gap-[12px] text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]" data-ds-component="SectionLabel" data-ds-source="design-system" data-ds-tier="1">
+    <span>
+      "Metadata"
+    </span>
+  </h2>
+</div>
+"
+`;
+
+exports[`SectionLabel > Default 1`] = `
+"<div style="padding: 24px; background: var(--surface-page, #faf8f5);">
+  <h3 class="flex items-center justify-between gap-[12px] text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]" data-ds-component="SectionLabel" data-ds-source="design-system" data-ds-tier="1">
+    <span>
+      "Members"
+    </span>
+  </h3>
+</div>
+"
+`;
+
+exports[`SectionLabel > WithDivider 1`] = `
+"<div style="padding: 24px; background: var(--surface-page, #faf8f5);">
+  <h3 class="flex items-center justify-between gap-[12px] text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px] pb-[6px] border-b border-[var(--border-subtle)]" data-ds-component="SectionLabel" data-ds-source="design-system" data-ds-tier="1">
+    <span>
+      "Configuration"
+    </span>
+  </h3>
+</div>
+"
+`;
+
+exports[`SectionLabel > WithTrailing 1`] = `
+"<div style="padding: 24px; background: var(--surface-page, #faf8f5);">
+  <h3 class="flex items-center justify-between gap-[12px] text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]" data-ds-component="SectionLabel" data-ds-source="design-system" data-ds-tier="1">
+    <span>
+      "Active Bets"
+    </span>
+    <button style="padding: 4px 10px; border: medium; border-radius: var(--r-pill, 9999px); background: var(--accent-primary, #16764f); color: rgb(255, 255, 255); font-size: 12px; cursor: pointer;" type="button">
+      "+ New"
+    </button>
+  </h3>
 </div>
 "
 `;

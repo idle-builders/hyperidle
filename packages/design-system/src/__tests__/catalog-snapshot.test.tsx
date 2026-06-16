@@ -1,7 +1,7 @@
 /**
  * AJ1 REDO — Vitest DOM-snapshot regression net for the design-system catalog.
  *
- * Enumerates every catalogued `.stories.tsx` in `src/` (49) and `src/kinds/` (7) = 56 total.
+ * Enumerates every catalogued `.stories.tsx` in `src/` (51) and `src/kinds/` (7) = 58 total.
  * Renders each story variant in jsdom via `createRoot` + `act()`.
  * Serializes to a deterministic text string (tag + class + style + data-ds-* + role/aria + text).
  * `toMatchSnapshot()` per variant — committed `.snap` files are the regression baseline.
@@ -13,7 +13,7 @@
  *   See plans/AJ1/architecture.md for design rationale and coverage statement.
  *
  * @lore AJ1 W-4: `pool: forks` isolates *files*, not *variants within this file*.
- *   All 56 modules × N variants mount in one process → React `useId` counter `_r_N_`
+ *   All 58 modules × N variants mount in one process → React `useId` counter `_r_N_`
  *   advances per mount. The id-normalization regex (`/_r_[0-9a-z]+_/g` → `__id__`)
  *   is what makes snapshots cross-run stable — NOT forks. Forks prevent cross-FILE
  *   React-scheduler contamination only. The regex runs on EVERY serialized variant
@@ -68,9 +68,9 @@ expect(
 ).toBeGreaterThan(0);
 expect(
 	modules.length,
-	`Expected ≥56 DS story modules (49 root + 7 kinds), got ${modules.length}. ` +
+	`Expected ≥58 DS story modules (51 root + 7 kinds), got ${modules.length}. ` +
 		`A glob-root path or story file may have been removed without updating this guard.`,
-).toBeGreaterThanOrEqual(56);
+).toBeGreaterThanOrEqual(58);
 
 // ---------------------------------------------------------------------------
 // Serializer — custom DOM walk for deterministic, churn-proof snapshots.
@@ -219,8 +219,8 @@ export function serializeStoryDom(container: Element): string {
 // ---------------------------------------------------------------------------
 
 describe("catalog-snapshot — DS story enumeration", () => {
-	test(`enumerates ≥56 story modules (49 root + 7 kinds)`, () => {
-		expect(modules.length).toBeGreaterThanOrEqual(56);
+	test(`enumerates ≥58 story modules (51 root + 7 kinds)`, () => {
+		expect(modules.length).toBeGreaterThanOrEqual(58);
 	});
 });
 

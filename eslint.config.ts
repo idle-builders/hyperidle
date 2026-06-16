@@ -159,6 +159,70 @@ export default [
 		},
 	},
 
+	// AI7 — Page anatomy static gates (AC1 + AC3).
+	//
+	// no-undefined-font-heading (error on pages/**):
+	//   ARM 1: `font-heading` — undefined Tailwind utility (defect anywhere; error here).
+	//   ARM 2: `tracking-wider` — valid utility but a heading-scale deviation on pages/**;
+	//          the rule's tracking-wider arm is internally self-gated to heading elements
+	//          in pages/ paths, so this block never fires it on components or shell.
+	//
+	// no-handrolled-page-header (error on pages/**):
+	//   Flags the inline page-title combo (text-[20px]+font-[600]+tracking-[-0.01em])
+	//   on non-PageHeader elements. SettingsPage.tsx (AG7) and SetupFlow.tsx (onboarding)
+	//   carry the combo but are NOT in AI7's migration scope — exempted via block ignores.
+	//   Re-evaluate when AG7 / onboarding migrate.
+	//   @lore AI7: ignore-vs-allowlist: a two-entry ignores is the minimal, explicit,
+	//   greppable exemption that doesn't couple the rule scope to the migration list.
+	{
+		files: ["packages/web/src/pages/**/*.tsx"],
+		ignores: [
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/*.test.tsx",
+			// AG7 + onboarding own these migrations — not in AI7 scope.
+			"packages/web/src/pages/SettingsPage.tsx",
+			"packages/web/src/pages/SetupFlow.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-undefined-font-heading": "error",
+			"design/no-handrolled-page-header": "error",
+		},
+	},
+
+	// AI7 — no-undefined-font-heading at warn on the rest of packages/web/src/**
+	// (outside pages/**). The `font-heading` arm fires everywhere because it is
+	// an undefined utility (defect). The `tracking-wider` arm is self-gated to
+	// /pages/ path segments inside the rule, so this warn-level block never
+	// triggers it for components, shell, or design-system files.
+	// ~8 intentional tracking-wider usages in non-pages files are NOT flagged.
+	{
+		files: ["packages/web/src/**/*.tsx"],
+		ignores: [
+			"packages/web/src/pages/**",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/*.test.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-undefined-font-heading": "warn",
+		},
+	},
+
 	// api-typesafety: TypeScript-ESLint rules that block type-safety bypass
 	// escape hatches in the server and web packages.
 	//
