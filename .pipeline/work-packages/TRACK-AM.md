@@ -8,7 +8,13 @@ Source: the t3code study of 2026-06-16 (`plans/chat-redesign/` — annotated t3c
 
 **Scope rules.** The conversation experience (primary) and the lower-level session-dial-in / harness layer that reuses its structure. **No color work** — the Hearth palette and all `AESTHETICS.md` tokens stay exactly as-is; this track is structure, information architecture, and rendering style (the founder's explicit instruction: "we find our own colors"). Reuse the existing Thread/Message primitives (`plain | review | questionnaire | verdict`) and verdict semantics unchanged — AM renders *within* the Thread model, it does not reshape it. The `BlockKind` prose vocabulary (`docs/blocks/`) is untouched and unrelated; any new conversation-rendering name must avoid "Block" and "blocked". `npm run verify` must pass after each workpackage merges.
 
-**Reference docs:** `plans/chat-redesign/t3code-reference.md` (distilled t3code style/IA learnings — read for *style*, not model), `plans/chat-redesign/` (screenshots), `docs/human-interface-layer/thread-primitive.md`, `docs/information-architecture/conversations-view.md`, `docs/information-architecture/app-shell-always-present.md`, `docs/agent-layer/index.md`, `packages/shared/src/harness/harness-events.ts`, `packages/shared/src/thread.ts`, `packages/web/src/components/SessionActivityPanel.tsx`, `packages/design-system/src/ThreadShell.tsx`, `.claude/rules/aesthetic-quality.md`.
+**Reference docs:** `plans/chat-redesign/t3code-reference.md` (distilled t3code style/IA learnings — read for *style*, not model), `docs/human-interface-layer/thread-primitive.md`, `docs/information-architecture/conversations-view.md`, `docs/information-architecture/app-shell-always-present.md`, `docs/agent-layer/index.md`, `packages/shared/src/harness/harness-events.ts`, `packages/shared/src/thread.ts`, `packages/web/src/components/SessionActivityPanel.tsx`, `packages/design-system/src/ThreadShell.tsx`, `.claude/rules/aesthetic-quality.md`.
+
+**Reference images** (`plans/AM1/`, founder-provided t3code screenshots — read for *style*, not model; colors out of scope):
+- `Screenshot 2026-06-16 at 22.15.49.png` — t3code chat, main conversation view: left projects/threads nav, center conversation with inline-embedded file refs, composer with capability pills (model/effort/mode/permission), branch indicator. → **AM1** (conversation style + embedding); composer-pill style informs **AM3** dial-in.
+- `Bild (5).png` — t3code chat, activity-heavy view: Read/Edit/"Ran N commands" activity chips with status, a commit diff-stat, a right-side diff/changes panel, "Accept edits" composer. → the *activity* style for **AM3** (session view reusing AM1's structure), NOT inlined into our conversation.
+- `Screenshot 2026-06-16 at 22.15.42.png` — t3code Settings → Providers: per-backend (Codex/Claude/Cursor/Grok/OpenCode) auth status, version, enable toggles, badges. → **AM4** onboarding / **AM2** capability descriptor.
+- `Screenshot 2026-06-16 at 22.15.35.png` — t3code Settings → Source Control providers (Git/GitHub/GitLab/…), same status/toggle pattern. → **AM4** onboarding pattern (secondary).
 
 ---
 
@@ -55,7 +61,7 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Given the existing message types (plain/review/questionnaire/verdict), when each renders in the new style, then all remain correct and reachable, and verdict flow is unaffected.
 - Given the shared rendering structure, when AM3 reuses it for the session view, then no conversation-rendering logic is duplicated.
 
-**Plan calls.** Concept-introducing — run `/concept AM1` first (lock the conversation/structure and the rejection list at `plans/AM1/concept.md`) before `/architecture`. Then `/design` for the conversation style (multi-variant, carrying the style-reach and embedding axes) → `/human-design-review`. Reuse `ThreadShell`, `CommentRow`, `RichMessageCard`, `BlockRefEmbed`; do not invent a parallel conversation renderer.
+**Plan calls.** Concept-introducing — run `/concept AM1` first (lock the conversation/structure and the rejection list at `plans/AM1/concept.md`) before `/architecture`. Read the founder-provided reference images in `plans/AM1/` and `plans/chat-redesign/t3code-reference.md` for the *style* to adopt (not the model). Then `/design` for the conversation style (multi-variant, carrying the style-reach and embedding axes) → `/human-design-review`. Reuse `ThreadShell`, `CommentRow`, `RichMessageCard`, `BlockRefEmbed`; do not invent a parallel conversation renderer.
 
 **Contracts / constraints.**
 - Reuse Thread/Message primitives and verdict semantics unchanged; render within them.
