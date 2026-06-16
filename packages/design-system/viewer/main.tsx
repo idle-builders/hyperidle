@@ -110,29 +110,6 @@ function useTheme(): [Theme, (t: Theme) => void] {
 	return [theme, setTheme];
 }
 
-/* ── Density ──────────────────────────────────────────────────────── */
-
-type Density = "compact" | "default" | "comfortable";
-
-function useDensity(): [Density, (d: Density) => void] {
-	const [density, setDensityState] = useState<Density>(() => {
-		const saved = localStorage.getItem("ds-density");
-		return saved === "compact" || saved === "comfortable" ? saved : "default";
-	});
-
-	const setDensity = useCallback((d: Density) => {
-		document.documentElement.setAttribute("data-density", d);
-		localStorage.setItem("ds-density", d);
-		setDensityState(d);
-	}, []);
-
-	useEffect(() => {
-		document.documentElement.setAttribute("data-density", density);
-	}, [density]);
-
-	return [density, setDensity];
-}
-
 /* ── Content wrappers ──────────────────────────────────────────────
  * CatalogWrapper: max-width 960px (matches _catalog.html inline #root style)
  * ComponentWrapper: padding only, no max-width (matches _tokens.css #root)
@@ -374,39 +351,12 @@ export function TsxComponentView({
 function Toolbar({
 	theme,
 	onThemeChange,
-	density,
-	onDensityChange,
 }: {
 	theme: Theme;
 	onThemeChange: (t: Theme) => void;
-	density: Density;
-	onDensityChange: (d: Density) => void;
 }): React.JSX.Element {
 	return (
 		<div className="toolbar">
-			<div className="toolbar-pill">
-				<button
-					type="button"
-					className={`toolbar-btn ${density === "compact" ? "toolbar-btn--active" : ""}`}
-					onClick={() => onDensityChange("compact")}
-				>
-					Compact
-				</button>
-				<button
-					type="button"
-					className={`toolbar-btn ${density === "default" ? "toolbar-btn--active" : ""}`}
-					onClick={() => onDensityChange("default")}
-				>
-					Default
-				</button>
-				<button
-					type="button"
-					className={`toolbar-btn ${density === "comfortable" ? "toolbar-btn--active" : ""}`}
-					onClick={() => onDensityChange("comfortable")}
-				>
-					Comfortable
-				</button>
-			</div>
 			<div className="toolbar-pill">
 				<button
 					type="button"
@@ -446,7 +396,6 @@ function App(): React.JSX.Element {
 	);
 	const [route, navigate] = useHashRoute();
 	const [theme, setTheme] = useTheme();
-	const [density, setDensity] = useDensity();
 
 	// @lore AJ7: storyRoot is STATE, set via a callback ref, NOT a useRef. The AJ5
 	// useRef(null) meant the overlay received null at the mounting render (refs commit
@@ -463,12 +412,7 @@ function App(): React.JSX.Element {
 
 	return (
 		<>
-			<Toolbar
-				theme={theme}
-				onThemeChange={setTheme}
-				density={density}
-				onDensityChange={setDensity}
-			/>
+			<Toolbar theme={theme} onThemeChange={setTheme} />
 			{isComponentPage ? (
 				<TsxComponentView module={activeModule} storyRootCb={storyRootCb} />
 			) : (

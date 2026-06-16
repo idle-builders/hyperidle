@@ -307,7 +307,7 @@ button {
 /* Inspector rail — sticky right column beside the canvas, collapsible to a strip. */
 .anno-rail {
 	position: fixed;
-	/* @lore AJ7: top offset clears the viewer Toolbar (theme/density pills at
+	/* @lore AJ7: top offset clears the viewer Toolbar (theme pills at
 	   top:8px, ~32px tall, top-right). Without it the rail header + arm button sit
 	   under the toolbar and the toolbar intercepts the arm click. */
 	top: 48px;
