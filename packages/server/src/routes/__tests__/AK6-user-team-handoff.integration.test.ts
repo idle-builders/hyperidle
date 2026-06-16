@@ -128,10 +128,7 @@ describe("AK6 CRITICAL-1: POST /api/users → POST /api/teams userId handoff", (
 
 		// Assert: welcome thread exists (userId was not undefined → seeding ran)
 		const expectedThreadId = `thr-ast-${createdUserId}`;
-		const threadRows = await db
-			.select()
-			.from(threads)
-			.where(eq(threads.id, expectedThreadId));
+		const threadRows = await db.select().from(threads).where(eq(threads.id, expectedThreadId));
 		expect(threadRows).toHaveLength(1);
 		expect(threadRows[0]?.id).toBe(expectedThreadId);
 	});

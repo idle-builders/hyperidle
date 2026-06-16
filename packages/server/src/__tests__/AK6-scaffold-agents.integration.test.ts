@@ -17,22 +17,22 @@
  */
 
 import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
-import type {
-	AgentAddedEvent,
-	AgentScaffoldSpec,
-	ScaffoldRequest,
-	TeamCreatedEvent,
-	UserCreatedEvent,
+import {
+	type AgentAddedEvent,
+	type AgentScaffoldSpec,
+	EventBus,
+	type ScaffoldRequest,
+	type TeamCreatedEvent,
+	type UserCreatedEvent,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { addAgentTool } from "../tools/add-agent.js";
-import { createTeamTool } from "../tools/create-team.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+import { addAgentTool } from "../tools/add-agent.js";
+import { createTeamTool } from "../tools/create-team.js";
 
 const TEST_API_KEY = "test-key-AK6";
 const NOW = new Date().toISOString();
@@ -502,7 +502,11 @@ describe("AK6 WARNING-1: tool handler direct path emits creation events (AC2)", 
 			sessionId: "session-test",
 			taskId: "task-test",
 			sandboxPath: "/tmp/ak6-tool-test-create-team",
-			ingestion: { dispose: (): void => { /* no-op */ } },
+			ingestion: {
+				dispose: (): void => {
+					/* no-op */
+				},
+			},
 		};
 
 		const result = await createTeamTool.handler(
@@ -527,9 +531,7 @@ describe("AK6 WARNING-1: tool handler direct path emits creation events (AC2)", 
 		// Seed the team
 		const teamId = "team-warning1-add-agent";
 		const tm = "tm-warning1-add-agent";
-		await db
-			.insert(teams)
-			.values({ id: teamId, name: "W1 Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: teamId, name: "W1 Team", phase: "build", createdAt: NOW });
 		await db
 			.insert(teamMembers)
 			.values({ id: tm, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
@@ -545,7 +547,11 @@ describe("AK6 WARNING-1: tool handler direct path emits creation events (AC2)", 
 			sessionId: "session-test",
 			taskId: "task-test",
 			sandboxPath: "/tmp/ak6-tool-test-add-agent",
-			ingestion: { dispose: (): void => { /* no-op */ } },
+			ingestion: {
+				dispose: (): void => {
+					/* no-op */
+				},
+			},
 		};
 
 		const result = await addAgentTool.handler(
