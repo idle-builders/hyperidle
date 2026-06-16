@@ -6,7 +6,7 @@ Source: the t3code study of 2026-06-16 (`plans/chat-redesign/` — annotated t3c
 
 **Why a separate track.** This is the conversation interaction layer (foremost) plus the lower-level session/harness layer that reuses its structure — broader than Track AL (review-comment polish) and orthogonal to it. AL adds reviewer interactions on artifacts; AM improves how the conversation itself reads and embeds, then reuses that for the session view. They share the thread/harness data model but no UI seam, so they proceed in parallel.
 
-**Scope rules.** The conversation experience (primary) and the lower-level session-dial-in / harness layer that reuses its structure. **No color work** — the Hearth palette and all `AESTHETICS.md` tokens stay exactly as-is; this track is structure, information architecture, and rendering style (the founder's explicit instruction: "we find our own colors"). Reuse the existing Thread/Message primitives (`plain | review | questionnaire | verdict`) and verdict semantics unchanged — AM renders *within* the Thread model, it does not reshape it. The `BlockKind` prose vocabulary (`docs/blocks/`) is untouched and unrelated; any new conversation-rendering name must avoid "Block" and "blocked". `npm run verify` must pass after each workpackage merges.
+**Scope rules.** The conversation experience (primary) and the lower-level session-dial-in / harness layer that reuses its structure. **No color work** — the Hearth palette and all `AESTHETICS.md` tokens stay exactly as-is; this track is structure, information architecture, and rendering style (the founder's explicit instruction: "we find our own colors"). The existing Thread/Message primitives (`plain | review | questionnaire | verdict`) and verdict semantics stay unchanged — AM renders *within* the Thread model, it does not reshape it. The `BlockKind` prose vocabulary (`docs/blocks/`) is untouched and unrelated; any new conversation-rendering name must avoid "Block" and "blocked". `npm run verify` must pass after each workpackage merges.
 
 **Reference docs:** `plans/chat-redesign/t3code-reference.md` (distilled t3code style/IA learnings — read for *style*, not model), `docs/human-interface-layer/thread-primitive.md`, `docs/information-architecture/conversations-view.md`, `docs/information-architecture/app-shell-always-present.md`, `docs/agent-layer/index.md`, `packages/shared/src/harness/harness-events.ts`, `packages/shared/src/thread.ts`, `packages/web/src/components/SessionActivityPanel.tsx`, `packages/design-system/src/ThreadShell.tsx`, `.claude/rules/aesthetic-quality.md`.
 
@@ -61,10 +61,10 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Given the existing message types (plain/review/questionnaire/verdict), when each renders in the new style, then all remain correct and reachable, and verdict flow is unaffected.
 - Given the shared rendering structure, when AM3 reuses it for the session view, then no conversation-rendering logic is duplicated.
 
-**Plan calls.** Concept-introducing — run `/concept AM1` first (lock the conversation/structure and the rejection list at `plans/AM1/concept.md`) before `/architecture`. Read the founder-provided reference images in `plans/AM1/` and `plans/chat-redesign/t3code-reference.md` for the *style* to adopt (not the model). Then `/design` for the conversation style (multi-variant, carrying the style-reach and embedding axes) → `/human-design-review`. Reuse `ThreadShell`, `CommentRow`, `RichMessageCard`, `BlockRefEmbed`; do not invent a parallel conversation renderer.
+**Plan calls.** Concept-introducing — run `/concept AM1` first (lock the conversation/structure and the rejection list at `plans/AM1/concept.md`) before `/architecture`. Read the founder-provided reference images in `plans/AM1/` and `plans/chat-redesign/t3code-reference.md` for the *style* to adopt (not the model). Then `/design` for the conversation style (multi-variant, carrying the style-reach and embedding axes) → `/human-design-review`.
 
 **Contracts / constraints.**
-- Reuse Thread/Message primitives and verdict semantics unchanged; render within them.
+- Thread/Message primitives and verdict semantics stay unchanged — AM renders within the Thread model.
 - A conversation is deliberate messages within Threads — never a session work-log; session activity is not a first-class conversation part.
 - The shared rendering structure's name must NOT be "Block" or "blocked".
 - No color/token changes — Hearth palette and `AESTHETICS.md` tokens unchanged; structure and style only.
@@ -106,10 +106,9 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Given the same logical action from two backends, when each emits native events, then both normalize to the same downstream representation.
 - Given the locked harness scope, when the descriptor is constructed, then its shape matches that scope.
 
-**Plan calls.** Concept-introducing and strategically load-bearing — run `/concept AM2` first; the harness-scope fork is a founder decision resolved there (`plans/AM2/concept.md`), not deferred to architecture. Skip `/design`. Then `/architecture` → `/write-tests` → `/write-code`. Reuse `HarnessEvent`, `model-gateway`, `strategy-port`; extend, don't replace.
+**Plan calls.** Concept-introducing and strategically load-bearing — run `/concept AM2` first; the harness-scope fork is a founder decision resolved there (`plans/AM2/concept.md`), not deferred to architecture. Skip `/design`. Then `/architecture` → `/write-tests` → `/write-code`.
 
 **Contracts / constraints.**
-- Reuse and extend the existing harness/event abstraction; no parallel harness model.
 - Honor the locked harness vocabulary (keep "harness"/"session"; no purged terms).
 - Capability descriptor is declarative — consumers render from it; no per-backend branching in UI code.
 
@@ -150,10 +149,10 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Given a harness that declares model + effort options, when the user opens the dial-in, then those controls render from capabilities; an option the harness does not declare is absent.
 - Given a session's activity, when it renders, then it uses AM1's shared rendering structure (no duplicated renderer) and reads uniformly with the conversation.
 
-**Plan calls.** `/design` for the dial-in surface — entry, controls, and the activity view that reuses AM1's structure (multi-variant, carrying the dial-in-surface axis) → `/human-design-review`. Reuse `SessionActivityPanel`/`useSessionActivity` data path, AM1's rendering structure, and AM2's descriptor. Standard `/architecture` after the design locks.
+**Plan calls.** `/design` for the dial-in surface — entry, controls, and the activity view that reuses AM1's structure (multi-variant, carrying the dial-in-surface axis) → `/human-design-review`. Builds on AM1's shared rendering structure (the uniformity requirement) and AM2's capability descriptor. Standard `/architecture` after the design locks.
 
 **Contracts / constraints.**
-- Reuse AM1's shared rendering structure for the activity view — do not fork a second renderer.
+- The session activity view reads uniformly with the conversation by sharing AM1's rendering structure (the AM1↔AM3 uniformity requirement).
 - Render controls/activity from AM2's descriptor; no per-backend branching.
 - The dial-in is lower-level — it must not promote session activity into first-class conversation content.
 - No color/token changes — Hearth tokens unchanged.
@@ -195,13 +194,11 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Given a present-but-unauthenticated backend, when the user views it, then it shows an actionable next step (not a silent or cryptic failure).
 - Given the locked AM2 scope, when detection runs, then only in-scope backend kinds are surfaced.
 
-**Plan calls.** `/design` for the detection-results and onboarding/settings surface (multi-variant) → `/human-design-review`. Reuse the existing Settings shell and AM2's descriptor. Standard `/architecture` after the design locks. Re-size to M if AM2 locks native-only scope.
+**Plan calls.** `/design` for the detection-results and onboarding/settings surface (multi-variant) → `/human-design-review`. Builds on AM2's capability descriptor (status/auth/version/capabilities). Standard `/architecture` after the design locks. Re-size to M if AM2 locks native-only scope.
 
 **Contracts / constraints.**
 - Render from AM2's descriptor; no per-backend hard-coding in the settings surface.
 - No color/token changes — Hearth tokens unchanged.
-- Reuse the existing Settings shell; do not fork a parallel settings surface.
-
-**Out of scope.** The capability descriptor itself (AM2). The dial-in surface (AM3). The conversation (AM1). Credential storage mechanics beyond surfacing auth status (reuse existing Credentials handling).
+**Out of scope.** The capability descriptor itself (AM2). The dial-in surface (AM3). The conversation (AM1). Credential storage mechanics beyond surfacing auth status.
 
 **Effort.** L (~4d)
