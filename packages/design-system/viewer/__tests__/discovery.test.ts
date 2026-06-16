@@ -235,6 +235,43 @@ describe("deriveGroup — fixed precedence chain", () => {
 	});
 });
 
+describe("W-1 seg() segment-boundary matching", () => {
+	// @lore AJ6 W-1: the original seg() second clause was a prefix-substring match
+	// (p.includes("/" + fragment)), not a true segment-boundary match. A path like
+	// "pages/work-summary.stories.tsx" would falsely match seg("pages/work").
+	// Tightened to require trailing "/": only real subdirectory descendants match.
+
+	test("pages/work-summary path does NOT classify as Work (no false prefix match)", () => {
+		// The path contains "/pages/work-summary/" but NOT "/pages/work/" →
+		// seg("pages/work") must be false → falls through → null (no meta.group).
+		const result = deriveGroup(
+			"../../web/src/pages/work-summary.stories.tsx",
+			"Page: WorkSummary",
+			{ title: "Page: WorkSummary" },
+		);
+		// No /pages/work/ directory segment and no explicit meta.group → null
+		expect(result).toBeNull();
+	});
+
+	test("pages/work/ActualPage path still classifies as Work (true segment match)", () => {
+		// The path has "/pages/work/" → seg("pages/work") is true → Work
+		const result = deriveGroup("../../web/src/pages/work/BetPage.stories.tsx", "Page: Work/Bet", {
+			title: "Page: Work/Bet",
+		});
+		expect(result).toEqual(g("domain", "Work"));
+	});
+
+	test("pages/knowledge-base path does NOT classify as Knowledge (no false prefix match)", () => {
+		const result = deriveGroup(
+			"../../web/src/pages/knowledge-base.stories.tsx",
+			"Page: KnowledgeBase",
+			{ title: "Page: KnowledgeBase" },
+		);
+		// No /pages/knowledge/ directory segment and no explicit meta.group → null
+		expect(result).toBeNull();
+	});
+});
+
 describe("GROUPS registry", () => {
 	test("GROUPS has 9 entries: 3 tiers then 6 domains", () => {
 		expect(GROUPS).toHaveLength(9);

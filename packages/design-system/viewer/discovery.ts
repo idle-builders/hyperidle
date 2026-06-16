@@ -127,7 +127,6 @@ export type GlobSource = Record<string, Record<string, unknown>>;
 //                AI2/DiscardConfirmStrip
 //
 // Tokens gallery: Foundation (entry point to the token system)
-// CatalogAxis design story: Foundation (viewer/catalog chrome)
 // Special: groups with prefix (AI2/, AG6/, Kinds/) resolved here too
 export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	// Foundation — atoms
@@ -165,7 +164,6 @@ export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	"AI2/Dialog": "Blocks",
 	"AI2/DialogPortalRoot": "Blocks",
 	"AI2/DiscardConfirmStrip": "Blocks",
-	"Catalog Axis (AJ6 design)": "Foundation",
 	// Work domain
 	BetCard: "Work",
 	TaskCard: "Work",
@@ -245,10 +243,16 @@ export function deriveFromPath(path: string, _title: string): CatalogGroup | nul
 	// Normalise to forward slashes
 	const p = path.replace(/\\/g, "/");
 
-	// Helper: check if the path contains a path segment anywhere.
-	// Accepts "…/segment/…" OR a leading "segment/…".
+	// Helper: check if the path contains a directory segment anywhere.
+	// Requires the fragment to be surrounded by "/" on both sides, ensuring
+	// only true directory-segment matches (not substring prefix matches).
+	// "pages/work" matches "/pages/work/" but NOT "/pages/work-summary/".
+	// @lore AJ6 W-1: the original second clause `p.includes("/" + fragment)` was a
+	// prefix-substring match — "pages/work-summary.stories.tsx" would falsely match
+	// seg("pages/work"). Tightened to require trailing "/" so only real directory
+	// descendants match.
 	function seg(fragment: string): boolean {
-		return p.includes(`/${fragment}/`) || p.includes(`/${fragment}`);
+		return p.includes(`/${fragment}/`);
 	}
 
 	// Nested pages — checked before flat pages/ prefix
@@ -280,11 +284,9 @@ export function deriveFromPath(path: string, _title: string): CatalogGroup | nul
 function deriveFromTitle(title: string): CatalogGroup | null {
 	if (title.startsWith("Page: Work/")) return makeGroup("Work");
 	if (title.startsWith("Page: Knowledge/")) return makeGroup("Knowledge");
-	if (title === "Page: Conversations") return makeGroup("Conversations");
 	if (title.startsWith("Page: Conversations")) return makeGroup("Conversations");
 	if (title.startsWith("Page: Agents/")) return makeGroup("Conversations");
 	if (title.startsWith("Page: Setup/")) return makeGroup("Work");
-	if (title === "Page: Settings") return makeGroup("Settings");
 	if (title.startsWith("Page: Settings")) return makeGroup("Settings");
 	// Area-less titles (WorkRoutine, WorkTeam, NotFound) → null (need meta.group)
 	return null;

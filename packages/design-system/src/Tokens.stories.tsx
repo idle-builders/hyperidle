@@ -4,10 +4,6 @@
  * this paints them via inline `var(--x)` so the browser shows the real value
  * (theme-aware via the viewer's data-theme cascade) and jsdom serializes a
  * stable `var(--x)` string (no getComputedStyle — that returns empty in jsdom).
- *
- * Builder note (AJ6 green phase): swap `tier: "utility"` for
- * `group: "Foundation"` once StoryMeta.group lands; this enters the DS
- * snapshot net (one additive `Tokens` snapshot, 57 >= 56 guard holds).
  */
 
 const label: React.CSSProperties = {
