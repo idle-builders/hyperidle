@@ -125,7 +125,18 @@ After setup you land on **Work** (your team page — with one team, the Work ove
 
 ### 6. Create your first Bet
 
-A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
+A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute. There are two ways to create one.
+
+**Option A — Talk to the Assistant (recommended for first-timers):**
+
+1. Click the Assistant button at the bottom of the sidebar to open the overlay.
+2. Describe your idea in plain language. For example: "I want to build a landing page with email signup."
+3. The Assistant replies and drafts a bet derived from the conversation. A **BetCard** appears below the reply.
+4. Click the card to open the draft bet in the authoring surface. Review, edit as needed, and commit.
+
+This is the conversation-first path — you iterate with the Assistant until the bet looks right, then commit.
+
+**Option B — Hand-type the bet:**
 
 1. Click **New bet** in the Work overview header or in the team header (or in the empty-state centre if no bets exist yet).
 2. A full-page authoring surface opens with:
@@ -137,7 +148,7 @@ A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute.
 
 **Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
 
-To start agents, open the Bet, click the overflow menu (`···`) next to the status badge, and choose **Activate bet**. The status flips from `draft` to `active`. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
+To start agents, open the Bet and click **Commit**. The status flips from `draft` to `active`, and the team immediately begins planning tasks. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.
