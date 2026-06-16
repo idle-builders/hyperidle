@@ -53,10 +53,10 @@ export function isRectOffscreen(rect: Rect, viewportW: number, viewportH: number
  * Returns null when el is null.
  */
 export function useElementRect(el: HTMLElement | null): Rect | null {
-	const [rect, setRect] = useState<Rect | null>(() => (el ? measureRect(el) : null));
+	const [rect, setRect] = useState<Rect | null>(() => (el?.isConnected ? measureRect(el) : null));
 
 	useLayoutEffect(() => {
-		if (!el) {
+		if (!el?.isConnected) {
 			setRect(null);
 			return;
 		}
@@ -68,7 +68,11 @@ export function useElementRect(el: HTMLElement | null): Rect | null {
 			if (frame) return;
 			frame = requestAnimationFrame(() => {
 				frame = 0;
-				setRect(measureRect(el));
+				// @lore AJ7 UNMOUNT-GUARD (SF-2): a held element can detach between
+				// frames (variant nav, conditional sibling removal). getBoundingClientRect
+				// on a detached node returns all-zeros → a 0×0 ghost box at the viewport
+				// origin. Treat !isConnected as null so the box disappears instead of lying.
+				setRect(el.isConnected ? measureRect(el) : null);
 			});
 		};
 

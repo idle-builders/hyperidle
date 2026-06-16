@@ -158,6 +158,24 @@ export function usePicker(storyRoot: HTMLElement): Picker {
 	// Unmount cleanup.
 	useEffect(() => detach, [detach]);
 
+	// @lore AJ7 UNMOUNT-CLEAR (SF-2): when a held element detaches from the DOM
+	// (story re-render, variant nav, conditional sibling removal) the box must
+	// disappear AND the selection clear — never a 0×0 ghost or a stale rail section
+	// pointing at a gone element. useElementRect already nulls the box on a detached
+	// node; this clears the engine state too. A MutationObserver on the story root
+	// fires on subtree mutations; we re-check isConnected for the held/re-highlight
+	// element and drop it if it is no longer connected. No-op when nothing is held.
+	useEffect(() => {
+		if (typeof MutationObserver === "undefined") return undefined;
+		const mo = new MutationObserver(() => {
+			setSelected((s) => (s && !s.el.isConnected ? null : s));
+			setHover((h) => (h && !h.el.isConnected ? null : h));
+			setReHighlightEl((el) => (el && !el.isConnected ? null : el));
+		});
+		mo.observe(storyRoot, { childList: true, subtree: true });
+		return () => mo.disconnect();
+	}, [storyRoot]);
+
 	const clearSelection = useCallback((): void => {
 		setSelected(null);
 	}, []);

@@ -93,10 +93,23 @@ export function AnnotationOverlay({
 		ro.observe(storyRoot);
 		return () => ro.disconnect();
 	}, [storyRoot]);
-	// Collapse toggle also reflows the grid; bump the key explicitly too.
+
+	// ---- SF-1: reserve the rail's footprint so the canvas reflows away ----
+	// @lore AJ7 NO-OCCLUSION REFLOW: the rail is position:fixed at the viewport
+	// right edge; without this it paints OVER the centered canvas. We set a body
+	// gutter var = rail width + edge gap (collapses to the strip width) so body
+	// padding-right pushes the normal-flow canvas clear of the fixed rail. The
+	// ResizeObserver above re-measures the held/re-highlight box across the reflow.
+	// Cleanup removes the class+var so the catalog (rail unmounted) reclaims width.
 	useEffect(() => {
-		setMeasureKey((k) => k + 1);
-	}, []);
+		const gutter = collapsed ? "72px" : "344px";
+		document.body.classList.add("anno-active");
+		document.body.style.setProperty("--anno-rail-gutter", gutter);
+		return () => {
+			document.body.classList.remove("anno-active");
+			document.body.style.removeProperty("--anno-rail-gutter");
+		};
+	}, [collapsed]);
 
 	// ---- Off-screen → scrollIntoView before drawing the re-highlight ----
 	useEffect(() => {

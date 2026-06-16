@@ -331,6 +331,20 @@ button {
 	padding: 12px 6px;
 }
 
+/* @lore AJ7 NO-OCCLUSION REFLOW (SF-1): the rail is position:fixed at the viewport
+   right edge, so it would otherwise paint OVER the centered canvas (~120px overlap
+   at 1440px). The overlay sets --anno-rail-gutter on <body> (rail width + edge gap;
+   shrinks to the strip width when collapsed) and we pad the body right by it. Because
+   the rail/toolbar are fixed-to-viewport, the padding shifts only the normal-flow
+   canvas — the canvas reflows into the rail-minus width and is NEVER hidden behind
+   the rail. This is the founder's one binding principle (approved.md). The transition
+   matches the rail's so collapse/expand reflows smoothly; the overlay's ResizeObserver
+   on the story root re-measures the held/re-highlight box across the reflow. */
+body.anno-active {
+	padding-right: var(--anno-rail-gutter, 0px);
+	transition: padding-right var(--motion-fast) var(--motion-ease);
+}
+
 .anno-rail-head {
 	display: flex;
 	align-items: center;

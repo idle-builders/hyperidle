@@ -95,16 +95,19 @@ describe("AC2 — useElementRect hook", () => {
 
 	test("measures immediately on mount", async () => {
 		const el = document.createElement("div");
+		document.body.appendChild(el); // connected so the SF-2 isConnected guard measures
 		stubRect(el, { top: 5, left: 6, width: 7, height: 8 });
 		let latest: unknown = null;
 		await act(async () => {
 			root.render(createElement(Probe, { el, onRect: (r) => (latest = r) }));
 		});
 		expect(latest).toEqual({ top: 5, left: 6, width: 7, height: 8 });
+		el.remove();
 	});
 
 	test("re-measures on window scroll (capture phase)", async () => {
 		const el = document.createElement("div");
+		document.body.appendChild(el);
 		stubRect(el, { top: 100, left: 0, width: 10, height: 10 });
 		let latest: { top: number } | null = null;
 		await act(async () => {
@@ -120,10 +123,12 @@ describe("AC2 — useElementRect hook", () => {
 			await new Promise((res) => requestAnimationFrame(() => res(null)));
 		});
 		expect(latest?.top).toBe(40);
+		el.remove();
 	});
 
 	test("re-measures on window resize", async () => {
 		const el = document.createElement("div");
+		document.body.appendChild(el);
 		stubRect(el, { top: 100, left: 0, width: 10, height: 10 });
 		let latest: { left: number } | null = null;
 		await act(async () => {
@@ -135,10 +140,47 @@ describe("AC2 — useElementRect hook", () => {
 			await new Promise((res) => requestAnimationFrame(() => res(null)));
 		});
 		expect(latest?.left).toBe(55);
+		el.remove();
+	});
+
+	test("SF-2: returns null when the element is detached (!isConnected) — no 0×0 ghost", async () => {
+		// A detached element: created but never appended to the document.
+		const el = document.createElement("div");
+		stubRect(el, { top: 0, left: 0, width: 0, height: 0 });
+		expect(el.isConnected).toBe(false);
+		let latest: unknown = "unset";
+		await act(async () => {
+			root.render(createElement(Probe, { el, onRect: (r) => (latest = r) }));
+		});
+		// getBoundingClientRect would give a 0×0 rect; the hook must yield null instead.
+		expect(latest).toBeNull();
+	});
+
+	test("SF-2: clears the rect when a connected element later detaches on a scroll tick", async () => {
+		const host = document.createElement("div");
+		document.body.appendChild(host);
+		const el = document.createElement("div");
+		host.appendChild(el);
+		stubRect(el, { top: 30, left: 0, width: 10, height: 10 });
+		let latest: ReturnType<typeof useElementRect> = null;
+		await act(async () => {
+			root.render(createElement(Probe, { el, onRect: (r) => (latest = r) }));
+		});
+		expect(latest).toEqual({ top: 30, left: 0, width: 10, height: 10 });
+
+		// Element detaches (e.g. variant nav), then a scroll fires.
+		el.remove();
+		await act(async () => {
+			window.dispatchEvent(new Event("scroll"));
+			await new Promise((res) => requestAnimationFrame(() => res(null)));
+		});
+		expect(latest).toBeNull();
+		host.remove();
 	});
 
 	test("removes scroll + resize listeners on unmount", async () => {
 		const el = document.createElement("div");
+		document.body.appendChild(el);
 		stubRect(el, { top: 0, left: 0, width: 1, height: 1 });
 		const removeSpy = vi.spyOn(window, "removeEventListener");
 		await act(async () => {
@@ -150,6 +192,7 @@ describe("AC2 — useElementRect hook", () => {
 		const removed = removeSpy.mock.calls.map((c) => c[0]);
 		expect(removed).toContain("scroll");
 		expect(removed).toContain("resize");
+		el.remove();
 		// re-create root so afterEach unmount is safe
 		root = createRoot(container);
 	});
