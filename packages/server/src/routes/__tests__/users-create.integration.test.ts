@@ -9,8 +9,10 @@
  */
 
 import { users } from "@hyperidle/db";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp } from "../../app.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-users-create";
@@ -39,6 +41,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// AC-28: POST creates human user with 201
+	// AK6 T8: response shape changed to { user: { ... } }
 	test("creates a human user and returns 201 when no human user exists", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
@@ -47,14 +50,15 @@ describe("POST /api/users — setup user creation", () => {
 		});
 
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.name).toBe("Alice Founder");
-		expect(body.email).toBe("alice@example.com");
-		expect(body.kind).toBe("human");
-		expect(typeof body.id).toBe("string");
+		const body = (await res.json()) as { user: Record<string, unknown> };
+		expect(body.user.name).toBe("Alice Founder");
+		expect(body.user.email).toBe("alice@example.com");
+		expect(body.user.kind).toBe("human");
+		expect(typeof body.user.id).toBe("string");
 	});
 
 	// Reviewer WARNING: required columns must be set
+	// AK6 T8: response shape changed to { user: { ... } }
 	test("created user has role and status set", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
@@ -63,14 +67,15 @@ describe("POST /api/users — setup user creation", () => {
 		});
 
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(typeof body.role).toBe("string");
-		expect(body.role).toBeTruthy();
-		expect(typeof body.status).toBe("string");
-		expect(body.status).toBeTruthy();
+		const body = (await res.json()) as { user: Record<string, unknown> };
+		expect(typeof body.user.role).toBe("string");
+		expect(body.user.role).toBeTruthy();
+		expect(typeof body.user.status).toBe("string");
+		expect(body.user.status).toBeTruthy();
 	});
 
 	// AC-28: Idempotent — second POST returns 200 with existing user
+	// AK6 T8: 201 response shape is { user: { ... } }; 200 idempotent returns the raw user row
 	test("returns 200 with existing user when human user already exists (idempotent)", async ({
 		app,
 	}) => {
@@ -81,7 +86,8 @@ describe("POST /api/users — setup user creation", () => {
 			body: JSON.stringify({ name: "Alice", email: "alice@example.com" }),
 		});
 		expect(first.status).toBe(201);
-		const firstBody = (await first.json()) as Record<string, unknown>;
+		const firstBody = (await first.json()) as { user: Record<string, unknown> };
+		const firstId = firstBody.user.id;
 
 		// Second call is idempotent — same human user returned
 		const second = await app.request("/api/users", {
@@ -91,17 +97,20 @@ describe("POST /api/users — setup user creation", () => {
 		});
 		expect(second.status).toBe(200);
 		const secondBody = (await second.json()) as Record<string, unknown>;
-		// Returns the existing user (same id)
-		expect(secondBody.id).toBe(firstBody.id);
+		// Returns the existing user (same id) — idempotent 200 keeps the flat shape
+		expect(secondBody.id).toBe(firstId);
 	});
 
 	// Reviewer CRITICAL: Auth bypass test — no API key when no human exists
+	// AK6 T8: This test creates a freshApp without the fixture (so no fixture strategy).
+	// Must manually set strategy before POST to avoid "No active Strategy" throw.
 	test("allows unauthenticated creation when HYPERIDLE_API_KEY is set but no human user exists", async ({
 		db,
 		eventBus,
 	}) => {
 		// Empty API key in env simulates local-mode where key is not yet configured
 		vi.stubEnv("HYPERIDLE_API_KEY", "");
+		setActiveStrategy(minimalStrategy);
 
 		const freshApp = await createApp({ db, eventBus });
 
@@ -110,6 +119,8 @@ describe("POST /api/users — setup user creation", () => {
 			headers: noAuthHeaders(), // no API key header
 			body: JSON.stringify({ name: "Setup User", email: "setup@example.com" }),
 		});
+
+		clearActiveStrategy();
 
 		// Should succeed — local mode with no human user allows setup
 		expect(res.status).toBe(201);
@@ -127,6 +138,7 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// R2: email is optional — creates user without email (email omitted)
+	// AK6 T8: response shape changed to { user: { ... } }
 	test("creates user without email (email omitted) — R2: email is optional", async ({ app }) => {
 		const res = await app.request("/api/users", {
 			method: "POST",
@@ -135,10 +147,10 @@ describe("POST /api/users — setup user creation", () => {
 		});
 
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.name).toBe("Alice");
-		expect(body.kind).toBe("human");
-		expect(typeof body.id).toBe("string");
+		const body = (await res.json()) as { user: Record<string, unknown> };
+		expect(body.user.name).toBe("Alice");
+		expect(body.user.kind).toBe("human");
+		expect(typeof body.user.id).toBe("string");
 	});
 
 	// Validation: invalid email returns 400
@@ -187,21 +199,22 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// The created user can be retrieved
+	// AK6 T8: POST response is { user: { ... } } — extract user.id for GET
 	test("created user is retrievable via GET /api/users/:id", async ({ app }) => {
 		const createRes = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
 			body: JSON.stringify({ name: "New User", email: "new@example.com" }),
 		});
-		const created = (await createRes.json()) as Record<string, unknown>;
+		const created = (await createRes.json()) as { user: Record<string, unknown> };
 
-		const getRes = await app.request(`/api/users/${created.id}`, {
+		const getRes = await app.request(`/api/users/${created.user.id}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
 		expect(getRes.status).toBe(200);
 		const body = (await getRes.json()) as Record<string, unknown>;
-		expect(body.id).toBe(created.id);
+		expect(body.id).toBe(created.user.id);
 		expect(body.name).toBe("New User");
 	});
 });

@@ -519,6 +519,7 @@ export default [
 		files: ["packages/server/src/**/*.ts"],
 		ignores: [
 			"packages/server/src/server-factory.ts", // composition root — may import a concrete Strategy
+			"packages/server/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
 			"packages/server/src/**/__tests__/**",
 			"packages/server/src/**/*.test.ts",
 			"packages/server/src/**/*.spec.ts",

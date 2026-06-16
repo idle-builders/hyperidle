@@ -18,8 +18,6 @@
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
-	DEFAULT_AGENT_MODEL_ID,
-	DEFAULT_AGENT_MODEL_PROVIDER,
 	type EventBus,
 	type HostKind,
 	type Message,
@@ -28,21 +26,17 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
-
-/**
- * AH3: Default system prompt for lazy-created assistant agents.
- * @lore AH3 N2: Lazy-create paths must also set harness/model/systemPrompt defaults
- * to match what registration creates. Without this, a test user seeded directly
- * into the DB (bypassing registration) would get a null-harness assistant agent.
- */
-const BUILTIN_ASSISTANT_SYSTEM_PROMPT =
-	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
-
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+// AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona moves to the Fabric Strategy.
+// The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
+// now call the Strategy port (scaffoldAgents) + persistScaffoldedAgents, identical
+// to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
+import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
@@ -298,23 +292,23 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 
 		if (!agentRow) {
-			const now = new Date().toISOString();
-			// @lore AH3 N2: Lazy-create sets harness/model/systemPrompt defaults.
+			// @lore AK6 T8: Lazy-create routes through the Strategy port (identical to POST /api/users).
+			// @lore AH3 N2: Lazy-create handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			await db.insert(users).values({
-				id: assistantAgentId,
-				kind: "ai",
-				name: `${userRow.name}'s Assistant`,
-				role: "assistant",
-				agentCategory: "individual",
-				status: "active",
-				harnessType: "builtin",
-				modelId: DEFAULT_AGENT_MODEL_ID,
-				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
-				maxConcurrentSessions: 1,
-				createdAt: now,
+			// persistScaffoldedAgents is the single writer of agent user rows (AK6 hard-rule).
+			const specs = await getActiveStrategy().scaffoldAgents({
+				db,
+				trigger: "user_assistant",
+				teamId: null,
+				teamMembersId: null,
+				teamName: null,
+				functions: null,
+				role: null,
+				name: null,
+				ownerUserId: targetUserId,
+				ownerUserName: userRow.name,
 			});
+			await persistScaffoldedAgents(db, null, specs);
 			[agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 		}
 
@@ -392,23 +386,22 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 
 		if (!agentRow) {
-			const now = new Date().toISOString();
-			// @lore AH3 N2: Lazy-create (PATCH path) also sets defaults.
+			// @lore AK6 T8: Lazy-create (PATCH path) routes through the Strategy port (same as GET path).
+			// @lore AH3 N2: Lazy-create (PATCH path) handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			await db.insert(users).values({
-				id: assistantAgentId,
-				kind: "ai",
-				name: `${userRow.name}'s Assistant`,
-				role: "assistant",
-				agentCategory: "individual",
-				status: "active",
-				harnessType: "builtin",
-				modelId: DEFAULT_AGENT_MODEL_ID,
-				modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-				systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
-				maxConcurrentSessions: 1,
-				createdAt: now,
+			const specs = await getActiveStrategy().scaffoldAgents({
+				db,
+				trigger: "user_assistant",
+				teamId: null,
+				teamMembersId: null,
+				teamName: null,
+				functions: null,
+				role: null,
+				name: null,
+				ownerUserId: targetUserId,
+				ownerUserName: userRow.name,
 			});
+			await persistScaffoldedAgents(db, null, specs);
 			[agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 		}
 

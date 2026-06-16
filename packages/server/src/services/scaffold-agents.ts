@@ -15,12 +15,19 @@
  *   - ALLOW when free: anything else, including `ast-${userId}` and `seed-agent-*`.
  *   - Collision → fresh UUID regardless of prefix.
  *
- * @lore AK6: This stub is the RED-phase placeholder so tests compile.
- * The green-phase builder implements the real logic.
+ * @lore AK6: bootstrap-swap exception — the factory bootstrap at the leaf/desktop
+ * layer (packages/db/factory-bootstrap.ts) is a PERMANENT registry-free exception.
+ * It seeds the *default* roster because it runs before any Strategy is registered
+ * (4 boot paths: desktop + 3 leaf CLIs run before startServer()). This helper
+ * covers only the 3 server-side creation surfaces that DO have the registry.
+ * This does not violate AC2 because the leaf path carries a *value*
+ * (FactoryRosterSpec), not a Kernel decision.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import type { AgentScaffoldSpec } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 
 export interface ScaffoldResult {
 	agentIds: string[];
@@ -28,12 +35,35 @@ export interface ScaffoldResult {
 }
 
 /**
+ * Resolve the id to assign to a scaffolded agent.
+ *
+ * Rules:
+ * 1. If idHint starts with "system:" → always fresh UUID (deny-set).
+ * 2. If idHint is free (no row with that id exists) → use it.
+ * 3. If idHint collides → fresh UUID.
+ * 4. If no idHint → fresh UUID.
+ */
+async function resolveAgentId(db: HyperIdleDb, idHint: string | undefined): Promise<string> {
+	if (!idHint) return crypto.randomUUID();
+	// Deny-set: system: prefix is the Kernel/system namespace — never assignable via hint.
+	if (idHint.startsWith("system:")) return crypto.randomUUID();
+	// Check for collision
+	const [existing] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(eq(users.id, idHint))
+		.limit(1);
+	if (existing) return crypto.randomUUID();
+	return idHint;
+}
+
+/**
  * Persist the scaffolded agent specs returned by a Strategy.
  *
- * @param db      - The database handle.
+ * @param db            - The database handle.
  * @param teamMembersId - teamMembers.id to set as users.teamId (null for non-team-scoped agents).
- * @param specs   - The agent specs returned by the active Strategy's scaffoldAgents().
- * @returns       { agentIds, leadAgentId } — the assigned users.id values.
+ * @param specs         - The agent specs returned by the active Strategy's scaffoldAgents().
+ * @returns             { agentIds, leadAgentId } — the assigned users.id values.
  *
  * Mechanism fields set here (NOT on the spec):
  *   kind: "ai", status: "active", teamId: teamMembersId,
@@ -44,11 +74,44 @@ export interface ScaffoldResult {
  * Lead = first product_manager in specs; else first spec.
  */
 export async function persistScaffoldedAgents(
-	_db: HyperIdleDb,
-	_teamMembersId: string | null,
-	_specs: readonly AgentScaffoldSpec[],
+	db: HyperIdleDb,
+	teamMembersId: string | null,
+	specs: readonly AgentScaffoldSpec[],
 ): Promise<ScaffoldResult> {
-	// RED PHASE STUB — this function is not yet implemented.
-	// Tests that call it will fail at the assertion level (not import error).
-	throw new Error("persistScaffoldedAgents not implemented — AK6 green phase required");
+	const now = new Date().toISOString();
+	const agentIds: string[] = [];
+	let leadAgentId: string | null = null;
+	let firstProductManagerId: string | null = null;
+
+	for (const spec of specs) {
+		const agentId = await resolveAgentId(db, spec.idHint);
+		agentIds.push(agentId);
+
+		await db.insert(users).values({
+			id: agentId,
+			kind: "ai",
+			name: spec.name,
+			role: spec.role,
+			agentCategory: spec.agentCategory,
+			systemPrompt: spec.systemPrompt,
+			status: "active",
+			// Kernel-owned mechanism fields — NOT on the spec (closure contract).
+			harnessType: "builtin",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
+			// builders can run 3 concurrent sessions; all others 1.
+			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
+			teamId: teamMembersId,
+			createdAt: now,
+		});
+
+		if (spec.role === "product_manager" && firstProductManagerId === null) {
+			firstProductManagerId = agentId;
+		}
+	}
+
+	// Lead = first product_manager; else first spec.
+	leadAgentId = firstProductManagerId ?? agentIds[0] ?? null;
+
+	return { agentIds, leadAgentId };
 }

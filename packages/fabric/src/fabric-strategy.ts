@@ -34,6 +34,7 @@ import type {
 } from "@hyperidle/shared";
 import { assembleContext } from "./context-assembly.js";
 import { startWatcher } from "./file-watcher.js";
+import { composeRoster } from "./roster.js";
 
 /**
  * The Fabric Strategy — implements the Strategy Port by delegating to the
@@ -86,14 +87,17 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 	},
 
 	/**
-	 * AK6: RED PHASE STUB — the Fabric's scaffoldAgents is not yet implemented.
-	 * The green phase builder implements composeRoster + scaffoldAgents in
-	 * packages/fabric/src/roster.ts and wires it here.
+	 * AK6: Decide which agents a creation trigger produces under the Fabric Strategy.
 	 *
-	 * This stub allows the port contract to be enforced by TypeScript
-	 * while keeping the red-phase tests failing at the behavior level.
+	 * Delegates to `composeRoster` which reads `factorySettings.system_template:<role>`
+	 * to source persona content — the persona is Strategy-owned (not a Kernel const).
+	 *
+	 * Preserves today's pre-AK6 behavior byte-for-byte (AC4 golden):
+	 *  - team_scaffold: defaultRoster(functions) → per role, template lookup
+	 *  - agent_added: one spec, template lookup, caller name passthrough
+	 *  - user_assistant: assistant spec, Fabric-owned persona, ast- idHint
 	 */
-	async scaffoldAgents(_req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
-		throw new Error("fabricStrategy.scaffoldAgents not implemented — AK6 green phase required");
+	async scaffoldAgents(req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
+		return composeRoster(req.db, req);
 	},
 };

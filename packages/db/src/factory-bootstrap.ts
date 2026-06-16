@@ -1,17 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-// AK6: FactoryRosterSpec type stub — the green phase reads `roster` instead of
-// hard-coding PRACTICE_COMMUNITIES / seed-agent-cos inline. For now the type
-// is imported so the signature compiles; the actual reading is green-phase work.
 import type { FactoryRosterSpec } from "@hyperidle/shared";
+import { defaultFactoryRoster } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import { factorySettings, knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
-import {
-	COMMUNITY_DISPLAY_NAMES,
-	FACILITATOR_TOOLS,
-	PRACTICE_COMMUNITIES,
-} from "./seed-fixtures.js";
+import { COMMUNITY_DISPLAY_NAMES, FACILITATOR_TOOLS } from "./seed-fixtures.js";
 
 /**
  * Strip YAML frontmatter from markdown content.
@@ -48,11 +42,11 @@ function readSystemPromptTemplate(docsRoot: string, filename: string): string | 
  * that every HyperIdle environment needs to function.
  *
  * Inserts:
- *   - `system:propagation` system user
- *   - `seed-agent-cos` system-assistant singleton (individual category)
- *   - one facilitator agent per community of practice (strategy category, team_id null)
- *   - `factory_settings`: cost_cap, cost_cycle, system_template:<role> entries
- *   - `knowledge_items` + `knowledge_strategy_fabric`: the factory principle seed-ki-1
+ *   - `system:propagation` system user (DB infra — always written unconditionally)
+ *   - `seed-agent-cos` system-assistant singleton (iff roster.systemAssistant non-null)
+ *   - one facilitator agent per roster.facilitators entry (roster-driven)
+ *   - `factory_settings`: cost_cap, cost_cycle, system_template:<role> entries (DB infra)
+ *   - `knowledge_items` + `knowledge_strategy_fabric`: the factory principle seed-ki-1 (DB infra)
  *
  * Does NOT insert teams, team_members, routines, bets, tasks, or any human users.
  * These are created at onboarding or by the demo fixture.
@@ -63,21 +57,27 @@ function readSystemPromptTemplate(docsRoot: string, filename: string): string | 
  * @lore AF17: split from the monolithic seed() which welded factory rows, demo
  * data (demo team), and team-provisioning. The split enforces hard-rule 1:
  * "No team_id on factory rows." and hard-rule 5: "No demo data in production."
- */
-/**
- * AK6 RED PHASE: `roster` param is added to the signature so tests compile
- * and fail at the assertion level (missing-impl, not type error). The GREEN
- * phase builder replaces the hard-coded PRACTICE_COMMUNITIES / seed-agent-cos
- * loop with roster-driven writes. Until then, `roster` is accepted but unused
- * (the `_roster` prefix suppresses the unused-param lint rule).
+ *
+ * @lore AK6: `roster` is the AK6 registry-free injection seam. The DEFAULT is the
+ * Fabric's factory roster so all four registry-less boot paths (desktop + 3 leaf CLIs)
+ * call `applyFactoryBootstrap(db)` with NO second arg and get the Fabric roster
+ * unchanged (AF17 green). A server that wants Minimal active passes minimalFactoryRoster.
+ *
+ * @lore AK6: The bootstrap-swap exception is BOUNDED and legitimate. The leaf/desktop
+ * boot paths (packages/desktop/src/main.ts, setup-cli.ts, bootstrap-pg.ts,
+ * seed-pg-cli.ts) call `applyFactoryBootstrap(db)` with NO roster arg and seed the
+ * *default* Fabric roster because they run before any Strategy is registered.
+ * Third-party rosters are honored only on the server boot path (which passes the
+ * active Strategy's spec). This does not violate AC2 because the leaf path carries
+ * a *value* (the default), not a Kernel roster decision.
  */
 export async function applyFactoryBootstrap(
 	db: HyperIdleDb,
-	_roster?: FactoryRosterSpec,
+	roster: FactoryRosterSpec = defaultFactoryRoster,
 ): Promise<void> {
 	const now = new Date().toISOString();
 
-	// ── system:propagation — authors review threads when bets enter review ──
+	// ── system:propagation — DB infra, ALWAYS written unconditionally ──
 	// @lore L20: messages.senderId references users.id. This user must exist
 	// before any propagation-triggered review thread can be created.
 	// AB0: system users have null agentCategory (they are not real agents).
@@ -95,60 +95,68 @@ export async function applyFactoryBootstrap(
 		})
 		.onConflictDoNothing();
 
-	// ── System Agent singleton ──
+	// ── System Agent singleton — ROSTER-DRIVEN (iff roster.systemAssistant non-null) ──
 	// @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
 	// @lore AD8b: chief_of_staff role renamed to assistant; agentCategory: individual.
-	await db
-		.insert(users)
-		.values({
-			id: "seed-agent-cos",
-			kind: "ai",
-			name: "System Agent",
-			role: "assistant",
-			agentCategory: "individual",
-			status: "active",
-			maxConcurrentSessions: 1,
-			// AH2: runnable defaults so the agent can start without configuration.
-			harnessType: "builtin",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-
-	// Patch the System Agent row with facilitator metadata (idempotent).
-	// @lore AD8a: systemPromptPath set to null — docs/system-prompts/chief-of-staff.md is deleted (renamed to assistant).
-	// AH2: also set runnable defaults on PATCH so existing rows get them on upgrade.
-	await db
-		.update(users)
-		.set({
-			systemPromptPath: null,
-			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
-			harnessType: "builtin",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
-		})
-		.where(eq(users.id, "seed-agent-cos"));
-
-	// ── Facilitator agents — one per community of practice ──
-	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
-	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
-	// Factory agents: agentCategory="strategy", team_id=null.
-	for (const community of PRACTICE_COMMUNITIES) {
+	if (roster.systemAssistant !== null) {
+		const cosId = roster.systemAssistant.idHint;
 		await db
 			.insert(users)
 			.values({
-				id: `seed-agent-pf-${community}`,
+				id: cosId,
 				kind: "ai",
-				name: `${COMMUNITY_DISPLAY_NAMES[community]} Facilitator`,
-				role: "facilitator",
+				name: "System Agent",
+				role: "assistant",
+				agentCategory: "individual",
+				status: "active",
+				maxConcurrentSessions: 1,
+				// AH2: runnable defaults so the agent can start without configuration.
+				harnessType: "builtin",
+				modelId: "claude-sonnet-4-6",
+				modelProvider: "anthropic",
+				createdAt: now,
+			})
+			.onConflictDoNothing();
+
+		// Patch the System Agent row with facilitator metadata (idempotent).
+		// @lore AD8a: systemPromptPath set to null — docs/system-prompts/chief-of-staff.md is deleted (renamed to assistant).
+		// AH2: also set runnable defaults on PATCH so existing rows get them on upgrade.
+		await db
+			.update(users)
+			.set({
+				systemPromptPath: null,
+				skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
+				harnessType: "builtin",
+				modelId: "claude-sonnet-4-6",
+				modelProvider: "anthropic",
+			})
+			.where(eq(users.id, cosId));
+	}
+
+	// ── Facilitator agents — ROSTER-DRIVEN (one per roster.facilitators entry) ──
+	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
+	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
+	// Factory agents: agentCategory="strategy", team_id=null.
+	// @lore AK6 NIT-1 (architecture-critique): facilitator name and skills are DERIVED
+	// from `community` by the db-bootstrap (COMMUNITY_DISPLAY_NAMES / FACILITATOR_TOOLS
+	// stay db-owned infra). The spec carries only the roster COMPOSITION.
+	for (const f of roster.facilitators) {
+		const displayName =
+			COMMUNITY_DISPLAY_NAMES[f.community as keyof typeof COMMUNITY_DISPLAY_NAMES] ?? f.community;
+		await db
+			.insert(users)
+			.values({
+				id: f.idHint,
+				kind: "ai",
+				name: `${displayName} Facilitator`,
+				role: f.role,
 				agentCategory: "strategy",
 				teamId: null,
 				status: "active",
 				maxConcurrentSessions: 1,
 				systemPromptPath: "docs/system-prompts/facilitator.md",
 				skills: JSON.stringify({
-					scope: community,
+					scope: f.community,
 					tools: FACILITATOR_TOOLS,
 				}),
 				// AH2: runnable defaults so factory agents can start without configuration.
@@ -160,7 +168,7 @@ export async function applyFactoryBootstrap(
 			.onConflictDoNothing();
 	}
 
-	// ── factory_settings: cost_cap, cost_cycle ──
+	// ── factory_settings: cost_cap, cost_cycle — DB infra ──
 	await db
 		.insert(factorySettings)
 		.values({ key: "cost_cap", value: "20000", updatedAt: now })
@@ -170,7 +178,7 @@ export async function applyFactoryBootstrap(
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
 
-	// ── System prompt templates from docs/system-prompts/ ──
+	// ── System prompt templates from docs/system-prompts/ — DB infra ──
 	// @lore X3: We read files at bootstrap time. If a file is missing, the template
 	// is silently skipped (graceful degradation). Process CWD during seeding is the
 	// monorepo root where docs/ lives.
@@ -207,22 +215,30 @@ export async function applyFactoryBootstrap(
 		}
 	}
 
-	// ── Backfill systemPrompt on factory agents from role-based templates ──
-	// Scoped to factory agents only (system:propagation, seed-agent-cos, seed-agent-pf-*)
-	// to avoid clobbering team agents provisioned at onboarding.
-	const factoryAgentIds = [
-		"system:propagation",
-		"seed-agent-cos",
-		...PRACTICE_COMMUNITIES.map((c) => `seed-agent-pf-${c}`),
-	];
-	for (const [role, template] of Object.entries(templateValues)) {
-		await db
-			.update(users)
-			.set({ systemPrompt: template })
-			.where(and(eq(users.role, role), eq(users.kind, "ai"), inArray(users.id, factoryAgentIds)));
+	// ── Backfill systemPrompt on roster-driven factory agents from role-based templates ──
+	// Scoped to the roster's own agent ids (system:propagation is infra — not roster-driven).
+	// @lore AK6 T9: seed-before-read ordering invariant — system_template rows MUST be
+	// written BEFORE this backfill reads them. Sequential statement order preserves this.
+	// T9 tests assert a roster-driven facilitator's persisted systemPrompt is non-empty.
+	const rosterAgentIds: string[] = [];
+	if (roster.systemAssistant !== null) {
+		rosterAgentIds.push(roster.systemAssistant.idHint);
+	}
+	for (const f of roster.facilitators) {
+		rosterAgentIds.push(f.idHint);
 	}
 
-	// ── AB0: Backfill agentCategory on factory agents (idempotent) ──
+	if (rosterAgentIds.length > 0) {
+		for (const [role, template] of Object.entries(templateValues)) {
+			await db
+				.update(users)
+				.set({ systemPrompt: template })
+				.where(and(eq(users.role, role), eq(users.kind, "ai"), inArray(users.id, rosterAgentIds)));
+		}
+	}
+
+	// ── AB0: Backfill agentCategory on all ai users by role (idempotent) ──
+	// This covers any existing rows that may not have agentCategory set.
 	const categoryByRole: Record<string, string> = {
 		builder: "team",
 		growth: "team",
@@ -249,7 +265,7 @@ export async function applyFactoryBootstrap(
 			.where(and(eq(users.role, role), eq(users.kind, "ai")));
 	}
 
-	// ── Factory principle knowledge item ──
+	// ── Factory principle knowledge item — DB infra ──
 	// @lore Q2: scopeKind defaults to "factory" (factory-level principle applies to all).
 	// @lore F2: explicit scopeKind="factory" required; do not rely on DB default.
 	await db
