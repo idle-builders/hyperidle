@@ -43,7 +43,12 @@ function Swatch({ token }: { token: string }): React.JSX.Element {
 	);
 }
 
-const SURFACE = ["--surface-page", "--surface-container", "--surface-elevated", "--surface-overlay"];
+const SURFACE = [
+	"--surface-page",
+	"--surface-container",
+	"--surface-elevated",
+	"--surface-overlay",
+];
 const TEXT = ["--text-primary", "--text-secondary", "--text-tertiary", "--text-placeholder"];
 const ACCENT = [
 	"--accent-primary",
@@ -54,7 +59,9 @@ const ACCENT = [
 const STATUS = ["--status-success", "--status-warning", "--status-error", "--status-info"];
 const BORDER = ["--border-subtle", "--border-default", "--border-strong"];
 
-export default { title: "Tokens", tier: "utility" as const };
+// AJ6: group replaces tier. "Foundation" is correct — the token gallery is the
+// entry point to the token system and belongs with other Foundation entries.
+export default { title: "Tokens", group: "Foundation" as const };
 
 export const Colors = (): React.JSX.Element => (
 	<div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
