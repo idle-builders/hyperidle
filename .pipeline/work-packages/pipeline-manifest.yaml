@@ -1162,3 +1162,30 @@ stories:
     track: AL
     depends: [AL1]
     complexity: L
+
+  # Track AM: Conversation Experience
+  - id: AM1
+    title: Conversation activity grammar
+    track: AM
+    depends: []
+    complexity: L
+  - id: AM2
+    title: Conversation shell & contextual panel
+    track: AM
+    depends: [AM1]
+    complexity: L
+  - id: AM3
+    title: Harness capability descriptor & normalization
+    track: AM
+    depends: []
+    complexity: L
+  - id: AM4
+    title: Capability-driven session composer
+    track: AM
+    depends: [AM3]
+    complexity: L
+  - id: AM5
+    title: Harness detection & onboarding
+    track: AM
+    depends: [AM3]
+    complexity: L
