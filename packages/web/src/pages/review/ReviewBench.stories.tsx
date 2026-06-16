@@ -7,7 +7,9 @@
 import type { JSX } from "react";
 import { ReviewBench } from "./ReviewBench.js";
 
-export default { title: "Page: Review/B — Examination Bench" };
+// group: a Review is a conversation over a Subject (IA §D) → Conversations domain.
+// `pages/review/` carries no path-derived group, so this escape-hatch is required.
+export default { title: "Page: Review/B — Examination Bench", group: "Conversations" };
 
 export function Populated(): JSX.Element {
 	return <ReviewBench />;

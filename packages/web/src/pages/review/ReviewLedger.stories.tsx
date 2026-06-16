@@ -8,7 +8,9 @@
 import type { JSX } from "react";
 import { ReviewLedger } from "./ReviewLedger.js";
 
-export default { title: "Page: Review/C — Reasoning Ledger" };
+// group: a Review is a conversation over a Subject (IA §D) → Conversations domain.
+// `pages/review/` carries no path-derived group, so this escape-hatch is required.
+export default { title: "Page: Review/C — Reasoning Ledger", group: "Conversations" };
 
 /** Default awaiting-verdict view: confidence-ascending, the 45% row expanded. */
 export function Populated(): JSX.Element {

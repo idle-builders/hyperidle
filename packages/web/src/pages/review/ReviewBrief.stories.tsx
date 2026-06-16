@@ -8,7 +8,9 @@
 import type { JSX } from "react";
 import { ReviewBrief } from "./ReviewBrief";
 
-export default { title: "Page: Review/A — Verdict Brief" };
+// group: a Review is a conversation over a Subject (IA §D) → Conversations domain.
+// `pages/review/` carries no path-derived group, so this escape-hatch is required.
+export default { title: "Page: Review/A — Verdict Brief", group: "Conversations" };
 
 function Frame({ children }: { children: JSX.Element }): JSX.Element {
 	return <div style={{ height: "100vh" }}>{children}</div>;
