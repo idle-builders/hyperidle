@@ -72,10 +72,10 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Given a prose/block artifact in review, when the reviewer comments on a paragraph or block, then the comment anchors there.
 - Given a review carrying anchored comments, when a verdict is posted, then the verdict still resolves the review (no regression to verdict semantics).
 
-**Plan calls.** `/design` for the anchoring interaction, informed by AL1's findings; `/architecture` to wire `PlainPayloadWithBlockId` and block anchors into the thread/review renderer. Reuse the existing block-reference scaffolding — do not invent a new anchor model.
+**Plan calls.** `/design` for the anchoring interaction, informed by AL1's findings; `/architecture` to plan how an anchored comment attaches to a diff line / paragraph / block and renders at that anchor within the thread/review renderer.
 
 **Contracts / constraints.**
-- Reuse existing block-ref / `PlainPayloadWithBlockId` scaffolding; no new content dialect.
+- No new on-disk content dialect — anchored comments don't introduce a stored markdown format.
 - Verdict and thread semantics are preserved unchanged.
 
 **Out of scope.** AI-suggested edits / suggestion mode. Review analytics. The competitive research itself (AL1).
