@@ -32,6 +32,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 
 **It is NOT:**
 - An implementation plan. No file paths, no type signatures, no chosen libraries, no migration steps. Those belong in `/architecture`'s output, written *after* this workpackage is registered.
+- A reuse plan. No "reuse component `X`", no "extend, don't replace", no "don't fork a parallel `Y`" — anywhere, including Plan calls and Contracts. Whether to reuse, extend, or build is the designer's/architect's call, made in `/design` and `/architecture`. The spec names what exists (informationally, in "What exists today") and the *invariant* a reuse would protect (semantics, vocabulary, "renders from the descriptor") — never the reuse decision itself. Forcing it forecloses the agent's judgment about what actually makes sense.
 - A design exploration. No component layouts, no spacing decisions, no copy. Those come from `/design` after registration.
 - A concept doc. If the workpackage introduces or reshapes a load-bearing noun, run `/concept` first; this skill refuses to register without it.
 - A backlog item. If it has no AC, it is not a work package.
