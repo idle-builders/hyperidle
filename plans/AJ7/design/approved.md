@@ -3,13 +3,47 @@
 DESIGN-CLASS: novel  (→ triggers /human-design-review after /design-critique; founder annotates the
 rendered story in the viewer before build. In an autonomous run this parks for the founder.)
 
-**Chosen base:** Variant A — Devtools rail (8.5/10), with three pulled-in refinements (see synthesis):
+> **STATUS: review gate CLEARED.** This doc is the single source of truth, updated with the founder's
+> locked decisions (below) and the cold-critique resolutions. Where it now contradicts the original
+> prototype, the locked decision wins — superseding notes are inline and flagged **SUPERSEDES PROTOTYPE**.
+
+## Founder's binding principle
+**The annotator must never get in the way of seeing the components, and must let them do the review job.**
+Every locked decision below serves this principle.
+
+## LOCKED decisions (founder-delegated; resolve the cold critique)
+1. **Variant A "Devtools rail" is the chosen design.** The comment editor is **docked in the side rail —
+   it NEVER floats over / occludes the canvas.** The rail is **collapsible** (chevron → thin armed-only
+   strip) so wide stories reclaim width; collapsed-by-default is acceptable as long as arm/expand is one
+   click. *(Resolves critique WARNING "rail eats 320px on wide stories".)*
+2. **Highlight + selected outline are a separate `pointer-events:none` overlay layer** — never mutate the
+   inspected element's classList. AJ5's `.anno-hover`/`.anno-selected`/`.anno-saved` element-mutating
+   classes are **RETIRED**.
+3. **The selected-element box LIVE-TRACKS.** **SUPERSEDES PROTOTYPE:** the prototype froze `selected.rect`
+   at click time (`usePicker`, line 191) and rendered it verbatim — that is drift. The held box (and the
+   re-highlight box) MUST re-measure on window `scroll` (capture phase) + `resize` while shown, via a
+   shared rAF-throttled `useElementRect` hook. A frozen rect is a hard FAIL. *(Resolves critique CRITICAL #1.)*
+4. **Re-highlight scrolls into view first.** When a note's resolved element is outside the viewport,
+   `scrollIntoView({ block: "center" })` THEN draw the box. Distinguish **in-DOM-but-off-screen** (scroll
+   to it) from **not-in-DOM** (show a quiet "not visible" state). *(Resolves critique CRITICAL #2.)*
+5. **Ancestor breadcrumb INCLUDED but DEDUPED.** Consecutive crumbs that resolve to the same component name
+   collapse, OR fall back to the element/tag descriptor, so you never see `unknown › BetCard › BetCard ›
+   BetCard`. Clicking a crumb re-selects that ancestor. *(Resolves critique WARNING "duplicate-crumb fiber
+   issue". The breadcrumb ships in v1 because the dedupe lands — it is no longer deferred.)*
+6. **Notes always-visible**, with `max-height` + scroll so a long round never pushes the comment block
+   off-screen. *(Resolves critique NICE-TO-HAVE "20-note round".)*
+7. **AJ5 parity kept:** `Saving…` + inline error states on the real POST (`/__annotations`); Esc
+   closes/returns focus to the arm button; note rows keyboard-reachable (focusable buttons, not mouse-only).
+   *(Resolves critique WARNINGs "no save/loading state" + "mouse-only a11y".)*
+
+**Chosen base:** Variant A — Devtools rail, with three pulled-in refinements (see synthesis):
 1. **Quiet when idle** (from B): the rail shows only arm + round/count until an element is selected.
 2. **Notes always visible + sticky rail** (from C): the round is visible at a glance; the rail stays in view on tall stories. No notes-behind-a-toggle.
-3. **Held selection box stays on the element while editing** (B's "feedback at the element" without B's occluding editor): the comment input is docked in the rail, but the dashed highlight box remains on the selected element so the founder always sees *what* they are commenting on.
+3. **Held selection box stays on the element while editing** (B's "feedback at the element" without B's occluding editor): the comment input is docked in the rail, but the dashed highlight box remains on the selected element so the founder always sees *what* they are commenting on. **It live-tracks (decision 3) — not frozen.**
 
 The embodied prototype is `packages/design-system/src/AnnotatorV2.stories.tsx`, export
 `VariantADevtoolsRail` (the first/lead variant). It is genuinely interactive in the viewer.
+The technical plan that supersedes the prototype's stand-ins is `plans/AJ7/architecture.md`.
 
 ---
 
@@ -31,20 +65,24 @@ The embodied prototype is `packages/design-system/src/AnnotatorV2.stories.tsx`, 
 |---|---|---|
 | Idle (not armed), empty | rail: arm + `Round 1 · 0 notes` + empty notes | "No notes yet. Inspect an element, then comment." |
 | Idle, populated | rail: arm + count + notes list | — |
+| Rail collapsed | thin strip: chevron + arm + count only; canvas full-width | — |
 | Armed | crosshair cursor; rail hint | "Hover the canvas — click an element to comment." |
 | Hover-highlight | solid `--accent-primary` overlay box + mono label | label = `Component · tag.class "text"` |
-| Selected (comment-input) | held dashed box on element; rail: breadcrumb + target echo + autofocused textarea + Save/Cancel | placeholder "What should change about this element?" |
+| Selected (comment-input) | held dashed box **live-tracking** the element; rail: breadcrumb + target echo + autofocused textarea + Save/Cancel | placeholder "What should change about this element?" |
+| Saving | Save button shows "Saving…" + disabled (AJ5 parity) | "Saving…" |
+| Save error | inline `.anno-error` under textarea; Save re-enabled | "Couldn't save — the viewer middleware may be down. Retry?" |
 | Saved | note row added to rail; box + selection cleared | — |
-| Re-highlight | dashed box + label drawn fresh over the note's element | label = `Component · element` |
-| Re-highlight, not found | notes row shows muted "not visible"; no box | "not visible" |
+| Re-highlight (in view) | dashed box + label drawn fresh, live-tracking the note's element | label = `Component · element` |
+| Re-highlight (off-screen) | `scrollIntoView({ block:"center" })` first, then draw the box | — |
+| Re-highlight, not in DOM | notes row shows muted "not visible"; no box | "not visible" |
 | Overflow | notes list scrolls (`max-height`); target echo truncates w/ ellipsis + `title` | — |
 
 ## Where each piece of UI lives
-- **Overlay layer** — a fixed, `pointer-events:none`, top-`z-index` layer over the whole viewport; renders the hover box, the held-selection box, or the re-highlight box (mutually exclusive). NEVER inside the inspected element.
-- **Rail** — sticky right column beside the canvas (dev-chrome; only on a component page, never in a story render → stays out of the snapshot net, AJ5 AC10).
-- **Comment input** — docked in the rail's selected block (NOT floating over the canvas — rejected, occludes).
-- **Notes list** — always present in the rail (NOT a toggle popup — rejected).
-- **Breadcrumb** — top of the rail's selected block (optional in v1).
+- **Overlay layer** — a fixed, `pointer-events:none`, top-`z-index` layer over the whole viewport; renders the hover box, the held-selection box, or the re-highlight box (mutually exclusive). Boxes **live-track** via `useElementRect` (decision 3). NEVER inside the inspected element.
+- **Rail** — sticky right column beside the canvas, **collapsible** to a thin armed-only strip (decision 1). Dev-chrome; only on a component page, never in a story render → stays out of the snapshot net, AJ5 AC10.
+- **Comment input** — docked in the rail's selected block. **NEVER floats over the canvas** (rejected; occludes — the founder's binding principle).
+- **Notes list** — always present in the rail with `max-height` + scroll (decision 6). NOT a toggle popup.
+- **Breadcrumb** — top of the rail's selected block; **deduped** (decision 5). Ships in v1.
 
 ## Component / class mapping (reuse vs change vs new)
 - **Reuse (AJ5):** `resolveComponentTarget` (fiber walk), `annotation-store`, `request-handler`, round model, `.toolbar-btn`/`--active` arm button, `.anno-target`/`-component`/`-element` echo, `.anno-popover textarea`/`.anno-save` field, `.anno-list` (extended into the rail), Hearth tokens (`--accent-primary`, `--surface-elevated`, `--shadow-elevated`, `--border-default`, `--text-*`, `--r-subtle`, `--font-mono`, `--motion-fast`, `--motion-ease`).
