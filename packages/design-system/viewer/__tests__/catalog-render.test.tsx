@@ -10,9 +10,10 @@
 // @vitest-environment jsdom
 
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { GROUPS, type StoryModule } from "../discovery.js";
+import type { StoryModule } from "../discovery.js";
 
 // Silence React 19 act() warnings for sync render+assert pattern.
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
@@ -59,29 +60,8 @@ const FIXTURE_MODULES: StoryModule[] = [
 	},
 ];
 
-const THROWING_MODULES: StoryModule[] = [
-	// Foundation tier — renders fine
-	{
-		title: "Button",
-		group: { kind: "tier", name: "Foundation" },
-		uses: [],
-		variants: [{ name: "Default", render: FakeVariant }],
-	},
-	// Work domain — throws; should be caught by error boundary
-	{
-		title: "BrokenPage",
-		group: { kind: "domain", name: "Work" },
-		uses: [],
-		variants: [{ name: "Default", render: ThrowingVariant }],
-	},
-	// Knowledge domain — should still mount (sibling isolation)
-	{
-		title: "KnowledgeRow",
-		group: { kind: "domain", name: "Knowledge" },
-		uses: [],
-		variants: [{ name: "Default", render: FakeVariant }],
-	},
-];
+// THROWING_MODULES removed: AC6 tests TsxComponentView (component-detail page),
+// not the Catalog index. The catalog only shows titles/variant counts, not v.render().
 
 // ── Lazy import of Catalog from main.tsx ──────────────────────────────────
 // We import the named Catalog export from main.tsx. main.tsx must export
@@ -96,26 +76,24 @@ const THROWING_MODULES: StoryModule[] = [
 // context (window.document.readyState check or similar), or export Catalog
 // before the mount call.
 
-// Dynamic import to defer module evaluation until test body runs.
-async function importMain(): Promise<{
+// Named interface for the dynamic import shape — avoids biome useNamingConvention
+// false positives on PascalCase properties in inline object literal types.
+interface MainExports {
+	// biome-ignore lint/style/useNamingConvention: React component type names are PascalCase by convention
 	Catalog: React.ComponentType<{
 		modules: StoryModule[];
 		onNavigate: (name: string) => void;
 	}>;
+	// biome-ignore lint/style/useNamingConvention: React component type names are PascalCase by convention
 	TsxComponentView: React.ComponentType<{
 		module: StoryModule;
 	}>;
-}> {
-	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-	return import("../main.js") as Promise<{
-		Catalog: React.ComponentType<{
-			modules: StoryModule[];
-			onNavigate: (name: string) => void;
-		}>;
-		TsxComponentView: React.ComponentType<{
-			module: StoryModule;
-		}>;
-	}>;
+}
+
+// Dynamic import to defer module evaluation until test body runs.
+async function importMain(): Promise<MainExports> {
+	return import("../main.js") as Promise<MainExports>;
+
 }
 
 describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () => {
@@ -185,8 +163,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 			// Fallback: look for the two label texts
 			Array.from(container.querySelectorAll("*")).find(
 				(el) =>
-					el.textContent?.includes("Reuse vocabulary") &&
-					el.textContent?.includes("Product areas"),
+					el.textContent?.includes("Reuse vocabulary") && el.textContent?.includes("Product areas"),
 			);
 		expect(divider, "Axis divider not found in rendered catalog").toBeTruthy();
 	});
@@ -230,8 +207,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 		});
 
 		const divider =
-			container.querySelector("[data-axis-divider]") ??
-			container.querySelector(".axis-divider");
+			container.querySelector("[data-axis-divider]") ?? container.querySelector(".axis-divider");
 		// no domain modules → no divider
 		expect(divider).toBeNull();
 	});
@@ -270,9 +246,9 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 	test("a throwing variant shows error fallback; sibling variant still mounts", async () => {
 		const { TsxComponentView } = await importMain();
 
-		// Suppress React error boundary console.error for test output cleanliness
+		// Suppress React error boundary noise (throws in jsdom during boundary test)
+		// biome-ignore lint/suspicious/noConsole: save + restore pattern for test isolation
 		const origError = console.error;
-		// biome-ignore lint/suspicious/noConsole: test-only suppression of React error boundary noise
 		console.error = (...args: unknown[]) => {
 			const msg = String(args[0] ?? "");
 			if (msg.includes("story render error") || msg.includes("The above error")) return;
@@ -288,7 +264,6 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 				);
 			});
 		} finally {
-			// biome-ignore lint/suspicious/noConsole: restoring original console.error
 			console.error = origError;
 		}
 
@@ -305,8 +280,8 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 	test("non-throwing sibling variant ('Default') still mounts after throwing variant", async () => {
 		const { TsxComponentView } = await importMain();
 
+		// biome-ignore lint/suspicious/noConsole: save + restore pattern for test isolation
 		const origError = console.error;
-		// biome-ignore lint/suspicious/noConsole: test-only suppression
 		console.error = (...args: unknown[]) => {
 			const msg = String(args[0] ?? "");
 			if (msg.includes("story render error") || msg.includes("The above error")) return;
@@ -322,7 +297,6 @@ describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView
 				);
 			});
 		} finally {
-			// biome-ignore lint/suspicious/noConsole: restoring
 			console.error = origError;
 		}
 

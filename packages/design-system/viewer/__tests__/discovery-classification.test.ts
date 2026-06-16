@@ -20,12 +20,12 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	DS_COMPONENT_GROUPS,
-	GROUPS,
 	type CatalogGroup,
-	type GroupName,
-	type GlobSource,
+	DS_COMPONENT_GROUPS,
 	discoverStories,
+	type GlobSource,
+	GROUPS,
+	type GroupName,
 } from "../discovery.js";
 
 // ── Real DS story globs (within DS package boundary) ──────────────────────
@@ -130,9 +130,7 @@ describe("AC2 — total classification: every DS-src module has a valid group", 
 		const unclassified = dsKindsModules.filter((m) => !isValidCatalogGroup(m.group));
 		if (unclassified.length > 0) {
 			const titles = unclassified.map((m) => `"${m.title}"`).join(", ");
-			throw new Error(
-				`AC2 failure: ${unclassified.length} Kinds modules unclassified: ${titles}`,
-			);
+			throw new Error(`AC2 failure: ${unclassified.length} Kinds modules unclassified: ${titles}`);
 		}
 		expect(unclassified).toHaveLength(0);
 	});
@@ -145,9 +143,7 @@ describe("AC2 — total classification: every DS-src module has a valid group", 
 describe("AC3 — no stale registry rows: DS_COMPONENT_GROUPS keys ⊆ discovered DS-src titles", () => {
 	test("every DS_COMPONENT_GROUPS key matches a real discovered DS-src title", () => {
 		const discoveredTitles = new Set(dsSrcModules.map((m) => m.title));
-		const staleKeys = Object.keys(DS_COMPONENT_GROUPS).filter(
-			(key) => !discoveredTitles.has(key),
-		);
+		const staleKeys = Object.keys(DS_COMPONENT_GROUPS).filter((key) => !discoveredTitles.has(key));
 		if (staleKeys.length > 0) {
 			throw new Error(
 				`AC3 failure: stale DS_COMPONENT_GROUPS entries (no matching story): ${staleKeys.join(", ")}\n` +

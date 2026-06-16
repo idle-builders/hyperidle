@@ -12,12 +12,11 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	GROUPS,
 	type CatalogGroup,
+	deriveGroup,
+	GROUPS,
 	type GroupKind,
 	type GroupName,
-	type StoryMeta,
-	deriveGroup,
 } from "../discovery.js";
 
 // Helper: build a CatalogGroup value for assertion
@@ -30,22 +29,20 @@ describe("deriveGroup — fixed precedence chain", () => {
 	test("step 1: meta.group explicit override wins over everything", () => {
 		// path would resolve to System via deriveFromPath (shell)
 		// but meta.group overrides it to Conversations
-		const result = deriveGroup(
-			"../../web/src/shell/Sidebar.stories.tsx",
-			"Shell/Sidebar",
-			{ title: "Shell/Sidebar", group: "Conversations" },
-		);
+		const result = deriveGroup("../../web/src/shell/Sidebar.stories.tsx", "Shell/Sidebar", {
+			title: "Shell/Sidebar",
+			group: "Conversations",
+		});
 		expect(result).toEqual(g("domain", "Conversations"));
 	});
 
 	test("step 1: meta.group overrides DS_COMPONENT_GROUPS registry", () => {
 		// Button is in the registry as Foundation
 		// but if meta.group = "Primitives" that wins
-		const result = deriveGroup(
-			"../src/Button.stories.tsx",
-			"Button",
-			{ title: "Button", group: "Primitives" },
-		);
+		const result = deriveGroup("../src/Button.stories.tsx", "Button", {
+			title: "Button",
+			group: "Primitives",
+		});
 		expect(result).toEqual(g("tier", "Primitives"));
 	});
 
@@ -54,7 +51,7 @@ describe("deriveGroup — fixed precedence chain", () => {
 		// AC1 explicit row (a): web/src/pages/work/X path carrying a non-Work title → Work
 		const result = deriveGroup(
 			"../../web/src/pages/work/RoutineCreateDialog.stories.tsx",
-			"Page: Knowledge/Body",  // deliberately non-Work title
+			"Page: Knowledge/Body", // deliberately non-Work title
 			{ title: "Page: Knowledge/Body" },
 		);
 		expect(result).toEqual(g("domain", "Work"));
@@ -79,29 +76,23 @@ describe("deriveGroup — fixed precedence chain", () => {
 	});
 
 	test("step 2: shell/ path → System", () => {
-		const result = deriveGroup(
-			"../../web/src/shell/Sidebar.stories.tsx",
-			"Shell/Sidebar",
-			{ title: "Shell/Sidebar" },
-		);
+		const result = deriveGroup("../../web/src/shell/Sidebar.stories.tsx", "Shell/Sidebar", {
+			title: "Shell/Sidebar",
+		});
 		expect(result).toEqual(g("domain", "System"));
 	});
 
 	test("step 2: layouts/ path → System", () => {
-		const result = deriveGroup(
-			"../../web/src/layouts/AppShell.stories.tsx",
-			"Layout: AppShell",
-			{ title: "Layout: AppShell" },
-		);
+		const result = deriveGroup("../../web/src/layouts/AppShell.stories.tsx", "Layout: AppShell", {
+			title: "Layout: AppShell",
+		});
 		expect(result).toEqual(g("domain", "System"));
 	});
 
 	test("step 2: src/kinds/ path → System", () => {
-		const result = deriveGroup(
-			"../src/kinds/code-renderer.stories.tsx",
-			"Kinds/CodeRenderer",
-			{ title: "Kinds/CodeRenderer" },
-		);
+		const result = deriveGroup("../src/kinds/code-renderer.stories.tsx", "Kinds/CodeRenderer", {
+			title: "Kinds/CodeRenderer",
+		});
 		expect(result).toEqual(g("domain", "System"));
 	});
 
@@ -110,7 +101,7 @@ describe("deriveGroup — fixed precedence chain", () => {
 	test("step 2: shell path with DS registry-colliding title → System (path beats registry)", () => {
 		const result = deriveGroup(
 			"../../web/src/shell/Button.stories.tsx",
-			"Button",  // "Button" exists in DS_COMPONENT_GROUPS as Foundation
+			"Button", // "Button" exists in DS_COMPONENT_GROUPS as Foundation
 			{ title: "Button" },
 		);
 		expect(result).toEqual(g("domain", "System"));
@@ -119,11 +110,9 @@ describe("deriveGroup — fixed precedence chain", () => {
 	// ── Step 2b: flat pages/ falls through to title ──────────────────
 	test("step 2: flat pages/ + title 'Page: Settings' → Settings (title fallback)", () => {
 		// AC1 explicit row (b): flat pages/SettingsPage + title 'Page: Settings' → Settings
-		const result = deriveGroup(
-			"../../web/src/pages/SettingsPage.stories.tsx",
-			"Page: Settings",
-			{ title: "Page: Settings" },
-		);
+		const result = deriveGroup("../../web/src/pages/SettingsPage.stories.tsx", "Page: Settings", {
+			title: "Page: Settings",
+		});
 		expect(result).toEqual(g("domain", "Settings"));
 	});
 
@@ -177,48 +166,40 @@ describe("deriveGroup — fixed precedence chain", () => {
 	// ── Step 2c: area-less page titles need meta.group ───────────────
 	// AC1 explicit row (d): area-less titles without meta.group → null
 	test("step 2 → null: area-less 'WorkRoutine' without meta.group → null", () => {
-		const result = deriveGroup(
-			"../../web/src/pages/WorkRoutine.stories.tsx",
-			"WorkRoutine",
-			{ title: "WorkRoutine" },
-		);
+		const result = deriveGroup("../../web/src/pages/WorkRoutine.stories.tsx", "WorkRoutine", {
+			title: "WorkRoutine",
+		});
 		expect(result).toBeNull();
 	});
 
 	test("step 2 → null: area-less 'WorkTeam' without meta.group → null", () => {
-		const result = deriveGroup(
-			"../../web/src/pages/WorkTeam.stories.tsx",
-			"WorkTeam",
-			{ title: "WorkTeam" },
-		);
+		const result = deriveGroup("../../web/src/pages/WorkTeam.stories.tsx", "WorkTeam", {
+			title: "WorkTeam",
+		});
 		expect(result).toBeNull();
 	});
 
 	test("step 2 → null: area-less 'NotFound' without meta.group → null", () => {
-		const result = deriveGroup(
-			"../../web/src/pages/NotFound.stories.tsx",
-			"NotFound",
-			{ title: "NotFound" },
-		);
+		const result = deriveGroup("../../web/src/pages/NotFound.stories.tsx", "NotFound", {
+			title: "NotFound",
+		});
 		expect(result).toBeNull();
 	});
 
 	// AC1 explicit row (d): area-less WITH meta.group → resolves
 	test("step 1: area-less 'WorkRoutine' with meta.group='Work' → Work (via step 1)", () => {
-		const result = deriveGroup(
-			"../../web/src/pages/WorkRoutine.stories.tsx",
-			"WorkRoutine",
-			{ title: "WorkRoutine", group: "Work" },
-		);
+		const result = deriveGroup("../../web/src/pages/WorkRoutine.stories.tsx", "WorkRoutine", {
+			title: "WorkRoutine",
+			group: "Work",
+		});
 		expect(result).toEqual(g("domain", "Work"));
 	});
 
 	test("step 1: area-less 'NotFound' with meta.group='System' → System", () => {
-		const result = deriveGroup(
-			"../../web/src/pages/NotFound.stories.tsx",
-			"NotFound",
-			{ title: "NotFound", group: "System" },
-		);
+		const result = deriveGroup("../../web/src/pages/NotFound.stories.tsx", "NotFound", {
+			title: "NotFound",
+			group: "System",
+		});
 		expect(result).toEqual(g("domain", "System"));
 	});
 
@@ -226,11 +207,7 @@ describe("deriveGroup — fixed precedence chain", () => {
 	test("step 3: DS flat src root + known title → resolved from registry (no meta.group)", () => {
 		// DS flat root: path starts with ../src/ (not kinds/)
 		// no meta.group → step 2 returns null → step 3 hits registry
-		const result = deriveGroup(
-			"../src/Button.stories.tsx",
-			"Button",
-			{ title: "Button" },
-		);
+		const result = deriveGroup("../src/Button.stories.tsx", "Button", { title: "Button" });
 		expect(result).not.toBeNull();
 		// Button is Foundation tier (domain-agnostic)
 		expect(result?.kind).toBe("tier");
@@ -238,30 +215,22 @@ describe("deriveGroup — fixed precedence chain", () => {
 	});
 
 	test("step 3: DS flat src + BetCard → Work domain", () => {
-		const result = deriveGroup(
-			"../src/BetCard.stories.tsx",
-			"BetCard",
-			{ title: "BetCard" },
-		);
+		const result = deriveGroup("../src/BetCard.stories.tsx", "BetCard", { title: "BetCard" });
 		expect(result).toEqual(g("domain", "Work"));
 	});
 
 	test("step 3: DS flat src + KnowledgeRow → Knowledge domain", () => {
-		const result = deriveGroup(
-			"../src/KnowledgeRow.stories.tsx",
-			"KnowledgeRow",
-			{ title: "KnowledgeRow" },
-		);
+		const result = deriveGroup("../src/KnowledgeRow.stories.tsx", "KnowledgeRow", {
+			title: "KnowledgeRow",
+		});
 		expect(result).toEqual(g("domain", "Knowledge"));
 	});
 
 	// ── Step 4: null (no match) ──────────────────────────────────────
 	test("step 4: DS flat src + unknown title → null (classification failure)", () => {
-		const result = deriveGroup(
-			"../src/UnknownWidget.stories.tsx",
-			"UnknownWidget",
-			{ title: "UnknownWidget" },
-		);
+		const result = deriveGroup("../src/UnknownWidget.stories.tsx", "UnknownWidget", {
+			title: "UnknownWidget",
+		});
 		expect(result).toBeNull();
 	});
 });

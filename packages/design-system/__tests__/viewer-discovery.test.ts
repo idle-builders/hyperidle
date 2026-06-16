@@ -18,7 +18,7 @@
  * @lore Each gate maps 1:1 to a K12/AJ6 acceptance criterion.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { discoverStories, type CatalogGroup } from "../viewer/discovery.js";
+import { type CatalogGroup, discoverStories } from "../viewer/discovery.js";
 
 type GlobShape = Record<string, Record<string, unknown>>;
 

@@ -190,8 +190,9 @@ export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	ArtifactTimestamp: "Artifacts",
 };
 
-// Validate GroupName at compile time
-const _groupNameCheck: Record<GroupName, true> = {
+// Validate GroupName at compile time — exhaustive record ensures the union
+// matches GROUPS and this file stays consistent. tsc fails if a name is missing.
+const GROUP_NAME_EXHAUSTIVE_CHECK: Record<GroupName, true> = {
 	Foundation: true,
 	Primitives: true,
 	Blocks: true,
@@ -203,15 +204,19 @@ const _groupNameCheck: Record<GroupName, true> = {
 	System: true,
 };
 // Ensure the check is used (prevents unused-variable warnings)
-void _groupNameCheck;
+void GROUP_NAME_EXHAUSTIVE_CHECK;
 
 // ── Classification helpers ────────────────────────────────────────────────
 
 const GROUP_MAP = new Map<GroupName, CatalogGroup>(GROUPS.map((g) => [g.name, g]));
 
 function makeGroup(name: GroupName): CatalogGroup {
-	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-	return GROUP_MAP.get(name)!;
+	// GROUP_MAP is populated from GROUPS (all 9 entries). GroupName is a closed
+	// union type, so every valid name is guaranteed to be in the map. The fallback
+	// here is unreachable by construction — TypeScript's closed union ensures it.
+	const g = GROUP_MAP.get(name);
+	if (!g) throw new Error(`[design-system] BUG: GroupName '${name}' not in GROUP_MAP`);
+	return g;
 }
 
 /**
@@ -252,12 +257,14 @@ export function deriveFromPath(path: string, _title: string): CatalogGroup | nul
 	// Could add more nested page areas here (e.g. /pages/settings/) if they emerge
 
 	// Settings, shell, layouts (web)
-	if (p.includes("web/src/settings/") || p.includes("/web/src/settings/")) return makeGroup("Settings");
+	if (p.includes("web/src/settings/") || p.includes("/web/src/settings/"))
+		return makeGroup("Settings");
 	if (p.includes("web/src/shell/") || p.includes("/web/src/shell/")) return makeGroup("System");
 	if (p.includes("web/src/layouts/") || p.includes("/web/src/layouts/")) return makeGroup("System");
 
 	// Kinds renderers (design-system/src/kinds/ — path segment after any number of ../s)
-	if (p.includes("/kinds/") || p.startsWith("kinds/") || p.includes("src/kinds/")) return makeGroup("System");
+	if (p.includes("/kinds/") || p.startsWith("kinds/") || p.includes("src/kinds/"))
+		return makeGroup("System");
 
 	// Flat pages/ or components/ — fall through to title/registry
 	// design-system/src flat root — fall through to registry
@@ -293,11 +300,7 @@ function deriveFromTitle(title: string): CatalogGroup | null {
  *   4. DS_COMPONENT_GROUPS[title] (DS-src flat root + web/src/components composites)
  *   5. null                    (→ classification failure, caught by AC2/test)
  */
-export function deriveGroup(
-	path: string,
-	title: string,
-	meta: StoryMeta,
-): CatalogGroup | null {
+export function deriveGroup(path: string, title: string, meta: StoryMeta): CatalogGroup | null {
 	// Step 1: explicit meta.group override
 	if (meta.group) {
 		const g = GROUP_MAP.get(meta.group);

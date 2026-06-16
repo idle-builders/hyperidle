@@ -1,11 +1,11 @@
 import { Component, StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-	GROUPS,
 	type CatalogGroup,
-	type GlobSource,
-	type StoryModule,
 	discoverStories,
+	type GlobSource,
+	GROUPS,
+	type StoryModule,
 } from "./discovery.js";
 import "./viewer.css";
 
