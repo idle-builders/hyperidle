@@ -6,7 +6,9 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkTeam } from "./WorkTeam";
 
-export default { title: "WorkTeam" };
+// AJ6 W5: area-less title — no "Page: Area/*" prefix, no area subdir.
+// Requires explicit meta.group; Work is the correct domain.
+export default { title: "WorkTeam", group: "Work" as const };
 
 const MOCK_DETAIL = {
 	team: {

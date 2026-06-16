@@ -86,6 +86,28 @@ button {
 	margin-bottom: 32px;
 }
 
+/* ── Axis divider (AJ6) — one labeled hairline between Tiers and Domains ── */
+/* @lore AJ6: Emitted lazily before the first non-empty Domain group by the
+   GROUPS walk in Catalog. Flex row: label · hairline · label. All 6px grid. */
+.axis-divider {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 48px;
+	margin-bottom: 12px;
+	font-family: var(--mono);
+	font-size: 11px;
+	letter-spacing: var(--tracking-caps-sm, 0.06em);
+	text-transform: uppercase;
+	color: var(--text-tertiary);
+}
+
+.axis-divider-line {
+	flex: 1;
+	height: 1px;
+	background: var(--border-default);
+}
+
 .tier-heading {
 	font-family: var(--mono);
 	font-size: 11px;

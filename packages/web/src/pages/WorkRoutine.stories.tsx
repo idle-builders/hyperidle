@@ -6,7 +6,9 @@ import type { RoutineDetail } from "@hyperidle/shared";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkRoutine } from "./WorkRoutine";
 
-export default { title: "WorkRoutine" };
+// AJ6 W5: area-less title — no "Page: Area/*" prefix, no area subdir.
+// Requires explicit meta.group; Work is the correct domain.
+export default { title: "WorkRoutine", group: "Work" as const };
 
 const MOCK_DETAIL: RoutineDetail = {
 	routine: {

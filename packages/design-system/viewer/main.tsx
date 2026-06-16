@@ -1,12 +1,11 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
+import { Component, StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-	discoverStories,
+	GROUPS,
+	type CatalogGroup,
 	type GlobSource,
 	type StoryModule,
-	TIER_LABELS,
-	TIER_ORDER,
-	type Tier,
+	discoverStories,
 } from "./discovery.js";
 import "./viewer.css";
 
@@ -21,9 +20,23 @@ import "./viewer.css";
  *   The htmlGlobs / HTML_AVAILABLE_TITLES / isHtmlAvailable / RenderMode /
  *   HtmlComponentView / HTML-TSX toolbar toggle were all removed here.
  *   The viewer renders only live TSX stories. See plans/AJ1/architecture.md.
+ *
+ * @lore AJ6: Four new globs added — kinds/, nested pages/work|knowledge/*,
+ *   settings/, layouts/. These surface the ~16 previously-hidden stories.
+ *   Only main.tsx (the dev-only viewer target) cross-imports web; discovery.ts
+ *   and design-system/src/ never import @hyperidle/web. AC8 ESLint rule enforces
+ *   this at the import site. The viewer uses workspace symlinks at build time.
+ *
+ * @lore AJ6 no-cycle: cross-package globs live ONLY in this file (main.tsx).
+ *   discovery.ts and design-system/src/** never import @hyperidle/web.
+ *   The AC8 ESLint rule enforces this; it fires on any @hyperidle/web or
+ *   ../../web/** import in design-system/src/** or viewer/discovery.ts.
  */
 
 const dsStoryGlobs = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx", {
+	eager: true,
+}) as GlobSource;
+const dsKindsStoryGlobs = import.meta.glob<Record<string, unknown>>("../src/kinds/*.stories.tsx", {
 	eager: true,
 }) as GlobSource;
 const webShellStoryGlobs = import.meta.glob<Record<string, unknown>>(
@@ -34,13 +47,25 @@ const webComponentStoryGlobs = import.meta.glob<Record<string, unknown>>(
 	"../../web/src/components/*.stories.tsx",
 	{ eager: true },
 ) as GlobSource;
-// @lore AD9: page-level stories (e.g. WorkOverview, Conversations) live in
-// packages/web/src/pages/*.stories.tsx. They were previously invisible in the
-// viewer because only shell/ + components/ were globbed. Added so full-page
-// surfaces are reviewable live (the /human-design-review gate needs the painted
-// page, not just sub-components).
+// @lore AD9: page-level stories live in packages/web/src/pages/*.stories.tsx.
+// Added so full-page surfaces are reviewable live (/human-design-review gate).
 const webPageStoryGlobs = import.meta.glob<Record<string, unknown>>(
 	"../../web/src/pages/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
+// @lore AJ6: nested pages — pages/knowledge/* and pages/work/* stories.
+// Disjoint from the flat pages/* glob (Vite globs don't recurse). No dedup needed.
+const webNestedPageStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/pages/*/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
+// @lore AJ6: settings panels (4 stories) and AppShell layout (1 story).
+const webSettingsStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/settings/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
+const webLayoutsStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/layouts/*.stories.tsx",
 	{ eager: true },
 ) as GlobSource;
 
@@ -120,80 +145,74 @@ function ComponentWrapper({ children }: { children: React.ReactNode }): React.JS
 	return <div style={{ maxWidth: 1024, margin: "0 auto", padding: 24 }}>{children}</div>;
 }
 
-/* ── Catalog (data-driven) ──────────────────────────────────────── */
+/* ── Story error boundary ─────────────────────────────────────────
+ * @lore AJ6: Each story variant is wrapped in an error boundary so a
+ * throwing page can't blank the whole catalog. The boundary renders a
+ * small fallback tile with a `data-story-error` marker so AC6 tests
+ * can assert its presence without coupling to the copy.
+ */
 
-function Catalog({
-	modules,
-	onNavigate,
-}: {
-	modules: StoryModule[];
-	onNavigate: (name: string) => void;
-}): React.JSX.Element {
-	const buckets = useMemo(() => {
-		const out = new Map<Tier, StoryModule[]>();
-		for (const t of TIER_ORDER) out.set(t, []);
-		for (const m of modules) out.get(m.tier)?.push(m);
-		for (const list of out.values()) list.sort((a, b) => a.title.localeCompare(b.title));
-		return out;
-	}, [modules]);
+interface StoryErrorBoundaryState {
+	hasError: boolean;
+	error: Error | null;
+}
 
-	const distinctTierCount = TIER_ORDER.filter((t) => (buckets.get(t)?.length ?? 0) > 0).length;
+class StoryErrorBoundary extends Component<
+	{ children: React.ReactNode; storyTitle: string },
+	StoryErrorBoundaryState
+> {
+	constructor(props: { children: React.ReactNode; storyTitle: string }) {
+		super(props);
+		this.state = { hasError: false, error: null };
+	}
 
-	const compositionEntries = useMemo(
-		() =>
-			modules
-				.filter((m) => m.uses.length > 0)
-				.sort((a, b) => {
-					const tierCmp = TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier);
-					if (tierCmp !== 0) return tierCmp;
-					return a.title.localeCompare(b.title);
-				}),
-		[modules],
-	);
+	static getDerivedStateFromError(error: Error): StoryErrorBoundaryState {
+		return { hasError: true, error };
+	}
 
+	override render(): React.ReactNode {
+		if (this.state.hasError) {
+			return (
+				<div className="story-error-boundary" data-story-error="true">
+					<span>Error rendering story</span>
+				</div>
+			);
+		}
+		return this.props.children;
+	}
+}
+
+/* ── Axis divider ──────────────────────────────────────────────────
+ * Rendered once, lazily, before the first non-empty Domain group.
+ * Presentational — labels are readable text, not aria-hidden.
+ * data-axis-divider attribute used by AC4 tests for detection.
+ */
+function AxisDivider(): React.JSX.Element {
 	return (
-		<CatalogWrapper>
-			<h1 className="catalog-title">HyperIdle Design System</h1>
-			<div className="catalog-version">
-				{modules.length} components &middot; {distinctTierCount} tiers &middot; factory-dark
-			</div>
-
-			{TIER_ORDER.map((tier) => {
-				const items = buckets.get(tier) ?? [];
-				if (items.length === 0) return null;
-				return (
-					<CatalogTier key={tier} label={TIER_LABELS[tier]} items={items} onNavigate={onNavigate} />
-				);
-			})}
-
-			<div className="composition-section">
-				<div className="tier-heading">Composition Graph</div>
-				{compositionEntries.length === 0 ? (
-					<div className="component-uses">No composition data declared.</div>
-				) : (
-					<pre className="dep-graph">
-						{compositionEntries
-							.map((m) => `${m.title.padEnd(20)} → ${m.uses.join(", ")}`)
-							.join("\n")}
-					</pre>
-				)}
-			</div>
-		</CatalogWrapper>
+		<div className="axis-divider" data-axis-divider="true">
+			<span>Reuse vocabulary</span>
+			<span className="axis-divider-line" />
+			<span>Product areas</span>
+		</div>
 	);
 }
 
-function CatalogTier({
-	label,
+/* ── CatalogGroup section ─────────────────────────────────────────
+ * Renamed from CatalogTier. Heading promoted to <h2> for W3 a11y landmark.
+ * Class `.tier-heading` kept to avoid churn on viewer.css and snapshots.
+ */
+function CatalogGroupSection({
+	group,
 	items,
 	onNavigate,
 }: {
-	label: string;
+	group: CatalogGroup;
 	items: StoryModule[];
 	onNavigate: (name: string) => void;
 }): React.JSX.Element {
 	return (
 		<>
-			<div className="tier-heading">{label}</div>
+			<h2 className="tier-heading">{group.name}</h2>
 			<div className="component-grid">
 				{items.map((item) => (
 					<button
@@ -218,6 +237,96 @@ function CatalogTier({
 	);
 }
 
+/* ── Catalog (data-driven) ──────────────────────────────────────── */
+
+export function Catalog({
+	modules,
+	onNavigate,
+}: {
+	modules: StoryModule[];
+	onNavigate: (name: string) => void;
+}): React.JSX.Element {
+	// Bucket modules by group name
+	const buckets = useMemo(() => {
+		const out = new Map<string, StoryModule[]>();
+		for (const g of GROUPS) out.set(g.name, []);
+		for (const m of modules) {
+			const list = out.get(m.group.name);
+			if (list) list.push(m);
+		}
+		// Sort each bucket alphabetically
+		for (const list of out.values()) list.sort((a, b) => a.title.localeCompare(b.title));
+		return out;
+	}, [modules]);
+
+	// Count non-empty groups
+	const distinctGroupCount = GROUPS.filter((g) => (buckets.get(g.name)?.length ?? 0) > 0).length;
+
+	const compositionEntries = useMemo(
+		() =>
+			modules
+				.filter((m) => m.uses.length > 0)
+				.sort((a, b) => {
+					// Sort by GROUPS order first, then alphabetically
+					const aIdx = GROUPS.findIndex((g) => g.name === a.group.name);
+					const bIdx = GROUPS.findIndex((g) => g.name === b.group.name);
+					if (aIdx !== bIdx) return aIdx - bIdx;
+					return a.title.localeCompare(b.title);
+				}),
+		[modules],
+	);
+
+	// Render groups in GROUPS order (the ordered registry — never the bucket map).
+	// Divider: emitted lazily before the first non-empty Domain group.
+	let dividerEmitted = false;
+
+	return (
+		<CatalogWrapper>
+			<h1 className="catalog-title">HyperIdle Design System</h1>
+			<div className="catalog-version">
+				{modules.length} entries &middot; {distinctGroupCount} groups &middot; hearth
+			</div>
+
+			{GROUPS.map((group) => {
+				const items = buckets.get(group.name) ?? [];
+				if (items.length === 0) return null;
+
+				// Emit the axis divider lazily before the first non-empty Domain group
+				let divider: React.JSX.Element | null = null;
+				if (group.kind === "domain" && !dividerEmitted) {
+					dividerEmitted = true;
+					divider = <AxisDivider key="__axis-divider__" />;
+				}
+
+				return (
+					<>
+						{divider}
+						<CatalogGroupSection
+							key={group.name}
+							group={group}
+							items={items}
+							onNavigate={onNavigate}
+						/>
+					</>
+				);
+			})}
+
+			<div className="composition-section">
+				<div className="tier-heading">Composition Graph</div>
+				{compositionEntries.length === 0 ? (
+					<div className="component-uses">No composition data declared.</div>
+				) : (
+					<pre className="dep-graph">
+						{compositionEntries
+							.map((m) => `${m.title.padEnd(20)} → ${m.uses.join(", ")}`)
+							.join("\n")}
+					</pre>
+				)}
+			</div>
+		</CatalogWrapper>
+	);
+}
+
 /* ── Component page (TSX mode) ───────────────────────────────────── */
 
 /** Convert PascalCase export name to spaced title: "AllStatusVariants" → "All Status Variants" */
@@ -225,14 +334,19 @@ function pascalToTitle(name: string): string {
 	return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 }
 
-function TsxComponentView({ module }: { module: StoryModule }): React.JSX.Element {
+/** @lore AJ6: exported for AC6 test isolation — error boundary wraps each variant. */
+export function TsxComponentView({ module }: { module: StoryModule }): React.JSX.Element {
 	return (
 		<ComponentWrapper>
 			<div className="demo-grid">
 				{module.variants.map((v) => (
 					<div key={v.name} className="demo-section">
 						<div className="demo-section-title">{pascalToTitle(v.name)}</div>
-						<v.render />
+						{/* @lore AJ6: error boundary around each story variant so a throwing
+						    page story doesn't blank the whole component page (AC6). */}
+						<StoryErrorBoundary storyTitle={`${module.title} > ${v.name}`}>
+							<v.render />
+						</StoryErrorBoundary>
 					</div>
 				))}
 			</div>
@@ -303,7 +417,16 @@ function Toolbar({
 function App(): React.JSX.Element {
 	const modules = useMemo(
 		() =>
-			discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs, webPageStoryGlobs),
+			discoverStories(
+				dsStoryGlobs,
+				dsKindsStoryGlobs,
+				webShellStoryGlobs,
+				webComponentStoryGlobs,
+				webPageStoryGlobs,
+				webNestedPageStoryGlobs,
+				webSettingsStoryGlobs,
+				webLayoutsStoryGlobs,
+			),
 		[],
 	);
 	const [route, navigate] = useHashRoute();
@@ -332,10 +455,14 @@ function App(): React.JSX.Element {
 
 /* ── Mount ─────────────────────────────────────────────────────────── */
 
-const root = document.getElementById("root");
-if (!root) throw new Error("Root element not found");
-createRoot(root).render(
-	<StrictMode>
-		<App />
-	</StrictMode>,
-);
+// @lore AJ6: Guard the createRoot call so the module is importable in vitest
+// (which runs in jsdom without the "root" element). The catalog-render.test.tsx
+// imports the Catalog named export without triggering the mount.
+const rootEl = document.getElementById("root");
+if (rootEl) {
+	createRoot(rootEl).render(
+		<StrictMode>
+			<App />
+		</StrictMode>,
+	);
+}

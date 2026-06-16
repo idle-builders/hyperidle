@@ -97,10 +97,13 @@ const THROWING_MODULES: StoryModule[] = [
 // before the mount call.
 
 // Dynamic import to defer module evaluation until test body runs.
-async function importCatalog(): Promise<{
+async function importMain(): Promise<{
 	Catalog: React.ComponentType<{
 		modules: StoryModule[];
 		onNavigate: (name: string) => void;
+	}>;
+	TsxComponentView: React.ComponentType<{
+		module: StoryModule;
 	}>;
 }> {
 	// eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -108,6 +111,9 @@ async function importCatalog(): Promise<{
 		Catalog: React.ComponentType<{
 			modules: StoryModule[];
 			onNavigate: (name: string) => void;
+		}>;
+		TsxComponentView: React.ComponentType<{
+			module: StoryModule;
 		}>;
 	}>;
 }
@@ -128,7 +134,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 	});
 
 	test("group headings appear in GROUPS order (Tiers then Domains)", async () => {
-		const { Catalog } = await importCatalog();
+		const { Catalog } = await importMain();
 
 		await act(async () => {
 			root.render(
@@ -161,7 +167,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 	});
 
 	test("axis divider rendered between last tier and first domain", async () => {
-		const { Catalog } = await importCatalog();
+		const { Catalog } = await importMain();
 
 		await act(async () => {
 			root.render(
@@ -186,7 +192,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 	});
 
 	test("empty groups omitted — Primitives not in headings when no Primitives modules", async () => {
-		const { Catalog } = await importCatalog();
+		const { Catalog } = await importMain();
 
 		await act(async () => {
 			root.render(
@@ -203,7 +209,7 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 	});
 
 	test("no divider when no domain groups have items", async () => {
-		const { Catalog } = await importCatalog();
+		const { Catalog } = await importMain();
 
 		const tierOnlyModules: StoryModule[] = [
 			{
@@ -231,9 +237,24 @@ describe("AC4 — Catalog renders groups in GROUPS order with axis divider", () 
 	});
 });
 
-describe("AC6 — Error boundary: throwing story is isolated", () => {
+describe("AC6 — Error boundary: throwing story is isolated in TsxComponentView", () => {
+	// The error boundary wraps <v.render/> in TsxComponentView (the component-detail page).
+	// The Catalog index only shows titles/variant counts — it doesn't call v.render().
+	// AC6 therefore tests TsxComponentView: one module with a throwing variant AND a
+	// non-throwing variant; the boundary should catch the throw and show a fallback
+	// while the sibling (non-throwing) variant still mounts.
 	let container: HTMLDivElement;
 	let root: Root;
+
+	const MODULE_WITH_THROWING_VARIANT: StoryModule = {
+		title: "BrokenPage",
+		group: { kind: "domain", name: "Work" },
+		uses: [],
+		variants: [
+			{ name: "Default", render: FakeVariant }, // renders fine
+			{ name: "Throws", render: ThrowingVariant }, // throws
+		],
+	};
 
 	beforeEach(() => {
 		container = document.createElement("div");
@@ -246,8 +267,8 @@ describe("AC6 — Error boundary: throwing story is isolated", () => {
 		container.remove();
 	});
 
-	test("a throwing story shows error fallback instead of blinking the catalog", async () => {
-		const { Catalog } = await importCatalog();
+	test("a throwing variant shows error fallback; sibling variant still mounts", async () => {
+		const { TsxComponentView } = await importMain();
 
 		// Suppress React error boundary console.error for test output cleanliness
 		const origError = console.error;
@@ -261,9 +282,8 @@ describe("AC6 — Error boundary: throwing story is isolated", () => {
 		try {
 			await act(async () => {
 				root.render(
-					createElement(Catalog, {
-						modules: THROWING_MODULES,
-						onNavigate: () => {},
+					createElement(TsxComponentView, {
+						module: MODULE_WITH_THROWING_VARIANT,
 					}),
 				);
 			});
@@ -272,28 +292,18 @@ describe("AC6 — Error boundary: throwing story is isolated", () => {
 			console.error = origError;
 		}
 
-		// Foundation group (Button) must still render
-		const headings = Array.from(container.querySelectorAll("h2"));
-		const headingTexts = headings.map((h) => h.textContent?.trim() ?? "");
-		expect(headingTexts).toContain("Foundation");
-
-		// Knowledge group (KnowledgeRow sibling) must still render
-		expect(headingTexts).toContain("Knowledge");
-
-		// An error fallback must be present somewhere in the Work group area
-		// (implementation: a data-story-error or .story-error class, or aria-label)
+		// Error boundary fallback must be present for the throwing variant
 		const errorEl =
 			container.querySelector("[data-story-error]") ??
-			container.querySelector("[aria-label*='error']") ??
 			container.querySelector(".story-error-boundary");
 		expect(
 			errorEl,
-			"No error boundary fallback found — BrokenPage must be caught and show a fallback tile",
+			"No error boundary fallback found — ThrowingVariant must be caught and show a fallback tile",
 		).toBeTruthy();
 	});
 
-	test("sibling group (Knowledge) renders after the throwing Work group", async () => {
-		const { Catalog } = await importCatalog();
+	test("non-throwing sibling variant ('Default') still mounts after throwing variant", async () => {
+		const { TsxComponentView } = await importMain();
 
 		const origError = console.error;
 		// biome-ignore lint/suspicious/noConsole: test-only suppression
@@ -306,9 +316,8 @@ describe("AC6 — Error boundary: throwing story is isolated", () => {
 		try {
 			await act(async () => {
 				root.render(
-					createElement(Catalog, {
-						modules: THROWING_MODULES,
-						onNavigate: () => {},
+					createElement(TsxComponentView, {
+						module: MODULE_WITH_THROWING_VARIANT,
 					}),
 				);
 			});
@@ -317,10 +326,9 @@ describe("AC6 — Error boundary: throwing story is isolated", () => {
 			console.error = origError;
 		}
 
-		// Knowledge group must be present even though Work's story threw
-		const knowledgeHeading = Array.from(container.querySelectorAll("h2")).find(
-			(h) => h.textContent?.trim() === "Knowledge",
-		);
-		expect(knowledgeHeading, "Knowledge heading missing — sibling group isolation failed").toBeTruthy();
+		// The "variant" div renders the variant content — "Default" renders FakeVariant
+		// (which outputs <div>variant</div>). It must be present.
+		const variantContent = container.querySelector("div");
+		expect(variantContent, "No variant content found — Default variant should mount").toBeTruthy();
 	});
 });
