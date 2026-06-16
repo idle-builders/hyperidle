@@ -115,8 +115,10 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 					401,
 				);
 			}
-			// Idempotent: return existing human user with 200
-			return c.json(existingHuman, 200);
+			// Idempotent: return existing human user with 200.
+			// AK6 P4 CRITICAL-1: wrap in { user } to match the 201 shape so
+			// callers (SetupFlow, tests) can read .user.id uniformly.
+			return c.json({ user: existingHuman }, 200);
 		}
 
 		// No human user exists — allow unauthenticated creation (setup mode)

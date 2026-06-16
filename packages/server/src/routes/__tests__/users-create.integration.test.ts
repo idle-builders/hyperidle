@@ -75,7 +75,8 @@ describe("POST /api/users — setup user creation", () => {
 	});
 
 	// AC-28: Idempotent — second POST returns 200 with existing user
-	// AK6 T8: 201 response shape is { user: { ... } }; 200 idempotent returns the raw user row
+	// AK6 T8: 201 response shape is { user: { ... } }
+	// AK6 P4 CRITICAL-1: 200 idempotent now also returns { user: { ... } } for consistent shape
 	test("returns 200 with existing user when human user already exists (idempotent)", async ({
 		app,
 	}) => {
@@ -96,9 +97,10 @@ describe("POST /api/users — setup user creation", () => {
 			body: JSON.stringify({ name: "Alice Again", email: "alice@example.com" }),
 		});
 		expect(second.status).toBe(200);
-		const secondBody = (await second.json()) as Record<string, unknown>;
-		// Returns the existing user (same id) — idempotent 200 keeps the flat shape
-		expect(secondBody.id).toBe(firstId);
+		// AK6 P4 CRITICAL-1: 200 idempotent path now returns { user: { id } } to match 201 shape
+		const secondBody = (await second.json()) as { user: Record<string, unknown> };
+		expect(typeof secondBody.user).toBe("object");
+		expect(secondBody.user.id).toBe(firstId);
 	});
 
 	// Reviewer CRITICAL: Auth bypass test — no API key when no human exists
