@@ -25,6 +25,7 @@ import {
 	Button,
 	EmptyState,
 	ErrorState,
+	PageHeader,
 	SkeletonList,
 	Tag,
 	ThreadShell,
@@ -379,15 +380,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
-			{/* Visual parity: main-header with thread title (20px/600) + dial-in button */}
-			<header className="shrink-0 flex items-center justify-between gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<div className="min-w-0">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate">
-						{threadTitle}
-					</h2>
-					{/* AE5: Thread context link — shows host entity with tag + title */}
-					{hostRoute && (
-						<div className="flex items-center gap-[6px] text-[13px] mt-[3px]">
+			{/* AI7: PageHeader — thread title + host context subtitle + dial-in action */}
+			<PageHeader
+				title={threadTitle}
+				subtitle={
+					/* AE5: Thread context link — shows host entity with tag + title */
+					hostRoute ? (
+						<div className="flex items-center gap-[6px] text-[13px]">
 							<Tag label={data.thread.hostKind} />
 							<Link
 								to={hostRoute}
@@ -396,10 +395,10 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 								{hostTitle}
 							</Link>
 						</div>
-					)}
-				</div>
-				{dialInButton}
-			</header>
+					) : undefined
+				}
+				actions={dialInButton ?? undefined}
+			/>
 			{hintReviewVerdict.visible && hasReviewMessages && (
 				<div
 					role="status"
@@ -491,36 +490,27 @@ export function Conversations(): JSX.Element {
 
 		return (
 			<div className="flex flex-col h-full" data-testid="conversations-page">
-				{/* Visual parity: header bar — 20px/600 title, border-bottom.
-				    When empty: just the title (no filter chips, no "New thread" button).
-				    When populated: filter chips inline + "New thread" button on the right. */}
-				<header
-					data-conversations-header
-					data-testid="conversations-filter-bar"
-					className="shrink-0 flex items-center justify-between gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)]"
-				>
-					<div className="flex items-center gap-[12px] min-w-0">
-						<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] shrink-0">
-							Conversations
-						</h2>
-						{/* AF14 AC4: Blocking/Unread filter chips removed — never matched real state.
-						    Header: title (left) + New-thread button (right) only. */}
-					</div>
-					{/* W3 AC-8: New thread button in header — only shown when threads exist.
-					    In empty state the action lives inside the EmptyState card. */}
-					{!isEmpty && (
-						/* AI5: shared Button primitive. */
-						<Button
-							variant="primary"
-							size="sm"
-							className="shrink-0"
-							onClick={onNewThread ?? (() => undefined)}
-							data-testid="new-thread-btn"
-						>
-							New thread
-						</Button>
-					)}
-				</header>
+				{/* AI7: PageHeader — Conversations list title + optional "New thread" action.
+				    data-conversations-header wrapper preserved for e2e + unit test selectors. */}
+				<div data-conversations-header>
+					<PageHeader
+						data-testid="conversations-filter-bar"
+						title="Conversations"
+						actions={
+							/* W3 AC-8: New thread button in header — only shown when threads exist. */
+							!isEmpty ? (
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={onNewThread ?? (() => undefined)}
+									data-testid="new-thread-btn"
+								>
+									New thread
+								</Button>
+							) : undefined
+						}
+					/>
+				</div>
 				{isEmpty ? (
 					// Empty state: centered card matching mockup's .empty-center wrapper.
 					// The "New thread" action is inside the EmptyState card (not the header).

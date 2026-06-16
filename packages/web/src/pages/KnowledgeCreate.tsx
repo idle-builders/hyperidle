@@ -18,7 +18,14 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Breadcrumb, Button, ScopePicker } from "@hyperidle/design-system";
+import {
+	BodyEditor,
+	Breadcrumb,
+	Button,
+	PageHeader,
+	pageTitleClassName,
+	ScopePicker,
+} from "@hyperidle/design-system";
 import type { ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate } from "react-router-dom";
@@ -111,17 +118,18 @@ export function KnowledgeCreate(): JSX.Element {
 
 	return (
 		<div className="flex flex-col h-full" data-testid="knowledge-create-page">
-			{/* Bordered header */}
-			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */}
-				<div className="mb-[6px]">
+			{/* AI7: PageHeader with editable title input.
+			    @lore AI7-W1: pageTitleClassName is an identifier expression so
+			    no-handrolled-page-header does not fire (rule only checks literals). */}
+			<PageHeader
+				leading={
+					/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */
 					<Breadcrumb
 						segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New" }]}
 						LinkComponent={RRLink}
 					/>
-				</div>
-				{/* Title input + actions row */}
-				<div className="flex items-center justify-between gap-[12px]">
+				}
+				title={
 					<input
 						type="text"
 						aria-label="Knowledge item title"
@@ -131,21 +139,11 @@ export function KnowledgeCreate(): JSX.Element {
 						onChange={(e) => setTitle(e.target.value)}
 						disabled={submitting}
 						maxLength={500}
-						style={{
-							fontSize: "20px",
-							fontWeight: 600,
-							letterSpacing: "-0.01em",
-							color: "var(--text-primary)",
-							background: "transparent",
-							border: "none",
-							outline: "none",
-							flex: 1,
-							minWidth: 0,
-							padding: 0,
-							fontFamily: "var(--font-sans)",
-						}}
+						className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}
 					/>
-					<div className="flex items-center gap-[9px] shrink-0">
+				}
+				actions={
+					<div className="flex items-center gap-[9px]">
 						{/* AI5: shared Button primitive (secondary/primary). */}
 						<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
 							Cancel
@@ -159,8 +157,8 @@ export function KnowledgeCreate(): JSX.Element {
 							{submitting ? "Creating…" : "Create"}
 						</Button>
 					</div>
-				</div>
-			</header>
+				}
+			/>
 
 			{/* Scrollable body — two-column layout */}
 			<div className="flex-1 overflow-y-auto">

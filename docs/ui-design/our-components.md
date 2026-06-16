@@ -6,13 +6,15 @@ Built up in four tiers. Each tier composes only from tiers below it. If somethin
 
 <!-- @source packages/design-system/src/ -->
 
-Five only. Anything more is scope creep.
+Seven. Anything more is scope creep.
 
 1. **StatusChip** — a `badge` coloured by state: `healthy / behind / blocked / paused / done / error`. Mono-sm caps text + 6 px dot. The single source of truth for status anywhere in the app.
 2. **Tag** — a `badge-neutral` for identity labels: product name, object kind (bet, pitch, task), knowledge category. Flat fill, no border.
 3. **KeyValue** — caps mono-sm label + body value, stacked or inline. Every detail view uses this; no freeform "label + text" rows are allowed.
 4. **NavItem** — a `menu` `<li><a>` restyled with Icon + Text + optional count badge, with a `selected` state (surface-4 fill + 2 px primary left bar). Used in the icon rail, submenu, settings rail.
 5. **SearchField** — `input input-sm` + leading search icon + trailing `kbd`. Always the same.
+6. **PageHeader** — pinned top strip of a primary page: title (h1 by default, h2 via `level={2}`) + optional `leading` row (breadcrumb/nav cluster) + optional `subtitle` meta line + optional `actions` cluster. `shrink-0`, `border-b border-[var(--border-subtle)]`, `px-[24px] py-[18px]`. Exports `pageTitleClassName` so pages with an editable title `<input>` can compose the exact treatment (20px / 600 / `tracking-[-0.01em]` / `--text-primary`) without forking the literal. See **Page anatomy rules** below and `docs/ui-design/page-anatomy.md`.
+7. **SectionLabel** — uppercase 13px section opener inside a page body. Treatment: `text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]`. Tag defaults to `h3`; pass `as="h2"` where SectionLabel is the page's top body heading (e.g. KnowledgeDetail sidebar). Optional `trailing` slot (count, "New" button) and optional `divider` border-bottom (default off). See `docs/ui-design/page-anatomy.md`.
 
 ### Tier 2 — Blocks (compose Tier 1 into reusable units)
 
@@ -28,6 +30,18 @@ Six. Each maps to a concrete recurring need.
 6. **NotificationRow** — StatusChip + summary + source Tag + timestamp + optional inline action `btn btn-ghost btn-xs`. The only shape notifications take, anywhere.
 
 No other card shapes. If a new surface needs a card, it reuses one of these or proves it isn't one of them.
+
+### Page anatomy rules (AI7)
+
+Every primary page follows these three rules. They are lint-enforced and test-backed.
+
+**1. Scroll rule — one pattern only.** Every primary page root is `flex flex-col h-full`. The `PageHeader` is `shrink-0` (pinned, never scrolls away). The body is `flex-1 overflow-y-auto`. This is the only scroll pattern consistent with the AppShell page-host, which is `overflow-hidden` — window-level scroll is impossible.
+
+**2. Heading-level contract.** Each primary page carries exactly one `<h1>`: the `PageHeader` title (default `level=1`). Section headers inside the page body are `<h3>` via `SectionLabel` (default `as="h3"`). Pass `as="h2"` to `SectionLabel` only where it is the page's top body heading (e.g. KnowledgeDetail sidebar labels where there is no SectionLabel competing with the page title).
+
+**3. No inline title or section-label treatments.** Two `eslint-plugin-design` rules enforce this:
+- `no-handrolled-page-header` (error on `packages/web/src/pages/**`, SettingsPage + SetupFlow exempt) — flags the literal combo `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any element that is not a `PageHeader`. Pages with an editable title `<input>` compose `pageTitleClassName` (an exported identifier) instead of repeating the literals.
+- `no-undefined-font-heading` (error on `packages/web/src/pages/**`, warn on the rest of `packages/web/src/**`) — flags `font-heading` (undefined utility, a silent CSS no-op) and `tracking-wider` inside `pages/**` (the 0.05em default is off the Hearth caps scale; use `tracking-[var(--tracking-caps-sm)]` = 0.06em via `SectionLabel` instead).
 
 ### Tier 3 — Regions (compose Tier 2 into page sections)
 

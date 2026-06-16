@@ -13,6 +13,7 @@ Version 0.3 · Electron desktop app · Light / Dark / System (Hearth theme)
 - [Theme tokens](./theme-tokens.md)
 - [What we use from DaisyUI (directly, as-is)](./what-we-use-from-daisyui-directly-as-is.md)
 - [Our components](./our-components.md)
+- [Page anatomy](./page-anatomy.md) — PageHeader, SectionLabel, scroll rule, heading contract, lint gates
 - [Component tree at a glance](./component-tree-at-a-glance.md)
 - [Rules](./rules.md)
 - [Build order](./build-order.md)

@@ -33,6 +33,7 @@ import {
 	EmptyState,
 	ErrorState,
 	ItemList,
+	PageHeader,
 	Row,
 	SkeletonList,
 	StatusChip,
@@ -83,11 +84,7 @@ export function WorkOverviewView({
 	if (loading) {
 		return (
 			<div className="flex flex-col h-full" data-testid="work-overview-page-loading">
-				<header className="shrink-0 flex items-center justify-between px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						Teams
-					</h2>
-				</header>
+				<PageHeader title="Teams" />
 				<div className="flex-1 overflow-y-auto">
 					{/* AD9: pt-[18px] (--space-6) loading gap so first skeleton bar clears the header border-b */}
 					<div className="max-w-[800px] mx-auto w-full pt-[18px]">
@@ -133,19 +130,19 @@ export function WorkOverviewView({
 
 	return (
 		<div className="flex flex-col h-full" data-testid="work-overview-page">
-			<header className="shrink-0 flex items-center justify-between px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				<div className="flex flex-col gap-[3px]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
-						Teams
-					</h2>
+			<PageHeader
+				title="Teams"
+				subtitle={
 					<span className="text-[13px] text-[var(--text-tertiary)]">
 						{teams.length} {teams.length === 1 ? "team" : "teams"}
 					</span>
-				</div>
-				<Button variant="primary" size="sm" onClick={onNewBet}>
-					New bet
-				</Button>
-			</header>
+				}
+				actions={
+					<Button variant="primary" size="sm" onClick={onNewBet}>
+						New bet
+					</Button>
+				}
+			/>
 			<div className="flex-1 overflow-y-auto">
 				<div className="max-w-[800px] mx-auto w-full">
 					<ItemList variant="flush" as="ul" isEmpty={false}>
