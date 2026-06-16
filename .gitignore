@@ -64,6 +64,11 @@ packages/design-system/viewer/*.js
 packages/design-system/viewer/*.d.ts
 packages/design-system/viewer/*.js.map
 packages/design-system/viewer/*.d.ts.map
+# AJ7: same for the annotations/ subdir (the inspector modules)
+packages/design-system/viewer/**/*.js
+packages/design-system/viewer/**/*.d.ts
+packages/design-system/viewer/**/*.js.map
+packages/design-system/viewer/**/*.d.ts.map
 
 # AJ5: annotation files (gitignored — founder reviews .annotations/annotations.md locally)
 .annotations/

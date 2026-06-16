@@ -208,6 +208,107 @@ describe("AC7 — POST /__annotations", () => {
 });
 
 // ---------------------------------------------------------------------------
+// AC6 (AJ7) — optional target.anchor (back-compat + validation)
+// ---------------------------------------------------------------------------
+
+describe("AC6 (AJ7) — target.anchor", () => {
+	test("POST with a valid anchor → 200 and persists the anchor", () => {
+		const input: AnnotationInput = {
+			story: "Button",
+			variant: "AllVariants",
+			note: "radius",
+			target: {
+				component: "Button",
+				dsComponent: "Button",
+				element: "button.btn",
+				anchor: { path: [0, 2, 1], component: "Button", element: "button.btn" },
+			},
+		};
+		const result = handleAnnotationRequest(
+			tmpFile,
+			"POST",
+			"/__annotations",
+			input,
+			fixedClock,
+			fixedIdgen,
+		);
+		expect(result.status).toBe(200);
+		const json = result.json as {
+			state: {
+				rounds: Array<{
+					annotations: Array<{ target: { anchor?: { path: number[] } } }>;
+				}>;
+			};
+		};
+		expect(json.state.rounds[0]?.annotations[0]?.target.anchor?.path).toEqual([0, 2, 1]);
+	});
+
+	test("POST without an anchor (AJ5 shape) → 200 (back-compat)", () => {
+		const input: AnnotationInput = {
+			story: "Button",
+			variant: "AllVariants",
+			note: "n",
+			target: { component: "Button", dsComponent: "Button", element: "button" },
+		};
+		const result = handleAnnotationRequest(
+			tmpFile,
+			"POST",
+			"/__annotations",
+			input,
+			fixedClock,
+			fixedIdgen,
+		);
+		expect(result.status).toBe(200);
+	});
+
+	test("malformed anchor (path is not a number[]) → 400", () => {
+		const badBody = {
+			story: "S",
+			variant: "V",
+			note: "n",
+			target: {
+				component: "C",
+				dsComponent: null,
+				element: "span",
+				anchor: { path: ["a", "b"], component: "C", element: "span" },
+			},
+		};
+		const result = handleAnnotationRequest(
+			tmpFile,
+			"POST",
+			"/__annotations",
+			badBody,
+			fixedClock,
+			fixedIdgen,
+		);
+		expect(result.status).toBe(400);
+	});
+
+	test("malformed anchor (component not a string) → 400", () => {
+		const badBody = {
+			story: "S",
+			variant: "V",
+			note: "n",
+			target: {
+				component: "C",
+				dsComponent: null,
+				element: "span",
+				anchor: { path: [0], component: 42, element: "span" },
+			},
+		};
+		const result = handleAnnotationRequest(
+			tmpFile,
+			"POST",
+			"/__annotations",
+			badBody,
+			fixedClock,
+			fixedIdgen,
+		);
+		expect(result.status).toBe(400);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // AC7 — POST /__annotations/round → startRound
 // ---------------------------------------------------------------------------
 
