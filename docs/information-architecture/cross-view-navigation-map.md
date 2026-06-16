@@ -7,7 +7,7 @@
 | Any view → Knowledge | Click Knowledge section header in Sidebar | Always available |
 | Thread list → Review thread detail | Click ThreadRow item | Within Conversations |
 | Review thread → Companion layout | Auto-promotes for complex ArtifactView; manual toggle | Within Conversations |
-| Portfolio Overview → Team View | Click product status card | Within Work (Level 1 → 2) |
+| Work Overview (team list) → Team View | Click team row | Within Work (Level 1 → 2) |
 | Team View → Bet Detail | Click BetCard | Within Work (Level 2 → 3) |
 | Team View → PitchSelector | Click Add bet (+) button on Canvas | Within Work (overlay on Level 2) |
 | Bet Detail → Team View | Click breadcrumb | Within Work (Level 3 → 2) |

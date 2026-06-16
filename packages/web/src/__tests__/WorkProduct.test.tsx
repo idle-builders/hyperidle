@@ -102,10 +102,8 @@ function renderPage(
 						<WorkTeam overrideData={overrideData} overrideLoading={loading} overrideError={error} />
 					}
 				/>
-				<Route
-					path="/work/portfolio"
-					element={<div data-testid="work-portfolio-page">Portfolio</div>}
-				/>
+				{/* AD9: /work/portfolio retired → /work */}
+				<Route path="/work" element={<div data-testid="work-overview-page">Work Overview</div>} />
 				<Route path="/work/bet/:betId" element={<div data-testid="work-bet-page">Bet</div>} />
 			</Routes>
 		</MemoryRouter>,
@@ -149,7 +147,8 @@ describe("WorkTeam", () => {
 		expect(burnRegion.querySelector("progress")).not.toBeNull();
 	});
 
-	it("6. click on the breadcrumb chip navigates to /work/portfolio", async () => {
+	// AD9: breadcrumb navigates to /work (was /work/portfolio)
+	it("6. click on the breadcrumb chip navigates to /work (work overview)", async () => {
 		const user = userEvent.setup();
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
@@ -157,7 +156,7 @@ describe("WorkTeam", () => {
 		await user.click(breadcrumb);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 		});
 	});
 

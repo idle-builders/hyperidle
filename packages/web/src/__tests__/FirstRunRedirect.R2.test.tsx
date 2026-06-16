@@ -1,10 +1,9 @@
 /**
- * R2 — FirstRunRedirect tests for the updated redirect target.
+ * AD9 migration — FirstRunRedirect redirect-target tests.
  *
- * R2 AC-5: After setup completion, the app routes to /work/portfolio (not /conversations).
- *
- * The R2 update changes FirstRunRedirect so that when user exists AND products exist,
- * it redirects to /work/portfolio instead of /conversations.
+ * AD9: After setup completion, the app routes to /work (not /work/portfolio).
+ * The intent (land on the Work surface, not Conversations) is preserved —
+ * only the path changes from /work/portfolio → /work.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -16,8 +15,9 @@ function SetupStub(): React.JSX.Element {
 	return <div data-testid="landing">setup</div>;
 }
 
-function WorkPortfolioStub(): React.JSX.Element {
-	return <div data-testid="landing">work-portfolio</div>;
+// AD9: /work/portfolio retired → /work is the landing
+function WorkOverviewStub(): React.JSX.Element {
+	return <div data-testid="landing">work-overview</div>;
 }
 
 function ConversationsStub(): React.JSX.Element {
@@ -25,8 +25,7 @@ function ConversationsStub(): React.JSX.Element {
 }
 
 /**
- * Render with both /work/portfolio and /conversations routes so we can detect
- * which one the component navigates to.
+ * Render with /work and /conversations routes so we can detect which one the component navigates to.
  */
 function renderFirstRunRedirectWithPortfolio(): typeof screen {
 	render(
@@ -34,7 +33,7 @@ function renderFirstRunRedirectWithPortfolio(): typeof screen {
 			<Routes>
 				<Route path="/" element={<FirstRunRedirect />} />
 				<Route path="/setup" element={<SetupStub />} />
-				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+				<Route path="/work" element={<WorkOverviewStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
 			</Routes>
 		</MemoryRouter>,
@@ -46,9 +45,9 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
-	// R2 AC-5: when user exists + products exist, redirect to /work/portfolio (not /conversations)
-	it("redirects to /work/portfolio (not /conversations) when human user exists and products exist", async () => {
+describe("FirstRunRedirect (AD9) — /work redirect target", () => {
+	// AD9: when user exists + products exist, redirect to /work (not /work/portfolio, not /conversations)
+	it("redirects to /work (not /conversations) when human user exists and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -76,12 +75,12 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 		renderFirstRunRedirectWithPortfolio();
 
 		await waitFor(() => {
-			// Must land on work-portfolio, not conversations
-			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
+			// Must land on work-overview, not conversations
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-overview");
 		});
 	});
 
-	// R2 AC-5: must NOT redirect to /conversations when setup is complete
+	// AD9: must NOT redirect to /conversations when setup is complete
 	it("does NOT redirect to /conversations when user and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
@@ -106,6 +105,7 @@ describe("FirstRunRedirect (R2) — /work/portfolio redirect", () => {
 
 		await waitFor(() => {
 			expect(screen.getByTestId("landing")).not.toHaveTextContent("conversations");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-overview");
 		});
 	});
 

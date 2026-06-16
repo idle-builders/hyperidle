@@ -161,8 +161,8 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 				headers: { "Content-Type": "application/json" },
 			});
 			if (res.ok) {
-				// Navigate back to portfolio after successful delete
-				navigate("/work/portfolio");
+				// Navigate back to Work overview after successful delete (AD9: was /work/portfolio)
+				navigate("/work");
 			}
 		} finally {
 			setActionPending(false);
@@ -195,7 +195,7 @@ function WorkRoutineLoaded({ detail }: { detail: RoutineDetail }): JSX.Element {
 					/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio", testId: "routine-breadcrumb-back" },
+							{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
 							...(routine.teamName ? [{ label: routine.teamName }] : []),
 							{ label: routine.name },
 						]}

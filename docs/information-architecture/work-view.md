@@ -4,27 +4,28 @@
 
 <!-- @source packages/web/src/pages/work/ -->
 
-**Shell structure:** Sidebar | Main (Portfolio Overview → Team View → Bet Detail).
+**Shell structure:** Sidebar fast-nav (teams list) | Main (Work Overview → Team View → Bet Detail).
 
-Three levels of depth: Portfolio → Team → Bet. The submenu always shows the product list; the main pane drills down.
+Three levels of depth: Work Overview → Team → Bet. The sidebar fast-nav shows teams; the main pane drills down.
 
-### 3.1 Submenu (Product Selector)
+### 3.1 Work Overview — team list (Level 1 — default landing, route `/work`)
 
-| Component | Information | Actions |
-|---|---|---|
-| **Product selector** | List of products (Ambrovia, Acme, HyperIdle, Pulse) with status dot | Click to open Team View for that product |
-| **"All products" option** | Portfolio-level overview | Click to show Portfolio Overview (default landing) |
-
-### 3.2 Portfolio Overview (Level 1 — default, in Main)
-
-The landing screen when Work is opened. High-level view across all products.
+The landing screen when Work is opened. Lists all teams; each row carries the two at-a-glance signals a founder needs to triage.
 
 | Component | Information | Actions |
 |---|---|---|
-| **Portfolio header** | Title, export button | Export report |
-| **Product status card** | Product name, lead avatar, status (operational/shipping/decisions pending), active bets count, shipped count, velocity sparkline | Click to drill into Team View for that product |
-| **Portfolio metrics bar** | Global shipping velocity, active bet count, decisions required | Read-only KPIs |
-| **Past bet summaries** | Per bet: status, cost variance (appetite vs. actual), shipped/killed outcome | Click to expand |
+| **Header** | Title "Teams" + optional "${n} teams" count line | — |
+| **New bet button** | `Button variant="primary" size="sm"` in header right | Click → `/work/bet/new` |
+| **Team row** (× N) | Team name (full-height single line, truncated) + active-bet count (numeric end cell) + `StatusChip` (healthy/behind/blocked) | Click row → `/work/team/:id` |
+| **Loading state** | `SkeletonList rows={4}` with 18px top gap | aria-label "Loading teams" |
+| **Empty state** | `EmptyState` — "No teams yet" + action → `/setup` | Click action |
+| **Error state** | `ErrorState` — "Couldn't load teams" + retry | Click retry |
+
+**Default ordering (attention-sort):** `blocked` first → `behind` → `healthy`; within a rank, `name` ascending.
+
+**1-team short-circuit (AD3, preserved):** `WorkOverview` detects a single team and immediately redirects to `/work/team/:id` — the 1-row list is never shown. All entry paths (sidebar header, post-setup landing, bookmarked `/work`, `/work/portfolio` redirect) collapse through this single chokepoint.
+
+**Retired:** The portfolio/all-bets grid (`/work/portfolio`) is gone. `/work/portfolio` redirects to `/work`. Cross-team bet browsing is deferred until a multi-team portfolio dashboard is warranted (3+ team users).
 
 ### 3.3 Team View (Level 2, in Main)
 

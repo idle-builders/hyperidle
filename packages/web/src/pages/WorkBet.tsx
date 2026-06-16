@@ -926,8 +926,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio" },
-							{ label: bet.team, to: "/work/portfolio" },
+							{ label: "Work", to: "/work" },
+							{ label: bet.team, to: "/work" },
 							{ label: bet.title },
 						]}
 						leading={
@@ -1051,6 +1051,17 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								</button>
 							</div>
 						</div>
+					)}
+
+					{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
+					{bet.sourceKnowledge != null && (
+						<RRLink
+							to={`/knowledge/${bet.sourceKnowledge.id}`}
+							data-testid="bet-provenance-link"
+							className="text-[13px] text-[var(--accent-primary)] hover:underline"
+						>
+							From knowledge: {bet.sourceKnowledge.title}
+						</RRLink>
 					)}
 
 					{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}

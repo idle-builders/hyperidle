@@ -279,7 +279,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// human user already exists (setup-complete guard). Registered BEFORE the
 	// auth middleware so the initial setup call can succeed without an API key.
 	if (options?.db) {
-		api.route("/users", createUserSetupRoute(options.db));
+		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
+		const earlyEventBus = options.eventBus ?? new EventBus();
+		api.route("/users", createUserSetupRoute(options.db, earlyEventBus));
 	}
 
 	// S1: Public: POST /api/auth/claim (invite claim — no auth required).

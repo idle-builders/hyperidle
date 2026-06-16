@@ -271,7 +271,7 @@ function WorkTeamLoaded({
 					/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */
 					<Breadcrumb
 						segments={[
-							{ label: "Work", to: "/work/portfolio", testId: "team-breadcrumb-back" },
+							{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
 							{ label: team.name },
 						]}
 						leading={

@@ -7,21 +7,10 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import {
-	API_ERROR_CODES,
-	DEFAULT_AGENT_MODEL_ID,
-	DEFAULT_AGENT_MODEL_PROVIDER,
-	type EventBus,
-	type ItemCreatedEvent,
-} from "@hyperidle/shared";
-
-/**
- * AH3: Default system prompt for new assistant agents.
- * The canonical persona text written at registration + lazy-create time.
- * Editors use PATCH /api/users/:id/assistant to update it.
- */
-const BUILTIN_ASSISTANT_SYSTEM_PROMPT =
-	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
+import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+// AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona moves to the Fabric Strategy (T8).
+// The Kernel no longer hard-codes any assistant persona constant.
+// persistScaffoldedAgents now writes systemPrompt from the Strategy's AgentScaffoldSpec.
 
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -32,6 +21,8 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
@@ -81,8 +72,10 @@ const createHumanUserSchema = z.object({
  *
  * This router is registered in app.ts BEFORE the auth middleware so the
  * POST can succeed without an API key during first-run setup.
+ *
+ * AK6 T8: eventBus added so user_created event can be emitted after persist.
  */
-export function createUserSetupRoute(db: HyperIdleDb): Hono {
+export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -122,8 +115,10 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 					401,
 				);
 			}
-			// Idempotent: return existing human user with 200
-			return c.json(existingHuman, 200);
+			// Idempotent: return existing human user with 200.
+			// AK6 P4 CRITICAL-1: wrap in { user } to match the 201 shape so
+			// callers (SetupFlow, tests) can read .user.id uniformly.
+			return c.json({ user: existingHuman }, 200);
 		}
 
 		// No human user exists — allow unauthenticated creation (setup mode)
@@ -141,33 +136,37 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 			createdAt: now,
 		});
 
-		// AC-1 AD8b: Create a per-user assistant agent at registration.
-		// The assistant is an ai-kind user with role="assistant", agentCategory="individual".
-		// Its ID is deterministic: "ast-{userId}" for easy lookup.
-		// @lore AD8b: The assistant agent is created once per human user at registration.
-		// It is the AI counterpart that participates in the user's assistant thread.
-		// @lore AH3 N2: AH2 shipped without harness/model/systemPrompt defaults on the
-		// assistant insert. AH3 closes this gap — all four fields must be non-null so
-		// runAssistantTurn can proceed without lazy-defaults on every turn.
-		const assistantAgentId = `ast-${id}`;
-		// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-		await db.insert(users).values({
-			id: assistantAgentId,
-			kind: "ai",
-			name: `${name}'s Assistant`,
-			role: "assistant",
-			agentCategory: "individual",
-			status: "active",
-			harnessType: "builtin",
-			modelId: DEFAULT_AGENT_MODEL_ID,
-			modelProvider: DEFAULT_AGENT_MODEL_PROVIDER,
-			systemPrompt: BUILTIN_ASSISTANT_SYSTEM_PROMPT,
-			maxConcurrentSessions: 1,
-			createdAt: now,
+		// AC-1 AD8b: Create a per-user assistant agent at registration via Strategy port.
+		// AK6 T8: Route through scaffoldAgents — the active Strategy decides the persona.
+		// The Kernel persists via persistScaffoldedAgents (single writer, idHint=ast-${id}).
+		// BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona is now Strategy-owned.
+		const specs = await getActiveStrategy().scaffoldAgents({
+			db,
+			trigger: "user_assistant",
+			teamId: null,
+			teamMembersId: null,
+			teamName: null,
+			functions: null,
+			role: null,
+			name: null,
+			ownerUserId: id,
+			ownerUserName: name,
+		});
+
+		const { agentIds } = await persistScaffoldedAgents(db, null, specs);
+		const assistantAgentId = agentIds[0] ?? `ast-${id}`;
+
+		// AK6 T8: emit user_created event AFTER human user + assistant are both persisted.
+		eventBus.emit({
+			type: "user_created",
+			streamId: id,
+			userId: id,
+			assistantAgentId,
+			at: now,
 		});
 
 		const [created] = await db.select().from(users).where(eq(users.id, id)).limit(1);
-		return c.json(created, 201);
+		return c.json({ user: created }, 201);
 	});
 
 	return router;

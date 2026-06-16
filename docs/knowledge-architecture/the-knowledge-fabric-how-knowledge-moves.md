@@ -6,6 +6,23 @@ Both need to read and write the same knowledge. But this is **not** a real-time 
 
 The right model is **projection, not collaboration**. One canonical store. Two projection layers that render the store into the format each actor type needs. Continuous sync via file watcher. Conflict resolution for the rare overlap.
 
+### 4.0 Knowledge → Bet: the promote forward edge
+
+Knowledge items have two directional relationships with bets:
+
+| Direction | Meaning | Column |
+|---|---|---|
+| **Forward** (knowledge → bet) | This bet was seeded from this knowledge item | `bets.source_knowledge_item_id` (nullable FK) |
+| **Reverse** (bet → knowledge) | This knowledge item was produced under this bet | `knowledge_items.scope_kind='bet'` + `scope_id` |
+
+These are distinct relations. The reverse edge ("knowledge produced under bet X") is what the `scopeKind/scopeId` columns capture for items created during a bet retro or session. The forward edge ("bet promoted from knowledge item Y") is what AK5's `sourceKnowledgeItemId` column captures.
+
+**Practical implication:** an item can appear on both edges simultaneously. For example, a practice finding about image-compression is captured under a past bet (reverse: `scope_kind='bet', scope_id=bet-A`), and later promoted into a new bet (forward: `bet-B.source_knowledge_item_id = ki-that-item`). Neither link conflicts with the other.
+
+**The promote action** (UI: Knowledge item overflow menu → "Promote to bet") seeds a new `draft` bet with the item's body and records the provenance FK. The source item is not mutated. See `docs/process-layer/bets-shape-commit-change-ship.md` §5.1 for the full flow.
+
+---
+
 ### 4.1 Projection for humans (Web UI)
 
 Standard web application architecture. The API server reads from `knowledge_items` and renders the Knowledge view with its three scopes (practice, product, factory).

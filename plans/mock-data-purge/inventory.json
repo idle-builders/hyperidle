@@ -73,7 +73,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 122,
+"line": 121,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +82,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 160,
+"line": 177,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -91,7 +91,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 166,
+"line": 183,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

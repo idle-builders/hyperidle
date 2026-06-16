@@ -481,6 +481,11 @@ export function registerObservabilityDispatcher(
 			case "knowledge_accessed":
 			case "knowledge_archived":
 			case "knowledge_created":
+			// AK6: creation events are not translated to observability events.
+			// They are observed via the event bus by AK7/AK8 and audit subscribers.
+			case "team_created":
+			case "agent_added":
+			case "user_created":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

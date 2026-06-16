@@ -48,6 +48,17 @@ export function getActiveStrategy(): KernelStrategy {
 }
 
 /**
+ * Get the active Strategy without throwing if none is registered.
+ *
+ * For test fixtures ONLY — production code must use getActiveStrategy().
+ * Allows the fixture to check if a test's beforeEach already set a strategy
+ * before the fixture setup runs.
+ */
+export function getActiveStrategyOrNull(): KernelStrategy | null {
+	return active;
+}
+
+/**
  * Reset the registry to unregistered state.
  *
  * For test teardown ONLY. Never call this in production code — a process

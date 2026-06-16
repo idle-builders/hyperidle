@@ -246,6 +246,13 @@
 			"when": 1784500000000,
 			"tag": "0034_aromatic_hulk",
 			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "7",
+			"when": 1784600000000,
+			"tag": "0035_worried_shadowcat",
+			"breakpoints": true
 		}
 	]
 }

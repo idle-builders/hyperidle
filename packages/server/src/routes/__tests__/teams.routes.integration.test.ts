@@ -8,8 +8,10 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-teams";
@@ -179,34 +181,40 @@ describe("teams routes", () => {
 			expect(res.status).toBe(400);
 		});
 
+		// AK6: builder+PM roster is Fabric Strategy behavior. Register Fabric for this test.
 		test("creates builder and PM agent users", async ({ app }) => {
-			const createRes = await app.request("/api/teams", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "Agents Team" }),
-			});
-			expect(createRes.status).toBe(201);
+			setActiveStrategy(fabricStrategy);
+			try {
+				const createRes = await app.request("/api/teams", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({ name: "Agents Team" }),
+				});
+				expect(createRes.status).toBe(201);
 
-			// Verify users were created via GET /api/teams/:id
-			// The team endpoint requires finding the team ID from the response
-			const listRes = await app.request("/api/teams", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			const list = (await listRes.json()) as { teams: Array<{ id: string; name: string }> };
-			const newTeam = list.teams.find((t) => t.name === "Agents Team");
-			expect(newTeam).toBeDefined();
-			if (!newTeam) return;
+				// Verify users were created via GET /api/teams/:id
+				// The team endpoint requires finding the team ID from the response
+				const listRes = await app.request("/api/teams", {
+					method: "GET",
+					headers: authHeaders(),
+				});
+				const list = (await listRes.json()) as { teams: Array<{ id: string; name: string }> };
+				const newTeam = list.teams.find((t) => t.name === "Agents Team");
+				expect(newTeam).toBeDefined();
+				if (!newTeam) return;
 
-			const detailRes = await app.request(`/api/teams/${newTeam.id}`, {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(detailRes.status).toBe(200);
-			const detail = (await detailRes.json()) as { roster: Array<{ role: string }> };
-			const roles = detail.roster.map((m) => m.role);
-			expect(roles).toContain("builder");
-			expect(roles).toContain("product_manager");
+				const detailRes = await app.request(`/api/teams/${newTeam.id}`, {
+					method: "GET",
+					headers: authHeaders(),
+				});
+				expect(detailRes.status).toBe(200);
+				const detail = (await detailRes.json()) as { roster: Array<{ role: string }> };
+				const roles = detail.roster.map((m) => m.role);
+				expect(roles).toContain("builder");
+				expect(roles).toContain("product_manager");
+			} finally {
+				clearActiveStrategy();
+			}
 		});
 	});
 

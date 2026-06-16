@@ -193,8 +193,8 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					<div data-testid="task-breadcrumb">
 						<Breadcrumb
 							segments={[
-								{ label: "Work", to: "/work/portfolio" },
-								{ label: bet.team, to: "/work/portfolio" },
+								{ label: "Work", to: "/work" },
+								{ label: bet.team, to: "/work" },
 								{ label: bet.title, to: `/work/bet/${bet.id}` },
 								{ label: task.title },
 							]}

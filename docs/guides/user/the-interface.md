@@ -7,9 +7,8 @@
 └──────────┴────────────┴───────────────────┘
 ```
 
-- **Sidebar** (left): Top-level navigation. Icons for Conversations, Work, Knowledge. Avatar at the bottom opens Settings. Shows ambient counts (blocked agents, unread, knowledge triage items).
-- **Submenu**: Context-sensitive filters for the current view.
-- **Main Pane**: Where the work happens — review threads, kanban boards, knowledge items.
+- **Sidebar** (left): Top-level navigation. Search field + Assistant button at the top. Three section buttons (Conversations / Work / Knowledge) — click to switch views and land on that section's overview. A shared fast-nav list below the separator shows the head of the active section's items (threads / teams / knowledge items); it swaps when you switch sections. Settings is pinned at the bottom.
+- **Main Pane**: Where the work happens — section overviews, team views, review threads, knowledge items.
 
 ## Keyboard Shortcuts
 

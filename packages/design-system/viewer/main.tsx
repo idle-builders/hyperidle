@@ -1,5 +1,6 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { AnnotationOverlay } from "./annotations/annotation-overlay.js";
 import {
 	discoverStories,
 	type GlobSource,
@@ -32,6 +33,15 @@ const webShellStoryGlobs = import.meta.glob<Record<string, unknown>>(
 ) as GlobSource;
 const webComponentStoryGlobs = import.meta.glob<Record<string, unknown>>(
 	"../../web/src/components/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
+// @lore AD9: page-level stories (e.g. WorkOverview, Conversations) live in
+// packages/web/src/pages/*.stories.tsx. They were previously invisible in the
+// viewer because only shell/ + components/ were globbed. Added so full-page
+// surfaces are reviewable live (the /human-design-review gate needs the painted
+// page, not just sub-components).
+const webPageStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/pages/*.stories.tsx",
 	{ eager: true },
 ) as GlobSource;
 
@@ -216,10 +226,17 @@ function pascalToTitle(name: string): string {
 	return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 }
 
-function TsxComponentView({ module }: { module: StoryModule }): React.JSX.Element {
+function TsxComponentView({
+	module,
+	storyRootRef,
+}: {
+	module: StoryModule;
+	storyRootRef: React.RefObject<HTMLDivElement | null>;
+}): React.JSX.Element {
 	return (
 		<ComponentWrapper>
-			<div className="demo-grid">
+			{/* @lore AJ5: demo-grid is the story root scoped by AnnotationOverlay's capturing listener */}
+			<div ref={storyRootRef} className="demo-grid">
 				{module.variants.map((v) => (
 					<div key={v.name} className="demo-section">
 						<div className="demo-section-title">{pascalToTitle(v.name)}</div>
@@ -293,15 +310,25 @@ function Toolbar({
 
 function App(): React.JSX.Element {
 	const modules = useMemo(
-		() => discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs),
+		() =>
+			discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs, webPageStoryGlobs),
 		[],
 	);
 	const [route, navigate] = useHashRoute();
 	const [theme, setTheme] = useTheme();
 	const [density, setDensity] = useDensity();
 
+	// @lore AJ5: storyRootRef is passed to TsxComponentView (attached to .demo-grid)
+	// and to AnnotationOverlay (scopes capturing click listener). Overlay is rendered
+	// only on a component page so the snapshot net (which renders stories directly,
+	// not App) is never affected (AC10).
+	const storyRootRef = useRef<HTMLDivElement | null>(null);
+
 	const activeModule = modules.find((m) => m.title === route);
 	const isComponentPage = route !== "" && activeModule;
+
+	// Derive the active variant name (first variant of the active module, or empty)
+	const activeVariant = activeModule?.variants[0]?.name ?? "";
 
 	return (
 		<>
@@ -312,9 +339,15 @@ function App(): React.JSX.Element {
 				onDensityChange={setDensity}
 			/>
 			{isComponentPage ? (
-				<TsxComponentView module={activeModule} />
+				<TsxComponentView module={activeModule} storyRootRef={storyRootRef} />
 			) : (
 				<Catalog modules={modules} onNavigate={navigate} />
+			)}
+			{/* @lore AJ5: AnnotationOverlay is guarded by isComponentPage — it only renders
+			    on a component page, never on the catalog index, never in story render calls.
+			    This ensures the overlay never enters the 56-story snapshot net (AC10). */}
+			{isComponentPage && (
+				<AnnotationOverlay story={route} variant={activeVariant} storyRoot={storyRootRef.current} />
 			)}
 		</>
 	);

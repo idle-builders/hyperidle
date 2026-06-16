@@ -89,6 +89,7 @@ async function setupUseTeams(teams: typeof SINGLE_TEAM) {
 		data: { teams },
 		loading: false,
 		error: null,
+		refetch: vi.fn(),
 	});
 }
 
@@ -137,7 +138,8 @@ describe("AC1 — full-page surface, no dialog", () => {
 		expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();
 	});
 
-	it("renders breadcrumb nav to /work/portfolio", () => {
+	// AD9: breadcrumb points to /work (was /work/portfolio)
+	it("renders breadcrumb nav (back to work overview)", () => {
 		renderPage();
 		const nav = screen.getByRole("navigation", { name: /breadcrumb/i });
 		expect(nav).toBeInTheDocument();
@@ -237,8 +239,8 @@ describe("AC6 — cancel and abandon", () => {
 		// Body is empty — click Cancel
 		fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
 
-		// Should navigate without confirm
-		expect(mockNavigate).toHaveBeenCalledWith("/work/portfolio");
+		// AD9: navigates to /work (was /work/portfolio)
+		expect(mockNavigate).toHaveBeenCalledWith("/work");
 	});
 
 	it("Cancel with body content shows a confirm dialog (dirty guard)", async () => {
@@ -273,7 +275,8 @@ describe("AC6 — cancel and abandon", () => {
 		fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
 
 		expect(confirmSpy).toHaveBeenCalledTimes(1);
-		expect(mockNavigate).toHaveBeenCalledWith("/work/portfolio");
+		// AD9: navigates to /work (was /work/portfolio)
+		expect(mockNavigate).toHaveBeenCalledWith("/work");
 
 		confirmSpy.mockRestore();
 	});

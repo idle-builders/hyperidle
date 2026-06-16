@@ -1,0 +1,2 @@
+ALTER TABLE "bets" ADD COLUMN "source_knowledge_item_id" text;--> statement-breakpoint
+ALTER TABLE "bets" ADD CONSTRAINT "bets_source_knowledge_item_id_knowledge_items_id_fk" FOREIGN KEY ("source_knowledge_item_id") REFERENCES "knowledge_items"("id") ON DELETE restrict ON UPDATE no action;
