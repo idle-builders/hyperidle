@@ -1,4 +1,4 @@
-import { Component, StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnnotationOverlay } from "./annotations/annotation-overlay.js";
 import {
@@ -338,17 +338,24 @@ function pascalToTitle(name: string): string {
 /** @lore AJ6: exported for AC6 test isolation — error boundary wraps each variant. */
 export function TsxComponentView({
 	module,
-	storyRootRef,
+	storyRootCb,
 }: {
 	module: StoryModule;
-	storyRootRef: React.RefObject<HTMLDivElement | null>;
+	/**
+	 * @lore AJ7: callback ref (NOT a useRef). A callback ref re-renders the parent
+	 * when the node attaches; a useRef does not. AnnotationOverlay needs the live
+	 * element, so the parent must hold it as STATE — the AJ5 ref.current was null at
+	 * the render that mounted the overlay, so arm() early-returned and nothing worked.
+	 */
+	storyRootCb: (node: HTMLDivElement | null) => void;
 }): React.JSX.Element {
 	return (
 		<ComponentWrapper>
-			{/* @lore AJ5: demo-grid is the story root scoped by AnnotationOverlay's capturing listener */}
-			<div ref={storyRootRef} className="demo-grid">
+			{/* @lore AJ7: demo-grid is the story root scoped by usePicker's capturing listener.
+			    data-variant on each .demo-section feeds per-element variant attribution. */}
+			<div ref={storyRootCb} className="demo-grid">
 				{module.variants.map((v) => (
-					<div key={v.name} className="demo-section">
+					<div key={v.name} className="demo-section" data-variant={v.name}>
 						<div className="demo-section-title">{pascalToTitle(v.name)}</div>
 						{/* @lore AJ6: error boundary around each story variant so a throwing
 						    page story doesn't blank the whole component page (AC6). */}
@@ -441,11 +448,12 @@ function App(): React.JSX.Element {
 	const [theme, setTheme] = useTheme();
 	const [density, setDensity] = useDensity();
 
-	// @lore AJ5: storyRootRef is passed to TsxComponentView (attached to .demo-grid)
-	// and to AnnotationOverlay (scopes capturing click listener). Overlay is rendered
-	// only on a component page so the snapshot net (which renders stories directly,
-	// not App) is never affected (AC10).
-	const storyRootRef = useRef<HTMLDivElement | null>(null);
+	// @lore AJ7: storyRoot is STATE, set via a callback ref, NOT a useRef. The AJ5
+	// useRef(null) meant the overlay received null at the mounting render (refs commit
+	// after render and don't re-render the parent), so usePicker.arm() early-returned
+	// and selection did nothing. The callback ref re-renders App once .demo-grid attaches.
+	const [storyRoot, setStoryRoot] = useState<HTMLDivElement | null>(null);
+	const storyRootCb = useCallback((node: HTMLDivElement | null) => setStoryRoot(node), []);
 
 	const activeModule = modules.find((m) => m.title === route);
 	const isComponentPage = route !== "" && activeModule;
@@ -462,15 +470,17 @@ function App(): React.JSX.Element {
 				onDensityChange={setDensity}
 			/>
 			{isComponentPage ? (
-				<TsxComponentView module={activeModule} storyRootRef={storyRootRef} />
+				<TsxComponentView module={activeModule} storyRootCb={storyRootCb} />
 			) : (
 				<Catalog modules={modules} onNavigate={navigate} />
 			)}
-			{/* @lore AJ5: AnnotationOverlay is guarded by isComponentPage — it only renders
-			    on a component page, never on the catalog index, never in story render calls.
-			    This ensures the overlay never enters the 56-story snapshot net (AC10). */}
-			{isComponentPage && (
-				<AnnotationOverlay story={route} variant={activeVariant} storyRoot={storyRootRef.current} />
+			{/* @lore AJ7: AnnotationOverlay is guarded by isComponentPage AND storyRoot — it
+			    only mounts on a component page once the live .demo-grid element exists, never
+			    on the catalog index, never in story render calls. The storyRoot guard moves
+			    here so the overlay always receives a non-null root (AC1 wiring fix). It never
+			    enters the snapshot net (which renders stories directly, not App) — AC13. */}
+			{isComponentPage && storyRoot && (
+				<AnnotationOverlay story={route} variant={activeVariant} storyRoot={storyRoot} />
 			)}
 		</>
 	);

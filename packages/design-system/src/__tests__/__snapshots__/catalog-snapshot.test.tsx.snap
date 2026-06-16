@@ -203,6 +203,85 @@ exports[`AI2/DiscardConfirmStrip > Default 1`] = `
 "
 `;
 
+exports[`AnnotatorV2 (AJ7 design) > VariantADevtoolsRail 1`] = `
+"<div style="position: relative; min-height: 420px;">
+  <div class="demo-grid">
+    <div class="demo-section">
+      <div class="demo-section-title">
+        "Bet Card"
+      </div>
+      <div class="card" data-ds-component="BetCard">
+        <div class="head" data-ds-component="BetCard">
+          <span class="title" data-ds-component="BetCard">
+            "Auth migration — passkey rollout"
+          </span>
+        </div>
+        <div class="meta" data-ds-component="KeyValue">
+          <span>
+            "Budget"
+          </span>
+          <strong>
+            "$2,400"
+          </strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="anno-rail">
+    <div class="anno-rail-head">
+      <button class="anno-rail-toggle" aria-expanded="true" aria-label="Collapse inspector" type="button">
+        "‹"
+      </button>
+      <button class="anno-arm" aria-pressed="false" type="button">
+        "Inspect"
+      </button>
+      <span class="anno-round">
+        "Round"
+        "1"
+        "·"
+        "2"
+        "notes"
+      </span>
+    </div>
+    <div class="anno-rail-hint">
+      "Press Inspect, then hover + click any element."
+    </div>
+    <div class="anno-rail-notes">
+      <div class="anno-section-label">
+        "Notes · Round"
+        "1"
+        <button class="anno-iterate" type="button">
+          "New iteration"
+        </button>
+      </div>
+      <ul class="anno-notes">
+        <li>
+          <button class="anno-note-row" type="button">
+            <span class="anno-note-comp">
+              "BetCard"
+            </span>
+            <span class="anno-note-text">
+              "Title should truncate at one line on narrow cards."
+            </span>
+          </button>
+        </li>
+        <li>
+          <button class="anno-note-row" type="button">
+            <span class="anno-note-comp">
+              "KeyValue"
+            </span>
+            <span class="anno-note-text">
+              "Budget value needs tabular-nums."
+            </span>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </aside>
+</div>
+"
+`;
+
 exports[`ArtifactCostChip > PartialPending 1`] = `
 "<span class="inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]" data-ds-component="ArtifactCostChip" data-ds-source="design-system" data-ds-tier="1">
   <span>
