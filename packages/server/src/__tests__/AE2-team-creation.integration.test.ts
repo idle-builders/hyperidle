@@ -15,9 +15,11 @@
  */
 
 import { factorySettings, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import { defaultRoster } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-AE2";
@@ -58,7 +60,17 @@ describe("defaultRoster() sanity checks", () => {
 // AC-1: POST /api/teams creates agents using defaultRoster()
 // ─────────────────────────────────────────────────────────────────────────────
 
+// AK6: These tests verify the Fabric Strategy preserves defaultRoster() behavior.
+// The roster expansion (multi-agent per functions) lives in Fabric, not Kernel.
+// minimalStrategy (fixture default) creates 1 agent; fabricStrategy creates the full roster.
 describe("AC-1: POST /api/teams with functions creates agents via defaultRoster()", () => {
+	beforeEach(() => {
+		setActiveStrategy(fabricStrategy);
+	});
+	afterEach(() => {
+		clearActiveStrategy();
+	});
+
 	// AC-1a: development + marketing → 5 agents matching defaultRoster output
 	test("POST with functions=['development','marketing'] creates 5 agents with correct roles", async ({
 		db,
@@ -517,7 +529,15 @@ describe("AC-1: Backward compatibility — POST /api/teams without functions", (
 // AC-1: GET /api/teams/:id roster reflects created agents
 // ─────────────────────────────────────────────────────────────────────────────
 
+// AK6: Roster shape test requires Fabric (multi-role expansion).
 describe("AC-1: GET /api/teams/:id roster after function-based creation", () => {
+	beforeEach(() => {
+		setActiveStrategy(fabricStrategy);
+	});
+	afterEach(() => {
+		clearActiveStrategy();
+	});
+
 	test("GET /api/teams/:id roster has correct roles after POST with functions", async ({
 		db,
 		app,

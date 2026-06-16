@@ -288,6 +288,52 @@ export interface PropagationFailedEvent {
 }
 
 /**
+ * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
+ * teamMembers, and all scaffolded agent users rows have been persisted.
+ * streamId = teamId for per-team stream routing.
+ */
+export interface TeamCreatedEvent {
+	type: "team_created";
+	streamId: string;
+	teamId: string;
+	teamMembersId: string;
+	functions: readonly string[];
+	/** Ids of every agent users row created for this team (real ids, post-persist). */
+	agentIds: readonly string[];
+	at: string;
+}
+
+/**
+ * AK6: Emitted by the add_agent tool (and teams add-agent route) AFTER the
+ * agent users row has been persisted.
+ * streamId = teamId for per-team stream routing.
+ */
+export interface AgentAddedEvent {
+	type: "agent_added";
+	streamId: string;
+	teamId: string;
+	teamMembersId: string;
+	agentId: string;
+	role: string;
+	at: string;
+}
+
+/**
+ * AK6: Emitted by POST /api/users (and assistant lazy-create) AFTER the human
+ * user row AND the assistant agent users row have been persisted.
+ * Semantics: "human + their assistant now exist."
+ * streamId = userId for per-user stream routing.
+ */
+export interface UserCreatedEvent {
+	type: "user_created";
+	streamId: string;
+	userId: string;
+	/** The assistant agent's users.id (real id, post-persist). */
+	assistantAgentId: string;
+	at: string;
+}
+
+/**
  * Kernel events: entity lifecycle facts. When a kernel entity changes state,
  * these events announce what happened.
  *
@@ -314,7 +360,11 @@ export type KernelEvent =
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent
 	| KnowledgeAccessedEvent
-	| ArtifactCreatedEvent;
+	| ArtifactCreatedEvent
+	// AK6: creation events
+	| TeamCreatedEvent
+	| AgentAddedEvent
+	| UserCreatedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

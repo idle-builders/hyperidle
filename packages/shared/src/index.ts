@@ -85,6 +85,7 @@ export {
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
 export type {
+	AgentAddedEvent,
 	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,
@@ -111,15 +112,24 @@ export type {
 	SessionStartedEvent,
 	StrategyEvent,
 	TaskStateChangedEvent,
+	TeamCreatedEvent,
 	ThreadArchivedEvent,
 	ThreadCreatedEvent,
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
 	ThreadResolvedEvent,
 	ToolCallRecordedEvent,
+	UserCreatedEvent,
 	WildcardHandler,
 	WildcardType,
 } from "./events.js";
+// ── AK6: Factory-roster injection seam ──
+export type {
+	FactoryFacilitatorSpec,
+	FactoryRosterSpec,
+	FactorySystemAssistantSpec,
+} from "./factory-roster.js";
+export { defaultFactoryRoster, minimalFactoryRoster } from "./factory-roster.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
@@ -244,11 +254,14 @@ export type {
 } from "./routine.js";
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
 // ── AK2: Strategy Port ──
+// ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 export type {
+	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	IngestionHandle,
 	IngestionRequest,
+	ScaffoldRequest,
 	Strategy,
 } from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──

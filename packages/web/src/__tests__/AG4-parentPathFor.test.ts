@@ -16,12 +16,13 @@ import { parentPathFor } from "../navigation/parentPathFor.js";
 
 describe("AG4 — parentPathFor", () => {
 	describe("work routes", () => {
-		it("bet detail → portfolio", () => {
-			expect(parentPathFor("/work/bet/abc-123")).toBe("/work/portfolio");
+		// AD9: /work is now the Work overview root (was /work/portfolio)
+		it("bet detail → /work (was /work/portfolio)", () => {
+			expect(parentPathFor("/work/bet/abc-123")).toBe("/work");
 		});
 
-		it("bet detail with trailing content → portfolio", () => {
-			expect(parentPathFor("/work/bet/abc-123/")).toBe("/work/portfolio");
+		it("bet detail with trailing content → /work", () => {
+			expect(parentPathFor("/work/bet/abc-123/")).toBe("/work");
 		});
 
 		it("task detail → parent bet", () => {
@@ -32,15 +33,19 @@ describe("AG4 — parentPathFor", () => {
 			expect(parentPathFor("/work/bet/abc-123/task/xyz-456")).toBe("/work/bet/abc-123");
 		});
 
-		it("routine detail → portfolio", () => {
-			expect(parentPathFor("/work/routine/routine-1")).toBe("/work/portfolio");
+		it("routine detail → /work (was /work/portfolio)", () => {
+			expect(parentPathFor("/work/routine/routine-1")).toBe("/work");
 		});
 
-		it("team detail → portfolio", () => {
-			expect(parentPathFor("/work/team/team-1")).toBe("/work/portfolio");
+		it("team detail → /work (was /work/portfolio)", () => {
+			expect(parentPathFor("/work/team/team-1")).toBe("/work");
 		});
 
-		it("work portfolio itself → null (already root)", () => {
+		it("/work overview itself → null (already root)", () => {
+			expect(parentPathFor("/work")).toBeNull();
+		});
+
+		it("/work/portfolio → null (retired path, no match)", () => {
 			expect(parentPathFor("/work/portfolio")).toBeNull();
 		});
 	});

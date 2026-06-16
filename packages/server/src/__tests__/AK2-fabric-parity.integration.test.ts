@@ -111,6 +111,13 @@ class FabricStrategySpy implements Strategy<HyperIdleDb> {
 			},
 		};
 	}
+
+	// AK6: scaffoldAgents stub — FabricStrategySpy test is not about agent creation.
+	async scaffoldAgents(
+		_req: import("@hyperidle/shared").ScaffoldRequest<HyperIdleDb>,
+	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
+		return [];
+	}
 }
 
 // ---------------------------------------------------------------------------

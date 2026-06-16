@@ -67,3 +67,28 @@ export const MalformedDescription = (): React.JSX.Element => (
  * @lore U1: Active bet — shows Pause, Kill, Adjust Appetite, Unblock buttons.
  */
 export const ActiveActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_active} />;
+
+/**
+ * AK5: WithProvenance — bet promoted from a knowledge item; shows provenance backlink in header.
+ */
+export const WithProvenance = (): React.JSX.Element => {
+	const bet: BetDetail | undefined = MOCK_BETS.b1;
+	if (!bet) return <div>No fixture</div>;
+	return (
+		<WorkBet
+			overrideBet={{
+				...bet,
+				sourceKnowledge: { id: "ki-ak5", title: "Architecture Decision: Auth Strategy" },
+			}}
+		/>
+	);
+};
+
+/**
+ * AK5: NoProvenance — hand-typed bet without provenance; no backlink rendered.
+ */
+export const NoProvenance = (): React.JSX.Element => {
+	const bet: BetDetail | undefined = MOCK_BETS.b1;
+	if (!bet) return <div>No fixture</div>;
+	return <WorkBet overrideBet={{ ...bet, sourceKnowledge: null }} />;
+};

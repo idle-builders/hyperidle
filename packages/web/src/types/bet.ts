@@ -59,6 +59,12 @@ export interface BetDetail {
 	outcomeRecordedAt?: string | null;
 	/** AC1: User ID of the actor who last recorded the outcome. */
 	outcomeRecordedBy?: string | null;
+	/**
+	 * AK5: provenance backlink — the knowledge item this bet was promoted from.
+	 * null = hand-typed / assistant-drafted bet (no source).
+	 * Absent on legacy bets that predate AK5 (treated identically to null by UI).
+	 */
+	sourceKnowledge?: { id: string; title: string } | null;
 	tasks: Array<{
 		id: string;
 		title: string;

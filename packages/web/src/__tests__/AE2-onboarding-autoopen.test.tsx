@@ -31,7 +31,8 @@ function renderShell(initialPath: string): ReturnType<typeof render> {
 				children: [
 					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
-					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
+					{ path: "work", element: <div>Work Overview Page</div> },
+					{ path: "work/portfolio", element: <div>Portfolio Page (redirects to /work)</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
 				],
@@ -67,7 +68,8 @@ afterEach(() => {
 describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 	// AC-4: ?onboarding=true opens the CoC overlay
 	it("opens the CoC/Assistant overlay when ?onboarding=true is in the URL", async () => {
-		renderShell("/work/portfolio?onboarding=true");
+		// AD9: navigate to /work?onboarding=true (was /work/portfolio?onboarding=true)
+		renderShell("/work?onboarding=true");
 
 		// The AssistantOverlay renders with data-testid="coc-overlay" or similar when open.
 		// The overlay is controlled by assistantOverlayOpen state in AppShell.
@@ -90,18 +92,19 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 	// AC-4: ?onboarding=true is removed from URL after opening
 	it("removes the ?onboarding=true query param after the overlay opens", async () => {
 		// Capture URL changes by observing the router
+		// AD9: /work?onboarding=true (was /work/portfolio?onboarding=true)
 		const router = createMemoryRouter(
 			[
 				{
 					path: "/",
 					element: <AppShell />,
 					children: [
-						{ path: "work/portfolio", element: <div data-testid="portfolio">Portfolio</div> },
+						{ path: "work", element: <div data-testid="portfolio">Work Overview</div> },
 						{ path: "conversations", element: <div>Conversations</div> },
 					],
 				},
 			],
-			{ initialEntries: ["/work/portfolio?onboarding=true"] },
+			{ initialEntries: ["/work?onboarding=true"] },
 		);
 
 		render(<RouterProvider router={router} />);
@@ -126,7 +129,8 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 
 	// Negative: no ?onboarding param → overlay does NOT auto-open
 	it("does NOT open the CoC overlay when ?onboarding=true is absent", async () => {
-		renderShell("/work/portfolio");
+		// AD9: /work (was /work/portfolio)
+		renderShell("/work");
 
 		// Wait for the component to settle
 		await waitFor(
@@ -144,7 +148,8 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 
 	// Negative: ?settings=open still works (existing behavior unaffected)
 	it("?settings=open still triggers the settings overlay (not broken by AE2 changes)", async () => {
-		renderShell("/work/portfolio?settings=open");
+		// AD9: /work (was /work/portfolio)
+		renderShell("/work?settings=open");
 
 		await waitFor(
 			() => {

@@ -246,23 +246,42 @@ export function Row({
 		// architecture specifies: li + onClick + actions → li wrapping inner
 		// div[role=button] (matches original KnowledgeList triage pattern). The li
 		// stays semantic; the div[role=button] handles row-level interactivity.
+		//
+		// @lore AD9 (Row hover fix): The <li> holds ONLY the separator border-b +
+		// listitem role. Layout (px padding, min-h, flex, gap) and hover surface all
+		// move onto a w-full inner div so the hover background fills edge-to-edge
+		// instead of being inset inside the li's px-[24px]. This matches the <button>
+		// branch behaviour and fixes WorkOverview / KnowledgeList / WorkTeam li-rows.
+		// The li separator classes ("border-b border-[var(--border-subtle)] last:border-b-0")
+		// stay on the li so the row divider is always full-width.
+
+		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
+		const liSeparatorClass = "border-b border-[var(--border-subtle)] last:border-b-0";
+
+		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
+		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.
+		// clickable?.className = baseClasses + FOCUS_CLASSES, so building innerClickableClass
+		// from it leaks the separator onto the inner div AND duplicates flex/gap/px/min-h.
+		// Fix: build innerClickableClass by calling clickableProps with only the layout classes
+		// (no separator) so the inner div = w-full layout + FOCUS_CLASSES only.
+		const liInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
+		const liInnerLayout = `w-full flex items-center gap-[12px] ${px} min-h-[44px]`;
+
 		if (onClick && hasActions) {
 			// li + click + actions → li wraps inner div[role=button] + action slot.
-			// W2 fix: inner div gets clickable classes so hover/focus works on Knowledge rows.
-			// The inner div takes flex-1 to fill the li; actions slot lives beside it.
-			const innerDivClass = clickable?.className
-				? `${clickable.className} flex-1 min-w-0`
-				: "flex-1 min-w-0";
+			// AD9 fix: inner div is w-full + carries px padding + min-h so hover is edge-to-edge.
+			const innerClickableClass =
+				clickableProps(onClick, liInnerLayoutWithActions).className ?? liInnerLayoutWithActions;
 			return (
 				<li
 					{...dsProps("Row", "2")}
 					aria-current={commonProps["aria-current"]}
 					data-testid={commonProps["data-testid"]}
 					data-focused={commonProps["data-focused"]}
-					className={baseClasses}
+					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
-					<div {...clickableProps(onClick, "")} className={innerDivClass}>
+					<div {...clickableProps(onClick, "")} className={innerClickableClass}>
 						{lead !== undefined && lead !== null && (
 							<span className="shrink-0 inline-flex items-center">{lead}</span>
 						)}
@@ -290,27 +309,45 @@ export function Row({
 			//
 			// @lore AG6: DO NOT put role="button" on the <li> itself — that overrides
 			// the listitem role and breaks getAllByRole("listitem") in tests and AT.
-			// The inner div[role=button] handles all interactivity; the li is semantic.
-			// W2 fix: inner div uses clickableProps for uniform hover/focus treatment.
-			const innerDivClass = clickable?.className
-				? `${clickable.className} flex-1 min-w-0`
-				: "flex-1 min-w-0";
+			// @lore AD9 (Row hover fix): inner div is w-full + carries full layout
+			// (px padding, min-h, flex, gap) so the hover fill is edge-to-edge. The
+			// li only holds the separator border-b. See AD9 lore block above.
+			// @lore AD9: data-testid and data-focused move to the inner div (the
+			// interactive element). Tests and E2E that query by testid will therefore
+			// find the div[role=button] which actually handles the click — clicking it
+			// triggers onClick. The li keeps only dsProps + aria-current + listitem role.
+			// @lore AD9 W1 (review fix): use liInnerLayout (no separator) — see W1 lore above.
+			const innerClickableClass = clickableProps(onClick, liInnerLayout).className ?? liInnerLayout;
 			return (
 				<li
 					{...dsProps("Row", "2")}
 					aria-current={commonProps["aria-current"]}
-					data-testid={commonProps["data-testid"]}
-					data-focused={commonProps["data-focused"]}
-					className={baseClasses}
+					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — li must keep listitem role; inner button not possible without actions (nested button would duplicate semantic) */}
-					<div {...clickableProps(onClick, "")} className={innerDivClass}>
+					<div
+						{...clickableProps(onClick, "")}
+						className={innerClickableClass}
+						data-testid={commonProps["data-testid"]}
+						data-focused={commonProps["data-focused"]}
+					>
 						{inner}
 					</div>
 				</li>
 			);
 		}
-		return <li {...commonProps}>{inner}</li>;
+		// li + NO onClick (static list item)
+		return (
+			<li
+				{...dsProps("Row", "2")}
+				aria-current={commonProps["aria-current"]}
+				data-testid={commonProps["data-testid"]}
+				data-focused={commonProps["data-focused"]}
+				className={baseClasses}
+			>
+				{inner}
+			</li>
+		);
 	}
 
 	// div case

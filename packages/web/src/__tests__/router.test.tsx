@@ -1,6 +1,48 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// AD9: mock useTeams so WorkOverview renders the 2-team list (not a 1-team redirect)
+vi.mock("../hooks/useTeams", () => ({
+	useTeams: () => ({
+		data: {
+			teams: [
+				{
+					id: "t1",
+					name: "Alpha",
+					status: "healthy",
+					activeBets: 2,
+					phase: "build",
+					leadAgentId: null,
+					shipped: 0,
+					shipRate: "—",
+					progress: { done: 0, total: 0 },
+					routineCount: 0,
+					agentCount: 0,
+					activeAgentCount: 0,
+					agentHealthWarning: false,
+				},
+				{
+					id: "t2",
+					name: "Beta",
+					status: "behind",
+					activeBets: 0,
+					phase: "build",
+					leadAgentId: null,
+					shipped: 0,
+					shipRate: "—",
+					progress: { done: 0, total: 0 },
+					routineCount: 0,
+					agentCount: 0,
+					activeAgentCount: 0,
+					agentHealthWarning: false,
+				},
+			],
+		},
+		loading: false,
+		error: null,
+	}),
+}));
 
 /**
  * @lore We cannot import the pre-built `router` (it uses createBrowserRouter)
@@ -20,7 +62,12 @@ import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
 import { NotFound } from "../pages/NotFound";
 import { WorkBet } from "../pages/WorkBet";
-import { WorkPortfolio } from "../pages/WorkPortfolio";
+// AD9: WorkPortfolio retired; WorkOverview is the new /work route
+import { WorkOverview } from "../pages/WorkOverview";
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 function renderRoute(initialPath: string): ReturnType<typeof render> {
 	// Stub fetch so AppShell and Conversations can mount without network.
@@ -42,11 +89,11 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 					// L9: canonical conversation routes.
 					{ path: "conversations", element: <Conversations /> },
 					{ path: "conversations/:threadId", element: <Conversations /> },
-					{ path: "work/portfolio", element: <WorkPortfolio /> },
-					// L13: WorkTeam deleted; /work/team now redirects to /work/portfolio
+					// AD9: /work is the new overview; /work/portfolio → redirect to /work
+					{ path: "work", element: <WorkOverview /> },
 					{
-						path: "work/team",
-						element: <Navigate to="/work/portfolio" replace />,
+						path: "work/portfolio",
+						element: <Navigate to="/work" replace />,
 					},
 					{ path: "work/bet/:betId", element: <WorkBet /> },
 					{ path: "knowledge", element: <KnowledgeList /> },
@@ -89,18 +136,19 @@ describe("Router (L9)", () => {
 		});
 	});
 
-	it("renders WorkPortfolio page at /work/portfolio", async () => {
-		renderRoute("/work/portfolio");
+	// AD9: /work renders WorkOverview
+	it("renders WorkOverview page at /work", async () => {
+		renderRoute("/work");
 		await waitFor(() => {
-			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 		});
 	});
 
-	it("L13: /work/team redirects to /work/portfolio", async () => {
-		renderRoute("/work/team");
+	// AD9: /work/portfolio redirects to /work
+	it("AD9: /work/portfolio redirects to /work (WorkOverview)", async () => {
+		renderRoute("/work/portfolio");
 		await waitFor(() => {
-			// WorkTeam is deleted in L13; the route redirects to portfolio
-			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
+			expect(screen.getByTestId("work-overview-page")).toBeInTheDocument();
 		});
 	});
 

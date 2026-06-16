@@ -210,6 +210,8 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 **After `/design-critique`, a `novel` `DESIGN-CLASS` triggers `/human-design-review`** — the founder opens the rendered variant in the viewer and annotates it element-by-element before the design is locked for build (pipeline Phase 2.5). `routine` / `routine-low-conf` proceed straight to build. The gate reads the `DESIGN-CLASS:` line emitted in Phase 0a — do not duplicate or re-derive it. See `/human-design-review`.
 
+**Scope across every phase — and especially while revising under `/human-design-review`: a story that renders, and nothing else.** Do the minimal effort to make the `.stories.tsx` render the intended design in the viewer. Do NOT run `npm run test` / `check` / `lint`, do NOT re-bless the DOM-snapshot net, and do NOT gate your work on tests passing. Tests, production code, primitive/code fixes, and snapshot-blessing are the **builder's** job in the green phase — hand them off. Mixing them into design wastes effort, slows iteration, and blurs the red/green boundary.
+
 ## Anti-patterns
 
 - Three flavors of one thing. Variants must differ on shape, not accent.

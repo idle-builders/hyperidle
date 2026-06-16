@@ -20,9 +20,9 @@
  *
  * Matched route → parent mapping:
  *   /work/bet/:id/task/:taskId  → /work/bet/:id
- *   /work/bet/:id               → /work/portfolio
- *   /work/routine/:id           → /work/portfolio
- *   /work/team/:id              → /work/portfolio
+ *   /work/bet/:id               → /work  (AD9: was /work/portfolio)
+ *   /work/routine/:id           → /work  (AD9: was /work/portfolio)
+ *   /work/team/:id              → /work  (AD9: was /work/portfolio)
  *   /knowledge/:id              → /knowledge  (excludes /knowledge/new)
  *   /agents/:id                 → /conversations
  *   /conversations/:id          → /conversations
@@ -37,19 +37,19 @@ export function parentPathFor(pathname: string): string | null {
 		return `/work/bet/${betTaskMatch[1]}`;
 	}
 
-	// Bet detail: /work/bet/:id → /work/portfolio
+	// Bet detail: /work/bet/:id → /work (AD9: was /work/portfolio)
 	if (/^\/work\/bet\/[^/]+/.test(pathname)) {
-		return "/work/portfolio";
+		return "/work";
 	}
 
-	// Routine detail: /work/routine/:id → /work/portfolio
+	// Routine detail: /work/routine/:id → /work (AD9: was /work/portfolio)
 	if (/^\/work\/routine\/[^/]+/.test(pathname)) {
-		return "/work/portfolio";
+		return "/work";
 	}
 
-	// Team detail: /work/team/:id → /work/portfolio
+	// Team detail: /work/team/:id → /work (AD9: was /work/portfolio)
 	if (/^\/work\/team\/[^/]+/.test(pathname)) {
-		return "/work/portfolio";
+		return "/work";
 	}
 
 	// Knowledge detail: /knowledge/:id → /knowledge

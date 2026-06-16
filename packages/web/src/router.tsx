@@ -26,7 +26,7 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkBetCreate } from "./pages/WorkBetCreate";
-import { WorkPortfolio } from "./pages/WorkPortfolio";
+import { WorkOverview } from "./pages/WorkOverview";
 import { WorkRoutine } from "./pages/WorkRoutine";
 import { WorkTask } from "./pages/WorkTask";
 import { WorkTeam } from "./pages/WorkTeam";
@@ -38,8 +38,9 @@ import { WorkTeam } from "./pages/WorkTeam";
  */
 function RedirectProductToTeam(): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
-	// Z8-147: empty productId → /work/team/ matches no route (NotFound). Redirect to portfolio.
-	if (!productId) return <Navigate to="/work/portfolio" replace />;
+	// Z8-147: empty productId → /work/team/ matches no route. Redirect to Work overview.
+	// AD9: was /work/portfolio; now /work (WorkOverview handles 1-team short-circuit).
+	if (!productId) return <Navigate to="/work" replace />;
 	return <Navigate to={`/work/team/${productId}`} replace />;
 }
 
@@ -71,7 +72,12 @@ function buildRoutes(): RouteObject[] {
 					path: "conversations/chat",
 					element: <RedirectLegacyConversation paramName="thread" />,
 				},
-				{ path: "work/portfolio", element: <WorkPortfolio /> },
+				// AD9: New canonical Work overview at /work; /work/portfolio redirects here.
+				// WorkOverview handles the 1-team short-circuit (→ /work/team/:id) internally.
+				{ path: "work", element: <WorkOverview /> },
+				// AD9: /work/portfolio → /work (graceful redirect for bookmarks/external links).
+				// The team-count branch lives in WorkOverview, not here — unconditional redirect.
+				{ path: "work/portfolio", element: <Navigate to="/work" replace /> },
 				// @lore U6: Route renamed from work/product/:productId to work/team/:teamId.
 				// Old path redirects via RedirectProductToTeam wrapper (Navigate cannot
 				// forward params directly in React Router v7).

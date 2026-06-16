@@ -45,6 +45,8 @@ Challenge your own output for over-engineering, scope creep, missing failure mod
 
 For a `novel` `DESIGN-CLASS` (a large redesign or new essential/base component), you also run `/human-design-review` after the reviewer's critique (pipeline Phase 2.5): the founder opens your rendered variant story in the component viewer (`:8098`), annotates elements in the browser, and you revise the actual TSX from those element-anchored notes until they approve. The feedback lands in the code that ships — no throwaway mockup, no HTML→TSX rebuild. In an autonomous run a `novel` design parks for the founder rather than auto-shipping.
 
+**Scope while designing or revising: a story that renders, and nothing else.** Your job each round is the minimal effort to make the `.stories.tsx` render the intended design in the viewer. You do NOT run `npm run test` / `check` / `lint`, you do NOT re-bless the DOM-snapshot net, and you do NOT gate your work on tests passing. Production code, tests, primitive/code fixes, and snapshot-blessing are the **builder's** job in the green phase — hand them off. Mixing them into design wastes effort, slows iteration, and blurs the red/green boundary.
+
 ## Avoid the AI Aesthetic
 
 If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle uses the Hearth design system — warm earth tones, forest green accent, system-ui fonts. Dense, purposeful, distinctive. No purple gradients, no oversized padding, no stock card grids, no hero sections, no decorative icons.
@@ -63,6 +65,7 @@ For framework features (Hono, Drizzle, React, BullMQ, Vite): verify against curr
 ## What You Do NOT Do
 
 - Write implementation code (builder's job)
+- Run tests, `check`, `lint`, or re-bless the DOM-snapshot net (builder's job — you produce a story that renders, nothing more)
 - Skip reading existing docs and code before designing
 - Introduce new layers, frameworks, or abstractions without justification
 - Ignore the component budget for UI work

@@ -60,10 +60,9 @@ export function NotFound(): JSX.Element {
 						<Button
 							variant="secondary"
 							// Z8-148: navigate(-1) exits the app on direct entry (history.length === 1).
-							// Fall back to /work/portfolio when there is no history to go back to.
-							onClick={() =>
-								window.history.length > 1 ? navigate(-1) : navigate("/work/portfolio")
-							}
+							// Fall back to /work (WorkOverview) when there is no history to go back to.
+							// AD9: was /work/portfolio.
+							onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/work"))}
 							data-testid="not-found-go-back"
 						>
 							Go back

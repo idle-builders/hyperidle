@@ -35,6 +35,15 @@ const webComponentStoryGlobs = import.meta.glob<Record<string, unknown>>(
 	"../../web/src/components/*.stories.tsx",
 	{ eager: true },
 ) as GlobSource;
+// @lore AD9: page-level stories (e.g. WorkOverview, Conversations) live in
+// packages/web/src/pages/*.stories.tsx. They were previously invisible in the
+// viewer because only shell/ + components/ were globbed. Added so full-page
+// surfaces are reviewable live (the /human-design-review gate needs the painted
+// page, not just sub-components).
+const webPageStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/pages/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
 
 /* ── Routing (hash-based, no deps) ───────────────────────────────── */
 
@@ -301,7 +310,8 @@ function Toolbar({
 
 function App(): React.JSX.Element {
 	const modules = useMemo(
-		() => discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs),
+		() =>
+			discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs, webPageStoryGlobs),
 		[],
 	);
 	const [route, navigate] = useHashRoute();

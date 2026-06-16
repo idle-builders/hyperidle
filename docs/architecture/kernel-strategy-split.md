@@ -139,6 +139,86 @@ Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`,
 
 ---
 
+## 3a. As-built — AK6 (shipped 2026-06-16): the creation seam
+
+§2a identified "entity creation emits no events" as the structural gap that kept roster/persona ownership Kernel-side. AK6 closes that gap for all agent-bearing creation surfaces.
+
+### What changed
+
+Before AK6, every creation surface — `POST /api/teams`, `create_team` tool, `add_agent` tool, `POST /api/users` (assistant), and factory bootstrap — hard-coded which agents to create and what persona each carried. The Kernel owned both composition (who exists) and content (what they know). §2a declared that wrong; AK6 makes the split real.
+
+After AK6:
+- **Roster composition and persona content are Strategy-owned.** The Kernel holds only the stable `users.id` (agent user-id) every session attaches to. It emits a creation trigger; the active Strategy decides which agents to create and what each agent's AGENTS.md / system prompt carries.
+- **Three server-side creation surfaces route through the port.** Team scaffold, add-agent, and user-assistant creation all call `getActiveStrategy().scaffoldAgents(req)` and then persist the returned specs via one Kernel writer (`persistScaffoldedAgents`).
+- **Factory bootstrap uses a value injection seam, not the port.** Factory bootstrap (`applyFactoryBootstrap`) runs at the leaf/desktop layer with no server or Strategy registry — on four paths (desktop, and three `@hyperidle/db` leaf CLIs). It cannot call the port. Instead, the *roster content* is injected as a `FactoryRosterSpec` value, defaulting to the Fabric's roster. The four boot paths call `applyFactoryBootstrap(db)` unchanged; a server choosing Minimal passes `minimalFactoryRoster` explicitly. This is the **bootstrap-swap bound** — a bounded exception to the port-only pattern, documented in code via `@lore AK6`.
+
+### The Strategy Port: third method
+
+`scaffoldAgents` is added to the `Strategy<TDb>` interface in `packages/shared/src/strategy-port.ts`:
+
+```ts
+scaffoldAgents(req: ScaffoldRequest<TDb>): Promise<readonly AgentScaffoldSpec[]>;
+```
+
+`ScaffoldRequest` carries trigger context (which creation surface fired, team id, team name, functions, role, name, owner user id/name). It never carries an agent definition — the Kernel knows the *occasion*, the Strategy decides the *response*.
+
+`AgentScaffoldSpec` carries `{ role, name, agentCategory, systemPrompt, idHint? }`. These are the knowledge fields — the Strategy's "who." The Kernel attaches all mechanism fields (`kind:"ai"`, `status`, `teamId`, `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions`) inside `persistScaffoldedAgents`. The spec carries **no harness, model, or cost field** — the closure contract.
+
+**Trigger set is closed:** `"team_scaffold" | "agent_added" | "user_assistant"`. Adding a new creation surface requires adding to this union (and to the `KernelEvent` union).
+
+### The Kernel persist helper: single writer
+
+`packages/server/src/services/scaffold-agents.ts` exports `persistScaffoldedAgents(db, teamMembersId, specs)`. It is the only place in Kernel code that inserts `users` rows for agents. It:
+- Assigns the final `users.id` — honoring an `idHint` when the id is free and the prefix is not in the deny-set (`system:` namespace is never assignable); collision or deny-prefix → fresh UUID.
+- The `ast-${userId}` (per-user Assistant) and `seed-agent-*` (factory) prefixes are legitimate Strategy hints and are honored.
+- Attaches Kernel-owned fields (`kind`, `status`, `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions`).
+- Returns `{ agentIds, leadAgentId }`.
+
+### Creation events
+
+Three events are added to the `KernelEvent` union in `packages/shared/src/events.ts`:
+
+| Event | Emitted after |
+|---|---|
+| `team_created` | Team scaffold — all agent rows persisted |
+| `agent_added` | Add-agent — the new agent row persisted |
+| `user_created` | Human user + their Assistant both persisted |
+
+Events are emitted **post-persist** (the agent ids in the payload are real). They are for async subscribers (AK7/AK8/audit) and do NOT drive persistence — persistence is the synchronous `scaffoldAgents` → `persistScaffoldedAgents` call inside the route. All four creation surfaces (three HTTP routes + the `create_team` / `add_agent` tools) emit their event.
+
+### Factory-roster injection (`@hyperidle/shared`)
+
+`packages/shared/src/factory-roster.ts` exports:
+
+```ts
+interface FactoryRosterSpec { facilitators: readonly {...}[]; systemAssistant: {...} | null; }
+const defaultFactoryRoster: FactoryRosterSpec;   // Fabric's roster — full facilitator set
+const minimalFactoryRoster: FactoryRosterSpec;   // { facilitators: [], systemAssistant: null }
+```
+
+`applyFactoryBootstrap(db, roster: FactoryRosterSpec = defaultFactoryRoster)` reads `roster.facilitators` and `roster.systemAssistant` to decide which `seed-agent-*` rows to write. Infrastructure rows (`system:propagation`, `factorySettings`, `system_template:*`, `seed-ki-1`) are db-owned infra and written unconditionally.
+
+### Strategy behavior: Minimal vs Fabric
+
+| Surface | Minimal | Fabric |
+|---|---|---|
+| Team scaffold | 1 plain builder agent, `systemPrompt: null` | Today's full role roster, template-sourced `systemPrompt` — unchanged |
+| Add agent | 1 plain agent for the given role, `systemPrompt: null` | 1 template-sourced agent |
+| User assistant | 1 plain assistant, `systemPrompt: null`, `idHint: ast-${userId}` | 1 assistant with the Fabric persona, same `ast-` id hint |
+| Factory bootstrap (value seam) | `minimalFactoryRoster` — no facilitators, no system-assistant | `defaultFactoryRoster` — all `seed-agent-pf-*` + `seed-agent-cos` unchanged |
+
+### Static guard (T10)
+
+Two ESLint mechanisms in `eslint.config.ts` enforce that no Kernel creation surface re-acquires persona/roster ownership:
+1. `no-restricted-imports` — bans `defaultRoster` import in Kernel creation routes and tools. `defaultRoster` may only be imported by the Fabric Strategy.
+2. `no-restricted-syntax` — bans a reintroduced inline persona/system-prompt constant or roster literal in Kernel creation source files. Message: "Kernel hard-codes no persona — persona/system-prompt content is Strategy-owned (AK6 hard-rule #1)."
+
+### What AK6 does NOT move (deferred to AK7/AK8)
+
+Selection — which *existing* agent takes a unit of work — is still Kernel-side (role eligibility + round-robin, AK3 path). AK7 moves selection behind the Strategy port. AK8 moves bet decomposition from the Kernel-side PM path to an event the active Strategy handles. AK6 covers creation only.
+
+---
+
 ## 4. As-built — AK3 (shipped 2026-06-15)
 
 > **Superseded framing — read §2a first.** AK3 shipped under the original "decomposition is Kernel" framing. The boundary was refined 2026-06-15 (§2a): decomposition is a **Strategy** response to a **Kernel-owned event**, and agent selection/assignment is **Strategy**. AK3-as-built (below) is retained as the **Minimal Strategy's default-PM fallback**; AK6–AK8 move the trigger to a Kernel event and the selection/decomposition behind the port. The description below remains accurate as *the current live behavior* until AK8 lands.
