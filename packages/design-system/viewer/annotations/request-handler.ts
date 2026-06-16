@@ -45,6 +45,22 @@ function validateBody(body: unknown): body is AnnotationInput {
 	if (typeof t["element"] !== "string") return false;
 	// dsComponent is string | null
 	if (t["dsComponent"] !== null && typeof t["dsComponent"] !== "string") return false;
+	// AJ7: target.anchor is OPTIONAL. Absent → AJ5 shape (back-compat). Present → validate.
+	if (t["anchor"] !== undefined && !validateAnchor(t["anchor"])) return false;
+	return true;
+}
+
+/**
+ * AJ7 — validate an optional AnnotationAnchor: path is a number[], component +
+ * element are strings. Reject anything else so a malformed anchor → 400.
+ */
+function validateAnchor(anchor: unknown): boolean {
+	if (anchor === null || typeof anchor !== "object" || Array.isArray(anchor)) return false;
+	const a = anchor as Record<string, unknown>;
+	const path = a["path"];
+	if (!Array.isArray(path) || !path.every((n) => typeof n === "number")) return false;
+	if (typeof a["component"] !== "string") return false;
+	if (typeof a["element"] !== "string") return false;
 	return true;
 }
 

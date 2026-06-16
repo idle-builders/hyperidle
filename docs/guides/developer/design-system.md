@@ -92,18 +92,21 @@ Rules:
 
 ### Annotation Overlay (First-Party Feedback Tool)
 
-The viewer at `:8098` includes a built-in annotation overlay for visual design review. Dev-only — not bundled in the production build, never committed to git (`.annotations/` is gitignored).
+The viewer at `:8098` includes a built-in **devtools-style inspector** for visual design review — hover to highlight, click to select, comment in the rail. Dev-only — not bundled in the production build, never committed to git (`.annotations/` is gitignored). The inspected element's DOM is never mutated.
 
 **The feedback loop:**
 
 1. `npm run ds:serve` — viewer at `http://localhost:8098`
 2. Navigate to a component: `http://localhost:8098/#ComponentName`
-3. Bottom-left review pill → **Select** → click an element → write note → **Save**
-4. Repeat for all elements; click **New iteration** to close the round and start the next
+3. In the right-edge **inspector rail**, click **Inspect**, hover the canvas (each element highlights with a tracked overlay box), click to select
+4. Refine via the **ancestor breadcrumb**, write a note → **Save** (`Cmd/Ctrl+Enter`); `Esc` clears, then disarms
+5. Repeat; click **New iteration** to close the round and start the next
+
+**Notes panel:** saved notes list under **Notes · Round N** in the rail. Hover a note row to re-highlight its element — it scrolls into view if off-screen, or shows "not visible" if it no longer resolves.
 
 **Where notes land:**
 
-- `.annotations/annotations.json` — canonical JSON store
+- `.annotations/annotations.json` — canonical JSON store; rounds plus a per-note **anchor** (child-index path + component + element descriptor) so a saved note can re-find its element on a later render
 - `.annotations/annotations.md` — agent-readable; each `## Round N` block is one review pass
 
 **What agents read:**
@@ -112,7 +115,9 @@ The viewer at `:8098` includes a built-in annotation overlay for visual design r
 
 **Component name resolution:**
 
-The overlay resolves component names via React Fiber (`__reactFiber$*` on the DOM node). It walks up the fiber tree to find a named function component. If no named component is found, the element's tag+class is used and the component field shows `"unknown"`. Elements inside anonymous arrow-function wrappers may show `"unknown"` — use a named function export or a `displayName` to make the name resolvable.
+The inspector resolves each element individually: nearest React Fiber named component (`__reactFiber$*`, walked up the fiber tree) → nearest `[data-ds-component]` → `"unknown"`. Per-element resolution means clicking a leaf is fine; the breadcrumb retargets up the tree. Elements inside anonymous arrow-function wrappers may show `"unknown"` — use a named function export or a `displayName` to make the name resolvable.
+
+**Dev-only boundary:** the rail + overlay (`viewer/annotations/*`) and their `.anno-*` styles (`viewer/viewer.css`) are viewer chrome, never imported by the `@hyperidle/design-system` package and never in a production bundle. They are not catalogued stories, so they do not enter the DOM-snapshot net — the inspector is proven live at `:8098`.
 
 **Full reference:** `packages/design-system/FEEDBACK.md`
 

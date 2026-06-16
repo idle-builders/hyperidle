@@ -6,9 +6,9 @@ The primary feedback path is the **first-party annotation overlay** built into t
 
 ## Option 0: First-Party Annotation Overlay (Primary — Use This)
 
-Built into the viewer at `npm run ds:serve`. Annotations are written directly to:
+A devtools-style element inspector docked beside the canvas in the viewer (`npm run ds:serve`). Hover to highlight, click to select, comment in the rail. The inspected element's DOM is never touched. Annotations are written directly to:
 
-- `.annotations/annotations.json` — canonical JSON store
+- `.annotations/annotations.json` — canonical JSON store (rounds + per-note anchors)
 - `.annotations/annotations.md` — agent-readable markdown (what Claude reads)
 
 Both files are gitignored — they live only on your machine.
@@ -17,11 +17,13 @@ Both files are gitignored — they live only on your machine.
 
 1. `npm run ds:serve` — viewer starts at `http://localhost:8098`
 2. Navigate to a component page (click the catalog or use `http://localhost:8098/#ComponentName`)
-3. Bottom-left **review pill** → click **Select**
-4. Click any element on the page — a note popover appears tied to that element
-5. Write your note and click **Save** — the element gets an outline; the annotation count climbs
-6. Repeat for all elements you want to annotate
+3. In the right-edge **inspector rail**, click **Inspect**
+4. Hover the canvas — each element highlights with a tracked overlay box showing its component name. Click to select it
+5. Refine the target with the **ancestor breadcrumb** (click a crumb to retarget up the tree), write your note, click **Save** (or `Cmd/Ctrl+Enter`). `Esc` clears the selection, then disarms
+6. Repeat for all elements. Saved notes list under **Notes · Round N**; hover a note row to re-highlight its element (it scrolls into view if off-screen, or marks "not visible" if gone)
 7. Click **New iteration** to close the round and start a fresh one for the agent's next revision pass
+
+Collapse the rail to a thin strip with the **‹** toggle; the canvas reflows so the rail never covers it.
 
 ### What the agent reads
 
@@ -122,5 +124,5 @@ Hold Option (Alt on Windows) + Click any element. Selector, styles, and attribut
 1. **Be specific.** "Make this bigger" is okay. "Title font-size should be 16px instead of 14px" is better.
 2. **Use live CSS tweaks** (bookmarklet). When you find a value that looks right, it's captured — Claude can apply it precisely.
 3. **Reference the design system.** "This should use `--text-hi` instead of `--text-mid`" is actionable.
-4. **Click the component, not a leaf.** Click the card, not the text inside. The component context (name, tier, composition) helps Claude find the right file.
+4. **Click the exact element you mean.** The inspector resolves each element individually, so clicking a leaf (a title, a value) is fine — the overlay shows its component name, and the ancestor breadcrumb lets you retarget up to the card if you meant the container.
 5. **Batch your feedback.** Collect 3–5 annotations per round, then start a new iteration.

@@ -261,71 +261,187 @@ button {
 	color: var(--primary);
 }
 
-/* ── AJ5: Annotation overlay (.anno-*) ───────────────────────────── */
-/* Token rule: .anno-* only — reused .toolbar-* keep their hardcoded values */
+/* ── AJ7: Annotator v2 — devtools-style inspector (.anno-*) ──────────── */
+/* Token rule: .anno-* only — reused .toolbar-* keep their hardcoded values.
+   SUPERSEDES the AJ5 review pill + fixed popover + element-mutating outline
+   classes (.anno-pill / .anno-popover / .anno-list-panel / .anno-hover /
+   .anno-selected / .anno-saved) — all retired. The held box live-tracks via the
+   overlay layer; the inspected element's DOM is never touched (concept rule #1). */
 
-/* Review pill — fixed bottom-left, sibling to the Toolbar (top-right) */
-.anno-pill {
+/* Overlay layer — fixed, pointer-events:none box + label drawn over an element.
+   3 contexts: hover (solid), selected + rehighlight (dashed). Never blocks the picker. */
+.anno-hl-box {
 	position: fixed;
-	bottom: 8px;
-	left: 8px;
-	z-index: 99998;
+	pointer-events: none;
+	z-index: 99996;
+	border-radius: var(--r-none, 0);
+	box-sizing: border-box;
+}
+.anno-hl-box[data-tone="hover"] {
+	outline: 2px solid var(--accent-primary);
+	background: var(--accent-primary-dim);
+}
+.anno-hl-box[data-tone="selected"],
+.anno-hl-box[data-tone="rehighlight"] {
+	outline: 2px dashed var(--accent-primary);
+	background: var(--accent-primary-dim);
+}
+.anno-hl-label {
+	position: fixed;
+	pointer-events: none;
+	z-index: 99997;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1.4;
+	padding: 3px 6px;
+	border-radius: var(--r-subtle);
+	color: var(--text-on-accent);
+	background: var(--accent-primary);
+	white-space: nowrap;
+	max-width: 360px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	box-shadow: var(--shadow-elevated);
 }
 
-/* Round label — passive indicator, no interaction */
+/* Inspector rail — sticky right column beside the canvas, collapsible to a strip. */
+.anno-rail {
+	position: fixed;
+	/* @lore AJ7: top offset clears the viewer Toolbar (theme pills at
+	   top:8px, ~32px tall, top-right). Without it the rail header + arm button sit
+	   under the toolbar and the toolbar intercepts the arm click. */
+	top: 48px;
+	right: 12px;
+	bottom: 12px;
+	z-index: 99995;
+	width: 320px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+	background: var(--surface-elevated);
+	border: 1px solid var(--border-default);
+	border-radius: var(--r-default);
+	box-shadow: var(--shadow-elevated);
+	overflow: hidden;
+	transition: width var(--motion-fast) var(--motion-ease);
+}
+.anno-rail--collapsed {
+	width: 48px;
+	padding: 12px 6px;
+}
+
+/* @lore AJ7 NO-OCCLUSION REFLOW (SF-1): the rail is position:fixed at the viewport
+   right edge, so it would otherwise paint OVER the centered canvas (~120px overlap
+   at 1440px). The overlay sets --anno-rail-gutter on <body> (rail width + edge gap;
+   shrinks to the strip width when collapsed) and we pad the body right by it. Because
+   the rail/toolbar are fixed-to-viewport, the padding shifts only the normal-flow
+   canvas — the canvas reflows into the rail-minus width and is NEVER hidden behind
+   the rail. This is the founder's one binding principle (approved.md). The transition
+   matches the rail's so collapse/expand reflows smoothly; the overlay's ResizeObserver
+   on the story root re-measures the held/re-highlight box across the reflow. */
+body.anno-active {
+	padding-right: var(--anno-rail-gutter, 0px);
+	transition: padding-right var(--motion-fast) var(--motion-ease);
+}
+
+.anno-rail-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+.anno-rail-toggle {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--r-subtle);
+	color: var(--text-secondary);
+	font-size: 14px;
+}
+.anno-rail-toggle:hover {
+	background: var(--surface-overlay);
+}
+
+.anno-arm {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	padding: 6px 14px;
+	border-radius: var(--r-pill);
+	border: 1px solid var(--border-default);
+	background: var(--surface-elevated);
+	color: var(--text-primary);
+}
+.anno-arm--on {
+	background: var(--accent-primary);
+	color: var(--text-on-accent);
+	border-color: var(--accent-primary);
+}
+
 .anno-round {
 	font-family: var(--font-mono);
-	color: var(--text-tertiary);
+	font-size: 11px;
 	letter-spacing: var(--tracking-caps-sm);
 	text-transform: uppercase;
-	cursor: default;
+	color: var(--text-tertiary);
 	user-select: none;
 }
 
-/* Note count button — terse mono */
-.anno-count {
-	font-family: var(--font-mono);
-	color: var(--text-tertiary);
-	letter-spacing: var(--tracking-caps-sm);
-}
-
-/* Popover — fixed above the pill (bottom-left, rises from pill) */
-.anno-popover {
-	position: fixed;
-	bottom: 56px; /* above the pill: pill ~40px + 16px gap */
-	left: 8px;
-	z-index: 99999;
-	min-width: 320px;
-	max-width: 420px;
-	background: var(--surface-elevated);
-	border: 1px solid var(--border-default);
-	border-radius: var(--r-subtle);
-	box-shadow: var(--shadow-elevated);
-	padding: 12px;
+/* Docked selected block: breadcrumb + target echo + textarea + actions. */
+.anno-rail-section {
 	display: flex;
 	flex-direction: column;
 	gap: 9px;
-	animation: anno-popover-in var(--motion-fast) var(--motion-ease);
+	padding: 12px;
+	border: 1px solid var(--border-default);
+	border-radius: var(--r-subtle);
+	background: var(--surface-page);
+}
+.anno-rail-hint {
+	font-size: 12px;
+	color: var(--text-tertiary);
+	line-height: 1.5;
+	padding: 6px 0;
 }
 
-@keyframes anno-popover-in {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+/* Deduped breadcrumb — crumbs are buttons. */
+.anno-crumbs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 3px;
+}
+.anno-crumb-wrap {
+	display: inline-flex;
+	align-items: center;
+}
+.anno-crumb-sep {
+	color: var(--text-tertiary);
+	font-size: 11px;
+	margin: 0 3px;
+}
+.anno-crumb {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	padding: 3px 6px;
+	border-radius: var(--r-subtle);
+	color: var(--text-secondary);
+}
+.anno-crumb:hover {
+	background: var(--accent-primary-dim);
+}
+.anno-crumb--on {
+	background: var(--accent-primary-dim);
+	color: var(--accent-primary);
+	font-weight: 500;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.anno-popover {
-		animation: none;
-	}
-}
-
-/* Popover header — target echo (verbatim, even "unknown") */
+/* Target echo — verbatim, even "unknown". */
 .anno-target {
 	font-family: var(--font-mono);
 	font-size: 11px;
@@ -335,21 +451,19 @@ button {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-
 .anno-target-component {
 	color: var(--text-primary);
 	font-weight: 500;
 }
-
 .anno-target-element {
 	color: var(--text-tertiary);
 }
 
-/* Textarea */
-.anno-popover textarea {
+.anno-rail-section textarea {
 	width: 100%;
+	box-sizing: border-box;
 	min-height: 72px;
-	background: var(--surface-page);
+	background: var(--surface-elevated);
 	border: 1px solid var(--border-default);
 	border-radius: var(--r-subtle);
 	color: var(--text-primary);
@@ -361,102 +475,120 @@ button {
 	outline: none;
 	transition: border-color var(--motion-fast) var(--motion-ease);
 }
-
-.anno-popover textarea:focus {
+.anno-rail-section textarea:focus {
 	border-color: var(--accent-primary);
 }
 
-/* Popover action row */
-.anno-popover-actions {
+.anno-comment-actions {
 	display: flex;
 	gap: 6px;
 }
-
-/* Save button — accent primary */
 .anno-save {
 	background: var(--accent-primary);
 	color: var(--text-on-accent);
-	border-radius: 6px;
+	border-radius: var(--r-subtle);
+	padding: 6px 14px;
+	font-size: 13px;
+	font-weight: 500;
 }
-
 .anno-save:hover:not(:disabled) {
 	background: var(--accent-primary-hover);
 }
-
 .anno-save:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+.anno-cancel {
+	color: var(--text-secondary);
+	border-radius: var(--r-subtle);
+	padding: 6px 14px;
+	font-size: 13px;
+}
+.anno-cancel:hover {
+	background: var(--surface-overlay);
+}
 
-/* Inline error */
 .anno-error {
 	font-size: 11px;
 	color: var(--status-error);
 	font-family: var(--font-mono);
 }
 
-/*
- * Hover / selected / saved outlines (applied via JS class toggle on story elements).
- *
- * .anno-hover   — transient: tracks pointer while armed; accent-primary at visible alpha.
- * .anno-selected — persistent while popover is open: highlights the captured element.
- * .anno-saved   — best-effort re-applied on load; doubled outline (AQ-007 cut-out trick):
- *                 a --surface-elevated halo (box-shadow) + --accent-primary line (outline)
- *                 so it clears ≥3:1 against arbitrary story backgrounds in both Hearth themes.
- */
-.anno-hover {
-	outline: 2px solid var(--accent-primary) !important;
-	outline-offset: 1px;
+/* Notes — always visible, bounded height + scroll (decision 6). */
+.anno-rail-notes {
+	border-top: 1px solid var(--border-default);
+	padding-top: 12px;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	flex: 1;
 }
-
-.anno-selected {
-	outline: 2px solid var(--accent-primary) !important;
-	outline-offset: 1px;
+.anno-section-label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-caps-sm);
+	color: var(--text-tertiary);
+	margin-bottom: 6px;
 }
-
-.anno-saved {
-	/* AQ-007 doubled outline: accent line + elevated-surface halo */
-	outline: 2px solid var(--accent-primary) !important;
-	outline-offset: 2px;
-	box-shadow: 0 0 0 4px var(--surface-elevated) !important;
+.anno-iterate {
+	font-size: 11px;
+	color: var(--accent-primary);
+	text-transform: none;
+	letter-spacing: 0;
 }
-
-/* Notes list panel */
-.anno-list-panel {
-	position: fixed;
-	bottom: 56px;
-	left: 8px;
-	z-index: 99997;
-	min-width: 280px;
-	max-width: 360px;
-	background: var(--surface-elevated);
-	border: 1px solid var(--border-default);
-	border-radius: var(--r-subtle);
-	box-shadow: var(--shadow-elevated);
-	padding: 9px 12px;
+.anno-iterate:hover {
+	text-decoration: underline;
 }
-
-.anno-list {
+.anno-notes {
 	list-style: none;
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	max-height: 240px;
+	gap: 3px;
 	overflow-y: auto;
+	min-height: 0;
+	flex: 1;
 }
-
-.anno-list li {
+.anno-notes-empty {
+	font-size: 12px;
+	color: var(--text-tertiary);
+	padding: 6px 0;
+}
+.anno-note-row {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	width: 100%;
+	text-align: left;
+	padding: 6px 9px;
+	border-radius: var(--r-subtle);
+}
+.anno-note-row:hover,
+.anno-note-row:focus-visible {
+	background: var(--accent-primary-dim);
+	outline: none;
+}
+.anno-note-row[data-missing="true"] {
+	opacity: 0.55;
+}
+.anno-note-comp {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-primary);
+}
+.anno-note-text {
 	font-size: 12px;
 	color: var(--text-secondary);
 	line-height: 1.4;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
-.anno-list-component {
-	font-family: var(--font-mono);
-	font-size: 11px;
-	color: var(--text-primary);
-	font-weight: 500;
+@media (prefers-reduced-motion: reduce) {
+	.anno-rail {
+		transition: none;
+	}
 }

@@ -10,6 +10,8 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"test": "vitest run",
+		"clean:viewer": "rm -f viewer/*.js viewer/*.d.ts viewer/*.js.map viewer/*.d.ts.map",
+		"preserve": "npm run clean:viewer",
 		"serve": "vite --config vite.config.ts"
 	},
 	"dependencies": {
