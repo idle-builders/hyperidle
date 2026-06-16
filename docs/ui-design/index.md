@@ -15,6 +15,7 @@ Version 0.3 · Electron desktop app · Light / Dark / System (Hearth theme)
 - [Our components](./our-components.md)
 - [Page anatomy](./page-anatomy.md) — PageHeader, SectionLabel, scroll rule, heading contract, lint gates
 - [Component tree at a glance](./component-tree-at-a-glance.md)
+- [Design-review viewer](./design-review-viewer.md) — the grouped catalog at `:8098`, two-axis classification, token gallery
 - [Rules](./rules.md)
 - [Build order](./build-order.md)
 - [Relation to other docs](./relation-to-other-docs.md)

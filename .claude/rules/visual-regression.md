@@ -7,7 +7,7 @@ TSX is the single design source of truth (AJ1). The visual regression gate is a 
 **File:** `packages/design-system/src/__tests__/catalog-snapshot.test.tsx`
 
 **How it works:**
-1. Enumerates all 56 catalogued design-system stories (`src/*.stories.tsx` = 49; `src/kinds/*.stories.tsx` = 7) via `import.meta.glob` + `discoverStories()`.
+1. Enumerates all design-system stories (`src/*.stories.tsx` = 50+ including Tokens; `src/kinds/*.stories.tsx` = 7; total ≥57 after AJ6) via `import.meta.glob` + `discoverStories()`.
 2. Renders each story variant in jsdom (`createRoot` + `act()`).
 3. Serializes the DOM to text: tag + `class` + inline `style` + `data-ds-*` markers + role/aria-* attrs + text. Custom walker — not prettyDOM (avoids truncation and RTL printer coupling).
 4. Normalizes nondeterministic ids (`_r_N_` → `__id__`, `:rN:` → `__id__`) and timestamps (ISO 8601 and ms epoch → `__ts__`) so snapshots are cross-run stable.

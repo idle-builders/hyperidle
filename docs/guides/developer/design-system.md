@@ -1,19 +1,42 @@
 ## Design System
 
-HyperIdle uses a built-in design system browser instead of Storybook.
+HyperIdle uses a built-in design system browser instead of Storybook. Run `npm run ds:serve` to start the viewer at `http://localhost:8098`. The viewer is the design-review surface for the whole product — every original component, page, settings panel, and kind renderer is catalogued here.
+
+### Catalog groups (AJ6)
+
+The viewer organizes stories into two axes separated by an axis divider:
+
+**Tier groups** (domain-agnostic reuse vocabulary, shown first):
+- **Foundation** — atoms: Button, Input, Avatar, Toggle, Checkbox, Select, SearchField, LiveDot, Progress, Breadcrumb, Skeleton, Menu, Tokens
+- **Primitives** — small composed: StatusChip, Tag, NavItem, KeyValue
+- **Blocks** — domain-agnostic composed: Row, ItemList, EmptyState, ErrorState, TabBar, Toast, ScopePicker, Block, BodyEditor, Dialog family
+
+**Domain groups** (product areas, shown after the divider):
+- **Work** — BetCard, TaskCard, work pages
+- **Knowledge** — KnowledgeRow, knowledge pages
+- **Conversations** — ThreadRow, Composer, ThreadShell, conversation pages
+- **Artifacts** — Artifact* family
+- **Settings** — settings panels
+- **System** — AppShell layout, Sidebar, kind renderers
+
+Classification is derived from source path. The central `DS_COMPONENT_GROUPS` registry in `packages/design-system/viewer/discovery.ts` handles the flat `design-system/src/` root where path carries no axis signal. A `group` field in a story's default export is the escape hatch for area-less stories.
 
 ### Viewing Components
 
-Start the dev server and navigate to [http://localhost:5173/designsystem](http://localhost:5173/designsystem). This route is dev-only and stripped in production.
+The viewer at `:8098` (`npm run ds:serve`) is the primary design-review surface. The dev-server route at [http://localhost:5173/designsystem](http://localhost:5173/designsystem) is an older alias — use the standalone viewer for design review.
 
 ### Creating Stories
 
 Every custom component must have a `.stories.tsx` file. Stories are auto-discovered via `import.meta.glob` from:
 
-- `packages/web/src/components/*.stories.tsx`
-- `packages/web/src/shell/*.stories.tsx`
-- `packages/web/src/pages/*.stories.tsx`
-- `packages/web/src/layouts/*.stories.tsx`
+- `packages/design-system/src/*.stories.tsx` — Foundation/Primitives/Blocks/domain components
+- `packages/design-system/src/kinds/*.stories.tsx` — kind renderers (System group)
+- `packages/web/src/components/*.stories.tsx` — web composites (classified by registry)
+- `packages/web/src/shell/*.stories.tsx` — shells (System group)
+- `packages/web/src/pages/*.stories.tsx` — flat pages (classified from title: `Page: Work/*` → Work)
+- `packages/web/src/pages/*/*.stories.tsx` — nested pages (classified from folder: `pages/work/` → Work)
+- `packages/web/src/settings/*.stories.tsx` — settings panels (Settings group)
+- `packages/web/src/layouts/*.stories.tsx` — AppShell layout (System group)
 
 Story format (CSF3-style):
 
@@ -23,6 +46,8 @@ import { MyComponent } from "./MyComponent";
 
 export default {
   title: "Components/MyComponent",
+  // group is optional — set only for area-less stories that can't be derived from path/title
+  // group: "Work",
 };
 
 export function Default() {
