@@ -161,8 +161,12 @@ export function SetupFlow(): JSX.Element {
 				}
 
 				// AE2: Capture userId from user creation response to seed welcome message.
-				const userBody = (await userRes.json().catch(() => null)) as { id?: string } | null;
-				const createdUserId = userBody?.id ?? undefined;
+				// AK6 P4 CRITICAL-1: POST /api/users returns { user: { id, ... } } on both
+				// 201 and 200 paths. Read .user.id — not the former flat .id.
+				const userBody = (await userRes.json().catch(() => null)) as {
+					user?: { id?: string };
+				} | null;
+				const createdUserId = userBody?.user?.id ?? undefined;
 
 				// Step 2: Create first team — derive name from repo path or default
 				// @lore R2: team name is not user-visible in setup. Derive from repo

@@ -33,10 +33,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
+	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	IngestionHandle,
 	IngestionRequest,
+	ScaffoldRequest,
 	Strategy,
 } from "@hyperidle/shared";
 
@@ -99,5 +101,55 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 				// and no knowledge persistence. dispose() is a no-op by design.
 			},
 		};
+	},
+
+	/**
+	 * AK6: Decide which agents a creation trigger produces under the Minimal Strategy.
+	 *
+	 * Minimal = no injected knowledge (systemPrompt: null on every spec).
+	 * One plain agent per team; individual Assistant for user; passthrough for agent_added.
+	 *
+	 * @lore AK6: The Minimal Strategy is the TDD harness for the Kernel: it produces
+	 * the smallest valid set of agents so the Kernel path is independently exercisable
+	 * without Fabric involvement (AC3). systemPrompt is always null here — "empty
+	 * AGENTS.md" per the concept closure contract.
+	 */
+	async scaffoldAgents(req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
+		switch (req.trigger) {
+			case "team_scaffold":
+				return [
+					{
+						role: "builder",
+						name: `${req.teamName ?? "Agent"} Agent`,
+						agentCategory: "team",
+						systemPrompt: null,
+					},
+				];
+			case "agent_added": {
+				if (req.role === null) {
+					throw new Error("agent_added trigger requires a role");
+				}
+				// Pass caller-supplied name through; synthesize only when null.
+				const name = req.name ?? `${req.teamName ?? "Agent"} ${req.role}`;
+				return [
+					{
+						role: req.role,
+						name,
+						agentCategory: "team",
+						systemPrompt: null,
+					},
+				];
+			}
+			case "user_assistant":
+				return [
+					{
+						role: "assistant",
+						name: req.ownerUserName ? `${req.ownerUserName}'s Assistant` : "Assistant",
+						agentCategory: "individual",
+						systemPrompt: null,
+						idHint: req.ownerUserId ? `ast-${req.ownerUserId}` : undefined,
+					},
+				];
+		}
 	},
 };

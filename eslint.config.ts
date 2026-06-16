@@ -519,6 +519,7 @@ export default [
 		files: ["packages/server/src/**/*.ts"],
 		ignores: [
 			"packages/server/src/server-factory.ts", // composition root — may import a concrete Strategy
+			"packages/server/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
 			"packages/server/src/**/__tests__/**",
 			"packages/server/src/**/*.test.ts",
 			"packages/server/src/**/*.spec.ts",
@@ -545,6 +546,73 @@ export default [
 								"context assembly + ingestion are behind the Strategy Port — use getActiveStrategy() from strategy-registry.ts, not a direct Fabric import. (AK2 AC4)",
 						},
 					],
+				},
+			],
+		},
+	},
+
+	// AK6 T10 — Strategy Port: hard-rule #1 static guard (AC2/AC6).
+	//
+	// Two mechanisms enforcing "Kernel creation surfaces hard-code no persona/roster":
+	//
+	// (a) no-restricted-imports: ban `defaultRoster` (named import) from @hyperidle/shared
+	//     in Kernel creation routes and tools. `defaultRoster` is the Fabric-only utility
+	//     for roster composition — Kernel callers must not call it directly; the Strategy
+	//     port (scaffoldAgents) is the only permitted path.
+	//     Genuinely imported pre-AK6 at teams-routes.ts:51, create-team.ts:4 — the ban
+	//     is valid (not vacuous) and proven by T10 in the PR review.
+	//
+	// (b) no-restricted-syntax: ban reintroduction of an inline persona/system-prompt
+	//     constant (e.g. `BUILTIN_ASSISTANT_SYSTEM_PROMPT` or any `*_SYSTEM_PROMPT`/
+	//     `PERSONA*` const) in Kernel creation surfaces. The import-ban above CANNOT
+	//     catch a module-local const (it is never imported); this selector is the real
+	//     enforcement for hard-rule #1.
+	//
+	// Scoped to creation surfaces only: routes/ + tools/ in packages/server/src.
+	// Test files are exempt (same pattern as AK2 above).
+	//
+	// @lore AK6 T10: Both guards exist because they catch orthogonal violations.
+	// (a) catches "I just re-imported the roster function instead of using the port".
+	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
+	// Neither can substitute for the other.
+	{
+		files: ["packages/server/src/routes/**/*.ts", "packages/server/src/tools/**/*.ts"],
+		ignores: [
+			"packages/server/src/routes/**/__tests__/**",
+			"packages/server/src/routes/**/*.test.ts",
+			"packages/server/src/routes/**/*.spec.ts",
+			"packages/server/src/tools/**/__tests__/**",
+			"packages/server/src/tools/**/*.test.ts",
+			"packages/server/src/tools/**/*.spec.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/shared",
+							importNames: ["defaultRoster"],
+							message:
+								"AK6 hard-rule #1: Kernel creation surfaces must not call defaultRoster() directly. Use the Strategy port (getActiveStrategy().scaffoldAgents()) — the active Strategy owns roster composition.",
+						},
+					],
+				},
+			],
+			"no-restricted-syntax": [
+				"error",
+				{
+					// Catches: const BUILTIN_ASSISTANT_SYSTEM_PROMPT = "..."
+					//          const MY_PERSONA = "..."
+					//          const X_SYSTEM_PROMPT = "..."
+					// initialized with a string literal — inline persona/roster const.
+					selector:
+						"VariableDeclarator[id.name=/_SYSTEM_PROMPT$|^BUILTIN_.*PROMPT$|PERSONA/i][init.type='Literal']",
+					message:
+						"AK6 hard-rule #1: Kernel hard-codes no persona — persona/system-prompt content is Strategy-owned. Supply it via the Strategy's scaffoldAgents spec, not an inline const.",
 				},
 			],
 		},

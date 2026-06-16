@@ -17,7 +17,9 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ad8b-assistant";
@@ -203,10 +205,14 @@ describe("AD8b — GET /api/threads/assistant", () => {
 describe("AD8b — GET/PATCH /api/users/:userId/assistant (system prompt)", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		// AK6 T8: lazy-create path now routes through the Strategy port.
+		// Register Minimal so GET/PATCH /assistant doesn't throw on missing strategy.
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		clearActiveStrategy();
 	});
 
 	test("GET /api/users/:id/assistant returns 200 with id, name, systemPrompt", async ({
@@ -332,8 +338,9 @@ describe("AD8b — AC-1: assistant agent created at user registration", () => {
 			body: JSON.stringify({ name: "New User AD8b", email: "ad8b@example.com" }),
 		});
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as { id: string };
-		const userId = body.id;
+		// AK6 T8: POST /api/users response shape changed to { user: { id, ... } }
+		const body = (await res.json()) as { user: { id: string } };
+		const userId = body.user.id;
 
 		// Now verify that the assistant agent was created
 		const assistantRes = await app.request(`/api/users/${userId}/assistant`, {

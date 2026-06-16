@@ -35,6 +35,7 @@ import {
 	MissingCredentialError,
 	ProviderTimeoutError,
 } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
@@ -43,6 +44,7 @@ import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js"
 import type { AssistantTurnDeps } from "../../services/assistant-turn.js";
 import { persistTurnFailure, runAssistantTurn } from "../../services/assistant-turn.js";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
@@ -430,9 +432,13 @@ describe("AH3 AC2: error surface — notice classes, no secret leak", () => {
 describe("AH3 AC3: PATCH to ast-* agent systemPrompt via Agents API is rejected 403", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		// AK6 T8: lazy-create paths now route through the Strategy port.
+		// Register Minimal so createTestApp-based tests don't throw on missing strategy.
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		clearActiveStrategy();
 	});
 
 	test("PATCH /api/agents/ast-{userId} with systemPrompt returns 403 ASSISTANT_SOUL_EDIT_FORBIDDEN", async ({
@@ -480,11 +486,16 @@ describe("AH3 AC3: PATCH to ast-* agent systemPrompt via Agents API is rejected 
 // ---------------------------------------------------------------------------
 
 describe("AH3 AC5: assistant agent defaults at registration", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		// AK6 T8: non-null systemPrompt at registration is Fabric Strategy behavior.
+		// Minimal returns null systemPrompt; Fabric supplies the builtin assistant persona.
+		const { fabricStrategy } = await import("@hyperidle/fabric");
+		setActiveStrategy(fabricStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		clearActiveStrategy();
 	});
 
 	test("POST /api/users creates assistant agent with harnessType=builtin, modelId, modelProvider, systemPrompt", async ({
@@ -497,8 +508,9 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 			body: JSON.stringify({ name: "AH3 Defaults User", email: "ah3defaults@example.com" }),
 		});
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as { id: string };
-		const userId = body.id;
+		// AK6 T8: POST /api/users response shape changed to { user: { ... } }
+		const body = (await res.json()) as { user: { id: string } };
+		const userId = body.user.id;
 
 		// Fetch the assistant agent via the canonical route
 		const assistantRes = await app.request(`/api/users/${userId}/assistant`, {

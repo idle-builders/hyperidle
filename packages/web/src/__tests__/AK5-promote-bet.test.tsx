@@ -125,6 +125,7 @@ async function setupSingleTeam(): Promise<void> {
 		data: { teams: [{ id: "team-1", name: "Alpha Team", ...TEAM_BASE }] },
 		loading: false,
 		error: null,
+		refetch: vi.fn(),
 	});
 }
 
@@ -350,6 +351,7 @@ describe("AK5 — WorkBetCreate: ?fromKnowledge= pre-fill (multi-team path)", ()
 			},
 			loading: false,
 			error: null,
+			refetch: vi.fn(),
 		});
 	});
 
@@ -476,6 +478,7 @@ describe("AK5 — WorkBetCreate: ?fromKnowledge= pre-fill (multi-team path)", ()
 			data: { teams: [{ id: "team-1", name: "Alpha Team", ...TEAM_BASE }] },
 			loading: false,
 			error: null,
+			refetch: vi.fn(),
 		});
 
 		renderWorkBetCreate("?fromKnowledge=ki-ak5");

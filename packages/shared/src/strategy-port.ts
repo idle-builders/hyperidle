@@ -92,6 +92,79 @@ export interface IngestionHandle {
 }
 
 /**
+ * AK6: A creation trigger handed to the active Strategy.
+ *
+ * Carries trigger CONTEXT from the Kernel, never an agent definition.
+ * The Strategy reads this and returns AgentScaffoldSpec[].
+ *
+ * NOTE: `factory_bootstrap` is NOT a trigger here — factory bootstrap runs
+ * at the leaf/desktop layer with no registry, so it uses the registry-free
+ * `FactoryRosterSpec` injection seam (@hyperidle/shared factory-roster.ts),
+ * NOT `scaffoldAgents`. The port covers the 3 server-side surfaces only.
+ *
+ * @lore AK6: ScaffoldRequest.trigger is a CLOSED set of 3 server-side surfaces.
+ * Adding a creation surface requires adding to this union + KernelEvent (@lore O1).
+ */
+export interface ScaffoldRequest<TDb> {
+	readonly db: TDb;
+	/**
+	 * Which creation surface fired.
+	 * - team_scaffold: POST /api/teams (route + create-team tool)
+	 * - agent_added:   add_agent tool (explicit role + optional name)
+	 * - user_assistant: POST /api/users (lazy-create in assistant.ts)
+	 */
+	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
+	/** teams.id when trigger is team_scaffold | agent_added; else null. */
+	readonly teamId: string | null;
+	/** teamMembers.id (membership group) when team-scoped; else null. */
+	readonly teamMembersId: string | null;
+	/** Team display name (for persona naming) when team-scoped. */
+	readonly teamName: string | null;
+	/** Chosen team functions (drives roster composition) for team_scaffold. */
+	readonly functions: readonly string[] | null;
+	/** Explicit role for agent_added (the only surface that fixes the role up front). */
+	readonly role: UserRole | null;
+	/**
+	 * Caller-supplied agent name for agent_added (the `add_agent` tool persists
+	 * `input.name` — add-agent.ts:79). The Strategy passes it through; it may
+	 * synthesize a name ONLY when null.
+	 */
+	readonly name: string | null;
+	/** Owning human user id for user_assistant (drives the ast- id-hint). */
+	readonly ownerUserId: string | null;
+	/**
+	 * Owning human's display name for user_assistant — lets the Strategy reproduce
+	 * `${name}'s Assistant` byte-for-byte (users.ts:157 / assistant.ts:307,401).
+	 */
+	readonly ownerUserName: string | null;
+}
+
+/**
+ * AK6: One agent the Strategy decides should exist.
+ *
+ * Carries the WHO (knowledge fields only), NEVER the HOW (mechanism fields).
+ * The Kernel's persistScaffoldedAgents helper attaches kind, status, teamId,
+ * harnessType, modelId, modelProvider, maxConcurrentSessions, createdAt.
+ *
+ * @lore AK6: Concept closure contract (hard-rule #5): NO harness/model/cost field
+ * on this spec. A Strategy that sets harnessType or modelId is doing Kernel work.
+ */
+export interface AgentScaffoldSpec {
+	readonly role: UserRole;
+	readonly name: string;
+	readonly agentCategory: "team" | "strategy" | "individual";
+	/** The persona / AGENTS.md content. null = plain agent (Minimal Strategy). */
+	readonly systemPrompt: string | null;
+	/**
+	 * Optional deterministic id the Kernel SHOULD use if free.
+	 * Honored when (id is free) AND (prefix ∉ deny-set {system:}).
+	 * Collision OR deny-prefix → fresh UUID.
+	 * Legitimate strategy prefixes: ast-${userId}, seed-agent-*.
+	 */
+	readonly idHint?: string;
+}
+
+/**
  * The Strategy Port. Exactly one Strategy is active per process.
  *
  * The Kernel calls this surface and NEVER imports a concrete Strategy
@@ -103,13 +176,27 @@ export interface IngestionHandle {
  * and (2) begin watching the sandbox for learning ingestion. On teardown the
  * Kernel disposes the returned IngestionHandle.
  *
+ * AK6 adds scaffoldAgents: on every agent-bearing creation surface, the Kernel
+ * asks the active Strategy which agents to create (by returning AgentScaffoldSpec[]).
+ * The Kernel persists the specs via persistScaffoldedAgents.
+ *
  * Error semantics:
  * - assembleContext may throw; the Kernel's Phase-6 try/catch reverts the task
  *   to `accepted` and rethrows (existing behaviour preserved).
  * - beginLearningIngestion MUST NOT throw synchronously; the returned handle's
  *   dispose() MUST NOT throw (best-effort flush).
+ * - scaffoldAgents may throw for invalid input (e.g. agent_added with role null);
+ *   the route's error handler surfaces a 400.
  */
 export interface Strategy<TDb> {
 	assembleContext(req: ContextAssemblyRequest<TDb>): Promise<ContextAssemblyOutcome>;
 	beginLearningIngestion(req: IngestionRequest<TDb>): IngestionHandle;
+	/**
+	 * AK6: The Strategy decides which agents a creation trigger produces.
+	 *
+	 * Returns specs (knowledge fields only); the Kernel persists + owns ids.
+	 * This is a synchronous-within-creation-request call (concept hard-rule #7):
+	 * the route awaits it before returning the created entity.
+	 */
+	scaffoldAgents(req: ScaffoldRequest<TDb>): Promise<readonly AgentScaffoldSpec[]>;
 }
