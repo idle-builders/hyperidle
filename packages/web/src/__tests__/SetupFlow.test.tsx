@@ -23,8 +23,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupFlow } from "../pages/SetupFlow";
 
-function WorkPortfolioStub(): React.JSX.Element {
-	return <div data-testid="landing">work-portfolio</div>;
+// AD9: /work/portfolio retired → /work is the new landing
+function WorkOverviewStub(): React.JSX.Element {
+	return <div data-testid="landing">work-overview</div>;
 }
 
 function renderSetupFlow(): typeof screen {
@@ -32,7 +33,7 @@ function renderSetupFlow(): typeof screen {
 		<MemoryRouter initialEntries={["/setup"]}>
 			<Routes>
 				<Route path="/setup" element={<SetupFlow />} />
-				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+				<Route path="/work" element={<WorkOverviewStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -134,8 +135,8 @@ describe("SetupFlow (R2)", () => {
 		expect(startBtn).not.toBeDisabled();
 	});
 
-	// AC-5: After setup, navigates to /work/portfolio (not /conversations)
-	it("navigates to /work/portfolio on successful submission", async () => {
+	// AD9: After setup, navigates to /work (not /work/portfolio)
+	it("navigates to /work on successful submission", async () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
@@ -146,7 +147,7 @@ describe("SetupFlow (R2)", () => {
 		await user.click(startBtn);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-overview");
 		});
 	});
 

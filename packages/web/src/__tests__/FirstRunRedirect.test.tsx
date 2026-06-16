@@ -32,8 +32,9 @@ function ConversationsStub(): React.JSX.Element {
 	return <div data-testid="landing">conversations</div>;
 }
 
-function WorkPortfolioStub(): React.JSX.Element {
-	return <div data-testid="landing">work-portfolio</div>;
+// AD9: /work/portfolio retired → /work is the new landing
+function WorkOverviewStub(): React.JSX.Element {
+	return <div data-testid="landing">work-overview</div>;
 }
 
 function renderFirstRunRedirect(): typeof screen {
@@ -43,7 +44,7 @@ function renderFirstRunRedirect(): typeof screen {
 				<Route path="/" element={<FirstRunRedirect />} />
 				<Route path="/setup" element={<SetupStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
-				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
+				<Route path="/work" element={<WorkOverviewStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -81,8 +82,8 @@ describe("FirstRunRedirect (N5 + P4)", () => {
 		});
 	});
 
-	// R2 AC-5: Both user and products exist → /work/portfolio (was /conversations)
-	it("redirects to /work/portfolio when user and products exist", async () => {
+	// AD9: Both user and products exist → /work (was /work/portfolio)
+	it("redirects to /work when user and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -100,7 +101,7 @@ describe("FirstRunRedirect (N5 + P4)", () => {
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-overview");
 		});
 	});
 

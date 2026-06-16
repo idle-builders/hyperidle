@@ -254,7 +254,7 @@ function WorkTeamLoaded({
 					<div className="mb-1">
 						<Breadcrumb
 							segments={[
-								{ label: "Work", to: "/work/portfolio", testId: "team-breadcrumb-back" },
+								{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
 								{ label: team.name },
 							]}
 							leading={

@@ -37,9 +37,11 @@ A pinned thread at the top of Conversations. Your assistant agent surfaces cross
 
 Work is organized in three levels:
 
-**Portfolio** — All your bets in one place. A flat list of bet cards across all teams. Filter by status (active, completed, draft) or by team. Outcome-verdict filters (validated, refuted, partial, inconclusive) appear only once at least one bet has a recorded outcome — before that they are not shown. When the portfolio is empty, a create affordance explains what bets are and invites you to create the first one.
+**Work overview** — A list of your teams. Each team row shows the team name, how many bets are active, and a status chip (healthy / behind / blocked). Teams sort by urgency: blocked first, then behind, then healthy. Click a row to open that team.
 
-**Team** — Click a team name from the team screen to see its team view: burn-vs-capacity metrics, active bets, routines, and agents.
+If you only have one team, the Work overview is skipped — clicking Work in the sidebar takes you straight to your team's page.
+
+**Team** — Each team page shows burn-vs-capacity metrics, active bets, routines, and agents. Click **New bet** here or from the Work overview header to start a bet.
 
 **Bet Detail** — Click a bet to see its full pitch, progress bar, cost tracker, task list, and comment thread.
 
@@ -59,9 +61,9 @@ The "Tasks will appear here once agents start work" placeholder no longer appear
 
 #### Weekly Planning Workflow
 
-1. Open **Work > Portfolio**
-2. Click a team in the sidebar or navigate via a bet's team link to enter **Team View**
-3. Click **"New bet"** to create a bet (title, pitch, team, appetite)
+1. Open **Work** — you see your teams sorted by urgency
+2. Click a team (or use the Work overview header's **New bet** button)
+3. In **Team View**, click **"New bet"** to create a bet (title, pitch, team, appetite)
 4. Open the bet and click **Commit** — agents immediately begin breaking the bet into tasks
 5. Watch the task section: tasks appear within seconds once the PM agent finishes planning
 6. Review active bets and their progress
