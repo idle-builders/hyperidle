@@ -2351,6 +2351,441 @@ exports[`Button > SmallVariants 1`] = `
 "
 `;
 
+exports[`Catalog Axis (AJ6 design) > Divider 1`] = `
+"<div style="max-width: 1024px; margin: 0px auto; padding: 24px;">
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Blocks"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Row"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ItemList"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "EmptyState"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px; margin-top: 48px; margin-bottom: 12px; font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);" data-ds-axis-divider="true">
+    <span>
+      "Reuse vocabulary"
+    </span>
+    <span style="flex: 1 1 0%; height: 1px; background: var(--border-default);" />
+    <span>
+      "Product areas"
+    </span>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Work"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "BetCard"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "TaskCard"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`Catalog Axis (AJ6 design) > GroupedCatalog 1`] = `
+"<div style="max-width: 1024px; margin: 0px auto; padding: 24px;">
+  <div style="font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; margin-bottom: 8px;">
+    "HyperIdle Design System"
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 32px;">
+    "94 entries · 9 groups · hearth"
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Foundation"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Button"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Input"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Avatar"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Toggle"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Checkbox"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Select"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Primitives"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "StatusChip"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Tag"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "NavItem"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "LiveDot"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "RowDot"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "KeyValue"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Blocks"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Row"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ItemList"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "EmptyState"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ErrorState"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "TabBar"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Toast"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px; margin-top: 48px; margin-bottom: 12px; font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);" data-ds-axis-divider="true">
+    <span>
+      "Reuse vocabulary"
+    </span>
+    <span style="flex: 1 1 0%; height: 1px; background: var(--border-default);" />
+    <span>
+      "Product areas"
+    </span>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Work"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "BetCard"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "TaskCard"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Page: Work/Bet"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Page: Work/Overview"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Knowledge"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "KnowledgeRow"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Page: Knowledge"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Conversations"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ThreadRow"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Composer"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ThreadShell"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Page: Conversations"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Artifacts"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ArtifactEmbed"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ArtifactPreview"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ArtifactKindBadge"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "Settings"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "ScopePicker"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Settings: Appearance"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary); padding-bottom: 9px; border-bottom: 1px solid var(--border-default); margin-bottom: 12px; margin-top: 36px;">
+    "System"
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-bottom: 24px;">
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "AppShell"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "Sidebar"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "TaskSheet"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "kind: code"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+    <div style="text-align: left; padding: 12px; background: var(--surface-elevated); border-radius: var(--r-subtle); color: var(--text-primary); box-shadow: var(--shadow-subtle);" data-ds-catalog-card="true">
+      <div style="font-size: 14px; font-weight: 500;">
+        "kind: url"
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); text-transform: uppercase; color: var(--text-tertiary);">
+        "2 variants"
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
 exports[`Checkbox > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <label class="flex items-center gap-[9px] cursor-pointer " data-ds-component="Checkbox" data-ds-source="design-system" data-ds-tier="0" for="checkbox-accept-terms-and-conditions">
@@ -7546,6 +7981,440 @@ exports[`Toggle > FocusRing 1`] = `
         </span>
       </div>
     </label>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Borders 1`] = `
+"<div style="display: flex; gap: 18px;">
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); border: var(--bw-thin) solid var(--border-strong);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "bw-thin"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); border: var(--bw-default) solid var(--border-strong);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "bw-default"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); border: var(--bw-strong) solid var(--border-strong);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "bw-strong"
+    </span>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Colors 1`] = `
+"<div style="display: flex; flex-direction: column; gap: 24px;">
+  <div>
+    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); margin-top: 0px; display: block;">
+      "Surfaces"
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--surface-page); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "surface-page"
+          "· var("
+          "--surface-page"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--surface-container); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "surface-container"
+          "· var("
+          "--surface-container"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--surface-elevated); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "surface-elevated"
+          "· var("
+          "--surface-elevated"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--surface-overlay); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "surface-overlay"
+          "· var("
+          "--surface-overlay"
+          ")"
+        </span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); margin-top: 0px; display: block;">
+      "Text"
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--text-primary); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "text-primary"
+          "· var("
+          "--text-primary"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--text-secondary); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "text-secondary"
+          "· var("
+          "--text-secondary"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--text-tertiary); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "text-tertiary"
+          "· var("
+          "--text-tertiary"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--text-placeholder); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "text-placeholder"
+          "· var("
+          "--text-placeholder"
+          ")"
+        </span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); margin-top: 0px; display: block;">
+      "Accent"
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--accent-primary); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "accent-primary"
+          "· var("
+          "--accent-primary"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--accent-primary-hover); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "accent-primary-hover"
+          "· var("
+          "--accent-primary-hover"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--accent-secondary); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "accent-secondary"
+          "· var("
+          "--accent-secondary"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--text-on-accent); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "text-on-accent"
+          "· var("
+          "--text-on-accent"
+          ")"
+        </span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); margin-top: 0px; display: block;">
+      "Status"
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--status-success); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "status-success"
+          "· var("
+          "--status-success"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--status-warning); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "status-warning"
+          "· var("
+          "--status-warning"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--status-error); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "status-error"
+          "· var("
+          "--status-error"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--status-info); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "status-info"
+          "· var("
+          "--status-info"
+          ")"
+        </span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-tertiary); margin-top: 0px; display: block;">
+      "Border"
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--border-subtle); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "border-subtle"
+          "· var("
+          "--border-subtle"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--border-default); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "border-default"
+          "· var("
+          "--border-default"
+          ")"
+        </span>
+      </div>
+      <div>
+        <div style="height: 44px; border-radius: var(--r-subtle); background: var(--border-strong); border: 1px solid var(--border-default);" />
+        <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+          "border-strong"
+          "· var("
+          "--border-strong"
+          ")"
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Motion 1`] = `
+"<div style="display: flex; gap: 18px;">
+  <div>
+    <div style="height: 44px; width: 120px; background: var(--accent-primary); border-radius: var(--r-subtle); transition: transform var(--motion-fast) var(--motion-ease);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "motion-fast"
+      "(hover)"
+    </span>
+  </div>
+  <div>
+    <div style="height: 44px; width: 120px; background: var(--accent-primary); border-radius: var(--r-subtle); transition: transform var(--motion-default) var(--motion-ease);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "motion-default"
+      "(hover)"
+    </span>
+  </div>
+  <div>
+    <div style="height: 44px; width: 120px; background: var(--accent-primary); border-radius: var(--r-subtle); transition: transform var(--motion-slow) var(--motion-ease);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "motion-slow"
+      "(hover)"
+    </span>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Radius 1`] = `
+"<div style="display: flex; gap: 18px;">
+  <div>
+    <div style="height: 64px; width: 64px; background: var(--surface-elevated); border: 1px solid var(--border-strong); border-radius: var(--r-none);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "r-none"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 64px; background: var(--surface-elevated); border: 1px solid var(--border-strong); border-radius: var(--r-subtle);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "r-subtle"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 64px; background: var(--surface-elevated); border: 1px solid var(--border-strong); border-radius: var(--r-default);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "r-default"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 64px; background: var(--surface-elevated); border: 1px solid var(--border-strong); border-radius: var(--r-pill);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "r-pill"
+    </span>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Shadows 1`] = `
+"<div style="display: flex; gap: 24px; padding: 12px;">
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-subtle);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "shadow-subtle"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-default);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "shadow-default"
+    </span>
+  </div>
+  <div>
+    <div style="height: 64px; width: 120px; background: var(--surface-elevated); border-radius: var(--r-subtle); box-shadow: var(--shadow-elevated);" />
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 6px; display: block;">
+      "shadow-elevated"
+    </span>
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > Spacing 1`] = `
+"<div style="display: flex; flex-direction: column; gap: 9px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-1"
+      "3px"
+    </span>
+    <div style="height: 12px; width: var(--space-1); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-2"
+      "6px"
+    </span>
+    <div style="height: 12px; width: var(--space-2); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-3"
+      "9px"
+    </span>
+    <div style="height: 12px; width: var(--space-3); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-4"
+      "12px"
+    </span>
+    <div style="height: 12px; width: var(--space-4); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-6"
+      "18px"
+    </span>
+    <div style="height: 12px; width: var(--space-6); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-8"
+      "24px"
+    </span>
+    <div style="height: 12px; width: var(--space-8); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-12"
+      "36px"
+    </span>
+    <div style="height: 12px; width: var(--space-12); background: var(--accent-primary);" />
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-caps-sm); color: var(--text-secondary); margin-top: 0px; display: block; width: 120px;">
+      "space-16"
+      "48px"
+    </span>
+    <div style="height: 12px; width: var(--space-16); background: var(--accent-primary);" />
+  </div>
+</div>
+"
+`;
+
+exports[`Tokens > TypeScale 1`] = `
+"<div style="display: flex; flex-direction: column; gap: 9px;">
+  <div style="font-size: var(--text-xs); color: var(--text-primary);">
+    "text-xs"
+    "12px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-sm); color: var(--text-primary);">
+    "text-sm"
+    "13px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-base); color: var(--text-primary);">
+    "text-base"
+    "15px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-lg); color: var(--text-primary);">
+    "text-lg"
+    "17px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-xl); color: var(--text-primary);">
+    "text-xl"
+    "20px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-2xl); color: var(--text-primary);">
+    "text-2xl"
+    "24px"
+    "— The quick brown fox"
+  </div>
+  <div style="font-size: var(--text-3xl); color: var(--text-primary);">
+    "text-3xl"
+    "30px"
+    "— The quick brown fox"
+  </div>
+  <div style="display: flex; gap: 18px; margin-top: 12px;">
+    <span style="font-weight: 400; font-size: 15px;">
+      "fw-normal"
+    </span>
+    <span style="font-weight: 500; font-size: 15px;">
+      "fw-medium"
+    </span>
+    <span style="font-weight: 600; font-size: 15px;">
+      "fw-semibold"
+    </span>
+    <span style="font-weight: 700; font-size: 15px;">
+      "fw-bold"
+    </span>
   </div>
 </div>
 "
