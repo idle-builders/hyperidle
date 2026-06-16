@@ -89,6 +89,19 @@ async function handler(
 		return err("INTERNAL_ERROR", "Strategy returned no specs for agent_added trigger");
 	}
 
+	// AK6 P4 WARNING-1: emit agent_added from the tool path so async subscribers
+	// (AK7/AK8/audit) fire whether creation is via HTTP route OR tool invocation.
+	// The HTTP route emits independently; this covers the tool surface (AC2).
+	ctx.eventBus.emit({
+		type: "agent_added",
+		streamId: input.teamId,
+		teamId: input.teamId,
+		teamMembersId: memberGroup.id,
+		agentId,
+		role: input.role,
+		at: new Date().toISOString(),
+	});
+
 	return ok<AddAgentData>({
 		agentId,
 		name: input.name,

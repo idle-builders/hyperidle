@@ -24,9 +24,12 @@ import type {
 	TeamCreatedEvent,
 	UserCreatedEvent,
 } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { addAgentTool } from "../tools/add-agent.js";
+import { createTeamTool } from "../tools/create-team.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
@@ -463,6 +466,103 @@ describe("T7: add_agent tool routes through scaffoldAgents", () => {
 		expect(res.status).toBe(201);
 		expect(received.length).toBeGreaterThanOrEqual(1);
 		expect(received[0]?.type).toBe("agent_added");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AK6 P4 fix — WARNING-1: Tool-path creation events (AC2 completeness)
+// The HTTP-route tests above go through the route which DOES emit. These tests
+// call the tool HANDLER directly (as an MCP session would) to prove the tool
+// path ALSO emits team_created / agent_added — the gap the reviewer flagged.
+// RED before fix: handler returns ok but emits no event.
+// GREEN after fix: handler emits the event via ctx.eventBus.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("AK6 WARNING-1: tool handler direct path emits creation events (AC2)", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		clearActiveStrategy();
+	});
+
+	test("create_team tool handler emits team_created on ctx.eventBus", async ({ db }) => {
+		setActiveStrategy(minimalStrategy);
+
+		const bus = new EventBus();
+		const received: TeamCreatedEvent[] = [];
+		bus.on("team_created", (e) => received.push(e));
+
+		const ctx = {
+			db,
+			eventBus: bus,
+			agentId: "agent-test",
+			sessionId: "session-test",
+			taskId: "task-test",
+			sandboxPath: "/tmp/ak6-tool-test-create-team",
+			ingestion: { dispose: (): void => { /* no-op */ } },
+		};
+
+		const result = await createTeamTool.handler(
+			{ name: "Tool-Created Team", functions: ["development"] },
+			ctx,
+		);
+
+		// createTeamTool uses ToolResult: { success: true, data } not AssistantToolResult
+		expect(result.success).toBe(true);
+		// Event must have been emitted on the tool's event bus — not just on the HTTP route bus
+		expect(received.length).toBeGreaterThanOrEqual(1);
+		expect(received[0]?.type).toBe("team_created");
+		if (result.success) {
+			const data = result.data as { teamId: string };
+			expect(received[0]?.teamId).toBe(data.teamId);
+		}
+	});
+
+	test("add_agent tool handler emits agent_added on ctx.eventBus", async ({ db }) => {
+		setActiveStrategy(minimalStrategy);
+
+		// Seed the team
+		const teamId = "team-warning1-add-agent";
+		const tm = "tm-warning1-add-agent";
+		await db
+			.insert(teams)
+			.values({ id: teamId, name: "W1 Team", phase: "build", createdAt: NOW });
+		await db
+			.insert(teamMembers)
+			.values({ id: tm, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+
+		const bus = new EventBus();
+		const received: AgentAddedEvent[] = [];
+		bus.on("agent_added", (e) => received.push(e));
+
+		const ctx = {
+			db,
+			eventBus: bus,
+			agentId: "agent-test",
+			sessionId: "session-test",
+			taskId: "task-test",
+			sandboxPath: "/tmp/ak6-tool-test-add-agent",
+			ingestion: { dispose: (): void => { /* no-op */ } },
+		};
+
+		const result = await addAgentTool.handler(
+			{ teamId, role: "builder", name: "Tool-Added Builder" },
+			ctx,
+		);
+
+		// addAgentTool uses ToolResult: { success: true, data } not AssistantToolResult
+		expect(result.success).toBe(true);
+		// Event must have been emitted on the tool's event bus
+		expect(received.length).toBeGreaterThanOrEqual(1);
+		expect(received[0]?.type).toBe("agent_added");
+		if (result.success) {
+			const data = result.data as { agentId: string; teamId: string };
+			expect(received[0]?.teamId).toBe(data.teamId);
+			expect(received[0]?.agentId).toBe(data.agentId);
+		}
 	});
 });
 

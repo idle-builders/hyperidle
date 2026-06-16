@@ -130,6 +130,19 @@ async function handler(
 		});
 	}
 
+	// AK6 P4 WARNING-1: emit team_created from the tool path so async subscribers
+	// (AK7/AK8/audit) fire whether creation is via HTTP route OR tool invocation.
+	// The HTTP route emits independently; this covers the tool surface (AC2).
+	ctx.eventBus.emit({
+		type: "team_created",
+		streamId: teamId,
+		teamId,
+		teamMembersId,
+		functions: input.functions,
+		agentIds,
+		at: now,
+	});
+
 	return ok<CreateTeamData>({
 		teamId,
 		teamMembersId,
