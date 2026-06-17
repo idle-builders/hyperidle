@@ -5,7 +5,9 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 **Story:** `AM1 Conversation — Full Surface (C)` / `Populated`. Renders at desktop width on `--surface-page`.
 **Component:** `packages/web/src/components/Am1ConversationSurface.tsx` (`data-ds-component="Am1ConversationSurface"`).
 
-> **Scope — app-shell sidebar is OUT of this design.** The left app-shell sidebar (conversation list + Conversations/Work/Knowledge nav + the founder identity row) is app-shell chrome that lives elsewhere, NOT part of the conversation. It is deliberately excluded here so the conversation gets the viewer width (the design-system viewer can't accommodate the full app-shell width). This design scopes to **the conversation pane + its contextual right pane**. The earlier three-region framing (sidebar · center · right) is superseded by this two-region scope; the sidebar's "where do I jump in" job is owned by the app shell.
+> **Revision (v3.1) — show HOW THREADS WORK.** Founder feedback on v3: "looks better, but I don't see how threads work." The settled model is NOT changed — it is made legible. A *thread* = a conversation attached to ONE host (bet/task/knowledge_item/artifact/agent/user/team/factory), flat, no sub-threads. You have MANY threads; you see/switch them via the **conversations inbox** (a sectioned, ordered thread list). "How threads work" in the UI = **the inbox (thread list) | the open thread (conversation)** — the canonical two-pane. This revision adds the inbox as the LEFT region.
+>
+> **The LEFT region is the conversations inbox / thread list — NOT the app-shell global nav.** It is the thread inbox that answers "what needs me / which thread is open." The app-shell global Conversations/Work/Knowledge nav + founder identity row is separate chrome that lives elsewhere and stays OUT of this design. The thread inbox is in-scope because it IS how threads work.
 
 ---
 
@@ -15,14 +17,15 @@ A founder (A. Founder) opens the **Passkey login** conversation. A teammate (Mar
 
 ---
 
-## Two-region anatomy
+## Two-region anatomy (+ on-demand pane)
 
 | Region | Width | Role |
 |---|---|---|
-| **Conversation pane** | flex-1 | Primary. Conversation header (host chip + title + 3 participant avatars + actions ⋯) over the grouped message list (centered ~720–760px reading column) over the bottom-pinned composer. `--surface-page`. |
-| **Right contextual pane** | 420px | Open on the change-set embed: header (`auth/passkey.ts` +124/−18 + close), tab strip (Diff / Files / Session), syntax-gutter diff body. `--surface-container`. |
+| **Conversations inbox / thread list** | ~300px | The sectioned, ordered thread list — how threads work. Compact search/jump field at top, then thread rows (emulate `ThreadRow`: unread dot · title · host pill · snippet · overlapping participant avatars [agent-tinted] · message-count badge · blocking badge · timestamp · selected/pinned). Sections + ordering = **assistant/pinned → blocking reviews → non-blocking reviews → chats → resolved** (conversations-view §2.1). Host pills span `user`/`bet`/`task`/`knowledge_item`/`team`/`agent`/`artifact` so multi-host threading is visible. The active row ("Passkey login", host: bet) renders `selected`. Own scroll. `--surface-container`. |
+| **Conversation pane** | flex-1 | Primary. Conversation header (host chip + title + 3 participant avatars + actions ⋯) over the grouped message list (centered ~680px reading column) over the bottom-pinned composer. `--surface-page`. |
+| **Change-set / diff pane** | 420px | **DEFAULT CLOSED.** Opens on demand when a change-set Embed is clicked (push/overlay): header (`auth/passkey.ts` +124/−18 + close), tab strip (Diff / Files / Session), syntax-gutter diff body. Closing it reclaims width for the conversation. `--surface-container`. The story renders the default state: inbox | conversation, pane closed; the CHANGE SET embed keeps its "opens →" affordance. |
 
-The left app-shell sidebar is intentionally absent (see Scope note above) — app-shell chrome, not part of this design.
+The app-shell global nav (Conversations/Work/Knowledge + founder identity) is intentionally absent — that is app-shell chrome, distinct from the thread inbox here.
 
 ---
 
@@ -73,7 +76,9 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 | Composer | `Composer` (DS) | Extend with banner + attachment-chip row + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
 | Right contextual pane | `shell/ArtifactView` + `TabBar` | `ArtifactView` already renders kind-dispatched previews; `TabBar` for Diff/Files/Session. Mounts in a 420px right region (new `ContextPane` shell wrapper, mirrors the existing dial-in split in `Conversations.tsx`). |
 
-**New components introduced:** `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. No new tokens. (The app-shell sidebar / `ConversationListRow` is out of this design's scope — owned by the app shell.)
+| Conversations inbox / thread row | `ThreadRow` (DS) in a scroll column | The inbox rows are a hand-rolled mirror of the catalogued `ThreadRow` (unread dot · title · `hostTag` host pill · snippet · `avatars` overlapping group · `messageCount` badge · `blocking` badge · `selected`/`pinned` · timestamp). The builder maps each row back to the real `ThreadRow`; the section headers + search/jump field wrap it. This is the thread inbox, NOT the app-shell global nav. |
+
+**New components introduced:** `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. The inbox reuses the existing `ThreadRow` (no new row component). No new tokens. (The app-shell global Conversations/Work/Knowledge nav is out of scope — owned by the app shell; the inbox here is the thread list.)
 
 ---
 
@@ -115,7 +120,8 @@ Per `docs/information-architecture/` (mobile = three tabs). This design owns onl
 
 - **Sidebar excluded from this design:** the app-shell sidebar (conversation list + nav) is app-shell chrome that lives elsewhere, not part of the conversation. Dropped here so the conversation gets the viewer width (the design-system viewer can't accommodate the full app-shell width). Cost: this story does not show the "where do I jump in" navigation — acceptable, the app shell owns it. Benefit: the conversation reading column + contextual pane get the room they need to be judged at real density.
 - **Hand-rolled chrome vs importing `Composer`/DS components:** chose hand-rolled for a guaranteed standalone render in the viewer (no router/AppShell context). Cost: the spec must carry the reuse mapping (above) so the builder doesn't ship the hand-rolled copies. Benefit: the founder reviews the real composition without infra risk.
-- **Right pane shown open by default:** answers the founder's "where do I end up" directly, at the cost of not also showing the closed/2-region state. Acceptable — the populated-only rule plus the source↔destination accent tie makes the relationship the point.
+- **Change-set / diff pane DEFAULT CLOSED:** v3 shipped it open, which crowded the surface into too-wide a 3-region layout. v3.1 defaults it closed and reclaims that width for the inbox + conversation; it opens on demand when the CHANGE SET embed is clicked (push/overlay), with the source↔destination accent tie shown on open. Cost: the story no longer shows the open diff state by default — acceptable, the embed's "opens →" affordance plus the open-destinations table carry the relationship.
+- **Inbox over app-shell nav:** the LEFT region is the conversations inbox (thread list), the literal answer to "how threads work" — many threads, across hosts, sectioned/ordered, with the open one highlighted. The app-shell global nav stays out. Cost: ~300px of width; benefit: the founder sees the inbox | conversation two-pane that IS the thread model.
 - **Reactions/attachments rendered though schema-absent:** per inventory §9 these need Message-schema growth beyond AM1's render scope. Shown here as the design target (spec scenarios may name surfaces not yet reachable — [[memory]]); the builder gates them behind the schema work, not this story.
 - **Own-message cue = faint tint, not a bubble:** keeps the no-bubbles Slack model (annotation 1) while still answering "what's mine." Risk: 3% tint is subtle in light mode; paired with the "You" label so it never relies on color alone.
 - **Density:** 12px/9px group padding, 6px rhythm — denser than v2's barren wall, calmer than per-message cards. The single bordered card (the review) earns its weight as the one decision.
