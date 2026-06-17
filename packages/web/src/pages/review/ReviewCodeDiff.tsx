@@ -13,7 +13,7 @@
 // expanded to L3 so the full drill-down is visible in a single screenshot.
 
 import { type JSX, useState } from "react";
-import { ToolLogo } from "./ToolLogo";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 
 // ── diff line model (mirrors CodeRenderer's kind vocabulary: add/del/ctx) ─────────
 type LineKind = "add" | "del" | "ctx";
@@ -39,6 +39,11 @@ interface ChangedFile {
 	/** relevance band — drives ordering and the band label, never file/alpha order. */
 	readonly band: "logic" | "test";
 	readonly reviewed: boolean;
+	/**
+	 * one-line "why this matters" lead, shown above the hunks on LOGIC-band files
+	 * only — why it's ranked here / what to look at. Omitted on tests + trivia.
+	 */
+	readonly rationale?: string;
 	readonly hunks: readonly Hunk[];
 }
 
@@ -113,6 +118,7 @@ const FILES: readonly ChangedFile[] = [
 		removed: 6,
 		band: "logic",
 		reviewed: false,
+		rationale: "The fix — rethrows the typed error instead of swallowing it (the behavior change).",
 		hunks: [PROMO_WEBHOOK_HUNK],
 	},
 	{
@@ -121,6 +127,7 @@ const FILES: readonly ChangedFile[] = [
 		removed: 2,
 		band: "logic",
 		reviewed: false,
+		rationale: "Renders the new user-facing “expired” message.",
 		hunks: [PROMO_FIELD_HUNK],
 	},
 	{
@@ -140,6 +147,11 @@ const TRIVIA = {
 	added: 49,
 	removed: 23,
 } as const;
+
+// The agent's plain-language change summary — the PR/ship description. Reads as prose,
+// not code (founder asked for a "little PR message" up top, distinct from the diff).
+const PR_DESCRIPTION =
+	"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently “succeeded.” Now returns a typed 422 and checkout renders an inline “This code expired on Apr 3” message. Regression test added.";
 
 const CI_CHECKS: readonly CiCheck[] = [
 	{ label: "tests" },
@@ -329,6 +341,12 @@ function FileCard({
 				<ChangeBadge added={file.added} removed={file.removed} />
 				<ReviewedBox reviewed={file.reviewed} onToggle={onToggleReviewed} />
 			</div>
+			{/* "why this matters" lead — tertiary prose above the hunks, distinct from code. */}
+			{open && file.rationale ? (
+				<p className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-[12px] leading-[1.45] text-[var(--text-tertiary)]">
+					{file.rationale}
+				</p>
+			) : null}
 			{open ? <FileDiff hunks={file.hunks} /> : null}
 		</div>
 	);
@@ -388,18 +406,17 @@ export function ReviewCodeDiff({
 	return (
 		<section
 			aria-label="Code diff review"
-			className="w-full max-w-[860px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-page)] p-[18px] shadow-[var(--shadow-default)]"
+			className="w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
 		>
+			{/* source attribution — names the app + jump-off; the PR header below no longer
+			    repeats the repo / # / logo (deduped per founder review). */}
+			<CanvasSourceHeader tool="github" app="GitHub" record="acme/storefront #1428" href="#" />
+
 			{/* ── L1: PR header ───────────────────────────────────────────────── */}
-			<header className="flex flex-col gap-[12px]">
+			<header className="flex flex-col gap-[12px] p-[18px]">
 				<div className="flex items-start gap-[12px]">
-					<div className="mt-[2px]">
-						<ToolLogo tool="github" size="md" />
-					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-[9px] text-[12px] text-[var(--text-tertiary)]">
-							<span className="font-[600] text-[var(--text-secondary)]">acme/storefront</span>
-							<span>#1428</span>
 							<span className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]">
 								Open
 							</span>
@@ -412,6 +429,9 @@ export function ReviewCodeDiff({
 						<ChangeBadge added={totalAdded} removed={totalRemoved} />
 					</div>
 				</div>
+
+				{/* PR / ship message — the agent's plain-language summary, prose not code. */}
+				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">{PR_DESCRIPTION}</p>
 
 				<CiRow />
 
@@ -431,7 +451,7 @@ export function ReviewCodeDiff({
 			</header>
 
 			{/* ── L2: relevance-ranked file cards (logic → tests → generated) ──── */}
-			<div className="mt-[12px] flex flex-col gap-[9px]">
+			<div className="flex flex-col gap-[9px] px-[18px] pb-[18px]">
 				{ordered.map((file, i) => {
 					const prev = ordered[i - 1];
 					const showBand = !prev || prev.band !== file.band;

@@ -23,6 +23,7 @@
 // hearth-internal-padding: pane chrome uses optically-tuned inner padding alongside grid spacing.
 
 import { type CSSProperties, type JSX, useState } from "react";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ────────────────────────────────────────────────────────────────
@@ -233,21 +234,20 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 
 	return (
 		<section
-			className="flex flex-col gap-[12px] border border-[var(--border-subtle)] bg-[var(--surface-container)] p-[18px]"
+			className="flex flex-col border border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			style={{ borderRadius: "var(--r-default)", boxShadow: "var(--shadow-default)", maxWidth: 760 }}
 		>
-			{/* ── L1: one-glance summary ── */}
+			{/* ── source attribution (founder round 1): app name + jump-off ── */}
+			<CanvasSourceHeader tool="figma" app="Figma" record="Onboarding · Create account" href="#" />
+
+			<div className="flex flex-col gap-[12px] p-[18px]">
+			{/* ── L1: one-glance summary (tool/title now in source header) ── */}
 			<header className="flex items-start gap-[12px]">
 				<div className="flex gap-[6px]">
 					<Thumb variant="design" />
 					<Thumb variant="build" />
 				</div>
 				<div className="flex min-w-0 flex-col gap-[3px]">
-					<div className="flex items-center gap-[6px]">
-						<ToolLogo tool="figma" size="md" withLabel />
-						<span className="text-[12px] text-[var(--text-tertiary)]">·</span>
-						<span className="truncate text-[13px] font-[600] text-[var(--text-primary)]">{diff.title}</span>
-					</div>
 					<div className="flex items-center gap-[6px]">
 						<span
 							className="inline-flex items-center gap-[4px] px-[9px] py-[3px] text-[11px] font-[600] text-[var(--status-warning)]"
@@ -382,6 +382,7 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 						);
 					})}
 				</div>
+			</div>
 			</div>
 		</section>
 	);

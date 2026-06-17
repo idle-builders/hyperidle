@@ -13,6 +13,7 @@
 // Animate transform/opacity only. tabular-nums on every number.
 
 import { type JSX, useState } from "react";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { ToolLogo } from "./ToolLogo";
 
 // ── fixture ──────────────────────────────────────────────────────────────────
@@ -336,22 +337,26 @@ export function ReviewMetricsMoved({ fixture = FIXTURE, initialExpandedFigureId 
 	const needsYou = fixture.exceptions.filter((e) => e.needsYou).length;
 
 	return (
-		<div className="max-w-[760px] bg-[var(--surface-page)] p-[18px] text-[var(--text-primary)]">
-			{/* ── L1 ── one-glance summary ── */}
-			<div className="flex items-center justify-between gap-[12px]">
-				<div className="flex items-center gap-[9px]">
-					<ToolLogo tool="quickbooks" size="md" withLabel />
-					<span className="text-[13px] text-[var(--text-tertiary)]">{fixture.period} close</span>
-				</div>
-				<span
-					className="rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
-					style={{ background: "var(--status-error-dim)", color: "var(--status-error)" }}
-				>
-					{fixture.exceptions.length} exceptions · {needsYou} need you
-				</span>
-			</div>
+		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">
+			{/* ── source attribution (founder round 1): app name + jump-off ── */}
+			<CanvasSourceHeader
+				tool="quickbooks"
+				app="QuickBooks"
+				record="May 2026 close"
+				href="#"
+				trailing={
+					<span
+						className="rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
+						style={{ background: "var(--status-error-dim)", color: "var(--status-error)" }}
+					>
+						{fixture.exceptions.length} exceptions · {needsYou} need you
+					</span>
+				}
+			/>
 
-			<p className={`mt-[12px] text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
+			<div className="p-[18px]">
+			{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
+			<p className={`text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
 				Recognized revenue closed at <span className="font-[700]">{usd(headline.current)}</span>, up{" "}
 				<span className="font-[600]" style={{ color: "var(--status-success)" }}>{signed(headline.current - headline.prior)}</span> from April. Roll-forward
 				ties to bank; biggest open item is a <span className="font-[600]">{usdCents(fixture.exceptions[0].amount)}</span> wire with no source.
@@ -378,6 +383,7 @@ export function ReviewMetricsMoved({ fixture = FIXTURE, initialExpandedFigureId 
 				{fixture.exceptions.map((ex) => (
 					<ExceptionRow key={ex.id} ex={ex} />
 				))}
+			</div>
 			</div>
 		</div>
 	);

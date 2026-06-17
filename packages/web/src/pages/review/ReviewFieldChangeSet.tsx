@@ -21,6 +21,7 @@
 // Resolved is out of scope — the review frame owns the final verdict.
 
 import { type JSX, useState } from "react";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ──────────────────────────────────────────────────────────────────
@@ -273,19 +274,18 @@ export function ReviewFieldChangeSet({
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
-			{/* ── L1 — one-glance summary ── */}
-			<div className="flex items-start gap-[12px] border-b border-[var(--border-default)] px-[18px] py-[12px]">
-				<div className="mt-[3px]">
-					<ToolLogo tool="salesforce" size="md" />
-				</div>
+			{/* ── source attribution (founder round 1): app name + jump-off ── */}
+			<CanvasSourceHeader
+				tool="salesforce"
+				app="Salesforce"
+				record="Opportunity · Northwind Logistics"
+				href="#"
+			/>
+
+			{/* ── L1 — one-glance summary (tool/record now in source header) ── */}
+			<div className="border-b border-[var(--border-default)] px-[18px] py-[12px]">
 				<div className="min-w-0 flex-1">
-					<div className="flex items-baseline gap-[9px]">
-						<span className="text-[15px] font-[600] text-[var(--text-primary)]">
-							{changeSet.record}
-						</span>
-						<span className="text-[12px] text-[var(--text-tertiary)]">{changeSet.object}</span>
-					</div>
-					<div className="mt-[3px] flex flex-wrap items-center gap-[6px] text-[13px] text-[var(--text-secondary)]">
+					<div className="flex flex-wrap items-center gap-[6px] text-[13px] text-[var(--text-secondary)]">
 						<span>1 record</span>
 						<span aria-hidden className="text-[var(--text-tertiary)]">·</span>
 						<span>{changeSet.changed.length} fields changed</span>

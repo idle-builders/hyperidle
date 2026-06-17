@@ -21,7 +21,7 @@
 
 import { type JSX, useState } from "react";
 import { Button, StatusChip } from "@hyperidle/design-system";
-import { ToolLogo } from "./ToolLogo";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // fixture — Zendesk overnight support triage, 41 tickets
@@ -259,16 +259,22 @@ export function ReviewBatch({
 		<div className="mx-auto max-w-[760px] w-full font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
 			{/* L1 — the rollup */}
 			<section className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
-				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[18px] pb-[12px]">
+				<CanvasSourceHeader
+						tool={batch.tool}
+						app="Zendesk"
+						record={`${batch.title} (${batch.total} tickets)`}
+						href="#"
+					/>
+					<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
 					<div className="flex items-start gap-[12px] min-w-0">
-						<ToolLogo tool={batch.tool} size="md" />
+						{/* tool identity now lives in the CanvasSourceHeader above */}
 						<div className="flex flex-col gap-[3px] min-w-0">
 							<div className="flex items-center gap-[9px]">
 								<h2 className="text-[17px] font-[600] leading-tight truncate">{batch.title}</h2>
 								<StatusChip status="behind" label={`${batch.needsYou} NEED YOU`} />
 							</div>
 							<p className="text-[12px] text-[var(--text-tertiary)] leading-snug">
-								{batch.total} tickets · Zendesk · {batch.window}
+								{batch.total} tickets · {batch.window}
 							</p>
 						</div>
 					</div>
@@ -402,9 +408,19 @@ export function ReviewBatch({
 											</div>
 										)}
 
-										{/* why the agent stopped — the flag, spelled out */}
-										<div className="flex items-start gap-[9px] rounded-[var(--r-subtle)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
-											<span className="h-[6px] w-[6px] mt-[6px] rounded-full bg-[var(--status-error)] shrink-0" />
+										{/* why the agent held — framed explanation, not just a red box */}
+										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)] border-l-[3px] border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
+											<div className="flex items-center gap-[6px]">
+													<span
+														aria-hidden="true"
+														className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
+													>
+														!
+													</span>
+													<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
+														Held for your review — why
+													</span>
+												</div>
 											<span className="text-[12px] leading-snug text-[var(--text-secondary)]">
 												{item.draftNote}
 											</span>

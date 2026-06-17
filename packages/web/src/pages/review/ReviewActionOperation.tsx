@@ -17,7 +17,7 @@
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
 import { type JSX, useState } from "react";
-import { ToolLogo } from "./ToolLogo";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -95,8 +95,13 @@ export function ReviewActionOperation({
 			}}
 		>
 			{/* ── L1 · one glance: action + amount + tool + irreversible ── */}
-			<header className="flex items-start gap-[12px] px-[18px] pt-[18px] pb-[12px]">
-				<ToolLogo tool={operation.tool} size="md" />
+			<CanvasSourceHeader
+				tool="stripe"
+				app="Stripe"
+				record="Payment · ch_3Qspee… · Northwind Logistics"
+				href="#"
+			/>
+			<header className="px-[18px] pt-[18px] pb-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
 						<h2 className="text-[15px] font-[600] leading-none text-[var(--text-primary)]">

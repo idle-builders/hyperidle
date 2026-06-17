@@ -3,7 +3,7 @@
 // flag expand); callbacks are no-ops. No router/context/providers.
 
 import type { JSX } from "react";
-import { ReviewRenderedInContext } from "./ReviewRenderedInContext";
+import { ReviewEmailBody, ReviewRenderedInContext } from "./ReviewRenderedInContext";
 
 export default { title: "Review/Rendered In Context", group: "Conversations" };
 
@@ -13,3 +13,10 @@ export default { title: "Review/Rendered In Context", group: "Conversations" };
  * default exposing the 1 unverified claim + send plan + exclusions (L3).
  */
 export const Populated = (): JSX.Element => <ReviewRenderedInContext />;
+
+/**
+ * Basic variant: just the body of the email. Source header + the rendered email
+ * body + a verdict pill pair — no inbox row, no viewport toggle, no flags. The
+ * LOW-fidelity end of the proof spectrum: some things you just look at and call.
+ */
+export const EmailBody = (): JSX.Element => <ReviewEmailBody />;
