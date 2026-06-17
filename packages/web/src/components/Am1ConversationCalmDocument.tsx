@@ -1,184 +1,168 @@
 /**
- * AM1 — Conversation Experience, Variant C: "Calm document".
+ * AM1 — Conversation Experience, Variant C: "Editorial".
  *
  * A self-contained, presentational embodiment of the AM1 design brief's
- * canonical fixture conversation, rendered through Variant C's thesis:
- * the conversation reads like a living DOCUMENT, not chat bubbles. A
- * generous single reading column (~760px), strong typographic rhythm,
- * quiet rules between sender turns, and embeds rendered FULL-BLEED INLINE
- * (artifact diff with real +/− lines, referenced-block card with content,
- * a calm session-reference card, the prominent "Worked for 1m 12s" Fold,
- * and the review → verdict).
+ * canonical fixture conversation, rendered through Variant C's REDO thesis
+ * (brief §"REDO v2 — FOUNDER FEEDBACK"): the conversation reads like a
+ * beautifully typeset long-form article. A generous centered reading column
+ * (~720px), slightly larger body type (15px / --leading-relaxed), and almost
+ * NO per-message chrome.
+ *
+ * The restraint taken from the t3code reference
+ * (`plans/AM1/Screenshot 2026-06-16 at 22.15.49.png`):
+ *  - NO avatar / NO role badge / NO timestamp on every message. The founder's
+ *    turn is pure prose. An agent work-turn is marked at most ONCE by a quiet
+ *    uppercase section label `RESPONSE · WORKED FOR 1M 12S` — that label IS
+ *    the Fold.
+ *  - ONE alignment grid: every element — prose, label, embed — shares the
+ *    column's single left edge. No insets, no ragged avatars.
+ *  - ONE consistent calm embed treatment: a hairline-framed full-bleed block,
+ *    column-edge aligned, surrounded by generous whitespace. The artifact diff
+ *    renders its real +/− lines in place (foldable); the referenced block
+ *    renders its real content inline; the session reference is a single quiet
+ *    inline line that opens the dial-in (never a work-log).
+ *  - Structure from typography + whitespace, not boxes/borders/badges/rails.
  *
  * This is a /design Phase-1 embodiment artifact, NOT production code. The
  * production component-reuse mapping (the Part model + Embed + Fold
  * primitives, CommentRow, RichMessageCard, Composer, ArtifactEmbed,
  * BlockRefEmbed, the new SessionReferenceEmbed) lives in
- * `plans/AM1/design/calm-document/spec.md`. Here every visual is
- * hand-rolled with Tailwind + Hearth semantic-token classes so the story
- * renders reliably in the :8098 viewer without depending on component
- * APIs.
+ * `plans/AM1/design/calm-document/spec.md`. Here every visual is hand-rolled
+ * with Tailwind + Hearth semantic-token classes so the story renders reliably
+ * in the :8098 viewer without depending on component APIs.
  *
  * Honors the locked concept (`plans/AM1/concept.md`): deliberate messages
- * only; the session is a REFERENCE Embed (a card that opens the lower-level
- * dial-in), NEVER an inlined work-log; renders within Thread/Message/verdict;
- * names nothing "Block"/"blocked".
+ * only; the session is a REFERENCE Embed (a quiet line that opens the
+ * lower-level dial-in), NEVER an inlined work-log; renders within
+ * Thread/Message/verdict; names nothing "Block"/"blocked".
  */
 
 import type React from "react";
 import { useState } from "react";
 
-// ── Fixture: the canonical AM1 conversation (brief §"Canonical fixture") ──
-// Shapes mirror `packages/shared/src/thread.ts` (Message / PlainPayload /
-// ReviewPayload / VerdictPayload / ArtifactRef) but are inlined here so the
-// story is fully self-contained.
+// ── Quiet section label: the only turn chrome (also IS the Fold) ─────────
+// Uppercase, letter-spaced, tertiary. Marks an agent work-turn calmly — no
+// avatar, no badge, no timestamp.
 
-interface Participant {
-	readonly id: string;
-	readonly name: string;
-	readonly role: string;
-	readonly isAgent: boolean;
-	readonly initials: string;
-}
-
-const FOUNDER: Participant = {
-	id: "u-founder",
-	name: "A. Founder",
-	role: "founder",
-	isAgent: false,
-	initials: "AF",
-};
-
-const ATLAS: Participant = {
-	id: "agent-atlas",
-	name: "Atlas",
-	role: "Builder",
-	isAgent: true,
-	initials: "AT",
-};
-
-// ── Shared primitives (hand-rolled, token-only) ──────────────────────────
-
-function Avatar({ p }: { p: Participant }): React.JSX.Element {
-	return (
-		<span
-			aria-hidden
-			className="inline-flex h-[28px] w-[28px] shrink-0 select-none items-center justify-center rounded-[var(--r-pill)] text-[11px] font-[var(--fw-semibold)]"
-			style={{
-				background: p.isAgent ? "var(--accent-primary-dim)" : "var(--surface-container)",
-				color: p.isAgent ? "var(--accent-primary)" : "var(--text-secondary)",
-				border: p.isAgent
-					? "1px solid var(--accent-primary)"
-					: "1px solid var(--border-default)",
-			}}
-		>
-			{p.initials}
-		</span>
-	);
-}
-
-/** The document-grade sender lead-in: avatar + name + role + timestamp. */
-function SenderLine({
-	p,
-	timestamp,
+function SectionLabel({
+	children,
+	trailing,
 }: {
-	p: Participant;
-	timestamp: string;
+	children: React.ReactNode;
+	trailing?: React.ReactNode;
 }): React.JSX.Element {
 	return (
-		<div className="flex items-center gap-[9px]">
-			<Avatar p={p} />
-			<span className="text-[15px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
-				{p.name}
+		<div className="flex items-baseline gap-[9px]">
+			<span
+				className="text-[11px] font-[var(--fw-semibold)] uppercase text-[var(--text-tertiary)]"
+				style={{ letterSpacing: "var(--tracking-caps)" }}
+			>
+				{children}
 			</span>
-			{p.isAgent ? (
-				<span
-					className="rounded-[var(--r-pill)] px-[6px] py-[1px] text-[10px] font-[var(--fw-semibold)] uppercase"
-					style={{
-						background: "var(--accent-primary-dim)",
-						color: "var(--accent-primary)",
-						letterSpacing: "var(--tracking-caps-sm)",
-					}}
-				>
-					{p.role}
-				</span>
-			) : (
-				<span className="text-[13px] text-[var(--text-tertiary)]">{p.role}</span>
-			)}
-			<span className="ml-auto text-[12px] tabular-nums text-[var(--text-tertiary)]">
-				{timestamp}
-			</span>
+			{trailing}
 		</div>
 	);
 }
 
 /**
- * Document body text — the calm-document typographic core. Generous size +
- * relaxed leading, primary text on the page surface (no card chrome).
+ * Document body text — the editorial typographic core. 15px, relaxed leading,
+ * primary text on the page surface (no card chrome). Bold inline lead-ins are
+ * passed as children.
  */
 function BodyText({ children }: { children: React.ReactNode }): React.JSX.Element {
 	return (
-		<p className="text-[15px] leading-[1.7] text-[var(--text-primary)]">{children}</p>
+		<p className="text-[15px] text-[var(--text-primary)]" style={{ lineHeight: "var(--leading-relaxed)" }}>
+			{children}
+		</p>
 	);
 }
 
-// ── Embed 1: the "Worked for 1m 12s" Fold (first-class device) ───────────
+// ── The Fold: a quiet "RESPONSE · WORKED FOR 1M 12S" label that expands ──
+// This is the first-class calm device — a section label with an optional
+// "Show", not a heavy bordered fold card.
 
 function WorkFold(): React.JSX.Element {
 	const [open, setOpen] = useState(false);
 	return (
-		<div
-			data-ds-part="fold"
-			className="overflow-hidden rounded-[var(--r-subtle)]"
-			style={{
-				background: "var(--surface-container)",
-				border: "1px solid var(--border-subtle)",
-			}}
-		>
-			<button
-				type="button"
-				aria-expanded={open}
-				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
+		<div data-ds-part="fold" className="flex flex-col gap-[12px]">
+			<SectionLabel
+				trailing={
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={() => setOpen((v) => !v)}
+						className="text-[11px] font-[var(--fw-medium)] uppercase text-[var(--text-tertiary)] transition-colors"
+						style={{
+							letterSpacing: "var(--tracking-caps)",
+							transitionDuration: "var(--motion-fast)",
+						}}
+					>
+						{open ? "Hide" : "Show"}
+					</button>
+				}
 			>
-				<span
-					aria-hidden
-					className="inline-block transition-transform"
-					style={{
-						transitionDuration: "var(--motion-default)",
-						transitionTimingFunction: "var(--motion-ease)",
-						transform: open ? "rotate(90deg)" : "rotate(0deg)",
-						color: "var(--text-tertiary)",
-					}}
-				>
-					▸
-				</span>
-				<span className="text-[13px] font-[var(--fw-medium)] text-[var(--text-secondary)]">
-					Worked for 1m 12s
-				</span>
-				<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
-					· 14 steps
-				</span>
-				<span className="ml-auto text-[12px] text-[var(--text-tertiary)]">
-					{open ? "Hide" : "Show"}
-				</span>
-			</button>
+				Response · Worked for 1m 12s · 14 steps
+			</SectionLabel>
 			{open ? (
-				<div
-					className="px-[12px] pb-[12px] pt-[3px]"
-					style={{ borderTop: "1px solid var(--border-subtle)" }}
-				>
-					<p className="pt-[9px] text-[15px] leading-[1.7] text-[var(--text-primary)]">
-						Added WebAuthn registration + the dual-auth window. Existing sessions stay
-						valid through phase 2.
-					</p>
-				</div>
+				<BodyText>
+					Added WebAuthn registration and the dual-auth window. Existing sessions stay
+					valid through phase 2.
+				</BodyText>
 			) : null}
 		</div>
 	);
 }
 
-// ── Embed 2: full-bleed inline artifact diff (real +/− lines, foldable) ──
+// ── The one calm embed frame: hairline-bordered, column-edge aligned ─────
+// Every embed shares this single treatment — no shadows, no accent rails, no
+// tinted variants. Whitespace around it (the Turn's gap) does the separating.
+
+function EmbedFrame({
+	children,
+	"data-ds-part": part,
+}: {
+	children: React.ReactNode;
+	"data-ds-part": string;
+}): React.JSX.Element {
+	return (
+		<div
+			data-ds-part={part}
+			className="overflow-hidden rounded-[var(--r-subtle)]"
+			style={{ border: "1px solid var(--border-subtle)" }}
+		>
+			{children}
+		</div>
+	);
+}
+
+/** The quiet caption line atop an embed — kind + name, tertiary, aligned. */
+function EmbedCaption({
+	kind,
+	name,
+	detail,
+	trailing,
+}: {
+	kind: string;
+	name: React.ReactNode;
+	detail?: string;
+	trailing?: React.ReactNode;
+}): React.JSX.Element {
+	return (
+		<div className="flex items-center gap-[9px] px-[18px] py-[12px]">
+			<span
+				className="text-[11px] font-[var(--fw-semibold)] uppercase text-[var(--text-tertiary)]"
+				style={{ letterSpacing: "var(--tracking-caps)" }}
+			>
+				{kind}
+			</span>
+			<span className="font-[var(--fw-medium)] text-[13px] text-[var(--text-primary)]">{name}</span>
+			{detail ? <span className="text-[13px] text-[var(--text-tertiary)]">{detail}</span> : null}
+			{trailing ? <span className="ml-auto">{trailing}</span> : null}
+		</div>
+	);
+}
+
+// ── Embed 1: full-bleed inline artifact diff (real +/− lines, foldable) ──
 
 interface DiffLine {
 	readonly sign: "+" | "-" | " ";
@@ -197,54 +181,45 @@ const DIFF_LINES: ReadonlyArray<DiffLine> = [
 function ArtifactDiffEmbed(): React.JSX.Element {
 	const [open, setOpen] = useState(true);
 	return (
-		<div
-			data-ds-part="embed-artifact"
-			className="overflow-hidden rounded-[var(--r-default)]"
-			style={{
-				background: "var(--surface-elevated)",
-				boxShadow: "var(--shadow-default)",
-			}}
-		>
+		<EmbedFrame data-ds-part="embed-artifact">
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
+				className="flex w-full items-center gap-[9px] px-[18px] py-[12px] text-left"
 			>
 				<span
-					aria-hidden
-					className="inline-block transition-transform"
-					style={{
-						transitionDuration: "var(--motion-default)",
-						transitionTimingFunction: "var(--motion-ease)",
-						transform: open ? "rotate(90deg)" : "rotate(0deg)",
-						color: "var(--text-tertiary)",
-					}}
+					className="text-[11px] font-[var(--fw-semibold)] uppercase text-[var(--text-tertiary)]"
+					style={{ letterSpacing: "var(--tracking-caps)" }}
 				>
-					▸
+					Diff
 				</span>
 				<span className="font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
 					auth/passkey.ts
 				</span>
-				<span
-					className="rounded-[var(--r-pill)] px-[6px] py-[1px] text-[10px] font-[var(--fw-semibold)] uppercase"
-					style={{
-						background: "var(--surface-container)",
-						color: "var(--text-tertiary)",
-						letterSpacing: "var(--tracking-caps-sm)",
-					}}
-				>
-					text_diff
-				</span>
-				<span className="ml-auto flex items-center gap-[9px] text-[13px] tabular-nums">
+				<span className="ml-auto flex items-center gap-[12px] text-[13px] tabular-nums">
 					<span style={{ color: "var(--status-success)" }}>+124</span>
 					<span style={{ color: "var(--status-error)" }}>−18</span>
+					<span
+						aria-hidden
+						className="inline-block transition-transform text-[var(--text-tertiary)]"
+						style={{
+							transitionDuration: "var(--motion-default)",
+							transitionTimingFunction: "var(--motion-ease)",
+							transform: open ? "rotate(90deg)" : "rotate(0deg)",
+						}}
+					>
+						▸
+					</span>
 				</span>
 			</button>
 			{open ? (
 				<div
-					className="font-[var(--font-mono)] text-[12px] leading-[1.55]"
-					style={{ borderTop: "1px solid var(--border-subtle)" }}
+					className="font-[var(--font-mono)] text-[12px]"
+					style={{
+						borderTop: "1px solid var(--border-subtle)",
+						lineHeight: "var(--leading-body)",
+					}}
 				>
 					{DIFF_LINES.map((line, i) => {
 						const isAdd = line.sign === "+";
@@ -267,8 +242,7 @@ function ArtifactDiffEmbed(): React.JSX.Element {
 								style={{ background: rowBg }}
 							>
 								<span
-									className="w-[24px] shrink-0 select-none px-[9px] text-right"
-									style={{ color: "var(--text-tertiary)" }}
+									className="w-[36px] shrink-0 select-none px-[9px] text-right text-[var(--text-tertiary)]"
 								>
 									{i + 1}
 								</span>
@@ -278,10 +252,7 @@ function ArtifactDiffEmbed(): React.JSX.Element {
 								>
 									{line.sign === " " ? "" : line.sign}
 								</span>
-								<span
-									className="whitespace-pre pr-[12px]"
-									style={{ color: "var(--text-primary)" }}
-								>
+								<span className="whitespace-pre pr-[18px] text-[var(--text-primary)]">
 									{line.text}
 								</span>
 							</div>
@@ -289,85 +260,57 @@ function ArtifactDiffEmbed(): React.JSX.Element {
 					})}
 				</div>
 			) : null}
-		</div>
+		</EmbedFrame>
 	);
 }
 
-// ── Embed 3: full-bleed inline referenced-block card (real content) ──────
+// ── Embed 2: full-bleed inline referenced-block card (real content) ──────
 
 function ReferencedBlockEmbed(): React.JSX.Element {
 	return (
-		<div
-			data-ds-part="embed-block"
-			className="rounded-[var(--r-default)] px-[18px] py-[12px]"
-			style={{
-				background: "var(--surface-elevated)",
-				boxShadow: "var(--shadow-default)",
-			}}
-		>
-			<div className="flex items-center gap-[6px]">
-				<span
-					className="rounded-[var(--r-pill)] px-[6px] py-[1px] text-[10px] font-[var(--fw-semibold)] uppercase"
-					style={{
-						background: "var(--accent-secondary-dim)",
-						color: "var(--accent-secondary)",
-						letterSpacing: "var(--tracking-caps-sm)",
-					}}
-				>
-					Knowledge
-				</span>
-				<span className="text-[13px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
-					Auth migration plan
-				</span>
-				<span className="text-[12px] text-[var(--text-tertiary)]">· §2 Dual-auth window</span>
-			</div>
-			<div
-				className="mt-[9px] pl-[12px]"
-				style={{ borderLeft: "2.5px solid var(--border-default)" }}
-			>
-				<h4 className="text-[15px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
+		<EmbedFrame data-ds-part="embed-block">
+			<EmbedCaption kind="Knowledge" name="Auth migration plan" detail="§2 Dual-auth window" />
+			<div className="px-[18px] pb-[18px]" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+				<h4 className="pt-[12px] text-[15px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
 					Dual-auth window
 				</h4>
-				<p className="mt-[3px] text-[15px] leading-[1.55] text-[var(--text-secondary)]">
+				<p
+					className="mt-[6px] text-[15px] text-[var(--text-secondary)]"
+					style={{ lineHeight: "var(--leading-relaxed)" }}
+				>
 					For a two-week window both passkeys and passwords are accepted. New logins
 					prefer WebAuthn; legacy clients fall back to password. We deprecate the
 					password path only after enrollment crosses 80%.
 				</p>
 			</div>
-		</div>
+		</EmbedFrame>
 	);
 }
 
-// ── Embed 4: session-reference card (opens dial-in; NEVER a work-log) ────
+// ── Embed 3: session reference — a single quiet inline line (NOT a card) ──
+// Opens the AM3 dial-in; NEVER expands a work-log. Aligned to the column edge,
+// no avatar, no box — just a calm line, per the reference's restraint.
 
 function SessionReferenceEmbed(): React.JSX.Element {
 	return (
 		<button
 			type="button"
 			data-ds-part="embed-session-reference"
-			className="flex w-full items-center gap-[12px] rounded-[var(--r-default)] px-[12px] py-[9px] text-left transition-colors"
-			style={{
-				background: "var(--surface-elevated)",
-				border: "1px solid var(--border-subtle)",
-				transitionDuration: "var(--motion-fast)",
-			}}
+			className="group flex w-full items-center gap-[9px] text-left text-[13px]"
 		>
-			<Avatar p={ATLAS} />
-			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-[6px]">
-					<span className="text-[13px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
-						Session · Atlas
-					</span>
-					<span className="text-[12px] text-[var(--text-tertiary)]">Opus 4.8</span>
-				</div>
-				<div className="mt-[1px] flex items-center gap-[12px] text-[12px] tabular-nums text-[var(--text-tertiary)]">
-					<span>$0.42</span>
-					<span>14 tool calls</span>
-				</div>
-			</div>
 			<span
-				className="shrink-0 text-[13px] font-[var(--fw-medium)]"
-				style={{ color: "var(--accent-primary)" }}
+				className="font-[var(--fw-semibold)] uppercase text-[var(--text-tertiary)]"
+				style={{ letterSpacing: "var(--tracking-caps)", fontSize: "11px" }}
+			>
+				Session
+			</span>
+			<span className="font-[var(--fw-medium)] text-[var(--text-primary)]">Atlas</span>
+			<span className="tabular-nums text-[var(--text-tertiary)]">
+				Opus 4.8 · $0.42 · 14 tool calls
+			</span>
+			<span
+				className="ml-auto font-[var(--fw-medium)] transition-colors"
+				style={{ color: "var(--accent-primary)", transitionDuration: "var(--motion-fast)" }}
 			>
 				Open session →
 			</span>
@@ -376,8 +319,10 @@ function SessionReferenceEmbed(): React.JSX.Element {
 }
 
 // ── Review → verdict (renders within the Message/verdict model) ──────────
+// Same single embed frame; the review's title is the document heading, the
+// reasoning folds via the same quiet device, the diff renders inline.
 
-function ReviewWithVerdict(): React.JSX.Element {
+function ReviewEmbed(): React.JSX.Element {
 	const [reasoningOpen, setReasoningOpen] = useState(false);
 	const reasoning = [
 		"Schema migration adds two columns; backfill verified.",
@@ -385,72 +330,56 @@ function ReviewWithVerdict(): React.JSX.Element {
 		"Dual-auth window keeps existing sessions valid through phase 2.",
 	];
 	return (
-		<div
-			data-ds-part="review"
-			className="rounded-[var(--r-default)] px-[18px] py-[18px]"
-			style={{
-				background: "var(--surface-elevated)",
-				boxShadow: "var(--shadow-default)",
-				borderLeft: "2.5px solid var(--accent-primary)",
-			}}
-		>
-			<div className="flex items-center gap-[9px]">
-				<span
-					className="rounded-[var(--r-pill)] px-[6px] py-[1px] text-[10px] font-[var(--fw-semibold)] uppercase"
-					style={{
-						background: "var(--accent-primary-dim)",
-						color: "var(--accent-primary)",
-						letterSpacing: "var(--tracking-caps-sm)",
-					}}
-				>
-					Review
-				</span>
-				<h3 className="text-[17px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
+		<EmbedFrame data-ds-part="review">
+			<div className="px-[18px] pt-[18px]">
+				<SectionLabel>Review · Awaiting your verdict</SectionLabel>
+				<h3 className="mt-[9px] text-[17px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
 					Approve deploy of passkey login to staging
 				</h3>
+
+				<button
+					type="button"
+					aria-expanded={reasoningOpen}
+					onClick={() => setReasoningOpen((v) => !v)}
+					className="mt-[12px] flex items-center gap-[6px] text-left"
+				>
+					<span
+						aria-hidden
+						className="inline-block transition-transform text-[var(--text-tertiary)]"
+						style={{
+							transitionDuration: "var(--motion-default)",
+							transitionTimingFunction: "var(--motion-ease)",
+							transform: reasoningOpen ? "rotate(90deg)" : "rotate(0deg)",
+						}}
+					>
+						▸
+					</span>
+					<span className="text-[13px] font-[var(--fw-medium)] text-[var(--text-secondary)]">
+						{reasoningOpen ? "Reasoning" : `Reasoning · ${reasoning.length} points`}
+					</span>
+				</button>
+				{reasoningOpen ? (
+					<ul className="mt-[9px] flex flex-col gap-[6px] pl-[24px]">
+						{reasoning.map((r) => (
+							<li
+								key={r}
+								className="list-disc text-[15px] text-[var(--text-secondary)]"
+								style={{ lineHeight: "var(--leading-body)" }}
+							>
+								{r}
+							</li>
+						))}
+					</ul>
+				) : null}
 			</div>
 
-			<button
-				type="button"
-				aria-expanded={reasoningOpen}
-				onClick={() => setReasoningOpen((v) => !v)}
-				className="mt-[12px] flex items-center gap-[6px] text-left"
-			>
-				<span
-					aria-hidden
-					className="inline-block transition-transform"
-					style={{
-						transitionDuration: "var(--motion-default)",
-						transitionTimingFunction: "var(--motion-ease)",
-						transform: reasoningOpen ? "rotate(90deg)" : "rotate(0deg)",
-						color: "var(--text-tertiary)",
-					}}
-				>
-					▸
-				</span>
-				<span className="text-[13px] font-[var(--fw-medium)] text-[var(--text-secondary)]">
-					{reasoningOpen ? "Reasoning" : `Reasoning · ${reasoning.length} points`}
-				</span>
-			</button>
-			{reasoningOpen ? (
-				<ul className="mt-[9px] flex flex-col gap-[6px] pl-[24px]">
-					{reasoning.map((r) => (
-						<li
-							key={r}
-							className="list-disc text-[15px] leading-[1.55] text-[var(--text-secondary)]"
-						>
-							{r}
-						</li>
-					))}
-				</ul>
-			) : null}
-
-			<div className="mt-[12px]">
+			<div className="mt-[12px] px-[18px]">
+				{/* The review's inline diff — same one calm treatment, nested. */}
 				<ArtifactDiffEmbed />
 			</div>
 
 			<div
-				className="mt-[18px] flex items-center gap-[9px] pt-[12px]"
+				className="mt-[18px] flex items-center gap-[9px] px-[18px] py-[12px]"
 				style={{ borderTop: "1px solid var(--border-subtle)" }}
 			>
 				<button
@@ -483,174 +412,137 @@ function ReviewWithVerdict(): React.JSX.Element {
 					Reject
 				</button>
 			</div>
-		</div>
+		</EmbedFrame>
 	);
 }
 
-/** The resolving verdict — the founder's approve, rendered as a quiet line. */
+/** The resolving verdict — the founder's approve, rendered as a quiet label. */
 function VerdictLine(): React.JSX.Element {
 	return (
-		<div data-ds-part="verdict" className="flex items-center gap-[9px]">
-			<Avatar p={FOUNDER} />
-			<span className="text-[15px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
-				{FOUNDER.name}
-			</span>
+		<div data-ds-part="verdict" className="flex items-baseline gap-[9px]">
 			<span
-				className="rounded-[var(--r-pill)] px-[9px] py-[2px] text-[11px] font-[var(--fw-semibold)] uppercase"
-				style={{
-					background: "var(--accent-primary-dim)",
-					color: "var(--accent-primary)",
-					letterSpacing: "var(--tracking-caps-sm)",
-				}}
+				className="text-[11px] font-[var(--fw-semibold)] uppercase text-[var(--accent-primary)]"
+				style={{ letterSpacing: "var(--tracking-caps)" }}
 			>
 				Approved
 			</span>
 			<span className="text-[13px] text-[var(--text-secondary)]">
-				deploy of passkey login to staging
-			</span>
-			<span className="ml-auto text-[12px] tabular-nums text-[var(--text-tertiary)]">
-				12:14
+				Deploy of passkey login to staging
 			</span>
 		</div>
 	);
 }
 
-// ── Turn wrapper: quiet rule between sender turns (document rhythm) ───────
+// ── Turn wrapper: whitespace IS the separator (one alignment edge) ───────
+// No rules, no borders between turns — only generous vertical rhythm. Every
+// child is flush to the column's single left edge.
 
-function Turn({
-	first,
-	children,
-}: {
-	first?: boolean;
-	children: React.ReactNode;
-}): React.JSX.Element {
-	return (
-		<div
-			className="flex flex-col gap-[12px] py-[24px]"
-			style={first ? undefined : { borderTop: "1px solid var(--border-subtle)" }}
-		>
-			{children}
-		</div>
-	);
+function Turn({ children }: { children: React.ReactNode }): React.JSX.Element {
+	return <div className="flex flex-col gap-[12px]">{children}</div>;
 }
 
-// ── Host banner ──────────────────────────────────────────────────────────
-
-function HostBanner(): React.JSX.Element {
-	return (
-		<div className="flex items-center gap-[9px] pb-[18px]">
-			<span
-				className="rounded-[var(--r-pill)] px-[9px] py-[2px] text-[11px] font-[var(--fw-semibold)] uppercase"
-				style={{
-					background: "var(--surface-container)",
-					color: "var(--text-secondary)",
-					letterSpacing: "var(--tracking-caps-sm)",
-				}}
-			>
-				Bet
-			</span>
-			<h1 className="text-[20px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
-				Passkey login
-			</h1>
-		</div>
-	);
-}
-
-// ── Composer (deliberate message input; NO model/effort pills) ───────────
-
-function Composer(): React.JSX.Element {
-	// @lore: production pins this composer sticky to the column bottom (spec
-	// hierarchy item 9 + mobile). In the story it renders STATIC at the true
-	// document bottom so the full-page snapshot does not pin it mid-thread —
-	// the embodiment proves placement, the builder restores `sticky bottom-0`.
-	return (
-		<div className="pt-[18px]" style={{ background: "var(--surface-page)" }}>
-			<div
-				className="rounded-[var(--r-default)] px-[18px] py-[12px]"
-				style={{
-					background: "var(--surface-elevated)",
-					border: "1px solid var(--border-default)",
-					boxShadow: "var(--shadow-default)",
-				}}
-			>
-				<textarea
-					rows={2}
-					placeholder="Reply to Atlas…"
-					className="w-full resize-none bg-transparent text-[15px] leading-[1.55] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-				/>
-				<div className="mt-[9px] flex items-center justify-end">
-					<button
-						type="button"
-						className="rounded-[var(--r-subtle)] px-[18px] py-[7px] text-[13px] font-[var(--fw-semibold)]"
-						style={{ background: "var(--accent-primary)", color: "var(--text-on-accent)" }}
-					>
-						Send
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-// ── The variant: full canonical conversation as a calm document ───────────
+// ── The variant: full canonical conversation as an editorial document ─────
 
 export default function Am1ConversationCalmDocument(): React.JSX.Element {
 	return (
 		<div
 			data-ds-component="Am1ConversationCalmDocument"
-			className="min-h-full w-full"
+			className="relative flex min-h-full w-full flex-col"
 			style={{ background: "var(--surface-page)" }}
 		>
-			<div className="mx-auto flex max-w-[760px] flex-col px-[24px] pb-[36px] pt-[36px]">
-				<HostBanner />
+			{/* The scrolling reading column — generous centered, ~720px. */}
+			<div className="mx-auto w-full max-w-[720px] flex-1 px-[24px] pt-[48px] pb-[36px]">
+				{/* Quiet host line — typographic, no badge soup. */}
+				<div className="flex items-baseline gap-[9px] pb-[36px]">
+					<span
+						className="text-[11px] font-[var(--fw-semibold)] uppercase text-[var(--text-tertiary)]"
+						style={{ letterSpacing: "var(--tracking-caps)" }}
+					>
+						Bet
+					</span>
+					<h1 className="text-[20px] font-[var(--fw-semibold)] text-[var(--text-primary)]">
+						Passkey login
+					</h1>
+				</div>
 
-				{/* 1 — Founder · plain */}
-				<Turn first>
-					<SenderLine p={FOUNDER} timestamp="12:01" />
-					<BodyText>
-						Can you wire passkey login and show me the diff before we deploy?
-					</BodyText>
-				</Turn>
+				<div className="flex flex-col gap-[36px]">
+					{/* 1 — Founder · plain. No chrome at all — pure prose. */}
+					<Turn>
+						<BodyText>
+							Can you wire passkey login and show me the diff before we deploy?
+						</BodyText>
+					</Turn>
 
-				{/* 2 — Atlas · plain + the prominent Work Fold */}
-				<Turn>
-					<SenderLine p={ATLAS} timestamp="12:03" />
-					<WorkFold />
-				</Turn>
+					{/* 2 — Atlas · the Fold (quiet work-label IS the only turn chrome). */}
+					<Turn>
+						<WorkFold />
+					</Turn>
 
-				{/* 3 — Atlas · plain embedding the artifact diff (full-bleed inline) */}
-				<Turn>
-					<SenderLine p={ATLAS} timestamp="12:08" />
-					<BodyText>Here's the change — passkey registration replaces the password path:</BodyText>
-					<ArtifactDiffEmbed />
-				</Turn>
+					{/* 3 — Atlas · plain embedding the artifact diff (full-bleed inline). */}
+					<Turn>
+						<BodyText>
+							<strong className="font-[var(--fw-semibold)]">Here&rsquo;s the change.</strong>{" "}
+							Passkey registration replaces the password path:
+						</BodyText>
+						<ArtifactDiffEmbed />
+					</Turn>
 
-				{/* 4 — Atlas · plain embedding a referenced block (full content) */}
-				<Turn>
-					<SenderLine p={ATLAS} timestamp="12:09" />
-					<BodyText>It follows the dual-auth window we agreed on:</BodyText>
-					<ReferencedBlockEmbed />
-				</Turn>
+					{/* 4 — Atlas · plain embedding a referenced block (full content). */}
+					<Turn>
+						<BodyText>It follows the dual-auth window we agreed on:</BodyText>
+						<ReferencedBlockEmbed />
+					</Turn>
 
-				{/* 5 — Atlas · plain embedding a session reference (NOT a work-log) */}
-				<Turn>
-					<SenderLine p={ATLAS} timestamp="12:10" />
-					<BodyText>Full trace of the run, if you want to dial in:</BodyText>
-					<SessionReferenceEmbed />
-				</Turn>
+					{/* 5 — Atlas · plain embedding a session reference (NOT a work-log). */}
+					<Turn>
+						<BodyText>Full trace of the run, if you want to dial in:</BodyText>
+						<SessionReferenceEmbed />
+					</Turn>
 
-				{/* 6 — Atlas · review with verdict bar */}
-				<Turn>
-					<SenderLine p={ATLAS} timestamp="12:11" />
-					<ReviewWithVerdict />
-				</Turn>
+					{/* 6 — Atlas · review with verdict bar. */}
+					<Turn>
+						<ReviewEmbed />
+					</Turn>
 
-				{/* 7 — Founder · verdict (resolves the review) */}
-				<Turn>
-					<VerdictLine />
-				</Turn>
+					{/* 7 — Founder · verdict (resolves the review). */}
+					<Turn>
+						<VerdictLine />
+					</Turn>
+				</div>
+			</div>
 
-				<Composer />
+			{/* Composer — bottom-pinned, one clean rounded elevated input. */}
+			<div
+				className="sticky bottom-0"
+				style={{
+					background: "var(--surface-page)",
+					borderTop: "1px solid var(--border-subtle)",
+				}}
+			>
+				<div className="mx-auto w-full max-w-[720px] px-[24px] py-[18px]">
+					<div
+						className="flex items-end gap-[12px] rounded-[var(--r-default)] px-[18px] py-[12px]"
+						style={{
+							background: "var(--surface-elevated)",
+							border: "1px solid var(--border-default)",
+							boxShadow: "var(--shadow-default)",
+						}}
+					>
+						<textarea
+							rows={1}
+							placeholder="Reply to Atlas…"
+							className="min-h-[24px] flex-1 resize-none bg-transparent text-[15px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+							style={{ lineHeight: "var(--leading-body)" }}
+						/>
+						<button
+							type="button"
+							className="shrink-0 rounded-[var(--r-subtle)] px-[18px] py-[7px] text-[13px] font-[var(--fw-semibold)]"
+							style={{ background: "var(--accent-primary)", color: "var(--text-on-accent)" }}
+						>
+							Send
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	);

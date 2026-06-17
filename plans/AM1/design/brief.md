@@ -68,3 +68,29 @@ Each pair differs on ≥3 axes (density, embed-open strategy, composition, hiera
 - Honor the concept's rejection list: deliberate messages only; **session activity is NEVER first-class conversation content** (session = a reference Embed); within the Thread/Message/verdict model; name nothing "Block"/"blocked".
 - No color/token changes; no new tokens. Use existing `--*` tokens + Hearth grid spacing {3,6,9,12,18,24,36,48}px, radius {10,16,9999}, type {12,13,15,17,…}, weights {400,500,600,700}. Warm only.
 - Render in isolation (presentational; props/fixtures in, callbacks noop). No backend, no MockProviders needed for a column.
+
+---
+
+## REDO v2 — FOUNDER FEEDBACK (AUTHORITATIVE — supersedes the variant defs above)
+
+Founder rejected all three v1 variants: **"too busy, too misaligned, not structured enough — none worthy to even comment on."** The redo must hit the founder's bar by studying the actual reference images, not our v1 output.
+
+**STUDY THE REFERENCE FIRST (mandatory):** `plans/AM1/Screenshot 2026-06-16 at 22.15.49.png` (the main t3code conversation). What makes it worthy — copy this *restraint*, not its colors:
+1. **Almost no per-message chrome.** NO avatar, NO "AGENT/BUILDER" role badge, NO timestamp on every message. The agent's turn flows as **prose**. Identity appears quietly at most once per turn (or via a quiet section label) — never repeated on every line. This was our #1 busyness sin.
+2. **Narrow centered reading column with generous margins.** Lots of empty space left/right of the column and generous vertical rhythm *between* turns. It breathes. Do not fill the width; do not cram.
+3. **Understated, consistently-aligned embeds.** The reference's file reference is a quiet muted line (small, monospace path + `+/−`), NOT a heavy bordered/shadowed card. ONE calm embed treatment, every embed left-aligned to the same column edge.
+4. **Structure from typography + whitespace, not boxes/borders/badges/accent-rails.** Bold inline lead-ins, clean bullet/numbered lists, comfortable line-height. Kill the left accent rails, the per-message tinted cards, the badge soup.
+5. **Quiet section separators.** A small uppercase, letter-spaced label like `RESPONSE · WORKED FOR 1M 12S` (use `--text-tertiary`, `--tracking-caps`) marks an agent work-turn — calm, not a heavy fold card. The **Fold** is this quiet label + optional "Show".
+6. **One clean alignment grid.** Every element shares one left edge in the column. No ragged insets. This was our #2 sin (misalignment).
+7. **Composer:** a single clean rounded elevated input at the bottom (`--r-default`, generous padding). NO model/effort pills (those are AM3 dial-in).
+
+**KILL these (per founder + [[memory]]):** skeleton / loading / error / empty states. Each variant story exports **ONLY `Populated`** (the real conversation). No `order` needed.
+
+**Concept unchanged:** still deliberate messages within Threads; session = a quiet reference Embed (one understated line/label that opens the dial-in, NEVER an inlined work-log); within Thread/Message/verdict; nothing named "Block"; no color/token changes.
+
+**The three redone variants (all must hit the bar above; differ on STRUCTURE LEVEL, not on adding chrome):**
+- **A "Quiet prose"** — faithful to the reference: the conversation reads as flowing prose; turns separated only by quiet uppercase section labels + whitespace; embeds = understated muted inline lines (path + `+/−`, a one-line block ref, a one-line session ref). The most minimal — almost no containers. Hierarchy is purely typographic. (Was "Quiet Stream" — strip its chips/cards/rails.)
+- **B "Quiet turns"** — slightly more structure: each speaker turn is a calm, generously-padded **borderless** block (soft `--surface-container` tint at most, no border, no shadow, no accent rail), sender named once and quietly; embeds as ONE restrained aligned card style; turn rhythm from spacing + the soft block, not chrome. Scannable + structured, still calm. (Replaces the v1 two-pane — **drop the side panel**: a second region reads as "busy"; the reference is single-column.)
+- **C "Editorial"** — long-form reading layout: generous column, slightly larger body type, embeds full-bleed and beautiful (the actual diff / block render in place) but with ONE consistent calm treatment + strong whitespace; agent work marked by a quiet section label; the richest embedding, but disciplined and aligned. (Was "Calm Document" — remove the per-message badges/timestamps, the mid-thread composer is already fixed; push restraint + alignment much further.)
+
+Anti-convergence: A=no containers/typographic-only, B=soft borderless blocks, C=editorial full-bleed embeds. They differ on chrome level, embed treatment, density, type scale — while ALL sharing the reference's calm/aligned/structured restraint.

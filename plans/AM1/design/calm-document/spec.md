@@ -1,57 +1,59 @@
-# AM1 Variant C — "Calm document" (spec)
+# AM1 Variant C — "Editorial" (spec)
 
-Embodiment: `packages/web/src/components/Am1ConversationCalmDocument.tsx` (+ `.stories.tsx`). Renders the brief's canonical fixture. Honors the locked concept: deliberate messages only; session = a reference Embed (never an inlined work-log); within Thread/Message/verdict; nothing named "Block"/"blocked".
+Embodiment: `packages/web/src/components/Am1ConversationCalmDocument.tsx` (+ `.stories.tsx`, single `Populated` export). Renders the brief's canonical fixture. Honors the locked concept: deliberate messages only; session = a reference Embed (a quiet line that opens the dial-in, never an inlined work-log); within Thread/Message/verdict; nothing named "Block"/"blocked".
+
+**REDO v2.** Rebuilt to the founder's bar against the t3code reference. v1 ("Calm document") was the right column but too busy and misaligned. This version pushes restraint and alignment much further: it kills all per-message chrome and lands on one calm embed treatment, one alignment grid.
 
 ## User workpackage
-The founder scans and steers a deliberate agent thread that reads like a living document — embeds render full-bleed inline so the founder judges the actual change in place, then approves the deploy.
+The founder scans and steers a deliberate agent thread that reads like a beautifully typeset article — embeds render full-bleed inline so the founder judges the actual change in place — then approves the deploy. The decision: *do I follow this, and do I approve the proposed change?*
 
 ## Component composition (production reuse mapping)
 The variant is hand-rolled for reliable rendering; production maps onto the new **Part model** primitive plus catalogued components:
 
 - **Part model wrapper** (NEW — the WP's primitive): a source-agnostic `Part[]` renderer — single calm column, exhaustive discriminant dispatch with an `unknown` fallback Part. Derived from `Message[]`, never stored. AM3 reuses it for session events.
-- **Plain Part** → `CommentRow` (sender-grouped, mention/redaction aware). Variant C's document body text + sender lead-in are `CommentRow` in a generous-column skin.
-- **Review Part + verdict bar** → `RichMessageCard` (idle/saving/error/resolved, foldable reasoning, verdict actions). Reused verbatim; the verdict line is its resolved state.
-- **Verdict Part** → `CommentRow` verdict rendering (`verdictDecisionLabel` / `verdictDecisionToStatus` from `shared/thread.ts`).
-- **Composer** → `Composer` (textarea + send, Cmd/Enter). NO model/effort pills — those are AM3 dial-in.
-- **Avatar / role tint** → `Avatar`; **host banner** → `ThreadHostBanner`; **kind chips** → `Tag` / `StatusChip`; **cost/tool meta** → `KeyValue` (tabular-nums).
-- **Artifact-diff Embed** → `ArtifactEmbed` + `ArtifactPreview` + `kinds/code-renderer` (`text_diff` shape). EXTEND: today renders compact; Variant C needs a **full-bleed inline foldable diff Part renderer** (`DiffEmbedPart`) wrapping the existing `code-renderer` — extension impossible inline because the existing embed is sized for a compact card, not an in-column document block with its own fold state.
-- **Referenced-block Embed** → `BlockRefEmbed` (web) → `Block` + `renderPayload`. EXTEND: a **document-grade block Part renderer** (`BlockEmbedPart`) that renders the block's real content inline with a quote-rule, not a compact chip. New because no existing component renders a referenced block at document scale in-column.
-- **Session-reference Embed** (NEW, small): `SessionReferenceEmbed` composing `Avatar` + `KeyValue` + `Button`. A calm card (avatar · model · cost · tool-call count · "Open session →") that routes to the AM3 dial-in. NEW because no component points at a Session without inlining activity — and that non-inlining is concept hard-rule #3.
-- **Fold device** (NEW, small): generalize `RichMessageCard`'s reasoning fold into a standalone `Fold` usable on any Part (the "Worked for 1m 12s" work-fold, the diff, the reasoning).
+- **Plain Part** → `CommentRow` (mention/redaction aware). In Variant C a plain agent/human turn renders as **bare prose** (no avatar/name/timestamp row); identity is carried at most once per turn by a quiet section label. Production keeps `CommentRow` but skins it to the editorial mode (sender chrome suppressed, body text promoted to 15px / `--leading-relaxed`).
+- **Review Part + verdict bar** → `RichMessageCard` (idle/saving/error/resolved, foldable reasoning, verdict actions). Reused; rendered inside the one calm embed frame rather than its own shadowed card. The verdict line is its resolved state, rendered as a quiet `Approved` label.
+- **Verdict Part** → `CommentRow` verdict rendering (`verdictDecisionLabel` / `verdictDecisionToStatus` from `shared/thread.ts`), styled as a one-line uppercase label.
+- **Composer** → `Composer` (textarea + send, Cmd/Enter), bottom-pinned. NO model/effort pills — those are AM3 dial-in.
+- **Kind / status labels** → `Tag` / `StatusChip` in their uppercase `--tracking-caps` mode, used sparingly as section labels (not per-message badges).
+- **Cost / tool meta** → `KeyValue` (tabular-nums) — but in Variant C the session reference is a single inline line, so the meta is a flat `model · $cost · N tool calls` string, not a `KeyValue` grid.
 
-NEW document-grade renderers needed: `DiffEmbedPart`, `BlockEmbedPart`, the standalone `Fold`, `SessionReferenceEmbed`. Extension is impossible because each existing surface is sized/shaped for a compact reference, whereas Variant C's thesis is full-bleed inline document content — a different layout contract.
+New Part renderers (the WP's deliberately-minimal new shapes) and why each is NEW rather than an extension:
+
+- **`DiffEmbedPart`** (NEW) — wraps the existing `kinds/code-renderer` (`text_diff`) but as a **full-bleed in-column foldable block** with its own caption (`Diff · auth/passkey.ts · +124 −18`) and fold state. NEW because the existing `ArtifactEmbed`/`ArtifactPreview` are sized for a compact reference card, not an in-column document block.
+- **`BlockEmbedPart`** (NEW) — wraps `BlockRefEmbed` → `Block` + `renderPayload` to render the referenced block's **real content** inline (heading + body) under a quiet `Knowledge · Auth migration plan · §2` caption. NEW because no existing component renders a referenced block at document scale in-column.
+- **`SessionReferenceEmbed`** (NEW, small) — a single **quiet inline line** (`Session · Atlas · Opus 4.8 · $0.42 · 14 tool calls · Open session →`) that routes to the AM3 dial-in. NEW because no component points at a Session *without* inlining its activity — and that non-inlining is concept hard-rule #3. Note: deliberately NOT a card-with-avatar (that was the v1 busyness sin); a calm line aligned to the column edge.
+- **`Fold`** (NEW, small) — generalizes `RichMessageCard`'s reasoning fold into a standalone device usable on any Part. In Variant C its closed-state IS a quiet uppercase section label (`RESPONSE · WORKED FOR 1M 12S · 14 STEPS` + `SHOW`) — the calm-making device, not a heavy fold card.
+
+A single shared **`EmbedFrame`** (hairline `--border-subtle`, `--r-subtle`, no shadow, no accent rail) gives every embed ONE consistent calm treatment aligned to the column edge — the discipline that fixes v1's varied embed chrome.
 
 ## Information hierarchy (top → bottom)
-1. Host banner — "Bet · Passkey login" (what this thread is attached to).
-2. Sender turns, separated by quiet 1px rules (document rhythm, not boxes).
-3. Each turn: sender lead-in (avatar + name + role chip + timestamp), then body Parts.
-4. Plain Parts: generous 15px / 1.7 leading body text on the page surface, no card chrome.
-5. Embeds: full-bleed inline cards on `--surface-elevated` with `--shadow-default`, foldable.
-6. Work-fold: prominent collapsed summary "Worked for 1m 12s · 14 steps", expands to the work narrative.
-7. Review Part: elevated card, accent left-rule, foldable reasoning, inline diff embed, verdict bar.
-8. Verdict: quiet resolved line (avatar + APPROVED chip + subject).
-9. Composer: sticky bottom, elevated, textarea + Send.
-
-## All states
-- **Empty** — `EmptyState`: "No messages yet" + "Start a deliberate message to Atlas — embed a diff, a plan, or a session it should work from." Centered in the column.
-- **Loading** — `SkeletonList`: 3 sender-turn skeletons (avatar circle + name bar + two body lines), pulse animation.
-- **Error** — `ErrorState`: "Couldn't load this conversation" + retry `Button`.
-- **Populated** — the full canonical fixture (all Part types + four Embeds + work-fold + review/verdict).
-- **Overflow** — long agent reasoning and completed work collapse via `Fold` to one-line summaries; embeds never become a wall (the diff folds; the block shows §-scoped content, not the whole doc). Many turns scroll the column; the composer stays sticky.
+1. **Host line** — `Bet · Passkey login`, typographic (quiet uppercase kind label + 20px title), no badge soup.
+2. **Turns separated by whitespace only** — `--space-12` (36px) vertical rhythm between turns; no rules, no boxes, one shared left edge.
+3. **Founder plain turn** — pure prose, zero chrome (reads as the article's body).
+4. **Agent work-turn** — marked once by a quiet uppercase section label `RESPONSE · WORKED FOR 1M 12S · 14 STEPS` (the Fold); expands to the work narrative as prose.
+5. **Plain Parts** — 15px / `--leading-relaxed` body text on the page surface, bold inline lead-ins; no card chrome.
+6. **Embeds** — full-bleed inline inside the one `EmbedFrame`; quiet uppercase caption (`DIFF`, `KNOWLEDGE`) + name; the diff shows real `+/−` lines, foldable.
+7. **Session reference** — a single quiet inline line that opens the dial-in (never a work-log).
+8. **Review Part** — inside the same frame: section label, 17px title (the document heading), foldable reasoning, inline diff, verdict bar (Approve / Request changes / Reject).
+9. **Verdict** — a one-line `APPROVED` accent label + subject.
+10. **Composer** — bottom-pinned, one clean rounded `--r-default` elevated input with generous padding; no pills.
 
 ## Behavior
-- **Fold transitions:** chevron rotates 0→90deg and the panel expands over `--motion-default` with `--motion-ease`; respects `prefers-reduced-motion` (durations collapse to ~1ms via tokens). Animate transform/opacity only.
-- **Hover:** session-reference card and fold headers get a subtle `--surface-container` hover (`--motion-fast`); body text rows reveal a timestamp/anchor affordance on hover.
-- **Focus:** every fold toggle, embed header, verdict button, and composer is a real focusable control with `aria-expanded` on folds; visible focus ring from the token system.
+- **Fold transitions:** the work-fold toggles via its `SHOW`/`HIDE` label; the diff and reasoning use a chevron that rotates 0→90° over `--motion-default` with `--motion-ease`. Respects `prefers-reduced-motion` (durations collapse via tokens). Animate transform/opacity only.
+- **Hover:** the session-reference line's `Open session →` and fold labels get a subtle color/`--surface-container` shift over `--motion-fast`. Bare prose turns carry no hover chrome (editorial calm).
+- **Focus:** every fold toggle, diff header, session line, verdict button, and the composer is a real focusable control with `aria-expanded` on folds; visible focus ring from the token system.
 - **Keyboard:** Cmd/Enter sends from the composer; Enter/Space toggles a focused fold; Tab order follows reading order top→bottom.
+- **Fold defaults:** the work-fold is collapsed (it IS the quiet label); the headline diff is open (it is the thing the founder asked to see); review reasoning is collapsed; the review's nested diff is open. Overflow stays scannable because completed work folds to one line and the session never inlines its log.
 
 ## Mobile adaptation (3-tab layout)
-The Conversations tab hosts a single full-width column: max-width drops to 100% with `--space-4` (12px) side padding; the 760px cap is desktop-only. Embeds stay full-bleed inline (already full-width). The work-fold and diff default collapsed on mobile to keep the column short. Composer is sticky at the bottom above the tab bar; inputs use ≥16px font (AQ-005). Sender lead-ins wrap the timestamp under the name when width is tight.
+The Conversations tab hosts a single full-width column: max-width drops to 100% with `--space-4` (12px) side padding; the 720px cap is desktop-only. Embeds stay full-bleed inline (already full-width). The work-fold and headline diff default collapsed on mobile to keep the column short. The session-reference line wraps its meta under the name when width is tight. Composer is bottom-pinned above the tab bar; inputs use ≥16px font (AQ-005).
 
 ## The signature
-**Full-bleed inline embeds + document typography + the prominent work-fold.** The most embedding-rich of the three variants — the conversation reads like a curated, living document where you see the actual diff/plan/session in place, not a log of bubbles. The "Worked for 1m 12s" Fold is a first-class calm-making device borrowed from the t3code reference.
+**Full-bleed inline embeds rendered through ONE calm frame, in an editorial column with almost no per-message chrome.** The richest embedding of the three variants — you see the actual diff/plan/session in place — but disciplined: a single embed treatment, one alignment edge, identity carried by quiet uppercase section labels (the `RESPONSE · WORKED FOR 1M 12S` Fold) instead of avatars + role badges + timestamps on every line. The conversation reads like a typeset article, not a log of bubbles.
 
 ## Trade-offs
-- **Tall column.** Full-bleed inline embeds make turns long; relies on disciplined folding (work-fold + diff fold default-collapsed on overflow) to stay scannable. Without folding, a busy thread scrolls far.
-- **Most new rendering code.** Four new document-grade renderers (`DiffEmbedPart`, `BlockEmbedPart`, `Fold`, `SessionReferenceEmbed`) vs sibling A's reuse-only column — higher build + maintenance surface, but it is exactly the embedding richness the founder asked for and the Part-model primitive the WP exists to ship.
-- **Discipline-dependent calm.** The "document" feel degrades if embeds default open; correctness hinges on fold defaults and per-Part overflow rules.
+- **Tall column.** Full-bleed inline embeds make turns long; relies on disciplined folding (work-fold collapsed, session never inlined) to stay scannable. Without folding, a busy thread scrolls far.
+- **Identity is quiet.** Killing per-message avatars/names/timestamps is what makes it read editorially, but in a many-participant thread "who said this" is less glanceable than sibling B's named soft turns. Mitigation: the section label names the agent on work-turns; a fast scan still distinguishes founder prose from agent embeds. Acceptable for the typical 1-human + 1-agent deliberate thread; weaker for a crowded multi-agent thread.
+- **New rendering code.** Four new Part renderers (`DiffEmbedPart`, `BlockEmbedPart`, `Fold`, `SessionReferenceEmbed`) + the shared `EmbedFrame` vs sibling A's reuse-only column — higher build/maintenance surface, but it is exactly the embedding richness the founder asked for and the Part-model primitive the WP exists to ship.
+- **Discipline-dependent calm.** The "editorial" feel degrades if embeds gain per-variant chrome or fold defaults flip open; correctness hinges on the single `EmbedFrame` treatment and the fold defaults above.
