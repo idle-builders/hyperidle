@@ -12,7 +12,7 @@
 
 ## Required reading (downstream `/design`, `/architecture`, `/pipeline` must read these)
 
-- `.pipeline/work-packages/TRACK-AL.md` — AL1 spec (AL2 removed).
+- `.pipeline/work-packages/TRACK-AL.md` — AL1 spec.
 - `plans/AL1/AL1-review-experience-dossier.md` — competitive map (docs/vendor-sourced).
 - `plans/AL1/AL1-voice-of-the-user.md` — forum/VoC, confidence-tiered (§5.5 = how to treat the Reddit inputs).
 - `docs/human-interface-layer/thread-primitive.md` — the conversation container the *feedback* part reuses. `review`/`verdict` are message types.

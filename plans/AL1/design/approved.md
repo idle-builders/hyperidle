@@ -93,6 +93,6 @@ The center column maps to a single scroll; the right pane becomes a **full-scree
 - **Inline anchored comments:** the reference-chip → real content-following anchor (block identity) is concept-confirmed not-yet-built — its own build.
 
 ## Registered / parked follow-ups (not part of this build)
-- **AL2 — Harness review-return hooks** (registered): force every agent turn to end with an accepted return-to-HyperIdle action.
-- **AL3 — Review execution loop** (registered, parked-unbiased concept): approve → the AI executes the staged operation via the tool.
+- **AL6 — Harness review-return hooks** (registered): force every agent turn to end with an accepted return-to-HyperIdle action.
+- **AL7 — Review execution loop** (registered, parked-unbiased concept): approve → the AI executes the staged operation via the tool.
 - **AM (Conversation Experience):** the conversation thread here will **adopt AM's redesigned conversation style** when it lands (AM1 registered).

@@ -16,7 +16,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **Why this matters.** The review experience is the headline USP, and we are about to invest in it (AL2 and beyond). Designing the differentiator blind is the expensive failure mode; a grounded dossier is cheap insurance and the necessary input to a founder-led concept act on the review experience. The founder is the direct beneficiary — this is the raw material for deciding what "best review ever" actually means for agent-produced work. Without it, AL2 risks reinventing a worse version of patterns that already exist.
 
-**What exists today.** Nothing — this is greenfield research. (Separately, our *own* review surface is partly built: verdicts and dial-in work; inline anchored comments do not — that gap is AL2, not this WP.)
+**What exists today.** Nothing — this is greenfield research. (Separately, our *own* review surface is partly built: verdicts and dial-in work; inline anchored comments do not — that gap is AL4, not this WP.)
 
 **What's genuinely missing.** A structured, cited dossier covering, per domain, the dominant review interaction patterns — inline/anchored commenting, threading, comment-vs-suggestion, approval gating, async-vs-live, notification/attention routing — for code review (e.g. GitHub, GitLab, Graphite, Gerrit), design review (Figma), document/marketing review (Google Docs, Notion, marketing approval tools), and data/notebook review; with screenshots where obtainable and a synthesis of the white space for reviewing *agent-produced* work specifically.
 
@@ -45,11 +45,165 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **Effort.** M (~1d)
 
-> **Scope note (AL2–AL3).** The two workpackages below deliberately extend Track AL beyond its original "interaction layer only" scope into the **review→act loop**: getting work *into* review (AL2, harness domain) and what *approve* triggers (AL3, agent-runtime domain). Both flow from the AL1 review-system note (`plans/AL1/design/review-system.md` §4, founder-parked) and are concept-introducing — each runs its own `/concept` first.
+> **Build note (AL2–AL5).** AL1 produced the founder-approved design (`plans/AL1/design/approved.md`, locked 2026-06-18). The four workpackages below build it: the proof-family canvases (AL2), the composition surface (AL3), inline anchored comments (AL4), and the tool-tailored/community canvas override (AL5). AL2–AL3 build to the locked design (skip `/design`); AL4 needs its own anchoring design; AL5 is concept-introducing.
 
 ---
 
-### AL2 — Harness review-return hooks
+### AL2 — Review proof-family canvases
+
+**Workpackage.** As a reviewer, I want each kind of thing an agent produces — a code change, a record/field write, a money-moving action, a rendered document/email, moved metrics, a visual before/after, a batch of items — shown as a purpose-built **review canvas** that makes that kind legible at a glance and drillable on demand, tool-grounded with the source app's logo and a link back. This implements the founder-approved family canvases so a reviewer can examine any kind of agent work without dropping to raw output.
+
+**Why this matters.** The reviewer is the beneficiary: "review for anything" is only real if every artifact kind has a canvas that shows the *proof* (the running result, the deltas, the receipt, the rendered asset) rather than a raw dump. Without it, non-code work is unreviewable and code review is a bare diff. The design is approved; this is the build.
+
+**What exists today.** Thin per-kind renderers exist (`packages/design-system/src/kinds/`: CodeRenderer, DataRenderer, TextRenderer, ImageRenderer, UrlRenderer, FallbackRenderer + `getRenderer`). The richer canvas designs exist as approved design stories in `packages/web/src/pages/review/` (ReviewCodeDiff, ReviewFieldChangeSet, ReviewActionOperation, ReviewRenderedInContext, ReviewMetricsMoved, ReviewVisualDiff, ReviewBatch, ReviewOutcomeSummary + ToolLogo/CanvasSourceHeader) — prototypes, not wired into a real review.
+
+**What's genuinely missing.** Production canvases implementing the approved per-family designs (3-layer drill-down, tool-grounding, relevance-ordering), plus a registration so an artifact's declared kind selects its family canvas.
+
+**Depends on.** AL1 — the approved design (`plans/AL1/design/approved.md`) is the contract these implement; cannot start until it is locked (it is).
+
+**Complexity.** L
+
+**Human design review.** No — the canvases are designed and approved in `plans/AL1/design/approved.md`; this builds to the lock.
+
+**Acceptance criteria.**
+- Each artifact kind (code · record/field-change · action/operation · rendered document/email · metrics/data · visual · batch) renders through its purpose-built family canvas; a reviewer grasps the result without opening raw output.
+- Every canvas shows its source tool (a recognizable mini-logo) and offers a link back to the original record.
+- Each canvas reads at three layers — a one-glance summary, the structured proof, on-demand detail — with trivia collapsed and the most-relevant/outlier surfaced first.
+- The code canvas is excellent: relevance-ranked changes (logic before generated), the meaningful change summarized, minor/generated changes clearly separated, checks shown inline.
+- An artifact whose kind has no tailored canvas still renders through a generic fallback (never breaks).
+
+**Validation scenarios.**
+- Given an agent code change, when reviewed, then it renders as the code canvas with relevance-ranked, summarized changes and inline checks.
+- Given a money-moving action, when reviewed, then it renders as a pre-commit receipt showing amount, consequence, and how to undo.
+- Given an artifact kind with no tailored canvas, when reviewed, then it renders through the fallback without error.
+
+**Plan calls.** Design is approved — skip `/design` (read `plans/AL1/design/approved.md` + the building-block stories). Standard architecture pass: how each family canvas consumes its artifact payload, how a kind registers its canvas, the ToolLogo source. Likely decomposes per family during `/architecture`.
+
+**Contracts / constraints.** Hearth + the AQ rules (tokens by name; no off-grid/off-scale/AI-aesthetic); the snapshot net covers each canvas story. Relevance-ordering is by significance, never file/row/alphabetical. No per-artifact verdict (the verdict is over the Subject — AL3).
+
+**Out of scope.** The composition that wraps them (AL3). Inline anchored comments (AL4). Tool-tailored/community overrides (AL5). Execution of staged actions (AL7).
+
+**Effort.** L (~5d)
+
+---
+
+### AL3 — Review composition surface
+
+**Workpackage.** As a reviewer, I want to open one review of a Subject (a task's or bet's output) and see the whole thing — where it came from (the bet/task and the prompt), what was achieved (the outcome plus a visible result), what needs me, the artifacts (each openable to examine), the discussion, and the verdict — and resolve it with one decision. This builds the founder-approved review surface that composes the family canvases into one coherent review.
+
+**Why this matters.** This *is* the review experience — the headline USP. Without it there is no place to review a Subject as a whole, and the canvases (AL2) have nowhere to live. The reviewer gets one surface to orient, judge, examine, and decide. The design is approved (`ReviewCompositionRefined`).
+
+**What exists today.** Verdicts post and resolve inline in the host thread (RichMessageCard, ThreadShell, the 5 verdict actions). The approved composition exists as a design story (`ReviewCompositionRefined`). No production review surface that composes a Subject's artifacts with the dual-anchor frame, the right-pane examine, and the header verdict.
+
+**What's genuinely missing.** The production review destination: the frame (bet/task + prompt + outcome + KPIs + needs-you), the artifact set with right-pane examine, one global conversation, and the Subject-level verdict — selecting each artifact's family canvas (AL2) by kind.
+
+**Depends on.** AL2 — the composition renders the family canvases as the artifacts' examine content; cannot be built until the canvases exist.
+
+**Complexity.** L
+
+**Human design review.** No — the composition is designed and approved in `plans/AL1/design/approved.md`.
+
+**Acceptance criteria.**
+- A reviewer can open one review of a Subject and, at a glance, see where it came from (the bet/task + the ask) and what was achieved (the outcome + a visible result), without opening any artifact.
+- The review surfaces what needs the human (the derived gaps/risks/blocking items), each linking to the relevant artifact.
+- A reviewer can open any artifact to examine it at full size (in a pane that gives big artifacts room) and close it to return to the whole review.
+- The discussion is one conversation over the Subject; a comment can reference an artifact or spot as context.
+- The reviewer resolves the whole Subject with one binding verdict, reachable without it obscuring the content.
+
+**Validation scenarios.**
+- Given a completed task's output, when the reviewer opens its review, then they see the ask, the achieved result, what needs them, and the artifacts — and can approve without opening anything.
+- Given a review, when the reviewer opens an artifact, then its family canvas fills the examine surface and closing returns the whole review.
+- Given a review, when a verdict is posted, then the whole Subject resolves (no per-artifact verdicts).
+
+**Plan calls.** Design approved — skip `/design` (read `approved.md`, `ReviewCompositionRefined`). Standard architecture: the Subject/review data shape, the route/placement (reachable from the work item + the reviewer's attention space), the kind→family canvas selection wiring, the verdict resolution.
+
+**Contracts / constraints.** One verdict over the Subject (never per-artifact). Verdict grammar unchanged. The conversation reuses the Thread (one conversation per Subject). Hearth + AQ rules. The review queue is a lighter secondary surface (not this WP).
+
+**Out of scope.** The family canvases (AL2). Anchored comments (AL4). The review-queue/inbox surface. Execution of staged actions (AL7). The conversation's eventual AM-redesigned style (adopt later).
+
+**Effort.** L (~5d)
+
+---
+
+### AL4 — Inline anchored review comments
+
+**Workpackage.** As a reviewer, I want to attach a comment to a specific spot in what I'm reviewing — a diff line, a paragraph, a block, a region — so my feedback is precise and threaded at the exact point it refers to and survives edits to the content. The approved review carries only a textual reference-chip placeholder; this builds real content-following anchored comments across the artifact kinds the review renders.
+
+**Why this matters.** Precise, point-of-reference feedback is table-stakes for serious review, and the AL1 research names robust anchoring as a *loved* differentiator (and fragile anchoring as the universally-hated failure). The reviewer gets to say "this line is wrong" anchored to the line; without it, feedback stays generic. Scaffolding (block identity) exists but no UI wires it.
+
+**What exists today.** Block-reference scaffolding (`PlainPayloadWithBlockId`, stable block IDs); `CommentRow` renders an `inlineAnchor` label only; the approved composition uses a textual reference chip as a placeholder. No UI to create or display a content-following anchored comment.
+
+**What's genuinely missing.** The interaction + wiring to anchor a comment to a specific spot within a rendered canvas (at least code diffs and prose/block content), render it at the anchor, thread replies, and keep it bound to content (block identity) so it survives edits.
+
+**Depends on.** AL3 — anchored comments live in the review's conversation and anchor into the canvases the composition renders; cannot start until the review surface + canvases exist.
+
+**Complexity.** L
+
+**Human design review.** Yes — the anchoring interaction (how a reviewer creates and sees an anchored comment inside a canvas) needs design; the approved composition only placeholders it with a reference chip.
+
+**Acceptance criteria.**
+- A reviewer can anchor a comment to a specific line, paragraph, block, or region of the artifact under review.
+- Anchored comments render at their anchor point and support threaded replies.
+- Anchors bind to content (block identity), not coordinates — a comment survives edits to surrounding content rather than orphaning.
+- Anchoring works across at least code diffs and prose/block content.
+- The Subject-level verdict flow is unaffected — a review with anchored comments still resolves via one verdict.
+
+**Validation scenarios.**
+- Given a code diff in review, when the reviewer comments on a specific line, then the comment renders anchored to that line and supports replies.
+- Given the anchored content changes, when re-rendered, then the comment stays bound to its block rather than orphaning.
+- Given a review carrying anchored comments, when a verdict is posted, then the Subject still resolves.
+
+**Plan calls.** `/design` for the anchoring interaction (informed by AL1's research + the approved composition), then `/architecture` for how an anchored comment attaches to a block within a canvas and renders at that anchor.
+
+**Contracts / constraints.** Anchors bind to block identity, never coordinates/offsets. No new on-disk content dialect. Verdict + thread semantics preserved.
+
+**Out of scope.** AI-suggested edits / suggestion mode. Review analytics.
+
+**Effort.** L (~4d)
+
+---
+
+### AL5 — Tool-tailored review canvases (override the family floor)
+
+**Workpackage.** As HyperIdle and its ecosystem, I want a tool or a third party to supply a **tailored review canvas** for a specific tool's output that replaces the generic family canvas — either shipped by the tool itself (its MCP server returns the review UI) or contributed via a registered template — so reviewing, say, a Stripe refund or a Figma design is purpose-built without HyperIdle hand-building every tool's canvas. This opens the canvas slot to tool-shipped and community-contributed overrides, with the family canvas as the always-present floor.
+
+**Why this matters.** "Review for anything across every tool" cannot scale if HyperIdle builds every tool's canvas. The override tiers let the long tail be covered by the tool vendor (MCP Apps) or the community (a template/registry). The founder and the ecosystem benefit; without it, every non-family-generic tool gets only the generic canvas.
+
+**What exists today.** HyperIdle speaks MCP (the harness). The built-in family canvases + the kind→family selection (AL2/AL3). No mechanism for a tool's MCP server to return an embeddable review canvas, and no community template/registry for a per-tool canvas.
+
+**What's genuinely missing.** The resolution layer above the family floor: render a tool-shipped canvas (a sandboxed UI returned by the tool's MCP server) when present, and/or a community-registered per-tool template, selected by (tool, kind) ahead of the generic family canvas — safely (sandboxed, trust-tiered).
+
+**Depends on.** AL3 — there must be a review surface with a canvas slot (and the family floor) to override; cannot start until the composition exists.
+
+**Complexity.** L
+
+**Human design review.** No — primarily an integration + resolution mechanism (the canvas is supplied by the tool/community); any host chrome extends the existing canvas slot. (`/design`'s DESIGN-CLASS is authoritative.)
+
+**Acceptance criteria.**
+- When a tool supplies its own review canvas for an artifact, the review renders that canvas (sandboxed) instead of the generic family canvas.
+- When a community-registered template matches an artifact's (tool, kind), the review renders that template instead of the generic family canvas.
+- When neither is present, the review falls back to the family canvas (the floor always works).
+- A tool-supplied/community canvas renders safely — sandboxed, with a trust tier — and cannot compromise the host.
+- An action taken in a tool-supplied canvas routes back through HyperIdle's existing connection to that tool, not a re-implemented integration.
+
+**Validation scenarios.**
+- Given a tool that ships a review canvas, when its artifact is reviewed, then the tool's canvas renders sandboxed; given a tool that doesn't, then the family canvas renders.
+- Given a community-registered template for a (tool, kind), when a matching artifact is reviewed, then the template renders.
+- Given a malformed/untrusted contributed canvas, when rendered, then it is sandboxed and cannot break the host review.
+
+**Plan calls.** Concept-introducing — run `/concept` first (the override-resolution model, the MCP-Apps `ui://` integration, the community manifest + trust/registry tiers — building on `plans/AL1/design/tool-ecosystem-and-canvases.md` §3). Then architecture; likely splits (MCP-Apps integration vs the community manifest/registry).
+
+**Contracts / constraints.** The family canvas is always the floor (any override is additive; a missing/failed override degrades to it). Contributed/tool canvases are sandboxed with a trust tier. Selection order is deterministic (tool-shipped > community template > family floor).
+
+**Out of scope.** The built-in family canvases (AL2). Building per-tool MCP connectors. Any specific tool's canvas content.
+
+**Effort.** L (~6d)
+
+> **Scope note (AL6–AL7).** The two workpackages below deliberately extend Track AL beyond its original "interaction layer only" scope into the **review→act loop**: getting work *into* review (AL6, harness domain) and what *approve* triggers (AL7, agent-runtime domain). Both flow from the AL1 review-system note (`plans/AL1/design/review-system.md` §4, founder-parked) and are concept-introducing — each runs its own `/concept` first.
+
+---
+
+### AL6 — Harness review-return hooks
 
 **Workpackage.** As HyperIdle, I want every agent turn — on every harness — to end by handing its work back to HyperIdle through an accepted "return" action (submit something for review, close a task, send a message), so that no agent work silently escapes the review loop and a human always gets the chance to see and gate what was done. Today an agent can finish a turn without surfacing its output to HyperIdle; this makes "return to HyperIdle" the mandatory last step of any turn, drawn from a defined, closed set of accepted terminal actions, enforced uniformly across every harness.
 
@@ -85,13 +239,13 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - The verdict grammar and thread model are unchanged.
 - Mid-turn non-terminal tool use is not blocked; only the turn ending is constrained.
 
-**Out of scope.** What an approve triggers (the execution loop — AL3). The payload schema of each return action (architecture). New harness types.
+**Out of scope.** What an approve triggers (the execution loop — AL7). The payload schema of each return action (architecture). New harness types.
 
 **Effort.** L (~3-4d)
 
 ---
 
-### AL3 — Review execution loop
+### AL7 — Review execution loop
 
 **Workpackage.** As a reviewer, I want approving a review to actually *cause* the agent's staged operation to be carried out through the connected tool, so that "approve" means the work happens — not just that it's marked accepted. When an agent stages an operative action (a refund, a deploy, a send, a record write) and presents it for review, the human's approval is the trigger that executes it via the tool/MCP, and the result returns to HyperIdle; a non-approving verdict holds it. Today approval records a verdict but executes nothing — the staged-action review canvas has no teeth.
 
@@ -101,7 +255,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **What's genuinely missing.** The link from a binding approve-verdict to the actual execution of the staged operation through the connected tool/MCP — the verdict becoming a trigger that commits the staged action, with the result returning to HyperIdle.
 
-**Depends on.** None. (The review primitive and verdict system are locked/exist; the loop can be specced and proven against a staged operation in a fixture without waiting on AL2.)
+**Depends on.** None. (The review primitive and verdict system are locked/exist; the loop can be specced and proven against a staged operation in a fixture without waiting on AL6.)
 
 **Complexity.** L
 
@@ -129,160 +283,6 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Execution failure surfaces; it is never silently swallowed.
 - No bypass of the human gate where a human reviewer is required.
 
-**Out of scope.** The harness return-enforcement (AL2). Broad per-tool dispatch coverage (the loop + at least one real tool path; wide tool coverage is follow-on). Multi-step transactional rollback beyond the single staged operation's own undo.
+**Out of scope.** The harness return-enforcement (AL6). Broad per-tool dispatch coverage (the loop + at least one real tool path; wide tool coverage is follow-on). Multi-step transactional rollback beyond the single staged operation's own undo.
 
 **Effort.** L (~4-5d)
-
-> **Build note (AL4–AL7).** AL1 produced the founder-approved design (`plans/AL1/design/approved.md`, locked 2026-06-18). The four workpackages below build it: the proof-family canvases (AL4), the composition surface (AL5), inline anchored comments (AL6), and the tool-tailored/community canvas override (AL7). AL4–AL5 build to the locked design (skip `/design`); AL6 needs its own anchoring design; AL7 is concept-introducing.
-
----
-
-### AL4 — Review proof-family canvases
-
-**Workpackage.** As a reviewer, I want each kind of thing an agent produces — a code change, a record/field write, a money-moving action, a rendered document/email, moved metrics, a visual before/after, a batch of items — shown as a purpose-built **review canvas** that makes that kind legible at a glance and drillable on demand, tool-grounded with the source app's logo and a link back. This implements the founder-approved family canvases so a reviewer can examine any kind of agent work without dropping to raw output.
-
-**Why this matters.** The reviewer is the beneficiary: "review for anything" is only real if every artifact kind has a canvas that shows the *proof* (the running result, the deltas, the receipt, the rendered asset) rather than a raw dump. Without it, non-code work is unreviewable and code review is a bare diff. The design is approved; this is the build.
-
-**What exists today.** Thin per-kind renderers exist (`packages/design-system/src/kinds/`: CodeRenderer, DataRenderer, TextRenderer, ImageRenderer, UrlRenderer, FallbackRenderer + `getRenderer`). The richer canvas designs exist as approved design stories in `packages/web/src/pages/review/` (ReviewCodeDiff, ReviewFieldChangeSet, ReviewActionOperation, ReviewRenderedInContext, ReviewMetricsMoved, ReviewVisualDiff, ReviewBatch, ReviewOutcomeSummary + ToolLogo/CanvasSourceHeader) — prototypes, not wired into a real review.
-
-**What's genuinely missing.** Production canvases implementing the approved per-family designs (3-layer drill-down, tool-grounding, relevance-ordering), plus a registration so an artifact's declared kind selects its family canvas.
-
-**Depends on.** AL1 — the approved design (`plans/AL1/design/approved.md`) is the contract these implement; cannot start until it is locked (it is).
-
-**Complexity.** L
-
-**Human design review.** No — the canvases are designed and approved in `plans/AL1/design/approved.md`; this builds to the lock.
-
-**Acceptance criteria.**
-- Each artifact kind (code · record/field-change · action/operation · rendered document/email · metrics/data · visual · batch) renders through its purpose-built family canvas; a reviewer grasps the result without opening raw output.
-- Every canvas shows its source tool (a recognizable mini-logo) and offers a link back to the original record.
-- Each canvas reads at three layers — a one-glance summary, the structured proof, on-demand detail — with trivia collapsed and the most-relevant/outlier surfaced first.
-- The code canvas is excellent: relevance-ranked changes (logic before generated), the meaningful change summarized, minor/generated changes clearly separated, checks shown inline.
-- An artifact whose kind has no tailored canvas still renders through a generic fallback (never breaks).
-
-**Validation scenarios.**
-- Given an agent code change, when reviewed, then it renders as the code canvas with relevance-ranked, summarized changes and inline checks.
-- Given a money-moving action, when reviewed, then it renders as a pre-commit receipt showing amount, consequence, and how to undo.
-- Given an artifact kind with no tailored canvas, when reviewed, then it renders through the fallback without error.
-
-**Plan calls.** Design is approved — skip `/design` (read `plans/AL1/design/approved.md` + the building-block stories). Standard architecture pass: how each family canvas consumes its artifact payload, how a kind registers its canvas, the ToolLogo source. Likely decomposes per family during `/architecture`.
-
-**Contracts / constraints.** Hearth + the AQ rules (tokens by name; no off-grid/off-scale/AI-aesthetic); the snapshot net covers each canvas story. Relevance-ordering is by significance, never file/row/alphabetical. No per-artifact verdict (the verdict is over the Subject — AL5).
-
-**Out of scope.** The composition that wraps them (AL5). Inline anchored comments (AL6). Tool-tailored/community overrides (AL7). Execution of staged actions (AL3).
-
-**Effort.** L (~5d)
-
----
-
-### AL5 — Review composition surface
-
-**Workpackage.** As a reviewer, I want to open one review of a Subject (a task's or bet's output) and see the whole thing — where it came from (the bet/task and the prompt), what was achieved (the outcome plus a visible result), what needs me, the artifacts (each openable to examine), the discussion, and the verdict — and resolve it with one decision. This builds the founder-approved review surface that composes the family canvases into one coherent review.
-
-**Why this matters.** This *is* the review experience — the headline USP. Without it there is no place to review a Subject as a whole, and the canvases (AL4) have nowhere to live. The reviewer gets one surface to orient, judge, examine, and decide. The design is approved (`ReviewCompositionRefined`).
-
-**What exists today.** Verdicts post and resolve inline in the host thread (RichMessageCard, ThreadShell, the 5 verdict actions). The approved composition exists as a design story (`ReviewCompositionRefined`). No production review surface that composes a Subject's artifacts with the dual-anchor frame, the right-pane examine, and the header verdict.
-
-**What's genuinely missing.** The production review destination: the frame (bet/task + prompt + outcome + KPIs + needs-you), the artifact set with right-pane examine, one global conversation, and the Subject-level verdict — selecting each artifact's family canvas (AL4) by kind.
-
-**Depends on.** AL4 — the composition renders the family canvases as the artifacts' examine content; cannot be built until the canvases exist.
-
-**Complexity.** L
-
-**Human design review.** No — the composition is designed and approved in `plans/AL1/design/approved.md`.
-
-**Acceptance criteria.**
-- A reviewer can open one review of a Subject and, at a glance, see where it came from (the bet/task + the ask) and what was achieved (the outcome + a visible result), without opening any artifact.
-- The review surfaces what needs the human (the derived gaps/risks/blocking items), each linking to the relevant artifact.
-- A reviewer can open any artifact to examine it at full size (in a pane that gives big artifacts room) and close it to return to the whole review.
-- The discussion is one conversation over the Subject; a comment can reference an artifact or spot as context.
-- The reviewer resolves the whole Subject with one binding verdict, reachable without it obscuring the content.
-
-**Validation scenarios.**
-- Given a completed task's output, when the reviewer opens its review, then they see the ask, the achieved result, what needs them, and the artifacts — and can approve without opening anything.
-- Given a review, when the reviewer opens an artifact, then its family canvas fills the examine surface and closing returns the whole review.
-- Given a review, when a verdict is posted, then the whole Subject resolves (no per-artifact verdicts).
-
-**Plan calls.** Design approved — skip `/design` (read `approved.md`, `ReviewCompositionRefined`). Standard architecture: the Subject/review data shape, the route/placement (reachable from the work item + the reviewer's attention space), the kind→family canvas selection wiring, the verdict resolution.
-
-**Contracts / constraints.** One verdict over the Subject (never per-artifact). Verdict grammar unchanged. The conversation reuses the Thread (one conversation per Subject). Hearth + AQ rules. The review queue is a lighter secondary surface (not this WP).
-
-**Out of scope.** The family canvases (AL4). Anchored comments (AL6). The review-queue/inbox surface. Execution of staged actions (AL3). The conversation's eventual AM-redesigned style (adopt later).
-
-**Effort.** L (~5d)
-
----
-
-### AL6 — Inline anchored review comments
-
-**Workpackage.** As a reviewer, I want to attach a comment to a specific spot in what I'm reviewing — a diff line, a paragraph, a block, a region — so my feedback is precise and threaded at the exact point it refers to and survives edits to the content. The approved review carries only a textual reference-chip placeholder; this builds real content-following anchored comments across the artifact kinds the review renders.
-
-**Why this matters.** Precise, point-of-reference feedback is table-stakes for serious review, and the AL1 research names robust anchoring as a *loved* differentiator (and fragile anchoring as the universally-hated failure). The reviewer gets to say "this line is wrong" anchored to the line; without it, feedback stays generic. Scaffolding (block identity) exists but no UI wires it.
-
-**What exists today.** Block-reference scaffolding (`PlainPayloadWithBlockId`, stable block IDs); `CommentRow` renders an `inlineAnchor` label only; the approved composition uses a textual reference chip as a placeholder. No UI to create or display a content-following anchored comment.
-
-**What's genuinely missing.** The interaction + wiring to anchor a comment to a specific spot within a rendered canvas (at least code diffs and prose/block content), render it at the anchor, thread replies, and keep it bound to content (block identity) so it survives edits.
-
-**Depends on.** AL5 — anchored comments live in the review's conversation and anchor into the canvases the composition renders; cannot start until the review surface + canvases exist.
-
-**Complexity.** L
-
-**Human design review.** Yes — the anchoring interaction (how a reviewer creates and sees an anchored comment inside a canvas) needs design; the approved composition only placeholders it with a reference chip.
-
-**Acceptance criteria.**
-- A reviewer can anchor a comment to a specific line, paragraph, block, or region of the artifact under review.
-- Anchored comments render at their anchor point and support threaded replies.
-- Anchors bind to content (block identity), not coordinates — a comment survives edits to surrounding content rather than orphaning.
-- Anchoring works across at least code diffs and prose/block content.
-- The Subject-level verdict flow is unaffected — a review with anchored comments still resolves via one verdict.
-
-**Validation scenarios.**
-- Given a code diff in review, when the reviewer comments on a specific line, then the comment renders anchored to that line and supports replies.
-- Given the anchored content changes, when re-rendered, then the comment stays bound to its block rather than orphaning.
-- Given a review carrying anchored comments, when a verdict is posted, then the Subject still resolves.
-
-**Plan calls.** `/design` for the anchoring interaction (informed by AL1's research + the approved composition), then `/architecture` for how an anchored comment attaches to a block within a canvas and renders at that anchor.
-
-**Contracts / constraints.** Anchors bind to block identity, never coordinates/offsets. No new on-disk content dialect. Verdict + thread semantics preserved.
-
-**Out of scope.** AI-suggested edits / suggestion mode. Review analytics.
-
-**Effort.** L (~4d)
-
----
-
-### AL7 — Tool-tailored review canvases (override the family floor)
-
-**Workpackage.** As HyperIdle and its ecosystem, I want a tool or a third party to supply a **tailored review canvas** for a specific tool's output that replaces the generic family canvas — either shipped by the tool itself (its MCP server returns the review UI) or contributed via a registered template — so reviewing, say, a Stripe refund or a Figma design is purpose-built without HyperIdle hand-building every tool's canvas. This opens the canvas slot to tool-shipped and community-contributed overrides, with the family canvas as the always-present floor.
-
-**Why this matters.** "Review for anything across every tool" cannot scale if HyperIdle builds every tool's canvas. The override tiers let the long tail be covered by the tool vendor (MCP Apps) or the community (a template/registry). The founder and the ecosystem benefit; without it, every non-family-generic tool gets only the generic canvas.
-
-**What exists today.** HyperIdle speaks MCP (the harness). The built-in family canvases + the kind→family selection (AL4/AL5). No mechanism for a tool's MCP server to return an embeddable review canvas, and no community template/registry for a per-tool canvas.
-
-**What's genuinely missing.** The resolution layer above the family floor: render a tool-shipped canvas (a sandboxed UI returned by the tool's MCP server) when present, and/or a community-registered per-tool template, selected by (tool, kind) ahead of the generic family canvas — safely (sandboxed, trust-tiered).
-
-**Depends on.** AL5 — there must be a review surface with a canvas slot (and the family floor) to override; cannot start until the composition exists.
-
-**Complexity.** L
-
-**Human design review.** No — primarily an integration + resolution mechanism (the canvas is supplied by the tool/community); any host chrome extends the existing canvas slot. (`/design`'s DESIGN-CLASS is authoritative.)
-
-**Acceptance criteria.**
-- When a tool supplies its own review canvas for an artifact, the review renders that canvas (sandboxed) instead of the generic family canvas.
-- When a community-registered template matches an artifact's (tool, kind), the review renders that template instead of the generic family canvas.
-- When neither is present, the review falls back to the family canvas (the floor always works).
-- A tool-supplied/community canvas renders safely — sandboxed, with a trust tier — and cannot compromise the host.
-- An action taken in a tool-supplied canvas routes back through HyperIdle's existing connection to that tool, not a re-implemented integration.
-
-**Validation scenarios.**
-- Given a tool that ships a review canvas, when its artifact is reviewed, then the tool's canvas renders sandboxed; given a tool that doesn't, then the family canvas renders.
-- Given a community-registered template for a (tool, kind), when a matching artifact is reviewed, then the template renders.
-- Given a malformed/untrusted contributed canvas, when rendered, then it is sandboxed and cannot break the host review.
-
-**Plan calls.** Concept-introducing — run `/concept` first (the override-resolution model, the MCP-Apps `ui://` integration, the community manifest + trust/registry tiers — building on `plans/AL1/design/tool-ecosystem-and-canvases.md` §3). Then architecture; likely splits (MCP-Apps integration vs the community manifest/registry).
-
-**Contracts / constraints.** The family canvas is always the floor (any override is additive; a missing/failed override degrades to it). Contributed/tool canvases are sandboxed with a trust tier. Selection order is deterministic (tool-shipped > community template > family floor).
-
-**Out of scope.** The built-in family canvases (AL4). Building per-tool MCP connectors. Any specific tool's canvas content.
-
-**Effort.** L (~6d)
