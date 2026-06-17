@@ -1,23 +1,26 @@
-// AL1 — composition, REFINED (round 3). The CONVERGED review experience, addressing
-// the founder's round-2 annotations:
+// AL1 — composition, REFINED (round 3 applied). The CONVERGED review experience.
+// Round-3 founder annotations applied on top of the round-2 structure:
 //
-//  (1) WHERE-WE-CAME-FROM + WHAT-WE-DID. Lead with THE ASK (the bet + the real
-//      `prompt` text) then RESULT (the outcome + glanceable `resultKpis` + a visible
-//      before→after checkout proof — "something to see," not an abstract checklist).
-//      The intent done-conditions are DEMOTED to one small "Met the ask" line.
-//  (2) RIGHT-PANE, not downward. The center column IS the whole review you approve.
-//      Clicking an artifact opens it in a RIGHT PANE (center narrows); closing returns
-//      full width. The conversation lives ON THE CONTENT — inline at the end of the
-//      center overview, and (in the pane) anchored to the examined artifact. Never a
-//      separate persistent conversation pane.
-//  (3) NO floating verdict bar. The verdict sits in the TOP-RIGHT of the frame header,
-//      always reachable: primary Approve · secondary Request changes · ⋯ overflow
-//      (Approve w/ comments · Edit · Reject).
-//  (4) REDUCED NESTING. Center artifact rows are THIN openers (kind badge + ToolLogo +
-//      title + summary + change badge + reviewed + "Open →"), NOT containers wrapping
-//      the building block. The full block opens in the pane (with its own source header).
-//  (5) CLEAR SECTIONS + air. Each section gets a quiet-caps header (The ask · Result ·
-//      Needs you · Artifacts · Conversation) with generous spacing.
+//  R3-1 ONE conversation, not two. A single global thread lives at the end of the
+//       center overview. The right pane shows ONLY the building block — no second
+//       per-artifact thread. A comment can carry a reference chip ("on PromoField.tsx:118")
+//       so feedback points at an artifact/spot as context without a second thread.
+//       Kept lightly styled — it will adopt the AM-track conversation redesign later.
+//  R3-2 No round-blob status pills. Standing/risk read as a status DOT + plain text
+//       (red dot · Blocking; amber dot · Needs you), not a saturated --r-pill blob.
+//  R3-3 "The task" (was "The ask") + a link to the source reference (bet › task record).
+//  R3-4 Muted kind badges — CODE/DATA/ACTION/VISUAL render neutral; color is reserved
+//       for MEANING (status / needs-you), so the surface reads calm, not rainbow.
+//
+//  Carried from round 2:
+//  (·) WHERE-WE-CAME-FROM + WHAT-WE-DID — §The task (bet + real prompt) then §Result
+//      (outcome + KPIs + before→after checkout proof). Intent demoted to "Met the task".
+//  (·) RIGHT-PANE, not downward. Center IS the review; clicking an artifact opens it in
+//      a right pane (center narrows); closing returns full width.
+//  (·) NO floating verdict bar. Verdict sits TOP-RIGHT of the header: Approve · Request
+//      changes · ⋯ overflow (Approve w/ comments · Edit · Reject).
+//  (·) THIN artifact openers, not containers. The full block opens in the pane.
+//  (·) CLEAR SECTIONS + air — quiet-caps headers, generous spacing.
 //
 // Presentational isolation: local useState for pane open/close + active artifact +
 // overflow menu. Every callback is a no-op. No router/context/MockProviders.
@@ -71,25 +74,24 @@ const KIND_LABEL: Record<SubjectArtifactRow["kind"], string> = {
 	visual: "Visual",
 };
 
-const KIND_TINT: Record<SubjectArtifactRow["kind"], string> = {
-	code: "var(--accent-primary)",
-	data: "var(--status-info)",
-	action: "var(--status-warning)",
-	visual: "var(--accent-secondary)",
-};
-
-/** kind badge — a tiny squared chip in the artifact's family color. */
+/**
+ * kind badge — a tiny neutral chip. Per round-3 founder note (4): color is reserved
+ * for MEANING (status / needs-you), so the kind label reads quiet, not rainbow.
+ */
 function KindBadge({ kind }: { kind: SubjectArtifactRow["kind"] }): JSX.Element {
-	const tint = KIND_TINT[kind];
 	return (
-		<span
-			className="inline-flex items-center rounded-[6px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none"
-			style={{
-				color: tint,
-				background: `color-mix(in oklab, ${tint} 14%, transparent)`,
-			}}
-		>
+		<span className="inline-flex items-center rounded-[6px] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
 			{KIND_LABEL[kind]}
+		</span>
+	);
+}
+
+/** status dot + label — calm, legible standing/risk signal (not a saturated blob). */
+function StatusDot({ tone, label }: { tone: string; label: string }): JSX.Element {
+	return (
+		<span className="inline-flex items-center gap-[6px] text-[12px] font-[600] text-[var(--text-secondary)]">
+			<span aria-hidden="true" className="h-[7px] w-[7px] rounded-[var(--r-pill)]" style={{ background: tone }} />
+			{label}
 		</span>
 	);
 }
@@ -198,11 +200,7 @@ function FrameHeader({ menuOpen, onToggleMenu }: VerdictProps): JSX.Element {
 						<span className="text-[13px] text-[var(--text-secondary)]">{s.reviewer}</span>
 					</div>
 
-					{s.blocking ? (
-						<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-warning)_16%,transparent)] px-[9px] py-[3px] text-[12px] font-[600] text-[var(--status-warning)]">
-							Awaiting · Blocking
-						</span>
-					) : null}
+					{s.blocking ? <StatusDot tone="var(--status-error)" label="Blocking" /> : null}
 
 					<div className="flex items-center gap-[6px]">
 						{s.tools.map((t: ToolId) => (
@@ -222,16 +220,29 @@ function FrameHeader({ menuOpen, onToggleMenu }: VerdictProps): JSX.Element {
 	);
 }
 
-// ── § THE ASK — where we came from (the real prompt, small + scannable) ─────────────
-function AskSection(): JSX.Element {
+// ── § THE TASK — where we came from (the real prompt + a link to the source) ────────
+function TaskSection(): JSX.Element {
 	const s = REVIEW_SUBJECT;
 	return (
 		<section>
-			<SectionHead label="The ask" />
+			<SectionHead label="The task" />
 			<div className="rounded-[var(--r-subtle)] border-l-[3px] border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]">
 				<p className="max-w-[72ch] text-[14px] italic leading-[1.55] text-[var(--text-secondary)]">
 					“{s.prompt}”
 				</p>
+				{/* link to the source reference — the task record this work is judged against */}
+				<button
+					type="button"
+					onClick={() => {}}
+					className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95"
+				>
+					<span className="text-[var(--text-tertiary)]">{s.bet}</span>
+					<span aria-hidden="true" className="text-[var(--text-tertiary)]">
+						›
+					</span>
+					<span className="truncate">{s.workIdentity}</span>
+					<span aria-hidden="true">→</span>
+				</button>
 			</div>
 		</section>
 	);
@@ -377,7 +388,7 @@ function ResultSection(): JSX.Element {
 
 				{/* the intent checklist, DEMOTED to one secondary line */}
 				<p className="text-[12px] text-[var(--text-tertiary)]">
-					Met the ask:{" "}
+					Met the task:{" "}
 					<span className="font-mono tabular-nums font-[600] text-[var(--text-secondary)]">
 						{met} of {s.intent.length}
 					</span>
@@ -449,8 +460,13 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 						</span>
 					) : null}
 					{artifact.needsYou ? (
-						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-warning)_16%,transparent)] px-[6px] py-[1px] text-[10px] font-[600] text-[var(--status-warning)]">
-							needs you
+						<span className="inline-flex items-center gap-[4px] text-[11px] font-[600] text-[var(--text-secondary)]">
+							<span
+								aria-hidden="true"
+								className="h-[6px] w-[6px] rounded-[var(--r-pill)]"
+								style={{ background: "var(--status-warning)" }}
+							/>
+							Needs you
 						</span>
 					) : null}
 				</div>
@@ -508,9 +524,16 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 					<span className="text-[11px] text-[var(--text-tertiary)]">{comment.ago}</span>
 				</div>
 				{comment.anchor ? (
-					<span className="mt-[3px] inline-flex items-center rounded-[6px] bg-[var(--surface-container)] px-[6px] py-[1px] font-mono text-[11px] text-[var(--text-tertiary)]">
-						{comment.anchor}
-					</span>
+					/* reference chip — the comment points AT something (a spot / an artifact) as
+					   context, so feedback can target a place without spawning a second thread. */
+					<button
+						type="button"
+						onClick={() => {}}
+						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+					>
+						<span className="text-[var(--text-tertiary)]">on</span>
+						<span className="font-mono text-[var(--text-secondary)]">{comment.anchor}</span>
+					</button>
 				) : null}
 				<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">{comment.body}</p>
 			</div>
@@ -561,8 +584,9 @@ function ExaminePane({
 	artifact: SubjectArtifactRow;
 	onClose: () => void;
 }): JSX.Element {
-	// conversation anchored to THIS artifact (the code file's thread on PromoField.tsx:118)
-	const anchored = REVIEW_SUBJECT.conversation.filter((c) => c.anchor !== undefined);
+	// Round-3 (1): ONE conversation only — the global one in the center overview. The
+	// pane shows the building block alone; to discuss a spot here you "Comment on this"
+	// and it lands in the global thread carrying a reference chip back to this artifact.
 	return (
 		<aside className="flex h-full w-[620px] shrink-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
@@ -571,6 +595,13 @@ function ExaminePane({
 				<span className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
 					{artifact.title}
 				</span>
+				<button
+					type="button"
+					onClick={() => {}}
+					className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+				>
+					Comment on this
+				</button>
 				<button
 					type="button"
 					aria-label="Close artifact"
@@ -583,23 +614,9 @@ function ExaminePane({
 
 			<div className="min-h-0 flex-1 overflow-auto">
 				<div className="flex flex-col gap-[18px] p-[18px]">
-					{/* the building block at full size — REAL ReviewCodeDiff for the code artifact */}
-					{artifact.kind === "code" ? (
-						<ReviewCodeDiff />
-					) : (
-						<PlaceholderBlock artifact={artifact} />
-					)}
-
-					{/* conversation anchored to THIS content — on the content, not a side pane */}
-					<section>
-						<SectionHead label="Conversation" count={String(anchored.length)} />
-						<div className="flex flex-col gap-[12px]">
-							{anchored.map((c) => (
-								<CommentItem key={c.id} comment={c} />
-							))}
-							<Composer placeholder="Comment on this artifact…" />
-						</div>
-					</section>
+					{/* the building block at full size — REAL ReviewCodeDiff for the code artifact.
+					    No second conversation lives here (round-3: one global thread only). */}
+					{artifact.kind === "code" ? <ReviewCodeDiff /> : <PlaceholderBlock artifact={artifact} />}
 				</div>
 			</div>
 		</aside>
@@ -661,7 +678,7 @@ export function ReviewCompositionRefined({
 
 				<div className="min-h-0 flex-1 overflow-auto">
 					<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
-						<AskSection />
+						<TaskSection />
 						<ResultSection />
 						<NeedsSection />
 						<ArtifactsSection activeId={activeId} onOpen={openArtifact} />
