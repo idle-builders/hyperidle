@@ -92,12 +92,12 @@ function ReviewedPill({ reviewed, onToggle }: { readonly reviewed: boolean; read
 			style={{
 				background: reviewed ? "var(--accent-primary)" : "var(--surface-elevated)",
 				borderColor: reviewed ? "var(--accent-primary)" : "var(--border-default)",
-				color: reviewed ? "#ffffff" : "var(--text-secondary)",
+				color: reviewed ? "var(--text-on-accent)" : "var(--text-secondary)",
 			}}
 		>
 			<span
 				className="inline-flex h-[14px] w-[14px] items-center justify-center rounded-[var(--r-pill)]"
-				style={{ color: reviewed ? "#ffffff" : "var(--text-tertiary)" }}
+				style={{ color: reviewed ? "var(--text-on-accent)" : "var(--text-tertiary)" }}
 			>
 				<CheckGlyph />
 			</span>
@@ -327,7 +327,7 @@ function VerdictBar({ compact }: { readonly compact: boolean }): JSX.Element {
 						className="rounded-[var(--r-pill)] border px-[18px] py-[9px] text-[13px] font-[600] transition-[transform,opacity] duration-[var(--motion-fast)] [transition-timing-function:var(--motion-ease)] active:translate-y-[1px]"
 						style={
 							v.primary
-								? { background: "var(--accent-primary)", borderColor: "var(--accent-primary)", color: "#ffffff" }
+								? { background: "var(--accent-primary)", borderColor: "var(--accent-primary)", color: "var(--text-on-accent)" }
 								: { background: "var(--surface-elevated)", borderColor: "var(--border-default)", color: "var(--text-secondary)" }
 						}
 					>
