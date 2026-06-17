@@ -6,8 +6,13 @@
  * rejected by the founder as "far from the basics": missing spacing/grouping/
  * structure, no me-vs-them identity, no multi-user, a stub composer, and shown in
  * a floating container instead of the real app. This v3 answers every Round-1
- * annotation (`.annotations/annotations.md`) inside the actual three-region shell:
- * left conversation sidebar · center conversation pane · right contextual pane.
+ * annotation (`.annotations/annotations.md`) across TWO regions: the conversation
+ * pane (primary) · right contextual pane.
+ *
+ * The left app-shell sidebar (conversation list + Conversations/Work/Knowledge nav)
+ * is INTENTIONALLY out of this design — it is app-shell chrome that lives elsewhere,
+ * not part of the conversation. Excluded so the conversation gets the viewer width;
+ * the design scopes to the conversation pane + its contextual right pane.
  *
  * /design embodiment of the LOCKED concept (`plans/AM1/concept.md`): a Conversation
  * = deliberate, threaded messages on ONE host, rendered through the Part model
@@ -28,10 +33,11 @@
  * mapping (which catalogued DS components replace each hand-rolled slot) lives in
  * `plans/AM1/design/full-surface/spec.md`.
  *
- * @lore AM1-v3: the shell chrome (sidebar rows, section headers, search field) is
- * hand-rolled rather than importing Sidebar/SearchField so the story renders
- * stand-alone in the viewer without AppShell's router/context. The builder maps
- * each region back to the real shell components per spec.md §Composition.
+ * @lore AM1-v3: the conversation + contextual chrome (header, message groups,
+ * composer, right pane) is hand-rolled rather than importing the real DS components
+ * so the story renders stand-alone in the viewer without AppShell's router/context.
+ * The builder maps each region back to the real components per spec.md §Composition.
+ * The app-shell sidebar is deliberately absent — it is not part of this design.
  */
 
 import type { JSX } from "react";
@@ -61,8 +67,6 @@ function Glyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
 }
 const ICON_ARROW = "M3 8h8.2L8 4.8 9.2 3.6 14.4 8l-5.2 4.4L8 11.2 11.2 8H3V8z";
 const ICON_CHECK = "M6.5 11.5L3 8l1.2-1.2 2.3 2.3L11.8 4 13 5.2l-6.5 6.3z";
-const ICON_SEARCH =
-	"M7 1a6 6 0 014.74 9.68l3.29 3.29-1.06 1.06-3.29-3.29A6 6 0 117 1zm0 1.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z";
 const ICON_PLUS = "M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25V2z";
 const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 const ICON_PAPERCLIP =
@@ -99,183 +103,7 @@ function Avatar({ who, size = 32 }: { who: Identity; size?: number }): JSX.Eleme
 }
 
 // ───────────────────────────────────────────────────────────────────
-// LEFT SIDEBAR — conversation list. Calm/quiet chrome that recedes.
-// Answers the founder's "where do I jump into a conversation."
-// ───────────────────────────────────────────────────────────────────
-function SidebarSectionRow({
-	label,
-	active,
-	badge,
-}: {
-	label: string;
-	active?: boolean;
-	badge?: number;
-}): JSX.Element {
-	return (
-		<div
-			className={[
-				"flex w-full items-center gap-[9px] px-[12px] py-[6px] rounded-[var(--r-subtle)] text-[14px]",
-				active
-					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600]"
-					: "text-[var(--text-secondary)] font-[500]",
-			].join(" ")}
-		>
-			<span className="text-[var(--text-tertiary)]">
-				<Glyph d={ICON_DOC} size={15} />
-			</span>
-			<span>{label}</span>
-			{badge != null && badge > 0 && (
-				<span className="ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--accent-primary)] px-[4px] text-[9px] font-[600] tabular-nums text-[var(--text-on-accent)]">
-					{badge}
-				</span>
-			)}
-		</div>
-	);
-}
-
-interface ConvRow {
-	id: string;
-	host: string;
-	preview: string;
-	time: string;
-	unread?: boolean;
-	blocking?: boolean;
-	active?: boolean;
-}
-
-const CONV_ROWS: ReadonlyArray<ConvRow> = [
-	{
-		id: "c-passkey",
-		host: "Bet · Passkey login",
-		preview: "A. Founder: Approved. Ship to staging — re-review before prod.",
-		time: "now",
-		active: true,
-	},
-	{
-		id: "c-billing",
-		host: "Bet · Usage-based billing",
-		preview: "Atlas: Drafted the metering schema — needs your review.",
-		time: "12m",
-		blocking: true,
-	},
-	{
-		id: "c-onboard",
-		host: "Task · Onboarding revamp",
-		preview: "Mara: pushed the empty-state copy, take a look when free.",
-		time: "1h",
-		unread: true,
-	},
-	{
-		id: "c-search",
-		host: "Task · Search relevance",
-		preview: "You: let's hold this until the index migration lands.",
-		time: "3h",
-	},
-	{
-		id: "c-design",
-		host: "Team · Design",
-		preview: "Atlas: weekly digest — 4 artifacts shipped, 1 pending.",
-		time: "1d",
-	},
-];
-
-function ConversationRow({ row }: { row: ConvRow }): JSX.Element {
-	return (
-		<div
-			data-thread-id={row.id}
-			aria-current={row.active ? "page" : undefined}
-			className={[
-				"flex w-full flex-col gap-[3px] px-[12px] py-[9px] rounded-[var(--r-subtle)] cursor-pointer",
-				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-				row.active
-					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
-					: "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
-			].join(" ")}
-		>
-			<div className="flex items-center gap-[6px]">
-				{(row.unread || row.blocking) && (
-					<span
-						className="h-[6px] w-[6px] shrink-0 rounded-full"
-						style={{
-							background: row.blocking ? "var(--status-error)" : "var(--accent-primary)",
-						}}
-						aria-hidden="true"
-					/>
-				)}
-				<span
-					className={[
-						"min-w-0 flex-1 truncate text-[13px]",
-						row.active ? "font-[600] text-[var(--text-primary)]" : "font-[500] text-[var(--text-primary)]",
-					].join(" ")}
-				>
-					{row.host}
-				</span>
-				<span className="shrink-0 text-[11px] tabular-nums text-[var(--text-tertiary)]">
-					{row.time}
-				</span>
-			</div>
-			<span className="truncate text-[12px] leading-[1.4] text-[var(--text-secondary)]">
-				{row.preview}
-			</span>
-		</div>
-	);
-}
-
-function Sidebar(): JSX.Element {
-	return (
-		<aside
-			data-ds-shell="Sidebar"
-			aria-label="Conversations navigation"
-			className="flex flex-col gap-[12px] border-r border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]"
-			style={{ width: 264, flexShrink: 0, height: "100%", overflow: "hidden" }}
-		>
-			{/* Search field (hand-rolled SearchField) */}
-			<div className="flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]">
-				<span className="text-[var(--text-tertiary)]">
-					<Glyph d={ICON_SEARCH} size={14} />
-				</span>
-				<span className="flex-1 text-[13px] text-[var(--text-placeholder)]">Search</span>
-				<span className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)]">
-					⌘K
-				</span>
-			</div>
-
-			{/* Top-level sections */}
-			<nav className="flex flex-col" aria-label="Sections">
-				<SidebarSectionRow label="Conversations" active badge={1} />
-				<SidebarSectionRow label="Work" />
-				<SidebarSectionRow label="Knowledge" />
-			</nav>
-
-			<hr className="mx-[6px] border-t border-[var(--border-subtle)]" />
-
-			{/* Conversation list */}
-			<div
-				className="flex flex-col gap-[3px]"
-				style={{ minHeight: 0, flex: 1, overflowY: "auto" }}
-			>
-				<div className="px-[12px] pb-[3px] pt-[3px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-					Recent
-				</div>
-				{CONV_ROWS.map((r) => (
-					<ConversationRow key={r.id} row={r} />
-				))}
-			</div>
-
-			{/* Footer (settings) */}
-			<div className="shrink-0">
-				<hr className="mx-[6px] mb-[6px] border-t border-[var(--border-subtle)]" />
-				<div className="flex items-center gap-[9px] px-[12px] py-[6px] text-[13px] text-[var(--text-secondary)]">
-					<Avatar who={FOUNDER} size={22} />
-					<span className="font-[500]">A. Founder</span>
-				</div>
-			</div>
-		</aside>
-	);
-}
-
-// ───────────────────────────────────────────────────────────────────
-// CENTER — Conversation header. Host context + participants + actions.
+// CONVERSATION HEADER — host context + participants + actions.
 // Makes "what is this conversation / what's it attached to" obvious.
 // ───────────────────────────────────────────────────────────────────
 function ConversationHeader(): JSX.Element {
@@ -886,10 +714,7 @@ export default function Am1ConversationSurface(): JSX.Element {
 			className="w-full overflow-hidden bg-[var(--surface-page)] text-[var(--text-primary)]"
 			style={{ display: "flex", height: "100%", fontFamily: "var(--font-sans)" }}
 		>
-			{/* 1 · LEFT SIDEBAR */}
-			<Sidebar />
-
-			{/* 2 · CENTER conversation pane */}
+			{/* 1 · CONVERSATION pane (primary) */}
 			<main
 				className="flex flex-col bg-[var(--surface-page)]"
 				style={{ flex: 1, minWidth: 0, height: "100%" }}
@@ -971,7 +796,7 @@ export default function Am1ConversationSurface(): JSX.Element {
 				<Composer />
 			</main>
 
-			{/* 3 · RIGHT CONTEXTUAL PANE (open on the diff embed) */}
+			{/* 2 · RIGHT CONTEXTUAL PANE (open on the diff embed) */}
 			{paneOpen && <ContextPane onClose={() => setPaneOpen(false)} />}
 		</div>
 	);

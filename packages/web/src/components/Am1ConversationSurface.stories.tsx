@@ -1,11 +1,12 @@
 /**
  * AM1 — Conversation, v3: Full Surface (C) stories.
  *
- * The FULL-SCOPE conversation embodied in the REAL app container — left
- * conversation sidebar · center conversation pane · right contextual pane —
- * rendered at ~1440px desktop width on --surface-page. Only the real populated
- * conversation; no empty / loading / error variants ([[memory]]: initial designs
- * render only populated).
+ * The FULL-SCOPE conversation scoped to TWO regions — the conversation pane
+ * (primary) · right contextual pane — rendered at desktop width on --surface-page.
+ * The app-shell sidebar (conversation list + nav) is intentionally OUT of this
+ * design: it is app-shell chrome that lives elsewhere, excluded so the conversation
+ * gets the viewer width. Only the real populated conversation; no empty / loading /
+ * error variants ([[memory]]: initial designs render only populated).
  */
 
 import type { JSX } from "react";

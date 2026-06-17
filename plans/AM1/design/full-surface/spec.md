@@ -2,8 +2,10 @@
 
 Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / Calm Document). This is the v3 foundation embodied in the real app container, per `plans/AM1/design/brief-v3.md`.
 
-**Story:** `AM1 Conversation — Full Surface (C)` / `Populated`. Renders at ~1440px desktop width on `--surface-page`.
+**Story:** `AM1 Conversation — Full Surface (C)` / `Populated`. Renders at desktop width on `--surface-page`.
 **Component:** `packages/web/src/components/Am1ConversationSurface.tsx` (`data-ds-component="Am1ConversationSurface"`).
+
+> **Scope — app-shell sidebar is OUT of this design.** The left app-shell sidebar (conversation list + Conversations/Work/Knowledge nav + the founder identity row) is app-shell chrome that lives elsewhere, NOT part of the conversation. It is deliberately excluded here so the conversation gets the viewer width (the design-system viewer can't accommodate the full app-shell width). This design scopes to **the conversation pane + its contextual right pane**. The earlier three-region framing (sidebar · center · right) is superseded by this two-region scope; the sidebar's "where do I jump in" job is owned by the app shell.
 
 ---
 
@@ -13,13 +15,14 @@ A founder (A. Founder) opens the **Passkey login** conversation. A teammate (Mar
 
 ---
 
-## Three-region anatomy
+## Two-region anatomy
 
 | Region | Width | Role |
 |---|---|---|
-| **Left sidebar** | 264px | Conversation list — search, three section rows (Conversations active, badge 1), a "Recent" conversation list (host + last-message preview + time + unread/blocking dot), active row highlighted. Calm chrome on `--surface-container` so it recedes. Answers "where do I jump into a conversation." |
-| **Center pane** | flex-1 | Conversation header (host chip + title + 3 participant avatars + actions ⋯) over the grouped message list over the bottom-pinned composer. `--surface-page`. |
+| **Conversation pane** | flex-1 | Primary. Conversation header (host chip + title + 3 participant avatars + actions ⋯) over the grouped message list (centered ~720–760px reading column) over the bottom-pinned composer. `--surface-page`. |
 | **Right contextual pane** | 420px | Open on the change-set embed: header (`auth/passkey.ts` +124/−18 + close), tab strip (Diff / Files / Session), syntax-gutter diff body. `--surface-container`. |
+
+The left app-shell sidebar is intentionally absent (see Scope note above) — app-shell chrome, not part of this design.
 
 ---
 
@@ -30,8 +33,9 @@ A founder (A. Founder) opens the **Passkey login** conversation. A teammate (Mar
 3. **Author groups** — avatar + name + time at each group head; the structural rhythm of the column.
 4. **Agent summary content** — prose + work-Fold + embeds + citations, calm and foldable.
 5. **Conversation framing** — header host chip ("Bet · Passkey login") + participants.
-6. **Navigation** — sidebar conversation list (quiet, recessive).
-7. **Composer chrome** — present and complete, but visually quiet until focused (shadow lifts on `focus-within`).
+6. **Composer chrome** — present and complete, but visually quiet until focused (shadow lifts on `focus-within`).
+
+(Navigation between conversations is owned by the app shell, out of this design's scope.)
 
 ---
 
@@ -41,11 +45,11 @@ A founder (A. Founder) opens the **Passkey login** conversation. A teammate (Mar
 |---|---|---|
 | 1 | "who wrote what / me vs them / multiple users" | Single column, NO bubbles. Identity (avatar + name + time) at each **author-group head**. 3 participants (A. Founder, Mara, Atlas). Human vs agent: agents get the green-tinted avatar + an "Agent" pill at the head. **Own-message cue:** A. Founder's groups carry a faint 3% accent tint + a quiet "You" label. Mara proves a second human reads distinctly from "me." |
 | 2 | "spacing / grouping / structure / layering — everything; blobs; memory game" | Author-**grouping** is the structural unit (not per-line styling, not disconnected blobs). Consecutive same-author messages collapse under one head (Atlas 9:11→9:12 group). Consistent 6px intra-group / 6px inter-group rhythm on the Hearth grid; generous group padding (12px/9px). One alignment grid (avatar gutter + 760px reading column). No box-per-message. |
-| 3 | "what's a thread vs a conversation; where would I jump in; why TASK floating alone" | Header shows host as a labeled chip **"Bet · Passkey login"** with the full participant set — the conversation IS the thread attached to one host, made legible. The sidebar conversation list (host + preview + time per row, active highlighted) is the "where do I jump in" answer. No cryptic bare "TASK" label. |
+| 3 | "what's a thread vs a conversation; where would I jump in; why TASK floating alone" | Header shows host as a labeled chip **"Bet · Passkey login"** with the full participant set — the conversation IS the thread attached to one host, made legible. No cryptic bare "TASK" label. ("Where do I jump in" — the conversation-list navigation — is the app shell's job, out of this design's scope.) |
 | 4 | "composer is a stub — no send/attach/format/tools; not centered" | Full composer anatomy: optional **banner** (Replying to Atlas ✕), **attachment-chip row** (auth-flow.png 82 KB, removable), input row `[ + | textarea "Message Atlas, Mara…" | Send ]`, a **formatting strip** (bold/italic/code/link · @mention · attach) + an Enter/Shift+Enter hint, real **Send** button (accent). Centered in a 760px column matching the message column. **No** model/effort/mode pills (those are AM3 dial-in). |
 | 5 | "embeds — if I open this, where do I end up?" | Every embed names its kind ("Change set" / "Referenced item" / "Session") and has a defined destination (table below). The **diff embed opens the right contextual pane** — shown OPEN, with an accent border on both the embed and the pane header tying source↔destination. Citations are source chips; the attachment is a file chip; the session reference opens the AM3 dial-in (never inlines the work-log). |
 | 6 | "message actions" | Hover toolbar (React · Reply · ⋯) anchored top-right of each group; shown live on the Atlas review group (`hovered`) so the founder sees it, and `group-hover/msg:flex` on the rest. Reactions render as a pill stack under Mara's message. |
-| 7 | "show it in the real app container" | The whole surface is the three-region shell (sidebar + main + right pane) at 1440px, framed as the app window — not a floating column. |
+| 7 | "show it in the real app container" | The surface is the conversation pane + contextual right pane, framed inside the app window — not a floating column. (The app-shell sidebar that wraps it is out of this design's scope; see Scope note.) |
 
 ---
 
@@ -55,7 +59,6 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 
 | Hand-rolled slot | Production component | Notes |
 |---|---|---|
-| Left sidebar shell + section rows + search | `shell/Sidebar.tsx` + `SearchField` | Reuse the real shell. Conversation-list rows = a new `ConversationListRow` (host + preview + time + dot) replacing the current title-only `FastNavItem`, OR extend `ThreadRow`. Used in 2+ contexts (sidebar + Conversations list page) → justifies the component. |
 | Avatar / participant group | `Avatar` + `AvatarGroup` (DS) | Drop-in; agent tint already in `Avatar agent`. |
 | Conversation header | `PageHeader` + `Tag` (host chip) + `AvatarGroup` | `PageHeader` subtitle already renders `Tag + host link` (see `Conversations.tsx`). Add the participant `AvatarGroup` to `actions`. |
 | Message group head + body | `ThreadShell` + `CommentRow` | `computeSenderGrouping` (already exported from `ThreadShell`) drives author-grouping. `CommentRow` renders identity + body; needs the **own-message cue**, **Agent pill**, and **hover toolbar** added (new, but reused across every conversation → in-budget). |
@@ -70,7 +73,7 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 | Composer | `Composer` (DS) | Extend with banner + attachment-chip row + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
 | Right contextual pane | `shell/ArtifactView` + `TabBar` | `ArtifactView` already renders kind-dispatched previews; `TabBar` for Diff/Files/Session. Mounts in a 420px right region (new `ContextPane` shell wrapper, mirrors the existing dial-in split in `Conversations.tsx`). |
 
-**New components introduced:** `ConversationListRow`, `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. No new tokens.
+**New components introduced:** `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. No new tokens. (The app-shell sidebar / `ConversationListRow` is out of this design's scope — owned by the app shell.)
 
 ---
 
@@ -98,12 +101,11 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 
 ---
 
-## Mobile adaptation (3 regions → 3-tab layout)
+## Mobile adaptation (conversation → tab; right pane → sheet)
 
-Per `docs/information-architecture/` (mobile = three tabs):
+Per `docs/information-architecture/` (mobile = three tabs). This design owns only the conversation tab and its contextual pane; the conversation-list tab is the app shell's:
 
-- **Tab 1 (Conversations list):** the left sidebar becomes the full-screen list view. Tapping a row pushes the conversation.
-- **Tab 2 (the conversation):** the center pane fills the screen. Header collapses host chip + participants into one line. The composer stays bottom-pinned (formatting strip behind the `+`/`Aa` to save height; ≥16px input font per AQ-005; ≥44px touch targets per AQ-015).
+- **The conversation:** the conversation pane fills the screen. Header collapses host chip + participants into one line. The composer stays bottom-pinned (formatting strip behind the `+`/`Aa` to save height; ≥16px input font per AQ-005; ≥44px touch targets per AQ-015).
 - **Right pane → sheet:** opening an embed pushes the contextual pane as a full-screen route (or a bottom sheet for short content), not a side-by-side column. Back returns to the conversation.
 - Author-grouping, identity, own-message cue, verdict, and embeds are unchanged — the reading column already is the mobile column.
 
@@ -111,7 +113,8 @@ Per `docs/information-architecture/` (mobile = three tabs):
 
 ## Trade-offs
 
-- **Hand-rolled shell vs importing `Sidebar`/`Composer`:** chose hand-rolled for a guaranteed standalone render in the viewer (no router/AppShell context). Cost: the spec must carry the reuse mapping (above) so the builder doesn't ship the hand-rolled copies. Benefit: the founder reviews the real composition without infra risk.
+- **Sidebar excluded from this design:** the app-shell sidebar (conversation list + nav) is app-shell chrome that lives elsewhere, not part of the conversation. Dropped here so the conversation gets the viewer width (the design-system viewer can't accommodate the full app-shell width). Cost: this story does not show the "where do I jump in" navigation — acceptable, the app shell owns it. Benefit: the conversation reading column + contextual pane get the room they need to be judged at real density.
+- **Hand-rolled chrome vs importing `Composer`/DS components:** chose hand-rolled for a guaranteed standalone render in the viewer (no router/AppShell context). Cost: the spec must carry the reuse mapping (above) so the builder doesn't ship the hand-rolled copies. Benefit: the founder reviews the real composition without infra risk.
 - **Right pane shown open by default:** answers the founder's "where do I end up" directly, at the cost of not also showing the closed/2-region state. Acceptable — the populated-only rule plus the source↔destination accent tie makes the relationship the point.
 - **Reactions/attachments rendered though schema-absent:** per inventory §9 these need Message-schema growth beyond AM1's render scope. Shown here as the design target (spec scenarios may name surfaces not yet reachable — [[memory]]); the builder gates them behind the schema work, not this story.
 - **Own-message cue = faint tint, not a bubble:** keeps the no-bubbles Slack model (annotation 1) while still answering "what's mine." Risk: 3% tint is subtle in light mode; paired with the "You" label so it never relies on color alone.
