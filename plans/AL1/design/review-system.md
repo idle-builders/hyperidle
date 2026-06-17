@@ -19,6 +19,8 @@ The canvas is resolved in precedence order — **the first that matches wins:**
 
 So: **standard family templates by default; per-tool/tool-shipped as an optional override.** The mini-logo + source-header make the tool visible regardless of which tier rendered.
 
+**No exhaustive "every tool on earth" registry — and that's the point.** We never map every tool. Tiers 1–2 are *enhancements* for tools where the vendor (MCP Apps) or community (manifest) invested. **Tier 3 needs zero per-tool knowledge**, because the **producing agent declares each artifact's kind** — the LLM knows what it just did, and the family vocabulary is only ~7, trivial to classify (and the agent can compose more than one block for a multi-artifact task). The family canvas renders from that declaration. A brand-new tool we've never heard of "just works" at tier 3 the moment its agent tags its output; per-tool polish is purely additive. Truly unclassifiable output → `FallbackRenderer` (key-value / raw) — never breaks, just plainer. **The agent is the universal router; tool mappings are optional garnish.**
+
 **Settled?** No — this 3-tier model is **new** (from the tool-ecosystem research; not in the locked concept). It's the answer to "useful to many platforms."
 
 ## 3. Is the artifact the whole review? — NO. The artifact is the *examine* layer.
@@ -43,7 +45,9 @@ The building blocks are the **Examination sub-surface**; the frame is the rest o
 
 **Settled?** Yes, structurally — IA §C (Review surface composes the groups; Examination sub-surface per artifact), §F (orient→triage→judge→examine→decide), concept §1.5 (the 10 parts + examine-vs-converse). The **composition/journey was explicitly deferred to `/design`** — and that's the next thing to design now that the blocks + frame exist. (The 3 deleted variants were premature attempts at this, before the blocks were right.)
 
-## 4. After approve — how does the AI actually do it? — the verdict is a TRIGGER
+## 4. After approve — how does the AI actually do it?
+> **PARKED — open question for a future concept workpackage (founder, 2026-06-17).** Recorded *without bias*: the sketch below is *one possible* direction, NOT a decision. Do not let it pre-shape the future concept act.
+
 Two artifact natures:
 - **Descriptive** (code diff, doc, metrics, design): the work *is* the artifact. Approve = accept; a follow-on step ships/merges/publishes.
 - **Operative** (Stripe refund, PO, send email, deploy, mass-resolve): the work is a **staged, not-yet-executed operation.** The action-operation canvas we built is literally the **pre-commit receipt** (what it will do · params · idempotency · undo · the gate). **Approve = release the staged operation to execute through the connected tool** (MCP/API). The verdict isn't just a label — for operative artifacts it's the **commit trigger**.
@@ -58,7 +62,7 @@ agent does work → stages operation(s) + produces evidence → REVIEW
 ```
 Verdict resolves the **whole Subject** (concept hard-rule), so approving releases all its staged operations; `request-changes`/`edit` hold them. The Subject must carry the **staged-operation spec** (tool, op, params, idempotency, undo) — which the action canvas already renders.
 
-**Settled?** Partly — concept: "Verdict … emits an Event Bus event"; IA: action artifacts show "what the action will do … and how to undo." **New/needs `/architecture`:** the **dispatch-on-approve** mechanism (verdict event → harness executes the staged op via the tool) and where the staged-operation spec lives. This is the most important new piece and the heart of "review → act."
+**Status: PARKED.** Concept already has "Verdict … emits an Event Bus event" and IA has action artifacts showing "what the action will do … and how to undo" — but the **dispatch-on-approve** mechanism (verdict → execute the staged op via the tool) is **an open question for a future concept WP**, deliberately left unbiased. It is the heart of "review → act" and deserves its own concept act, not a decision made in passing here.
 
 ---
 
@@ -68,5 +72,5 @@ Verdict resolves the **whole Subject** (concept hard-rule), so approving release
 
 ## Proposed next steps
 1. **Design the composition** (the entire review experience): the frame + the N building blocks (Subject) + conversation + verdict, as ONE surface — the journey we deferred, under the navbar+2-sections budget. Lead candidate shape: the "briefing" (outcome lead → relevance-ordered collapsible artifact stack → verdict), now that the blocks are rich. *(a `/design` on the composition.)*
-2. **Lock the execution loop** (verdict → dispatch staged op via tool) + the 3-tier canvas resolution — a short **concept/architecture extension** (these post-date the locked concept).
-3. Then `/architecture` for the staged-operation spec + the renderer-selection + the dispatch wiring.
+2. **Confirmed model (no new work needed now):** canvas selection = **agent-declared kind → standard family canvas** (the floor; no exhaustive tool registry); per-tool / MCP-Apps / community templates are additive overrides. This is settled enough to build against.
+3. **PARKED for a future concept WP:** the **execution loop** (approve → AI actually does it). Recorded as an unbiased open question (§4) — not decided here.
