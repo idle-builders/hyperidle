@@ -7,7 +7,53 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 > **Revision (v3.2) — THE CONVERSATION IS THE SURFACE.** Scope = the OPEN conversation, i.e. the open thread's content. A **conversation IS a thread** — settled in the schema: `conversationId === threadId`; messages carry one `threadId` with no sub-thread / parent column. A thread attaches to exactly ONE host (bet/task/user/team/agent/artifact/knowledge_item/factory). There are **no Slack-style sub-threads**.
 >
-> **Navigating BETWEEN threads is the app sidebar (`SidebarV2`, AD9)** — app-shell chrome, NOT part of this design. The v3.1 left "inbox / thread-list" pane WAS that app sidebar and has been **removed**. What remains is the conversation itself: header (thread identity) · author-grouped messages · composer · an on-demand right context pane (default closed).
+> **Navigating BETWEEN threads is the app sidebar (`SidebarV2`, AD9)** — app-shell chrome, NOT part of this design. The v3.1 left "inbox / thread-list" pane WAS that app sidebar and has been **removed**. What remains is the conversation itself: header (thread identity) · author-grouped messages · composer.
+
+---
+
+## v3.3 — round-3 detail refinement (this revision)
+
+Round-2 founder comments + the explicit scope boundary drove six refinements. The headline change is the **scope cut**: the review/artifact experience is owned by a parallel worktrack.
+
+### Review / artifact = track AL (NOT designed here)
+The **review experience — artifact review, the verdict flow, and the right slider/diff pane — is owned by track AL.** This design does **not** build it. Consequences:
+
+- **The change-set / diff context pane is REMOVED.** There is no diff body, no tab strip, no `ContextPane`, no `paneOpen` state in this surface.
+- A change-set/artifact appears only as a **compact Embed card that is a HOOK**: it carries an **"Open →"** affordance and "opens the artifact in a right slider" delivered by AL. The embed renders kind + filename + `+N/−M` and nothing more.
+- The **review message stays compact**: the agent proposes X (one title line + the change-set hook) with a single **"Open review →"** button into AL's verdict flow. No verdict bar (Approve / Request changes / Reject), no reasoning detail, no diff — those are AL's. The two workstreams piece together later: AM1 emits the hook, AL delivers the destination.
+
+### Composer Insert-Block capability (the conversation composer's unique power)
+The composer can **insert a knowledge Block** (heading / list / code / table / quote) with the **same rich block editing as Knowledge blocks** (production: DS `Block` + `BodyEditor` / TipTap). The story renders this concretely in two states at once:
+
+- **The open "+" Insert menu** — attached above the input row, listing **Insert block** (the key, accent-highlighted affordance) plus Attach file · Mention · Reference item, each labeled with a hint. `/` slash-commands are reserved (not shown as a tool).
+- **A draft that already contains an inserted, rich-edited Block** — a code Block sitting in the composer draft above the text line, with a **block handle** (drag/reorder + block actions, mirrors DS `BlockHandle`), a **kind chip** (`Code · ts`, changeable inline), a remove ✕, and the **same code render** as a Knowledge code block. The label "inserted block — edits like a knowledge block" makes the mechanic explicit.
+
+**Composer toolbar fix (round-2: "this icon seems broken" / "what does this icon do?"):** every tool is a legible, single-purpose icon with an `aria-label` + `title` tooltip. The bottom strip set: **Attach** (paperclip) · **Insert block** (blocks/stack glyph) · **@ Mention** (at) · **Format** (a clean `Aa` mark → bold/italic/code) · **Emoji** (face). No mystery/broken glyphs. The broken bold-`d` path was replaced with a proper `Aa` format mark.
+
+**Resting composer anatomy** (top→bottom): reply banner → inserted-block / attachment draft area → open Insert menu (when "+" active) → input row `[ + Insert | textarea | Send ]` → formatting strip + "Enter to send · Shift+Enter for newline".
+
+### Reply-to-a-specific-message (round-2: "I cannot tell to which message I am replying")
+- The composer **reply banner** references the specific message, not just the person: "Replying to **Atlas**" + a **Slack-style quoted snippet** of that message ("Added WebAuthn registration and the dual-auth window. Existing password sessions stay valid…").
+- One message in the thread renders **as a reply**: the founder's 9:14 message carries a quoted **`ReplyReference`** above its body (↩ **Atlas** · "How long should the password fallback stay enabled?") so a reader sees what the reply refers to — answering both the writer's and the reader's need.
+
+### Questionnaire / quick-answer agent message (the AM1-relevant agent message type; review = AL)
+Added an **agent questionnaire message** (Atlas 9:13): a scoped "QUICK ASK" question with **constrained answer options rendered as inline answer chips** the human picks ("Keep through phase 2" recommended/accent · "Drop now" · "Decide later"). Calm, teammate-style — a quick ask, not a heavy form. Drawn from AI-chat quick-replies + Slack. Message types covered in the fixture: **plain · questionnaire · review (hook) · verdict** (echo).
+
+### Density + agent-vs-human legibility (round-2: more space; "certain people will want to know" who is an agent)
+- **Inter-group rhythm bumped to 18px** (from 6px) — more breathing room between message groups; calmer vertical rhythm, not crammed.
+- **Agent vs human reads at a glance without reading the name:** agent groups carry a **left accent rule (2.5px) + a faint 4% accent tint** behind the whole group, plus the existing green-tinted avatar + "AGENT" pill (now with a check glyph). **Humans are plain.** The **own ("You")** group keeps a subtle 3% warm tint + the "You" label (color-independent).
+
+### Header avatars (round-2: "these weirdly overlap")
+Participants render as a clean overlapping **`ParticipantGroup`** (production: DS `AvatarGroup`): consistent 2px `--surface-page` ring, even -9px overlap, descending `z-index` so each reads cleanly; the agent avatar's green ring distinguishes it. Followed by the participant count and the ⋯ actions. No broken overlap.
+
+### Per-message hover controls (round-2: founder liked them, "not too big")
+Kept as-is: the React · Reply · ⋯ hover toolbar, compact (26px targets), anchored top-right of each group; shown live on the Atlas review group and `group-hover/msg:flex` on the rest.
+
+---
+
+### v3.1 anatomy note (superseded for the diff pane)
+
+What remains is the conversation itself: header (thread identity) · author-grouped messages · composer. The **on-demand right context pane referenced below is removed in v3.3** — artifact review is track AL.
 
 ---
 
@@ -74,10 +120,12 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 | Embed (diff / block / session) | `ArtifactEmbed` (diff), `BlockRefEmbed` (referenced item), **new `SessionRefEmbed`** | Concept's closed Embed set. Diff → `ArtifactEmbed` `text_diff`; block → existing `BlockRefEmbed`; session → new satellite Embed. |
 | Citation chips | **New `CitationChips`** | Source/provenance row. Reused wherever an agent cites (conversation + knowledge) → in-budget. |
 | Attachment chip | **New `AttachmentChip`** | File/image attachment. Reused in composer + message → in-budget. |
-| Review part + verdict buttons | `RichMessageCard` + `Button` | `RichMessageCard` already owns the review card + verdict bar + `verdictDecisionLabel`. Reuse directly. |
+| Review message (compact hook) | `RichMessageCard` (compact) + `Button` | v3.3: AM1 renders only the **compact review hook** — title + change-set Embed + a single "Open review →" button. The **verdict bar + artifact/diff view are track AL's** — do NOT build them here. |
+| Questionnaire (quick ask) | **New `QuickAskPart`** (answer chips) | Agent message type: scoped question + constrained inline answer chips (recommended chip accented). Reused wherever an agent asks a quick scoped question → in-budget. |
 | Verdict echo | `CommentRow` verdict terminator | Existing. |
-| Composer | `Composer` (DS) | Extend with banner + attachment-chip row + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
-| Right contextual pane | `shell/ArtifactView` + `TabBar` | `ArtifactView` already renders kind-dispatched previews; `TabBar` for Diff/Files/Session. Mounts in a 420px right region (new `ContextPane` shell wrapper, mirrors the existing dial-in split in `Conversations.tsx`). |
+| Inserted-block draft | DS `Block` + `BodyEditor` (TipTap) + `BlockHandle` | The composer's Insert-Block power: a Block inserted into the draft edits exactly like a Knowledge block. Same `Block` shell, handle gutter, kind chip, payload render. |
+| Composer | `Composer` (DS) | Extend with banner (reply + quoted snippet) + inserted-block/attachment draft area + **open "+" Insert menu** + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
+| ~~Right contextual pane~~ | **Track AL** | REMOVED from this design (v3.3). Artifact review / the right slider is owned by track AL. The change-set Embed is only a hook into it. |
 
 **New components introduced:** `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. No new tokens. **Thread navigation (the conversation/thread list) is NOT in this design** — it is the app sidebar (`SidebarV2`, AD9), owned by the app shell.
 
@@ -87,7 +135,7 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 
 | Embed kind | Renders | Opens (destination) |
 |---|---|---|
-| Change set (diff) | `auth/passkey.ts` +124/−18 | **Right contextual pane** — Diff/Files/Session tabs (shown open). |
+| Change set (diff) | `auth/passkey.ts` +124/−18 | **Track AL's review experience** (right slider) — a HOOK only; "Open →". AM1 does not render the diff/pane. |
 | Referenced item (block) | Plan §2 title + snippet | The referenced item in place (Knowledge / host surface). |
 | Session reference | Atlas · Opus 4.8 · 1m 12s · 14 tool calls | **AM3 session dial-in** (lower-level). NEVER an inlined work-log. |
 | Citation / source chip | Numbered source label | The source (external URL or internal doc). |
