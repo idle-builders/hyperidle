@@ -1157,6 +1157,16 @@ stories:
     track: AL
     depends: []
     complexity: M
+  - id: AL2
+    title: Harness review-return hooks
+    track: AL
+    depends: []
+    complexity: L
+  - id: AL3
+    title: Review execution loop
+    track: AL
+    depends: []
+    complexity: L
   # Track AM: Conversation Experience
   - id: AM1
     title: Conversation experience
