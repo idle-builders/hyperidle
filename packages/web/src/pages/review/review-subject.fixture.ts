@@ -47,8 +47,22 @@ export interface ReviewComment {
 	readonly blocking?: boolean;
 }
 
+/** A glanceable result figure — "something to see" surfaced in the outcome. */
+export interface ResultKpi {
+	readonly label: string;
+	readonly value: string;
+	readonly delta?: string;
+	/** true = the change is good (green), false = bad (red), undefined = neutral. */
+	readonly good?: boolean;
+}
+
 export interface ReviewSubject {
 	readonly workIdentity: string;
+	// ── where we came from (the dual anchor's first half) ──
+	/** the bet this task rolls up to. */
+	readonly bet: string;
+	/** the actual ask / prompt the work is judged against (NOT an abstract checklist). */
+	readonly prompt: string;
 	readonly author: string;
 	readonly reviewer: string;
 	readonly standing: string;
@@ -57,7 +71,12 @@ export interface ReviewSubject {
 	readonly costMoney: string;
 	readonly costTokens: string;
 	readonly tools: ReadonlyArray<ToolId>;
+	// ── what we did (the dual anchor's second half) ──
 	readonly outcome: string;
+	/** glanceable result figures — the "something to see" alongside the headline artifact. */
+	readonly resultKpis: ReadonlyArray<ResultKpi>;
+	/** the artifact id whose proof is the headline "result to see" (surfaced in the outcome). */
+	readonly headlineArtifactId: string;
 	readonly intent: ReadonlyArray<IntentCondition>;
 	readonly needs: ReadonlyArray<NeedItem>;
 	readonly artifacts: ReadonlyArray<SubjectArtifactRow>;
@@ -66,6 +85,9 @@ export interface ReviewSubject {
 
 export const REVIEW_SUBJECT: ReviewSubject = {
 	workIdentity: "Fix expired-promo checkout — silent success → typed 422",
+	bet: "Billing reliability",
+	prompt:
+		"Expired promo codes at checkout show no error — users think the code applied and are confused when the total doesn't change. Fix it: surface a clear error, and tell the user why it failed.",
 	author: "Atlas",
 	reviewer: "You",
 	standing: "Awaiting your verdict",
@@ -76,6 +98,12 @@ export const REVIEW_SUBJECT: ReviewSubject = {
 	tools: ["github", "linear", "vercel"],
 	outcome:
 		"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently 'succeeded'. Checkout now returns a typed 422 and shows an inline 'expired' message; tests pass. The prod deploy is staged and waiting on your approval.",
+	resultKpis: [
+		{ label: "Silent failures", value: "0", delta: "was 31 users / 24h", good: true },
+		{ label: "Tests", value: "47 / 47", delta: "+0.4% cov", good: true },
+		{ label: "Checkout error path", value: "now covered", good: true },
+	],
+	headlineArtifactId: "a_visual",
 	intent: [
 		{ text: "Expired codes show the user an error", met: true },
 		{ text: "API returns a typed 422 (not silent 200)", met: true },
