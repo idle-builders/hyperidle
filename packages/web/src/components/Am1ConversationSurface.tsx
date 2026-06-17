@@ -4,15 +4,15 @@
  *
  * v1/v2 (the thin "calm column" — QuietStream / Quiet Turns / Calm Document) were
  * rejected by the founder as "far from the basics": missing spacing/grouping/
- * structure, no me-vs-them identity, no multi-user, a stub composer, and shown in
- * a floating container instead of the real app. This v3 answers every Round-1
- * annotation (`.annotations/annotations.md`) across TWO regions: the conversation
- * pane (primary) · right contextual pane.
+ * structure, no me-vs-them identity, no multi-user, a stub composer.
  *
- * The left app-shell sidebar (conversation list + Conversations/Work/Knowledge nav)
- * is INTENTIONALLY out of this design — it is app-shell chrome that lives elsewhere,
- * not part of the conversation. Excluded so the conversation gets the viewer width;
- * the design scopes to the conversation pane + its contextual right pane.
+ * SCOPE = THE OPEN CONVERSATION (the open thread's content). A conversation IS a
+ * thread (DB: conversationId === threadId; messages carry one threadId, no
+ * sub-thread/parent column — no Slack-style sub-threads). Navigating BETWEEN
+ * threads is the app sidebar (SidebarV2, AD9) — app-shell chrome, NOT part of this
+ * design. So this surface is just the conversation: header (thread identity) ·
+ * message groups · composer · an on-demand right context pane (default closed).
+ * The earlier left inbox / thread-list pane was that app sidebar and is removed.
  *
  * /design embodiment of the LOCKED concept (`plans/AM1/concept.md`): a Conversation
  * = deliberate, threaded messages on ONE host, rendered through the Part model
@@ -37,10 +37,10 @@
  * composer, right pane) is hand-rolled rather than importing the real DS components
  * so the story renders stand-alone in the viewer without AppShell's router/context.
  * The builder maps each region back to the real components per spec.md §Composition.
- * The app-shell sidebar is deliberately absent — it is not part of this design.
+ * The app sidebar (thread navigation) is deliberately absent — it is app-shell
+ * chrome, not part of the conversation surface.
  */
 
-import type { HostKind } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useState } from "react";
 
@@ -109,7 +109,8 @@ function Avatar({ who, size = 32 }: { who: Identity; size?: number }): JSX.Eleme
 // ───────────────────────────────────────────────────────────────────
 function ConversationHeader(): JSX.Element {
 	return (
-		<header className="flex shrink-0 items-center gap-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+		<header className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+		 <div className="mx-auto flex w-full max-w-[740px] items-center gap-[12px]">
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 					{/* Host kind chip + host title — "what's this attached to" */}
@@ -145,6 +146,7 @@ function ConversationHeader(): JSX.Element {
 			>
 				<Glyph d={ICON_MORE} size={16} />
 			</button>
+		 </div>
 		</header>
 	);
 }
@@ -528,7 +530,7 @@ function ComposerToolButton({
 function Composer(): JSX.Element {
 	return (
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
-			<div className="mx-auto w-full max-w-[680px]">
+			<div className="mx-auto w-full max-w-[740px]">
 				<div className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] focus-within:shadow-[var(--shadow-default)] transition-shadow duration-[var(--motion-fast)]">
 					{/* Optional banner (replying / editing / unresolved review) */}
 					<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px] text-[12px] text-[var(--text-secondary)]">
@@ -702,320 +704,7 @@ function ContextPane({ onClose }: { onClose: () => void }): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// INBOX / THREAD LIST — this IS "how threads work". A sectioned, ordered
-// list of threads. Many threads, attached to DIFFERENT hosts (bet / task /
-// team / agent / user), grouped by section: assistant/pinned →
-// blocking reviews → non-blocking reviews → chats → resolved. Selecting a
-// row opens its thread in the conversation pane. The active row ("Passkey
-// login", host: bet) is rendered `selected`. This is NOT the app-shell
-// global Conversations/Work/Knowledge nav — that chrome stays out.
-//
-// @lore AM1-v3: rows are a hand-rolled mirror of DS `ThreadRow`
-// (unread dot · title · host pill · snippet · overlapping participant
-// avatars · message-count badge · blocking badge · timestamp · selected /
-// pinned). The builder maps each row back to the real `ThreadRow` per spec.
-// ───────────────────────────────────────────────────────────────────
-const ICON_SEARCH =
-	"M7 2a5 5 0 013.9 8.1l3 3-1.1 1.1-3-3A5 5 0 117 2zm0 1.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z";
-
-type InboxAvatar = { initials: string; agent?: boolean };
-
-interface InboxThread {
-	id: string;
-	title: string;
-	host: HostKind;
-	snippet: string;
-	timestamp: string;
-	avatars: ReadonlyArray<InboxAvatar>;
-	messageCount: number;
-	unread?: boolean;
-	blocking?: boolean;
-	pinned?: boolean;
-	selected?: boolean;
-}
-
-// Overlapping participant avatars — mirrors ThreadRow's right-side group.
-function InboxAvatars({ avatars }: { avatars: ReadonlyArray<InboxAvatar> }): JSX.Element {
-	return (
-		<div className="flex shrink-0">
-			{avatars.map((a, i) => (
-				<span
-					key={`${a.initials}-${i}`}
-					className={[
-						"relative inline-flex h-[24px] w-[24px] items-center justify-center rounded-full text-[9px] font-[600] leading-none border-[2px] border-[var(--surface-elevated)] shrink-0",
-						i > 0 ? "-ml-[6px]" : "",
-						a.agent
-							? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
-							: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
-					].join(" ")}
-					aria-hidden="true"
-				>
-					{a.initials}
-				</span>
-			))}
-		</div>
-	);
-}
-
-function InboxRow({ t }: { t: InboxThread }): JSX.Element {
-	const borderLeft = t.selected
-		? "border-l-[2px] border-[var(--accent-primary)]"
-		: t.blocking
-			? "border-l-[2px] border-[var(--status-error)]"
-			: "border-l-[2px] border-transparent";
-	return (
-		<div
-			data-ds-component="Am1InboxRow"
-			aria-current={t.selected ? "true" : undefined}
-			className={[
-				"flex cursor-pointer items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[9px] transition-colors duration-[var(--motion-fast)]",
-				t.selected
-					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]"
-					: "hover:bg-[color-mix(in_oklab,var(--text-secondary)_3%,transparent)]",
-				borderLeft,
-			].join(" ")}
-		>
-			{/* Unread dot (transparent spacer when read) */}
-			<span
-				aria-hidden="true"
-				className={[
-					"h-[8px] w-[8px] shrink-0 rounded-full",
-					t.unread ? "bg-[var(--accent-primary)]" : "bg-transparent",
-				].join(" ")}
-			/>
-			{/* Info column */}
-			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-[6px]">
-					{t.pinned && (
-						<svg
-							aria-label="Pinned"
-							role="img"
-							viewBox="0 0 12 12"
-							width={11}
-							height={11}
-							fill="currentColor"
-							className="shrink-0 text-[var(--text-secondary)]"
-						>
-							<path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5-3-1.5-3 1.5.5-3.5L1 4.5l3.5-.5L6 1z" />
-						</svg>
-					)}
-					<span
-						className={[
-							"truncate text-[14px]",
-							t.unread || t.selected ? "font-[600] text-[var(--text-primary)]" : "font-[400] text-[var(--text-primary)]",
-						].join(" ")}
-					>
-						{t.title}
-					</span>
-					{/* Host pill — mono 10px, mirrors ThreadRow.hostTag */}
-					<span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] px-[6px] py-[3px] font-mono text-[10px] leading-[1.4] text-[var(--text-secondary)]">
-						{t.host}
-					</span>
-				</div>
-				<p
-					className={[
-						"mt-[1px] truncate text-[12px]",
-						t.unread ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]",
-					].join(" ")}
-				>
-					{t.snippet}
-				</p>
-			</div>
-			{/* Meta column: blocking badge, avatars, count, time */}
-			<div className="flex shrink-0 items-center gap-[6px]">
-				{t.blocking && (
-					<span className="inline-flex items-center whitespace-nowrap rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[6px] py-[3px] text-[11px] font-[500] text-[var(--status-error)]">
-						Blocking
-					</span>
-				)}
-				<InboxAvatars avatars={t.avatars} />
-				<span
-					className={[
-						"inline-flex min-w-[18px] items-center justify-center whitespace-nowrap rounded-[var(--r-pill)] px-[6px] py-[3px] text-[11px] font-[500] tabular-nums",
-						t.unread
-							? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
-							: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
-					].join(" ")}
-				>
-					{t.messageCount}
-				</span>
-			</div>
-		</div>
-	);
-}
-
-function InboxSection({ label }: { label: string }): JSX.Element {
-	return (
-		<div className="flex items-center gap-[6px] px-[12px] pb-[3px] pt-[12px]">
-			<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				{label}
-			</span>
-		</div>
-	);
-}
-
-// Section data. Ordering = assistant/pinned → blocking reviews →
-// non-blocking reviews → chats → resolved (conversations-view §2.1).
-const PINNED: ReadonlyArray<InboxThread> = [
-	{
-		id: "t-assistant",
-		title: "Assistant",
-		host: "user",
-		snippet: "3 reviews waiting · passkey deploy needs you",
-		timestamp: "now",
-		avatars: [{ initials: "AS", agent: true }],
-		messageCount: 1,
-		pinned: true,
-	},
-];
-const BLOCKING_REVIEWS: ReadonlyArray<InboxThread> = [
-	{
-		id: "t-passkey",
-		title: "Passkey login",
-		host: "bet",
-		snippet: "Atlas: Approve deploy of passkey login to staging",
-		timestamp: "9:13",
-		avatars: [{ initials: "AF" }, { initials: "MK" }, { initials: "AT", agent: true }],
-		messageCount: 9,
-		blocking: true,
-		unread: true,
-		selected: true,
-	},
-	{
-		id: "t-stripe",
-		title: "Stripe webhook signing",
-		host: "task",
-		snippet: "Builder cannot proceed without the API key",
-		timestamp: "8:40",
-		avatars: [{ initials: "AT", agent: true }],
-		messageCount: 3,
-		blocking: true,
-		unread: true,
-	},
-];
-const REVIEWS: ReadonlyArray<InboxThread> = [
-	{
-		id: "t-rollout",
-		title: "Passkey rollout — phase 1 scope",
-		host: "bet",
-		snippet: "Atlas: Drafted 3-phase plan. Shadow enrollment Monday.",
-		timestamp: "2:38p",
-		avatars: [{ initials: "AF" }, { initials: "AT", agent: true }],
-		messageCount: 8,
-		unread: true,
-	},
-	{
-		id: "t-compat",
-		title: "WebAuthn browser compatibility",
-		host: "knowledge_item",
-		snippet: "Scout: Coverage across target browsers is 96.3%.",
-		timestamp: "11:05a",
-		avatars: [{ initials: "SC", agent: true }],
-		messageCount: 3,
-	},
-];
-const CHATS: ReadonlyArray<InboxThread> = [
-	{
-		id: "t-mara",
-		title: "Mara",
-		host: "user",
-		snippet: "can we sync on the enterprise tenant fallback?",
-		timestamp: "9:20",
-		avatars: [{ initials: "MK" }],
-		messageCount: 12,
-		unread: true,
-	},
-	{
-		id: "t-platform",
-		title: "Platform team",
-		host: "team",
-		snippet: "Tobias: standup notes — auth migration on track",
-		timestamp: "Tue",
-		avatars: [{ initials: "TG" }, { initials: "MK" }, { initials: "JS" }],
-		messageCount: 41,
-	},
-	{
-		id: "t-atlas",
-		title: "Atlas",
-		host: "agent",
-		snippet: "Standing by. Want me to start the prod re-review?",
-		timestamp: "Tue",
-		avatars: [{ initials: "AT", agent: true }],
-		messageCount: 6,
-	},
-];
-const RESOLVED: ReadonlyArray<InboxThread> = [
-	{
-		id: "t-deprecation",
-		title: "Password deprecation timeline",
-		host: "bet",
-		snippet: "Approved — target end of Q2, comms plan attached",
-		timestamp: "Mon",
-		avatars: [{ initials: "TG" }, { initials: "AT", agent: true }],
-		messageCount: 14,
-	},
-	{
-		id: "t-schema",
-		title: "Credential schema migration",
-		host: "artifact",
-		snippet: "Merged — 38 contract tests green",
-		timestamp: "Mon",
-		avatars: [{ initials: "AT", agent: true }],
-		messageCount: 5,
-	},
-];
-
-function Inbox(): JSX.Element {
-	return (
-		<aside
-			data-ds-component="Am1Inbox"
-			aria-label="Conversations inbox"
-			className="flex flex-col border-r border-[var(--border-subtle)] bg-[var(--surface-container)]"
-			style={{ width: 300, flexShrink: 0, height: "100%", overflow: "hidden" }}
-		>
-			{/* Search / jump field */}
-			<div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[12px]">
-				<div className="flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[9px] py-[6px]">
-					<span className="text-[var(--text-tertiary)]">
-						<Glyph d={ICON_SEARCH} size={14} />
-					</span>
-					<input
-						type="text"
-						placeholder="Jump to a conversation…"
-						className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-					/>
-				</div>
-			</div>
-
-			{/* Sectioned, ordered thread list */}
-			<div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-				{PINNED.map((t) => (
-					<InboxRow key={t.id} t={t} />
-				))}
-				<InboxSection label="Reviews" />
-				{BLOCKING_REVIEWS.map((t) => (
-					<InboxRow key={t.id} t={t} />
-				))}
-				{REVIEWS.map((t) => (
-					<InboxRow key={t.id} t={t} />
-				))}
-				<InboxSection label="Chats" />
-				{CHATS.map((t) => (
-					<InboxRow key={t.id} t={t} />
-				))}
-				<InboxSection label="Resolved" />
-				<div className="opacity-70">
-					{RESOLVED.map((t) => (
-						<InboxRow key={t.id} t={t} />
-					))}
-				</div>
-			</div>
-		</aside>
-	);
-}
-
-// ───────────────────────────────────────────────────────────────────
-// The full surface.
+// The conversation surface — the open thread's content.
 // ───────────────────────────────────────────────────────────────────
 export default function Am1ConversationSurface(): JSX.Element {
 	// Change-set / diff pane is DEFAULT CLOSED — it opens on demand when a
@@ -1031,10 +720,9 @@ export default function Am1ConversationSurface(): JSX.Element {
 			className="w-full overflow-hidden bg-[var(--surface-page)] text-[var(--text-primary)]"
 			style={{ display: "flex", height: "100%", fontFamily: "var(--font-sans)" }}
 		>
-			{/* 1 · INBOX / THREAD LIST (this IS "how threads work") */}
-			<Inbox />
-
-			{/* 2 · CONVERSATION pane (primary) */}
+			{/* CONVERSATION — the focused surface (the open thread's content). The
+			    inbox / thread-list lives in the app sidebar (SidebarV2, AD9), which
+			    is app-shell chrome and NOT part of this design. */}
 			<main
 				className="flex flex-col bg-[var(--surface-page)]"
 				style={{ flex: 1, minWidth: 0, height: "100%" }}
@@ -1045,7 +733,7 @@ export default function Am1ConversationSurface(): JSX.Element {
 					className="px-[18px] py-[12px]"
 					style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
 				>
-					<div className="mx-auto flex w-full max-w-[680px] flex-col gap-[6px]">
+					<div className="mx-auto flex w-full max-w-[740px] flex-col gap-[6px]">
 						{/* 1 · Founder ask (own-message cue) */}
 						<MessageGroup who={FOUNDER} time="9:02">
 							<Prose>Can you wire passkey login and show me the diff before we deploy?</Prose>
