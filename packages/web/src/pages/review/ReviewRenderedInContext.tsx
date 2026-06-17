@@ -347,7 +347,7 @@ export function ReviewRenderedInContext({
 						<span
 							className="flex items-center gap-[6px] px-[9px] py-[3px] text-[12px] font-[600] uppercase"
 							style={{
-								background: "var(--status-warning-dim)",
+								background: "var(--accent-secondary-dim)",
 								color: "var(--status-warning)",
 								borderRadius: "var(--r-pill)",
 								letterSpacing: "var(--tracking-caps-sm)",

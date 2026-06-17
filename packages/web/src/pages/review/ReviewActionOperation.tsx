@@ -115,8 +115,8 @@ export function ReviewActionOperation({
 				className="mx-[18px] flex items-baseline justify-between border px-[18px] py-[12px]"
 				style={{
 					borderRadius: "var(--r-subtle)",
-					borderColor: "var(--status-warning-dim)",
-					background: "var(--status-warning-dim)",
+					borderColor: "var(--accent-secondary-dim)",
+					background: "var(--accent-secondary-dim)",
 				}}
 			>
 				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
@@ -258,7 +258,7 @@ function IrreversibleBadge(): JSX.Element {
 			style={{
 				borderRadius: "var(--r-pill)",
 				color: "var(--status-warning)",
-				background: "var(--status-warning-dim)",
+				background: "var(--accent-secondary-dim)",
 			}}
 		>
 			<span

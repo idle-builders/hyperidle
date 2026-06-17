@@ -133,9 +133,9 @@ function FieldRow({
 			className="border-b border-[var(--border-subtle)] last:border-b-0"
 			style={
 				needs
-					? { background: "var(--status-warning-dim)" }
+					? { background: "var(--accent-secondary-dim)" }
 					: approved
-						? { background: "var(--status-success-dim)" }
+						? { background: "var(--accent-primary-dim)" }
 						: undefined
 			}
 		>
@@ -182,7 +182,7 @@ function FieldRow({
 								<span
 									className="rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
 									style={{
-										background: "var(--status-warning-dim)",
+										background: "var(--accent-secondary-dim)",
 										color: "var(--status-warning)",
 									}}
 								>
@@ -213,7 +213,7 @@ function FieldRow({
 								<div
 									className="rounded-[var(--r-subtle)] px-[9px] py-[6px] text-[12px]"
 									style={{
-										background: "var(--status-warning-dim)",
+										background: "var(--accent-secondary-dim)",
 										color: "var(--status-warning)",
 									}}
 								>
@@ -293,7 +293,7 @@ export function ReviewFieldChangeSet({
 						<span
 							className="rounded-[var(--r-pill)] px-[6px] py-[3px] text-[12px] font-[600]"
 							style={{
-								background: "var(--status-warning-dim)",
+								background: "var(--accent-secondary-dim)",
 								color: "var(--status-warning)",
 							}}
 						>
