@@ -13,12 +13,12 @@
  * now detects `dark` to override the light default, the opposite of Lucid
  * which was dark-default and detected `light` to override.
  *
- * @lore U3 — light mode --text-tertiary (#9a8d7e) achieves 2.85:1 on
- * surface-page. This token is intentionally decorative/hint-only in light
- * mode — used only for large labels, timestamps, and icon-only contexts that
- * are WCAG exempt from AA normal-text contrast. It is NOT used for body text
- * on warm surfaces. Dark mode text-tertiary (#9a8e7e) achieves 5.65:1 on
- * page, passing AA everywhere.
+ * @lore U3 / CP1 — light mode --text-tertiary (#958e85 after CP1, was #9a8d7e)
+ * achieves ~2.85:1 on surface-page. This token is intentionally decorative/
+ * hint-only in light mode — used only for large labels, timestamps, and
+ * icon-only contexts that are WCAG exempt from AA normal-text contrast. It is
+ * NOT used for body text on warm surfaces. Dark mode text-tertiary (#938c87
+ * after CP1) achieves 5.73:1 on page, passing AA everywhere.
  *
  * @lore U3 — status-warning (#d97706), status-error (#dc4a3a), and
  * status-info (#2e7dba) in LIGHT MODE fail WCAG AA for normal text on warm
@@ -148,23 +148,46 @@
 	/* ── Hearth Light (default) ── */
 	:root,
 	[data-theme="hearth-light"] {
-		/* Surfaces — warm cream tones */
-		--surface-page: #f5f0e6;
-		--surface-container: #ede7db;
+		/* Surfaces — bright warm off-white ladder */
+		/*
+		 * @lore CP1 round-2 — light surface ladder LIFTED for an airier read.
+		 * Round-1 kept the cream page (#f5f0e6, L0.956) and only softened the
+		 * container; the founder still read page AND container as too dark/heavy.
+		 * Round-2 raises the whole ladder while keeping three clearly-visible
+		 * steps (no collapse into indistinguishable near-whites):
+		 *   page      #f5f0e6 → #fbf7f2  (L0.956→0.978, H~74°, C0.008)
+		 *   container #f0ece5 → #f5f0eb  (L0.944→0.958, H~68°, C0.009)
+		 *   elevated  #ffffff (unchanged white card on top)
+		 * Steps: page→container ΔL 0.020, container→white ΔL 0.022 — even and
+		 * legible. Warm hue stays in the AQ-018 40–80° band; chroma low so it
+		 * reads bright-warm, never cool-gray. The cream is no longer sacred (the
+		 * founder asked for lighter); identity is preserved by the warm hue.
+		 */
+		--surface-page: #fbf7f2;
+		--surface-container: #f5f0eb;
 		--surface-elevated: #ffffff;
 		--surface-overlay: #ffffff;
 
-		/* Text — warm dark tones */
-		--text-primary: #2c241a; /* 13.45:1 on page, 15.28:1 on elevated */
-		--text-secondary: #6b5d4d; /* 5.61:1 on page, 6.37:1 on elevated */
+		/* Text — warm dark tones (unchanged in round-2; ratios rose on the lifted ladder) */
+		--text-primary: #2c241a; /* 14.33:1 page, 13.49:1 container, 15.28:1 elevated */
 		/*
-		 * @lore U3 — text-tertiary (#9a8d7e) is 2.85:1 on surface-page in
-		 * light mode. Intentionally decorative/hint-only — large labels,
-		 * timestamps, icons. NOT for body text. WCAG AA-exempt in this role.
-		 * See file-level @lore for full rationale.
+		 * @lore CP1 — text-secondary de-browned from #6b5d4d (OKLCH C0.031) to
+		 * #675f56 (C0.017). Founder: mid text reads "poopy"/over-browned. Chroma
+		 * cut ~45% toward refined warm-neutral; lightness held (L0.49) so AA is
+		 * preserved. Round-2 lifted the page/container so contrast actually rose:
+		 * 5.88:1 on page, 5.54:1 on container, 6.27:1 on elevated.
 		 */
-		--text-tertiary: #9a8d7e; /* 2.85:1 on page — decorative/hint only */
-		--text-placeholder: #bfb5a5; /* placeholder-only, exempt from AA */
+		--text-secondary: #675f56; /* 5.88:1 page, 5.54:1 container, 6.27:1 elevated */
+		/*
+		 * @lore U3 — text-tertiary is decorative/hint-only in light mode (large
+		 * labels, timestamps, icons; NOT body text; WCAG AA-exempt in this role).
+		 * @lore CP1 — de-browned #9a8d7e (C0.027) → #958e85 (C0.016), holding
+		 * L0.65. Round-2 lifted the page so it reads ~3.04:1 — still decorative/
+		 * hint-only (large labels, timestamps, icons), cleaner tone.
+		 */
+		--text-tertiary: #958e85; /* ~3.04:1 on lifted page — decorative/hint only */
+		/* @lore CP1 — placeholder de-browned #bfb5a5 (C0.025) → #bcb7ae (C0.014). */
+		--text-placeholder: #bcb7ae; /* placeholder-only, exempt from AA */
 		--text-on-accent: #ffffff; /* 5.62:1 on accent-primary */
 
 		/* Accents — forest green */
@@ -180,9 +203,17 @@
 		--status-info: #2e7dba;
 
 		/* Borders — solid warm tones */
-		--border-subtle: #e8e0d0;
-		--border-default: #d5cbb8;
-		--border-strong: #b5a890;
+		/*
+		 * @lore CP1 — light borders softened + de-chromatized; the "too dark from
+		 * the cream" weight is mostly the edges, not the fill. Round-2 re-derived
+		 * them against the lifted page (L0.978) so they stay just-visible without
+		 * reading heavy: subtle #e8e0d0→#ece7e2 (L0.930 C0.009), default
+		 * #d5cbb8→#ddd6cf (L0.880 C0.012), strong #b5a890→#c1b9b0 (L0.790 C0.016).
+		 * Lighter + ~half the warm chroma = gentle separation, not brown rules.
+		 */
+		--border-subtle: #ece7e2;
+		--border-default: #ddd6cf;
+		--border-strong: #c1b9b0;
 
 		/* Shadows — warm-tinted (active on cards, not just overlays) */
 		--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
@@ -207,23 +238,56 @@
 
 	/* ── Hearth Dark ── */
 	[data-theme="hearth-dark"] {
-		/* Surfaces — deep warm earth, no cool grays */
-		--surface-page: #1a1510; /* deepest — page bg */
-		--surface-container: #231e16; /* app chrome */
-		--surface-elevated: #2c261c; /* cards */
-		--surface-overlay: #352e23; /* modals, popovers */
-
-		/* Text — lightened warm tones, WCAG AA validated */
-		--text-primary: #ede5d8; /* 14.50:1 on page, 11.99:1 on elevated */
-		--text-secondary: #a89880; /* 6.45:1 on page, 5.33:1 on elevated */
 		/*
-		 * @lore U3 — dark text-tertiary adjusted from concept's #7a6e5e to
-		 * #9a8e7e. #7a6e5e only achieved 3.64:1 on page, failing WCAG AA for
-		 * normal text (timestamps, labels, hints are normal-size text).
-		 * #9a8e7e achieves 5.65:1 on page, 4.67:1 on elevated — AA pass.
+		 * @lore CP1 — Dark palette re-tuned (founder: "brown tint is horrible,
+		 * looks like poop" + "not dark enough"). Diagnosis in OKLCH: the old
+		 * surfaces sat at chroma 0.013→0.021 (rising as they lightened) at hue
+		 * ~67–80°, which reads as muddy brown — the lighter the surface, the
+		 * more brown it got. Fix: (1) go DEEPER — page L0.200→0.175; (2) pull
+		 * chroma WAY down and FLATTEN the rise — all surfaces now C≈0.005–0.008
+		 * (3–4x cleaner) at a locked warm hue ~60° (amber side), so they read as
+		 * a clean deep near-neutral with only a whisper of warmth, not brown mud.
+		 * Text ramp de-browned the same way: text-secondary C0.039→0.015 was the
+		 * worst offender. Every body pair still passes WCAG AA (see below).
 		 */
-		--text-tertiary: #9a8e7e; /* 5.65:1 on page, 4.67:1 on elevated — AA */
-		--text-placeholder: #5a5048; /* placeholder-only, exempt from AA */
+		/* Surfaces — deep, near-neutral warm; a whisper of amber, no brown mud */
+		/*
+		 * @lore CP1 round-2 — WIDER page→container step. Founder R1: container was
+		 * "hard to tell from page" (#12100e L0.175 vs #1c1917 L0.216 = ΔL 0.041,
+		 * too tight). Round-2 keeps the deep page (the founder likes it) and lifts
+		 * the upper rungs to nearly double the first step and keep the ladder
+		 * climbing cleanly:
+		 *   page      #12100e (unchanged, L0.175)
+		 *   container #1c1917 → #24211f  (L0.216→0.250, ΔL from page now 0.076)
+		 *   elevated  #25221f → #302d2a  (L0.254→0.300)
+		 *   overlay   #312d2a → #3d3a37  (L0.300→0.350)
+		 * Steps ΔL: 0.076 / 0.049 / 0.051 — clearly readable separation at every
+		 * rung. De-browning from round-1 held: chroma stays ~0.005–0.008 at hue
+		 * ~56–68° (warm-neutral, AQ-018), no chroma/mud reintroduced.
+		 */
+		--surface-page: #12100e; /* deepest — page bg (L0.175 C0.005 H67) */
+		--surface-container: #24211f; /* app chrome (L0.250 C0.006) — widened step */
+		--surface-elevated: #302d2a; /* cards (L0.300 C0.007) */
+		--surface-overlay: #3d3a37; /* modals, popovers (L0.350 C0.007) */
+
+		/* Text — lightened warm-neutral tones, WCAG AA/AAA validated */
+		/*
+		 * @lore CP1 round-2 — dark secondary + tertiary RAISED for legibility.
+		 * Founder R1: round-1 secondary #a79e97 (L0.705) and tertiary #938c87
+		 * (L0.645) were "hard to read" on the dark surfaces. Round-2 pushes both
+		 * lighter (de-browned, chroma held low ~0.012) so they clear AAA where the
+		 * palette allows:
+		 *   secondary #a79e97 → #bcb4ae  (L0.705→0.775)  9.29:1 page (AAA), 7.83 container (AAA), 6.70 elevated, 5.53 overlay
+		 *   tertiary  #938c87 → #ada6a0  (L0.645→0.730)  7.90:1 page (AAA), 6.66 container, 5.70 elevated, 4.70 overlay
+		 *   primary   #ebe5e0 → #ece7e2  (tiny lift, 15.45:1 page)
+		 * No weight bump needed: at these ratios the default 400/500 ramp reads
+		 * comfortably (the round-1 issue was contrast, not stroke weight). Hues
+		 * 59–68° — warm-neutral, no brown reintroduced.
+		 */
+		--text-primary: #ece7e2; /* 15.45:1 page, 13.03 container, 11.14 elevated */
+		--text-secondary: #bcb4ae; /* 9.29:1 page (AAA), 7.83 container (AAA), 6.70 elevated, 5.53 overlay */
+		--text-tertiary: #ada6a0; /* 7.90:1 page (AAA), 6.66 container, 5.70 elevated, 4.70 overlay — AA+ everywhere */
+		--text-placeholder: #46413d; /* placeholder-only, exempt from AA */
 		--text-on-accent: #ffffff;
 
 		/* Accents — lightened for dark surfaces */
@@ -255,10 +319,18 @@
 		 */
 		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 on elevated */
 
-		/* Borders — solid warm tones */
-		--border-subtle: #3d342a;
-		--border-default: #554a3c;
-		--border-strong: #756850;
+		/* Borders — solid warm-neutral tones */
+		/*
+		 * @lore CP1 — dark borders de-browned (old #3d342a/#554a3c/#756850 were
+		 * chroma 0.02–0.03 hue ~75°, visible brown rules). Round-2 re-derived them
+		 * to sit between the lifted surface rungs so edges stay legible against the
+		 * raised container/elevated: subtle #312d2a (L0.300 C0.008), default
+		 * #433f3b (L0.370 C0.009), strong #5f5a55 (L0.470 C0.010) — clean
+		 * warm-neutral at hue ~60–68°, no brown reintroduced.
+		 */
+		--border-subtle: #312d2a;
+		--border-default: #433f3b;
+		--border-strong: #5f5a55;
 
 		/* Shadows — black-based for dark mode */
 		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -289,17 +361,17 @@
 	 */
 	@media (prefers-color-scheme: dark) {
 		:root:not([data-theme]) {
-			/* Surfaces */
-			--surface-page: #1a1510;
-			--surface-container: #231e16;
-			--surface-elevated: #2c261c;
-			--surface-overlay: #352e23;
+			/* Surfaces — @lore CP1 round-2: mirrors [data-theme="hearth-dark"] exactly (widened ladder) */
+			--surface-page: #12100e;
+			--surface-container: #24211f;
+			--surface-elevated: #302d2a;
+			--surface-overlay: #3d3a37;
 
-			/* Text */
-			--text-primary: #ede5d8;
-			--text-secondary: #a89880;
-			--text-tertiary: #9a8e7e;
-			--text-placeholder: #5a5048;
+			/* Text — @lore CP1 round-2: mirrors hearth-dark exactly (raised sec/tertiary) */
+			--text-primary: #ece7e2;
+			--text-secondary: #bcb4ae;
+			--text-tertiary: #ada6a0;
+			--text-placeholder: #46413d;
 			--text-on-accent: #ffffff;
 
 			/* Accents */
@@ -314,10 +386,10 @@
 			--status-error: #ee6a5a;
 			--status-info: #4498d4;
 
-			/* Borders */
-			--border-subtle: #3d342a;
-			--border-default: #554a3c;
-			--border-strong: #756850;
+			/* Borders — @lore CP1 round-2: mirrors hearth-dark exactly */
+			--border-subtle: #312d2a;
+			--border-default: #433f3b;
+			--border-strong: #5f5a55;
 
 			/* Shadows */
 			--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
