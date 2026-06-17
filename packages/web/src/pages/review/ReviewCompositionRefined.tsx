@@ -400,26 +400,52 @@ function ResultSection(): JSX.Element {
 }
 
 // ── § NEEDS YOU — the risk items ────────────────────────────────────────────────────
-function NeedsSection(): JSX.Element {
+// Subtle, actionable: a small status dot (no tinted fill / no '!' blob) + the
+// item, and a jump link that opens the relevant artifact in the pane.
+function NeedsSection({ onJump }: { readonly onJump: (artifactId: string) => void }): JSX.Element {
 	const s = REVIEW_SUBJECT;
 	return (
 		<section>
 			<SectionHead label="Needs you" count={String(s.needs.length)} />
-			<div className="flex flex-col gap-[9px]">
-				{s.needs.map((need) => (
-					<div
-						key={need.label}
-						className="flex items-start gap-[9px] rounded-[var(--r-subtle)] border-l-[3px] border-[var(--status-warning)] bg-[color-mix(in_oklab,var(--status-warning)_8%,transparent)] px-[12px] py-[9px]"
-					>
-						<span className="mt-[2px] inline-flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-warning)] text-[11px] font-[700] leading-none text-white">
-							!
-						</span>
-						<div className="min-w-0">
-							<p className="text-[13px] font-[600] text-[var(--text-primary)]">{need.label}</p>
-							<p className="text-[12px] leading-[1.45] text-[var(--text-secondary)]">{need.detail}</p>
-						</div>
-					</div>
-				))}
+			<div className="flex flex-col gap-[3px]">
+				{s.needs.map((need) => {
+					const target = need.artifactId
+						? s.artifacts.find((a) => a.id === need.artifactId)
+						: undefined;
+					// red only for the genuinely-blocking kinds; amber otherwise. Kept quiet.
+					const tone =
+						need.kind === "unhandled-exception" || need.kind === "over-authority"
+							? "var(--status-error)"
+							: "var(--status-warning)";
+					return (
+						<button
+							key={need.label}
+							type="button"
+							onClick={() => target && onJump(target.id)}
+							disabled={!target}
+							className="group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] disabled:cursor-default"
+						>
+							<span
+								aria-hidden="true"
+								className="mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-full"
+								style={{ background: tone }}
+							/>
+							<span className="min-w-0 flex-1">
+								<span className="block text-[13px] font-[600] text-[var(--text-primary)]">
+									{need.label}
+								</span>
+								<span className="block text-[12px] leading-[1.45] text-[var(--text-secondary)]">
+									{need.detail}
+								</span>
+							</span>
+							{target ? (
+								<span className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-primary)]">
+									Jump to {KIND_LABEL[target.kind].toLowerCase()} →
+								</span>
+							) : null}
+						</button>
+					);
+				})}
 			</div>
 		</section>
 	);
@@ -680,7 +706,7 @@ export function ReviewCompositionRefined({
 					<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
 						<TaskSection />
 						<ResultSection />
-						<NeedsSection />
+						<NeedsSection onJump={openArtifact} />
 						<ArtifactsSection activeId={activeId} onOpen={openArtifact} />
 						{/* conversation ON the content — inline at the end of the center overview */}
 						<ConversationSection comments={REVIEW_SUBJECT.conversation} />

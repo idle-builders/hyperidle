@@ -467,6 +467,15 @@ export function ReviewCodeDiff({
 					);
 				})}
 
+				{/* MINOR band — the separation header + note so the user knows these don't need review */}
+				<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
+					<span className="text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						Minor
+					</span>
+					<span className="text-[11px] text-[var(--text-tertiary)]">
+						generated &amp; formatting — safe to skip
+					</span>
+				</div>
 				{/* generated / trivia — collapsed to one row, never line-by-line */}
 				<div className="rounded-[var(--r-subtle)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
 					<button
