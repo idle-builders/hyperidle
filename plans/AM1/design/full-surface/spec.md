@@ -11,7 +11,25 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.3 — round-3 detail refinement (this revision)
+## v3.4 — round-3 detail refinements (founder annotations, this revision)
+
+Five element-anchored founder notes on the `ComposerInsertBlock` / `Populated` states drove these changes. Confirmed in the `:8100` viewer (`plans/AM1/design/full-surface/screenshot.png`).
+
+1. **Insert menu = a floating POPOVER; the composer never grows.** The Insert menu was inline in the composer flow, so opening it ballooned the box ("horrible"). It is now an **absolutely-positioned popover** anchored above the composer card, left-aligned to the "+ Insert" button (`style={{ bottom: "calc(100% + 6px)", left: 12 }}`, `--surface-overlay` + `--shadow-elevated`). It overlays the calm message area above the composer; the composer keeps its compact height open or closed. The popover is **shrunk to 228px** (was 300px), the redundant "INSERT" heading is **dropped** (the button already says Insert), and options are compact icon + label + tiny hint: **Block · Attach file · Mention · Reference item**. *(Note: Tailwind arbitrary `bottom-[calc(100%+6px)]` does NOT parse without underscores; inline `style` is used for the calc — see `@lore` in source.)*
+
+2. **Inserted block = a compact PREVIEW card (not the inline rich editor); weird gap removed.** The composer's Insert-Block no longer renders the full rich code-block editor inline. It renders a **compact preview card consistent with the artifact/change-set Embed**: kind marker (`‹› CODE BLOCK · TS`) + a one-line snippet + "3 lines · inserted into this message" + an **"Open →"** hook that opens the full block/artifact in the **right slider delivered by track AL**. The old `grid-cols-[24px_1fr]` block-handle gutter (the "weird space") is gone; a single quiet remove ✕ sits at the row end. Same pattern applies to a block rendered inside a message.
+
+3. **Questionnaire / QUICK ASK is now unmissable.** Wrapped in a bounded, accent-edged container (border + `border-l-[3px]` accent rule + faint 5% accent tint). A **"QUICK ASK · NEEDS YOUR ANSWER"** pill with a question glyph, the question text given weight (15px/600), and answer chips rendered as clearly tappable choices — the **recommended** option is a solid filled accent chip with a "RECOMMENDED" label, the others outlined on `--surface-elevated`. Calm but reads as a decision to make, not plain tags.
+
+4. **Reply banner = a clean slim strip.** Refined from a stacked two-line block into a **single slim strip**: accent reply glyph · "Replying to **Atlas**" · quoted snippet (one line, truncated) · cancel, tied by a 2px accent left rule. With the popover fix the box no longer grows, so the banner reads clean at the composer top.
+
+5. **Review card: spacing restored, still AL's (compact hook only).** The review message uses an even 12px-rhythm `flex-col` (`gap-[12px]`) so it no longer looks broken: marker · bold proposal line · change-set Embed · single "Open review →" button. The **full review card / verdict bar / diff is owned by track AL** — not designed here.
+
+Stray text `✕` glyphs were replaced with a proper `ICON_REMOVE` svg across the reply banner, attachment chip, and inserted-block remove for consistency.
+
+---
+
+## v3.3 — round-3 detail refinement (prior revision)
 
 Round-2 founder comments + the explicit scope boundary drove six refinements. The headline change is the **scope cut**: the review/artifact experience is owned by a parallel worktrack.
 
@@ -123,8 +141,9 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 | Review message (compact hook) | `RichMessageCard` (compact) + `Button` | v3.3: AM1 renders only the **compact review hook** — title + change-set Embed + a single "Open review →" button. The **verdict bar + artifact/diff view are track AL's** — do NOT build them here. |
 | Questionnaire (quick ask) | **New `QuickAskPart`** (answer chips) | Agent message type: scoped question + constrained inline answer chips (recommended chip accented). Reused wherever an agent asks a quick scoped question → in-budget. |
 | Verdict echo | `CommentRow` verdict terminator | Existing. |
-| Inserted-block draft | DS `Block` + `BodyEditor` (TipTap) + `BlockHandle` | The composer's Insert-Block power: a Block inserted into the draft edits exactly like a Knowledge block. Same `Block` shell, handle gutter, kind chip, payload render. |
-| Composer | `Composer` (DS) | Extend with banner (reply + quoted snippet) + inserted-block/attachment draft area + **open "+" Insert menu** + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
+| Inserted-block draft (preview) | `BlockRefEmbed` / `ArtifactEmbed` pattern | v3.4: the composer's Insert-Block renders a **compact preview card** (kind marker + snippet + "Open →"), NOT the inline rich editor. It reuses the same Embed/preview-card shape as the artifact embed; "Open →" opens the full block in the right slider (track AL). The full `Block` + `BodyEditor` (TipTap) editing happens in that slider / on the canonical block, not inline in the composer. |
+| Insert menu (popover) | DS `Menu` / `Popover` | v3.4: a **floating popover** anchored above the "+ Insert" button — overlays, never grows the composer. Compact items (Block · Attach file · Mention · Reference item). Map to the DS menu/popover primitive; do not render it in the composer's flow. |
+| Composer | `Composer` (DS) | Extend with a slim reply banner (reply + quoted snippet) + inserted-block-preview / attachment draft area + the **floating "+" Insert popover** (overlay, not in flow) + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
 | ~~Right contextual pane~~ | **Track AL** | REMOVED from this design (v3.3). Artifact review / the right slider is owned by track AL. The change-set Embed is only a hook into it. |
 
 **New components introduced:** `ReactionBar`, `Fold`, `SessionRefEmbed`, `CitationChips`, `AttachmentChip`, `ContextPane`. Each is reused in 2+ contexts or is a concept primitive (Fold, the Embed satellite) — within the component budget. No new tokens. **Thread navigation (the conversation/thread list) is NOT in this design** — it is the app sidebar (`SidebarV2`, AD9), owned by the app shell.

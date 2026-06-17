@@ -44,12 +44,16 @@
  * stand-alone in the viewer without AppShell's router/context. The builder maps
  * each region back to the real components per spec.md §Composition.
  *
- * @lore AM1-v3 round-3: the composer's INSERT-BLOCK capability is the conversation
- * composer's unique power — composing a message can insert a knowledge Block
- * (heading/list/code/table/quote) with the SAME rich block editing as Knowledge
- * blocks (DS `Block` + `BodyEditor`). The story renders BOTH the open Insert menu
- * AND a draft that already contains an inserted, rich-edited code block above the
- * text line, so the mechanic is unmistakable.
+ * @lore AM1-v3 round-4: the composer's INSERT-BLOCK capability inserts a knowledge
+ * Block into the draft, but in the COMPOSER it renders as a COMPACT PREVIEW CARD
+ * (kind marker + snippet + "Open →"), consistent with the artifact/change-set
+ * Embed — NOT the full rich block editor inline. "Open →" opens the full
+ * block/artifact in the right slider (track AL). Founder round-3: "more a preview
+ * like for artifact and then open in the right page the entire artifact if wanted."
+ *
+ * @lore AM1-v3 round-4: the Insert menu is a FLOATING POPOVER anchored above the
+ * "+ Insert" button (absolute, overlay) — opening it must NEVER grow the composer
+ * box. Founder round-3: "the entire message box growing gigantic … is horrible."
  *
  * @lore AM1-v3 round-3: the diff/change-set CONTEXT PANE was removed. Artifact
  * review (the right slider + verdict flow) is owned by track AL; here a change-set
@@ -94,6 +98,11 @@ const ICON_REACT =
 const ICON_REPLY = "M6.5 3L2 7l4.5 4V8.4c3.2 0 5.2 1 6.5 3.6.4-4.3-1.8-7.4-6.5-8V3z";
 const ICON_MORE =
 	"M3 6.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z";
+// Remove / close — a clean ✕ mark (replaces stray text "✕" glyphs).
+const ICON_REMOVE = "M4.3 3.2L8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3l1.1-1.1z";
+// Question mark in a circle — the "quick ask" / decision-awaiting marker.
+const ICON_QUESTION =
+	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a2.4 2.4 0 012.4 2.4c0 1-.6 1.5-1.3 2-.5.35-.6.55-.6 1.1H6.9c0-1 .3-1.5 1-2 .5-.36.8-.6.8-1.1a.9.9 0 00-1.8 0H5.6A2.4 2.4 0 018 4zm-.05 7.4a.95.95 0 110-1.9.95.95 0 010 1.9z";
 // Format glyph — a clean serif "A" mark (text-formatting). Replaces the broken bold path.
 const ICON_FORMAT_AA =
 	"M5.6 3h1.6l3.1 8H8.6l-.62-1.7H4.84L4.22 11H2.5l3.1-8zm.18 2.1L4.36 7.9h2.84L5.78 5.1zM12 6.4h1.5V11H12v-.5a1.7 1.7 0 01-1.2.6c-1 0-1.7-.7-1.7-1.6 0-.95.8-1.5 2-1.5h.9v-.15c0-.5-.3-.75-.85-.75-.42 0-.78.16-1.1.42l-.58-.95A3 3 0 0111.2 6.3c.3 0 .55.04.8.1zm-.2 2.85h-.7c-.5 0-.78.2-.78.55 0 .3.24.5.62.5.45 0 .82-.3.86-.75v-.3z";
@@ -105,16 +114,9 @@ const ICON_EMOJI =
 // Insert-block / blocks glyph — stacked rows (a small document/block stack).
 const ICON_BLOCKS =
 	"M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z";
-// Block kinds for the Insert menu.
-const ICON_K_HEADING = "M3 2.5h1.6v3.4h4V2.5H10.2v9H8.6V7.5h-4v4H3v-9zM12 5.5h1.5V11.5H12V7.2l-1 .5-.4-1.2L12 5.5z";
-const ICON_K_LIST =
-	"M3 3.2a1 1 0 110 2 1 1 0 010-2zm0 4.8a1 1 0 110 2 1 1 0 010-2zM6 3.6h8v1.4H6V3.6zm0 4.7h8v1.4H6V8.3zM3 12.8a1 1 0 110 2 1 1 0 010-2zm3 .3h8v1.4H6v-1.4z";
+// Code-block kind glyph (the inserted-block preview's kind marker).
 const ICON_K_CODE =
 	"M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z";
-const ICON_K_TABLE =
-	"M2 3h12v10H2V3zm1.4 1.4v2h3.5v-2H3.4zm4.9 0v2h4.3v-2H8.3zM3.4 7.7v1.9h3.5V7.7H3.4zm4.9 0v1.9h4.3V7.7H8.3zM3.4 11v1.6h3.5V11H3.4zm4.9 0v1.6h4.3V11H8.3z";
-const ICON_K_QUOTE =
-	"M3.5 4h3.6v3.6c0 2-1.2 3.3-3.2 3.9l-.5-1.1c1.1-.4 1.7-1 1.8-1.9H3.5V4zm5.4 0h3.6v3.6c0 2-1.2 3.3-3.2 3.9l-.5-1.1c1.1-.4 1.7-1 1.8-1.9H8.9V4z";
 
 // ───────────────────────────────────────────────────────────────────
 // Avatar — hand-rolled mirror of DS Avatar. Human vs agent tint, and a
@@ -465,24 +467,39 @@ function QuestionnairePart(): JSX.Element {
 		{ label: "Decide later", recommended: false },
 	];
 	return (
-		<div data-ds-component="Am1QuestionnairePart">
-			<div className="mb-[6px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Quick ask
+		// Bounded, accent-edged container so the question is UNMISSABLE as a
+		// decision to make — calm, not a heavy form. A "QUICK ASK" marker with a
+		// question glyph, the question text given weight, answer chips clearly
+		// tappable. Left accent rule + faint accent tint set it apart from prose.
+		<div
+			data-ds-component="Am1QuestionnairePart"
+			className="rounded-[var(--r-subtle)] border border-[var(--accent-primary)] border-l-[3px] bg-[color-mix(in_oklab,var(--accent-primary)_5%,transparent)] px-[15px] py-[12px]"
+		>
+			<div className="mb-[6px] inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+				<Glyph d={ICON_QUESTION} size={11} />
+				Quick ask · needs your answer
 			</div>
-			<Prose>How long should the password fallback stay enabled?</Prose>
+			<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
+				How long should the password fallback stay enabled?
+			</p>
 			<div className="mt-[9px] flex flex-wrap items-center gap-[6px]">
 				{options.map((o) => (
 					<button
 						key={o.label}
 						type="button"
-						className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border px-[12px] py-[6px] text-[13px] font-[500] transition-colors duration-[var(--motion-fast)] ${
+						className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border px-[12px] py-[6px] text-[13px] font-[600] transition-colors duration-[var(--motion-fast)] ${
 							o.recommended
-								? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
-								: "border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+								? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+								: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
 						}`}
 					>
 						{o.recommended && <Glyph d={ICON_CHECK} size={11} />}
 						{o.label}
+						{o.recommended && (
+							<span className="text-[10px] font-[500] uppercase tracking-[var(--tracking-caps-sm)] opacity-80">
+								Recommended
+							</span>
+						)}
 					</button>
 				))}
 			</div>
@@ -497,31 +514,32 @@ function QuestionnairePart(): JSX.Element {
 // ───────────────────────────────────────────────────────────────────
 function ReviewPart(): JSX.Element {
 	return (
+		// COMPACT hook only — the full review card (verdict bar, diff) is track
+		// AL's. Restored, even spacing (12px rhythm): marker · proposal line ·
+		// change-set embed · "Open review →".
 		<div
 			data-ds-component="Am1ReviewPart"
-			className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[15px] shadow-[var(--shadow-subtle)]"
+			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[15px] shadow-[var(--shadow-subtle)]"
 		>
-			<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Review · needs your decision
+			<div className="flex flex-col gap-[3px]">
+				<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					Review · needs your decision
+				</div>
+				<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
+					Approve deploy of passkey login to staging
+				</p>
 			</div>
-			<p className="mt-[6px] mb-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
-				Approve deploy of passkey login to staging
-			</p>
-			<div className="mt-[9px]">
-				<Embed label="Open the change set in review">
-					<ChangeSetEmbedBody />
-				</Embed>
-			</div>
+			<Embed label="Open the change set in review">
+				<ChangeSetEmbedBody />
+			</Embed>
 			{/* The verdict flow itself lives in track AL's review experience. */}
-			<div className="mt-[12px]">
-				<button
-					type="button"
-					className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[500] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
-				>
-					Open review
-					<Glyph d={ICON_ARROW} size={12} />
-				</button>
-			</div>
+			<button
+				type="button"
+				className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
+			>
+				Open review
+				<Glyph d={ICON_ARROW} size={12} />
+			</button>
 		</div>
 	);
 }
@@ -570,28 +588,30 @@ function ComposerToolButton({
 	);
 }
 
-// The OPEN "+" insert menu — Insert block (the key, labeled affordance)
-// + the other composer inserts, each labeled. Slash (/) reserved.
+// The OPEN "+" insert menu — a small FLOATING POPOVER anchored ABOVE the
+// "+ Insert" button. It overlays (absolute) — it does NOT live in the
+// composer's flow, so opening it never grows the box. No redundant "INSERT"
+// heading (the button already says Insert). Compact options: icon + label +
+// tiny hint. Slash (/) reserved.
 function InsertMenu(): JSX.Element {
 	const items = [
-		{ d: ICON_BLOCKS, label: "Insert block", hint: "heading · list · code · table · quote", key: true },
+		{ d: ICON_BLOCKS, label: "Block", hint: "heading · list · code · table", key: true },
 		{ d: ICON_PAPERCLIP, label: "Attach file", hint: "image, document", key: false },
-		{ d: ICON_AT, label: "Mention", hint: "@person, @agent, @item", key: false },
-		{ d: ICON_DOC, label: "Reference item", hint: "knowledge, artifact, session", key: false },
+		{ d: ICON_AT, label: "Mention", hint: "@person, @agent", key: false },
+		{ d: ICON_DOC, label: "Reference item", hint: "knowledge, artifact", key: false },
 	];
 	return (
 		<div
 			data-ds-component="Am1InsertMenu"
 			role="menu"
 			aria-label="Insert"
-			// Rendered as the OPEN "+" menu, attached just above the input row so it
-			// reads unambiguously and never clips/collides with the draft. Opaque
-			// overlay surface + elevated shadow so it reads as a floating popover.
-			className="w-[300px] rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-overlay)] p-[6px] shadow-[var(--shadow-elevated)]"
+			// Floating popover: absolutely positioned above the composer card,
+			// left-aligned to the "+ Insert" button. It overlays the calm message
+			// area above the composer — the composer box keeps its compact height
+			// whether this is open or closed. Opaque overlay + elevated shadow.
+			style={{ bottom: "calc(100% + 6px)", left: 12 }}
+			className="absolute z-20 w-[228px] rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-overlay)] p-[3px] shadow-[var(--shadow-elevated)]"
 		>
-			<div className="px-[9px] pb-[3px] pt-[3px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Insert
-			</div>
 			{items.map((it) => (
 				<button
 					key={it.label}
@@ -599,18 +619,18 @@ function InsertMenu(): JSX.Element {
 					role="menuitem"
 					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
 						it.key
-							? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
-							: "text-[var(--text-secondary)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+							? "bg-[var(--accent-primary-dim)]"
+							: "hover:bg-[var(--surface-container)]"
 					}`}
 				>
 					<span
-						className={`flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] ${
+						className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] ${
 							it.key ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]" : "bg-[var(--surface-container)] text-[var(--text-tertiary)]"
 						}`}
 					>
-						<Glyph d={it.d} size={15} />
+						<Glyph d={it.d} size={13} />
 					</span>
-					<span className="min-w-0">
+					<span className="min-w-0 leading-[1.2]">
 						<span className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
 							{it.label}
 						</span>
@@ -622,54 +642,50 @@ function InsertMenu(): JSX.Element {
 	);
 }
 
-// The inserted-block draft chip — a rich-edited Block sitting in the draft
-// ABOVE the text line, with a block handle + kind controls + remove. Shows
-// the Insert-Block mechanic concretely: this code block was inserted and
-// edits exactly like a Knowledge block (DS Block + BodyEditor).
+// The inserted-block draft = a COMPACT PREVIEW CARD, consistent with the
+// artifact / change-set Embed (kind marker + short title/snippet + "Open →").
+// We do NOT render the full rich block editor inline in the composer — the
+// founder asked for a preview (like the artifact embed) that opens the full
+// block/artifact in the right slider (track AL) if wanted. A single quiet
+// remove ✕ sits at the row end; no handle gutter (that was the "weird space").
 function InsertedBlockDraft(): JSX.Element {
-	const lines = [
-		"const cred = await navigator.credentials.create(webauthnOpts);",
-		"if (!cred) throw new PasskeyError('cancelled');",
-		"return persistCredential(userId, cred);",
-	];
 	return (
 		<div
 			data-ds-component="Am1InsertedBlock"
-			className="group/blk relative grid grid-cols-[24px_1fr] gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[9px] pl-[6px] pr-[9px]"
+			className="flex items-stretch gap-[6px]"
 		>
-			{/* Block handle gutter — drag/reorder + open block actions (mirrors DS BlockHandle) */}
-			<div className="flex items-start justify-center pt-[3px] text-[var(--text-tertiary)]">
-				<button
-					type="button"
-					aria-label="Block actions"
-					title="Drag to reorder · open block actions"
-					className="flex h-[20px] w-[18px] items-center justify-center rounded-[var(--r-subtle)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
-				>
-					<Glyph d={ICON_MORE} size={13} />
-				</button>
-			</div>
-			<div className="min-w-0">
-				{/* Kind row: this block is a Code block; kind is changeable inline. */}
-				<div className="mb-[3px] flex items-center gap-[6px]">
-					<span className="inline-flex items-center gap-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
-						<Glyph d={ICON_K_CODE} size={10} />
-						Code · ts
-					</span>
-					<span className="text-[11px] text-[var(--text-tertiary)]">inserted block — edits like a knowledge block</span>
-					<button
-						type="button"
-						aria-label="Remove block"
-						title="Remove block"
-						className="ml-auto flex h-[20px] w-[20px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
-					>
-						✕
-					</button>
+			{/* Preview card — mirrors the Embed hook: kind label + snippet + Open → */}
+			<button
+				type="button"
+				aria-label="Open inserted block"
+				className="group/blk flex min-w-0 flex-1 items-center gap-[12px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
+			>
+				<div className="min-w-0 flex-1">
+					<div className="mb-[3px] flex items-center gap-[6px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						<Glyph d={ICON_K_CODE} size={11} />
+						<span>Code block · ts</span>
+					</div>
+					<div className="truncate font-mono text-[13px] text-[var(--text-primary)]">
+						const cred = await navigator.credentials.create(webauthnOpts);
+					</div>
+					<div className="mt-[1px] truncate text-[12px] text-[var(--text-secondary)]">
+						3 lines · inserted into this message
+					</div>
 				</div>
-				{/* Rich block body — the SAME render as a Knowledge code block. */}
-				<pre className="m-0 overflow-x-auto rounded-[var(--r-subtle)] bg-[var(--surface-page)] p-[9px] font-mono text-[12px] leading-[1.5] text-[var(--text-primary)]">
-					<code>{lines.join("\n")}</code>
-				</pre>
-			</div>
+				<span className="inline-flex shrink-0 items-center gap-[3px] text-[11px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/blk:text-[var(--accent-primary)]">
+					Open
+					<Glyph d={ICON_ARROW} size={12} />
+				</span>
+			</button>
+			{/* Quiet remove — sits cleanly at the row end, no empty gutter. */}
+			<button
+				type="button"
+				aria-label="Remove block"
+				title="Remove block"
+				className="flex w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<Glyph d={ICON_REMOVE} size={12} />
+			</button>
 		</div>
 	);
 }
@@ -678,28 +694,28 @@ function InsertedBlockDraft(): JSX.Element {
 // BOTH composer states (resting keeps it slim; active pairs it with the draft).
 function ComposerReplyBanner(): JSX.Element {
 	return (
-		<div className="flex items-start gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
-			<span className="mt-[2px] text-[var(--text-tertiary)]">
+		// Slim single strip: reply glyph · "Replying to Atlas" · quoted snippet
+		// (one line, truncated) · cancel. A subtle accent-left rule ties it to the
+		// reply relationship without a bulky stacked block.
+		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
+			<span className="flex shrink-0 items-center text-[var(--accent-primary)]">
 				<Glyph d={ICON_REPLY} size={12} />
 			</span>
-			<div className="min-w-0 flex-1 text-[12px] leading-[1.4]">
-				<span className="text-[var(--text-secondary)]">
-					Replying to <span className="font-[500] text-[var(--text-primary)]">Atlas</span>
+			<div className="flex min-w-0 flex-1 items-baseline gap-[6px] border-l-[2px] border-[var(--accent-primary)] pl-[9px] text-[12px] leading-[1.4]">
+				<span className="shrink-0 text-[var(--text-secondary)]">
+					Replying to <span className="font-[600] text-[var(--text-primary)]">Atlas</span>
 				</span>
-				<div className="mt-[1px] flex items-start gap-[6px] border-l-[2px] border-[var(--border-default)] pl-[9px]">
-					<span className="truncate text-[var(--text-tertiary)]">
-						“Added WebAuthn registration and the dual-auth window. Existing password sessions stay
-						valid…”
-					</span>
-				</div>
+				<span className="truncate text-[var(--text-tertiary)]">
+					“Added WebAuthn registration and the dual-auth window…”
+				</span>
 			</div>
 			<button
 				type="button"
 				aria-label="Cancel reply"
 				title="Cancel reply"
-				className="rounded-[var(--r-subtle)] px-[6px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+				className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 			>
-				✕
+				<Glyph d={ICON_REMOVE} size={11} />
 			</button>
 		</div>
 	);
@@ -720,9 +736,9 @@ function ComposerDraftBody(): JSX.Element {
 						type="button"
 						aria-label="Remove attachment"
 						title="Remove attachment"
-						className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+						className="flex items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
 					>
-						✕
+						<Glyph d={ICON_REMOVE} size={11} />
 					</button>
 				</div>
 			</div>
@@ -735,11 +751,13 @@ function ComposerDraftBody(): JSX.Element {
 function ComposerInputRow({ insertOpen }: { insertOpen: boolean }): JSX.Element {
 	return (
 		<>
-			{/* Input row: [ + Insert (labeled) | textarea | Send ] */}
-			<div className="relative flex items-end gap-[9px] px-[12px] py-[9px]">
+			{/* Input row: [ + Insert (labeled) | textarea | Send ]. */}
+			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
 				<button
 					type="button"
 					aria-label="Insert"
+					aria-expanded={insertOpen}
+					aria-haspopup="menu"
 					title="Insert block, attach, mention, reference"
 					className={
 						insertOpen
@@ -792,13 +810,12 @@ function Composer({ active = false }: { active?: boolean }): JSX.Element {
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
 				<div className="relative rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]">
+					{/* Insert popover: floats ABOVE the whole composer card (overlaying the
+					    calm message area above), left-aligned to the "+ Insert" button. It
+					    is NOT in the composer flow, so the box never grows. */}
+					{active && <InsertMenu />}
 					<ComposerReplyBanner />
 					{active && <ComposerDraftBody />}
-					{active && (
-						<div className="px-[12px] pt-[9px]">
-							<InsertMenu />
-						</div>
-					)}
 					<ComposerInputRow insertOpen={active} />
 				</div>
 			</div>
