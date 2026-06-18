@@ -156,15 +156,26 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 			{
 				path: "src/billing/promo-webhook.ts",
 				band: "logic",
-				rationale: "The fix — rethrows the typed error instead of swallowing it (the behavior change).",
+				rationale:
+					"The fix — rethrows the typed error instead of swallowing it (the behavior change).",
 				added: 28,
 				removed: 6,
 				hunks: [
 					{
 						header: "@@ -116,9 +116,18 @@ export async function onPromoApplied(evt: PromoEvent) {",
 						lines: [
-							{ kind: "ctx", oldNo: 116, newNo: 116, text: "  const promo = await promos.find(evt.code);" },
-							{ kind: "ctx", oldNo: 117, newNo: 117, text: "  if (!promo) return notFound(evt.code);" },
+							{
+								kind: "ctx",
+								oldNo: 116,
+								newNo: 116,
+								text: "  const promo = await promos.find(evt.code);",
+							},
+							{
+								kind: "ctx",
+								oldNo: 117,
+								newNo: 117,
+								text: "  if (!promo) return notFound(evt.code);",
+							},
 							{ kind: "del", oldNo: 118, newNo: null, text: "  if (promo.expiresAt < now()) {" },
 							{
 								kind: "del",
@@ -198,7 +209,12 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 						header: "@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {",
 						lines: [
 							{ kind: "ctx", oldNo: 41, newNo: 41, text: "  const res = await applyPromo(code);" },
-							{ kind: "del", oldNo: 42, newNo: null, text: '  if (res.ok) toast.success("Promo applied");' },
+							{
+								kind: "del",
+								oldNo: 42,
+								newNo: null,
+								text: '  if (res.ok) toast.success("Promo applied");',
+							},
 							{
 								kind: "add",
 								oldNo: null,
@@ -219,7 +235,10 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 								text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
 							},
 							{
-								kind: "ctx", oldNo: 43, newNo: 45, text: '  else setError("Couldn’t apply that code.");',
+								kind: "ctx",
+								oldNo: 43,
+								newNo: 45,
+								text: '  else setError("Couldn’t apply that code.");',
 							},
 						],
 					},
@@ -253,7 +272,12 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 								text: "  const res = await onPromoApplied(eventFor(promo));",
 							},
 							{ kind: "add", oldNo: null, newNo: 4, text: "  expect(res.status).toBe(422);" },
-							{ kind: "add", oldNo: null, newNo: 5, text: '  expect(res.code).toBe("promo_expired");' },
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 5,
+								text: '  expect(res.code).toBe("promo_expired");',
+							},
 							{ kind: "add", oldNo: null, newNo: 6, text: "});" },
 						],
 					},

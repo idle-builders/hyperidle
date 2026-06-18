@@ -393,29 +393,29 @@ function ReviewBrowserPreviewView({
 							↻
 						</button>
 					</div>
-				{isSafeSourceHref(data.url) ? (
-					<a
-						href={data.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						onClick={(e) => e.preventDefault()}
-						aria-label="Open preview in a new tab"
-						className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors"
-						style={{ transitionDuration: "var(--motion-fast)" }}
-					>
-						Open
-						<span aria-hidden="true">↗</span>
-					</a>
-				) : (
-					<span
-						aria-disabled="true"
-						title="Unsafe source link"
-						className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)]"
-					>
-						Open
-						<span aria-hidden="true">↗</span>
-					</span>
-				)}
+					{isSafeSourceHref(data.url) ? (
+						<a
+							href={data.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							onClick={(e) => e.preventDefault()}
+							aria-label="Open preview in a new tab"
+							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors"
+							style={{ transitionDuration: "var(--motion-fast)" }}
+						>
+							Open
+							<span aria-hidden="true">↗</span>
+						</a>
+					) : (
+						<span
+							aria-disabled="true"
+							title="Unsafe source link"
+							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)]"
+						>
+							Open
+							<span aria-hidden="true">↗</span>
+						</span>
+					)}
 				</div>
 
 				{/* the rendered page (the artifact) */}

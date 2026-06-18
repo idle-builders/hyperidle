@@ -73,8 +73,6 @@ describe("ReviewCodeDiff canvas", () => {
 		expect(
 			screen.getByText(/@@ -116,9 \+116,18 @@ export async function onPromoApplied/),
 		).toBeInTheDocument();
-		expect(
-			screen.getByText(/const promo = await promos\.find\(evt\.code\);/),
-		).toBeInTheDocument();
+		expect(screen.getByText(/const promo = await promos\.find\(evt\.code\);/)).toBeInTheDocument();
 	});
 });

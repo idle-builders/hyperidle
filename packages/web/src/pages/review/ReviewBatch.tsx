@@ -560,9 +560,7 @@ function mapBatchPayload(payload: BatchPayload): BatchFixture {
 }
 
 export function ReviewBatch({ artifact }: ReviewCanvasProps): JSX.Element {
-	const batch = isBatchPayload(artifact.payload)
-		? mapBatchPayload(artifact.payload)
-		: FIXTURE;
+	const batch = isBatchPayload(artifact.payload) ? mapBatchPayload(artifact.payload) : FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

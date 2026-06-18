@@ -360,7 +360,9 @@ function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPay
 
 /** AL2 wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
-	const payload = isOutcomeSummaryPayload(artifact.payload) ? artifact.payload : ({} as Partial<OutcomeSummaryPayload>);
+	const payload = isOutcomeSummaryPayload(artifact.payload)
+		? artifact.payload
+		: ({} as Partial<OutcomeSummaryPayload>);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -378,8 +380,8 @@ export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Eleme
 				costUsd={payload.costUsd ?? 0}
 				tokens={payload.tokens ?? 0}
 				standing={payload.standing ?? "Awaiting"}
-			doneConditions={payload.doneConditions ?? []}
-			needsYou={(payload.needsYou ?? []) as NeedsYou[]}
+				doneConditions={payload.doneConditions ?? []}
+				needsYou={(payload.needsYou ?? []) as NeedsYou[]}
 			/>
 		</div>
 	);

@@ -419,7 +419,10 @@ function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 		designedBy: payload.before.label,
 		builtIn: payload.after.label,
 		regions: payload.diffRegions
-			.filter((r): r is { readonly id: string; readonly label: string } => isPlainObject(r) && isString(r.id) && isString(r.label))
+			.filter(
+				(r): r is { readonly id: string; readonly label: string } =>
+					isPlainObject(r) && isString(r.id) && isString(r.label),
+			)
 			.map((r) => ({
 				id: isRegionId(r.id) ? r.id : "cta",
 				band: "form" as const,
@@ -432,9 +435,7 @@ function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 }
 
 export function ReviewVisualDiff({ artifact }: ReviewCanvasProps): JSX.Element {
-	const diff = isVisualDiffPayload(artifact.payload)
-		? mapVisualPayload(artifact.payload)
-		: FIXTURE;
+	const diff = isVisualDiffPayload(artifact.payload) ? mapVisualPayload(artifact.payload) : FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
