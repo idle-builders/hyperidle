@@ -37,7 +37,14 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 			className="h-[12px] w-[12px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 			style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
 		>
-			<path d="M4 2.5 L8 6 L4 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M4 2.5 L8 6 L4 9.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -45,7 +52,14 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 function CheckGlyph(): JSX.Element {
 	return (
 		<svg aria-hidden="true" viewBox="0 0 12 12" className="h-[11px] w-[11px]">
-			<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M2.5 6.2 L5 8.5 L9.5 3.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -58,14 +72,19 @@ function FrameHeader(): JSX.Element {
 	return (
 		<header className="flex flex-col gap-[12px] border-b border-[var(--border-subtle)] px-[24px] py-[18px]">
 			{/* breadcrumb: Bet › Task */}
-			<nav aria-label="Breadcrumb" className="flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
+			<nav
+				aria-label="Breadcrumb"
+				className="flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]"
+			>
 				<span>Checkout reliability</span>
 				<span aria-hidden="true">›</span>
 				<span className="text-[var(--text-secondary)]">Fix expired-promo checkout</span>
 			</nav>
 
 			{/* work identity */}
-			<h1 className="text-[20px] font-[600] leading-[1.3] text-[var(--text-primary)]">{s.workIdentity}</h1>
+			<h1 className="text-[20px] font-[600] leading-[1.3] text-[var(--text-primary)]">
+				{s.workIdentity}
+			</h1>
 
 			{/* meta strip: agent→you · standing · tools · cost */}
 			<div className="flex flex-wrap items-center gap-x-[18px] gap-y-[9px]">
@@ -110,7 +129,9 @@ function FrameHeader(): JSX.Element {
 
 				{/* cost */}
 				<span className="inline-flex items-baseline gap-[6px] text-[13px] text-[var(--text-secondary)]">
-					<span className="font-[600] text-[var(--text-primary)] [font-variant-numeric:tabular-nums]">{s.costMoney}</span>
+					<span className="font-[600] text-[var(--text-primary)] [font-variant-numeric:tabular-nums]">
+						{s.costMoney}
+					</span>
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<span className="[font-variant-numeric:tabular-nums]">{s.costTokens}</span>
 				</span>
@@ -138,13 +159,21 @@ function NeedChip({ need }: { readonly need: NeedItem }): JSX.Element {
 		>
 			<span
 				className="mt-[1px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
-				style={{ letterSpacing: "var(--tracking-caps-sm)", background: "var(--status-error)", color: "var(--surface-elevated)" }}
+				style={{
+					letterSpacing: "var(--tracking-caps-sm)",
+					background: "var(--status-error)",
+					color: "var(--surface-elevated)",
+				}}
 			>
 				{NEED_LABEL[need.kind]}
 			</span>
 			<span className="min-w-0 flex-1">
-				<span className="block text-[13px] font-[600] leading-[1.4] text-[var(--text-primary)]">{need.label}</span>
-				<span className="mt-[3px] block text-[12px] leading-[1.45] text-[var(--text-secondary)]">{need.detail}</span>
+				<span className="block text-[13px] font-[600] leading-[1.4] text-[var(--text-primary)]">
+					{need.label}
+				</span>
+				<span className="mt-[3px] block text-[12px] leading-[1.45] text-[var(--text-secondary)]">
+					{need.detail}
+				</span>
 			</span>
 			<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-primary)]">
 				Jump ↓
@@ -162,15 +191,21 @@ function OutcomeBlock(): JSX.Element {
 	return (
 		<section className="flex flex-col gap-[18px] border-b border-[var(--border-subtle)] px-[24px] py-[18px]">
 			{/* the outcome sentence — primary, result-first */}
-			<p className="max-w-[72ch] text-[15px] leading-[1.55] text-[var(--text-primary)]">{s.outcome}</p>
+			<p className="max-w-[72ch] text-[15px] leading-[1.55] text-[var(--text-primary)]">
+				{s.outcome}
+			</p>
 
 			{/* intent done-conditions */}
 			<div className="flex flex-col gap-[6px]">
 				<div className="flex items-baseline justify-between gap-[12px]">
-					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Done conditions</h2>
+					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+						Done conditions
+					</h2>
 					<span
 						className="text-[13px] font-[600] [font-variant-numeric:tabular-nums]"
-						style={{ color: metCount === total ? "var(--status-success)" : "var(--status-warning)" }}
+						style={{
+							color: metCount === total ? "var(--status-success)" : "var(--status-warning)",
+						}}
 					>
 						{metCount} of {total} met
 					</span>
@@ -189,7 +224,10 @@ function OutcomeBlock(): JSX.Element {
 						</span>
 						<span
 							className="text-[13px] leading-[1.4]"
-							style={{ color: c.met ? "var(--text-secondary)" : "var(--text-primary)", fontWeight: c.met ? 400 : 600 }}
+							style={{
+								color: c.met ? "var(--text-secondary)" : "var(--text-primary)",
+								fontWeight: c.met ? 400 : 600,
+							}}
 						>
 							{c.text}
 						</span>
@@ -200,8 +238,12 @@ function OutcomeBlock(): JSX.Element {
 			{/* NEEDS YOU — the risk chips */}
 			<div className="flex flex-col gap-[9px]">
 				<div className="flex items-baseline gap-[9px]">
-					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--status-error)]">Needs you</h2>
-					<span className="text-[12px] font-[600] text-[var(--status-error)] [font-variant-numeric:tabular-nums]">{s.needs.length}</span>
+					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--status-error)]">
+						Needs you
+					</h2>
+					<span className="text-[12px] font-[600] text-[var(--status-error)] [font-variant-numeric:tabular-nums]">
+						{s.needs.length}
+					</span>
 				</div>
 				<div className="flex flex-col gap-[6px]">
 					{s.needs.map((n) => (
@@ -225,7 +267,10 @@ const KIND_LABEL: Record<ArtifactKind, string> = {
 const KIND_STYLE: Record<ArtifactKind, { bg: string; fg: string }> = {
 	code: { bg: "var(--surface-container)", fg: "var(--text-secondary)" },
 	data: { bg: "var(--surface-container)", fg: "var(--status-success)" },
-	action: { bg: "color-mix(in oklab, var(--status-warning) 14%, transparent)", fg: "var(--status-warning)" },
+	action: {
+		bg: "color-mix(in oklab, var(--status-warning) 14%, transparent)",
+		fg: "var(--status-warning)",
+	},
 	visual: { bg: "var(--surface-container)", fg: "var(--status-info)" },
 };
 
@@ -272,15 +317,22 @@ function ArtifactRow({
 				<KindBadge kind={row.kind} />
 				<ToolLogo tool={row.tool} />
 				<span className="flex min-w-0 flex-1 flex-col gap-[2px]">
-					<span className="truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">{row.title}</span>
-					<span className="truncate text-[12px] leading-[1.35] text-[var(--text-secondary)]">{row.summary}</span>
+					<span className="truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
+						{row.title}
+					</span>
+					<span className="truncate text-[12px] leading-[1.35] text-[var(--text-secondary)]">
+						{row.summary}
+					</span>
 				</span>
 
 				{/* needs-you flag floats with the row */}
 				{needs ? (
 					<span
 						className="hidden shrink-0 items-center rounded-[var(--r-pill)] px-[9px] py-[3px] text-[11px] font-[600] sm:inline-flex"
-						style={{ background: "color-mix(in oklab, var(--status-warning) 14%, transparent)", color: "var(--status-warning)" }}
+						style={{
+							background: "color-mix(in oklab, var(--status-warning) 14%, transparent)",
+							color: "var(--status-warning)",
+						}}
 					>
 						Needs you
 					</span>
@@ -306,7 +358,11 @@ function ArtifactRow({
 			</button>
 
 			{/* L3 — the real building block, full width, inline */}
-			{open && children ? <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)] p-[18px]">{children}</div> : null}
+			{open && children ? (
+				<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)] p-[18px]">
+					{children}
+				</div>
+			) : null}
 			{open && !children ? (
 				<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)] px-[18px] py-[18px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
 					{/* collapsed artifacts: when opened in isolation they'd mount their own building block
@@ -346,7 +402,9 @@ function ArtifactStack(): JSX.Element {
 			<div className="flex items-baseline justify-between gap-[12px]">
 				<h2 className="text-[13px] font-[600] text-[var(--text-primary)]">
 					What {s.author} produced ·{" "}
-					<span className="text-[var(--text-tertiary)] [font-variant-numeric:tabular-nums]">{s.artifacts.length} artifacts</span>
+					<span className="text-[var(--text-tertiary)] [font-variant-numeric:tabular-nums]">
+						{s.artifacts.length} artifacts
+					</span>
 				</h2>
 				<button
 					type="button"
@@ -359,7 +417,12 @@ function ArtifactStack(): JSX.Element {
 
 			<div className="flex flex-col gap-[9px]">
 				{ordered.map((row) => (
-					<ArtifactRow key={row.id} row={row} open={open.has(row.id)} onToggle={() => toggle(row.id)}>
+					<ArtifactRow
+						key={row.id}
+						row={row}
+						open={open.has(row.id)}
+						onToggle={() => toggle(row.id)}
+					>
 						{/* the code artifact's L3 IS the real building block, full width inline */}
 						{row.id === "a_code" ? <ReviewCodeDiff /> : undefined}
 					</ArtifactRow>
@@ -375,7 +438,9 @@ function Conversation(): JSX.Element {
 	const s = REVIEW_SUBJECT;
 	return (
 		<section className="flex flex-col gap-[12px] px-[24px] py-[18px]">
-			<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Conversation</h2>
+			<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+				Conversation
+			</h2>
 
 			<div className="flex flex-col gap-[12px]">
 				{s.conversation.map((c) => {
@@ -386,15 +451,25 @@ function Conversation(): JSX.Element {
 								className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] font-[600]"
 								style={
 									c.isAgent
-										? { background: "var(--accent-primary-dim)", border: "1.5px solid var(--accent-primary)", color: "var(--accent-primary)" }
-										: { background: "var(--surface-container)", border: "1.5px solid var(--border-default)", color: "var(--text-secondary)" }
+										? {
+												background: "var(--accent-primary-dim)",
+												border: "1.5px solid var(--accent-primary)",
+												color: "var(--accent-primary)",
+											}
+										: {
+												background: "var(--surface-container)",
+												border: "1.5px solid var(--border-default)",
+												color: "var(--text-secondary)",
+											}
 								}
 							>
 								{initials}
 							</span>
 							<div className="min-w-0 flex-1">
 								<div className="flex flex-wrap items-baseline gap-[9px]">
-									<span className="text-[13px] font-[600] text-[var(--text-primary)]">{c.author}</span>
+									<span className="text-[13px] font-[600] text-[var(--text-primary)]">
+										{c.author}
+									</span>
 									{c.anchor ? (
 										<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[2px] font-mono text-[11px] text-[var(--text-tertiary)]">
 											{c.anchor}
@@ -402,7 +477,9 @@ function Conversation(): JSX.Element {
 									) : null}
 									<span className="text-[12px] text-[var(--text-tertiary)]">{c.ago}</span>
 								</div>
-								<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">{c.body}</p>
+								<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
+									{c.body}
+								</p>
 							</div>
 						</div>
 					);
@@ -447,12 +524,25 @@ const VERDICTS: readonly Verdict[] = [
 
 const VERDICT_TONE: Record<"primary" | "danger" | "neutral", string> = {
 	primary: "bg-[var(--accent-primary)] text-white border border-[var(--accent-primary)]",
-	danger: "bg-[var(--surface-elevated)] border border-[var(--status-error)] text-[var(--status-error)]",
-	neutral: "bg-[var(--surface-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)]",
+	danger:
+		"bg-[var(--surface-elevated)] border border-[var(--status-error)] text-[var(--status-error)]",
+	neutral:
+		"bg-[var(--surface-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)]",
 };
 
-function VerdictButton({ verdict, primary }: { readonly verdict: Verdict; readonly primary: boolean }): JSX.Element {
-	const key = verdict.tone === "approve" && primary ? "primary" : verdict.tone === "danger" ? "danger" : "neutral";
+function VerdictButton({
+	verdict,
+	primary,
+}: {
+	readonly verdict: Verdict;
+	readonly primary: boolean;
+}): JSX.Element {
+	const key =
+		verdict.tone === "approve" && primary
+			? "primary"
+			: verdict.tone === "danger"
+				? "danger"
+				: "neutral";
 	return (
 		<button
 			type="button"
@@ -475,9 +565,16 @@ function VerdictBar(): JSX.Element {
 		>
 			<span
 				className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
-				style={{ background: "color-mix(in oklab, var(--status-warning) 14%, transparent)", color: "var(--status-warning)" }}
+				style={{
+					background: "color-mix(in oklab, var(--status-warning) 14%, transparent)",
+					color: "var(--status-warning)",
+				}}
 			>
-				<span aria-hidden="true" className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]" style={{ background: "var(--status-warning)" }} />
+				<span
+					aria-hidden="true"
+					className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
+					style={{ background: "var(--status-warning)" }}
+				/>
 				Blocking · deploy staged
 			</span>
 			<div className="flex flex-wrap items-center gap-[9px]">

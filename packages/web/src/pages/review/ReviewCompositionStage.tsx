@@ -23,7 +23,11 @@
 
 import { type JSX, useState } from "react";
 import { ReviewCodeDiff } from "./ReviewCodeDiff";
-import { REVIEW_SUBJECT, type ReviewSubject, type SubjectArtifactRow } from "./review-subject.fixture";
+import {
+	REVIEW_SUBJECT,
+	type ReviewSubject,
+	type SubjectArtifactRow,
+} from "./review-subject.fixture";
 import { ToolLogo } from "./ToolLogo";
 
 // ── the 5 binding verdicts (concept universal set) ────────────────────────────────
@@ -122,7 +126,9 @@ function OutlineIdentity({ subject }: { subject: ReviewSubject }): JSX.Element {
 				</span>
 			</div>
 
-			<h2 className="text-[15px] font-[600] leading-[1.35] text-[var(--text-primary)]">{subject.workIdentity}</h2>
+			<h2 className="text-[15px] font-[600] leading-[1.35] text-[var(--text-primary)]">
+				{subject.workIdentity}
+			</h2>
 
 			<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 				<span className="font-[600] text-[var(--text-primary)]">{subject.author}</span>
@@ -228,7 +234,9 @@ function OutlineNeeds({
 							/>
 							<span className="text-[13px] font-[600] text-[var(--text-primary)]">{n.label}</span>
 						</span>
-						<span className="text-[12px] leading-[1.4] text-[var(--text-secondary)]">{n.detail}</span>
+						<span className="text-[12px] leading-[1.4] text-[var(--text-secondary)]">
+							{n.detail}
+						</span>
 					</button>
 				))}
 			</div>
@@ -266,8 +274,12 @@ function ArtifactRow({
 			</span>
 			<ToolLogo tool={artifact.tool} size="sm" />
 			<span className="min-w-0 flex-1">
-				<span className="block truncate text-[13px] font-[500] text-[var(--text-primary)]">{artifact.title}</span>
-				<span className="block text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">{artifact.badge}</span>
+				<span className="block truncate text-[13px] font-[500] text-[var(--text-primary)]">
+					{artifact.title}
+				</span>
+				<span className="block text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
+					{artifact.badge}
+				</span>
 			</span>
 			{artifact.needsYou ? (
 				<span
@@ -302,7 +314,12 @@ function OutlineArtifacts({
 			<RailLabel count={String(subject.artifacts.length)}>Artifacts</RailLabel>
 			<div className="flex flex-col gap-[3px] px-[12px] pb-[18px]">
 				{subject.artifacts.map((a) => (
-					<ArtifactRow key={a.id} artifact={a} active={a.id === activeId} onSelect={() => onSelect(a.id)} />
+					<ArtifactRow
+						key={a.id}
+						artifact={a}
+						active={a.id === activeId}
+						onSelect={() => onSelect(a.id)}
+					/>
 				))}
 			</div>
 		</div>
@@ -391,7 +408,9 @@ function StageHeader({
 			<div className="flex min-w-0 flex-1 items-center gap-[9px]">
 				<ToolLogo tool={active.tool} size="md" />
 				<span className="min-w-0">
-					<span className="block truncate text-[15px] font-[600] text-[var(--text-primary)]">{active.title}</span>
+					<span className="block truncate text-[15px] font-[600] text-[var(--text-primary)]">
+						{active.title}
+					</span>
 					<span className="block text-[12px] text-[var(--text-tertiary)]">
 						Artifact {idx + 1} of {subject.artifacts.length} · {KIND_LABEL[active.kind]}
 					</span>
@@ -450,10 +469,13 @@ function StageBody({ artifact }: { artifact: SubjectArtifactRow }): JSX.Element 
 				</span>
 			</div>
 			<span className="text-[15px] font-[600] text-[var(--text-primary)]">{artifact.title}</span>
-			<span className="max-w-[60ch] text-[13px] leading-[1.5] text-[var(--text-secondary)]">{artifact.summary}</span>
+			<span className="max-w-[60ch] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
+				{artifact.summary}
+			</span>
 			<span className="text-[12px] text-[var(--text-tertiary)]">
-				This artifact opens at full stage width — the {KIND_LABEL[artifact.kind].toLowerCase()} building block fills
-				this whole area (e.g. a side-by-side visual diff or a staged-action receipt).
+				This artifact opens at full stage width — the {KIND_LABEL[artifact.kind].toLowerCase()}{" "}
+				building block fills this whole area (e.g. a side-by-side visual diff or a staged-action
+				receipt).
 			</span>
 		</div>
 	);
@@ -492,7 +514,9 @@ function ConversationStrip({ subject }: { subject: ReviewSubject }): JSX.Element
 						</span>
 						<div className="min-w-0 flex-1">
 							<div className="flex items-baseline gap-[6px]">
-								<span className="text-[13px] font-[600] text-[var(--text-primary)]">{c.author}</span>
+								<span className="text-[13px] font-[600] text-[var(--text-primary)]">
+									{c.author}
+								</span>
 								{c.anchor ? (
 									<span className="rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[6px] py-[2px] font-mono text-[11px] text-[var(--text-tertiary)]">
 										{c.anchor}
@@ -500,7 +524,9 @@ function ConversationStrip({ subject }: { subject: ReviewSubject }): JSX.Element
 								) : null}
 								<span className="text-[12px] text-[var(--text-tertiary)]">{c.ago}</span>
 							</div>
-							<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">{c.body}</p>
+							<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
+								{c.body}
+							</p>
 						</div>
 					</div>
 				))}
@@ -529,7 +555,9 @@ export interface ReviewCompositionStageProps {
 	readonly subject?: ReviewSubject;
 }
 
-export function ReviewCompositionStage({ subject = REVIEW_SUBJECT }: ReviewCompositionStageProps): JSX.Element {
+export function ReviewCompositionStage({
+	subject = REVIEW_SUBJECT,
+}: ReviewCompositionStageProps): JSX.Element {
 	const defaultId = subject.artifacts.find((a) => a.expanded)?.id ?? subject.artifacts[0]?.id ?? "";
 	const [activeId, setActiveId] = useState<string>(defaultId);
 	const [reviewedIds, setReviewedIds] = useState<ReadonlySet<string>>(

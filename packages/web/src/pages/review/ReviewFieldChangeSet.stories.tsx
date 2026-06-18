@@ -13,10 +13,7 @@ export default {
 
 export function Populated(): JSX.Element {
 	return (
-		<div
-			className="min-h-screen p-[24px]"
-			style={{ background: "var(--surface-page)" }}
-		>
+		<div className="min-h-screen p-[24px]" style={{ background: "var(--surface-page)" }}>
 			<ReviewFieldChangeSet />
 		</div>
 	);

@@ -139,7 +139,13 @@ function ViewportToggle({
 // Neutral, email-safe styling — the one place not using Hearth chrome tokens,
 // because this IS the asset as the recipient sees it (must read as an email).
 
-function EmailRender({ data, viewport }: { readonly data: RenderedEmail; readonly viewport: Viewport }): JSX.Element {
+function EmailRender({
+	data,
+	viewport,
+}: {
+	readonly data: RenderedEmail;
+	readonly viewport: Viewport;
+}): JSX.Element {
 	const width = viewport === "mobile" ? 380 : 600;
 	return (
 		<div
@@ -178,7 +184,13 @@ function EmailRender({ data, viewport }: { readonly data: RenderedEmail; readonl
 				{data.bodyParas.map((p) => (
 					<p
 						key={p.slice(0, 24)}
-						style={{ marginTop: 16, marginBottom: 0, fontSize: 15, lineHeight: 1.55, color: "#4a4338" }}
+						style={{
+							marginTop: 16,
+							marginBottom: 0,
+							fontSize: 15,
+							lineHeight: 1.55,
+							color: "#4a4338",
+						}}
 					>
 						{p}
 					</p>
@@ -295,14 +307,20 @@ export function ReviewRenderedInContext({
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 						<div className="flex items-baseline justify-between gap-[12px]">
-							<span className="truncate text-[15px] font-[700]" style={{ color: "var(--text-primary)" }}>
+							<span
+								className="truncate text-[15px] font-[700]"
+								style={{ color: "var(--text-primary)" }}
+							>
 								{data.sender}
 							</span>
 							<span className="shrink-0 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
 								{data.receivedAt}
 							</span>
 						</div>
-						<span className="truncate text-[15px] font-[600]" style={{ color: "var(--text-primary)" }}>
+						<span
+							className="truncate text-[15px] font-[600]"
+							style={{ color: "var(--text-primary)" }}
+						>
 							{data.subject}
 						</span>
 						<span className="truncate text-[13px]" style={{ color: "var(--text-secondary)" }}>

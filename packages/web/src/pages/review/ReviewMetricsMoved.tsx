@@ -56,7 +56,12 @@ interface CloseFixture {
 	readonly figures: readonly MovedFigure[]; // materiality-sorted
 	readonly rows: readonly RollForwardRow[]; // materiality-sorted
 	readonly trivia: { readonly count: number; readonly net: number };
-	readonly tieOut: { readonly opening: number; readonly activity: number; readonly closing: number; readonly ties: boolean };
+	readonly tieOut: {
+		readonly opening: number;
+		readonly activity: number;
+		readonly closing: number;
+		readonly ties: boolean;
+	};
 	readonly exceptions: readonly Exception[]; // exception float (biggest first)
 }
 
@@ -71,7 +76,8 @@ const FIXTURE: CloseFixture = {
 			headline: true,
 			provenance: {
 				source: "GL account 4000 · from Stripe MRR export",
-				detail: "412 invoices (in_1P8…–in_1Pq2…), recognized ratably; matches Stripe billing $612,400.00",
+				detail:
+					"412 invoices (in_1P8…–in_1Pq2…), recognized ratably; matches Stripe billing $612,400.00",
 				tool: "stripe",
 			},
 		},
@@ -82,7 +88,8 @@ const FIXTURE: CloseFixture = {
 			current: 1_284_302,
 			provenance: {
 				source: "GL account 1000 · bank feed",
-				detail: "Mercury operating + savings; reconciled to statement close 05-31, 3 items in transit",
+				detail:
+					"Mercury operating + savings; reconciled to statement close 05-31, 3 items in transit",
 				tool: "quickbooks",
 			},
 		},
@@ -99,12 +106,54 @@ const FIXTURE: CloseFixture = {
 		},
 	],
 	rows: [
-		{ id: "rev", label: "Recognized revenue (4000)", opening: 588_000, activity: 24_400, closing: 612_400, changed: true },
-		{ id: "cash", label: "Cash & equivalents (1000)", opening: 1_051_990, activity: 232_312, closing: 1_284_302, changed: true },
-		{ id: "ar", label: "Accounts receivable (1200)", opening: 142_300, activity: -23_400, closing: 118_900, changed: true },
-		{ id: "deferred", label: "Deferred revenue (2300)", opening: 96_500, activity: 8_140, closing: 104_640, changed: true },
-		{ id: "cogs", label: "Cost of revenue (5000)", opening: 71_200, activity: 2_980, closing: 74_180, changed: true },
-		{ id: "prepaid", label: "Prepaid expenses (1400)", opening: 18_900, activity: 0, closing: 18_900, changed: false },
+		{
+			id: "rev",
+			label: "Recognized revenue (4000)",
+			opening: 588_000,
+			activity: 24_400,
+			closing: 612_400,
+			changed: true,
+		},
+		{
+			id: "cash",
+			label: "Cash & equivalents (1000)",
+			opening: 1_051_990,
+			activity: 232_312,
+			closing: 1_284_302,
+			changed: true,
+		},
+		{
+			id: "ar",
+			label: "Accounts receivable (1200)",
+			opening: 142_300,
+			activity: -23_400,
+			closing: 118_900,
+			changed: true,
+		},
+		{
+			id: "deferred",
+			label: "Deferred revenue (2300)",
+			opening: 96_500,
+			activity: 8_140,
+			closing: 104_640,
+			changed: true,
+		},
+		{
+			id: "cogs",
+			label: "Cost of revenue (5000)",
+			opening: 71_200,
+			activity: 2_980,
+			closing: 74_180,
+			changed: true,
+		},
+		{
+			id: "prepaid",
+			label: "Prepaid expenses (1400)",
+			opening: 18_900,
+			activity: 0,
+			closing: 18_900,
+			changed: false,
+		},
 	],
 	trivia: { count: 9, net: 37 },
 	tieOut: { opening: 1_051_990, activity: 232_312, closing: 1_284_302, ties: true },
@@ -113,7 +162,8 @@ const FIXTURE: CloseFixture = {
 			id: "wire",
 			amount: 9_840,
 			title: "Unidentified wire — no source",
-			detail: "Inbound $9,840.00 to Mercury operating 05-22, no matching invoice or customer. Booked to suspense (2900) pending identification.",
+			detail:
+				"Inbound $9,840.00 to Mercury operating 05-22, no matching invoice or customer. Booked to suspense (2900) pending identification.",
 			kind: "anomaly",
 			needsYou: true,
 		},
@@ -121,7 +171,8 @@ const FIXTURE: CloseFixture = {
 			id: "ach",
 			amount: 4_200,
 			title: "Duplicate ACH — over authority",
-			detail: "Vendor payment to Ramp $4,200.00 posted twice (05-14, 05-15). Reversal exceeds your $2,500 auto-approve limit.",
+			detail:
+				"Vendor payment to Ramp $4,200.00 posted twice (05-14, 05-15). Reversal exceeds your $2,500 auto-approve limit.",
 			kind: "anomaly",
 			needsYou: true,
 		},
@@ -129,7 +180,8 @@ const FIXTURE: CloseFixture = {
 			id: "dit",
 			amount: 31_500,
 			title: "Deposits in transit — timing",
-			detail: "$31,500.00 of card settlements deposited 05-31, cleared bank 06-02. Normal cutoff timing; clears next period.",
+			detail:
+				"$31,500.00 of card settlements deposited 05-31, cleared bank 06-02. Normal cutoff timing; clears next period.",
 			kind: "timing",
 			needsYou: false,
 		},
@@ -139,10 +191,20 @@ const FIXTURE: CloseFixture = {
 // ── format helpers ───────────────────────────────────────────────────────────
 
 function usd(n: number): string {
-	return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+	return n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 0,
+	});
 }
 function usdCents(n: number): string {
-	return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	return n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
 }
 function signed(n: number): string {
 	const v = usd(Math.abs(n));
@@ -190,7 +252,11 @@ function Headline({
 				<span className="text-[13px] font-[500] text-[var(--text-secondary)]">{figure.label}</span>
 				<DeltaPill delta={delta} />
 			</div>
-			<div className={`mt-[6px] text-[24px] font-[700] leading-none text-[var(--text-primary)] ${NUM}`}>{usd(figure.current)}</div>
+			<div
+				className={`mt-[6px] text-[24px] font-[700] leading-none text-[var(--text-primary)] ${NUM}`}
+			>
+				{usd(figure.current)}
+			</div>
 			<div className={`mt-[6px] text-[12px] text-[var(--text-tertiary)] ${NUM}`}>
 				Apr {usd(figure.prior)} → May
 			</div>
@@ -200,7 +266,11 @@ function Headline({
 				className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-primary)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
 				aria-expanded={expanded}
 			>
-				<span aria-hidden="true" className="inline-block [transition:transform_var(--motion-fast)_var(--motion-ease)]" style={{ transform: expanded ? "rotate(90deg)" : "none" }}>
+				<span
+					aria-hidden="true"
+					className="inline-block [transition:transform_var(--motion-fast)_var(--motion-ease)]"
+					style={{ transform: expanded ? "rotate(90deg)" : "none" }}
+				>
 					▸
 				</span>
 				{expanded ? "Hide source" : "Where from?"}
@@ -210,9 +280,13 @@ function Headline({
 				<div className="mt-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
 						<ToolLogo tool={figure.provenance.tool} size="sm" />
-						<span className="text-[12px] font-[600] text-[var(--text-primary)]">{figure.provenance.source}</span>
+						<span className="text-[12px] font-[600] text-[var(--text-primary)]">
+							{figure.provenance.source}
+						</span>
 					</div>
-					<p className={`mt-[6px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>{figure.provenance.detail}</p>
+					<p className={`mt-[6px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>
+						{figure.provenance.detail}
+					</p>
 				</div>
 			) : null}
 		</div>
@@ -222,31 +296,58 @@ function Headline({
 // ── L2: roll-forward table ───────────────────────────────────────────────────
 
 function changedCellStyle(): React.CSSProperties {
-	return { background: "var(--accent-secondary-dim)", color: "var(--text-primary)", fontWeight: 600 };
+	return {
+		background: "var(--accent-secondary-dim)",
+		color: "var(--text-primary)",
+		fontWeight: 600,
+	};
 }
 
 function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 	const [showTrivia, setShowTrivia] = useState(false);
 	return (
-		<div className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)]" style={{ boxShadow: "var(--shadow-default)" }}>
+		<div
+			className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)]"
+			style={{ boxShadow: "var(--shadow-default)" }}
+		>
 			<table className="w-full border-collapse text-left">
 				<thead>
 					<tr className="border-b border-[var(--border-default)]">
-						<th className="px-[12px] py-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Account</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Opening</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Activity</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Closing</th>
+						<th className="px-[12px] py-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+							Account
+						</th>
+						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+							Opening
+						</th>
+						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+							Activity
+						</th>
+						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+							Closing
+						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{fixture.rows.map((r) => (
 						<tr key={r.id} className="border-b border-[var(--border-subtle)]">
-							<td className="px-[12px] py-[9px] text-[13px] text-[var(--text-primary)]">{r.label}</td>
-							<td className={`px-[12px] py-[9px] text-right text-[13px] text-[var(--text-secondary)] ${NUM}`}>{usd(r.opening)}</td>
-							<td className={`px-[12px] py-[9px] text-right text-[13px] ${NUM}`} style={r.changed ? changedCellStyle() : { color: "var(--text-tertiary)" }}>
+							<td className="px-[12px] py-[9px] text-[13px] text-[var(--text-primary)]">
+								{r.label}
+							</td>
+							<td
+								className={`px-[12px] py-[9px] text-right text-[13px] text-[var(--text-secondary)] ${NUM}`}
+							>
+								{usd(r.opening)}
+							</td>
+							<td
+								className={`px-[12px] py-[9px] text-right text-[13px] ${NUM}`}
+								style={r.changed ? changedCellStyle() : { color: "var(--text-tertiary)" }}
+							>
 								{r.changed ? signed(r.activity) : "—"}
 							</td>
-							<td className={`px-[12px] py-[9px] text-right text-[13px] font-[500] ${NUM}`} style={r.changed ? changedCellStyle() : { color: "var(--text-secondary)" }}>
+							<td
+								className={`px-[12px] py-[9px] text-right text-[13px] font-[500] ${NUM}`}
+								style={r.changed ? changedCellStyle() : { color: "var(--text-secondary)" }}
+							>
 								{usd(r.closing)}
 							</td>
 						</tr>
@@ -259,7 +360,8 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 								className="text-[12px] font-[500] text-[var(--text-tertiary)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
 								aria-expanded={showTrivia}
 							>
-								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items &lt; $100 (net {signed(fixture.trivia.net)})
+								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items &lt; $100 (net{" "}
+								{signed(fixture.trivia.net)})
 							</button>
 						</td>
 					</tr>
@@ -271,10 +373,16 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 				className="flex flex-wrap items-center gap-x-[6px] gap-y-[3px] border-t border-[var(--border-default)] px-[12px] py-[9px]"
 				style={{ background: "var(--accent-primary-dim)" }}
 			>
-				<span className="inline-flex items-center justify-center" style={{ color: "var(--status-success)" }} aria-hidden="true">✓</span>
+				<span
+					className="inline-flex items-center justify-center"
+					style={{ color: "var(--status-success)" }}
+					aria-hidden="true"
+				>
+					✓
+				</span>
 				<span className={`text-[13px] text-[var(--text-primary)] ${NUM}`}>
-					Opening {usd(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} = Closing{" "}
-					<span className="font-[600]">{usd(fixture.tieOut.closing)}</span>
+					Opening {usd(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =
+					Closing <span className="font-[600]">{usd(fixture.tieOut.closing)}</span>
 				</span>
 				<span className="text-[13px] font-[600]" style={{ color: "var(--status-success)" }}>
 					ties to bank
@@ -295,7 +403,10 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 				background: ex.needsYou ? "var(--status-error-dim)" : "var(--surface-container)",
 			}}
 		>
-			<span className={`shrink-0 text-[15px] font-[700] ${NUM}`} style={{ color: ex.needsYou ? "var(--status-error)" : "var(--text-secondary)" }}>
+			<span
+				className={`shrink-0 text-[15px] font-[700] ${NUM}`}
+				style={{ color: ex.needsYou ? "var(--status-error)" : "var(--text-secondary)" }}
+			>
 				{usdCents(ex.amount)}
 			</span>
 			<div className="min-w-0 flex-1">
@@ -317,7 +428,9 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 						</span>
 					)}
 				</div>
-				<p className={`mt-[3px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>{ex.detail}</p>
+				<p className={`mt-[3px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>
+					{ex.detail}
+				</p>
 			</div>
 		</div>
 	);
@@ -331,9 +444,14 @@ export interface ReviewMetricsMovedProps {
 	readonly initialExpandedFigureId?: string | null;
 }
 
-export function ReviewMetricsMoved({ fixture = FIXTURE, initialExpandedFigureId = "rev" }: ReviewMetricsMovedProps): JSX.Element {
+export function ReviewMetricsMoved({
+	fixture = FIXTURE,
+	initialExpandedFigureId = "rev",
+}: ReviewMetricsMovedProps): JSX.Element {
 	const [expandedId, setExpandedId] = useState<string | null>(initialExpandedFigureId);
-	const headline = fixture.figures.find((f) => f.headline) ?? fixture.figures[0];
+	const found = fixture.figures.find((f) => f.headline) ?? fixture.figures[0];
+	if (!found) throw new Error("ReviewMetricsMoved: no headline figure");
+	const headline = found;
 	const needsYou = fixture.exceptions.filter((e) => e.needsYou).length;
 
 	return (
@@ -355,35 +473,49 @@ export function ReviewMetricsMoved({ fixture = FIXTURE, initialExpandedFigureId 
 			/>
 
 			<div className="p-[18px]">
-			{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
-			<p className={`text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
-				Recognized revenue closed at <span className="font-[700]">{usd(headline.current)}</span>, up{" "}
-				<span className="font-[600]" style={{ color: "var(--status-success)" }}>{signed(headline.current - headline.prior)}</span> from April. Roll-forward
-				ties to bank; biggest open item is a <span className="font-[600]">{usdCents(fixture.exceptions[0].amount)}</span> wire with no source.
-			</p>
+				{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
+				<p className={`text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
+					Recognized revenue closed at <span className="font-[700]">{usd(headline.current)}</span>,
+					up{" "}
+					<span className="font-[600]" style={{ color: "var(--status-success)" }}>
+						{signed(headline.current - headline.prior)}
+					</span>{" "}
+					from April. Roll-forward ties to bank; biggest open item is a{" "}
+					<span className="font-[600]">{usdCents(fixture.exceptions[0]?.amount ?? 0)}</span> wire
+					with no source.
+				</p>
 
-			<div className="mt-[12px] grid grid-cols-3 gap-[9px]">
-				{fixture.figures.map((f) => (
-					<Headline key={f.id} figure={f} expanded={expandedId === f.id} onToggle={() => setExpandedId((cur) => (cur === f.id ? null : f.id))} />
-				))}
-			</div>
+				<div className="mt-[12px] grid grid-cols-3 gap-[9px]">
+					{fixture.figures.map((f) => (
+						<Headline
+							key={f.id}
+							figure={f}
+							expanded={expandedId === f.id}
+							onToggle={() => setExpandedId((cur) => (cur === f.id ? null : f.id))}
+						/>
+					))}
+				</div>
 
-			{/* ── L2 ── the structured proof: roll-forward + tie-out ── */}
-			<div className="mt-[18px] mb-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Roll-forward · reconciliation
-			</div>
-			<RollForwardTable fixture={fixture} />
+				{/* ── L2 ── the structured proof: roll-forward + tie-out ── */}
+				<div className="mt-[18px] mb-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					Roll-forward · reconciliation
+				</div>
+				<RollForwardTable fixture={fixture} />
 
-			{/* ── L3 ── exceptions list (floated, biggest $ first) ── */}
-			<div className="mt-[18px] mb-[9px] flex items-baseline gap-[6px]">
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Exceptions</span>
-				<span className={`text-[11px] text-[var(--text-tertiary)] ${NUM}`}>{fixture.exceptions.length}, by amount</span>
-			</div>
-			<div className="flex flex-col gap-[9px]">
-				{fixture.exceptions.map((ex) => (
-					<ExceptionRow key={ex.id} ex={ex} />
-				))}
-			</div>
+				{/* ── L3 ── exceptions list (floated, biggest $ first) ── */}
+				<div className="mt-[18px] mb-[9px] flex items-baseline gap-[6px]">
+					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						Exceptions
+					</span>
+					<span className={`text-[11px] text-[var(--text-tertiary)] ${NUM}`}>
+						{fixture.exceptions.length}, by amount
+					</span>
+				</div>
+				<div className="flex flex-col gap-[9px]">
+					{fixture.exceptions.map((ex) => (
+						<ExceptionRow key={ex.id} ex={ex} />
+					))}
+				</div>
 			</div>
 		</div>
 	);

@@ -45,13 +45,15 @@ export const FinanceClose = (): JSX.Element => (
 				{
 					category: "unhandled-exception",
 					severity: "error",
-					detail: "$9,840 inbound wire on May 28 has no matching invoice or source — could not classify.",
+					detail:
+						"$9,840 inbound wire on May 28 has no matching invoice or source — could not classify.",
 					jumpLabel: "variances",
 				},
 				{
 					category: "over-authority",
 					severity: "warning",
-					detail: "$4,200 duplicate ACH exceeds the $2,000 auto-resolve limit — needs your sign-off to void.",
+					detail:
+						"$4,200 duplicate ACH exceeds the $2,000 auto-resolve limit — needs your sign-off to void.",
 					jumpLabel: "duplicate-ach",
 				},
 			]}
@@ -91,13 +93,15 @@ export const SupportSweep = (): JSX.Element => (
 				{
 					category: "irreversible",
 					severity: "error",
-					detail: "Northwind ($48k renewal) threatened to churn — reply ships to the account owner, not reversible.",
+					detail:
+						"Northwind ($48k renewal) threatened to churn — reply ships to the account owner, not reversible.",
 					jumpLabel: "flagged",
 				},
 				{
 					category: "over-authority",
 					severity: "warning",
-					detail: "$180 goodwill refund requested exceeds the agent's $50 limit — approve to issue.",
+					detail:
+						"$180 goodwill refund requested exceeds the agent's $50 limit — approve to issue.",
 					jumpLabel: "refund",
 				},
 			]}

@@ -6,7 +6,7 @@
 // wasn't enough — name the app + give the link.
 
 import type { JSX, ReactNode } from "react";
-import { ToolLogo, type ToolId } from "./ToolLogo.js";
+import { type ToolId, ToolLogo } from "./ToolLogo.js";
 
 export interface CanvasSourceHeaderProps {
 	readonly tool: ToolId | string;

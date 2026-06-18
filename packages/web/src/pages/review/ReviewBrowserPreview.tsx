@@ -50,14 +50,20 @@ const FIXTURE: PreviewPage = {
 	navLinks: ["Product", "Pricing", "Docs", "Changelog"],
 	eyebrow: "Launch-week pricing",
 	headline: "Run a team of agents. Keep the final say.",
-	subhead: "One founder, unlimited agents, every integration. Cancel anytime — no agent does anything without your approval.",
+	subhead:
+		"One founder, unlimited agents, every integration. Cancel anytime — no agent does anything without your approval.",
 	tiers: [
 		{
 			name: "Solo",
 			price: "$19",
 			cadence: "/mo",
 			blurb: "For the one-person company. Founder pricing through Sunday.",
-			features: ["Unlimited agents", "Every integration", "Approval gates on every action", "5-minute setup"],
+			features: [
+				"Unlimited agents",
+				"Every integration",
+				"Approval gates on every action",
+				"5-minute setup",
+			],
 			cta: "Start for $19/mo",
 			featured: true,
 		},
@@ -66,7 +72,12 @@ const FIXTURE: PreviewPage = {
 			price: "$49",
 			cadence: "/seat",
 			blurb: "For small teams sharing a fleet of agents and one knowledge base.",
-			features: ["Everything in Solo", "Shared team knowledge", "Per-seat approval routing", "Audit log export"],
+			features: [
+				"Everything in Solo",
+				"Shared team knowledge",
+				"Per-seat approval routing",
+				"Audit log export",
+			],
 			cta: "Choose Team",
 			featured: false,
 		},
@@ -99,7 +110,11 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 					{data.navLinks.map((link) => (
 						<span
 							key={link}
-							style={{ fontSize: 13, fontWeight: 500, color: link === "Pricing" ? "#2f6b4f" : "#6b6354" }}
+							style={{
+								fontSize: 13,
+								fontWeight: 500,
+								color: link === "Pricing" ? "#2f6b4f" : "#6b6354",
+							}}
 						>
 							{link}
 						</span>
@@ -136,10 +151,26 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 				>
 					{data.eyebrow}
 				</span>
-				<h1 style={{ margin: "12px auto 0", maxWidth: 560, fontSize: 34, lineHeight: 1.15, fontWeight: 700 }}>
+				<h1
+					style={{
+						margin: "12px auto 0",
+						maxWidth: 560,
+						fontSize: 34,
+						lineHeight: 1.15,
+						fontWeight: 700,
+					}}
+				>
 					{data.headline}
 				</h1>
-				<p style={{ margin: "12px auto 0", maxWidth: 480, fontSize: 15, lineHeight: 1.55, color: "#5a5246" }}>
+				<p
+					style={{
+						margin: "12px auto 0",
+						maxWidth: 480,
+						fontSize: 15,
+						lineHeight: 1.55,
+						color: "#5a5246",
+					}}
+				>
 					{data.subhead}
 				</p>
 			</div>
@@ -189,10 +220,20 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 							) : null}
 						</div>
 						<div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 3 }}>
-							<span style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em" }}>{tier.price}</span>
+							<span style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
+								{tier.price}
+							</span>
 							<span style={{ fontSize: 14, color: "#8a8174" }}>{tier.cadence}</span>
 						</div>
-						<p style={{ marginTop: 9, marginBottom: 0, fontSize: 13, lineHeight: 1.5, color: "#5a5246" }}>
+						<p
+							style={{
+								marginTop: 9,
+								marginBottom: 0,
+								fontSize: 13,
+								lineHeight: 1.5,
+								color: "#5a5246",
+							}}
+						>
 							{tier.blurb}
 						</p>
 						<ul style={{ margin: "18px 0 0", padding: 0, listStyle: "none", flex: 1 }}>
@@ -254,7 +295,11 @@ function TrafficLights(): JSX.Element {
 	return (
 		<div className="flex shrink-0 items-center gap-[6px]" aria-hidden="true">
 			{dots.map((c) => (
-				<span key={c} className="h-[12px] w-[12px] rounded-[var(--r-pill)]" style={{ background: c }} />
+				<span
+					key={c}
+					className="h-[12px] w-[12px] rounded-[var(--r-pill)]"
+					style={{ background: c }}
+				/>
 			))}
 		</div>
 	);
@@ -318,7 +363,10 @@ export function ReviewBrowserPreview({
 				{/* chrome bar: traffic lights + URL bar + reload + open↗ */}
 				<div
 					className="flex items-center gap-[12px] px-[12px] py-[9px]"
-					style={{ background: "var(--surface-elevated)", borderBottom: "1px solid var(--border-subtle)" }}
+					style={{
+						background: "var(--surface-elevated)",
+						borderBottom: "1px solid var(--border-subtle)",
+					}}
 				>
 					<TrafficLights />
 					<div
@@ -329,7 +377,11 @@ export function ReviewBrowserPreview({
 							borderRadius: "var(--r-pill)",
 						}}
 					>
-						<span aria-hidden="true" className="shrink-0 text-[12px]" style={{ color: "var(--status-success)" }}>
+						<span
+							aria-hidden="true"
+							className="shrink-0 text-[12px]"
+							style={{ color: "var(--status-success)" }}
+						>
 							🔒
 						</span>
 						<span
@@ -343,6 +395,7 @@ export function ReviewBrowserPreview({
 							aria-label="Reload preview"
 							className="ml-auto shrink-0 text-[13px] transition-transform"
 							style={{ color: "var(--text-tertiary)", transitionDuration: "var(--motion-fast)" }}
+							onClick={() => {}}
 						>
 							↻
 						</button>

@@ -19,8 +19,8 @@
 // the 4 red rows pinned above the routine collapse. Resolved is out of scope; the
 // review frame owns the final verdict.
 
-import { type JSX, useState } from "react";
 import { Button, StatusChip } from "@hyperidle/design-system";
+import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,8 +240,7 @@ export function ReviewBatch({
 	const [expandedId, setExpandedId] = useState<string | undefined>(initialExpandedId);
 	const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
 
-	const toggleItem = (id: string): void =>
-		setExpandedId((cur) => (cur === id ? undefined : id));
+	const toggleItem = (id: string): void => setExpandedId((cur) => (cur === id ? undefined : id));
 	const toggleGroup = (id: string): void =>
 		setOpenGroups((cur) => {
 			const next = new Set(cur);
@@ -260,12 +259,12 @@ export function ReviewBatch({
 			{/* L1 — the rollup */}
 			<section className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 				<CanvasSourceHeader
-						tool={batch.tool}
-						app="Zendesk"
-						record={`${batch.title} (${batch.total} tickets)`}
-						href="#"
-					/>
-					<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
+					tool={batch.tool}
+					app="Zendesk"
+					record={`${batch.title} (${batch.total} tickets)`}
+					href="#"
+				/>
+				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
 					<div className="flex items-start gap-[12px] min-w-0">
 						{/* tool identity now lives in the CanvasSourceHeader above */}
 						<div className="flex flex-col gap-[3px] min-w-0">
@@ -411,16 +410,16 @@ export function ReviewBatch({
 										{/* why the agent held — framed explanation, not just a red box */}
 										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)] border-l-[3px] border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
 											<div className="flex items-center gap-[6px]">
-													<span
-														aria-hidden="true"
-														className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
-													>
-														!
-													</span>
-													<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
-														Held for your review — why
-													</span>
-												</div>
+												<span
+													aria-hidden="true"
+													className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
+												>
+													!
+												</span>
+												<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
+													Held for your review — why
+												</span>
+											</div>
 											<span className="text-[12px] leading-snug text-[var(--text-secondary)]">
 												{item.draftNote}
 											</span>

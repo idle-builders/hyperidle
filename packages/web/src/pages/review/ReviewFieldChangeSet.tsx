@@ -102,9 +102,7 @@ const FIXTURE: ChangeSet = {
 // ── Atoms ──────────────────────────────────────────────────────────────────────
 
 function MoneyOrText({ text, money }: { text: string; money: boolean }): JSX.Element {
-	return (
-		<span style={money ? { fontVariantNumeric: "tabular-nums" } : undefined}>{text}</span>
-	);
+	return <span style={money ? { fontVariantNumeric: "tabular-nums" } : undefined}>{text}</span>;
 }
 
 const isMoney = (s: string | null): boolean => s != null && s.trim().startsWith("$");
@@ -261,8 +259,7 @@ export function ReviewFieldChangeSet({
 			return next;
 		});
 
-	const toggleExpand = (id: string): void =>
-		setExpanded((prev) => (prev === id ? null : id));
+	const toggleExpand = (id: string): void => setExpanded((prev) => (prev === id ? null : id));
 
 	const needsYouCount = changeSet.changed.filter((f) => f.needsYou != null).length;
 
@@ -287,9 +284,13 @@ export function ReviewFieldChangeSet({
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-[6px] text-[13px] text-[var(--text-secondary)]">
 						<span>1 record</span>
-						<span aria-hidden className="text-[var(--text-tertiary)]">·</span>
+						<span aria-hidden className="text-[var(--text-tertiary)]">
+							·
+						</span>
 						<span>{changeSet.changed.length} fields changed</span>
-						<span aria-hidden className="text-[var(--text-tertiary)]">·</span>
+						<span aria-hidden className="text-[var(--text-tertiary)]">
+							·
+						</span>
 						<span
 							className="rounded-[var(--r-pill)] px-[6px] py-[3px] text-[12px] font-[600]"
 							style={{
@@ -336,8 +337,8 @@ export function ReviewFieldChangeSet({
 					className="px-[18px] py-[9px] text-[12px] text-[var(--text-tertiary)]"
 					style={{ background: "var(--surface-page)" }}
 				>
-					Owner, Lead source, Probability, Type, Account, and {changeSet.unchangedCount - 5}{" "}
-					more were left as-is.
+					Owner, Lead source, Probability, Type, Account, and {changeSet.unchangedCount - 5} more
+					were left as-is.
 				</div>
 			) : null}
 
