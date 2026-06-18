@@ -61,9 +61,9 @@ Comparing `approved.md` §2 (building block canvases table) against the files:
 All 9 canvases + 1 composition + 2 shared + 1 fixture present.
 
 ### Superseded compositions
-The 3 exploration-phase compositions (Briefing, Stage, Focus) are present in the branch as design history. Per `approved.md` §Rejection list they are "kept in the catalog for reference only" — explicitly superseded. The concept revision names them as "design history, NOT build inputs." This is correct: they're here for the record, not for reuse.
+The 3 exploration-phase compositions (Briefing, Stage, Focus) were explored during human-design-review and rejected per `approved.md` §Rejection list. They are **deleted from the source tree** — dead code is not a record. The visual record of what was tried and why it lost is in `design/comp/*.png` and the design critique documents.
 
-**WARNING:** The branch ships non-trivial code (3 composition files = ~2300 lines of TSX) that is explicitly marked as superseded. AL2-AL5 must not import or reference these files. The concept doc makes this contract explicit, but the code-level enforcement is by convention only. If a builder accidentally imports `ReviewCompositionBriefing`, the type system won't reject it. A lint rule or explicit `// SUPERSEDED: do not import` header comment on each file would be a stronger guard.
+**No findings.**
 
 ### Token compliance
 Spot-checked 4 files: `ReviewCompositionRefined.tsx`, `ReviewCodeDiff.tsx`, `ReviewActionOperation.tsx`, `ToolLogo.tsx`. All use `var(--token)` syntax — no raw Tailwind colors, spacing, or font sizes. Tokens reference: `--surface-page`, `--surface-container`, `--surface-elevated`, `--text-primary/-secondary/-tertiary`, `--accent-primary`, `--status-*`, `--border-*`, `--r-*`, `--motion-*`, `--shadow-*`. All present in `tokens.css`. No dangling references.
@@ -92,9 +92,9 @@ Not applicable. These are design-system viewer stories — hardcoded fixture dat
 
 ## Lens 5: Simplification
 
-**OBSERVATION:** `review-subject.fixture.ts` (186 lines) embeds the entire ReviewSubject fixture inline — this is correct for a prototype. Production can extract it to a shared fixture module when AL2-AL3 need it.
+**OBSERVATION:** `review-subject.fixture.ts` (186 lines) embeds the entire ReviewSubject fixture inline — correct for a single-file fixture. Can be split into per-canvas fixtures when AL2 wires real data.
 
-**OBSERVATION:** 5 PNG screenshots in `plans/AL1/` top-level (~4MB total). These appear to be ad-hoc captures from the design process. They duplicate some of the shots in `design/comp/` and `design/parts/`. Consider archiving/replacing with the organized design captures.
+**OBSERVATION:** 5 PNG screenshots in `plans/AL1/` top-level (~4MB total) duplicate shots already organized in `design/comp/` and `design/parts/`.
 
 ---
 
@@ -118,6 +118,5 @@ All 4 acceptance criteria met with cited evidence. The research dossier is thoro
 
 ### Residual notes (non-blocking)
 
-1. **WARNING (low):** Superseded composition files have no header comment marking them as deprecated — a builder could accidentally import them. Add `// SUPERSEDED by ReviewCompositionRefined per design/approved.md §Rejection list` at the top of each.
-2. **OBSERVATION:** 5 top-level PNGs in `plans/AL1/` duplicate shots already organized in `design/comp/` and `design/parts/`. Can be cleaned in a follow-up.
-3. **OBSERVATION:** No architecture plan was needed (deferred to AL2). AL2 must not skip `/architecture`.
+1. **OBSERVATION:** 5 top-level PNGs in `plans/AL1/` duplicate shots already organized in `design/comp/` and `design/parts/`. Can be cleaned in a follow-up.
+2. **OBSERVATION:** No architecture plan was needed (deferred to AL2). AL2 must not skip `/architecture`.

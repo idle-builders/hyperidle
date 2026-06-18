@@ -169,31 +169,31 @@ The founder's core note: the concept must do the *thought space* on the experien
 
 ## Revision: AL1 deliverable decomposition (2026-06-18)
 
-AL1's scope evolved from "research only" (per original track spec: "Skip `/design` and `/architecture` — this is a research/writing workpackage") to a composite deliverable: research + concept + approved design + TSX prototypes. The founder drove 4 rounds of `/human-design-review` against rendered TSX at `:8099`, converging on one composition and 9 building-block canvases. Three composition variants were explored and superseded — they are design history, not build inputs.
+AL1's scope evolved from "research only" (per original track spec) to a composite: research dossier + concept lock + founder-approved design + TSX components. The founder drove 4 rounds of `/human-design-review` against rendered TSX, converging on one composition and 9 building-block canvases. Three composition variants were explored and rejected — they are deleted from the source tree; the record of what was tried and why it didn't win lives in `design/approved.md` §Rejection list and the design screenshots.
 
-### Deliverable inventory
+### Deliverable inventory — components in `packages/web/src/pages/review/`
 
-**AL1 ships the following TSX files as locked visual reference prototypes** (design-system viewer stories at `packages/web/src/pages/review/`). AL2–AL5 build production components from these — they do NOT re-design the canvas shapes or reconsider the composition layout.
+All TSX in this directory is production code. AL2–AL5 extend and wire these same files with real data and server integration — they are not throwaway prototypes. The design is locked; downstream WPs may not re-litigate canvas shapes or composition layout.
 
 **Composition (1):**
 
-| File | Role | Status |
-|---|---|---|
-| `ReviewCompositionRefined` (+ stories) | Center column + right pane, dual-anchor, verdict in header, one global thread with reference chips | **The approved composition** |
+| File | Role |
+|---|---|
+| `ReviewCompositionRefined` (+ stories) | Center column + right pane, dual-anchor, verdict in header, one global thread with reference chips |
 
 **Building-block canvases (9):**
 
-| File | Proof family | Built for |
-|---|---|---|
-| `ReviewOutcomeSummary` | Frame lead (function-agnostic) | AL3 (composition includes frame lead) |
-| `ReviewFieldChangeSet` | Record/field change-set | AL2 (proof-family canvases) |
-| `ReviewActionOperation` | Action/operation receipt | AL2 |
-| `ReviewRenderedInContext` | Rendered-in-context (email/docs) | AL2 |
-| `ReviewMetricsMoved` | Metrics/data-diff | AL2 |
-| `ReviewVisualDiff` | Visual before→after | AL2 |
-| `ReviewCodeDiff` | Code diff (must-win) | AL2 |
-| `ReviewBatch` | Batch/per-item container | AL2 |
-| `ReviewBrowserPreview` | Basic browser view | AL2 |
+| File | Proof family |
+|---|---|
+| `ReviewOutcomeSummary` | Frame lead (function-agnostic) |
+| `ReviewFieldChangeSet` | Record/field change-set |
+| `ReviewActionOperation` | Action/operation receipt |
+| `ReviewRenderedInContext` | Rendered-in-context (email/docs) |
+| `ReviewMetricsMoved` | Metrics/data-diff |
+| `ReviewVisualDiff` | Visual before→after |
+| `ReviewCodeDiff` | Code diff (must-win) |
+| `ReviewBatch` | Batch/per-item container |
+| `ReviewBrowserPreview` | Basic browser view |
 
 **Shared (2):**
 
@@ -208,15 +208,15 @@ AL1's scope evolved from "research only" (per original track spec: "Skip `/desig
 |---|---|
 | `review-subject.fixture.ts` | `ReviewSubject` shape consumed by the composition |
 
-### Superseded compositions — design history, NOT build inputs
+### Deleted — superseded composition variants
 
-These were the 3 composition variants explored during human-design-review before converging on `ReviewCompositionRefined`. Per `design/approved.md` §Rejection list they are superseded. They remain in the branch as **design history** (the catalog of what was tried and why it didn't win) but AL2–AL5 must not reference them, import them, or treat them as build contracts.
+These 3 composition variants were explored during human-design-review before converging on `ReviewCompositionRefined`. Per `design/approved.md` §Rejection list they are rejected. They are **deleted from the source tree** — the record of what they were and why they lost is in `design/approved.md`, `design/comp/*.png` screenshots, and the design critique documents. Dead code is not a record.
 
-| File | Why superseded |
+| Deleted file | Why rejected |
 |---|---|
-| `ReviewCompositionBriefing` (+ stories) | Pinned/floating verdict bar — rejected; verdict lives in header |
-| `ReviewCompositionStage` (+ stories) | Result-burying sidebar — rejected; right pane replaces sidebar |
-| `ReviewCompositionFocus` (+ stories) | One-at-a-time examine that loses the whole — rejected; center+right-pane model wins |
+| `ReviewCompositionBriefing` (+ stories) | Pinned/floating verdict bar |
+| `ReviewCompositionStage` (+ stories) | Result-burying sidebar |
+| `ReviewCompositionFocus` (+ stories) | One-at-a-time examine that loses the whole |
 
 The 3 earliest variants (Verdict Brief / Examination Bench / Reasoning Ledger) were deleted earlier in the design phase and never committed.
 
@@ -224,13 +224,13 @@ The 3 earliest variants (Verdict Brief / Examination Bench / Reasoning Ledger) w
 
 | WP | Builds | Reads |
 |---|---|---|
-| AL2 | Production proof-family canvases | `design/approved.md` §2 + `components-brief.md` + per-canvas `.tsx` prototypes |
-| AL3 | Production composition surface | `design/approved.md` §1 + `ReviewCompositionRefined.tsx` |
-| AL4 | Inline anchored comments | Own concept + design (AL1 only prototypes the reference-chip UI) |
+| AL2 | Extends and wires the 9 canvases with real data, server integration | `design/approved.md` §2 + `components-brief.md` + the canvas `.tsx`/`.stories.tsx` files |
+| AL3 | Extends and wires the composition surface | `design/approved.md` §1 + `ReviewCompositionRefined.tsx` |
+| AL4 | Inline anchored comments | Own concept + design (AL1 only handles the reference-chip UI) |
 | AL5 | Tool-tailored / community canvas overrides | 3-tier resolution model from `design/approved.md` |
 
-The `.stories.tsx` files are the visual acceptance baseline — AL2/AL3 render the same proof family story with real data in place of the fixture.
+The `.stories.tsx` files are the visual acceptance baseline.
 
-**Concept LOCKED** (original: 2026-06-15; revision: 2026-06-18 — added deliverable inventory, classified TSX prototypes, named superseded variants as design history).
+**Concept LOCKED** (original: 2026-06-15; revision: 2026-06-18 — added deliverable inventory, deleted superseded compositions, classified remaining components).
 
 **Concept LOCKED** (with §1.5 examination layout and the Subject-grain regrouping handed to `/design`/`/architecture` as named, bounded explorations).
