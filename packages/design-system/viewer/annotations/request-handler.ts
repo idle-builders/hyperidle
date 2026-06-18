@@ -58,7 +58,7 @@ function validateAnchor(anchor: unknown): boolean {
 	if (anchor === null || typeof anchor !== "object" || Array.isArray(anchor)) return false;
 	const a = anchor as Record<string, unknown>;
 	const path = a["path"];
-	if (!Array.isArray(path) || !path.every((n) => typeof n === "number")) return false;
+	if (!(Array.isArray(path) && path.every((n) => typeof n === "number"))) return false;
 	if (typeof a["component"] !== "string") return false;
 	if (typeof a["element"] !== "string") return false;
 	return true;
