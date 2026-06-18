@@ -24,7 +24,7 @@ The process model. Five primitives: Teams (product-bound, persistent), Bets (mon
 
 ## [Human + AI Collaboration](./human-ai-collaboration.md)
 
-The trust model. Founders validate, agents execute, facilitators curate. Autonomy levels L1-L4 per agent per skill. Review threads with GitHub PR verdicts: approve, request changes, edit, reject. Five artifact renderers. Cost transparency at agent, team, and factory levels.
+The trust model. Founders validate, agents execute, facilitators curate. Autonomy levels L1-L4 per agent per skill. Review threads with GitHub PR verdicts: approve, request changes, edit, reject. Review canvases selected by proof-family kind, with a safe fallback for unknown kinds. Cost transparency at agent, team, and factory levels.
 
 ---
 

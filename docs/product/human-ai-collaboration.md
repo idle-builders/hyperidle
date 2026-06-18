@@ -80,17 +80,11 @@ Non-binding actions: comment, inline comment, reply, snooze, escalate. Inline co
 
 ---
 
-## Five artifact renderers match what agents produce
+## Review canvases match what agents produce
 
-Review threads embed artifacts. The renderer is chosen by artifact type:
+Review threads embed artifacts. A review Subject is a set of one or more artifacts, and each artifact renders through a purpose-built review canvas selected by its `kind`. AL2 ships nine proof-family canvases: outcome summary, field change set, action/operation, rendered-in-context, metrics/data-diff, visual diff, code diff, batch, and browser preview. An unknown kind still renders through a safe fallback — never blank, never crashing.
 
-| Renderer | Used for | Key feature |
-|----------|----------|-------------|
-| **text_diff** | Code, config, documentation | Side-by-side diff, line-level inline comments |
-| **content_preview** | Blog posts, emails, landing page copy | Rendered as reader sees it, paragraph-level comments |
-| **visual_comparison** | UI mockups, design assets | Before/after comparison |
-| **action_summary** | Deploys, pricing changes, DNS updates | Impact analysis, rollback plan |
-| **data_metrics** | Performance reports, A/B results, financials | Headline metrics, inline charts, recommended actions |
+See [`docs/human-interface-layer/review-primitive.md`](../human-interface-layer/review-primitive.md) for the kind registry and the shared `ToolLogo`/`CanvasSourceHeader` grounding every canvas carries.
 
 ---
 

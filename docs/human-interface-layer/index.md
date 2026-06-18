@@ -34,5 +34,6 @@ This doc bridges them. **The interaction modes live inside one app as three view
 - [Block primitive](./block-primitive.md)
 - [Thread primitive](./thread-primitive.md)
 - [Verdict actions](./verdict-actions.md)
+- [Review primitive](./review-primitive.md)
 - [Notification primitive](./notification-primitive.md)
 
