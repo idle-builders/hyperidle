@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
 
-const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "code_diff")!;
+import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact";
+
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find(
+	(a) => a.kind === "code_diff",
+)! as ReviewArtifact<CodeDiffPayload>;
 
 function renderCanvas() {
 	const Canvas = getReviewCanvas(artifact.kind);
