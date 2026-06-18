@@ -321,11 +321,25 @@ export interface ReviewSubject {
 
 ```json
 {
-  "protectedTests": []
+  "protectedTests": [
+    "packages/web/src/pages/review/__tests__/canvas-registry.test.ts",
+    "packages/web/src/pages/review/__tests__/ReviewUnknownCanvas.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewCodeDiff.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewFieldChangeSet.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewActionOperation.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewRenderedInContext.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewMetricsMoved.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewVisualDiff.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewBatch.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewBrowserPreview.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewOutcomeSummary.test.tsx",
+    "packages/web/src/pages/review/__tests__/ReviewPage.test.tsx",
+    "packages/web/src/pages/review/source-link-guard.test.ts"
+  ]
 }
 ```
 
-AL2 creates new tests; no existing assertions must be preserved.
+AL2's correctness depends on the registry dispatch, every canvas's L1/L2/L3 assertions, the source-link guard, and the page integration test. These must not be removed without a replacement test that proves the same runtime behavior.
 
 ---
 
@@ -357,3 +371,4 @@ Files this workpackage modifies that other workpackages (notably AL3) are likely
 4. **No real review id / Subject data fetch.** The new route receives `betId` and `reviewId`, but `ReviewPage` will render a fixture subject. We must add a prominent `@lore` comment that the page is intentionally fixture-driven in AL2 and that real data wiring is AL3.
 5. **ToolLogo brand colors are raw hex.** This is the only allowed exception (tool identity marks). AL2 must not introduce any other raw hex or Tailwind arbitrary colors.
 6. **Visual diff / rendered context may tempt raw HTML injection.** AL2 defers HTML rendering to plain fixture structures; the plan requires an explicit `@lore` comment blocking `dangerouslySetInnerHTML` in these canvases.
+7. **AL3 overlap on `ReviewPage.tsx`.** `ReviewPage.tsx` and the `/work/bet/:betId/review/:reviewId` route are intentionally minimal AL2 scaffolding so the canvases are reachable in production code. The full dual-anchor composition (frame, intent, rationale, conversation, verdict) is explicitly owned by AL3 (`ReviewCompositionRefined`) and will replace/extend this page. The page is deliberately fixture-driven; do not grow composition chrome here.
