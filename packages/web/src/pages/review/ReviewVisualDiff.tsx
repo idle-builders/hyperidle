@@ -235,154 +235,160 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 	return (
 		<section
 			className="flex flex-col border border-[var(--border-subtle)] bg-[var(--surface-container)]"
-			style={{ borderRadius: "var(--r-default)", boxShadow: "var(--shadow-default)", maxWidth: 760 }}
+			style={{
+				borderRadius: "var(--r-default)",
+				boxShadow: "var(--shadow-default)",
+				maxWidth: 760,
+			}}
 		>
 			{/* ── source attribution (founder round 1): app name + jump-off ── */}
 			<CanvasSourceHeader tool="figma" app="Figma" record="Onboarding · Create account" href="#" />
 
 			<div className="flex flex-col gap-[12px] p-[18px]">
-			{/* ── L1: one-glance summary (tool/title now in source header) ── */}
-			<header className="flex items-start gap-[12px]">
-				<div className="flex gap-[6px]">
-					<Thumb variant="design" />
-					<Thumb variant="build" />
-				</div>
-				<div className="flex min-w-0 flex-col gap-[3px]">
-					<div className="flex items-center gap-[6px]">
-						<span
-							className="inline-flex items-center gap-[4px] px-[9px] py-[3px] text-[11px] font-[600] text-[var(--status-warning)]"
-							style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
-						>
-							{count} regions differ
-						</span>
-						<span className="text-[11px] text-[var(--text-tertiary)] truncate">
-							{diff.frame} → {diff.builtIn}
-						</span>
+				{/* ── L1: one-glance summary (tool/title now in source header) ── */}
+				<header className="flex items-start gap-[12px]">
+					<div className="flex gap-[6px]">
+						<Thumb variant="design" />
+						<Thumb variant="build" />
 					</div>
-				</div>
-			</header>
-
-			{/* ── L2: at-size compare + mode toggle ── */}
-			<div className="flex items-center gap-[6px]">
-				<div
-					className="inline-flex gap-[3px] border border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
-					style={{ borderRadius: "var(--r-pill)" }}
-					role="tablist"
-					aria-label="Compare mode"
-				>
-					{MODES.map((m) => {
-						const on = m.id === mode;
-						return (
-							<button
-								key={m.id}
-								type="button"
-								role="tab"
-								aria-selected={on}
-								onClick={() => setMode(m.id)}
-								className="px-[12px] py-[6px] text-[12px] font-[500] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
-								style={{
-									borderRadius: "var(--r-pill)",
-									background: on ? "var(--accent-primary)" : "transparent",
-									color: on ? "var(--text-on-accent,#fff)" : "var(--text-secondary)",
-								}}
+					<div className="flex min-w-0 flex-col gap-[3px]">
+						<div className="flex items-center gap-[6px]">
+							<span
+								className="inline-flex items-center gap-[4px] px-[9px] py-[3px] text-[11px] font-[600] text-[var(--status-warning)]"
+								style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
 							>
-								{m.label}
-							</button>
-						);
-					})}
-				</div>
-				{mode === "overlay" || mode === "swipe" ? (
-					<label className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
-						{mode === "overlay" ? "Build opacity" : "Reveal"}
-						<input
-							type="range"
-							min={0}
-							max={100}
-							value={overlay}
-							onChange={(e) => setOverlay(Number(e.target.value))}
-							className="range range-xs w-[120px]"
-							aria-label={mode === "overlay" ? "Build opacity" : "Swipe reveal"}
-						/>
-					</label>
-				) : null}
-			</div>
-
-			{mode === "side" ? (
-				<div className="grid grid-cols-2 gap-[12px]">
-					<RenderPane variant="design" source={diff.designedBy} active={selected} />
-					<RenderPane variant="build" source={diff.builtIn} active={selected} />
-				</div>
-			) : (
-				<div className="flex flex-col gap-[6px]">
-					<div className="flex items-center gap-[6px]">
-						<ToolLogo tool="figma" size="sm" />
-						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
-							Design under · Build over
-						</span>
-					</div>
-					{/* overlay = build pane stacked over design at `overlay`% opacity.
-					    swipe   = build pane clipped to the left `overlay`% (a wipe). */}
-					<div className="relative">
-						<MockScreen variant="design" active={selected} />
-						<div
-							className="absolute inset-0"
-							style={
-								mode === "overlay"
-									? { opacity: overlay / 100 }
-									: { clipPath: `inset(0 ${100 - overlay}% 0 0)` }
-							}
-						>
-							<MockScreen variant="build" active={selected} />
+								{count} regions differ
+							</span>
+							<span className="text-[11px] text-[var(--text-tertiary)] truncate">
+								{diff.frame} → {diff.builtIn}
+							</span>
 						</div>
-						{mode === "swipe" ? (
-							<div
-								className="pointer-events-none absolute inset-y-0 w-[3px] bg-[var(--accent-primary)]"
-								style={{ left: `${overlay}%` }}
-								aria-hidden="true"
+					</div>
+				</header>
+
+				{/* ── L2: at-size compare + mode toggle ── */}
+				<div className="flex items-center gap-[6px]">
+					<div
+						className="inline-flex gap-[3px] border border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
+						style={{ borderRadius: "var(--r-pill)" }}
+						role="tablist"
+						aria-label="Compare mode"
+					>
+						{MODES.map((m) => {
+							const on = m.id === mode;
+							return (
+								<button
+									key={m.id}
+									type="button"
+									role="tab"
+									aria-selected={on}
+									onClick={() => setMode(m.id)}
+									className="px-[12px] py-[6px] text-[12px] font-[500] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									style={{
+										borderRadius: "var(--r-pill)",
+										background: on ? "var(--accent-primary)" : "transparent",
+										color: on ? "var(--text-on-accent,#fff)" : "var(--text-secondary)",
+									}}
+								>
+									{m.label}
+								</button>
+							);
+						})}
+					</div>
+					{mode === "overlay" || mode === "swipe" ? (
+						<label className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
+							{mode === "overlay" ? "Build opacity" : "Reveal"}
+							<input
+								type="range"
+								min={0}
+								max={100}
+								value={overlay}
+								onChange={(e) => setOverlay(Number(e.target.value))}
+								className="range range-xs w-[120px]"
+								aria-label={mode === "overlay" ? "Build opacity" : "Swipe reveal"}
 							/>
-						) : null}
+						</label>
+					) : null}
+				</div>
+
+				{mode === "side" ? (
+					<div className="grid grid-cols-2 gap-[12px]">
+						<RenderPane variant="design" source={diff.designedBy} active={selected} />
+						<RenderPane variant="build" source={diff.builtIn} active={selected} />
+					</div>
+				) : (
+					<div className="flex flex-col gap-[6px]">
+						<div className="flex items-center gap-[6px]">
+							<ToolLogo tool="figma" size="sm" />
+							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+								Design under · Build over
+							</span>
+						</div>
+						{/* overlay = build pane stacked over design at `overlay`% opacity.
+					    swipe   = build pane clipped to the left `overlay`% (a wipe). */}
+						<div className="relative">
+							<MockScreen variant="design" active={selected} />
+							<div
+								className="absolute inset-0"
+								style={
+									mode === "overlay"
+										? { opacity: overlay / 100 }
+										: { clipPath: `inset(0 ${100 - overlay}% 0 0)` }
+								}
+							>
+								<MockScreen variant="build" active={selected} />
+							</div>
+							{mode === "swipe" ? (
+								<div
+									className="pointer-events-none absolute inset-y-0 w-[3px] bg-[var(--accent-primary)]"
+									style={{ left: `${overlay}%` }}
+									aria-hidden="true"
+								/>
+							) : null}
+						</div>
+					</div>
+				)}
+
+				{/* ── L3: flagged regions (relevance-ordered; click to highlight) ── */}
+				<div className="flex flex-col gap-[6px]">
+					<div className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+						Differing regions
+					</div>
+					<div className="flex flex-wrap gap-[6px]">
+						{diff.regions.map((r) => {
+							const on = r.id === selected;
+							const major = r.severity === "change";
+							return (
+								<button
+									key={r.id}
+									type="button"
+									aria-pressed={on}
+									onClick={() => pick(r.id)}
+									className="flex flex-col gap-[3px] border px-[12px] py-[6px] text-left transition-[border-color,background] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									style={{
+										borderRadius: "var(--r-subtle)",
+										borderColor: on ? "var(--accent-primary)" : "var(--border-default)",
+										background: on ? "var(--accent-primary-dim)" : "var(--surface-page)",
+									}}
+								>
+									<span className="flex items-center gap-[6px] text-[12px] font-[600] text-[var(--text-primary)]">
+										<span
+											aria-hidden="true"
+											className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
+											style={{
+												background: major ? "var(--status-warning)" : "var(--text-tertiary)",
+											}}
+										/>
+										{r.label}
+									</span>
+									<span className="text-[11px] text-[var(--text-tertiary)]">
+										<span className="line-through">{r.design}</span> → {r.build}
+									</span>
+								</button>
+							);
+						})}
 					</div>
 				</div>
-			)}
-
-			{/* ── L3: flagged regions (relevance-ordered; click to highlight) ── */}
-			<div className="flex flex-col gap-[6px]">
-				<div className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-					Differing regions
-				</div>
-				<div className="flex flex-wrap gap-[6px]">
-					{diff.regions.map((r) => {
-						const on = r.id === selected;
-						const major = r.severity === "change";
-						return (
-							<button
-								key={r.id}
-								type="button"
-								aria-pressed={on}
-								onClick={() => pick(r.id)}
-								className="flex flex-col gap-[3px] border px-[12px] py-[6px] text-left transition-[border-color,background] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
-								style={{
-									borderRadius: "var(--r-subtle)",
-									borderColor: on ? "var(--accent-primary)" : "var(--border-default)",
-									background: on ? "var(--accent-primary-dim)" : "var(--surface-page)",
-								}}
-							>
-								<span className="flex items-center gap-[6px] text-[12px] font-[600] text-[var(--text-primary)]">
-									<span
-										aria-hidden="true"
-										className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
-										style={{ background: major ? "var(--status-warning)" : "var(--text-tertiary)" }}
-									/>
-									{r.label}
-								</span>
-								<span className="text-[11px] text-[var(--text-tertiary)]">
-									<span className="line-through">{r.design}</span> → {r.build}
-								</span>
-							</button>
-						);
-					})}
-				</div>
-			</div>
 			</div>
 		</section>
 	);

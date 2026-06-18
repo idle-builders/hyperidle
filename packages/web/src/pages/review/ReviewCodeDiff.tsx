@@ -72,12 +72,17 @@ const PROMO_WEBHOOK_HUNK: Hunk = {
 		{ kind: "ctx", oldNo: 116, newNo: 116, text: "  const promo = await promos.find(evt.code);" },
 		{ kind: "ctx", oldNo: 117, newNo: 117, text: "  if (!promo) return notFound(evt.code);" },
 		{ kind: "del", oldNo: 118, newNo: null, text: "  if (promo.expiresAt < now()) {" },
-		{ kind: "del", oldNo: 119, newNo: null, text: "    // expired — nothing to apply, ack the webhook" },
+		{
+			kind: "del",
+			oldNo: 119,
+			newNo: null,
+			text: "    // expired — nothing to apply, ack the webhook",
+		},
 		{ kind: "del", oldNo: 120, newNo: null, text: "    return ack(evt);" },
 		{ kind: "del", oldNo: 121, newNo: null, text: "  }" },
 		{ kind: "add", oldNo: null, newNo: 118, text: "  if (promo.expiresAt < now()) {" },
 		{ kind: "add", oldNo: null, newNo: 119, text: "    return fail(evt, {" },
-		{ kind: "add", oldNo: null, newNo: 120, text: '      status: 422,' },
+		{ kind: "add", oldNo: null, newNo: 120, text: "      status: 422," },
 		{ kind: "add", oldNo: null, newNo: 121, text: '      code: "promo_expired",' },
 		{ kind: "add", oldNo: null, newNo: 122, text: "      expiredAt: promo.expiresAt," },
 		{ kind: "add", oldNo: null, newNo: 123, text: "    });" },
@@ -91,20 +96,45 @@ const PROMO_FIELD_HUNK: Hunk = {
 	header: "@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {",
 	lines: [
 		{ kind: "ctx", oldNo: 41, newNo: 41, text: "  const res = await applyPromo(code);" },
-		{ kind: "del", oldNo: 42, newNo: null, text: "  if (res.ok) toast.success(\"Promo applied\");" },
-		{ kind: "add", oldNo: null, newNo: 42, text: "  if (res.ok) { toast.success(\"Promo applied\"); return; }" },
+		{ kind: "del", oldNo: 42, newNo: null, text: '  if (res.ok) toast.success("Promo applied");' },
+		{
+			kind: "add",
+			oldNo: null,
+			newNo: 42,
+			text: '  if (res.ok) { toast.success("Promo applied"); return; }',
+		},
 		{ kind: "add", oldNo: null, newNo: 43, text: '  if (res.code === "promo_expired")' },
-		{ kind: "add", oldNo: null, newNo: 44, text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);" },
-		{ kind: "ctx", oldNo: 43, newNo: 45, text: "  else setError(\"Couldn’t apply that code.\");" },
+		{
+			kind: "add",
+			oldNo: null,
+			newNo: 44,
+			text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
+		},
+		{ kind: "ctx", oldNo: 43, newNo: 45, text: '  else setError("Couldn’t apply that code.");' },
 	],
 };
 
 const PROMO_TEST_HUNK: Hunk = {
 	header: "@@ -0,0 +1,44 @@ // new file",
 	lines: [
-		{ kind: "add", oldNo: null, newNo: 1, text: 'test("expired promo returns typed 422, not silent ack", async () => {' },
-		{ kind: "add", oldNo: null, newNo: 2, text: "  const promo = seedPromo({ expiresAt: yesterday });" },
-		{ kind: "add", oldNo: null, newNo: 3, text: "  const res = await onPromoApplied(eventFor(promo));" },
+		{
+			kind: "add",
+			oldNo: null,
+			newNo: 1,
+			text: 'test("expired promo returns typed 422, not silent ack", async () => {',
+		},
+		{
+			kind: "add",
+			oldNo: null,
+			newNo: 2,
+			text: "  const promo = seedPromo({ expiresAt: yesterday });",
+		},
+		{
+			kind: "add",
+			oldNo: null,
+			newNo: 3,
+			text: "  const res = await onPromoApplied(eventFor(promo));",
+		},
 		{ kind: "add", oldNo: null, newNo: 4, text: "  expect(res.status).toBe(422);" },
 		{ kind: "add", oldNo: null, newNo: 5, text: '  expect(res.code).toBe("promo_expired");' },
 		{ kind: "add", oldNo: null, newNo: 6, text: "});" },
@@ -185,7 +215,14 @@ function Chevron({ open }: { open: boolean }): JSX.Element {
 			className="h-[12px] w-[12px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 			style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
 		>
-			<path d="M4 2.5 L8 6 L4 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M4 2.5 L8 6 L4 9.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -193,13 +230,26 @@ function Chevron({ open }: { open: boolean }): JSX.Element {
 function CheckGlyph(): JSX.Element {
 	return (
 		<svg aria-hidden="true" viewBox="0 0 12 12" className="h-[11px] w-[11px]">
-			<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M2.5 6.2 L5 8.5 L9.5 3.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
 
 /** reviewed checkbox — a no-op toggle, styled to Hearth (accent fill when on). */
-function ReviewedBox({ reviewed, onToggle }: { reviewed: boolean; onToggle: () => void }): JSX.Element {
+function ReviewedBox({
+	reviewed,
+	onToggle,
+}: {
+	reviewed: boolean;
+	onToggle: () => void;
+}): JSX.Element {
 	return (
 		<button
 			type="button"
@@ -232,7 +282,10 @@ function CiRow(): JSX.Element {
 			</span>
 			<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
 				{CI_CHECKS.map((c) => (
-					<span key={c.label} className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]">
+					<span
+						key={c.label}
+						className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]"
+					>
 						<span className="text-[var(--status-success)]">
 							<CheckGlyph />
 						</span>
@@ -244,7 +297,9 @@ function CiRow(): JSX.Element {
 						<CheckGlyph />
 					</span>
 					coverage
-					<span className="font-mono tabular-nums font-[600] text-[var(--status-success)]">+0.4%</span>
+					<span className="font-mono tabular-nums font-[600] text-[var(--status-success)]">
+						+0.4%
+					</span>
 				</span>
 			</div>
 		</div>
@@ -287,7 +342,9 @@ function FileDiff({ hunks }: { hunks: readonly Hunk[] }): JSX.Element {
 								<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
 									{LINE_PREFIX[line.kind]}
 								</span>
-								<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">{line.text}</code>
+								<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
+									{line.text}
+								</code>
 							</div>
 						))}
 					</div>
@@ -431,13 +488,17 @@ export function ReviewCodeDiff({
 				</div>
 
 				{/* PR / ship message — the agent's plain-language summary, prose not code. */}
-				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">{PR_DESCRIPTION}</p>
+				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">
+					{PR_DESCRIPTION}
+				</p>
 
 				<CiRow />
 
 				<div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-[12px]">
 					<span className="text-[12px] text-[var(--text-secondary)]">
-						<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">{FILES.length + TRIVIA.count}</span>{" "}
+						<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
+							{FILES.length + TRIVIA.count}
+						</span>{" "}
 						files changed · relevance-ranked
 					</span>
 					<button
@@ -485,7 +546,9 @@ export function ReviewCodeDiff({
 					>
 						<Chevron open={triviaOpen} />
 						<span className="flex-1 text-[13px] text-[var(--text-secondary)]">
-							<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">{TRIVIA.count}</span>{" "}
+							<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
+								{TRIVIA.count}
+							</span>{" "}
 							files · {TRIVIA.summary}
 						</span>
 						<ChangeBadge added={TRIVIA.added} removed={TRIVIA.removed} />

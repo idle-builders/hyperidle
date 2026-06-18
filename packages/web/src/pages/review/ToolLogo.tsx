@@ -27,7 +27,8 @@ export type ToolId =
 	| "linear"
 	| "notion"
 	| "sentry"
-	| "ga4";
+	| "ga4"
+	| "vercel";
 
 interface Brand {
 	readonly label: string;
@@ -54,6 +55,7 @@ const BRANDS: Record<ToolId, Brand> = {
 	notion: { label: "Notion", bg: "#ffffff", fg: "#191919", mark: "N" },
 	sentry: { label: "Sentry", bg: "#362d59", fg: "#ffffff", mark: "se" },
 	ga4: { label: "GA4", bg: "#e8710a", fg: "#ffffff", mark: "GA" },
+	vercel: { label: "Vercel", bg: "#171717", fg: "#ffffff", mark: "V" },
 };
 
 const SIZE: Record<"sm" | "md", { box: number; font: number; radius: number }> = {

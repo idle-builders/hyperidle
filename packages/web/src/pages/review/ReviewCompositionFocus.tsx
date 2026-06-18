@@ -21,7 +21,6 @@
 
 import { type JSX, useState } from "react";
 import { ReviewCodeDiff } from "./ReviewCodeDiff.js";
-import { ToolLogo } from "./ToolLogo.js";
 import {
 	type ArtifactKind,
 	type NeedItem,
@@ -30,6 +29,7 @@ import {
 	type ReviewSubject,
 	type SubjectArtifactRow,
 } from "./review-subject.fixture.js";
+import { ToolLogo } from "./ToolLogo.js";
 
 // ── kind vocabulary: badge label + tint (the artifact's family at a glance) ─────────
 const KIND_LABEL: Record<ArtifactKind, string> = {
@@ -42,9 +42,18 @@ const KIND_LABEL: Record<ArtifactKind, string> = {
 // each kind gets a calm token-driven tint for its badge (no hex).
 const KIND_TINT: Record<ArtifactKind, { bg: string; fg: string }> = {
 	code: { bg: "var(--surface-container)", fg: "var(--text-secondary)" },
-	data: { bg: "color-mix(in_oklab,var(--status-success)_14%,transparent)", fg: "var(--status-success)" },
-	action: { bg: "color-mix(in_oklab,var(--status-warning)_16%,transparent)", fg: "var(--status-warning)" },
-	visual: { bg: "color-mix(in_oklab,var(--status-info)_14%,transparent)", fg: "var(--status-info)" },
+	data: {
+		bg: "color-mix(in_oklab,var(--status-success)_14%,transparent)",
+		fg: "var(--status-success)",
+	},
+	action: {
+		bg: "color-mix(in_oklab,var(--status-warning)_16%,transparent)",
+		fg: "var(--status-warning)",
+	},
+	visual: {
+		bg: "color-mix(in_oklab,var(--status-info)_14%,transparent)",
+		fg: "var(--status-info)",
+	},
 };
 
 const NEED_LABEL: Record<NeedItem["kind"], string> = {
@@ -58,7 +67,14 @@ const NEED_LABEL: Record<NeedItem["kind"], string> = {
 function CheckGlyph(): JSX.Element {
 	return (
 		<svg aria-hidden="true" viewBox="0 0 12 12" className="h-[11px] w-[11px]">
-			<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M2.5 6.2 L5 8.5 L9.5 3.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -79,7 +95,13 @@ function ArrowGlyph({ dir }: { readonly dir: "left" | "right" }): JSX.Element {
 }
 
 /** reviewed pill — accent fill when on (no-op toggle). */
-function ReviewedPill({ reviewed, onToggle }: { readonly reviewed: boolean; readonly onToggle: () => void }): JSX.Element {
+function ReviewedPill({
+	reviewed,
+	onToggle,
+}: {
+	readonly reviewed: boolean;
+	readonly onToggle: () => void;
+}): JSX.Element {
 	return (
 		<button
 			type="button"
@@ -149,7 +171,9 @@ function HomeHeader({ subject }: { readonly subject: ReviewSubject }): JSX.Eleme
 				</span>
 			</div>
 
-			<h1 className="text-[20px] font-[600] leading-[1.3] text-[var(--text-primary)]">{subject.workIdentity}</h1>
+			<h1 className="text-[20px] font-[600] leading-[1.3] text-[var(--text-primary)]">
+				{subject.workIdentity}
+			</h1>
 
 			<div className="flex flex-wrap items-center justify-between gap-x-[18px] gap-y-[9px]">
 				<div className="flex flex-wrap items-center gap-[9px]">
@@ -158,7 +182,9 @@ function HomeHeader({ subject }: { readonly subject: ReviewSubject }): JSX.Eleme
 					))}
 				</div>
 				<span className="inline-flex items-baseline gap-[6px] text-[13px] text-[var(--text-secondary)]">
-					<span className="font-[600] text-[var(--text-primary)] [font-variant-numeric:tabular-nums]">{subject.costMoney}</span>
+					<span className="font-[600] text-[var(--text-primary)] [font-variant-numeric:tabular-nums]">
+						{subject.costMoney}
+					</span>
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<span className="[font-variant-numeric:tabular-nums]">{subject.costTokens}</span>
 					<span className="text-[var(--text-tertiary)]">·</span>
@@ -178,12 +204,16 @@ function OutcomeBlock({ subject }: { readonly subject: ReviewSubject }): JSX.Ele
 	return (
 		<div className="flex flex-col gap-[18px] px-[24px] py-[18px]">
 			{/* the outcome sentence — result-first, the lead of the whole review */}
-			<p className="max-w-[68ch] text-[15px] leading-[1.55] text-[var(--text-primary)]">{subject.outcome}</p>
+			<p className="max-w-[68ch] text-[15px] leading-[1.55] text-[var(--text-primary)]">
+				{subject.outcome}
+			</p>
 
 			{/* intent done-conditions: count + the unmet floated, met collapsed-to-summary */}
 			<div className="flex flex-col gap-[6px]">
 				<div className="flex items-center justify-between gap-[12px]">
-					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Intent</h2>
+					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+						Intent
+					</h2>
 					<span
 						className="text-[13px] font-[600] [font-variant-numeric:tabular-nums]"
 						style={{ color: met === total ? "var(--status-success)" : "var(--status-warning)" }}
@@ -216,8 +246,12 @@ function OutcomeBlock({ subject }: { readonly subject: ReviewSubject }): JSX.Ele
 			{/* needs-you: the risks, error-floated. each links to its artifact's focus. */}
 			<div className="flex flex-col gap-[9px]">
 				<div className="flex items-baseline gap-[9px]">
-					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Needs you</h2>
-					<span className="text-[12px] font-[600] text-[var(--status-error)] [font-variant-numeric:tabular-nums]">{subject.needs.length}</span>
+					<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+						Needs you
+					</h2>
+					<span className="text-[12px] font-[600] text-[var(--status-error)] [font-variant-numeric:tabular-nums]">
+						{subject.needs.length}
+					</span>
 				</div>
 				{subject.needs.map((need) => (
 					<div
@@ -227,13 +261,21 @@ function OutcomeBlock({ subject }: { readonly subject: ReviewSubject }): JSX.Ele
 					>
 						<span
 							className="mt-[1px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
-							style={{ letterSpacing: "var(--tracking-caps-sm)", background: "var(--status-error)", color: "var(--surface-elevated)" }}
+							style={{
+								letterSpacing: "var(--tracking-caps-sm)",
+								background: "var(--status-error)",
+								color: "var(--surface-elevated)",
+							}}
 						>
 							{NEED_LABEL[need.kind]}
 						</span>
 						<span className="min-w-0 flex-1">
-							<span className="block text-[13px] font-[500] leading-[1.4] text-[var(--text-primary)]">{need.label}</span>
-							<span className="mt-[2px] block text-[12px] leading-[1.4] text-[var(--text-secondary)]">{need.detail}</span>
+							<span className="block text-[13px] font-[500] leading-[1.4] text-[var(--text-primary)]">
+								{need.label}
+							</span>
+							<span className="mt-[2px] block text-[12px] leading-[1.4] text-[var(--text-secondary)]">
+								{need.detail}
+							</span>
 						</span>
 					</div>
 				))}
@@ -277,20 +319,28 @@ function ArtifactRow({
 
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[9px]">
-					<span className="truncate text-[13px] font-[600] text-[var(--text-primary)]">{artifact.title}</span>
+					<span className="truncate text-[13px] font-[600] text-[var(--text-primary)]">
+						{artifact.title}
+					</span>
 					{reviewed ? (
 						<span className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--accent-primary)]">
 							<CheckGlyph /> reviewed
 						</span>
 					) : null}
 				</div>
-				<p className="mt-[2px] truncate text-[12px] leading-[1.4] text-[var(--text-secondary)]">{artifact.summary}</p>
+				<p className="mt-[2px] truncate text-[12px] leading-[1.4] text-[var(--text-secondary)]">
+					{artifact.summary}
+				</p>
 				{artifact.needsYou ? (
-					<p className="mt-[3px] text-[12px] leading-[1.4] text-[var(--status-warning)]">{artifact.needsYou}</p>
+					<p className="mt-[3px] text-[12px] leading-[1.4] text-[var(--status-warning)]">
+						{artifact.needsYou}
+					</p>
 				) : null}
 			</div>
 
-			<span className="shrink-0 font-mono text-[12px] font-[600] tabular-nums text-[var(--text-secondary)]">{artifact.badge}</span>
+			<span className="shrink-0 font-mono text-[12px] font-[600] tabular-nums text-[var(--text-secondary)]">
+				{artifact.badge}
+			</span>
 			<span className="shrink-0 inline-flex items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover:text-[var(--accent-primary)]">
 				Examine
 				<ArrowGlyph dir="right" />
@@ -300,7 +350,11 @@ function ArtifactRow({
 }
 
 // ── verdict bar (5 binding verdicts; blocking emphasis) — reachable at both surfaces ──
-const VERDICTS: readonly { readonly key: string; readonly label: string; readonly primary?: boolean }[] = [
+const VERDICTS: readonly {
+	readonly key: string;
+	readonly label: string;
+	readonly primary?: boolean;
+}[] = [
 	{ key: "approve", label: "Approve", primary: true },
 	{ key: "request-changes", label: "Request changes" },
 	{ key: "reject", label: "Reject" },
@@ -315,7 +369,11 @@ function VerdictBar({ compact }: { readonly compact: boolean }): JSX.Element {
 			style={{ padding: compact ? "9px 18px" : "12px 24px" }}
 		>
 			<span className="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-secondary)]">
-				<span aria-hidden="true" className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]" style={{ background: "var(--status-error)" }} />
+				<span
+					aria-hidden="true"
+					className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
+					style={{ background: "var(--status-error)" }}
+				/>
 				Resolves the whole review · blocking
 			</span>
 			<div className="flex items-center gap-[9px]">
@@ -327,8 +385,16 @@ function VerdictBar({ compact }: { readonly compact: boolean }): JSX.Element {
 						className="rounded-[var(--r-pill)] border px-[18px] py-[9px] text-[13px] font-[600] transition-[transform,opacity] duration-[var(--motion-fast)] [transition-timing-function:var(--motion-ease)] active:translate-y-[1px]"
 						style={
 							v.primary
-								? { background: "var(--accent-primary)", borderColor: "var(--accent-primary)", color: "var(--text-on-accent)" }
-								: { background: "var(--surface-elevated)", borderColor: "var(--border-default)", color: "var(--text-secondary)" }
+								? {
+										background: "var(--accent-primary)",
+										borderColor: "var(--accent-primary)",
+										color: "var(--text-on-accent)",
+									}
+								: {
+										background: "var(--surface-elevated)",
+										borderColor: "var(--border-default)",
+										color: "var(--text-secondary)",
+									}
 						}
 					>
 						{v.label}
@@ -340,12 +406,20 @@ function VerdictBar({ compact }: { readonly compact: boolean }): JSX.Element {
 }
 
 // ── FOCUS: the conversation rail anchored to one artifact ────────────────────────────
-function ConversationRail({ comments }: { readonly comments: readonly ReviewComment[] }): JSX.Element {
+function ConversationRail({
+	comments,
+}: {
+	readonly comments: readonly ReviewComment[];
+}): JSX.Element {
 	return (
 		<aside className="flex w-[320px] shrink-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<div className="border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
-				<h3 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Conversation</h3>
-				<p className="mt-[2px] text-[12px] text-[var(--text-secondary)]">Anchored to this artifact</p>
+				<h3 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+					Conversation
+				</h3>
+				<p className="mt-[2px] text-[12px] text-[var(--text-secondary)]">
+					Anchored to this artifact
+				</p>
 			</div>
 
 			<div className="flex flex-1 flex-col gap-[12px] overflow-y-auto px-[18px] py-[18px]">
@@ -357,8 +431,16 @@ function ConversationRail({ comments }: { readonly comments: readonly ReviewComm
 								className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[1.5px] text-[10px] font-[600]"
 								style={
 									c.isAgent
-										? { background: "var(--accent-primary-dim)", borderColor: "var(--accent-primary)", color: "var(--accent-primary)" }
-										: { background: "var(--surface-elevated)", borderColor: "var(--border-default)", color: "var(--text-secondary)" }
+										? {
+												background: "var(--accent-primary-dim)",
+												borderColor: "var(--accent-primary)",
+												color: "var(--accent-primary)",
+											}
+										: {
+												background: "var(--surface-elevated)",
+												borderColor: "var(--border-default)",
+												color: "var(--text-secondary)",
+											}
 								}
 							>
 								{c.author.slice(0, 2).toUpperCase()}
@@ -371,7 +453,9 @@ function ConversationRail({ comments }: { readonly comments: readonly ReviewComm
 								{c.anchor}
 							</span>
 						) : null}
-						<p className="ml-[31px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">{c.body}</p>
+						<p className="ml-[31px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
+							{c.body}
+						</p>
 					</div>
 				))}
 			</div>
@@ -379,7 +463,9 @@ function ConversationRail({ comments }: { readonly comments: readonly ReviewComm
 			{/* composer */}
 			<div className="border-t border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px]">
-					<span className="flex-1 text-[13px] text-[var(--text-tertiary)]">Reply on this artifact…</span>
+					<span className="flex-1 text-[13px] text-[var(--text-tertiary)]">
+						Reply on this artifact…
+					</span>
 					<button
 						type="button"
 						onClick={() => {}}
@@ -418,16 +504,25 @@ function FocusBuildingBlock({ artifact }: { readonly artifact: SubjectArtifactRo
 					{KIND_LABEL[artifact.kind]}
 				</span>
 				<ToolLogo tool={artifact.tool} size="md" withLabel />
-				<span className="ml-auto font-mono text-[12px] font-[600] tabular-nums text-[var(--text-secondary)]">{artifact.badge}</span>
+				<span className="ml-auto font-mono text-[12px] font-[600] tabular-nums text-[var(--text-secondary)]">
+					{artifact.badge}
+				</span>
 			</div>
 			<div className="flex flex-col gap-[12px] px-[18px] py-[24px]">
-				<h2 className="text-[17px] font-[600] leading-[1.3] text-[var(--text-primary)]">{artifact.title}</h2>
-				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">{artifact.summary}</p>
+				<h2 className="text-[17px] font-[600] leading-[1.3] text-[var(--text-primary)]">
+					{artifact.title}
+				</h2>
+				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">
+					{artifact.summary}
+				</p>
 				{artifact.needsYou ? (
-					<p className="text-[13px] leading-[1.5] text-[var(--status-warning)]">{artifact.needsYou}</p>
+					<p className="text-[13px] leading-[1.5] text-[var(--status-warning)]">
+						{artifact.needsYou}
+					</p>
 				) : null}
 				<p className="text-[12px] text-[var(--text-tertiary)]">
-					Renders the {KIND_LABEL[artifact.kind]} building block at full size (production wires the matching canvas).
+					Renders the {KIND_LABEL[artifact.kind]} building block at full size (production wires the
+					matching canvas).
 				</p>
 			</div>
 		</div>
@@ -470,11 +565,17 @@ function FocusSurface({
 				<div className="flex min-w-0 flex-1 items-center gap-[9px]">
 					<span
 						className="inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[9px] py-[3px] text-[10px] font-[600] uppercase"
-						style={{ letterSpacing: "var(--tracking-caps-sm)", background: KIND_TINT[artifact.kind].bg, color: KIND_TINT[artifact.kind].fg }}
+						style={{
+							letterSpacing: "var(--tracking-caps-sm)",
+							background: KIND_TINT[artifact.kind].bg,
+							color: KIND_TINT[artifact.kind].fg,
+						}}
 					>
 						{KIND_LABEL[artifact.kind]}
 					</span>
-					<span className="truncate text-[15px] font-[600] text-[var(--text-primary)]">{artifact.title}</span>
+					<span className="truncate text-[15px] font-[600] text-[var(--text-primary)]">
+						{artifact.title}
+					</span>
 				</div>
 
 				{/* prev/next artifact stepper — the one-at-a-time rhythm */}
@@ -521,12 +622,10 @@ function HomeSurface({
 	subject,
 	reviewedSet,
 	onExamine,
-	onToggleReviewed,
 }: {
 	readonly subject: ReviewSubject;
 	readonly reviewedSet: ReadonlySet<string>;
 	readonly onExamine: (index: number) => void;
-	readonly onToggleReviewed: (id: string) => void;
 }): JSX.Element {
 	const firstComment = subject.conversation[0];
 	return (
@@ -540,9 +639,15 @@ function HomeSurface({
 					{/* Artifacts · N — the tidy collapsed list, relevance-ordered */}
 					<div className="flex flex-col gap-[9px] px-[24px] pb-[18px]">
 						<div className="flex items-baseline gap-[9px]">
-							<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">Artifacts</h2>
-							<span className="text-[12px] font-[600] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]">{subject.artifacts.length}</span>
-							<span className="text-[12px] text-[var(--text-tertiary)]">· each opens full-screen to examine</span>
+							<h2 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Artifacts
+							</h2>
+							<span className="text-[12px] font-[600] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]">
+								{subject.artifacts.length}
+							</span>
+							<span className="text-[12px] text-[var(--text-tertiary)]">
+								· each opens full-screen to examine
+							</span>
 						</div>
 						{subject.artifacts.map((artifact, i) => (
 							<ArtifactRow
@@ -557,11 +662,18 @@ function HomeSurface({
 					{/* a slim conversation note — the thread lives in focus; this is a pointer */}
 					{firstComment ? (
 						<div className="mx-[24px] mb-[24px] flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]">
-							<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Note</span>
-							<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-secondary)]">
-								<span className="font-[600] text-[var(--text-primary)]">{firstComment.author}:</span> {firstComment.body}
+							<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+								Note
 							</span>
-							<span className="shrink-0 text-[12px] text-[var(--text-tertiary)]">{subject.conversation.length} in thread →</span>
+							<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-secondary)]">
+								<span className="font-[600] text-[var(--text-primary)]">
+									{firstComment.author}:
+								</span>{" "}
+								{firstComment.body}
+							</span>
+							<span className="shrink-0 text-[12px] text-[var(--text-tertiary)]">
+								{subject.conversation.length} in thread →
+							</span>
 						</div>
 					) : null}
 				</div>
@@ -624,11 +736,6 @@ export function ReviewCompositionFocus({
 	}
 
 	return (
-		<HomeSurface
-			subject={subject}
-			reviewedSet={reviewedSet}
-			onExamine={(i) => setFocusIndex(i)}
-			onToggleReviewed={toggleReviewed}
-		/>
+		<HomeSurface subject={subject} reviewedSet={reviewedSet} onExamine={(i) => setFocusIndex(i)} />
 	);
 }

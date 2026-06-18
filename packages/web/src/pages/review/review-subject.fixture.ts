@@ -28,7 +28,11 @@ export interface IntentCondition {
 	readonly met: boolean;
 }
 
-export type NeedKind = "blast-radius" | "over-authority" | "unhandled-exception" | "unverified-claim";
+export type NeedKind =
+	| "blast-radius"
+	| "over-authority"
+	| "unhandled-exception"
+	| "unverified-claim";
 
 export interface NeedItem {
 	readonly kind: NeedKind;
