@@ -1,8 +1,23 @@
 // AE6 — CodeRenderer: renders code diff artifact previews.
 // Maps from old kind: code_diff
 
-import type { CodePreview } from "@hyperidle/shared";
 import type { JSX } from "react";
+
+type DiffLine = {
+	kind: "add" | "del" | "ctx";
+	text: string;
+};
+
+type DiffHunk = {
+	header: string;
+	lines: DiffLine[];
+};
+
+type CodePreview = {
+	kind: "code";
+	file: string;
+	hunks: DiffHunk[];
+};
 
 export interface CodeRendererProps {
 	preview: CodePreview | null;
