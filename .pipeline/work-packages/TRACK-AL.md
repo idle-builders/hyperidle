@@ -34,7 +34,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Human walkthrough: given the dossier, the founder can identify the patterns to adopt and the white space to own, and every non-obvious claim traces to a cited source.
 - Given a domain we could not access without credentials, when the founder reads that section, then it clearly states the limitation and lists the access-gated deep dive as a follow-up.
 
-**Plan calls (revised 2026-06-18).** The founder drove 4 rounds of `/human-design-review` against rendered TSX, so AL1's scope broadened from "research only" to a composite: research dossier + concept lock + founder-approved design + TSX prototypes. `/concept` initially locked the nouns; this revision adds the deliverable inventory classifying each TSX file as building block vs superseded design history. `/design` and `/architecture` ran as part of the human-design-review cycle (the design is locked in `plans/AL1/design/approved.md`). The architecture phase was not run — AL2 needs its own `/architecture`; AL1's TSX prototypes are visual reference only.
+**Plan calls.** Run `/concept` to lock the review nouns (Subject, Intent, Rationale, Reviewer, Anchor) and the shape of the reviewing experience. Run `/design` only to the extent needed to produce the founder-approved design document (`plans/AL1/design/approved.md`) and supporting design artifacts — the design itself is the output, not production code. Do NOT commit TSX components to AL1; any rendered design exploration stays in the design viewer as throwaway reference or is moved directly to the build workpackage that owns it. Skip `/architecture`; AL2 runs its own architecture pass. Output the dossier and design docs to `plans/AL1/`.
 
 **Contracts / constraints.**
 - Web claims are critically sourced and cross-checked (per the CLAUDE.md web-research rule — the web is full of wrong/marketing content).
@@ -45,7 +45,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **Effort.** M (~1d)
 
-> **Build note (AL2–AL5).** AL1 produced the founder-approved design (`plans/AL1/design/approved.md`, locked 2026-06-18). The four workpackages below build it: the proof-family canvases (AL2), the composition surface (AL3), inline anchored comments (AL4), and the tool-tailored/community canvas override (AL5). AL2–AL3 build to the locked design (skip `/design`); AL4 needs its own anchoring design; AL5 is concept-introducing.
+> **Build note (AL2–AL5).** AL1 produced the founder-approved design (`plans/AL1/design/approved.md`, locked 2026-06-18) **as a design document, not as committed production code.** The four workpackages below build it: the proof-family canvases (AL2), the composition surface (AL3), inline anchored comments (AL4), and the tool-tailored/community canvas override (AL5). AL2–AL3 build to the locked design (skip `/design`); AL4 needs its own anchoring design; AL5 is concept-introducing. Design exploration may produce throwaway TSX in the design-system viewer during the track's `/design` phase, but those files are either deleted after convergence or moved directly into the owning build workpackage — they do not ship with AL1.
 
 ---
 
