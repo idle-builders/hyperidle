@@ -20,7 +20,9 @@
 
 import type { JSX } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject } from "./payload-guard";
 import type { BrowserPreviewPayload, ReviewCanvasProps } from "./review-artifact";
+import { isSafeSourceHref } from "./source-link-guard";
 
 // ── Fixture: a deployed pricing page (preview deploy under review) ────────────
 
@@ -384,21 +386,36 @@ function ReviewBrowserPreviewView({
 							aria-label="Reload preview"
 							className="ml-auto shrink-0 text-[13px] transition-transform"
 							style={{ color: "var(--text-tertiary)", transitionDuration: "var(--motion-fast)" }}
-							onClick={() => {}}
+							onClick={() => {
+								// no-op: presentational reload affordance.
+							}}
 						>
 							↻
 						</button>
 					</div>
+				{isSafeSourceHref(data.url) ? (
 					<a
 						href={data.url}
+						target="_blank"
+						rel="noopener noreferrer"
 						onClick={(e) => e.preventDefault()}
 						aria-label="Open preview in a new tab"
-						className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors"
-						style={{ color: "var(--accent-primary)", transitionDuration: "var(--motion-fast)" }}
+						className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors"
+						style={{ transitionDuration: "var(--motion-fast)" }}
 					>
 						Open
 						<span aria-hidden="true">↗</span>
 					</a>
+				) : (
+					<span
+						aria-disabled="true"
+						title="Unsafe source link"
+						className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)]"
+					>
+						Open
+						<span aria-hidden="true">↗</span>
+					</span>
+				)}
 				</div>
 
 				{/* the rendered page (the artifact) */}
@@ -442,6 +459,15 @@ function ReviewBrowserPreviewView({
 	);
 }
 
+function isBrowserPreviewPayload(payload: unknown): payload is BrowserPreviewPayload {
+	return (
+		isPlainObject(payload) &&
+		typeof payload.url === "string" &&
+		typeof payload.title === "string" &&
+		typeof payload.previewBody === "string"
+	);
+}
+
 // AL2 — review artifact wrapper.
 function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
 	return {
@@ -467,8 +493,8 @@ function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
 }
 
 export function ReviewBrowserPreview({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = artifact.payload
-		? mapBrowserPayload(artifact.payload as BrowserPreviewPayload)
+	const data = isBrowserPreviewPayload(artifact.payload)
+		? mapBrowserPayload(artifact.payload)
 		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
