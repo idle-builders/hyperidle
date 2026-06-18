@@ -14,6 +14,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject } from "./payload-guard";
 import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ── diff line model (mirrors CodeRenderer's kind vocabulary: add/del/ctx) ─────────
@@ -109,6 +110,7 @@ const PROMO_FIELD_HUNK: Hunk = {
 			kind: "add",
 			oldNo: null,
 			newNo: 44,
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: reproduces a source-code template literal in the diff fixture.
 			text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
 		},
 		{ kind: "ctx", oldNo: 43, newNo: 45, text: '  else setError("Couldn’t apply that code.");' },
@@ -338,9 +340,9 @@ function FileDiff({ hunks }: { hunks: readonly Hunk[] }): JSX.Element {
 						{hunk.header}
 					</div>
 					<div className="font-mono text-[12px] leading-[1.55]">
-						{hunk.lines.map((line, li) => (
+						{hunk.lines.map((line) => (
 							<div
-								key={`${hunk.header}-${li}`}
+								key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}
 								data-diff-type={line.kind}
 								className={`group/line relative flex ${LINE_TINT[line.kind]}`}
 							>
@@ -356,7 +358,9 @@ function FileDiff({ hunks }: { hunks: readonly Hunk[] }): JSX.Element {
 									type="button"
 									aria-label="Add inline comment"
 									title="Add inline comment"
-									onClick={() => {}}
+									onClick={() => {
+										// no-op: presentational inline-comment affordance (AL4 wires real anchoring).
+									}}
 									className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[6px] bg-[var(--accent-primary)] text-white text-[12px] leading-none group-hover/line:flex"
 								>
 									+
@@ -400,6 +404,7 @@ function FileCard({
 				</div>
 			) : null}
 			{/* div-as-button: a real <button> here would nest the ReviewedBox button (invalid DOM). */}
+			{/* biome-ignore lint/a11y/useSemanticElements: nesting a focusable ReviewedBox inside the row button is invalid DOM; role/button is intentional. */}
 			<div
 				role="button"
 				tabIndex={0}
@@ -560,6 +565,7 @@ function ReviewCodeDiffView({
 					<button
 						type="button"
 						onClick={() => setTriviaOpen((v) => !v)}
+						aria-expanded={triviaOpen}
 						className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
 					>
 						<Chevron open={triviaOpen} />
@@ -594,28 +600,47 @@ function ReviewCodeDiffView({
 }
 
 // AL2 — review artifact wrapper.
-function mapCodeDiffPayload(payload: CodeDiffPayload): CodeDiffData {
+function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
+	return (
+		isPlainObject(payload) &&
+		typeof payload.prTitle === "string" &&
+		typeof payload.description === "string" &&
+		Array.isArray(payload.checks) &&
+		Array.isArray(payload.files)
+	);
+}
+
+function mapCodeDiffPayload(payload: unknown): CodeDiffData {
+	if (!isCodeDiffPayload(payload)) return CODE_DIFF_FIXTURE;
+
+	const trivia = isPlainObject(payload.trivia)
+		? {
+				count: Number(payload.trivia.count) || 0,
+				summary: String(payload.trivia.summary ?? payload.triviaSummary ?? ""),
+				added: Number(payload.trivia.added) || 0,
+				removed: Number(payload.trivia.removed) || 0,
+			}
+		: { count: 0, summary: payload.triviaSummary, added: 0, removed: 0 };
+
 	return {
 		title: payload.prTitle,
 		description: payload.description,
 		files: payload.files.map((file) => ({
 			path: file.path,
-			added: 0,
-			removed: 0,
-			band: file.band as ChangedFile["band"],
+			added: Number(file.added) || 0,
+			removed: Number(file.removed) || 0,
+			band: file.band === "test" ? ("test" as const) : ("logic" as const),
 			reviewed: false,
-			rationale: file.rationale,
-			hunks: [],
+			rationale: typeof file.rationale === "string" ? file.rationale : undefined,
+			hunks: file.hunks ?? [],
 		})),
-		trivia: { count: 0, summary: payload.triviaSummary, added: 0, removed: 0 },
-		checks: payload.checks.map((label) => ({ label })),
+		trivia,
+		checks: payload.checks.map((label) => ({ label: String(label) })),
 	};
 }
 
 export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = artifact.payload
-		? mapCodeDiffPayload(artifact.payload as CodeDiffPayload)
-		: CODE_DIFF_FIXTURE;
+	const data = mapCodeDiffPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

@@ -145,6 +145,20 @@ export interface VisualDiffPayload {
 	readonly overlayMode: string;
 }
 
+export type CodeDiffLineKind = "add" | "del" | "ctx";
+
+export interface CodeDiffLine {
+	readonly kind: CodeDiffLineKind;
+	readonly oldNo: number | null;
+	readonly newNo: number | null;
+	readonly text: string;
+}
+
+export interface CodeDiffHunk {
+	readonly header: string;
+	readonly lines: readonly CodeDiffLine[];
+}
+
 export interface CodeDiffPayload {
 	readonly prTitle: string;
 	readonly description: string;
@@ -153,8 +167,17 @@ export interface CodeDiffPayload {
 		readonly path: string;
 		readonly band: "logic" | "test" | "trivia";
 		readonly rationale?: string;
+		readonly added?: number;
+		readonly removed?: number;
+		readonly hunks?: readonly CodeDiffHunk[];
 	}[];
 	readonly triviaSummary: string;
+	readonly trivia?: {
+		readonly count: number;
+		readonly summary: string;
+		readonly added: number;
+		readonly removed: number;
+	};
 }
 
 export interface BatchPayload {

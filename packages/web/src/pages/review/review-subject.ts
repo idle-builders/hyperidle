@@ -150,14 +150,118 @@ const codeArtifact: ReviewArtifact<CodeDiffPayload> = {
 	payload: {
 		prTitle: "Fix expired-promo checkout returns silent success → typed 422",
 		description:
-			"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all. Now returns a typed 422.",
+			"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently “succeeded.” Now returns a typed 422 and checkout renders an inline “This code expired on Apr 3” message. Regression test added.",
 		checks: ["tests", "lint", "build", "typecheck"],
 		files: [
-			{ path: "src/billing/promo-webhook.ts", band: "logic", rationale: "The fix" },
-			{ path: "src/checkout/PromoField.tsx", band: "logic", rationale: "Renders the message" },
-			{ path: "src/billing/__tests__/promo.expired.test.ts", band: "test" },
+			{
+				path: "src/billing/promo-webhook.ts",
+				band: "logic",
+				rationale: "The fix — rethrows the typed error instead of swallowing it (the behavior change).",
+				added: 28,
+				removed: 6,
+				hunks: [
+					{
+						header: "@@ -116,9 +116,18 @@ export async function onPromoApplied(evt: PromoEvent) {",
+						lines: [
+							{ kind: "ctx", oldNo: 116, newNo: 116, text: "  const promo = await promos.find(evt.code);" },
+							{ kind: "ctx", oldNo: 117, newNo: 117, text: "  if (!promo) return notFound(evt.code);" },
+							{ kind: "del", oldNo: 118, newNo: null, text: "  if (promo.expiresAt < now()) {" },
+							{
+								kind: "del",
+								oldNo: 119,
+								newNo: null,
+								text: "    // expired — nothing to apply, ack the webhook",
+							},
+							{ kind: "del", oldNo: 120, newNo: null, text: "    return ack(evt);" },
+							{ kind: "del", oldNo: 121, newNo: null, text: "  }" },
+							{ kind: "add", oldNo: null, newNo: 118, text: "  if (promo.expiresAt < now()) {" },
+							{ kind: "add", oldNo: null, newNo: 119, text: "    return fail(evt, {" },
+							{ kind: "add", oldNo: null, newNo: 120, text: "      status: 422," },
+							{ kind: "add", oldNo: null, newNo: 121, text: '      code: "promo_expired",' },
+							{ kind: "add", oldNo: null, newNo: 122, text: "      expiredAt: promo.expiresAt," },
+							{ kind: "add", oldNo: null, newNo: 123, text: "    });" },
+							{ kind: "add", oldNo: null, newNo: 124, text: "  }" },
+							{ kind: "ctx", oldNo: 122, newNo: 125, text: "  return applyDiscount(evt, promo);" },
+							{ kind: "ctx", oldNo: 123, newNo: 126, text: "}" },
+						],
+					},
+				],
+			},
+			{
+				path: "src/checkout/PromoField.tsx",
+				band: "logic",
+				rationale: "Renders the new user-facing “expired” message.",
+				added: 19,
+				removed: 2,
+				hunks: [
+					{
+						header: "@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {",
+						lines: [
+							{ kind: "ctx", oldNo: 41, newNo: 41, text: "  const res = await applyPromo(code);" },
+							{ kind: "del", oldNo: 42, newNo: null, text: '  if (res.ok) toast.success("Promo applied");' },
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 42,
+								text: '  if (res.ok) { toast.success("Promo applied"); return; }',
+							},
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 43,
+								text: '  if (res.code === "promo_expired")',
+							},
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 44,
+								// biome-ignore lint/suspicious/noTemplateCurlyInString: reproduces source-code template literal.
+								text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
+							},
+							{
+								kind: "ctx", oldNo: 43, newNo: 45, text: '  else setError("Couldn’t apply that code.");',
+							},
+						],
+					},
+				],
+			},
+			{
+				path: "src/billing/__tests__/promo.expired.test.ts",
+				band: "test",
+				added: 44,
+				removed: 0,
+				hunks: [
+					{
+						header: "@@ -0,0 +1,44 @@ // new file",
+						lines: [
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 1,
+								text: 'test("expired promo returns typed 422, not silent ack", async () => {',
+							},
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 2,
+								text: "  const promo = seedPromo({ expiresAt: yesterday });",
+							},
+							{
+								kind: "add",
+								oldNo: null,
+								newNo: 3,
+								text: "  const res = await onPromoApplied(eventFor(promo));",
+							},
+							{ kind: "add", oldNo: null, newNo: 4, text: "  expect(res.status).toBe(422);" },
+							{ kind: "add", oldNo: null, newNo: 5, text: '  expect(res.code).toBe("promo_expired");' },
+							{ kind: "add", oldNo: null, newNo: 6, text: "});" },
+						],
+					},
+				],
+			},
 		],
 		triviaSummary: "OpenAPI regen + lockfile + formatting",
+		trivia: { count: 3, summary: "OpenAPI regen + lockfile + formatting", added: 49, removed: 23 },
 	},
 };
 
