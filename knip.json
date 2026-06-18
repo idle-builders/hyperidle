@@ -2,6 +2,7 @@
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"ignore": [
 		"**/.claude/**",
+		".hermes/**",
 		"docs/product/.vitepress/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
@@ -18,13 +19,15 @@
 		},
 		"packages/shared": {},
 		"packages/db": {
-			"entry": ["src/migrate-pg.ts"]
+			"entry": ["src/migrate-pg.ts"],
+			"ignoreBinaries": ["drizzle-kit"],
+			"ignoreDependencies": ["zod"]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/isolated-session-worker.ts"],
-			"ignoreDependencies": []
+			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
 			"entry": [
@@ -34,25 +37,47 @@
 				"viewer/tailwind.config.ts",
 				"viewer/postcss.config.ts"
 			],
-			"ignoreDependencies": ["autoprefixer", "postcss"]
+			"ignoreBinaries": ["vite"],
+			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"]
 		},
 		"packages/web": {
 			"entry": ["src/api/client.ts", "scripts/*.ts", "vite.ah1.config.ts", "vite.ah5.config.ts"],
 			"playwright": {
 				"config": ["playwright.config.ts", "playwright.ah1.config.ts", "playwright.ah5.config.ts"]
 			},
-			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
+			"ignoreBinaries": ["vite", "playwright"],
+			"ignoreDependencies": [
+				"@electric-sql/pglite",
+				"drizzle-orm",
+				"@tiptap/react",
+				"@tiptap/pm",
+				"@tiptap/starter-kit",
+				"@tiptap/extension-code-block-lowlight",
+				"@tiptap/extension-table",
+				"@tiptap/extension-table-row",
+				"@tiptap/extension-table-cell",
+				"@tiptap/extension-table-header",
+				"@tiptap/extension-image",
+				"@tiptap/extension-placeholder",
+				"@tiptap/extension-link",
+				"@tiptap/suggestion",
+				"tiptap-markdown",
+				"lowlight",
+				"tippy.js"
+			]
 		},
 		"packages/pipeline": {},
 		"packages/strategy-minimal": {},
 		"packages/desktop": {
 			"entry": ["src/preload.ts"],
-			"ignoreBinaries": ["electron-builder"],
+			"ignoreBinaries": ["electron", "electron-builder"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/eslint-plugin-design": {},
 		"packages/eval": {
-			"entry": ["src/judges.ts"]
+			"entry": ["src/judges.ts", "src/cli.ts"],
+			"ignoreBinaries": ["tsx"],
+			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
 			"entry": ["*.ts", "__tests__/**/*.test.ts"]
