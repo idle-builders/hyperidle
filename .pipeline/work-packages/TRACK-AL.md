@@ -34,7 +34,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Human walkthrough: given the dossier, the founder can identify the patterns to adopt and the white space to own, and every non-obvious claim traces to a cited source.
 - Given a domain we could not access without credentials, when the founder reads that section, then it clearly states the limitation and lists the access-gated deep dive as a follow-up.
 
-**Plan calls.** Skip `/design` and `/architecture` — this is a research/writing workpackage (web research in the spirit of `/deep-research`). Output to `plans/reviews/`. The collaborative, access-gated deep dive (screenshotting gated tools together with the founder) is a follow-on `/concept` act and is out of scope here.
+**Plan calls (revised 2026-06-18).** The founder drove 4 rounds of `/human-design-review` against rendered TSX, so AL1's scope broadened from "research only" to a composite: research dossier + concept lock + founder-approved design + TSX prototypes. `/concept` initially locked the nouns; this revision adds the deliverable inventory classifying each TSX file as building block vs superseded design history. `/design` and `/architecture` ran as part of the human-design-review cycle (the design is locked in `plans/AL1/design/approved.md`). The architecture phase was not run — AL2 needs its own `/architecture`; AL1's TSX prototypes are visual reference only.
 
 **Contracts / constraints.**
 - Web claims are critically sourced and cross-checked (per the CLAUDE.md web-research rule — the web is full of wrong/marketing content).
