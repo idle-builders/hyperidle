@@ -37,12 +37,7 @@
 			"ignoreDependencies": ["autoprefixer", "postcss"]
 		},
 		"packages/web": {
-			"entry": [
-				"src/api/client.ts",
-				"scripts/*.ts",
-				"vite.ah1.config.ts",
-				"vite.ah5.config.ts"
-			],
+			"entry": ["src/api/client.ts", "scripts/*.ts", "vite.ah1.config.ts", "vite.ah5.config.ts"],
 			"playwright": {
 				"config": ["playwright.config.ts", "playwright.ah1.config.ts", "playwright.ah5.config.ts"]
 			},
