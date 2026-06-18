@@ -24,6 +24,7 @@
 
 import { type CSSProperties, type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject, isString } from "./payload-guard";
 import type { ReviewCanvasProps, VisualDiffPayload } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -393,6 +394,23 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 }
 
 // AL2 — review artifact wrapper.
+function isVisualDiffPayload(payload: unknown): payload is VisualDiffPayload {
+	return (
+		isPlainObject(payload) &&
+		isPlainObject(payload.before) &&
+		isString((payload.before as Record<string, unknown>).label) &&
+		isPlainObject(payload.after) &&
+		isString((payload.after as Record<string, unknown>).label) &&
+		Array.isArray(payload.diffRegions)
+	);
+}
+
+const REGION_IDS: readonly RegionId[] = ["cta", "email", "hero"];
+
+function isRegionId(value: unknown): value is RegionId {
+	return isString(value) && REGION_IDS.includes(value as RegionId);
+}
+
 function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 	return {
 		title: "Onboarding · Create account",
@@ -400,19 +418,23 @@ function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 		tool: "figma",
 		designedBy: payload.before.label,
 		builtIn: payload.after.label,
-		regions: payload.diffRegions.map((r) => ({
-			id: r.id as RegionId,
-			band: "form" as const,
-			severity: "change" as const,
-			label: r.label,
-			design: "",
-			build: "",
-		})),
+		regions: payload.diffRegions
+			.filter((r): r is { readonly id: string; readonly label: string } => isPlainObject(r) && isString(r.id) && isString(r.label))
+			.map((r) => ({
+				id: isRegionId(r.id) ? r.id : "cta",
+				band: "form" as const,
+				severity: "change" as const,
+				label: r.label,
+				design: "",
+				build: "",
+			})),
 	};
 }
 
 export function ReviewVisualDiff({ artifact }: ReviewCanvasProps): JSX.Element {
-	const diff = artifact.payload ? mapVisualPayload(artifact.payload as VisualDiffPayload) : FIXTURE;
+	const diff = isVisualDiffPayload(artifact.payload)
+		? mapVisualPayload(artifact.payload)
+		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

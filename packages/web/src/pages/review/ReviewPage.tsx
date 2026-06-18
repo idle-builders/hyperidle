@@ -14,11 +14,11 @@ interface ReviewPageProps {
  * canvas registry. The fixture is the default subject so the canvases are mounted
  * and reachable in production code without waiting for AL3 wiring.
  *
- * @lore This is an AL2 integration scaffold only. The full dual-anchor
- * composition (frame header, intent, rationale, conversation, verdict wiring) is
- * explicitly owned by AL3 (`ReviewCompositionRefined`) and will replace/extend
- * this page. Keep the page small and fixture-driven; do not build composition
- * chrome here.
+ * @lore This is an AL2 integration scaffold only. The route is intentionally
+ * registered here so the canvases are reachable; AL3 (`ReviewCompositionRefined`)
+ * owns the full dual-anchor composition (frame header, intent, rationale,
+ * conversation, verdict wiring) and will replace/extend this page. Keep the page
+ * small and fixture-driven; do not build composition chrome here.
  */
 export function ReviewPage({ subject = AL2_REVIEW_SUBJECT }: ReviewPageProps): JSX.Element {
 	return (

@@ -22,6 +22,7 @@
 import { Button, StatusChip } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isNumber, isPlainObject } from "./payload-guard";
 import type { BatchPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -497,6 +498,20 @@ function ReviewBatchView({
 }
 
 // AL2 — review artifact wrapper.
+function isBatchPayload(payload: unknown): payload is BatchPayload {
+	return (
+		isPlainObject(payload) &&
+		isPlainObject(payload.rollup) &&
+		isNumber((payload.rollup as Record<string, unknown>).total) &&
+		isNumber((payload.rollup as Record<string, unknown>).needYou) &&
+		isNumber((payload.rollup as Record<string, unknown>).autoResolved) &&
+		isNumber((payload.rollup as Record<string, unknown>).drafted) &&
+		Array.isArray(payload.flagged) &&
+		Array.isArray(payload.auto) &&
+		Array.isArray(payload.drafted)
+	);
+}
+
 function mapBatchPayload(payload: BatchPayload): BatchFixture {
 	const flagged: FlaggedItem[] = payload.flagged.map((item) => ({
 		id: item.id,
@@ -513,20 +528,21 @@ function mapBatchPayload(payload: BatchPayload): BatchFixture {
 		draftedReply: "",
 		draftNote: item.reason,
 	}));
+	const emptySamples: readonly string[] = [];
 	const groups: RoutineGroup[] = [
 		...payload.auto.map((g) => ({
 			id: g.id,
 			label: g.label,
 			detail: "",
 			count: g.count,
-			sample: [] as readonly string[],
+			sample: emptySamples,
 		})),
 		...payload.drafted.map((g) => ({
 			id: g.id,
 			label: g.label,
 			detail: "",
 			count: g.count,
-			sample: [] as readonly string[],
+			sample: emptySamples,
 		})),
 	];
 	return {
@@ -544,7 +560,9 @@ function mapBatchPayload(payload: BatchPayload): BatchFixture {
 }
 
 export function ReviewBatch({ artifact }: ReviewCanvasProps): JSX.Element {
-	const batch = artifact.payload ? mapBatchPayload(artifact.payload as BatchPayload) : FIXTURE;
+	const batch = isBatchPayload(artifact.payload)
+		? mapBatchPayload(artifact.payload)
+		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

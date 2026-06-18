@@ -20,6 +20,7 @@
 import type { JSX } from "react";
 import { useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject, isString } from "./payload-guard";
 import type { RenderedInContextPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -479,6 +480,16 @@ function ReviewRenderedInContextView({
 }
 
 // AL2 — review artifact wrapper.
+function isRenderedPayload(payload: unknown): payload is RenderedInContextPayload {
+	return (
+		isPlainObject(payload) &&
+		isPlainObject(payload.inboxRow) &&
+		isString((payload.inboxRow as Record<string, unknown>).sender) &&
+		isString((payload.inboxRow as Record<string, unknown>).subject) &&
+		Array.isArray(payload.flags)
+	);
+}
+
 function mapRenderedPayload(payload: RenderedInContextPayload, title: string): RenderedEmail {
 	return {
 		tool: "mailchimp",
@@ -500,8 +511,8 @@ function mapRenderedPayload(payload: RenderedInContextPayload, title: string): R
 }
 
 export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = artifact.payload
-		? mapRenderedPayload(artifact.payload as RenderedInContextPayload, artifact.title)
+	const data = isRenderedPayload(artifact.payload)
+		? mapRenderedPayload(artifact.payload, artifact.title)
 		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">

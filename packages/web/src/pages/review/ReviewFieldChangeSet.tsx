@@ -22,6 +22,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject, isString } from "./payload-guard";
 import type { FieldChangeSetPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -106,7 +107,7 @@ function MoneyOrText({ text, money }: { text: string; money: boolean }): JSX.Ele
 	return <span style={money ? { fontVariantNumeric: "tabular-nums" } : undefined}>{text}</span>;
 }
 
-const isMoney = (s: string | null): boolean => s != null && s.trim().startsWith("$");
+const isMoney = (s: string | null): boolean => s?.trim().startsWith("$") ?? false;
 
 // ── Row ────────────────────────────────────────────────────────────────────────
 
@@ -357,6 +358,15 @@ export function ReviewFieldChangeSetView({
 }
 
 // AL2 — payload mapper, then source header + view.
+function isFieldChangePayload(payload: unknown): payload is FieldChangeSetPayload {
+	return (
+		isPlainObject(payload) &&
+		isString(payload.recordLabel) &&
+		Array.isArray(payload.fields) &&
+		typeof payload.unchangedCount === "number"
+	);
+}
+
 function mapFieldChangePayload(payload: FieldChangeSetPayload): ChangeSet {
 	return {
 		tool: "salesforce",
@@ -376,8 +386,8 @@ function mapFieldChangePayload(payload: FieldChangeSetPayload): ChangeSet {
 }
 
 export function ReviewFieldChangeSet({ artifact }: ReviewCanvasProps): JSX.Element {
-	const changeSet = artifact.payload
-		? mapFieldChangePayload(artifact.payload as FieldChangeSetPayload)
+	const changeSet = isFieldChangePayload(artifact.payload)
+		? mapFieldChangePayload(artifact.payload)
 		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">

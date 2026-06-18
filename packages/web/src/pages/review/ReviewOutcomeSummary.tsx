@@ -17,6 +17,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject, isString } from "./payload-guard";
 import type { OutcomeSummaryPayload, ReviewCanvasProps } from "./review-artifact";
 import { type ToolId, ToolLogo } from "./ToolLogo";
 
@@ -344,9 +345,22 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 	);
 }
 
+function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPayload {
+	return (
+		isPlainObject(payload) &&
+		isString(payload.agentName) &&
+		isString(payload.agentInitials) &&
+		isString(payload.achieved) &&
+		Array.isArray(payload.tools) &&
+		Array.isArray(payload.doneConditions) &&
+		Array.isArray(payload.needsYou) &&
+		(payload.standing === "Awaiting" || payload.standing === "Blocking")
+	);
+}
+
 /** AL2 wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
-	const payload = (artifact.payload ?? {}) as Partial<OutcomeSummaryPayload>;
+	const payload = isOutcomeSummaryPayload(artifact.payload) ? artifact.payload : ({} as Partial<OutcomeSummaryPayload>);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -364,8 +378,8 @@ export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Eleme
 				costUsd={payload.costUsd ?? 0}
 				tokens={payload.tokens ?? 0}
 				standing={payload.standing ?? "Awaiting"}
-				doneConditions={(payload.doneConditions ?? []) as DoneCondition[]}
-				needsYou={(payload.needsYou ?? []) as NeedsYou[]}
+			doneConditions={payload.doneConditions ?? []}
+			needsYou={(payload.needsYou ?? []) as NeedsYou[]}
 			/>
 		</div>
 	);

@@ -18,6 +18,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
@@ -304,6 +305,18 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 }
 
 // AL2 — review artifact wrapper.
+function isActionOperationPayload(payload: unknown): payload is ActionOperationPayload {
+	return (
+		isPlainObject(payload) &&
+		isString(payload.verb) &&
+		isPlainObject(payload.amountWire) &&
+		isString((payload.amountWire as Record<string, unknown>).formatted) &&
+		Array.isArray(payload.receiptFields) &&
+		Array.isArray(payload.blastRadius) &&
+		typeof payload.irreversible === "boolean"
+	);
+}
+
 function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 	return {
 		tool: "stripe",
@@ -320,8 +333,8 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 }
 
 export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Element {
-	const operation = artifact.payload
-		? mapActionPayload(artifact.payload as ActionOperationPayload)
+	const operation = isActionOperationPayload(artifact.payload)
+		? mapActionPayload(artifact.payload)
 		: REFUND;
 	return (
 		<div className="flex flex-col gap-[12px]">

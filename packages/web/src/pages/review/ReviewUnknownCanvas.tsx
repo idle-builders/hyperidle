@@ -30,12 +30,11 @@ export function ReviewUnknownCanvas({ artifact }: ReviewCanvasProps): JSX.Elemen
 					</span>
 					<span className="text-[13px] text-[var(--text-secondary)]">No dedicated canvas</span>
 				</div>
-				<pre
-					className="max-h-[320px] overflow-auto rounded-[var(--r-subtle)] bg-[var(--surface-page)] p-[12px] font-mono text-[12px] leading-[1.5] text-[var(--text-secondary)]"
-					aria-label="Artifact payload preview"
-				>
-					{preview}
-				</pre>
+				<section aria-label="Artifact payload preview">
+					<pre className="max-h-[320px] overflow-auto rounded-[var(--r-subtle)] bg-[var(--surface-page)] p-[12px] font-mono text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+						{preview}
+					</pre>
+				</section>
 			</div>
 		</div>
 	);

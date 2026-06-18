@@ -14,6 +14,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import { isNumber, isPlainObject, isString } from "./payload-guard";
 import type { MetricsMovedPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -506,6 +507,28 @@ function ReviewMetricsMovedView({
 }
 
 // AL2 — review artifact wrapper.
+function isMetricsMovedPayload(payload: unknown): payload is MetricsMovedPayload {
+	return (
+		isPlainObject(payload) &&
+		isString(payload.period) &&
+		Array.isArray(payload.headlines) &&
+		Array.isArray(payload.rows) &&
+		isPlainObject(payload.tieOut) &&
+		Array.isArray(payload.exceptions)
+	);
+}
+
+function isRollForwardRow(value: unknown): value is RollForwardRow {
+	return (
+		isPlainObject(value) &&
+		isString(value.id) &&
+		isString(value.label) &&
+		isNumber(value.opening) &&
+		isNumber(value.activity) &&
+		isNumber(value.closing)
+	);
+}
+
 function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
 		id: `fig-${i}`,
@@ -523,10 +546,11 @@ function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 		kind: ex.needsYou ? "anomaly" : "timing",
 		needsYou: ex.needsYou ?? false,
 	}));
+	const rows = payload.rows.filter(isRollForwardRow);
 	return {
 		period: payload.period,
 		figures,
-		rows: (payload.rows as RollForwardRow[]) ?? [],
+		rows,
 		trivia: { count: 0, net: 0 },
 		tieOut: payload.tieOut,
 		exceptions,
@@ -534,8 +558,8 @@ function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 }
 
 export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element {
-	const fixture = artifact.payload
-		? mapMetricsPayload(artifact.payload as MetricsMovedPayload)
+	const fixture = isMetricsMovedPayload(artifact.payload)
+		? mapMetricsPayload(artifact.payload)
 		: FIXTURE;
 	return (
 		<div className="flex flex-col gap-[12px]">
