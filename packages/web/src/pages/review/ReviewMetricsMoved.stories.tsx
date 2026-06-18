@@ -1,15 +1,13 @@
 import type { JSX } from "react";
+import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { ReviewMetricsMoved } from "./ReviewMetricsMoved";
 
 export default { title: "Review/Metrics Moved", group: "Conversations" };
 
-// Default: L1 headlines (materiality-sorted) + L2 roll-forward/tie-out + the revenue figure
-// pre-expanded to its provenance, so all three layers are visible in one screenshot.
-export function Populated(): JSX.Element {
-	return <ReviewMetricsMoved />;
-}
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "metrics_moved")!;
 
-// Collapsed: same canvas, no figure expanded — L1 + L2 only (the default reviewer entry).
-export function HeadlinesCollapsed(): JSX.Element {
-	return <ReviewMetricsMoved initialExpandedFigureId={null} />;
+// Default: L1 headlines (materiality-sorted) + L2 roll-forward/tie-out. The
+// fixture drives the canvas via the AL2 review-artifact contract.
+export function Populated(): JSX.Element {
+	return <ReviewMetricsMoved artifact={artifact} />;
 }

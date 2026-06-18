@@ -22,6 +22,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { FieldChangeSetPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ──────────────────────────────────────────────────────────────────
@@ -205,7 +206,7 @@ function FieldRow({
 					{expanded ? (
 						<div className="mt-[9px] ml-[105px] flex flex-col gap-[6px]">
 							<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-								<ToolLogo tool="salesforce" size="sm" />
+								<ToolLogo tool="salesforce" size="sm" label="" />
 								<span>{field.source}</span>
 							</div>
 							{needs ? (
@@ -235,7 +236,7 @@ export interface ReviewFieldChangeSetProps {
 	readonly defaultExpandedId?: string;
 }
 
-export function ReviewFieldChangeSet({
+export function ReviewFieldChangeSetView({
 	changeSet = FIXTURE,
 	defaultExpandedId = "amount",
 }: ReviewFieldChangeSetProps): JSX.Element {
@@ -271,14 +272,6 @@ export function ReviewFieldChangeSet({
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
-			{/* ── source attribution (founder round 1): app name + jump-off ── */}
-			<CanvasSourceHeader
-				tool="salesforce"
-				app="Salesforce"
-				record="Opportunity · Northwind Logistics"
-				href="#"
-			/>
-
 			{/* ── L1 — one-glance summary (tool/record now in source header) ── */}
 			<div className="border-b border-[var(--border-default)] px-[18px] py-[12px]">
 				<div className="min-w-0 flex-1">
@@ -359,6 +352,42 @@ export function ReviewFieldChangeSet({
 					Approve all fields
 				</button>
 			</div>
+		</div>
+	);
+}
+
+// AL2 — payload mapper, then source header + view.
+function mapFieldChangePayload(payload: FieldChangeSetPayload): ChangeSet {
+	return {
+		tool: "salesforce",
+		object: "Record",
+		record: payload.recordLabel,
+		unchangedCount: payload.unchangedCount,
+		changed: payload.fields.map((field) => ({
+			id: field.label.toLowerCase().replace(/\s+/g, "-"),
+			label: field.label,
+			kind: field.old == null ? ("added" as const) : ("value" as const),
+			before: field.old,
+			after: field.new,
+			source: field.provenance ?? "",
+			needsYou: field.needsYou,
+		})),
+	};
+}
+
+export function ReviewFieldChangeSet({ artifact }: ReviewCanvasProps): JSX.Element {
+	const changeSet = artifact.payload
+		? mapFieldChangePayload(artifact.payload as FieldChangeSetPayload)
+		: FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewFieldChangeSetView changeSet={changeSet} />
 		</div>
 	);
 }

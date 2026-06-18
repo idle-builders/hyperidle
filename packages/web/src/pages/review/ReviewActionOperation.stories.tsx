@@ -5,6 +5,7 @@
 // drill-down reads in a single screenshot.
 
 import type { JSX } from "react";
+import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { ReviewActionOperation } from "./ReviewActionOperation";
 
 export default {
@@ -12,12 +13,12 @@ export default {
 	group: "Conversations",
 };
 
-function noop(): void {}
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "action_operation")!;
 
 export function Populated(): JSX.Element {
 	return (
 		<div className="bg-[var(--surface-page)] p-[24px]">
-			<ReviewActionOperation onApprove={noop} onReject={noop} />
+			<ReviewActionOperation artifact={artifact} />
 		</div>
 	);
 }

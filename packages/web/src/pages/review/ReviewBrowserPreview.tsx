@@ -20,6 +20,7 @@
 
 import type { JSX } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { BrowserPreviewPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ── Fixture: a deployed pricing page (preview deploy under review) ────────────
 
@@ -324,7 +325,7 @@ export interface ReviewBrowserPreviewProps {
  *  - error:   deploy failed → inline error inside the frame with a retry link.
  *  - populated (shown here): the deployed pricing page, ready for a verdict.
  */
-export function ReviewBrowserPreview({
+function ReviewBrowserPreviewView({
 	data = FIXTURE,
 	onApprove,
 	onRequestChanges,
@@ -339,18 +340,6 @@ export function ReviewBrowserPreview({
 				fontFamily: "var(--font-sans)",
 			}}
 		>
-			{/* source attribution — what tool produced this, jump back to it */}
-			<div
-				style={{
-					background: "var(--surface-container)",
-					border: "1px solid var(--border-subtle)",
-					borderRadius: "var(--r-default)",
-					overflow: "hidden",
-				}}
-			>
-				<CanvasSourceHeader tool="vercel" app="Vercel" record="Preview deploy · pricing-v2" />
-			</div>
-
 			{/* the browser window — the frame IS the framing */}
 			<div
 				className="overflow-hidden"
@@ -449,6 +438,47 @@ export function ReviewBrowserPreview({
 					Request changes
 				</button>
 			</div>
+		</div>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
+	return {
+		url: payload.url,
+		brand: payload.title,
+		navLinks: ["Product", "Pricing", "Docs", "Changelog"],
+		eyebrow: "Preview",
+		headline: payload.title,
+		subhead: payload.previewBody,
+		tiers: [
+			{
+				name: "Solo",
+				price: "$19",
+				cadence: "/mo",
+				blurb: "",
+				features: [],
+				cta: "Get started",
+				featured: true,
+			},
+		],
+		footerNote: payload.previewBody,
+	};
+}
+
+export function ReviewBrowserPreview({ artifact }: ReviewCanvasProps): JSX.Element {
+	const data = artifact.payload
+		? mapBrowserPayload(artifact.payload as BrowserPreviewPayload)
+		: FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewBrowserPreviewView data={data} />
 		</div>
 	);
 }

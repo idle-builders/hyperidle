@@ -22,6 +22,7 @@
 import { Button, StatusChip } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { BatchPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // fixture — Zendesk overnight support triage, 41 tickets
@@ -233,7 +234,7 @@ export interface ReviewBatchProps {
 	readonly initialExpandedId?: string;
 }
 
-export function ReviewBatch({
+function ReviewBatchView({
 	batch = FIXTURE,
 	initialExpandedId = FIXTURE.flagged[0]?.id,
 }: ReviewBatchProps): JSX.Element {
@@ -258,24 +259,14 @@ export function ReviewBatch({
 		<div className="mx-auto max-w-[760px] w-full font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
 			{/* L1 — the rollup */}
 			<section className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
-				<CanvasSourceHeader
-					tool={batch.tool}
-					app="Zendesk"
-					record={`${batch.title} (${batch.total} tickets)`}
-					href="#"
-				/>
 				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
-					<div className="flex items-start gap-[12px] min-w-0">
-						{/* tool identity now lives in the CanvasSourceHeader above */}
-						<div className="flex flex-col gap-[3px] min-w-0">
-							<div className="flex items-center gap-[9px]">
-								<h2 className="text-[17px] font-[600] leading-tight truncate">{batch.title}</h2>
-								<StatusChip status="behind" label={`${batch.needsYou} NEED YOU`} />
-							</div>
-							<p className="text-[12px] text-[var(--text-tertiary)] leading-snug">
-								{batch.total} tickets · {batch.window}
-							</p>
+					<div className="flex flex-col gap-[3px] min-w-0">
+						<div className="flex items-center gap-[9px]">
+							<StatusChip status="behind" label={`${batch.needsYou} NEED YOU`} />
 						</div>
+						<p className="text-[12px] text-[var(--text-tertiary)] leading-snug">
+							{batch.total} tickets · {batch.window}
+						</p>
 					</div>
 				</header>
 
@@ -501,6 +492,68 @@ export function ReviewBatch({
 					);
 				})}
 			</ul>
+		</div>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapBatchPayload(payload: BatchPayload): BatchFixture {
+	const flagged: FlaggedItem[] = payload.flagged.map((item) => ({
+		id: item.id,
+		ref: item.ref,
+		customer: item.ref,
+		account: "",
+		arr: "",
+		sentiment: "neutral",
+		subject: item.reason,
+		flag: "churn",
+		flagReason: item.reason,
+		waited: "",
+		lastMessage: "",
+		draftedReply: "",
+		draftNote: item.reason,
+	}));
+	const groups: RoutineGroup[] = [
+		...payload.auto.map((g) => ({
+			id: g.id,
+			label: g.label,
+			detail: "",
+			count: g.count,
+			sample: [] as readonly string[],
+		})),
+		...payload.drafted.map((g) => ({
+			id: g.id,
+			label: g.label,
+			detail: "",
+			count: g.count,
+			sample: [] as readonly string[],
+		})),
+	];
+	return {
+		tool: "zendesk",
+		title: "Overnight support triage",
+		window: "",
+		total: payload.rollup.total,
+		needsYou: payload.rollup.needYou,
+		autoResolved: payload.rollup.autoResolved,
+		drafted: payload.rollup.drafted,
+		metric: { label: "Median first response", before: "", after: "" },
+		flagged,
+		groups,
+	};
+}
+
+export function ReviewBatch({ artifact }: ReviewCanvasProps): JSX.Element {
+	const batch = artifact.payload ? mapBatchPayload(artifact.payload as BatchPayload) : FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewBatchView batch={batch} />
 		</div>
 	);
 }

@@ -14,6 +14,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ── diff line model (mirrors CodeRenderer's kind vocabulary: add/del/ctx) ─────────
 type LineKind = "add" | "del" | "ctx";
@@ -190,6 +191,27 @@ const CI_CHECKS: readonly CiCheck[] = [
 	{ label: "typecheck" },
 ];
 
+interface CodeDiffData {
+	readonly title: string;
+	readonly description: string;
+	readonly files: readonly ChangedFile[];
+	readonly trivia: {
+		readonly count: number;
+		readonly summary: string;
+		readonly added: number;
+		readonly removed: number;
+	};
+	readonly checks: readonly CiCheck[];
+}
+
+const CODE_DIFF_FIXTURE: CodeDiffData = {
+	title: "Fix expired-promo checkout returns silent success → typed 422",
+	description: PR_DESCRIPTION,
+	files: FILES,
+	trivia: TRIVIA,
+	checks: CI_CHECKS,
+};
+
 const BAND_LABEL: Record<ChangedFile["band"], string> = {
 	logic: "Logic",
 	test: "Tests",
@@ -273,7 +295,7 @@ function ReviewedBox({
 }
 
 // ── L1: CI checks row ─────────────────────────────────────────────────────────────
-function CiRow(): JSX.Element {
+function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element {
 	return (
 		<div className="flex flex-wrap items-center gap-[9px]">
 			<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px] text-[12px] font-[600] text-[var(--status-success)]">
@@ -281,7 +303,7 @@ function CiRow(): JSX.Element {
 				All checks passed
 			</span>
 			<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
-				{CI_CHECKS.map((c) => (
+				{checks.map((c) => (
 					<span
 						key={c.label}
 						className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]"
@@ -413,16 +435,19 @@ function FileCard({
 export interface ReviewCodeDiffProps {
 	/** start with the top (most-relevant) file expanded so L3 shows by default. */
 	readonly initialExpandedPath?: string;
+	readonly data?: CodeDiffData;
 }
 
-export function ReviewCodeDiff({
-	initialExpandedPath = FILES[0]?.path,
+function ReviewCodeDiffView({
+	initialExpandedPath = CODE_DIFF_FIXTURE.files[0]?.path,
+	data = CODE_DIFF_FIXTURE,
 }: ReviewCodeDiffProps): JSX.Element {
+	const { description, files, trivia, checks } = data;
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(
 		() => new Set(initialExpandedPath ? [initialExpandedPath] : []),
 	);
 	const [reviewed, setReviewed] = useState<ReadonlySet<string>>(
-		() => new Set(FILES.filter((f) => f.reviewed).map((f) => f.path)),
+		() => new Set(files.filter((f) => f.reviewed).map((f) => f.path)),
 	);
 	const [triviaOpen, setTriviaOpen] = useState(false);
 
@@ -446,7 +471,7 @@ export function ReviewCodeDiff({
 	}
 	function collapseOrExpandAll(): void {
 		if (allCollapsed) {
-			setExpanded(new Set(FILES.map((f) => f.path)));
+			setExpanded(new Set(files.map((f) => f.path)));
 			setTriviaOpen(true);
 		} else {
 			setExpanded(new Set());
@@ -454,21 +479,17 @@ export function ReviewCodeDiff({
 		}
 	}
 
-	const totalAdded = FILES.reduce((s, f) => s + f.added, 0) + TRIVIA.added;
-	const totalRemoved = FILES.reduce((s, f) => s + f.removed, 0) + TRIVIA.removed;
+	const totalAdded = files.reduce((s, f) => s + f.added, 0) + trivia.added;
+	const totalRemoved = files.reduce((s, f) => s + f.removed, 0) + trivia.removed;
 
 	// relevance order: logic band first, then test band — never file/alpha order.
-	const ordered = [...FILES].sort((a, b) => (a.band === b.band ? 0 : a.band === "logic" ? -1 : 1));
+	const ordered = [...files].sort((a, b) => (a.band === b.band ? 0 : a.band === "logic" ? -1 : 1));
 
 	return (
 		<section
 			aria-label="Code diff review"
 			className="w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
 		>
-			{/* source attribution — names the app + jump-off; the PR header below no longer
-			    repeats the repo / # / logo (deduped per founder review). */}
-			<CanvasSourceHeader tool="github" app="GitHub" record="acme/storefront #1428" href="#" />
-
 			{/* ── L1: PR header ───────────────────────────────────────────────── */}
 			<header className="flex flex-col gap-[12px] p-[18px]">
 				<div className="flex items-start gap-[12px]">
@@ -478,9 +499,6 @@ export function ReviewCodeDiff({
 								Open
 							</span>
 						</div>
-						<h2 className="mt-[3px] text-[17px] font-[600] leading-[1.3] text-[var(--text-primary)]">
-							Fix expired-promo checkout returns silent success → typed 422
-						</h2>
 					</div>
 					<div className="shrink-0 pt-[2px]">
 						<ChangeBadge added={totalAdded} removed={totalRemoved} />
@@ -489,15 +507,15 @@ export function ReviewCodeDiff({
 
 				{/* PR / ship message — the agent's plain-language summary, prose not code. */}
 				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">
-					{PR_DESCRIPTION}
+					{description}
 				</p>
 
-				<CiRow />
+				<CiRow checks={checks} />
 
 				<div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-[12px]">
 					<span className="text-[12px] text-[var(--text-secondary)]">
 						<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
-							{FILES.length + TRIVIA.count}
+							{files.length + trivia.count}
 						</span>{" "}
 						files changed · relevance-ranked
 					</span>
@@ -506,7 +524,7 @@ export function ReviewCodeDiff({
 						onClick={collapseOrExpandAll}
 						className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
 					>
-						{allCollapsed ? "Expand all" : "Collapse all"}
+						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
 					</button>
 				</div>
 			</header>
@@ -547,11 +565,11 @@ export function ReviewCodeDiff({
 						<Chevron open={triviaOpen} />
 						<span className="flex-1 text-[13px] text-[var(--text-secondary)]">
 							<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
-								{TRIVIA.count}
+								{trivia.count}
 							</span>{" "}
-							files · {TRIVIA.summary}
+							files · {trivia.summary}
 						</span>
-						<ChangeBadge added={TRIVIA.added} removed={TRIVIA.removed} />
+						<ChangeBadge added={trivia.added} removed={trivia.removed} />
 					</button>
 					{triviaOpen ? (
 						<div className="border-t border-[var(--border-subtle)] px-[12px] py-[9px] font-mono text-[12px] text-[var(--text-tertiary)]">
@@ -572,5 +590,41 @@ export function ReviewCodeDiff({
 			    --status-warning left rule + a "1 thread" chip in its card header.
 			*/}
 		</section>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapCodeDiffPayload(payload: CodeDiffPayload): CodeDiffData {
+	return {
+		title: payload.prTitle,
+		description: payload.description,
+		files: payload.files.map((file) => ({
+			path: file.path,
+			added: 0,
+			removed: 0,
+			band: file.band as ChangedFile["band"],
+			reviewed: false,
+			rationale: file.rationale,
+			hunks: [],
+		})),
+		trivia: { count: 0, summary: payload.triviaSummary, added: 0, removed: 0 },
+		checks: payload.checks.map((label) => ({ label })),
+	};
+}
+
+export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
+	const data = artifact.payload
+		? mapCodeDiffPayload(artifact.payload as CodeDiffPayload)
+		: CODE_DIFF_FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewCodeDiffView data={data} />
+		</div>
 	);
 }

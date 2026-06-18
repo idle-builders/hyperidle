@@ -14,6 +14,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { MetricsMovedPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
 // ── fixture ──────────────────────────────────────────────────────────────────
@@ -279,7 +280,7 @@ function Headline({
 				// L3 — per-figure provenance
 				<div className="mt-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
-						<ToolLogo tool={figure.provenance.tool} size="sm" />
+						<ToolLogo tool={figure.provenance.tool} size="sm" label="" />
 						<span className="text-[12px] font-[600] text-[var(--text-primary)]">
 							{figure.provenance.source}
 						</span>
@@ -444,7 +445,7 @@ export interface ReviewMetricsMovedProps {
 	readonly initialExpandedFigureId?: string | null;
 }
 
-export function ReviewMetricsMoved({
+function ReviewMetricsMovedView({
 	fixture = FIXTURE,
 	initialExpandedFigureId = "rev",
 }: ReviewMetricsMovedProps): JSX.Element {
@@ -452,26 +453,9 @@ export function ReviewMetricsMoved({
 	const found = fixture.figures.find((f) => f.headline) ?? fixture.figures[0];
 	if (!found) throw new Error("ReviewMetricsMoved: no headline figure");
 	const headline = found;
-	const needsYou = fixture.exceptions.filter((e) => e.needsYou).length;
 
 	return (
 		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">
-			{/* ── source attribution (founder round 1): app name + jump-off ── */}
-			<CanvasSourceHeader
-				tool="quickbooks"
-				app="QuickBooks"
-				record="May 2026 close"
-				href="#"
-				trailing={
-					<span
-						className="rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
-						style={{ background: "var(--status-error-dim)", color: "var(--status-error)" }}
-					>
-						{fixture.exceptions.length} exceptions · {needsYou} need you
-					</span>
-				}
-			/>
-
 			<div className="p-[18px]">
 				{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
 				<p className={`text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
@@ -480,7 +464,7 @@ export function ReviewMetricsMoved({
 					<span className="font-[600]" style={{ color: "var(--status-success)" }}>
 						{signed(headline.current - headline.prior)}
 					</span>{" "}
-					from April. Roll-forward ties to bank; biggest open item is a{" "}
+					from April. The period ties to bank; biggest open item is a{" "}
 					<span className="font-[600]">{usdCents(fixture.exceptions[0]?.amount ?? 0)}</span> wire
 					with no source.
 				</p>
@@ -517,6 +501,51 @@ export function ReviewMetricsMoved({
 					))}
 				</div>
 			</div>
+		</div>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
+	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
+		id: `fig-${i}`,
+		label: h.label,
+		prior: h.prior,
+		current: h.current,
+		headline: true,
+		provenance: { source: payload.period, detail: "", tool: "quickbooks" },
+	}));
+	const exceptions: Exception[] = payload.exceptions.map((ex, i) => ({
+		id: `ex-${i}`,
+		amount: ex.amount,
+		title: ex.title,
+		detail: ex.detail,
+		kind: ex.needsYou ? "anomaly" : "timing",
+		needsYou: ex.needsYou ?? false,
+	}));
+	return {
+		period: payload.period,
+		figures,
+		rows: (payload.rows as RollForwardRow[]) ?? [],
+		trivia: { count: 0, net: 0 },
+		tieOut: payload.tieOut,
+		exceptions,
+	};
+}
+
+export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element {
+	const fixture = artifact.payload
+		? mapMetricsPayload(artifact.payload as MetricsMovedPayload)
+		: FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewMetricsMovedView fixture={fixture} />
 		</div>
 	);
 }

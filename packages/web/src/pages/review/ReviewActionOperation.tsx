@@ -18,6 +18,7 @@
 
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -77,7 +78,7 @@ export interface ReviewActionOperationProps {
 	readonly onReject?: () => void;
 }
 
-export function ReviewActionOperation({
+function ReviewActionOperationView({
 	operation = REFUND,
 	onApprove,
 	onReject,
@@ -95,12 +96,6 @@ export function ReviewActionOperation({
 			}}
 		>
 			{/* ── L1 · one glance: action + amount + tool + irreversible ── */}
-			<CanvasSourceHeader
-				tool="stripe"
-				app="Stripe"
-				record="Payment · ch_3Qspee… · Northwind Logistics"
-				href="#"
-			/>
 			<header className="px-[18px] pt-[18px] pb-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
@@ -305,5 +300,38 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 				strokeLinejoin="round"
 			/>
 		</svg>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
+	return {
+		tool: "stripe",
+		action: payload.verb,
+		amount: payload.amountWire.formatted,
+		currency: payload.amountWire.currency,
+		intent: payload.verb,
+		fields: payload.receiptFields,
+		blastRadius: payload.blastRadius,
+		reversibility: payload.irreversible
+			? "Irreversible once submitted — confirm to proceed."
+			: "Reversible before the operation is executed.",
+	};
+}
+
+export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Element {
+	const operation = artifact.payload
+		? mapActionPayload(artifact.payload as ActionOperationPayload)
+		: REFUND;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewActionOperationView operation={operation} />
+		</div>
 	);
 }

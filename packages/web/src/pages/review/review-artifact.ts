@@ -20,18 +20,6 @@ export type ReviewCanvasKind =
 	| "batch" // batch/per-item container
 	| "browser_preview"; // basic browser view
 
-export const REVIEW_CANVAS_KINDS: readonly ReviewCanvasKind[] = [
-	"outcome_summary",
-	"field_change_set",
-	"action_operation",
-	"rendered_in_context",
-	"metrics_moved",
-	"visual_diff",
-	"code_diff",
-	"batch",
-	"browser_preview",
-] as const;
-
 export interface ReviewArtifact<TPayload = unknown> {
 	readonly id: string;
 	readonly tool: string; // e.g. "stripe", "github", "figma"
@@ -59,14 +47,143 @@ export interface ReviewSubject {
 	readonly artifacts: readonly ReviewArtifact[];
 }
 
-// Per-family payload shapes. Deep fields are intentionally `unknown` in the red
-// phase; each canvas implementation will narrow them as it lands.
-export type OutcomeSummaryPayload = unknown;
-export type FieldChangeSetPayload = unknown;
-export type ActionOperationPayload = unknown;
-export type RenderedInContextPayload = unknown;
-export type MetricsMovedPayload = unknown;
-export type VisualDiffPayload = unknown;
-export type CodeDiffPayload = unknown;
-export type BatchPayload = unknown;
-export type BrowserPreviewPayload = unknown;
+// Per-family payload shapes, aligned with the fixtures in
+// `review-subject.fixture.ts`. Canvases may enrich these locally when building
+// their internal view models; these types are the canonical AL2 shape.
+
+export interface OutcomeSummaryPayload {
+	readonly agentName: string;
+	readonly agentInitials: string;
+	readonly reviewerName: string;
+	readonly achieved: string;
+	readonly tools: readonly string[];
+	readonly costUsd: number;
+	readonly tokens: number;
+	readonly standing: "Awaiting" | "Blocking";
+	readonly doneConditions: readonly {
+		readonly label: string;
+		readonly met: boolean;
+		readonly note?: string;
+		readonly jumpLabel: string;
+	}[];
+	readonly needsYou: readonly {
+		readonly category: string;
+		readonly severity: "error" | "warning";
+		readonly detail: string;
+		readonly jumpLabel: string;
+	}[];
+}
+
+export interface FieldChangeSetPayload {
+	readonly recordLabel: string;
+	readonly fields: readonly {
+		readonly label: string;
+		readonly old: string | null;
+		readonly new: string;
+		readonly provenance?: string;
+		readonly needsYou?: string;
+	}[];
+	readonly unchangedCount: number;
+}
+
+export interface ActionOperationPayload {
+	readonly verb: string;
+	readonly amountWire: {
+		readonly currency: string;
+		readonly units: number;
+		readonly formatted: string;
+	};
+	readonly irreversible: boolean;
+	readonly reversible: boolean;
+	readonly blastRadius: readonly string[];
+	readonly receiptFields: readonly {
+		readonly label: string;
+		readonly value: string;
+	}[];
+}
+
+export interface RenderedInContextPayload {
+	readonly inboxRow: {
+		readonly sender: string;
+		readonly subject: string;
+		readonly preview: string;
+	};
+	readonly body: string;
+	readonly renderMode: string;
+	readonly flags: readonly string[];
+}
+
+export interface MetricsMovedPayload {
+	readonly period: string;
+	readonly headlines: readonly {
+		readonly label: string;
+		readonly prior: number;
+		readonly current: number;
+	}[];
+	readonly rows: readonly unknown[];
+	readonly tieOut: {
+		readonly opening: number;
+		readonly activity: number;
+		readonly closing: number;
+		readonly ties: boolean;
+	};
+	readonly exceptions: readonly {
+		readonly amount: number;
+		readonly title: string;
+		readonly detail: string;
+		readonly needsYou?: boolean;
+	}[];
+}
+
+export interface VisualDiffPayload {
+	readonly before: { readonly label: string };
+	readonly after: { readonly label: string };
+	readonly diffRegions: readonly {
+		readonly id: string;
+		readonly label: string;
+	}[];
+	readonly overlayMode: string;
+}
+
+export interface CodeDiffPayload {
+	readonly prTitle: string;
+	readonly description: string;
+	readonly checks: readonly string[];
+	readonly files: readonly {
+		readonly path: string;
+		readonly band: "logic" | "test" | "trivia";
+		readonly rationale?: string;
+	}[];
+	readonly triviaSummary: string;
+}
+
+export interface BatchPayload {
+	readonly rollup: {
+		readonly total: number;
+		readonly needYou: number;
+		readonly autoResolved: number;
+		readonly drafted: number;
+	};
+	readonly flagged: readonly {
+		readonly id: string;
+		readonly ref: string;
+		readonly reason: string;
+	}[];
+	readonly auto: readonly {
+		readonly id: string;
+		readonly label: string;
+		readonly count: number;
+	}[];
+	readonly drafted: readonly {
+		readonly id: string;
+		readonly label: string;
+		readonly count: number;
+	}[];
+	readonly approveAllExcept: readonly string[];
+}
+
+export interface BrowserPreviewPayload {
+	readonly url: string;
+	readonly title: string;
+	readonly previewBody: string;
+}

@@ -20,6 +20,7 @@
 import type { JSX } from "react";
 import { useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { RenderedInContextPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ──────────────────────────────────────────────────────────────────
@@ -245,7 +246,7 @@ export interface ReviewRenderedInContextProps {
  *  - error:   render failed to assemble → inline error with retry.
  *  - needs-you (shown here): the flag panel is open by default when claims exist.
  */
-export function ReviewRenderedInContext({
+function ReviewRenderedInContextView({
 	data = FIXTURE,
 	onApprove,
 	onRequestChanges,
@@ -276,7 +277,7 @@ export function ReviewRenderedInContext({
 				}}
 			>
 				<div className="flex items-center gap-[9px]">
-					<ToolLogo tool="mailchimp" size="md" withLabel />
+					<ToolLogo tool="mailchimp" size="md" withLabel label="" />
 					<span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
 						·
 					</span>
@@ -473,6 +474,44 @@ export function ReviewRenderedInContext({
 					Request changes
 				</button>
 			</div>
+		</div>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapRenderedPayload(payload: RenderedInContextPayload, title: string): RenderedEmail {
+	return {
+		tool: "mailchimp",
+		campaignName: title,
+		sender: payload.inboxRow.sender,
+		senderEmail: "hello@example.com",
+		subject: payload.inboxRow.subject,
+		preview: payload.inboxRow.preview,
+		receivedAt: "",
+		audienceLabel: "",
+		excludedNote: "",
+		sendPlan: "",
+		heroHeadline: payload.body || title,
+		bodyParas: payload.body ? [payload.body] : [],
+		ctaLabel: "",
+		footer: "",
+		flaggedClaims: payload.flags.map((text) => ({ text, reason: "" })),
+	};
+}
+
+export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.Element {
+	const data = artifact.payload
+		? mapRenderedPayload(artifact.payload as RenderedInContextPayload, artifact.title)
+		: FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewRenderedInContextView data={data} />
 		</div>
 	);
 }

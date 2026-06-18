@@ -24,6 +24,7 @@
 
 import { type CSSProperties, type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { ReviewCanvasProps, VisualDiffPayload } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ────────────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ function RenderPane({
 	return (
 		<div className="flex flex-col gap-[6px]">
 			<div className="flex items-center gap-[6px]">
-				<ToolLogo tool="figma" size="sm" />
+				<ToolLogo tool="figma" size="sm" label="" />
 				<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
 					{isDesign ? "Design" : "Build"}
 				</span>
@@ -219,7 +220,7 @@ export interface ReviewVisualDiffProps {
 	readonly onFlag?: (region: RegionId) => void;
 }
 
-export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps): JSX.Element {
+function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps): JSX.Element {
 	const [mode, setMode] = useState<CompareMode>("side");
 	const [selected, setSelected] = useState<RegionId | null>(null);
 	// overlay opacity (design under, build over); swipe split position.
@@ -241,9 +242,6 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 				maxWidth: 760,
 			}}
 		>
-			{/* ── source attribution (founder round 1): app name + jump-off ── */}
-			<CanvasSourceHeader tool="figma" app="Figma" record="Onboarding · Create account" href="#" />
-
 			<div className="flex flex-col gap-[12px] p-[18px]">
 				{/* ── L1: one-glance summary (tool/title now in source header) ── */}
 				<header className="flex items-start gap-[12px]">
@@ -319,7 +317,7 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 				) : (
 					<div className="flex flex-col gap-[6px]">
 						<div className="flex items-center gap-[6px]">
-							<ToolLogo tool="figma" size="sm" />
+							<ToolLogo tool="figma" size="sm" label="" />
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
 								Design under · Build over
 							</span>
@@ -391,5 +389,39 @@ export function ReviewVisualDiff({ diff = FIXTURE, onFlag }: ReviewVisualDiffPro
 				</div>
 			</div>
 		</section>
+	);
+}
+
+// AL2 — review artifact wrapper.
+function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
+	return {
+		title: "Onboarding · Create account",
+		frame: `${payload.before.label} vs ${payload.after.label}`,
+		tool: "figma",
+		designedBy: payload.before.label,
+		builtIn: payload.after.label,
+		regions: payload.diffRegions.map((r) => ({
+			id: r.id as RegionId,
+			band: "form" as const,
+			severity: "change" as const,
+			label: r.label,
+			design: "",
+			build: "",
+		})),
+	};
+}
+
+export function ReviewVisualDiff({ artifact }: ReviewCanvasProps): JSX.Element {
+	const diff = artifact.payload ? mapVisualPayload(artifact.payload as VisualDiffPayload) : FIXTURE;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewVisualDiffView diff={diff} />
+		</div>
 	);
 }

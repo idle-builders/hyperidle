@@ -4,6 +4,7 @@
 //   L1 header summary · L2 before→after field grid · L3 the expanded source line.
 
 import type { JSX } from "react";
+import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { ReviewFieldChangeSet } from "./ReviewFieldChangeSet";
 
 export default {
@@ -11,10 +12,12 @@ export default {
 	group: "Conversations",
 };
 
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "field_change_set")!;
+
 export function Populated(): JSX.Element {
 	return (
 		<div className="min-h-screen p-[24px]" style={{ background: "var(--surface-page)" }}>
-			<ReviewFieldChangeSet />
+			<ReviewFieldChangeSet artifact={artifact} />
 		</div>
 	);
 }

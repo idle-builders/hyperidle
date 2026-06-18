@@ -16,6 +16,8 @@
 // Left-aligned. Animate transform/opacity only.
 
 import { type JSX, useState } from "react";
+import { CanvasSourceHeader } from "./CanvasSourceHeader";
+import type { OutcomeSummaryPayload, ReviewCanvasProps } from "./review-artifact";
 import { type ToolId, ToolLogo } from "./ToolLogo";
 
 // ── The 6-category risk taxonomy (what makes a result "need you") ──────────────
@@ -198,7 +200,7 @@ function DoneRow({
  * is the point); L3 is the per-row Jump affordance. `expanded` toggles the full
  * done-condition list vs. the met-summary + floated exceptions.
  */
-export function ReviewOutcomeSummary(props: ReviewOutcomeSummaryProps): JSX.Element {
+function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element {
 	const {
 		agentName,
 		agentInitials,
@@ -339,6 +341,33 @@ export function ReviewOutcomeSummary(props: ReviewOutcomeSummaryProps): JSX.Elem
 				) : null}
 			</div>
 		</section>
+	);
+}
+
+/** AL2 wrapper: receives a uniform review artifact and mounts the frame lead. */
+export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
+	const payload = (artifact.payload ?? {}) as Partial<OutcomeSummaryPayload>;
+	return (
+		<div className="flex flex-col gap-[12px]">
+			<CanvasSourceHeader
+				tool={artifact.tool}
+				app={artifact.app}
+				record={artifact.title}
+				href={artifact.sourceHref}
+			/>
+			<ReviewOutcomeSummaryView
+				agentName={payload.agentName ?? ""}
+				agentInitials={payload.agentInitials ?? ""}
+				reviewerName={payload.reviewerName ?? ""}
+				achieved={payload.achieved ?? artifact.title}
+				tools={payload.tools ?? []}
+				costUsd={payload.costUsd ?? 0}
+				tokens={payload.tokens ?? 0}
+				standing={payload.standing ?? "Awaiting"}
+				doneConditions={(payload.doneConditions ?? []) as DoneCondition[]}
+				needsYou={(payload.needsYou ?? []) as NeedsYou[]}
+			/>
+		</div>
 	);
 }
 

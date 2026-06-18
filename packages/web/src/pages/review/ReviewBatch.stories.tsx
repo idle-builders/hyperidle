@@ -4,23 +4,17 @@
 // threat) expanded to its L3 context+reply so the drill-down reads in one frame.
 
 import type { JSX } from "react";
+import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { ReviewBatch } from "./ReviewBatch";
 
 export default { title: "Review/Batch", group: "Conversations" };
 
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "batch")!;
+
 export function Populated(): JSX.Element {
 	return (
 		<div className="p-[24px] bg-[var(--surface-page)] min-h-screen">
-			<ReviewBatch />
-		</div>
-	);
-}
-
-/** All four flagged rows collapsed — the relevance-sorted list at a glance, before any drill-down. */
-export function ListCollapsed(): JSX.Element {
-	return (
-		<div className="p-[24px] bg-[var(--surface-page)] min-h-screen">
-			<ReviewBatch initialExpandedId={undefined} />
+			<ReviewBatch artifact={artifact} />
 		</div>
 	);
 }
