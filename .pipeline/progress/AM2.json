@@ -1,0 +1,9 @@
+{
+  "id": "AM2",
+  "status": "blocked",
+  "currentStep": "concept-gate",
+  "reason": "concept-missing",
+  "detail": "AM2 reshapes the harness noun and requires upstream /concept output at plans/AM2/concept.md before pipeline implementation can begin.",
+  "startedAt": "2026-06-19T10:44:54Z",
+  "blockedAt": "2026-06-19T10:44:54Z"
+}
