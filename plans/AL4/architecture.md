@@ -110,8 +110,10 @@ Rationale: the wire shape stays minimal. `artifactId` is carried by an `InlineRe
 ```ts
 import type { AnchorRef } from "@hyperidle/shared";
 
+export type ReviewAnchorKind = "artifact" | "block";
+
 export interface ReviewCommentRef {
-  readonly kind: "artifact" | "line" | "block";
+  readonly kind: ReviewAnchorKind;
   readonly label: string;
   readonly artifactId?: string;
   readonly blockId?: string;
@@ -138,6 +140,10 @@ export interface ReviewCompositionProps {
   readonly resolved?: boolean;
 }
 ```
+
+Notes:
+- `ReviewCommentRef.kind` deliberately does **not** include `"line"`; diff-line spots are represented either by an `artifact`-scoped reference (with `spotLabel`) or a `block` reference where block identity already encodes the line.
+- `anchor` is the canonical source of truth; `ReviewCommentRef[]` is derived from it for display chips, eliminating dual-source drift.
 
 ### 5.3 Web canvas context — `packages/web/src/pages/review/review-canvas.ts`
 
@@ -217,6 +223,7 @@ Wire it as `POST /api/threads/:id/messages` with `type: "plain"`, payload contai
 
 ### New `packages/web/src/pages/review/review-canvas.ts`
 - `lineBlockId`: build a `BlockPayload` of kind `"code"` (lang from file extension, text = line text) and hash via `blockId({ kind: "code", outlinePath: "${filePath}#hunk${hunkIndex}", normalisedPayload })`.
+  - `@lore`: synthetic diff-line blockIds derive identity from `outlinePath=filePath#hunk${hunkIndex}`. A file rename or hunk renumber will orphan an anchor even when the line text is unchanged. That is acceptable for this iteration but is a known content-identity limitation if code review becomes a long-term canvas.
 - `deriveProseBlocks`: call `deriveBlocks(body, { kind: "artifact", id: artifactId })`.
 - `ReviewCanvasContext`, `ReviewCanvasProvider`, `useReviewAnchors`.
 - `InlineComposer`: small wrapper around design-system `Composer` (pass a static `threadId="inline"`, transform submit to `(text) => onAddAnchor({ ..., text })`); render optional `spotLabel` chip.
@@ -241,12 +248,14 @@ Wire it as `POST /api/threads/:id/messages` with `type: "plain"`, payload contai
 - In `ExaminePane`, wrap `<Canvas />` with `<ReviewCanvasContext.Provider value={{ anchors, readOnly: resolved, onAddAnchor, onJumpToAnchor }}>`.
 - `anchors` = `subject.conversation` filtered to entries whose `anchor?.artifactId === activeArtifact.id`.
 - `onAddAnchor` = if `onPostComment` provided, call it and optimistically rely on parent re-render; otherwise no-op.
+- If `onPostComment` rejects, surface a compact inline error under the composer (the design-system `Composer` already renders an `error` alert), keep the composer open, and allow retry.
 - `onJumpToAnchor` = open the artifact (if not active), then scroll + pulse the target line/block.
 - Update `CommentItem` to render chip from `comment.anchor.spotLabel` or enriched `refs`; on click call `onJumpToAnchor`.
 - Replace the no-op global `<Composer />` with the design-system `Composer` wired to `onPostComment` (no anchor).
 
 ### `packages/web/src/pages/review/ReviewPage.tsx`
 - Load subject via `loader` (unchanged).
+- Note: `HostKind` currently has no `review` value. Attach the review thread to the work item being reviewed (`hostKind: subject.taskId ? "task" : "bet"`, `hostId: subject.taskId ?? subject.betId`). This is a known follow-up if reviews become first-class hosts.
 - `useHostThread(hostKind: subject.taskId ? "task" : "bet", hostId: subject.taskId ?? subject.betId)`.
 - Map `messages` → `ReviewComment`:
   - author / `authorIsAgent` from `identities`.
@@ -277,15 +286,17 @@ Wire it as `POST /api/threads/:id/messages` with `type: "plain"`, payload contai
 
 No new routes. All existing:
 
-| Method / path | Reused for | Files that touch it |
-|---|---|---|
-| `GET /api/reviews/:reviewId` | Load review Subject for `ReviewPage.defaultLoader`. | `packages/server/src/routes/reviews.ts`, `packages/web/src/pages/review/ReviewPage.tsx` |
-| `GET /api/threads?host_kind=...&host_id=...` | Resolve the review thread. | `packages/web/src/hooks/useHostThread.ts` |
-| `GET /api/threads/:id` | Fetch thread + messages. | `packages/web/src/hooks/useHostThread.ts` |
-| `GET /api/threads/:id?block_id=...` | Existing block-filter, not required for AL4 composition but available. | `packages/server/src/routes/threads.ts` |
-| `POST /api/threads/:id/messages` | Post anchored plain messages and unanchored replies. | `packages/server/src/routes/threads.ts`, `packages/web/src/services/host-threads.ts` |
+| Method / path | Reused for | Files that touch it | Request body | Response body |
+|---|---|---|---|---|
+| `GET /api/reviews/:reviewId` | Load review Subject for `ReviewPage.defaultLoader`. | `packages/server/src/routes/reviews.ts`, `packages/web/src/pages/review/ReviewPage.tsx` | — | `ReviewSubject` JSON |
+| `GET /api/threads?host_kind=...&host_id=...` | Resolve the review thread. | `packages/web/src/hooks/useHostThread.ts` | query params | thread id or 404 |
+| `GET /api/threads/:id` | Fetch thread + messages. | `packages/web/src/hooks/useHostThread.ts` | — | thread + messages JSON |
+| `GET /api/threads/:id?block_id=...` | Existing block-filter, not required for AL4 composition but available. | `packages/server/src/routes/threads.ts` | `block_id` query param | filtered messages |
+| `POST /api/threads/:id/messages` | Post anchored plain messages and unanchored replies. | `packages/server/src/routes/threads.ts`, `packages/web/src/services/host-threads.ts` | `{ type: "plain", payload: { text, refs?: [{ kind: "artifact", id }], blockId?, spotLabel? } }` | created `Message` JSON; **200** on success, **400** on schema/length violation, **403** if user lacks write access, **404** if thread not found |
 
----
+Notes:
+- `spotLabel` and the artifact `refs[]` entry are optional; when present, the server stores them opaquely inside the JSON payload.
+- Authorization is unchanged: `authorizeWrite` uses the route participant guard and `c.get("userId")`.
 
 ## 8. Security & abuse cases
 

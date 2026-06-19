@@ -24,7 +24,7 @@ const anchoredMessage: Message = {
 	type: "plain",
 	payload: {
 		text: "Does the 422 copy match our checkout error style — dated string and all?",
-		refs: [{ kind: "artifact", label: LABEL }],
+		refs: [{ kind: "artifact", id: LABEL }],
 	},
 };
 
@@ -64,11 +64,11 @@ function CodeLineWithComposer(): JSX.Element {
 
 	return (
 		<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-page)] overflow-hidden">
-			<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
+			<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] select-none">
 				{"@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {"}
 			</div>
-			<div className="font-mono text-[12px] leading-[1.55]">
-				<div className="group/line relative flex">
+			<div className="font-mono text-[12px] leading-[var(--leading-body)]">
+				<div className="group/line relative flex hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] transition-colors">
 					<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
 						41
 					</span>
@@ -80,26 +80,28 @@ function CodeLineWithComposer(): JSX.Element {
 						aria-label="Add inline comment"
 						title="Add inline comment"
 						onClick={() => setOpen((v) => !v)}
-						className="absolute left-[68px] top-1/2 flex h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[6px] bg-[var(--accent-primary)] text-white text-[12px] leading-none group-hover/line:flex"
+						className="absolute left-[68px] top-1/2 flex h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
 					>
 						+
 					</button>
 					<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
 						{" "}
 					</span>
-					<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">{codeText}</code>
+					<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
+						{codeText}
+					</code>
 				</div>
 				{open ? (
 					<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
 						<div className="flex flex-col items-center gap-0">
-							<div className="w-[2px] h-[18px] bg-[var(--border-strong)]" />
+							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
 							<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
-							<div className="w-[2px] flex-1 bg-[var(--border-strong)]" />
+							<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
 						</div>
 						<div className="min-w-0 flex-1">
 							<div className="mb-[6px] flex items-center gap-[6px]">
 								<span className="font-mono text-[11px] text-[var(--text-tertiary)]">on</span>
-								<span className="font-mono text-[11px] text-[var(--text-secondary)]">{LABEL}</span>
+								<span className="font-mono text-[11px] text-[var(--text-tertiary)]">{LABEL}</span>
 							</div>
 							<Composer
 								threadId="story-inline-comment"
@@ -117,24 +119,31 @@ function CodeLineWithComposer(): JSX.Element {
 
 function ThreadCard(): JSX.Element {
 	return (
-		<div className={cardClass}>
-			<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]" aria-hidden="true" />
-				<span className="font-mono text-[11px] text-[var(--text-secondary)]">{LABEL}</span>
+		<div className={`${cardClass} flex`}>
+			<div className="w-[18px] shrink-0 border-r border-[var(--border-subtle)] flex flex-col items-center pt-[10px]">
+				<span
+					className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]"
+					aria-hidden="true"
+				/>
 			</div>
-			<ul className="list-none m-0 p-0">
-				<CommentRow
-					message={anchoredMessage}
-					sender={{ id: "u1", name: "You", isAgent: false }}
-					showSenderHeader
-					inlineAnchor={LABEL}
-				/>
-				<CommentRow
-					message={replyMessage}
-					sender={{ id: "agent-1", name: "Atlas", isAgent: true }}
-					showSenderHeader={false}
-				/>
-			</ul>
+			<div className="min-w-0 flex-1">
+				<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
+					<span className="font-mono text-[11px] text-[var(--text-secondary)]">{LABEL}</span>
+				</div>
+				<ul className="list-none m-0 p-0">
+					<CommentRow
+						message={anchoredMessage}
+						sender={{ id: "u1", name: "You", isAgent: false }}
+						showSenderHeader
+						inlineAnchor={LABEL}
+					/>
+					<CommentRow
+						message={replyMessage}
+						sender={{ id: "agent-1", name: "Atlas", isAgent: true }}
+						showSenderHeader={false}
+					/>
+				</ul>
+			</div>
 		</div>
 	);
 }
@@ -143,7 +152,7 @@ export function CodeLineHoverComposer(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
-				<span className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-[6px] bg-[var(--accent-primary)] text-white text-[12px] leading-none">
+				<span className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none">
 					+
 				</span>
 				Hover the diff line to reveal the gutter + button; click it to open the inline composer.
@@ -160,11 +169,11 @@ export function AnchoredThread(): JSX.Element {
 				After posting, the thread renders at the anchor with replies stacked inline.
 			</div>
 			<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-page)] overflow-hidden">
-				<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
+				<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] select-none">
 					{"@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {"}
 				</div>
-				<div className="font-mono text-[12px] leading-[1.55]">
-					<div className="flex">
+				<div className="font-mono text-[12px] leading-[var(--leading-body)]">
+					<div className="flex hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] transition-colors">
 						<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
 							41
 						</span>
@@ -174,7 +183,9 @@ export function AnchoredThread(): JSX.Element {
 						<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
 							{" "}
 						</span>
-						<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">{codeText}</code>
+						<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
+							{codeText}
+						</code>
 					</div>
 					<div className="pl-[88px] pr-[12px] py-[9px]">
 						<ThreadCard />
@@ -189,12 +200,18 @@ export function ResolvedOrphanState(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<div className="text-[12px] text-[var(--text-tertiary)]">
-				Orphan state: when the anchored block no longer resolves, the card dims and shows a “source changed” badge.
+				Orphan state: when the anchored block no longer resolves, the card dims and shows a “source
+				changed” badge.
 			</div>
 			<div className={cardClass}>
 				<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px] opacity-60">
-					<span className="h-[6px] w-[6px] rounded-full bg-[var(--text-tertiary)]" aria-hidden="true" />
-					<span className="font-mono text-[11px] text-[var(--text-tertiary)]">PromoField.tsx:118</span>
+					<span
+						className="h-[6px] w-[6px] rounded-full bg-[var(--text-tertiary)]"
+						aria-hidden="true"
+					/>
+					<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
+						PromoField.tsx:118
+					</span>
 					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
 						source changed
 					</span>

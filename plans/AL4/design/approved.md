@@ -34,14 +34,15 @@ Anchored comments in a review are created by hovering the exact spot in an artif
 
 ### Target hover state
 
-- Code line: `bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)]` over `--motion-fast`.
-- Gutter `+` button: 16px × 16px rounded `--r-subtle`, bg `--accent-primary`, white text; appears only on hover.
+- Code line: `hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)]` over `--motion-fast`, applied to the row.
+- Gutter `+` button: 16px × 16px, rounded `--r-subtle`, bg `--accent-primary`, `text-[var(--text-on-accent)]`; appears only on row hover. Focus-visible receives `outline outline-1 outline-[var(--accent-primary)]`.
+- Composer textarea: focus-visible uses existing `outline-[var(--accent-primary)]` + `shadow-[0_0_0_3px_var(--accent-primary-dim)]` treatment.
 - Prose block: reuse the existing block-hover handle; no new chrome.
 
 ### Inline composer
 
 - Container: `--surface-elevated`, `--r-subtle`, 1.5px `--border-subtle`, `--shadow-subtle`.
-- Connected to anchor by a 1.5px vertical `--border-strong` hairline, 18px high, flush with composer left edge.
+- Connected to anchor by a `w-[var(--bw-default)]` vertical `--border-strong` hairline, 18px high, flush with composer left edge.
 - Internal layout: same pill-send pattern as `Composer` but `rows={1}`, no error alert by default, 12px padding.
 - Spot-label chip above composer: 11px mono, `--text-tertiary`, format `on {spotLabel}`.
 
@@ -117,6 +118,8 @@ Anchored comments in a review are created by hovering the exact spot in an artif
 `packages/design-system/src/ReviewAnchoredComment.stories.tsx` renders the two key Variant A states:
 1. Code-line hover with the gutter `+` and an open inline composer.
 2. An anchored thread card below a code line, rendered through `CommentRow`.
+
+A **Sending** state story will be added once the design-system `Composer` exposes a stable disabled/`busy` visual state; until then the existing `Composer` internal `Sending…` state covers the runtime behavior.
 
 ## Screenshot
 
