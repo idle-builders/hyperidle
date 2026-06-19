@@ -138,14 +138,22 @@ export interface HarnessCapabilityDescriptor {
 
 Export from `packages/shared/src/harness/index.ts` and `packages/shared/src/index.ts`.
 
-Extend `HarnessCapabilities` in `harness-adapter.ts` conservatively:
+Extend `HarnessCapabilities` in `harness-adapter.ts` conservatively. Do not make the full
+`HarnessRuntimeCapabilities` shape required on adapters; existing adapters/tests must remain
+structurally valid.
 
 ```ts
-export interface HarnessCapabilities extends HarnessRuntimeCapabilities {
+export interface HarnessCapabilities {
+  readonly preCompactionTrigger: boolean;
+  readonly subAgents: boolean;
+  readonly modelProviders: readonly string[];
+  readonly mcpSupport: boolean;
   readonly descriptorModels?: readonly HarnessModelDescriptor[];
   readonly accessMode?: HarnessAccessMode;
   readonly authAction?: HarnessAuthActionDescriptor;
   readonly discovery?: HarnessDiscoveryStatus;
+  readonly fileEditing?: boolean;
+  readonly toolUse?: boolean;
 }
 ```
 
