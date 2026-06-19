@@ -82,7 +82,7 @@ Non-binding actions: comment, inline comment, reply, snooze, escalate. Inline co
 
 ## Review canvases match what agents produce
 
-Review threads embed artifacts. A review Subject is a set of one or more artifacts, and each artifact renders through a purpose-built review canvas selected by its `kind`. AL2 ships nine proof-family canvases: outcome summary, field change set, action/operation, rendered-in-context, metrics/data-diff, visual diff, code diff, batch, and browser preview. An unknown kind still renders through a safe fallback — never blank, never crashing.
+Review threads embed artifacts. A review Subject is a set of one or more artifacts, and each artifact renders through a purpose-built review canvas selected by its `kind`. AL2 ships nine proof-family canvases: outcome summary, field change set, action/operation, rendered-in-context, metrics/data-diff, visual diff, code diff, batch, and browser preview. An unknown kind still renders through a safe fallback — never blank, never crashing. AL3 composes those canvases into a single review page: frame header, intent, result, risks, artifact opener rows, a global conversation thread, and a right detail pane for the selected artifact.
 
 See [`docs/human-interface-layer/review-primitive.md`](../human-interface-layer/review-primitive.md) for the kind registry and the shared `ToolLogo`/`CanvasSourceHeader` grounding every canvas carries.
 

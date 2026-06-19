@@ -31,6 +31,7 @@ import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
+import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
@@ -402,6 +403,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
+		api.route("/reviews", createReviewRoutes());
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
