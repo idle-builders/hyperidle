@@ -29,11 +29,17 @@ ReviewComposition
 ├─ Result          (outcome, KPIs, visible proof, intent met-line)
 ├─ Needs you       (risks, each jump-linked to its artifact)
 ├─ Artifacts       (thin opener rows; click opens the pane)
-├─ Conversation    (one global thread, reference chips to artifacts/spots)
+├─ Conversation    (one global thread; inline anchored comments bind to artifact blocks/lines)
 └─ Right pane      (selected artifact rendered by its AL2 family canvas)
 ```
 
 Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts.
+
+## Anchored comments (AL4)
+
+Comments in a review are plain messages in the Subject's single global Thread. Each comment can optionally carry an `AnchorRef` (`artifactId` + `blockId` + optional `spotLabel`). When a comment is anchored, it renders directly next to the spot it addresses: a code-diff line, a paragraph inside an email body, etc. The spot label (`src/billing/promo-webhook.ts:118`, `Solo plan launch — $19/mo`) gives readers a readable handle, but the real binding is block identity, not coordinates or line numbers. That means the comment follows the content across edits; if the addressed block disappears, the comment becomes an orphan rather than silently reattaching.
+
+In the global conversation, anchored comments show the spot label as a clickable chip; clicking it opens the owning artifact in the right pane. New anchored comments are created by hovering the relevant line or block and using the inline composer; replies attach to the same anchor and appear both inline and in the global thread.
 
 ## Tool grounding and safety
 
