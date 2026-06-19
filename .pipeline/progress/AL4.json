@@ -1,9 +1,10 @@
 {
 	"id": "AL4",
-	"status": "in-progress",
-	"currentStep": "phase-4-review",
+	"status": "done",
+	"currentStep": "shipped",
 	"track": "AL",
 	"complexity": "M",
 	"startedAt": "2026-06-20T00:25:00Z",
-	"notes": "Phase 1-3 complete: concept/design/architecture committed, builder implemented shared AnchorRef, server payload support, canvas context, ReviewCodeDiff/ReviewRenderedInContext anchoring, ReviewComposition host wiring, ReviewPage thread integration, and component/unit tests. verify:quick passes. Phase 4 review, retro, and ship pending."
+	"completedAt": "2026-06-20T01:26:00Z",
+	"notes": "Design, architecture, implementation, review fixes, and validation complete. Inline anchored comments work for code diff and prose canvases, thread conversation is mapped from host thread in ReviewPage, composer is locked when review is resolved, orphaned anchors show a source-changed badge. npm run verify passes with attestation."
 }
