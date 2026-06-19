@@ -1194,7 +1194,7 @@ stories:
     depends: []
     complexity: L
   - id: AM2
-    title: Harness capability descriptor & normalization
+    title: Real harness research, capability descriptor & proof
     track: AM
     depends: []
     complexity: L

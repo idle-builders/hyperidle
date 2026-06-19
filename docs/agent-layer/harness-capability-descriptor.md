@@ -1,12 +1,28 @@
 # Harness Capability Descriptor
 
-AM2 locks the concept that lets session dial-in, onboarding, and activity views understand harness differences without backend-specific UI branches.
+AM2 is not complete until the descriptor is grounded in real harness behavior and proven against real harnesses. The first AM2 implementation attempt produced a useful draft contract, but human review rejected it because it was not based on deep `t3code` source research, did not verify Codex CLI / Claude Code / OpenCode surfaces, and did not prove existing HyperIdle harness interaction code against real installed harnesses or a real API-gateway path.
+
+This document is therefore a concept target and review contract, not evidence that AM2 is done.
+
+## Failed Attempt Notice
+
+The previous AM2 branch must not be treated as merge-ready. It guessed too much:
+
+- It used `t3code` as product inspiration but did not study the open-source integration code for provider discovery, auth, launch, status/version detection, or event handling.
+- It listed `codex`, `claude-code`, `cursor-agent`, and `opencode` as known families without proving their actual CLI interaction surfaces.
+- It emitted descriptors for missing/known CLIs but did not implement real binary/version/auth/readiness probes.
+- It did not prove HyperIdle's own `builtin` API-gateway harness with a real gateway credential.
+- It relied on stubs and shape tests for core claims that require real harness integration tests.
+
+AM2 review must fail unless the next architecture and implementation include a traceable evidence chain: real research -> architecture decisions -> descriptor fields -> real integration tests.
 
 ## Definition
 
 A **harness capability descriptor** is the Kernel-owned, queryable declaration of what one registered harness backend can run and how downstream consumers may configure and interpret it.
 
 The descriptor extends the existing Harness Adapter contract. It does not replace `HarnessAdapter.startSession`, `SessionConfig`, the Model Gateway, or `HarnessEvent`; it makes the adapter's selectable models, generic options, runtime support, status, and normalization commitments explicit.
+
+A **real harness capability** is a descriptor claim backed by source research, official/local CLI documentation, or a passing real-harness integration test. A desired or guessed capability is not a real capability and must not be reported as ready.
 
 ## Scope Decision
 
@@ -23,6 +39,21 @@ Descriptors do not introduce an arbitrary third-party adapter marketplace. Exter
 
 <!-- @lore AM2: Harness scope is extension-provided harnesses + autodiscovery. Kernel core owns the contract/registry/admission/cost boundary; concrete harnesses, including HyperIdle's builtin runtime, are harness extensions. Strategy can read descriptor facts and express preferences, but never loads or runs harness extensions. -->
 
+## Required Research Before Architecture
+
+The AM2 architect must produce a research dossier before designing types or implementation tasks.
+
+The dossier must cover:
+
+- `t3code` source code, not just its README. It must identify the source files/functions that handle provider/harness discovery, auth/readiness, launch/session invocation, status/version checks, event/output handling, and UI-facing provider metadata for Codex, Claude, Cursor, and OpenCode.
+- Codex CLI documentation and the installed local `codex` binary. It must record binary name, version command, login/readiness behavior, non-interactive launch feasibility, model/option surface, output/event format, and limitations.
+- Claude Code documentation and the installed local `claude`/Claude Code surface. It must record version, login/readiness, SDK-vs-CLI boundaries, session launch, options, output/event format, and limitations.
+- OpenCode documentation and the installed local `opencode` binary. It must record version, auth/readiness, launch, options, output/event format, and limitations.
+- Cursor Agent through `t3code` and available documentation. If no usable local CLI/API surface exists, the dossier must say so explicitly and mark implementation as unavailable rather than guessed.
+- HyperIdle's existing `builtin`, `claude-code`, and CLI harness code. The dossier must identify which paths are proven, which are unproven, and which have never worked against real harnesses.
+
+No architecture is acceptable if it starts from a preferred descriptor shape and backfills facts later.
+
 ## Essential Properties
 
 Every descriptor declares:
@@ -35,10 +66,11 @@ Every descriptor declares:
 - Runtime capabilities relevant to sessions: MCP support, pre-compaction support, subagent support, file editing/tool support, supported providers, and concurrency/status signals.
 - Discovery/readiness state for known local harness families: installed, missing, authenticated, unauthenticated, version when available, and unavailable reason.
 - Event normalization commitments: how backend-native runtime events map to HyperIdle's downstream event model.
+- Evidence status for readiness/capability claims: ready claims require real proof; unproven claims must be omitted or marked unknown/unavailable.
 
-## As-Built Surface
+## Draft Surface From The Failed Attempt
 
-AM2 ships the descriptor as shared TypeScript contracts plus the existing harness registry route:
+The first AM2 attempt added the following draft surface. It is useful as a starting point, but it is not sufficient for completion because the real harness evidence is missing:
 
 | Surface | File | Responsibility |
 |---|---|---|
@@ -48,9 +80,11 @@ AM2 ships the descriptor as shared TypeScript contracts plus the existing harnes
 | Registry query | `AdapterPool.listCapabilityDescriptors()` | Dedupes by harness type and combines registered adapters with known missing harness families. |
 | UI-queryable route | `GET /api/harnesses` | Returns `HarnessCapabilityDescriptor[]` while preserving top-level `type`, `name`, and `modelProviders` for existing selectors. |
 
-The `builtin` descriptor reports `accessMode: "api-gateway"` and an `enter_api_key` auth action for HyperIdle-managed API keys such as OpenRouter or OpenAI-compatible gateways. Known CLI harnesses report `accessMode: "provider-subscription-cli"` and a `native_cli_login` auth action that names the CLI login command without executing it.
+The draft `builtin` descriptor reports `accessMode: "api-gateway"` and an `enter_api_key` auth action for HyperIdle-managed API keys such as OpenRouter or OpenAI-compatible gateways. Known CLI harnesses report `accessMode: "provider-subscription-cli"` and a `native_cli_login` auth action that names the CLI login command without executing it.
 
 The route exposes non-secret capability data only. It must not include API keys, base URLs, provider subscription tokens, or copied CLI credentials.
+
+Before AM2 can merge, this surface must be revised or replaced based on the required research and real integration tests.
 
 ## What It Is Not
 
@@ -147,6 +181,11 @@ This follows the Kernel/Strategy split: Strategy owns what agents know; Kernel o
 - Strategy can consume descriptors as read-only capability facts and express capability preferences, but cannot install harness extensions, own/mutate harness/model/cost fields, or run harnesses directly.
 - Adding a specific new harness is extension work; Kernel-core changes are limited to contract evolution, registry policy, or security/admission rules.
 - Adapters must map backend-native events into normalized events before downstream consumers see them.
+- A descriptor field may only claim `ready` or claim support for a concrete runtime capability when the AM2 evidence chain proves it through research or real integration tests.
+- Stub-only tests cannot prove AM2's core harness claims. Real binary/gateway integration tests are required, with precise skips only when a binary, login, or credential is absent.
+- Captured real output fixtures must back event normalization for each supported real harness family.
+- Existing HyperIdle harness code is presumed unproven until AM2 validates it against real installed harnesses or a real configured gateway.
+- The reviewer must reject AM2 if the research dossier is missing, if descriptor claims cannot be traced to the dossier, or if real integration tests are replaced by stubs.
 
 ## Harness Extensions
 
@@ -184,6 +223,8 @@ For CLI-backed harnesses, the descriptor exposes one standardized login action; 
 
 Autodiscovery is not a package manager and not a credential harvester. It may tell the user what to install or which login command to run, but it must not silently install CLIs or copy provider secrets out of their native config.
 
+Autodiscovery is also not a guess. Each probe must be designed from real CLI behavior observed in the research dossier. A generic `which`/PATH check is only binary presence; it does not prove auth, readiness, supported options, launchability, or event shape.
+
 ## Normalized Harness Events
 
 A **normalized harness event** is a backend runtime event expressed in HyperIdle's downstream event vocabulary before it reaches session activity, cost, or observability consumers.
@@ -203,4 +244,4 @@ AM2 adds `normalizeHarnessEvent(input)` in `packages/shared/src/harness/harness-
 
 ## Rationale
 
-The t3code reference exposes the decision pressure: users need a polished provider/settings surface and lower-level session controls, but HyperIdle cannot let backend differences leak into every UI branch. t3code's README frames the product around Codex, Claude, Cursor, and OpenCode and asks users to install/auth at least one provider; the product expectation is that common harnesses appear once the user has done that. HyperIdle's own first-party harness remains equally visible because it opens a different access path: OpenRouter and similar API gateways through HyperIdle-managed credentials/model routing, instead of a provider subscription exposed through a native CLI. The onboarding shape follows from that split: for `builtin`, paste a gateway key into HyperIdle; for CLI harnesses, click one consistent login action and let the adapter invoke the CLI's own login method. It is still an extension rather than Kernel-core provider logic. A declarative descriptor plus autodiscovery lets AM3 render dial-in controls generically and lets AM4 show detection/onboarding status while preserving Kernel responsibility for admission, safety, cost, and session lifecycle.
+The t3code reference exposes the decision pressure: users need a polished provider/settings surface and lower-level session controls, but HyperIdle cannot let backend differences leak into every UI branch. The initial AM2 mistake was treating that product-level insight as enough. It is not enough. HyperIdle must study how t3code actually integrates harnesses and must study/prove the real CLIs before claiming support. HyperIdle's own first-party harness remains equally visible because it opens a different access path: OpenRouter and similar API gateways through HyperIdle-managed credentials/model routing, instead of a provider subscription exposed through a native CLI. The onboarding shape follows from that split only after proof: for `builtin`, paste a gateway key into HyperIdle and prove a real gateway call; for CLI harnesses, expose one consistent login/readiness action only after verifying the CLI's native method. A declarative descriptor plus autodiscovery lets AM3 render dial-in controls generically and lets AM4 show detection/onboarding status, but only if descriptor facts are real.
