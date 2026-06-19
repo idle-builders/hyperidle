@@ -24,7 +24,7 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 - [Lifecycle Scaling](./lifecycle-scaling.md)
 - [One Agent, One Team — Sub-Agents Are Internal](./one-agent-one-team-sub-agents-are-internal.md)
 - [Model Routing and Cost](./model-routing-and-cost.md)
+- [Harness Capability Descriptor](./harness-capability-descriptor.md)
 - [Founder Responsibility Routing](./founder-responsibility-routing.md)
 - [What This Document Does Not Cover](./what-this-document-does-not-cover.md)
 - [Harness error taxonomy](./harness-error-taxonomy.md)
-
