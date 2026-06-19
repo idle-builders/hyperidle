@@ -1,7 +1,7 @@
 {
   "id": "AM2",
-  "status": "in_progress",
-  "currentStep": "retro",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-19T10:44:54Z",
   "resumedAt": "2026-06-19T12:39:44Z",
   "conceptCommit": "bb7d7918",
@@ -10,5 +10,6 @@
   "redTestsCommittedAt": "2026-06-19T12:45:11Z",
   "greenCodeCompletedAt": "2026-06-19T16:15:17Z",
   "docsCompletedAt": "2026-06-19T16:19:24Z",
-  "retroStartedAt": "2026-06-19T16:21:43Z"
+  "retroStartedAt": "2026-06-19T16:21:43Z",
+  "completedAt": "2026-06-19T16:22:25Z"
 }
