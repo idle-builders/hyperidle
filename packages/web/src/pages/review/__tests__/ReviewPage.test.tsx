@@ -4,6 +4,18 @@ import { describe, expect, it, vi } from "vitest";
 import { ReviewPage } from "../ReviewPage.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
+vi.mock("../../../hooks/useHostThread.js", () => ({
+	useHostThread: () => ({
+		data: { thread: { id: "thread-review-1" }, messages: [], identities: {} },
+		error: null,
+		isLoading: false,
+		refresh: vi.fn(),
+	}),
+}));
+
+vi.mock("../../../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({ user: { id: "u-founder" }, isLoading: false, error: null }),
+}));
 describe("ReviewPage route", () => {
 	function renderRoute(loader?: () => Promise<typeof REVIEW_COMPOSITION_SUBJECT>) {
 		const router = createMemoryRouter(

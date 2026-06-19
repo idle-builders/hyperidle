@@ -1,8 +1,8 @@
+import { CommentRow, Composer } from "@hyperidle/design-system";
 import type { AnchorRef, Block, BlockId, Message } from "@hyperidle/shared";
 import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/shared";
 import type { ComponentType, JSX, ReactNode } from "react";
 import { createContext, useCallback, useContext, useState } from "react";
-import { CommentRow, Composer } from "@hyperidle/design-system";
 import type { ReviewComment } from "./review-composition.js";
 
 export interface ReviewCanvasContextValue {
@@ -31,7 +31,12 @@ export function useReviewAnchors(): ReviewCanvasContextValue {
 	const ctx = useContext(ReviewCanvasContext);
 	if (!ctx) {
 		// Default context so canvases can render outside a provider in tests/stories.
-		return { anchors: [], readOnly: true, onAddAnchor: async () => {}, onJumpToAnchor: () => {} };
+		return {
+			anchors: [],
+			readOnly: true,
+			onAddAnchor: async () => undefined,
+			onJumpToAnchor: () => undefined,
+		};
 	}
 	return ctx;
 }
@@ -146,17 +151,20 @@ export function AnchoredThreadCard({
 	comments,
 	readOnly,
 	onReply,
-}: AnchoredThreadCardProps): JSX.Element {
+}: AnchoredThreadCardProps): JSX.Element | null {
 	const [replyOpen, setReplyOpen] = useState(false);
 	const first = comments[0];
-	if (!first) return <></>;
+	if (!first) return null;
 
 	const showReplyComposer = !readOnly && replyOpen;
 
 	return (
 		<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
 			<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]" aria-hidden="true" />
+				<span
+					className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]"
+					aria-hidden="true"
+				/>
 				<span className="font-mono text-[11px] text-[var(--text-secondary)]">
 					{anchor.spotLabel ?? "anchor"}
 				</span>

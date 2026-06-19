@@ -1,6 +1,8 @@
-import { type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
-import { type JSX, useEffect, useState } from "react";
+import { Composer } from "@hyperidle/design-system";
+import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { getReviewCanvas } from "./canvas-registry.js";
+import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,
 	ReviewComment,
@@ -543,6 +545,9 @@ function ArtifactsSection({
 // ── § CONVERSATION ───────────────────────────────────────────────────────────────
 
 function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
+	const { onJumpToAnchor } = useReviewAnchors();
+	const ref = comment.anchor ?? comment.refs?.[0];
+	const label = comment.anchor?.spotLabel ?? comment.refs?.[0]?.label;
 	return (
 		<div className="flex items-start gap-[9px]">
 			{comment.authorIsAgent ? (
@@ -562,19 +567,19 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 					) : null}
 					<span className="text-[11px] text-[var(--text-tertiary)]">{comment.ago}</span>
 				</div>
-				{comment.refs?.map((ref) => (
+				{ref ? (
 					<button
-						key={ref.label}
 						type="button"
 						onClick={() => {
-							/* no-op */
+							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
 						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>
-						<span className="font-mono text-[var(--text-secondary)]">{ref.label}</span>
+						<span className="font-mono text-[var(--text-secondary)]">{label}</span>
 					</button>
-				))}
+				) : null}
 				<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
 					{comment.body}
 				</p>
@@ -583,33 +588,17 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 	);
 }
 
-function Composer({ placeholder }: { placeholder: string }): JSX.Element {
-	return (
-		<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px]">
-			<input
-				type="text"
-				readOnly
-				placeholder={placeholder}
-				className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none"
-			/>
-			<button
-				type="button"
-				onClick={() => {
-					/* no-op */
-				}}
-				className="rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[12px] py-[6px] text-[12px] font-[600] text-white"
-			>
-				Comment
-			</button>
-		</div>
-	);
+interface ConversationSectionProps {
+	readonly comments: readonly ReviewComment[];
+	readonly threadId?: string;
+	readonly onPostComment?: (input: { text: string; anchor?: AnchorRef }) => Promise<void>;
 }
 
 function ConversationSection({
 	comments,
-}: {
-	readonly comments: readonly ReviewComment[];
-}): JSX.Element {
+	threadId,
+	onPostComment,
+}: ConversationSectionProps): JSX.Element {
 	return (
 		<section>
 			<SectionHead label="Conversation" count={String(comments.length)} />
@@ -617,7 +606,18 @@ function ConversationSection({
 				{comments.map((c) => (
 					<CommentItem key={c.id} comment={c} />
 				))}
-				<Composer placeholder="Reply, or ask Atlas a question about this review…" />
+				{onPostComment ? (
+					<Composer
+						threadId={threadId ?? "review"}
+						onSubmit={async ({ text }) => {
+							await onPostComment({ text });
+						}}
+					/>
+				) : (
+					<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)]">
+						Reply (composer not connected)
+					</div>
+				)}
 			</div>
 		</section>
 	);
@@ -674,6 +674,8 @@ function ExaminePane({
 export function ReviewComposition({
 	subject,
 	onSubmitVerdict,
+	onPostComment,
+	threadId,
 	initialOpenArtifactId = null,
 	resolved: resolvedProp,
 }: ReviewCompositionProps): JSX.Element {
@@ -683,9 +685,9 @@ export function ReviewComposition({
 	const activeArtifact = subject.artifacts.find((a) => a.id === activeId) ?? null;
 	const resolved = resolvedProp ?? subject.verdict?.decision !== undefined;
 
-	function openArtifact(id: string): void {
+	const openArtifact = useCallback((id: string) => {
 		setActiveId((cur) => (cur === id ? null : id));
-	}
+	}, []);
 
 	useEffect(() => {
 		if (!activeArtifact) return undefined;
@@ -698,31 +700,56 @@ export function ReviewComposition({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [activeArtifact]);
 
-	return (
-		<div className="flex h-full w-full bg-[var(--surface-page)] text-[var(--text-primary)]">
-			<div className="flex h-full min-w-0 flex-1 flex-col">
-				<FrameHeader
-					subject={subject}
-					menuOpen={menuOpen}
-					onToggleMenu={() => setMenuOpen((v) => !v)}
-					onSubmitVerdict={onSubmitVerdict}
-					resolved={resolved}
-				/>
+	const activeArtifactId = activeArtifact?.id ?? "";
+	const canvasContext = useMemo(
+		() => ({
+			anchors: subject.conversation.filter((c) => c.anchor?.artifactId === activeArtifactId),
+			readOnly: resolved,
+			onAddAnchor: async ({ anchor, text }: { anchor: AnchorRef; text: string }) => {
+				if (onPostComment) {
+					await onPostComment({ text, anchor });
+				}
+			},
+			onJumpToAnchor: (anchor: AnchorRef) => {
+				if (anchor.artifactId) {
+					openArtifact(anchor.artifactId);
+				}
+			},
+		}),
+		[subject.conversation, activeArtifactId, resolved, onPostComment, openArtifact],
+	);
 
-				<div className="min-h-0 flex-1 overflow-auto">
-					<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
-						<TaskSection subject={subject} />
-						<ResultSection subject={subject} />
-						<NeedsSection subject={subject} onJump={openArtifact} />
-						<ArtifactsSection subject={subject} activeId={activeId} onOpen={openArtifact} />
-						<ConversationSection comments={subject.conversation} />
+	return (
+		<ReviewCanvasProvider value={canvasContext}>
+			<div className="flex h-full w-full bg-[var(--surface-page)] text-[var(--text-primary)]">
+				<div className="flex h-full min-w-0 flex-1 flex-col">
+					<FrameHeader
+						subject={subject}
+						menuOpen={menuOpen}
+						onToggleMenu={() => setMenuOpen((v) => !v)}
+						onSubmitVerdict={onSubmitVerdict}
+						resolved={resolved}
+					/>
+
+					<div className="min-h-0 flex-1 overflow-auto">
+						<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
+							<TaskSection subject={subject} />
+							<ResultSection subject={subject} />
+							<NeedsSection subject={subject} onJump={openArtifact} />
+							<ArtifactsSection subject={subject} activeId={activeId} onOpen={openArtifact} />
+							<ConversationSection
+								comments={subject.conversation}
+								threadId={threadId}
+								onPostComment={onPostComment}
+							/>
+						</div>
 					</div>
 				</div>
-			</div>
 
-			{activeArtifact ? (
-				<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />
-			) : null}
-		</div>
+				{activeArtifact ? (
+					<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />
+				) : null}
+			</div>
+		</ReviewCanvasProvider>
 	);
 }

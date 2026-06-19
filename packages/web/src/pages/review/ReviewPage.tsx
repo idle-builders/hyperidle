@@ -1,7 +1,11 @@
+import type { AnchorRef, HostKind } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useCurrentUser } from "../../hooks/useCurrentUser.js";
+import { useHostThread } from "../../hooks/useHostThread.js";
 import { apiFetch } from "../../services/api-fetch.js";
+import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject } from "./review-composition.js";
@@ -38,6 +42,11 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	const { betId = "", reviewId = "" } = useParams<{ betId: string; reviewId: string }>();
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
 	const [error, setError] = useState<Error | null>(null);
+	const { user } = useCurrentUser();
+
+	const hostId = subject?.taskId ?? subject?.betId ?? "";
+	const hostKind: HostKind = subject?.taskId ? "task" : "bet";
+	const hostThread = useHostThread(hostKind, hostId);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -52,6 +61,24 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 			cancelled = true;
 		};
 	}, [betId, reviewId, loader]);
+
+	const handlePostComment = useCallback(
+		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
+			if (!(user && reviewId && subject)) return;
+			const threadId = hostThread.data?.thread.id;
+			const activeThreadId =
+				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
+			await postPlainHostMessage(activeThreadId, text, crypto.randomUUID(), undefined, anchor);
+			hostThread.refresh();
+			const refreshed = await loader({ betId, reviewId });
+			setSubject(refreshed);
+		},
+		[betId, hostId, hostKind, hostThread, loader, reviewId, subject, user],
+	);
+
+	const handleSubmitVerdict = useCallback(async () => {
+		// AL3: the surface captures the decision; wiring to the thread API is out of scope.
+	}, []);
 
 	if (error) {
 		return (
@@ -74,9 +101,9 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		<div className="h-full">
 			<ReviewComposition
 				subject={subject}
-				onSubmitVerdict={() => {
-					// AL3: the surface captures the decision; wiring to the thread API is out of scope.
-				}}
+				onSubmitVerdict={handleSubmitVerdict}
+				onPostComment={user ? handlePostComment : undefined}
+				threadId={hostThread.data?.thread.id ?? ""}
 			/>
 		</div>
 	);

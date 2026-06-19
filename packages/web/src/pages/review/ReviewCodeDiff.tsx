@@ -18,7 +18,12 @@ import { Fragment, useMemo, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";
-import { AnchoredThreadCard, InlineComposer, lineBlockId, useReviewAnchors } from "./review-canvas.js";
+import {
+	AnchoredThreadCard,
+	InlineComposer,
+	lineBlockId,
+	useReviewAnchors,
+} from "./review-canvas.js";
 
 // ── diff line model (mirrors CodeRenderer's kind vocabulary: add/del/ctx) ─────────
 type LineKind = "add" | "del" | "ctx";
@@ -353,7 +358,9 @@ function FileDiff({
 	readonly readOnly: boolean;
 	readonly onAddAnchor: (input: { anchor: AnchorRef; text: string }) => Promise<void>;
 }): JSX.Element {
-	const [composerBlockId, setComposerBlockId] = useState<import("@hyperidle/shared").BlockId | null>(null);
+	const [composerBlockId, setComposerBlockId] = useState<
+		import("@hyperidle/shared").BlockId | null
+	>(null);
 
 	const threadMap = useMemo(() => {
 		const map = new Map<string, import("./review-composition.js").ReviewComment[]>();
@@ -386,7 +393,9 @@ function FileDiff({
 							const threadComments = threadMap.get(blockId) ?? [];
 							const composerOpen = composerBlockId === blockId;
 							return (
-								<Fragment key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}>
+								<Fragment
+									key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}
+								>
 									<div
 										data-diff-type={line.kind}
 										className={`group/line relative flex ${LINE_TINT[line.kind]}`}
@@ -424,13 +433,13 @@ function FileDiff({
 												<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
 												<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
 											</div>
-												<InlineComposer
-													anchor={anchor}
-													onSubmit={async (text: string) => {
-														await onAddAnchor({ anchor, text });
-														setComposerBlockId(null);
-													}}
-												/>
+											<InlineComposer
+												anchor={anchor}
+												onSubmit={async (text: string) => {
+													await onAddAnchor({ anchor, text });
+													setComposerBlockId(null);
+												}}
+											/>
 										</div>
 									) : null}
 									{threadComments.length > 0 ? (
@@ -459,14 +468,10 @@ function FileDiff({
 					if (!first?.anchor) return null;
 					return (
 						<div key={blockId} className="px-[12px] py-[9px] opacity-60">
-							<AnchoredThreadCard
-								anchor={first.anchor}
-								comments={comments}
-								readOnly={readOnly}
-							/>
+							<AnchoredThreadCard anchor={first.anchor} comments={comments} readOnly={readOnly} />
 						</div>
-						);
-					})}
+					);
+				})}
 		</div>
 	);
 }
