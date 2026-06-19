@@ -1,20 +1,46 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
-import { ReviewPage } from "../ReviewPage";
+import { render, screen, waitFor } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+import { ReviewPage } from "../ReviewPage.js";
+import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
-describe("ReviewPage", () => {
-	it("renders the review subject title", () => {
-		render(<ReviewPage subject={MOCK_REVIEW_SUBJECT} />);
+describe("ReviewPage route", () => {
+	function renderRoute(loader?: () => Promise<typeof REVIEW_COMPOSITION_SUBJECT>) {
+		const router = createMemoryRouter(
+			[
+				{
+					path: "/work/bet/:betId/review/:reviewId",
+					element: <ReviewPage loader={loader} />,
+				},
+			],
+			{ initialEntries: ["/work/bet/bet-123/review/rev-1"] },
+		);
+		return render(<RouterProvider router={router} />);
+	}
 
-		expect(screen.getByText(MOCK_REVIEW_SUBJECT.title)).toBeInTheDocument();
+	it("loads the review subject and renders the composition", async () => {
+		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		renderRoute(loader);
+
+		await waitFor(() => {
+			expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
+		});
+		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123" });
 	});
 
-	it("renders all artifacts from the fixture subject", () => {
-		render(<ReviewPage subject={MOCK_REVIEW_SUBJECT} />);
+	it("shows a loading state while the subject is being fetched", () => {
+		const loader = vi.fn().mockImplementation(() => new Promise(() => {}));
+		renderRoute(loader);
 
-		for (const artifact of MOCK_REVIEW_SUBJECT.artifacts) {
-			expect(screen.getByText(artifact.title)).toBeInTheDocument();
-		}
+		expect(screen.getByText(/loading review/i)).toBeInTheDocument();
+	});
+
+	it("shows an error state when the fetch fails", async () => {
+		const loader = vi.fn().mockRejectedValue(new Error("boom"));
+		renderRoute(loader);
+
+		await waitFor(() => {
+			expect(screen.getByText(/could not load review/i)).toBeInTheDocument();
+		});
 	});
 });
