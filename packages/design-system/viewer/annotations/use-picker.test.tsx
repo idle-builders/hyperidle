@@ -87,7 +87,7 @@ describe("AC1/AC8 — arm + one-shot select", () => {
 		const p = mountPicker();
 		const span = storyRoot.querySelector<HTMLElement>(".title");
 		const head = storyRoot.querySelector<HTMLElement>(".head");
-		if (!span || !head) throw new Error("fixture");
+		if (!(span && head)) throw new Error("fixture");
 		act(() => p.current.arm());
 		act(() => span.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
 		const first = p.current.selected?.el;
@@ -138,7 +138,7 @@ describe("AC8 — breadcrumb dedupe", () => {
 		const p = mountPicker();
 		const span = storyRoot.querySelector<HTMLElement>(".title");
 		const card = storyRoot.querySelector<HTMLElement>(".card");
-		if (!span || !card) throw new Error("fixture");
+		if (!(span && card)) throw new Error("fixture");
 		act(() => p.current.arm());
 		act(() => span.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
 		act(() => p.current.selectCrumb(card));

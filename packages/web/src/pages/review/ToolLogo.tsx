@@ -68,17 +68,25 @@ export interface ToolLogoProps {
 	readonly size?: "sm" | "md";
 	/** show the tool name next to the mark. */
 	readonly withLabel?: boolean;
+	/** Optional explicit label/title. Falls back to the known brand name or the tool id. */
+	readonly label?: string;
 }
 
 /** A mini provider logo. Falls back to a neutral monogram for unknown tools. */
-export function ToolLogo({ tool, size = "sm", withLabel = false }: ToolLogoProps): JSX.Element {
+export function ToolLogo({
+	tool,
+	size = "sm",
+	withLabel = false,
+	label: labelProp,
+}: ToolLogoProps): JSX.Element {
 	const brand: Brand =
 		(BRANDS as Record<string, Brand>)[tool] ??
 		({ label: tool, bg: "#675f56", fg: "#ffffff", mark: tool.slice(0, 1).toUpperCase() } as Brand);
+	const label = labelProp ?? brand.label;
 	const s = SIZE[size];
 	const isWide = brand.mark.length > 1;
 	return (
-		<span className="inline-flex items-center gap-[6px] align-middle" title={brand.label}>
+		<span className="inline-flex items-center gap-[6px] align-middle" title={label}>
 			<span
 				aria-hidden="true"
 				className="inline-flex items-center justify-center shrink-0 font-semibold leading-none border border-[var(--border-subtle)]"
@@ -95,7 +103,7 @@ export function ToolLogo({ tool, size = "sm", withLabel = false }: ToolLogoProps
 				{brand.mark}
 			</span>
 			{withLabel ? (
-				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">{brand.label}</span>
+				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">{label}</span>
 			) : null}
 		</span>
 	);

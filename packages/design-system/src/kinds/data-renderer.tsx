@@ -1,8 +1,24 @@
 // AE6 — DataRenderer: renders structured metrics/tables artifact previews.
 // Maps from old kinds: verification (test-results label), data_analysis
 
-import type { DataPreview } from "@hyperidle/shared";
 import type { JSX } from "react";
+
+type DataHeadline = {
+	label: string;
+	value: string;
+};
+
+type DataChart = {
+	label: string;
+	values: number[];
+};
+
+type DataPreview = {
+	kind: "data";
+	headlines: DataHeadline[];
+	rows?: Record<string, string>[];
+	charts?: DataChart[];
+};
 
 export interface DataRendererProps {
 	preview: DataPreview | null;
