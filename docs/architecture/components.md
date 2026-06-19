@@ -267,6 +267,8 @@ bet_revised              → Audit log, UI push
 
 ```typescript
 interface HarnessAdapter {
+  getCapabilities(): HarnessCapabilityDescriptor;
+
   startSession(params: {
     agent: AgentConfig;       // system prompt, skills, identity
     context: TOONPack;        // L0 session context
@@ -282,12 +284,12 @@ interface HarnessAdapter {
 ```
 
 **Supported harnesses:**
-- **Claude Agent SDK** (launch adapter) — uses the Anthropic Claude Agent SDK for subagent spawning, bash + file tools, skill loading.
-- **Letta** (planned) — uses Letta's agent server with tiered memory.
-- **Goose** (planned) — uses Goose's local-first CLI.
-- **OpenHands** (planned) — uses OpenHands' SDK.
+- **Built-in harness** — direct model-provider API calls through HyperIdle's own tool loop.
+- **Claude Code** — local Claude Code harness.
+- **External BYO backends** — local CLI tools or remote workers registered through the adapter pool when available, such as `aider`, `goose`, and `opencode`.
 
 The adapter also handles:
+- Returning a **Harness Capability Descriptor**: a queryable declaration of the harness's available models, generic per-model options, status/auth signals, runtime support, and event-normalization commitments. See `docs/agent-layer/harness-capability-descriptor.md`.
 - Injecting credentials into the workspace environment.
 - Logging every tool invocation into the Observability Adapter.
 - Catching session crashes and writing recovery state (session notes) to the task.
