@@ -36,6 +36,22 @@ Every descriptor declares:
 - Discovery/readiness state for known local harness families: installed, missing, authenticated, unauthenticated, version when available, and unavailable reason.
 - Event normalization commitments: how backend-native runtime events map to HyperIdle's downstream event model.
 
+## As-Built Surface
+
+AM2 ships the descriptor as shared TypeScript contracts plus the existing harness registry route:
+
+| Surface | File | Responsibility |
+|---|---|---|
+| Shared descriptor types | `packages/shared/src/harness/harness-capability-descriptor.ts` | Closed control kinds, access modes, auth actions, discovery states, model descriptors, runtime flags. |
+| Adapter capability extension | `packages/shared/src/harness/harness-adapter.ts` | Keeps existing required runtime flags and adds optional descriptor fields for richer harness extensions. |
+| Descriptor builders | `packages/server/src/harness/harness-capability-descriptors.ts` | Maps registered adapters into descriptors and emits missing descriptors for `codex`, `claude-code`, `cursor-agent`, and `opencode`. |
+| Registry query | `AdapterPool.listCapabilityDescriptors()` | Dedupes by harness type and combines registered adapters with known missing harness families. |
+| UI-queryable route | `GET /api/harnesses` | Returns `HarnessCapabilityDescriptor[]` while preserving top-level `type`, `name`, and `modelProviders` for existing selectors. |
+
+The `builtin` descriptor reports `accessMode: "api-gateway"` and an `enter_api_key` auth action for HyperIdle-managed API keys such as OpenRouter or OpenAI-compatible gateways. Known CLI harnesses report `accessMode: "provider-subscription-cli"` and a `native_cli_login` auth action that names the CLI login command without executing it.
+
+The route exposes non-secret capability data only. It must not include API keys, base URLs, provider subscription tokens, or copied CLI credentials.
+
 ## What It Is Not
 
 - Not a Model Gateway replacement. The gateway still owns model credential resolution and tier fallback.
@@ -182,6 +198,8 @@ The downstream event model is the `HarnessEvent` union:
 - `pre_compaction`
 
 Two backends performing the same logical action must produce indistinguishable normalized event shapes for downstream consumers. Raw provider logs may exist for diagnostics, but UI/session activity code must consume normalized events.
+
+AM2 adds `normalizeHarnessEvent(input)` in `packages/shared/src/harness/harness-event-normalization.ts`. The CLI harness adapter uses it when parsing NDJSON event lines, so backend-specific payloads are reduced to the existing event union before downstream consumers see them. Unknown event types become a normalized `error` event with code `UnknownHarnessEvent`; completion events preserve captured `toolCalls` when present.
 
 ## Rationale
 

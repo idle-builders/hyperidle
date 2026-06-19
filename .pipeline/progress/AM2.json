@@ -1,12 +1,13 @@
 {
   "id": "AM2",
   "status": "in_progress",
-  "currentStep": "review",
+  "currentStep": "write-docs",
   "startedAt": "2026-06-19T10:44:54Z",
   "resumedAt": "2026-06-19T12:39:44Z",
   "conceptCommit": "bb7d7918",
   "architectureCommittedAt": "2026-06-19T12:42:50Z",
   "architectureCritiqueCommittedAt": "2026-06-19T12:43:38Z",
   "redTestsCommittedAt": "2026-06-19T12:45:11Z",
-  "greenCodeCompletedAt": "2026-06-19T16:15:17Z"
+  "greenCodeCompletedAt": "2026-06-19T16:15:17Z",
+  "docsCompletedAt": "2026-06-19T16:19:24Z"
 }
