@@ -16,6 +16,8 @@ import {
 	describeRegisteredHarness,
 	missingKnownHarnessDescriptors,
 } from "./harness-capability-descriptors.js";
+import type { HarnessDiscoveryInput } from "./harness-discovery.js";
+import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
 
 /** Descriptor for a registered adapter. */
 export interface AdapterMeta {
@@ -69,6 +71,19 @@ export interface SelectedEntry {
 
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
+	private readonly discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
+
+	constructor(
+		discoveries?: HarnessDiscoveryResult | Readonly<Record<string, HarnessDiscoveryInput>>,
+	) {
+		if (discoveries) {
+			this.discoveries = Object.freeze(
+				Object.fromEntries(
+					Object.entries(discoveries).map(([k, v]) => [k, v as HarnessDiscoveryInput]),
+				) as Readonly<Record<string, HarnessDiscoveryInput>>,
+			);
+		}
+	}
 
 	/** Number of registered adapters. */
 	get size(): number {
@@ -212,11 +227,13 @@ export class AdapterPool {
 			if (!entry.meta.type) continue;
 			if (seen.has(entry.meta.type)) continue;
 			seen.add(entry.meta.type);
-			descriptors.push(describeRegisteredHarness(entry.meta, entry.adapter.getCapabilities()));
+			descriptors.push(
+				describeRegisteredHarness(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
+			);
 		}
 
 		if (includeKnownMissing) {
-			descriptors.push(...missingKnownHarnessDescriptors(seen));
+			descriptors.push(...missingKnownHarnessDescriptors(seen, this.discoveries));
 		}
 
 		return descriptors;
@@ -330,7 +347,8 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * pool.list() — not hardcoded elsewhere.
  */
 export async function createLocalAdapterPool(): Promise<AdapterPool> {
-	const pool = new AdapterPool();
+	const discoveries = await discoverLocalHarnesses();
+	const pool = new AdapterPool(discoveries);
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
 
 	// 1. Claude Code adapter (existing)

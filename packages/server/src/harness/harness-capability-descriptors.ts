@@ -6,6 +6,7 @@ import {
 	MODEL_CATALOG,
 } from "@hyperidle/shared";
 import type { AdapterMeta } from "./adapter-pool.js";
+import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 
 export const KNOWN_HARNESS_FAMILIES = ["codex", "claude-code", "cursor-agent", "opencode"] as const;
 
@@ -20,9 +21,9 @@ const KNOWN_HARNESS_NAMES: Record<KnownHarnessFamily, string> = {
 
 const KNOWN_HARNESS_LOGIN_COMMANDS: Record<KnownHarnessFamily, readonly string[]> = {
 	codex: ["codex", "login"],
-	"claude-code": ["claude", "login"],
+	"claude-code": ["claude", "auth", "login"],
 	"cursor-agent": ["cursor-agent", "login"],
-	opencode: ["opencode", "auth", "login"],
+	opencode: ["opencode", "providers", "login"],
 };
 
 function isKnownHarnessFamily(type: string): type is KnownHarnessFamily {
@@ -37,6 +38,29 @@ function runtimeFromCapabilities(caps: HarnessCapabilities): HarnessRuntimeCapab
 		modelProviders: caps.modelProviders,
 		fileEditing: caps.fileEditing ?? true,
 		toolUse: caps.toolUse ?? true,
+	};
+}
+
+function runtimeFromDiscovery(input?: HarnessDiscoveryInput): HarnessRuntimeCapabilities {
+	// Missing/unavailable families start with zero proven capability. Only the real probe
+	// can switch flags on.
+	if (!input?.runtime) {
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			mcpSupport: false,
+			modelProviders: [],
+			fileEditing: false,
+			toolUse: false,
+		};
+	}
+	return {
+		preCompactionTrigger: input.runtime.preCompactionTrigger ?? false,
+		subAgents: input.runtime.subAgents ?? false,
+		mcpSupport: input.runtime.mcpSupport ?? false,
+		modelProviders: input.runtime.modelProviders ?? [],
+		fileEditing: input.runtime.fileEditing ?? false,
+		toolUse: input.runtime.toolUse ?? false,
 	};
 }
 
@@ -57,9 +81,40 @@ function cliModels(caps: HarnessCapabilities): readonly HarnessModelDescriptor[]
 	return caps.descriptorModels ?? [];
 }
 
+function cliModelsFromInput(
+	models?: readonly HarnessModelDescriptor[],
+): readonly HarnessModelDescriptor[] {
+	return models ?? [];
+}
+
+function mergeDiscovery(
+	base: HarnessCapabilityDescriptor["discovery"],
+	override?: HarnessDiscoveryInput,
+): HarnessCapabilityDescriptor["discovery"] {
+	if (!override) return base;
+	return {
+		state: override.state,
+		version: override.version,
+		reason: override.reason,
+	};
+}
+
+function authActionOrDefault(
+	type: KnownHarnessFamily,
+	authAction?: HarnessCapabilityDescriptor["authAction"],
+): HarnessCapabilityDescriptor["authAction"] {
+	if (authAction) return authAction;
+	return {
+		kind: "native_cli_login",
+		label: `Log in to ${KNOWN_HARNESS_NAMES[type]}`,
+		command: KNOWN_HARNESS_LOGIN_COMMANDS[type],
+	};
+}
+
 export function describeRegisteredHarness(
 	meta: AdapterMeta,
 	caps: HarnessCapabilities,
+	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
 ): HarnessCapabilityDescriptor {
 	const type = meta.type ?? meta.name;
 	const runtime = runtimeFromCapabilities(caps);
@@ -76,7 +131,7 @@ export function describeRegisteredHarness(
 				description: "Store a model gateway API key in HyperIdle.",
 				credentialNames: ["anthropic_api_key", "openrouter_api_key", "openai_compatible_api_key"],
 			},
-			discovery: caps.discovery ?? { state: "ready" },
+			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models: builtinModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
@@ -94,7 +149,7 @@ export function describeRegisteredHarness(
 				label: `Log in to ${KNOWN_HARNESS_NAMES[type]}`,
 				command: KNOWN_HARNESS_LOGIN_COMMANDS[type],
 			},
-			discovery: caps.discovery ?? { state: "ready" },
+			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models: cliModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
@@ -107,7 +162,7 @@ export function describeRegisteredHarness(
 		kind: meta.kind,
 		accessMode: caps.accessMode ?? "external-byo",
 		authAction: caps.authAction ?? { kind: "none", label: "Configured externally" },
-		discovery: caps.discovery ?? { state: "ready" },
+		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 		models: cliModels(caps),
 		runtime,
 		modelProviders: meta.modelProviders,
@@ -116,30 +171,28 @@ export function describeRegisteredHarness(
 
 export function missingKnownHarnessDescriptors(
 	registeredTypes: ReadonlySet<string>,
+	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
 ): HarnessCapabilityDescriptor[] {
-	return KNOWN_HARNESS_FAMILIES.filter((type) => !registeredTypes.has(type)).map((type) => ({
-		type,
-		name: KNOWN_HARNESS_NAMES[type],
-		kind: "local",
-		accessMode: "provider-subscription-cli",
-		authAction: {
-			kind: "native_cli_login",
-			label: `Log in to ${KNOWN_HARNESS_NAMES[type]}`,
-			command: KNOWN_HARNESS_LOGIN_COMMANDS[type],
-		},
-		discovery: {
-			state: "missing",
-			reason: `${KNOWN_HARNESS_NAMES[type]} CLI is not installed or not on PATH.`,
-		},
-		models: [],
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: true,
+	return KNOWN_HARNESS_FAMILIES.filter((type) => !registeredTypes.has(type)).map((type) => {
+		const discoveryInput = discoveries?.[type];
+		const discovery = mergeDiscovery(
+			{
+				state: "missing",
+				reason: `${KNOWN_HARNESS_NAMES[type]} CLI is not installed or not on PATH.`,
+			},
+			discoveryInput,
+		);
+
+		return {
+			type,
+			name: KNOWN_HARNESS_NAMES[type],
+			kind: "local",
+			accessMode: "provider-subscription-cli",
+			authAction: authActionOrDefault(type, discoveryInput?.authAction),
+			discovery,
+			models: cliModelsFromInput(discoveryInput?.models),
+			runtime: runtimeFromDiscovery(discoveryInput),
 			modelProviders: [],
-			fileEditing: true,
-			toolUse: true,
-		},
-		modelProviders: [],
-	}));
+		};
+	});
 }

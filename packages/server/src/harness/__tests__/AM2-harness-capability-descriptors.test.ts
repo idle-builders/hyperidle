@@ -6,6 +6,7 @@ import {
 	KNOWN_HARNESS_FAMILIES,
 	missingKnownHarnessDescriptors,
 } from "../harness-capability-descriptors.js";
+import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 
 const BUILTIN_META: AdapterMeta = {
 	name: "Built-in Harness",
@@ -67,5 +68,51 @@ describe("AM2 harness capability descriptor builders", () => {
 		expect(missing.every((descriptor) => descriptor.authAction.kind === "native_cli_login")).toBe(
 			true,
 		);
+	});
+
+	it("uses discovery state for missing families instead of inventing readiness", () => {
+		const discoveries: Record<string, HarnessDiscoveryInput> = {
+			codex: {
+				state: "ready",
+				version: "0.141.0",
+				runtime: { fileEditing: true, toolUse: true },
+			},
+			"cursor-agent": {
+				state: "unavailable",
+				reason: "No documented headless CLI surface.",
+			},
+		};
+
+		const missing = missingKnownHarnessDescriptors(
+			new Set(["builtin", "claude-code", "opencode"]),
+			discoveries,
+		);
+
+		const codex = missing.find((d) => d.type === "codex");
+		const cursor = missing.find((d) => d.type === "cursor-agent");
+
+		expect(codex?.discovery.state).toBe("ready");
+		expect(codex?.discovery.version).toBe("0.141.0");
+		expect(codex?.runtime.fileEditing).toBe(true);
+		expect(codex?.runtime.toolUse).toBe(true);
+
+		expect(cursor?.discovery.state).toBe("unavailable");
+		expect(cursor?.discovery.reason).toContain("headless CLI surface");
+		expect(cursor?.runtime.fileEditing).toBe(false);
+		expect(cursor?.runtime.toolUse).toBe(false);
+	});
+
+	it("overrides registered adapter discovery from real probe results", () => {
+		const discoveries: Record<string, HarnessDiscoveryInput> = {
+			builtin: {
+				state: "unauthenticated",
+				reason: "ANTHROPIC_API_KEY absent",
+			},
+		};
+
+		const descriptor = describeRegisteredHarness(BUILTIN_META, BASE_CAPS, discoveries);
+
+		expect(descriptor.discovery.state).toBe("unauthenticated");
+		expect(descriptor.discovery.reason).toContain("ANTHROPIC_API_KEY");
 	});
 });

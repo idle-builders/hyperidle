@@ -2,7 +2,11 @@
 
 AM2 is not complete until the descriptor is grounded in real harness behavior and proven against real harnesses. The first AM2 implementation attempt produced a useful draft contract, but human review rejected it because it was not based on deep `t3code` source research, did not verify Codex CLI / Claude Code / OpenCode surfaces, and did not prove existing HyperIdle harness interaction code against real installed harnesses or a real API-gateway path.
 
-This document is therefore a concept target and review contract, not evidence that AM2 is done.
+This document is therefore a concept target and review contract. It is now backed by:
+
+- `plans/AM2/research/t3code-source-map.md` — exact source files/functions for t3code provider/harness discovery, auth, launch, status/version, events, and UI metadata.
+- `plans/AM2/research/cli-harness-surface.md` — real CLI versions, auth behavior, and launch options for Codex, Claude Code, OpenCode, and the explicit absence of Cursor.
+- `plans/AM2/architecture.md` — evidence-backed plan for the revised descriptor/discovery layer.
 
 ## Failed Attempt Notice
 
