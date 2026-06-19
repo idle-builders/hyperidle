@@ -15,7 +15,9 @@
  */
 
 import type { ChildProcess } from "node:child_process";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -31,6 +33,20 @@ import { normalizeHarnessEvent } from "@hyperidle/shared";
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
  */
 type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{apiKey}}" | "{{baseUrl}}" | "{{mcpUrl}}";
+
+function isExecutableFile(filePath: string): boolean {
+	try {
+		fs.accessSync(filePath, fs.constants.X_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function binaryOnPath(binary: string): boolean {
+	const pathEntries = process.env.PATH?.split(path.delimiter) ?? [];
+	return pathEntries.some((entry) => isExecutableFile(path.join(entry, binary)));
+}
 
 export interface CliAdapterConfig {
 	/** Executable name or absolute path. */
@@ -158,11 +174,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				await deps.whichFn(binary);
 				return true;
 			}
-			// Default: use `which` via spawnSync — no additional npm dependency needed.
-			// @lore X5: spawnSync("which", [binary]) avoids the `which` npm package.
-			// POSIX `which` is available on macOS/Linux. Non-zero exit = binary not found.
-			const result = spawnSync("which", [binary], { encoding: "utf-8" });
-			return result.status === 0;
+			return binaryOnPath(binary);
 		} catch {
 			return false;
 		}

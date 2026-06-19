@@ -26,12 +26,6 @@ import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
-export interface HarnessEntry {
-	readonly type: string;
-	readonly name: string;
-	readonly modelProviders: readonly string[];
-}
-
 /**
  * Create a Hono router that exposes GET / → HarnessCapabilityDescriptor[].
  * Mounted at /api/harnesses by app.ts.
