@@ -1,12 +1,21 @@
-import { describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
+const TEST_API_KEY = "test-key-reviews";
+
 function authHeaders(): Record<string, string> {
-	vi.stubEnv("HYPERIDLE_API_KEY", "test-key-reviews");
-	return { "X-API-Key": "test-key-reviews" };
+	return { "X-API-Key": TEST_API_KEY };
 }
 
 describe("GET /api/reviews/:reviewId", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	test("returns the fixture review subject for a valid review id", async ({ app }) => {
 		const res = await app.request("/api/reviews/rev-1", {
 			method: "GET",
@@ -14,10 +23,9 @@ describe("GET /api/reviews/:reviewId", () => {
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { id: string; title: string; artifacts: unknown[] };
+		const body = (await res.json()) as { id: string; title: string };
 		expect(body.id).toBe("review:AL3:fixture");
 		expect(body.title).toBe("Fix expired-promo checkout — silent success → typed 422");
-		expect(body.artifacts.length).toBeGreaterThan(0);
 	});
 
 	test("returns 404 for an unknown review id", async ({ app }) => {

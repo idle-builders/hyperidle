@@ -23,7 +23,7 @@ describe("ReviewPage route", () => {
 		renderRoute(loader);
 
 		await waitFor(() => {
-			expect(screen.getByText(REVIEW_COMPOSITION_SUBJECT.prompt)).toBeInTheDocument();
+			expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		});
 		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123" });
 	});

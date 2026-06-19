@@ -1,7 +1,10 @@
+import type { ReviewArtifact } from "./review-artifact.js";
 import type { ComposedReviewSubject } from "./review-composition.js";
 import { AL2_REVIEW_SUBJECT } from "./review-subject.js";
 
-function uniqueTools(artifacts: ReadonlyArray<{ readonly tool: string; readonly app: string }>): ReadonlyArray<string> {
+function uniqueTools(
+	artifacts: ReadonlyArray<{ readonly tool: string; readonly app: string }>,
+): ReadonlyArray<string> {
 	const seen = new Set<string>();
 	return artifacts
 		.map((a) => a.tool)
@@ -11,6 +14,78 @@ function uniqueTools(artifacts: ReadonlyArray<{ readonly tool: string; readonly 
 			return true;
 		});
 }
+
+function summarizeArtifact(artifact: ReviewArtifact): { summary: string; badge: string } {
+	switch (artifact.kind) {
+		case "code_diff": {
+			const p = artifact.payload as {
+				description: string;
+				trivia?: { added: number; removed: number };
+			};
+			return {
+				summary: p.description,
+				badge: `+${p.trivia?.added ?? 0} −${p.trivia?.removed ?? 0}`,
+			};
+		}
+		case "action_operation": {
+			const p = artifact.payload as {
+				verb: string;
+				amountWire?: { formatted: string };
+				blastRadius?: ReadonlyArray<string>;
+			};
+			return { summary: p.blastRadius?.[0] ?? p.verb, badge: p.amountWire?.formatted ?? "" };
+		}
+		case "field_change_set": {
+			const p = artifact.payload as { fields: ReadonlyArray<unknown>; unchangedCount: number };
+			return {
+				summary: `${p.fields.length} fields changed`,
+				badge: `${p.unchangedCount} unchanged`,
+			};
+		}
+		case "metrics_moved": {
+			const p = artifact.payload as { period: string; headlines: ReadonlyArray<unknown> };
+			return {
+				summary: p.period,
+				badge: `${p.headlines.length} headline${p.headlines.length === 1 ? "" : "s"}`,
+			};
+		}
+		case "rendered_in_context": {
+			const p = artifact.payload as { body: string; renderMode: string };
+			return { summary: p.body, badge: p.renderMode };
+		}
+		case "visual_diff": {
+			const p = artifact.payload as {
+				after: { label: string };
+				diffRegions: ReadonlyArray<unknown>;
+			};
+			return {
+				summary: p.after.label,
+				badge: `${p.diffRegions.length} region${p.diffRegions.length === 1 ? "" : "s"}`,
+			};
+		}
+		case "batch": {
+			const p = artifact.payload as { rollup: { total: number } };
+			return { summary: "Batch review", badge: `${p.rollup.total} items` };
+		}
+		case "browser_preview": {
+			const p = artifact.payload as { previewBody: string };
+			return { summary: p.previewBody, badge: "preview" };
+		}
+		case "outcome_summary": {
+			return { summary: "Outcome summary", badge: "" };
+		}
+		default: {
+			return { summary: "", badge: "" };
+		}
+	}
+}
+
+const composedArtifacts: ComposedReviewSubject["artifacts"] = AL2_REVIEW_SUBJECT.artifacts.map(
+	(a) => ({
+		...a,
+		...summarizeArtifact(a),
+	}),
+);
 
 /**
  * AL3 — canonical fixture for the review composition surface.
@@ -61,7 +136,7 @@ export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 			artifactId: "artifact:code:1",
 		},
 	],
-	artifacts: AL2_REVIEW_SUBJECT.artifacts,
+	artifacts: composedArtifacts,
 	conversation: [
 		{
 			id: "c1",

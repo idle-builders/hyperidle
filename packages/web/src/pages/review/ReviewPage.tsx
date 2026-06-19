@@ -1,50 +1,74 @@
 import type { JSX } from "react";
-import { getReviewCanvas } from "./canvas-registry";
-import type { ReviewSubject } from "./review-artifact";
-import { AL2_REVIEW_SUBJECT } from "./review-subject";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { ReviewComposition } from "./ReviewComposition.js";
+import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
+import type { ComposedReviewSubject } from "./review-composition.js";
+
+export type ReviewLoader = (params: {
+	readonly betId: string;
+	readonly reviewId: string;
+}) => Promise<ComposedReviewSubject>;
 
 interface ReviewPageProps {
-	readonly subject?: ReviewSubject;
+	readonly loader?: ReviewLoader;
+}
+
+function defaultLoader(): Promise<ComposedReviewSubject> {
+	return Promise.resolve(REVIEW_COMPOSITION_SUBJECT);
 }
 
 /**
- * AL2 — production review route scaffold.
+ * AL3 — production review destination.
  *
- * This page renders the review Subject and maps each artifact through the review
- * canvas registry. The fixture is the default subject so the canvases are mounted
- * and reachable in production code without waiting for AL3 wiring.
- *
- * @lore This is an AL2 integration scaffold only. The route is intentionally
- * registered here so the canvases are reachable; AL3 (`ReviewCompositionRefined`)
- * owns the full dual-anchor composition (frame header, intent, rationale,
- * conversation, verdict wiring) and will replace/extend this page. Keep the page
- * small and fixture-driven; do not build composition chrome here.
+ * Loads the review Subject for the canonical route
+ * `/work/bet/:betId/review/:reviewId` and renders the ReviewComposition surface.
+ * The optional `loader` prop is used by tests to avoid a real fetch.
  */
-export function ReviewPage({ subject = AL2_REVIEW_SUBJECT }: ReviewPageProps): JSX.Element {
-	return (
-		<div
-			data-ds-page="ReviewPage"
-			className="mx-auto flex max-w-[860px] flex-col gap-[24px] p-[24px] text-left"
-		>
-			<header>
-				<h1 className="text-[24px] font-[600] leading-[1.25] text-[var(--text-primary)]">
-					{subject.title}
-				</h1>
-			</header>
+export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JSX.Element {
+	const { betId = "", reviewId = "" } = useParams<{ betId: string; reviewId: string }>();
+	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
+	const [error, setError] = useState<Error | null>(null);
 
-			<section className="flex flex-col gap-[24px]">
-				{subject.artifacts.map((artifact) => {
-					const Canvas = getReviewCanvas(artifact.kind);
-					return (
-						<article
-							key={artifact.id}
-							className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
-						>
-							<Canvas artifact={artifact} />
-						</article>
-					);
-				})}
-			</section>
+	useEffect(() => {
+		let cancelled = false;
+		loader({ betId, reviewId })
+			.then((s) => {
+				if (!cancelled) setSubject(s);
+			})
+			.catch((e: unknown) => {
+				if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [betId, reviewId, loader]);
+
+	if (error) {
+		return (
+			<div className="p-[24px] text-[var(--status-error)]">
+				<p>Could not load review.</p>
+				<p className="text-[13px] text-[var(--text-tertiary)]">{error.message}</p>
+			</div>
+		);
+	}
+
+	if (!subject) {
+		return (
+			<div className="p-[24px] text-[var(--text-secondary)]">
+				<p>Loading review…</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="h-full">
+			<ReviewComposition
+				subject={subject}
+				onSubmitVerdict={() => {
+					// AL3: the surface captures the decision; wiring to the thread API is out of scope.
+				}}
+			/>
 		</div>
 	);
 }

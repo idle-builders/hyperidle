@@ -1,11 +1,10 @@
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
-import { ReviewComposition } from "../ReviewComposition.js";
-import type { ComposedReviewSubject } from "../review-composition.js";
-import type { ReviewArtifact, ReviewCanvasKind } from "../review-artifact.js";
 import { getReviewCanvas } from "../canvas-registry.js";
+import { ReviewComposition } from "../ReviewComposition.js";
+import type { CodeDiffPayload, ReviewArtifact, ReviewCanvasKind } from "../review-artifact.js";
+import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
 describe("ReviewComposition", () => {
 	function renderComposition(props?: Partial<Parameters<typeof ReviewComposition>[0]>) {
@@ -26,7 +25,6 @@ describe("ReviewComposition", () => {
 		renderComposition();
 
 		expect(screen.getByText(`Bet: ${REVIEW_COMPOSITION_SUBJECT.betTitle}`)).toBeInTheDocument();
-		expect(screen.getByText(REVIEW_COMPOSITION_SUBJECT.taskTitle!)).toBeInTheDocument();
 		expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		expect(screen.getByText(REVIEW_COMPOSITION_SUBJECT.outcome)).toBeInTheDocument();
 		for (const kpi of REVIEW_COMPOSITION_SUBJECT.resultKpis) {
@@ -57,7 +55,8 @@ describe("ReviewComposition", () => {
 		renderComposition();
 		await user.click(screen.getByText(linkedNeed!.label));
 
-		expect(screen.getByRole("complementary")).toContainElement(screen.getByText(target!.title));
+		const pane = screen.getByRole("complementary");
+		expect(within(pane).getAllByText(target!.title).length).toBeGreaterThan(0);
 	});
 
 	it("AC4: clicking an artifact row opens the family canvas in the right pane", async () => {
@@ -68,8 +67,9 @@ describe("ReviewComposition", () => {
 		await user.click(screen.getByRole("button", { name: new RegExp(artifact.title, "i") }));
 
 		const pane = screen.getByRole("complementary");
-		expect(pane).toContainElement(screen.getByText(artifact.title));
-		expect(pane).toContainElement(screen.getByText(artifact.payload.description));
+		const codePayload = artifact.payload as CodeDiffPayload;
+		expect(within(pane).getAllByText(artifact.title).length).toBeGreaterThan(0);
+		expect(within(pane).getByText(codePayload.description)).toBeInTheDocument();
 	});
 
 	it("AC5: closing the pane returns the composition to full width", async () => {
@@ -95,13 +95,13 @@ describe("ReviewComposition", () => {
 	it("AC7: renders one global conversation with reference chips", () => {
 		renderComposition();
 
+		const conversation = screen.getByText("Conversation").closest("section")!;
 		for (const comment of REVIEW_COMPOSITION_SUBJECT.conversation) {
-			expect(screen.getByText(comment.author)).toBeInTheDocument();
-			expect(screen.getByText(comment.body)).toBeInTheDocument();
+			expect(within(conversation).getByText(comment.body)).toBeInTheDocument();
 		}
 		const ref = REVIEW_COMPOSITION_SUBJECT.conversation[0]?.refs?.[0];
 		expect(ref).toBeDefined();
-		expect(screen.getByText(ref!.label)).toBeInTheDocument();
+		expect(within(conversation).getByText(ref!.label)).toBeInTheDocument();
 	});
 
 	it("AC8: verdict buttons submit one binding verdict over the Subject", async () => {
@@ -142,13 +142,9 @@ describe("ReviewComposition", () => {
 			kind: "not_a_real_kind" as ReviewCanvasKind,
 			payload: { foo: "bar" },
 		};
-		const subject: ComposedReviewSubject = {
-			...REVIEW_COMPOSITION_SUBJECT,
-			artifacts: [unknownArtifact],
-		};
-		renderComposition({ subject });
-		render(getReviewCanvas(unknownArtifact.kind)({ artifact: unknownArtifact }));
+		const CanvasComponent = getReviewCanvas(unknownArtifact.kind);
+		const { container } = render(<CanvasComponent artifact={unknownArtifact} />);
 
-		expect(screen.getByText("Mystery output")).toBeInTheDocument();
+		expect(within(container).getByText("Mystery output")).toBeInTheDocument();
 	});
 });

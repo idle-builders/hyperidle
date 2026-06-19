@@ -41,6 +41,13 @@ export interface ReviewVerdictState {
 	readonly resolvedAt?: string;
 }
 
+export interface ComposedReviewArtifact extends ReviewArtifact {
+	/** Optional one-line summary shown in the artifact opener row. */
+	readonly summary?: string;
+	/** Optional badge shown at the right of the opener row. */
+	readonly badge?: string;
+}
+
 /**
  * AL3 — a full review Subject as seen on the composition surface.
  * Extends the AL2 artifact-only Subject with the frame metadata the
@@ -65,6 +72,7 @@ export interface ComposedReviewSubject extends ReviewSubject {
 	readonly needs: ReadonlyArray<ReviewNeed>;
 	readonly conversation: ReadonlyArray<ReviewComment>;
 	readonly verdict?: ReviewVerdictState;
+	readonly artifacts: ReadonlyArray<ComposedReviewArtifact>;
 }
 
 export interface ReviewCompositionProps {
