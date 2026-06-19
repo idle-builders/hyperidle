@@ -144,7 +144,7 @@ export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 			authorIsAgent: false,
 			body: "Does the 422 copy match our checkout error style — dated string and all?",
 			ago: "3 min ago",
-			refs: [{ kind: "line", label: "PromoField.tsx:118" }],
+			refs: [{ kind: "artifact", label: "PromoField.tsx:118" }],
 		},
 		{
 			id: "c1r",

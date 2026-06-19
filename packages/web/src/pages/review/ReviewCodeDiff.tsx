@@ -12,10 +12,13 @@
 // callback is a no-op. No router/context. The story renders L1+L2 with the top file
 // expanded to L3 so the full drill-down is visible in a single screenshot.
 
-import { type JSX, useState } from "react";
+import type { AnchorRef } from "@hyperidle/shared";
+import type { JSX } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";
+import { AnchoredThreadCard, InlineComposer, lineBlockId, useReviewAnchors } from "./review-canvas.js";
 
 // ── diff line model (mirrors CodeRenderer's kind vocabulary: add/del/ctx) ─────────
 type LineKind = "add" | "del" | "ctx";
@@ -27,6 +30,10 @@ interface DiffLine {
 	/** new-file line number (blank on pure deletions). */
 	readonly newNo: number | null;
 	readonly text: string;
+	/** AL4: deterministic block id for this line (computed if omitted). */
+	readonly blockId?: import("@hyperidle/shared").BlockId;
+	/** AL4: human-readable spot label, e.g. `PromoField.tsx:118`. */
+	readonly spotLabel?: string;
 }
 
 interface Hunk {
@@ -331,51 +338,135 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 }
 
 // ── L3: a single file's hunks with a line-number gutter ───────────────────────────
-function FileDiff({ hunks }: { hunks: readonly Hunk[] }): JSX.Element {
+function FileDiff({
+	hunks,
+	filePath,
+	artifactId,
+	anchors,
+	readOnly,
+	onAddAnchor,
+}: {
+	readonly hunks: readonly Hunk[];
+	readonly filePath: string;
+	readonly artifactId: string;
+	readonly anchors: ReadonlyArray<import("./review-composition.js").ReviewComment>;
+	readonly readOnly: boolean;
+	readonly onAddAnchor: (input: { anchor: AnchorRef; text: string }) => Promise<void>;
+}): JSX.Element {
+	const [composerBlockId, setComposerBlockId] = useState<import("@hyperidle/shared").BlockId | null>(null);
+
+	const threadMap = useMemo(() => {
+		const map = new Map<string, import("./review-composition.js").ReviewComment[]>();
+		for (const c of anchors) {
+			if (!c.anchor) continue;
+			const key = c.anchor.blockId;
+			const list = map.get(key) ?? [];
+			list.push(c);
+			map.set(key, list);
+		}
+		return map;
+	}, [anchors]);
+
+	const allBlockIds = new Set<string>();
+
 	return (
 		<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)]">
-			{hunks.map((hunk) => (
+			{hunks.map((hunk, hunkIndex) => (
 				<div key={hunk.header}>
 					<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
 						{hunk.header}
 					</div>
-					<div className="font-mono text-[12px] leading-[1.55]">
-						{hunk.lines.map((line) => (
-							<div
-								key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}
-								data-diff-type={line.kind}
-								className={`group/line relative flex ${LINE_TINT[line.kind]}`}
-							>
-								{/* line-number gutter — old | new, tabular so columns hold */}
-								<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
-									{line.oldNo ?? ""}
-								</span>
-								<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums border-r border-[var(--border-subtle)]">
-									{line.newNo ?? ""}
-								</span>
-								{/* hover inline-comment "+" affordance, anchored in the gutter seam */}
-								<button
-									type="button"
-									aria-label="Add inline comment"
-									title="Add inline comment"
-									onClick={() => {
-										// no-op: presentational inline-comment affordance (AL4 wires real anchoring).
-									}}
-									className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[6px] bg-[var(--accent-primary)] text-white text-[12px] leading-none group-hover/line:flex"
-								>
-									+
-								</button>
-								<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
-									{LINE_PREFIX[line.kind]}
-								</span>
-								<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
-									{line.text}
-								</code>
-							</div>
-						))}
+					<div className="font-mono text-[12px] leading-[var(--leading-body)]">
+						{hunk.lines.map((line) => {
+							const blockId = line.blockId ?? lineBlockId(artifactId, filePath, hunkIndex, line);
+							const spotLabel =
+								line.spotLabel ?? `${filePath}:${line.newNo ?? line.oldNo ?? "new"}`;
+							allBlockIds.add(blockId);
+							const anchor: AnchorRef = { artifactId, blockId, spotLabel };
+							const threadComments = threadMap.get(blockId) ?? [];
+							const composerOpen = composerBlockId === blockId;
+							return (
+								<Fragment key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}>
+									<div
+										data-diff-type={line.kind}
+										className={`group/line relative flex ${LINE_TINT[line.kind]}`}
+									>
+										{/* line-number gutter — old | new, tabular so columns hold */}
+										<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
+											{line.oldNo ?? ""}
+										</span>
+										<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums border-r border-[var(--border-subtle)]">
+											{line.newNo ?? ""}
+										</span>
+										{/* hover inline-comment "+" affordance, anchored in the gutter seam */}
+										{readOnly ? null : (
+											<button
+												type="button"
+												aria-label="Add inline comment"
+												title="Add inline comment"
+												onClick={() => setComposerBlockId(blockId)}
+												className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+											>
+												+
+											</button>
+										)}
+										<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
+											{LINE_PREFIX[line.kind]}
+										</span>
+										<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
+											{line.text}
+										</code>
+									</div>
+									{composerOpen ? (
+										<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
+											<div className="flex flex-col items-center gap-0">
+												<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
+												<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
+												<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
+											</div>
+												<InlineComposer
+													anchor={anchor}
+													onSubmit={async (text: string) => {
+														await onAddAnchor({ anchor, text });
+														setComposerBlockId(null);
+													}}
+												/>
+										</div>
+									) : null}
+									{threadComments.length > 0 ? (
+										<div className="pl-[88px] pr-[12px] py-[9px]">
+											<AnchoredThreadCard
+												anchor={anchor}
+												comments={threadComments}
+												readOnly={readOnly}
+												onReply={async (text: string) => {
+													await onAddAnchor({ anchor, text });
+												}}
+											/>
+										</div>
+									) : null}
+								</Fragment>
+							);
+						})}
 					</div>
 				</div>
 			))}
+			{/* Orphaned anchors: block no longer resolves in the current diff. */}
+			{Array.from(threadMap.entries())
+				.filter(([blockId]) => !allBlockIds.has(blockId))
+				.map(([blockId, comments]) => {
+					const first = comments[0];
+					if (!first?.anchor) return null;
+					return (
+						<div key={blockId} className="px-[12px] py-[9px] opacity-60">
+							<AnchoredThreadCard
+								anchor={first.anchor}
+								comments={comments}
+								readOnly={readOnly}
+							/>
+						</div>
+						);
+					})}
 		</div>
 	);
 }
@@ -387,12 +478,20 @@ function FileCard({
 	onToggleOpen,
 	onToggleReviewed,
 	showBand,
+	artifactId,
+	anchors,
+	readOnly,
+	onAddAnchor,
 }: {
-	file: ChangedFile;
-	open: boolean;
-	onToggleOpen: () => void;
-	onToggleReviewed: () => void;
-	showBand: boolean;
+	readonly file: ChangedFile;
+	readonly open: boolean;
+	readonly onToggleOpen: () => void;
+	readonly onToggleReviewed: () => void;
+	readonly showBand: boolean;
+	readonly artifactId: string;
+	readonly anchors: ReadonlyArray<import("./review-composition.js").ReviewComment>;
+	readonly readOnly: boolean;
+	readonly onAddAnchor: (input: { anchor: AnchorRef; text: string }) => Promise<void>;
 }): JSX.Element {
 	const dir = file.path.slice(0, file.path.lastIndexOf("/") + 1);
 	const name = file.path.slice(file.path.lastIndexOf("/") + 1);
@@ -431,7 +530,16 @@ function FileCard({
 					{file.rationale}
 				</p>
 			) : null}
-			{open ? <FileDiff hunks={file.hunks} /> : null}
+			{open ? (
+				<FileDiff
+					hunks={file.hunks}
+					filePath={file.path}
+					artifactId={artifactId}
+					anchors={anchors}
+					readOnly={readOnly}
+					onAddAnchor={onAddAnchor}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -440,13 +548,18 @@ function FileCard({
 export interface ReviewCodeDiffProps {
 	/** start with the top (most-relevant) file expanded so L3 shows by default. */
 	readonly initialExpandedPath?: string;
-	readonly data?: CodeDiffData;
+	/** AL4: raw payload so the canvas can compute deterministic line block ids. */
+	readonly payload?: unknown;
+	/** AL4: owning artifact id for deterministic line block ids. */
+	readonly artifactId?: string;
 }
 
 function ReviewCodeDiffView({
 	initialExpandedPath = CODE_DIFF_FIXTURE.files[0]?.path,
-	data = CODE_DIFF_FIXTURE,
+	payload,
+	artifactId = "artifact:code:fixture",
 }: ReviewCodeDiffProps): JSX.Element {
+	const data = mapCodeDiffPayload(payload ?? CODE_DIFF_FIXTURE, artifactId);
 	const { description, files, trivia, checks } = data;
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(
 		() => new Set(initialExpandedPath ? [initialExpandedPath] : []),
@@ -455,6 +568,12 @@ function ReviewCodeDiffView({
 		() => new Set(files.filter((f) => f.reviewed).map((f) => f.path)),
 	);
 	const [triviaOpen, setTriviaOpen] = useState(false);
+
+	const { anchors: allAnchors, readOnly, onAddAnchor } = useReviewAnchors();
+	const anchors = useMemo(
+		() => allAnchors.filter((c) => c.anchor?.artifactId === artifactId),
+		[allAnchors, artifactId],
+	);
 
 	const allCollapsed = expanded.size === 0 && !triviaOpen;
 
@@ -547,6 +666,10 @@ function ReviewCodeDiffView({
 							onToggleOpen={() => toggleExpanded(file.path)}
 							onToggleReviewed={() => toggleReviewed(file.path)}
 							showBand={showBand}
+							artifactId={artifactId}
+							anchors={anchors}
+							readOnly={readOnly}
+							onAddAnchor={onAddAnchor}
 						/>
 					);
 				})}
@@ -610,7 +733,7 @@ function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
 	);
 }
 
-function mapCodeDiffPayload(payload: unknown): CodeDiffData {
+function mapCodeDiffPayload(payload: unknown, artifactId?: string): CodeDiffData {
 	if (!isCodeDiffPayload(payload)) return CODE_DIFF_FIXTURE;
 
 	const trivia = isPlainObject(payload.trivia)
@@ -625,14 +748,29 @@ function mapCodeDiffPayload(payload: unknown): CodeDiffData {
 	return {
 		title: payload.prTitle,
 		description: payload.description,
-		files: payload.files.map((file) => ({
+		files: payload.files.map((file, fileIndex) => ({
 			path: file.path,
 			added: Number(file.added) || 0,
 			removed: Number(file.removed) || 0,
 			band: file.band === "test" ? ("test" as const) : ("logic" as const),
 			reviewed: false,
 			rationale: typeof file.rationale === "string" ? file.rationale : undefined,
-			hunks: file.hunks ?? [],
+			hunks: (file.hunks ?? []).map((hunk, hunkIndex) => ({
+				header: hunk.header,
+				lines: hunk.lines.map((line) => {
+					const spotLabel = `${file.path}:${line.newNo ?? line.oldNo ?? "new"}`;
+					return {
+						...line,
+						blockId: lineBlockId(
+							artifactId ?? `artifact:code:${fileIndex}`,
+							file.path,
+							hunkIndex,
+							line,
+						),
+						spotLabel,
+					};
+				}),
+			})),
 		})),
 		trivia,
 		checks: payload.checks.map((label) => ({ label: String(label) })),
@@ -640,7 +778,6 @@ function mapCodeDiffPayload(payload: unknown): CodeDiffData {
 }
 
 export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = mapCodeDiffPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -649,7 +786,7 @@ export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewCodeDiffView data={data} />
+			<ReviewCodeDiffView payload={artifact.payload} artifactId={artifact.id} />
 		</div>
 	);
 }

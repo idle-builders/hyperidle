@@ -82,7 +82,9 @@ const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
 	/** L18: Optional block anchor — opaque Block primitive id from the host surface. */
-	blockId: z.string().optional(),
+	blockId: z.string().max(128).optional(),
+	/** AL4: Optional human-readable sub-block label (line/paragraph/region) — opaque to the server. */
+	spotLabel: z.string().max(128).optional(),
 });
 
 /**
