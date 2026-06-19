@@ -6,7 +6,8 @@
 		"docs/product/.vitepress/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
-		"plans/**"
+		"plans/**",
+		"packages/web/src/**/*.stories.tsx"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
@@ -40,13 +41,7 @@
 			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"]
 		},
 		"packages/web": {
-			"entry": [
-				"src/**/*.stories.tsx",
-				"src/api/client.ts",
-				"scripts/*.ts",
-				"vite.ah1.config.ts",
-				"vite.ah5.config.ts"
-			],
+			"entry": ["src/api/client.ts", "scripts/*.ts", "vite.ah1.config.ts", "vite.ah5.config.ts"],
 			"playwright": {
 				"config": ["playwright.config.ts", "playwright.ah1.config.ts", "playwright.ah5.config.ts"]
 			},

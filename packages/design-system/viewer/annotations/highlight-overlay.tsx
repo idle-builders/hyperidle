@@ -26,7 +26,7 @@ export interface HighlightLayerProps {
 
 export function HighlightLayer({ el, label, tone }: HighlightLayerProps): React.JSX.Element | null {
 	const rect = useElementRect(el);
-	if (!el || !rect) return null;
+	if (!(el && rect)) return null;
 
 	// Label sits above the box unless there is no room (then below it).
 	const labelTop = rect.top > 22 ? rect.top - 21 : rect.top + rect.height + 3;

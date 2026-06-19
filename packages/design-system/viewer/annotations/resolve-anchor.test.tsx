@@ -53,7 +53,7 @@ describe("AC5 — resolveAnchor round-trip", () => {
 	test("distinguishes betcards[0] from betcards[1] via path", () => {
 		const span0 = root.querySelectorAll<HTMLElement>(".title")[0];
 		const span1 = root.querySelectorAll<HTMLElement>(".title")[1];
-		if (!span0 || !span1) throw new Error("fixture");
+		if (!(span0 && span1)) throw new Error("fixture");
 		expect(resolveAnchor(computeAnchor(span0, root), root)).toBe(span0);
 		expect(resolveAnchor(computeAnchor(span1, root), root)).toBe(span1);
 	});

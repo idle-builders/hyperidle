@@ -1158,11 +1158,35 @@ stories:
     depends: []
     complexity: M
   - id: AL2
-    title: Inline / anchored review comments
+    title: Review proof-family canvases
     track: AL
     depends: [AL1]
     complexity: L
-
+  - id: AL3
+    title: Review composition surface
+    track: AL
+    depends: [AL2]
+    complexity: L
+  - id: AL4
+    title: Inline anchored review comments
+    track: AL
+    depends: [AL3]
+    complexity: L
+  - id: AL5
+    title: Tool-tailored review canvases
+    track: AL
+    depends: [AL3]
+    complexity: L
+  - id: AL6
+    title: Harness review-return hooks
+    track: AL
+    depends: []
+    complexity: L
+  - id: AL7
+    title: Review execution loop
+    track: AL
+    depends: []
+    complexity: L
   # Track AM: Conversation Experience
   - id: AM1
     title: Conversation experience

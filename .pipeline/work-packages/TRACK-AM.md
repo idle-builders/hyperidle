@@ -69,7 +69,7 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - The shared rendering structure's name must NOT be "Block" or "blocked".
 - No color/token changes — Hearth palette and `AESTHETICS.md` tokens unchanged; structure and style only.
 
-**Out of scope.** The session dial-in and "what happened" activity view (AM3). The harness capability/normalization substrate (AM2). Reviewer anchored comments (Track AL2). Any change to verdict/review semantics.
+**Out of scope.** The session dial-in and "what happened" activity view (AM3). The harness capability/normalization substrate (AM2). Reviewer anchored comments (Track AL4). Any change to verdict/review semantics.
 
 **Effort.** L (~5d)
 

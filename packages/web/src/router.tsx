@@ -23,6 +23,7 @@ import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
+import { ReviewPage } from "./pages/review/ReviewPage";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkBetCreate } from "./pages/WorkBetCreate";
@@ -87,6 +88,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/bet/new", element: <WorkBetCreate /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
+				{ path: "work/bet/:betId/review/:reviewId", element: <ReviewPage /> },
 				{ path: "agents/:agentId", element: <AgentProfile /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/new", element: <KnowledgeCreate /> },

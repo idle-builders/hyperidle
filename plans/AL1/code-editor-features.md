@@ -1,0 +1,2 @@
+* canvas Working with canvas extensions in the GitHub Copilot app - GitHub Docs https://docs.github.com/en/copilot/how-tos/github-copilot-app/working-with-canvas-extensions github copilot desktop with very strong github integration
+* https://github.com/pingdotgg/t3code t3.codes editor with strong review experience.

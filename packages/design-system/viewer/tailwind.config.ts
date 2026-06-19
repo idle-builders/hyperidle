@@ -10,6 +10,11 @@ export default {
 		resolve(dir, "index.html"),
 		resolve(dir, "main.tsx"),
 		resolve(dir, "../src/**/*.{ts,tsx}"),
+		// AL1: web-package stories (shell, components, pages, layouts, settings) are
+		// discovered in the viewer but their Tailwind classes must also be scanned, or
+		// classes unique to a web story (e.g. fixed pane widths w-[240px]) never get
+		// generated — three-pane page variants then collapse to 0-width panes.
+		resolve(dir, "../../web/src/**/*.{ts,tsx}"),
 	],
 	theme: {
 		extend: {
