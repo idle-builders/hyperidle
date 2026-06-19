@@ -2,6 +2,7 @@ import {
 	type HarnessCapabilities,
 	type HarnessCapabilityDescriptor,
 	type HarnessModelDescriptor,
+	type HarnessRuntimeCapabilities,
 	MODEL_CATALOG,
 } from "@hyperidle/shared";
 import type { AdapterMeta } from "./adapter-pool.js";
@@ -28,7 +29,7 @@ function isKnownHarnessFamily(type: string): type is KnownHarnessFamily {
 	return (KNOWN_HARNESS_FAMILIES as readonly string[]).includes(type);
 }
 
-function runtimeFromCapabilities(caps: HarnessCapabilities) {
+function runtimeFromCapabilities(caps: HarnessCapabilities): HarnessRuntimeCapabilities {
 	return {
 		preCompactionTrigger: caps.preCompactionTrigger,
 		subAgents: caps.subAgents,

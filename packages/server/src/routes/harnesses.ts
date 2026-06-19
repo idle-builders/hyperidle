@@ -4,13 +4,14 @@
  * Auth: founder-level auth via the global /api/* middleware (Bearer in shared mode,
  * X-API-Key in local mode). The public-data boundary confirms the authenticated
  * principal may read non-secret data. No in-route key check — see @lore below.
- * Response shape: { type: string; name: string; modelProviders: string[] }[]
- * Deduped by type — when multiple adapters share a type, only the first is returned.
+ * Response shape: HarnessCapabilityDescriptor[].
+ * Legacy fields { type, name, modelProviders } stay top-level for existing selectors.
+ * Deduped by type — when multiple adapters share a type, only the first descriptor is returned.
  *
- * @lore AH2: This route exists so the SettingsAgents UI can populate the Harness
- * <select> from the live registry rather than a hardcoded list. The closed set
- * right now is ["builtin", "claude-code"] but the route stays registry-driven
- * so CLI adapters (aider, goose, opencode) appear automatically if installed.
+ * @lore AH2/AM2: This route exists so the SettingsAgents UI can populate the
+ * Harness <select> from the live registry, and AM2 extends it into the capability
+ * descriptor surface for session dial-in/onboarding. Known first-class CLI
+ * harnesses also appear as missing/readiness descriptors for guided setup.
  *
  * @lore AH2: Do NOT add an in-route X-API-Key check here. The plan explicitly
  * rejected that pattern (architecture.md:39 — wrong boundary for the Settings UI).
@@ -32,7 +33,7 @@ export interface HarnessEntry {
 }
 
 /**
- * Create a Hono router that exposes GET / → HarnessEntry[].
+ * Create a Hono router that exposes GET / → HarnessCapabilityDescriptor[].
  * Mounted at /api/harnesses by app.ts.
  */
 export function createHarnessRoutes(pool: AdapterPool): Hono {

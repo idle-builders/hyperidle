@@ -1,7 +1,7 @@
 {
   "id": "AM2",
   "status": "in_progress",
-  "currentStep": "write-code",
+  "currentStep": "review",
   "startedAt": "2026-06-19T10:44:54Z",
   "resumedAt": "2026-06-19T12:39:44Z",
   "conceptCommit": "bb7d7918",
