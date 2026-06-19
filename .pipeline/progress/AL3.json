@@ -1,9 +1,9 @@
 {
   "id": "AL3",
   "status": "in_progress",
-  "currentStep": "concept",
+  "currentStep": "write-tests",
   "track": "AL",
   "complexity": "L",
   "startedAt": "2026-06-19T12:45:00Z",
-  "notes": "Existing feat/AL3-review-composition-surface worktree has human-approved design seed from AL1. Resuming pipeline at Phase 1 /concept; /design skipped because design is approved."
+  "notes": "Phase 2 complete: architecture critique DONE. Entering Phase 3 builder TDD."
 }
