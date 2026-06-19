@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { apiFetch } from "../../services/api-fetch.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject } from "./review-composition.js";
@@ -14,8 +15,16 @@ interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
 }
 
-function defaultLoader(): Promise<ComposedReviewSubject> {
-	return Promise.resolve(REVIEW_COMPOSITION_SUBJECT);
+async function defaultLoader({
+	reviewId,
+}: {
+	readonly reviewId: string;
+}): Promise<ComposedReviewSubject> {
+	const res = await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`);
+	if (!res.ok) {
+		throw new Error(`Could not load review: ${res.status}`);
+	}
+	return (await res.json()) as ComposedReviewSubject;
 }
 
 /**
@@ -72,3 +81,8 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		</div>
 	);
 }
+
+// @lore AL3: keep the fixture reachable from the production module for
+// host tests and storybook; importing from the fixture file rather than
+// redeclaring avoids drift between test data and the defaultLoader fallback.
+export { REVIEW_COMPOSITION_SUBJECT };

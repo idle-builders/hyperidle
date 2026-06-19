@@ -1,10 +1,10 @@
-# Review primitive (AL2)
+# Review primitive
 
-A review canvas is the purpose-built surface that renders one artifact in a review Subject. It is selected by the artifact’s `kind`, so a reviewer sees a proof-family layout for that output — not raw JSON or a generic preview. The underlying data is still the [`Artifact` primitive](../process-layer/artifact-primitive.md); canvases only own the review-time presentation layer.
+A review is a single surface where a human judges one **Subject** — the output of a task or bet — and casts one **verdict**. It is dual-anchored: it shows *what was asked* (the intent / prompt) and *what was produced* (the Subject), so the verdict answers both “did it do the right thing?” and “is the output sound?”. The underlying data is still the [`Artifact` primitive](../process-layer/artifact-primitive.md); the review layer only owns presentation.
 
 ## Review canvas families
 
-AL2 ships nine families. `getReviewCanvas(kind)` returns the matching component; unknown kinds fall back to a safe header + JSON dump.
+AL2 ships nine proof-family canvases. Each artifact renders through the canvas selected by its `kind` via `getReviewCanvas(kind)`; unknown kinds fall back to a safe header + JSON dump.
 
 | Kind | Canvas | What it shows |
 |---|---|---|
@@ -18,12 +18,29 @@ AL2 ships nine families. `getReviewCanvas(kind)` returns the matching component;
 | `batch` | `ReviewBatch` | Per-item rollup with flagged items surfaced first. |
 | `browser_preview` | `ReviewBrowserPreview` | Basic browser view of a deployed or preview URL. |
 
+## Composition surface (AL3)
+
+The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` wraps the canvas families into a coherent review page:
+
+```
+ReviewComposition
+├─ Frame header    (bet › task, agent → reviewer, cost, five verdicts)
+├─ The task        (the real prompt + source link)
+├─ Result          (outcome, KPIs, visible proof, intent met-line)
+├─ Needs you       (risks, each jump-linked to its artifact)
+├─ Artifacts       (thin opener rows; click opens the pane)
+├─ Conversation    (one global thread, reference chips to artifacts/spots)
+└─ Right pane      (selected artifact rendered by its AL2 family canvas)
+```
+
+Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts.
+
 ## Tool grounding and safety
 
 Every canvas carries its source tool via `ToolLogo` and a jump-off link via `CanvasSourceHeader`. `isSafeSourceHref` blocks non-HTTP(S) schemes such as `javascript:`, so agent-authored `sourceHref` values cannot become a click-through XSS vector. Unknown kinds render `ReviewUnknownCanvas`: source header, kind label, and a capped JSON preview — never a blank screen or crash.
 
 ## Where it lives
 
-The registry, types, and canvases are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` exercises the registry for the AL2 integration scaffold; the full dual-anchor composition (intent, rationale, conversation, verdict) is owned by AL3.
+The registry, types, canvases, and composition component are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewId` as the Subject loader stub; the route is mounted in `packages/server/src/app.ts`.
 
 Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container.
