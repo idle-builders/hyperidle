@@ -1,9 +1,9 @@
 {
   "id": "AL3",
   "status": "in_progress",
-  "currentStep": "write-tests",
+  "currentStep": "review",
   "track": "AL",
   "complexity": "L",
   "startedAt": "2026-06-19T12:45:00Z",
-  "notes": "Phase 2 complete: architecture critique DONE. Entering Phase 3 builder TDD."
+  "notes": "Phase 3 green complete. Composition surface, tests, and server route implemented; check + lint green; targeted tests green. Proceeding to Phase 4 code review."
 }
