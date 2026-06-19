@@ -1,14 +1,16 @@
-import type { AnchorRef, HostKind } from "@hyperidle/shared";
+import type { AnchorRef, BlockId, HostKind, Message, PlainPayload } from "@hyperidle/shared";
+import { isRedactedPayload, relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
+import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
 import { useHostThread } from "../../hooks/useHostThread.js";
 import { apiFetch } from "../../services/api-fetch.js";
 import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
-import type { ComposedReviewSubject } from "./review-composition.js";
+import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
 export type ReviewLoader = (params: {
 	readonly betId: string;
@@ -31,6 +33,63 @@ async function defaultLoader({
 	return (await res.json()) as ComposedReviewSubject;
 }
 
+function isArtifactEntityRef(ref: {
+	readonly kind: string;
+}): ref is { readonly kind: "artifact"; readonly id: string } {
+	return ref.kind === "artifact";
+}
+
+/**
+ * AL4: The review's single conversation is the Thread attached to the work item.
+ * Map the server's messages into ReviewComment shape, extracting anchored
+ * comments from the blockId + artifact ref payload fields.
+ */
+function hostMessagesToReviewComments(
+	messages: ReadonlyArray<Message>,
+	identities: Record<string, HostThreadIdentity>,
+): ReadonlyArray<ReviewComment> {
+	const result: ReviewComment[] = [];
+	for (const m of messages) {
+		if (m.type !== "plain") continue;
+		if (isRedactedPayload(m.payload)) continue;
+		const payload = m.payload as PlainPayload;
+		const payloadRecord = payload as { blockId?: unknown; spotLabel?: unknown };
+		const artifactRef = payload.refs?.find(isArtifactEntityRef);
+		const blockIdString =
+			typeof payloadRecord.blockId === "string" ? payloadRecord.blockId : undefined;
+		const spotLabel =
+			typeof payloadRecord.spotLabel === "string" ? payloadRecord.spotLabel : undefined;
+
+		const identity = identities[m.senderId];
+		const author = identity?.name ?? m.senderId;
+		const authorIsAgent = identity?.role === "agent" || m.senderId.startsWith("agent");
+		const blockId = blockIdString ? (blockIdString as BlockId) : undefined;
+		const anchor: AnchorRef | undefined =
+			artifactRef && blockId ? { artifactId: artifactRef.id, blockId, spotLabel } : undefined;
+
+		result.push({
+			id: m.id,
+			author,
+			authorIsAgent,
+			body: payload.text,
+			ago: relativeShort(m.createdAt),
+			refs: anchor
+				? [
+						{
+							kind: "artifact",
+							label: anchor.spotLabel ?? anchor.artifactId,
+							artifactId: anchor.artifactId,
+							blockId,
+							spotLabel,
+						},
+					]
+				: undefined,
+			anchor,
+		});
+	}
+	return result;
+}
+
 /**
  * AL3 — production review destination.
  *
@@ -48,6 +107,16 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	const hostKind: HostKind = subject?.taskId ? "task" : "bet";
 	const hostThread = useHostThread(hostKind, hostId);
 
+	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
+		if (!subject) return null;
+		const threadComments =
+			hostThread.data?.messages && hostThread.data.messages.length > 0
+				? hostMessagesToReviewComments(hostThread.data.messages, hostThread.data.identities)
+				: undefined;
+		if (!threadComments) return subject;
+		return { ...subject, conversation: threadComments };
+	}, [subject, hostThread.data]);
+
 	useEffect(() => {
 		let cancelled = false;
 		loader({ betId, reviewId })
@@ -64,7 +133,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
-			if (!(user && reviewId && subject)) return;
+			if (!(user && reviewId && reviewSubject)) return;
 			const threadId = hostThread.data?.thread.id;
 			const activeThreadId =
 				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
@@ -73,7 +142,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 			const refreshed = await loader({ betId, reviewId });
 			setSubject(refreshed);
 		},
-		[betId, hostId, hostKind, hostThread, loader, reviewId, subject, user],
+		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
 	);
 
 	const handleSubmitVerdict = useCallback(async () => {
@@ -89,7 +158,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		);
 	}
 
-	if (!subject) {
+	if (!(subject && reviewSubject)) {
 		return (
 			<div className="p-[24px] text-[var(--text-secondary)]">
 				<p>Loading review…</p>
@@ -100,7 +169,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	return (
 		<div className="h-full">
 			<ReviewComposition
-				subject={subject}
+				subject={reviewSubject}
 				onSubmitVerdict={handleSubmitVerdict}
 				onPostComment={user ? handlePostComment : undefined}
 				threadId={hostThread.data?.thread.id ?? ""}

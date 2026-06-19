@@ -468,7 +468,12 @@ function FileDiff({
 					if (!first?.anchor) return null;
 					return (
 						<div key={blockId} className="px-[12px] py-[9px] opacity-60">
-							<AnchoredThreadCard anchor={first.anchor} comments={comments} readOnly={readOnly} />
+							<AnchoredThreadCard
+								anchor={first.anchor}
+								comments={comments}
+								readOnly={readOnly}
+								orphan
+							/>
 						</div>
 					);
 				})}

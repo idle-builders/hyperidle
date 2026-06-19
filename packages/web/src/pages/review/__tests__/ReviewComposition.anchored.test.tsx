@@ -66,6 +66,17 @@ describe("ReviewComposition — anchored comments", () => {
 		expect(onSubmitVerdict).toHaveBeenCalledExactlyOnceWith("approve");
 	});
 
+	it("hides the global composer when the review is resolved", () => {
+		const resolvedSubject = {
+			...REVIEW_COMPOSITION_SUBJECT,
+			verdict: { decision: "approve" as const },
+		};
+		renderComposition({ subject: resolvedSubject });
+
+		expect(screen.queryByTestId("composer-textarea")).not.toBeInTheDocument();
+		expect(screen.getByText(/review resolved/i)).toBeInTheDocument();
+	});
+
 	it("passes an anchor when sending an inline reply from an opened artifact", async () => {
 		const { onPostComment } = renderComposition({ initialOpenArtifactId: "artifact:code:1" });
 

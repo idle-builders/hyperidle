@@ -592,12 +592,14 @@ interface ConversationSectionProps {
 	readonly comments: readonly ReviewComment[];
 	readonly threadId?: string;
 	readonly onPostComment?: (input: { text: string; anchor?: AnchorRef }) => Promise<void>;
+	readonly resolved?: boolean;
 }
 
 function ConversationSection({
 	comments,
 	threadId,
 	onPostComment,
+	resolved,
 }: ConversationSectionProps): JSX.Element {
 	return (
 		<section>
@@ -606,13 +608,17 @@ function ConversationSection({
 				{comments.map((c) => (
 					<CommentItem key={c.id} comment={c} />
 				))}
-				{onPostComment ? (
+				{!resolved && onPostComment ? (
 					<Composer
 						threadId={threadId ?? "review"}
 						onSubmit={async ({ text }) => {
 							await onPostComment({ text });
 						}}
 					/>
+				) : onPostComment ? (
+					<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)]">
+						Review resolved — no new comments
+					</div>
 				) : (
 					<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)]">
 						Reply (composer not connected)
@@ -741,6 +747,7 @@ export function ReviewComposition({
 								comments={subject.conversation}
 								threadId={threadId}
 								onPostComment={onPostComment}
+								resolved={resolved}
 							/>
 						</div>
 					</div>

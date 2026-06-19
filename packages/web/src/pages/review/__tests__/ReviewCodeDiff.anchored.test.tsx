@@ -177,5 +177,6 @@ describe("ReviewCodeDiff — anchored comments", () => {
 		renderCanvas({ anchors: [anchored], onAddAnchor });
 
 		expect(screen.getByText("Orphan comment.")).toBeInTheDocument();
+		expect(screen.getByText("source changed")).toBeInTheDocument();
 	});
 });

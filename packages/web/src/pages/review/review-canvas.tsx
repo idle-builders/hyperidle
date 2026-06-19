@@ -124,6 +124,8 @@ export interface AnchoredThreadCardProps {
 	readonly anchor: AnchorRef;
 	readonly comments: ReadonlyArray<ReviewComment>;
 	readonly readOnly: boolean;
+	/** AL4: the referenced block no longer resolves in the current rendered artifact. */
+	readonly orphan?: boolean;
 	readonly onReply?: (text: string) => Promise<void>;
 }
 
@@ -150,6 +152,7 @@ export function AnchoredThreadCard({
 	anchor,
 	comments,
 	readOnly,
+	orphan = false,
 	onReply,
 }: AnchoredThreadCardProps): JSX.Element | null {
 	const [replyOpen, setReplyOpen] = useState(false);
@@ -168,7 +171,11 @@ export function AnchoredThreadCard({
 				<span className="font-mono text-[11px] text-[var(--text-secondary)]">
 					{anchor.spotLabel ?? "anchor"}
 				</span>
-				{readOnly ? (
+				{orphan ? (
+					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
+						source changed
+					</span>
+				) : readOnly ? (
 					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
 						resolved
 					</span>
