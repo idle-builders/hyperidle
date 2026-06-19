@@ -136,14 +136,17 @@ app.get("/api/reviews/:reviewId", (c) => {
 });
 ```
 
-The route is registered in `packages/server/src/app.ts` if there is an existing central registry; check the file and add the mounted router. The AL3 implementation does not need database tables.
+- Error contract: `404` if `:reviewId` is missing/empty; body `{ error: "review_not_found" }`.
+- Register in `packages/server/src/app.ts` (follow the existing `app.route(...)` mounts).
+- No DB migration for AL3; fixture data is keyed by the route param so the route returns deterministic JSON for tests.
 
 ## Verdict resolution
 
-- The frame header renders the five verdict decisions via a shared `VerdictDecision` type.
+- The frame header renders the five verdict decisions via the shared `VerdictDecision` type from `@hyperidle/shared`.
 - `ReviewComposition` receives `onSubmitVerdict: (decision: VerdictDecision, note?: string) => void | Promise<void>`.
-- `ReviewPage` wires this to `POST /api/threads/:threadId/verdict` using the existing server endpoint, or to a local stub that records the decision optimistically.
+- `ReviewPage` wires `onSubmitVerdict` to `POST /api/threads/:threadId/messages` with a `verdict` payload (use the existing thread message API shape from `@hyperidle/shared`).
 - For AL3 tests, assert the callback is called with the chosen decision; do not require actual server round-trip in unit tests.
+- The verdict resolves the whole Subject; no per-artifact `onSubmitVerdict` is passed to canvases.
 
 ## Progression states
 
@@ -158,6 +161,12 @@ The route is registered in `packages/server/src/app.ts` if there is an existing 
 - `Esc` closes the pane (keyboard listener on the composition container).
 - Clicking an artifact row opens the pane; clicking ✕ or pressing `Esc` closes it.
 - A need item with `artifactId` jumps to and opens that artifact.
+
+## Lore / gotchas
+
+- `@lore` The approved design (`plans/AL1/design/approved.md` §Open Questions) intentionally keeps the conversation thread lightly styled — it will adopt the AM-track conversation redesign later. AL3 therefore uses a local `ReviewComment` array as the conversation model, not the full `Thread` fetch, to avoid duplicating work that AM will replace.
+- `@lore` AL2 canvases must keep their existing props; do not change `ReviewCanvasProps`. New composition fields live only on `ComposedReviewSubject`.
+- `@lore` The pane is not a separate route; it is local UI state so the back button leaves the review rather than stepping through pane history.
 
 ## AC → verification mapping
 
