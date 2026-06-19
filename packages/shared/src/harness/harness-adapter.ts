@@ -3,6 +3,12 @@
 import type { ResolvedModel } from "../model-gateway.js";
 import type { TokenUsage, WireMoney } from "../types/money.js";
 import type { ModelTier } from "../types.js";
+import type {
+	HarnessAccessMode,
+	HarnessAuthActionDescriptor,
+	HarnessDiscoveryStatus,
+	HarnessModelDescriptor,
+} from "./harness-capability-descriptor.js";
 import type { HarnessEvent } from "./harness-events.js";
 
 /** X5: MCP bridge connection coordinates for a session. */
@@ -120,6 +126,12 @@ export interface HarnessCapabilities {
 	 * dispatched to the tool registry by the provisioner.
 	 */
 	readonly mcpSupport: boolean;
+	readonly descriptorModels?: readonly HarnessModelDescriptor[];
+	readonly accessMode?: HarnessAccessMode;
+	readonly authAction?: HarnessAuthActionDescriptor;
+	readonly discovery?: HarnessDiscoveryStatus;
+	readonly fileEditing?: boolean;
+	readonly toolUse?: boolean;
 }
 
 export interface HarnessAdapter {

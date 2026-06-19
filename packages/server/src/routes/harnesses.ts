@@ -20,6 +20,7 @@
  * sufficient — matches how agents.ts and all other founder-auth endpoints work.
  */
 
+import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -38,23 +39,7 @@ export function createHarnessRoutes(pool: AdapterPool): Hono {
 	const router = new Hono();
 
 	router.get("/", requireBoundary({ kind: "public-data" }), (c) => {
-		// Deduplicate by type — take the first adapter of each type.
-		// Adapters without a type (e.g. remote workers with no type set) are excluded
-		// from the harness selector since they can't be addressed by type.
-		const seen = new Set<string>();
-		const entries: HarnessEntry[] = [];
-
-		for (const adapter of pool.list()) {
-			if (!adapter.type) continue;
-			if (seen.has(adapter.type)) continue;
-			seen.add(adapter.type);
-			entries.push({
-				type: adapter.type,
-				name: adapter.name,
-				modelProviders: adapter.modelProviders,
-			});
-		}
-
+		const entries: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
 		return c.json(entries);
 	});
 

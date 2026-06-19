@@ -8,10 +8,14 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HarnessAdapter } from "@hyperidle/shared";
+import type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
+import {
+	describeRegisteredHarness,
+	missingKnownHarnessDescriptors,
+} from "./harness-capability-descriptors.js";
 
 /** Descriptor for a registered adapter. */
 export interface AdapterMeta {
@@ -195,6 +199,35 @@ export class AdapterPool {
 			}
 		}
 		return null;
+	}
+
+	listCapabilityDescriptors(options?: {
+		readonly includeKnownMissing?: boolean;
+	}): HarnessCapabilityDescriptor[] {
+		const includeKnownMissing = options?.includeKnownMissing ?? true;
+		const descriptors: HarnessCapabilityDescriptor[] = [];
+		const seen = new Set<string>();
+
+		for (const entry of this.entries.values()) {
+			if (!entry.meta.type) continue;
+			if (seen.has(entry.meta.type)) continue;
+			seen.add(entry.meta.type);
+			descriptors.push(describeRegisteredHarness(entry.meta, entry.adapter.getCapabilities()));
+		}
+
+		if (includeKnownMissing) {
+			descriptors.push(...missingKnownHarnessDescriptors(seen));
+		}
+
+		return descriptors;
+	}
+
+	getCapabilityDescriptorByType(harnessType: string | null): HarnessCapabilityDescriptor | null {
+		const descriptors = this.listCapabilityDescriptors({ includeKnownMissing: false });
+		if (harnessType === null) {
+			return descriptors[0] ?? null;
+		}
+		return descriptors.find((descriptor) => descriptor.type === harnessType) ?? null;
 	}
 
 	/**

@@ -1,11 +1,13 @@
+import { describe, expect, it } from "vitest";
 import type {
 	HarnessCapabilityDescriptor,
 	HarnessModelOptionDescriptor,
 } from "../harness-capability-descriptor.js";
 import { HARNESS_OPTION_CONTROL_KINDS } from "../harness-capability-descriptor.js";
-import { describe, expect, it } from "vitest";
 
-function selectOption(overrides: Partial<HarnessModelOptionDescriptor> = {}): HarnessModelOptionDescriptor {
+function selectOption(
+	overrides: Partial<HarnessModelOptionDescriptor> = {},
+): HarnessModelOptionDescriptor {
 	return {
 		key: "reasoning_effort",
 		label: "Reasoning effort",

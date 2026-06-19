@@ -24,6 +24,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
+import { normalizeHarnessEvent } from "@hyperidle/shared";
 
 /**
  * Template variable names used in args and envMap.
@@ -423,8 +424,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				// Trust the parsed object as a HarnessEvent
-				return parsed as HarnessEvent;
+				return normalizeHarnessEvent(parsed);
 			}
 		} catch {
 			// Fall through to completion event

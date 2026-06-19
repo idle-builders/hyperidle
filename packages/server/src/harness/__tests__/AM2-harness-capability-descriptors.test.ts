@@ -1,11 +1,11 @@
 import type { HarnessCapabilities } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
+import type { AdapterMeta } from "../adapter-pool.js";
 import {
 	describeRegisteredHarness,
 	KNOWN_HARNESS_FAMILIES,
 	missingKnownHarnessDescriptors,
 } from "../harness-capability-descriptors.js";
-import type { AdapterMeta } from "../adapter-pool.js";
 
 const BUILTIN_META: AdapterMeta = {
 	name: "Built-in Harness",
@@ -57,18 +57,15 @@ describe("AM2 harness capability descriptor builders", () => {
 	});
 
 	it("emits missing descriptors for first-class known harness families", () => {
-		expect(KNOWN_HARNESS_FAMILIES).toEqual([
-			"codex",
-			"claude-code",
-			"cursor-agent",
-			"opencode",
-		]);
+		expect(KNOWN_HARNESS_FAMILIES).toEqual(["codex", "claude-code", "cursor-agent", "opencode"]);
 
 		const missing = missingKnownHarnessDescriptors(new Set(["builtin"]));
 		const missingTypes = missing.map((descriptor) => descriptor.type);
 
 		expect(missingTypes).toEqual(["codex", "claude-code", "cursor-agent", "opencode"]);
 		expect(missing.every((descriptor) => descriptor.discovery.state === "missing")).toBe(true);
-		expect(missing.every((descriptor) => descriptor.authAction.kind === "native_cli_login")).toBe(true);
+		expect(missing.every((descriptor) => descriptor.authAction.kind === "native_cli_login")).toBe(
+			true,
+		);
 	});
 });

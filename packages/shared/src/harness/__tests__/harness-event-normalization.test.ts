@@ -10,6 +10,34 @@ describe("AM2 normalizeHarnessEvent", () => {
 		expect(normalizeHarnessEvent(builtinNative)).toEqual({ type: "completion", text: "done" });
 	});
 
+	it("preserves captured tool calls on completion events", () => {
+		expect(
+			normalizeHarnessEvent({
+				type: "completion",
+				text: "draft ready",
+				toolCalls: [
+					{
+						name: "create_bet",
+						input: { title: "AM2" },
+						output: '{"betId":"bet-1"}',
+						status: "ok",
+					},
+				],
+			}),
+		).toEqual({
+			type: "completion",
+			text: "draft ready",
+			toolCalls: [
+				{
+					name: "create_bet",
+					input: { title: "AM2" },
+					output: '{"betId":"bet-1"}',
+					status: "ok",
+				},
+			],
+		});
+	});
+
 	it("normalizes equivalent tool calls to the same downstream shape", () => {
 		const builtinNative = { type: "tool_call", toolName: "read_file", args: { path: "x" } };
 		const cliNative = { type: "tool_call", toolName: "read_file", args: { path: "x" } };
@@ -18,7 +46,9 @@ describe("AM2 normalizeHarnessEvent", () => {
 	});
 
 	it("coerces unknown native events into a normalized error event", () => {
-		expect(normalizeHarnessEvent({ type: "provider_specific_delta", payload: { text: "x" } })).toEqual({
+		expect(
+			normalizeHarnessEvent({ type: "provider_specific_delta", payload: { text: "x" } }),
+		).toEqual({
 			type: "error",
 			code: "UnknownHarnessEvent",
 			message: "Unknown harness event: provider_specific_delta",
