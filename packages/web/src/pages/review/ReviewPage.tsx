@@ -159,16 +159,14 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	const handleSubmitVerdict = useCallback(
 		async (decision: VerdictDecision) => {
 			const threadId = hostThread.data?.thread.id;
-			if (!(threadId && user)) return;
-			// The verdict resolves the underlying type:"review" message. Source it
-			// from the loaded host thread — the most recent review-typed message is
-			// the one under review (mirrors the policy-engine resolver).
-			const messages = hostThread.data?.messages ?? [];
-			let reviewMessageId: string | undefined;
-			for (const m of messages) {
-				if (m.type === "review") reviewMessageId = m.id;
-			}
-			if (!reviewMessageId) return;
+			if (!(threadId && reviewId && user)) return;
+			// The verdict resolves a specific type:"review" message. The route
+			// `reviewId` IS that message's id — the OpenTarget is built directly
+			// from the review Message (`shared/src/part.ts` reviewTarget:
+			// { reviewId: message.id }), and the server resolves the exact
+			// resolvesMessageId supplied. Reviews re-open by design, so a thread
+			// can hold multiple review messages; only the route's id is correct.
+			const reviewMessageId = reviewId;
 
 			// postVerdictHostMessage returns "ok" | "race" | "forbidden" without
 			// throwing for the two expected non-OK conditions. On success the review

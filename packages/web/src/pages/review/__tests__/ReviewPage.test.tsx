@@ -23,10 +23,11 @@ const anchoredMessage: Message = {
 	} as PlainPayload,
 };
 
-// The verdict must resolve the underlying type:"review" message. The review page
-// derives resolvesMessageId from the host thread's most recent review message.
+// The verdict must resolve the type:"review" message the route points at. The
+// review page derives resolvesMessageId from the route `reviewId` (which IS the
+// review message id), NOT from "last review in the thread".
 const reviewMessage: Message = {
-	id: "review-msg-42",
+	id: "rev-1",
 	threadId: "thread-review-1",
 	senderId: "agent-atlas",
 	clientKey: "ck-review",
@@ -41,13 +42,32 @@ const reviewMessage: Message = {
 	} as unknown as ReviewPayload,
 };
 
+// A second, non-target review message that appears AFTER the route's review in
+// the thread. Reviews re-open by design, so multiple coexist. A "last review"
+// resolver would wrongly pick this one — the assertion proves it does not.
+const laterReviewMessage: Message = {
+	id: "review-msg-99",
+	threadId: "thread-review-1",
+	senderId: "agent-atlas",
+	clientKey: "ck-review-2",
+	deletedAt: null,
+	redactedAt: null,
+	resolvedAt: null,
+	createdAt: new Date().toISOString(),
+	type: "review",
+	payload: {
+		text: "Re-opened review",
+		artifacts: [],
+	} as unknown as ReviewPayload,
+};
+
 const refreshSpy = vi.fn();
 
 vi.mock("../../../hooks/useHostThread.js", () => ({
 	useHostThread: () => ({
 		data: {
 			thread: { id: "thread-review-1" },
-			messages: [reviewMessage, anchoredMessage],
+			messages: [reviewMessage, anchoredMessage, laterReviewMessage],
 			identities: {
 				"u-founder": { name: "You", role: "founder" },
 				"agent-atlas": { name: "Atlas", role: "agent" },
@@ -143,8 +163,10 @@ describe("ReviewPage route", () => {
 		];
 		expect(threadId).toBe("thread-review-1");
 		expect(decision).toBe("approve");
-		// resolvesMessageId is the host thread's type:"review" message id.
-		expect(resolvesMessageId).toBe("review-msg-42");
+		// resolvesMessageId is the ROUTE's review message id ("rev-1"), not the
+		// last review message in the thread ("review-msg-99"). Proves the verdict
+		// resolves the review the user opened, not whichever happens to be last.
+		expect(resolvesMessageId).toBe("rev-1");
 
 		// On success the page refreshes the thread + reloads the subject.
 		await waitFor(() => {
