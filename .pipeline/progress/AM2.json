@@ -16,7 +16,7 @@
   "redTestsCommittedAt": "2026-06-21T13:29:52Z",
   "greenCodeCompletedAt": "2026-06-21T14:06:00Z",
   "verifyAttestationAt": "2026-06-21T14:17:00Z",
-  "verifyAttestationCommit": "8b3a4a11",
+  "verifyAttestationCommit": "d5ff520d",
   "prNumber": 339,
   "prUrl": "https://github.com/ambrovia/hyperidle/pull/339",
   "docsCompletedAt": "2026-06-21T15:10:00Z",
