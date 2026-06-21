@@ -11,7 +11,31 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.8 — round-6: one shared chip + review rethink (founder annotations, this revision)
+## v3.9 — round-7: quiet identity + review-page target + unified session fold (founder annotations, this revision)
+
+Four founder comments drove this pass; verified by looking at the rendered surface + clicking "Open review" in the `:8100` viewer (`screenshot.png`).
+
+### A. Agent identity = green avatar ONLY — no green box (comment 1)
+The agent-message **background tint + left accent rule** (the "green box" around agent message groups) is **removed**. The **green avatar is the agent marker** — that's enough. A tiny neutral agent spark glyph sits after an agent's name as the only secondary cue (no green pill, no box, no accent-colored structural border). The old `border-l-[2.5px] border-[accent-primary]` + 4% accent tint + "Agent" pill are gone.
+- **Identity model now:** own messages (A. Founder) = subtle light background (`color-mix --text-secondary 3%`) — **kept** (comment 5, founder likes it); agent (Atlas) = green avatar, plain group, spark glyph; other humans (Mara) = plain. Clean and quiet.
+- Verified: no tint/border/accent-rule on any agent group; the Founder groups keep the light bg; Mara plain.
+
+### B. "Open review" → the REVIEW PAGE, not the artifact (comment 2)
+The review message's **"Open review →"** targets the **review experience** (`packages/web/src/pages/review/ReviewPage.tsx` → route `/work/bet/:betId/review/:reviewId`, rendering `ReviewComposition`) — NOT the code/artifact viewer. Two distinct targets in `ReviewRequestPart`:
+- the **artifact chip** (`auth/passkey.ts +2 −1`) → opens the artifact (right-page `<Block>` viewer), via `onOpenArtifact`;
+- **"Open review →"** → routes to the review page, via `onOpenReview`. `ReviewResolvedPart`'s "View review →" routes there too.
+- Story has no router, so `onOpenReview` is a clearly-labeled noop (`console.info("[AM1] open review page → /work/bet/:betId/review/:reviewId")`); the spec is the contract that it routes to the review experience, never the right-panel Block viewer. Verified: clicking "Open review" logs the review-page route (NOT a block-panel open).
+
+### C. Session dial-in unified to the subtle fold; heavy SESSION card removed (comments 3,4)
+The "Worked for 1m 12s · Show" **work-fold** is the preferred, subtle session dial-in style (founder: "more subtle and the better one"). The separate heavy **SESSION embed card** ("Atlas · Opus 4.8 · 14 tool calls · Dial in" on an elevated bordered surface) was "too much" and is **removed** (along with the `Embed` / `EmbedKindLabel` / `SessionRefEmbedBody` components). Session dial-in now renders as a quiet **"› Show session"** line in the **same `Fold` style** as the work-fold.
+- `Fold` generalized: optional `label`, an optional `cta` ("Show" default, "Show session" for the session line), and an `onShow` handler so it's live. No card, no border, no heavy chrome.
+- Verified: no `Am1Embed` in the DOM; the session dial-in is the subtle fold line.
+
+Unchanged from round-6: the shared `ReferenceChip` (kinds {artifact,image,knowledge,block}, modes {draft,posted}), the review request (REVIEW REQUESTED + proposal + artifact chip + Open-review) and resolved verdict echo, the questionnaire ("?" marker + hover-button options), the "+" hover button, interactivity (Insert opens; block "Open" → right-page real `<Block>` viewer), the conditional reply banner, horizontal compact attachments, taller textarea, no bottom footer.
+
+---
+
+## v3.8 — round-6: one shared chip + review rethink (founder annotations, prior revision)
 
 Branch rebased onto `origin/main` — the merged review experience (AL2/AL3/AL4: `pages/review/ReviewComposition.tsx`, `review-composition.ts`) is now the source of truth for the review surface. Ten founder comments drove this pass; verified by clicking + screenshotting in the `:8100` viewer (`screenshot.png`; `_chips.png` = composer-draft chips; `_chips_message.png` = same chip inside a message; `_review.png` = review request; `_review_resolved.png` = verdict echo; `_questionnaire.png` / `_questionnaire_hover.png`; `_plus_hover.png`).
 

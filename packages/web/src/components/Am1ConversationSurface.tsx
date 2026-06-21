@@ -182,6 +182,10 @@ const ICON_IMAGE =
 	"M2.5 2.5h11a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1zm0 1.5v6.1l3-3 2.2 2.2L11 5.3l3 3V4H2.5zM5.3 5a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z";
 const ICON_KNOWLEDGE =
 	"M3 1.5h7l3 3v9.5a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5v-12a.5.5 0 01.5-.5zm6.5 1.2V4.5h1.8L9.5 2.7zM4.5 6.3h7v1.2h-7V6.3zm0 2.6h7v1.2h-7V8.9zm0 2.6h4.6v1.2H4.5v-1.2z";
+// Tiny agent spark — a quiet secondary cue next to an agent's name (the green
+// avatar is the primary marker). Four-point sparkle + small dot.
+const ICON_AGENT =
+	"M8 1.5l1.1 3.4L12.5 6 9.1 7.1 8 10.5 6.9 7.1 3.5 6l3.4-1.1L8 1.5zM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z";
 
 // ───────────────────────────────────────────────────────────────────
 // Avatar — human vs agent tint + a stronger agent ring.
@@ -263,11 +267,12 @@ function MessageGroup({
 	children: React.ReactNode;
 	hovered?: boolean;
 }): JSX.Element {
-	const tint = who.isAgent
-		? "border-l-[2.5px] border-[var(--accent-primary)] bg-[color-mix(in_oklab,var(--accent-primary)_4%,transparent)] pl-[15px]"
-		: who.isMe
-			? "bg-[color-mix(in_oklab,var(--text-secondary)_3%,transparent)] pl-[18px]"
-			: "pl-[18px]";
+	// Identity model (round-7, founder): own messages = subtle light bg; agent =
+	// green avatar ONLY (no box/tint/accent-rule — "the green avatar is enough");
+	// other humans = plain. Clean and quiet — no accent-colored structural border.
+	const tint = who.isMe
+		? "bg-[color-mix(in_oklab,var(--text-secondary)_3%,transparent)] pl-[18px]"
+		: "pl-[18px]";
 	return (
 		<div
 			data-ds-component="Am1MessageGroup"
@@ -278,10 +283,16 @@ function MessageGroup({
 			<div className="min-w-0 flex-1">
 				<div className="mb-[6px] flex items-baseline gap-[9px]">
 					<span className="text-[13px] font-[600] text-[var(--text-primary)]">{who.name}</span>
+					{/* Agent is marked by the green avatar alone (round-7, founder: "the
+					    green avatar is enough"). A tiny neutral glyph after the name is the
+					    only secondary cue — no green pill, no box. */}
 					{who.isAgent && (
-						<span className="inline-flex items-center gap-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
-							<Glyph d={ICON_CHECK} size={9} />
-							Agent
+						<span
+							aria-label="Agent"
+							title="Agent"
+							className="flex items-center text-[var(--text-tertiary)]"
+						>
+							<Glyph d={ICON_AGENT} size={11} />
 						</span>
 					)}
 					{who.isMe && <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>}
@@ -364,17 +375,40 @@ function Reactions(): JSX.Element {
 	);
 }
 
-function Fold({ label }: { label: string }): JSX.Element {
+// Subtle fold dial-in (round-7, founder: the work-fold is "more subtle and the
+// better one" — unify session dial-in to this style). A quiet collapsed line:
+// rotated chevron · label · "Show <cta>". No card, no border, no heavy chrome.
+// Used for both the work-fold ("Worked for 1m 12s · Show") AND the session
+// dial-in ("› Show session"). `onShow` makes it live (the session fold opens the
+// session dial-in; the work-fold expands the trace).
+function Fold({
+	label,
+	cta = "Show",
+	onShow,
+}: {
+	label?: string;
+	cta?: string;
+	onShow?: () => void;
+}): JSX.Element {
 	return (
 		<div>
-			<span className="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
+			<button
+				type="button"
+				onClick={onShow}
+				data-ds-component="Am1Fold"
+				className="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
+			>
 				<span style={{ transform: "rotate(-90deg)", display: "inline-flex" }}>
 					<Glyph d={ICON_FOLD} size={12} />
 				</span>
-				<span>{label}</span>
-				<span className="text-[var(--text-tertiary)]">·</span>
-				<span className="text-[var(--accent-primary)]">Show</span>
-			</span>
+				{label && (
+					<>
+						<span>{label}</span>
+						<span className="text-[var(--text-tertiary)]">·</span>
+					</>
+				)}
+				<span className="text-[var(--accent-primary)]">{cta}</span>
+			</button>
 		</div>
 	);
 }
@@ -489,55 +523,11 @@ function ReferenceChipRow({ children }: { children: React.ReactNode }): JSX.Elem
 	return <div className="mt-[3px] flex flex-wrap items-center gap-[6px]">{children}</div>;
 }
 
-// ── Generic Embed hook (session ref) ────────────────────────────────
-function Embed({
-	label,
-	onOpen,
-	children,
-}: {
-	label: string;
-	onOpen?: () => void;
-	children: React.ReactNode;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			onClick={onOpen}
-			data-ds-component="Am1Embed"
-			className="group/embed mt-[3px] block w-full rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
-		>
-			<div className="flex items-center gap-[12px]">
-				<div className="min-w-0 flex-1">{children}</div>
-				<span className="inline-flex shrink-0 items-center gap-[3px] text-[11px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/embed:text-[var(--accent-primary)]">
-					Open
-					<Glyph d={ICON_ARROW} size={12} />
-				</span>
-			</div>
-		</button>
-	);
-}
-
-function EmbedKindLabel({ label }: { label: string }): JSX.Element {
-	return (
-		<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-			{label}
-		</div>
-	);
-}
-
-function SessionRefEmbedBody(): JSX.Element {
-	return (
-		<div>
-			<EmbedKindLabel label="Session" />
-			<div className="mt-[3px] truncate text-[13px] text-[var(--text-secondary)]">
-				<span className="font-[500] text-[var(--text-primary)]">Atlas</span> · Opus 4.8 ·{" "}
-				<span className="tabular-nums">1m 12s</span> ·{" "}
-				<span className="tabular-nums">14 tool calls</span> · Dial in
-			</div>
-		</div>
-	);
-}
+// @lore AM1-r7: the heavy SESSION embed card (Atlas · Opus 4.8 · 14 tool calls ·
+// Dial in, on an elevated bordered surface) was REMOVED — founder: "this session
+// dial in is too much, the one above [the work-fold] is better." Session dial-in
+// is now represented quietly by the SAME subtle <Fold> style as the work-fold
+// ("› Show session"). No card, no border, no separate Embed component.
 
 // Knowledge sources = knowledge-kind reference chips (a source IS a knowledge
 // document reference, founder comment 5). Each opens the doc. Same shared chip.
@@ -626,8 +616,22 @@ function QuestionnairePart(): JSX.Element {
 // (Approve / Request changes / …) live in ReviewComposition's FrameHeader, NOT
 // in the conversation. The conversation emits the request + echoes the verdict
 // once ReviewVerdictState is resolved.
+//
+// @lore AM1-r7: TWO DISTINCT targets here (founder comment 2 — "Open review
+// should open an actual review page and not a code artifact"):
+//   • the ARTIFACT chip → opens the artifact (right-page Block viewer);
+//   • "Open review →" → routes to the REVIEW PAGE / experience
+//     (packages/web/src/pages/review/ReviewPage.tsx →
+//      /work/bet/:betId/review/:reviewId, rendering ReviewComposition), NOT the
+//     Block viewer. In production onOpenReview navigates that route.
 // ───────────────────────────────────────────────────────────────────
-function ReviewRequestPart({ onOpenArtifact }: { onOpenArtifact: () => void }): JSX.Element {
+function ReviewRequestPart({
+	onOpenArtifact,
+	onOpenReview,
+}: {
+	onOpenArtifact: () => void;
+	onOpenReview: () => void;
+}): JSX.Element {
 	return (
 		<div
 			data-ds-component="Am1ReviewRequestPart"
@@ -661,11 +665,13 @@ function ReviewRequestPart({ onOpenArtifact }: { onOpenArtifact: () => void }): 
 					onOpen={onOpenArtifact}
 				/>
 			</div>
-			{/* The ONLY action here is to OPEN the review — the decision is made there. */}
+			{/* The ONLY action here is to OPEN THE REVIEW PAGE — the decision is made
+			    there (NOT the artifact viewer; founder comment 2). Routes to the
+			    review experience (ReviewPage → ReviewComposition). */}
 			<div className="pl-[29px]">
 				<button
 					type="button"
-					onClick={onOpenArtifact}
+					onClick={onOpenReview}
 					className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
 				>
 					Open review
@@ -982,9 +988,11 @@ function BlockRightPanel({ panel, onClose }: { panel: PanelKey; onClose: () => v
 function ConversationBody({
 	scroll,
 	onOpenBlock,
+	onOpenReview,
 }: {
 	scroll: boolean;
 	onOpenBlock: (panel: PanelKey) => void;
+	onOpenReview: () => void;
 }): JSX.Element {
 	return (
 		<div
@@ -1016,7 +1024,7 @@ function ConversationBody({
 							valid through phase 2, <Mention name="Mara" /> — fallback preserved.
 						</Prose>
 						<div className="mt-[6px]">
-							<Fold label="Worked for 1m 12s" />
+							<Fold label="Worked for 1m 12s" onShow={() => onOpenBlock("ref-plan")} />
 						</div>
 						{/* Change set = an artifact reference chip (opens the artifact in the
 						    review experience); NOT a big inline-code card (founder comment 6). */}
@@ -1059,9 +1067,12 @@ function ConversationBody({
 						</div>
 						<div>
 							<Prose>This all came out of my work session:</Prose>
-							<Embed label="Open the session dial-in">
-								<SessionRefEmbedBody />
-							</Embed>
+							{/* Session dial-in = the SAME subtle fold style as the work-fold
+							    (round-7, founder: the work-fold is the better, subtler one — no
+							    heavy session card). Quiet "› Show session" line. */}
+							<div className="mt-[6px]">
+								<Fold cta="Show session" onShow={() => onOpenBlock("ref-plan")} />
+							</div>
 						</div>
 					</div>
 				</MessageGroup>
@@ -1082,16 +1093,20 @@ function ConversationBody({
 					</div>
 				</MessageGroup>
 
-				{/* 7 · Atlas review REQUEST → reference into the merged review experience;
-				    NO inline decision, NO code. Opens the review page. */}
+				{/* 7 · Atlas review REQUEST → the artifact chip opens the ARTIFACT; "Open
+				    review" routes to the REVIEW PAGE (not the artifact). */}
 				<MessageGroup who={ATLAS} time="9:15">
-					<ReviewRequestPart onOpenArtifact={() => onOpenBlock("inserted-code")} />
+					<ReviewRequestPart
+						onOpenArtifact={() => onOpenBlock("inserted-code")}
+						onOpenReview={onOpenReview}
+					/>
 				</MessageGroup>
 
 				{/* 8 · Resolved verdict echo — the decision ONCE TAKEN, shown in the
-				    conversation (no buttons here; the decision was made on the review page). */}
+				    conversation (no buttons here; the decision was made on the review
+				    page). "View review" routes to the review page. */}
 				<MessageGroup who={FOUNDER} time="9:16" hovered>
-					<ReviewResolvedPart onOpenReview={() => onOpenBlock("inserted-code")} />
+					<ReviewResolvedPart onOpenReview={onOpenReview} />
 				</MessageGroup>
 			</div>
 		</div>
@@ -1153,7 +1168,18 @@ export default function Am1ConversationSurface({
 				style={{ flex: 1, minWidth: 0, ...(scroll ? { height: "100%" } : {}) }}
 			>
 				<ConversationHeader />
-				<ConversationBody scroll={scroll} onOpenBlock={(p) => setOpenPanel(p)} />
+				<ConversationBody
+					scroll={scroll}
+					onOpenBlock={(p) => setOpenPanel(p)}
+					// Production: navigate to the review page
+					// (/work/bet/:betId/review/:reviewId → ReviewPage → ReviewComposition).
+					// Story has no router — clearly-labeled noop so the affordance reads as
+					// "open the review page", NOT the right-panel Block viewer.
+					onOpenReview={() => {
+						// biome-ignore lint/suspicious/noConsole: story-only affordance proof
+						console.info("[AM1] open review page → /work/bet/:betId/review/:reviewId");
+					}}
+				/>
 				<Composer
 					active={composerActive}
 					insertMenuOpen={insertMenuOpen}
