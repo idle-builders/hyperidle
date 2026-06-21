@@ -27,6 +27,7 @@
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/isolated-session-worker.ts"],
+			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {

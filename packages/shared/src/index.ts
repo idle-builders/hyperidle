@@ -149,10 +149,22 @@ export type {
 	ConversationMessage,
 	CostUpdateEvent,
 	ErrorEvent,
+	HarnessAccessMode,
 	HarnessAdapter,
+	HarnessAuthActionDescriptor,
+	HarnessAuthActionKind,
 	HarnessCapabilities,
+	HarnessCapabilityDescriptor,
+	HarnessDiscoveryStatus,
 	HarnessEvent,
 	HarnessEventType,
+	HarnessModelDescriptor,
+	HarnessModelOptionControl,
+	HarnessModelOptionDescriptor,
+	HarnessOptionChoice,
+	HarnessOptionControlKind,
+	HarnessReadinessState,
+	HarnessRuntimeCapabilities,
 	McpConnectionInfo,
 	PreCompactionEvent,
 	ServerDispatchMessage,
@@ -172,7 +184,12 @@ export type {
 	WorkerSessionResultMessage,
 	WorkerToServerMessage,
 } from "./harness/index.js";
-export { MockHarnessAdapter } from "./harness/index.js";
+export {
+	HARNESS_OPTION_CONTROL_KINDS,
+	isHarnessEvent,
+	MockHarnessAdapter,
+	normalizeHarnessEvent,
+} from "./harness/index.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";

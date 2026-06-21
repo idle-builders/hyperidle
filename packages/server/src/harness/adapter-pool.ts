@@ -8,10 +8,16 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HarnessAdapter } from "@hyperidle/shared";
+import type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
+import {
+	describeRegisteredHarness,
+	missingKnownHarnessDescriptors,
+} from "./harness-capability-descriptors.js";
+import type { HarnessDiscoveryInput } from "./harness-discovery.js";
+import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
 
 /** Descriptor for a registered adapter. */
 export interface AdapterMeta {
@@ -65,6 +71,19 @@ export interface SelectedEntry {
 
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
+	private readonly discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
+
+	constructor(
+		discoveries?: HarnessDiscoveryResult | Readonly<Record<string, HarnessDiscoveryInput>>,
+	) {
+		if (discoveries) {
+			this.discoveries = Object.freeze(
+				Object.fromEntries(
+					Object.entries(discoveries).map(([k, v]) => [k, v as HarnessDiscoveryInput]),
+				) as Readonly<Record<string, HarnessDiscoveryInput>>,
+			);
+		}
+	}
 
 	/** Number of registered adapters. */
 	get size(): number {
@@ -197,6 +216,37 @@ export class AdapterPool {
 		return null;
 	}
 
+	listCapabilityDescriptors(options?: {
+		readonly includeKnownMissing?: boolean;
+	}): HarnessCapabilityDescriptor[] {
+		const includeKnownMissing = options?.includeKnownMissing ?? true;
+		const descriptors: HarnessCapabilityDescriptor[] = [];
+		const seen = new Set<string>();
+
+		for (const entry of this.entries.values()) {
+			if (!entry.meta.type) continue;
+			if (seen.has(entry.meta.type)) continue;
+			seen.add(entry.meta.type);
+			descriptors.push(
+				describeRegisteredHarness(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
+			);
+		}
+
+		if (includeKnownMissing) {
+			descriptors.push(...missingKnownHarnessDescriptors(seen, this.discoveries));
+		}
+
+		return descriptors;
+	}
+
+	getCapabilityDescriptorByType(harnessType: string | null): HarnessCapabilityDescriptor | null {
+		const descriptors = this.listCapabilityDescriptors({ includeKnownMissing: false });
+		if (harnessType === null) {
+			return descriptors[0] ?? null;
+		}
+		return descriptors.find((descriptor) => descriptor.type === harnessType) ?? null;
+	}
+
 	/**
 	 * Release one session slot for the given adapter ID.
 	 * No-op if ID is unknown or load is already 0.
@@ -295,9 +345,17 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * to "local-claude-code" to make room for multiple local adapters. The old
  * "local" ID was only referenced inside this factory and tests that use
  * pool.list() — not hardcoded elsewhere.
+ *
+ * @lore AM2: `discoverLocalHarnesses` intentionally does NOT run the session
+ * probe in production discovery yet. CLI capabilities (fileEditing, toolUse)
+ * therefore stay gated to `false` until AM3 wires the probe into the discovery
+ * pipeline. This is intentional substrate scoping — not a bug. AM3 will call
+ * `probeHarnessSession` per family and merge the probe result into the
+ * HarnessCapabilityDescriptor before pool registration.
  */
 export async function createLocalAdapterPool(): Promise<AdapterPool> {
-	const pool = new AdapterPool();
+	const discoveries = await discoverLocalHarnesses();
+	const pool = new AdapterPool(discoveries);
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
 
 	// 1. Claude Code adapter (existing)

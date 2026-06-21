@@ -9,6 +9,22 @@ export type {
 } from "./harness-adapter.js";
 
 export type {
+	HarnessAccessMode,
+	HarnessAuthActionDescriptor,
+	HarnessAuthActionKind,
+	HarnessCapabilityDescriptor,
+	HarnessDiscoveryStatus,
+	HarnessModelDescriptor,
+	HarnessModelOptionControl,
+	HarnessModelOptionDescriptor,
+	HarnessOptionChoice,
+	HarnessOptionControlKind,
+	HarnessReadinessState,
+	HarnessRuntimeCapabilities,
+} from "./harness-capability-descriptor.js";
+export { HARNESS_OPTION_CONTROL_KINDS } from "./harness-capability-descriptor.js";
+export { isHarnessEvent, normalizeHarnessEvent } from "./harness-event-normalization.js";
+export type {
 	CapturedToolCall,
 	CompletionEvent,
 	CostUpdateEvent,
@@ -19,6 +35,7 @@ export type {
 	TokenUsageEvent,
 	ToolCallEvent,
 } from "./harness-events.js";
+export { normalizeNativeHarnessEvent } from "./harness-native-normalization.js";
 
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
 

@@ -267,6 +267,8 @@ bet_revised              → Audit log, UI push
 
 ```typescript
 interface HarnessAdapter {
+  getCapabilities(): HarnessCapabilityDescriptor;
+
   startSession(params: {
     agent: AgentConfig;       // system prompt, skills, identity
     context: TOONPack;        // L0 session context
@@ -282,12 +284,11 @@ interface HarnessAdapter {
 ```
 
 **Supported harnesses:**
-- **Claude Agent SDK** (launch adapter) — uses the Anthropic Claude Agent SDK for subagent spawning, bash + file tools, skill loading.
-- **Letta** (planned) — uses Letta's agent server with tiered memory.
-- **Goose** (planned) — uses Goose's local-first CLI.
-- **OpenHands** (planned) — uses OpenHands' SDK.
+- **First-party harness extension** — HyperIdle's own API-gateway/direct-key runtime (`builtin`) for OpenRouter and similar model gateways, shipped as a bundled extension rather than Kernel-core provider logic; users make it ready by entering a key into HyperIdle, and its descriptor can be read by Strategy as capability context.
+- **Autodiscovered BYO harness extensions** — known local coding-agent CLIs detected when installed/authenticated, first-class for `codex`, `claude-code`, `cursor-agent`, and `opencode`; these primarily use the user's provider subscription through native CLI auth, exposed through a standardized HyperIdle login action that delegates to each CLI's own login method. Additional adapter-backed tools such as `aider`, `goose`, or remote workers may register when available.
 
 The adapter also handles:
+- Returning a **Harness Capability Descriptor**: a queryable declaration of the harness's available models, access mode, auth/onboarding action, generic per-model options, autodiscovery/readiness status, runtime support, and event-normalization commitments. See `docs/agent-layer/harness-capability-descriptor.md`.
 - Injecting credentials into the workspace environment.
 - Logging every tool invocation into the Observability Adapter.
 - Catching session crashes and writing recovery state (session notes) to the task.
