@@ -53,6 +53,12 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/work/bet/bet-1/review/rv1");
 	});
 
+	it("review with empty/unsourced betId does NOT navigate (graceful no-op, ARCH-1)", () => {
+		const navigate = vi.fn();
+		createOpenHandler(navigate)({ route: "review", betId: "", reviewId: "rv1" });
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
 	it("host + user (no navigable host) does NOT call navigate (documented no-op)", () => {
 		const navigate = vi.fn();
 		const target = { route: "host", hostKind: "user", hostId: "u-1" } as OpenTarget;

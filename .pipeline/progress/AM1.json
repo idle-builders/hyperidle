@@ -1,0 +1,16 @@
+{
+  "id": "AM1",
+  "title": "Conversation experience",
+  "track": "AM",
+  "complexity": "L",
+  "status": "done",
+  "currentStep": "shipped",
+  "completedAt": "2026-06-21",
+  "worktree": ".worktrees/AM1-design",
+  "branch": "design/AM1-conversation-experience",
+  "pr": 344,
+  "phasesComplete": ["concept", "design", "design-critique", "human-design-review", "architecture", "architecture-critique", "write-tests", "write-code", "review", "write-docs", "retro"],
+  "reviewVerdict": "DONE (round 2). All 5 ACs MET; gates green.",
+  "founderNote": "Cross-track for merge sequencing: AL3 ReviewPage.handleSubmitVerdict no-op (verdict POST not wired) + task-hosted 'Open review' inert until AM5 wires task->bet routing. For a fully functional approve flow, AM1 should merge alongside AL3 (verdict POST) and AM5 (open/routing standardization).",
+  "notes": "Shipped via PR #344 (consolidated worktree). Ship stops at CI-green OPEN PR; founder merges."
+}
