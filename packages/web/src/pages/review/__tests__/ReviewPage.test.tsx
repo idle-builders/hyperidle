@@ -73,6 +73,21 @@ describe("ReviewPage route", () => {
 		expect(screen.getByRole("button", { name: /Go to anchor/i })).toBeInTheDocument();
 	});
 
+	it("exposes the verdict decision controls (the AM1 destination for 'Open review')", async () => {
+		// AM1 §12.4: the conversation no longer takes a verdict inline; "Open
+		// review" routes here. This confirms the relocated verdict DECISION UI
+		// (Approve / Request changes + the overflow reject/edit menu) is present
+		// and reachable on the review page.
+		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		renderRoute(loader);
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /^approve$/i })).toBeInTheDocument();
+		});
+		expect(screen.getByRole("button", { name: /request changes/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /more verdict options/i })).toBeInTheDocument();
+	});
+
 	it("shows a loading state while the subject is being fetched", () => {
 		const loader = vi.fn().mockImplementation(() => new Promise(() => {}));
 		renderRoute(loader);
