@@ -349,7 +349,7 @@ Each task ends at a committable boundary. L WP — expect 2-3 builder sessions.
 5. **Per-kind Part renderers.** Extract `parts/{ProsePart,ReviewRequestPart,ReviewResolvedPart,QuestionnairePart,UnknownPart}.tsx` from ConversationSurface, retyped to consume a `Part`, using promoted `ReferenceChip`/`Fold`. Visual output unchanged. Commit: `feat(AM1): per-kind Part renderers`.
 6. **`PartList` renderer + dispatch (green) + AC5 lint rule.** Add `PartList.tsx` (author-group via `groupParts`, exhaustive `renderPart` + `assertNeverPart`→`UnknownPart`), `PartList.stories.tsx`. **Add the AC5 `no-restricted-imports` config block to `eslint.config.ts`** scoped to `PartList.tsx`+`parts/**` banning `thread*`/`Message`/`InlineRef`/`harness` imports (W1; mirror the existing L348 block). Tests: AC1 (grouping), AC7 (unknown fallback), AC8 (onOpen targets via spy, incl. non-knowledge host — C1). Commit: `feat(AM1): source-agnostic PartList renderer + import-boundary lint`.
 7. **Composer upgrade.** Extend DS `Composer` with unified "+" menu, draft `ReferenceChip` row, conditional reply banner, taller textarea, no footer (design §4). Story variant. Commit: `feat(AM1): unified composer tools menu`.
-8. **Wire `Conversations.tsx`.** Replace ThreadShell render path with `derivePartsFromMessages` → `<PartList onOpen={navHandler}>`; `navHandler` switches on `target.route`, resolving `host` via the existing `resolveHostRoute(hostKind, hostId)` then `navigate(path)` (no-op when null) — per route-checklist; retire `renderRefEmbedsForConversations`/`resolveArtifactSlot`. Page test (N1): spy `navigate`, assert it is **called** with the resolved path per `OpenTarget` (incl. host+bet, host+knowledge_item; host+user → no call). Commit: `feat(AM1): render Conversations through the Part model`.
+8. **OpenTarget seam pre-wired (DONE).** `createOpenHandler(navigate)` (`packages/web/src/services/open-handler.ts`) resolves every `OpenTarget` per the route-checklist; `Conversations.tsx` already constructs it (`openTarget`) and feeds `renderRefEmbedsForConversations` through it. This task is **superseded by the live-page migration tasks 11-14** (§12) — the page still renders `ThreadShell`, not `PartList`. Task 8 is now: keep the `createOpenHandler` seam, and the migration tasks consume it as `<PartList onOpen={openTarget}>`. Page-level navigation proof moves to task 12. (No standalone commit; folded into 11-14.)
 9. **AM3-reuse proof.** Add a stub `derivePartsFromSession` (or a test-only fixture) producing `Part[]`; assert `<PartList>` renders it with zero renderer change (AC5 executable proof). Commit: `test(AM1): prove Part renderer is source-agnostic`.
 10. **Refactor `ConversationSurface` to compose `PartList`.** ConversationSurface renders `<PartList>` over a fixed `Part[]` so the approved design and the production renderer cannot drift. Commit: `refactor(AM1): ConversationSurface composes PartList`.
 
@@ -379,3 +379,115 @@ Tasks 1-2 (shared) and 3-4 (DS promotions) are parallel-safe. 5-6 depend on 1-4.
 - **Biggest residual risk:** R4 (DS Composer extensibility) — a build-time discovery, not a plan-time unknown; the fallback is documented.
 
 Verdict: plan is minimal, the boundary is enforceable, no layer reaches past its neighbor (Human Interface only; no Meta/Runtime touch), no Thread/Message/verdict change, no token change.
+
+---
+
+## 12. AMENDMENT — Live-page migration (founder: "desktop app, versioned releases, no live cutover; every change done completely")
+
+**Decision (authoritative, founder):** HyperIdle is a desktop app shipped as versioned releases. There is no gradual cutover and no "keep the old page behind a flag." The new Part-based conversation **becomes** the conversation. The live page `packages/web/src/pages/Conversations.tsx` must render the new Part-based surface; `ThreadShell`/`RichMessageCard`/inline-verdict are removed from the conversation. Substrate tasks 1-7, 9, 10 are DONE + green (`shared/src/part.ts` adapter, `PartList` + `parts/*`, DS `ReferenceChip`+`Fold`, `createOpenHandler`, `ConversationSurface` composes `PartList`). What remains is migrating the live page onto that substrate.
+
+### 12.1 Render-path decision — **render `<ConversationSurface>` fed real props** (not `<PartList>` directly)
+
+Two candidates:
+
+- **(A) `Conversations.tsx` renders `<PartList>` directly + a page-local composer.** The page derives parts, renders `<PartList parts onOpen={openTarget}/>`, and hand-rolls header + a composer beside it.
+- **(B chosen) `Conversations.tsx` renders `<ConversationSurface>` fed real props.** `ConversationSurface` ALREADY composes `<PartList>` + the unified-"+" composer + the header chrome (the approved, founder-locked design embodied). Make it accept real props; the page passes real data in.
+
+**Choose (B).** Rationale (concrete, not "more flexible"):
+- **Zero drift, by construction.** The approved design and the production page become the *same component*. With (A) the page would re-implement the header + composer the design already specifies, and the two would drift on the next design change — exactly the failure the round-10 lore (`ConversationSurface composes PartList`) was built to prevent. (B) extends that no-drift guarantee from the message column to the whole surface.
+- **The composer is already in `ConversationSurface`.** (A) requires a *second* composer (the page-local one) — a budget violation and a duplicate of the unified-"+" composer. (B) reuses the one composer.
+- **Migration cost is lower.** (B) changes `ConversationSurface`'s prop boundary (story keeps passing its fixture; page passes real data) + deletes the `ThreadShell` block from the page. (A) requires building page-local header + composer wiring from scratch.
+
+Cost of (B): `ConversationSurface` gains a real-props mode (today it is fixture-only with `{scroll?, composerActive?}`). This is a controlled prop-contract widening, specified in 12.2 — the story remains the default/uncontrolled render.
+
+### 12.2 `ConversationSurface` real-props contract
+
+`ConversationSurface` becomes prop-driven. The **story** keeps rendering its fixture (it passes the fixture `parts` + a console-`onOpen` + its own header strings); the **page** passes real data. Prop shape:
+
+```ts
+export interface ConversationSurfaceProps {
+  /** The derived render units (page: derivePartsFromMessages(...); story: PARTS fixture). */
+  parts: ReadonlyArray<Part>;
+  /** The routing seam. page: createOpenHandler(navigate); story: console.info noop. */
+  onOpen: OpenHandler;
+  /** Thread identity for the header (title + host tag/context). */
+  header: { title: string; hostKind: string; hostTitle: string; hostRoute: string | null };
+  /** Participants for the header AvatarGroup (derived from identities). */
+  participants: ReadonlyArray<{ id: string; name: string; isAgent: boolean }>;
+  /** The send path. page: posts a plain message via the existing endpoint; story: noop. */
+  onSend: (text: string) => Promise<void> | void;
+  /** Story-only visual toggles (default false; the page never sets these). */
+  scroll?: boolean;
+  composerActive?: boolean;
+}
+```
+
+- The current default-export signature `({scroll, composerActive} = {})` widens to take the full props; the `.stories.tsx` supplies `parts={PARTS}`, the fixture header/participants, `onOpen={console.info noop}`, `onSend={noop}`. **The story render stays byte-identical** (it just passes what was previously module-internal as props) — so the viewer/`:8098` embodiment does not change.
+- `ConversationSurface` no longer hard-codes `PARTS`/`FOUNDER`/`MARA`/`ATLAS` in the render path; those move into the `.stories.tsx` as the fixture it passes in. (Pure mechanical lift; visual output unchanged.)
+- The standalone extra `<Fold>` demo block (story lines 526-532) is **story-only** — keep it in the story, do NOT render it in the page (the page's session Folds come from `PartList`'s `session-reference` embeds).
+
+### 12.3 Page wiring (`Conversations.tsx`)
+
+`ConversationsDetail` (the `status==="ready"` branch) replaces **both** `ThreadShell` mounts (the dial-in split's left pane AND the main pane) with `<ConversationSurface>`:
+
+1. **Parts:** `const parts = derivePartsFromMessages(data.messages, viewerId, identitiesToAuthors(data.identities))`. The adapter wants `ReadonlyArray<PartAuthor>`; `data.identities` is `Record<id, {name, role?, isAgent?}>`. Add a tiny page-local `identitiesToAuthors(identities, viewerId)` mapping each entry to `{ id, name, isAgent: !!isAgent, isMe: id === viewerId }`. `viewerId` = the founder identity id already available to the page (the same id used today for "You"/own-message styling). **No new fetch** — same `data` from `useThreadDetail`.
+2. **onOpen:** pass the existing `openTarget = createOpenHandler(navigate)` (already constructed in the page) straight through.
+3. **header / participants:** derive from the values the page already computes — `threadTitle`, `data.thread.hostKind`, `hostTitle`, `hostRoute` (all present today, lines 396-401), and `participants` from `data.identities` keys.
+4. **onSend:** the MINIMAL functional send (12.5) — wraps the existing `onAppend` with a `{ type:"plain", payload:{ text, refs:[] }, clientKey: crypto.randomUUID() }` shape, POSTing to the existing `/api/threads/:id/messages` endpoint that `onAppend` already calls. **The endpoint, the POST, and `useThreadDetail.retry()` refresh are unchanged** — only the call site moves from `ThreadShell`'s composer to `ConversationSurface`'s composer.
+5. **Retire:** `renderRefEmbedsForConversations`, `resolveArtifactSlot`, `SHAPE_TO_KIND`, the `ArtifactView` import, the `hideHostBanner`/`artifactSlot`/`onAppendMessage`/`renderRefEmbeds` props on the now-removed `ThreadShell`, and the `ThreadShell` import. Block-reference rendering now flows through the Part adapter's `block` Embed → `ReferenceChip` (title-only, host target). `knip`/`lint` will flag any genuinely-orphaned symbol — remove only those.
+6. **Dial-in split:** keep the companion-split layout (`SessionActivityPanel` on the right) — it is AM3-adjacent and unchanged. Only its left pane swaps `ThreadShell` → `ConversationSurface`. The "Dial in" button, `useActiveSessionForTask`, and the `D` keyboard shortcut stay as-is.
+7. **States:** loading/not-found/error/empty branches are **unchanged** (per memory: design variants render only the populated state; the page's existing state machine already owns empty/loading/error). `ConversationSurface` renders only the populated `ready` state.
+
+### 12.4 Inline verdict — REMOVED from the conversation
+
+The conversation no longer dispatches verdicts inline. Per the LOCKED design §5:
+- An **unresolved** `review` message renders as a `review` Part (`ReviewRequestPart`): `REVIEW REQUESTED` + proposal line + change-set `ReferenceChip` + a single **"Open review"** button → `onOpen({route:"review", betId, reviewId})` → `/work/bet/:betId/review/:reviewId` (the existing, real `ReviewPage`).
+- A **resolved** review/questionnaire renders as a `resolved` Part (`ReviewResolvedPart`): the verdict echo "✓ **Approved** by … · …" via `verdictDecisionLabel` + a quiet **"View review"** → same review route. No buttons.
+- The inline **Approve / Request changes / Reject** dispatch is **removed** from the conversation. The `onAppend`'s verdict-POST path (and its `committedType === "verdict"` async-ack branch) is no longer reachable from the conversation, because no conversation affordance emits a verdict anymore. `onAppend` is reduced to the plain-send path (12.5); the verdict-specific branches are deleted.
+
+**Verdict-taking reachability (confirmed):** the decision UI lives on `ReviewPage` (`packages/web/src/pages/review/ReviewPage.tsx`, route `work/bet/:betId/review/:reviewId` in `router.tsx`), which fetches `/api/reviews/:id` and renders `ReviewComposition`. The "Open review" button routes there; the verdict is taken there. The conversation is a *reference into* that surface, never the surface. **The reviewer must confirm `ReviewPage` actually exposes the Approve/Request-changes/Reject controls + posts the verdict** (the builder verifies the route mounts and the controls are present; if `ReviewComposition` lacks the verdict controls today that is an AM5/review-page gap, NOT an AM1 regression — flag it, do not re-add inline dispatch).
+
+### 12.5 Reasoning → Fold; `promotedRichMessageId`
+
+- The old `RichMessageCard` reasoning toggle (`> N reasons`, collapsed long-form) maps to the **`Fold`** device: a review/agent Part with multi-step reasoning renders the reasoning behind a `<Fold cta="Show" label="Worked for…">`-style collapse (design §5 "Worked for 1m 12s · Show"). In AM1 the `ReviewRequestPart` shows the proposal line + change-set + "Open review"; deep reasoning is NOT inlined in the conversation (it belongs to the review page). So the reasoning toggle does not migrate as a toggle — its content relocates to the review page, and the conversation's only fold is the calm session/work Fold. (Net: the conversation gets simpler; reasoning depth lives where the decision is made.)
+- **`promotedRichMessageId`** (the page-local state that promoted one review message to the rich inline card) is **deleted**. There is no "promoted card" concept in the Part model — every review message renders as a `review` Part uniformly; promotion/inline-decision is gone. Remove the state, its setter, and any prop threading it. (`packages/web/src/__tests__/promotedRichMessageId.test.ts`, listed as protected, asserts Thread/Message behavior, not the promotion UI — confirm it does not assert the deleted state; if it does, it updates per 12.6.)
+
+### 12.6 Composer scope — MINIMAL functional, rest deferred as affordance
+
+The live composer must be **usable**: you can type and send a plain message. Scope split:
+
+**Functional in AM1 (must work):**
+- Type in the textarea + click **Send** → POSTs a `plain` message via the existing endpoint (12.5 `onSend`) → `useThreadDetail.retry()` refreshes the thread → the new message renders as a `prose` Part. This is the one end-to-end path proven (task 12 test).
+- The unified **"+"** menu opens/closes (already wired in `ConversationSurface`'s `InsertMenu` — open/close + outside-click/Escape work today).
+- Draft attachments **render** as `ReferenceChip(mode="draft")` in the wrapping row (the visual contract; present in `ComposerDraftBody`).
+
+**Deferred as affordance in AM1 (present, not yet wired — explicitly out of scope):**
+- The "+" menu items (Insert block / Attach file / Mention / Reference item / Format / Emoji) are **visible affordances** but do NOT yet mutate the draft or attach real refs. Picking an item closes the menu (current behavior). Wiring real insert-block editing / file attach / mention picker into the send payload is **deferred** (AM2/later) — `onSend` sends `refs:[]` in AM1. This is the honest minimum: the conversation is usable (send works), the rich-compose affordances are visible but inert, and nothing fakes a capability. Documented, not silently dead.
+
+Rationale for the split: the founder asked for "done completely" on the *migration* (the page renders the new surface, send works, no old page) — NOT for AM1 to also build the full rich-compose pipeline, which is its own scope. Send-works is the load-bearing "usable" bar; insert-block wiring is a separate capability.
+
+### 12.7 Protected-test updates (intended-behavior change, founder-approved — NOT weakening)
+
+These three tests assert the OLD inline-verdict / RichMessageCard / heavy-block-embed behavior that the founder-approved design **deliberately removes**. They are updated to assert the NEW behavior. This is a spec change driven by an approved design, not tests bent to pass (per memory: tests must not *drive* behavior — here behavior changed first, by founder decision, and the tests follow).
+
+- **`Conversations.dispatch.test.tsx`** (currently: click Approve in `RichMessageCard` → POST verdict). **Now asserts:** the review message renders as a `review` Part with an **"Open review"** affordance and **NO** inline Approve/Request-changes/Reject button; clicking "Open review" calls `navigate("/work/bet/:betId/review/:reviewId")` (spy `navigate`). It asserts the conversation **does not** POST a verdict (no verdict POST is reachable from the conversation). Rename to reflect the new contract (e.g. `Conversations.review-routing.test.tsx`). The verdict-POST *semantics* are still covered where verdicts are actually taken (review page / server tests) — see AC reconciliation below.
+- **`Conversations.reasoning.test.tsx`** (currently: reasoning toggle inside `RichMessageCard`, collapsed long-form). **Now asserts:** the review Part renders the proposal + "Open review" with **no** `> N reasons` toggle in the conversation (reasoning depth relocated to the review page). Either retarget to assert the absence of the conversation toggle + presence of the review reference, or retire if it no longer maps to any conversation behavior (prefer retarget so the absence is guarded).
+- **`e2e/T4-block-reference.spec.ts`** (currently: heavy `BlockRefEmbed` resolve, `block-ref-embed-degraded`/`block-ref-embed-error` testids). **Now asserts:** a message carrying a `block` ref renders a **title-only `ReferenceChip`** (kind `block`) in the conversation; clicking it routes to the block's **host surface** (the `host` OpenTarget). The degraded/heavy-resolve assertions are removed (the heavy `BlockRefEmbed` is no longer wired into the conversation — design §6). The chip-attach flow (CocAttachButton → chip appears) stays where it still applies; only the in-conversation *render* assertion changes from heavy embed → title-only chip.
+
+### 12.8 New ordered tasks (atomic, independently committable)
+
+11. **Widen `ConversationSurface` to real props + lift fixture to story.** Add `ConversationSurfaceProps` (12.2); move `PARTS`/identities into `.stories.tsx` as the passed-in fixture; keep the story render byte-identical (the `:8098` viewer unchanged); keep the story-only standalone `<Fold>` demo in the story. **Verification:** the existing `ConversationSurface.stories.tsx` renders unchanged in the viewer; component test mounts `<ConversationSurface>` with a fixture `parts` + spy `onSend`/`onOpen` and asserts header title + participant avatars + the message column render. Commit: `feat(AM1): ConversationSurface accepts real props`.
+12. **Render `Conversations.tsx` through `ConversationSurface` + functional send + remove inline verdict.** Replace both `ThreadShell` mounts with `<ConversationSurface>` fed `derivePartsFromMessages` + `identitiesToAuthors` + `openTarget` + header/participants + `onSend` (plain-send via existing endpoint); delete `promotedRichMessageId` and the verdict branches of `onAppend`; retire `renderRefEmbedsForConversations`/`resolveArtifactSlot`/`SHAPE_TO_KIND`/`ThreadShell` import. **Verification (component test, `MemoryRouter`):** (a) a thread with a `plain` + a `review` + a `resolved` message renders the calm Part column (prose/review/resolved), NO `rich-message-card`, NO inline Approve button; (b) type + Send → POST to `/api/threads/:id/messages` with `{type:"plain", payload:{text, refs:[]}}` + a uuid `clientKey`, then `retry` refreshes; (c) click "Open review" → spy `navigate` called with `/work/bet/:betId/review/:reviewId`; (d) click a `block` chip → `navigate` to the host route. Commit: `feat(AM1): render Conversations through ConversationSurface; remove inline verdict`.
+13. **Update the 3 protected tests to the new contract (12.7).** `Conversations.dispatch.test.tsx` → review-routing (no inline verdict POST; "Open review" navigates); `Conversations.reasoning.test.tsx` → no conversation reasoning toggle; `e2e/T4-block-reference.spec.ts` → title-only `block` chip routes to host (drop heavy-embed/degraded assertions). **Verification:** the updated specs are green against task-12 behavior and each asserts a NEW positive behavior (not merely deleted assertions). Commit: `test(AM1): update Conversations dispatch/reasoning/block-ref tests to Part-model behavior`.
+14. **Confirm `ReviewPage` verdict path is reachable + clean up.** Verify the `work/bet/:betId/review/:reviewId` route mounts `ReviewPage` and exposes the verdict controls (Approve/Request-changes/Reject) that took over from the inline dispatch; run `npm run lint`/`knip` to remove genuinely-orphaned symbols (`BlockRefEmbed` only if truly unused; leave it if any non-AM1 consumer remains — R5). **Verification:** a smoke component/route test that `ReviewPage` renders for a `:betId/:reviewId` and shows the verdict controls; lint/knip clean. Commit: `chore(AM1): confirm review-page verdict path; prune orphaned conversation embed code`.
+
+Task ordering: 11 → 12 → 13 (13 depends on 12's behavior) → 14. 11 depends only on the DONE substrate. These are the green-phase remainder; expect one builder session.
+
+### 12.9 AC reconciliation — "verdict flow is unaffected"
+
+The AM-track AC "the verdict flow is unaffected" is reconciled against this migration as: **the verdict SEMANTICS are unchanged; the verdict DECISION UI relocates.**
+
+- **Unchanged (semantics):** the `Message` `verdict` type, `VerdictPayload` (`decision` + `resolvesMessageId`), `verdictDecisionLabel` vocabulary, the resolves-relationship (a verdict folds onto its target → `resolved` Part echo), and the POST shape to `/api/threads/:id/messages`. The Thread/Message/verdict primitives are untouched (concept hard-rule 5). The conversation still **echoes** the verdict (`ReviewResolvedPart`) using the same vocabulary.
+- **Relocated (UI):** the act of *taking* a verdict (Approve/Request-changes/Reject) moves OUT of the conversation and INTO the review page (`ReviewPage`/`ReviewComposition`), per the LOCKED design §5 ("NO inline decision … the decision is made on the review page"). The conversation becomes a reference into the review experience, not the verdict-taking surface.
+
+So "verdict flow unaffected" = the data model + the verdict-echo path are byte-identical; only the *location* of the decision affordance changes (conversation → review page), which is the founder-approved design intent. The `Conversations.dispatch.test.tsx` rename from "verdict dispatch in the card" to "review routing" encodes exactly this relocation.
