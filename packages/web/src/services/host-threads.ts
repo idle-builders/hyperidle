@@ -15,7 +15,7 @@
  * messagesByBlockId recomputes; the Block re-renders the anchored slot.
  */
 
-import type { AnchorRef, HostKind, InlineRef } from "@hyperidle/shared";
+import type { AnchorRef, HostKind, InlineRef, VerdictDecision } from "@hyperidle/shared";
 import { apiFetch } from "./api-fetch.js";
 
 /**
@@ -113,4 +113,45 @@ export async function postPlainHostMessage(
 	if (!resp.ok) {
 		throw new Error(`Failed to post message to thread ${threadId}: ${resp.status}`);
 	}
+}
+
+/**
+ * Outcome of a verdict submission. The two expected non-OK conditions —
+ * a concurrent verdict winning the race (409 `verdict_race`) and the sender
+ * lacking verdict authority (403 `verdict_authorization`) — are surfaced as
+ * values, not exceptions, so the caller can recover (refresh to show the
+ * now-resolved verdict) without a crash. Any other non-OK status throws.
+ */
+export type VerdictPostOutcome = "ok" | "race" | "forbidden";
+
+/**
+ * Posts a verdict message on the given thread, resolving the underlying
+ * `type:"review"` message identified by `resolvesMessageId`.
+ *
+ * @lore AM1: verdict authorization, idempotency, and first-verdict-wins are
+ * server-owned (see packages/server/src/routes/threads.ts verdict branch). The
+ * client only calls the canonical `POST /api/threads/:id/messages` with
+ * `type:"verdict"`. A 409 (`verdict_race`) means another verdict resolved the
+ * review first; a 403 (`verdict_authorization`) means the sender can't verdict
+ * this review. Both are returned as outcomes — the page reacts by refreshing.
+ */
+export async function postVerdictHostMessage(
+	threadId: string,
+	decision: VerdictDecision,
+	resolvesMessageId: string,
+	clientKey: string,
+): Promise<VerdictPostOutcome> {
+	const resp = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/messages`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			type: "verdict",
+			payload: { decision, resolvesMessageId },
+			clientKey,
+		}),
+	});
+	if (resp.ok) return "ok";
+	if (resp.status === 409) return "race";
+	if (resp.status === 403) return "forbidden";
+	throw new Error(`Failed to post verdict to thread ${threadId}: ${resp.status}`);
 }
