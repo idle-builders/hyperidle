@@ -1,5 +1,7 @@
 DESIGN-CLASS: novel  ref=ThreadShell/CommentRow/RichMessageCard  pattern=ThreadShell
 
+> **APPROVED DIRECTION (supersedes the variant defs below):** the founder approved the **Full Surface** conversation — the **Conversation Surface** (`packages/web/src/components/ConversationSurface.tsx`, story `Conversation Surface`). The locked design is `plans/AM1/design/approved.md`; full detail in `plans/AM1/design/full-surface/spec.md`. The three v1 A/B/C thin-column variant definitions in this brief (Quiet stream / Two-pane / Calm document, incl. the "REDO v2" trio) are **HISTORICAL** — kept for the design rationale only; do not build them. The `DESIGN-CLASS: novel` line, the REDO/full-scope direction, and the research pointers remain authoritative.
+
 # AM1 — Conversation Experience: Design Brief
 
 Fixed input: `plans/AM1/concept.md` (locked). Variants explore the *visual / interaction shape* of the Conversation + Part model; they do NOT redefine what the concept IS.

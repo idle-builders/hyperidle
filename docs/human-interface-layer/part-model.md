@@ -45,4 +45,8 @@ Ground truth for how a **Conversation** reads and the **Part model** it renders 
 
 ## Where it renders
 
-The Conversations surface (`docs/information-architecture/conversations-view.md`); existing surface today is `ThreadShell` → `RichMessageCard` / `CommentRow` / `Composer` with `BlockRefEmbed` / `ArtifactEmbed`. AM1 factors these into the Part model; AM3's session dial-in reuses it. The everyday composer stays for deliberate messages (with embedding affordances) — session dial-in pills (model/effort/mode/permission) are the lower-level AM3 surface, not the conversation composer.
+The Conversations surface (`docs/information-architecture/conversations-view.md`); existing surface today is `ThreadShell` → `RichMessageCard` / `CommentRow` / `Composer` with `BlockRefEmbed` / `ArtifactEmbed`. AM1 factors these into the Part model; AM3's session dial-in reuses it. The everyday composer stays for deliberate messages (with embedding affordances) — session dial-in pills (model/effort/mode/permission) are the lower-level AM3 surface, not the conversation composer. The approved AM1 design is the **Conversation Surface** (`packages/web/src/components/ConversationSurface.tsx`, story `Conversation Surface`).
+
+## Open / routing (the conversation owns no viewing surface)
+
+The conversation's reference chips/embeds and the review/session affordances are **hooks that open the respective views** — they do not render a viewer inline. Routing: **block → Knowledge view** (`KnowledgeDetail`), **artifact / change-set → Artifact view** (`ArtifactView` / artifact permalink), **review → review page** (the review experience / `ReviewComposition`), **session → the session dial-in (AM3)**. The conversation owns no viewing surface; the destination views are provided by existing surfaces + the **standardized artifact-view & open/routing contract (AM5)**. AM1's build wires these hooks to those routes; it does not build the destination views.

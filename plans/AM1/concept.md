@@ -132,6 +132,12 @@
 
 ---
 
+## Open / routing (the conversation owns no viewing surface)
+
+The conversation's reference chips/embeds and the review/session affordances are **hooks that open the respective views** — they do not render a viewer inline. Routing: **block → Knowledge view** (`KnowledgeDetail`), **artifact / change-set → Artifact view** (`ArtifactView` / artifact permalink), **review → review page** (the review experience / `ReviewComposition`), **session → the session dial-in (AM3)**. The conversation owns no viewing surface; the destination views are provided by existing surfaces + the **standardized artifact-view & open/routing contract (AM5)**. AM1's build wires these hooks to those routes; it does not build the destination views. (The approved design is the **Conversation Surface** — `packages/web/src/components/ConversationSurface.tsx`, story `Conversation Surface`; see `plans/AM1/design/approved.md`.)
+
+---
+
 ## Rationale
 
 The founder studied t3code (2026-06-16) and wanted its **style** — the calm, embedding-rich way an agent chat reads — but explicitly **not its model**, where the agent's work-log *is* the conversation. The whole concept turns on protecting that line. So the concept does two things at once: (1) it reshapes **Conversation** into the calm, embedding-rich reading of *deliberate messages within Threads*, and (2) it introduces the **Part model** — a single, source-agnostic rendering structure — precisely so the lower-level **session view (AM3)** can reuse it and read uniformly, *without* the session's activity ever leaking into the conversation as first-class content. The `Part` noun is chosen as a deliberate, literal industry term (Vercel AI SDK) that sidesteps the forbidden "Block" (Anthropic API) — keeping the rendering vocabulary clean of the L2 content-primitive and the "blocked" workflow state. Get this line wrong and HyperIdle becomes t3; get it right and one rendering grammar serves both the conversation and the dial-in.

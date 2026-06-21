@@ -1,6 +1,7 @@
 /**
- * AM1 — Conversation Experience, v3: the FULL-SCOPE conversation embodied in the
- * REAL app container, INTERACTIVE.
+ * Conversation Surface — the FULL-SCOPE conversation embodied in the REAL app
+ * container, INTERACTIVE. (The approved AM1 conversation design; story title
+ * "Conversation Surface".)
  *
  * v1/v2 (the thin "calm column") were rejected as "far from the basics". v3 is
  * the conversation embodied in the real app pane: header · author-grouped
@@ -144,7 +145,7 @@ function Avatar({ who, size = 32 }: { who: Identity; size?: number }): JSX.Eleme
 
 function ParticipantGroup({ people }: { people: Identity[] }): JSX.Element {
 	return (
-		<div data-ds-component="Am1AvatarGroup" className="flex items-center pl-[3px]">
+		<div data-ds-component="AvatarGroup" className="flex items-center pl-[3px]">
 			{people.map((p, i) => (
 				<div
 					key={p.id}
@@ -212,7 +213,7 @@ function MessageGroup({
 		: "pl-[18px]";
 	return (
 		<div
-			data-ds-component="Am1MessageGroup"
+			data-ds-component="MessageGroup"
 			data-ds-sender={who.isAgent ? "agent" : "human"}
 			className={`group/msg relative flex gap-[12px] rounded-[var(--r-default)] py-[12px] pr-[18px] ${tint}`}
 		>
@@ -332,7 +333,7 @@ function Fold({
 			<button
 				type="button"
 				onClick={onShow}
-				data-ds-component="Am1Fold"
+				data-ds-component="Fold"
 				className="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
 			>
 				<span style={{ transform: "rotate(-90deg)", display: "inline-flex" }}>
@@ -412,7 +413,7 @@ function ReferenceChip({
 				onClick={onOpen}
 				aria-label={`Open ${label}`}
 				title={`Open ${label}`}
-				data-ds-component="Am1ReferenceChip"
+				data-ds-component="ReferenceChip"
 				data-ds-mode="posted"
 				data-ds-kind={kind}
 				className={`${shell} pr-[9px] text-left`}
@@ -428,7 +429,7 @@ function ReferenceChip({
 	// draft mode — body = open, trailing ✕ = remove (two distinct hit targets).
 	return (
 		<span
-			data-ds-component="Am1ReferenceChip"
+			data-ds-component="ReferenceChip"
 			data-ds-mode="draft"
 			data-ds-kind={kind}
 			className={shell}
@@ -497,7 +498,7 @@ function QuestionnairePart(): JSX.Element {
 	];
 	return (
 		<div
-			data-ds-component="Am1QuestionnairePart"
+			data-ds-component="QuestionnairePart"
 			className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
 		>
 			{/* Minimal "?" marker instead of the big multi-word colored pill
@@ -571,7 +572,7 @@ function ReviewRequestPart({
 }): JSX.Element {
 	return (
 		<div
-			data-ds-component="Am1ReviewRequestPart"
+			data-ds-component="ReviewRequestPart"
 			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-start gap-[9px]">
@@ -626,7 +627,7 @@ function ReviewRequestPart({
 function ReviewResolvedPart({ onOpenReview }: { onOpenReview: () => void }): JSX.Element {
 	return (
 		<div
-			data-ds-component="Am1ReviewResolvedPart"
+			data-ds-component="ReviewResolvedPart"
 			className="flex items-center gap-[9px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
 		>
 			<span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[var(--status-success)]">
@@ -674,7 +675,7 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	];
 	return (
 		<div
-			data-ds-component="Am1InsertMenu"
+			data-ds-component="InsertMenu"
 			role="menu"
 			aria-label="Insert"
 			// Grounded popover: anchored to the "+" (relative parent), opening upward.
@@ -757,7 +758,7 @@ function ComposerReplyBanner(): JSX.Element {
 function ComposerDraftBody({ onOpenArtifact }: { onOpenArtifact: () => void }): JSX.Element {
 	return (
 		<div
-			data-ds-component="Am1ComposerDraftBody"
+			data-ds-component="ComposerDraftBody"
 			className="flex flex-wrap items-center gap-[6px] px-[12px] pt-[9px]"
 		>
 			<ReferenceChip
@@ -1021,7 +1022,7 @@ function ConversationBody({
 //   composerActive  — composer in its Insert-Block state (draft present).
 // Real state: just the Insert "+" menu (open/close, outside-click).
 // ───────────────────────────────────────────────────────────────────
-export default function Am1ConversationSurface({
+export default function ConversationSurface({
 	scroll = false,
 	composerActive = false,
 }: {
@@ -1051,7 +1052,7 @@ export default function Am1ConversationSurface({
 	useEffect(() => {
 		if (!insertMenuOpen) return;
 		const onDown = (e: MouseEvent): void => {
-			const menu = document.querySelector("[data-ds-component='Am1InsertMenu']");
+			const menu = document.querySelector("[data-ds-component='InsertMenu']");
 			const target = e.target as Node;
 			if (menu?.contains(target)) return;
 			if (menuButtonRef.current?.contains(target)) return;
@@ -1070,7 +1071,7 @@ export default function Am1ConversationSurface({
 
 	return (
 		<div
-			data-ds-component="Am1ConversationSurface"
+			data-ds-component="ConversationSurface"
 			data-ds-thread-id="c-passkey"
 			className="w-full bg-[var(--surface-page)] text-[var(--text-primary)]"
 			style={{

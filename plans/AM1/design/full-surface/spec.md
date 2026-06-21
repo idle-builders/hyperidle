@@ -2,8 +2,8 @@
 
 Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / Calm Document). This is the v3 foundation embodied in the real app container, per `plans/AM1/design/brief-v3.md`.
 
-**Story:** `AM1 Conversation — Full Surface (C)` / `Populated`. Renders at desktop width on `--surface-page`.
-**Component:** `packages/web/src/components/Am1ConversationSurface.tsx` (`data-ds-component="Am1ConversationSurface"`).
+**Story:** `Conversation Surface` / `Populated`. Renders at desktop width on `--surface-page`.
+**Component:** `packages/web/src/components/ConversationSurface.tsx` (`data-ds-component="ConversationSurface"`).
 
 > **Revision (v3.2) — THE CONVERSATION IS THE SURFACE.** Scope = the OPEN conversation, i.e. the open thread's content. A **conversation IS a thread** — settled in the schema: `conversationId === threadId`; messages carry one `threadId` with no sub-thread / parent column. A thread attaches to exactly ONE host (bet/task/user/team/agent/artifact/knowledge_item/factory). There are **no Slack-style sub-threads**.
 >
@@ -18,7 +18,7 @@ Three founder comments on the round-7 right-page block viewer drove this pass; v
 > **Founder (verbatim):** "Why is there a white box around this. generally not sure what this is? Do we not have standardized artifact views yet?" · "Is this a block? Why does this not open the knowledge view?" · "This looks weird. we need to figure out what the artifact views look like. the review already has more time invested here … in review it's more about diffs."
 
 ### A. The bespoke right-page block viewer is REMOVED
-The conversation does **NOT** own a viewing surface. The `Am1BlockRightPanel` (the white-box right page that rendered a full `<Block>` via the real viewer) and all the state that drove it (`openPanel`, `PanelKey`, `PANELS`, the block-payload fixtures, the `Block` import) are **deleted**. The surface is now just the conversation column + composer — no right pane, so the earlier "right panel cramps the conversation" problem is gone too.
+The conversation does **NOT** own a viewing surface. The `BlockRightPanel` (the white-box right page that rendered a full `<Block>` via the real viewer) and all the state that drove it (`openPanel`, `PanelKey`, `PANELS`, the block-payload fixtures, the `Block` import) are **deleted**. The surface is now just the conversation column + composer — no right pane, so the earlier "right panel cramps the conversation" problem is gone too.
 
 ### B. Reference chips are NAVIGATION HOOKS into the existing, OWNED surfaces
 Each chip routes to a surface that already exists and is owned elsewhere — nothing renders inline:
@@ -26,7 +26,7 @@ Each chip routes to a surface that already exists and is owned elsewhere — not
 - an **ARTIFACT** chip (the change-set `auth/passkey.ts +2 −1`, the composer-draft code chip, the image) → the **Artifact view** (`/artifacts/:id`, `pages/ArtifactPermalink.tsx` → `shell/ArtifactView.tsx`).
 - **"Open review"** / "View review" → the **review page** (`/work/bet/:betId/review/:reviewId`, `pages/review/ReviewPage.tsx` → `ReviewComposition`) — unchanged from round-7.
 
-In the isolated story (no router) each hook is a clearly-labeled `console.info` naming its real destination route (`openKnowledgeView` / `openArtifactView` / `openReviewPage`). Verified: clicking a block chip logs the Knowledge-view route, an artifact chip logs the Artifact-view route, "Open review" logs the review-page route; **no** `Am1BlockRightPanel` and **no** real `<Block>` node mount on any click (`panelAfterClicks=0`, `realBlockNodes=0`).
+In the isolated story (no router) each hook is a clearly-labeled `console.info` naming its real destination route (`openKnowledgeView` / `openArtifactView` / `openReviewPage`). Verified: clicking a block chip logs the Knowledge-view route, an artifact chip logs the Artifact-view route, "Open review" logs the review-page route; **no** `BlockRightPanel` and **no** real `<Block>` node mount on any click (`panelAfterClicks=0`, `realBlockNodes=0`).
 
 > **Out of AM1 scope:** standardizing the artifact views themselves across knowledge / work / review is a fragmented cross-cutting concern (the review proof-canvases in `pages/review/` are diff-oriented and further along; `shell/ArtifactView.tsx` + `pages/ArtifactPermalink.tsx` are the generic artifact view). AM1 only HOOKS into these surfaces; it does NOT define them.
 
@@ -52,7 +52,7 @@ The review message's **"Open review →"** targets the **review experience** (`p
 ### C. Session dial-in unified to the subtle fold; heavy SESSION card removed (comments 3,4)
 The "Worked for 1m 12s · Show" **work-fold** is the preferred, subtle session dial-in style (founder: "more subtle and the better one"). The separate heavy **SESSION embed card** ("Atlas · Opus 4.8 · 14 tool calls · Dial in" on an elevated bordered surface) was "too much" and is **removed** (along with the `Embed` / `EmbedKindLabel` / `SessionRefEmbedBody` components). Session dial-in now renders as a quiet **"› Show session"** line in the **same `Fold` style** as the work-fold.
 - `Fold` generalized: optional `label`, an optional `cta` ("Show" default, "Show session" for the session line), and an `onShow` handler so it's live. No card, no border, no heavy chrome.
-- Verified: no `Am1Embed` in the DOM; the session dial-in is the subtle fold line.
+- Verified: no `Embed` card in the DOM; the session dial-in is the subtle fold line.
 
 Unchanged from round-6: the shared `ReferenceChip` (kinds {artifact,image,knowledge,block}, modes {draft,posted}), the review request (REVIEW REQUESTED + proposal + artifact chip + Open-review) and resolved verdict echo, the questionnaire ("?" marker + hover-button options), the "+" hover button, interactivity (Insert opens; block "Open" → right-page real `<Block>` viewer), the conditional reply banner, horizontal compact attachments, taller textarea, no bottom footer.
 
@@ -69,7 +69,7 @@ Branch rebased onto `origin/main` — the merged review experience (AL2/AL3/AL4:
 - Compact (the image-chip size the founder liked); on-grid padding `pl-[9px] pr-[3px]/[9px]` — fixes "icons too close to the edges" (comment 4).
 - **Sources/citations (comment 5)** render as `knowledge`-kind chips — a source IS a knowledge document reference; each opens the doc. No vague "Sources" text label.
 - **Change-set (comment 6)** renders as an `artifact`-kind chip (`auth/passkey.ts +2 −1`) that OPENS the artifact in the review experience — NOT a big inline-code card (the old real-`ArtifactEmbed` card + `Artifact` fixture were removed). Inline code WOULD be a Block; this is an artifact attachment.
-- Verified: 7 posted chips + 2 draft chips per story; the composer-draft chip and the in-message chip share the same `Am1ReferenceChip` shell; no `Am1ArtifactEmbedCard` in the DOM; the conversation text never contains the code first line.
+- Verified: 7 posted chips + 2 draft chips per story; the composer-draft chip and the in-message chip share the same `ReferenceChip` shell; no `ArtifactEmbedCard` in the DOM; the conversation text never contains the code first line.
 - **Builder note:** promote `ReferenceChip` to the design system (`packages/design-system`) — kinds {artifact, image, knowledge, block}, modes {draft, posted}; it is the single attachment/reference primitive across composer + messages + review echoes.
 
 ### B. "+" composer button hover = button form (comment 1)
@@ -100,7 +100,7 @@ Six founder comments, all on the composer draft/attachment area, verified by cli
 [ +(tools menu)   textarea (taller, rows=3)                                Send ]
 ```
 
-1. **One chip style for EVERY draft attachment.** The inserted code block and the image attachment now render through the SAME compact chip (`Am1DraftAttachmentChip`) — verified: the two chips' class strings are identical. Founder: "why does the code block attachment have a different style than the image?" The old full-width inserted-block title card + separate side ✕ is gone.
+1. **One chip style for EVERY draft attachment.** The inserted code block and the image attachment now render through the SAME compact chip (`DraftAttachmentChip`, since unified into `ReferenceChip`) — verified: the two chips' class strings are identical. Founder: "why does the code block attachment have a different style than the image?" The old full-width inserted-block title card + separate side ✕ is gone.
 
 2. **Chip interaction: body = open, ✕ = remove.** Each chip is two distinct hit targets — an open-body `button` (aria `Open <name>`, opens the right panel / item) + a trailing ✕ `button` (aria `Remove <name>`, removes from the draft). Founder: "the open should just happen by clicking on the item, the x removes it." Verified: 2 buttons per chip, distinct aria.
 
@@ -122,7 +122,7 @@ Founder asked to **SEE it work** ("I want to see this interactive and open the r
 
 1. **Insert "+" affordance WORKS — solid grounded popover.** Click "+" toggles `insertMenuOpen`; click "+" again, outside, or Escape closes it. The menu is anchored to the "+" (its relative parent), opens upward, and is now a **guaranteed-SOLID surface**: `background: var(--surface-overlay)` + `zIndex: 50` are set via **inline style**, because the arbitrary-value `bg-[var(--surface-overlay)]`/`z-30` Tailwind classes did NOT resolve in the viewer JIT — the menu was painting `rgba(0,0,0,0)` (transparent) with `z-index:auto`, which IS the founder's "floating completely out of place in transparent. pretty wrong." Probed computed style after fix: `rgb(255,255,255)`, `zIndex:50`. No content bleeds through; the popover never grows the composer box.
 
-2. **Block "Open →" WORKS — opens a RIGHT PAGE rendering the FULL block via the real `<Block>` viewer.** Clicking any block-title embed (inserted code draft, or the referenced "Auth migration plan · §2") sets `openPanel` and slides in `Am1BlockRightPanel`, which renders the full block(s) through the **real `Block` component** (`@hyperidle/design-system`, the same viewer Knowledge uses) — verified: 2 real `[data-ds-component='block']` nodes mount in the panel. A close ✕ returns. This is the "open in the right page" founder asked to SEE working — no facsimile.
+2. **Block "Open →" WORKS — opens a RIGHT PAGE rendering the FULL block via the real `<Block>` viewer.** Clicking any block-title embed (inserted code draft, or the referenced "Auth migration plan · §2") sets `openPanel` and slides in `BlockRightPanel`, which renders the full block(s) through the **real `Block` component** (`@hyperidle/design-system`, the same viewer Knowledge uses) — verified: 2 real `[data-ds-component='block']` nodes mount in the panel. A close ✕ returns. This is the "open in the right page" founder asked to SEE working — no facsimile.
 
 3. **Inline block preview = TITLE only (never code first line).** The inserted code embed shows `CODE BLOCK · TS / auth/passkey.ts` + "Open →" — verified the conversation text does NOT contain the code first line (`navigator.credentials.create`). The full multi-line code render lives only in the right page.
 

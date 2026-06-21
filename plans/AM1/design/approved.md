@@ -1,84 +1,87 @@
 # AM1 Conversation Experience — Approved Design (LOCKED)
 
-`DESIGN-CLASS: novel` (from `brief.md` — new primitive, the Part model). This design therefore proceeds to **`/human-design-review`** before any build. In an autonomous run a novel design **parks** for the founder rather than auto-shipping.
+`DESIGN-CLASS: novel` (new primitive — the Part model; see `brief.md`). This design therefore proceeds to **`/human-design-review`**; in an autonomous run a novel design **parks** for the founder rather than auto-shipping. The design below is the LOCKED, founder-approved direction — it is the single input contract to `/architecture`.
 
-**Approved variant (story title for the viewer):** `AM1 Conversation — Calm Document (C)`
-**Story file:** `packages/web/src/components/Am1ConversationCalmDocument.tsx` (+ `.stories.tsx`)
-**Render:** `plans/AM1/design/calm-document/screenshot.png`
+**Approved design:** the **Conversation Surface** — the full-scope conversation embodied in the real app pane, interactive.
+**Story (viewer title):** `Conversation Surface` — variants `Populated` (resting composer, whole thread) and `ComposerInsertBlock` (active Insert-Block composer).
+**Component:** `packages/web/src/components/ConversationSurface.tsx` (+ `.stories.tsx`; `data-ds-component="ConversationSurface"`).
+**Render:** `plans/AM1/design/full-surface/screenshot.png` (+ detail shots `_chips*.png`, `_composer.png`, `_insert-menu.png`, `_plus_hover.png`, `_questionnaire*.png`, `_review*.png`).
+**Full detail spec:** `plans/AM1/design/full-surface/spec.md` (round-by-round founder annotations; this file is the summary contract).
 
-This is the input contract to `/architecture` and the variant the founder annotates at `/human-design-review`. It honors the locked concept (`plans/AM1/concept.md`) — deliberate messages only; the session is a reference Embed, never an inlined work-log; renders within Thread/Message/verdict; nothing named "Block"/"blocked"; no color/token changes.
+> The three earlier thin-column variants (Quiet Stream / Two-Pane / Calm Document, the A/B/C trio in `brief.md`) were **rejected** by the founder ("too busy, too misaligned, not structured enough"). Their specs, screenshots, comparison/synthesis/critique are removed. The approved direction is this single Full Surface conversation. Do not re-litigate the rejected trio.
+
+This design honors the locked concept (`plans/AM1/concept.md`): deliberate messages only; the session is referenced, never inlined as a work-log; renders within Thread/Message/verdict; nothing named "Block"/"blocked"; no color/token changes (existing Hearth tokens + 6px grid only).
 
 ---
 
-## 1 — Chosen variant + pulled-in elements
+## 1 — Scope (what this surface IS)
 
-**Base: C "Calm Document"** — a generous single reading column (~760px desktop) that reads like a living document: quiet 1px sender-turn rules (not boxes), 15px/1.7 body, and embeds rendered **full-bleed inline** so the founder judges the actual diff/plan/session in place. The "Worked for 1m 12s" **Fold** is a first-class calm-making device.
+The **open conversation** = the open thread's content. A conversation **IS** a thread (`conversationId === threadId`; one `threadId` per message, no sub-thread/parent column; one host per thread). One flex column inside the app main pane:
 
-**Grafted from B (interaction rigor, not layout):**
-- The focus contract: `aria-pressed` on toggles/open-elsewhere controls; focus returns to the triggering element on close of any opened surface; tab order follows reading order (column then any secondary surface).
-- B-grade Loading skeletons: 3 sender-turn rows (avatar circle + name bar + 2 body bars), `--border-strong` fill so the shared `skeleton-pulse` (dips to opacity 0.4) stays visible at every phase.
-- The chip→detail / side-surface affordance reserved **only as the overflow escape** for an oversized embed — never the default. Carries B's active-accent + `aria-pressed` for the "open elsewhere" action.
+```
+header (thread identity) · author-grouped messages (own scroll) · pinned composer
+```
 
-**Grafted from A (reuse-first discipline):**
-- `plain` and `verdict` Parts map straight onto `CommentRow` — add nothing.
-- NEW renderers held to the minimum: `DiffEmbedPart` + `BlockEmbedPart` + standalone `Fold` + `SessionReferenceEmbed`.
+**Out of scope (app-shell chrome, owned elsewhere):** navigating BETWEEN threads — the conversation/thread list is the app sidebar (`SidebarV2`, AD9), not this design.
 
-## 2 — Rejection list (locked; do not re-litigate)
+## 2 — The approved design (the calm conversation)
 
-- B as the base (terse index ≠ calm column; panel not AM3-reusable).
-- The two-pane / side-panel as the default embed-open strategy (desktop-only second region, most state, worst mobile, conversation-specific). Side-surface allowed only as overflow escape.
-- A's compact-chips-as-ceiling (under-delivers "embed beautifully"). Compact = overflow fallback, not default.
-- C's old mid-thread composer (now a single bottom-pinned composer outside/after the Part stack) and C's old faint loading skeleton (now B-grade 3-row sender-turn skeletons).
-- Any session work-log / activity stream rendered as first-class conversation Parts (concept hard-rule #3).
+- **Identity model (round-7, founder-locked).** No bubbles, no per-message boxes. Identity at each **author-group head** (avatar + name + time):
+  - **Agent** (Atlas) = **green avatar** as the marker — that's enough. A tiny neutral agent-spark glyph after the name is the only secondary cue. **No** green box/tint/accent-rule, no "Agent" pill.
+  - **Own** messages (A. Founder) = subtle light background (`color-mix(--text-secondary 3%)`) + a quiet "You" label. (Founder likes the light bg — kept.)
+  - **Other humans** (Mara) = plain. Proves a second human reads distinctly from "me" — multi-user.
+- **Author grouping** is the structural unit: consecutive same-author messages collapse under one head; one alignment grid (avatar gutter + ~760px reading column); generous calm rhythm (18px inter-group). No box-per-message, no badge soup, no accent rails.
+- **Per-message hover toolbar** (React · Reply · ⋯), compact (26px targets), anchored top-right of each group; live on the review group, `group-hover` on the rest.
 
-## 3 — Component mapping (DS components + new Part renderers)
+## 3 — ONE shared reference chip (round-6, founder-locked)
 
-| Part / slot | Component | Props / notes |
+A single `ReferenceChip` is used for **every** attachment/reference, everywhere — composer draft, in-message embeds, knowledge sources, and the review change-set. (Replaces five divergent chips/cards that had drifted apart.)
+
+- **Kinds:** `artifact` (code, e.g. `auth/passkey.ts`) · `image` (e.g. `auth-flow.png`) · `knowledge` (a source/citation IS a knowledge-doc reference) · `block`.
+- **Modes:** `draft` (chip **body = open**, trailing **✕ = remove** — two distinct hit targets) and `posted` (whole chip = open, no ✕, a → reveals on hover). Identical outer shell in both modes; only the trailing slot differs.
+- Compact (the image-chip size the founder liked); on-grid padding (`pl-[9px]`, even hit area).
+- **Builder note:** promote `ReferenceChip` to the design system — kinds {artifact, image, knowledge, block}, modes {draft, posted}. The single attachment/reference primitive across composer + messages + review echoes.
+
+## 4 — Composer
+
+- **Unified "+" tools menu (round-5, founder-locked):** ONE "+" button opens ONE grounded popover with every compose action, each labeled + single-purpose — **Insert block** (the key, accent-highlighted affordance: heading · list · code · table) · Attach file · Mention · Reference item · Format · Emoji. No second/duplicate icon strip. (Resolves "what's the difference between insert and those other icons.") The popover is anchored to the "+" (its relative parent), opens upward, opaque `--surface-overlay` + `--shadow-elevated` (solid above content, never grows the box). On "+" hover the resting button fills with `--surface-container` so it reads as a button.
+- **Draft attachments** render as the shared `ReferenceChip` (draft mode) in a single **horizontal compact wrapping row** (~one chip tall) — image AND inserted code block share the identical chip.
+- **Conditional reply quote (round-5):** a slim reply banner (reply glyph · "Replying to **Atlas**" · quoted snippet · cancel) shown **only** when replying (the active Insert-Block state); the resting composer has no banner.
+- **No bottom footer (round-5):** the format strip + "Enter to send" hint row is removed (served no value, ate height). The reclaimed space goes to a **taller textarea** (`rows=3`, `min-h-[72px]`).
+- One real **Send** button (accent). No model/effort/mode pills — those are the AM3 session dial-in, not the conversation composer.
+
+## 5 — Agent message types in the fixture
+
+- **Review message (round-6/7, founder-locked):** a COMPACT REFERENCE into the merged review experience (`ReviewComposition` / `ReviewPage`). "?"-style marker + `REVIEW REQUESTED` caps + the proposal line + the change-set as an `artifact` `ReferenceChip` + a single **"Open review"** button. **NO inline decision** (no Approve / Request changes / Reject in the conversation) and **NO inline code/diff** — the decision is made on the review page. The conversation echoes the **verdict once taken** (`ReviewResolvedPart`: "✓ **Approved** by A. Founder · …" + quiet "View review"), using the merged `verdictDecisionLabel` vocabulary; no buttons.
+- **Quick-ask questionnaire (round-6, founder-locked):** a calm SURVEY. A minimal **"?" marker** (small accent-dim circle) + the question + answer options as **neutral hover-buttons** — quiet/neutral at rest (no green bias), full button form on hover; recommendation hinted by a small neutral "Recommended" tag only. Prominence from layering (`--surface-elevated` + `--shadow-default`) + the "?" marker, never from an accent structural border or a biased answer.
+- **Subtle session folds (round-7, founder-locked):** the "Worked for 1m 12s · Show" work-fold is the preferred subtle dial-in style. The session reference renders as the **same quiet `Fold`** ("› Show session") — the heavy SESSION embed card was removed ("too much"). No card, no border; opening it enters the session dial-in (AM3), never inlines a work-log.
+
+## 6 — OPEN / ROUTING contract (founder ask, round-8 — LOCKED)
+
+**The conversation owns NO viewing surface.** It renders no bespoke block/artifact viewer inline (the earlier right-page white-box block panel was removed — founder: "why is there a white box around this… do we not have standardized artifact views yet?"). The reference chips/embeds and the review/session affordances are **hooks that open the respective views** — they do not render a viewer in place. Routing:
+
+| Affordance | Opens (destination view) | Route / surface |
 |---|---|---|
-| Part-model wrapper | **NEW** `Part[]` renderer | Source-agnostic single calm column; exhaustive discriminant dispatch + `unknown` fallback; derived from `Message[]`, never stored. The WP's primitive; AM3 reuses it for session events. No existing component is a source-agnostic Part stack. |
-| Host banner | `ThreadHostBanner` | host kind + title ("Bet · Passkey login"). |
-| Plain Part | `CommentRow` | sender-grouped, `showSenderHeader` once per group, mention/redaction-aware. Reuse — no new shape (A discipline). |
-| Verdict Part | `CommentRow` verdict rendering | `verdictDecisionLabel` / `verdictDecisionToStatus` from `shared/thread.ts`. Reuse. |
-| Review Part + verdict bar | `RichMessageCard` | `state.phase` idle/saving/error; `resolved` echo; foldable reasoning; `artifactSlot` hosts the inline diff. Reuse verbatim. |
-| Avatar / role tint | `Avatar` (`isAgent` → accent tint), `AvatarGroup` | |
-| Kind / status chips | `Tag` + `TAG_KIND_ICONS`, `StatusChip` | uppercase labels carry `--tracking-caps-sm` (AQ-007). |
-| Cost / tool meta | `KeyValue` | `tabular-nums` (AQ-006). |
-| Composer | `Composer` | textarea + send, ⌘↵; NO model/effort pills (those are AM3 dial-in). **Sticky bottom**, single instance, outside the Part stack. |
-| Empty / Loading / Error | `EmptyState` / `SkeletonList` / `ErrorState` | |
-| **`DiffEmbedPart`** | **NEW** wraps `ArtifactEmbed` + `ArtifactPreview` + `kinds/code-renderer` (`text_diff`) | Extension impossible: existing embed is sized for a compact card; C needs an in-column document block with its own fold state, line numbers, +/− tinting. Full-bleed, foldable. |
-| **`BlockEmbedPart`** | **NEW** wraps `BlockRefEmbed` → `Block` + `renderPayload` | Extension impossible: no existing component renders a referenced block at document scale in-column (quote-rule, §-scoped content) — only as a compact chip. |
-| **`Fold`** (standalone) | **NEW (small)** generalizes `RichMessageCard`'s reasoning fold | Usable on any Part (work-fold, diff, reasoning). UI-local view state, never persisted. |
-| **`SessionReferenceEmbed`** | **NEW (small)** composes `Avatar` + `KeyValue` + `Button` | A calm reference card (avatar · model · cost · tool-call count · "Open session →") routing to AM3. NEW because no component points at a Session without inlining activity — non-inlining is concept hard-rule #3. |
+| **block** chip (title only, e.g. "Auth migration plan · §2"); work-fold; knowledge-source chips | **Knowledge view** (`KnowledgeDetail`) | `/knowledge/:knowledgeId`, anchored to the block |
+| **artifact / change-set** chip (`auth/passkey.ts +2 −1`); composer-draft code chip; image | **Artifact view** (`ArtifactView` / artifact permalink) | `/artifacts/:id` → `pages/ArtifactPermalink.tsx` → `shell/ArtifactView.tsx` |
+| **review** — "Open review" / "View review" | **review page** (the review experience / `ReviewComposition`) | `/work/bet/:betId/review/:reviewId` → `pages/review/ReviewPage.tsx` |
+| **session** fold ("Show session") | **the session dial-in (AM3)** | the AM3 lower-level session surface |
 
-New shapes: 4 (`DiffEmbedPart`, `BlockEmbedPart`, `Fold`, `SessionReferenceEmbed`) + the Part wrapper. Each justified above against "could an existing component do this compact?"
+The block chip shows the block's **title only** (never the first line of code); opening it routes to Knowledge. AM1's build **wires these hooks to those routes; it does NOT build the destination views.** The destination views are provided by existing surfaces + the **standardized artifact-view & open/routing contract (AM5)**. Standardizing the artifact views across knowledge/work/review is a fragmented cross-cutting concern, out of AM1 scope.
 
-## 4 — All states (with copy)
+In the isolated story (no router) each hook is a clearly-labeled `console.info` naming its real destination route (`openKnowledgeView` / `openArtifactView` / `openReviewPage`); nothing mounts inline.
 
-- **Empty** — `EmptyState`, centered in the column. Title "No messages yet"; body "Start a deliberate message to Atlas — embed a diff, a plan, or a session it should work from."
-- **Loading** — `SkeletonList`: 3 sender-turn skeleton rows (avatar circle + name bar + 2 body bars), `--border-strong` fill, `skeleton-pulse`. Honors `prefers-reduced-motion`.
-- **Error** — `ErrorState`, centered. Title "Couldn't load this conversation"; body "The thread failed to load. Check your connection and try again."; `Button` "Retry".
-- **Populated** — the canonical fixture: host banner → founder ask (plain) → Atlas work-Fold ("Worked for 1m 12s · 14 steps") → Atlas plain + full-bleed diff embed (`auth/passkey.ts · text_diff · +124 −18`) → Atlas plain + full-bleed referenced-block embed ("Auth migration plan · §2 Dual-auth window") → Atlas plain + session-reference card ("Session · Atlas · Opus 4.8 · $0.42 · 14 tool calls · Open session →") → Atlas review ("Approve deploy of passkey login to staging", foldable reasoning, inline diff, verdict bar Approve / Request changes / Reject) → founder verdict ("APPROVED · deploy of passkey login to staging") → bottom-pinned composer.
-- **Overflow** — long agent reasoning and completed work collapse via `Fold` to one-line summaries; embeds never become a wall (the diff folds; the block shows §-scoped content). When a full-bleed embed exceeds its height budget, the Fold "expand" may route to the B-style detail/side-surface escape (overflow only). Many turns scroll the column; the composer stays sticky.
+## 7 — Constraints (locked)
 
-## 5 — Behavior + motion + keyboard/focus
+- No color/token changes; existing Hearth tokens only. 6px grid spacing `{3,6,9,12,18,24,36,48}`; radius `{10,16,9999}`; closed type scale; warm tones only.
+- Deliberate messages only; session activity is NEVER first-class conversation content (concept hard-rule #3).
+- Nothing named "Block"/"blocked" in the rendering vocabulary.
+- Renders within Thread/Message/verdict; reshapes none of them.
 
-- **Motion (named tokens only, AQ-013):** fold chevron rotates 0→90° and the panel expands over `--motion-default` with `--motion-ease`; hover affordances (session card, fold headers, embed borders) use `--motion-fast`. `--motion-slow` is unused here. Animate `transform`/`opacity` only (AQ-014); honor `prefers-reduced-motion` (durations collapse to ~1ms via tokens; skeleton animation → none).
-- **Hover:** session-reference card and fold headers get a subtle `--surface-container` hover; embed borders raise `subtle → default`; body rows reveal a timestamp/anchor affordance.
-- **Focus:** every fold toggle, embed header, verdict button, and the composer is a real focusable control. `aria-expanded` on folds; `aria-pressed` on any open-elsewhere toggle (B graft). Visible focus ring from the token system. On close of any opened side/detail surface, focus returns to the triggering control.
-- **Keyboard:** Tab order follows reading order top→bottom; Enter/Space toggles a focused fold; ⌘↵ sends from the composer.
+## 8 — Open questions for the architect
 
-## 6 — Mobile adaptation (3-tab layout)
-
-The Conversations tab hosts a single full-width column. The 760px cap is desktop-only — on mobile max-width drops to 100% with `--space-4` (12px) side padding. Embeds stay full-bleed (already full-width). The work-Fold and diff default **collapsed** on mobile to keep the column short. The composer is sticky at the bottom above the tab bar; composer textarea uses ≥16px font at ≤768px (AQ-005). Sender lead-ins wrap the timestamp under the name when width is tight. The overflow side-surface escape, if used, promotes to a full-screen sheet (B's mobile contract) with focus restored to the trigger on dismiss.
-
-## 7 — Open questions for the architect
-
-These are carried forward from the critique's coverage notes — the architecture must resolve them; the embodiment did not (and need not) cover them.
-
-a. **Exhaustive Part dispatch.** The Part renderer must dispatch exhaustively over `plain | review | questionnaire | verdict` with an `unknown` fallback Part (mirrors Block's `unknown` kind). The canonical fixture renders no **questionnaire** message — the embodiment omits it — so architecture must specify the `questionnaire` Part rendering even though no variant embodied it. Closure is concept-mandated (Phase 4): adding a Part kind requires a concept-doc update first.
-
-b. **AM1↔AM3 reuse contract.** The Part model is the shared structure AM3 renders session activity through — there must be **no duplicated renderer**. Architecture must define the source-agnostic boundary: a `Message` → Part and a session event (`HarnessEvent` / `CapturedToolCall`) → Part both feed the same `Part[]` renderer. Specify the adapter shape so AM3 reuses, not re-implements.
-
-c. **Closed Embed target-kind set.** Embed targets are the closed set `artifact | block | diff | session-reference | entity-ref | mention`. Architecture must type this as a closed discriminant; new kinds require a concept-doc update.
-
-d. **Parts and Folds are derived, never stored.** No `part` table/column; Fold state is UI-local. Parts derive per render from their source (`Message[]` or session events); the Message/Thread rows remain the sole mutable source of truth. Architecture must keep the renderer pure-derived — no persisted Part/Fold shape.
+- **Exhaustive Part dispatch.** The renderer dispatches exhaustively over `plain | review | questionnaire | verdict` with an `unknown` fallback Part (mirrors Block's `unknown` kind). Adding a Part kind is concept-gated.
+- **AM1↔AM3 reuse contract.** The Part model is the shared structure AM3 renders session activity through — no duplicated renderer. Architecture defines the source-agnostic boundary (`Message` → Part and a session event → Part feed the SAME `Part[]` renderer).
+- **Closed Embed target-kind set.** `artifact | block | diff | session-reference | entity-ref | mention`, typed as a closed discriminant; new kinds require a concept-doc update.
+- **Parts and Folds are derived, never stored.** No `part` table/column; Fold state is UI-local. Parts derive per render from the source (`Message[]` or session events).
+- **Open/routing wiring (AM5).** Architecture wires the chip/review/session hooks to the routes in §6, depending on the standardized artifact-view & open/routing contract (AM5); it does not build the destination views.

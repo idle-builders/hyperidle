@@ -1,5 +1,5 @@
 /**
- * AM1 — Conversation, v3: Full Surface (C) stories.
+ * Conversation Surface — stories (the approved AM1 conversation design).
  *
  * The FULL-SCOPE conversation scoped to the conversation pane (the app-shell
  * sidebar — conversation list + nav — is intentionally OUT of this design: it is
@@ -17,10 +17,10 @@
  */
 
 import type { JSX } from "react";
-import Am1ConversationSurface from "./Am1ConversationSurface.js";
+import ConversationSurface from "./ConversationSurface.js";
 
 export default {
-	title: "AM1 Conversation — Full Surface (C)",
+	title: "Conversation Surface",
 	group: "Conversations" as const,
 };
 
@@ -28,7 +28,7 @@ export default {
 export const Populated = (): JSX.Element => (
 	<div className="w-full bg-[var(--surface-page)] p-[24px]">
 		<div className="mx-auto w-full max-w-[1440px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] shadow-[var(--shadow-default)]">
-			<Am1ConversationSurface />
+			<ConversationSurface />
 		</div>
 	</div>
 );
@@ -41,7 +41,7 @@ export const ComposerInsertBlock = (): JSX.Element => (
 			className="mx-auto w-full max-w-[1440px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] shadow-[var(--shadow-default)]"
 			style={{ height: 760 }}
 		>
-			<Am1ConversationSurface scroll composerActive />
+			<ConversationSurface scroll composerActive />
 		</div>
 	</div>
 );
