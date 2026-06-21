@@ -71,10 +71,13 @@ describe("AM2 harness capability descriptor builders", () => {
 	});
 
 	it("uses discovery state for missing families instead of inventing readiness", () => {
+		// AC4: auth-status-only probe (no sessionProbe) — fileEditing/toolUse stay false
+		// even when runtime is declared with true values, because sessionProbe.ok is absent.
 		const discoveries: Record<string, HarnessDiscoveryInput> = {
 			codex: {
 				state: "ready",
 				version: "0.141.0",
+				// No sessionProbe — so fileEditing/toolUse must NOT be true (auth status ≠ launchable)
 				runtime: { fileEditing: true, toolUse: true },
 			},
 			"cursor-agent": {
@@ -91,10 +94,13 @@ describe("AM2 harness capability descriptor builders", () => {
 		const codex = missing.find((d) => d.type === "codex");
 		const cursor = missing.find((d) => d.type === "cursor-agent");
 
+		// Discovery state/version should be surfaced correctly
 		expect(codex?.discovery.state).toBe("ready");
 		expect(codex?.discovery.version).toBe("0.141.0");
-		expect(codex?.runtime.fileEditing).toBe(true);
-		expect(codex?.runtime.toolUse).toBe(true);
+
+		// AC4: without sessionProbe.ok, runtime caps stay false (auth status alone ≠ launchable)
+		expect(codex?.runtime.fileEditing).toBe(false);
+		expect(codex?.runtime.toolUse).toBe(false);
 
 		expect(cursor?.discovery.state).toBe("unavailable");
 		expect(cursor?.discovery.reason).toContain("headless CLI surface");
@@ -114,5 +120,60 @@ describe("AM2 harness capability descriptor builders", () => {
 
 		expect(descriptor.discovery.state).toBe("unauthenticated");
 		expect(descriptor.discovery.reason).toContain("ANTHROPIC_API_KEY");
+	});
+
+	it("AC4: auth-status-only probe (no sessionProbe) leaves fileEditing/toolUse false", () => {
+		// A discovery that only ran auth status (state=ready but no sessionProbe)
+		// must NOT set fileEditing/toolUse = true — auth status alone proves login,
+		// NOT launchability.
+		const discoveries: Record<string, HarnessDiscoveryInput> = {
+			codex: {
+				state: "ready",
+				version: "0.141.0",
+				// No sessionProbe — auth status only
+			},
+		};
+
+		const missing = missingKnownHarnessDescriptors(
+			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
+			discoveries,
+		);
+
+		const codex = missing.find((d) => d.type === "codex");
+		expect(codex).toBeDefined();
+		expect(codex?.discovery.state).toBe("ready");
+		// Without sessionProbe.ok, runtime caps must be conservative
+		expect(codex?.runtime.fileEditing).toBe(false);
+		expect(codex?.runtime.toolUse).toBe(false);
+	});
+
+	it("AC4: sessionProbe.ok = true enables fileEditing/toolUse true", () => {
+		// A discovery that ran a real session probe (sessionProbe.ok=true) proves
+		// launchability — caps may be set to true.
+		const discoveries: Record<string, HarnessDiscoveryInput> = {
+			codex: {
+				state: "ready",
+				version: "0.141.0",
+				sessionProbe: {
+					ok: true,
+					family: "codex",
+					capturedLine: '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}',
+					eventType: "turn.completed",
+				},
+				runtime: { fileEditing: true, toolUse: true },
+			},
+		};
+
+		const missing = missingKnownHarnessDescriptors(
+			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
+			discoveries,
+		);
+
+		const codex = missing.find((d) => d.type === "codex");
+		expect(codex).toBeDefined();
+		expect(codex?.discovery.state).toBe("ready");
+		// With sessionProbe.ok=true and runtime set, caps are proven
+		expect(codex?.runtime.fileEditing).toBe(true);
+		expect(codex?.runtime.toolUse).toBe(true);
 	});
 });

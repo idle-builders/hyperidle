@@ -42,8 +42,10 @@ function runtimeFromCapabilities(caps: HarnessCapabilities): HarnessRuntimeCapab
 }
 
 function runtimeFromDiscovery(input?: HarnessDiscoveryInput): HarnessRuntimeCapabilities {
-	// Missing/unavailable families start with zero proven capability. Only the real probe
-	// can switch flags on.
+	// Missing/unavailable families start with zero proven capability.
+	// fileEditing/toolUse are only set true when a real session probe confirms launchability
+	// (sessionProbe?.ok === true AND the runtime field supplies the value).
+	// auth status alone (state=ready, no sessionProbe) proves login, NOT launchability.
 	if (!input?.runtime) {
 		return {
 			preCompactionTrigger: false,
@@ -54,13 +56,18 @@ function runtimeFromDiscovery(input?: HarnessDiscoveryInput): HarnessRuntimeCapa
 			toolUse: false,
 		};
 	}
+
+	// Gate fileEditing/toolUse on sessionProbe.ok — auth-status-only probes stay false.
+	const sessionProbeOk = input.sessionProbe?.ok === true;
+
 	return {
 		preCompactionTrigger: input.runtime.preCompactionTrigger ?? false,
 		subAgents: input.runtime.subAgents ?? false,
 		mcpSupport: input.runtime.mcpSupport ?? false,
 		modelProviders: input.runtime.modelProviders ?? [],
-		fileEditing: input.runtime.fileEditing ?? false,
-		toolUse: input.runtime.toolUse ?? false,
+		// Only true when the runtime declares true AND the session probe confirmed launchability
+		fileEditing: sessionProbeOk ? (input.runtime.fileEditing ?? false) : false,
+		toolUse: sessionProbeOk ? (input.runtime.toolUse ?? false) : false,
 	};
 }
 

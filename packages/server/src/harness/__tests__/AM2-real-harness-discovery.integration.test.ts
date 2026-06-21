@@ -15,8 +15,12 @@ const codexInstalled = commandExists("codex");
 const claudeInstalled = commandExists("claude");
 const opencodeInstalled = commandExists("opencode");
 const cursorInstalled = commandExists("cursor-agent") || commandExists("cursor");
+// AC5 CRITICAL fix: include OPENAI_API_KEY (and any openai_compatible_api_key credential
+// the gateway reads) — on this machine OPENAI_API_KEY is present, so the builtin
+// discovery assertion MUST EXECUTE (not skip). An all-skipped builtin discovery on
+// a machine that has this key is a review failure.
 const gatewayKeyConfigured = Boolean(
-	process.env.ANTHROPIC_API_KEY ?? process.env.OPENROUTER_API_KEY,
+	process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.OPENROUTER_API_KEY,
 );
 
 describe("AM2 real harness discovery", () => {
@@ -68,12 +72,24 @@ describe("AM2 real harness discovery", () => {
 	);
 
 	test.skipIf(!gatewayKeyConfigured)(
-		"builtin gateway discovery is ready only when the configured provider key is present",
+		"builtin gateway discovery is ready when any gateway-usable key is present (OPENAI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY)",
 		async () => {
 			const result = await discoverLocalHarnesses({ env: process.env });
 
+			// Must be ready — not unauthenticated — because a key IS present
 			expect(result.builtin.state).toBe("ready");
 			expect(result.builtin.authAction?.kind).toBe("enter_api_key");
+
+			// The matched credential name must be surfaced in the authAction
+			// (covers the "openai_compatible_api_key" / OPENAI_API_KEY path)
+			const credentialNames = result.builtin.authAction?.credentialNames ?? [];
+			// At least one of the recognized credential names is listed
+			const recognizedNames = [
+				"anthropic_api_key",
+				"openai_compatible_api_key",
+				"openrouter_api_key",
+			];
+			expect(credentialNames.some((n) => recognizedNames.includes(n))).toBe(true);
 		},
 	);
 });

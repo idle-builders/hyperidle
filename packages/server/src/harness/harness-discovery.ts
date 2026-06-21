@@ -16,6 +16,22 @@ function stripAnsi(value: string): string {
 	return value.replace(ANSI_PATTERN, "");
 }
 
+/**
+ * AC5 result of the harmless real one-shot session probe.
+ * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
+ * `sessionProbe?.ok === true` — auth status alone proves login, NOT launchability.
+ */
+export interface HarnessSessionProbeResult {
+	readonly ok: boolean;
+	readonly family: "codex" | "claude-code" | "opencode";
+	/** First captured usage-bearing event line; committed as a fixture for AC6. */
+	readonly capturedLine?: string;
+	/** Parsed native event type, e.g. "turn.completed" | "result". */
+	readonly eventType?: string;
+	/** Precise reason when ok === false (binary absent / not authed / launch failed). */
+	readonly reason?: string;
+}
+
 /** @lore AM2: This type intentionally mirrors no shared type exactly; it is the
  *  private probe result that the descriptor builder maps into the public
  *  `HarnessDiscoveryStatus` / `HarnessCapabilityDescriptor`. Keeping it local
@@ -27,6 +43,12 @@ export interface HarnessDiscoveryInput {
 	readonly authAction?: HarnessAuthActionDescriptor;
 	readonly models?: readonly HarnessModelDescriptor[];
 	readonly runtime?: Partial<HarnessRuntimeCapabilities>;
+	/**
+	 * AC5: result of the harmless real one-shot session probe. `runtimeFromDiscovery`
+	 * only sets fileEditing/toolUse `true` when `sessionProbe?.ok === true` — auth status
+	 * alone proves login, NOT launchability. Absent ⇒ no session probe ran ⇒ caps stay false.
+	 */
+	readonly sessionProbe?: HarnessSessionProbeResult;
 }
 
 export interface HarnessDiscoveryResult {
@@ -302,34 +324,66 @@ async function probeCursorAgentCli(d?: HarnessProbeDeps): Promise<HarnessDiscove
 	};
 }
 
+/**
+ * @lore AM2 AC3/AC5 CRITICAL FIX: `probeBuiltinGateway` now checks the full
+ * ordered gateway-usable credential set instead of only ANTHROPIC_API_KEY.
+ * The gateway's callLlm() supports three provider paths:
+ *   - "anthropic"         → ANTHROPIC_API_KEY (direct Anthropic Messages API)
+ *   - "openai-compatible" → OPENAI_API_KEY / openai_compatible_api_key
+ *   - "openrouter"        → OPENROUTER_API_KEY
+ * On this machine OPENAI_API_KEY is present — the original single-key check
+ * always returned `unauthenticated` here, breaking AC3/AC5 discovery.
+ */
 function probeBuiltinGateway(d?: HarnessProbeDeps): HarnessDiscoveryInput {
 	const env = d?.env ?? process.env;
 
-	// Default built-in gateway routes all tiers through Anthropic. If that changes,
-	// this probe should follow the configured provider order rather than hard-coding
-	// anthropic first.
-	const requiredKey = "ANTHROPIC_API_KEY";
-	if (env[requiredKey]) {
+	// Ordered set of gateway-usable credentials (priority: Anthropic → OpenAI-compatible → OpenRouter)
+	const credentialCandidates: Array<{ envKey: string; credentialName: string; label: string }> = [
+		{
+			envKey: "ANTHROPIC_API_KEY",
+			credentialName: "anthropic_api_key",
+			label: "Enter Anthropic API key",
+		},
+		{
+			envKey: "OPENAI_API_KEY",
+			credentialName: "openai_compatible_api_key",
+			label: "Enter OpenAI-compatible API key",
+		},
+		{
+			envKey: "OPENROUTER_API_KEY",
+			credentialName: "openrouter_api_key",
+			label: "Enter OpenRouter API key",
+		},
+	];
+
+	const matched = credentialCandidates.find((c) => Boolean(env[c.envKey]));
+
+	if (matched) {
 		return {
 			state: "ready",
 			authAction: {
 				kind: "enter_api_key",
-				label: "Enter Anthropic API key",
+				label: matched.label,
 				description: "Store a model gateway API key in HyperIdle.",
-				credentialNames: ["anthropic_api_key"],
+				credentialNames: [
+					matched.credentialName,
+					"openrouter_api_key",
+					"openai_compatible_api_key",
+				],
 			},
 			runtime: { fileEditing: true, toolUse: true },
 		};
 	}
 
+	const checkedList = credentialCandidates.map((c) => c.envKey).join(", ");
 	return {
 		state: "unauthenticated",
-		reason: `Built-in gateway default provider (anthropic) is missing credential ${requiredKey}.`,
+		reason: `Built-in gateway has no usable credential. Checked: ${checkedList}.`,
 		authAction: {
 			kind: "enter_api_key",
-			label: "Enter Anthropic API key",
+			label: "Enter API key",
 			description: "Store a model gateway API key in HyperIdle.",
-			credentialNames: ["anthropic_api_key"],
+			credentialNames: ["anthropic_api_key", "openai_compatible_api_key", "openrouter_api_key"],
 		},
 	};
 }
