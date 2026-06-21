@@ -165,6 +165,87 @@ export interface AgentScaffoldSpec {
 }
 
 /**
+ * AK7: A candidate handed to the Strategy for a bet_* surface.
+ *
+ * Carries role ONLY — the bet_* selectors (exact-role-match → index spread)
+ * need nothing else. NO systemPrompt (Kernel never reads AGENTS.md; §2a).
+ * NO skills/WIP (only routine_delegate consumes those via its own Fabric query).
+ *
+ * @lore AK7: bet_* selection is deliberately WIP-blind (concept §3a) to match AK3.
+ */
+export interface SelectionCandidate {
+	readonly agentId: string;
+	readonly role: UserRole;
+}
+
+/**
+ * AK7: A selection request — the Kernel asks the active Strategy which agent
+ * should own a unit of work. Carries the OCCASION (concept §1), never an answer.
+ * The Strategy returns a chosen agent's users.id; the Kernel resolves + attaches.
+ *
+ * @lore AK7: ScaffoldRequest.trigger is a CLOSED set (mirrors @lore O1 / AK6).
+ * Adding a selection surface requires adding to the `surface` union here.
+ */
+export interface SelectAgentRequest<TDb> {
+	readonly db: TDb;
+	/**
+	 * Which selection surface fired. Closed set.
+	 * - bet_task:          per-task owner during decomposition (replaces round-robin)
+	 * - bet_decomposer:    the PM-style agent that decomposes a bet
+	 * - routine_delegate:  a routine owner is at WIP; pick a delegate
+	 */
+	readonly surface: "bet_task" | "bet_decomposer" | "routine_delegate";
+	/**
+	 * teams.id whose roster the Kernel enumerated candidates from.
+	 * Present for bet_* surfaces; null for routine_delegate (no teamId in scope).
+	 */
+	readonly teamId: string | null;
+	/** The bet/routine the work is keyed to (for audit correlation). */
+	readonly workKey: string;
+	/**
+	 * bet_* ONLY. Eligible team candidates enumerated by the Kernel (active, AI,
+	 * category='team' agents in the team, ORDERED BY users.id). The Strategy PICKS
+	 * from these. EMPTY for routine_delegate — that surface ignores `candidates`.
+	 */
+	readonly candidates: readonly SelectionCandidate[];
+	/**
+	 * Role hint for the work (a task's ownerRole, or 'product_manager' for a
+	 * decomposer). The Strategy MAY honor it (exact-match) or override.
+	 * null for routine_delegate.
+	 */
+	readonly roleHint: UserRole | null;
+	/**
+	 * bet_task ONLY. The decomposition loop index (`i`). Preserves AK3's exact
+	 * `eligible[i % len]` round-robin spread across stateless per-task calls.
+	 * null for bet_decomposer / routine_delegate.
+	 *
+	 * @lore AK7: Without spreadIndex, multi-task bets collapse all null-role tasks
+	 * onto candidates[0] — the silent regression the golden test catches (§7).
+	 */
+	readonly spreadIndex: number | null;
+	/**
+	 * routine_delegate ONLY: the current owner to exclude.
+	 * null for bet_* surfaces.
+	 */
+	readonly excludeAgentId: string | null;
+	/**
+	 * routine_delegate ONLY: the skill to match (runs findDelegate's exact
+	 * userSkills-scoped query). null for bet_* surfaces.
+	 */
+	readonly skillId: string | null;
+}
+
+/**
+ * AK7: The Strategy's answer. A chosen agent's users.id, or null = "no agent".
+ * null → the calling flow takes its no-agent path (decomposition → blocked).
+ * The Kernel load-and-validates the id (concept §3) before attaching.
+ */
+export interface SelectAgentOutcome {
+	/** users.id of the chosen agent, or null if the Strategy declines to assign. */
+	readonly agentId: string | null;
+}
+
+/**
  * The Strategy Port. Exactly one Strategy is active per process.
  *
  * The Kernel calls this surface and NEVER imports a concrete Strategy
@@ -180,6 +261,10 @@ export interface AgentScaffoldSpec {
  * asks the active Strategy which agents to create (by returning AgentScaffoldSpec[]).
  * The Kernel persists the specs via persistScaffoldedAgents.
  *
+ * AK7 adds selectAgent: on every selection surface, the Kernel asks the active
+ * Strategy which agent should own a unit of work. The Strategy returns the chosen
+ * agent's users.id (or null = no agent); the Kernel resolves + attaches.
+ *
  * Error semantics:
  * - assembleContext may throw; the Kernel's Phase-6 try/catch reverts the task
  *   to `accepted` and rethrows (existing behaviour preserved).
@@ -187,6 +272,7 @@ export interface AgentScaffoldSpec {
  *   dispose() MUST NOT throw (best-effort flush).
  * - scaffoldAgents may throw for invalid input (e.g. agent_added with role null);
  *   the route's error handler surfaces a 400.
+ * - selectAgent returns null to signal "no agent" — never throws for missing candidates.
  */
 export interface Strategy<TDb> {
 	assembleContext(req: ContextAssemblyRequest<TDb>): Promise<ContextAssemblyOutcome>;
@@ -199,4 +285,16 @@ export interface Strategy<TDb> {
 	 * the route awaits it before returning the created entity.
 	 */
 	scaffoldAgents(req: ScaffoldRequest<TDb>): Promise<readonly AgentScaffoldSpec[]>;
+	/**
+	 * AK7: The Strategy decides which agent owns a unit of work.
+	 *
+	 * Returns the chosen agent's users.id (or null = no agent). Synchronous-within-
+	 * flow (like scaffoldAgents): the calling flow awaits it before provisioning.
+	 * The Kernel resolves the returned id to a users row and attaches the session;
+	 * the Strategy NEVER spawns/attaches a session and NEVER enforces cost.
+	 *
+	 * Generalizes the Fabric's findDelegate skill-match (routine-scheduler.ts:245):
+	 * every selection surface now consults this one method.
+	 */
+	selectAgent(req: SelectAgentRequest<TDb>): Promise<SelectAgentOutcome>;
 }

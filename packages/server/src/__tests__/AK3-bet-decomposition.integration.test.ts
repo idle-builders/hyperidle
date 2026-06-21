@@ -543,6 +543,8 @@ describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sove
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			// AK6: scaffoldAgents stub — AK3 test is not about agent creation.
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
+			// AK7: selectAgent stub — AK3 test is not about agent selection.
+			selectAgent: vi.fn().mockResolvedValue({ agentId: null }),
 		});
 	});
 

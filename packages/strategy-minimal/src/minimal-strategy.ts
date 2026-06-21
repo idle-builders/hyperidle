@@ -39,6 +39,8 @@ import type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
 
@@ -151,5 +153,19 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 					},
 				];
 		}
+	},
+
+	/**
+	 * AK7 RED STUB: selectAgent for the Minimal Strategy.
+	 *
+	 * The real implementation (green phase):
+	 *   Honor roleHint if a candidate matches; else first candidate; else null.
+	 *   For routine_delegate (candidates:[]): returns null (Minimal has no delegation knowledge).
+	 *
+	 * @lore AK7: This stub throws so AK7 tests fail red. The green phase implements
+	 * the trivial bet_* selection (candidates[0] / roleHint match) per architecture §6.1.
+	 */
+	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		throw new Error("AK7: Minimal selectAgent not implemented — green phase required");
 	},
 };

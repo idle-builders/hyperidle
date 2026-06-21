@@ -122,6 +122,7 @@ export type {
 	UserCreatedEvent,
 	WildcardHandler,
 	WildcardType,
+	WorkSelectionRequestedEvent,
 } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
@@ -279,6 +280,9 @@ export type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
+	SelectionCandidate,
 	Strategy,
 } from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──

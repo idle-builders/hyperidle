@@ -30,6 +30,8 @@ import type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
 import { assembleContext } from "./context-assembly.js";
@@ -99,5 +101,18 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 	 */
 	async scaffoldAgents(req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
 		return composeRoster(req.db, req);
+	},
+
+	/**
+	 * AK7 RED STUB: selectAgent for the Fabric Strategy.
+	 *
+	 * The real implementation (green phase) delegates to selectAgentFabric(req)
+	 * from packages/fabric/src/services/agent-selection.ts.
+	 *
+	 * @lore AK7: This stub throws so AK7 tests fail red. The green phase wires
+	 * in selectAgentFabric per architecture §6.2.
+	 */
+	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		throw new Error("AK7: Fabric selectAgent not implemented — green phase required");
 	},
 };
