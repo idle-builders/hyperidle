@@ -248,11 +248,13 @@ export function derivePartsFromMessages(
 	viewerId: string,
 	identities: ReadonlyArray<PartAuthor>,
 ): Part[] {
-	// First pass: index verdicts by the message they resolve.
-	const verdicts = new Map<string, VerdictPayload>();
+	// First pass: index verdicts by the message they resolve. Keep the resolving
+	// verdict's `senderId` (the person who took the decision) alongside its payload
+	// so the resolved Part can attribute the verdict to a PERSON, not a message id.
+	const verdicts = new Map<string, { payload: VerdictPayload; resolverId: string }>();
 	for (const m of messages) {
 		if (m.type === "verdict" && !isRedactedPayload(m.payload)) {
-			verdicts.set(m.payload.resolvesMessageId, m.payload);
+			verdicts.set(m.payload.resolvesMessageId, { payload: m.payload, resolverId: m.senderId });
 		}
 	}
 
@@ -287,8 +289,12 @@ export function derivePartsFromMessages(
 					parts.push({
 						...base,
 						kind: "resolved",
-						label: verdict ? verdictDecisionLabel(verdict.decision) : "RESOLVED",
-						resolvedBy: verdict ? verdict.resolvesMessageId : author.name,
+						label: verdict ? verdictDecisionLabel(verdict.payload.decision) : "RESOLVED",
+						// The PERSON who took the verdict (resolver), not a message id. Falls
+						// back to the review author when no verdict message is present.
+						resolvedBy: verdict
+							? resolveAuthor(verdict.resolverId, viewerId, identities).name
+							: author.name,
 						summary: message.payload.title,
 						reviewTarget,
 					});
@@ -309,8 +315,10 @@ export function derivePartsFromMessages(
 					parts.push({
 						...base,
 						kind: "resolved",
-						label: verdict ? verdictDecisionLabel(verdict.decision) : "RESOLVED",
-						resolvedBy: verdict ? verdict.resolvesMessageId : author.name,
+						label: verdict ? verdictDecisionLabel(verdict.payload.decision) : "RESOLVED",
+						resolvedBy: verdict
+							? resolveAuthor(verdict.resolverId, viewerId, identities).name
+							: author.name,
 						summary: message.payload.question,
 						reviewTarget: { betId: "", reviewId: message.id },
 					});

@@ -170,12 +170,6 @@ function classifyHttpError(status: number): string {
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, retry } = useThreadDetail(threadId);
 	const navigate = useNavigate();
-	// AM1: the OpenTarget routing seam. Reference/host navigation flows through
-	// the one `OpenHandler` (createOpenHandler) — the same descriptor-driven seam
-	// the PartList renderer uses — instead of ad-hoc navigate() calls. host
-	// targets resolve through the existing resolveHostRoute (total over
-	// BlockHostKind); user/factory are documented no-ops.
-	const openTarget = createOpenHandler(navigate);
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
@@ -317,6 +311,17 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		identitiesToAuthors(data.identities, viewerId),
 	);
 	const participants = identitiesToParticipants(data.identities);
+	// AM1 ARCH-1: the review route needs a betId the source-agnostic adapter cannot
+	// know (a review Message carries none). The PAGE has thread→host context: a
+	// bet-hosted thread's host id IS the bet. Source it here and feed it to the
+	// OpenTarget→navigate seam. For task/other hosts the bet isn't cheaply available
+	// → betId stays null and the review open action no-ops (no dead URL).
+	const reviewBetId = data.thread.hostKind === "bet" ? data.thread.hostId : null;
+	// AM1: the OpenTarget routing seam. Reference/host navigation flows through the
+	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
+	// host targets resolve through resolveHostRoute (total over BlockHostKind);
+	// user/factory are documented no-ops; review uses the page-sourced betId.
+	const openTarget = createOpenHandler(navigate, { betId: reviewBetId });
 	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle =
