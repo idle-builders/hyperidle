@@ -1,66 +1,156 @@
 /**
  * AM1 — Conversation Experience, v3: the FULL-SCOPE conversation embodied in the
- * REAL app container (round-3 detail refinement).
+ * REAL app container, now INTERACTIVE (round-5 — founder asked to SEE it work).
  *
- * v1/v2 (the thin "calm column" — QuietStream / Quiet Turns / Calm Document) were
- * rejected by the founder as "far from the basics": missing spacing/grouping/
- * structure, no me-vs-them identity, no multi-user, a stub composer.
+ * v1/v2 (the thin "calm column") were rejected as "far from the basics". v3 is
+ * the conversation embodied in the real app pane: header · author-grouped
+ * messages · composer.
  *
  * SCOPE = THE OPEN CONVERSATION (the open thread's content). A conversation IS a
- * thread (DB: conversationId === threadId; messages carry one threadId, no
- * sub-thread/parent column — no Slack-style sub-threads). Navigating BETWEEN
- * threads is the app sidebar (SidebarV2, AD9) — app-shell chrome, NOT part of this
- * design. So this surface is just the conversation: header (thread identity) ·
- * message groups · composer.
+ * thread (DB: conversationId === threadId; one threadId per message, no
+ * sub-thread/parent column). Navigating BETWEEN threads is the app sidebar
+ * (SidebarV2, AD9) — app-shell chrome, NOT part of this design.
  *
- * REVIEW / ARTIFACT SCOPE BOUNDARY (round-3): the review experience — artifact
- * review, the verdict flow, and the right slider/diff pane — is owned by a PARALLEL
- * worktrack (AL). It is NOT designed here. An artifact/change-set in this surface
- * renders only as a COMPACT EMBED card that is a HOOK: clicking it "opens the
- * artifact in a right slider" delivered by AL. There is no diff body, no verdict
- * bar, no context pane in this design. A review message stays compact: the agent
- * proposes X with an "Open review" hook into AL's experience.
+ * REVIEW / ARTIFACT REVIEW SCOPE BOUNDARY: the verdict flow + the AL review
+ * slider is owned by track AL. A change-set/artifact here renders only as a
+ * COMPACT EMBED card via the real ArtifactEmbed; "Open review" is a hook into AL.
  *
- * /design embodiment of the LOCKED concept (`plans/AM1/concept.md`): a Conversation
- * = deliberate, threaded messages on ONE host, rendered through the Part model
- * (typed Parts + Embed + Fold), derived never stored. Message types: plain |
- * review | questionnaire | verdict. The model is NOT changed here — the UI makes it
- * legible.
+ * ── INTERACTIVITY (round-5, founder: "I want to see this interactive and open
+ *    the right page and display the full block in the proper block viewer
+ *    component that we already have") ──────────────────────────────────────────
+ * The story is live React. Two pieces of real state drive it:
+ *   1. insertMenuOpen — the composer "+" affordance toggles the unified Insert
+ *      menu (a grounded popover anchored to the button). Click "+" to open,
+ *      click "+" again or anywhere outside to close. No dead buttons.
+ *   2. openBlock — clicking any block embed's "Open →" opens a RIGHT-PAGE PANEL
+ *      that slides in and renders the FULL block through the REAL `<Block>`
+ *      viewer component (packages/design-system/src/Block.tsx). Closing returns
+ *      to the conversation. This is the "open in the right page" founder asked
+ *      to SEE working — the same component Knowledge uses, no facsimile.
  *
- * Concept honor:
- *  - Session activity is NEVER first-class conversation content. A session is a
- *    one-line Session-reference Embed opening the lower-level dial-in (AM3); never
- *    an inlined work-log.
- *  - Renders WITHIN Thread/Message/verdict — reshapes none of them.
+ * The INLINE block embed shows the block's TITLE only (e.g. "Code ·
+ * auth/passkey.ts", "Auth migration plan · §2") — never the first line of code.
+ * The full Block render lives in the right page, not inline.
  *
- * Scope: a self-contained, hand-rolled, presentational surface for the viewer.
- * Fixture inline, callbacks noop, visuals hand-rolled with Tailwind + semantic
- * tokens for guaranteed rendering. Production reuse mapping (which catalogued DS
- * components replace each hand-rolled slot) lives in
- * `plans/AM1/design/full-surface/spec.md`.
+ * @lore AM1-r5: the conversation chrome (header, groups, composer) is still
+ * hand-rolled so the story renders stand-alone in the viewer without AppShell's
+ * router/context. The builder maps each region to the real DS components per
+ * spec.md §Composition. The embeds (ArtifactEmbed, Block) ARE the real DS
+ * components — not facsimiles.
  *
- * @lore AM1-v3: the conversation chrome (header, message groups, composer) is
- * hand-rolled rather than importing the real DS components so the story renders
- * stand-alone in the viewer without AppShell's router/context. The builder maps
- * each region back to the real components per spec.md §Composition.
+ * @lore AM1-r5: the right-page panel here is a LOCAL demonstration of "open the
+ * block in the right page" using the real `<Block>` viewer. The production
+ * destination (the app-shell right page / AL slider) is owned elsewhere; this
+ * surface only needs to PROVE the hook opens the real Block viewer.
  *
- * @lore AM1-v3 round-4: the composer's INSERT-BLOCK capability inserts a knowledge
- * Block into the draft, but in the COMPOSER it renders as a COMPACT PREVIEW CARD
- * (kind marker + snippet + "Open →"), consistent with the artifact/change-set
- * Embed — NOT the full rich block editor inline. "Open →" opens the full
- * block/artifact in the right slider (track AL). Founder round-3: "more a preview
- * like for artifact and then open in the right page the entire artifact if wanted."
- *
- * @lore AM1-v3 round-4: the Insert menu is a FLOATING POPOVER anchored above the
- * "+ Insert" button (absolute, overlay) — opening it must NEVER grow the composer
- * box. Founder round-3: "the entire message box growing gigantic … is horrible."
- *
- * @lore AM1-v3 round-3: the diff/change-set CONTEXT PANE was removed. Artifact
- * review (the right slider + verdict flow) is owned by track AL; here a change-set
- * is only a compact "opens →" Embed hook. Do not re-add a diff body or verdict bar.
+ * @lore AM1-r5: composer tool affordances UNIFIED into ONE "+" menu (founder:
+ * "what's the difference between insert and those other icons. and why is the
+ * insert there and not where the other icons are"). The old duplicate bottom
+ * icon strip is gone; every compose action lives in the single menu the "+"
+ * opens, each labeled + single-purpose. Only the "Enter to send" hint remains
+ * below the input.
  */
 
-import type { JSX } from "react";
+import { ArtifactEmbed, Block } from "@hyperidle/design-system";
+import type { Artifact, BlockPayload } from "@hyperidle/shared";
+import { blockId } from "@hyperidle/shared";
+import { type JSX, useEffect, useRef, useState } from "react";
+
+// ── Real-component fixtures ─────────────────────────────────────────
+// CHANGE-SET embed = a code-kind Artifact rendered through the real ArtifactEmbed.
+const CHANGE_SET_ARTIFACT: Artifact = {
+	id: "art_passkey",
+	producingTaskId: "task_passkey",
+	producingTaskTitle: "Wire passkey login",
+	kind: "code",
+	label: "change set",
+	preview: {
+		kind: "code",
+		file: "auth/passkey.ts",
+		hunks: [
+			{
+				header: "@@ -12,7 +12,9 @@ async function register()",
+				lines: [
+					{ kind: "ctx", text: "  const opts = await beginRegistration(user);" },
+					{ kind: "del", text: "  return legacyPasswordFlow(user);" },
+					{ kind: "add", text: "  const cred = await navigator.credentials.create(webauthnOpts);" },
+					{ kind: "add", text: "  return finishRegistration(user, cred);" },
+				],
+			},
+		],
+	},
+	cost: {
+		money: { minor: 42, currency: "USD" },
+		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
+	},
+	threadCount: 0,
+	createdAt: new Date(Date.now() - 6 * 60_000).toISOString(),
+};
+
+// Inserted-block draft = a real code Block. Title shown inline; full Block in panel.
+const INSERTED_CODE_PAYLOAD: BlockPayload = {
+	kind: "code",
+	lang: "ts",
+	text: "const cred = await navigator.credentials.create(webauthnOpts);\nawait finishRegistration(user, cred);\nreturn { ok: true };",
+};
+const INSERTED_CODE_TITLE = "auth/passkey.ts";
+const INSERTED_CODE_ID = blockId({
+	kind: "code",
+	outlinePath: "composer-draft",
+	normalisedPayload: INSERTED_CODE_PAYLOAD.text,
+});
+
+// Referenced knowledge item = a real heading Block + a real paragraph Block.
+const REF_HEADING_PAYLOAD: BlockPayload = {
+	kind: "heading",
+	level: 3,
+	text: "Dual-auth window",
+	inline: [{ type: "text", value: "Dual-auth window" }],
+};
+const REF_PARA_PAYLOAD: BlockPayload = {
+	kind: "paragraph",
+	inline: [
+		{
+			type: "text",
+			value:
+				"Password and passkey credentials both authenticate during phase 2, so enterprise tenants that cannot enroll passkeys keep a working login.",
+		},
+	],
+};
+const REF_HEADING_ID = blockId({
+	kind: "heading",
+	outlinePath: "auth-migration-plan/2",
+	normalisedPayload: REF_HEADING_PAYLOAD.text,
+});
+const REF_PARA_ID = blockId({
+	kind: "paragraph",
+	outlinePath: "auth-migration-plan/2",
+	normalisedPayload: "dual-auth-window-body",
+});
+
+// ── Right-page panel content descriptor ─────────────────────────────
+// Each block embed opens a panel rendering the FULL block(s) via real <Block>.
+type PanelKey = "inserted-code" | "ref-plan";
+interface PanelSpec {
+	title: string;
+	kindLabel: string;
+	blocks: { id: ReturnType<typeof blockId>; payload: BlockPayload }[];
+}
+const PANELS: Record<PanelKey, PanelSpec> = {
+	"inserted-code": {
+		title: "auth/passkey.ts",
+		kindLabel: "Code block",
+		blocks: [{ id: INSERTED_CODE_ID, payload: INSERTED_CODE_PAYLOAD }],
+	},
+	"ref-plan": {
+		title: "Auth migration plan · §2",
+		kindLabel: "Knowledge",
+		blocks: [
+			{ id: REF_HEADING_ID, payload: REF_HEADING_PAYLOAD },
+			{ id: REF_PARA_ID, payload: REF_PARA_PAYLOAD },
+		],
+	},
+};
 
 // ── Fixture identities (3 participants: 2 humans + 1 agent) ─────────
 const FOUNDER = { id: "u-founder", name: "A. Founder", initials: "AF", isAgent: false, isMe: true };
@@ -70,7 +160,6 @@ type Identity = typeof FOUNDER;
 
 // ───────────────────────────────────────────────────────────────────
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
-// Round-3: every composer-toolbar glyph is a legible, single-purpose icon.
 // ───────────────────────────────────────────────────────────────────
 function Glyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
 	return (
@@ -98,29 +187,21 @@ const ICON_REACT =
 const ICON_REPLY = "M6.5 3L2 7l4.5 4V8.4c3.2 0 5.2 1 6.5 3.6.4-4.3-1.8-7.4-6.5-8V3z";
 const ICON_MORE =
 	"M3 6.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z";
-// Remove / close — a clean ✕ mark (replaces stray text "✕" glyphs).
 const ICON_REMOVE = "M4.3 3.2L8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3l1.1-1.1z";
-// Question mark in a circle — the "quick ask" / decision-awaiting marker.
 const ICON_QUESTION =
 	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a2.4 2.4 0 012.4 2.4c0 1-.6 1.5-1.3 2-.5.35-.6.55-.6 1.1H6.9c0-1 .3-1.5 1-2 .5-.36.8-.6.8-1.1a.9.9 0 00-1.8 0H5.6A2.4 2.4 0 018 4zm-.05 7.4a.95.95 0 110-1.9.95.95 0 010 1.9z";
-// Format glyph — a clean serif "A" mark (text-formatting). Replaces the broken bold path.
 const ICON_FORMAT_AA =
 	"M5.6 3h1.6l3.1 8H8.6l-.62-1.7H4.84L4.22 11H2.5l3.1-8zm.18 2.1L4.36 7.9h2.84L5.78 5.1zM12 6.4h1.5V11H12v-.5a1.7 1.7 0 01-1.2.6c-1 0-1.7-.7-1.7-1.6 0-.95.8-1.5 2-1.5h.9v-.15c0-.5-.3-.75-.85-.75-.42 0-.78.16-1.1.42l-.58-.95A3 3 0 0111.2 6.3c.3 0 .55.04.8.1zm-.2 2.85h-.7c-.5 0-.78.2-.78.55 0 .3.24.5.62.5.45 0 .82-.3.86-.75v-.3z";
 const ICON_AT =
 	"M8 1a7 7 0 100 14c1.4 0 2.7-.4 3.8-1.1l-.8-1.2A5.5 5.5 0 118 2.5 5.5 5.5 0 0113.5 8c0 1-.6 1.5-1.2 1.5S11 9 11 8V5.2H9.5V6A2.8 2.8 0 108 11a2.7 2.7 0 002-.9 2.3 2.3 0 002.3 1.4C14 11.5 15 10.1 15 8A7 7 0 008 1zm0 8.5A1.5 1.5 0 118 6.5a1.5 1.5 0 010 3z";
-// Emoji / face glyph (insert emoji into the body — distinct from reacting).
 const ICON_EMOJI =
 	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM5.6 6.2a.95.95 0 110 1.9.95.95 0 010-1.9zm4.8 0a.95.95 0 110 1.9.95.95 0 010-1.9zM4.9 9.4h6.2a3.2 3.2 0 01-6.2 0z";
-// Insert-block / blocks glyph — stacked rows (a small document/block stack).
-const ICON_BLOCKS =
-	"M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z";
-// Code-block kind glyph (the inserted-block preview's kind marker).
+const ICON_BLOCKS = "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z";
 const ICON_K_CODE =
 	"M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z";
 
 // ───────────────────────────────────────────────────────────────────
-// Avatar — hand-rolled mirror of DS Avatar. Human vs agent tint, and a
-// stronger agent ring so the distinction reads at a glance.
+// Avatar — human vs agent tint + a stronger agent ring.
 // ───────────────────────────────────────────────────────────────────
 function Avatar({ who, size = 32 }: { who: Identity; size?: number }): JSX.Element {
 	const color = who.isAgent
@@ -137,11 +218,6 @@ function Avatar({ who, size = 32 }: { who: Identity; size?: number }): JSX.Eleme
 	);
 }
 
-// ───────────────────────────────────────────────────────────────────
-// CONVERSATION HEADER — host context + participants + actions.
-// Round-3: clean overlapping AvatarGroup (consistent ring + negative
-// margin) — no broken overlap. z-ordering so each avatar reads cleanly.
-// ───────────────────────────────────────────────────────────────────
 function ParticipantGroup({ people }: { people: Identity[] }): JSX.Element {
 	return (
 		<div data-ds-component="Am1AvatarGroup" className="flex items-center pl-[3px]">
@@ -164,7 +240,6 @@ function ConversationHeader(): JSX.Element {
 			<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-						{/* Host kind chip + host title — "what's this attached to" */}
 						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
 							Bet
 						</span>
@@ -175,12 +250,10 @@ function ConversationHeader(): JSX.Element {
 						Passkey login
 					</h1>
 				</div>
-				{/* Participants (3) — tidy overlapping group */}
 				<div className="flex items-center gap-[9px]">
 					<ParticipantGroup people={[FOUNDER, MARA, ATLAS]} />
 					<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">3</span>
 				</div>
-				{/* Quiet actions affordance */}
 				<button
 					type="button"
 					aria-label="Conversation actions"
@@ -194,10 +267,7 @@ function ConversationHeader(): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// MESSAGE GROUP — author-GROUPING is the structural unit. Single column,
-// NO bubbles. Round-3: agent groups carry a faint tint + a left accent
-// rule so AGENT vs HUMAN reads instantly without reading the name. Humans
-// plain; own ("You") groups keep a subtle warm cue.
+// MESSAGE GROUP — author-GROUPING is the structural unit.
 // ───────────────────────────────────────────────────────────────────
 function MessageGroup({
 	who,
@@ -208,27 +278,21 @@ function MessageGroup({
 	who: Identity;
 	time: string;
 	children: React.ReactNode;
-	/** When true, render the hover-action toolbar on the first row (demo state). */
 	hovered?: boolean;
 }): JSX.Element {
 	const tint = who.isAgent
-		? // Agent: faint accent tint + a left accent rule — the at-a-glance marker.
-			"border-l-[2.5px] border-[var(--accent-primary)] bg-[color-mix(in_oklab,var(--accent-primary)_4%,transparent)] pl-[15px]"
+		? "border-l-[2.5px] border-[var(--accent-primary)] bg-[color-mix(in_oklab,var(--accent-primary)_4%,transparent)] pl-[15px]"
 		: who.isMe
-			? // Own message: subtle warm cue (paired with the "You" label).
-				"bg-[color-mix(in_oklab,var(--text-secondary)_3%,transparent)] pl-[18px]"
-			: // Other human: plain.
-				"pl-[18px]";
+			? "bg-[color-mix(in_oklab,var(--text-secondary)_3%,transparent)] pl-[18px]"
+			: "pl-[18px]";
 	return (
 		<div
 			data-ds-component="Am1MessageGroup"
 			data-ds-sender={who.isAgent ? "agent" : "human"}
 			className={`group/msg relative flex gap-[12px] rounded-[var(--r-default)] py-[12px] pr-[18px] ${tint}`}
 		>
-			{/* Avatar column — identity at the group head */}
 			<Avatar who={who} size={32} />
 			<div className="min-w-0 flex-1">
-				{/* Group head: name + agent marker + time */}
 				<div className="mb-[6px] flex items-baseline gap-[9px]">
 					<span className="text-[13px] font-[600] text-[var(--text-primary)]">{who.name}</span>
 					{who.isAgent && (
@@ -240,11 +304,9 @@ function MessageGroup({
 					{who.isMe && <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>}
 					<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{time}</span>
 				</div>
-				{/* Stacked message bodies under the single group head */}
 				<div className="flex flex-col gap-[12px]">{children}</div>
 			</div>
 
-			{/* Hover toolbar — React · Reply · ⋯ (founder liked these; kept compact) */}
 			<div
 				className={`absolute right-[12px] top-[6px] flex items-center gap-[3px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[3px] shadow-[var(--shadow-subtle)] ${
 					hovered ? "flex" : "hidden group-hover/msg:flex"
@@ -275,7 +337,6 @@ function Prose({ children }: { children: React.ReactNode }): JSX.Element {
 	return <p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">{children}</p>;
 }
 
-// @-mention chip rendered inline in prose.
 function Mention({ name }: { name: string }): JSX.Element {
 	return (
 		<span className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-primary)]">
@@ -284,8 +345,6 @@ function Mention({ name }: { name: string }): JSX.Element {
 	);
 }
 
-// ── Reply reference: a Slack-style quoted snippet of the PARENT message
-//    shown ABOVE a reply body, so a reader can see what the reply refers to.
 function ReplyReference({ author, snippet }: { author: string; snippet: string }): JSX.Element {
 	return (
 		<div className="mb-[6px] flex items-start gap-[6px] border-l-[2px] border-[var(--border-default)] pl-[9px]">
@@ -300,7 +359,6 @@ function ReplyReference({ author, snippet }: { author: string; snippet: string }
 	);
 }
 
-// A reaction pill stack under a message.
 function Reactions(): JSX.Element {
 	return (
 		<div className="mt-[3px] flex items-center gap-[6px]">
@@ -323,9 +381,7 @@ function Reactions(): JSX.Element {
 	);
 }
 
-// ── Fold device: a quiet work-summary line that re-expands. ─────────
-// Static-open in the story (the viewer renders one frame; no client JS).
-function Fold({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+function Fold({ label }: { label: string }): JSX.Element {
 	return (
 		<div>
 			<span className="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
@@ -340,20 +396,21 @@ function Fold({ label, children }: { label: string; children: React.ReactNode })
 	);
 }
 
-// ── Embed: ONE restrained card treatment; a HOOK that opens a destination.
-//    Round-3: the change-set embed is JUST a hook into AL's review slider —
-//    no diff body here. The "opens →" affordance carries the relationship.
+// ── Generic Embed hook (session ref) ────────────────────────────────
 function Embed({
 	label,
+	onOpen,
 	children,
 }: {
 	label: string;
+	onOpen?: () => void;
 	children: React.ReactNode;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
 			aria-label={label}
+			onClick={onOpen}
 			data-ds-component="Am1Embed"
 			className="group/embed mt-[3px] block w-full rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
 		>
@@ -370,40 +427,61 @@ function Embed({
 
 function EmbedKindLabel({ label }: { label: string }): JSX.Element {
 	return (
-		<div className="mb-[3px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+		<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 			{label}
 		</div>
 	);
 }
 
-function ChangeSetEmbedBody(): JSX.Element {
+// ── Change-set embed = the REAL ArtifactEmbed. The message owns the card chrome.
+//    onOpen is the hook into AL's review slider (noop in this surface).
+function ChangeSetEmbedCard(): JSX.Element {
 	return (
-		<div>
-			<EmbedKindLabel label="Change set · opens in review" />
-			<div className="flex items-baseline gap-[12px]">
-				<span className="min-w-0 flex-1 truncate font-mono text-[13px] text-[var(--text-primary)]">
-					auth/passkey.ts
-				</span>
-				<span className="shrink-0 font-mono text-[13px] tabular-nums">
-					<span className="text-[var(--status-success)]">+124</span>{" "}
-					<span className="text-[var(--status-error)]">−18</span>
-				</span>
-			</div>
+		<div
+			data-ds-component="Am1ArtifactEmbedCard"
+			className="mt-[3px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
+		>
+			<ArtifactEmbed data={CHANGE_SET_ARTIFACT} onOpen={() => undefined} />
 		</div>
 	);
 }
 
-function BlockRefEmbedBody(): JSX.Element {
+// ── Block embed = a COMPACT card showing the block's TITLE ONLY (never the first
+//    line of code). "Open →" opens the right page rendering the FULL block via
+//    the real <Block> viewer. Founder: inline = title; right page = real Block.
+function BlockTitleEmbed({
+	kindIcon,
+	kindLabel,
+	title,
+	onOpen,
+}: {
+	kindIcon: string;
+	kindLabel: string;
+	title: string;
+	onOpen: () => void;
+}): JSX.Element {
 	return (
-		<div>
-			<EmbedKindLabel label="Referenced item" />
-			<div className="text-[13px] font-[500] text-[var(--text-primary)]">
-				Auth migration plan · §2 Dual-auth window
-			</div>
-			<div className="mt-[1px] truncate text-[13px] leading-[1.4] text-[var(--text-secondary)]">
-				Password and passkey credentials both authenticate during phase 2.
-			</div>
-		</div>
+		<button
+			type="button"
+			onClick={onOpen}
+			aria-label={`Open ${title}`}
+			data-ds-component="Am1BlockTitleEmbed"
+			className="group/blk mt-[3px] flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
+		>
+			<span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)] group-hover/blk:bg-[var(--surface-elevated)]">
+				<Glyph d={kindIcon} size={13} />
+			</span>
+			<span className="min-w-0 flex-1 leading-[1.25]">
+				<span className="block text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					{kindLabel}
+				</span>
+				<span className="block truncate text-[13px] font-[500] text-[var(--text-primary)]">{title}</span>
+			</span>
+			<span className="inline-flex shrink-0 items-center gap-[3px] text-[11px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/blk:text-[var(--accent-primary)]">
+				Open
+				<Glyph d={ICON_ARROW} size={12} />
+			</span>
+		</button>
 	);
 }
 
@@ -411,7 +489,7 @@ function SessionRefEmbedBody(): JSX.Element {
 	return (
 		<div>
 			<EmbedKindLabel label="Session" />
-			<div className="truncate text-[13px] text-[var(--text-secondary)]">
+			<div className="mt-[3px] truncate text-[13px] text-[var(--text-secondary)]">
 				<span className="font-[500] text-[var(--text-primary)]">Atlas</span> · Opus 4.8 ·{" "}
 				<span className="tabular-nums">1m 12s</span> ·{" "}
 				<span className="tabular-nums">14 tool calls</span> · Dial in
@@ -420,7 +498,6 @@ function SessionRefEmbedBody(): JSX.Element {
 	);
 }
 
-// Citation/source chips.
 function CitationChips(): JSX.Element {
 	return (
 		<div className="mt-[3px] flex flex-wrap items-center gap-[6px]">
@@ -439,7 +516,6 @@ function CitationChips(): JSX.Element {
 	);
 }
 
-// Attachment chip (file/image).
 function AttachmentChip({ name, meta }: { name: string; meta: string }): JSX.Element {
 	return (
 		<div className="mt-[3px] inline-flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]">
@@ -455,10 +531,14 @@ function AttachmentChip({ name, meta }: { name: string; meta: string }): JSX.Ele
 }
 
 // ───────────────────────────────────────────────────────────────────
-// QUESTIONNAIRE message — agent "quick ask": a scoped question with a few
-// constrained answer options rendered as inline answer CHIPS the human
-// picks. Calm + teammate-style (NOT a heavy form). The AM1-relevant agent
-// message type (review = AL).
+// QUESTIONNAIRE — agent "quick ask". A SURVEY: answer options read as
+// EVEN / NEUTRAL choices (founder: "this is a survey which shouldn't be so
+// overly biased"). No "very very green" filled chip. All options are identical
+// quiet outlined chips; the recommendation is hinted by a tiny neutral
+// "recommended" tag only. Prominence comes from LAYERING (elevated surface +
+// shadow) + the pill — NEVER from an accent-colored structural border, NEVER
+// from biasing one answer. Padding on ALL sides from the Hearth grid
+// {3,6,9,12,18,24,...} — px-[18px] py-[12px], no off-grid 15px.
 // ───────────────────────────────────────────────────────────────────
 function QuestionnairePart(): JSX.Element {
 	const options = [
@@ -467,36 +547,30 @@ function QuestionnairePart(): JSX.Element {
 		{ label: "Decide later", recommended: false },
 	];
 	return (
-		// Bounded, accent-edged container so the question is UNMISSABLE as a
-		// decision to make — calm, not a heavy form. A "QUICK ASK" marker with a
-		// question glyph, the question text given weight, answer chips clearly
-		// tappable. Left accent rule + faint accent tint set it apart from prose.
 		<div
 			data-ds-component="Am1QuestionnairePart"
-			className="rounded-[var(--r-subtle)] border border-[var(--accent-primary)] border-l-[3px] bg-[color-mix(in_oklab,var(--accent-primary)_5%,transparent)] px-[15px] py-[12px]"
+			className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
 		>
-			<div className="mb-[6px] inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+			<div className="mb-[9px] inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
 				<Glyph d={ICON_QUESTION} size={11} />
 				Quick ask · needs your answer
 			</div>
 			<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
 				How long should the password fallback stay enabled?
 			</p>
-			<div className="mt-[9px] flex flex-wrap items-center gap-[6px]">
+			<div className="mt-[12px] flex flex-wrap items-center gap-[6px]">
 				{options.map((o) => (
 					<button
 						key={o.label}
 						type="button"
-						className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border px-[12px] py-[6px] text-[13px] font-[600] transition-colors duration-[var(--motion-fast)] ${
-							o.recommended
-								? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
-								: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-						}`}
+						// Neutral, even survey options — identical quiet outlined chips. No
+						// accent fill on any one option (de-biased per founder). The
+						// recommendation is hinted by a small neutral tag only.
+						className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[13px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					>
-						{o.recommended && <Glyph d={ICON_CHECK} size={11} />}
 						{o.label}
 						{o.recommended && (
-							<span className="text-[10px] font-[500] uppercase tracking-[var(--tracking-caps-sm)] opacity-80">
+							<span className="rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] font-[500] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 								Recommended
 							</span>
 						)}
@@ -508,15 +582,10 @@ function QuestionnairePart(): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// REVIEW message — COMPACT. The agent proposes X; an "Open review" HOOK
-// opens AL's review experience (verdict flow + slider). NO verdict bar,
-// NO diff body here (owned by track AL).
+// REVIEW message — COMPACT hook into AL's review experience.
 // ───────────────────────────────────────────────────────────────────
 function ReviewPart(): JSX.Element {
 	return (
-		// COMPACT hook only — the full review card (verdict bar, diff) is track
-		// AL's. Restored, even spacing (12px rhythm): marker · proposal line ·
-		// change-set embed · "Open review →".
 		<div
 			data-ds-component="Am1ReviewPart"
 			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[15px] shadow-[var(--shadow-subtle)]"
@@ -529,10 +598,7 @@ function ReviewPart(): JSX.Element {
 					Approve deploy of passkey login to staging
 				</p>
 			</div>
-			<Embed label="Open the change set in review">
-				<ChangeSetEmbedBody />
-			</Embed>
-			{/* The verdict flow itself lives in track AL's review experience. */}
+			<ChangeSetEmbedCard />
 			<button
 				type="button"
 				className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
@@ -558,80 +624,58 @@ function VerdictEcho(): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// COMPOSER — full anatomy + the INSERT-BLOCK power.
-// Bottom-pinned card. Anatomy (top→bottom):
-//   reply banner (quoted snippet of the replied-to message)
-//   → inserted-block draft area (a rich code Block sitting in the draft)
-//   → input row [ + Insert | Aa | textarea | Send ]
-//   → "Enter to send · Shift+Enter newline"
-// The "+" Insert menu is shown OPEN so the Insert-block capability is
-// unmistakable. Labeled, single-purpose, non-broken tool icons.
+// COMPOSER — UNIFIED tool affordance. ONE "+" button opens ONE menu with
+// every compose action (Insert block · Attach · Mention · Reference · Format ·
+// Emoji), each labeled + single-purpose. No duplicate icon strip. Founder:
+// "what's the difference between insert and those other icons. and why is the
+// insert there and not where the other icons are" — resolved: one place.
 // ───────────────────────────────────────────────────────────────────
-function ComposerToolButton({
-	d,
-	label,
-	size = 16,
-}: {
-	d: string;
-	label: string;
-	size?: number;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			title={label}
-			className="flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
-		>
-			<Glyph d={d} size={size} />
-		</button>
-	);
-}
 
-// The OPEN "+" insert menu — a small FLOATING POPOVER anchored ABOVE the
-// "+ Insert" button. It overlays (absolute) — it does NOT live in the
-// composer's flow, so opening it never grows the box. No redundant "INSERT"
-// heading (the button already says Insert). Compact options: icon + label +
-// tiny hint. Slash (/) reserved.
-function InsertMenu(): JSX.Element {
+// The unified Insert menu — a GROUNDED POPOVER anchored to the "+" button (its
+// relative parent), opening UPWARD off the button so it reads as belonging to it
+// and never floats detached or grows the composer box. Opaque --surface-overlay
+// + --shadow-elevated keep it solid over content (founder: "floating completely
+// out of place in transparent. pretty wrong").
+function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	const items = [
-		{ d: ICON_BLOCKS, label: "Block", hint: "heading · list · code · table", key: true },
+		{ d: ICON_BLOCKS, label: "Insert block", hint: "heading · list · code · table", key: true },
 		{ d: ICON_PAPERCLIP, label: "Attach file", hint: "image, document", key: false },
 		{ d: ICON_AT, label: "Mention", hint: "@person, @agent", key: false },
 		{ d: ICON_DOC, label: "Reference item", hint: "knowledge, artifact", key: false },
+		{ d: ICON_FORMAT_AA, label: "Format", hint: "bold, italic, code", key: false },
+		{ d: ICON_EMOJI, label: "Emoji", hint: "react in body", key: false },
 	];
 	return (
 		<div
 			data-ds-component="Am1InsertMenu"
 			role="menu"
 			aria-label="Insert"
-			// Floating popover: absolutely positioned above the composer card,
-			// left-aligned to the "+ Insert" button. It overlays the calm message
-			// area above the composer — the composer box keeps its compact height
-			// whether this is open or closed. Opaque overlay + elevated shadow.
-			style={{ bottom: "calc(100% + 6px)", left: 12 }}
-			className="absolute z-20 w-[228px] rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-overlay)] p-[3px] shadow-[var(--shadow-elevated)]"
+			style={{ bottom: "calc(100% + 6px)", left: 0 }}
+			className="absolute z-30 w-[238px] rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-overlay)] p-[3px] shadow-[var(--shadow-elevated)]"
 		>
 			{items.map((it) => (
 				<button
 					key={it.label}
 					type="button"
 					role="menuitem"
+					onClick={onPick}
 					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
-						it.key
-							? "bg-[var(--accent-primary-dim)]"
-							: "hover:bg-[var(--surface-container)]"
+						it.key ? "bg-[var(--accent-primary-dim)]" : "hover:bg-[var(--surface-container)]"
 					}`}
 				>
 					<span
 						className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] ${
-							it.key ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]" : "bg-[var(--surface-container)] text-[var(--text-tertiary)]"
+							it.key
+								? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+								: "bg-[var(--surface-container)] text-[var(--text-tertiary)]"
 						}`}
 					>
 						<Glyph d={it.d} size={13} />
 					</span>
 					<span className="min-w-0 leading-[1.2]">
-						<span className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
+						<span
+							className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}
+						>
 							{it.label}
 						</span>
 						<span className="block truncate text-[11px] text-[var(--text-tertiary)]">{it.hint}</span>
@@ -642,47 +686,26 @@ function InsertMenu(): JSX.Element {
 	);
 }
 
-// The inserted-block draft = a COMPACT PREVIEW CARD, consistent with the
-// artifact / change-set Embed (kind marker + short title/snippet + "Open →").
-// We do NOT render the full rich block editor inline in the composer — the
-// founder asked for a preview (like the artifact embed) that opens the full
-// block/artifact in the right slider (track AL) if wanted. A single quiet
-// remove ✕ sits at the row end; no handle gutter (that was the "weird space").
-function InsertedBlockDraft(): JSX.Element {
+// The inserted-block draft = a COMPACT card showing the block's TITLE ONLY
+// (founder: "the code block shouldn't show the first line that makes zero sense
+// … if anything the name or title"). "Open →" opens the right page rendering the
+// full block via the real <Block> viewer. A single quiet remove ✕ at the row end.
+function InsertedBlockDraft({ onOpen }: { onOpen: () => void }): JSX.Element {
 	return (
-		<div
-			data-ds-component="Am1InsertedBlock"
-			className="flex items-stretch gap-[6px]"
-		>
-			{/* Preview card — mirrors the Embed hook: kind label + snippet + Open → */}
-			<button
-				type="button"
-				aria-label="Open inserted block"
-				className="group/blk flex min-w-0 flex-1 items-center gap-[12px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
-			>
-				<div className="min-w-0 flex-1">
-					<div className="mb-[3px] flex items-center gap-[6px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						<Glyph d={ICON_K_CODE} size={11} />
-						<span>Code block · ts</span>
-					</div>
-					<div className="truncate font-mono text-[13px] text-[var(--text-primary)]">
-						const cred = await navigator.credentials.create(webauthnOpts);
-					</div>
-					<div className="mt-[1px] truncate text-[12px] text-[var(--text-secondary)]">
-						3 lines · inserted into this message
-					</div>
-				</div>
-				<span className="inline-flex shrink-0 items-center gap-[3px] text-[11px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/blk:text-[var(--accent-primary)]">
-					Open
-					<Glyph d={ICON_ARROW} size={12} />
-				</span>
-			</button>
-			{/* Quiet remove — sits cleanly at the row end, no empty gutter. */}
+		<div data-ds-component="Am1InsertedBlock" className="flex items-stretch gap-[6px]">
+			<div className="min-w-0 flex-1">
+				<BlockTitleEmbed
+					kindIcon={ICON_K_CODE}
+					kindLabel="Code block · TS"
+					title={INSERTED_CODE_TITLE}
+					onOpen={onOpen}
+				/>
+			</div>
 			<button
 				type="button"
 				aria-label="Remove block"
 				title="Remove block"
-				className="flex w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="mt-[3px] flex w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 			>
 				<Glyph d={ICON_REMOVE} size={12} />
 			</button>
@@ -690,13 +713,8 @@ function InsertedBlockDraft(): JSX.Element {
 	);
 }
 
-// Slim reply banner — a thin reference to the replied-to message. Shown in
-// BOTH composer states (resting keeps it slim; active pairs it with the draft).
 function ComposerReplyBanner(): JSX.Element {
 	return (
-		// Slim single strip: reply glyph · "Replying to Atlas" · quoted snippet
-		// (one line, truncated) · cancel. A subtle accent-left rule ties it to the
-		// reply relationship without a bulky stacked block.
 		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
 			<span className="flex shrink-0 items-center text-[var(--accent-primary)]">
 				<Glyph d={ICON_REPLY} size={12} />
@@ -721,12 +739,11 @@ function ComposerReplyBanner(): JSX.Element {
 	);
 }
 
-// The Insert-Block draft body — inserted rich code block + attachment chip.
-// Active-state only.
-function ComposerDraftBody(): JSX.Element {
+// Active-state draft body: inserted-block title card + an attachment chip.
+function ComposerDraftBody({ onOpenBlock }: { onOpenBlock: () => void }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[9px] px-[12px] pt-[9px]">
-			<InsertedBlockDraft />
+			<InsertedBlockDraft onOpen={onOpenBlock} />
 			<div className="flex flex-wrap items-center gap-[6px]">
 				<div className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] text-[var(--text-secondary)]">
 					<Glyph d={ICON_DOC} size={12} />
@@ -746,34 +763,52 @@ function ComposerDraftBody(): JSX.Element {
 	);
 }
 
-// The composer input row + tool strip. `insertOpen` controls whether the "+"
-// Insert button reads active (accented, paired with the open InsertMenu).
-function ComposerInputRow({ insertOpen }: { insertOpen: boolean }): JSX.Element {
+// The composer input row. The SINGLE "+" affordance opens the unified Insert
+// menu. No second icon strip — every action lives in the menu. Below the input:
+// only the "Enter to send" hint.
+function ComposerInputRow({
+	insertMenuOpen,
+	onToggleMenu,
+	onPickMenu,
+	hasDraft,
+	menuButtonRef,
+}: {
+	insertMenuOpen: boolean;
+	onToggleMenu: () => void;
+	onPickMenu: () => void;
+	hasDraft: boolean;
+	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
+}): JSX.Element {
 	return (
 		<>
-			{/* Input row: [ + Insert (labeled) | textarea | Send ]. */}
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
-				<button
-					type="button"
-					aria-label="Insert"
-					aria-expanded={insertOpen}
-					aria-haspopup="menu"
-					title="Insert block, attach, mention, reference"
-					className={
-						insertOpen
-							? "flex h-[28px] shrink-0 items-center gap-[3px] rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] px-[9px] text-[12px] font-[600] text-[var(--accent-primary)]"
-							: "flex h-[28px] shrink-0 items-center gap-[3px] rounded-[var(--r-subtle)] border border-[var(--border-default)] px-[9px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-					}
-				>
-					<Glyph d={ICON_PLUS} size={13} />
-					Insert
-				</button>
+				{/* The "+" is the popover's relative anchor — the menu opens upward off
+				    it and reads as belonging to it, never detached. */}
+				<div className="relative shrink-0">
+					{insertMenuOpen && <InsertMenu onPick={onPickMenu} />}
+					<button
+						ref={menuButtonRef}
+						type="button"
+						aria-label="Insert"
+						aria-expanded={insertMenuOpen}
+						aria-haspopup="menu"
+						title="Insert block, attach, mention, reference, format"
+						onClick={onToggleMenu}
+						className={
+							insertMenuOpen
+								? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+								: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+						}
+					>
+						<Glyph d={ICON_PLUS} size={14} />
+					</button>
+				</div>
 				<textarea
 					rows={1}
 					placeholder="Message Atlas, Mara…"
 					className="min-h-[24px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 					defaultValue={
-						insertOpen ? "Here's the corrected registration flow — one nit on the error copy: " : ""
+						hasDraft ? "Here's the corrected registration flow — one nit on the error copy: " : ""
 					}
 				/>
 				<button
@@ -786,14 +821,9 @@ function ComposerInputRow({ insertOpen }: { insertOpen: boolean }): JSX.Element 
 				</button>
 			</div>
 
-			{/* Formatting + affordance strip — legible, single-purpose, labeled */}
-			<div className="flex items-center gap-[3px] border-t border-[var(--border-subtle)] px-[12px] py-[3px]">
-				<ComposerToolButton d={ICON_PAPERCLIP} label="Attach" size={14} />
-				<ComposerToolButton d={ICON_BLOCKS} label="Insert block" size={14} />
-				<ComposerToolButton d={ICON_AT} label="Mention" size={14} />
-				<ComposerToolButton d={ICON_FORMAT_AA} label="Format (bold, italic, code)" size={15} />
-				<ComposerToolButton d={ICON_EMOJI} label="Emoji" size={15} />
-				<span className="ml-auto text-[11px] text-[var(--text-tertiary)]">
+			{/* Below the input: only the keyboard hint. All tools live in the "+" menu. */}
+			<div className="flex items-center justify-end border-t border-[var(--border-subtle)] px-[12px] py-[6px]">
+				<span className="text-[11px] text-[var(--text-tertiary)]">
 					Enter to send · Shift+Enter for newline
 				</span>
 			</div>
@@ -801,22 +831,34 @@ function ComposerInputRow({ insertOpen }: { insertOpen: boolean }): JSX.Element 
 	);
 }
 
-// COMPOSER — two embodiments controlled by `active`:
-//   resting (default)  = slim reply banner + input row + tool strip.
-//   active (Insert-Block) = reply banner + inserted-block draft + open Insert
-//                           menu + input row + tool strip — the killer feature.
-function Composer({ active = false }: { active?: boolean }): JSX.Element {
+function Composer({
+	active,
+	insertMenuOpen,
+	onToggleMenu,
+	onPickMenu,
+	onOpenBlock,
+	menuButtonRef,
+}: {
+	active: boolean;
+	insertMenuOpen: boolean;
+	onToggleMenu: () => void;
+	onPickMenu: () => void;
+	onOpenBlock: () => void;
+	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
+}): JSX.Element {
 	return (
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
 				<div className="relative rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]">
-					{/* Insert popover: floats ABOVE the whole composer card (overlaying the
-					    calm message area above), left-aligned to the "+ Insert" button. It
-					    is NOT in the composer flow, so the box never grows. */}
-					{active && <InsertMenu />}
 					<ComposerReplyBanner />
-					{active && <ComposerDraftBody />}
-					<ComposerInputRow insertOpen={active} />
+					{active && <ComposerDraftBody onOpenBlock={onOpenBlock} />}
+					<ComposerInputRow
+						insertMenuOpen={insertMenuOpen}
+						onToggleMenu={onToggleMenu}
+						onPickMenu={onPickMenu}
+						hasDraft={active}
+						menuButtonRef={menuButtonRef}
+					/>
 				</div>
 			</div>
 		</div>
@@ -824,109 +866,155 @@ function Composer({ active = false }: { active?: boolean }): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// The conversation surface — the open thread's content.
-// One flex column: header · scrolling message list · pinned composer.
-// NO inbox, NO diff/context pane (artifact review = track AL).
+// RIGHT-PAGE PANEL — slides in when a block embed's "Open →" is clicked.
+// Renders the FULL block(s) through the REAL <Block> viewer (the same
+// component Knowledge uses). Founder: "open the right page and display the full
+// block in the proper block viewer component that we already have."
 // ───────────────────────────────────────────────────────────────────
-// The conversation message list (the 8 author-grouped messages). Extracted so
-// the surface and the composer-detail story can both render it. `scroll`
-// controls the embodiment: true = the real app's fixed-height internal scroll;
-// false = natural height (the whole conversation renders top-to-bottom, used
-// for the design-review story so nothing is clipped).
-function ConversationBody({ scroll }: { scroll: boolean }): JSX.Element {
+function BlockRightPanel({ panel, onClose }: { panel: PanelKey; onClose: () => void }): JSX.Element {
+	const spec = PANELS[panel];
+	return (
+		<aside
+			data-ds-component="Am1BlockRightPanel"
+			className="flex h-full w-[420px] shrink-0 flex-col border-l border-[var(--border-default)] bg-[var(--surface-container)]"
+		>
+			<header className="flex shrink-0 items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+				<div className="min-w-0 flex-1">
+					<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						{spec.kindLabel}
+					</div>
+					<div className="mt-[3px] truncate text-[15px] font-[600] text-[var(--text-primary)]">
+						{spec.title}
+					</div>
+				</div>
+				<button
+					type="button"
+					aria-label="Close block panel"
+					title="Close"
+					onClick={onClose}
+					className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+				>
+					<Glyph d={ICON_REMOVE} size={14} />
+				</button>
+			</header>
+			{/* The FULL block render — the REAL <Block> viewer, nothing clamped. */}
+			<div className="flex-1 overflow-y-auto px-[18px] py-[12px]">
+				<div className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px]">
+					{spec.blocks.map((b) => (
+						<Block key={b.id} id={b.id} payload={b.payload} />
+					))}
+				</div>
+			</div>
+		</aside>
+	);
+}
+
+// ───────────────────────────────────────────────────────────────────
+// CONVERSATION BODY — the 8 author-grouped messages.
+// ───────────────────────────────────────────────────────────────────
+function ConversationBody({
+	scroll,
+	onOpenBlock,
+}: {
+	scroll: boolean;
+	onOpenBlock: (panel: PanelKey) => void;
+}): JSX.Element {
 	return (
 		<div
 			className="px-[18px] py-[12px]"
 			style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
 		>
 			<div className="mx-auto flex w-full max-w-[760px] flex-col gap-[18px]">
-						{/* 1 · Founder ask (own-message cue) */}
-						<MessageGroup who={FOUNDER} time="9:02">
-							<Prose>Can you wire passkey login and show me the diff before we deploy?</Prose>
-						</MessageGroup>
+				{/* 1 · Founder ask */}
+				<MessageGroup who={FOUNDER} time="9:02">
+					<Prose>Can you wire passkey login and show me the diff before we deploy?</Prose>
+				</MessageGroup>
 
-						{/* 2 · Mara teammate — @mention + reaction (multi-user, me-vs-them) */}
-						<MessageGroup who={MARA} time="9:05">
-							<div>
-								<Prose>
-									<Mention name="Atlas" /> please keep the password fallback for phase 2 — some of our
-									enterprise tenants can't enroll passkeys yet.
-								</Prose>
-								<Reactions />
-							</div>
-						</MessageGroup>
+				{/* 2 · Mara teammate — @mention + reaction */}
+				<MessageGroup who={MARA} time="9:05">
+					<div>
+						<Prose>
+							<Mention name="Atlas" /> please keep the password fallback for phase 2 — some of our
+							enterprise tenants can't enroll passkeys yet.
+						</Prose>
+						<Reactions />
+					</div>
+				</MessageGroup>
 
-						{/* 3 · Atlas agent summary — work-Fold + change-set embed (hook) + citations */}
-						<MessageGroup who={ATLAS} time="9:11">
-							<div>
-								<Prose>
-									Added WebAuthn registration and the dual-auth window. Existing password sessions stay
-									valid through phase 2, <Mention name="Mara" /> — fallback preserved.
-								</Prose>
-								<div className="mt-[6px]">
-									<Fold label="Worked for 1m 12s">noop</Fold>
-								</div>
-								<Embed label="Open the change set in review">
-									<ChangeSetEmbedBody />
-								</Embed>
-								<CitationChips />
-							</div>
-						</MessageGroup>
+				{/* 3 · Atlas agent summary — work-Fold + change-set embed + citations */}
+				<MessageGroup who={ATLAS} time="9:11">
+					<div>
+						<Prose>
+							Added WebAuthn registration and the dual-auth window. Existing password sessions stay
+							valid through phase 2, <Mention name="Mara" /> — fallback preserved.
+						</Prose>
+						<div className="mt-[6px]">
+							<Fold label="Worked for 1m 12s" />
+						</div>
+						<ChangeSetEmbedCard />
+						<CitationChips />
+					</div>
+				</MessageGroup>
 
-						{/* 4 · Atlas (consecutive — collapses under the same head): refs + attachment + session */}
-						<MessageGroup who={ATLAS} time="9:12">
-							<div className="flex flex-col gap-[12px]">
-								<div>
-									<Prose>Context for the dual-auth window and the flow diagram:</Prose>
-									<Embed label="Open referenced plan">
-										<BlockRefEmbedBody />
-									</Embed>
-									<AttachmentChip name="auth-flow.png" meta="PNG · 82 KB" />
-								</div>
-								<div>
-									<Prose>This all came out of my work session:</Prose>
-									<Embed label="Open the session dial-in">
-										<SessionRefEmbedBody />
-									</Embed>
-								</div>
-							</div>
-						</MessageGroup>
+				{/* 4 · Atlas (consecutive): block ref (title only) + attachment + session */}
+				<MessageGroup who={ATLAS} time="9:12">
+					<div className="flex flex-col gap-[12px]">
+						<div>
+							<Prose>Context for the dual-auth window and the flow diagram:</Prose>
+							<BlockTitleEmbed
+								kindIcon={ICON_BLOCKS}
+								kindLabel="Knowledge"
+								title="Auth migration plan · §2"
+								onOpen={() => onOpenBlock("ref-plan")}
+							/>
+							<AttachmentChip name="auth-flow.png" meta="PNG · 82 KB" />
+						</div>
+						<div>
+							<Prose>This all came out of my work session:</Prose>
+							<Embed label="Open the session dial-in">
+								<SessionRefEmbedBody />
+							</Embed>
+						</div>
+					</div>
+				</MessageGroup>
 
-						{/* 5 · Atlas QUESTIONNAIRE — quick ask with inline answer chips */}
-						<MessageGroup who={ATLAS} time="9:13">
-							<QuestionnairePart />
-						</MessageGroup>
+				{/* 5 · Atlas QUESTIONNAIRE */}
+				<MessageGroup who={ATLAS} time="9:13">
+					<QuestionnairePart />
+				</MessageGroup>
 
-						{/* 6 · Founder reply — references the SPECIFIC parent message (quoted) */}
-						<MessageGroup who={FOUNDER} time="9:14">
-							<div>
-								<ReplyReference author="Atlas" snippet="How long should the password fallback stay enabled?" />
-								<Prose>Keep it through phase 2 — that covers the enterprise tenants Mara flagged.</Prose>
-							</div>
-						</MessageGroup>
+				{/* 6 · Founder reply — references the specific parent message */}
+				<MessageGroup who={FOUNDER} time="9:14">
+					<div>
+						<ReplyReference
+							author="Atlas"
+							snippet="How long should the password fallback stay enabled?"
+						/>
+						<Prose>Keep it through phase 2 — that covers the enterprise tenants Mara flagged.</Prose>
+					</div>
+				</MessageGroup>
 
-						{/* 7 · Atlas review message → COMPACT hook into AL's review experience */}
-						<MessageGroup who={ATLAS} time="9:15" hovered>
-							<ReviewPart />
-						</MessageGroup>
+				{/* 7 · Atlas review message → compact hook into AL's review experience */}
+				<MessageGroup who={ATLAS} time="9:15" hovered>
+					<ReviewPart />
+				</MessageGroup>
 
-						{/* 8 · Founder verdict echo — resolved (own-message cue) */}
-						<MessageGroup who={FOUNDER} time="9:16">
-							<VerdictEcho />
-						</MessageGroup>
+				{/* 8 · Founder verdict echo */}
+				<MessageGroup who={FOUNDER} time="9:16">
+					<VerdictEcho />
+				</MessageGroup>
 			</div>
 		</div>
 	);
 }
 
-// The conversation surface — the open thread's content.
-// One flex column: header · message list · composer.
-// NO inbox, NO diff/context pane (artifact review = track AL).
-//
-// `scroll`         — true = real-app fixed-height internal scroll; false = the
-//                    whole conversation renders at natural height (review story,
-//                    so the full thread is captured in one frame).
-// `composerActive` — false = resting composer (default); true = Insert-Block.
+// ───────────────────────────────────────────────────────────────────
+// The conversation surface — INTERACTIVE.
+//   scroll          — fixed-height internal scroll vs natural height.
+//   composerActive  — composer in its Insert-Block state (draft present).
+// Real state: the Insert "+" menu (open/close, outside-click) + the right-page
+// block panel (which block, open/close). Click to drive it in the viewer.
+// ───────────────────────────────────────────────────────────────────
 export default function Am1ConversationSurface({
 	scroll = false,
 	composerActive = false,
@@ -934,6 +1022,31 @@ export default function Am1ConversationSurface({
 	scroll?: boolean;
 	composerActive?: boolean;
 } = {}): JSX.Element {
+	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+	const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
+	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+	// Outside-click / Escape closes the Insert menu (real popover behavior).
+	useEffect(() => {
+		if (!insertMenuOpen) return;
+		const onDown = (e: MouseEvent): void => {
+			const menu = document.querySelector("[data-ds-component='Am1InsertMenu']");
+			const target = e.target as Node;
+			if (menu?.contains(target)) return;
+			if (menuButtonRef.current?.contains(target)) return;
+			setInsertMenuOpen(false);
+		};
+		const onKey = (e: KeyboardEvent): void => {
+			if (e.key === "Escape") setInsertMenuOpen(false);
+		};
+		document.addEventListener("mousedown", onDown);
+		document.addEventListener("keydown", onKey);
+		return () => {
+			document.removeEventListener("mousedown", onDown);
+			document.removeEventListener("keydown", onKey);
+		};
+	}, [insertMenuOpen]);
+
 	return (
 		<div
 			data-ds-component="Am1ConversationSurface"
@@ -950,9 +1063,22 @@ export default function Am1ConversationSurface({
 				style={{ flex: 1, minWidth: 0, ...(scroll ? { height: "100%" } : {}) }}
 			>
 				<ConversationHeader />
-				<ConversationBody scroll={scroll} />
-				<Composer active={composerActive} />
+				<ConversationBody scroll={scroll} onOpenBlock={(p) => setOpenPanel(p)} />
+				<Composer
+					active={composerActive}
+					insertMenuOpen={insertMenuOpen}
+					onToggleMenu={() => setInsertMenuOpen((v) => !v)}
+					onPickMenu={() => {
+						// Picking "Insert block" opens the same right-page block viewer the
+						// inline embeds open — proving the menu action is live, not dead.
+						setInsertMenuOpen(false);
+						setOpenPanel("inserted-code");
+					}}
+					onOpenBlock={() => setOpenPanel("inserted-code")}
+					menuButtonRef={menuButtonRef}
+				/>
 			</main>
+			{openPanel && <BlockRightPanel panel={openPanel} onClose={() => setOpenPanel(null)} />}
 		</div>
 	);
 }

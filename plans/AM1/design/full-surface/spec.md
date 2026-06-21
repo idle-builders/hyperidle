@@ -11,7 +11,19 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.4 — round-3 detail refinements (founder annotations, this revision)
+## v3.5 — round-4 detail fixes (founder annotations, this revision)
+
+Three element-anchored founder notes on the `ComposerInsertBlock` / `Populated` states drove these. Confirmed in the `:8100` viewer (`plans/AM1/design/full-surface/screenshot.png`; QUICK ASK verified element-level).
+
+1. **QUICK ASK prominence via LAYERING — no accent-colored structural border (HARD RULE).** Founder: "this border is absolutely very wrong. those are not allowed in our style." The questionnaire previously used `border-[var(--accent-primary)]` + a `border-l-[3px]` accent rule + a 5% accent tint. **All removed.** Hearth principle — *status through content, not thick structural colored borders; cards stay structurally uniform.* The QUICK ASK is now an **elevated surface** (`--surface-elevated` + `--shadow-default`, `--r-default`) with a neutral `--border-subtle`, identical card chrome to the review card. Prominence comes from **layering** (the card lifts off the page) + the **"QUICK ASK · NEEDS YOUR ANSWER" pill** + the **answer chips** (recommended = filled accent + "RECOMMENDED", others outlined). The agent group already carries the left accent rule for identity, so no second competing accent is stacked. **No accent-colored structural border appears anywhere in this surface.**
+
+2. **Insert menu — grounded popover, rendered CLOSED in the review frame.** Founder (twice): "floating completely out of place in transparent. pretty wrong." The menu's grounded-popover anatomy ships: its **relative anchor is the "+ Insert" button itself** (not the composer card), so it opens UPWARD off the button and reads as belonging to it; opaque `--surface-overlay` (#ffffff) + `--shadow-elevated`; absolute overlay so the composer never grows. **In this review frame the menu is rendered CLOSED** (`insertMenuOpen={false}`): open, it collided messily with the inserted-block draft sitting directly above the input row. The capability reads cleanly from the **inserted-block preview + the "+ Insert" button** — no menu floating in a transparent gap. The `hasDraft` and `insertMenuOpen` props are decoupled so the inserted-block RESULT shows with the menu closed.
+
+3. **Inserted block preview — clean, minimal, opens in the right page.** Founder: "for a block in the typical sense the title might be enough" + "incorporate opening a block in the right page" + "whats this weird space here?" The inserted block is a **compact preview card consistent with the artifact/change-set Embed**: kind marker (`‹› CODE BLOCK · TS`) + a one-line snippet + "3 lines · open to edit" + an **"Open →"** hook that opens the full block in the **right slider (track AL)** + a single quiet remove ✕ at the row end. The old handle gutter (the "weird space") is gone; the off-grid `mt-[1px]` meta gap was fixed to `mt-[3px]` (Hearth grid). **`code` is a confirmed valid `BlockKind`** (`heading/paragraph/list/quote/code/table/divider/image/html`, with `lang`+`text` payload) — so the inserted code block is conceptually a Block, not relabeled as an artifact.
+
+---
+
+## v3.4 — round-3 detail refinements (founder annotations, prior revision)
 
 Five element-anchored founder notes on the `ComposerInsertBlock` / `Populated` states drove these changes. Confirmed in the `:8100` viewer (`plans/AM1/design/full-surface/screenshot.png`).
 
@@ -125,7 +137,13 @@ The surface IS the open conversation. It fills the app main pane (to the right o
 
 ## Component composition (production reuse mapping)
 
-Hand-rolled here for guaranteed standalone render in the viewer. The builder maps each slot to the catalogued component:
+Most chrome (header, message groups, composer) is hand-rolled here for guaranteed standalone render in the viewer; the builder maps each slot to the catalogued component. **The block / artifact embeds, however, render through the REAL design-system components in this story (AM1 round-5):**
+
+- **Change-set / artifact embed → the real `ArtifactEmbed`** (`@hyperidle/design-system`), fed a **code-kind `Artifact`** fixture (`kind:"code"`; `preview:{kind:"code", file, hunks:[{header, lines:[{kind:"add"|"del"|"ctx", text}]}]}`; `cost:{money:{minor,currency}, tokens:{byTier}}`; ISO `createdAt`). `ArtifactEmbed` is chrome-less (kind badge · label · task · cost · time · `→` + `summarizePreview` line), so the **message owns the host card** (`--surface-elevated` / `--border-subtle` / `--r-subtle`). `onOpen` is the hook into AL's right slider.
+- **Inserted code block + referenced knowledge item → the real `Block`** (`@hyperidle/design-system`), fed real `BlockPayload`s: code = `{kind:"code", lang:"ts", text}`; referenced item = a `heading` (level 3) + a `paragraph` payload. `BlockId`s are built with the real `blockId()` derivation helper from `@hyperidle/shared`. Each `Block` sits in a compact host card with an **"Open →"** affordance (opens the full block in AL's right page) and a `max-h` clamp for a tight inline preview — the body is the actual `Block` render, not a facsimile.
+- **The full preview** (the bigger right-page view) is `ArtifactPreview`, which lives in **AL's right slider** — not rendered inline here.
+
+The builder maps the remaining hand-rolled slots to the catalogued component:
 
 | Hand-rolled slot | Production component | Notes |
 |---|---|---|
@@ -135,13 +153,15 @@ Hand-rolled here for guaranteed standalone render in the viewer. The builder map
 | Prose / mention | `CommentRow` + `MentionRef` segment render | `segmentMentions` already exists (per `thread.ts` AE5 lore). |
 | Reactions | **New `ReactionBar`** | Needs Message-schema work (out of AM1 render scope per inventory §9); render-only here. Used on every message → in-budget. |
 | Fold (work summary) | **New `Fold`** device | The concept's load-bearing calm device; reused in conversation + session view (AM3). |
-| Embed (diff / block / session) | `ArtifactEmbed` (diff), `BlockRefEmbed` (referenced item), **new `SessionRefEmbed`** | Concept's closed Embed set. Diff → `ArtifactEmbed` `text_diff`; block → existing `BlockRefEmbed`; session → new satellite Embed. |
+| Change-set / artifact embed | **real `ArtifactEmbed`** (already rendered here) | Round-5: rendered through the actual `ArtifactEmbed` with a code-kind `Artifact` fixture, wrapped in the message's host card. `onOpen` → AL's right slider; full view there = `ArtifactPreview`. |
+| Referenced item embed | **real `Block`** (heading + paragraph) in a host card | Round-5: the body IS the actual `Block` render (real `BlockPayload` + `blockId()`); host card adds "Open →" into AL's right page. |
+| Session embed | **new `SessionRefEmbed`** | Session has no DS component yet; still hand-rolled (one-line dial-in reference, opens AM3). |
 | Citation chips | **New `CitationChips`** | Source/provenance row. Reused wherever an agent cites (conversation + knowledge) → in-budget. |
 | Attachment chip | **New `AttachmentChip`** | File/image attachment. Reused in composer + message → in-budget. |
 | Review message (compact hook) | `RichMessageCard` (compact) + `Button` | v3.3: AM1 renders only the **compact review hook** — title + change-set Embed + a single "Open review →" button. The **verdict bar + artifact/diff view are track AL's** — do NOT build them here. |
 | Questionnaire (quick ask) | **New `QuickAskPart`** (answer chips) | Agent message type: scoped question + constrained inline answer chips (recommended chip accented). Reused wherever an agent asks a quick scoped question → in-budget. |
 | Verdict echo | `CommentRow` verdict terminator | Existing. |
-| Inserted-block draft (preview) | `BlockRefEmbed` / `ArtifactEmbed` pattern | v3.4: the composer's Insert-Block renders a **compact preview card** (kind marker + snippet + "Open →"), NOT the inline rich editor. It reuses the same Embed/preview-card shape as the artifact embed; "Open →" opens the full block in the right slider (track AL). The full `Block` + `BodyEditor` (TipTap) editing happens in that slider / on the canonical block, not inline in the composer. |
+| Inserted-block draft (preview) | **real `Block`** (code payload) in a host card | Round-5: the composer's inserted block renders through the actual `Block` (real `{kind:"code", lang:"ts", text}` payload), wrapped in a compact host card with a kind marker + **"Open →"** + remove ✕, and a `max-h` clamp for a tight inline preview. NOT the inline rich editor — "Open →" opens the full block + `BodyEditor` (TipTap) in the right slider (track AL). |
 | Insert menu (popover) | DS `Menu` / `Popover` | v3.4: a **floating popover** anchored above the "+ Insert" button — overlays, never grows the composer. Compact items (Block · Attach file · Mention · Reference item). Map to the DS menu/popover primitive; do not render it in the composer's flow. |
 | Composer | `Composer` (DS) | Extend with a slim reply banner (reply + quoted snippet) + inserted-block-preview / attachment draft area + the **floating "+" Insert popover** (overlay, not in flow) + formatting strip. The DS `Composer` is the single owner — do not hand-roll a second one. |
 | ~~Right contextual pane~~ | **Track AL** | REMOVED from this design (v3.3). Artifact review / the right slider is owned by track AL. The change-set Embed is only a hook into it. |
