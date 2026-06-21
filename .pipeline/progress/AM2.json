@@ -1,7 +1,9 @@
 {
   "id": "AM2",
-  "status": "awaiting_ci",
-  "currentStep": "ship",
+  "status": "in_progress",
+  "currentStep": "review-fixes-then-docs-retro-ship",
+  "codeReviewVerdict": "DONE",
+  "codeReviewVerdictAt": "2026-06-21T14:40:00Z",
   "startedAt": "2026-06-19T10:44:54Z",
   "resumedAt": "2026-06-20T00:21:00Z",
   "secondIterationResumedAt": "2026-06-21T00:00:00Z",
