@@ -11,7 +11,38 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.7 — round-5 composer pass (founder annotations, this revision)
+## v3.8 — round-6: one shared chip + review rethink (founder annotations, this revision)
+
+Branch rebased onto `origin/main` — the merged review experience (AL2/AL3/AL4: `pages/review/ReviewComposition.tsx`, `review-composition.ts`) is now the source of truth for the review surface. Ten founder comments drove this pass; verified by clicking + screenshotting in the `:8100` viewer (`screenshot.png`; `_chips.png` = composer-draft chips; `_chips_message.png` = same chip inside a message; `_review.png` = review request; `_review_resolved.png` = verdict echo; `_questionnaire.png` / `_questionnaire_hover.png`; `_plus_hover.png`).
+
+### A. ONE shared reference/attachment chip — used EVERYWHERE (comments 2,3,4,5,6)
+`ReferenceChip` (single component) replaces the five divergent chips/cards (`DraftAttachmentChip`, `AttachmentChip`, `BlockTitleEmbed`, `CitationChips`, `ChangeSetEmbedCard`). One look everywhere — composer draft AND inside messages.
+- **`kind`**: `artifact` (code, e.g. `auth/passkey.ts`) · `image` (e.g. `auth-flow.png`) · `knowledge` (a knowledge-doc source/citation) · `block`.
+- **`mode`**: `draft` (body = open · trailing ✕ = remove — two hit targets) and `posted` (whole chip = open, no ✕, → reveals on hover). Identical outer shell in both modes; only the trailing slot differs.
+- Compact (the image-chip size the founder liked); on-grid padding `pl-[9px] pr-[3px]/[9px]` — fixes "icons too close to the edges" (comment 4).
+- **Sources/citations (comment 5)** render as `knowledge`-kind chips — a source IS a knowledge document reference; each opens the doc. No vague "Sources" text label.
+- **Change-set (comment 6)** renders as an `artifact`-kind chip (`auth/passkey.ts +2 −1`) that OPENS the artifact in the review experience — NOT a big inline-code card (the old real-`ArtifactEmbed` card + `Artifact` fixture were removed). Inline code WOULD be a Block; this is an artifact attachment.
+- Verified: 7 posted chips + 2 draft chips per story; the composer-draft chip and the in-message chip share the same `Am1ReferenceChip` shell; no `Am1ArtifactEmbedCard` in the DOM; the conversation text never contains the code first line.
+- **Builder note:** promote `ReferenceChip` to the design system (`packages/design-system`) — kinds {artifact, image, knowledge, block}, modes {draft, posted}; it is the single attachment/reference primitive across composer + messages + review echoes.
+
+### B. "+" composer button hover = button form (comment 1)
+On hover the resting "+" fills with `--surface-container` (rounded) + a stronger border, so it reads as a BUTTON, not just a glyph color change. Verified computed hover background = `rgb(245,240,235)` (`--surface-container`).
+
+### C. Review message — rethought against the merged review experience (comment 7)
+Aligned to `ReviewComposition` (the decision lives there — `FrameHeader`'s Verdict; `ReviewVerdictState` carries the resolved decision).
+- **`ReviewRequestPart`** — a compact REFERENCE: "?"-style marker + `REVIEW REQUESTED` caps + the proposal line ("Approve deploy of passkey login to staging") + the change-set as an `artifact` `ReferenceChip` + a single **"Open review →"** that opens the review page. **NO inline decision** (no Approve / Request changes / Reject in the conversation) and **NO code/diff**.
+- **`ReviewResolvedPart`** — the verdict ONCE TAKEN, echoed into the conversation: "✓ **Approved** by A. Founder · approve deploy of passkey login to staging" + a quiet "View review →". Uses the merged `verdictDecisionLabel` vocabulary; no buttons.
+- Both reads are visible in the fixture: message 7 = the request (Atlas), message 8 = the resolved verdict echo (Founder). Padding is on-grid (`p-[18px]`) — as clean as the questionnaire card. Verified: no decision buttons in the DOM, no inline code.
+
+### D. Questionnaire (comments 8,9,10) — kept its nice look, but:
+- The big "QUICK ASK · NEEDS YOUR ANSWER" pill is replaced by a **minimal "?" glyph** in a small accent-dim circle — no big multi-word colored pill, no third font/color (comment 9).
+- Answer options read as **buttons**: quiet + neutral at rest (no green bias), and on **hover** the full button form appears (`--surface-container` fill + stronger border) so they're obviously clickable choices (comment 10). Recommended hinted by a small neutral tag only. Verified hover state.
+
+Removed in this pass: the `ArtifactEmbed` import + `Artifact`/`CHANGE_SET_ARTIFACT` fixture (the change-set is now a chip), the `BlockTitleEmbed`/`AttachmentChip`/`CitationChips`/`DraftAttachmentChip` components (folded into `ReferenceChip`), the old `ReviewPart`/`VerdictEcho` (replaced by request + resolved). Unchanged: interactivity (Insert opens, Open → right page with the real `<Block>` viewer), agent-vs-human, the conditional reply banner, horizontal compact attachments, taller textarea, no bottom footer, the unified "+" menu.
+
+---
+
+## v3.7 — round-5 composer pass (founder annotations, prior revision)
 
 Six founder comments, all on the composer draft/attachment area, verified by clicking + screenshotting in the `:8100` viewer (`screenshot.png` = resting `Populated`; `_composer.png` = composer with horizontal compact attachments + taller input + no footer).
 

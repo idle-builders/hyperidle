@@ -60,42 +60,12 @@
  * resting composer has no banner.
  */
 
-import { ArtifactEmbed, Block } from "@hyperidle/design-system";
-import type { Artifact, BlockPayload } from "@hyperidle/shared";
+import { Block } from "@hyperidle/design-system";
+import type { BlockPayload } from "@hyperidle/shared";
 import { blockId } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 
 // ── Real-component fixtures ─────────────────────────────────────────
-// CHANGE-SET embed = a code-kind Artifact rendered through the real ArtifactEmbed.
-const CHANGE_SET_ARTIFACT: Artifact = {
-	id: "art_passkey",
-	producingTaskId: "task_passkey",
-	producingTaskTitle: "Wire passkey login",
-	kind: "code",
-	label: "change set",
-	preview: {
-		kind: "code",
-		file: "auth/passkey.ts",
-		hunks: [
-			{
-				header: "@@ -12,7 +12,9 @@ async function register()",
-				lines: [
-					{ kind: "ctx", text: "  const opts = await beginRegistration(user);" },
-					{ kind: "del", text: "  return legacyPasswordFlow(user);" },
-					{ kind: "add", text: "  const cred = await navigator.credentials.create(webauthnOpts);" },
-					{ kind: "add", text: "  return finishRegistration(user, cred);" },
-				],
-			},
-		],
-	},
-	cost: {
-		money: { minor: 42, currency: "USD" },
-		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
-	},
-	threadCount: 0,
-	createdAt: new Date(Date.now() - 6 * 60_000).toISOString(),
-};
-
 // Inserted-block draft = a real code Block. Title shown inline; full Block in panel.
 const INSERTED_CODE_PAYLOAD: BlockPayload = {
 	kind: "code",
@@ -208,6 +178,10 @@ const ICON_EMOJI =
 const ICON_BLOCKS = "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z";
 const ICON_K_CODE =
 	"M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z";
+const ICON_IMAGE =
+	"M2.5 2.5h11a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1zm0 1.5v6.1l3-3 2.2 2.2L11 5.3l3 3V4H2.5zM5.3 5a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z";
+const ICON_KNOWLEDGE =
+	"M3 1.5h7l3 3v9.5a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5v-12a.5.5 0 01.5-.5zm6.5 1.2V4.5h1.8L9.5 2.7zM4.5 6.3h7v1.2h-7V6.3zm0 2.6h7v1.2h-7V8.9zm0 2.6h4.6v1.2H4.5v-1.2z";
 
 // ───────────────────────────────────────────────────────────────────
 // Avatar — human vs agent tint + a stronger agent ring.
@@ -405,6 +379,116 @@ function Fold({ label }: { label: string }): JSX.Element {
 	);
 }
 
+// ───────────────────────────────────────────────────────────────────
+// ONE SHARED reference chip — used for EVERY attachment / reference,
+// EVERYWHERE: composer draft, in-message image, in-message block, the
+// knowledge sources (a source IS a knowledge-doc reference), and the
+// change-set (an artifact/code reference that opens the review). Founder:
+// "there should be a SHARED attachment/artifact component… same look
+// everywhere." Two modes: `draft` (body=open, trailing ✕=remove) and
+// `posted` (whole chip=open, no ✕). Compact (image-chip size), on-grid
+// padding (pl-[9px], even hit area — fixes "icons too close to the edges").
+//
+// @lore AM1-r6: this is the design embodiment of ONE component the builder
+// should PROMOTE to the design system (`ReferenceChip`) — kinds {artifact,
+// image, knowledge, block}, modes {draft, posted}. It replaces the five
+// divergent chips/cards (DraftAttachmentChip, AttachmentChip,
+// BlockTitleEmbed, CitationChips, ChangeSetEmbedCard) that drifted apart.
+// ───────────────────────────────────────────────────────────────────
+type RefChipKind = "artifact" | "image" | "knowledge" | "block";
+const REF_CHIP_ICON: Record<RefChipKind, string> = {
+	artifact: ICON_K_CODE,
+	image: ICON_IMAGE,
+	knowledge: ICON_KNOWLEDGE,
+	block: ICON_BLOCKS,
+};
+
+function ReferenceChip({
+	kind,
+	label,
+	meta,
+	mode,
+	onOpen,
+	onRemove,
+}: {
+	kind: RefChipKind;
+	label: string;
+	meta?: string;
+	mode: "draft" | "posted";
+	onOpen?: () => void;
+	onRemove?: () => void;
+}): JSX.Element {
+	const icon = REF_CHIP_ICON[kind];
+	// Same outer shell in BOTH modes — identical look. Only the trailing slot
+	// differs (✕ in draft, → affordance in posted).
+	const shell =
+		"group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]";
+	const openBody = (
+		<>
+			<span className="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+				<Glyph d={icon} size={13} />
+			</span>
+			<span className="truncate font-[500] text-[var(--text-primary)]">{label}</span>
+			{meta && <span className="shrink-0 tabular-nums text-[var(--text-tertiary)]">{meta}</span>}
+		</>
+	);
+
+	if (mode === "posted") {
+		// Whole chip = open; no remove. A trailing → reveals on hover.
+		return (
+			<button
+				type="button"
+				onClick={onOpen}
+				aria-label={`Open ${label}`}
+				title={`Open ${label}`}
+				data-ds-component="Am1ReferenceChip"
+				data-ds-mode="posted"
+				data-ds-kind={kind}
+				className={`${shell} pr-[9px] text-left`}
+			>
+				{openBody}
+				<span className="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+					<Glyph d={ICON_ARROW} size={11} />
+				</span>
+			</button>
+		);
+	}
+
+	// draft mode — body = open, trailing ✕ = remove (two distinct hit targets).
+	return (
+		<span
+			data-ds-component="Am1ReferenceChip"
+			data-ds-mode="draft"
+			data-ds-kind={kind}
+			className={shell}
+		>
+			<button
+				type="button"
+				onClick={onOpen}
+				aria-label={`Open ${label}`}
+				title={`Open ${label}`}
+				className="flex min-w-0 items-center gap-[6px] text-left"
+			>
+				{openBody}
+			</button>
+			<button
+				type="button"
+				onClick={onRemove}
+				aria-label={`Remove ${label}`}
+				title="Remove"
+				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+			>
+				<Glyph d={ICON_REMOVE} size={11} />
+			</button>
+		</span>
+	);
+}
+
+// A horizontal wrapping row of reference chips — the standard inline/draft layout.
+function ReferenceChipRow({ children }: { children: React.ReactNode }): JSX.Element {
+	return <div className="mt-[3px] flex flex-wrap items-center gap-[6px]">{children}</div>;
+}
+
 // ── Generic Embed hook (session ref) ────────────────────────────────
 function Embed({
 	label,
@@ -442,58 +526,6 @@ function EmbedKindLabel({ label }: { label: string }): JSX.Element {
 	);
 }
 
-// ── Change-set embed = the REAL ArtifactEmbed. The message owns the card chrome.
-//    onOpen is the hook into AL's review slider (noop in this surface).
-function ChangeSetEmbedCard(): JSX.Element {
-	return (
-		<div
-			data-ds-component="Am1ArtifactEmbedCard"
-			className="mt-[3px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
-		>
-			<ArtifactEmbed data={CHANGE_SET_ARTIFACT} onOpen={() => undefined} />
-		</div>
-	);
-}
-
-// ── Block embed = a COMPACT card showing the block's TITLE ONLY (never the first
-//    line of code). "Open →" opens the right page rendering the FULL block via
-//    the real <Block> viewer. Founder: inline = title; right page = real Block.
-function BlockTitleEmbed({
-	kindIcon,
-	kindLabel,
-	title,
-	onOpen,
-}: {
-	kindIcon: string;
-	kindLabel: string;
-	title: string;
-	onOpen: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			aria-label={`Open ${title}`}
-			data-ds-component="Am1BlockTitleEmbed"
-			className="group/blk mt-[3px] flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] hover:bg-[var(--surface-container)]"
-		>
-			<span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)] group-hover/blk:bg-[var(--surface-elevated)]">
-				<Glyph d={kindIcon} size={13} />
-			</span>
-			<span className="min-w-0 flex-1 leading-[1.25]">
-				<span className="block text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-					{kindLabel}
-				</span>
-				<span className="block truncate text-[13px] font-[500] text-[var(--text-primary)]">{title}</span>
-			</span>
-			<span className="inline-flex shrink-0 items-center gap-[3px] text-[11px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/blk:text-[var(--accent-primary)]">
-				Open
-				<Glyph d={ICON_ARROW} size={12} />
-			</span>
-		</button>
-	);
-}
-
 function SessionRefEmbedBody(): JSX.Element {
 	return (
 		<div>
@@ -507,35 +539,16 @@ function SessionRefEmbedBody(): JSX.Element {
 	);
 }
 
-function CitationChips(): JSX.Element {
+// Knowledge sources = knowledge-kind reference chips (a source IS a knowledge
+// document reference, founder comment 5). Each opens the doc. Same shared chip.
+function SourceChips({ onOpen }: { onOpen: () => void }): JSX.Element {
+	const sources = ["WebAuthn L3 spec", "RFC 9380", "internal/auth-RFC"];
 	return (
-		<div className="mt-[3px] flex flex-wrap items-center gap-[6px]">
-			<span className="text-[11px] text-[var(--text-tertiary)]">Sources</span>
-			{["WebAuthn L3 spec", "RFC 9380", "internal/auth-RFC"].map((c, i) => (
-				<button
-					key={c}
-					type="button"
-					className="inline-flex items-center gap-[3px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[1px] text-[12px] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
-				>
-					<span className="tabular-nums text-[var(--text-tertiary)]">{i + 1}</span>
-					<span className="max-w-[140px] truncate">{c}</span>
-				</button>
+		<ReferenceChipRow>
+			{sources.map((s) => (
+				<ReferenceChip key={s} kind="knowledge" label={s} mode="posted" onOpen={onOpen} />
 			))}
-		</div>
-	);
-}
-
-function AttachmentChip({ name, meta }: { name: string; meta: string }): JSX.Element {
-	return (
-		<div className="mt-[3px] inline-flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]">
-			<span className="flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
-				<Glyph d={ICON_DOC} size={15} />
-			</span>
-			<div className="min-w-0">
-				<div className="truncate text-[13px] font-[500] text-[var(--text-primary)]">{name}</div>
-				<div className="text-[11px] text-[var(--text-tertiary)]">{meta}</div>
-			</div>
-		</div>
+		</ReferenceChipRow>
 	);
 }
 
@@ -560,22 +573,31 @@ function QuestionnairePart(): JSX.Element {
 			data-ds-component="Am1QuestionnairePart"
 			className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
 		>
-			<div className="mb-[9px] inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
-				<Glyph d={ICON_QUESTION} size={11} />
-				Quick ask · needs your answer
+			{/* Minimal "?" marker instead of the big multi-word colored pill
+			    (founder comment 9 — no third font/color, just the question glyph). */}
+			<div className="flex items-start gap-[9px]">
+				<span
+					aria-label="Quick ask"
+					title="Quick ask"
+					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+				>
+					<Glyph d={ICON_QUESTION} size={13} />
+				</span>
+				<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
+					How long should the password fallback stay enabled?
+				</p>
 			</div>
-			<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
-				How long should the password fallback stay enabled?
-			</p>
-			<div className="mt-[12px] flex flex-wrap items-center gap-[6px]">
+			<div className="mt-[12px] flex flex-wrap items-center gap-[6px] pl-[29px]">
 				{options.map((o) => (
 					<button
 						key={o.label}
 						type="button"
-						// Neutral, even survey options — identical quiet outlined chips. No
-						// accent fill on any one option (de-biased per founder). The
-						// recommendation is hinted by a small neutral tag only.
-						className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[13px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+						// Survey options must READ as buttons (founder comment 10). At rest
+						// they're quiet + neutral (no green bias); on HOVER the full button
+						// form appears — filled --surface-container + stronger border — so
+						// it's obviously a clickable choice. Recommended hinted by a small
+						// neutral tag only.
+						className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[13px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					>
 						{o.label}
 						{o.recommended && (
@@ -591,43 +613,96 @@ function QuestionnairePart(): JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// REVIEW message — COMPACT hook into AL's review experience.
+// REVIEW REQUEST message — a COMPACT REFERENCE into the merged review
+// experience (ReviewComposition / ReviewPage). It does NOT take a decision
+// inline (founder comment 7: "you cannot actually take a decision here — you
+// can only show the decision once taken") and shows NO code/diff. The decision
+// is made on the review page; here we only point to it. The change-set is an
+// ARTIFACT reference chip (founder comment 6 — it is an artifact attachment,
+// not inline code) that opens the artifact in the review experience.
+//
+// @lore AM1-r6: aligned to the merged review surface
+// (packages/web/src/pages/review/ReviewComposition.tsx). The verdict buttons
+// (Approve / Request changes / …) live in ReviewComposition's FrameHeader, NOT
+// in the conversation. The conversation emits the request + echoes the verdict
+// once ReviewVerdictState is resolved.
 // ───────────────────────────────────────────────────────────────────
-function ReviewPart(): JSX.Element {
+function ReviewRequestPart({ onOpenArtifact }: { onOpenArtifact: () => void }): JSX.Element {
 	return (
 		<div
-			data-ds-component="Am1ReviewPart"
-			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[15px] shadow-[var(--shadow-subtle)]"
+			data-ds-component="Am1ReviewRequestPart"
+			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
 		>
-			<div className="flex flex-col gap-[3px]">
-				<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-					Review · needs your decision
+			<div className="flex items-start gap-[9px]">
+				<span
+					aria-label="Review request"
+					title="Review request"
+					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+				>
+					<Glyph d={ICON_CHECK} size={12} />
+				</span>
+				<div className="min-w-0">
+					<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						Review requested
+					</div>
+					<p className="m-0 mt-[3px] text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
+						Approve deploy of passkey login to staging
+					</p>
 				</div>
-				<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
-					Approve deploy of passkey login to staging
-				</p>
 			</div>
-			<ChangeSetEmbedCard />
-			<button
-				type="button"
-				className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
-			>
-				Open review
-				<Glyph d={ICON_ARROW} size={12} />
-			</button>
+			{/* The change set = an ARTIFACT reference chip (NOT inline code). Opens the
+			    artifact inside the review experience. */}
+			<div className="pl-[29px]">
+				<ReferenceChip
+					kind="artifact"
+					label="auth/passkey.ts"
+					meta="+2 −1"
+					mode="posted"
+					onOpen={onOpenArtifact}
+				/>
+			</div>
+			{/* The ONLY action here is to OPEN the review — the decision is made there. */}
+			<div className="pl-[29px]">
+				<button
+					type="button"
+					onClick={onOpenArtifact}
+					className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
+				>
+					Open review
+					<Glyph d={ICON_ARROW} size={12} />
+				</button>
+			</div>
 		</div>
 	);
 }
 
-function VerdictEcho(): JSX.Element {
+// Resolved review — the verdict ONCE TAKEN, echoed into the conversation
+// (founder comment 7). The decision text comes from the merged
+// verdictDecisionLabel vocabulary; no buttons, no code. Compact reference back
+// to the review.
+function ReviewResolvedPart({ onOpenReview }: { onOpenReview: () => void }): JSX.Element {
 	return (
-		<div className="flex items-baseline gap-[6px] text-[15px] leading-[1.55] text-[var(--text-primary)]">
-			<span className="self-center text-[var(--status-success)]">
+		<div
+			data-ds-component="Am1ReviewResolvedPart"
+			className="flex items-center gap-[9px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
+		>
+			<span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[var(--status-success)]">
 				<Glyph d={ICON_CHECK} size={14} />
 			</span>
-			<span>
-				<span className="font-[600]">Approved.</span> Ship to staging — re-review before prod.
-			</span>
+			<div className="min-w-0 flex-1 leading-[1.4]">
+				<span className="text-[13px] text-[var(--text-secondary)]">
+					<span className="font-[600] text-[var(--text-primary)]">Approved</span> by A. Founder ·
+					approve deploy of passkey login to staging
+				</span>
+			</div>
+			<button
+				type="button"
+				onClick={onOpenReview}
+				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-primary)]"
+			>
+				View review
+				<Glyph d={ICON_ARROW} size={11} />
+			</button>
 		</div>
 	);
 }
@@ -706,60 +781,6 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	);
 }
 
-// ───────────────────────────────────────────────────────────────────
-// DRAFT ATTACHMENT CHIP — ONE compact style for EVERY draft attachment
-// (inserted code block, image, document — all the same chip). Founder: "why
-// does the code block attachment have a different style than the image? …This
-// [image] style looks better, it takes less space." Interaction (founder): the
-// chip BODY = open it (right panel / preview); the trailing ✕ = remove it from
-// the draft — two distinct hit targets. Chips lay out HORIZONTALLY in a wrapping
-// row so the attachments area stays ~one chip tall (founder: "the attachments
-// section should be the smaller part… typically just the height of a single
-// attachment like the png").
-// ───────────────────────────────────────────────────────────────────
-function DraftAttachmentChip({
-	icon,
-	label,
-	meta,
-	onOpen,
-}: {
-	icon: string;
-	label: string;
-	meta: string;
-	onOpen?: () => void;
-}): JSX.Element {
-	return (
-		<span
-			data-ds-component="Am1DraftAttachmentChip"
-			className="group/chip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[6px] pr-[3px] text-[12px] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
-		>
-			{/* Chip body = OPEN. A button so click/keyboard activate the open action. */}
-			<button
-				type="button"
-				onClick={onOpen}
-				aria-label={`Open ${label}`}
-				title={`Open ${label}`}
-				className="flex min-w-0 items-center gap-[6px] text-left"
-			>
-				<span className="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/chip:text-[var(--text-secondary)]">
-					<Glyph d={icon} size={13} />
-				</span>
-				<span className="truncate font-[500] text-[var(--text-primary)]">{label}</span>
-				<span className="shrink-0 tabular-nums text-[var(--text-tertiary)]">{meta}</span>
-			</button>
-			{/* Trailing ✕ = REMOVE — a separate, distinct hit target. */}
-			<button
-				type="button"
-				aria-label={`Remove ${label}`}
-				title="Remove"
-				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
-			>
-				<Glyph d={ICON_REMOVE} size={11} />
-			</button>
-		</span>
-	);
-}
-
 function ComposerReplyBanner(): JSX.Element {
 	return (
 		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
@@ -787,21 +808,23 @@ function ComposerReplyBanner(): JSX.Element {
 }
 
 // Active-state draft body: ALL attachments — the inserted code block AND the
-// image — render as ONE chip style in a single HORIZONTAL wrapping row, so the
-// area is ~one chip tall. Each chip: body = open, ✕ = remove.
+// image — render through the SAME shared ReferenceChip (draft mode: body = open,
+// ✕ = remove) in a single HORIZONTAL wrapping row, ~one chip tall. The IDENTICAL
+// chip is used inside messages (posted mode) — one component everywhere.
 function ComposerDraftBody({ onOpenBlock }: { onOpenBlock: () => void }): JSX.Element {
 	return (
 		<div
 			data-ds-component="Am1ComposerDraftBody"
 			className="flex flex-wrap items-center gap-[6px] px-[12px] pt-[9px]"
 		>
-			<DraftAttachmentChip
-				icon={ICON_K_CODE}
+			<ReferenceChip
+				kind="artifact"
 				label={INSERTED_CODE_TITLE}
 				meta="TS · 3 lines"
+				mode="draft"
 				onOpen={onOpenBlock}
 			/>
-			<DraftAttachmentChip icon={ICON_DOC} label="auth-flow.png" meta="82 KB" />
+			<ReferenceChip kind="image" label="auth-flow.png" meta="82 KB" mode="draft" />
 		</div>
 	);
 }
@@ -841,7 +864,10 @@ function ComposerInputRow({
 					className={
 						insertMenuOpen
 							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
-							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+							: // Resting: subtle outline; on HOVER the whole button fills with
+								// --surface-container so it reads clearly as a BUTTON, not just a
+								// glyph color change (founder comment 1).
+								"flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					}
 				>
 					<Glyph d={ICON_PLUS} size={14} />
@@ -992,8 +1018,19 @@ function ConversationBody({
 						<div className="mt-[6px]">
 							<Fold label="Worked for 1m 12s" />
 						</div>
-						<ChangeSetEmbedCard />
-						<CitationChips />
+						{/* Change set = an artifact reference chip (opens the artifact in the
+						    review experience); NOT a big inline-code card (founder comment 6). */}
+						<ReferenceChipRow>
+							<ReferenceChip
+								kind="artifact"
+								label="auth/passkey.ts"
+								meta="+2 −1"
+								mode="posted"
+								onOpen={() => onOpenBlock("inserted-code")}
+							/>
+						</ReferenceChipRow>
+						{/* Sources = knowledge reference chips — same shared chip (comment 5). */}
+						<SourceChips onOpen={() => onOpenBlock("ref-plan")} />
 					</div>
 				</MessageGroup>
 
@@ -1002,13 +1039,23 @@ function ConversationBody({
 					<div className="flex flex-col gap-[12px]">
 						<div>
 							<Prose>Context for the dual-auth window and the flow diagram:</Prose>
-							<BlockTitleEmbed
-								kindIcon={ICON_BLOCKS}
-								kindLabel="Knowledge"
-								title="Auth migration plan · §2"
-								onOpen={() => onOpenBlock("ref-plan")}
-							/>
-							<AttachmentChip name="auth-flow.png" meta="PNG · 82 KB" />
+							{/* In-message block + image — the SAME shared chip as the composer
+							    draft (founder comments 2, 3), posted mode (no ✕, opens). */}
+							<ReferenceChipRow>
+								<ReferenceChip
+									kind="block"
+									label="Auth migration plan · §2"
+									mode="posted"
+									onOpen={() => onOpenBlock("ref-plan")}
+								/>
+								<ReferenceChip
+									kind="image"
+									label="auth-flow.png"
+									meta="82 KB"
+									mode="posted"
+									onOpen={() => onOpenBlock("ref-plan")}
+								/>
+							</ReferenceChipRow>
 						</div>
 						<div>
 							<Prose>This all came out of my work session:</Prose>
@@ -1035,14 +1082,16 @@ function ConversationBody({
 					</div>
 				</MessageGroup>
 
-				{/* 7 · Atlas review message → compact hook into AL's review experience */}
-				<MessageGroup who={ATLAS} time="9:15" hovered>
-					<ReviewPart />
+				{/* 7 · Atlas review REQUEST → reference into the merged review experience;
+				    NO inline decision, NO code. Opens the review page. */}
+				<MessageGroup who={ATLAS} time="9:15">
+					<ReviewRequestPart onOpenArtifact={() => onOpenBlock("inserted-code")} />
 				</MessageGroup>
 
-				{/* 8 · Founder verdict echo */}
-				<MessageGroup who={FOUNDER} time="9:16">
-					<VerdictEcho />
+				{/* 8 · Resolved verdict echo — the decision ONCE TAKEN, shown in the
+				    conversation (no buttons here; the decision was made on the review page). */}
+				<MessageGroup who={FOUNDER} time="9:16" hovered>
+					<ReviewResolvedPart onOpenReview={() => onOpenBlock("inserted-code")} />
 				</MessageGroup>
 			</div>
 		</div>
