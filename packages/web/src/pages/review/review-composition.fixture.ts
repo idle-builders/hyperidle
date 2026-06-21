@@ -1,3 +1,4 @@
+import type { BlockId } from "@hyperidle/shared";
 import type { ReviewArtifact } from "./review-artifact.js";
 import type { ComposedReviewSubject } from "./review-composition.js";
 import { AL2_REVIEW_SUBJECT } from "./review-subject.js";
@@ -144,7 +145,12 @@ export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 			authorIsAgent: false,
 			body: "Does the 422 copy match our checkout error style — dated string and all?",
 			ago: "3 min ago",
-			refs: [{ kind: "line", label: "PromoField.tsx:118" }],
+			refs: [{ kind: "artifact", label: "PromoField.tsx:118" }],
+			anchor: {
+				artifactId: "artifact:code:1",
+				blockId: "block:review-code:promo-webhook.ts:118" as BlockId,
+				spotLabel: "PromoField.tsx:118",
+			},
 		},
 		{
 			id: "c1r",

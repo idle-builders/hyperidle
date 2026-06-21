@@ -8,6 +8,7 @@
  *  - postPlainHostMessage works without blockId (plain message)
  */
 
+import type { AnchorRef, BlockId } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads";
 
@@ -136,7 +137,7 @@ describe("postPlainHostMessage (L18)", () => {
 
 		const body = JSON.parse(options.body as string) as {
 			type: string;
-			payload: { text: string; blockId?: string };
+			payload: { text: string; blockId?: string; spotLabel?: string; refs?: unknown[] };
 			clientKey: string;
 		};
 		expect(body.type).toBe("plain");
@@ -145,7 +146,34 @@ describe("postPlainHostMessage (L18)", () => {
 		expect(body.payload.blockId).toBeUndefined();
 	});
 
-	it("forwards blockId in payload when provided", async () => {
+	it("forwards an AL4 anchor as blockId + spotLabel + artifact ref", async () => {
+		fetchSpy.mockResolvedValueOnce(makePostMessageResponse());
+
+		const threadId = "thread-anchor";
+		const text = "Discussing this line";
+		const clientKey = "client-key-anchor";
+		const anchor: AnchorRef = {
+			artifactId: "artifact:code:1",
+			blockId: "block-abc" as BlockId,
+			spotLabel: "PromoField.tsx:118",
+		};
+
+		await postPlainHostMessage(threadId, text, clientKey, undefined, anchor);
+
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const body = JSON.parse(options.body as string) as {
+			type: string;
+			payload: { text: string; blockId?: string; spotLabel?: string; refs?: unknown[] };
+			clientKey: string;
+		};
+		expect(body.payload.blockId).toBe(anchor.blockId);
+		expect(body.payload.spotLabel).toBe(anchor.spotLabel);
+		expect(body.payload.refs).toEqual([{ kind: "artifact", id: anchor.artifactId }]);
+		expect(body.payload.text).toBe(text);
+	});
+
+	it("forwards blockId in payload when provided (legacy path)", async () => {
 		fetchSpy.mockResolvedValueOnce(makePostMessageResponse());
 
 		const threadId = "thread-xyz";

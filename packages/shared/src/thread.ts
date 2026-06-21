@@ -12,7 +12,7 @@
  * `plans/L1/architecture.md` §4.
  */
 
-import type { BlockHostKind } from "./blocks/types.js";
+import type { BlockHostKind, BlockId } from "./blocks/types.js";
 
 // ── Closed enums ────────────────────────────────────────────────
 
@@ -75,6 +75,12 @@ export interface Thread {
 	readonly resolvedAt: string | null;
 	readonly lastActiveAt: string;
 	readonly createdAt: string;
+}
+
+export interface AnchorRef {
+	readonly artifactId: string;
+	readonly blockId: BlockId;
+	readonly spotLabel?: string;
 }
 
 // ── Message payloads (discriminated union) ──────────────────────
@@ -480,4 +486,6 @@ export interface PlainPayloadWithBlockId {
 	readonly refs?: ReadonlyArray<InlineRef>;
 	/** L18: Optional block anchor — the id of the Block this message is anchored to. */
 	readonly blockId?: string;
+	/** AL4: Optional human-readable sub-block label (line/paragraph/region); opaque to the server. */
+	readonly spotLabel?: string;
 }

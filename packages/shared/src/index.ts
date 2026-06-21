@@ -281,6 +281,7 @@ export type {
 } from "./team.js";
 export type {
 	AgentSessionStateSnapshot,
+	AnchorRef,
 	ArtifactRef,
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,

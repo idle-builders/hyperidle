@@ -1,9 +1,12 @@
-import type { VerdictDecision } from "@hyperidle/shared";
+import type { AnchorRef, VerdictDecision } from "@hyperidle/shared";
 import type { ReviewArtifact, ReviewSubject } from "./review-artifact.js";
 
 export interface ReviewCommentRef {
-	readonly kind: "artifact" | "line";
+	readonly kind: "artifact" | "block";
 	readonly label: string;
+	readonly artifactId?: string;
+	readonly blockId?: string;
+	readonly spotLabel?: string;
 }
 
 export interface ReviewComment {
@@ -13,6 +16,7 @@ export interface ReviewComment {
 	readonly body: string;
 	readonly ago: string;
 	readonly refs?: ReadonlyArray<ReviewCommentRef>;
+	readonly anchor?: AnchorRef;
 }
 
 export interface ReviewKpi {
@@ -79,6 +83,8 @@ export interface ReviewCompositionProps {
 	readonly subject: ComposedReviewSubject;
 	readonly onSubmitVerdict: (decision: VerdictDecision, note?: string) => void | Promise<void>;
 	readonly onOpenSourceLink?: (href: string) => void;
+	readonly onPostComment?: (input: { text: string; anchor?: AnchorRef }) => Promise<void>;
+	readonly threadId?: string;
 	readonly initialOpenArtifactId?: string | null;
 	readonly resolved?: boolean;
 }

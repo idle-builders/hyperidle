@@ -15,7 +15,7 @@
  * messagesByBlockId recomputes; the Block re-renders the anchored slot.
  */
 
-import type { HostKind } from "@hyperidle/shared";
+import type { AnchorRef, HostKind, InlineRef } from "@hyperidle/shared";
 import { apiFetch } from "./api-fetch.js";
 
 /**
@@ -79,18 +79,26 @@ export async function resolveOrCreateHostThread(
 /**
  * Posts a plain message on the given thread, optionally anchored to a block.
  *
- * @param blockId Optional block id for block-anchored discussions. Opaque to
- *   the server — forwarded verbatim in the payload. The rendering layer uses it
- *   to display the message inline after the anchored block.
+ * @param blockId Optional block id for legacy block-anchored discussions. Opaque to
+ *   the server — forwarded verbatim in the payload.
+ * @param anchor Optional AL4 review anchor. When provided it takes precedence
+ *   over blockId and is translated into payload fields + an artifact ref.
  */
 export async function postPlainHostMessage(
 	threadId: string,
 	text: string,
 	clientKey: string,
 	blockId?: string,
+	anchor?: AnchorRef,
 ): Promise<void> {
-	const payload: { text: string; blockId?: string } = { text };
-	if (blockId !== undefined) {
+	const payload: { text: string; blockId?: string; spotLabel?: string; refs?: InlineRef[] } = {
+		text,
+	};
+	if (anchor !== undefined) {
+		payload.blockId = anchor.blockId;
+		payload.spotLabel = anchor.spotLabel;
+		payload.refs = [{ kind: "artifact", id: anchor.artifactId }];
+	} else if (blockId !== undefined) {
 		payload.blockId = blockId;
 	}
 	const resp = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/messages`, {

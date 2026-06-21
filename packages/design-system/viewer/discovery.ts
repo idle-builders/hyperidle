@@ -179,6 +179,7 @@ export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	RichMessageCard: "Conversations",
 	ThreadHostBanner: "Conversations",
 	NotificationRow: "Conversations",
+	"Review Anchored Comment": "Conversations",
 	// Artifacts domain
 	ArtifactCostChip: "Artifacts",
 	ArtifactEmbed: "Artifacts",

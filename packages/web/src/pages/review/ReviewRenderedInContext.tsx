@@ -17,11 +17,18 @@
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand; verdict callbacks are no-ops in the story.
 
+import type { AnchorRef, Block } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { RenderedInContextPayload, ReviewCanvasProps } from "./review-artifact";
+import {
+	AnchoredThreadCard,
+	deriveProseBlocks,
+	InlineComposer,
+	useReviewAnchors,
+} from "./review-canvas.js";
 import { ToolLogo } from "./ToolLogo";
 
 // ── Fixture ──────────────────────────────────────────────────────────────────
@@ -231,6 +238,8 @@ function EmailRender({
 
 export interface ReviewRenderedInContextProps {
 	readonly data?: RenderedEmail;
+	readonly artifactId?: string;
+	readonly blocks?: ReadonlyArray<Block>;
 	readonly onApprove?: () => void;
 	readonly onRequestChanges?: () => void;
 }
@@ -249,6 +258,8 @@ export interface ReviewRenderedInContextProps {
  */
 function ReviewRenderedInContextView({
 	data = FIXTURE,
+	artifactId = "",
+	blocks = [],
 	onApprove,
 	onRequestChanges,
 }: ReviewRenderedInContextProps): JSX.Element {
@@ -256,6 +267,20 @@ function ReviewRenderedInContextView({
 	// needs-you emphasis: flags open by default when there are flagged claims.
 	const [flagsOpen, setFlagsOpen] = useState<boolean>(data.flaggedClaims.length > 0);
 	const flagCount = data.flaggedClaims.length;
+	const [composerOpen, setComposerOpen] = useState(false);
+
+	const { anchors: allAnchors, readOnly, onAddAnchor } = useReviewAnchors();
+	const paragraphBlocks = blocks.filter((b) => b.kind === "paragraph");
+	const firstBlock = paragraphBlocks[0];
+	const anchor: AnchorRef | null =
+		firstBlock && artifactId
+			? { artifactId, blockId: firstBlock.id, spotLabel: data.subject }
+			: null;
+	const threadComments = firstBlock
+		? allAnchors.filter(
+				(c) => c.anchor?.artifactId === artifactId && c.anchor?.blockId === firstBlock.id,
+			)
+		: [];
 
 	return (
 		<div
@@ -336,6 +361,15 @@ function ReviewRenderedInContextView({
 			<section aria-label="Email render" className="flex flex-col gap-[12px]">
 				<div className="flex items-center justify-between gap-[12px]">
 					<ChromeLabel>Opened render</ChromeLabel>
+					{!readOnly && anchor ? (
+						<button
+							type="button"
+							onClick={() => setComposerOpen((o) => !o)}
+							className="rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-on-accent)]"
+						>
+							{composerOpen ? "Cancel" : "Comment on body"}
+						</button>
+					) : null}
 					<ViewportToggle value={viewport} onChange={setViewport} />
 				</div>
 				<div
@@ -347,6 +381,29 @@ function ReviewRenderedInContextView({
 					}}
 				>
 					<EmailRender data={data} viewport={viewport} />
+					{composerOpen && anchor ? (
+						<div className="mt-[18px] flex gap-[12px] pl-[12px]">
+							<InlineComposer
+								anchor={anchor}
+								onSubmit={async (text: string) => {
+									if (onAddAnchor) await onAddAnchor({ anchor, text });
+									setComposerOpen(false);
+								}}
+							/>
+						</div>
+					) : null}
+					{threadComments.length > 0 && anchor ? (
+						<div className="mt-[18px]">
+							<AnchoredThreadCard
+								anchor={anchor}
+								comments={threadComments}
+								readOnly={readOnly}
+								onReply={async (text: string) => {
+									if (onAddAnchor) await onAddAnchor({ anchor, text });
+								}}
+							/>
+						</div>
+					) : null}
 				</div>
 			</section>
 
@@ -514,6 +571,10 @@ export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.El
 	const data = isRenderedPayload(artifact.payload)
 		? mapRenderedPayload(artifact.payload, artifact.title)
 		: FIXTURE;
+	const body = isRenderedPayload(artifact.payload)
+		? artifact.payload.body
+		: FIXTURE.bodyParas.join("\n\n");
+	const blocks = useMemo(() => deriveProseBlocks(artifact.id, body), [artifact.id, body]);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -522,7 +583,7 @@ export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.El
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewRenderedInContextView data={data} />
+			<ReviewRenderedInContextView data={data} artifactId={artifact.id} blocks={blocks} />
 		</div>
 	);
 }
