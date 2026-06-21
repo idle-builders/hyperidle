@@ -129,3 +129,63 @@ All 5 ACs are met in contract and all gates are green, but two correctness defec
 **Founder routing (not AM1 code):**
 
 4. **ADV-1 sequencing** — AL3's `ReviewPage.handleSubmitVerdict` is a no-op; with inline verdict removed, verdict-taking is end-to-end broken across the merge. Sequence AL3 verdict-wiring before treating approve-capability as restored. Not an AM1 defect (out of scope), but the founder must know the merged product regresses approve until AL3 lands.
+
+---
+---
+
+# Round 2 — Re-review of round-1 fixes
+
+Reviewer, Phase 4 round 2. Verifying the three fix commits (`aec109de` ARCH-1/ARCH-2, `d225edf8` ADV-2 test tightening, `244e8fd3` DES-1) against the actual code — not the commit messages. Gates re-run live: `npm run check` PASS (13/13 packages), `npm run lint` PASS (0 errors; baseline warnings/infos only), targeted AM1 suite PASS (43/43 across `AM1-part.test.ts`, `AM1-navHandler.test.tsx`, `Conversations.part-migration.test.tsx`, `Conversations.review-routing.test.tsx`). AC5 lint rule confirmed present and byte-identical to the round-1-verified block (`eslint.config.ts:933-979`) — Message/InlineRef/EntityRef/BlockRef/MentionRef named-import ban + `thread*`/`harness` path patterns + api-fetch restatement, placed LAST. Not removed; trusting the round-1 live-fire proof.
+
+## ARCH-1 (was CRITICAL) — betId dead URL — RESOLVED
+
+- **(a) Valid path for bet-hosted threads — VERIFIED.** `Conversations.tsx:317` sources `reviewBetId = data.thread.hostKind === "bet" ? data.thread.hostId : null` and passes it via `createOpenHandler(navigate, { betId: reviewBetId })`. `open-handler.ts:60-67` prefers the page betId, falls back to a non-empty `target.betId`, builds `/work/bet/${betId}/review/${reviewId}`. Both page tests now assert the FULL path with a bet-hosted fixture: `expect(lastPath).toBe('/work/bet/${BET_ID}/review/${reviewId}')` plus `not.toContain("//")` (`review-routing.test.tsx:158`, `part-migration.test.tsx:228`). Genuine — the old `toContain("/work/bet")` (which a double-slash satisfied) is gone.
+- **(b) No-op degradation for non-bet hosts — VERIFIED in code.** `open-handler.ts:64-66`: `const betId = pageBetId ?? targetBetId; if (betId === null) return;` — no navigation, no malformed URL. The adapter still emits `betId: ""` (the source-agnostic placeholder), `targetBetId` coerces `""→null`, so a non-bet host with no page betId genuinely no-ops. Correct graceful degradation, no dead URL shipped.
+- **(c) Adapter stayed source-agnostic + AC5 boundary intact — VERIFIED.** `part.ts` betId resolution was NOT added to the adapter; the adapter still hardcodes the empty placeholder and the page/handler seam owns betId entirely (`@lore` at `open-handler.ts:21-30`). AC5 lint block unchanged and still placed last.
+- **RULING on the non-bet no-op (was the open judgment call): ACCEPTABLE graceful degradation, not a dead-button defect — for AM1.** A review is inherently about a bet's work; the only conversations that legitimately host a `review` Message are bet-hosted (or task-hosted, where the bet is one hop away but not cheaply in the page's hand). For the bet-hosted case — the real one — the button routes correctly. The residual concern is the task-hosted case where "Open review" silently does nothing; that is a *thin* surface (a review Message under a task host is unusual) and the alternative (a broken `/work/bet//review` URL) is strictly worse. The honest no-op is the right AM1 behavior. **Note for AM5/AL3:** when routing is standardized, the task→bet hop should be resolved so the button is never inert. Tracked as ARCH-1-followup (OBSERVATION below), not a blocker.
+
+## ARCH-2 (WARNING) — resolvedBy person vs message id — RESOLVED
+
+- **VERIFIED.** `part.ts:251` now indexes verdicts as `{ payload, resolverId: m.senderId }`; the resolved branch sets `resolvedBy: verdict ? resolveAuthor(verdict.resolverId, viewerId, identities).name : author.name` (`part.ts:294`, `part.ts:319`). `resolveAuthor` (`part.ts:179-190`) returns the identity's `name` verbatim ("You" substitution happens at render, not here), so `resolvedBy` is a real display name. `ReviewResolvedPart.tsx` renders `by {part.resolvedBy}` → a person, not `rv2`. The resolved test (`AM1-part.test.ts:360-361`) now asserts `resolved.resolvedBy === "A. Founder"` AND `not.toBe(verdict.id)` — genuinely guards the person-name and rules out the old message-id value. Fixture: verdict `senderId: "u-me"` → `IDENTITIES` maps `u-me → "A. Founder"`. Real assertion, not weakened.
+
+## ADV-2 (WARNING) — tests asserted around the hole — RESOLVED
+
+- **VERIFIED, not weakened.** All three former weak assertions tightened:
+  - `AM1-part.test.ts:303-311` — now asserts `reviewId === "rv1"` and `betId === ""` (the *adapter's* documented placeholder). This correctly proves the adapter emits the empty placeholder by design — the betId is the page's job, not the adapter's. Not a regression: it pins the contract, and the page tests prove the real value.
+  - `review-routing.test.tsx:155-159` — bet-hosted fixture, asserts full `/work/bet/bet-am1/review/${id}` + `not.toContain("//")`.
+  - `part-migration.test.tsx:219-229` — bet-hosted fixture (`hostKind: "bet"`, `hostId: "bet-am1-migration"`), asserts full path + `not.toContain("//")`. The old "betId not yet populated — see report" comment is gone.
+
+## DES-1 (should-fix) — fake questionnaire latch — RESOLVED
+
+- **VERIFIED.** `QuestionnairePart.tsx` dropped `useState`, `aria-pressed`, `onClick`, and the dual selected/unselected className branch. Options now render as static `<li>` chips inside a `<ul>` (list-none). No interactive affordance, no persistent pressed state — nothing implies an answer was recorded. Honest deferral matching the composer "+" menu. Also satisfies the `design/no-op-button` lint rule (a latching no-op button would have tripped it). `@lore` documents the deferral and that a later WP turns these into real controls.
+
+## New finding (round 2)
+
+**WARNING**
+
+- **ADV-2-r2 — the empty-betId review no-op is unguarded by a direct unit test.** The new core ARCH-1 degradation branch (`open-handler.ts:65` `if (betId === null) return`) is the safety net that prevents the dead URL, yet `AM1-navHandler.test.tsx` has no test that calls the review route with `betId: ""`/`null` and asserts `navigate` is NOT called. The existing review test (`:50-53`) passes `betId: "bet-1"` (non-empty → navigates) and the host+user no-op test (`:56`) covers a different branch. The no-op is proven only indirectly (the page never produces it for the bet-hosted fixtures the page tests use). Add a one-line unit test: `createOpenHandler(navigate)({ route: "review", betId: "", reviewId: "rv1" }); expect(navigate).not.toHaveBeenCalled()`. **Not blocking** — the branch is correct and reviewed, code is right; this is a test-coverage gap on the fix, not a correctness defect. Recommend the builder add it before ship, but it does not gate DONE.
+
+**OBSERVATION**
+
+- **ARCH-1-followup — task-hosted review "Open review" is inert.** A review Message under a `hostKind: "task"` thread has no page-sourced betId (the page only resolves `betId` for bet hosts), so "Open review" no-ops. Correct (no dead URL) and an unusual host combination for AM1, but the task→bet resolution should be wired when AM5 standardizes routing so the affordance is never silently dead. Not an AM1 defect.
+
+## AC table (round 2 — re-stated)
+
+| AC (TRACK-AM §AM1) | Round-1 | Round-2 | Evidence |
+|---|---|---|---|
+| **AC1** — calm threaded conversation, easy to scan | MET | **MET** | Unchanged; `groupParts` author-grouping + agent cue tested (43/43 green). |
+| **AC2** — message embeds what it refers to inline | MET | **MET** | Block/artifact `ReferenceChip`, session `Fold`; "Open review" now routes to a VALID review path (ARCH-1 fixed). |
+| **AC3** — all message types render; verdict flow unaffected | MET (ARCH-2 caveat) | **MET (caveat cleared)** | `resolvedBy` now renders the resolver's person-name, not a message id (ARCH-2 resolved + asserted). Verdict still folds, no standalone Part. |
+| **AC4** — session not first-class | MET | **MET** | Unchanged; `PART_KINDS` has no session kind; session is an Embed `Fold`. |
+| **AC5** — rendering reused by another surface without reimpl | MET | **MET** | Lint block unchanged + present (`eslint.config.ts:933-979`); two-adapter source-agnostic runtime test intact; adapter stayed source-agnostic through the ARCH-1 fix (betId moved to the page, NOT the adapter). |
+
+All 5 ACs MET. The AC3 caveat is cleared. No CRITICAL remains. Two non-blocking findings (ADV-2-r2 WARNING test-gap, ARCH-1-followup OBSERVATION).
+
+## VERDICT (round 2): DONE
+
+All round-1 must-fixes resolved and verified against the code (not just commit messages):
+- **ARCH-1 / ADV-1 (was CRITICAL)** — betId sourced at the page boundary; bet-hosted routes resolve to the full valid path; non-bet hosts no-op (no dead URL); adapter stayed source-agnostic. Page tests tightened to the full path with `not.toContain("//")`.
+- **ARCH-2 (WARNING)** — `resolvedBy` renders the resolver's person-name via `resolveAuthor`; resolved test asserts the name and rules out the message id.
+- **DES-1 (should-fix)** — questionnaire options are static `<li>` chips; no fake latch.
+
+Gates green: check PASS (13/13), lint PASS (0 errors), 43/43 targeted AM1 tests PASS, AC5 lint rule present + unchanged. No CRITICAL. The two residual findings (ADV-2-r2 unit-test gap, ARCH-1-followup task-host inertness) are non-blocking — recommend the builder add the one-line no-op unit test before `/ship`, but neither gates DONE.
