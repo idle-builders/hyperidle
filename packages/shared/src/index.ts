@@ -344,6 +344,27 @@ export {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "./thread.js";
+// ── AM1: Part vocabulary + source adapters (source-agnostic) ──
+export type {
+	Embed,
+	EmbedKind,
+	FoldDescriptor,
+	OpenHandler,
+	OpenTarget,
+	Part,
+	PartAuthor,
+	PartGroup,
+	PartId,
+	PartKind,
+	ReviewTarget,
+} from "./part.js";
+export {
+	derivePartsFromMessages,
+	derivePartsFromSession,
+	EMBED_KINDS,
+	groupParts,
+	PART_KINDS,
+} from "./part.js";
 export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {

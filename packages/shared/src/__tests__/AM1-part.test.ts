@@ -30,7 +30,6 @@ import {
 	type Embed,
 	EMBED_KINDS,
 	type OpenTarget,
-	type Part,
 	type PartAuthor,
 	PART_KINDS,
 	derivePartsFromMessages,
