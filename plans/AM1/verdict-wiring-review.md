@@ -129,3 +129,33 @@ Must-fix before this increment is correct:
    not selected. The current test must not be allowed to lock in the wrong-resolve contract.
 
 NITs (N1 outcome-feedback, N2 decision reachability) are non-blocking.
+
+---
+
+## Round 2 — fix confirm (commit `c34d0931`)
+
+Tight re-check of C1 + C2 only. Read-only; logic + test verified by reading.
+
+### C1 — RESOLVED
+`ReviewPage.tsx:159-183`. The message-scan loop is deleted. `handleSubmitVerdict` now:
+- Guards `if (!(threadId && reviewId && user)) return;` (`:162`) — `reviewId` added to the guard.
+- Sets `const reviewMessageId = reviewId;` (`:169`) and posts that as `resolvesMessageId` (`:177`).
+- `reviewId` is genuinely the route param: `const { betId = "", reviewId = "" } = useParams<{ betId: string; reviewId: string }>();` (`:112`), from route `/work/bet/:betId/review/:reviewId`. In scope in the callback; in deps array (`:182`).
+- The false "mirrors the policy-engine resolver" comment is gone; replaced by an accurate comment citing `shared/src/part.ts` reviewTarget `{ reviewId: message.id }` and server exact-id resolution. Comment now matches the contract verified in round 1.
+
+The wrong-resolve bug is closed: the verdict resolves the exact review the route points at, never "last review in thread".
+
+### C2 — RESOLVED, test discriminates
+`ReviewPage.test.tsx`:
+- (a) Route `reviewId` = target message id: `initialEntries: ["/work/bet/bet-123/review/rev-1"]` (`:108`) and the target review message `reviewMessage.id = "rev-1"` (`:30`). Route id now EQUALS the target message id (was deliberately mismatched in round 1).
+- (b) Second non-target review message `laterReviewMessage` id `"review-msg-99"` (`:48-62`), `type:"review"`, placed LAST in the thread messages array: `messages: [reviewMessage, anchoredMessage, laterReviewMessage]` (`:70`). The old "last review" loop iterated the array and kept the last `type:"review"` match → it would pick `"review-msg-99"`.
+- (c) Assertion `expect(resolvesMessageId).toBe("rev-1")` (`:169`).
+
+Discrimination proven by construction: under the OLD impl, the loop would set `reviewMessageId = "review-msg-99"` (last review in `[rev-1(review), anchored(plain), review-msg-99(review)]`), so the assertion `=== "rev-1"` would FAIL. Under the NEW impl it derives from route `reviewId = "rev-1"` and PASSES. The two ids are distinct and the non-target is positioned exactly where a last-review resolver trips. Not tautological — it is a real discriminating test.
+
+Note: `betId` now also matches the loader fixture call (`{ reviewId: "rev-1", betId: "bet-123" }`, asserted `:120`) — consistent, no contamination.
+
+NITs N1/N2 remain non-blocking and out of scope for this confirm.
+
+## VERDICT: DONE
+Both CRITICALs resolved. C1: `resolvesMessageId` derives from route `reviewId` (route param confirmed in scope); scan loop + false comment deleted. C2: test sets route id = target id, adds a last-positioned non-target review, asserts `=== "rev-1"` — genuinely fails the old impl, passes only the correct one.
