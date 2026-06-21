@@ -902,17 +902,9 @@ export default [
 	//   @lore AK7: This guard carries the static half of AC1 ("Kernel no longer
 	//   chooses"). The runtime half is the selectOwner seam itself. The selector
 	//   pattern `% <expr>.length` is the specific construct that bet-decomposition.ts
-	//   used for round-robin (`eligible[i % eligible.length]`).
-	//
-	//   @lore AK7: bet-decomposition.ts is temporarily exempted. Its internal
-	//   `insertProposedBetTasks` function still uses eligible[i % eligible.length]
-	//   for backward-compat with AK3 integration tests that call it directly
-	//   without a registered Strategy. Rewiring `insertProposedBetTasks` through
-	//   selectOwner requires either changing its signature (breaking AK3 tests,
-	//   which are frozen protected baselines) or registering a strategy in those
-	//   tests (which also requires touching them). Task AK7b should rewire
-	//   insertProposedBetTasks cleanly once the AK3 test fixture is updated to
-	//   register a strategy for the insertProposedBetTasks describe blocks.
+	//   used for round-robin (`eligible[i % eligible.length]`). bet-decomposition.ts
+	//   was previously exempted (TODO AK7b) — that exemption is removed now that
+	//   insertProposedBetTasks routes through selectOwner (AK7 Phase-4 fix).
 	//
 	// Guard 2 (AC2 absence — "no persona inspection in selection"):
 	//   Bans `systemPrompt` and `AGENTS.md` string literals in select-agent.ts.
@@ -924,9 +916,6 @@ export default [
 		ignores: [
 			// select-agent.ts is the ONLY place selection logic is permitted
 			"packages/server/src/services/select-agent.ts",
-			// @lore AK7: bet-decomposition.ts is temporarily exempted — see comment above.
-			// TODO AK7b: remove this exemption once insertProposedBetTasks is rewired.
-			"packages/server/src/services/bet-decomposition.ts",
 			// Test files are exempt
 			"packages/server/src/services/**/__tests__/**",
 		],

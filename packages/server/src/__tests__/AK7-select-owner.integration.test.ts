@@ -27,14 +27,16 @@
  *   4. resolves + validates the returned id (guard: active AI user)
  */
 
-import { bets, type HyperIdleDb, sessions, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type {
 	SelectAgentOutcome,
 	SelectAgentRequest,
 	Strategy,
 	WorkSelectionRequestedEvent,
 } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { insertProposedBetTasks } from "../services/bet-decomposition.js";
 // Import the function that does not exist yet — intentional red-phase failure.
 import { selectOwner } from "../services/select-agent.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -337,23 +339,29 @@ describe("AK7: selectOwner — Minimal Strategy single-agent (AC3, scenario 1)",
 });
 
 // ---------------------------------------------------------------------------
-// AC3 — Fabric Strategy bet_task spread regression via selectOwner
+// AC3 — Fabric Strategy bet_task spread regression via the production flow
 // Team with 2 agents ordered by users.id [A, B].
-// 3 calls to selectOwner with spreadIndex 0,1,2 and no roleHint → [A,B,A].
+// 3 ownerRole=null tasks through insertProposedBetTasks → selectOwner →
+// selectAgent(spreadIndex 0,1,2) → DB ownerAgentIds = [A,B,A].
 //
-// This is the integration-level golden test: proves selectOwner passes spreadIndex
-// through to selectAgent, and candidates are ordered by users.id.
-// The unit-level golden (exact spread formula) lives in AK7-agent-selection.test.ts.
+// W-2 fix (AK7 Phase-4): repointed from inline selectOwner calls + fabricLike stub
+// to the rewired production flow (insertProposedBetTasks). This proves the live
+// round-robin ([A,B,A]) goes through the seam end-to-end, not just that selectOwner
+// passes spreadIndex through in isolation.
+//
+// The pure-unit golden in AK7-agent-selection.test.ts stays as-is — it tests
+// selectAgentFabric directly and distinguishes [A,B,A] from [A,A,A].
 // ---------------------------------------------------------------------------
 
-describe("AK7: selectOwner spread regression — 2 candidates, 3 calls → [A,B,A] (AC3 golden)", () => {
+describe("AK7: bet_task spread regression via production flow — 2 candidates, 3 tasks → [A,B,A] (AC3 golden)", () => {
 	afterEach(() => clearActiveStrategy());
 
-	test("protected golden: selectOwner with spreadIndex 0,1,2 → candidates[i%2] = [A,B,A]", async ({
+	test("protected golden: insertProposedBetTasks 3 ownerRole=null tasks → DB ownerAgentIds = [A,B,A]", async ({
 		db,
 		eventBus,
 	}) => {
 		// Ids chosen so agentAId < agentBId lexicographically → A is candidates[0].
+		// enumerateTeamCandidates uses orderBy(users.id) — A always first.
 		const agentAId = "agent-aaaaa";
 		const agentBId = "agent-bbbbb";
 
@@ -361,8 +369,16 @@ describe("AK7: selectOwner spread regression — 2 candidates, 3 calls → [A,B,
 		await db.insert(teamMembers).values(makeMembership("tm-golden", "team-golden"));
 		await db.insert(users).values(makeAiAgent(agentAId, "builder", "tm-golden"));
 		await db.insert(users).values(makeAiAgent(agentBId, "growth", "tm-golden"));
+		await db.insert(bets).values({
+			id: "bet-golden",
+			teamId: "team-golden",
+			description: "Golden spread bet",
+			status: "active",
+			createdAt: NOW,
+		});
 
 		// Install Fabric-like selectAgent that does spread (candidates[spreadIndex % len]).
+		// This is the exact same logic as the Fabric's bet_task branch (concept §6.2).
 		const fabricLike = vi.fn(
 			async (req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> => {
 				if (req.surface === "bet_task") {
@@ -375,6 +391,10 @@ describe("AK7: selectOwner spread regression — 2 candidates, 3 calls → [A,B,
 					const idx = (req.spreadIndex ?? 0) % len;
 					return { agentId: req.candidates[idx]?.agentId ?? null };
 				}
+				if (req.surface === "bet_decomposer") {
+					const chosen = req.candidates[0];
+					return { agentId: chosen?.agentId ?? null };
+				}
 				return { agentId: null };
 			},
 		);
@@ -386,45 +406,33 @@ describe("AK7: selectOwner spread regression — 2 candidates, 3 calls → [A,B,
 			selectAgent: fabricLike,
 		});
 
-		// 3 selectOwner calls with spreadIndex 0,1,2 — simulating per-task loop
-		const results = await Promise.all([
-			selectOwner(
-				{ db, eventBus },
-				{
-					surface: "bet_task",
-					teamId: "team-golden",
-					workKey: "bet-golden",
-					roleHint: null,
-					spreadIndex: 0,
-				},
-			),
-			selectOwner(
-				{ db, eventBus },
-				{
-					surface: "bet_task",
-					teamId: "team-golden",
-					workKey: "bet-golden",
-					roleHint: null,
-					spreadIndex: 1,
-				},
-			),
-			selectOwner(
-				{ db, eventBus },
-				{
-					surface: "bet_task",
-					teamId: "team-golden",
-					workKey: "bet-golden",
-					roleHint: null,
-					spreadIndex: 2,
-				},
-			),
-		]);
+		// Run the production decomposition insert: 3 tasks, all ownerRole=null.
+		// Forces the spread branch every time (roleHint=null → no short-circuit).
+		// insertProposedBetTasks calls selectOwner({surface:'bet_task', spreadIndex:i})
+		// for each task — the live round-robin path.
+		await insertProposedBetTasks(
+			{ db, eventBus },
+			{ id: "bet-golden", teamId: "team-golden" },
+			[], // _eligible ignored — selectOwner enumerates internally (AK7)
+			[
+				{ title: "Task 0", ownerRole: undefined },
+				{ title: "Task 1", ownerRole: undefined },
+				{ title: "Task 2", ownerRole: undefined },
+			],
+		);
+
+		// Read the inserted tasks ordered by title (Task 0,1,2) to get loop order.
+		const inserted = await db
+			.select({ ownerAgentId: tasks.ownerAgentId, title: tasks.title })
+			.from(tasks)
+			.where(eq(tasks.betId, "bet-golden"));
+		inserted.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? ""));
 
 		// Pinned order by users.id: A < B → candidates = [A, B]
 		// i=0: 0%2=0 → A; i=1: 1%2=1 → B; i=2: 2%2=0 → A
-		expect(results[0]).toBe(agentAId);
-		expect(results[1]).toBe(agentBId);
-		expect(results[2]).toBe(agentAId);
+		expect(inserted[0]?.ownerAgentId).toBe(agentAId);
+		expect(inserted[1]?.ownerAgentId).toBe(agentBId);
+		expect(inserted[2]?.ownerAgentId).toBe(agentAId);
 	});
 });
 
