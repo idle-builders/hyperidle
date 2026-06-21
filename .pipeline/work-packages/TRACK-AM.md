@@ -214,3 +214,56 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 **Out of scope.** The capability descriptor itself (AM2). The dial-in surface (AM3). The conversation (AM1). Credential storage mechanics beyond surfacing auth status.
 
 **Effort.** L (~4d)
+
+---
+
+### AM5 — Standardized artifact-view family & open/routing contract
+
+**Workpackage.** As a person working anywhere in HyperIdle — a conversation, a bet, a knowledge doc, a review — I want every reference to an artifact, a block, or a review to open the *same recognizable view, reached the same way*, so that "open this" always lands me somewhere consistent and I never meet a one-off viewer or wonder where a chip will take me. Today the same artifact can render through several unrelated surfaces; this unifies them into one standardized artifact-view family and one contract that resolves any reference (artifact / block / review), from any surface, to its correct destination view.
+
+**Why this matters.** The founder hit this directly while designing AM1: a referenced block opened a bespoke panel instead of the Knowledge view, and "we don't have standardized artifact views figured out." Right now the same artifact/block can render through the L3 `ArtifactView`, the `ArtifactPermalink` page, the review proof-canvases, and the Knowledge body — several surfaces with no shared contract for *which view opens for which reference, from where*. The founder and every user who opens an artifact/block/review from any surface get one consistent experience instead of several, and every workstream that links to an artifact stops hand-rolling its own viewer and routing (as AM1 just had to). Cost of not building it: each surface keeps reinventing viewers and routing, the experience drifts per surface, and "open" stays unpredictable.
+
+**What exists today.** The L3 Artifact primitive (`docs/process-layer/artifact-primitive.md`) defines a closed view family (`gallery_card`, `stack_item`, `single_full_preview`, `review_message_embed`) and a kind set (`text/code/image/data/html/url`). `packages/web/src/shell/ArtifactView.tsx` and `packages/web/src/pages/ArtifactPermalink.tsx` render artifacts. The review experience (AL2) added a parallel proof-canvas family in `packages/web/src/pages/review/` (`ReviewCodeDiff`, `ReviewVisualDiff`, `ReviewMetricsMoved`, `ReviewRenderedInContext`, … via `canvas-registry.ts` / `review-canvas.tsx`), oriented around diffs/comparison. Knowledge bodies render blocks via `packages/web/src/pages/KnowledgeDetail.tsx` + `pages/knowledge/KnowledgeBody.tsx`; the Block primitive (`docs/blocks/`) defines those markdown regions. These surfaces overlap but share no single contract for which view a reference opens, or from where.
+
+**What's genuinely missing.** One standardized artifact-view family that every surface renders through, and one open/routing contract that resolves a reference — artifact, block, or review — to the right destination view from any caller, so a chip in a conversation, a bet, a knowledge doc, or a review all open the same view the same way.
+
+**Depends on.** None — the surfaces it consolidates (the L3 `ArtifactView`, `ArtifactPermalink`, the review proof-canvases, the Knowledge view) are already shipped on `main`. AM1 surfaced the need and will consume the contract (its chips are already written as hooks awaiting it), but does not block this WP.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Concept:** `Required — run /concept AM5 first.` It reconciles the artifact-view-family vocabulary (the L3 closed family vs the review proof-canvas family) and introduces the **open/routing contract** (which view opens for which reference, from any surface) — load-bearing nouns that must be locked before architecture. Reconcile with `docs/process-layer/artifact-primitive.md` and `docs/blocks/`.
+- **Design:** `Required — standardized viewing surface whose form is genuinely open ("what do artifact views look like"); /design multi-variant + human review.` Carries the design-exploration axes below (do NOT pre-resolve them).
+
+**Human design review.** Yes — decides the shape of a base/primitive viewing family used across the whole app.
+
+Design-exploration axes (carried, decided by rendered variants):
+1. How a standardized artifact view renders per kind, and how the review/diff canvases relate to it (one family with review-context variants vs separate-but-consistent families).
+2. How a reference opens — full-page navigation vs a side/right surface vs both-per-context (quick-look vs full).
+
+**Acceptance criteria.**
+- Opening an artifact reference from any surface (conversation, bet, knowledge, review) lands the user in the same recognizable view appropriate to that artifact's kind.
+- Opening a block reference lands the user in the Knowledge view, positioned at that block — not a one-off viewer.
+- Opening a review reference lands the user in the review experience for that review.
+- An artifact reads consistently between its inline reference and its opened view (same identity, kind, and content).
+- A reference whose target kind/view is unknown opens a clear fallback rather than a blank or a crash.
+- The same artifact/block/review opens identically regardless of which surface the reference appeared on.
+
+**Validation scenarios.**
+- Given an artifact referenced in a conversation and the same artifact referenced on its bet, when each is opened, then both land in the same view showing identical kind/identity/content.
+- Given a block referenced in a conversation, when opened, then the Knowledge view opens positioned at that block.
+- Given a review referenced in a conversation, when opened, then the review experience opens for that review.
+- Given a reference whose kind has no registered view, when opened, then a fallback view renders (no blank, no crash).
+
+**Plan calls.** Concept-introducing and consolidation-heavy — run `/concept AM5` first (lock the unified artifact-view family + the open/routing contract). Then `/design` (multi-variant, carrying the view-family-shape and open-affordance axes) → `/human-design-review`. Standard `/architecture` after the design locks. Likely splits during `/architecture` into a routing/contract layer and the standardized view-family surface — that's expected.
+
+**Contracts / constraints.**
+- Honor the L3 Artifact primitive invariants: kind determines the renderer; labels never affect rendering; unregistered kinds render a fallback (never crash, never blank).
+- A block is a derived region of a markdown body — opening a block resolves to the Knowledge view; blocks are derived, never stored, so there is no standalone block-viewer surface.
+- One open/routing contract resolves a reference to its destination view; no surface defines its own artifact/block/review viewer.
+- No change to the Artifact or Block primitives' data shapes; no new on-disk format.
+- No color/token changes — Hearth tokens unchanged.
+
+**Out of scope.** The AM1 conversation rendering (consumes the contract via its chips; does not define the views). The review decision flow and verdict semantics (owned by the review experience / AL). New artifact kinds (the L3 primitive's concern). Backend/credential/auth changes.
+
+**Effort.** L (~5d)
