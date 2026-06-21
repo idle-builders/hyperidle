@@ -26,11 +26,18 @@ import {
 	EmptyState,
 	ErrorState,
 	PageHeader,
+	ReferenceChip,
 	SkeletonList,
 	Tag,
 	ThreadShell,
 } from "@hyperidle/design-system";
-import type { ArtifactRef, ArtifactViewShape, BlockRef, InlineRef } from "@hyperidle/shared";
+import type {
+	ArtifactRef,
+	ArtifactViewShape,
+	BlockRef,
+	InlineRef,
+	OpenHandler,
+} from "@hyperidle/shared";
 import {
 	type JSX,
 	type ReactNode,
@@ -41,7 +48,6 @@ import {
 	useState,
 } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
@@ -50,6 +56,7 @@ import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
+import { createOpenHandler } from "../services/open-handler.js";
 import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
@@ -58,23 +65,31 @@ import { ToastContext } from "../shell/ToastRegion";
 // matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
 
 /**
- * T4: renderRefEmbeds for Conversations — builds BlockRefEmbed cards for block refs.
+ * AM1: render block references as TITLE-ONLY ReferenceChips that route to the
+ * block's HOST surface through the OpenTarget seam (the approved design — the
+ * conversation owns no inline viewer; a block chip opens its host, not a heavy
+ * resolving embed). C1: the host target is total over BlockHostKind via the
+ * page's createOpenHandler → resolveHostRoute.
  *
- * @lore T4: Wired in Conversations.tsx (not HostThreadSection) per reviewer critique.
- * Conversations is a ThreadShell consumer and the right place to inject the
- * web-layer BlockRefEmbed component.
+ * @lore AM1: supersedes the T4 heavy `BlockRefEmbed` render path in the
+ * conversation. `BlockRefEmbed` itself is left in place for any non-AM1 consumer
+ * (it is not deleted); AM1 simply no longer wires it into the conversation.
  */
-function renderRefEmbedsForConversations(refs: ReadonlyArray<InlineRef>): ReactNode {
+function renderRefEmbedsForConversations(
+	refs: ReadonlyArray<InlineRef>,
+	onOpen: OpenHandler,
+): ReactNode {
 	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
 	if (blockRefs.length === 0) return null;
 	return (
-		<div className="flex flex-col gap-1 mt-1">
+		<div className="flex flex-wrap items-center gap-[6px] mt-[6px]">
 			{blockRefs.map((r) => (
-				<BlockRefEmbed
+				<ReferenceChip
 					key={`${r.blockId}-${r.hostId}`}
-					blockId={r.blockId}
-					hostKind={r.hostKind}
-					hostId={r.hostId}
+					kind="block"
+					label={r.blockId}
+					mode="posted"
+					onOpen={() => onOpen({ route: "host", hostKind: r.hostKind, hostId: r.hostId })}
 				/>
 			))}
 		</div>
@@ -193,6 +208,13 @@ function classifyHttpError(status: number): string {
 
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, retry } = useThreadDetail(threadId);
+	const navigate = useNavigate();
+	// AM1: the OpenTarget routing seam. Reference/host navigation flows through
+	// the one `OpenHandler` (createOpenHandler) — the same descriptor-driven seam
+	// the PartList renderer uses — instead of ad-hoc navigate() calls. host
+	// targets resolve through the existing resolveHostRoute (total over
+	// BlockHostKind); user/factory are documented no-ops.
+	const openTarget = createOpenHandler(navigate);
 	const hintReviewVerdict = useHint("review-verdict");
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
@@ -349,7 +371,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						identities={data.identities}
 						artifactSlot={resolveArtifactSlot}
 						onAppendMessage={onAppend}
-						renderRefEmbeds={renderRefEmbedsForConversations}
+						renderRefEmbeds={(refs) => renderRefEmbedsForConversations(refs, openTarget)}
 						hideHostBanner={true}
 					/>
 				</div>
@@ -427,7 +449,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					identities={data.identities}
 					artifactSlot={resolveArtifactSlot}
 					onAppendMessage={onAppend}
-					renderRefEmbeds={renderRefEmbedsForConversations}
+					renderRefEmbeds={(refs) => renderRefEmbedsForConversations(refs, openTarget)}
 					hideHostBanner={true}
 				/>
 			</div>
