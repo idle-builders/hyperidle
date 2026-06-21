@@ -43,7 +43,13 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		const onOpen = vi.fn();
 		const onRemove = vi.fn();
 		render(
-			<ReferenceChip kind="artifact" label="x.ts" mode="posted" onOpen={onOpen} onRemove={onRemove} />,
+			<ReferenceChip
+				kind="artifact"
+				label="x.ts"
+				mode="posted"
+				onOpen={onOpen}
+				onRemove={onRemove}
+			/>,
 		);
 		// No remove affordance in posted mode.
 		expect(screen.queryByLabelText(/remove/i)).toBeNull();
@@ -57,7 +63,13 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		const onOpen = vi.fn();
 		const onRemove = vi.fn();
 		render(
-			<ReferenceChip kind="image" label="auth-flow.png" mode="draft" onOpen={onOpen} onRemove={onRemove} />,
+			<ReferenceChip
+				kind="image"
+				label="auth-flow.png"
+				mode="draft"
+				onOpen={onOpen}
+				onRemove={onRemove}
+			/>,
 		);
 		const remove = screen.getByLabelText(/remove/i);
 		fireEvent.click(remove);
@@ -74,7 +86,7 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 	});
 
 	it("renders a label containing markup as TEXT, not HTML (§8 injection guard)", () => {
-		render(<ReferenceChip kind="block" label={"<img src=x onerror=1>"} mode="posted" />);
+		render(<ReferenceChip kind="block" label="<img src=x onerror=1>" mode="posted" />);
 		// No injected <img> — React escapes the label to text.
 		expect(document.querySelector("img")).toBeNull();
 		expect(screen.getByText("<img src=x onerror=1>")).toBeDefined();

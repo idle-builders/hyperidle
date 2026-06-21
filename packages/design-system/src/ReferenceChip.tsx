@@ -31,7 +31,8 @@ export interface ReferenceChipProps {
 
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
 const ICON: Record<ReferenceChipKind, string> = {
-	artifact: "M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z",
+	artifact:
+		"M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z",
 	image:
 		"M2.5 2.5h11a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1zm0 1.5v6.1l3-3 2.2 2.2L11 5.3l3 3V4H2.5zM5.3 5a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z",
 	knowledge:
@@ -101,7 +102,12 @@ export function ReferenceChip({
 
 	// draft mode — body = open, trailing ✕ = remove (two distinct hit targets).
 	return (
-		<span {...dsProps("ReferenceChip", "1")} data-ds-mode="draft" data-ds-kind={kind} className={SHELL}>
+		<span
+			{...dsProps("ReferenceChip", "1")}
+			data-ds-mode="draft"
+			data-ds-kind={kind}
+			className={SHELL}
+		>
 			<button
 				type="button"
 				onClick={onOpen}

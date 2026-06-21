@@ -13,14 +13,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Message } from "../thread.js";
 // RED: green-phase exports.
-import {
-	type Part,
-	PART_KINDS,
-	derivePartsFromMessages,
-	derivePartsFromSession,
-} from "../part.js";
+import { derivePartsFromMessages, derivePartsFromSession, PART_KINDS, type Part } from "../part.js";
+import type { Message } from "../thread.js";
 
 const IDENTITIES = [{ id: "a-atlas", name: "Atlas", isAgent: true, isMe: false }];
 

@@ -32,7 +32,12 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 					title="Quick ask"
 					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 				>
-					<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 13, height: 13 }} aria-hidden="true">
+					<svg
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						style={{ width: 13, height: 13 }}
+						aria-hidden="true"
+					>
 						<path d={ICON_QUESTION} />
 					</svg>
 				</span>

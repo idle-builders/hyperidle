@@ -33,7 +33,12 @@ export function ReviewRequestPart({
 					title="Review request"
 					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 				>
-					<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }} aria-hidden="true">
+					<svg
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						style={{ width: 12, height: 12 }}
+						aria-hidden="true"
+					>
 						<path d={ICON_CHECK} />
 					</svg>
 				</span>
@@ -56,7 +61,12 @@ export function ReviewRequestPart({
 					className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
 				>
 					Open review
-					<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }} aria-hidden="true">
+					<svg
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						style={{ width: 12, height: 12 }}
+						aria-hidden="true"
+					>
 						<path d={ICON_ARROW} />
 					</svg>
 				</button>

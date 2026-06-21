@@ -18,8 +18,8 @@
  * (green-phase tasks 5-6).
  */
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { Embed, Part } from "@hyperidle/shared";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PartList } from "../components/PartList";
 
@@ -56,7 +56,11 @@ const artifactEmbed: Embed = {
 	meta: "+2 −1",
 	target: { route: "artifact", artifactId: "art-1" },
 };
-const sessionEmbed: Embed = { kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" };
+const sessionEmbed: Embed = {
+	kind: "session-reference",
+	sessionId: "s-1",
+	summary: "Worked for 1m 12s",
+};
 
 // ── AC1 — calm author-grouped column ─────────────────────────────
 
@@ -250,7 +254,11 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 			/>,
 		);
 		fireEvent.click(screen.getByText("Auth migration plan · §2"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "host", hostKind: "knowledge_item", hostId: "k-1" });
+		expect(onOpen).toHaveBeenCalledWith({
+			route: "host",
+			hostKind: "knowledge_item",
+			hostId: "k-1",
+		});
 	});
 
 	it("clicking a BET-hosted block chip fires onOpen({route:host,bet}) (C1 — non-knowledge case)", () => {

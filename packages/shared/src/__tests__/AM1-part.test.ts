@@ -19,22 +19,17 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type {
-	BlockRef,
-	EntityRef,
-	Message,
-	MentionRef,
-} from "../thread.js";
 // RED: `../part.js` does not exist yet (green-phase task 1).
 import {
-	type Embed,
-	EMBED_KINDS,
-	type OpenTarget,
-	type PartAuthor,
-	PART_KINDS,
 	derivePartsFromMessages,
+	EMBED_KINDS,
+	type Embed,
 	groupParts,
+	type OpenTarget,
+	PART_KINDS,
+	type PartAuthor,
 } from "../part.js";
+import type { BlockRef, EntityRef, MentionRef, Message } from "../thread.js";
 
 // ── Fixture helpers ──────────────────────────────────────────────
 
@@ -97,15 +92,7 @@ describe("AM1 PART_KINDS — closed render vocabulary (AC4)", () => {
 describe("AM1 EMBED_KINDS — closed Embed target set", () => {
 	it("is the locked closed set incl. unknown (W5)", () => {
 		expect([...EMBED_KINDS].sort()).toEqual(
-			[
-				"artifact",
-				"block",
-				"diff",
-				"session-reference",
-				"entity-ref",
-				"mention",
-				"unknown",
-			].sort(),
+			["artifact", "block", "diff", "session-reference", "entity-ref", "mention", "unknown"].sort(),
 		);
 	});
 });
@@ -114,7 +101,11 @@ describe("AM1 EMBED_KINDS — closed Embed target set", () => {
 
 describe("AM1 derivePartsFromMessages — plain → prose (AC3)", () => {
 	it("maps a plain message to a prose Part carrying its text", () => {
-		const parts = derivePartsFromMessages([plain("m1", "u-me", "hello world")], VIEWER_ID, IDENTITIES);
+		const parts = derivePartsFromMessages(
+			[plain("m1", "u-me", "hello world")],
+			VIEWER_ID,
+			IDENTITIES,
+		);
 		expect(parts).toHaveLength(1);
 		const p = parts[0];
 		expect(p?.kind).toBe("prose");
@@ -180,7 +171,11 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 			hostKind: "knowledge_item",
 			hostId: "k-1",
 		};
-		const parts = derivePartsFromMessages([plain("m1", "u-me", "see", [ref])], VIEWER_ID, IDENTITIES);
+		const parts = derivePartsFromMessages(
+			[plain("m1", "u-me", "see", [ref])],
+			VIEWER_ID,
+			IDENTITIES,
+		);
 		const blockEmbeds = (parts[0]?.embeds ?? []).filter((e) => e.kind === "block");
 		expect(blockEmbeds).toHaveLength(1);
 		const be = blockEmbeds[0];
@@ -191,7 +186,11 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 
 	it("a bet-hosted block → block Embed with {route:host,bet} (the non-knowledge case, C1)", () => {
 		const ref: BlockRef = { kind: "block", blockId: "blk:v1:b", hostKind: "bet", hostId: "bet-9" };
-		const parts = derivePartsFromMessages([plain("m1", "u-me", "see", [ref])], VIEWER_ID, IDENTITIES);
+		const parts = derivePartsFromMessages(
+			[plain("m1", "u-me", "see", [ref])],
+			VIEWER_ID,
+			IDENTITIES,
+		);
 		const be = (parts[0]?.embeds ?? []).find((e) => e.kind === "block");
 		if (be?.kind === "block") {
 			expect(be.target).toEqual({ route: "host", hostKind: "bet", hostId: "bet-9" });
@@ -201,7 +200,12 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 	});
 
 	it("a task-hosted block keys the host target to its own hostKind/hostId (C1 totality)", () => {
-		const ref: BlockRef = { kind: "block", blockId: "blk:v1:t", hostKind: "task", hostId: "task-3" };
+		const ref: BlockRef = {
+			kind: "block",
+			blockId: "blk:v1:t",
+			hostKind: "task",
+			hostId: "task-3",
+		};
 		const parts = derivePartsFromMessages([plain("m1", "u-me", "x", [ref])], VIEWER_ID, IDENTITIES);
 		const be = (parts[0]?.embeds ?? []).find((e) => e.kind === "block");
 		if (be?.kind === "block") {
@@ -279,7 +283,12 @@ describe("AM1 message-type mapping (AC3)", () => {
 	};
 
 	const questionnaire: Message = {
-		...base({ id: "q1", senderId: "a-atlas", type: "questionnaire", createdAt: "2026-06-17T10:01:00.000Z" }),
+		...base({
+			id: "q1",
+			senderId: "a-atlas",
+			type: "questionnaire",
+			createdAt: "2026-06-17T10:01:00.000Z",
+		}),
 		type: "questionnaire",
 		payload: { title: "Pick one", question: "Which DB?", options: ["Postgres", "SQLite"] },
 	};
@@ -324,7 +333,12 @@ describe("AM1 message-type mapping (AC3)", () => {
 			resolvedAt: "2026-06-17T10:05:00.000Z",
 		};
 		const verdict: Message = {
-			...base({ id: "vd1", senderId: "u-me", type: "verdict", createdAt: "2026-06-17T10:05:00.000Z" }),
+			...base({
+				id: "vd1",
+				senderId: "u-me",
+				type: "verdict",
+				createdAt: "2026-06-17T10:05:00.000Z",
+			}),
 			type: "verdict",
 			payload: { decision: "approve", resolvesMessageId: "rv2" },
 		};
@@ -471,7 +485,11 @@ describe("AM1 OpenTarget discriminant", () => {
 	});
 
 	it("a block Embed is the inline reference primitive (Embed type compiles)", () => {
-		const e: Embed = { kind: "block", title: "Auth plan · §2", target: { route: "host", hostKind: "knowledge_item", hostId: "k-1" } };
+		const e: Embed = {
+			kind: "block",
+			title: "Auth plan · §2",
+			target: { route: "host", hostKind: "knowledge_item", hostId: "k-1" },
+		};
 		expect(e.kind).toBe("block");
 	});
 });

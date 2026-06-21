@@ -26,13 +26,7 @@
 
 import type { BlockHostKind } from "./blocks/types.js";
 // The adapter body (and ONLY the adapter body) imports the source types.
-import type {
-	ArtifactRef,
-	EntityRef,
-	InlineRef,
-	Message,
-	VerdictPayload,
-} from "./thread.js";
+import type { ArtifactRef, EntityRef, InlineRef, Message, VerdictPayload } from "./thread.js";
 import { exhaustiveAssert, isRedactedPayload, verdictDecisionLabel } from "./thread.js";
 
 // ── Part discriminant (closed, derived, never stored) ───────────────
@@ -111,9 +105,19 @@ export const EMBED_KINDS = [
 export type EmbedKind = (typeof EMBED_KINDS)[number];
 
 export type Embed =
-	| { readonly kind: "artifact"; readonly label: string; readonly meta?: string; readonly target: OpenTarget }
+	| {
+			readonly kind: "artifact";
+			readonly label: string;
+			readonly meta?: string;
+			readonly target: OpenTarget;
+	  }
 	| { readonly kind: "block"; readonly title: string; readonly target: OpenTarget }
-	| { readonly kind: "diff"; readonly label: string; readonly meta: string; readonly target: OpenTarget }
+	| {
+			readonly kind: "diff";
+			readonly label: string;
+			readonly meta: string;
+			readonly target: OpenTarget;
+	  }
 	| { readonly kind: "session-reference"; readonly sessionId: string; readonly summary?: string }
 	| {
 			readonly kind: "entity-ref";

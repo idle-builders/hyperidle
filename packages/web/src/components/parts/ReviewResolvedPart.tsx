@@ -31,7 +31,12 @@ export function ReviewResolvedPart({
 			className="flex items-center gap-[9px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
 		>
 			<span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[var(--status-success)]">
-				<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 14, height: 14 }} aria-hidden="true">
+				<svg
+					viewBox="0 0 16 16"
+					fill="currentColor"
+					style={{ width: 14, height: 14 }}
+					aria-hidden="true"
+				>
 					<path d={ICON_CHECK} />
 				</svg>
 			</span>
@@ -47,7 +52,12 @@ export function ReviewResolvedPart({
 				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-primary)]"
 			>
 				View review
-				<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 11, height: 11 }} aria-hidden="true">
+				<svg
+					viewBox="0 0 16 16"
+					fill="currentColor"
+					style={{ width: 11, height: 11 }}
+					aria-hidden="true"
+				>
 					<path d={ICON_ARROW} />
 				</svg>
 			</button>
