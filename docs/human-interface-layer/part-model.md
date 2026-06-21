@@ -23,7 +23,9 @@ Ground truth for how a **Conversation** reads and the **Part model** it renders 
 
 **Part.** One typed rendering unit. A Part is **source-agnostic**: a *Message* renders to a Part (the Conversation), and a *session activity event* (`HarnessEvent` / `CapturedToolCall`) renders to a Part (the session view). That agnosticism is the whole point — it is why the lower-level session view (AM3) reuses this structure instead of re-implementing it. Part kinds are closed (exhaustive discriminant + `unknown` fallback, like a Block's `unknown` kind).
 
-**Embed.** A Part (or in-Part element) that renders a referenced thing inline — a compact card/chip, not a bare link. **Embedding model (closed):** `artifact` (`ArtifactEmbed`), `block` (`BlockRefEmbed`), `diff` (compact `+N/−M` card; fuller detail opens elsewhere, never as a wall), `session-reference`, plus inline `entity-ref` / `mention` (`EntityRef`, `MentionRef`). Embeds degrade safely when the source is gone.
+**As built.** The Part vocabulary, the Embed/OpenTarget types, and both adapters live in `packages/shared/src/part.ts`; the renderer lives in `packages/web/src/components/PartList.tsx` (+ per-kind `parts/*`). Part kinds are the closed list `prose | review | resolved | questionnaire | unknown`. The render vocabulary is deliberately decoupled from the message-type vocabulary — a `plain` message maps to a `prose` Part, so a session event that reads as text is also a `prose` Part (this is what keeps the renderer source-agnostic).
+
+**Embed.** A Part (or in-Part element) that renders a referenced thing inline — a compact card/chip, not a bare link. **Embedding model (closed set, as built):** `artifact` · `block` · `diff` · `session-reference` · `entity-ref` · `mention` · `unknown`. Each carries an `OpenTarget` descriptor (except `mention`, which renders inline, and `unknown`, which does not navigate). Embeds degrade safely when the source is gone — a referenced thing with no destination route (e.g. a `message` entity-ref, for which no permalink route exists) collapses to the non-navigating `unknown` Embed rather than throwing.
 
 **Fold.** The collapse-to-summary device on a Part — a completed/long unit shows a one-line summary ("Worked for 17s") and re-expands. UI-local state; never persisted. The single most important calm-making device.
 
@@ -32,7 +34,7 @@ Ground truth for how a **Conversation** reads and the **Part model** it renders 
 ## Contracts
 
 - **Cardinality.** Conversation ↔ Thread is 1:1. Message → exactly one Part. Part → zero-or-more Embeds. Embed → exactly one referenced entity. Session reference → exactly one Session.
-- **Closure.** Part kinds closed (concept-doc update to add). Embed target kinds closed: `artifact | block | diff | session-reference | entity-ref | mention`.
+- **Closure.** Part kinds closed (concept-doc update to add): `prose | review | resolved | questionnaire | unknown`. Embed target kinds closed: `artifact | block | diff | session-reference | entity-ref | mention | unknown`.
 - **Mutability.** Parts and Folds are derived, never stored — no `part` table/column; Fold state is UI-local. Message/Thread rows stay the sole source of truth.
 - **Identity.** A Part's identity derives from its source (Message id, or session-event identity). No new opaque id minted.
 - **Hard rules.**
@@ -43,10 +45,23 @@ Ground truth for how a **Conversation** reads and the **Part model** it renders 
   5. Thread / Message / verdict semantics unchanged.
   6. No color/token changes — Hearth palette + `AESTHETICS.md` tokens unchanged.
 
-## Where it renders
+## Where it renders (as built)
 
-The Conversations surface (`docs/information-architecture/conversations-view.md`); existing surface today is `ThreadShell` → `RichMessageCard` / `CommentRow` / `Composer` with `BlockRefEmbed` / `ArtifactEmbed`. AM1 factors these into the Part model; AM3's session dial-in reuses it. The everyday composer stays for deliberate messages (with embedding affordances) — session dial-in pills (model/effort/mode/permission) are the lower-level AM3 surface, not the conversation composer. The approved AM1 design is the **Conversation Surface** (`packages/web/src/components/ConversationSurface.tsx`, story `Conversation Surface`).
+The live Conversations surface (`packages/web/src/pages/Conversations.tsx`) renders **`ConversationSurface`** (header · author-grouped Part column · unified-"+" composer). It calls `derivePartsFromMessages(messages, viewerId, identities)` and feeds the result to **`PartList`** — the same source-agnostic renderer the design story and the AM3 session view consume. `ThreadShell` / `RichMessageCard` and the inline-verdict path are gone from this surface.
+
+`PartList` is the AM1↔AM3 reuse seam. Two adapters in `part.ts` produce the same `Part[]`: `derivePartsFromMessages` (the Conversation) and `derivePartsFromSession` (a stub today, the seam AM3 fills in). The renderer imports `Part` only — never `Message` or any source type — and that import boundary is enforced by an ESLint `no-restricted-imports` rule scoped to `PartList.tsx` + `parts/**`, so AM3 adds its adapter without touching the renderer.
+
+The everyday composer stays for deliberate messages (one unified "+" tools menu, draft reference chips, one Send). Session dial-in pills (model/effort/mode/permission) are the lower-level AM3 surface, not the conversation composer.
 
 ## Open / routing (the conversation owns no viewing surface)
 
-The conversation's reference chips/embeds and the review/session affordances are **hooks that open the respective views** — they do not render a viewer inline. Routing: **block → Knowledge view** (`KnowledgeDetail`), **artifact / change-set → Artifact view** (`ArtifactView` / artifact permalink), **review → review page** (the review experience / `ReviewComposition`), **session → the session dial-in (AM3)**. The conversation owns no viewing surface; the destination views are provided by existing surfaces + the **standardized artifact-view & open/routing contract (AM5)**. AM1's build wires these hooks to those routes; it does not build the destination views.
+The conversation's reference chips/embeds and the review/session affordances carry **`OpenTarget` descriptors** — typed routing intents, not navigate calls. `PartList` takes one `onOpen: OpenHandler` prop; the page binds it via `createOpenHandler(navigate, { betId })` (`packages/web/src/services/open-handler.ts`); the story binds it to `console.info`. The conversation owns no viewing surface — every affordance opens an existing destination view.
+
+| `OpenTarget.route` | Opens | Resolved path |
+|---|---|---|
+| `host` | the entity's **host surface** (block/knowledge/bet/task/artifact/agent) | `resolveHostRoute(hostKind, hostId)` — total over `BlockHostKind`; `user` is a documented no-op |
+| `artifact` | Artifact view | `/artifacts/:id` |
+| `review` | the review page | `/work/bet/:betId/review/:reviewId` |
+| `session` | the AM3 session dial-in | no route yet (no-op until AM3) |
+
+A **block** reference is title-only and routes to its **host surface** (the common case is a knowledge item → `/knowledge/:id`); the heavy resolving `BlockRefEmbed` is not what the conversation renders. Block-anchored navigation ("jump to §2") is unmet by destinations today and is deferred to the standardized open/routing contract (AM5). AM1 wires the hooks; it does not build the destination views.
