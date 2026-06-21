@@ -1,15 +1,11 @@
 /**
  * AH6 B2 — LLM Cassette: record/replay at the callLlm choke point.
  *
- * RED STUB — This file provides the correct type exports so TypeScript is happy,
- * but every function throws "not implemented" so unit tests FAIL correctly.
- * The green phase (B2) replaces this with the real implementation.
- *
  * Exports:
  *   - CassetteMissError — thrown when replay mode encounters a missing cassette key
  *   - buildCassetteKey — returns SHA-256 hex of canonical-JSON request hash
  *   - replayLlm — returns a recorded LlmResponse from in-memory entries
- *   - recordLlm — makes a real callLlm call and records the response
+ *   - recordLlm — makes a real callLlmDirect call and records the response
  *   - CassetteEntry — the entry shape stored in cassette JSON files
  *
  * @lore AH6: The interception point is AT the callLlm definition module
@@ -25,8 +21,11 @@
  * the web package.
  */
 
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { CallLlmOptions } from "./llm-client.js";
-import type { LlmResponse } from "./llm-types.js";
+import type { LlmContentBlock, LlmMessage, LlmResponse, LlmTextBlock, LlmToolDef, LlmToolResultBlock, LlmToolUseBlock } from "./llm-types.js";
 
 // ---------------------------------------------------------------------------
 // CassetteEntry — the shape stored in cassette JSON files
@@ -66,6 +65,110 @@ export class CassetteMissError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// Default values
+// ---------------------------------------------------------------------------
+
+const DEFAULT_MAX_TOKENS = 16_384;
+const DEFAULT_REPLAY_DELAY_MS = 80;
+
+// ---------------------------------------------------------------------------
+// Normalization helpers
+// ---------------------------------------------------------------------------
+
+/** Strip :nitro and other routing suffixes from model id */
+function stripRoutingSuffix(modelId: string): string {
+	// Strip trailing :suffix (e.g. :nitro, :route, :extended)
+	return modelId.replace(/:[^:]+$/, "");
+}
+
+/** ISO-8601 timestamp regex */
+const ISO_TS_RE =
+	/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})/g;
+
+/** Unix ms epoch — 13-digit numbers that look like timestamps */
+const MS_EPOCH_RE = /\b1[5-9]\d{11}\b/g;
+
+/** Agent id pattern — ast-<uuid> */
+const AGENT_ID_RE = /\bast-[0-9a-f-]{8,}\b/gi;
+
+/** UUID pattern */
+const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+function normalizeText(text: string): string {
+	return text
+		.replace(ISO_TS_RE, "__ts__")
+		.replace(MS_EPOCH_RE, "__ts__")
+		.replace(AGENT_ID_RE, "__agent__")
+		.replace(UUID_RE, "__uuid__");
+}
+
+/**
+ * Normalize message content for stable cassette keying.
+ * - tool_use id → positional token __tooluse_<n>__
+ * - tool_result toolUseId → positional token (parallel to tool_use)
+ * - timestamps, agent ids, uuids in text → normalized
+ */
+function normalizeMessages(messages: readonly LlmMessage[]): unknown[] {
+	// First pass: collect all tool_use ids in order across all messages
+	const toolUseIds: string[] = [];
+	for (const msg of messages) {
+		if (typeof msg.content !== "string") {
+			for (const block of msg.content) {
+				if (block.type === "tool_use") {
+					toolUseIds.push(block.id);
+				}
+			}
+		}
+	}
+
+	const idToToken = new Map<string, string>();
+	for (let i = 0; i < toolUseIds.length; i++) {
+		idToToken.set(toolUseIds[i]!, `__tooluse_${i}__`);
+	}
+
+	return messages.map((msg) => {
+		if (typeof msg.content === "string") {
+			return { role: msg.role, content: normalizeText(msg.content) };
+		}
+
+		const normalizedContent = msg.content.map((block: LlmContentBlock) => {
+			if (block.type === "text") {
+				const tb = block as LlmTextBlock;
+				return { type: "text", text: normalizeText(tb.text) };
+			}
+			if (block.type === "tool_use") {
+				const tu = block as LlmToolUseBlock;
+				return {
+					type: "tool_use",
+					id: idToToken.get(tu.id) ?? `__tooluse_unknown__`,
+					name: tu.name,
+					input: tu.input,
+				};
+			}
+			if (block.type === "tool_result") {
+				const tr = block as LlmToolResultBlock;
+				return {
+					type: "tool_result",
+					toolUseId: idToToken.get(tr.toolUseId) ?? `__tooluse_unknown__`,
+					content: normalizeText(tr.content),
+					isError: tr.isError,
+				};
+			}
+			return block;
+		});
+
+		return { role: msg.role, content: normalizedContent };
+	});
+}
+
+function normalizeTools(tools: readonly LlmToolDef[] | undefined): unknown[] {
+	if (!tools || tools.length === 0) return [];
+	return [...tools]
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => ({ name: t.name, inputSchema: t.inputSchema }));
+}
+
+// ---------------------------------------------------------------------------
 // buildCassetteKey — deterministic prompt hash
 // ---------------------------------------------------------------------------
 
@@ -82,13 +185,18 @@ export class CassetteMissError extends Error {
  *   - ast-<uuid> agent ids in text → __agent__
  *   - crypto.randomUUID() echoes in text → __uuid__
  *   - tool array is sorted by name (order-independent)
- *
- * RED STUB: throws until B2 implements the real hash.
  */
-export function buildCassetteKey(_options: CallLlmOptions): string {
-	throw new Error(
-		"AH6 RED STUB: buildCassetteKey not implemented. Implement llm-cassette.ts in the green phase (B2).",
-	);
+export function buildCassetteKey(options: CallLlmOptions): string {
+	const hashInput = {
+		model: stripRoutingSuffix(options.model.model),
+		system: options.system ?? "",
+		messages: normalizeMessages(options.messages),
+		tools: normalizeTools(options.tools),
+		maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+	};
+
+	const json = JSON.stringify(hashInput);
+	return crypto.createHash("sha256").update(json, "utf8").digest("hex");
 }
 
 // ---------------------------------------------------------------------------
@@ -106,16 +214,63 @@ export function buildCassetteKey(_options: CallLlmOptions): string {
  * The entries parameter is provided directly for unit tests (in-memory seam).
  * Production (via the dispatcher in llm-client.ts) passes entries loaded from
  * the cassette file at LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json.
- *
- * RED STUB: throws until B2 implements the real replay logic.
  */
 export async function replayLlm(
-	_options: CallLlmOptions,
-	_entries: CassetteEntry[],
+	options: CallLlmOptions,
+	entries: CassetteEntry[],
 ): Promise<LlmResponse> {
-	throw new Error(
-		"AH6 RED STUB: replayLlm not implemented. Implement llm-cassette.ts in the green phase (B2).",
-	);
+	const key = buildCassetteKey(options);
+
+	// Determine the cassette path for error reporting
+	const cassetteDir = process.env.LLM_CASSETTE_DIR ?? "<unknown>";
+	const scenario = process.env.LLM_CASSETTE_SCENARIO ?? "unknown";
+	const cassettePath = `${cassetteDir}/${scenario}.json`;
+
+	const entry = entries.find((e) => e.key === key);
+	if (!entry) {
+		throw new CassetteMissError(key, cassettePath);
+	}
+
+	// WARNING-1: Await the replay delay so the ThinkingRow is paintable
+	const delayMs = Number(process.env.LLM_REPLAY_DELAY_MS ?? DEFAULT_REPLAY_DELAY_MS);
+	const effectiveDelay = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : DEFAULT_REPLAY_DELAY_MS;
+	await new Promise<void>((resolve) => setTimeout(resolve, effectiveDelay));
+
+	return entry.response;
+}
+
+// ---------------------------------------------------------------------------
+// Cassette file loading
+// ---------------------------------------------------------------------------
+
+/**
+ * Load cassette entries from the file at LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json.
+ * Fails closed if LLM_CASSETTE_DIR is missing.
+ */
+export function loadCassetteEntries(): CassetteEntry[] {
+	const cassetteDir = process.env.LLM_CASSETTE_DIR;
+	if (!cassetteDir) {
+		throw new Error(
+			"[AH6] LLM_CASSETTE_MODE is set but LLM_CASSETTE_DIR is missing. " +
+				"Set LLM_CASSETTE_DIR to the cassette directory path.",
+		);
+	}
+	const scenario = process.env.LLM_CASSETTE_SCENARIO ?? "default";
+	const cassettePath = path.join(cassetteDir, `${scenario}.json`);
+
+	if (!fs.existsSync(cassettePath)) {
+		// Return empty array; replayLlm will throw CassetteMissError on first call
+		return [];
+	}
+
+	try {
+		const raw = fs.readFileSync(cassettePath, "utf-8");
+		return JSON.parse(raw) as CassetteEntry[];
+	} catch (err) {
+		throw new Error(
+			`[AH6] Failed to parse cassette file ${cassettePath}: ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -123,18 +278,89 @@ export async function replayLlm(
 // ---------------------------------------------------------------------------
 
 /**
+ * In-memory accumulator for recorded entries.
+ * Entries are flushed to disk at process exit.
+ *
+ * @lore AH6: Using a module-level Map means multiple calls within one process
+ * accumulate correctly. The flush writes all recorded entries at exit.
+ */
+const recordedEntries = new Map<string, CassetteEntry>();
+let recordFlushScheduled = false;
+
+function scheduleRecordFlush(): void {
+	if (recordFlushScheduled) return;
+	recordFlushScheduled = true;
+
+	function flush(): void {
+		const cassetteDir = process.env.LLM_CASSETTE_DIR;
+		if (!cassetteDir || recordedEntries.size === 0) return;
+
+		const scenario = process.env.LLM_CASSETTE_SCENARIO ?? "default";
+		const cassettePath = path.join(cassetteDir, `${scenario}.json`);
+
+		try {
+			// Load existing entries to merge/overwrite
+			let existing: CassetteEntry[] = [];
+			if (fs.existsSync(cassettePath)) {
+				try {
+					existing = JSON.parse(fs.readFileSync(cassettePath, "utf-8")) as CassetteEntry[];
+				} catch {
+					existing = [];
+				}
+			}
+
+			// Merge: recorded entries overwrite by key
+			const merged = new Map<string, CassetteEntry>();
+			for (const entry of existing) {
+				merged.set(entry.key, entry);
+			}
+			for (const [k, entry] of recordedEntries) {
+				merged.set(k, entry);
+			}
+
+			fs.mkdirSync(cassetteDir, { recursive: true });
+			fs.writeFileSync(cassettePath, JSON.stringify(Array.from(merged.values()), null, 2), "utf-8");
+			process.stdout.write(`[AH6] Cassette written: ${cassettePath} (${merged.size} entries)\n`);
+		} catch (err) {
+			process.stderr.write(
+				`[AH6] Failed to write cassette ${cassettePath}: ${err instanceof Error ? err.message : String(err)}\n`,
+			);
+		}
+	}
+
+	// Register SIGTERM/SIGINT/exit handlers for graceful flush
+	process.once("exit", flush);
+	process.once("SIGTERM", () => { flush(); process.exit(0); });
+	process.once("SIGINT", () => { flush(); process.exit(0); });
+}
+
+/**
  * Make a real LLM call via callLlmDirect and record the response.
  *
  * Appends/overwrites the cassette entry keyed by the request hash.
  * Flushed to LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json on process exit.
- *
- * RED STUB: throws until B2 implements the real record logic.
  */
 export async function recordLlm(
-	_options: CallLlmOptions,
-	_callLlmDirect: (options: CallLlmOptions) => Promise<LlmResponse>,
+	options: CallLlmOptions,
+	callLlmDirect: (options: CallLlmOptions) => Promise<LlmResponse>,
 ): Promise<LlmResponse> {
-	throw new Error(
-		"AH6 RED STUB: recordLlm not implemented. Implement llm-cassette.ts in the green phase (B2).",
-	);
+	const key = buildCassetteKey(options);
+	const response = await callLlmDirect(options);
+
+	// Store the request without sensitive fields (apiKey excluded from cassette)
+	const safeRequest: CallLlmOptions = {
+		...options,
+		model: {
+			...options.model,
+			apiKey: "__redacted__",
+		},
+	};
+
+	const entry: CassetteEntry = { key, request: safeRequest, response };
+	recordedEntries.set(key, entry);
+
+	// Schedule flush on process exit
+	scheduleRecordFlush();
+
+	return response;
 }

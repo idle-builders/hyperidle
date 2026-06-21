@@ -517,9 +517,19 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				continue;
 			}
 
-			// End of loop: emit completion with accumulated tool calls
-			const finalText = lastText || (toolUseBlocks.length > 0 ? CAP_FALLBACK : "");
-			const emitText = finalText || CAP_FALLBACK;
+			// End of loop: emit completion with accumulated tool calls.
+			// CAP_FALLBACK fires ONLY when there were tool calls and the model returned
+			// no final text — it signals iteration-cap overflow, not a blank response.
+			// A genuinely empty response (no text, no tool calls) emits "" so the
+			// assistant-turn layer can detect and handle it correctly (AH6 B2).
+			//
+			// @lore AH6: Previously CAP_FALLBACK was used as the ultimate fallback for
+			// ANY empty response (including no-tool-call turns). This caused the AH6
+			// Term 2b gate to mis-fire: a degenerate empty-content cassette response
+			// persisted CAP_FALLBACK text instead of "", so the S1 predicate was true
+			// instead of false. CAP_FALLBACK now only fires on tool-call overflow.
+			const finalText = lastText || (capturedToolCalls.length > 0 ? CAP_FALLBACK : "");
+			const emitText = finalText;
 
 			this.emitEvent(session, {
 				type: "completion",

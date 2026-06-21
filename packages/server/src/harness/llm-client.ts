@@ -336,7 +336,7 @@ function parseOpenAiResponse(body: OpenAiResponseBody): LlmResponse {
 	};
 }
 
-// ── Main callLlm implementation ───────────────────────────────────────────────
+// ── Main callLlmDirect implementation ─────────────────────────────────────────
 
 async function fetchWithTimeout(
 	url: string,
@@ -395,8 +395,13 @@ function sleep(ms: number): Promise<void> {
  * @lore X6 (critique WARNING-3): A single 429/503 from the LLM provider should
  * not crash the entire session. Transient errors get retry-with-backoff; permanent
  * errors (auth failures, bad requests) fail immediately.
+ *
+ * @lore AH6 B1: This is the raw network implementation (renamed from callLlm).
+ * The exported callLlm below dispatches through it via the env-gated cassette
+ * interceptor. All 6 adapter call sites import callLlm (the dispatcher) and
+ * are unaffected by this rename.
  */
-export async function callLlm(options: CallLlmOptions): Promise<LlmResponse> {
+export async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
 	const { model, messages, tools, system, maxTokens = DEFAULT_MAX_TOKENS } = options;
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
@@ -568,4 +573,33 @@ async function callOpenAi(
 
 	const responseBody = (await response.json()) as OpenAiResponseBody;
 	return parseOpenAiResponse(responseBody);
+}
+
+// ── AH6 B1: env-gated cassette dispatcher ─────────────────────────────────────
+
+/**
+ * AH6 B1: env-gated dispatcher for LLM_CASSETTE_MODE.
+ *
+ * Transparent to all 6 adapter call sites — they import and call callLlm as before.
+ * Production (LLM_CASSETTE_MODE unset): zero overhead, routes directly to callLlmDirect.
+ * Replay (LLM_CASSETTE_MODE=replay): reads cassette from LLM_CASSETTE_DIR/scenario.json,
+ *   returns the recorded response — no network call, no API key needed.
+ * Record (LLM_CASSETTE_MODE=record): calls callLlmDirect + persists to cassette file.
+ *
+ * @lore AH6 B1: Interception at the definition module (not the adapter) means
+ * all 6 adapter call sites + harness-discovery.ts are covered transparently.
+ * Production behavior is unchanged when LLM_CASSETTE_MODE is unset.
+ */
+export async function callLlm(options: CallLlmOptions): Promise<LlmResponse> {
+	const mode = process.env.LLM_CASSETTE_MODE;
+	if (mode === "replay") {
+		const { replayLlm, loadCassetteEntries } = await import("./llm-cassette.js");
+		const entries = loadCassetteEntries();
+		return replayLlm(options, entries);
+	}
+	if (mode === "record") {
+		const { recordLlm } = await import("./llm-cassette.js");
+		return recordLlm(options, callLlmDirect);
+	}
+	return callLlmDirect(options);
 }
