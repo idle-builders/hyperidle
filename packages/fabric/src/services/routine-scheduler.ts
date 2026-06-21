@@ -11,8 +11,8 @@ import {
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
 import { isAgentAtWipLimit, selectAgentFabric } from "./agent-selection.js";
+import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
 
 const schedulerLog = createLogger({ pkg: "fabric" });
 

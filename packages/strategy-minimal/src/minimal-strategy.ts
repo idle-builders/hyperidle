@@ -167,9 +167,7 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 	 * candidates is [] for that surface — the Fabric handles real delegation.
 	 */
 	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
-		const byRole = req.roleHint
-			? req.candidates.find((c) => c.role === req.roleHint)
-			: undefined;
+		const byRole = req.roleHint ? req.candidates.find((c) => c.role === req.roleHint) : undefined;
 		const chosen = byRole ?? req.candidates[0];
 		return { agentId: chosen?.agentId ?? null };
 	},

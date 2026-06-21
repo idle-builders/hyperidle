@@ -24,7 +24,7 @@
  * invariant if team-scoped cost attribution is added.
  */
 
-import { teamMembers, type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
 import {
 	type EventBus,
 	findRoleCatalogEntry,
@@ -71,7 +71,9 @@ export async function enumerateTeamCandidates(
 	const rows = await db
 		.select({ id: users.id, role: users.role })
 		.from(users)
-		.where(and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, memberGroupIds)))
+		.where(
+			and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, memberGroupIds)),
+		)
 		.orderBy(users.id);
 
 	// 3. Filter to category='team' via the role catalog; project to SelectionCandidate.

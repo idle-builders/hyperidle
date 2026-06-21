@@ -34,10 +34,10 @@ import type {
 	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
-import { selectAgentFabric } from "./services/agent-selection.js";
 import { assembleContext } from "./context-assembly.js";
 import { startWatcher } from "./file-watcher.js";
 import { composeRoster } from "./roster.js";
+import { selectAgentFabric } from "./services/agent-selection.js";
 
 /**
  * The Fabric Strategy — implements the Strategy Port by delegating to the

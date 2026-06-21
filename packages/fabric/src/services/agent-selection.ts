@@ -23,7 +23,7 @@
  * to candidates[0]. The golden test (§7) catches a collapsed impl with [A,B,A] vs [A,A,A].
  */
 
-import { sessions, userSkills, users, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, userSkills, users } from "@hyperidle/db";
 import type { SelectAgentOutcome, SelectAgentRequest } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -107,9 +107,7 @@ export async function selectAgentFabric(
 		case "bet_decomposer": {
 			// role-match PM; else candidates[0]; else null.
 			// Oracle: bet-decomposition.ts:294 — eligible.find(role==='product_manager') ?? eligible[0]
-			const byRole = req.roleHint
-				? req.candidates.find((c) => c.role === req.roleHint)
-				: undefined;
+			const byRole = req.roleHint ? req.candidates.find((c) => c.role === req.roleHint) : undefined;
 			const chosen = byRole ?? req.candidates[0];
 			return { agentId: chosen?.agentId ?? null };
 		}
@@ -120,9 +118,7 @@ export async function selectAgentFabric(
 			// `i` — consulted only on the mismatch branch. A role match at any index never
 			// consumes the index, so the next null-role task sees the full original `i`.
 			// Oracle: bet-decomposition.ts:150-158 — exact role-match → round-robin fallback.
-			const byRole = req.roleHint
-				? req.candidates.find((c) => c.role === req.roleHint)
-				: undefined;
+			const byRole = req.roleHint ? req.candidates.find((c) => c.role === req.roleHint) : undefined;
 			if (byRole) {
 				return { agentId: byRole.agentId };
 			}
@@ -138,7 +134,7 @@ export async function selectAgentFabric(
 			// Ignores candidates (always []). Runs findDelegate's exact userSkills query.
 			// @lore AK7 §5.3: routine_delegate is Fabric-internal. The call site
 			// (routine-scheduler.ts) passes skillId and excludeAgentId; teamId is null.
-			if (!req.skillId || !req.excludeAgentId) {
+			if (!(req.skillId && req.excludeAgentId)) {
 				return { agentId: null };
 			}
 			const agentId = await findDelegateVerbatim(req.db, req.skillId, req.excludeAgentId);
