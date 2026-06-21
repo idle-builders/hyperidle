@@ -7,145 +7,76 @@
  * author-grouped messages · composer. Navigating BETWEEN threads is the app
  * sidebar (app-shell chrome, NOT part of this design).
  *
+ * ── PROP-DRIVEN, ONE SURFACE FOR STORY + PAGE (AM1 task 11) ─────────────────
+ * `ConversationSurface` is prop-driven. The STORY passes its fixture (PARTS +
+ * fixture header/participants + a console-`onOpen` noop + a noop `onSend`); the
+ * PAGE (`Conversations.tsx`) passes real data (`derivePartsFromMessages(...)`,
+ * `createOpenHandler(navigate)`, real header/participants, a functional
+ * `onSend`). The approved design and the production page are therefore the SAME
+ * component — they cannot drift (extends the round-10 no-drift guarantee from
+ * the message column to the whole surface).
+ *
  * ── COMPOSES THE PRODUCTION RENDERER (AM1 task 10) ──────────────────────────
  * The message column is rendered by the SAME source-agnostic `<PartList>` the
- * production page uses, over a fixed `Part[]`. The approved design and the
- * production renderer therefore CANNOT drift — this story IS the renderer's
- * design embodiment. The composer + header chrome (not owned by PartList) stay
- * hand-rolled here so the story renders stand-alone in the viewer without
- * AppShell's router/context. Reference chips + the Fold come from the design
- * system (promoted in AM1).
+ * production page uses, over the passed-in `Part[]`. The composer + header
+ * chrome (not owned by PartList) stay hand-rolled here so the surface renders
+ * stand-alone in the viewer without AppShell's router/context. Reference chips +
+ * the Fold come from the design system (promoted in AM1).
  *
  * ── THE CONVERSATION OWNS NO VIEWING SURFACE (round-8, founder) ──────────────
  * Reference chips are NAVIGATION HOOKS into the existing OWNED surfaces via the
  * `OpenTarget` seam (block → host surface, artifact → Artifact view, review →
- * Review page). Nothing renders inline. In this isolated story (no router) the
+ * Review page). Nothing renders inline. In the isolated story (no router) the
  * `onOpen` hook is a clearly-labeled console noop naming its target route.
  *
  * @lore AM1-r8: the conversation owns NO viewing surface. The single `onOpen`
  * OpenHandler replaces the old per-target callback props; production binds it to
  * navigate(), the story to console.info.
+ *
+ * @lore AM1 task 11: the fixture (`PARTS`/`FOUNDER`/`MARA`/`ATLAS`) moved OUT of
+ * this component and INTO `ConversationSurface.stories.tsx` — it is now passed in
+ * as props. The story render stays byte-identical (it passes what was previously
+ * module-internal). Composer "+" menu items are visible affordances that do NOT
+ * yet mutate the draft (AM1 §12.6 — honest minimum: send works, rich-compose
+ * affordances are visible but inert).
  */
 
-import { Fold, ReferenceChip } from "@hyperidle/design-system";
-import type { OpenTarget, Part } from "@hyperidle/shared";
+import { ReferenceChip } from "@hyperidle/design-system";
+import type { OpenHandler, OpenTarget, Part } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
 
 const INSERTED_CODE_TITLE = "auth/passkey.ts";
 
-// ── Fixture identities (3 participants: 2 humans + 1 agent) ─────────
-const FOUNDER = { id: "u-founder", name: "A. Founder", initials: "AF", isAgent: false, isMe: true };
-const MARA = { id: "u-mara", name: "Mara", initials: "MK", isAgent: false, isMe: false };
-const ATLAS = { id: "a-atlas", name: "Atlas", initials: "AT", isAgent: true, isMe: false };
-type Identity = typeof FOUNDER;
-
-// ── The approved conversation as a fixed Part[] (rendered by PartList) ──
-// Each PartAuthor drops the `initials` field (PartList derives its own avatar
-// cue from isAgent). The column is author-grouped + dispatched by PartList.
-function author(who: Identity): Part["author"] {
-	return { id: who.id, name: who.name, isAgent: who.isAgent, isMe: who.isMe };
+export interface ConversationSurfaceParticipant {
+	readonly id: string;
+	readonly name: string;
+	readonly isAgent: boolean;
 }
 
-const PARTS: Part[] = [
-	{
-		id: "m1",
-		kind: "prose",
-		author: author(FOUNDER),
-		createdAt: "2026-06-17T09:02:00.000Z",
-		embeds: [],
-		text: "Can you wire passkey login and show me the diff before we deploy?",
-	},
-	{
-		id: "m2",
-		kind: "prose",
-		author: author(MARA),
-		createdAt: "2026-06-17T09:05:00.000Z",
-		embeds: [{ kind: "mention", identityId: ATLAS.id, displayName: "Atlas" }],
-		text: "@Atlas please keep the password fallback for phase 2 — some of our enterprise tenants can't enroll passkeys yet.",
-	},
-	{
-		id: "m3",
-		kind: "prose",
-		author: author(ATLAS),
-		createdAt: "2026-06-17T09:11:00.000Z",
-		embeds: [
-			{ kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" },
-			{
-				kind: "artifact",
-				label: "auth/passkey.ts",
-				meta: "+2 −1",
-				target: { route: "artifact", artifactId: "art-1" },
-			},
-			{
-				kind: "entity-ref",
-				entityKind: "knowledge_item",
-				id: "k-webauthn",
-				label: "WebAuthn L3 spec",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-webauthn" },
-			},
-		],
-		text: "Added WebAuthn registration and the dual-auth window. Existing password sessions stay valid through phase 2, @Mara — fallback preserved.",
-	},
-	{
-		id: "m4",
-		kind: "prose",
-		author: author(ATLAS),
-		createdAt: "2026-06-17T09:12:00.000Z",
-		embeds: [
-			{
-				kind: "block",
-				title: "Auth migration plan · §2",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-auth-plan" },
-			},
-			{ kind: "session-reference", sessionId: "s-2" },
-		],
-		text: "Context for the dual-auth window and the flow diagram:",
-	},
-	{
-		id: "m5",
-		kind: "questionnaire",
-		author: author(ATLAS),
-		createdAt: "2026-06-17T09:13:00.000Z",
-		embeds: [],
-		question: "How long should the password fallback stay enabled?",
-		options: ["Keep through phase 2", "Drop now", "Decide later"],
-	},
-	{
-		id: "m6",
-		kind: "prose",
-		author: author(FOUNDER),
-		createdAt: "2026-06-17T09:14:00.000Z",
-		embeds: [],
-		text: "Keep it through phase 2 — that covers the enterprise tenants Mara flagged.",
-	},
-	{
-		id: "m7",
-		kind: "review",
-		author: author(ATLAS),
-		createdAt: "2026-06-17T09:15:00.000Z",
-		embeds: [],
-		title: "Approve deploy of passkey login to staging",
-		changeSet: {
-			kind: "artifact",
-			label: "auth/passkey.ts",
-			meta: "+2 −1",
-			target: { route: "artifact", artifactId: "art-1" },
-		},
-		reviewTarget: { betId: "bet-1", reviewId: "rv-1" },
-	},
-	{
-		id: "m8",
-		kind: "resolved",
-		author: author(FOUNDER),
-		createdAt: "2026-06-17T09:16:00.000Z",
-		embeds: [],
-		label: "APPROVED",
-		resolvedBy: "A. Founder",
-		summary: "approve deploy of passkey login to staging",
-		reviewTarget: { betId: "bet-1", reviewId: "rv-1" },
-	},
-];
+export interface ConversationSurfaceHeader {
+	readonly title: string;
+	readonly hostKind: string;
+	readonly hostTitle: string;
+	readonly hostRoute: string | null;
+}
+
+export interface ConversationSurfaceProps {
+	/** The derived render units (page: derivePartsFromMessages(...); story: PARTS fixture). */
+	parts: ReadonlyArray<Part>;
+	/** The routing seam. page: createOpenHandler(navigate); story: console.info noop. */
+	onOpen: OpenHandler;
+	/** Thread identity for the header (title + host tag/context). */
+	header: ConversationSurfaceHeader;
+	/** Participants for the header AvatarGroup (derived from identities). */
+	participants: ReadonlyArray<ConversationSurfaceParticipant>;
+	/** The send path. page: posts a plain message via the existing endpoint; story: noop. */
+	onSend: (text: string) => Promise<void> | void;
+	/** Story-only visual toggles (default false; the page never sets these). */
+	scroll?: boolean;
+	composerActive?: boolean;
+}
 
 // ───────────────────────────────────────────────────────────────────
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
@@ -184,7 +115,20 @@ const ICON_BLOCKS = "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h
 // ───────────────────────────────────────────────────────────────────
 // Avatar — human vs agent tint + a stronger agent ring.
 // ───────────────────────────────────────────────────────────────────
-function Avatar({ who, size = 26 }: { who: Identity; size?: number }): JSX.Element {
+function initialsOf(name: string): string {
+	const parts = name.trim().split(/\s+/).filter(Boolean);
+	if (parts.length === 0) return "?";
+	if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
+	return `${parts[0]?.[0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase();
+}
+
+function Avatar({
+	who,
+	size = 26,
+}: {
+	who: ConversationSurfaceParticipant;
+	size?: number;
+}): JSX.Element {
 	const color = who.isAgent
 		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
@@ -194,12 +138,16 @@ function Avatar({ who, size = 26 }: { who: Identity; size?: number }): JSX.Eleme
 			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
 			aria-hidden="true"
 		>
-			{who.initials}
+			{initialsOf(who.name)}
 		</div>
 	);
 }
 
-function ParticipantGroup({ people }: { people: Identity[] }): JSX.Element {
+function ParticipantGroup({
+	people,
+}: {
+	people: ReadonlyArray<ConversationSurfaceParticipant>;
+}): JSX.Element {
 	return (
 		<div data-ds-component="AvatarGroup" className="flex items-center pl-[3px]">
 			{people.map((p, i) => (
@@ -215,25 +163,46 @@ function ParticipantGroup({ people }: { people: Identity[] }): JSX.Element {
 	);
 }
 
-function ConversationHeader({ onActions }: { onActions: () => void }): JSX.Element {
+function ConversationHeader({
+	header,
+	participants,
+	onActions,
+}: {
+	header: ConversationSurfaceHeader;
+	participants: ReadonlyArray<ConversationSurfaceParticipant>;
+	onActions: () => void;
+}): JSX.Element {
 	return (
 		<header className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 			<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
-							Bet
+							{header.hostKind}
 						</span>
 						<span className="text-[var(--text-tertiary)]">·</span>
-						<span className="truncate font-[500] text-[var(--text-primary)]">Passkey login</span>
+						{header.hostRoute ? (
+							<Link
+								to={header.hostRoute}
+								className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-primary)] hover:underline"
+							>
+								{header.hostTitle}
+							</Link>
+						) : (
+							<span className="truncate font-[500] text-[var(--text-primary)]">
+								{header.hostTitle}
+							</span>
+						)}
 					</div>
 					<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
-						Passkey login
+						{header.title}
 					</h1>
 				</div>
 				<div className="flex items-center gap-[9px]">
-					<ParticipantGroup people={[FOUNDER, MARA, ATLAS]} />
-					<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">3</span>
+					<ParticipantGroup people={participants} />
+					<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
+						{participants.length}
+					</span>
 				</div>
 				<button
 					type="button"
@@ -251,6 +220,8 @@ function ConversationHeader({ onActions }: { onActions: () => void }): JSX.Eleme
 // ───────────────────────────────────────────────────────────────────
 // COMPOSER — UNIFIED tool affordance. ONE "+" button opens ONE menu with
 // every compose action, each labeled + single-purpose. No duplicate icon strip.
+// AM1 §12.6: the menu items are VISIBLE AFFORDANCES — picking one closes the
+// menu but does NOT yet mutate the draft (rich-compose wiring is deferred).
 // ───────────────────────────────────────────────────────────────────
 function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	const items = [
@@ -361,14 +332,18 @@ function ComposerInputRow({
 	onToggleMenu,
 	onPickMenu,
 	onSend,
-	hasDraft,
+	placeholder,
+	value,
+	onChange,
 	menuButtonRef,
 }: {
 	insertMenuOpen: boolean;
 	onToggleMenu: () => void;
 	onPickMenu: () => void;
 	onSend: () => void;
-	hasDraft: boolean;
+	placeholder: string;
+	value: string;
+	onChange: (next: string) => void;
 	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
 }): JSX.Element {
 	return (
@@ -394,11 +369,10 @@ function ComposerInputRow({
 			</div>
 			<textarea
 				rows={3}
-				placeholder="Message Atlas, Mara…"
+				placeholder={placeholder}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
 				className="min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-				defaultValue={
-					hasDraft ? "Here's the corrected registration flow — one nit on the error copy: " : ""
-				}
 			/>
 			<button
 				type="button"
@@ -421,6 +395,9 @@ function Composer({
 	onCancelReply,
 	onSend,
 	onOpen,
+	placeholder,
+	value,
+	onChange,
 	menuButtonRef,
 }: {
 	active: boolean;
@@ -430,6 +407,9 @@ function Composer({
 	onCancelReply: () => void;
 	onSend: () => void;
 	onOpen: (t: OpenTarget) => void;
+	placeholder: string;
+	value: string;
+	onChange: (next: string) => void;
 	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
 }): JSX.Element {
 	return (
@@ -443,7 +423,9 @@ function Composer({
 						onToggleMenu={onToggleMenu}
 						onPickMenu={onPickMenu}
 						onSend={onSend}
-						hasDraft={active}
+						placeholder={placeholder}
+						value={value}
+						onChange={onChange}
 						menuButtonRef={menuButtonRef}
 					/>
 				</div>
@@ -453,26 +435,41 @@ function Composer({
 }
 
 // ───────────────────────────────────────────────────────────────────
-// The conversation surface — INTERACTIVE. The conversation column (PartList) +
-// composer ONLY; it owns NO viewing surface. The single `onOpen` OpenHandler is
-// a clearly-labeled console noop (no router in the isolated story).
+// The conversation surface — INTERACTIVE, prop-driven. The conversation column
+// (PartList) + composer ONLY; it owns NO viewing surface. The single `onOpen`
+// OpenHandler routes references to their owned surfaces (page: navigate; story:
+// console noop). `onSend` posts the typed plain message (page: real endpoint).
 // ───────────────────────────────────────────────────────────────────
 export default function ConversationSurface({
+	parts,
+	onOpen,
+	header,
+	participants,
+	onSend,
 	scroll = false,
 	composerActive = false,
-}: {
-	scroll?: boolean;
-	composerActive?: boolean;
-} = {}): JSX.Element {
+}: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
 	const [replyActive, setReplyActive] = useState(composerActive);
+	const [draft, setDraft] = useState(
+		composerActive ? "Here's the corrected registration flow — one nit on the error copy: " : "",
+	);
 	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
 
-	// The single navigation hook → the existing OWNED surfaces. No router in the
-	// story, so it is a clearly-labeled console noop naming its target route.
-	const onOpen = (target: OpenTarget): void => {
-		// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
-		console.info("[AM1] open", target.route, target);
+	const placeholder = `Message ${participants
+		.map((p) => p.name)
+		.slice(0, 2)
+		.join(", ")}…`;
+
+	const handleSend = (): void => {
+		const text = draft.trim();
+		if (text.length === 0) {
+			setReplyActive(false);
+			return;
+		}
+		void onSend(text);
+		setDraft("");
+		setReplyActive(false);
 	};
 
 	// Outside-click / Escape closes the Insert menu (real popover behavior).
@@ -499,7 +496,7 @@ export default function ConversationSurface({
 	return (
 		<div
 			data-ds-component="ConversationSurface"
-			data-ds-thread-id="c-passkey"
+			data-testid="conversation-surface"
 			className="w-full bg-[var(--surface-page)] text-[var(--text-primary)]"
 			style={{
 				display: "flex",
@@ -511,7 +508,11 @@ export default function ConversationSurface({
 				className="flex flex-col bg-[var(--surface-page)]"
 				style={{ flex: 1, minWidth: 0, ...(scroll ? { height: "100%" } : {}) }}
 			>
-				<ConversationHeader onActions={() => setReplyActive((v) => !v)} />
+				<ConversationHeader
+					header={header}
+					participants={participants}
+					onActions={() => setReplyActive((v) => !v)}
+				/>
 				<div
 					className="px-[18px] py-[12px]"
 					style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
@@ -519,17 +520,7 @@ export default function ConversationSurface({
 					<div className="mx-auto w-full max-w-[760px]">
 						{/* The message column is rendered by the PRODUCTION renderer — the
 						    approved design and PartList cannot drift. */}
-						<PartList parts={PARTS} onOpen={onOpen} />
-						{/* The session dial-in + work-fold are the same calm Fold device
-						    (also rendered inline by PartList for session-reference embeds);
-						    shown here once more so the story exercises the standalone Fold. */}
-						<div className="mt-[18px]">
-							<Fold
-								label="Worked for 1m 12s"
-								cta="Show"
-								onShow={() => onOpen({ route: "session", sessionId: "s-1" })}
-							/>
-						</div>
+						<PartList parts={parts} onOpen={onOpen} />
 					</div>
 				</div>
 				<Composer
@@ -538,8 +529,11 @@ export default function ConversationSurface({
 					onToggleMenu={() => setInsertMenuOpen((v) => !v)}
 					onPickMenu={() => setInsertMenuOpen(false)}
 					onCancelReply={() => setReplyActive(false)}
-					onSend={() => setReplyActive(false)}
+					onSend={handleSend}
 					onOpen={onOpen}
+					placeholder={placeholder}
+					value={draft}
+					onChange={setDraft}
 					menuButtonRef={menuButtonRef}
 				/>
 			</main>
