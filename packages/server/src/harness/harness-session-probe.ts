@@ -16,11 +16,54 @@
  * events, handles approvals/credentials.
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import type { HarnessSessionProbeResult } from "./harness-discovery.js";
 
-const execFileAsync = promisify(execFile);
+/**
+ * Spawn a command with closed stdin (so interactive CLIs don't block waiting for input),
+ * collect stdout, and return it.
+ *
+ * @lore AM2: `execFile` does not support closing stdin — it inherits the parent's stdin.
+ * CLIs like `codex exec` print "Reading additional input from stdin..." and may block.
+ * `spawn` with `stdio: ['ignore', 'pipe', 'pipe']` ensures stdin is closed from the start.
+ */
+function spawnWithClosedStdin(
+	cmd: string,
+	args: readonly string[],
+	timeoutMs: number,
+): Promise<{ stdout: string; stderr: string }> {
+	return new Promise((resolve, reject) => {
+		const child = spawn(cmd, args as string[], {
+			stdio: ["ignore", "pipe", "pipe"],
+			timeout: timeoutMs,
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		child.stdout?.on("data", (chunk: Buffer) => {
+			stdout += chunk.toString("utf-8");
+		});
+		child.stderr?.on("data", (chunk: Buffer) => {
+			stderr += chunk.toString("utf-8");
+		});
+
+		const timer = setTimeout(() => {
+			child.kill("SIGTERM");
+			reject(new Error(`probe timed out after ${timeoutMs}ms`));
+		}, timeoutMs);
+
+		child.on("close", () => {
+			clearTimeout(timer);
+			resolve({ stdout, stderr });
+		});
+
+		child.on("error", (err) => {
+			clearTimeout(timer);
+			reject(err);
+		});
+	});
+}
 
 /** @lore AM2: 60-second timeout is generous for a real LLM call (say OK = cheap). */
 const PROBE_TIMEOUT_MS = 60_000;
@@ -84,10 +127,12 @@ async function probeCodexSession(): Promise<HarnessSessionProbeResult> {
 	try {
 		// @lore AM2: `codex exec` with --json flag emits JSONL event lines on stdout.
 		// Hard-coded arg array — no shell, no user input.
-		const { stdout } = await execFileAsync(
+		// spawnWithClosedStdin sets stdin='ignore' so codex doesn't block on
+		// "Reading additional input from stdin...".
+		const { stdout } = await spawnWithClosedStdin(
 			"codex",
-			["exec", `reply with the single word OK`, "--json"],
-			{ timeout: PROBE_TIMEOUT_MS },
+			["exec", "reply with the single word OK", "--json"],
+			PROBE_TIMEOUT_MS,
 		);
 
 		const lines = stdout.split("\n");
@@ -126,7 +171,8 @@ async function probeClaudeSession(): Promise<HarnessSessionProbeResult> {
 	try {
 		// @lore AM2: `claude -p` with --output-format stream-json --verbose emits NDJSON
 		// event lines. --no-session-persistence avoids creating persistent session files.
-		const { stdout } = await execFileAsync(
+		// spawnWithClosedStdin prevents stdin from blocking the process.
+		const { stdout } = await spawnWithClosedStdin(
 			"claude",
 			[
 				"-p",
@@ -136,7 +182,7 @@ async function probeClaudeSession(): Promise<HarnessSessionProbeResult> {
 				"--verbose",
 				"--no-session-persistence",
 			],
-			{ timeout: PROBE_TIMEOUT_MS },
+			PROBE_TIMEOUT_MS,
 		);
 
 		const lines = stdout.split("\n");
@@ -176,9 +222,12 @@ async function probeOpenCodeSession(): Promise<HarnessSessionProbeResult> {
 		// @lore AM2: `opencode run --format json` emits JSON event output.
 		// opencode's event schema was not confirmed in the dossier; we capture
 		// whatever it emits and mark normalization `unknown` if we can't parse usage.
-		const { stdout } = await execFileAsync("opencode", ["run", PROBE_PROMPT, "--format", "json"], {
-			timeout: PROBE_TIMEOUT_MS,
-		});
+		// spawnWithClosedStdin prevents stdin from blocking.
+		const { stdout } = await spawnWithClosedStdin(
+			"opencode",
+			["run", PROBE_PROMPT, "--format", "json"],
+			PROBE_TIMEOUT_MS,
+		);
 
 		const lines = stdout.split("\n");
 		const usageLine = findUsageBearingLine(lines, "opencode");

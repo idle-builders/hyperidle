@@ -84,13 +84,11 @@ async function opencodeAuthed(): Promise<boolean> {
 describe("AM2 real harness session probe", () => {
 	test.skipIf(!codexInstalled)(
 		"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
-		async () => {
-			// Verify authed state
+		async (ctx) => {
+			// Verify authed state — skip if binary present but not logged in
 			const authed = await codexAuthed();
 			if (!authed) {
-				test.skip(
-					"codex binary present but not authenticated (codex login status did not return 'Logged in')",
-				);
+				ctx.skip();
 				return;
 			}
 
@@ -118,12 +116,10 @@ describe("AM2 real harness session probe", () => {
 
 	test.skipIf(!claudeInstalled)(
 		"claude session probe: executes real claude -p and captures usage-bearing result fixture",
-		async () => {
+		async (ctx) => {
 			const authed = await claudeAuthed();
 			if (!authed) {
-				test.skip(
-					"claude binary present but not authenticated (claude auth status loggedIn !== true)",
-				);
+				ctx.skip();
 				return;
 			}
 
@@ -156,12 +152,10 @@ describe("AM2 real harness session probe", () => {
 
 	test.skipIf(!opencodeInstalled)(
 		"opencode session probe: executes real opencode run and captures event line",
-		async () => {
+		async (ctx) => {
 			const authed = await opencodeAuthed();
 			if (!authed) {
-				test.skip(
-					"opencode binary present but no providers configured (opencode providers list did not show credentials or environment variable)",
-				);
+				ctx.skip();
 				return;
 			}
 
@@ -184,7 +178,10 @@ describe("AM2 real harness session probe", () => {
 
 			// Whether ok or not, it must have tried (not been skipped at the probe level for auth reasons)
 			// The probe itself ran — that's the launch proof.
-			expect(result.reason).not.toMatch(/not installed|binary not found/i);
+			// If reason is defined (failure case), it must NOT say "not installed" / "binary not found"
+			if (result.reason !== undefined) {
+				expect(result.reason).not.toMatch(/not installed|binary not found/i);
+			}
 		},
 		120_000,
 	);
