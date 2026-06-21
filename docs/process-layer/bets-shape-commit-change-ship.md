@@ -44,7 +44,7 @@ The `done_condition` guides what the PM agent produces. It is revisable during t
 
 ### 5.3 Decompose (v1: PM agent; destination: decentralized by the team)
 
-**As-built (v1):** When a bet is committed, a single PM agent runs a task-free turn — it reads the bet's goal and done condition and returns a structured task breakdown. The Kernel inserts these as tasks owned by eligible team agents (active AI agents on the bet's team). Each task is immediately accepted, which triggers the existing task → session dispatch path. No human approves the initial breakdown; the founder sees it on the bet surface after the fact.
+**As-built (v1):** When a bet is committed, a single PM agent runs a task-free turn — it reads the bet's goal and done condition and returns a structured task breakdown. The Kernel inserts these as tasks; **owner assignment routes through the active Strategy's `selectAgent` port method** (AK7): the Kernel enumerates eligible team candidates and asks the Strategy which agent takes each task. Each task is immediately accepted, which triggers the existing task → session dispatch path. No human approves the initial breakdown; the founder sees it on the bet surface after the fact.
 
 The PM agent's context comes through the active Strategy port (`assembleContext`). Under the Minimal Strategy the PM decomposes from the bet alone (no additional knowledge). Under the Fabric it receives practice context that can sharpen the breakdown.
 
