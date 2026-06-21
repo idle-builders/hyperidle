@@ -1,6 +1,6 @@
 /**
  * AM1 — Conversation Experience, v3: the FULL-SCOPE conversation embodied in the
- * REAL app container, now INTERACTIVE (round-5 — founder asked to SEE it work).
+ * REAL app container, INTERACTIVE.
  *
  * v1/v2 (the thin "calm column") were rejected as "far from the basics". v3 is
  * the conversation embodied in the real app pane: header · author-grouped
@@ -11,37 +11,35 @@
  * sub-thread/parent column). Navigating BETWEEN threads is the app sidebar
  * (SidebarV2, AD9) — app-shell chrome, NOT part of this design.
  *
- * REVIEW / ARTIFACT REVIEW SCOPE BOUNDARY: the verdict flow + the AL review
- * slider is owned by track AL. A change-set/artifact here renders only as a
- * COMPACT EMBED card via the real ArtifactEmbed; "Open review" is a hook into AL.
+ * ── THE CONVERSATION OWNS NO VIEWING SURFACE (round-8, founder) ──────────────
+ * The conversation does NOT render a bespoke block/artifact viewer. The earlier
+ * right-page panel (a white box around a `<Block>` render) is REMOVED — founder:
+ * "why is there a white box around this… do we not have standardized artifact
+ * views yet?" / "is this a block? why does this not open the knowledge view?".
+ * The reference chips are NAVIGATION HOOKS into the existing, OWNED surfaces:
+ *   • a BLOCK chip  → the KNOWLEDGE view (`/knowledge/:knowledgeId`,
+ *     pages/KnowledgeDetail.tsx), anchored to the block.
+ *   • an ARTIFACT chip → the ARTIFACT view (`/artifacts/:id`,
+ *     pages/ArtifactPermalink.tsx → shell/ArtifactView.tsx).
+ *   • the REVIEW "Open review" → the REVIEW page
+ *     (`/work/bet/:betId/review/:reviewId`, pages/review/ReviewPage.tsx →
+ *     ReviewComposition).
+ * Nothing renders inline. (Standardizing artifact views across knowledge/work/
+ * review is a fragmented cross-cutting concern — OUT of AM1 scope.)
  *
- * ── INTERACTIVITY (round-5, founder: "I want to see this interactive and open
- *    the right page and display the full block in the proper block viewer
- *    component that we already have") ──────────────────────────────────────────
- * The story is live React. Two pieces of real state drive it:
- *   1. insertMenuOpen — the composer "+" affordance toggles the unified Insert
- *      menu (a grounded popover anchored to the button). Click "+" to open,
- *      click "+" again or anywhere outside to close. No dead buttons.
- *   2. openBlock — clicking any block embed's "Open →" opens a RIGHT-PAGE PANEL
- *      that slides in and renders the FULL block through the REAL `<Block>`
- *      viewer component (packages/design-system/src/Block.tsx). Closing returns
- *      to the conversation. This is the "open in the right page" founder asked
- *      to SEE working — the same component Knowledge uses, no facsimile.
- *
- * The INLINE block embed shows the block's TITLE only (e.g. "Code ·
- * auth/passkey.ts", "Auth migration plan · §2") — never the first line of code.
- * The full Block render lives in the right page, not inline.
+ * The INLINE block reference shows the block's TITLE only (e.g.
+ * "Auth migration plan · §2") — never the first line of code. Opening it routes
+ * to the Knowledge view.
  *
  * @lore AM1-r5: the conversation chrome (header, groups, composer) is still
  * hand-rolled so the story renders stand-alone in the viewer without AppShell's
  * router/context. The builder maps each region to the real DS components per
- * spec.md §Composition. The embeds (ArtifactEmbed, Block) ARE the real DS
- * components — not facsimiles.
+ * spec.md §Composition.
  *
- * @lore AM1-r5: the right-page panel here is a LOCAL demonstration of "open the
- * block in the right page" using the real `<Block>` viewer. The production
- * destination (the app-shell right page / AL slider) is owned elsewhere; this
- * surface only needs to PROVE the hook opens the real Block viewer.
+ * @lore AM1-r8: the conversation owns NO viewing surface. Reference chips route
+ * to the existing owned surfaces (Knowledge view / Artifact view / Review page).
+ * In this isolated story the route handlers are clearly-labeled console noops
+ * (no router); production wires them to the real navigate() calls.
  *
  * @lore AM1-r5: composer tool affordances UNIFIED into ONE "+" menu (founder:
  * "what's the difference between insert and those other icons. and why is the
@@ -60,76 +58,15 @@
  * resting composer has no banner.
  */
 
-import { Block } from "@hyperidle/design-system";
-import type { BlockPayload } from "@hyperidle/shared";
-import { blockId } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 
-// ── Real-component fixtures ─────────────────────────────────────────
-// Inserted-block draft = a real code Block. Title shown inline; full Block in panel.
-const INSERTED_CODE_PAYLOAD: BlockPayload = {
-	kind: "code",
-	lang: "ts",
-	text: "const cred = await navigator.credentials.create(webauthnOpts);\nawait finishRegistration(user, cred);\nreturn { ok: true };",
-};
+// ── Real destinations the chips route into (production routes) ───────
+// The conversation owns NO viewing surface; each chip is a navigation HOOK.
+const ROUTE_KNOWLEDGE = "/knowledge/:knowledgeId"; // pages/KnowledgeDetail.tsx (the Knowledge view)
+const ROUTE_ARTIFACT = "/artifacts/:id"; // pages/ArtifactPermalink.tsx → shell/ArtifactView.tsx
+const ROUTE_REVIEW = "/work/bet/:betId/review/:reviewId"; // pages/review/ReviewPage.tsx → ReviewComposition
+
 const INSERTED_CODE_TITLE = "auth/passkey.ts";
-const INSERTED_CODE_ID = blockId({
-	kind: "code",
-	outlinePath: "composer-draft",
-	normalisedPayload: INSERTED_CODE_PAYLOAD.text,
-});
-
-// Referenced knowledge item = a real heading Block + a real paragraph Block.
-const REF_HEADING_PAYLOAD: BlockPayload = {
-	kind: "heading",
-	level: 3,
-	text: "Dual-auth window",
-	inline: [{ type: "text", value: "Dual-auth window" }],
-};
-const REF_PARA_PAYLOAD: BlockPayload = {
-	kind: "paragraph",
-	inline: [
-		{
-			type: "text",
-			value:
-				"Password and passkey credentials both authenticate during phase 2, so enterprise tenants that cannot enroll passkeys keep a working login.",
-		},
-	],
-};
-const REF_HEADING_ID = blockId({
-	kind: "heading",
-	outlinePath: "auth-migration-plan/2",
-	normalisedPayload: REF_HEADING_PAYLOAD.text,
-});
-const REF_PARA_ID = blockId({
-	kind: "paragraph",
-	outlinePath: "auth-migration-plan/2",
-	normalisedPayload: "dual-auth-window-body",
-});
-
-// ── Right-page panel content descriptor ─────────────────────────────
-// Each block embed opens a panel rendering the FULL block(s) via real <Block>.
-type PanelKey = "inserted-code" | "ref-plan";
-interface PanelSpec {
-	title: string;
-	kindLabel: string;
-	blocks: { id: ReturnType<typeof blockId>; payload: BlockPayload }[];
-}
-const PANELS: Record<PanelKey, PanelSpec> = {
-	"inserted-code": {
-		title: "auth/passkey.ts",
-		kindLabel: "Code block",
-		blocks: [{ id: INSERTED_CODE_ID, payload: INSERTED_CODE_PAYLOAD }],
-	},
-	"ref-plan": {
-		title: "Auth migration plan · §2",
-		kindLabel: "Knowledge",
-		blocks: [
-			{ id: REF_HEADING_ID, payload: REF_HEADING_PAYLOAD },
-			{ id: REF_PARA_ID, payload: REF_PARA_PAYLOAD },
-		],
-	},
-};
 
 // ── Fixture identities (3 participants: 2 humans + 1 agent) ─────────
 const FOUNDER = { id: "u-founder", name: "A. Founder", initials: "AF", isAgent: false, isMe: true };
@@ -609,7 +546,7 @@ function QuestionnairePart(): JSX.Element {
 // can only show the decision once taken") and shows NO code/diff. The decision
 // is made on the review page; here we only point to it. The change-set is an
 // ARTIFACT reference chip (founder comment 6 — it is an artifact attachment,
-// not inline code) that opens the artifact in the review experience.
+// not inline code) that routes to the Artifact view.
 //
 // @lore AM1-r6: aligned to the merged review surface
 // (packages/web/src/pages/review/ReviewComposition.tsx). The verdict buttons
@@ -617,13 +554,13 @@ function QuestionnairePart(): JSX.Element {
 // in the conversation. The conversation emits the request + echoes the verdict
 // once ReviewVerdictState is resolved.
 //
-// @lore AM1-r7: TWO DISTINCT targets here (founder comment 2 — "Open review
-// should open an actual review page and not a code artifact"):
-//   • the ARTIFACT chip → opens the artifact (right-page Block viewer);
-//   • "Open review →" → routes to the REVIEW PAGE / experience
-//     (packages/web/src/pages/review/ReviewPage.tsx →
-//      /work/bet/:betId/review/:reviewId, rendering ReviewComposition), NOT the
-//     Block viewer. In production onOpenReview navigates that route.
+// @lore AM1-r8: TWO DISTINCT navigation targets here — NEITHER renders inline
+// (the conversation owns no viewing surface):
+//   the ARTIFACT chip -> the ARTIFACT view (/artifacts/:id,
+//     pages/ArtifactPermalink.tsx -> shell/ArtifactView.tsx);
+//   "Open review" -> the REVIEW page (/work/bet/:betId/review/:reviewId,
+//     pages/review/ReviewPage.tsx -> ReviewComposition).
+// In production onOpenArtifact/onOpenReview navigate those routes.
 // ───────────────────────────────────────────────────────────────────
 function ReviewRequestPart({
 	onOpenArtifact,
@@ -654,8 +591,8 @@ function ReviewRequestPart({
 					</p>
 				</div>
 			</div>
-			{/* The change set = an ARTIFACT reference chip (NOT inline code). Opens the
-			    artifact inside the review experience. */}
+			{/* The change set = an ARTIFACT reference chip (NOT inline code). Routes to
+			    the Artifact view (/artifacts/:id) — no inline viewer. */}
 			<div className="pl-[29px]">
 				<ReferenceChip
 					kind="artifact"
@@ -817,7 +754,7 @@ function ComposerReplyBanner(): JSX.Element {
 // image — render through the SAME shared ReferenceChip (draft mode: body = open,
 // ✕ = remove) in a single HORIZONTAL wrapping row, ~one chip tall. The IDENTICAL
 // chip is used inside messages (posted mode) — one component everywhere.
-function ComposerDraftBody({ onOpenBlock }: { onOpenBlock: () => void }): JSX.Element {
+function ComposerDraftBody({ onOpenArtifact }: { onOpenArtifact: () => void }): JSX.Element {
 	return (
 		<div
 			data-ds-component="Am1ComposerDraftBody"
@@ -828,7 +765,7 @@ function ComposerDraftBody({ onOpenBlock }: { onOpenBlock: () => void }): JSX.El
 				label={INSERTED_CODE_TITLE}
 				meta="TS · 3 lines"
 				mode="draft"
-				onOpen={onOpenBlock}
+				onOpen={onOpenArtifact}
 			/>
 			<ReferenceChip kind="image" label="auth-flow.png" meta="82 KB" mode="draft" />
 		</div>
@@ -905,14 +842,15 @@ function Composer({
 	insertMenuOpen,
 	onToggleMenu,
 	onPickMenu,
-	onOpenBlock,
+	onOpenArtifact,
 	menuButtonRef,
 }: {
 	active: boolean;
 	insertMenuOpen: boolean;
 	onToggleMenu: () => void;
 	onPickMenu: () => void;
-	onOpenBlock: () => void;
+	// The draft's code chip is an artifact → routes to the Artifact view.
+	onOpenArtifact: () => void;
 	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
 }): JSX.Element {
 	return (
@@ -924,7 +862,7 @@ function Composer({
 					    replying to something?" — yes). The active Insert-Block state IS the
 					    replying state; resting composer has no banner. */}
 					{active && <ComposerReplyBanner />}
-					{active && <ComposerDraftBody onOpenBlock={onOpenBlock} />}
+					{active && <ComposerDraftBody onOpenArtifact={onOpenArtifact} />}
 					<ComposerInputRow
 						insertMenuOpen={insertMenuOpen}
 						onToggleMenu={onToggleMenu}
@@ -939,60 +877,19 @@ function Composer({
 }
 
 // ───────────────────────────────────────────────────────────────────
-// RIGHT-PAGE PANEL — slides in when a block embed's "Open →" is clicked.
-// Renders the FULL block(s) through the REAL <Block> viewer (the same
-// component Knowledge uses). Founder: "open the right page and display the full
-// block in the proper block viewer component that we already have."
-// ───────────────────────────────────────────────────────────────────
-function BlockRightPanel({ panel, onClose }: { panel: PanelKey; onClose: () => void }): JSX.Element {
-	const spec = PANELS[panel];
-	return (
-		<aside
-			data-ds-component="Am1BlockRightPanel"
-			className="flex h-full w-[420px] shrink-0 flex-col border-l border-[var(--border-default)] bg-[var(--surface-container)]"
-		>
-			<header className="flex shrink-0 items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
-				<div className="min-w-0 flex-1">
-					<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						{spec.kindLabel}
-					</div>
-					<div className="mt-[3px] truncate text-[15px] font-[600] text-[var(--text-primary)]">
-						{spec.title}
-					</div>
-				</div>
-				<button
-					type="button"
-					aria-label="Close block panel"
-					title="Close"
-					onClick={onClose}
-					className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
-				>
-					<Glyph d={ICON_REMOVE} size={14} />
-				</button>
-			</header>
-			{/* The FULL block render — the REAL <Block> viewer, nothing clamped. */}
-			<div className="flex-1 overflow-y-auto px-[18px] py-[12px]">
-				<div className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px]">
-					{spec.blocks.map((b) => (
-						<Block key={b.id} id={b.id} payload={b.payload} />
-					))}
-				</div>
-			</div>
-		</aside>
-	);
-}
-
-// ───────────────────────────────────────────────────────────────────
 // CONVERSATION BODY — the 8 author-grouped messages.
 // ───────────────────────────────────────────────────────────────────
 function ConversationBody({
 	scroll,
 	onOpenBlock,
+	onOpenArtifact,
 	onOpenReview,
 }: {
 	scroll: boolean;
-	onOpenBlock: (panel: PanelKey) => void;
-	onOpenReview: () => void;
+	// Navigation hooks into the existing OWNED surfaces (no inline viewer):
+	onOpenBlock: () => void; // → the Knowledge view (/knowledge/:knowledgeId), anchored to the block
+	onOpenArtifact: () => void; // → the Artifact view (/artifacts/:id)
+	onOpenReview: () => void; // → the review page (/work/bet/:betId/review/:reviewId)
 }): JSX.Element {
 	return (
 		<div
@@ -1024,21 +921,22 @@ function ConversationBody({
 							valid through phase 2, <Mention name="Mara" /> — fallback preserved.
 						</Prose>
 						<div className="mt-[6px]">
-							<Fold label="Worked for 1m 12s" onShow={() => onOpenBlock("ref-plan")} />
+							<Fold label="Worked for 1m 12s" onShow={onOpenBlock} />
 						</div>
-						{/* Change set = an artifact reference chip (opens the artifact in the
-						    review experience); NOT a big inline-code card (founder comment 6). */}
+						{/* Change set = an artifact reference chip → the Artifact view
+						    (/artifacts/:id); NOT a big inline-code card (founder comment 6). */}
 						<ReferenceChipRow>
 							<ReferenceChip
 								kind="artifact"
 								label="auth/passkey.ts"
 								meta="+2 −1"
 								mode="posted"
-								onOpen={() => onOpenBlock("inserted-code")}
+								onOpen={onOpenArtifact}
 							/>
 						</ReferenceChipRow>
-						{/* Sources = knowledge reference chips — same shared chip (comment 5). */}
-						<SourceChips onOpen={() => onOpenBlock("ref-plan")} />
+						{/* Sources = knowledge reference chips → the Knowledge view
+						    (/knowledge/:knowledgeId) — same shared chip (comment 5). */}
+						<SourceChips onOpen={onOpenBlock} />
 					</div>
 				</MessageGroup>
 
@@ -1048,20 +946,22 @@ function ConversationBody({
 						<div>
 							<Prose>Context for the dual-auth window and the flow diagram:</Prose>
 							{/* In-message block + image — the SAME shared chip as the composer
-							    draft (founder comments 2, 3), posted mode (no ✕, opens). */}
+							    draft, posted mode (no ✕, opens). The BLOCK chip routes to the
+							    Knowledge view (founder comment 2 — "why does this not open the
+							    knowledge view?"). */}
 							<ReferenceChipRow>
 								<ReferenceChip
 									kind="block"
 									label="Auth migration plan · §2"
 									mode="posted"
-									onOpen={() => onOpenBlock("ref-plan")}
+									onOpen={onOpenBlock}
 								/>
 								<ReferenceChip
 									kind="image"
 									label="auth-flow.png"
 									meta="82 KB"
 									mode="posted"
-									onOpen={() => onOpenBlock("ref-plan")}
+									onOpen={onOpenArtifact}
 								/>
 							</ReferenceChipRow>
 						</div>
@@ -1071,7 +971,7 @@ function ConversationBody({
 							    (round-7, founder: the work-fold is the better, subtler one — no
 							    heavy session card). Quiet "› Show session" line. */}
 							<div className="mt-[6px]">
-								<Fold cta="Show session" onShow={() => onOpenBlock("ref-plan")} />
+								<Fold cta="Show session" onShow={onOpenBlock} />
 							</div>
 						</div>
 					</div>
@@ -1093,13 +993,10 @@ function ConversationBody({
 					</div>
 				</MessageGroup>
 
-				{/* 7 · Atlas review REQUEST → the artifact chip opens the ARTIFACT; "Open
-				    review" routes to the REVIEW PAGE (not the artifact). */}
+				{/* 7 · Atlas review REQUEST → the artifact chip routes to the Artifact
+				    view; "Open review" routes to the REVIEW PAGE (not the artifact). */}
 				<MessageGroup who={ATLAS} time="9:15">
-					<ReviewRequestPart
-						onOpenArtifact={() => onOpenBlock("inserted-code")}
-						onOpenReview={onOpenReview}
-					/>
+					<ReviewRequestPart onOpenArtifact={onOpenArtifact} onOpenReview={onOpenReview} />
 				</MessageGroup>
 
 				{/* 8 · Resolved verdict echo — the decision ONCE TAKEN, shown in the
@@ -1114,11 +1011,15 @@ function ConversationBody({
 }
 
 // ───────────────────────────────────────────────────────────────────
-// The conversation surface — INTERACTIVE.
+// The conversation surface — INTERACTIVE. The conversation column + composer
+// ONLY — it owns NO viewing surface (the bespoke right-page block panel was
+// removed, round-8). Reference chips are navigation HOOKS into the existing,
+// owned surfaces (Knowledge view / Artifact view / Review page); nothing renders
+// inline. In this isolated story (no router) those hooks are clearly-labeled
+// console noops naming their real destination route.
 //   scroll          — fixed-height internal scroll vs natural height.
 //   composerActive  — composer in its Insert-Block state (draft present).
-// Real state: the Insert "+" menu (open/close, outside-click) + the right-page
-// block panel (which block, open/close). Click to drive it in the viewer.
+// Real state: just the Insert "+" menu (open/close, outside-click).
 // ───────────────────────────────────────────────────────────────────
 export default function Am1ConversationSurface({
 	scroll = false,
@@ -1128,8 +1029,23 @@ export default function Am1ConversationSurface({
 	composerActive?: boolean;
 } = {}): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-	const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
 	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+	// Navigation hooks → the existing OWNED surfaces. Story has no router, so each
+	// is a clearly-labeled console noop naming its real destination route. NO
+	// inline viewer renders for any of them.
+	const openKnowledgeView = (): void => {
+		// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
+		console.info(`[AM1] navigate to Knowledge view → ${ROUTE_KNOWLEDGE} (KnowledgeDetail, anchored to the block)`);
+	};
+	const openArtifactView = (): void => {
+		// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
+		console.info(`[AM1] navigate to Artifact view → ${ROUTE_ARTIFACT} (ArtifactPermalink → ArtifactView)`);
+	};
+	const openReviewPage = (): void => {
+		// biome-ignore lint/suspicious/noConsole: story-only navigation-hook proof
+		console.info(`[AM1] navigate to review page → ${ROUTE_REVIEW} (ReviewPage → ReviewComposition)`);
+	};
 
 	// Outside-click / Escape closes the Insert menu (real popover behavior).
 	useEffect(() => {
@@ -1170,31 +1086,24 @@ export default function Am1ConversationSurface({
 				<ConversationHeader />
 				<ConversationBody
 					scroll={scroll}
-					onOpenBlock={(p) => setOpenPanel(p)}
-					// Production: navigate to the review page
-					// (/work/bet/:betId/review/:reviewId → ReviewPage → ReviewComposition).
-					// Story has no router — clearly-labeled noop so the affordance reads as
-					// "open the review page", NOT the right-panel Block viewer.
-					onOpenReview={() => {
-						// biome-ignore lint/suspicious/noConsole: story-only affordance proof
-						console.info("[AM1] open review page → /work/bet/:betId/review/:reviewId");
-					}}
+					onOpenBlock={openKnowledgeView}
+					onOpenArtifact={openArtifactView}
+					onOpenReview={openReviewPage}
 				/>
 				<Composer
 					active={composerActive}
 					insertMenuOpen={insertMenuOpen}
 					onToggleMenu={() => setInsertMenuOpen((v) => !v)}
 					onPickMenu={() => {
-						// Picking "Insert block" opens the same right-page block viewer the
-						// inline embeds open — proving the menu action is live, not dead.
+						// Picking "Insert block" inserts a block into the draft — it does NOT
+						// open a viewer (the conversation owns no viewing surface). Closes the
+						// menu so the action reads as live, not dead.
 						setInsertMenuOpen(false);
-						setOpenPanel("inserted-code");
 					}}
-					onOpenBlock={() => setOpenPanel("inserted-code")}
+					onOpenArtifact={openArtifactView}
 					menuButtonRef={menuButtonRef}
 				/>
 			</main>
-			{openPanel && <BlockRightPanel panel={openPanel} onClose={() => setOpenPanel(null)} />}
 		</div>
 	);
 }

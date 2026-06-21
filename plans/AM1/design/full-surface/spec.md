@@ -11,7 +11,30 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.9 — round-7: quiet identity + review-page target + unified session fold (founder annotations, this revision)
+## v3.10 — round-8: the conversation owns NO viewing surface; chips are navigation hooks (founder annotations, this revision)
+
+Three founder comments on the round-7 right-page block viewer drove this pass; verified by clicking block / artifact / "Open review" in the `:8100` viewer and reading the console (`screenshot.png` = resting surface, no right pane).
+
+> **Founder (verbatim):** "Why is there a white box around this. generally not sure what this is? Do we not have standardized artifact views yet?" · "Is this a block? Why does this not open the knowledge view?" · "This looks weird. we need to figure out what the artifact views look like. the review already has more time invested here … in review it's more about diffs."
+
+### A. The bespoke right-page block viewer is REMOVED
+The conversation does **NOT** own a viewing surface. The `Am1BlockRightPanel` (the white-box right page that rendered a full `<Block>` via the real viewer) and all the state that drove it (`openPanel`, `PanelKey`, `PANELS`, the block-payload fixtures, the `Block` import) are **deleted**. The surface is now just the conversation column + composer — no right pane, so the earlier "right panel cramps the conversation" problem is gone too.
+
+### B. Reference chips are NAVIGATION HOOKS into the existing, OWNED surfaces
+Each chip routes to a surface that already exists and is owned elsewhere — nothing renders inline:
+- a **BLOCK** chip → the **Knowledge view** (`/knowledge/:knowledgeId`, `pages/KnowledgeDetail.tsx`), anchored to the block (founder comment 2 — "why does this not open the knowledge view?"). The work-fold, session fold, and knowledge-source chips route here too.
+- an **ARTIFACT** chip (the change-set `auth/passkey.ts +2 −1`, the composer-draft code chip, the image) → the **Artifact view** (`/artifacts/:id`, `pages/ArtifactPermalink.tsx` → `shell/ArtifactView.tsx`).
+- **"Open review"** / "View review" → the **review page** (`/work/bet/:betId/review/:reviewId`, `pages/review/ReviewPage.tsx` → `ReviewComposition`) — unchanged from round-7.
+
+In the isolated story (no router) each hook is a clearly-labeled `console.info` naming its real destination route (`openKnowledgeView` / `openArtifactView` / `openReviewPage`). Verified: clicking a block chip logs the Knowledge-view route, an artifact chip logs the Artifact-view route, "Open review" logs the review-page route; **no** `Am1BlockRightPanel` and **no** real `<Block>` node mount on any click (`panelAfterClicks=0`, `realBlockNodes=0`).
+
+> **Out of AM1 scope:** standardizing the artifact views themselves across knowledge / work / review is a fragmented cross-cutting concern (the review proof-canvases in `pages/review/` are diff-oriented and further along; `shell/ArtifactView.tsx` + `pages/ArtifactPermalink.tsx` are the generic artifact view). AM1 only HOOKS into these surfaces; it does NOT define them.
+
+Unchanged from round-7: the shared `ReferenceChip` (kinds {artifact,image,knowledge,block}, modes {draft,posted}), agent identity = green avatar only (no boxes), own-message light bg, the conditional reply banner, horizontal compact attachments, taller textarea, no bottom footer, the questionnaire ("?" marker + hover-button options), the review request + resolved verdict echo, the unified subtle session folds, the "+" hover button.
+
+---
+
+## v3.9 — round-7: quiet identity + review-page target + unified session fold (founder annotations, prior revision)
 
 Four founder comments drove this pass; verified by looking at the rendered surface + clicking "Open review" in the `:8100` viewer (`screenshot.png`).
 
