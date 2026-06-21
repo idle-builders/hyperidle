@@ -3,12 +3,12 @@
  *
  * The page is now the canonical route for /conversations and
  * /conversations/:threadId. Tests cover all five states (A–E) and
- * prove no per-shape branching at the page layer (ThreadShell dispatches).
+ * prove no per-shape branching at the page layer (the Part renderer dispatches).
  *
  * State A — no :threadId param → EmptyState "Open a thread to see it here"
  * State B — loading → SkeletonList
  * State C — error (non-404) → ErrorState
- * State D — populated (200) → ThreadShell
+ * State D — populated (200) → ConversationSurface (AM1 Part model)
  * State E — not found (404) → EmptyState "Thread not found" + back link
  *
  * @lore L9: tests use MemoryRouter with route-params so that
@@ -135,9 +135,9 @@ describe("Conversations page (L9)", () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// State D — populated (review-shape)
+	// State D — populated (review-shape) — AM1: ConversationSurface (Part model)
 	// -----------------------------------------------------------------------
-	it("State D: mounts ThreadShell with a review-shape fetched thread", async () => {
+	it("State D: mounts ConversationSurface with a review-shape fetched thread", async () => {
 		globalThis.fetch = vi.fn(
 			async () =>
 				new Response(
@@ -147,7 +147,7 @@ describe("Conversations page (L9)", () => {
 						headMessageId: FAKE_REVIEW_MESSAGE.id,
 						identities: {
 							"u-founder": { name: "Founder", role: "founder" },
-							"agent-1": { name: "Agent", role: "builder" },
+							"agent-1": { name: "Agent", role: "agent" },
 						},
 					}),
 					{ status: 200, headers: { "Content-Type": "application/json" } },
@@ -156,15 +156,17 @@ describe("Conversations page (L9)", () => {
 
 		renderWithThreadId(THREAD_ID);
 		await waitFor(() => {
-			expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
+			expect(screen.getByTestId("conversation-surface")).toBeInTheDocument();
 		});
+		// The review renders as a compact review Part (no ThreadShell, no card).
+		expect(screen.queryByTestId("thread-shell")).toBeNull();
 		expect(screen.getByText("Pricing overhaul")).toBeInTheDocument();
 	});
 
 	// -----------------------------------------------------------------------
 	// State D — populated (plain-shape) — proves no per-shape branching
 	// -----------------------------------------------------------------------
-	it("State D: mounts ThreadShell with a plain-shape fetched thread (no per-shape branching)", async () => {
+	it("State D: mounts ConversationSurface with a plain-shape fetched thread (no per-shape branching)", async () => {
 		globalThis.fetch = vi.fn(
 			async () =>
 				new Response(
@@ -182,9 +184,9 @@ describe("Conversations page (L9)", () => {
 
 		renderWithThreadId(THREAD_ID);
 		await waitFor(() => {
-			expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
+			expect(screen.getByTestId("conversation-surface")).toBeInTheDocument();
 		});
-		// Plain message text is rendered inside ThreadShell
+		// Plain message text is rendered in the Part column (no per-shape branch).
 		expect(screen.getByText("Hello from plain message")).toBeInTheDocument();
 	});
 

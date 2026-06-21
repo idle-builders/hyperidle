@@ -1,14 +1,16 @@
 /**
- * L1a / L11 — Conversations reasoning-block tests.
+ * AM1 task 13 — Conversations reasoning relocation.
  *
- * Per L11 plan §8 migration table: the Reasoning block now lives inside
- * the in-stream `RichMessageCard` (the promoted unresolved review). Long
- * reasoning collapses behind a `> N reasons` toggle by default (Fix 2),
- * inline for a single short string. This test asserts the long-form
- * variant — the toggle is rendered with aria-expanded=false.
+ * The old `> N reasons` toggle lived inside the in-stream RichMessageCard. The
+ * founder-approved Part-model conversation removes inline reasoning depth — a
+ * review renders as a compact `review` Part (proposal + change-set + "Open
+ * review"); the reasoning depth relocates to the review page. This test asserts
+ * the NEW contract: the conversation shows the review reference with NO `> N
+ * reasons` toggle and does NOT inline the reasoning steps.
  *
- * @lore L9: ConversationsReview replaced by Conversations. Uses
- * createMemoryRouter at /conversations/:threadId so useParams() resolves.
+ * @lore AM1: reasoning depth lives where the decision is made (the review page),
+ * not in the conversation. The conversation's only fold is the calm session/work
+ * Fold (a session reference), never a reasoning toggle.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -16,8 +18,10 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
 
+const THREAD_ID = "demo-thread-1";
+
 const FAKE_THREAD = {
-	id: "demo-thread-1",
+	id: THREAD_ID,
 	hostKind: "task",
 	hostId: "task-1",
 	initiatorId: "agent-1",
@@ -30,7 +34,7 @@ const FAKE_THREAD = {
 
 const FAKE_REVIEW_MESSAGE = {
 	id: "m-rev",
-	threadId: "demo-thread-1",
+	threadId: THREAD_ID,
 	senderId: "agent-1",
 	clientKey: "k-rev",
 	deletedAt: null,
@@ -45,45 +49,54 @@ const FAKE_REVIEW_MESSAGE = {
 	},
 };
 
-describe("Conversations — Reasoning (L11, lives inside RichMessageCard)", () => {
+describe("Conversations — reasoning relocated to the review page (AM1)", () => {
 	beforeEach(() => {
-		// biome-ignore lint/suspicious/noExplicitAny: testing-only fetch stub
-		(globalThis as any).fetch = vi.fn(
-			async () =>
-				new Response(
-					JSON.stringify({
-						thread: FAKE_THREAD,
-						messages: [FAKE_REVIEW_MESSAGE],
-						headMessageId: FAKE_REVIEW_MESSAGE.id,
-						identities: {
-							"u-founder": { name: "Founder", role: "founder" },
-							"agent-1": { name: "Agent", role: "builder" },
-						},
-					}),
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/me")) {
+				return new Response(
+					JSON.stringify({ id: "u-founder", name: "Founder", email: "f@x", avatarUrl: null }),
 					{ status: 200, headers: { "Content-Type": "application/json" } },
-				),
-		);
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					thread: FAKE_THREAD,
+					messages: [FAKE_REVIEW_MESSAGE],
+					headMessageId: FAKE_REVIEW_MESSAGE.id,
+					identities: {
+						"u-founder": { name: "Founder", role: "founder" },
+						"agent-1": { name: "Agent", role: "agent" },
+					},
+				}),
+				{ status: 200, headers: { "Content-Type": "application/json" } },
+			);
+		}) as typeof globalThis.fetch;
 	});
 
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders the reasoning toggle inside the promoted RichMessageCard (long-form: collapsed by default)", async () => {
+	it("renders the review reference with 'Open review' and NO `> N reasons` toggle in the conversation", async () => {
 		const router = createMemoryRouter(
 			[{ path: "/conversations/:threadId", element: <Conversations /> }],
-			{ initialEntries: ["/conversations/demo-thread-1"] },
+			{ initialEntries: [`/conversations/${THREAD_ID}`] },
 		);
 		render(<RouterProvider router={router} />);
+
 		await waitFor(() => {
-			expect(screen.getByTestId("rich-message-card")).toBeInTheDocument();
+			expect(screen.getByText(/Pricing overhaul/i)).toBeInTheDocument();
 		});
-		const card = screen.getByTestId("rich-message-card");
-		// Long reasoning (3 entries) renders behind a toggle, collapsed by default.
-		const toggle = screen.getByRole("button", { name: /reasons/i });
-		expect(card.contains(toggle)).toBe(true);
-		expect(toggle.getAttribute("aria-expanded")).toBe("false");
-		// Reasoning entries are not visible while collapsed.
+
+		// The compact review Part is present with its single hook.
+		expect(screen.getByRole("button", { name: /open review/i })).toBeInTheDocument();
+		// No reasoning toggle in the conversation.
+		expect(screen.queryByRole("button", { name: /reasons/i })).toBeNull();
+		// Reasoning steps are NOT inlined in the conversation.
 		expect(screen.queryByText("Step one")).toBeNull();
+		expect(screen.queryByText("Step two")).toBeNull();
+		// The legacy card is gone.
+		expect(screen.queryByTestId("rich-message-card")).toBeNull();
 	});
 });
