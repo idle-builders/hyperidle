@@ -3,6 +3,7 @@
 	"ignore": [
 		"**/.claude/**",
 		".hermes/**",
+		".opencode/**",
 		"docs/product/.vitepress/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
