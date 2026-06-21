@@ -916,4 +916,65 @@ export default [
 			],
 		},
 	},
+
+	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
+	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
+	// `OpenTarget` vocabulary (@hyperidle/shared). They must NEVER import a
+	// SOURCE type — `Message`/`InlineRef`/`thread*` or any `harness` path — so a
+	// second adapter (AM3's session adapter) can feed the SAME renderer with zero
+	// change. A static "must not import X" property is a lint rule, not a test
+	// (CLAUDE.md). The adapter (`packages/shared/src/part.ts`) is the ONLY place
+	// permitted to import `Message`/`InlineRef`.
+	//
+	// @lore AM1: placed LAST so this block is authoritative for these paths —
+	// ESLint flat config REPLACES (does not merge) `no-restricted-imports` when a
+	// later config re-sets it for overlapping files. The broad `packages/web/src/**`
+	// api-fetch ban (Rule 4) is restated here so it still applies.
+	{
+		files: [
+			"packages/web/src/components/PartList.tsx",
+			"packages/web/src/components/parts/**/*.{ts,tsx}",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/shared",
+							importNames: ["Message", "InlineRef", "EntityRef", "BlockRef", "MentionRef"],
+							message:
+								"AM1 W1: the source-agnostic Part renderer must NOT import source types (Message/InlineRef/…). Render the `Part`/`Embed` vocabulary only — the adapter (packages/shared/src/part.ts) owns all knowledge of Message. This is the AM1↔AM3 reuse boundary (AC5).",
+						},
+					],
+					patterns: [
+						{
+							group: [
+								"**/thread",
+								"**/thread.js",
+								"**/thread.ts",
+								"**/harness",
+								"**/harness/**",
+								"@hyperidle/shared/harness",
+								"@hyperidle/shared/harness/**",
+							],
+							message:
+								"AM1 W1: the Part renderer must NOT import a source type (thread*/harness). Render the source-agnostic `Part`/`Embed` vocabulary only (AC5).",
+						},
+						{
+							group: ["**/services/api-fetch", "**/services/api-fetch/**"],
+							message:
+								"api-typesafety Rule 4: Import from @/api/client instead of services/api-fetch.",
+						},
+					],
+				},
+			],
+		},
+	},
 ];
