@@ -110,3 +110,74 @@ The designer must address, before build:
 5. **W4** — specify `blockAnchor` derivation + confirm `KnowledgeDetail` consumes it, or explicitly defer anchoring to AM5.
 
 NITs N1–N4 are non-blocking but cheap to fold in.
+
+---
+---
+
+# AM1 — Architecture Critique, ROUND 2 (re-review of the revised plan)
+
+**Plan under review:** `plans/AM1/architecture.md` (revised). **Round-1 verdict was REVISE** (1 CRITICAL + 4 WARNINGs + 4 NITs).
+**Method:** every claimed fix verified against the branch source, not the prose. Read `host-route.ts`, `thread.ts` (`HOST_KINDS`, `BLOCK_HOST_KINDS`, `BlockRef`, `MentionRef`, `EntityRef`, `QuestionnairePayload`), `blocks/types.ts`, `eslint.config.ts` (L348 block), `KnowledgeDetail.tsx`, `catalog-snapshot.test.tsx` (live floors).
+
+---
+
+## Fix verification (claim → reality)
+
+| # | Round-1 finding | Revised-plan claim | Verified against branch | Holds? |
+|---|---|---|---|---|
+| **C1** | `block → /knowledge` not total over `BlockHostKind` | Every `BlockRef` → `{route:"host",hostKind,hostId}` resolved via `resolveHostRoute`; no `knowledgeId` fabricated | `host-route.ts` L18-37: `resolveHostRoute(hostKind: HostKind, hostId)` is a **switch with no `default`, every arm returned** → TS-exhaustive over all 8 `HostKind`. `BLOCK_HOST_KINDS` (blocks/types.ts L20-28) = `{bet,task,knowledge_item,artifact,agent,user}` (6) ⊊ `HOST_KINDS` (8). Every `BlockHostKind` member resolves: bet/task/knowledge_item/artifact/agent→path, user→null. No `knowledgeId` minted; `OpenTarget.host.hostKind: BlockHostKind` (L155). AC8 (L301) + Task 2 (L343) now exercise a **bet-hosted** block, so the hole cannot hide. | **YES** |
+| **W1** | AC5 named a test where a lint rule belongs; method hand-wavy | Scoped `no-restricted-imports` ESLint block on `PartList.tsx`+`parts/**`, banning `Message`/`InlineRef`/`thread*`/`harness` | `eslint.config.ts` has real `no-restricted-imports` infra with `files:`+`patterns:` (L348 block is the cited precedent; `groups`/`paths` shape used in 10+ blocks). Plan AC5 (L298) + Task 6 (L347) commit to the lint rule as the durable gate, with the two-adapter runtime proof as the executable half. CLAUDE.md rule honored (static import-absence → lint, not vitest grep). | **YES** |
+| **W2** | `QuestionOption.recommended` had no source | `recommended`/`QuestionOption` dropped; options are `ReadonlyArray<string>` | `QuestionnairePayload.options: ReadonlyArray<string>` (thread.ts L204) — no per-option metadata. Plan §1.1 (L106), §5 (L261), W2 note (L116) all use `ReadonlyArray<string>`; "Recommended" tag explicitly deferred (no data source, stated not silently dead). No fabricated source remains. | **YES** |
+| **W3** | Duplicate mention representation; `MentionRef` leak | `mentions` field removed; mentions are `mention` Embeds only | Plan §1.1 prose variant (L103) carries no `mentions` field; W3 note (L114) states mentions live only as `mention` Embeds `{identityId,displayName}`. `MentionRef` (thread.ts L133, with required `sourceText`) never appears in the Part shape. No `thread.ts` type leaks into `Part`. (Note: adapter must still read `MentionRef.sourceText` for span segmentation — that's adapter-internal, correctly the one place allowed to know `MentionRef`.) | **YES** |
+| **W4** | `blockAnchor` had no derivation; destination ignores it | `blockAnchor` dropped; anchoring deferred to AM5 | `KnowledgeDetail.tsx` reads `useParams<{knowledgeId}>` (L268) ONLY — no `useSearchParams`/`hash`/`location` anchor consumption. The `data-block-id` querySelector (L697,709) is driven by in-page actions, not a route param. Dropping `blockAnchor` is correct (the destination genuinely ignores any anchor today) — not a regression of the design promise; the §1.3 note (L170) + §6 note (L282) defer anchoring to AM5 explicitly. | **YES** |
+| **N1** | AC8 page-test asserted a string map, not navigation | Spy `navigate`, assert it is **called** with resolved path; null route → no call | AC8 (L301) + Task 8 (L349) assert `navigate` is called per `OpenTarget` and that `host`+`user` (null) does **not** call it. Real wiring proof, not a format fn. | **YES** |
+| **N2** | Task 10 OR-clause (unresolved-then-resolved) | OR-clause removed | Task 10 (L351) states only "ConversationSurface composes `<PartList>`". No value-free optionality. | **YES** |
+| **N3** | `unknown` reason read as dead defensive code | Tied to a concrete deserialization-drift source | §1.1 (L120) ties `wire-unrecognised-type` to over-the-wire deserialization (forward-compat server message type ahead of the web client) — a genuine boundary the TS exhaustiveness check cannot prove unreachable. Justified, not slop. | **YES** |
+| **N4** | Enumeration-guard floor unnamed | Bump floors +2 for the 2 promoted DS stories | Live floors: `catalog-snapshot.test.tsx` L73 `≥59`, L223 `≥58`. Plan AC6 (L299) + Tasks 3-4 (L344-345) name the new floors `≥61`/`≥60` — exactly +2. Correct. | **YES** |
+
+All 9 round-1 findings are genuinely resolved against the branch. C1 — the sole CRITICAL — is now provably total over `BlockHostKind` via an existing, TS-exhaustive resolver. No rubber-stamp: each fix traced to source.
+
+---
+
+## NEW finding (surfaced by the C1 fix, not present in round-1)
+
+### W5 (WARNING, new) — `entity-ref` → `OpenTarget` is not total over `EntityRef.kind`; the `"message"` member has no mapping rule
+**Location:** §1.2 Embed `entity-ref` (L139 `entityKind: EntityRef["kind"]`); mapping prose §1.2 (L143) and §2.1 (L183).
+
+`EntityRef.kind = "knowledge_item" | "task" | "artifact" | "bet" | "message"` (thread.ts L112). The plan specifies a target rule for four of the five: `artifact → {route:"artifact"}`; `knowledge_item`/`bet`/`task → {route:"host"}`. The fifth, **`"message"`, has no rule**. It cannot use `{route:"host"}` either — `OpenTarget.host.hostKind` is typed `BlockHostKind` (L155), which does **not** include `"message"` (it's not a host kind). So the same totality class the C1 fix closed for the `block` path remains open one path over, in `entity-ref`. The adapter as written cannot be implemented for a `message`-kind `EntityRef` without an undocumented decision (drop to `unknown`/skip the Embed? a future message-permalink route?).
+
+This is narrower than round-1 C1 (cross-message references are an edge case, and `MESSAGE_TYPES`/`InlineRef` already support `message` EntityRefs today via `renderRefEmbeds`), so it is a **WARNING, not a CRITICAL** — but it is the exact "adapter not provably total → builder improvises" gap `/architecture` exists to prevent. **Fix:** state the rule for `EntityRef.kind === "message"` (recommend: map to an `unknown`/dropped Embed in AM1 with a note that message-permalink routing is out of scope, OR add a `{route:"message"}` target if a destination exists). One sentence; no schema change.
+
+---
+
+## NIT (new, non-blocking)
+
+- **N5** — Required-reading L19 cites `packages/web/src/services/host-route.js`; the file is `host-route.ts` (the reconciliation table L42 cites `.ts` correctly). Cosmetic; fix the `.js` typo.
+
+---
+
+## Re-score (9 dimensions)
+
+| # | Dimension | R1 | R2 | Note |
+|---|---|---|---|---|
+| 1 | Spec/contract fidelity | 7 | 8 | C1 + W2 holes closed; ACs intact. −1 lingering: W5 entity-ref `message` member. |
+| 2 | Type-model soundness | 6 | 8 | `host` target total over `BlockHostKind`; `recommended` dropped; mention dup collapsed. −1: `entity-ref` union not total over `EntityRef.kind` (W5). |
+| 3 | Boundary / layer integrity | 8 | 9 | AC5 now a real build-time lint rule on the cited infra; renderer imports `Part` only. |
+| 4 | Verification rigor | 6 | 8 | AC5 → lint rule; AC8 → real `navigate` spy incl. non-knowledge host + null-route no-op. |
+| 5 | Reuse vs duplication | 8 | 8 | Unchanged — `groupParts`, `ReferenceChip`/`Fold` promotion, one `onOpen`. |
+| 6 | Routing-seam design | 6 | 8 | `host` seam provably exhaustive via existing resolver; `blockAnchor` correctly deferred. −1: W5. |
+| 7 | Security posture | 8 | 8 | Unchanged — render-only, sanitizer reuse, React-escaped chip text, honest N/A grid. |
+| 8 | Task atomicity / sequencing | 8 | 8 | Tasks updated to encode C1/W1/N4; dependency note intact. |
+| 9 | Risk surfacing / self-critique | 8 | 8 | Critique-resolution log (L373) is honest and traceable. (W5 not self-caught — same blind spot class as the original C1, hence not 9.) |
+
+**Overall: 8.1/10** (mean 8.1). No CRITICAL. One new WARNING (W5, narrow, one-sentence fix).
+
+---
+
+## VERDICT
+
+The revision is genuine, not cosmetic. The CRITICAL (C1) is fully closed against a TS-exhaustive existing resolver, no `knowledgeId` is fabricated, and the AC8 test exercises a non-knowledge-hosted block so the totality can't regress silently. All 4 WARNINGs and all 4 NITs are resolved and verified against branch source. One new WARNING (W5) surfaced as a sibling of the C1 fix — the `entity-ref` `"message"` member has no total mapping — but it is narrow, edge-case, and a one-sentence fix; it does not block the build (the load-bearing block path is total, and the builder has a documentable default).
+
+Overall ≥7, no CRITICAL → build may proceed. The designer should fold W5 (and N5) into the plan before or during Task 2 (the adapter), where the `entity-ref` mapping is implemented.
+
+`VERDICT: PASS (score 8/10)`
