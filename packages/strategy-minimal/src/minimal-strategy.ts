@@ -156,16 +156,21 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 	},
 
 	/**
-	 * AK7 RED STUB: selectAgent for the Minimal Strategy.
+	 * AK7: Decide which agent owns a unit of work under the Minimal Strategy.
 	 *
-	 * The real implementation (green phase):
-	 *   Honor roleHint if a candidate matches; else first candidate; else null.
-	 *   For routine_delegate (candidates:[]): returns null (Minimal has no delegation knowledge).
+	 * Minimal = no knowledge, no skill match. For bet_* surfaces: honor roleHint
+	 * if a candidate matches; else first candidate; else null. For routine_delegate:
+	 * candidates is always [] and Minimal has no delegation knowledge → null.
 	 *
-	 * @lore AK7: This stub throws so AK7 tests fail red. The green phase implements
-	 * the trivial bet_* selection (candidates[0] / roleHint match) per architecture §6.1.
+	 * @lore AK7: Satisfies the seam trivially (AK2 hard rule). A one-agent team
+	 * always returns that agent. routine_delegate falls through to null because
+	 * candidates is [] for that surface — the Fabric handles real delegation.
 	 */
-	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
-		throw new Error("AK7: Minimal selectAgent not implemented — green phase required");
+	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		const byRole = req.roleHint
+			? req.candidates.find((c) => c.role === req.roleHint)
+			: undefined;
+		const chosen = byRole ?? req.candidates[0];
+		return { agentId: chosen?.agentId ?? null };
 	},
 };

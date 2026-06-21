@@ -34,6 +34,7 @@ import type {
 	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
+import { selectAgentFabric } from "./services/agent-selection.js";
 import { assembleContext } from "./context-assembly.js";
 import { startWatcher } from "./file-watcher.js";
 import { composeRoster } from "./roster.js";
@@ -104,15 +105,13 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 	},
 
 	/**
-	 * AK7 RED STUB: selectAgent for the Fabric Strategy.
-	 *
-	 * The real implementation (green phase) delegates to selectAgentFabric(req)
-	 * from packages/fabric/src/services/agent-selection.ts.
-	 *
-	 * @lore AK7: This stub throws so AK7 tests fail red. The green phase wires
-	 * in selectAgentFabric per architecture §6.2.
+	 * AK7: The Fabric Strategy decides which agent owns a unit of work.
+	 * Delegates to selectAgentFabric for the three-surface implementation:
+	 *   - bet_decomposer: role-match PM on Kernel-enumerated candidates
+	 *   - bet_task: role-match short-circuit; else round-robin spread via spreadIndex
+	 *   - routine_delegate: findDelegate's exact userSkills query (concept §3a carve-out)
 	 */
-	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
-		throw new Error("AK7: Fabric selectAgent not implemented — green phase required");
+	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		return selectAgentFabric(req);
 	},
 };
