@@ -11,7 +11,27 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.5 — round-4 detail fixes (founder annotations, this revision)
+## v3.6 — round-5: INTERACTIVE + real components (founder annotations, this revision)
+
+Founder asked to **SEE it work** ("I want to see this interactive and open the right page and display the full block in the proper block viewer component that we already have"). The story is now **live React** — verified by clicking in the `:8100` viewer and screenshotting each state (`_insert-menu.png`, `_open-block.png`, `screenshot.png`).
+
+1. **Insert "+" affordance WORKS — solid grounded popover.** Click "+" toggles `insertMenuOpen`; click "+" again, outside, or Escape closes it. The menu is anchored to the "+" (its relative parent), opens upward, and is now a **guaranteed-SOLID surface**: `background: var(--surface-overlay)` + `zIndex: 50` are set via **inline style**, because the arbitrary-value `bg-[var(--surface-overlay)]`/`z-30` Tailwind classes did NOT resolve in the viewer JIT — the menu was painting `rgba(0,0,0,0)` (transparent) with `z-index:auto`, which IS the founder's "floating completely out of place in transparent. pretty wrong." Probed computed style after fix: `rgb(255,255,255)`, `zIndex:50`. No content bleeds through; the popover never grows the composer box.
+
+2. **Block "Open →" WORKS — opens a RIGHT PAGE rendering the FULL block via the real `<Block>` viewer.** Clicking any block-title embed (inserted code draft, or the referenced "Auth migration plan · §2") sets `openPanel` and slides in `Am1BlockRightPanel`, which renders the full block(s) through the **real `Block` component** (`@hyperidle/design-system`, the same viewer Knowledge uses) — verified: 2 real `[data-ds-component='block']` nodes mount in the panel. A close ✕ returns. This is the "open in the right page" founder asked to SEE working — no facsimile.
+
+3. **Inline block preview = TITLE only (never code first line).** The inserted code embed shows `CODE BLOCK · TS / auth/passkey.ts` + "Open →" — verified the conversation text does NOT contain the code first line (`navigator.credentials.create`). The full multi-line code render lives only in the right page.
+
+4. **Change-set / artifact embed = the real `<ArtifactEmbed>`.** A `kind:"code"` `Artifact` (valid `preview {kind:"code",file,hunks}`, `cost.money/tokens`, `createdAt`) renders through `@hyperidle/design-system`'s `ArtifactEmbed` inside the message host card — verified `[data-ds-component='ArtifactEmbed']` present. Renders `CODE / CHANGE SET · WIRE PASSKEY LOGIN · $0.42 · 6M AGO` + `auth/passkey.ts (+2 -1)`.
+
+5. **Composer tools UNIFIED into ONE "+" menu.** The duplicate bottom icon strip is gone. The single "+" opens one menu with every action, each labeled + single-purpose: **Insert block · Attach file · Mention · Reference item · Format · Emoji**. Below the input row: only the "Enter to send · Shift+Enter for newline" hint. Resolves "what's the difference between insert and those other icons / why is the insert there and not where the other icons are."
+
+6. **Questionnaire — neutral SURVEY options + token padding.** All three options are **identical quiet outlined chips** on `--surface-elevated`; no "very very green" filled chip biasing an answer. The recommendation is a small **neutral** "RECOMMENDED" tag (`--surface-container`/`--text-tertiary`), not an accent fill. Padding is on-grid Hearth (`px-[18px] py-[12px]`, `mt-[12px]` between question and chips). Prominence comes from layering (`--surface-elevated` + `--shadow-default`) + the QUICK ASK pill — never from an accent structural border (none present) and never from biasing one answer.
+
+`Populated` is the resting conversation (menu + right panel closed by default; founder clicks to open). `ComposerInsertBlock` shows the active composer with the inserted-block draft.
+
+---
+
+## v3.5 — round-4 detail fixes (founder annotations, prior revision)
 
 Three element-anchored founder notes on the `ComposerInsertBlock` / `Populated` states drove these. Confirmed in the `:8100` viewer (`plans/AM1/design/full-surface/screenshot.png`; QUICK ASK verified element-level).
 

@@ -650,8 +650,19 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 			data-ds-component="Am1InsertMenu"
 			role="menu"
 			aria-label="Insert"
-			style={{ bottom: "calc(100% + 6px)", left: 0 }}
-			className="absolute z-30 w-[238px] rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-overlay)] p-[3px] shadow-[var(--shadow-elevated)]"
+			// Grounded popover: anchored to the "+" (relative parent), opening upward.
+			// Background + z-index forced via inline style — the arbitrary-value
+			// `bg-[var(--surface-overlay)]`/`z-30` Tailwind classes did NOT resolve in
+			// the viewer JIT, leaving the menu TRANSPARENT and below content (founder:
+			// "floating completely out of place in transparent. pretty wrong"). Inline
+			// style guarantees a SOLID surface above conversation content, every render.
+			style={{
+				bottom: "calc(100% + 6px)",
+				left: 0,
+				background: "var(--surface-overlay)",
+				zIndex: 50,
+			}}
+			className="absolute w-[238px] rounded-[var(--r-default)] border border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
 		>
 			{items.map((it) => (
 				<button
