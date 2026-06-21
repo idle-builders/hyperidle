@@ -1,63 +1,51 @@
 /**
- * Conversations page — L9: single detail surface, shape-agnostic.
+ * Conversations page — L9 / AM1: single detail surface, shape-agnostic.
  *
- * Replaces ConversationsReview.tsx (one page, two routes). Mounted on:
+ * Mounted on:
  *   - /conversations          → no :threadId → State A (empty, open a thread)
  *   - /conversations/:threadId → has :threadId → States B/C/D/E
  *
- * @lore L9: the page does NOT branch on review-vs-chat. ThreadShell (L1)
- * owns dispatch by message type (review → RichMessageCard, plain →
- * CommentRow, verdict → terminator, etc.). Adding a new message type adds
- * a branch inside ThreadShell — not a new route. This is contract 2 from
- * concept.md §3: "No per-shape page logic."
+ * @lore AM1: the populated `ready` state renders the Part-based
+ * `<ConversationSurface>` (header · author-grouped Part column · unified-"+"
+ * composer). `ThreadShell`/`RichMessageCard`/inline-verdict are GONE from the
+ * conversation — HyperIdle ships as versioned desktop releases, so the new
+ * surface BECOMES the conversation (no flag, no live cutover). The page derives
+ * `Part[]` via `derivePartsFromMessages` (the only Message-aware seam) and routes
+ * references through `createOpenHandler` (the OpenTarget → navigate seam).
  *
- * @lore L9: there are exactly five states (A–E). State E ("Thread not
- * found") does NOT mount ThreadShell — no message list, no composer, no
- * fixture content. This is the explicit rejection of the editable-fallback
- * anti-pattern that ConversationsChat.tsx embodied.
+ * @lore AM1: the conversation no longer TAKES a verdict. An unresolved review
+ * renders as a `review` Part with a single "Open review" hook → the real
+ * ReviewPage (`/work/bet/:betId/review/:reviewId`); a resolved review echoes as a
+ * `resolved` Part. The decision UI lives on the review page (design §5). The
+ * verdict SEMANTICS (Message type, payload, verdictDecisionLabel, POST shape) are
+ * unchanged — only the decision UI relocated.
  *
- * @lore Q1: Dial-in support added. When viewing a task-hosted thread with an
- * active session, a "Live" badge + "Dial In" button appear in the thread header.
- * Clicking "Dial In" opens the companion split: thread on the left (flex-[3]),
- * SessionActivityPanel on the right (flex-[2]).
+ * @lore L9: there are exactly five states (A–E). State E ("Thread not found")
+ * does NOT mount ConversationSurface — no message list, no composer.
+ *
+ * @lore Q1: Dial-in support retained. A task-hosted thread with an active session
+ * shows a "Dial In" button; clicking it opens the companion split: the
+ * ConversationSurface on the left, SessionActivityPanel on the right.
  */
-import {
-	Button,
-	EmptyState,
-	ErrorState,
-	PageHeader,
-	ReferenceChip,
-	SkeletonList,
-	Tag,
-	ThreadShell,
-} from "@hyperidle/design-system";
-import type {
-	ArtifactRef,
-	ArtifactViewShape,
-	BlockRef,
-	InlineRef,
-	OpenHandler,
-} from "@hyperidle/shared";
-import {
-	type JSX,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { Button, EmptyState, ErrorState, PageHeader, SkeletonList } from "@hyperidle/design-system";
+import type { PartAuthor } from "@hyperidle/shared";
+import { derivePartsFromMessages } from "@hyperidle/shared";
+import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import ConversationSurface, {
+	type ConversationSurfaceParticipant,
+} from "../components/ConversationSurface";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useHint } from "../hooks/useHints";
+import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
-import { ArtifactView } from "../shell/ArtifactView";
 import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
@@ -65,59 +53,32 @@ import { ToastContext } from "../shell/ToastRegion";
 // matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
 
 /**
- * AM1: render block references as TITLE-ONLY ReferenceChips that route to the
- * block's HOST surface through the OpenTarget seam (the approved design — the
- * conversation owns no inline viewer; a block chip opens its host, not a heavy
- * resolving embed). C1: the host target is total over BlockHostKind via the
- * page's createOpenHandler → resolveHostRoute.
- *
- * @lore AM1: supersedes the T4 heavy `BlockRefEmbed` render path in the
- * conversation. `BlockRefEmbed` itself is left in place for any non-AM1 consumer
- * (it is not deleted); AM1 simply no longer wires it into the conversation.
+ * AM1: map the thread-detail identities into the source-agnostic `PartAuthor[]`
+ * the `derivePartsFromMessages` adapter consumes. `isMe` marks the viewer's own
+ * messages (the "You" label + own-message styling). No new fetch — the same
+ * `data.identities` from `useThreadDetail`.
  */
-function renderRefEmbedsForConversations(
-	refs: ReadonlyArray<InlineRef>,
-	onOpen: OpenHandler,
-): ReactNode {
-	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
-	if (blockRefs.length === 0) return null;
-	return (
-		<div className="flex flex-wrap items-center gap-[6px] mt-[6px]">
-			{blockRefs.map((r) => (
-				<ReferenceChip
-					key={`${r.blockId}-${r.hostId}`}
-					kind="block"
-					label={r.blockId}
-					mode="posted"
-					onOpen={() => onOpen({ route: "host", hostKind: r.hostKind, hostId: r.hostId })}
-				/>
-			))}
-		</div>
-	);
+function identitiesToAuthors(
+	identities: ThreadDetail["identities"],
+	viewerId: string,
+): ReadonlyArray<PartAuthor> {
+	return Object.entries(identities).map(([id, identity]) => ({
+		id,
+		name: identity.name,
+		isAgent: identity.isAgent === true || identity.role === "agent",
+		isMe: id === viewerId,
+	}));
 }
 
-// ---------------------------------------------------------------------------
-// Artifact slot resolver (AE6 updated)
-// @lore L11 plan §5.6.1 (decision A): there is no /api/artifacts/:id
-// endpoint. ArtifactView gets a null preview so the metadata strip and
-// discriminator render. Follow-up story wires real fetch.
-// @lore AE6: ArtifactRef.kind still uses the old ArtifactViewShape enum
-// (5 shapes) since thread.ts is not in scope for AE6. We map shapes to
-// their equivalent fundamental kinds for the new ArtifactView API.
-// ---------------------------------------------------------------------------
-
-/** Map old ArtifactViewShape → fundamental kind string. */
-const SHAPE_TO_KIND: Record<ArtifactViewShape, string> = {
-	text_diff: "code",
-	content_preview: "text",
-	visual_comparison: "image",
-	action_summary: "text",
-	data_metrics: "data",
-};
-
-function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
-	const kind = SHAPE_TO_KIND[ref.kind] ?? ref.kind;
-	return <ArtifactView kind={kind} preview={null} />;
+/** AM1: header participant chips for the ConversationSurface AvatarGroup. */
+function identitiesToParticipants(
+	identities: ThreadDetail["identities"],
+): ReadonlyArray<ConversationSurfaceParticipant> {
+	return Object.entries(identities).map(([id, identity]) => ({
+		id,
+		name: identity.name,
+		isAgent: identity.isAgent === true || identity.role === "agent",
+	}));
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +176,9 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// targets resolve through the existing resolveHostRoute (total over
 	// BlockHostKind); user/factory are documented no-ops.
 	const openTarget = createOpenHandler(navigate);
+	// AM1: viewer identity for own-message ("You") styling in the Part column.
+	const { user } = useCurrentUser();
+	const viewerId = user?.id ?? "";
 	const hintReviewVerdict = useHint("review-verdict");
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
@@ -252,41 +216,29 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		};
 	}, [activeSession]);
 
-	const onAppend = useCallback(
-		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
+	// AM1: the conversation send path. POSTs a `plain` message via the existing
+	// `/api/threads/:id/messages` endpoint (unchanged), then refreshes. The
+	// conversation no longer emits a verdict — no verdict POST is reachable from
+	// here (the decision UI relocated to ReviewPage, design §5), so the old
+	// verdict / head-resolving branch is gone; a plain reply always async-acks.
+	const onSend = useCallback(
+		async (text: string): Promise<void> => {
 			if (!data) return;
-			const priorResolvedAt = data.thread.resolvedAt ?? null;
 			const res = await apiFetch(`/api/threads/${data.thread.id}/messages`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(input),
+				body: JSON.stringify({
+					type: "plain",
+					payload: { text, refs: [] },
+					clientKey: crypto.randomUUID(),
+				}),
 			});
 			if (!res.ok) {
-				// @lore L9: throw so ThreadShell's RichMessageCard surfaces the error
-				// (phase: "error") with a Retry control. The L7 thread-response e2e
-				// asserts on this exact text via classifyHttpError — keep them in sync.
 				throw new Error(classifyHttpError(res.status));
 			}
-			// Inspect commit response to decide async-ack toast (L7 plan §4.5).
-			let nextResolvedAt: string | null = null;
-			let committedType: string | undefined;
-			try {
-				const body = (await res.clone().json()) as {
-					thread?: { resolvedAt?: string | null };
-					message?: { type?: string };
-				};
-				nextResolvedAt = body?.thread?.resolvedAt ?? null;
-				committedType = body?.message?.type;
-			} catch {
-				// no body — treat as sync; refresh fetches the truth.
-			}
 			retry();
-			// Async-ack: fire toast when commit was NOT a head-resolving event.
-			const flippedResolved = priorResolvedAt === null && typeof nextResolvedAt === "string";
-			const isHeadResolving = flippedResolved || committedType === "verdict";
-			if (!isHeadResolving) {
-				toast?.showToast(ASYNC_ACK_COPY);
-			}
+			// A plain reply is never a head-resolving event — async-ack the response.
+			toast?.showToast(ASYNC_ACK_COPY);
 		},
 		[data, retry, toast],
 	);
@@ -356,6 +308,26 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			</Button>
 		) : null;
 
+	// AM1: derive the render units + header/participants ONCE for both layouts.
+	// The conversation column comes from the Part adapter (the only Message-aware
+	// seam); the header/participants come from the values the page already has.
+	const parts = derivePartsFromMessages(
+		data.messages,
+		viewerId,
+		identitiesToAuthors(data.identities, viewerId),
+	);
+	const participants = identitiesToParticipants(data.identities);
+	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
+	const hostTitle =
+		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const header = {
+		title: threadTitle,
+		hostKind: data.thread.hostKind,
+		hostTitle,
+		hostRoute,
+	};
+
 	// Q1 §4.6: companion split layout when dialed in
 	if (dialInSessionId) {
 		const agentId = activeSession?.agentId ?? data.thread.hostId;
@@ -365,14 +337,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		return (
 			<div className="flex flex-row h-full gap-0" data-testid="conversations-page">
 				<div className="flex-[3] min-w-0 flex flex-col border-r border-[var(--border-subtle)]">
-					<ThreadShell
-						thread={data.thread}
-						messages={data.messages}
-						identities={data.identities}
-						artifactSlot={resolveArtifactSlot}
-						onAppendMessage={onAppend}
-						renderRefEmbeds={(refs) => renderRefEmbedsForConversations(refs, openTarget)}
-						hideHostBanner={true}
+					<ConversationSurface
+						parts={parts}
+						onOpen={openTarget}
+						header={header}
+						participants={participants}
+						onSend={onSend}
+						scroll
 					/>
 				</div>
 				<div className="flex-[2] min-w-0 flex flex-col">
@@ -390,67 +361,46 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
 	const hasReviewMessages = data.messages.some((m) => m.type === "review");
 
-	// Thread title for the detail header. Priority:
-	// 1. Identity name lookup by hostId (resolves user/agent names)
-	// 2. Fallback to hostId only (not hostKind/hostId format)
-	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
-
-	// AE5: Resolve host context link for navigation.
-	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
-	const hostTitle =
-		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
-
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
-			{/* AI7: PageHeader — thread title + host context subtitle + dial-in action */}
-			<PageHeader
-				title={threadTitle}
-				subtitle={
-					/* AE5: Thread context link — shows host entity with tag + title */
-					hostRoute ? (
-						<div className="flex items-center gap-[6px] text-[13px]">
-							<Tag label={data.thread.hostKind} />
-							<Link
-								to={hostRoute}
-								className="text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:underline truncate"
-							>
-								{hostTitle}
-							</Link>
-						</div>
-					) : undefined
-				}
-				actions={dialInButton ?? undefined}
-			/>
-			{hintReviewVerdict.visible && hasReviewMessages && (
-				<div
-					role="status"
-					data-testid={hintReviewVerdict.testId}
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px] flex-shrink-0 mx-[24px] mt-[12px]"
-				>
-					<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-						{hintReviewVerdict.copy}
-					</p>
-					<div className="flex gap-2">
-						<button
-							type="button"
-							className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-							onClick={hintReviewVerdict.dismiss}
+			{/* AM1: ConversationSurface owns the thread header (title + host context
+			    link). A thin action bar above it carries the dial-in affordance +
+			    the review-verdict hint — chrome the design header does not own. */}
+			{(dialInButton || (hintReviewVerdict.visible && hasReviewMessages)) && (
+				<div className="flex flex-col gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[9px]">
+					{dialInButton && <div className="flex justify-end">{dialInButton}</div>}
+					{hintReviewVerdict.visible && hasReviewMessages && (
+						<div
+							role="status"
+							data-testid={hintReviewVerdict.testId}
+							className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px]"
 						>
-							Got it
-						</button>
-					</div>
+							<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+								{hintReviewVerdict.copy}
+							</p>
+							<div className="flex gap-2">
+								<button
+									type="button"
+									className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+									onClick={hintReviewVerdict.dismiss}
+								>
+									Got it
+								</button>
+							</div>
+						</div>
+					)}
 				</div>
 			)}
-			{/* ThreadShell takes flex-1 overflow-hidden; it manages its own internal scroll */}
+			{/* ConversationSurface takes flex-1 overflow-hidden; it manages its own
+			    internal scroll (scroll prop). */}
 			<div className="flex-1 overflow-hidden">
-				<ThreadShell
-					thread={data.thread}
-					messages={data.messages}
-					identities={data.identities}
-					artifactSlot={resolveArtifactSlot}
-					onAppendMessage={onAppend}
-					renderRefEmbeds={(refs) => renderRefEmbedsForConversations(refs, openTarget)}
-					hideHostBanner={true}
+				<ConversationSurface
+					parts={parts}
+					onOpen={openTarget}
+					header={header}
+					participants={participants}
+					onSend={onSend}
+					scroll
 				/>
 			</div>
 		</div>
