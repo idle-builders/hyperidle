@@ -8,12 +8,11 @@ import {
 	routines,
 	sessions,
 	threads,
-	userSkills,
-	users,
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
+import { isAgentAtWipLimit, selectAgentFabric } from "./agent-selection.js";
 
 const schedulerLog = createLogger({ pkg: "fabric" });
 
@@ -222,45 +221,12 @@ async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
 	return actual >= cap;
 }
 
-// --- WIP check ---
-
-async function getActiveSessionCount(db: HyperIdleDb, agentId: string): Promise<number> {
-	const [row] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(sessions)
-		.where(and(eq(sessions.agentId, agentId), eq(sessions.state, "active")))
-		.limit(1);
-	return row?.count ?? 0;
-}
-
-async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promise<boolean> {
-	const [agent] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
-	if (!agent) return true;
-	const activeCount = await getActiveSessionCount(db, agentId);
-	return activeCount >= agent.maxConcurrentSessions;
-}
-
-// --- Delegation ---
-
-async function findDelegate(
-	db: HyperIdleDb,
-	skillId: string,
-	ownerId: string,
-): Promise<string | undefined> {
-	// Find a user with the matching skill who is not at their WIP limit
-	const candidates = await db
-		.select({ agentId: userSkills.userId })
-		.from(userSkills)
-		.where(eq(userSkills.skillId, skillId));
-
-	for (const candidate of candidates) {
-		if (candidate.agentId === ownerId) continue;
-		if (!(await isAgentAtWipLimit(db, candidate.agentId))) {
-			return candidate.agentId;
-		}
-	}
-	return undefined;
-}
+// --- WIP check + Delegation ---
+// @lore AK7 §8: isAgentAtWipLimit and the findDelegate body have moved to
+// packages/fabric/src/services/agent-selection.ts (selectAgentFabric's routine_delegate
+// branch). isAgentAtWipLimit is imported from there so the owner-WIP check below
+// continues to work byte-identically. findDelegate is replaced by selectAgentFabric
+// at the call site (architecture §5.3 / concept §3a carve-out).
 
 // --- Session creation (lightweight, no workspace/watcher) ---
 
@@ -448,7 +414,22 @@ export async function checkAndFireRoutine(
 
 	if (await isAgentAtWipLimit(db, targetAgentId)) {
 		if (routine.delegationAllowed && routine.skillId) {
-			const delegate = await findDelegate(db, routine.skillId, targetAgentId);
+			// AK7 §8: selectAgentFabric's routine_delegate branch runs findDelegate's
+			// exact userSkills-scoped query verbatim (concept §3a carve-out):
+			// system-wide-by-skill, userSkills insertion order, WIP fallback.
+			// No teamId — routine delegation has no team scope (call site has no teamId).
+			// candidates: [] — routine_delegate ignores candidates (its own query).
+			const { agentId: delegate } = await selectAgentFabric({
+				db,
+				surface: "routine_delegate",
+				teamId: null,
+				workKey: routine.id,
+				candidates: [],
+				roleHint: null,
+				spreadIndex: null,
+				excludeAgentId: targetAgentId,
+				skillId: routine.skillId,
+			});
 			if (delegate) {
 				targetAgentId = delegate;
 				delegatedTo = delegate;
