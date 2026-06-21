@@ -27,10 +27,13 @@ function LocationProbe(): null {
 
 const THREAD_ID = "t-am1-migration";
 
+// ARCH-1: bet-hosted thread → the host id IS the bet, so the page sources a real
+// betId and "Open review" routes to the full valid review path.
+const BET_ID = "bet-am1-migration";
 const FAKE_THREAD = {
 	id: THREAD_ID,
-	hostKind: "task",
-	hostId: "task-9",
+	hostKind: "bet",
+	hostId: BET_ID,
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],
 	pinned: false,
@@ -216,13 +219,13 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		const openReview = screen.getAllByRole("button", { name: /open review/i })[0]!;
 		await user.click(openReview);
 
-		// "Open review" fires the OpenTarget→navigate seam to the review surface,
-		// carrying the review id. (The betId is opaque/AM5-owned and not yet
-		// populated by the Message→Part adapter — see report; the wiring is what
-		// task 12 proves: the conversation navigates AWAY to the review route and
-		// never takes the verdict inline.)
-		await waitFor(() => expect(lastPath).toContain("/work/bet"));
-		expect(lastPath).toContain("review/m-review");
+		// ARCH-1 / ADV-2: "Open review" fires the OpenTarget→navigate seam to the FULL
+		// valid review path. The page sources the betId from the bet-hosted thread
+		// (host id IS the bet), so there is no empty segment / double slash. The
+		// conversation navigates AWAY to the review route and never takes the verdict
+		// inline.
+		await waitFor(() => expect(lastPath).toBe(`/work/bet/${BET_ID}/review/${REVIEW_MSG.id}`));
+		expect(lastPath).not.toContain("//");
 		expect(lastPath).not.toContain("/conversations");
 		// No verdict was POSTed by the conversation.
 		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);

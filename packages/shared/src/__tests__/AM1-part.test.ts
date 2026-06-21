@@ -293,13 +293,17 @@ describe("AM1 message-type mapping (AC3)", () => {
 		payload: { title: "Pick one", question: "Which DB?", options: ["Postgres", "SQLite"] },
 	};
 
-	it("review (unresolved) → a review Part carrying a reviewTarget", () => {
+	it("review (unresolved) → a review Part whose reviewTarget carries the real reviewId; betId is the empty page-sourced placeholder (ARCH-1)", () => {
 		const parts = derivePartsFromMessages([review], VIEWER_ID, IDENTITIES);
 		const p = parts.find((x) => x.id === "rv1");
 		expect(p?.kind).toBe("review");
 		if (p?.kind === "review") {
-			expect(p.reviewTarget.reviewId).toBeTruthy();
-			expect(typeof p.reviewTarget.betId).toBe("string");
+			// reviewId is sourced from the Message id by the adapter.
+			expect(p.reviewTarget.reviewId).toBe("rv1");
+			// ARCH-1: a review Message carries NO betId, so the source-agnostic adapter
+			// emits an EMPTY placeholder. The real betId is resolved at the page/handler
+			// boundary (which holds thread→host context) — never fabricated here.
+			expect(p.reviewTarget.betId).toBe("");
 		}
 	});
 
@@ -351,6 +355,10 @@ describe("AM1 message-type mapping (AC3)", () => {
 		if (resolved?.kind === "resolved") {
 			// verdictDecisionLabel("approve") === "APPROVED"
 			expect(resolved.label.toUpperCase()).toContain("APPROVED");
+			// ARCH-2: resolvedBy is the PERSON who took the verdict (resolver's display
+			// name, resolved via the verdict message's senderId), NOT a raw message id.
+			expect(resolved.resolvedBy).toBe("A. Founder");
+			expect(resolved.resolvedBy).not.toBe(verdict.id);
 		}
 	});
 

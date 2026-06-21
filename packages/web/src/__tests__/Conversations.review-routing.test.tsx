@@ -28,10 +28,13 @@ function LocationProbe(): null {
 	return null;
 }
 
+// ARCH-1: a bet-hosted thread — the host id IS the bet the review belongs to, so
+// the page sources a real betId and the review route resolves validly.
+const BET_ID = "bet-am1";
 const FAKE_THREAD = {
 	id: THREAD_ID,
-	hostKind: "task",
-	hostId: "task-9",
+	hostKind: "bet",
+	hostId: BET_ID,
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],
 	pinned: false,
@@ -152,8 +155,10 @@ describe("Conversations — review routing (AM1, no inline verdict)", () => {
 
 		await user.click(screen.getByRole("button", { name: /open review/i }));
 
-		await waitFor(() => expect(lastPath).toContain("/work/bet"));
-		expect(lastPath).toContain(`review/${FAKE_REVIEW.id}`);
+		// ARCH-1 / ADV-2: the page sources the betId from the bet-hosted thread, so
+		// the review route is the FULL valid path — no empty segment, no double slash.
+		await waitFor(() => expect(lastPath).toBe(`/work/bet/${BET_ID}/review/${FAKE_REVIEW.id}`));
+		expect(lastPath).not.toContain("//");
 		expect(lastPath).not.toContain("/conversations");
 		// The conversation took NO verdict — no POST of any kind from a review click.
 		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);
