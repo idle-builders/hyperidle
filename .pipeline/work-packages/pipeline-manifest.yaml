@@ -1208,3 +1208,8 @@ stories:
     track: AM
     depends: [AM2]
     complexity: L
+  - id: AM5
+    title: Standardized artifact-view family & open/routing contract
+    track: AM
+    depends: []
+    complexity: L
