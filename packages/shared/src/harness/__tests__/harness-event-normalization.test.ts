@@ -13,31 +13,36 @@
  * token_usage events in the HyperIdle union shape. The Codex/Claude paths need a
  * per-family pre-normalizer (normalizeNativeHarnessEvent) to map their native shapes.
  * Both paths converge on the same downstream shape — that's AC6.
+ *
+ * @lore AM2: The inline synthetic constants were replaced (W1 code review fix) with
+ * readFileSync over the committed AC5 fixtures, so probe→fixture→normalize closes
+ * in one place. Fixtures in __tests__/fixtures/ are byte-identical copies of
+ * packages/server/src/harness/__tests__/fixtures/{codex-exec,claude-stream}.jsonl
+ * committed during the AC5 real session probe. They are write-once and secret-free
+ * (only event type + numeric usage values).
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { normalizeHarnessEvent } from "../harness-event-normalization.js";
 import { normalizeNativeHarnessEvent } from "../harness-native-normalization.js";
 
-// Real captured native output shapes from live session probes (AC5 fixtures).
-// Values are non-secret: event type + numeric usage only.
-const CODEX_EXEC_TURN_COMPLETED_LINE = JSON.stringify({
-	type: "turn.completed",
-	usage: {
-		input_tokens: 14845,
-		cached_input_tokens: 9088,
-		output_tokens: 5,
-		reasoning_output_tokens: 0,
-	},
-});
+const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
-const CLAUDE_STREAM_RESULT_LINE = JSON.stringify({
-	type: "result",
-	subtype: "success",
-	result: "pong",
-	total_cost_usd: 0.01,
-	usage: { input_tokens: 6471, output_tokens: 4, cache_creation_input_tokens: 29123 },
-});
+// Usage-bearing line from the committed real Codex AC5 fixture.
+// The fixture is a single-line JSONL: turn.completed with usage.{input_tokens,output_tokens}.
+const CODEX_EXEC_TURN_COMPLETED_LINE = readFileSync(
+	join(FIXTURES_DIR, "codex-exec.jsonl"),
+	"utf-8",
+).trim();
+
+// Usage-bearing line from the committed real Claude AC5 fixture.
+// The fixture is a single-line JSONL: result event with usage + total_cost_usd.
+const CLAUDE_STREAM_RESULT_LINE = readFileSync(
+	join(FIXTURES_DIR, "claude-stream.jsonl"),
+	"utf-8",
+).trim();
 
 // The builtin token_usage event as emitted by BuiltinHarnessAdapter.trackUsage.
 // This is the THIRD leg of the three-way equivalence (different code path than
@@ -112,10 +117,12 @@ describe("AM2 normalizeHarnessEvent", () => {
 		const codexLine: unknown = JSON.parse(CODEX_EXEC_TURN_COMPLETED_LINE);
 		const result = normalizeNativeHarnessEvent("codex", codexLine);
 
+		// Token counts sourced from the committed real fixture (codex-exec.jsonl).
+		const expectedCodex = codexLine as { usage: { input_tokens: number; output_tokens: number } };
 		expect(result.type).toBe("token_usage");
 		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(14845);
-			expect(result.outputTokens).toBe(5);
+			expect(result.inputTokens).toBe(expectedCodex.usage.input_tokens);
+			expect(result.outputTokens).toBe(expectedCodex.usage.output_tokens);
 		}
 	});
 
@@ -123,10 +130,12 @@ describe("AM2 normalizeHarnessEvent", () => {
 		const claudeLine: unknown = JSON.parse(CLAUDE_STREAM_RESULT_LINE);
 		const result = normalizeNativeHarnessEvent("claude-code", claudeLine);
 
+		// Token counts sourced from the committed real fixture (claude-stream.jsonl).
+		const expectedClaude = claudeLine as { usage: { input_tokens: number; output_tokens: number } };
 		expect(result.type).toBe("token_usage");
 		if (result.type === "token_usage") {
-			expect(result.inputTokens).toBe(6471);
-			expect(result.outputTokens).toBe(4);
+			expect(result.inputTokens).toBe(expectedClaude.usage.input_tokens);
+			expect(result.outputTokens).toBe(expectedClaude.usage.output_tokens);
 		}
 	});
 

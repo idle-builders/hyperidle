@@ -17,7 +17,7 @@
  * execute and capture fixtures.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -52,8 +52,7 @@ async function writeFixtureIfMissing(filePath: string, content: string): Promise
 function binaryPresent(name: string): boolean {
 	try {
 		// execFileSync("which") is the lightweight check
-		const { execSync } = require("node:child_process") as typeof import("node:child_process");
-		execSync(`which ${name}`, { stdio: "ignore" });
+		execFileSync("which", [name], { stdio: "ignore" });
 		return true;
 	} catch {
 		return false;

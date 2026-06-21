@@ -345,6 +345,13 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * to "local-claude-code" to make room for multiple local adapters. The old
  * "local" ID was only referenced inside this factory and tests that use
  * pool.list() — not hardcoded elsewhere.
+ *
+ * @lore AM2: `discoverLocalHarnesses` intentionally does NOT run the session
+ * probe in production discovery yet. CLI capabilities (fileEditing, toolUse)
+ * therefore stay gated to `false` until AM3 wires the probe into the discovery
+ * pipeline. This is intentional substrate scoping — not a bug. AM3 will call
+ * `probeHarnessSession` per family and merge the probe result into the
+ * HarnessCapabilityDescriptor before pool registration.
  */
 export async function createLocalAdapterPool(): Promise<AdapterPool> {
 	const discoveries = await discoverLocalHarnesses();
