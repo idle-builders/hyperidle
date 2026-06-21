@@ -47,8 +47,17 @@
  * "what's the difference between insert and those other icons. and why is the
  * insert there and not where the other icons are"). The old duplicate bottom
  * icon strip is gone; every compose action lives in the single menu the "+"
- * opens, each labeled + single-purpose. Only the "Enter to send" hint remains
- * below the input.
+ * opens, each labeled + single-purpose.
+ *
+ * @lore AM1-r5b (round-5 composer pass): the composer's bottom footer (format
+ * strip + "Enter to send" hint) was REMOVED — it served no value and ate height
+ * (founder). All tools already live in the "+" menu; the reclaimed space made
+ * the textarea taller (rows=3). Draft attachments — inserted code block AND
+ * image — now share ONE compact chip style laid out in a HORIZONTAL wrapping
+ * row (~one chip tall), and each chip's BODY opens the item while its trailing
+ * ✕ removes it (founder: "click… open, the x removes it"). The reply banner is
+ * CONDITIONAL — shown only when replying (the active Insert-Block state); the
+ * resting composer has no banner.
  */
 
 import { ArtifactEmbed, Block } from "@hyperidle/design-system";
@@ -697,30 +706,57 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	);
 }
 
-// The inserted-block draft = a COMPACT card showing the block's TITLE ONLY
-// (founder: "the code block shouldn't show the first line that makes zero sense
-// … if anything the name or title"). "Open →" opens the right page rendering the
-// full block via the real <Block> viewer. A single quiet remove ✕ at the row end.
-function InsertedBlockDraft({ onOpen }: { onOpen: () => void }): JSX.Element {
+// ───────────────────────────────────────────────────────────────────
+// DRAFT ATTACHMENT CHIP — ONE compact style for EVERY draft attachment
+// (inserted code block, image, document — all the same chip). Founder: "why
+// does the code block attachment have a different style than the image? …This
+// [image] style looks better, it takes less space." Interaction (founder): the
+// chip BODY = open it (right panel / preview); the trailing ✕ = remove it from
+// the draft — two distinct hit targets. Chips lay out HORIZONTALLY in a wrapping
+// row so the attachments area stays ~one chip tall (founder: "the attachments
+// section should be the smaller part… typically just the height of a single
+// attachment like the png").
+// ───────────────────────────────────────────────────────────────────
+function DraftAttachmentChip({
+	icon,
+	label,
+	meta,
+	onOpen,
+}: {
+	icon: string;
+	label: string;
+	meta: string;
+	onOpen?: () => void;
+}): JSX.Element {
 	return (
-		<div data-ds-component="Am1InsertedBlock" className="flex items-stretch gap-[6px]">
-			<div className="min-w-0 flex-1">
-				<BlockTitleEmbed
-					kindIcon={ICON_K_CODE}
-					kindLabel="Code block · TS"
-					title={INSERTED_CODE_TITLE}
-					onOpen={onOpen}
-				/>
-			</div>
+		<span
+			data-ds-component="Am1DraftAttachmentChip"
+			className="group/chip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[6px] pr-[3px] text-[12px] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
+		>
+			{/* Chip body = OPEN. A button so click/keyboard activate the open action. */}
 			<button
 				type="button"
-				aria-label="Remove block"
-				title="Remove block"
-				className="mt-[3px] flex w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				onClick={onOpen}
+				aria-label={`Open ${label}`}
+				title={`Open ${label}`}
+				className="flex min-w-0 items-center gap-[6px] text-left"
 			>
-				<Glyph d={ICON_REMOVE} size={12} />
+				<span className="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/chip:text-[var(--text-secondary)]">
+					<Glyph d={icon} size={13} />
+				</span>
+				<span className="truncate font-[500] text-[var(--text-primary)]">{label}</span>
+				<span className="shrink-0 tabular-nums text-[var(--text-tertiary)]">{meta}</span>
 			</button>
-		</div>
+			{/* Trailing ✕ = REMOVE — a separate, distinct hit target. */}
+			<button
+				type="button"
+				aria-label={`Remove ${label}`}
+				title="Remove"
+				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+			>
+				<Glyph d={ICON_REMOVE} size={11} />
+			</button>
+		</span>
 	);
 }
 
@@ -750,33 +786,31 @@ function ComposerReplyBanner(): JSX.Element {
 	);
 }
 
-// Active-state draft body: inserted-block title card + an attachment chip.
+// Active-state draft body: ALL attachments — the inserted code block AND the
+// image — render as ONE chip style in a single HORIZONTAL wrapping row, so the
+// area is ~one chip tall. Each chip: body = open, ✕ = remove.
 function ComposerDraftBody({ onOpenBlock }: { onOpenBlock: () => void }): JSX.Element {
 	return (
-		<div className="flex flex-col gap-[9px] px-[12px] pt-[9px]">
-			<InsertedBlockDraft onOpen={onOpenBlock} />
-			<div className="flex flex-wrap items-center gap-[6px]">
-				<div className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] text-[var(--text-secondary)]">
-					<Glyph d={ICON_DOC} size={12} />
-					<span>auth-flow.png</span>
-					<span className="tabular-nums text-[var(--text-tertiary)]">82 KB</span>
-					<button
-						type="button"
-						aria-label="Remove attachment"
-						title="Remove attachment"
-						className="flex items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
-					>
-						<Glyph d={ICON_REMOVE} size={11} />
-					</button>
-				</div>
-			</div>
+		<div
+			data-ds-component="Am1ComposerDraftBody"
+			className="flex flex-wrap items-center gap-[6px] px-[12px] pt-[9px]"
+		>
+			<DraftAttachmentChip
+				icon={ICON_K_CODE}
+				label={INSERTED_CODE_TITLE}
+				meta="TS · 3 lines"
+				onOpen={onOpenBlock}
+			/>
+			<DraftAttachmentChip icon={ICON_DOC} label="auth-flow.png" meta="82 KB" />
 		</div>
 	);
 }
 
 // The composer input row. The SINGLE "+" affordance opens the unified Insert
-// menu. No second icon strip — every action lives in the menu. Below the input:
-// only the "Enter to send" hint.
+// menu. No second icon strip — every action lives in the menu. No bottom footer
+// (founder: "this bottom footer of the box serves no value it just takes away
+// space") — that reclaimed space goes to a TALLER textarea (founder: "gives
+// space for this one to become a bit taller").
 function ComposerInputRow({
 	insertMenuOpen,
 	onToggleMenu,
@@ -791,54 +825,46 @@ function ComposerInputRow({
 	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
 }): JSX.Element {
 	return (
-		<>
-			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
-				{/* The "+" is the popover's relative anchor — the menu opens upward off
-				    it and reads as belonging to it, never detached. */}
-				<div className="relative shrink-0">
-					{insertMenuOpen && <InsertMenu onPick={onPickMenu} />}
-					<button
-						ref={menuButtonRef}
-						type="button"
-						aria-label="Insert"
-						aria-expanded={insertMenuOpen}
-						aria-haspopup="menu"
-						title="Insert block, attach, mention, reference, format"
-						onClick={onToggleMenu}
-						className={
-							insertMenuOpen
-								? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
-								: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-						}
-					>
-						<Glyph d={ICON_PLUS} size={14} />
-					</button>
-				</div>
-				<textarea
-					rows={1}
-					placeholder="Message Atlas, Mara…"
-					className="min-h-[24px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-					defaultValue={
-						hasDraft ? "Here's the corrected registration flow — one nit on the error copy: " : ""
-					}
-				/>
+		<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
+			{/* The "+" is the popover's relative anchor — the menu opens upward off
+			    it and reads as belonging to it, never detached. */}
+			<div className="relative shrink-0">
+				{insertMenuOpen && <InsertMenu onPick={onPickMenu} />}
 				<button
+					ref={menuButtonRef}
 					type="button"
-					aria-label="Send message"
-					// hearth-internal-padding
-					className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
+					aria-label="Insert"
+					aria-expanded={insertMenuOpen}
+					aria-haspopup="menu"
+					title="Insert block, attach, mention, reference, format"
+					onClick={onToggleMenu}
+					className={
+						insertMenuOpen
+							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+					}
 				>
-					<Glyph d={ICON_SEND} size={15} />
+					<Glyph d={ICON_PLUS} size={14} />
 				</button>
 			</div>
-
-			{/* Below the input: only the keyboard hint. All tools live in the "+" menu. */}
-			<div className="flex items-center justify-end border-t border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span className="text-[11px] text-[var(--text-tertiary)]">
-					Enter to send · Shift+Enter for newline
-				</span>
-			</div>
-		</>
+			{/* Taller input — the reclaimed footer space goes here. */}
+			<textarea
+				rows={3}
+				placeholder="Message Atlas, Mara…"
+				className="min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+				defaultValue={
+					hasDraft ? "Here's the corrected registration flow — one nit on the error copy: " : ""
+				}
+			/>
+			<button
+				type="button"
+				aria-label="Send message"
+				// hearth-internal-padding
+				className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
+			>
+				<Glyph d={ICON_SEND} size={15} />
+			</button>
+		</div>
 	);
 }
 
@@ -861,7 +887,11 @@ function Composer({
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
 				<div className="relative rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]">
-					<ComposerReplyBanner />
+					{/* Reply banner is CONDITIONAL — present ONLY when replying to a
+					    message (founder: "I assume this header disappears if you are not
+					    replying to something?" — yes). The active Insert-Block state IS the
+					    replying state; resting composer has no banner. */}
+					{active && <ComposerReplyBanner />}
 					{active && <ComposerDraftBody onOpenBlock={onOpenBlock} />}
 					<ComposerInputRow
 						insertMenuOpen={insertMenuOpen}

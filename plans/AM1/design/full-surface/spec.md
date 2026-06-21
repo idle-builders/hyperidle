@@ -11,7 +11,34 @@ Supersedes the rejected v1/v2 thin-column variants (QuietStream / Quiet Turns / 
 
 ---
 
-## v3.6 — round-5: INTERACTIVE + real components (founder annotations, this revision)
+## v3.7 — round-5 composer pass (founder annotations, this revision)
+
+Six founder comments, all on the composer draft/attachment area, verified by clicking + screenshotting in the `:8100` viewer (`screenshot.png` = resting `Populated`; `_composer.png` = composer with horizontal compact attachments + taller input + no footer).
+
+**Composer anatomy (after this pass):**
+```
+[ reply banner — ONLY when replying ]
+[ attachment chips — horizontal wrapping row, compact, SAME style for image/code-block/etc.; click body = open, ✕ = remove ]
+[ +(tools menu)   textarea (taller, rows=3)                                Send ]
+```
+
+1. **One chip style for EVERY draft attachment.** The inserted code block and the image attachment now render through the SAME compact chip (`Am1DraftAttachmentChip`) — verified: the two chips' class strings are identical. Founder: "why does the code block attachment have a different style than the image?" The old full-width inserted-block title card + separate side ✕ is gone.
+
+2. **Chip interaction: body = open, ✕ = remove.** Each chip is two distinct hit targets — an open-body `button` (aria `Open <name>`, opens the right panel / item) + a trailing ✕ `button` (aria `Remove <name>`, removes from the draft). Founder: "the open should just happen by clicking on the item, the x removes it." Verified: 2 buttons per chip, distinct aria.
+
+3. **Horizontal compact row, ~one chip tall.** Attachments lay out in a wrapping `flex` row (`flex-wrap gap-[6px]`), not a vertical stack. Verified: both chips sit on the same y (Δ<4px) at 26px tall. Founder: "the attachments section should be the smaller part… if they line up horizontally this will become typically just the height of a single attachment."
+
+4. **Taller textarea.** With attachments compact and the footer gone, the input grows to `rows={3}` / `min-h-[72px]` (measured 74px). Founder: "gives space for this one to become a bit taller."
+
+5. **Bottom footer REMOVED.** The format-icon strip + "Enter to send · Shift+Enter" hint row is gone — verified the footer text is absent in both states. All tools already live in the "+" menu; the footer was redundant and ate height. Founder: "this bottom footer of the box serves no value it just takes away space."
+
+6. **Reply banner is CONDITIONAL.** Shown ONLY when replying (the active Insert-Block state); absent in the resting `Populated` composer. Verified: banner count = 0 in `Populated`, = 1 in `ComposerInsertBlock`. Founder: "I assume this header disappears if you are not replying to something?" — yes.
+
+Unchanged: the real `ArtifactEmbed` change-set card, the real `<Block>` viewer on "Open", inline block embeds = title only, the neutral questionnaire, the unified "+" tools menu (grounded solid popover: Insert block · Attach · Mention · Reference · Format · Emoji).
+
+---
+
+## v3.6 — round-5: INTERACTIVE + real components (founder annotations, prior revision)
 
 Founder asked to **SEE it work** ("I want to see this interactive and open the right page and display the full block in the proper block viewer component that we already have"). The story is now **live React** — verified by clicking in the `:8100` viewer and screenshotting each state (`_insert-menu.png`, `_open-block.png`, `screenshot.png`).
 
@@ -23,7 +50,7 @@ Founder asked to **SEE it work** ("I want to see this interactive and open the r
 
 4. **Change-set / artifact embed = the real `<ArtifactEmbed>`.** A `kind:"code"` `Artifact` (valid `preview {kind:"code",file,hunks}`, `cost.money/tokens`, `createdAt`) renders through `@hyperidle/design-system`'s `ArtifactEmbed` inside the message host card — verified `[data-ds-component='ArtifactEmbed']` present. Renders `CODE / CHANGE SET · WIRE PASSKEY LOGIN · $0.42 · 6M AGO` + `auth/passkey.ts (+2 -1)`.
 
-5. **Composer tools UNIFIED into ONE "+" menu.** The duplicate bottom icon strip is gone. The single "+" opens one menu with every action, each labeled + single-purpose: **Insert block · Attach file · Mention · Reference item · Format · Emoji**. Below the input row: only the "Enter to send · Shift+Enter for newline" hint. Resolves "what's the difference between insert and those other icons / why is the insert there and not where the other icons are."
+5. **Composer tools UNIFIED into ONE "+" menu.** The duplicate bottom icon strip is gone. The single "+" opens one menu with every action, each labeled + single-purpose: **Insert block · Attach file · Mention · Reference item · Format · Emoji**. Resolves "what's the difference between insert and those other icons / why is the insert there and not where the other icons are." *(v3.7: the residual "Enter to send" hint footer below the input was also removed — see v3.7 §5.)*
 
 6. **Questionnaire — neutral SURVEY options + token padding.** All three options are **identical quiet outlined chips** on `--surface-elevated`; no "very very green" filled chip biasing an answer. The recommendation is a small **neutral** "RECOMMENDED" tag (`--surface-container`/`--text-tertiary`), not an accent fill. Padding is on-grid Hearth (`px-[18px] py-[12px]`, `mt-[12px]` between question and chips). Prominence comes from layering (`--surface-elevated` + `--shadow-default`) + the QUICK ASK pill — never from an accent structural border (none present) and never from biasing one answer.
 
