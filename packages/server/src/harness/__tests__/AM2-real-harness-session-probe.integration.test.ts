@@ -18,7 +18,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
@@ -27,6 +27,27 @@ import { probeHarnessSession } from "../harness-session-probe.js";
 const execFileAsync = promisify(execFile);
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
+
+/**
+ * Write fixture only if it does not already exist on disk.
+ * Fixtures are SNAPSHOTS of real captured events committed to git. Re-running
+ * probes yields fresh timestamps/session IDs that would change the file content
+ * and break the srcHash attestation check. Write once; update only intentionally.
+ *
+ * @lore AM2: Fixtures must not change every test run — they're committed blobs
+ * that verify-attest's srcHash fingerprints. Dynamic timestamps make every run
+ * produce new blobs, invalidating the attestation. "Write-once" keeps srcHash stable.
+ */
+async function writeFixtureIfMissing(filePath: string, content: string): Promise<void> {
+	try {
+		await access(filePath);
+		// File exists — skip; do not overwrite the committed snapshot.
+	} catch {
+		// File does not exist — write it.
+		await mkdir(FIXTURES_DIR, { recursive: true });
+		await writeFile(filePath, content, "utf-8");
+	}
+}
 
 function binaryPresent(name: string): boolean {
 	try {
@@ -107,9 +128,11 @@ describe("AM2 real harness session probe", () => {
 			expect(typeof (parsed.usage as Record<string, unknown>).output_tokens).toBe("number");
 			expect(result.eventType).toBe("turn.completed");
 
-			// Write fixture for AC6 normalization test
-			await mkdir(FIXTURES_DIR, { recursive: true });
-			await writeFile(join(FIXTURES_DIR, "codex-exec.jsonl"), `${result.capturedLine!}\n`, "utf-8");
+			// Write fixture for AC6 normalization test (write-once: skip if already committed)
+			await writeFixtureIfMissing(
+				join(FIXTURES_DIR, "codex-exec.jsonl"),
+				`${result.capturedLine!}\n`,
+			);
 		},
 		120_000,
 	);
@@ -139,12 +162,10 @@ describe("AM2 real harness session probe", () => {
 			expect(typeof parsed.total_cost_usd).toBe("number");
 			expect(result.eventType).toBe("result");
 
-			// Write fixture for AC6 normalization test
-			await mkdir(FIXTURES_DIR, { recursive: true });
-			await writeFile(
+			// Write fixture for AC6 normalization test (write-once: skip if already committed)
+			await writeFixtureIfMissing(
 				join(FIXTURES_DIR, "claude-stream.jsonl"),
 				`${result.capturedLine!}\n`,
-				"utf-8",
 			);
 		},
 		120_000,
@@ -167,12 +188,10 @@ describe("AM2 real harness session probe", () => {
 			expect(result.family).toBe("opencode");
 
 			if (result.ok && result.capturedLine) {
-				// Write fixture — even if we can't normalize it, record it
-				await mkdir(FIXTURES_DIR, { recursive: true });
-				await writeFile(
+				// Write fixture — even if we can't normalize it, record it (write-once)
+				await writeFixtureIfMissing(
 					join(FIXTURES_DIR, "opencode-run.json"),
 					`${result.capturedLine}\n`,
-					"utf-8",
 				);
 			}
 
