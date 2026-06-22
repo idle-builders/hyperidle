@@ -104,11 +104,20 @@ class WsClient {
 		}
 
 		// Determine WS URL: use the same host as the current page but with ws: scheme.
-		// In Vite dev, the proxy forwards /api → localhost:3001 so we need to connect
+		// In Vite dev, the proxy forwards /api → the API server so we need to connect
 		// directly to the server, not through the Vite proxy (ws upgrades don't proxy well).
+		// @lore AH6: VITE_API_PORT overrides the default dev port (3001) for e2e test
+		// environments that run the API server on a different port (e.g. AH6 on 3098).
+		// Without this, the WS client connects to localhost:3001 which doesn't exist in
+		// the AH6 test environment — turns complete server-side but events never reach
+		// the frontend, so the "thinking..." row never resolves.
 		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env?.DEV === true;
+		const devWsPort =
+			typeof import.meta !== "undefined" && import.meta.env?.VITE_API_PORT
+				? String(import.meta.env.VITE_API_PORT)
+				: "3001";
 		const wsBase = isDevProxy
-			? "ws://localhost:3001"
+			? `ws://localhost:${devWsPort}`
 			: `${window.location.protocol.replace("http", "ws")}//${window.location.host}`;
 		const wsUrl = `${wsBase}/api/ws?token=${encodeURIComponent(token)}`;
 
