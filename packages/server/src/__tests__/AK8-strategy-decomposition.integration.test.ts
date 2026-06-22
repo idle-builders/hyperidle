@@ -49,10 +49,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
-import {
-	findEligibleTeamAgents,
-	runBetDecomposition,
-} from "../services/bet-decomposition.js";
+import { findEligibleTeamAgents, runBetDecomposition } from "../services/bet-decomposition.js";
 import { registerBetDecomposition } from "../services/bet-decomposition-subscriber.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
@@ -163,9 +160,8 @@ function makeFabricLikeStrategyWithDecompose(_pmAgentId?: string) {
 		decomposeBet: vi.fn(
 			async (req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> => {
 				const pm =
-					req.candidates.find(
-						(c: SelectionCandidate) => c.role === "product_manager",
-					) ?? req.candidates[0];
+					req.candidates.find((c: SelectionCandidate) => c.role === "product_manager") ??
+					req.candidates[0];
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
@@ -248,9 +244,8 @@ function makeMinimalStrategyWithDecomposeSpy() {
 		decomposeBet: vi.fn(
 			async (req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> => {
 				const pm =
-					req.candidates.find(
-						(c: SelectionCandidate) => c.role === "product_manager",
-					) ?? req.candidates[0];
+					req.candidates.find((c: SelectionCandidate) => c.role === "product_manager") ??
+					req.candidates[0];
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
@@ -392,19 +387,16 @@ describe("AK8 AC2: Strategy produces task breakdown — AK3 parity", () => {
 		const strategy = makeFabricLikeStrategyWithDecompose();
 		setActiveStrategy(strategy);
 
-		const stubTurn = vi
-			.fn()
-			.mockResolvedValue([
-				{ title: "Minimal task 1", ownerRole: "product_manager" },
-				{ title: "Minimal task 2", ownerRole: "builder" },
-			]);
+		const stubTurn = vi.fn().mockResolvedValue([
+			{ title: "Minimal task 1", ownerRole: "product_manager" },
+			{ title: "Minimal task 2", ownerRole: "builder" },
+		]);
 
 		const deps = makeTestDeps(db, eventBus, { runDecompositionTurn: stubTurn });
 		await runBetDecomposition(deps, "bet-ac2-min");
 
-		// biome-ignore lint/suspicious/noExplicitAny: decompositionStatus added in green phase
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-ac2-min"));
-		expect((bet as any)?.decompositionStatus).toBe("done");
+		expect(bet?.decompositionStatus).toBe("done");
 
 		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "bet-ac2-min"));
 		expect(createdTasks.length).toBeGreaterThanOrEqual(1);
@@ -433,17 +425,13 @@ describe("AK8 AC2: Strategy produces task breakdown — AK3 parity", () => {
 
 		const stubTurn = vi
 			.fn()
-			.mockResolvedValue([
-				{ title: "Fabric task A" },
-				{ title: "Fabric task B" },
-			]);
+			.mockResolvedValue([{ title: "Fabric task A" }, { title: "Fabric task B" }]);
 
 		const deps = makeTestDeps(db, eventBus, { runDecompositionTurn: stubTurn });
 		await runBetDecomposition(deps, "bet-ac2-fab");
 
-		// biome-ignore lint/suspicious/noExplicitAny: decompositionStatus added in green phase
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-ac2-fab"));
-		expect((bet as any)?.decompositionStatus).toBe("done");
+		expect(bet?.decompositionStatus).toBe("done");
 
 		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "bet-ac2-fab"));
 		expect(createdTasks.length).toBeGreaterThanOrEqual(1);
@@ -475,7 +463,9 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 		await db.insert(teamMembers).values(makeMembership("tm-nea-ak8", "team-nea-ak8"));
 		await db
 			.insert(users)
-			.values(makeAiUser("strat-ak8", "strategy_lead", "tm-nea-ak8", { agentCategory: "strategy" }));
+			.values(
+				makeAiUser("strat-ak8", "strategy_lead", "tm-nea-ak8", { agentCategory: "strategy" }),
+			);
 		await db.insert(bets).values(makeBet("bet-nea-ak8", "team-nea-ak8", "active"));
 
 		const strategy = makeMinimalStrategyWithDecomposeSpy();
@@ -484,10 +474,9 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 		const deps = makeTestDeps(db, eventBus);
 		await runBetDecomposition(deps, "bet-nea-ak8");
 
-		// biome-ignore lint/suspicious/noExplicitAny: decompositionStatus added in green phase
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-nea-ak8"));
-		expect((bet as any)?.decompositionStatus).toBe("blocked");
-		expect((bet as any)?.decompositionBlockerReason).toBe("no_eligible_agent");
+		expect(bet?.decompositionStatus).toBe("blocked");
+		expect(bet?.decompositionBlockerReason).toBe("no_eligible_agent");
 
 		// decomposeBet should NOT have been called (no eligible agents)
 		expect(strategy.decomposeBet).not.toHaveBeenCalled();
@@ -525,10 +514,9 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 		const deps = makeTestDeps(db, eventBus);
 		await runBetDecomposition(deps, "bet-invalid-decomposer");
 
-		// biome-ignore lint/suspicious/noExplicitAny: decompositionStatus added in green phase
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-invalid-decomposer"));
-		expect((bet as any)?.decompositionStatus).toBe("blocked");
-		expect((bet as any)?.decompositionBlockerReason).toBe("no_eligible_agent");
+		expect(bet?.decompositionStatus).toBe("blocked");
+		expect(bet?.decompositionBlockerReason).toBe("no_eligible_agent");
 
 		// decomposeBet MUST have been called — the Kernel asked the Strategy before
 		// the inline guard rejected the off-team id. If this fails, the Kernel either
@@ -559,10 +547,9 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 		// runBetDecomposition NEVER throws — always writes terminal status
 		await expect(runBetDecomposition(deps, "bet-throw-decompose")).resolves.toBeUndefined();
 
-		// biome-ignore lint/suspicious/noExplicitAny: decompositionStatus added in green phase
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-throw-decompose"));
-		expect((bet as any)?.decompositionStatus).toBe("blocked");
-		expect((bet as any)?.decompositionBlockerReason).toBe("failed");
+		expect(bet?.decompositionStatus).toBe("blocked");
+		expect(bet?.decompositionBlockerReason).toBe("failed");
 	});
 
 	test("duplicate bet_state_changed(active) via subscriber → exactly one decomposition (CAS idempotency)", async ({
@@ -603,10 +590,7 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 		expect(strategy.decomposeBet).toHaveBeenCalledTimes(1);
 
 		// Exactly one task set (not doubled)
-		const createdTasks = await db
-			.select()
-			.from(tasks)
-			.where(eq(tasks.betId, "bet-sub-dup-ak8"));
+		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "bet-sub-dup-ak8"));
 		expect(createdTasks.length).toBe(1);
 
 		dispose();
@@ -652,7 +636,8 @@ describe("AK8 AC4: Runtime strategy-swap changes decomposer — no Kernel code c
 		expect(minimalStrategy.decomposeBet).toHaveBeenCalledWith(
 			expect.objectContaining({ betId: "bet-ac4-min" }),
 		);
-		const minPlan = await minimalStrategy.decomposeBet.mock.results[0]?.value as DecompositionPlan;
+		const minPlan = (await minimalStrategy.decomposeBet.mock.results[0]
+			?.value) as DecompositionPlan;
 		expect(minPlan.decomposerAgentId).toBe(pmAgentId);
 
 		// --- Run 2: Divergent Strategy (picks last = builder) ---
@@ -667,7 +652,8 @@ describe("AK8 AC4: Runtime strategy-swap changes decomposer — no Kernel code c
 		expect(divergentStrategy.decomposeBet).toHaveBeenCalledWith(
 			expect.objectContaining({ betId: "bet-ac4-div" }),
 		);
-		const divPlan = await divergentStrategy.decomposeBet.mock.results[0]?.value as DecompositionPlan;
+		const divPlan = (await divergentStrategy.decomposeBet.mock.results[0]
+			?.value) as DecompositionPlan;
 		expect(divPlan.decomposerAgentId).toBe(builderAgentId);
 
 		// AC4 proof: the two decomposer ids differ — behaviour changed with no Kernel edit.
@@ -675,9 +661,7 @@ describe("AK8 AC4: Runtime strategy-swap changes decomposer — no Kernel code c
 
 		// The stub turns were called with the respective decomposer agent ids
 		// (Kernel passes plan.decomposerAgentId to the override turn — 3-way precedence branch 2)
-		expect(minStubTurn).toHaveBeenCalledWith(
-			expect.objectContaining({ pmAgentId: pmAgentId }),
-		);
+		expect(minStubTurn).toHaveBeenCalledWith(expect.objectContaining({ pmAgentId: pmAgentId }));
 		expect(divStubTurn).toHaveBeenCalledWith(
 			expect.objectContaining({ pmAgentId: builderAgentId }),
 		);

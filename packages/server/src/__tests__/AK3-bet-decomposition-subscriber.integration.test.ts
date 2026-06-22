@@ -135,10 +135,13 @@ function makeFabricLikeStrategy() {
 		 * @lore AK8: fixture shape grows; frozen assertions byte-identical.
 		 */
 		decomposeBet: vi.fn(
-			async (req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>): Promise<import("@hyperidle/shared").DecompositionPlan> => {
+			async (
+				req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>,
+			): Promise<import("@hyperidle/shared").DecompositionPlan> => {
 				const pm =
-					req.candidates.find((c: import("@hyperidle/shared").SelectionCandidate) => c.role === "product_manager") ??
-					req.candidates[0];
+					req.candidates.find(
+						(c: import("@hyperidle/shared").SelectionCandidate) => c.role === "product_manager",
+					) ?? req.candidates[0];
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
