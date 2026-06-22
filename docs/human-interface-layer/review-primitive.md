@@ -45,6 +45,10 @@ In the global conversation, anchored comments show the spot label as a clickable
 
 Every canvas carries its source tool via `ToolLogo` and a jump-off link via `CanvasSourceHeader`. `isSafeSourceHref` blocks non-HTTP(S) schemes such as `javascript:`, so agent-authored `sourceHref` values cannot become a click-through XSS vector. Unknown kinds render `ReviewUnknownCanvas`: source header, kind label, and a capped JSON preview — never a blank screen or crash.
 
+## Execution on approve (AL7)
+
+Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the **commit trigger**: it executes the Subject's [Staged Operations](../process-layer/staged-operation.md) — the *irreversible* commit verbs (a refund, a merge/landing, a send) — through their connected tools, at-most-once, recording the result against the review. Reversible consequences flow at the agent×skill autonomy level; the gate is reserved for the irreversible. Non-approving verdicts hold the staged operations un-executed. HyperIdle is the trigger and gate; the connected tool executes (trigger-not-executor). The verdict grammar is unchanged — approve gains consequences, not a new action. Full spec: [Staged Operation primitive](../process-layer/staged-operation.md).
+
 ## Where it lives
 
 The registry, types, canvases, and composition component are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewId` as the Subject loader stub; the route is mounted in `packages/server/src/app.ts`.

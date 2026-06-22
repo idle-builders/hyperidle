@@ -36,4 +36,5 @@ This doc is the operating mechanics. It's what turns a committed bet into shippe
 - [Canonical shapes](./canonical-shapes.md)
 - [Task lifecycle](./task-lifecycle.md)
 - [Artifact primitive](./artifact-primitive.md)
+- [Staged Operation primitive](./staged-operation.md)
 
