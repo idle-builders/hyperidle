@@ -45,6 +45,15 @@
     "triageHint": "straight-swap"
   },
   {
+    "path": "packages/web/src/components/sessionContentFixtures.tsx",
+    "line": 57,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
     "line": 82,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
