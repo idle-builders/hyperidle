@@ -49,6 +49,8 @@ export interface ThreadShellIdentity {
 	name: string;
 	role?: string;
 	avatarUrl?: string;
+	/** When true, renders the agent avatar variant and sets data-sender-kind="ai" on the row. */
+	isAgent?: boolean;
 }
 
 export interface ThreadShellAppendInput {
@@ -475,6 +477,7 @@ export function ThreadShell({
 														id: message.senderId,
 														name: identityFor(identities, message.senderId).name,
 														role: identityFor(identities, message.senderId).role,
+														isAgent: identityFor(identities, message.senderId).isAgent,
 													}}
 													showSenderHeader={showSenderHeader}
 													richHeader={slots.header}
@@ -511,6 +514,7 @@ export function ThreadShell({
 												id: message.senderId,
 												name: identityFor(identities, message.senderId).name,
 												role: identityFor(identities, message.senderId).role,
+												isAgent: identityFor(identities, message.senderId).isAgent,
 											}}
 											showSenderHeader={showSenderHeader}
 											sanitizeHtml={sanitizeHtml}

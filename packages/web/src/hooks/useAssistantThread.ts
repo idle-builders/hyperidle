@@ -17,7 +17,7 @@ import { getWsClient } from "../services/ws-client.js";
 export interface AssistantThreadData {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
-	identities: Record<string, { name: string; role?: string }>;
+	identities: Record<string, { name: string; role?: string; isAgent?: boolean }>;
 }
 
 export type AssistantThreadStatus = "loading" | "ready" | "error";
@@ -46,12 +46,13 @@ function decodeAssistantThreadResponse(value: unknown): AssistantThreadData {
 		throw new Error("Missing messages array");
 	}
 	const identitiesRaw = isObject(value.identities) ? value.identities : {};
-	const identities: Record<string, { name: string; role?: string }> = {};
+	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> = {};
 	for (const [k, v] of Object.entries(identitiesRaw)) {
 		if (!isObject(v) || typeof v.name !== "string") continue;
 		identities[k] = {
 			name: v.name,
 			...(typeof v.role === "string" ? { role: v.role } : {}),
+			...(v.isAgent === true ? { isAgent: true } : {}),
 		};
 	}
 	// `value.thread` is narrowed to Record<string,unknown> by the isObject guard.

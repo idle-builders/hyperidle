@@ -247,11 +247,14 @@ export function CommentRow({
 		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"
 		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--surface-page)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
 
+	// @lore AH6: data-sender-kind="ai"|"human" is the stable Playwright selector
+	// for AI vs human message bubbles. Derives from CommentRowSender.isAgent.
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}
 			data-testid="comment-row"
 			{...(variant ? { "data-variant": variant } : {})}
+			data-sender-kind={isAgent ? "ai" : "human"}
 			className="flex gap-[12px] py-[6px] px-[12px]"
 		>
 			{showSenderHeader ? (

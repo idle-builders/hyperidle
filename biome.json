@@ -142,6 +142,7 @@
 			"!**/playwright-report",
 			"!**/playwright-report-ah1",
 			"!**/playwright-report-ah5",
+			"!**/playwright-report-ah6",
 			"!**/test-results",
 			"!**/visual-reports",
 			"!**/sync-reports",
