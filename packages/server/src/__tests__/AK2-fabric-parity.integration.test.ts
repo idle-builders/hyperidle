@@ -118,6 +118,13 @@ class FabricStrategySpy implements Strategy<HyperIdleDb> {
 	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
 		return [];
 	}
+
+	// AK7: selectAgent stub — FabricStrategySpy test is not about agent selection.
+	async selectAgent(
+		_req: import("@hyperidle/shared").SelectAgentRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").SelectAgentOutcome> {
+		return { agentId: null };
+	}
 }
 
 // ---------------------------------------------------------------------------

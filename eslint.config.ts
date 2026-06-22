@@ -887,6 +887,79 @@ export default [
 	// `packages/web/src/**` blocks set `no-restricted-imports` (fixtures ban,
 	// api-typesafety server ban, format-time dead-import ban) — being last makes
 	// THIS block authoritative for preview/**, so it must re-state the full
+	// AK7 — Selection seam static guards (AC1 absence half + AC2 absence half).
+	//
+	// Guard 1 (AC1 absence — "Kernel no longer chooses"):
+	//   Bans the round-robin expression `% <something>.length` on candidate arrays
+	//   in Kernel services OUTSIDE select-agent.ts. This catches a developer
+	//   re-implementing the round-robin spread directly in a Kernel service
+	//   (e.g. in bet-decomposition.ts) instead of going through selectOwner.
+	//   The select-agent.ts file is the ONLY place the Kernel is permitted to
+	//   perform candidate selection logic; all others must call selectOwner.
+	//
+	//   Scoped to: packages/server/src/services/**  (Kernel services only)
+	//   Allowlisted: select-agent.ts (the single permitted caller)
+	//   @lore AK7: This guard carries the static half of AC1 ("Kernel no longer
+	//   chooses"). The runtime half is the selectOwner seam itself. The selector
+	//   pattern `% <expr>.length` is the specific construct that bet-decomposition.ts
+	//   used for round-robin (`eligible[i % eligible.length]`). bet-decomposition.ts
+	//   was previously exempted (TODO AK7b) — that exemption is removed now that
+	//   insertProposedBetTasks routes through selectOwner (AK7 Phase-4 fix).
+	//
+	// Guard 2 (AC2 absence — "no persona inspection in selection"):
+	//   Bans `systemPrompt` and `AGENTS.md` string literals in select-agent.ts.
+	//   Enforces §2a Execution rule: "the Kernel never inspects the AGENTS.md".
+	//   select-agent.ts is a selection helper; it must not read persona content.
+	//   Scoped to: packages/server/src/services/select-agent.ts only.
+	{
+		files: ["packages/server/src/services/**/*.ts"],
+		ignores: [
+			// select-agent.ts is the ONLY place selection logic is permitted
+			"packages/server/src/services/select-agent.ts",
+			// Test files are exempt
+			"packages/server/src/services/**/__tests__/**",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					// Matches: someArray[i % someArray.length] or eligible[i % eligible.length]
+					// The i % something.length pattern is the round-robin spread the Kernel
+					// must not re-implement outside select-agent.ts (selectOwner handles it).
+					selector:
+						"MemberExpression > BinaryExpression[operator='%'] > MemberExpression[property.name='length']",
+					message:
+						"AK7 AC1: Round-robin selection logic (`% <candidates>.length`) must not appear in Kernel services outside select-agent.ts. Use selectOwner() — the single Kernel selection caller — instead.",
+				},
+			],
+		},
+	},
+	{
+		files: ["packages/server/src/services/select-agent.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					// Bans: 'systemPrompt' or 'AGENTS.md' as string literals
+					selector: "Literal[value='systemPrompt']",
+					message:
+						"AK7 AC2: select-agent.ts must not read persona fields (systemPrompt). Selection attaches to a user-id only; AGENTS.md is Strategy-owned (§2a Execution rule).",
+				},
+				{
+					selector: "Literal[value='AGENTS.md']",
+					message:
+						"AK7 AC2: select-agent.ts must not read AGENTS.md. Selection attaches to a user-id only; persona content is Strategy-owned (§2a Execution rule).",
+				},
+			],
+		},
+	},
+
 	// server+db ban itself rather than relying on any earlier block.
 	{
 		files: ["packages/web/src/preview/**/*.{ts,tsx}"],

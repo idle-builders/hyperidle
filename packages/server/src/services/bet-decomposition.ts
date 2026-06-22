@@ -36,6 +36,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import type { CredentialResolver } from "./credential-resolver.js";
+import { selectOwner } from "./select-agent.js";
 import { getActiveStrategy } from "./strategy-registry.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -123,21 +124,30 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
  * and transition each to 'accepted' so task_state_changed(accepted) fires
  * and the existing task-dispatcher picks it up.
  *
- * Owner assignment (WARNING-7 round-robin fallback):
- *   1. First eligible agent whose role === task.ownerRole (exact match).
- *   2. If none, cycle through eligible list (index mod length) for spread.
+ * Owner assignment (AK7): routed through selectOwner (the single Kernel selection
+ * caller). selectOwner enumerates eligible candidates, emits work_selection_requested,
+ * calls the active Strategy's selectAgent, and validates the result (AC1/AC2/AC4).
  *
  * betId is bound from the bet argument, NEVER from task input (cross-bet injection
  * prevention — mirrors create-task R5 D1).
  *
+ * @param _eligible — passed by callers for backward compat (AK3 tests); ignored in
+ * AK7 because selectOwner enumerates candidates directly (concept §4, Option A).
+ *
  * @lore AK3: v1 calls this directly from runBetDecomposition. A future
  * `propose_bet_tasks` harness tool would call this as its handler body unchanged
  * (keeping the insert logic in one place).
+ *
+ * @lore AK7: _eligible is kept as a param so existing callers compile unchanged.
+ * selectOwner (not _eligible) is the authoritative candidate source for AK7.
+ * The AK3 round-robin spread is preserved: selectOwner passes spreadIndex:i to the
+ * Strategy, and the Fabric impl reproduces `candidates[i % len]` byte-identically
+ * (concept §6.3). The role short-circuit (roleHint exact match) is also preserved.
  */
 export async function insertProposedBetTasks(
 	deps: { db: HyperIdleDb; eventBus: EventBus },
 	bet: { id: string; teamId: string },
-	eligible: User[],
+	_eligible: User[],
 	taskInputs: DecompositionTaskInput[],
 ): Promise<{ created: number }> {
 	const { db, eventBus } = deps;
@@ -147,15 +157,21 @@ export async function insertProposedBetTasks(
 		const input = taskInputs[i];
 		if (!input) continue;
 
-		// Resolve owner: exact role match → round-robin fallback.
-		let owner: User | undefined;
-		if (input.ownerRole) {
-			owner = eligible.find((u) => u.role === input.ownerRole);
-		}
-		if (!owner) {
-			// Round-robin spread across eligible list.
-			owner = eligible[i % eligible.length];
-		}
+		// Resolve owner: route through the selection seam (AK7 — AC1/AC2/AC4).
+		// selectOwner: enumerates eligible team candidates (orderBy users.id), emits
+		// work_selection_requested, calls Strategy.selectAgent, validates the result.
+		// spreadIndex:i preserves the AK3 round-robin spread on the mismatch branch
+		// (concept §6.3 — without it all null-role tasks collapse to candidates[0]).
+		const ownerAgentId = await selectOwner(
+			{ db, eventBus },
+			{
+				surface: "bet_task",
+				teamId: bet.teamId,
+				workKey: bet.id,
+				roleHint: (input.ownerRole as import("@hyperidle/shared").UserRole) ?? null,
+				spreadIndex: i,
+			},
+		);
 
 		const taskId = crypto.randomUUID();
 		const now = new Date().toISOString();
@@ -165,7 +181,7 @@ export async function insertProposedBetTasks(
 			id: taskId,
 			betId: bet.id,
 			teamId: bet.teamId,
-			ownerAgentId: owner?.id ?? null,
+			ownerAgentId,
 			title: input.title.slice(0, 512),
 			description: input.description ? input.description.slice(0, 65536) : null,
 			doneCondition: input.doneCondition ? input.doneCondition.slice(0, 512) : null,
@@ -290,8 +306,29 @@ export async function runBetDecomposition(
 		return;
 	}
 
-	// --- 2. Pick the PM decomposer ---
-	const pm = eligible.find((u) => u.role === "product_manager") ?? eligible[0];
+	// --- 2. Pick the PM decomposer (AK7: route through selection seam) ---
+	// selectOwner: enumerates team candidates, emits work_selection_requested,
+	// calls Strategy.selectAgent({ surface: 'bet_decomposer', roleHint: 'product_manager' }),
+	// validates the result. Reproduces `eligible.find(role==='product_manager') ?? eligible[0]`
+	// byte-identically when Fabric is active (concept §5.2, §6.2).
+	//
+	// @lore AK7: selectOwner for bet_decomposer is the AC1 live emit site for the PM pick.
+	// The Fabric bet_decomposer branch: pick candidate with role===roleHint else candidates[0].
+	const pmId = await selectOwner(
+		{ db, eventBus },
+		{
+			surface: "bet_decomposer",
+			teamId: bet.teamId,
+			workKey: betId,
+			roleHint: "product_manager",
+		},
+	);
+	if (!pmId) {
+		await markTerminal(db, betId, "blocked", "no_eligible_agent");
+		return;
+	}
+	// Load the full PM user row (needed for harnessType/modelProvider/role in the real turn).
+	const [pm] = await db.select().from(users).where(eq(users.id, pmId)).limit(1);
 	if (!pm) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;

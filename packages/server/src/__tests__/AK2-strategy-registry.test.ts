@@ -50,6 +50,10 @@ function makeInertStrategy(): Strategy<HyperIdleDb> {
 		async scaffoldAgents(_req) {
 			return [];
 		},
+		// AK7: selectAgent stub — not implemented in registry tests (not under test here)
+		async selectAgent(_req) {
+			return { agentId: null };
+		},
 	};
 }
 

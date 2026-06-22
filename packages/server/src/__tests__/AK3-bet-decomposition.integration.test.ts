@@ -32,6 +32,8 @@ import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	ResolvedModel,
+	SelectAgentOutcome,
+	SelectAgentRequest,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
@@ -48,6 +50,48 @@ import {
 } from "../services/bet-decomposition.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+
+// ---------------------------------------------------------------------------
+// Fabric-equivalent strategy fixture (AK7 Phase-4 fix)
+//
+// insertProposedBetTasks and runBetDecomposition now route per-task owner
+// selection through selectOwner → getActiveStrategy().selectAgent. These
+// describe blocks register a Fabric-equivalent selectAgent that reproduces
+// the AK3 round-robin behaviour byte-identically:
+//   - bet_task: roleHint match → spread (candidates[spreadIndex % len])
+//   - bet_decomposer: roleHint match → candidates[0]
+// Assertions are frozen — only setup changes (AK7 code-review ruling).
+// ---------------------------------------------------------------------------
+
+function makeFabricLikeStrategy() {
+	return {
+		assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
+		beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+		scaffoldAgents: vi.fn().mockResolvedValue([]),
+		selectAgent: vi.fn(
+			async (req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> => {
+				if (req.surface === "bet_task") {
+					const byRole = req.roleHint
+						? req.candidates.find((c) => c.role === req.roleHint)
+						: undefined;
+					if (byRole) return { agentId: byRole.agentId };
+					const len = req.candidates.length;
+					if (len === 0) return { agentId: null };
+					const idx = (req.spreadIndex ?? 0) % len;
+					return { agentId: req.candidates[idx]?.agentId ?? null };
+				}
+				if (req.surface === "bet_decomposer") {
+					const byRole = req.roleHint
+						? req.candidates.find((c) => c.role === req.roleHint)
+						: undefined;
+					const chosen = byRole ?? req.candidates[0];
+					return { agentId: chosen?.agentId ?? null };
+				}
+				return { agentId: null };
+			},
+		),
+	};
+}
 
 // AK3 red phase: DecompositionTaskInput lives in @hyperidle/shared once exported.
 // Declared locally so tests compile now; the import will replace this in the green phase.
@@ -205,6 +249,12 @@ describe("AK3: findEligibleTeamAgents", () => {
 });
 
 describe("AK3: insertProposedBetTasks", () => {
+	// AK7 Phase-4: insertProposedBetTasks now routes through selectOwner →
+	// getActiveStrategy(). Register the Fabric-equivalent strategy so calls resolve.
+	// Assertions below are FROZEN (setup-only change per AK7 code-review ruling).
+	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
+	afterEach(() => clearActiveStrategy());
+
 	test("inserts tasks and assigns eligible owners, returning accepted state (AC1, AC2)", async ({
 		db,
 		eventBus,
@@ -308,6 +358,11 @@ describe("AK3: runBetDecomposition — no-eligible-agent path (AC4)", () => {
 });
 
 describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
+	// AK7 Phase-4: runBetDecomposition routes PM pick + per-task owner through selectOwner.
+	// Register Fabric-equivalent strategy; assertions below are FROZEN.
+	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
+	afterEach(() => clearActiveStrategy());
+
 	test("injected turn returns 2 tasks → decomposition_status=done, ≥1 task in DB", async ({
 		db,
 		eventBus,
@@ -345,6 +400,11 @@ describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
 });
 
 describe("AK3: runBetDecomposition — timeout/error path (AC6)", () => {
+	// AK7 Phase-4: PM pick goes through selectOwner; register strategy so it resolves.
+	// Assertions frozen — setup only.
+	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
+	afterEach(() => clearActiveStrategy());
+
 	test("turn that rejects → decomposition_status=blocked, reason=failed, never stuck on running", async ({
 		db,
 		eventBus,
@@ -531,19 +591,16 @@ describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
 // ---------------------------------------------------------------------------
 
 describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
-	// Register a no-op Strategy so getActiveStrategy() doesn't throw.
-	// The real PM path calls assembleContext before the LLM turn;
-	// a no-op prevents the early-return blocked/failed path at line ~343.
-	// @lore AK3: fabricStrategy needs fabric DB internals we don't have in this
-	// test context. A minimal no-op Strategy is the cleanest solution to reach
-	// the startSession call without pulling in the full Fabric stack.
+	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
+	// and the PM pick (bet_decomposer) returns the seeded agent.
+	// AK7 Phase-4: runBetDecomposition now routes the PM pick through selectOwner →
+	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
+	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
+	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
+	// @lore AK3: The real PM turn path is only reached when selectOwner resolves a PM.
+	// Under AK7, selectAgent(bet_decomposer) must return a non-null agentId here.
 	beforeEach(() => {
-		setActiveStrategy({
-			assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
-			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-			// AK6: scaffoldAgents stub — AK3 test is not about agent creation.
-			scaffoldAgents: vi.fn().mockResolvedValue([]),
-		});
+		setActiveStrategy(makeFabricLikeStrategy());
 	});
 
 	afterEach(() => {

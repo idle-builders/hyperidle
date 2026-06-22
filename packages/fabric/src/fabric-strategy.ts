@@ -30,11 +30,14 @@ import type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
 import { assembleContext } from "./context-assembly.js";
 import { startWatcher } from "./file-watcher.js";
 import { composeRoster } from "./roster.js";
+import { selectAgentFabric } from "./services/agent-selection.js";
 
 /**
  * The Fabric Strategy — implements the Strategy Port by delegating to the
@@ -99,5 +102,16 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 	 */
 	async scaffoldAgents(req: ScaffoldRequest<HyperIdleDb>): Promise<readonly AgentScaffoldSpec[]> {
 		return composeRoster(req.db, req);
+	},
+
+	/**
+	 * AK7: The Fabric Strategy decides which agent owns a unit of work.
+	 * Delegates to selectAgentFabric for the three-surface implementation:
+	 *   - bet_decomposer: role-match PM on Kernel-enumerated candidates
+	 *   - bet_task: role-match short-circuit; else round-robin spread via spreadIndex
+	 *   - routine_delegate: findDelegate's exact userSkills query (concept §3a carve-out)
+	 */
+	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		return selectAgentFabric(req);
 	},
 };
