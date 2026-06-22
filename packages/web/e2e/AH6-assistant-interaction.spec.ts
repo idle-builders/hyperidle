@@ -197,8 +197,12 @@ test.describe("AH6 S2 — real tool action visible in UI (replay, key-free)", ()
 
 		// The bet draft card must render (overlay L141 — BetDraftCardForToolCall)
 		// @lore AH6 R-4: bet-draft-card is rendered when create_bet tool fires
+		// @lore AH6 CRITICAL-4: In record mode (real OpenRouter calls), the full S2
+		// conversation cycle takes multiple API turns (create_bet + tool_result + model
+		// continuation). The card may render only after the entire cycle completes.
+		// Use 45s timeout to accommodate real-model latency in the smoke lane.
 		const betDraftCard = page.locator('[data-testid="bet-draft-card"]');
-		await expect(betDraftCard).toBeVisible({ timeout: 10_000 });
+		await expect(betDraftCard).toBeVisible({ timeout: 45_000 });
 
 		// The draft card must contain the bet title from the prescriptive prompt
 		await expect(betDraftCard).toContainText("Ship AH6");
@@ -242,10 +246,25 @@ test.describe("AH6 S3 — thinking→answered streaming transition (replay, key-
 		// (isThinking flips when the assistant message arrives — overlay L536)
 		await expect(page.getByText(/thinking/i)).not.toBeVisible({ timeout: 15_000 });
 
-		// Step (c): reply bubble is present and non-empty
+		// Step (c): reply bubble is present and non-empty.
+		// @lore AH6 CRITICAL-5: After thinking disappears, the message bubble may not yet
+		// be fully painted. In record mode, S3 runs after S2's multi-turn conversation,
+		// so allTextContents() must wait for the LAST ai bubble to have non-empty text.
+		// Snap allTextContents() immediately after thinking-disappears fails because the
+		// final message element may not have rendered its text content yet.
+		// Use waitForFunction to poll until the last ai element has non-empty text.
+		await page.waitForFunction(
+			() => {
+				const bubbles = document.querySelectorAll("[data-sender-kind=ai]");
+				if (bubbles.length === 0) return false;
+				const last = bubbles[bubbles.length - 1];
+				return (last?.textContent?.trim().length ?? 0) > 0;
+			},
+			{ timeout: 15_000 },
+		);
 		const replyTexts = await page.locator("[data-sender-kind=ai]").allTextContents();
 		const lastReply = replyTexts[replyTexts.length - 1] ?? "";
-		expect(lastReply.length).toBeGreaterThan(0);
+		expect(lastReply.trim().length).toBeGreaterThan(0);
 	});
 });
 

@@ -20,19 +20,14 @@
  */
 
 import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
-// @lore AH6: Playwright's HTML reporter clears playwright-report-ah6/ before
-// writing. The recorder writes ah6-cost.json to that same dir. The smoke
-// orchestrator (ah6-smoke-local.ts) backs it up to /tmp/ah6-cost.json before
-// launching Playwright. This script checks the primary path first, then the backup.
-const COST_FILE_PRIMARY = path.resolve(
-	path.dirname(fileURLToPath(import.meta.url)),
-	"../playwright-report-ah6/ah6-cost.json",
-);
-const COST_FILE_BACKUP = "/tmp/ah6-cost.json";
-const COST_FILE = fs.existsSync(COST_FILE_PRIMARY) ? COST_FILE_PRIMARY : COST_FILE_BACKUP;
+// @lore AH6 CRITICAL-4: The recorder writes ah6-cost.json directly to /tmp
+// (AH6_COST_REPORT_PATH=/tmp/ah6-cost.json in playwright.ah6.config.ts).
+// Writing to /tmp bypasses Playwright's HTML reporter cleanup of playwright-report-ah6/.
+// Previously the cost file was written to playwright-report-ah6/, which Playwright
+// cleared during its post-run HTML report write — the cost file was deleted before
+// the smoke orchestrator's backup step ran.
+const COST_FILE = "/tmp/ah6-cost.json";
 
 const MAX_COST_CENTS = Number(process.env.AH6_MAX_COST_CENTS ?? "10");
 

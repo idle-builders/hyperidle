@@ -43,11 +43,15 @@ const AH6_API_KEY = "ah6-e2e-test-key";
 // Absolute path to the cassettes directory — WARNING-3 compliance.
 const CASSETTES_DIR = path.resolve(Dirname, "e2e/cassettes");
 
-// Absolute path to the cost report written by recordLlm in record mode.
-// ah6-assert-budget.ts reads packages/web/playwright-report-ah6/ah6-cost.json.
+// Cost report written by recordLlm in record mode.
 // @lore AH6 CRITICAL-2: This path is passed to the test-server as AH6_COST_REPORT_PATH
 // so recordLlm knows where to write the cost report on flush.
-const COST_REPORT_PATH = path.resolve(Dirname, "playwright-report-ah6/ah6-cost.json");
+// @lore AH6 CRITICAL-4: Must be OUTSIDE playwright-report-ah6/ because Playwright's
+// HTML reporter clears that directory AFTER the server process exits. If the cost file
+// is written to playwright-report-ah6/ by the exit handler, Playwright's reporter then
+// clears and overwrites that directory, deleting the cost file before the smoke script's
+// backup step runs. Writing to /tmp/ah6-cost.json survives reporter cleanup.
+const COST_REPORT_PATH = "/tmp/ah6-cost.json";
 
 export default defineConfig({
 	testDir: "./e2e",
@@ -56,7 +60,9 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: 0, // No retries — a lane failure is a real signal, not a flake
 	workers: 1,
-	globalTimeout: 120_000, // 2 min: replay is fast, no real LLM calls
+	// In record mode (real LLM calls), S2 alone can take 45s across multiple API turns.
+	// Use 300s in record mode to give all 4 scenarios room to complete.
+	globalTimeout: process.env.LLM_CASSETTE_MODE === "record" ? 300_000 : 120_000,
 	timeout: 60_000,
 	expect: { timeout: 30_000 },
 	reporter: [["html", { outputFolder: "playwright-report-ah6" }]],
@@ -77,14 +83,20 @@ export default defineConfig({
 	webServer: [
 		{
 			/**
-			 * Boot the AH6 API server in cassette replay mode.
+			 * Boot the AH6 API server.
 			 *
-			 * LLM_CASSETTE_MODE=replay intercepts callLlm and returns responses
-			 * from the committed cassette files. No API key required.
+			 * In replay mode: LLM_CASSETTE_MODE=replay intercepts callLlm and returns
+			 * responses from the committed cassette files. No API key required.
+			 * In record mode: LLM_CASSETTE_MODE=record makes real OpenRouter calls.
+			 *
+			 * @lore AH6 CRITICAL-1: reuseExistingServer is DISABLED in record mode.
+			 * If a previous replay-mode server is running on port 3098, reusing it would
+			 * silently replay committed cassettes instead of making real OpenRouter calls.
+			 * Record mode MUST always start a fresh server with the correct env.
 			 */
 			command: "npx tsx scripts/ah6-test-server.ts",
 			url: `http://localhost:${AH6_API_PORT}/api/health`,
-			reuseExistingServer: !process.env.CI,
+			reuseExistingServer: process.env.LLM_CASSETTE_MODE === "record" ? false : !process.env.CI,
 			timeout: 60_000,
 			cwd: ".",
 			stdout: "pipe",
@@ -132,10 +144,13 @@ export default defineConfig({
 		{
 			/**
 			 * Boot Vite with the AH6 config — proxies /api → port 3098.
+			 *
+			 * @lore AH6 CRITICAL-1: Also force a fresh Vite in record mode so there is no
+			 * risk of stale config from a previous replay run.
 			 */
 			command: `npm run dev -- --config vite.ah6.config.ts --port ${AH6_VITE_PORT} --strictPort`,
 			url: `http://localhost:${AH6_VITE_PORT}`,
-			reuseExistingServer: !process.env.CI,
+			reuseExistingServer: process.env.LLM_CASSETTE_MODE === "record" ? false : !process.env.CI,
 			timeout: 60_000,
 			cwd: ".",
 			env: {

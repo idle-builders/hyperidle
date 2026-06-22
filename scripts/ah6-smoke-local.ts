@@ -67,10 +67,22 @@ const MAX_TOKENS = Number(process.env.AH6_MAX_TOKENS ?? "20000");
 
 // ---------------------------------------------------------------------------
 // Utility: run a shell command and fail on non-zero exit.
+//
+// @lore AH6 S-1: `safeCmd` is printed to stdout; `cmd` is the actual shell
+// command. When env vars containing secrets (e.g. OPENROUTER_API_KEY) must be
+// set for the child process, pass them via `opts.env` — NOT embedded in the
+// command string. The `safeCmd` label must never contain secret values; it is
+// only used for logging and may show masked placeholders.
 // ---------------------------------------------------------------------------
 
-function run(label: string, cmd: string, opts?: { cwd?: string; env?: NodeJS.ProcessEnv }): void {
-	process.stdout.write(`\n[smoke:ah6] >>> ${label}\n  $ ${cmd}\n`);
+function run(
+	label: string,
+	cmd: string,
+	opts?: { cwd?: string; env?: NodeJS.ProcessEnv; safeCmd?: string },
+): void {
+	// Print safeCmd if provided, otherwise print cmd (which must not contain secrets).
+	const displayed = opts?.safeCmd ?? cmd;
+	process.stdout.write(`\n[smoke:ah6] >>> ${label}\n  $ ${displayed}\n`);
 	const result = spawnSync(cmd, {
 		shell: true,
 		stdio: "inherit",
@@ -168,24 +180,34 @@ try {
 //   - Accumulates totalCostUsd via trackUsage and writes ah6-cost.json.
 // ---------------------------------------------------------------------------
 
+// S-1: OPENROUTER_API_KEY is passed via opts.env (never embedded in the command
+// string that gets logged). safeCmd shows *** in place of the real key value.
 run(
 	"Record cassettes (real LLM calls — S1, S2, S3)",
-	`RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} OPENROUTER_API_KEY=${apiKey} LLM_CASSETTE_MODE=record AH6_MAX_COST_CENTS=${MAX_COST_CENTS} npm run -w @hyperidle/web test:e2e:ah6`,
+	"npm run -w @hyperidle/web test:e2e:ah6",
+	{
+		env: {
+			RESOLVE_MODEL_FILE,
+			OPENROUTER_API_KEY: apiKey,
+			LLM_CASSETTE_MODE: "record",
+			AH6_MAX_COST_CENTS: String(MAX_COST_CENTS),
+		},
+		safeCmd: `RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} OPENROUTER_API_KEY=*** LLM_CASSETTE_MODE=record AH6_MAX_COST_CENTS=${MAX_COST_CENTS} npm run -w @hyperidle/web test:e2e:ah6`,
+	},
 );
 
 // ---------------------------------------------------------------------------
-// STEP 6: Backup cost report before Playwright clears its report dir.
+// STEP 6: Verify cost report exists at /tmp/ah6-cost.json.
+//
+// @lore AH6 CRITICAL-4: The recorder writes ah6-cost.json directly to /tmp
+// (via AH6_COST_REPORT_PATH=/tmp/ah6-cost.json in playwright.ah6.config.ts).
+// Writing to /tmp survives Playwright's HTML reporter clearing playwright-report-ah6/.
+// Previously the cost file was written to playwright-report-ah6/ and then deleted by
+// the reporter's pre-write cleanup — causing the budget assert to always fail.
 // ---------------------------------------------------------------------------
 
-// @lore AH6: Playwright's HTML reporter clears playwright-report-ah6/ before
-// writing. The recorder writes ah6-cost.json to that dir. Save a copy to /tmp
-// so the budget-assert step can read it even after Playwright's report clears.
-const costReportSrc = path.join(repoRoot, "packages/web/playwright-report-ah6/ah6-cost.json");
-const costReportBak = "/tmp/ah6-cost.json";
-if (fs.existsSync(costReportSrc)) {
-	fs.copyFileSync(costReportSrc, costReportBak);
-	process.stdout.write(`[smoke:ah6] Cost report backed up to ${costReportBak}\n`);
-}
+const costReportPath = "/tmp/ah6-cost.json";
+process.stdout.write(`[smoke:ah6] Cost report at: ${costReportPath}\n`);
 
 // ---------------------------------------------------------------------------
 // STEP 7: Budget assert (fail-closed).
@@ -200,7 +222,6 @@ run(
 // STEP 8: Summary.
 // ---------------------------------------------------------------------------
 
-const costReportPath = path.join(repoRoot, "packages/web/playwright-report-ah6/ah6-cost.json");
 let totalCostCents: number | undefined;
 try {
 	const report = JSON.parse(fs.readFileSync(costReportPath, "utf-8")) as {

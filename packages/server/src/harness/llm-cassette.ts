@@ -295,10 +295,11 @@ export function loadCassetteEntries(): CassetteEntry[] {
 
 /**
  * In-memory accumulator for recorded entries.
- * Entries are flushed to disk at process exit.
+ * Entries are written to disk eagerly after each recordLlm call (CRITICAL-4)
+ * and also at process exit/SIGTERM as a belt-and-suspenders fallback.
  *
  * @lore AH6: Using a module-level Map means multiple calls within one process
- * accumulate correctly. The flush writes all recorded entries at exit.
+ * accumulate correctly. Each write merges in-memory entries with the on-disk file.
  */
 const recordedEntries = new Map<string, CassetteEntry>();
 
@@ -326,81 +327,91 @@ const recordRunCost: RecordRunCost = {
 
 let recordFlushScheduled = false;
 
+/**
+ * Write current cassette entries and cost report to disk synchronously.
+ *
+ * @lore AH6 CRITICAL-4: Called EAGERLY after each recordLlm call (not just at
+ * process exit). Playwright kills the webServer with SIGKILL after tests finish,
+ * and exit handlers do not run on SIGKILL. Eager writes guarantee the cassette
+ * and cost files are on disk before the process is killed.
+ * The exit/SIGTERM/SIGINT handlers remain as a belt-and-suspenders fallback.
+ */
+function flushRecordToDisk(): void {
+	const cassetteDir = process.env.LLM_CASSETTE_DIR;
+	if (!cassetteDir || recordedEntries.size === 0) return;
+
+	const scenario = process.env.LLM_CASSETTE_SCENARIO ?? "default";
+	const cassettePath = path.join(cassetteDir, `${scenario}.json`);
+
+	try {
+		// Load existing entries to merge/overwrite
+		let existing: CassetteEntry[] = [];
+		if (fs.existsSync(cassettePath)) {
+			try {
+				existing = JSON.parse(fs.readFileSync(cassettePath, "utf-8")) as CassetteEntry[];
+			} catch {
+				existing = [];
+			}
+		}
+
+		// Merge: recorded entries overwrite by key
+		const merged = new Map<string, CassetteEntry>();
+		for (const entry of existing) {
+			merged.set(entry.key, entry);
+		}
+		for (const [k, entry] of recordedEntries) {
+			merged.set(k, entry);
+		}
+
+		fs.mkdirSync(cassetteDir, { recursive: true });
+		fs.writeFileSync(cassettePath, JSON.stringify(Array.from(merged.values()), null, 2), "utf-8");
+		process.stdout.write(`[AH6] Cassette written: ${cassettePath} (${merged.size} entries)\n`);
+	} catch (err) {
+		process.stderr.write(
+			`[AH6] Failed to write cassette ${cassettePath}: ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+	}
+
+	// CRITICAL-2: Write ah6-cost.json so ah6-assert-budget.ts can read it.
+	// Path comes from AH6_COST_REPORT_PATH env (set by playwright.ah6.config.ts
+	// when LLM_CASSETTE_MODE=record). Silently skip if env is absent (non-AH6 use).
+	const costReportPath = process.env.AH6_COST_REPORT_PATH;
+	if (costReportPath && recordRunCost.totalCostUsd > 0) {
+		try {
+			const totalCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
+			const costReport = {
+				totalCostCents,
+				totalTokens: recordRunCost.totalInputTokens + recordRunCost.totalOutputTokens,
+				model: recordRunCost.model,
+				timestamp: new Date().toISOString(),
+			};
+			const costDir = path.dirname(costReportPath);
+			fs.mkdirSync(costDir, { recursive: true });
+			fs.writeFileSync(costReportPath, JSON.stringify(costReport, null, 2), "utf-8");
+			process.stdout.write(
+				`[AH6] Cost report written: ${costReportPath} (${totalCostCents} cents, model=${recordRunCost.model})\n`,
+			);
+		} catch (err) {
+			process.stderr.write(
+				`[AH6] Failed to write cost report ${costReportPath}: ${err instanceof Error ? err.message : String(err)}\n`,
+			);
+		}
+	}
+}
+
 function scheduleRecordFlush(): void {
 	if (recordFlushScheduled) return;
 	recordFlushScheduled = true;
 
-	function flush(): void {
-		const cassetteDir = process.env.LLM_CASSETTE_DIR;
-		if (!cassetteDir || recordedEntries.size === 0) return;
-
-		const scenario = process.env.LLM_CASSETTE_SCENARIO ?? "default";
-		const cassettePath = path.join(cassetteDir, `${scenario}.json`);
-
-		try {
-			// Load existing entries to merge/overwrite
-			let existing: CassetteEntry[] = [];
-			if (fs.existsSync(cassettePath)) {
-				try {
-					existing = JSON.parse(fs.readFileSync(cassettePath, "utf-8")) as CassetteEntry[];
-				} catch {
-					existing = [];
-				}
-			}
-
-			// Merge: recorded entries overwrite by key
-			const merged = new Map<string, CassetteEntry>();
-			for (const entry of existing) {
-				merged.set(entry.key, entry);
-			}
-			for (const [k, entry] of recordedEntries) {
-				merged.set(k, entry);
-			}
-
-			fs.mkdirSync(cassetteDir, { recursive: true });
-			fs.writeFileSync(cassettePath, JSON.stringify(Array.from(merged.values()), null, 2), "utf-8");
-			process.stdout.write(`[AH6] Cassette written: ${cassettePath} (${merged.size} entries)\n`);
-		} catch (err) {
-			process.stderr.write(
-				`[AH6] Failed to write cassette ${cassettePath}: ${err instanceof Error ? err.message : String(err)}\n`,
-			);
-		}
-
-		// CRITICAL-2: Write ah6-cost.json so ah6-assert-budget.ts can read it.
-		// Path comes from AH6_COST_REPORT_PATH env (set by playwright.ah6.config.ts
-		// when LLM_CASSETTE_MODE=record). Silently skip if env is absent (non-AH6 use).
-		const costReportPath = process.env.AH6_COST_REPORT_PATH;
-		if (costReportPath && recordRunCost.totalCostUsd > 0) {
-			try {
-				const totalCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
-				const costReport = {
-					totalCostCents,
-					totalTokens: recordRunCost.totalInputTokens + recordRunCost.totalOutputTokens,
-					model: recordRunCost.model,
-					timestamp: new Date().toISOString(),
-				};
-				const costDir = path.dirname(costReportPath);
-				fs.mkdirSync(costDir, { recursive: true });
-				fs.writeFileSync(costReportPath, JSON.stringify(costReport, null, 2), "utf-8");
-				process.stdout.write(
-					`[AH6] Cost report written: ${costReportPath} (${totalCostCents} cents, model=${recordRunCost.model})\n`,
-				);
-			} catch (err) {
-				process.stderr.write(
-					`[AH6] Failed to write cost report ${costReportPath}: ${err instanceof Error ? err.message : String(err)}\n`,
-				);
-			}
-		}
-	}
-
-	// Register SIGTERM/SIGINT/exit handlers for graceful flush
-	process.once("exit", flush);
+	// Register SIGTERM/SIGINT/exit handlers as belt-and-suspenders fallback.
+	// Primary writes happen eagerly via flushRecordToDisk() after each recordLlm call.
+	process.once("exit", flushRecordToDisk);
 	process.once("SIGTERM", () => {
-		flush();
+		flushRecordToDisk();
 		process.exit(0);
 	});
 	process.once("SIGINT", () => {
-		flush();
+		flushRecordToDisk();
 		process.exit(0);
 	});
 }
@@ -465,8 +476,8 @@ export async function recordLlm(
 	const maxCostCents = Number(process.env.AH6_MAX_COST_CENTS ?? "10");
 	const currentCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
 	if (currentCostCents > maxCostCents) {
-		// Flush cassette before aborting so partial progress is captured
-		scheduleRecordFlush();
+		// Write cassette eagerly before aborting so partial progress is captured
+		flushRecordToDisk();
 		process.stderr.write(
 			`[AH6] ABORT: Budget cap exceeded mid-run: ${currentCostCents} cents > cap ${maxCostCents} cents. ` +
 				`Increase AH6_MAX_COST_CENTS or optimize the smoke prompt.\n`,
@@ -474,7 +485,10 @@ export async function recordLlm(
 		process.exit(1);
 	}
 
-	// Schedule flush on process exit
+	// CRITICAL-4: Write eagerly after each call — Playwright kills the server with
+	// SIGKILL after tests finish, so process exit handlers do not reliably run.
+	// The exit/SIGTERM handlers registered by scheduleRecordFlush are belt-and-suspenders.
+	flushRecordToDisk();
 	scheduleRecordFlush();
 
 	return response;
