@@ -3,10 +3,15 @@
   "title": "Session dial-in & activity view",
   "track": "AM",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "2-critique",
+  "status": "awaiting-human-design-review",
+  "currentStep": "human-design-review",
   "designClass": "novel",
+  "reason": "novel design requires founder review",
   "dependsOn": ["AM1", "AM2"],
   "startedAt": "2026-06-22T11:47:00+02:00",
-  "notes": "AM1 (Part rendering structure) + AM2 (capability descriptor) both merged to main. Concept not required (no new noun). Design required + human-design-review=YES; autonomous mode -> novel design will park at Phase 2.5."
+  "parkedAt": "2026-06-22T12:05:00+02:00",
+  "designScore": 8,
+  "architectureScore": 9,
+  "prNumber": 348,
+  "notes": "Phase 1 (design+architecture) and Phase 2 (critique, both APPROVED: design 8/10, architecture 9/10 after 1 revision round) complete. DESIGN-CLASS=novel -> designReviewDecision=run; autonomous mode (PIPELINE_INTERACTIVE unset) -> PARK at Phase 2.5 per stakes-gated hard gate. Build/review/docs/retro/ship NOT dispatched. Founder runs /human-design-review AM3 to unpark: open the rendered slide-over variant (SessionDialInSide.stories.tsx) in the :8098 viewer, annotate, designer revises TSX to approval, then pipeline resumes from Phase 3. Chosen direction: non-modal right slide-over opened from the conversation's session-reference Fold; descriptor-driven config band over 'What happened' activity rendered through AM1 PartList (no diff embeds this WP)."
 }
