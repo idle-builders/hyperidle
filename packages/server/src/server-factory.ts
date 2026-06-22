@@ -21,6 +21,7 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
+import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
 import { getServerSecret } from "./services/credential-encryption.js";
@@ -66,6 +67,15 @@ export interface CreateServerDeps {
 	readonly adapterPool?: AdapterPool;
 	readonly workspaceAdapter?: SandboxAdapter;
 	readonly sandboxBasePath?: string;
+	/**
+	 * AH6 B3: Optional assistantTurnDeps override for test environments.
+	 * When absent, createServer builds deps from adapterPool + credentialResolver.
+	 * Test servers may inject a custom stub here to control turn behavior.
+	 *
+	 * @lore AH6: The production path always builds real deps; this field exists
+	 * so the ah6-test-server.ts can override with the seeded model/credential.
+	 */
+	readonly assistantTurnDeps?: AssistantTurnDeps;
 }
 
 /**
@@ -288,10 +298,27 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
 	const mcpBaseUrl = `http://localhost:${port}`;
 
+	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
+	// + credentialResolver so the message→turn trigger fires in production.
+	// When assistantTurnDeps is absent from createApp, POST /api/threads/:id/messages
+	// stores the message but never calls runAssistantTurn — the silent no-op that
+	// caused the inert Assistant. This additive wiring closes R-1 without changing
+	// any other app behaviour.
+	//
+	// @lore AH6 B3: deps.assistantTurnDeps can override (test-only) if the caller
+	// needs to inject a stub. Production always uses the constructed deps here.
+	const assistantTurnDeps = deps?.assistantTurnDeps ?? {
+		db,
+		eventBus,
+		adapterPool,
+		credentialResolver,
+	};
+
 	let wsDispose: (() => void) | null = null;
 	const app = await createApp({
 		db,
 		eventBus,
+		assistantTurnDeps,
 		/**
 		 * @lore R8: Wrap bootstrapFabric to inject readAlertPreferences from
 		 * server-config. bootstrapFabric is in the fabric package and cannot depend

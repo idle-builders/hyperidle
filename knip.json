@@ -43,9 +43,20 @@
 			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"]
 		},
 		"packages/web": {
-			"entry": ["src/api/client.ts", "scripts/*.ts", "vite.ah1.config.ts", "vite.ah5.config.ts"],
+			"entry": [
+				"src/api/client.ts",
+				"scripts/*.ts",
+				"vite.ah1.config.ts",
+				"vite.ah5.config.ts",
+				"vite.ah6.config.ts"
+			],
 			"playwright": {
-				"config": ["playwright.config.ts", "playwright.ah1.config.ts", "playwright.ah5.config.ts"]
+				"config": [
+					"playwright.config.ts",
+					"playwright.ah1.config.ts",
+					"playwright.ah5.config.ts",
+					"playwright.ah6.config.ts"
+				]
 			},
 			"ignoreBinaries": ["vite", "playwright"],
 			"ignoreDependencies": [

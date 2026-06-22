@@ -143,7 +143,7 @@ async function buildIdentities(
 	db: HyperIdleDb,
 	userId: string,
 	assistantAgentId: string,
-): Promise<Record<string, { name: string; role?: string }>> {
+): Promise<Record<string, { name: string; role?: string; isAgent?: boolean }>> {
 	const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
@@ -152,9 +152,11 @@ async function buildIdentities(
 	const agentName = agentRow?.name ?? "Assistant";
 	const agentRole = agentRow?.role ?? "assistant";
 
-	const identities: Record<string, { name: string; role?: string }> = {
+	// @lore AH6: isAgent=true must be included in the identity so CommentRow renders
+	// data-sender-kind="ai" on the message bubble — the Playwright selector used in e2e tests.
+	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> = {
 		[userId]: { name: userName, ...(userRole ? { role: userRole } : {}) },
-		[assistantAgentId]: { name: agentName, role: agentRole },
+		[assistantAgentId]: { name: agentName, role: agentRole, isAgent: true },
 	};
 	return identities;
 }

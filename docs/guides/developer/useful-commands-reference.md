@@ -9,6 +9,8 @@
 | `npm run setup` | Initialize database |
 | `npm run test` | Run all tests |
 | `npm run test:coverage` | Tests with coverage |
+| `npm run test:e2e:ah6` | AH6 real-interaction lane (key-free, offline — replays committed cassettes) |
+| `npm run smoke:ah6` | AH6 live refresh — re-records cassettes against a real OpenRouter model (requires `OPENROUTER_API_KEY`, local only) |
 | `npm run check` | TypeScript type check — per-package fan-out gate (see `typecheck-debt.json` for the quarantine list) |
 | `npm run lint` | Biome + ESLint |
 | `npm run lint:fix` | Auto-fix lint issues |

@@ -153,7 +153,7 @@ async function seedDb(db: Parameters<typeof provisionSession>[0]["db"]): Promise
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Probe liveness predicate (mirrors ah5-real-turn-probe.ts assertions)
+// Assistant-turn liveness predicate (guards provisionSession stream path)
 // ---------------------------------------------------------------------------
 
 /**
