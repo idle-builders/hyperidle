@@ -9,7 +9,7 @@ HyperIdle is an operating system for running a Product Factory — a portfolio o
 - [What Is HyperIdle?](./what-is-hyperidle.md)
 - [Getting Started](./getting-started.md)
 - [The Interface](./the-interface.md)
-- [Three Core Views](./three-core-views.md)
+- [Three Core Views](./three-core-views.md) — includes the Session view (watching an agent work)
 - [Ambient Awareness](./the-rail.md)
 - [Global Search](./global-search.md)
 - [Settings](./settings.md)

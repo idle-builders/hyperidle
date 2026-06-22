@@ -10,19 +10,19 @@
  * exceptional event and users re-opening the dial-in will see a fresh buffer.
  */
 
-import type { EventBus, SessionEndedEvent, ToolCallRecordedEvent } from "@hyperidle/shared";
+import type {
+	ActivityEntry,
+	EventBus,
+	SessionEndedEvent,
+	ToolCallRecordedEvent,
+} from "@hyperidle/shared";
 
 const MAX_PER_SESSION = 100;
 
-// Q1 review issue #9: discriminated union instead of Record<string, unknown>
-export type ToolCallData = { toolName: string; argsSummary: string };
-export type ReasoningData = { excerpt: string };
-export type CostTickData = { deltaMinor: number; totalMinor: number; currency: string };
-
-export type ActivityEntry =
-	| { type: "tool_call"; timestamp: number; data: ToolCallData }
-	| { type: "reasoning"; timestamp: number; data: ReasoningData }
-	| { type: "cost_tick"; timestamp: number; data: CostTickData };
+// AM3: ActivityEntry is now the canonical type from @hyperidle/shared/session-activity.
+// ToolCallData is preserved as a re-export for the server-side test that imports it.
+export type { ActivityEntry } from "@hyperidle/shared";
+export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
 
 // Eviction delay after session ends (ms). Entries are cleaned up after this window
 // to allow late REST fetches to still see the final activity snapshot.

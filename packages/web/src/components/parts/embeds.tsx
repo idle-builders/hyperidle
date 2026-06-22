@@ -85,7 +85,12 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 	}
 }
 
-/** Render the non-mention embeds of a Part as a horizontal wrapping row. */
+/**
+ * Render the non-mention embeds of a Part. A session reference is NOT an
+ * attachment — it links to the agent's work session — so it renders on its own
+ * level, separate from the attachment chips (artifact/diff/block/knowledge),
+ * rather than mixed into one wrapping row.
+ */
 export function EmbedRow({
 	embeds,
 	onOpen,
@@ -93,9 +98,21 @@ export function EmbedRow({
 	embeds: ReadonlyArray<Embed>;
 	onOpen: OpenHandler;
 }): JSX.Element | null {
-	const rendered = embeds
-		.map((embed, i) => renderEmbed(embed, `embed-${i}`, onOpen))
+	const sessionRefs = embeds.filter((e) => e.kind === "session-reference");
+	const attachments = embeds.filter((e) => e.kind !== "session-reference" && e.kind !== "mention");
+	const sessionEls = sessionRefs
+		.map((embed, i) => renderEmbed(embed, `session-${i}`, onOpen))
 		.filter((el): el is JSX.Element => el !== null);
-	if (rendered.length === 0) return null;
-	return <div className="mt-[6px] flex flex-wrap items-center gap-[6px]">{rendered}</div>;
+	const attachmentEls = attachments
+		.map((embed, i) => renderEmbed(embed, `attach-${i}`, onOpen))
+		.filter((el): el is JSX.Element => el !== null);
+	if (sessionEls.length === 0 && attachmentEls.length === 0) return null;
+	return (
+		<div className="mt-[6px] flex flex-col gap-[9px]">
+			{sessionEls.length > 0 && <div className="flex flex-col gap-[6px]">{sessionEls}</div>}
+			{attachmentEls.length > 0 && (
+				<div className="flex flex-wrap items-center gap-[6px]">{attachmentEls}</div>
+			)}
+		</div>
+	);
 }

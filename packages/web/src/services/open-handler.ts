@@ -44,6 +44,15 @@ export interface OpenHandlerContext {
 	 * routing to a dead URL.
 	 */
 	readonly betId?: string | null;
+	/**
+	 * AM3: callback to open a session view (entry + sub-agent recursion).
+	 * When supplied, fires for `case "session"` instead of the old no-op.
+	 * A sub-agent `tool` row fires the SAME open seam → the same surface, recursed.
+	 *
+	 * @lore AM3 R3: AM1 documented this as a no-op; AM3 fills it. No new route —
+	 * the surface is opened via this callback (the page owns the placement).
+	 */
+	readonly onOpenSession?: (sessionId: string) => void;
 }
 
 export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext): OpenHandler {
@@ -70,8 +79,10 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				return;
 			}
 			case "session":
-				// AM3 owns the session dial-in destination. AM1 wires the hook but
-				// builds no route — a documented no-op until AM3 lands (R3).
+				// AM3: fire the page-supplied callback to open/recurse the session view.
+				// A sub-agent tool row carries the same `session` OpenTarget → same surface.
+				// No navigation: the surface is opened via the callback (page owns placement).
+				ctx?.onOpenSession?.(target.sessionId);
 				return;
 		}
 	};

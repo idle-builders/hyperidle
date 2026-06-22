@@ -255,13 +255,18 @@ export type {
 	PartId,
 	PartKind,
 	ReviewTarget,
+	ToolKind,
+	ToolRunBlock,
 } from "./part.js";
 export {
+	aggregateToolRun,
+	deriveComposerPills,
 	derivePartsFromMessages,
 	derivePartsFromSession,
 	EMBED_KINDS,
 	groupParts,
 	PART_KINDS,
+	TOOL_KINDS,
 } from "./part.js";
 export {
 	AWS_AKIA_RE,
@@ -293,6 +298,16 @@ export type {
 	RoutineState,
 } from "./routine.js";
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
+// ── AM3: Normalized session ActivityEntry union ──
+export type {
+	ActivityEntry,
+	AnswerDeltaData,
+	AnswerSettledData,
+	CostTickData,
+	HumanMessageData,
+	ReasoningData,
+	ToolCallData,
+} from "./session-activity.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──

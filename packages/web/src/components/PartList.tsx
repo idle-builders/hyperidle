@@ -19,12 +19,11 @@ import { clockTime, groupParts } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";
+import { ReasoningPart } from "./parts/ReasoningPart.js";
 import { ReviewRequestPart } from "./parts/ReviewRequestPart.js";
 import { ReviewResolvedPart } from "./parts/ReviewResolvedPart.js";
+import { ToolPart } from "./parts/ToolPart.js";
 import { UnknownPart } from "./parts/UnknownPart.js";
-
-const ICON_AGENT =
-	"M8 1.5l1.1 3.4L12.5 6 9.1 7.1 8 10.5 6.9 7.1 3.5 6l3.4-1.1L8 1.5zM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z";
 
 /** Compile-time exhaustiveness guard; renders UnknownPart at runtime (no throw). */
 function assertNeverPart(_value: never): JSX.Element {
@@ -41,11 +40,50 @@ function renderPart(part: Part, onOpen: OpenHandler): JSX.Element {
 			return <ReviewResolvedPart part={part} onOpen={onOpen} />;
 		case "questionnaire":
 			return <QuestionnairePart part={part} />;
+		case "tool":
+			// AM3: tool Part — bare one-liner row; per-kind icon; expand-to-output.
+			return <ToolPart part={part} onOpen={onOpen} />;
+		case "reasoning":
+			// AM3: reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
+			return <ReasoningPart part={part} />;
 		case "unknown":
 			return <UnknownPart part={part} />;
 		default:
 			return assertNeverPart(part);
 	}
+}
+
+/**
+ * Two-letter initials from an author name (first + last word).
+ * Exported so `SessionView` can reuse it without duplication (AM3 warning fix).
+ */
+export function initialsOf(name: string): string {
+	const words = name.trim().split(/\s+/).filter(Boolean);
+	if (words.length === 0) return "?";
+	if (words.length === 1) return (words[0] ?? "").slice(0, 2).toUpperCase();
+	const first = words[0] ?? "";
+	const last = words[words.length - 1] ?? "";
+	return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase();
+}
+
+/**
+ * Per-author round avatar — the repeatable conversation/session pattern:
+ * GREEN (accent) for an agent, GREY (neutral) for a human. (AM3 unification —
+ * the same Avatar treatment as the ConversationSurface header.)
+ */
+function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX.Element {
+	const tint = isAgent
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
+	return (
+		<span
+			aria-hidden="true"
+			data-ds-component="GroupAvatar"
+			className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border text-[10px] font-[600] ${tint}`}
+		>
+			{initialsOf(name)}
+		</span>
+	);
 }
 
 export interface PartListProps {
@@ -59,47 +97,47 @@ export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
 		<div data-ds-component="PartList" className="flex flex-col gap-[18px]">
 			{groups.map((group) => {
 				const head = group.parts[0];
+				const isAgent = group.author.isAgent;
+				// ONLY my own messages are highlighted: right-bound grey box. Everyone
+				// else — other people AND agents — reads left-aligned and plain. The
+				// avatar tint (green agent / grey human) carries the who; the box/side
+				// carries the it's-me. One pattern, shared by conversation + session.
+				const isSelf = group.author.isMe;
 				return (
 					<div
 						key={head?.id ?? group.author.id}
 						data-ds-component="PartGroup"
-						data-ds-sender={group.author.isAgent ? "agent" : "human"}
-						{...(group.author.isAgent ? { "data-ds-agent": "true" } : {})}
-						className="flex flex-col gap-[12px]"
+						data-ds-sender={isAgent ? "agent" : "human"}
+						{...(isAgent ? { "data-ds-agent": "true" } : {})}
+						{...(isSelf ? { "data-ds-self": "true" } : {})}
+						className={`flex flex-col ${isSelf ? "items-end" : ""}`}
 					>
-						<div className="flex items-baseline gap-[9px]">
-							<span className="text-[13px] font-[600] text-[var(--text-primary)]">
-								{group.author.name}
-							</span>
-							{group.author.isAgent && (
-								<span
-									aria-label="Agent"
-									title="Agent"
-									className="flex items-center text-[var(--text-tertiary)]"
-								>
-									<svg
-										viewBox="0 0 16 16"
-										fill="currentColor"
-										style={{ width: 11, height: 11 }}
-										aria-hidden="true"
-									>
-										<path d={ICON_AGENT} />
-									</svg>
+						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
+							<div className="flex items-center gap-[9px]">
+								<GroupAvatar name={group.author.name} isAgent={isAgent} />
+								<span className="text-[13px] font-[600] text-[var(--text-primary)]">
+									{group.author.name}
 								</span>
-							)}
-							{group.author.isMe && (
-								<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
-							)}
-							{head && (
-								<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
-									{clockTime(head.createdAt)}
-								</span>
-							)}
-						</div>
-						<div className="flex flex-col gap-[12px]">
-							{group.parts.map((part) => (
-								<div key={part.id}>{renderPart(part, onOpen)}</div>
-							))}
+								{isSelf && (
+									<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
+								)}
+								{head && (
+									<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+										{clockTime(head.createdAt)}
+									</span>
+								)}
+							</div>
+							<div
+								className={
+									isSelf
+										? "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
+										: "flex flex-col gap-[12px]"
+								}
+							>
+								{group.parts.map((part) => (
+									<div key={part.id}>{renderPart(part, onOpen)}</div>
+								))}
+							</div>
 						</div>
 					</div>
 				);

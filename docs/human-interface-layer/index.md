@@ -33,7 +33,7 @@ This doc bridges them. **The interaction modes live inside one app as three view
 - [Canonical Component References](./canonical-component-references.md)
 - [Block primitive](./block-primitive.md)
 - [Thread primitive](./thread-primitive.md)
-- [Conversation & the Part model](./part-model.md)
+- [Conversation & Session View — the Part model](./part-model.md)
 - [Verdict actions](./verdict-actions.md)
 - [Review primitive](./review-primitive.md)
 - [Notification primitive](./notification-primitive.md)

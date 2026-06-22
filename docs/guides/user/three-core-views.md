@@ -6,7 +6,26 @@ A conversation is a calm, single-column read of the messages you and your agents
 
 #### References show inline, not as bare links
 
-When a message points at something — a code artifact, an image, a knowledge doc, a referenced block — it renders as a compact **reference chip** you can click to open the real thing. A linked session shows as a quiet "Show session" fold, never an inlined work-log. Clicking any reference opens its own view (the artifact view, the knowledge page, the session dial-in); the conversation never renders a viewer in place.
+When a message points at something — a code artifact, an image, a knowledge doc, a referenced block — it renders as a compact **reference chip** you can click to open the real thing. A linked session shows as a quiet "Show session" chip; clicking it opens the **Session view** in a right panel alongside the conversation. Clicking any other reference opens its own view (the artifact view, the knowledge page); the conversation never renders a viewer in place.
+
+#### Session view — watching an agent work
+
+When an agent works on a task, it runs a **session** — a bounded, streaming work run. A `session-reference` chip in the conversation gives you a window into that run. Clicking it opens the **Session view**: a calm, append-only stream of the agent's prose, tool calls, and reasoning, rendered in the same column shape as a conversation.
+
+**What you see in the session view:**
+
+- **Agent prose** — full-width markdown, streaming token-by-token. A quiet caret shows the in-progress turn.
+- **Tool rows** — compact one-liners: `[icon] verb — target · status`. Completed tool calls fold into a single "N steps" aggregate (calm by default, expand to see each step). A failed step is signalled on the aggregate header ("· 1 failed") and shows its error on expand. The only standalone tool row is the one currently running.
+- **Reasoning** — folds to "Thought for Ns" in italic. Click to expand the agent's full thinking.
+- **File diffs** — a "Changed files (N)" panel surfaces every file the agent edited in that turn. Click to open the full diff in `ReviewCodeDiff`. File diffs are always reachable even when the edit is folded into the aggregate.
+- **Sub-agent sessions** — a sub-agent tool row carries an "Open session" link. Clicking it opens the sub-agent's own session view through the same panel.
+- **Cost** — the combined session-total (`$0.71 · 48.2k tokens`) appears in the session header, not inline per-turn.
+
+**Sending a message while the agent works.** You can type and send mid-session. Your message queues (shown as a muted "sends when the agent finishes" bubble) and is delivered at the next turn boundary — it does not interrupt or restart the agent.
+
+**Composer pills.** The Session view composer shows model · effort · mode pills derived from the harness configuration. Available options depend on the harness; undeclared options are absent.
+
+You cannot approve or reject agent edits from the session view — that happens on the **review page** when the agent requests a verdict. The session view is read-plus-queue, not a decision surface.
 
 #### Reviews open on the review page
 
