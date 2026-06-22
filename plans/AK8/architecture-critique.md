@@ -106,3 +106,20 @@ The plan is well-grounded, reconciles spec↔reality accurately, and the §2a cu
 - Document that `DecompositionPlan.decomposerAgentId` is NOT pre-validated by the Strategy (§7).
 
 Score is exactly at the 7 threshold but the two CRITICALs are unresolved → **REVISE**. None require redesign — all are specification tightenings within the chosen Option-A architecture. The cut is sound; the plan just under-specifies the test-seam interaction and oversells the static AC4 proof.
+
+---
+
+## Round 2 — RESOLVED — 8.5 / 10 — PASS
+
+Re-checked all 2 CRITICAL + 5 WARNING against the revised plan. Every finding closed; no new findings; plan is buildable.
+
+- **CRITICAL 1 (override precedence)** — RESOLVED. New "Turn-source precedence" section (architecture.md:141-151) defines the exact 3-way fall-through: `plan.tasks.length>0` → persist (skip override+turn); else `deps.runDecompositionTurn` override → run with Strategy-chosen `decomposerAgentId`; else real PM turn. Explicitly states all v1 Strategies return `tasks:[]` so every protected test deterministically lands on branch 2, byte-identical to AK3. Ordering rationale given (override never masks an authored plan). Restated in T3 and the protected-tests contract.
+- **CRITICAL 2 (AC4 static oversell)** — RESOLVED. T4 retitled "Static guard … (NOT the AC4 proof)"; "Honest scope" para concedes `.find()` evades the `% length` selector, rejects a broad `.find` guard, and declares AC4 proven at RUNTIME by the T3 swap test. AC4 row leads "RUNTIME proof (primary)", labels ESLint "secondary, not the proof."
+- **W1 (inline decomposer validation)** — RESOLVED. Dedicated "Decomposer validation" section + T3 bullet + security section: inline `candidates.some(c => c.agentId === plan.decomposerAgentId)` (membership + active-AI in one check) → invalid → `blocked/no_eligible_agent`; notes `selectOwner`'s removed guard.
+- **W2 (divergent fixture)** — RESOLVED. T2 defines a test-only Strategy returning a demonstrably different decomposer; AC4 test rejects vacuous minimal-vs-fabric.
+- **W3 (protected fixtures as files-to-touch)** — RESOLVED. T1 "Also files-to-touch" lists `makeFabricLikeStrategy` + siblings + AK7/fabric/minimal fixtures; assertions frozen, fixture shape grows.
+- **W4 (AC1 spy)** — RESOLVED. T3 + AC1 row: `expect(strategy.decomposeBet).toHaveBeenCalledWith(objectContaining({ betId }))`.
+- **W5 (Fabric = AK3 parity)** — RESOLVED. Fabric block + AC2 row assert no-regression parity, NOT a knowledge-derived breakdown; richer breakdown declared out-of-scope eval concern.
+- **NICE-TO-HAVE** — addressed: empty-list asymmetry note records the rejected `tasks: …|null` design-it-twice + T5 `@lore` at both sites; non-pre-validated `decomposerAgentId` documented in the contract comment.
+
+**Verdict: PASS.** No unresolved CRITICAL, no new WARNING. Cleared for build.
