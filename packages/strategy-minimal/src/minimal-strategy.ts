@@ -36,6 +36,8 @@ import type {
 	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
+	DecomposeBetRequest,
+	DecompositionPlan,
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
@@ -170,5 +172,22 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 		const byRole = req.roleHint ? req.candidates.find((c) => c.role === req.roleHint) : undefined;
 		const chosen = byRole ?? req.candidates[0];
 		return { agentId: chosen?.agentId ?? null };
+	},
+
+	/**
+	 * AK8: Decide who decomposes and what the breakdown is under the Minimal Strategy.
+	 *
+	 * AK3 fallback: role-match PM else first candidate. tasks:[] → Kernel runs its
+	 * existing PM turn — byte-identical to AK3-as-built (§4 Minimal fallback).
+	 * NO knowledge task list in Minimal — that is the Fabric's future concern.
+	 *
+	 * @lore AK8: tasks:[] from Minimal means "Kernel, run your PM turn" (turn-source
+	 * precedence branch 2 or 3). This preserves AK3 behaviour exactly: the same PM is
+	 * chosen, the same turn runs, the same tasks are produced.
+	 */
+	async decomposeBet(req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> {
+		// AK3 fallback: role-match PM else first candidate; NO knowledge task list.
+		const pm = req.candidates.find((c) => c.role === "product_manager") ?? req.candidates[0];
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 	},
 };

@@ -91,6 +91,13 @@ export async function enumerateTeamCandidates(
  * for bet_* surfaces.
  *
  * Returns the chosen users.id or null. null → caller takes its no-agent path.
+ *
+ * @lore AK8: "bet_decomposer" is production-dead post-AK8. AK8 removed the only
+ * production caller (runBetDecomposition now calls getActiveStrategy().decomposeBet
+ * directly; selectOwner is no longer called for decomposer selection). The surface
+ * value is retained in the union — not pruned — to avoid churning AK7's protected
+ * union tests and the closed surface set. A future dead-code sweep may remove it
+ * once AK7 test fixtures are updated. See AK8 plan §Key design decisions.
  */
 export async function selectOwner(
 	deps: { db: HyperIdleDb; eventBus: EventBus },

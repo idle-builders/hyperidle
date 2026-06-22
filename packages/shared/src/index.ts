@@ -122,6 +122,7 @@ export type {
 	UserCreatedEvent,
 	WildcardHandler,
 	WildcardType,
+	WorkDecomposeRequestedEvent,
 	WorkSelectionRequestedEvent,
 } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
@@ -294,10 +295,13 @@ export type {
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
+// ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──
 export type {
 	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
+	DecomposeBetRequest,
+	DecompositionPlan,
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,

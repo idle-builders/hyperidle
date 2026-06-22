@@ -27,6 +27,8 @@ import type {
 	AgentScaffoldSpec,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
+	DecomposeBetRequest,
+	DecompositionPlan,
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
@@ -113,5 +115,30 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 	 */
 	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
 		return selectAgentFabric(req);
+	},
+
+	/**
+	 * AK8: Fabric decomposition decision.
+	 *
+	 * Knowledge-matched decomposer selection: role-match PM on Kernel-enumerated
+	 * candidates (same oracle as bet_decomposer). tasks:[] → Kernel PM turn runs
+	 * with knowledge-assembled context (assembleContext already gives the Fabric
+	 * its knowledge edge at turn time).
+	 *
+	 * Fabric v1: returns tasks:[] — richer knowledge-derived breakdown is an eval
+	 * concern (out of scope for AK8). The `tasks` field is the seam for a future
+	 * Fabric version to return a knowledge-derived breakdown with zero Kernel change
+	 * (proving AC4's "no Kernel code change" structurally).
+	 *
+	 * @lore AK8: "knowledge-matched" in v1 = (a) Fabric picks the decomposer via
+	 * role-match and (b) assembleContext enriches the PM turn at turn time.
+	 * A richer knowledge-derived task list is explicitly deferred — it requires
+	 * a live LLM eval to judge quality, which is out of scope for AK8.
+	 */
+	async decomposeBet(req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> {
+		// Knowledge-matched decomposer: role-match PM on candidates, same oracle as bet_decomposer.
+		const pm = req.candidates.find((c) => c.role === "product_manager") ?? req.candidates[0];
+		// tasks:[] → Kernel runs PM turn (assembleContext already feeds the knowledge edge).
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 	},
 };
