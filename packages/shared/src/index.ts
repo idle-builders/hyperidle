@@ -108,6 +108,7 @@ export type {
 	PropagationFailedEvent,
 	RoutineFiredEvent,
 	SessionEndedEvent,
+	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
 	StrategyEvent,
@@ -191,6 +192,14 @@ export {
 	isHarnessEvent,
 	MockHarnessAdapter,
 	normalizeHarnessEvent,
+	// AL6: closed accepted-return set
+	RETURN_ACTION_NAMES,
+	isReturnAction,
+	isInternalExtractionDrain,
+} from "./harness/index.js";
+export type {
+	// AL6: return action name type
+	ReturnActionName,
 } from "./harness/index.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";

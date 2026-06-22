@@ -31,6 +31,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
+import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
@@ -217,6 +218,17 @@ export interface ProvisionSessionResult {
 	readonly outcome: SessionOutcome | "budget_exhausted";
 	readonly totalCostCents: number;
 	readonly taskId: string;
+	/**
+	 * AL6: Return-gate verdict for this session run. Present on all task-session
+	 * outcomes ("returned" | "not_returned"). Absent (undefined) on assistant
+	 * turns and extraction drains which use different provisioning paths.
+	 *
+	 * "returned"     — turn ended with a member of RETURN_ACTION_NAMES, or was
+	 *                  exempt (crashed/stopped/budget_exhausted).
+	 * "not_returned" — turn completed normally without a return action; a
+	 *                  session_not_returned event was emitted on the bus.
+	 */
+	readonly returnVerdict?: "returned" | "not_returned";
 }
 
 /**
@@ -740,6 +752,11 @@ export async function runSession(
 	// the long event-stream drain below. Fired exactly once on every path.
 	onHarnessStarted?.();
 
+	// AL6: Create one gate per task-session turn — pure observer, zero shared
+	// state. Declared at function scope so Phase 11 teardown can evaluate it.
+	// Observes every event in the Phase 10 drain loop.
+	const returnGate = createReturnGate();
+
 	if (harnessHandle !== null) {
 		// ── Phase 10: drain the event stream.
 		//
@@ -758,6 +775,10 @@ export async function runSession(
 
 		try {
 			for await (const event of harness.streamEvents(harnessHandle)) {
+				// AL6: Observe every event FIRST so no event escapes the gate.
+				// The gate is read-only — it never blocks or modifies events.
+				returnGate.observe(event);
+
 				// AF7 §5 (secondary abort): on abort, break the provisioning loop so
 				// non-builtin adapters stop routing tools through registry.invoke.
 				// Builtin tool execution is halted by stopSession (primary), not here.
@@ -897,11 +918,15 @@ export async function runSession(
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		// AL6: crashed → exempt from return enforcement (agent was prevented from
+		// finishing, not refusing to return). evaluateReturn maps "crashed" → "returned".
+		const returnVerdict = evaluateReturn(returnGate, "crashed");
 		return {
 			sessionId,
 			outcome: "crashed",
 			totalCostCents,
 			taskId: params.taskId,
+			returnVerdict,
 		};
 	}
 
@@ -912,12 +937,37 @@ export async function runSession(
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, "budget_exhausted");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
+		// AL6: budget_exhausted → exempt from return enforcement.
+		const returnVerdict = evaluateReturn(returnGate, "budget_exhausted");
 		return {
 			sessionId,
 			outcome: "budget_exhausted",
 			totalCostCents,
 			taskId: params.taskId,
+			returnVerdict,
 		};
+	}
+
+	// AL6: Evaluate the return gate at normal turn completion.
+	//
+	// @lore AL6: `aborted` maps to "stopped" — the aborted flag causes a `break`
+	// into the SAME teardown path as normal completion; there is NO separate
+	// teardown branch for abort. We must check `aborted` here to correctly map
+	// an intentional handoff-abort to the "stopped" (exempt) end-reason and avoid
+	// spuriously flagging a handoff-abort as `not_returned`.
+	const returnEndReason = aborted ? "stopped" : "completed";
+	const returnVerdict = evaluateReturn(returnGate, returnEndReason);
+
+	if (returnVerdict === "not_returned") {
+		// AC3: never silently complete a not-returned turn — surface the escape.
+		eventBus.emit({
+			type: "session_not_returned",
+			streamId: sessionId,
+			sessionId,
+			agentId: params.agentId,
+			taskId: params.taskId,
+			timestamp: Date.now(),
+		});
 	}
 
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
@@ -932,6 +982,7 @@ export async function runSession(
 		outcome: "completed",
 		totalCostCents,
 		taskId: params.taskId,
+		returnVerdict,
 	};
 }
 

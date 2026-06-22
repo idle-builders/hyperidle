@@ -4,7 +4,7 @@
   "track": "AL",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "setup",
+  "currentStep": "3-build",
   "startedAt": "2026-06-22T22:34:00+02:00",
   "runMode": "autonomous",
   "notes": "Concept-introducing harness/agent-layer enforcement WP. No UI surface — /design + /design-critique skipped. Base origin/main=3be9fa69."

@@ -52,6 +52,26 @@ export interface SessionEndedEvent {
 	outcome: SessionOutcome;
 }
 
+/**
+ * AL6: Emitted by `runSession` (site A) when a task-session turn exhausts its
+ * event stream without having invoked any member of the accepted-return set
+ * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
+ *
+ * @lore AL6: "flag" policy (concept §3.4): the turn still settles via endSession;
+ * this event makes the escape visible and attributable. "redirect" (forced re-prompt)
+ * is a clean additive follow-up where the harness supports it. streamId = sessionId
+ * for per-session stream routing (consistent with session_started / session_ended).
+ */
+export interface SessionNotReturnedEvent {
+	readonly type: "session_not_returned";
+	/** streamId = sessionId for per-session routing (event-bus stream key convention). */
+	readonly streamId: string;
+	readonly sessionId: string;
+	readonly agentId: string;
+	readonly taskId: string;
+	readonly timestamp: number;
+}
+
 export interface CostCapWarningEvent {
 	type: "cost_cap_warning";
 	streamId: string;
@@ -394,6 +414,8 @@ export type KernelEvent =
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
+	// AL6: return-gate escape surface
+	| SessionNotReturnedEvent
 	| ThreadCreatedEvent
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
