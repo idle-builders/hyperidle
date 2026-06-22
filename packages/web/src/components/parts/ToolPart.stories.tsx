@@ -13,7 +13,9 @@ export default { title: "ToolPart", group: "Conversations" as const };
 
 const AGENT: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
-function makeToolPart(overrides: Partial<Extract<Part, { kind: "tool" }>>): Extract<Part, { kind: "tool" }> {
+function makeToolPart(
+	overrides: Partial<Extract<Part, { kind: "tool" }>>,
+): Extract<Part, { kind: "tool" }> {
 	return {
 		id: "tp1",
 		kind: "tool",
@@ -33,7 +35,15 @@ const noop = () => {};
 export function ToolPartOk(): JSX.Element {
 	return (
 		<div className="p-[18px]" style={{ fontFamily: "var(--font-sans)" }}>
-			<ToolPart part={makeToolPart({ status: "ok", verb: "Run command", target: "npm test", toolKind: "command" })} onOpen={noop} />
+			<ToolPart
+				part={makeToolPart({
+					status: "ok",
+					verb: "Run command",
+					target: "npm test",
+					toolKind: "command",
+				})}
+				onOpen={noop}
+			/>
 		</div>
 	);
 }
@@ -47,7 +57,8 @@ export function ToolPartFailed(): JSX.Element {
 					verb: "Run command",
 					target: "npm test -- chat/stream",
 					toolKind: "command",
-					output: "FAIL  src/chat/__tests__/stream.test.ts\n  Expected: [{ type: 'text', text: 'hi' }]\n  Received: undefined\n\n  exit code 1",
+					output:
+						"FAIL  src/chat/__tests__/stream.test.ts\n  Expected: [{ type: 'text', text: 'hi' }]\n  Received: undefined\n\n  exit code 1",
 				})}
 				onOpen={noop}
 			/>
@@ -105,7 +116,8 @@ export function ToolPartMcp(): JSX.Element {
 					verb: "linear · search_issues",
 					target: 'query: "AI SDK chat regression"',
 					toolKind: "mcp",
-					output: 'linear.search_issues({ query: "AI SDK chat regression" })\n→ ENG-411  chat blank after send  (in progress)',
+					output:
+						'linear.search_issues({ query: "AI SDK chat regression" })\n→ ENG-411  chat blank after send  (in progress)',
 				})}
 				onOpen={noop}
 			/>

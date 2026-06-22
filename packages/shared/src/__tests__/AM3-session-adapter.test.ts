@@ -20,31 +20,36 @@
  */
 
 import { describe, expect, it } from "vitest";
+// Composer-pill derivation — dispatch on HarnessCapabilityDescriptor.control.kind
+import type {
+	HarnessCapabilityDescriptor,
+	HarnessModelOptionDescriptor,
+} from "../harness/harness-capability-descriptor.js";
+// Aggregation grouping imported from part.js (beside groupParts)
+import {
+	aggregateToolRun,
+	deriveComposerPills,
+	derivePartsFromSession,
+	PART_KINDS,
+	type Part,
+	type PartAuthor,
+	TOOL_KINDS,
+	type ToolKind,
+} from "../part.js";
 // These imports FAIL (red) until green-phase tasks 1–3 add:
 //   packages/shared/src/session-activity.ts  (ActivityEntry lifted from web hook)
 //   PART_KINDS extended with "tool" | "reasoning"
 //   derivePartsFromSession(entries, agent) real impl
 import type { ActivityEntry } from "../session-activity.js";
-import {
-	derivePartsFromSession,
-	PART_KINDS,
-	type Part,
-	type PartAuthor,
-	type ToolKind,
-	TOOL_KINDS,
-} from "../part.js";
-// Aggregation grouping imported from part.js (beside groupParts)
-import { aggregateToolRun } from "../part.js";
-// Composer-pill derivation — dispatch on HarnessCapabilityDescriptor.control.kind
-import type { HarnessCapabilityDescriptor, HarnessModelOptionDescriptor } from "../harness/harness-capability-descriptor.js";
-import { deriveComposerPills } from "../part.js";
 
 // ── Fixture helpers ──────────────────────────────────────────────
 
 const AGENT: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 const HUMAN: PartAuthor = { id: "u-founder", name: "A. Founder", isAgent: false, isMe: true };
 
-function toolEntry(overrides: Partial<Extract<ActivityEntry, { type: "tool_call" }>> = {}): Extract<ActivityEntry, { type: "tool_call" }> {
+function toolEntry(
+	overrides: Partial<Extract<ActivityEntry, { type: "tool_call" }>> = {},
+): Extract<ActivityEntry, { type: "tool_call" }> {
 	return {
 		type: "tool_call",
 		timestamp: Date.now(),
@@ -62,7 +67,9 @@ function toolEntry(overrides: Partial<Extract<ActivityEntry, { type: "tool_call"
 	} as Extract<ActivityEntry, { type: "tool_call" }>;
 }
 
-function reasoningEntry(overrides: Partial<Extract<ActivityEntry, { type: "reasoning" }>> = {}): Extract<ActivityEntry, { type: "reasoning" }> {
+function reasoningEntry(
+	overrides: Partial<Extract<ActivityEntry, { type: "reasoning" }>> = {},
+): Extract<ActivityEntry, { type: "reasoning" }> {
 	return {
 		type: "reasoning",
 		timestamp: Date.now(),
@@ -82,11 +89,20 @@ function costEntry(): Extract<ActivityEntry, { type: "cost_tick" }> {
 	};
 }
 
-function answerEntry(text: string, streaming = false): Extract<ActivityEntry, { type: "answer_delta" | "answer_settled" }> {
+function answerEntry(
+	text: string,
+	streaming = false,
+): Extract<ActivityEntry, { type: "answer_delta" | "answer_settled" }> {
 	if (streaming) {
-		return { type: "answer_delta", timestamp: Date.now(), data: { text } } as Extract<ActivityEntry, { type: "answer_delta" }>;
+		return { type: "answer_delta", timestamp: Date.now(), data: { text } } as Extract<
+			ActivityEntry,
+			{ type: "answer_delta" }
+		>;
 	}
-	return { type: "answer_settled", timestamp: Date.now(), data: { text } } as Extract<ActivityEntry, { type: "answer_settled" }>;
+	return { type: "answer_settled", timestamp: Date.now(), data: { text } } as Extract<
+		ActivityEntry,
+		{ type: "answer_settled" }
+	>;
 }
 
 function humanEntry(text: string): Extract<ActivityEntry, { type: "human_message" }> {
@@ -119,7 +135,16 @@ describe("AM3 PART_KINDS — extended closed union", () => {
 	});
 
 	it("does NOT contain session/work-log/event/activity (concept hard-rule 3)", () => {
-		const forbidden = ["session", "work-log", "worklog", "event", "activity", "trace", "block", "blocked"];
+		const forbidden = [
+			"session",
+			"work-log",
+			"worklog",
+			"event",
+			"activity",
+			"trace",
+			"block",
+			"blocked",
+		];
 		for (const f of forbidden) {
 			expect(PART_KINDS as ReadonlyArray<string>).not.toContain(f);
 		}
@@ -130,7 +155,16 @@ describe("AM3 PART_KINDS — extended closed union", () => {
 
 describe("AM3 TOOL_KINDS — closed family set", () => {
 	it("contains the locked family members", () => {
-		const expected = ["command", "read", "edit", "search", "web-search", "mcp", "sub-agent", "create"];
+		const expected = [
+			"command",
+			"read",
+			"edit",
+			"search",
+			"web-search",
+			"mcp",
+			"sub-agent",
+			"create",
+		];
 		for (const k of expected) {
 			expect(TOOL_KINDS as ReadonlyArray<string>).toContain(k);
 		}
@@ -147,7 +181,15 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("maps a tool_call entry to a tool Part", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "bash", argsSummary: "npm test", status: "ok", output: "✓ 3 passing", toolKind: "command", verb: "Run command", target: "npm test" },
+				data: {
+					toolName: "bash",
+					argsSummary: "npm test",
+					status: "ok",
+					output: "✓ 3 passing",
+					toolKind: "command",
+					verb: "Run command",
+					target: "npm test",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -159,7 +201,15 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("tool Part carries verb, target, toolKind, status", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "bash", argsSummary: "ls", status: "ok", output: "", toolKind: "command", verb: "Run command", target: "ls" },
+				data: {
+					toolName: "bash",
+					argsSummary: "ls",
+					status: "ok",
+					output: "",
+					toolKind: "command",
+					verb: "Run command",
+					target: "ls",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -177,7 +227,15 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("tool Part carries output when present", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "bash", argsSummary: "ls", status: "ok", output: "file.ts", toolKind: "command", verb: "Run command", target: "ls" },
+				data: {
+					toolName: "bash",
+					argsSummary: "ls",
+					status: "ok",
+					output: "file.ts",
+					toolKind: "command",
+					verb: "Run command",
+					target: "ls",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -190,7 +248,15 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("failed tool Part has status='failed' (uses destructive token)", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "bash", argsSummary: "npm test", status: "failed", output: "FAIL", toolKind: "command", verb: "Run command", target: "npm test" },
+				data: {
+					toolName: "bash",
+					argsSummary: "npm test",
+					status: "failed",
+					output: "FAIL",
+					toolKind: "command",
+					verb: "Run command",
+					target: "npm test",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -203,7 +269,14 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("running tool Part has status='running'", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "bash", argsSummary: "sleep 5", status: "running", toolKind: "command", verb: "Run command", target: "sleep 5" },
+				data: {
+					toolName: "bash",
+					argsSummary: "sleep 5",
+					status: "running",
+					toolKind: "command",
+					verb: "Run command",
+					target: "sleep 5",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -245,7 +318,14 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 	it("tool Part with unknown toolKind degrades to 'generic' (no throw)", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "exotic_tool", argsSummary: "args", status: "neutral", toolKind: "exotic-unknown-family" as ToolKind, verb: "Use exotic tool", target: "args" },
+				data: {
+					toolName: "exotic_tool",
+					argsSummary: "args",
+					status: "neutral",
+					toolKind: "exotic-unknown-family" as ToolKind,
+					verb: "Use exotic tool",
+					target: "args",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		let parts: Part[] = [];
@@ -293,7 +373,14 @@ describe("AM3 derivePartsFromSession — tool_call → tool Part", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
 				timestamp: ts,
-				data: { toolName: "bash", argsSummary: "ls", status: "ok", toolKind: "command", verb: "Run command", target: "ls" },
+				data: {
+					toolName: "bash",
+					argsSummary: "ls",
+					status: "ok",
+					toolKind: "command",
+					verb: "Run command",
+					target: "ls",
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
@@ -367,10 +454,7 @@ describe("AM3 derivePartsFromSession — streaming answer → prose Part", () =>
 	});
 
 	it("consecutive answer_deltas for the same turn merge into one growing prose Part", () => {
-		const entries: ActivityEntry[] = [
-			answerEntry("hello", true),
-			answerEntry(" world", true),
-		];
+		const entries: ActivityEntry[] = [answerEntry("hello", true), answerEntry(" world", true)];
 		const parts = derivePartsFromSession(entries, AGENT);
 		// Two deltas in the same turn → ONE prose Part (text = concatenation)
 		expect(parts).toHaveLength(1);
@@ -406,8 +490,27 @@ describe("AM3 aggregateToolRun — tool-run aggregation grouping", () => {
 	it("returns tool-run blocks grouping completed tool Parts", () => {
 		// Build a stream: tool-ok, tool-ok, tool-failed
 		const entries: ActivityEntry[] = [
-			toolEntry({ data: { toolName: "view", argsSummary: "a.ts", status: "ok", toolKind: "read", verb: "View", target: "a.ts" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
-			toolEntry({ data: { toolName: "bash", argsSummary: "npm test", status: "failed", output: "FAIL", toolKind: "command", verb: "Run command", target: "npm test" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "view",
+					argsSummary: "a.ts",
+					status: "ok",
+					toolKind: "read",
+					verb: "View",
+					target: "a.ts",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "bash",
+					argsSummary: "npm test",
+					status: "failed",
+					output: "FAIL",
+					toolKind: "command",
+					verb: "Run command",
+					target: "npm test",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
 		const toolParts = parts.filter((p) => p.kind === "tool");
@@ -420,36 +523,102 @@ describe("AM3 aggregateToolRun — tool-run aggregation grouping", () => {
 
 	it("ALL completed tool calls fold (including failed ones)", () => {
 		const toolEntries: ActivityEntry[] = [
-			toolEntry({ data: { toolName: "edit", argsSummary: "a.ts", status: "ok", toolKind: "edit", verb: "Edit", target: "a.ts" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
-			toolEntry({ data: { toolName: "bash", argsSummary: "npm test", status: "failed", output: "FAIL", toolKind: "command", verb: "Run command", target: "npm test" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "edit",
+					argsSummary: "a.ts",
+					status: "ok",
+					toolKind: "edit",
+					verb: "Edit",
+					target: "a.ts",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "bash",
+					argsSummary: "npm test",
+					status: "failed",
+					output: "FAIL",
+					toolKind: "command",
+					verb: "Run command",
+					target: "npm test",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(toolEntries, AGENT);
 		const toolParts = parts.filter((p) => p.kind === "tool") as Extract<Part, { kind: "tool" }>[];
 		const blocks = aggregateToolRun(toolParts, 2);
 
 		// Everything folds — no standalone completed rows
-		const standalones = blocks.filter((b) => b.kind === "single" && b.part.kind === "tool" && (b.part as Extract<Part, { kind: "tool" }>).status !== "running");
+		const standalones = blocks.filter(
+			(b) =>
+				b.kind === "single" &&
+				b.part.kind === "tool" &&
+				(b.part as Extract<Part, { kind: "tool" }>).status !== "running",
+		);
 		expect(standalones).toHaveLength(0);
 	});
 
 	it("ONLY the running tool renders standalone", () => {
 		const toolEntries: ActivityEntry[] = [
-			toolEntry({ data: { toolName: "edit", argsSummary: "a.ts", status: "ok", toolKind: "edit", verb: "Edit", target: "a.ts" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
-			toolEntry({ data: { toolName: "spawn", argsSummary: "safari", status: "running", toolKind: "sub-agent", verb: "Spawn sub-agent", target: "safari" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "edit",
+					argsSummary: "a.ts",
+					status: "ok",
+					toolKind: "edit",
+					verb: "Edit",
+					target: "a.ts",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "spawn",
+					argsSummary: "safari",
+					status: "running",
+					toolKind: "sub-agent",
+					verb: "Spawn sub-agent",
+					target: "safari",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(toolEntries, AGENT);
 		const toolParts = parts.filter((p) => p.kind === "tool") as Extract<Part, { kind: "tool" }>[];
 		const blocks = aggregateToolRun(toolParts, 2);
 
 		// The running sub-agent renders standalone
-		const runningSingle = blocks.filter((b) => b.kind === "single" && b.part.kind === "tool" && (b.part as Extract<Part, { kind: "tool" }>).status === "running");
+		const runningSingle = blocks.filter(
+			(b) =>
+				b.kind === "single" &&
+				b.part.kind === "tool" &&
+				(b.part as Extract<Part, { kind: "tool" }>).status === "running",
+		);
 		expect(runningSingle.length).toBeGreaterThan(0);
 	});
 
 	it("aggregate block signals failures in the header (failedCount > 0)", () => {
 		const toolEntries: ActivityEntry[] = [
-			toolEntry({ data: { toolName: "edit", argsSummary: "a.ts", status: "ok", toolKind: "edit", verb: "Edit", target: "a.ts" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
-			toolEntry({ data: { toolName: "bash", argsSummary: "fail", status: "failed", output: "exit 1", toolKind: "command", verb: "Run command", target: "fail" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "edit",
+					argsSummary: "a.ts",
+					status: "ok",
+					toolKind: "edit",
+					verb: "Edit",
+					target: "a.ts",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "bash",
+					argsSummary: "fail",
+					status: "failed",
+					output: "exit 1",
+					toolKind: "command",
+					verb: "Run command",
+					target: "fail",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(toolEntries, AGENT);
 		const toolParts = parts.filter((p) => p.kind === "tool") as Extract<Part, { kind: "tool" }>[];
@@ -465,9 +634,26 @@ describe("AM3 aggregateToolRun — tool-run aggregation grouping", () => {
 	it("diffs inside folded tool Parts are NOT lost (diff Embed stays on the Part)", () => {
 		const entries: ActivityEntry[] = [
 			toolEntry({
-				data: { toolName: "edit_file", argsSummary: "stream.ts", status: "ok", toolKind: "edit", verb: "Edit", target: "stream.ts", diff: { label: "stream.ts", added: 9, removed: 2 } },
+				data: {
+					toolName: "edit_file",
+					argsSummary: "stream.ts",
+					status: "ok",
+					toolKind: "edit",
+					verb: "Edit",
+					target: "stream.ts",
+					diff: { label: "stream.ts", added: 9, removed: 2 },
+				},
 			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
-			toolEntry({ data: { toolName: "bash", argsSummary: "npm test", status: "failed", toolKind: "command", verb: "Run command", target: "npm test" } } as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
+			toolEntry({
+				data: {
+					toolName: "bash",
+					argsSummary: "npm test",
+					status: "failed",
+					toolKind: "command",
+					verb: "Run command",
+					target: "npm test",
+				},
+			} as Partial<Extract<ActivityEntry, { type: "tool_call" }>>),
 		];
 		const parts = derivePartsFromSession(entries, AGENT);
 		const toolParts = parts.filter((p) => p.kind === "tool") as Extract<Part, { kind: "tool" }>[];
@@ -514,7 +700,13 @@ describe("AM3 deriveComposerPills — descriptor-driven, no per-backend branch",
 					{
 						key: "effort",
 						label: "Effort",
-						control: { kind: "select", choices: [{ value: "high", label: "High" }, { value: "low", label: "Low" }] },
+						control: {
+							kind: "select",
+							choices: [
+								{ value: "high", label: "High" },
+								{ value: "low", label: "Low" },
+							],
+						},
 						required: false,
 						scope: "launch",
 						defaultValue: "high",
@@ -522,7 +714,13 @@ describe("AM3 deriveComposerPills — descriptor-driven, no per-backend branch",
 					{
 						key: "mode",
 						label: "Mode",
-						control: { kind: "select", choices: [{ value: "build", label: "Build" }, { value: "plan", label: "Plan" }] },
+						control: {
+							kind: "select",
+							choices: [
+								{ value: "build", label: "Build" },
+								{ value: "plan", label: "Plan" },
+							],
+						},
 						required: false,
 						scope: "launch",
 						defaultValue: "build",

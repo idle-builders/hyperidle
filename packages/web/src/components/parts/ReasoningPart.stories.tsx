@@ -12,7 +12,9 @@ export default { title: "ReasoningPart", group: "Conversations" as const };
 
 const AGENT: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
-function makeReasoningPart(overrides: Partial<Extract<Part, { kind: "reasoning" }>>): Extract<Part, { kind: "reasoning" }> {
+function makeReasoningPart(
+	overrides: Partial<Extract<Part, { kind: "reasoning" }>>,
+): Extract<Part, { kind: "reasoning" }> {
 	return {
 		id: "rp1",
 		kind: "reasoning",
@@ -36,7 +38,12 @@ export function ReasoningPartDefault(): JSX.Element {
 export function ReasoningPartShort(): JSX.Element {
 	return (
 		<div className="p-[18px]" style={{ fontFamily: "var(--font-sans)" }}>
-			<ReasoningPart part={makeReasoningPart({ durationMs: 2_500, text: "Quick check — the schema already handles this." })} />
+			<ReasoningPart
+				part={makeReasoningPart({
+					durationMs: 2_500,
+					text: "Quick check — the schema already handles this.",
+				})}
+			/>
 		</div>
 	);
 }

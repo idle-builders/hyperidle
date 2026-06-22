@@ -25,7 +25,12 @@
  * components (see approved.md §3).
  */
 
-import type { ActivityEntry, HarnessCapabilityDescriptor, OpenHandler, PartAuthor } from "@hyperidle/shared";
+import type {
+	ActivityEntry,
+	HarnessCapabilityDescriptor,
+	OpenHandler,
+	PartAuthor,
+} from "@hyperidle/shared";
 import { deriveComposerPills, derivePartsFromSession } from "@hyperidle/shared";
 import { type JSX, useRef, useState } from "react";
 import { PartList } from "./PartList.js";
@@ -129,16 +134,22 @@ function QueuedBubble({
 	onCancel: () => void;
 }): JSX.Element {
 	return (
-		<div
-			data-ds-component="QueuedRow"
-			className="flex flex-col items-end opacity-70"
-		>
+		<div data-ds-component="QueuedRow" className="flex flex-col items-end opacity-70">
 			<div className="flex max-w-[80%] flex-col gap-[9px]">
 				<div className="flex items-center gap-[9px]">
 					<SessionAvatar who={msg.author} size={26} />
-					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{msg.author.name}</span>
+					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">
+						{msg.author.name}
+					</span>
 					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
-						<svg viewBox="0 0 16 16" className="h-[11px] w-[11px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+						<svg
+							viewBox="0 0 16 16"
+							className="h-[11px] w-[11px] shrink-0"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.3"
+							aria-hidden="true"
+						>
 							<circle cx="8" cy="8" r="6" />
 							<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
 						</svg>
@@ -150,7 +161,14 @@ function QueuedBubble({
 						aria-label="Remove queued message"
 						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					>
-						<svg viewBox="0 0 12 12" className="h-[10px] w-[10px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+						<svg
+							viewBox="0 0 12 12"
+							className="h-[10px] w-[10px]"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							aria-hidden="true"
+						>
 							<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
 						</svg>
 					</button>
@@ -168,7 +186,13 @@ const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 
 function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
 	return (
-		<svg viewBox="0 0 16 16" fill="currentColor" className="shrink-0" style={{ width: size, height: size }} aria-hidden="true">
+		<svg
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			className="shrink-0"
+			style={{ width: size, height: size }}
+			aria-hidden="true"
+		>
 			<path d={d} />
 		</svg>
 	);
@@ -176,7 +200,7 @@ function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Elem
 
 function SessionComposer({
 	descriptor,
-	selectedModelId,
+	selectedModelId: initialModelId,
 	running,
 	elapsedSecs,
 	onSend,
@@ -190,7 +214,18 @@ function SessionComposer({
 	onStop?: () => void;
 }): JSX.Element {
 	const [text, setText] = useState("");
+	const [selectedModelId, setSelectedModelId] = useState(initialModelId);
+	// Per-option toggle state (boolean) or selected-choice state (select).
+	const [optionValues, setOptionValues] = useState<Record<string, string | boolean>>({});
 	const pills = descriptor ? deriveComposerPills(descriptor, selectedModelId) : [];
+
+	/** Cycle to the next model in the descriptor list. */
+	const handleModelCycle = (): void => {
+		if (!descriptor) return;
+		const ids = descriptor.models.map((m) => m.id);
+		const idx = ids.indexOf(selectedModelId);
+		setSelectedModelId(ids[(idx + 1) % ids.length] ?? selectedModelId);
+	};
 
 	const handleSend = (): void => {
 		const trimmed = text.trim();
@@ -208,6 +243,7 @@ function SessionComposer({
 			className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
+				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance */}
 				<button
 					type="button"
 					aria-label="Insert"
@@ -260,6 +296,7 @@ function SessionComposer({
 					<>
 						<button
 							type="button"
+							onClick={handleModelCycle}
 							className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 						>
 							{descriptor.models.find((m) => m.id === selectedModelId)?.label ?? selectedModelId}
@@ -268,24 +305,38 @@ function SessionComposer({
 						{pills.map((opt) => {
 							if (opt.control.kind === "select") {
 								const choices = opt.control.choices;
+								const current = optionValues[opt.key] as string | undefined;
+								const currentIdx = choices.findIndex((c) => c.value === current);
+								const displayLabel =
+									choices.find((c) => c.value === current)?.label ?? choices[0]?.label ?? opt.label;
 								return (
 									<button
 										key={opt.key}
 										type="button"
 										data-ds-control="select"
+										onClick={() => {
+											const next = choices[(currentIdx + 1) % choices.length];
+											if (next) {
+												setOptionValues((prev) => ({ ...prev, [opt.key]: next.value }));
+											}
+										}}
 										className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 									>
-										{choices[0]?.label ?? opt.label}
+										{displayLabel}
 									</button>
 								);
 							}
 							if (opt.control.kind === "boolean") {
+								const on = optionValues[opt.key] === true;
 								return (
 									<button
 										key={opt.key}
 										type="button"
 										data-ds-control="boolean"
-										className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+										onClick={() => {
+											setOptionValues((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }));
+										}}
+										className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-primary)]" : "text-[var(--text-secondary)]"}`}
 									>
 										{opt.label}
 									</button>
@@ -357,9 +408,7 @@ export function SessionView({
 	};
 
 	// The session-total cost displayed in the header (combined total, not per-turn)
-	const costDisplay = cost
-		? `${cost.costLabel} · ${cost.tokensLabel}`
-		: null;
+	const costDisplay = cost ? `${cost.costLabel} · ${cost.tokensLabel}` : null;
 
 	return (
 		<div
@@ -379,7 +428,9 @@ export function SessionView({
 								Session
 							</span>
 							<span className="text-[var(--text-tertiary)]">·</span>
-							<span className="truncate font-[500] text-[var(--text-primary)]">{identity.host}</span>
+							<span className="truncate font-[500] text-[var(--text-primary)]">
+								{identity.host}
+							</span>
 						</div>
 						<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
 							{identity.title}
@@ -407,11 +458,7 @@ export function SessionView({
 
 						{/* queued messages — right-aligned, muted, cancellable */}
 						{queuedMessages.map((q) => (
-							<QueuedBubble
-								key={q.id}
-								msg={q}
-								onCancel={() => handleCancelQueued(q.id)}
-							/>
+							<QueuedBubble key={q.id} msg={q} onCancel={() => handleCancelQueued(q.id)} />
 						))}
 					</div>
 				</div>

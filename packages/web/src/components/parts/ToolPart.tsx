@@ -21,12 +21,14 @@ type ToolPartShape = Extract<Part, { kind: "tool" }>;
 
 const TOOL_ICON: Record<string, string> = {
 	command: "M3 4l3 3-3 3M8 10h5",
-	"file-read": "M8 3.5C4.5 3.5 2 8 2 8s2.5 4.5 6 4.5S14 8 14 8 11.5 3.5 8 3.5zm0 6.5a2 2 0 110-4 2 2 0 010 4z",
+	"file-read":
+		"M8 3.5C4.5 3.5 2 8 2 8s2.5 4.5 6 4.5S14 8 14 8 11.5 3.5 8 3.5zm0 6.5a2 2 0 110-4 2 2 0 010 4z",
 	read: "M8 3.5C4.5 3.5 2 8 2 8s2.5 4.5 6 4.5S14 8 14 8 11.5 3.5 8 3.5zm0 6.5a2 2 0 110-4 2 2 0 010 4z",
 	"file-change": "M11.5 2.5l2 2L6 12l-3 1 1-3 7.5-7.5z",
 	edit: "M11.5 2.5l2 2L6 12l-3 1 1-3 7.5-7.5z",
 	search: "M7 1.5a5.5 5.5 0 014.2 9l3 3-1 1-3-3A5.5 5.5 0 117 1.5z",
-	"web-search": "M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM2 8h12M8 2a9 9 0 010 12M8 2a9 9 0 000 12",
+	"web-search":
+		"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM2 8h12M8 2a9 9 0 010 12M8 2a9 9 0 000 12",
 	mcp: "M8 1.5l1.7 1V5l2 .9v2.2l-2 .9v2.5l-1.7 1-1.7-1V9l-2-.9V5.9l2-.9V2.5z",
 	"sub-agent": "M4 2h8v4H4zM6 6v2M10 6v2M2 8h12v4a1 1 0 01-1 1H3a1 1 0 01-1-1z",
 	create: "M8 3v10M3 8h10",
@@ -56,26 +58,58 @@ function StatusGlyph({ status }: { status: ToolPartShape["status"] }): JSX.Eleme
 	if (status === "running") {
 		return (
 			<span
-				className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+				role="img"
 				aria-label="running"
+				className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
 			/>
 		);
 	}
 	if (status === "ok") {
 		return (
-			<svg viewBox="0 0 12 12" className="h-[11px] w-[11px] shrink-0 text-[var(--status-success)]" aria-label="ok">
-				<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+			<svg
+				viewBox="0 0 12 12"
+				role="img"
+				aria-label="ok"
+				className="h-[11px] w-[11px] shrink-0 text-[var(--status-success)]"
+			>
+				<path
+					d="M2.5 6.2 L5 8.5 L9.5 3.5"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.6"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
 			</svg>
 		);
 	}
 	if (status === "failed") {
 		return (
-			<svg viewBox="0 0 12 12" className="h-[11px] w-[11px] shrink-0 text-[var(--status-error)]" aria-label="failed">
-				<path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+			<svg
+				viewBox="0 0 12 12"
+				role="img"
+				aria-label="failed"
+				className="h-[11px] w-[11px] shrink-0 text-[var(--status-error)]"
+			>
+				<path
+					d="M3 3 L9 9 M9 3 L3 9"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.6"
+					strokeLinecap="round"
+				/>
 			</svg>
 		);
 	}
-	return <span className="text-[12px] leading-none text-[var(--text-tertiary)]" aria-label="neutral">–</span>;
+	return (
+		<span
+			role="img"
+			aria-label="neutral"
+			className="text-[12px] leading-none text-[var(--text-tertiary)]"
+		>
+			–
+		</span>
+	);
 }
 
 function Caret({ open }: { open: boolean }): JSX.Element {
@@ -86,7 +120,14 @@ function Caret({ open }: { open: boolean }): JSX.Element {
 			style={{ transform: open ? "rotate(90deg)" : "none" }}
 			aria-hidden="true"
 		>
-			<path d="M4 2.5 L8 6 L4 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M4 2.5 L8 6 L4 9.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -106,7 +147,7 @@ export function ToolPart({
 
 	return (
 		<div data-ds-component="ToolPart" data-ds-status={part.status}>
-			{/* biome-ignore lint/a11y/useSemanticElements: diff chip + open-session button nest inside; role/button avoids invalid nested-button DOM. */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: diff chip + open-session button nest inside; role/button avoids invalid nested-button DOM. */}
 			<div
 				role={canExpand ? "button" : undefined}
 				tabIndex={canExpand ? 0 : undefined}
@@ -151,8 +192,7 @@ export function ToolPart({
 						<span className="font-mono tabular-nums text-[12px] leading-none">
 							<span className="font-[600] text-[var(--status-success)]">
 								{diffEmbed.meta.split("/")[0]}
-							</span>
-							{" "}
+							</span>{" "}
 							<span className="font-[600] text-[var(--status-error)]">
 								{diffEmbed.meta.split("/")[1]}
 							</span>
@@ -171,8 +211,19 @@ export function ToolPart({
 						title={`Open the ${part.opensSession.label} session`}
 						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
 					>
-						<svg viewBox="0 0 16 16" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-							<path d="M9 2.5h4.5V7M13.5 2.5L7 9M11 9.5V12a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 012 12V6a1.5 1.5 0 011.5-1.5H6" strokeLinecap="round" strokeLinejoin="round" />
+						<svg
+							viewBox="0 0 16 16"
+							className="h-[11px] w-[11px]"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.3"
+							aria-hidden="true"
+						>
+							<path
+								d="M9 2.5h4.5V7M13.5 2.5L7 9M11 9.5V12a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 012 12V6a1.5 1.5 0 011.5-1.5H6"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+							/>
 						</svg>
 						Open session
 					</button>

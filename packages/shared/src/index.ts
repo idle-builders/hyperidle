@@ -242,16 +242,6 @@ export type {
 } from "./notifications.js";
 export { NOTIFICATION_TYPES, shortLabelForType, urgencyForType } from "./notifications.js";
 export type { ObservabilityEvent } from "./observability/events.js";
-// ── AM3: Normalized session ActivityEntry union ──
-export type {
-	ActivityEntry,
-	AnswerDeltaData,
-	AnswerSettledData,
-	CostTickData,
-	HumanMessageData,
-	ReasoningData,
-	ToolCallData,
-} from "./session-activity.js";
 // ── AM1: Part vocabulary + source adapters (source-agnostic) ──
 export type {
 	Embed,
@@ -308,6 +298,16 @@ export type {
 	RoutineState,
 } from "./routine.js";
 export { ROUTINE_RUN_OUTCOMES, ROUTINE_STATES, SCHEDULE_PRESETS } from "./routine.js";
+// ── AM3: Normalized session ActivityEntry union ──
+export type {
+	ActivityEntry,
+	AnswerDeltaData,
+	AnswerSettledData,
+	CostTickData,
+	HumanMessageData,
+	ReasoningData,
+	ToolCallData,
+} from "./session-activity.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──

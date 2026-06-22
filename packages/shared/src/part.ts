@@ -58,7 +58,7 @@ export type PartKind = (typeof PART_KINDS)[number];
  */
 export const TOOL_KINDS = [
 	"command",
-	"file-read",   // "read" alias
+	"file-read", // "read" alias
 	"read",
 	"file-change", // "edit" alias
 	"edit",

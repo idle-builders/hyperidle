@@ -867,6 +867,7 @@ export function PlanList({ part }: { part: PlanPart }): JSX.Element {
 /** An artifact chip (aspect i) — opens its owned surface (no inline viewing). */
 export function ArtifactChip({ part }: { part: ArtifactPart }): JSX.Element {
 	return (
+		// eslint-disable-next-line design/no-op-button -- design fixture; action (open artifact) is a future affordance not part of AM3 scope
 		<button
 			type="button"
 			data-ds-component="ArtifactChip"
@@ -1053,6 +1054,7 @@ export function SessionComposer({
 		>
 			{/* input row — the conversation composer shape: "+" attach · textarea · send */}
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
+				{/* eslint-disable-next-line design/no-op-button -- design fixture; Insert opens attachment picker, AM3 scope covers shell only */}
 				<button
 					type="button"
 					aria-label="Insert"
@@ -1074,6 +1076,7 @@ export function SessionComposer({
 					className="min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 				/>
 				{running ? (
+					// eslint-disable-next-line design/no-op-button -- design fixture; Stop handler is in the production SessionView.tsx, fixture is visual-only
 					<button
 						type="button"
 						aria-label="Stop the agent"
@@ -1082,6 +1085,7 @@ export function SessionComposer({
 						<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
 					</button>
 				) : (
+					// eslint-disable-next-line design/no-op-button -- design fixture; Send handler is in the production SessionView.tsx, fixture is visual-only
 					<button
 						type="button"
 						aria-label="Send message"
@@ -1143,6 +1147,7 @@ export function SessionComposer({
 
 export function ScrollToBottomPill(): JSX.Element {
 	return (
+		// eslint-disable-next-line design/no-op-button -- design fixture; scroll-to-bottom wires to scroll container in SessionView; fixture is visual-only
 		<button
 			type="button"
 			className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] shadow-[var(--shadow-default)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]"

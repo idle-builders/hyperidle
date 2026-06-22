@@ -14,7 +14,13 @@
 
 import { describe, expect, it } from "vitest";
 // RED: green-phase exports.
-import { derivePartsFromMessages, derivePartsFromSession, PART_KINDS, type Part, type PartAuthor } from "../part.js";
+import {
+	derivePartsFromMessages,
+	derivePartsFromSession,
+	PART_KINDS,
+	type Part,
+	type PartAuthor,
+} from "../part.js";
 import type { Message } from "../thread.js";
 
 const IDENTITIES: PartAuthor[] = [{ id: "a-atlas", name: "Atlas", isAgent: true, isMe: false }];
