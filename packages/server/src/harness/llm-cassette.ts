@@ -25,6 +25,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { CallLlmOptions } from "./llm-client.js";
+import { estimateCostUsd } from "./llm-cost-estimate.js";
 import type {
 	LlmContentBlock,
 	LlmMessage,
@@ -300,6 +301,29 @@ export function loadCassetteEntries(): CassetteEntry[] {
  * accumulate correctly. The flush writes all recorded entries at exit.
  */
 const recordedEntries = new Map<string, CassetteEntry>();
+
+/**
+ * Cost accumulator for the record run.
+ *
+ * @lore AH6 CRITICAL-2: recordLlm accumulates cost from response.usage using
+ * estimateCostUsd() (same rate source as builtin-harness-adapter.ts trackUsage).
+ * On flush, writes ah6-cost.json to AH6_COST_REPORT_PATH so ah6-assert-budget.ts
+ * can read it. Fail-closed: aborts the process if the cap is exceeded mid-run.
+ */
+interface RecordRunCost {
+	totalCostUsd: number;
+	totalInputTokens: number;
+	totalOutputTokens: number;
+	model: string;
+}
+
+const recordRunCost: RecordRunCost = {
+	totalCostUsd: 0,
+	totalInputTokens: 0,
+	totalOutputTokens: 0,
+	model: "",
+};
+
 let recordFlushScheduled = false;
 
 function scheduleRecordFlush(): void {
@@ -341,6 +365,32 @@ function scheduleRecordFlush(): void {
 				`[AH6] Failed to write cassette ${cassettePath}: ${err instanceof Error ? err.message : String(err)}\n`,
 			);
 		}
+
+		// CRITICAL-2: Write ah6-cost.json so ah6-assert-budget.ts can read it.
+		// Path comes from AH6_COST_REPORT_PATH env (set by playwright.ah6.config.ts
+		// when LLM_CASSETTE_MODE=record). Silently skip if env is absent (non-AH6 use).
+		const costReportPath = process.env.AH6_COST_REPORT_PATH;
+		if (costReportPath && recordRunCost.totalCostUsd > 0) {
+			try {
+				const totalCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
+				const costReport = {
+					totalCostCents,
+					totalTokens: recordRunCost.totalInputTokens + recordRunCost.totalOutputTokens,
+					model: recordRunCost.model,
+					timestamp: new Date().toISOString(),
+				};
+				const costDir = path.dirname(costReportPath);
+				fs.mkdirSync(costDir, { recursive: true });
+				fs.writeFileSync(costReportPath, JSON.stringify(costReport, null, 2), "utf-8");
+				process.stdout.write(
+					`[AH6] Cost report written: ${costReportPath} (${totalCostCents} cents, model=${recordRunCost.model})\n`,
+				);
+			} catch (err) {
+				process.stderr.write(
+					`[AH6] Failed to write cost report ${costReportPath}: ${err instanceof Error ? err.message : String(err)}\n`,
+				);
+			}
+		}
 	}
 
 	// Register SIGTERM/SIGINT/exit handlers for graceful flush
@@ -360,6 +410,16 @@ function scheduleRecordFlush(): void {
  *
  * Appends/overwrites the cassette entry keyed by the request hash.
  * Flushed to LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json on process exit.
+ *
+ * CRITICAL-2: Also accumulates cost from response.usage (single rate source via
+ * estimateCostUsd in llm-cost-estimate.ts). Fails closed if cumulative cost
+ * exceeds AH6_MAX_COST_CENTS. Writes ah6-cost.json on flush via AH6_COST_REPORT_PATH.
+ *
+ * @lore AH6 CRITICAL-2: S-1 security note — apiKey is redacted in the stored
+ * request (set to "__redacted__"). Only model.model + model.provider are stored.
+ * No key leaks in the cassette file. The normalizers (timestamps, agent ids, uuids)
+ * run only for KEYING (buildCassetteKey), NOT for the stored request — the stored
+ * request preserves real content for human review of the cassette diff.
  */
 export async function recordLlm(
 	options: CallLlmOptions,
@@ -368,20 +428,79 @@ export async function recordLlm(
 	const key = buildCassetteKey(options);
 	const response = await callLlmDirect(options);
 
-	// Store the request without sensitive fields (apiKey excluded from cassette)
+	// Store the request without sensitive fields.
+	// S-1: apiKey redacted to "__redacted__" — never stored in cassette files.
+	// baseUrl also redacted — unnecessary for human review and may encode auth info.
+	// Only model.model + model.provider are meaningful in the stored request.
 	const safeRequest: CallLlmOptions = {
 		...options,
 		model: {
 			...options.model,
 			apiKey: "__redacted__",
+			baseUrl: "__redacted__",
 		},
 	};
 
 	const entry: CassetteEntry = { key, request: safeRequest, response };
 	recordedEntries.set(key, entry);
 
+	// CRITICAL-2: Accumulate cost using the shared rate estimator (same source as
+	// builtin-harness-adapter.ts trackUsage). Strip routing suffix before lookup.
+	const modelId = stripRoutingSuffix(options.model.model);
+	const deltaCostUsd = estimateCostUsd(
+		response.usage.inputTokens,
+		response.usage.outputTokens,
+		modelId,
+	);
+	recordRunCost.totalCostUsd += deltaCostUsd;
+	recordRunCost.totalInputTokens += response.usage.inputTokens;
+	recordRunCost.totalOutputTokens += response.usage.outputTokens;
+	if (!recordRunCost.model) {
+		recordRunCost.model = modelId;
+	}
+
+	// Fail-closed on cap: abort the process if cumulative cost exceeds the cap.
+	// This prevents a runaway turn from overrunning the budget before the post-lane
+	// assert step runs.
+	const maxCostCents = Number(process.env.AH6_MAX_COST_CENTS ?? "10");
+	const currentCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
+	if (currentCostCents > maxCostCents) {
+		// Flush cassette before aborting so partial progress is captured
+		scheduleRecordFlush();
+		process.stderr.write(
+			`[AH6] ABORT: Budget cap exceeded mid-run: ${currentCostCents} cents > cap ${maxCostCents} cents. ` +
+				`Increase AH6_MAX_COST_CENTS or optimize the smoke prompt.\n`,
+		);
+		process.exit(1);
+	}
+
 	// Schedule flush on process exit
 	scheduleRecordFlush();
 
 	return response;
+}
+
+// ---------------------------------------------------------------------------
+// Test-only helpers — exported for unit tests, not used in production.
+// ---------------------------------------------------------------------------
+
+/**
+ * @testonly Reset the in-memory cost accumulator between tests.
+ * Not used in production — only imported by llm-cassette.test.ts.
+ */
+export function __resetCostAccumulatorForTest(): void {
+	recordRunCost.totalCostUsd = 0;
+	recordRunCost.totalInputTokens = 0;
+	recordRunCost.totalOutputTokens = 0;
+	recordRunCost.model = "";
+	recordedEntries.clear();
+	recordFlushScheduled = false;
+}
+
+/**
+ * @testonly Read the current in-memory cost accumulator.
+ * Not used in production — only imported by llm-cassette.test.ts.
+ */
+export function __getCostAccumulatorForTest(): Readonly<RecordRunCost> {
+	return { ...recordRunCost };
 }

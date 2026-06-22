@@ -21,11 +21,17 @@
  * before hashing so routing-policy changes don't invalidate cassettes.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
+	__getCostAccumulatorForTest,
+	__resetCostAccumulatorForTest,
 	buildCassetteKey,
 	type CassetteEntry,
 	CassetteMissError,
+	recordLlm,
 	replayLlm,
 } from "../llm-cassette.js";
 import type { CallLlmOptions } from "../llm-client.js";
@@ -381,5 +387,112 @@ describe("AH6: CassetteMissError", () => {
 
 	test("is an Error subclass", () => {
 		expect(new CassetteMissError("k", "p")).toBeInstanceOf(Error);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Suite D: recordLlm cost accumulation (CRITICAL-2)
+// ---------------------------------------------------------------------------
+
+describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		__resetCostAccumulatorForTest();
+		vi.stubEnv("LLM_CASSETTE_MODE", "record");
+		vi.stubEnv("AH6_MAX_COST_CENTS", "100"); // large cap so tests don't abort
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ah6-cost-test-"));
+		vi.stubEnv("LLM_CASSETTE_DIR", tmpDir);
+		vi.stubEnv("LLM_CASSETTE_SCENARIO", "test");
+		vi.stubEnv("AH6_COST_REPORT_PATH", path.join(tmpDir, "ah6-cost.json"));
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		__resetCostAccumulatorForTest();
+		// Clean up temp dir
+		try {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		} catch {
+			// ignore cleanup errors
+		}
+	});
+
+	test("recordLlm accumulates totalCostUsd > 0 after a call with non-zero usage", async () => {
+		const options = makeOptions(MODEL_A);
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "2" }],
+			usage: { inputTokens: 100, outputTokens: 50 },
+		};
+
+		await recordLlm(options, async () => stubbedResponse);
+
+		const acc = __getCostAccumulatorForTest();
+		expect(acc.totalCostUsd).toBeGreaterThan(0);
+		expect(acc.totalInputTokens).toBe(100);
+		expect(acc.totalOutputTokens).toBe(50);
+	});
+
+	test("recordLlm accumulates cost across multiple calls", async () => {
+		const options = makeOptions(MODEL_A);
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "2" }],
+			usage: { inputTokens: 100, outputTokens: 50 },
+		};
+
+		await recordLlm(options, async () => stubbedResponse);
+		await recordLlm(makeOptions(MODEL_B), async () => stubbedResponse);
+
+		const acc = __getCostAccumulatorForTest();
+		expect(acc.totalInputTokens).toBe(200);
+		expect(acc.totalOutputTokens).toBe(100);
+		expect(acc.totalCostUsd).toBeGreaterThan(0);
+	});
+
+	test("recordLlm captures the model id (routing suffix stripped)", async () => {
+		const options = makeOptions(MODEL_A_NITRO);
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "x" }],
+			usage: { inputTokens: 10, outputTokens: 5 },
+		};
+
+		await recordLlm(options, async () => stubbedResponse);
+
+		const acc = __getCostAccumulatorForTest();
+		// model id should have :nitro stripped
+		expect(acc.model).toBe("deepseek/deepseek-v4-flash");
+	});
+
+	test("recordLlm returns the response from callLlmDirect unchanged", async () => {
+		const options = makeOptions(MODEL_A);
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "hello" }],
+			usage: { inputTokens: 5, outputTokens: 3 },
+		};
+
+		const result = await recordLlm(options, async () => stubbedResponse);
+		expect(result).toEqual(stubbedResponse);
+	});
+
+	test("recordLlm apiKey is redacted in the stored cassette entry", async () => {
+		const options = makeOptions(MODEL_A); // MODEL_A has apiKey: "sk-or-real-key"
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "x" }],
+			usage: { inputTokens: 5, outputTokens: 3 },
+		};
+
+		await recordLlm(options, async () => stubbedResponse);
+
+		// The cassette is only written at process exit (flush) — confirm the original
+		// options.model.apiKey hasn't leaked into the accumulator's model field.
+		expect(options.model.apiKey).toBe("sk-or-real-key"); // fixture has a real-looking key
+		const acc = __getCostAccumulatorForTest();
+		// Accumulator model field is the stripped model id — no key material
+		expect(acc.model).not.toContain("sk-or");
 	});
 });

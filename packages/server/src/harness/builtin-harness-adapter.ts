@@ -31,6 +31,7 @@ import type {
 import type { ToolRegistry } from "../tools/tool-registry.js";
 import { contextWindowForModel, isAboveThreshold } from "./context-window.js";
 import { callLlm } from "./llm-client.js";
+import { estimateCostUsd } from "./llm-cost-estimate.js";
 import type {
 	LlmMessage,
 	LlmTextBlock,
@@ -82,16 +83,8 @@ interface BuiltinSession {
 	loopPromise: Promise<void> | null;
 }
 
-const COST_PER_MILLION_TOKENS: Record<string, { input: number; output: number }> = {
-	// AH2 catalog — must stay in sync with MODEL_CATALOG in @hyperidle/shared
-	// @lore AH2: See also MODEL_CONTEXT_WINDOWS in context-window.ts.
-	"claude-opus-4-8": { input: 5, output: 25 },
-	"claude-sonnet-4-6": { input: 3, output: 15 },
-	"claude-haiku-4-5": { input: 1, output: 5 },
-	"claude-fable-5": { input: 10, output: 50 },
-};
-
-const DEFAULT_COST = { input: 3, output: 15 };
+// AH6 CRITICAL-2: estimateCostUsd moved to llm-cost-estimate.ts (single rate source).
+// Both builtin-harness-adapter.ts and llm-cassette.ts import from there.
 
 const PLANNING_PROMPT =
 	"Begin working on your assigned task. Before executing any actions, read the task context and propose a plan of subtasks.";
@@ -106,11 +99,6 @@ const MAX_ITERATIONS_PROMPT =
 	"You have reached the iteration limit. Summarize your progress and wrap up.";
 
 const SUMMARIZE_SYSTEM = "You are a conversation summarizer. Produce a concise summary.";
-
-function estimateCostUsd(inputTokens: number, outputTokens: number, model: string): number {
-	const rates = COST_PER_MILLION_TOKENS[model] ?? DEFAULT_COST;
-	return (inputTokens * rates.input + outputTokens * rates.output) / 1_000_000;
-}
 
 function extractTextFromContent(content: readonly (LlmTextBlock | LlmToolUseBlock)[]): string {
 	return content
