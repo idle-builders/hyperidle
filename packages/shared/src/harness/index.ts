@@ -7,15 +7,6 @@ export type {
 	SessionHandle,
 	SessionResult,
 } from "./harness-adapter.js";
-
-// ── AL6: Closed accepted-return set ──
-export {
-	RETURN_ACTION_NAMES,
-	isReturnAction,
-	isInternalExtractionDrain,
-} from "./return-actions.js";
-export type { ReturnActionName } from "./return-actions.js";
-
 export type {
 	HarnessAccessMode,
 	HarnessAuthActionDescriptor,
@@ -44,8 +35,14 @@ export type {
 	ToolCallEvent,
 } from "./harness-events.js";
 export { normalizeNativeHarnessEvent } from "./harness-native-normalization.js";
-
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
+export type { ReturnActionName } from "./return-actions.js";
+// ── AL6: Closed accepted-return set ──
+export {
+	isInternalExtractionDrain,
+	isReturnAction,
+	RETURN_ACTION_NAMES,
+} from "./return-actions.js";
 
 export type {
 	ServerDispatchMessage,

@@ -8,13 +8,9 @@
  * These tests FAIL until return-gate.ts is implemented.
  */
 
-import { describe, expect, it } from "vitest";
-import {
-	createReturnGate,
-	evaluateReturn,
-	type ReturnVerdict,
-} from "../return-gate.js";
 import type { HarnessEvent } from "@hyperidle/shared";
+import { describe, expect, it } from "vitest";
+import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

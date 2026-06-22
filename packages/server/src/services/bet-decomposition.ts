@@ -628,8 +628,8 @@ async function drainForCompletion(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
 ): Promise<string> {
-	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
 	const stream = adapter.streamEvents(handle);
+	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
 	for await (const event of stream) {
 		if (event.type === "completion") {
 			return event.text;

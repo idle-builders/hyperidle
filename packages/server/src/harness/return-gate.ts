@@ -13,8 +13,8 @@
  * consumer through a new signature — higher coupling, more migration.
  */
 
-import { isReturnAction } from "@hyperidle/shared";
 import type { HarnessEvent } from "@hyperidle/shared";
+import { isReturnAction } from "@hyperidle/shared";
 
 /** AL6: Per-turn observer. Pure, allocation-light, harness-agnostic. */
 export interface ReturnGate {
@@ -29,15 +29,15 @@ export interface ReturnGate {
  * independent (no shared state).
  */
 export function createReturnGate(): ReturnGate {
-	let _returned = false;
+	let Returned = false;
 	return {
 		observe(event: HarnessEvent): void {
 			if (event.type === "tool_call" && isReturnAction(event.toolName, event.args)) {
-				_returned = true;
+				Returned = true;
 			}
 		},
 		get returned(): boolean {
-			return _returned;
+			return Returned;
 		},
 	};
 }

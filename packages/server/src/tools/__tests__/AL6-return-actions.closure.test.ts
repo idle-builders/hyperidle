@@ -15,8 +15,8 @@
  * Tests FAIL until packages/shared/src/harness/return-actions.ts is implemented.
  */
 
+import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { RETURN_ACTION_NAMES, isReturnAction } from "@hyperidle/shared";
 import { ALL_TOOL_DEFINITIONS } from "../tool-registry.js";
 
 describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {

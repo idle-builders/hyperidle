@@ -31,8 +31,8 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
-import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";

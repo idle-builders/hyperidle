@@ -1050,4 +1050,50 @@ export default [
 			],
 		},
 	},
+
+	// AL6 — Classifying stream-drain lint guard (AC4 static).
+	//
+	// Every `for await` loop over a streamEvents() iterable must be classified
+	// as one of:
+	//   TURN-DRAIN:   must call gate.observe(event) + evaluateReturn in fn.
+	//   RELAY:        annotated `// AL6-relay` — re-emits verbatim, no gate.
+	//   EXEMPT:       annotated `// AL6-exempt: internal-extraction drain` — tools:[], no gate.
+	//
+	// The rule detects BOTH the direct `.streamEvents(...)` RHS and the one-hop
+	// `const stream = adapter.streamEvents(...)` binding per the architecture
+	// critique's binding builder note (sites B and C use the one-hop form).
+	//
+	// Scoped to: server services, harness utilities, and desktop worker client.
+	// Test files are exempt — stubs and mocks legitimately drain streams without gates.
+	//
+	// @lore AL6: T9 static guard. This is a "static property → lint" enforcement
+	// (CLAUDE.md). The rule prevents the "forgotten drain" blind spot: a future
+	// unexempted turn drain that omits the gate is caught at lint time, not at
+	// runtime. Forwarding relays (isolated-session-worker, desktop-worker-client)
+	// and the extraction drain (bet-decomposition) are classified by their markers
+	// so the rule never requires eslint-disable on them.
+	{
+		files: [
+			"packages/server/src/services/**/*.ts",
+			"packages/server/src/harness/**/*.ts",
+			"packages/desktop/src/**/*.ts",
+		],
+		ignores: [
+			"packages/server/src/services/**/__tests__/**",
+			"packages/server/src/services/**/*.test.ts",
+			"packages/server/src/services/**/*.integration.test.ts",
+			"packages/server/src/harness/**/__tests__/**",
+			"packages/server/src/harness/**/*.test.ts",
+			"packages/server/src/harness/**/*.integration.test.ts",
+			"packages/desktop/src/**/__tests__/**",
+			"packages/desktop/src/**/*.test.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		plugins: { design },
+		rules: {
+			"design/no-ungated-stream-drain": "error",
+		},
+	},
 ];

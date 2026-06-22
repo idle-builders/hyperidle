@@ -44,11 +44,11 @@ import {
 import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { createReturnGate } from "../harness/return-gate.js";
 // AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
 // Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
 import { CassetteMissError } from "../harness/llm-cassette.js";
+import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
@@ -698,8 +698,16 @@ async function drainStreamEvents(
 			}
 		}
 	} catch {
+		// AL6: evaluate gate on error path (crashed → exempt → always "returned").
+		evaluateReturn(gate, "crashed");
 		return { type: "error", message: "Stream error" };
 	}
+
+	// AL6: Evaluate gate for uniformity (AC4). The assistant path is compliant-by-
+	// construction (concept §4.4 — it NEVER exits without persisting a reply), so
+	// the verdict here is always "returned". We evaluate explicitly so the mechanism
+	// is uniform and a future assistant tool that suppressed the reply would be caught.
+	evaluateReturn(gate, "completed");
 
 	// Generator exhausted without explicit completion — treat as empty completion
 	return { type: "completion", text: completionText };

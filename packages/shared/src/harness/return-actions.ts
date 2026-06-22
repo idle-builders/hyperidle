@@ -37,10 +37,7 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
  * is added, extend this function with a per-name predicate — do NOT widen
  * the set to "any tool with the right args".
  */
-export function isReturnAction(
-	toolName: string,
-	_args?: Record<string, unknown>,
-): boolean {
+export function isReturnAction(toolName: string, _args?: Record<string, unknown>): boolean {
 	return RETURN_ACTION_SET.has(toolName);
 }
 
