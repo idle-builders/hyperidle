@@ -729,8 +729,9 @@ export function HumanRow({
 	);
 }
 
-// ── A queued (not-yet-delivered) human message — LEFT-ALIGNED to match the human
-//    row, muted + clock + "sends when the agent finishes" + dequeue ✕. ──
+// ── A queued (not-yet-delivered) human message — RIGHT-ALIGNED to match the
+//    delivered human row (it is also a human turn), muted + clock + "sends when
+//    the agent finishes" + dequeue ✕. ──
 export function QueuedBubble({
 	author,
 	text,
@@ -741,10 +742,14 @@ export function QueuedBubble({
 	onCancel?: () => void;
 }): JSX.Element {
 	return (
-		<div data-ds-component="QueuedRow" data-ds-sender="human" className="flex gap-[9px] opacity-70">
-			<Avatar who={author} size={26} />
-			<div className="flex min-w-0 flex-1 flex-col gap-[6px] pt-[1px]">
-				<div className="flex items-baseline gap-[9px]">
+		<div
+			data-ds-component="QueuedRow"
+			data-ds-sender="human"
+			className="flex flex-col items-end opacity-70"
+		>
+			<div className="flex max-w-[80%] flex-col gap-[9px]">
+				<div className="flex items-center gap-[9px]">
+					<Avatar who={author} size={26} />
 					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{author.name}</span>
 					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
 						<svg
