@@ -4,7 +4,7 @@ Input contracts (fixed, not re-litigated): `plans/AM4/design/approved.md` (Varia
 
 ## Summary
 
-AM4 is a **frontend composition** plus **one small backend endpoint**. The read path is already shipped by AM2: `GET /api/harnesses` → `HarnessCapabilityDescriptor[]` returns the full list including missing/unauthenticated families, with discovery state, version, auth action, models, and runtime caps. The only backend gap is the "**on demand**" re-detection AC: production discovery runs once at boot and is frozen into the `AdapterPool` (`createLocalAdapterPool` → `discoverLocalHarnesses`, then `Object.freeze`). A re-fetch returns the same snapshot. We add a single `POST /api/harnesses/redetect` that re-runs the public probes and refreshes the pool's discovery snapshot.
+AM4 is a **frontend composition** plus **two backend endpoints** (re-detect + disable). The read path is already shipped by AM2: `GET /api/harnesses` → `HarnessCapabilityDescriptor[]` returns the full list including missing/unauthenticated families, with discovery state, version, auth action, models, and runtime caps. Backend gaps: (1) the "**on demand**" re-detection AC — production discovery runs once at boot and is frozen into the `AdapterPool`; a re-fetch returns the same snapshot, so we add `POST /api/harnesses/redetect` (surfaced as the header **Refresh** affordance); (2) **enable/disable (R1 reversal, founder review + AC2)** — a persisted `harness.disabled` settings key, a `discovery.disabled` stamp on descriptors, an `AdapterPool.select()` gate that skips disabled types, and `POST /api/harnesses/:type/disabled` to flip it. See Design-it-twice §B.
 
 Everything else is a new `SettingsHarnesses` web section + `HarnessCard` sub-component composing existing DS primitives, driven entirely by the descriptor through the `harness-presentation` mappers (zero per-backend branching).
 
@@ -29,7 +29,7 @@ Everything else is a new `SettingsHarnesses` web section + `HarnessCard` sub-com
 | Re-detect refreshes runtime capabilities | **NO.** `discoverLocalHarnesses()` deliberately does NOT run the session probe (adapter-pool.ts:349-354 `@lore` AM2). Re-detect re-runs the same probe → `fileEditing`/`toolUse`/`mcpSupport`/`subAgents` stay `false` for every backend until AM3 / first real run. Re-detect refreshes **readiness/version/auth only**, not runtime caps. | UI must read correctly under all-`false` caps: the fold shows declared models + "confirmed after first run" (R2), never a wall of "No". Fixtures + story render this production shape. See AC2 verification + States. |
 | `missing`/`unauthenticated`/`unavailable` families surface | EXISTS — `missingKnownHarnessDescriptors` appends them with discovery state | No work; the UI renders all states. |
 | `cursor-agent` → `unavailable`, no install CTA | EXISTS — descriptor emits `unavailable` + reason | `hasActionableNextStep` returns false for it (authAction.kind="none" / state unavailable). |
-| Enable/disable a backend | No `enabled` field on descriptor or schema; agents carry `harnessType` (`db/schema.ts:71`) | **Design decision §B** — toggle is display-only/derived in AM4 (no new persisted state). Documented below. |
+| Enable/disable a backend | No `disabled` field on descriptor or schema; agents carry `harnessType` (`db/schema.ts:71`); `AdapterPool.select()` gates on capacity/modelProviders/harnessType only | **REVERSED §B (founder review + AC2)** — restore a REAL toggle: persisted `harness.disabled: string[]` settings key + `discovery.disabled` stamped on descriptors + `AdapterPool.select()` skips disabled types + `POST /api/harnesses/:type/disabled`. Scope addition, flagged below. |
 | `enter_api_key` action target | builtin credential lives via gateway/`safeStorage`; `SettingsModels` shows `hasApiKey` | Auth CTA for `enter_api_key` routes to the existing credential surface; AM4 builds NO new storage. |
 | StatusChip supports needed statuses | EXISTS — `healthy|behind|paused|blocked|done|error` + `"unknown"` sentinel | `readinessToStatus` maps to `healthy/behind/paused/unknown`. |
 
@@ -44,12 +44,14 @@ No spec/doc contradiction requiring a `/concept` reopen.
 
 **Synthesis → A1.** Add `AdapterPool.refreshDiscoveries(): Promise<void>` that calls `discoverLocalHarnesses()` and reassigns the snapshot (drop `readonly`; keep the freeze on each reassignment). `POST /api/harnesses/redetect` calls it then returns `listCapabilityDescriptors()`. This makes the detection loop honest: act → re-detect → state changes. The GET stays the cheap boot-snapshot read for first paint.
 
-### B. Enable/disable persistence — new state vs derived
+### B. Enable/disable persistence — REVERSED to B1 (founder review + AC2)
 
-- **Option B1 — new persisted per-harness `enabled` flag** (new table or settings key). Trade-off: a real toggle that survives restart. Reject reason: AM2's descriptor has no `enabled` field, there is no consumer of it yet (agents pick `harnessType` directly; the gateway/pool don't gate on an enabled flag), and the spec's out-of-scope line is "credential storage mechanics" — adding a new persistence layer + its enforcement is scope the AC doesn't demand and that no runtime reads.
-- **Option B2 — toggle reflects readiness, no new persisted state.** A backend is "on" iff `discovery.state === "ready"`; the toggle is the affordance to *make it ready* (disabled until ready, since the path to "on" is authentication, not a flag). Trade-off: the toggle isn't a free on/off switch. Reject reason: a user might want to hide a ready backend.
+**SCOPE ADDITION THIS ROUND — flagged for architecture-critique re-check.** The prior round ruled B2 (no persisted state, non-interactive label). The founder, reviewing the real t3code Providers reference (where a real enable/disable switch is the headline affordance and disabling actually disables the provider), directed restoring a real toggle. **AC2 explicitly requires "enable, disable, and configure."** This reverses the prior ruling.
 
-**Synthesis → B2 for AM4, RULED by the architecture-critique. No B1.** No persisted enable/disable state. "Enable/disable/configure" in the AC is satisfied by: enable = complete the auth action (→ ready), configure = the capability fold + (for builtin) the existing credential/model surface, disable = N/A at the harness level in AM4 (no runtime consumes a disabled flag, so a persisted disable would be dead state and the control would lie). **The original B2 was itself under-specified** (it rendered a permanently-disabled toggle on `unauthenticated`, reading as a broken control). The bound resolution (design R1 + arch-critique ruling): NO interactive toggle at all — a non-interactive "Enabled" label on `ready` only, no indication elsewhere. B1 (one settings key `harness.disabled: string[]`) is a follow-up gated strictly on a future runtime consumer; do not build dead state speculatively.
+- **Option B1 (CHOSEN) — persisted per-harness `disabled` flag + a runtime consumer.** One settings key `harness.disabled: string[]` (list of `harnessType`s the user turned off), persisted via the existing settings store. `AdapterPool.select()` gains one gate: skip any adapter whose `harnessType` is in `harness.disabled`. The descriptor read path surfaces `discovery.disabled: boolean` (server stamps it from the settings key when building descriptors) so the UI renders the toggle state + "Disabled — …" line without a second fetch. A `POST /api/harnesses/:type/disabled { disabled: boolean }` writes the key. Trade-off: adds a persisted setting + a `select()` gate + a write endpoint — real scope. **Why it's justified now:** the toggle is no longer dead state — it changes selection behavior (the exact objection the prior round raised is *resolved by adding the consumer*), and AC2 + founder review demand it.
+- **Option B2 (prior, now rejected) — derived, no persisted state, non-interactive "Enabled" label.** Rejected: does not satisfy AC2's "disable" verb, and does not match the founder's referenced affordance.
+
+**Synthesis → B1.** Build: (1) settings key `harness.disabled: string[]`; (2) descriptors stamp `discovery.disabled`; (3) `AdapterPool.select()` filters out disabled `harnessType`s; (4) `POST /api/harnesses/:type/disabled`. The mapper reads `discovery.disabled` (modeled in the design fixture as `discovery.disabled?: boolean`). **Architecture-critique must re-verify:** the `select()` gate is the single consumer; no other path needs to read the flag; the write endpoint shares the GET boundary; a disabled backend never appears in a selection result.
 
 ## Types & contracts
 
@@ -60,18 +62,23 @@ No spec/doc contradiction requiring a `/concept` reopen.
 `packages/web/src/settings/harness-presentation.ts` — pure, descriptor-only mappers (the single interpretation point; reviewer greps here to confirm no `type ===` branch):
 
 ```ts
-export function readinessToStatus(state: HarnessReadinessState): { status: Status | "unknown"; label: string };
+export function statusLine(d: HarnessCapabilityDescriptor): { tone: Status | "unknown"; text: string }; // dot tone + calm muted line (replaces the StatusChip pill)
 export function accessModeLabel(mode: HarnessAccessMode): string;
 export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean;
-export function showsEnabledIndication(d: HarnessCapabilityDescriptor): boolean; // ready-only; non-interactive label
-export function hasCaps(d: HarnessCapabilityDescriptor): boolean;               // models OR any proven cap → fold visible
+export function showsToggle(d: HarnessCapabilityDescriptor): boolean;   // ready|installed|unauthenticated → real enable/disable Toggle visible
+export function isEnabled(d: HarnessCapabilityDescriptor): boolean;     // !discovery.disabled
+export function hasCaps(d: HarnessCapabilityDescriptor): boolean;       // models OR any proven cap (and not disabled) → fold visible
 export function provenCapabilities(d: HarnessCapabilityDescriptor): readonly string[]; // only true runtime caps
 export function commandText(d: HarnessCapabilityDescriptor): string | null;
 export function capabilitySummary(d: HarnessCapabilityDescriptor): string;      // proven caps, else "confirmed after first run"
-export function actionableFirst(a, b): number; // sort comparator
+// retained for legacy variant A only, delete with A/B (task 8):
+export function readinessToStatus(state: HarnessReadinessState): { status: Status | "unknown"; label: string };
+export function showsEnabledIndication(d: HarnessCapabilityDescriptor): boolean;
 ```
 
-**Toggle mapper resolution (design-it-twice §B + design R1 + arch-critique ruling).** There is NO interactive `Toggle` and NO `isEnableable`/`showsToggle`. `showsEnabledIndication` returns `true` only for `ready` and the surface renders a **non-interactive "Enabled" label** (not `role=switch`). Rationale: `AdapterPool.select()` (adapter-pool.ts:161-196) gates on capacity / `modelProviders` / `harnessType` — no path consults an `enabled`/`disabled` flag, so a persisted disable would be dead state and a flippable switch would lie. Add a `@lore` at `showsEnabledIndication` recording "derived-from-readiness, not persisted; B1 (persisted flag) is the follow-up only once a runtime consumer exists — do not re-add a persisted flag thinking it was an oversight." The builder lifts this exact shape from `AM4HarnessVariantC.stories.tsx`.
+**Toggle mapper resolution (design-it-twice §B — REVERSED to B1).** There IS a real interactive `Toggle`. `showsToggle(d)` returns `true` for `ready|installed|unauthenticated` (descriptor-driven off `discovery.state`, NOT a per-family table); `isEnabled(d)` = `!discovery.disabled`. Flipping the toggle calls `POST /api/harnesses/:type/disabled` and re-renders. Rationale (changed from prior): `AdapterPool.select()` now gains a `disabled` gate (the consumer), so the flag is live, not dead state. Add a `@lore` at `showsToggle`/`isEnabled` recording "real persisted control backed by `harness.disabled` + `select()` gate (AM4 R1 reversal, founder review + AC2); `showsToggle` is computed from `discovery.state`, never a family switch." The `missing`/`unavailable` states return `false` (nothing to disable). The builder lifts this exact shape from `AM4HarnessVariantC.stories.tsx` (`AM4HarnessPresentation.ts`).
+
+**Component-budget — label-less `Toggle` (one DS enhancement, not a new component).** DS `Toggle` always renders a visible text label; the reference switch is bare. The design story renders a switch with `Toggle`'s exact visual + a11y contract inline with an sr-only `aria-label`. The builder must add a label-less / sr-only-label affordance to DS `Toggle` (reused by every settings row toggling without adjacent text — clears the 2+-context bar) and re-bless the `Toggle` snapshot; do NOT ship the inline copy or hand-roll a second switch.
 
 (The `readinessToStatus` mapping is a candidate to live with the design-system `status-mapping` family alongside `betStatusToStatus` etc.; the builder may place it there and re-export — it is a reusable status mapping, not AM4-only. Decide in review; functionally identical either way.)
 
@@ -85,9 +92,19 @@ POST /api/harnesses/redetect
   429 → ApiErrorResponse   // when called again within the 5s window
 ```
 Mount the dedicated limiter ONLY on this route (`harnessRoutes.use("/redetect", createRateLimiter({ limit: 1, windowMs: 5000 }))` or inline before the handler), NOT globally — the global 300/min limiter (app.ts:262) stays for the rest. This is a concrete plan item, not "builder confirms".
+```
+POST /api/harnesses/:type/disabled            // R1 reversal — write the persisted disable flag
+  auth: requireBoundary({ kind: "public-data" })   // same boundary as GET/redetect
+  body: { disabled: boolean }
+  200 → HarnessCapabilityDescriptor[]   // fresh list with discovery.disabled re-stamped
+  400 → unknown :type
+```
+Persists into the settings store under `harness.disabled: string[]` (add/remove `:type`). Descriptors stamp `discovery.disabled` from this key when listed; `AdapterPool.select()` skips any adapter whose `harnessType ∈ harness.disabled`.
+
 ```ts
 // AdapterPool
 async refreshDiscoveries(): Promise<void>;   // re-runs discoverLocalHarnesses(), reassigns this.discoveries
+select(/* …existing args… */): Adapter;      // EDIT: add a gate — skip adapters whose harnessType is in harness.disabled
 ```
 
 ## Component breakdown
@@ -100,8 +117,8 @@ async refreshDiscoveries(): Promise<void>;   // re-runs discoverLocalHarnesses()
 | `packages/web/src/settings/SettingsHarnesses.stories.tsx` | stories: populated (real states), loading, error, empty, all-ready (NEW; supersedes the 3 design `AM4HarnessVariant*` stories — delete those + fixtures + presentation dupe) |
 | `packages/web/src/settings/HarnessCard.stories.tsx` | per-card states: ready, unauthenticated, installed, unavailable (NEW) |
 | `packages/web/src/pages/SettingsPage.tsx` | register `<SettingsHarnesses/>` as a stacked "Agent backends" section near Models/Agents (EDIT) |
-| `packages/server/src/harness/adapter-pool.ts` | add `refreshDiscoveries()` (EDIT) |
-| `packages/server/src/routes/harnesses.ts` | add `POST /redetect` (EDIT) |
+| `packages/server/src/harness/adapter-pool.ts` | add `refreshDiscoveries()`; add `disabled` gate to `select()`; stamp `discovery.disabled` from the settings key when listing descriptors (EDIT) |
+| `packages/server/src/routes/harnesses.ts` | add `POST /redetect` + `POST /:type/disabled` (EDIT) |
 
 DS primitives reused: `StatusChip`, `Toggle`, `Button`, `Fold`, `KeyValue`, `EmptyState`, `ErrorState`, `SkeletonList`. **No new design-system component.**
 
@@ -143,8 +160,9 @@ DS primitives reused: `StatusChip`, `Toggle`, `Button`, `Fold`, `KeyValue`, `Emp
 
 ## Route checklist
 
-- `GET /api/harnesses` (exists — read path; no change).
-- `POST /api/harnesses/redetect` (NEW — `routes/harnesses.ts`, `requireBoundary({ kind: "public-data" })` + dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` mounted on this route only, returns fresh descriptors, asserts no secret leak, asserts 429 on a back-to-back second call).
+- `GET /api/harnesses` (exists — read path; now stamps `discovery.disabled` from the `harness.disabled` settings key; no contract break — additive field).
+- `POST /api/harnesses/redetect` (NEW — `routes/harnesses.ts`, `requireBoundary({ kind: "public-data" })` + dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` mounted on this route only, returns fresh descriptors, asserts no secret leak, asserts 429 on a back-to-back second call). Surfaced in the UI as the header **Refresh** affordance next to "Checked just now".
+- `POST /api/harnesses/:type/disabled` (NEW — R1 reversal — writes `harness.disabled`, returns fresh list with `discovery.disabled` re-stamped, same boundary; 400 on unknown `:type`).
 
 ## Security & abuse cases
 
@@ -166,6 +184,6 @@ DS primitives reused: `StatusChip`, `Toggle`, `Button`, `Fold`, `KeyValue`, `Emp
 ## Risks / ambiguities
 
 1. **`refreshDiscoveries` mutability** — the pool was deliberately immutable (AM2 `@lore`). Reassigning a frozen field is safe (freeze is per-object, reassignment replaces the reference) but the builder must keep each new snapshot frozen and ensure no concurrent read sees a half-built map (the reassign is atomic in JS single-thread; the await completes before reassign). Low risk, called out.
-2. **Enable/disable semantics (Design-it-twice §B) — RESOLVED.** AM4 ships a non-interactive "Enabled" indication on `ready` only (no toggle, no persisted disable). Ruled correct by the architecture-critique (no runtime consumes a disable flag). No escalation; B1 is a future-only follow-up. `@lore` at `showsEnabledIndication` documents this.
+2. **Enable/disable semantics (Design-it-twice §B) — REVERSED to B1 (founder review + AC2), needs architecture-critique re-check.** AM4 now ships a REAL toggle: persisted `harness.disabled: string[]` + `discovery.disabled` stamped on descriptors + `AdapterPool.select()` skipping disabled types + `POST /api/harnesses/:type/disabled`. Scope addition over the prior plan. Risks the critique must weigh: (a) `select()` now has a new gate — ensure a fully-disabled fleet degrades gracefully (the builtin should not be disableable, OR selection must surface a clear "all backends disabled" error rather than throw); (b) the settings store write path + concurrency with `refreshDiscoveries`; (c) `discovery.disabled` is an additive descriptor field — confirm AM2/AH2 contract tests still pass (additive, should). `@lore` at `showsToggle`/`select()` documents the consumer.
 3. **Redetect latency** — `discoverLocalHarnesses()` runs CLI probes; can take ~1-2s. The Re-detect button needs an in-flight state (button disabled + label "Detecting…"). Build detail, not a blocker.
 4. **AM3 overlap on `adapter-pool.ts`** — AM3 plans to wire the session probe into the same discovery pipeline. The `refreshDiscoveries` addition should not conflict (different method), but note in `sharedFiles`.

@@ -3,10 +3,10 @@
  *
  * Mirrors the as-built proof states from docs/agent-layer/harness-capability-descriptor.md:
  *  - builtin       → ready (api-gateway, OpenRouter credential present)
- *  - claude-code   → ready (CLI logged in, version 2.1.170)
- *  - codex         → unauthenticated (codex login)
- *  - opencode      → installed (auth unknown; normalization unknown)
- *  - cursor-agent  → unavailable (no headless surface; NO install CTA)
+ *  - claude-code   → ready (CLI logged in, v2.1.178, Claude Max subscription)
+ *  - codex         → disabled (present + signed in, but turned off by the user)
+ *  - opencode      → ready (auth via OpenCode, upstream providers connected)
+ *  - cursor-agent  → unavailable (no headless surface; NO install CTA, NO toggle)
  *
  * HONEST PRODUCTION SHAPE — runtime caps are all-`false` on every backend,
  * including the `ready` ones. Production discovery deliberately does NOT run the
@@ -16,12 +16,26 @@
  * shows "confirmed after first run", never a wall of "No"). Do NOT hardcode caps
  * `true` here — that would mask the realistic shape the founder reviews.
  *
+ * `discovery.disabled` + `discovery.authSummary` are AM4 scope additions (R1
+ * reversal): `disabled` is the persisted per-harness flag AdapterPool.select()
+ * honors; `authSummary` is the calm t3code-style "Authenticated as …" sub-text.
+ * Typed loosely here (descriptor extension lands in the build); see the mapper.
+ *
  * Design-only fixture. Builder replaces with the live /api/harnesses fetch.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 
-export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
+type AM4Discovery = HarnessCapabilityDescriptor["discovery"] & {
+	disabled?: boolean;
+	authSummary?: string;
+};
+type AM4Descriptor = Omit<HarnessCapabilityDescriptor, "discovery"> & {
+	discovery: AM4Discovery;
+	badge?: string;
+};
+
+export const AM4_HARNESS_FIXTURES: readonly AM4Descriptor[] = [
 	{
 		type: "builtin",
 		name: "Built-in",
@@ -33,7 +47,11 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 			description: "Store a model gateway API key in HyperIdle.",
 			credentialNames: ["anthropic_api_key", "openrouter_api_key"],
 		},
-		discovery: { state: "ready", reason: "OpenRouter credential present." },
+		discovery: {
+			state: "ready",
+			authSummary: "Authenticated · OpenRouter gateway key present.",
+			reason: "OpenRouter credential present.",
+		},
 		models: [
 			{
 				id: "claude-opus-4-8",
@@ -75,7 +93,11 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 			label: "Log in to Claude Code",
 			command: ["claude", "auth", "login"],
 		},
-		discovery: { state: "ready", version: "2.1.170" },
+		discovery: {
+			state: "ready",
+			version: "2.1.178",
+			authSummary: "Authenticated as you@studio.dev · Claude Max subscription.",
+		},
 		models: [
 			{
 				id: "claude-sonnet-4-6",
@@ -102,22 +124,39 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 		name: "Codex",
 		kind: "local",
 		accessMode: "provider-subscription-cli",
+		badge: "Early Access",
 		authAction: {
 			kind: "native_cli_login",
 			label: "Log in to Codex",
 			command: ["codex", "login"],
 		},
-		discovery: { state: "unauthenticated", version: "0.141.0" },
-		models: [],
+		// Present + runnable but turned off by the user — the toggle is OFF and
+		// AdapterPool.select() skips it. Reads "Disabled — …" like the reference.
+		discovery: {
+			state: "ready",
+			version: "0.141.0",
+			disabled: true,
+			reason: "Turned off in HyperIdle — agents will not select Codex.",
+		},
+		models: [
+			{
+				id: "gpt-5-codex",
+				label: "GPT-5 Codex",
+				provider: "openai",
+				selectable: true,
+				inheritedFromGateway: false,
+				options: [],
+			},
+		],
 		runtime: {
 			preCompactionTrigger: false,
 			subAgents: false,
 			mcpSupport: false,
-			modelProviders: [],
+			modelProviders: ["openai"],
 			fileEditing: false,
 			toolUse: false,
 		},
-		modelProviders: [],
+		modelProviders: ["openai"],
 	},
 	{
 		type: "opencode",
@@ -129,27 +168,41 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 			label: "Log in to OpenCode",
 			command: ["opencode", "providers", "login"],
 		},
-		discovery: { state: "installed", version: "1.17.8", reason: "Auth status not yet confirmed." },
-		models: [],
+		discovery: {
+			state: "ready",
+			version: "1.17.7",
+			authSummary: "Authenticated · 2 upstream providers connected through OpenCode.",
+		},
+		models: [
+			{
+				id: "oc-router",
+				label: "OpenCode Router",
+				provider: "opencode",
+				selectable: true,
+				inheritedFromGateway: false,
+				options: [],
+			},
+		],
 		runtime: {
 			preCompactionTrigger: false,
 			subAgents: false,
 			mcpSupport: false,
-			modelProviders: [],
+			modelProviders: ["opencode"],
 			fileEditing: false,
 			toolUse: false,
 		},
-		modelProviders: [],
+		modelProviders: ["opencode"],
 	},
 	{
 		type: "cursor-agent",
 		name: "Cursor Agent",
 		kind: "local",
 		accessMode: "provider-subscription-cli",
+		badge: "Early Access",
 		authAction: { kind: "none", label: "Configured in the Cursor app" },
 		discovery: {
 			state: "unavailable",
-			reason: "No documented headless local CLI surface exists. Use Cursor inside the Cursor app.",
+			reason: "No documented headless local CLI surface — use Cursor inside the Cursor app.",
 		},
 		models: [],
 		runtime: {
