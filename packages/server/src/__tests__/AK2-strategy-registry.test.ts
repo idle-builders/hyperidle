@@ -54,6 +54,10 @@ function makeInertStrategy(): Strategy<HyperIdleDb> {
 		async selectAgent(_req) {
 			return { agentId: null };
 		},
+		// AK8: decomposeBet stub — not implemented in registry tests (not under test here)
+		async decomposeBet(_req) {
+			return { decomposerAgentId: null, tasks: [] };
+		},
 	};
 }
 

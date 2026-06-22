@@ -360,6 +360,25 @@ export interface UserCreatedEvent {
 }
 
 /**
+ * AK8: Emitted by the Kernel when a committed bet enters decomposition.
+ * Observable "work to decompose" occasion (AC1). Post-CAS, post-eligible-check —
+ * only the CAS winner emits, so a duplicate `bet_state_changed(active)` produces
+ * exactly one emit. Sibling of WorkSelectionRequestedEvent — same audit-only
+ * semantics; the decomposition DECISION arrives via the synchronous `decomposeBet`
+ * port call. streamId = teamId for per-team stream routing.
+ *
+ * @lore AK8 @lore O1: interface + union + emit site (bet-decomposition.ts).
+ * The event is audit/observability-only — no subscriber mutates state off it.
+ */
+export interface WorkDecomposeRequestedEvent {
+	type: "work_decompose_requested";
+	streamId: string; // = teamId
+	teamId: string;
+	betId: string; // the work keyed to this decomposition
+	at: string; // ISO 8601
+}
+
+/**
  * Kernel events: entity lifecycle facts. When a kernel entity changes state,
  * these events announce what happened.
  *
@@ -392,7 +411,9 @@ export type KernelEvent =
 	| AgentAddedEvent
 	| UserCreatedEvent
 	// AK7: selection occasion event
-	| WorkSelectionRequestedEvent;
+	| WorkSelectionRequestedEvent
+	// AK8: decomposition occasion event
+	| WorkDecomposeRequestedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

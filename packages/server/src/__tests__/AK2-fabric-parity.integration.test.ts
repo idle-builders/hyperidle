@@ -125,6 +125,13 @@ class FabricStrategySpy implements Strategy<HyperIdleDb> {
 	): Promise<import("@hyperidle/shared").SelectAgentOutcome> {
 		return { agentId: null };
 	}
+
+	// AK8: decomposeBet stub — FabricStrategySpy test is not about decomposition.
+	async decomposeBet(
+		_req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").DecompositionPlan> {
+		return { decomposerAgentId: null, tasks: [] };
+	}
 }
 
 // ---------------------------------------------------------------------------

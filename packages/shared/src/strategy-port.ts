@@ -15,6 +15,7 @@
  * (they already depend on db).
  */
 
+import type { DecompositionTaskInput } from "./bet-decomposition.js";
 import type { UserRole } from "./types.js";
 
 /**
@@ -246,6 +247,44 @@ export interface SelectAgentOutcome {
 }
 
 /**
+ * AK8: The occasion handed to the Strategy when a bet enters decomposition.
+ * Carries the bet + the Kernel-enumerated eligible candidates (mechanism), never an answer.
+ * teamId/betId for correlation.
+ *
+ * @lore AK8: decomposeBet is a PLANNING call (occasion → decision), exactly like
+ * selectAgent. The Kernel runs the PM turn as mechanism on behalf of the Strategy's
+ * chosen agent — Execution is Kernel (§2a row 3).
+ */
+export interface DecomposeBetRequest<TDb> {
+	readonly db: TDb;
+	readonly teamId: string;
+	readonly betId: string;
+	readonly betDescription: string;
+	readonly betDoneCondition: string | null;
+	/** Eligible team candidates (active AI, category='team', orderBy users.id) —
+	 *  same enumeration as selectAgent's `candidates`. The Strategy picks the decomposer. */
+	readonly candidates: readonly SelectionCandidate[];
+}
+
+/**
+ * AK8: The Strategy's decomposition decision.
+ * - decomposerAgentId: which agent decomposes. null = no eligible decomposer → Kernel blocks.
+ *   NOT pre-validated — the Kernel re-validates it against the enumerated candidates (membership +
+ *   active-AI) before any session, since a third-party Strategy could return an off-team/inactive id.
+ * - tasks: the breakdown IF the Strategy authored one. EMPTY ([]) = "Kernel, run your default turn
+ *   with decomposerAgentId" (the AK3/Minimal fallback). NB: []-from-Strategy means "run turn";
+ *   []-from-turn means blocked/empty (T5 @lore documents the asymmetry at both sites).
+ *
+ * @lore AK8: The empty-list asymmetry: plan.tasks===[] means "Strategy authored no breakdown →
+ * fall through to override/turn", whereas an empty taskList produced by the turn means
+ * blocked/empty. Same [] value, opposite meaning depending on origin.
+ */
+export interface DecompositionPlan {
+	readonly decomposerAgentId: string | null;
+	readonly tasks: readonly DecompositionTaskInput[];
+}
+
+/**
  * The Strategy Port. Exactly one Strategy is active per process.
  *
  * The Kernel calls this surface and NEVER imports a concrete Strategy
@@ -297,4 +336,21 @@ export interface Strategy<TDb> {
 	 * every selection surface now consults this one method.
 	 */
 	selectAgent(req: SelectAgentRequest<TDb>): Promise<SelectAgentOutcome>;
+	/**
+	 * AK8: The Strategy decides WHO decomposes and WHAT the breakdown is.
+	 *
+	 * Returns a DecompositionPlan: decomposerAgentId (null = no agent → Kernel blocks)
+	 * + tasks (the breakdown IF the Strategy authored one; [] = Kernel runs its default
+	 * PM turn). This is a planning call only — the Strategy NEVER spawns a session and
+	 * NEVER enforces cost (strategy-port.ts hard rule).
+	 *
+	 * Turn-source precedence (Kernel-side):
+	 *   1. plan.tasks.length > 0  → persist those tasks; skip override and real turn.
+	 *   2. deps.runDecompositionTurn present → call it (protected-test seam).
+	 *   3. else → real PM turn (AK3/Minimal default fallback).
+	 *
+	 * @lore AK8: []-from-Strategy means "run turn" (Minimal/Fabric v1 both return tasks:[]).
+	 * []-from-turn means blocked/empty. Same value, opposite meaning — see DecompositionPlan.
+	 */
+	decomposeBet(req: DecomposeBetRequest<TDb>): Promise<DecompositionPlan>;
 }

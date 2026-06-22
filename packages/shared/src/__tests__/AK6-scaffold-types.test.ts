@@ -252,6 +252,9 @@ describe("T2: switch(event.type) over KernelEvent compiles exhaustively for new 
 				// AK7: selection occasion event
 				case "work_selection_requested":
 					return "work_selection_requested";
+				// AK8: decomposition occasion event
+				case "work_decompose_requested":
+					return "work_decompose_requested";
 			}
 		}
 

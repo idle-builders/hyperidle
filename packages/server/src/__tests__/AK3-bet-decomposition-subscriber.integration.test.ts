@@ -128,6 +128,20 @@ function makeFabricLikeStrategy() {
 				return { agentId: null };
 			},
 		),
+		/**
+		 * AK8 T1/W3: decomposeBet added to satisfy Strategy<TDb> 5-method interface.
+		 * Returns role-match PM and tasks:[] so tests land on override branch.
+		 *
+		 * @lore AK8: fixture shape grows; frozen assertions byte-identical.
+		 */
+		decomposeBet: vi.fn(
+			async (req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>): Promise<import("@hyperidle/shared").DecompositionPlan> => {
+				const pm =
+					req.candidates.find((c: import("@hyperidle/shared").SelectionCandidate) => c.role === "product_manager") ??
+					req.candidates[0];
+				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+			},
+		),
 	};
 }
 

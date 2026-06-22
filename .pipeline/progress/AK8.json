@@ -1,0 +1,11 @@
+{
+  "id": "AK8",
+  "status": "in_progress",
+  "currentStep": "3-write-code",
+  "complexity": "L",
+  "branch": "feat/AK8-strategy-decomposition",
+  "pr": 347,
+  "worktree": ".worktrees/AK8",
+  "startedAt": "2026-06-22T00:00:00Z",
+  "notes": "Architecture PASS 8.5/10. No UI. Phase 3 TDD."
+}
