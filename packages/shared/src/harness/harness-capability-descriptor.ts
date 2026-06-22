@@ -71,6 +71,12 @@ export interface HarnessDiscoveryStatus {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
 	readonly reason?: string;
+	/**
+	 * AM4 additive field — stamped by the route handler (not the pool, which is DB-free).
+	 * true when the type is in server_config.harnessDisabled. "builtin" is always exempt.
+	 * Undefined/absent == not disabled (same as false). Breaking: no — additive field.
+	 */
+	readonly disabled?: boolean;
 }
 
 export interface HarnessCapabilityDescriptor {
