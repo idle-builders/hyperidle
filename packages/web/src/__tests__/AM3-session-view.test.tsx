@@ -15,8 +15,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReasoningPart } from "../components/parts/ReasoningPart.js";
 import { ToolPart } from "../components/parts/ToolPart.js";
-import { SessionView } from "../components/SessionView.js";
 import type { SessionViewCost, SessionViewIdentity } from "../components/SessionView.js";
+import { SessionView } from "../components/SessionView.js";
 
 // ── Shared fixtures ────────────────────────────────────────────────────────
 
@@ -75,10 +75,7 @@ const NO_OP_OPEN: OpenHandler = () => undefined;
 describe("ToolPart", () => {
 	it("renders verb and target", () => {
 		render(
-			<ToolPart
-				part={mkToolPart({ verb: "Edit", target: "src/main.ts" })}
-				onOpen={NO_OP_OPEN}
-			/>,
+			<ToolPart part={mkToolPart({ verb: "Edit", target: "src/main.ts" })} onOpen={NO_OP_OPEN} />,
 		);
 		expect(screen.getByText("Edit")).toBeInTheDocument();
 		expect(screen.getByText("src/main.ts")).toBeInTheDocument();
@@ -101,12 +98,7 @@ describe("ToolPart", () => {
 
 	it("expands output on click when output is present", () => {
 		const output = "rewrote 3 call sites";
-		render(
-			<ToolPart
-				part={mkToolPart({ output, status: "ok" })}
-				onOpen={NO_OP_OPEN}
-			/>,
-		);
+		render(<ToolPart part={mkToolPart({ output, status: "ok" })} onOpen={NO_OP_OPEN} />);
 		// Output is hidden initially
 		expect(screen.queryByText(output)).not.toBeInTheDocument();
 
@@ -117,12 +109,7 @@ describe("ToolPart", () => {
 	});
 
 	it("does not render expand button when no output", () => {
-		render(
-			<ToolPart
-				part={mkToolPart({ output: undefined, status: "ok" })}
-				onOpen={NO_OP_OPEN}
-			/>,
-		);
+		render(<ToolPart part={mkToolPart({ output: undefined, status: "ok" })} onOpen={NO_OP_OPEN} />);
 		expect(screen.queryByRole("button")).not.toBeInTheDocument();
 	});
 
@@ -143,9 +130,7 @@ describe("ToolPart", () => {
 		const diffChip = screen.getByRole("button", { name: /stream\.ts/i });
 		fireEvent.click(diffChip);
 		expect(onOpen).toHaveBeenCalledTimes(1);
-		expect(onOpen).toHaveBeenCalledWith(
-			expect.objectContaining({ route: "review" }),
-		);
+		expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ route: "review" }));
 	});
 
 	it("fires onOpen with session route when sub-agent open button is clicked", () => {
