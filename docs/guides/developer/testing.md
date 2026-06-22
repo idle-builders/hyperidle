@@ -80,6 +80,57 @@ npm run test:e2e
 
 Playwright config is in `packages/web/playwright.config.ts`. It runs Chromium only.
 
+### AH6 Real-Interaction Lane (record/replay + live refresh)
+
+The AH6 lane proves three real assistant interactions end-to-end — DM round-trip, tool action visible in the UI, and thinking→answered streaming transition — through the live `AssistantOverlay` with no mocks on the proof path.
+
+Two modes:
+
+**Everyday replay** — `$0`, offline, no key required. Replays committed cassettes from `packages/web/e2e/cassettes/default.json` at the `callLlm` choke point inside `packages/server/src/harness/llm-client.ts`. Runs in the normal e2e lane.
+
+```bash
+npm run test:e2e:ah6   # key-free, offline, deterministic
+```
+
+**On-demand live refresh** — re-records cassettes against a real cheap OpenRouter model, asserts loose invariants (non-empty reply, tool fired + effect visible, cost > 0 ≤ cap). LOCAL ONLY — never a GitHub Actions job. Requires `OPENROUTER_API_KEY`.
+
+```bash
+# Set OPENROUTER_API_KEY in .env first
+npm run smoke:ah6
+```
+
+#### How the cassette layer works
+
+`LLM_CASSETTE_MODE` env var gates the `callLlm` function in `llm-client.ts`:
+
+| `LLM_CASSETTE_MODE` | Behavior |
+|---|---|
+| unset (production) | Direct network call — zero overhead, no interception |
+| `replay` | Returns the recorded `LlmResponse` from `LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json`. Awaits `LLM_REPLAY_DELAY_MS` (default 80ms) before returning so the ThinkingRow is paintable. No network call, no key. |
+| `record` | Makes a real call via `callLlmDirect`, records `{key, request, response}` to the cassette file on process exit. Accumulates cost and fails closed if `AH6_MAX_COST_CENTS` is exceeded mid-run. |
+
+Cassette key = SHA-256 of canonical JSON `{model, system, messages, tools, maxTokens}`. Tool-use ids, timestamps, agent ids, and UUIDs are normalized to stable tokens so keys are deterministic across runs. `apiKey`/`baseUrl`/`provider` are excluded from the hash (offline-invariant). A missing key in replay mode throws `CassetteMissError` — fail-closed, never falls through to a network call.
+
+Cassette files at `packages/web/e2e/cassettes/default.json` are committed to git. Re-recording regenerates the file; the PR diff is the maintainer's drift-detection surface.
+
+#### Ports
+
+| Lane | API port | Vite port |
+|---|---|---|
+| Dev server | 3001 | 5173 |
+| AH5 lane | 3097 | 5182 |
+| AH6 lane | 3098 | 5183 |
+
+#### Spec file
+
+`packages/web/e2e/AH6-assistant-interaction.spec.ts` — three scenarios (S1/S2/S3) using real `AssistantOverlay` handles. No `page.route()` on the assistant, turn, session, credential, or LLM paths. Shell-scaffolding mocks (auth/me, teams) are tolerated to render the shell.
+
+#### AH5 superseded
+
+AH6 supersedes AH5's synthetic probe (`ah5-real-turn-probe.ts` + `write_session_notes("AH5-SMOKE-OK")` task). Those artifacts are deleted. `smoke:ah5` is retired. The AH5 encrypted-credential test (`ah5-live-agent-path.spec.ts` S1) and the broken-stream gate (`ah5-gates-on-broken-stream.integration.test.ts`) remain — they cover distinct production paths.
+
+The `ah6-no-mock-guard` (part of `npm run verify`) statically fails if `AH5-SMOKE-OK` or `ah5-real-turn-probe` string literals reappear in `packages/` or `scripts/`.
+
 ### Test Conventions
 
 - Test files live in `packages/`. No tests in `scripts/` or project root.
