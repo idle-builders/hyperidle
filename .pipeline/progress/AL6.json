@@ -3,13 +3,13 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "done",
-  "currentStep": "shipped",
+  "status": "in_progress",
+  "currentStep": "3-build-v2",
   "startedAt": "2026-06-22T22:34:00+02:00",
-  "completedAt": "2026-06-23T00:10:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
-  "reviewVerdict": "DONE",
-  "notes": "Concept-introducing harness/agent-layer enforcement WP. No UI surface. ReturnGate observer over streamEvents at two enforced drain sites; tools:[] extraction drains exempt; session_not_returned flag-not-block v1; no-ungated-stream-drain lint guard."
+  "reopenedAt": "2026-06-23T00:40:00+02:00",
+  "reopenReason": "founder-rejected: (1) enforcement is flag-only, does not force return/continue — AC1/AC3 'not accepted as complete' unmet; (2) ignored purpose-built hook mechanism (Stop/turn-end hooks) in favor of passive observer; (3) no LLM integration test/eval proving live-agent behavior. Back to /architecture.",
+  "notes": "v1 shipped a read-only ReturnGate observer that only emits session_not_returned. Re-architecting for hook-based forcing enforcement + live-agent eval as DoD. Prior artifacts retired into docs/agent-layer/return-gate-enforcement.md (git history has plans/AL6)."
 }

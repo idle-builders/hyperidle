@@ -1,28 +1,44 @@
 /**
- * AL6 — Integration tests for return-gate enforcement.
+ * AL6 v2 — Integration tests for return-gate enforcement.
  *
  * Drives the PRODUCTION runSession/provisionSession path with stub harness
- * adapters to assert the return-gate enforcement.
+ * adapters to assert the v2 return-gate enforcement.
  *
  * Covers:
- *   AC1: A turn ending with a return action → accepted (returnVerdict="returned",
- *        no session_not_returned event). A turn ending without one → not_returned
- *        (returnVerdict="not_returned", session_not_returned emitted).
- *   AC3: Detection is surface-visible: session_not_returned is emitted on the bus
- *        (never silently completed).
- *   AC4: Enforcement holds uniformly — parametrized across adapter shapes
- *        (builtin-shaped, CLI-shaped, remote-shaped via mock configs).
- *        The internal-extraction drain exemption: a tools:[] drain run does NOT
- *        emit session_not_returned.
+ *   AC1/AC3 (v2 teeth): A turn ending without a return action is NOT accepted
+ *     as completed — `outcome` is "not_returned" (NEVER "completed"), the
+ *     PERSISTED session row outcome is "not_returned", the session_ended event
+ *     outcome is "not_returned", AND session_not_returned is emitted.
+ *     (WARNING-A: the test deliberately asserts the persisted row and the
+ *     session_ended event, not just the in-memory ProvisionSessionResult. This
+ *     forces T6 to fix endSession's hardcoded "completed" at :276 and :295 in
+ *     session-lifecycle.ts — the v1 bug would survive in the DB if only the
+ *     in-memory result were asserted.)
+ *   AC1 (happy path): A turn ending with a return action IS accepted as
+ *     completed — outcome "completed", no session_not_returned event.
+ *   AC4 (uniformity): enforcement holds across adapter shapes (Tier-1 builtin,
+ *     Tier-2 cli/remote-shaped via mock). Both produce non-"completed" outcomes
+ *     on no-return turns. The canForceReturn capability bit is read from the
+ *     adapter capabilities and drives the tier selection.
+ *   AC5 (integration): mid-turn non-terminal tools all execute normally; a turn
+ *     calling read_inbox + write_memory then submit_review is accepted as
+ *     completed with no force injected.
+ *   AC4 (canForceReturn table): each real adapter class reports the expected
+ *     canForceReturn bit (SDK: true, builtin: true, cli: false, remote: false,
+ *     isolated: false). Asserted via dynamic import of each adapter class.
  *
- * Tests FAIL until:
- *   - return-gate.ts is implemented
- *   - returnVerdict is added to ProvisionSessionResult
- *   - session_not_returned event is added to DomainEvent
- *   - gate is wired into runSession (site A)
+ * Tests FAIL (red) until:
+ *   - AL6_MAX_FORCE_RETURNS / AL6_FORCE_RETURN_MESSAGE added to @hyperidle/shared (T1)
+ *   - canForceReturn added to HarnessCapabilities (T1)
+ *   - not_returned added to SessionOutcome (T1)
+ *   - returnVerdict is on ProvisionSessionResult (already exists from v1)
+ *   - session_not_returned event is on DomainEvent (already exists from v1)
+ *   - gate is wired into runSession site A (already from v1)
+ *   - endSession writes "not_returned" outcome to DB row AND session_ended event (T6)
+ *   - provisionSession returns outcome:"not_returned" on not_returned verdict (T6)
  */
 
-import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { fabricStrategy } from "@hyperidle/fabric";
 import type {
 	HarnessAdapter,
@@ -33,6 +49,7 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
@@ -110,22 +127,28 @@ const FAKE_RESOLVED_MODEL = {
 
 /**
  * Build a stub HarnessAdapter whose stream emits a fixed sequence of events,
- * then exhausts.  `events` controls what tool_calls (if any) the "agent" makes.
+ * then exhausts. `events` controls what tool_calls (if any) the "agent" makes.
+ * `canForceReturn` controls the Tier-1 vs Tier-2 capability.
  *
- * Setting returnTool: "submit_review" | "handoff_to" | "send_message" | null
- * lets each test control whether a return action appears in the stream.
+ * v2: canForceReturn defaults to false (Tier-2 / reject path) — the expected
+ * behavior for CLI/remote/isolated adapters that cannot natively force-continue.
  */
 function makeStubAdapter(
 	streamEvents: HarnessEvent[],
 	caps: Partial<HarnessCapabilities> = {},
 ): HarnessAdapter {
-	const capabilities: HarnessCapabilities = {
+	// v2: canForceReturn is added to HarnessCapabilities in T1. Cast to include it
+	// now so the test is runnable in the red phase. After T1 ships the field, the
+	// cast becomes redundant but harmless (green phase removes it).
+	const capabilities = {
 		preCompactionTrigger: false,
 		subAgents: false,
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		mcpSupport: false,
+		// v2 (T1): canForceReturn defaults false → Tier-2 reject path in tests
+		canForceReturn: false,
 		...caps,
-	};
+	} as HarnessCapabilities;
 
 	return {
 		async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -152,18 +175,34 @@ function makeStubAdapter(
 	};
 }
 
-/** Run provisionSession with a given adapter stub, returning result + collected events. */
+/**
+ * Run provisionSession with a given adapter stub, returning result + collected events.
+ *
+ * @returns result and both the emitted event types AND the raw session_ended event
+ * (so tests can assert its outcome field — WARNING-A).
+ */
 async function runWithAdapter(
 	db: Parameters<typeof provisionSession>[0]["db"],
 	taskId: string,
 	adapter: HarnessAdapter,
 	adapterName = "al6-stub",
-): Promise<{ result: Awaited<ReturnType<typeof provisionSession>>; emittedEventTypes: string[] }> {
+): Promise<{
+	result: Awaited<ReturnType<typeof provisionSession>>;
+	emittedEventTypes: string[];
+	sessionEndedOutcomes: string[];
+}> {
 	const eventBus = new EventBus();
 	const emittedEventTypes: string[] = [];
+	const sessionEndedOutcomes: string[] = [];
 
 	eventBus.on("*", (ev) => {
 		emittedEventTypes.push(ev.type);
+	});
+	// Capture the session_ended event outcome (WARNING-A: verify the bus event carries
+	// the correct outcome, not the hardcoded "completed" that v1's endSession emits).
+	eventBus.on("session_ended" as Parameters<typeof eventBus.on>[0], (ev) => {
+		const e = ev as unknown as { outcome: string };
+		sessionEndedOutcomes.push(e.outcome);
 	});
 
 	const pool = new AdapterPool();
@@ -188,12 +227,12 @@ async function runWithAdapter(
 		},
 	);
 
-	return { result, emittedEventTypes };
+	return { result, emittedEventTypes, sessionEndedOutcomes };
 }
 
 // ── Lifecycle env setup ───────────────────────────────────────────────────────
 
-describe("AL6 — return-gate integration", () => {
+describe("AL6 v2 — return-gate integration", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "al6-gate-test-key");
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "al6-gate-cred-key-32chars!!!!");
@@ -206,10 +245,10 @@ describe("AL6 — return-gate integration", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ── AC1: turn with a return action is accepted ─────────────────────────
+	// ── AC1: turn with a return action is accepted (happy path) ───────────────
 
-	describe("AC1 — turn ending with a return action is accepted", () => {
-		test("submit_review in stream → returnVerdict='returned', no session_not_returned", async ({
+	describe("AC1 — turn ending with a return action is accepted as completed", () => {
+		test("submit_review in stream → returnVerdict='returned', outcome='completed', no session_not_returned", async ({
 			db,
 		}) => {
 			const taskId = "al6-ac1-task-1";
@@ -223,20 +262,24 @@ describe("AL6 — return-gate integration", () => {
 				{ type: "completion", text: "Submitted." },
 			];
 
-			const { result, emittedEventTypes } = await runWithAdapter(
+			const { result, emittedEventTypes, sessionEndedOutcomes } = await runWithAdapter(
 				db,
 				taskId,
 				makeStubAdapter(events),
 				"al6-stub-submit",
 			);
 
-			// AC1: returnVerdict must be "returned" (field added by AL6 to ProvisionSessionResult)
+			// AC1: returnVerdict must be "returned"
 			expect(result.returnVerdict).toBe("returned");
+			// AC1 (v2): outcome must be "completed" — compliant turn is accepted
+			expect(result.outcome).toBe("completed");
 			// AC3: no session_not_returned event should have been emitted
 			expect(emittedEventTypes).not.toContain("session_not_returned");
+			// WARNING-A: the session_ended event on the bus must also carry "completed"
+			expect(sessionEndedOutcomes).toContain("completed");
 		});
 
-		test("handoff_to in stream → returnVerdict='returned'", async ({ db }) => {
+		test("handoff_to in stream → returnVerdict='returned', outcome='completed'", async ({ db }) => {
 			const taskId = "al6-ac1-task-2";
 			await seedDb(db, taskId);
 
@@ -254,10 +297,13 @@ describe("AL6 — return-gate integration", () => {
 			);
 
 			expect(result.returnVerdict).toBe("returned");
+			expect(result.outcome).toBe("completed");
 			expect(emittedEventTypes).not.toContain("session_not_returned");
 		});
 
-		test("send_message in stream → returnVerdict='returned'", async ({ db }) => {
+		test("send_message in stream → returnVerdict='returned', outcome='completed'", async ({
+			db,
+		}) => {
 			const taskId = "al6-ac1-task-3";
 			await seedDb(db, taskId);
 
@@ -274,17 +320,28 @@ describe("AL6 — return-gate integration", () => {
 			);
 
 			expect(result.returnVerdict).toBe("returned");
+			expect(result.outcome).toBe("completed");
 			expect(emittedEventTypes).not.toContain("session_not_returned");
 		});
 	});
 
-	// ── AC1 + AC3: turn without a return action is detected and surfaced ───
+	// ── AC1 + AC3 (v2 teeth): no-return turn → outcome "not_returned" ─────────
+	//
+	// WARNING-A: These tests assert BOTH:
+	//   (a) the ProvisionSessionResult.outcome is "not_returned" (in-memory)
+	//   (b) the PERSISTED sessions.outcome DB column is "not_returned"
+	//   (c) the session_ended bus event carries outcome "not_returned"
+	//
+	// The v1 bug was: endSession hardcoded outcome:"completed" at :276 (row) and
+	// :295 (event), so result.outcome could say "not_returned" but the DB row and
+	// the bus event still said "completed". These assertions force T6 to fix
+	// endSession — not just the in-memory result struct.
 
-	describe("AC1 + AC3 — turn ending without a return action is detected + surfaced", () => {
-		test("no return in stream → returnVerdict='not_returned' + session_not_returned emitted", async ({
+	describe("AC1 + AC3 (v2) — no-return turn → outcome 'not_returned', persisted row, bus event", () => {
+		test("no return in stream → result.outcome='not_returned' (NEVER 'completed')", async ({
 			db,
 		}) => {
-			const taskId = "al6-ac3-task-1";
+			const taskId = "al6-ac3-v2-task-1";
 			await seedDb(db, taskId);
 
 			// Agent calls non-terminal tools only — never returns
@@ -299,32 +356,109 @@ describe("AL6 — return-gate integration", () => {
 				db,
 				taskId,
 				makeStubAdapter(events),
-				"al6-stub-noreturn",
+				"al6-stub-noreturn-v2",
 			);
 
-			// AC1: must be flagged not_returned
+			// AC1 v2: returnVerdict says not_returned
 			expect(result.returnVerdict).toBe("not_returned");
-			// AC3: must surface the escape via the event bus (never silent)
+			// AC1 v2 (the main addition vs v1): outcome must NOT be "completed"
+			expect(result.outcome).toBe("not_returned");
+			// Defensive: make sure it's really not "completed"
+			expect(result.outcome).not.toBe("completed");
+			// AC3: session_not_returned must still be emitted
 			expect(emittedEventTypes).toContain("session_not_returned");
 		});
 
-		test("empty stream (no events at all) → not_returned + event emitted", async ({ db }) => {
-			const taskId = "al6-ac3-task-2";
+		test(
+			"WARNING-A: PERSISTED sessions.outcome row is 'not_returned' (not 'completed') " +
+				"when turn ends without a return",
+			async ({ db }) => {
+				const taskId = "al6-ac3-v2-persist-1";
+				await seedDb(db, taskId);
+
+				// Agent calls no return action
+				const events: HarnessEvent[] = [
+					{ type: "tool_call", toolName: "write_memory", args: { key: "k", value: "v" } },
+					{ type: "completion", text: "done without returning" },
+				];
+
+				const { result } = await runWithAdapter(
+					db,
+					taskId,
+					makeStubAdapter(events),
+					"al6-stub-persist-warn-a",
+				);
+
+				// First assert the in-memory result
+				expect(result.outcome).toBe("not_returned");
+
+				// WARNING-A: query the DB directly — the persisted row MUST also say "not_returned"
+				// This test FAILS on v1's endSession because endSession hardcodes outcome:"completed"
+				// at session-lifecycle.ts:276. T6 must pass "not_returned" through endSession to the
+				// row .set({outcome}) call.
+				const [session] = await db
+					.select({ outcome: sessions.outcome })
+					.from(sessions)
+					.where(eq(sessions.id, result.sessionId))
+					.limit(1);
+
+				expect(session).toBeDefined();
+				// The v1 bug: this would be "completed" because endSession hardcodes it
+				expect(session?.outcome).toBe("not_returned");
+				expect(session?.outcome).not.toBe("completed");
+			},
+		);
+
+		test(
+			"WARNING-A: session_ended bus event carries outcome='not_returned' " +
+				"(not hardcoded 'completed')",
+			async ({ db }) => {
+				const taskId = "al6-ac3-v2-bus-1";
+				await seedDb(db, taskId);
+
+				const events: HarnessEvent[] = [
+					{ type: "tool_call", toolName: "read_inbox", args: {} },
+					{ type: "completion", text: "forgot to return" },
+				];
+
+				const { result, sessionEndedOutcomes } = await runWithAdapter(
+					db,
+					taskId,
+					makeStubAdapter(events),
+					"al6-stub-bus-warn-a",
+				);
+
+				expect(result.outcome).toBe("not_returned");
+
+				// WARNING-A: the session_ended event emitted on the bus must carry
+				// outcome:"not_returned", not the hardcoded "completed" from v1 endSession:295.
+				// This test FAILS until T6 threads the terminal outcome into the event.
+				expect(sessionEndedOutcomes).toContain("not_returned");
+				expect(sessionEndedOutcomes).not.toContain("completed");
+			},
+		);
+
+		test("empty stream → not_returned + session_not_returned emitted + row persisted", async ({
+			db,
+		}) => {
+			const taskId = "al6-ac3-v2-empty-1";
 			await seedDb(db, taskId);
 
 			const { result, emittedEventTypes } = await runWithAdapter(
 				db,
 				taskId,
 				makeStubAdapter([]),
-				"al6-stub-empty",
+				"al6-stub-empty-v2",
 			);
 
 			expect(result.returnVerdict).toBe("not_returned");
+			expect(result.outcome).toBe("not_returned");
+			expect(result.outcome).not.toBe("completed");
 			expect(emittedEventTypes).toContain("session_not_returned");
 		});
 
-		test("session_not_returned event has correct shape", async ({ db }) => {
-			const taskId = "al6-ac3-task-3";
+		test("session_not_returned event has correct shape (v2 unchanged from v1)", async ({ db }) => {
+			const taskId = "al6-ac3-v2-shape-1";
 			await seedDb(db, taskId);
 
 			const eventBus = new EventBus();
@@ -363,33 +497,67 @@ describe("AL6 — return-gate integration", () => {
 				agentId: TEST_AGENT_ID,
 				taskId,
 			});
-			expect(typeof ev["sessionId"]).toBe("string");
-			expect(typeof ev["timestamp"]).toBe("number");
+			expect(typeof ev.sessionId).toBe("string");
+			expect(typeof ev.timestamp).toBe("number");
 		});
 	});
 
-	// ── AC4: uniformity across harness shapes ─────────────────────────────
+	// ── AC4: uniformity across harness shapes ──────────────────────────────────
+	//
+	// v2: the guarantee is uniform — no not-returned turn is ever accepted as
+	// completed — but the mechanism degrades (Tier-1 force vs Tier-2 reject).
+	// This parametrized test verifies the guarantee (outcome never "completed"
+	// without return) holds for both Tier-1-shaped and Tier-2-shaped adapters.
 
-	describe("AC4 — enforcement holds uniformly across harness adapter shapes", () => {
-		// Parametrized: same verdict rule, different adapter "shapes" (via caps).
-		// All are actually stub adapters that emit the same events — what changes
-		// is the capabilities descriptor, exercising the code paths that branch
-		// on adapter capabilities (e.g. mcpSupport).
-
-		const shapes: Array<{
+	describe("AC4 v2 — enforcement guarantee (never completed-without-return) holds uniformly", () => {
+		// v2: canForceReturn is added to HarnessCapabilities in T1. Cast caps to
+		// include it now so the tests run in red. After T1 the casts are redundant.
+		type CapsWithForce = Partial<HarnessCapabilities> & { canForceReturn?: boolean };
+		const adapterShapes: Array<{
 			name: string;
-			caps: Partial<HarnessCapabilities>;
+			caps: CapsWithForce;
+			tier: "tier1-force" | "tier2-reject";
 		}> = [
-			{ name: "builtin-shaped", caps: { mcpSupport: false } },
-			{ name: "cli-shaped", caps: { mcpSupport: false, subAgents: false } },
-			{ name: "mcp-remote-shaped", caps: { mcpSupport: true } },
+			// Tier-1 (force): canForceReturn:true — SDK + builtin
+			{
+				name: "builtin-shaped-tier1",
+				caps: { canForceReturn: true, mcpSupport: false },
+				tier: "tier1-force",
+			},
+			{
+				name: "sdk-shaped-tier1",
+				caps: { canForceReturn: true, mcpSupport: true, subAgents: true },
+				tier: "tier1-force",
+			},
+			// Tier-2 (reject): canForceReturn:false — cli/remote/isolated
+			{
+				name: "cli-shaped-tier2",
+				caps: { canForceReturn: false, mcpSupport: false },
+				tier: "tier2-reject",
+			},
+			{
+				name: "remote-shaped-tier2",
+				caps: { canForceReturn: false, mcpSupport: false, subAgents: false },
+				tier: "tier2-reject",
+			},
+			{
+				name: "isolated-shaped-tier2",
+				caps: { canForceReturn: false, mcpSupport: true },
+				tier: "tier2-reject",
+			},
 		];
 
-		for (const shape of shapes) {
-			test(`${shape.name}: no-return stream → not_returned`, async ({ db }) => {
-				const taskId = `al6-ac4-${shape.name}-noreturn`;
+		for (const shape of adapterShapes) {
+			test(`${shape.name} (${shape.tier}): no-return stream → outcome NOT 'completed'`, async ({
+				db,
+			}) => {
+				const taskId = `al6-ac4-v2-${shape.name}-noreturn`;
 				await seedDb(db, taskId);
 
+				// Stub stream emits non-return tools only — no forcing possible since stub
+				// adapter can't actually force-continue. But the guarantee must hold:
+				// after the stream exhausts (with or without forcing), the outcome is
+				// never "completed" when no return was seen.
 				const events: HarnessEvent[] = [
 					{ type: "tool_call", toolName: "write_memory", args: {} },
 					{ type: "completion", text: "done" },
@@ -402,12 +570,16 @@ describe("AL6 — return-gate integration", () => {
 					`al6-${shape.name}-stub`,
 				);
 
+				// AC4 v2 guarantee: never "completed" without a return, regardless of tier
+				expect(result.outcome).not.toBe("completed");
 				expect(result.returnVerdict).toBe("not_returned");
 				expect(emittedEventTypes).toContain("session_not_returned");
 			});
 
-			test(`${shape.name}: submit_review in stream → returned`, async ({ db }) => {
-				const taskId = `al6-ac4-${shape.name}-return`;
+			test(`${shape.name} (${shape.tier}): submit_review in stream → outcome 'completed'`, async ({
+				db,
+			}) => {
+				const taskId = `al6-ac4-v2-${shape.name}-return`;
 				await seedDb(db, taskId);
 
 				const events: HarnessEvent[] = [
@@ -422,6 +594,7 @@ describe("AL6 — return-gate integration", () => {
 					`al6-${shape.name}-return-stub`,
 				);
 
+				expect(result.outcome).toBe("completed");
 				expect(result.returnVerdict).toBe("returned");
 				expect(emittedEventTypes).not.toContain("session_not_returned");
 			});
@@ -431,49 +604,103 @@ describe("AL6 — return-gate integration", () => {
 		test("tools:[] extraction-style drain is NOT flagged not_returned", async ({ db }) => {
 			// This test exercises the isInternalExtractionDrain exemption:
 			// a session run with no tools cannot invoke a return action and is
-			// never flagged (concept §1.5). We verify the bet-decomposition-style
-			// use of drainForCompletion does not produce a session_not_returned event.
-			// NOTE: This drives bet-decomposition's drainForCompletion indirectly by
-			// confirming that any tools:[] stub adapter drain is exempt.
-			// The most direct test is to confirm isInternalExtractionDrain(config)
-			// returns true for {tools:[]} — covered in the unit test.
-			// Here we confirm session_not_returned is NOT emitted when the adapter
-			// is invoked with tools:[] config (the exemption path at the drain site).
-			const taskId = "al6-ac4-extraction-exempt";
+			// never flagged (concept §1.5). Verified via the value-import predicate.
+			const taskId = "al6-ac4-v2-extraction-exempt";
 			await seedDb(db, taskId);
 
-			// Build an adapter that returns nothing (like the extraction drain) with tools:[]
-			// NOTE: provisionSession runs the full provisioning path; the extraction drain
-			// exemption applies when the SessionConfig.tools is []. But provisionSession
-			// populates tools from the agent's role — so this test uses a very specific
-			// approach: confirm that a stream with ONLY a completion event (no return tool)
-			// on the actual extraction path (bet-decomposition) does not produce the event.
-			//
-			// @lore AL6: The cleanest proof for the exemption is the isInternalExtractionDrain
-			// unit test in the closure test file. This integration test proves the
-			// end-to-end path doesn't regress by exercising the adapter with an empty tool
-			// stream. If the enforcement is exempt-by-construction (site C is never gated),
-			// this test will vacuously pass (no event emitted). If the gate were wrongly
-			// wired to the extraction drain, it would emit session_not_returned here.
-			//
-			// We test the actual drainForCompletion path by invoking bet-decomposition
-			// directly — but that requires a full DB setup. For the integration gate,
-			// we verify the property via isInternalExtractionDrain in the unit test
-			// (AC4 §5 "value-import unit test asserting the exemption marker's claim").
-			// Mark this test as a verification of the design property:
 			const { isInternalExtractionDrain } = await import("@hyperidle/shared");
 			expect(isInternalExtractionDrain({ tools: [] })).toBe(true);
 			expect(isInternalExtractionDrain({ tools: ["submit_review"] })).toBe(false);
 		});
 	});
 
-	// ── AC5 (integration): mid-turn tools all execute normally ────────────
+	// ── AC4: per-adapter canForceReturn table ──────────────────────────────────
+	// Assert each real adapter class reports the expected canForceReturn bit.
+	// Tier-1 (force): SDK + builtin = true
+	// Tier-2 (reject): CLI + remote + isolated = false
+	//
+	// v2 (T1): canForceReturn is not yet on HarnessCapabilities. The cast below
+	// accesses the field anyway — it will be `undefined` until T2 adds it to each
+	// adapter's getCapabilities(). The test fails red until both T1 (type) and T2
+	// (implementation) are shipped.
 
-	describe("AC5 — mid-turn non-terminal tool use executes normally in integration", () => {
-		test("read_inbox + write_memory mid-turn, then submit_review → 'returned', all tools recorded", async ({
+	describe("AC4 v2 — canForceReturn capability table for real adapters", () => {
+		/** Helper: read canForceReturn from capabilities via a cast until T1 ships. */
+		function getCanForce(caps: HarnessCapabilities): boolean | undefined {
+			return (caps as HarnessCapabilities & { canForceReturn?: boolean }).canForceReturn;
+		}
+
+		test("BuiltinHarnessAdapter: canForceReturn === true (Tier-1 force)", async () => {
+			const { BuiltinHarnessAdapter } = await import("../../harness/builtin-harness-adapter.js");
+			const adapter = new BuiltinHarnessAdapter();
+			expect(getCanForce(adapter.getCapabilities())).toBe(true);
+		});
+
+		test("ClaudeAgentSdkAdapter: canForceReturn === true (Tier-1 force, SDK Stop hook)", async () => {
+			const { ClaudeAgentSdkAdapter } = await import("../../harness/claude-agent-sdk-adapter.js");
+			const adapter = new ClaudeAgentSdkAdapter();
+			expect(getCanForce(adapter.getCapabilities())).toBe(true);
+		});
+
+		test("CliHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
+			const adapter = new CliHarnessAdapter({
+				binary: "claude",
+				args: [],
+				envMap: {},
+				envAllowlist: [],
+				eventFormat: "ndjson" as const,
+			});
+			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+		});
+
+		test("RemoteHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+			const { RemoteHarnessAdapter } = await import("../../harness/remote-harness-adapter.js");
+			// RemoteHarnessAdapter(ws, registration) — provide minimal stubs
+			const fakeWs = {
+				send: () => undefined,
+				close: () => undefined,
+				on: () => undefined,
+				readyState: 1,
+			};
+			const fakeRegistration = {
+				type: "register" as const,
+				workerId: "test-worker",
+				modelProviders: ["anthropic"],
+				name: "Test Remote Worker",
+				maxConcurrent: 1,
+			};
+			const adapter = new RemoteHarnessAdapter(
+				fakeWs as unknown as ConstructorParameters<typeof RemoteHarnessAdapter>[0],
+				fakeRegistration as unknown as ConstructorParameters<typeof RemoteHarnessAdapter>[1],
+			);
+			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+		});
+
+		test("IsolatedHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+			const { IsolatedHarnessAdapter } = await import("../../harness/isolated-harness-adapter.js");
+			// IsolatedHarnessAdapter(resolver, config) — provide minimal stubs
+			const fakeResolver = { resolve: async (_key: string) => null };
+			const fakeConfig = {
+				maxMemoryMb: 512,
+				maxDurationMs: 60000,
+				envAllowlist: [],
+			};
+			const adapter = new IsolatedHarnessAdapter(
+				fakeResolver as unknown as ConstructorParameters<typeof IsolatedHarnessAdapter>[0],
+				fakeConfig,
+			);
+			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+		});
+	});
+
+	// ── AC5 (integration): mid-turn tools all execute normally ────────────────
+
+	describe("AC5 v2 — mid-turn non-terminal tool use executes normally", () => {
+		test("read_inbox + write_memory mid-turn, then submit_review → 'completed', all tools recorded", async ({
 			db,
 		}) => {
-			const taskId = "al6-ac5-task-1";
+			const taskId = "al6-ac5-v2-task-1";
 			await seedDb(db, taskId);
 
 			const eventBus = new EventBus();
@@ -515,8 +742,57 @@ describe("AL6 — return-gate integration", () => {
 			expect(toolCallsRecorded).toContain("write_memory");
 			expect(toolCallsRecorded).toContain("submit_review");
 
-			// And the return verdict must be correct
+			// AC5: return verdict and outcome must be correct
 			expect(result.returnVerdict).toBe("returned");
+			expect(result.outcome).toBe("completed");
+		});
+
+		test("mid-turn tools only (no return) → outcome not_returned, mid-turn tools still recorded", async ({
+			db,
+		}) => {
+			const taskId = "al6-ac5-v2-task-2";
+			await seedDb(db, taskId);
+
+			const eventBus = new EventBus();
+			const toolCallsRecorded: string[] = [];
+			eventBus.on("tool_call_recorded", (ev) => {
+				toolCallsRecorded.push(ev.toolName);
+			});
+
+			const events: HarnessEvent[] = [
+				{ type: "tool_call", toolName: "read_inbox", args: {} },
+				{ type: "tool_call", toolName: "write_memory", args: { key: "k", value: "v" } },
+				{ type: "completion", text: "done without return" },
+			];
+
+			const pool = new AdapterPool();
+			pool.register("al6-ac5-noreturn-stub", makeStubAdapter(events), {
+				name: "AL6 AC5 No Return Stub",
+				kind: "local",
+				type: "builtin",
+				modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+				maxConcurrent: 5,
+			});
+			const workspace = new LocalSandboxAdapter();
+
+			const result = await provisionSession(
+				{ db, eventBus, adapterPool: pool, workspace },
+				{
+					taskId,
+					agentId: TEST_AGENT_ID,
+					productId: TEST_TEAM_ID,
+					sandboxBasePath: "/tmp/al6-ac5-noreturn-test",
+					resolvedModel: FAKE_RESOLVED_MODEL,
+				},
+			);
+
+			// AC5: mid-turn tools must still have been recorded even on a not-returned turn
+			expect(toolCallsRecorded).toContain("read_inbox");
+			expect(toolCallsRecorded).toContain("write_memory");
+
+			// The outcome is not_returned — but that's the enforcement result, not a tool block
+			expect(result.outcome).toBe("not_returned");
+			expect(result.returnVerdict).toBe("not_returned");
 		});
 	});
 });
