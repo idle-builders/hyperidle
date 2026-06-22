@@ -604,13 +604,13 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 describe("AK8 AC4: Runtime strategy-swap changes decomposer — no Kernel code change", () => {
 	afterEach(() => clearActiveStrategy());
 
-	test("Minimal Strategy picks PM as decomposer; divergent Strategy picks last candidate — different decomposers, no Kernel edit", async ({
+	test("Minimal Strategy picks PM as decomposer; divergent Strategy picks first candidate — different decomposers, no Kernel edit", async ({
 		db,
 		eventBus,
 	}) => {
 		// Team with two agents: pm-agent (product_manager) and builder-agent (builder).
 		// Minimal picks pm-agent (role-match PM).
-		// Divergent picks builder-agent (last candidate).
+		// Divergent picks builder-agent (first candidate by users.id — "builder-ac4" < "pm-ac4").
 		// BOTH use the same Kernel code (runBetDecomposition unchanged).
 		// This is the RUNTIME AC4 proof — WARNING 2 / CRITICAL 2 resolved.
 		const { teamId, pmAgentId, builderAgentId } = await seedTeamWithTwoAgents(db, {
@@ -640,7 +640,7 @@ describe("AK8 AC4: Runtime strategy-swap changes decomposer — no Kernel code c
 			?.value) as DecompositionPlan;
 		expect(minPlan.decomposerAgentId).toBe(pmAgentId);
 
-		// --- Run 2: Divergent Strategy (picks last = builder) ---
+		// --- Run 2: Divergent Strategy (picks first = builder) ---
 		await db.insert(bets).values(makeBet("bet-ac4-div", teamId, "active"));
 		const divergentStrategy = makeDivergentDecomposerStrategy();
 		setActiveStrategy(divergentStrategy);

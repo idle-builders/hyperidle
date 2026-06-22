@@ -1,7 +1,7 @@
 {
   "id": "AK8",
   "status": "in_progress",
-  "currentStep": "3-write-code",
+  "currentStep": "5-write-docs",
   "complexity": "L",
   "branch": "feat/AK8-strategy-decomposition",
   "pr": 347,
