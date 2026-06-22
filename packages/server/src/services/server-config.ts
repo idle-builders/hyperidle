@@ -83,6 +83,14 @@ const ServerConfigSchema = z.object({
 	notifications: NotificationsSchema.optional(),
 	/** X4: Model gateway configuration (provider per tier). Optional — defaults to BUILT_IN_GATEWAY_CONFIG. */
 	modelGateway: ModelGatewayConfigSchema.optional(),
+	/**
+	 * AM4: Persisted list of harness types the user has disabled.
+	 * Consumed by AdapterPool.select() via a caller-supplied disabledTypes requirement
+	 * (the pool is DB-free and select() is synchronous — it cannot read this directly).
+	 * Stamped onto discovery.disabled in the GET /api/harnesses route handler.
+	 * "builtin" is always exempt even if listed here — guarded in select() and the route.
+	 */
+	harnessDisabled: z.array(z.string()).default([]),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -91,6 +99,8 @@ export type ServerConfig = {
 	notifications: z.infer<typeof NotificationsSchema>;
 	/** X4: Fully-typed model gateway config (always present, defaults applied). */
 	modelGateway: ModelGatewayConfig;
+	/** AM4: List of harness types the user has disabled. Defaults to []. */
+	harnessDisabled: string[];
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
@@ -127,7 +137,14 @@ type ServerConfigPatch = {
 	 * @lore AH1 §2: apiKey removed from patch. Keys go to server_credentials via PUT /api/credentials.
 	 */
 	modelGateway?: DeepPartialModelGateway;
+	/**
+	 * AM4: Full-replacement write — the caller supplies the complete new list.
+	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
+	 */
+	harnessDisabled?: string[];
 };
+
+export type { ServerConfigPatch };
 
 /**
  * Fully-populated defaults with all nested defaults applied.
@@ -140,6 +157,7 @@ type ServerConfigPatch = {
 const DEFAULTS: ServerConfig = {
 	notifications: NotificationsSchema.parse({}),
 	modelGateway: BUILT_IN_GATEWAY_CONFIG,
+	harnessDisabled: [],
 };
 
 /**
@@ -153,6 +171,8 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
 		modelGateway: raw.modelGateway
 			? (ModelGatewayConfigSchema.parse(raw.modelGateway) as ModelGatewayConfig)
 			: BUILT_IN_GATEWAY_CONFIG,
+		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
+		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 	};
 }
 
@@ -218,6 +238,8 @@ export async function updateServerConfig(
 					fast: mergeTier(current.modelGateway.fast, patch.modelGateway.fast ?? {}),
 				}
 			: current.modelGateway,
+		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
+		harnessDisabled: patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
