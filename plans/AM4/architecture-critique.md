@@ -1,0 +1,36 @@
+# Architecture Critique: AM4
+
+ARCHITECTURE-SCORE: 8/10  rounds=1  score-line: SA:9 LI:9 AC:8 DM:n/a N:8 MD:8 FMC:7 S:8 V:8
+
+Reviewer verified every reconciliation-table claim against the codebase: `routes/harnesses.ts`, `adapter-pool.ts`, `harness-discovery.ts`, `app.ts` wiring, and the `middleware/rate-limit.ts` that already exists. The plan's spec⇆reality table is accurate — no CC-007 drift. The `refreshDiscoveries()` mechanism is mechanically sound: `listCapabilityDescriptors()` reads `this.discoveries` at call time (adapter-pool.ts:231-236), so reassigning that field flows through to the response; `discoverLocalHarnesses(d?)` is dependency-injectable (harness-discovery.ts:398), so the promised unit test is feasible.
+
+## Verdict
+**PASS — score 8/10.** Plan is ready for `/write-tests`. Tight scope (7 tasks, all trace to an AC or a forced dependency), honest design-it-twice on both real decisions, accurate reconciliation. Two WARNINGs to bind before build (rate-limit concretion, runtime-cap gating) and one ruling requested on enable/disable — resolved below.
+
+## Ruling on the enable/disable question (the decision asked for)
+
+**The plan's B2 (derived-from-readiness, no persisted `harness.disabled`) is CORRECT for AM4. Do NOT build B1.**
+
+Reasoning against the AC text "A user can enable, disable, and configure an in-scope backend":
+1. **No consumer reads an `enabled`/`disabled` flag.** `AdapterPool.select()` gates on capacity, `modelProviders`, and `harnessType` (adapter-pool.ts:161-196) — there is no path where a `harness.disabled` set would be consulted. Agents pick `harnessType` directly. A persisted disable flag would be **dead state** that no runtime honors — i.e. the toggle would lie. Shipping a switch that visibly does nothing is worse than not shipping it (violates "naming is honest" and the User-Sovereignty ethos).
+2. **"Enable" is satisfiable without new state:** enable = complete the auth action → `ready`. "Configure" = the capability fold + (builtin) the existing credential/model surface. These are real, wired affordances.
+3. **"Disable" has no honest meaning at the harness layer in AM4.** The only truthful disable today is at the *agent* layer (don't assign that `harnessType`), which is out of this surface's scope.
+
+**However — the derived toggle as currently designed is itself dishonest** and must change before build (this is the one place B2 is under-specified): `showsToggle` returns true for `unauthenticated`, producing a **permanently-disabled, always-off toggle** on needs-sign-in cards. A disabled switch next to "Sign in needed" reads as a broken control, not "auth unlocks this." **Resolution: only render the toggle for `ready` backends** (where it is a real, if currently no-op-on-the-runtime, on indicator), and let the auth CTA be the sole affordance for non-ready states. Even for `ready`, since no runtime consumes the on/off, prefer rendering it as a **non-interactive "Enabled" status indication** rather than an interactive switch the user can flip to a state nothing honors — OR explicitly scope the toggle to a future B1 follow-up and render a static "Active" chip in AM4. Builder + design must pick one; do not ship a flippable switch with no backing state. **This is a design+arch coupling — relayed to both.**
+
+### CRITICAL
+- None.
+
+### WARNING
+- [plan §Security & abuse cases, §Risks #2] **Rate-limit is left unbound ("rely on the existing global limiter if present. Builder confirms which; not N/A").** Verified: a global limiter exists (`createRateLimiter`, app.ts:262, default `HYPERIDLE_RATE_LIMIT_PER_MIN=300`). A generic 300/min limit does NOT adequately protect `POST /redetect`: each call spawns ~10 `execFile` probes (5 families × version+auth) each with a **15 000ms timeout** (harness-discovery.ts:86). 300 calls/min = up to 3000 concurrent CLI spawns — a trivial local DoS / fork-bomb vector. → **Bind the decision now:** add a dedicated short-window limiter on the redetect route (e.g. `createRateLimiter({ windowMs: 5000, max: 1 })`) OR an in-handler min-interval that returns the current snapshot if called within N seconds. Name the concrete mechanism in the plan; do not defer to "builder confirms."
+- [plan §Component breakdown, §Risks] **Re-detect will not populate runtime caps either — the plan doesn't say so.** Production `discoverLocalHarnesses()` deliberately does NOT run the session probe (adapter-pool.ts:349-354 `@lore` AM2), so `fileEditing`/`toolUse` stay `false` for every backend until AM3. `refreshDiscoveries()` re-runs the same probe → still no caps. The capabilities Fold and `capabilitySummary` must therefore gracefully render the "confirmed after first run" path for `ready` backends in production (the design fixtures hardcode `true` and mask this). → Add to the plan's States section + the AC2 verification: assert the ready-card fold renders correctly when all runtime caps are `false` (the realistic production shape), not only the fixture shape. This is the gap most likely to ship a "looks broken" ready card.
+
+### SUGGESTION
+- [plan §AC verification, Contract row] The "zero per-backend branching" gate is grep-for-`=== "codex"` + review. Strengthen to a real lint: the descriptor-driven contract is a static codebase property, so per CLAUDE.md "First Principle" it should be an ESLint rule (`no-restricted-syntax` on string-literal comparison against the known harness types within `harness-presentation.ts`/`HarnessCard.tsx`), not a manual grep that drifts. At minimum add a `*.test.ts` that renders two structurally-different descriptors through `HarnessCard` and asserts identical element structure (proving one code path). The plan mentions this as optional — make it required, it is the headline contract.
+- [plan §Task 7 cleanup + protectedTests] Deleting `AM4HarnessPresentation.ts` and re-blessing the DOM-snapshot net is correct, but the enumeration guard (`modules.length >= 56`, see visual-regression.md) net-changes by −3 variant stories +2 new stories. Confirm the guard threshold still holds after the swap; note it in Task 7 so the builder doesn't trip the "never skip enumeration guard" rule.
+- [plan §B2] Add a `@lore` at the toggle/`showsToggle` site recording the "derived, not persisted; B1 is the follow-up when a runtime consumer exists" decision, so the next agent doesn't re-add a persisted flag thinking it was an oversight.
+
+### What's Working Well
+- **Design-it-twice is real, not theatre, on both decisions.** §A (endpoint vs client re-GET) correctly identifies that a client re-GET returns the stale boot snapshot and fails the "on demand" AC's whole point — verified against the freeze-at-construction reality. §B genuinely weighs dead-state cost. Neither alternative is straw-manned.
+- **Accurate reconciliation against a deliberately-immutable structure.** Risk #1's analysis (reassigning a frozen field is safe because freeze is per-object; the await completes before the single-threaded reassign) is correct and shows the architect actually read the pool, not just the route.
+- **Secret-handling carried forward correctly:** reusing AH2/AM2's `apiKey|baseUrl|sk-|subscriptionToken` leak assertion on the redetect response, and the principled "CLI owns the secret, we only surface the public command" stance, are exactly right and explicitly tested.
