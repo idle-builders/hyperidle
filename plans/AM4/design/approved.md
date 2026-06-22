@@ -2,7 +2,16 @@
 
 DESIGN-CLASS: novel (see brief.md) → after `/design-critique`, this triggers `/human-design-review`.
 
-## Chosen: Variant C — Providers list (t3code Providers grammar, refined)
+## FOUNDER APPROVAL (recorded)
+
+**APPROVED — the refined "Dense List" design (Variant C grammar) including a REAL enable/disable Toggle.** The founder reviewed the refined dense-list rendering in the component viewer and approved it. Two rules locked at approval:
+
+1. **Real enable/disable toggle.** Per-row interactive `Toggle` backed by persisted `server_config.harnessDisabled`, honored by `AdapterPool.select()` (R1 reversal). A disabled backend is not selected and renders "Disabled — …".
+2. **Built-in is NOT disableable.** No toggle on the `builtin` row (`showsToggle(builtin) === false`, the front-door guard), and the `select()` disabled-filter hard-exempts `type === "builtin"` (the back-stop). The always-present fallback can never be turned off — enforced in the UI, the selection gate, AND the write endpoint (`POST /:type/disabled` rejects builtin-disable).
+
+A focused architecture re-critique of the disabled-state wiring returned NEEDS-CHANGE; the four wiring seams (caller-supplied `disabledTypes`, builtin double-guard, route-layer `discovery.disabled` stamping, write-boundary validation) are corrected in `architecture.md`. Design is unchanged by those corrections — they are backend wiring only.
+
+## Chosen: Variant C — refined "Dense List" / Providers list (t3code Providers grammar)
 
 A calm, dense **single bordered container with hairline-divided rows** — refined from the founder's real t3code Settings → Providers reference (`Screenshot 2026-06-16 at 22.15.42.png`). Rendered story: `packages/web/src/settings/AM4HarnessVariantC.stories.tsx` (`Settings/AM4 Harnesses · C Cards`, variants `Cards` = light, `Dark`).
 
@@ -27,7 +36,7 @@ Identity line now reads exactly like the reference: **dot · bold name · muted-
 
 ### R1 — REVERSED: restore a REAL enable/disable toggle (founder review + AC2)
 
-**Decision (this round):** restore an interactive right-aligned **Toggle** per row, backed by a **persisted `harness.disabled` setting** that `AdapterPool.select()` honors. A disabled backend is not selected and renders "Disabled — …" (toggle OFF), exactly like the reference's Codex/Cursor/Grok rows. The toggle is shown ONLY for backends that can meaningfully be enabled/disabled — `ready` / `installed` / `unauthenticated` (computed from `discovery.state` via `showsToggle`, **not** a per-family table). `missing` / `unavailable` show NO toggle (nothing to disable — Cursor Agent in the story has none).
+**Decision (this round):** restore an interactive right-aligned **Toggle** per row, backed by a **persisted `server_config.harnessDisabled` set** that `AdapterPool.select()` honors (via a caller-supplied `disabledTypes` requirement — the pool is DB-free). A disabled backend is not selected and renders "Disabled — …" (toggle OFF), exactly like the reference's Codex/Cursor/Grok rows. The toggle is shown ONLY for backends that can meaningfully be enabled/disabled — `ready` / `installed` / `unauthenticated` (computed from `discovery.state` via `showsToggle`, **not** a per-family table). `missing` / `unavailable` show NO toggle (nothing to disable — Cursor Agent in the story has none). **Built-in is NOT disableable (founder rule):** `showsToggle(builtin) === false` regardless of state, paired with a hard `builtin` exemption in the `select()` filter — the always-present fallback can never be turned off.
 
 **Why the reversal (supersedes the prior R1 "non-interactive Enabled label, no persisted state"):**
 - The founder pointed directly at the t3code reference where a real enable/disable switch is the **headline affordance** on every provider row, and disabling actually disables the provider.
@@ -68,7 +77,7 @@ Row order: `unauthenticated` → `installed` → `ready` → `missing` → `unav
 
 ## Descriptor-driven contract (HARD — reviewer must verify)
 
-All presentation routes through `packages/web/src/settings/AM4HarnessPresentation.ts` mappers — `statusLine`, `accessModeLabel`, `hasActionableNextStep`, `showsToggle`, `isEnabled`, `hasCaps`, `provenCapabilities`, `commandText`, `capabilitySummary` (+ `readinessToStatus`/`showsEnabledIndication` retained for legacy variant A only). **There is no `type === "codex"` (or any family) branch in the rendered surface.** Every zone's presence — including the **toggle's visibility (`showsToggle`)** — is computed from `discovery.state` + `discovery.disabled` + `authAction.kind`, NOT a family table. The builder lifts this file into production; the readiness→`Status` half belongs with the design-system `status-mapping` family.
+All presentation routes through `packages/web/src/settings/AM4HarnessPresentation.ts` mappers — `statusLine`, `accessModeLabel`, `hasActionableNextStep`, `showsToggle`, `isEnabled`, `hasCaps`, `provenCapabilities`, `commandText`, `capabilitySummary` (+ `readinessToStatus`/`showsEnabledIndication` retained for legacy variant A only). **There is no `type === "codex"` (or any family) branch in the rendered surface.** Every zone's presence — including the **toggle's visibility (`showsToggle`)** — is computed from `discovery.state` + `discovery.disabled` + `authAction.kind`, NOT a family table. The **sole** `type` check is the intentional `builtin` toggle-exemption (founder rule: built-in is not disableable); it is not per-family branching and the ESLint contract rule allows that one literal. The builder lifts this file into production; the readiness→`Status` half belongs with the design-system `status-mapping` family.
 
 ## Readiness → presentation
 
@@ -80,6 +89,7 @@ All presentation routes through `packages/web/src/settings/AM4HarnessPresentatio
 | `installed` | behind (amber) | "Installed — auth status not yet confirmed." | yes (CTA + command) | **yes** (on) | if `hasCaps` |
 | `missing` | paused (amber) | reason ("Not installed.") | no (build: install hint) | **no** | no |
 | `unavailable` | unknown (grey) | reason, no CTA | no | **no** | no |
+| `builtin` (any ready state) | healthy (green) | "Authenticated …" | no | **no** (built-in is NOT disableable — founder rule) | yes (if `hasCaps`) |
 
 Note: with the production shape (runtime caps all-`false`), a `ready` row's fold still renders because the descriptor declares models (`hasCaps` is models OR proven cap); the cap line falls back to "confirmed after first run" (R2). A disabled row hides the fold.
 
@@ -128,6 +138,6 @@ A new `SettingsHarnesses` section + `HarnessCard` sub-component in `packages/web
 ## Open questions for the architect
 
 1. Read path: `SettingsHarnesses` fetches `GET /api/harnesses` on mount (same as SettingsAgents) → `HarnessCapabilityDescriptor[]`. Confirm no new endpoint needed (it isn't — AM2 ships it).
-2. **REVERSED this round (R1 reversal — founder review + AC2):** a REAL persisted `harness.disabled` setting now backs the toggle, and `AdapterPool.select()` honors it (a disabled backend is not selected, renders "Disabled — …"). This is a deliberate scope addition: persisted setting + `select()` consumer + a `POST` to flip it. Architect: spec the persistence (one settings key `harness.disabled: string[]`, or a `disabled?: boolean` on the descriptor read alongside it), the `select()` gate, and the write endpoint. Flagged in `architecture.md` for architecture-critique re-check.
+2. **RESOLVED (R1 reversal — founder review + AC2, re-critique corrections folded in):** a REAL persisted `server_config.harnessDisabled: string[]` now backs the toggle; `AdapterPool.select()` honors it via a caller-supplied `disabledTypes` requirement (the pool is DB-free); `discovery.disabled` is stamped at the route layer; `POST /api/harnesses/:type/disabled` writes it with `:type`-validation + builtin-reject; built-in is hard-exempt in both `showsToggle` and `select()`. Fully specced in `architecture.md` (the four seams).
 3. First-run entry: does `SetupFlow` embed the section or link to Settings? Architect decides; design is identical either way.
 4. `enter_api_key` action: opens the existing credential flow (Electron `safeStorage` bridge / SettingsModels path) — credential storage is out of scope; the architect wires the action to the existing surface, AM4 does not build new storage.
