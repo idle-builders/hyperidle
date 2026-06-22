@@ -27,8 +27,8 @@ import { describe, expect, it } from "vitest";
 import {
 	capabilitySummary,
 	commandText,
-	hasCaps,
 	hasActionableNextStep,
+	hasCaps,
 	isEnabled,
 	provenCapabilities,
 	showsToggle,

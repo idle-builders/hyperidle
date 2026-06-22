@@ -67,7 +67,9 @@ export function LabelHidden(): JSX.Element {
 				<Toggle label="Enable Codex" labelHidden />
 			</div>
 			<div className="flex items-center gap-[12px]">
-				<span className="text-[13px] text-[var(--text-primary)] opacity-50">OpenCode (disabled)</span>
+				<span className="text-[13px] text-[var(--text-primary)] opacity-50">
+					OpenCode (disabled)
+				</span>
 				<Toggle label="Enable OpenCode" labelHidden disabled />
 			</div>
 		</div>

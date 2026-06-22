@@ -239,7 +239,8 @@ export async function updateServerConfig(
 				}
 			: current.modelGateway,
 		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
-		harnessDisabled: patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
+		harnessDisabled:
+			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.

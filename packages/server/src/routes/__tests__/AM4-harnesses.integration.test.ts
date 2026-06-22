@@ -26,8 +26,8 @@ import { AdapterPool } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
 import type { HarnessDiscoveryInput } from "../../harness/harness-discovery.js";
-import { test } from "../../test-fixtures.js";
 import { updateServerConfig } from "../../services/server-config.js";
+import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
 /**

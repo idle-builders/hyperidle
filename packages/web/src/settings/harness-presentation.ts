@@ -32,7 +32,10 @@ function getDiscovery(d: HarnessCapabilityDescriptor): DiscoveryWithDisabled {
  * Returns the status dot tone + calm muted status line text for a row.
  * Driven entirely by discovery.state + discovery.disabled — no type switch.
  */
-export function statusLine(d: HarnessCapabilityDescriptor): { tone: Status | "unknown"; text: string } {
+export function statusLine(d: HarnessCapabilityDescriptor): {
+	tone: Status | "unknown";
+	text: string;
+} {
 	const discovery = getDiscovery(d);
 
 	// Disabled check: ready + disabled → dimmed row
@@ -86,7 +89,10 @@ export function statusLine(d: HarnessCapabilityDescriptor): { tone: Status | "un
  * Legacy mapper kept for any remaining variant-A usage; deleted at task 13 cleanup.
  * @deprecated Use statusLine() instead.
  */
-export function readinessToStatus(state: HarnessReadinessState): { status: Status | "unknown"; label: string } {
+export function readinessToStatus(state: HarnessReadinessState): {
+	status: Status | "unknown";
+	label: string;
+} {
 	switch (state) {
 		case "ready":
 			return { status: "healthy", label: "Ready" };

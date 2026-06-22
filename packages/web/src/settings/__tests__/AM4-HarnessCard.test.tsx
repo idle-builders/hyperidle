@@ -267,9 +267,7 @@ describe("AM4 AC3 — HarnessCard unauthenticated shows actionable next step", (
 	it("renders auth zone with action button labeled with authAction.label", () => {
 		render(<HarnessCard descriptor={UNAUTHENTICATED_DESCRIPTOR} onToggle={vi.fn()} />);
 		// Primary CTA button with the auth label must be present
-		expect(
-			screen.getByRole("button", { name: /log in to codex/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /log in to codex/i })).toBeInTheDocument();
 	});
 
 	it("renders the mono CLI command (codex login)", () => {
@@ -290,8 +288,6 @@ describe("AM4 AC3 — HarnessCard unavailable shows reason, no action button", (
 	it("does NOT render an auth action button for unavailable", () => {
 		render(<HarnessCard descriptor={UNAVAILABLE_DESCRIPTOR} onToggle={vi.fn()} />);
 		// No "Configured in Cursor app" button (label is for the config info, not an action)
-		expect(
-			screen.queryByRole("button", { name: /configured in cursor/i }),
-		).toBeNull();
+		expect(screen.queryByRole("button", { name: /configured in cursor/i })).toBeNull();
 	});
 });

@@ -99,7 +99,10 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
-		const entry = pool.select({ disabledTypes: [], harnessType: "claude-code" } as AM4SelectRequirements);
+		const entry = pool.select({
+			disabledTypes: [],
+			harnessType: "claude-code",
+		} as AM4SelectRequirements);
 		expect(entry).not.toBeNull();
 		expect(entry?.meta.type).toBe("claude-code");
 	});
@@ -111,7 +114,10 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 
 		// Request claude-code specifically — the disabledTypes gate must block it
 		// Without harnessType, the selection might fall through to builtin and not test the gate
-		const entry = pool.select({ harnessType: "claude-code", disabledTypes: ["claude-code"] } as AM4SelectRequirements);
+		const entry = pool.select({
+			harnessType: "claude-code",
+			disabledTypes: ["claude-code"],
+		} as AM4SelectRequirements);
 		// When harnessType="claude-code" AND disabledTypes includes "claude-code", result must be null
 		// (the gate must skip the matching adapter because it's disabled)
 		expect(entry).toBeNull();
@@ -137,7 +143,10 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
 		// Requesting claude-code specifically, but it's disabled
-		const entry = pool.select({ harnessType: "claude-code", disabledTypes: ["claude-code"] } as AM4SelectRequirements);
+		const entry = pool.select({
+			harnessType: "claude-code",
+			disabledTypes: ["claude-code"],
+		} as AM4SelectRequirements);
 		// The harnessType filter narrows to claude-code, which is disabled — should be null
 		expect(entry).toBeNull();
 	});
@@ -205,6 +214,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 		const discoverSpy = vi
 			.spyOn(harnessDiscovery, "discoverLocalHarnesses")
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
 			.mockResolvedValue(freshDiscoveries as any);
 
 		const staleDiscoveries: Record<string, HarnessDiscoveryInput> = {
@@ -239,6 +249,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 
 		vi.spyOn(harnessDiscovery, "discoverLocalHarnesses")
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
 			.mockResolvedValue(freshDiscoveries as any);
 
 		const pool = new AdapterPool();

@@ -27,8 +27,8 @@ import { type JSX, useState } from "react";
 import {
 	capabilitySummary,
 	commandText,
-	hasCaps,
 	hasActionableNextStep,
+	hasCaps,
 	isEnabled,
 	provenCapabilities,
 	showsToggle,
@@ -76,7 +76,9 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 	return (
 		<div className="flex flex-col">
 			{/* Main row */}
-			<div className={`flex items-center gap-[9px] px-[12px] py-[12px] ${isDisabled ? "opacity-70" : ""}`}>
+			<div
+				className={`flex items-center gap-[9px] px-[12px] py-[12px] ${isDisabled ? "opacity-70" : ""}`}
+			>
 				{/* Status dot — 6px, color from statusLine tone */}
 				<span
 					className="shrink-0 rounded-full"
@@ -112,10 +114,7 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 				{/* Right affordances: fold trigger + toggle */}
 				<div className="flex items-center gap-[9px] shrink-0">
 					{showFoldTrigger && !isDisabled && (
-						<Fold
-							cta={foldOpen ? "Hide" : "Models"}
-							onShow={() => setFoldOpen((prev) => !prev)}
-						/>
+						<Fold cta={foldOpen ? "Hide" : "Show"} onShow={() => setFoldOpen((prev) => !prev)} />
 					)}
 					{showToggle && (
 						<Toggle
@@ -137,7 +136,9 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 					<Button
 						variant="primary"
 						size="sm"
-						onClick={() => { /* auth action — managed by parent */ }}
+						onClick={() => {
+							/* auth action — managed by parent */
+						}}
 					>
 						{d.authAction.label}
 					</Button>
@@ -149,10 +150,24 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 				</div>
 			)}
 
-			{/* Capabilities fold — expanded content */}
-			{showFoldTrigger && !isDisabled && foldOpen && (
+			{/* Capabilities summary — always visible when caps not yet proven (non-builtin only;
+			    builtin is always-on so this message is not surfaced for it) */}
+			{showFoldTrigger && !isDisabled && caps.length === 0 && showToggle && (
+				<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] px-[12px] pb-[6px] pl-[27px]">
+					{capSummary}
+				</p>
+			)}
+
+			{/* Proven caps line — always visible when caps are known */}
+			{showFoldTrigger && !isDisabled && caps.length > 0 && (
+				<div className="px-[12px] pb-[6px] pl-[27px]">
+					<KeyValue label="Capabilities" value={capSummary} layout="inline" />
+				</div>
+			)}
+
+			{/* Model rows fold — expanded content (models only) */}
+			{showFoldTrigger && !isDisabled && foldOpen && d.models.length > 0 && (
 				<div className="flex flex-col gap-[6px] px-[12px] pb-[12px] pl-[27px]">
-					{/* Model rows */}
 					{d.models.map((model) => (
 						<KeyValue
 							key={model.id}
@@ -161,18 +176,6 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 							layout="inline"
 						/>
 					))}
-					{/* Capabilities line */}
-					{caps.length > 0 ? (
-						<KeyValue
-							label="Capabilities"
-							value={capSummary}
-							layout="inline"
-						/>
-					) : (
-						<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">
-							{capSummary}
-						</p>
-					)}
 				</div>
 			)}
 		</div>

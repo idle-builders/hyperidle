@@ -33,14 +33,13 @@
  * POST /:type/disabled is a single DB write — global 300/min is acceptable (no amplification).
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { Hono } from "hono";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { readServerConfig, updateServerConfig } from "../services/server-config.js";
-
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.
@@ -89,13 +88,18 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 	// requireBoundary must come before the rate-limiter so AF11 assertion sees it declared
 	// even when the rate-limiter returns 429. The dedicated rate-limiter is route-scoped
 	// (fork-bomb guard — WARNING 3): 1 call / 5s per identity.
-	router.post("/redetect", requireBoundary({ kind: "public-data" }), redetectRateLimiter, async (c) => {
-		await pool.refreshDiscoveries();
-		const { harnessDisabled } = await readServerConfig(db);
-		const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
-		const entries = stampDisabled(raw, harnessDisabled);
-		return c.json(entries);
-	});
+	router.post(
+		"/redetect",
+		requireBoundary({ kind: "public-data" }),
+		redetectRateLimiter,
+		async (c) => {
+			await pool.refreshDiscoveries();
+			const { harnessDisabled } = await readServerConfig(db);
+			const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
+			const entries = stampDisabled(raw, harnessDisabled);
+			return c.json(entries);
+		},
+	);
 
 	// POST /:type/disabled — persist enable/disable for a specific harness type (Seam 4)
 	// Global 300/min rate-limit (from app.ts middleware) — acceptable: single DB write, no CLI spawns.
@@ -112,7 +116,7 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 		// Parse body
 		let disabled: boolean;
 		try {
-			const body = await c.req.json() as { disabled?: unknown };
+			const body = (await c.req.json()) as { disabled?: unknown };
 			if (typeof body.disabled !== "boolean") {
 				return c.json({ error: "Body must be { disabled: boolean }", code: "INVALID_BODY" }, 400);
 			}
@@ -125,7 +129,10 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 		// {disabled:false} for builtin is allowed — enabling the always-on fallback is a harmless no-op.
 		if (harnessType === "builtin" && disabled === true) {
 			return c.json(
-				{ error: "Built-in harness cannot be disabled — it is the always-present fallback", code: "BUILTIN_NOT_DISABLEABLE" },
+				{
+					error: "Built-in harness cannot be disabled — it is the always-present fallback",
+					code: "BUILTIN_NOT_DISABLEABLE",
+				},
 				409,
 			);
 		}

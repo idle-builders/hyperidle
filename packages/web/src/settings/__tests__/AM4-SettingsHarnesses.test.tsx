@@ -139,6 +139,7 @@ const DISABLED_DESCRIPTOR = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: test fixture accepts partial descriptor shapes
 function mockFetch(descriptors: any[] = MOCK_DESCRIPTORS): void {
 	vi.stubGlobal(
 		"fetch",
@@ -254,9 +255,7 @@ describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
 		// The exact count depends on implementation, but we can verify the unavailable one has none.
 		// We use aria-label checks on switches:
 		const cursorLabel = /cursor agent/i;
-		const cursorSwitch = allSwitches.find((s) =>
-			s.getAttribute("aria-label")?.match(cursorLabel),
-		);
+		const cursorSwitch = allSwitches.find((s) => s.getAttribute("aria-label")?.match(cursorLabel));
 		expect(cursorSwitch).toBeUndefined();
 	});
 });
@@ -295,9 +294,7 @@ describe("AM4 — SettingsHarnesses error state", () => {
 
 		await waitFor(() => {
 			// ErrorState should render something about "couldn't detect" or "error"
-			expect(
-				screen.getByText(/couldn't detect|error|failed/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/couldn't detect|error|failed/i)).toBeInTheDocument();
 		});
 
 		vi.restoreAllMocks();
@@ -405,8 +402,13 @@ describe("AM4 AC2-production-shape — ready row renders correctly under all-fal
 
 describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
 	it("renders 'Disabled —' status line for discovery.disabled=true", async () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const descriptorsWithDisabled = [...MOCK_DESCRIPTORS.slice(0, 1), DISABLED_DESCRIPTOR as any, ...MOCK_DESCRIPTORS.slice(2)];
+		const descriptorsWithDisabled = [
+			...MOCK_DESCRIPTORS.slice(0, 1),
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			// biome-ignore lint/suspicious/noExplicitAny: test fixture uses partial disabled shape
+			DISABLED_DESCRIPTOR as any,
+			...MOCK_DESCRIPTORS.slice(2),
+		];
 		mockFetch(descriptorsWithDisabled);
 
 		render(<SettingsHarnesses />);
@@ -420,6 +422,7 @@ describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
 
 	it("toggle is OFF for disabled row", async () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: test fixture uses partial disabled shape
 		const descriptorsWithDisabled = [DISABLED_DESCRIPTOR as any, ...MOCK_DESCRIPTORS.slice(2)];
 		mockFetch(descriptorsWithDisabled);
 

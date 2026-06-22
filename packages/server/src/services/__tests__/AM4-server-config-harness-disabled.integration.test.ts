@@ -46,7 +46,9 @@ describe("AM4 Task 1 — server_config.harnessDisabled key", () => {
 		});
 
 		test("round-trips multiple disabled types", async ({ db }) => {
-			await updateServerConfig(db, { harnessDisabled: ["claude-code", "codex"] } as AM4ServerConfigPatch);
+			await updateServerConfig(db, {
+				harnessDisabled: ["claude-code", "codex"],
+			} as AM4ServerConfigPatch);
 
 			const config = await readServerConfig(db);
 			const disabled = (config as { harnessDisabled?: string[] }).harnessDisabled ?? [];
