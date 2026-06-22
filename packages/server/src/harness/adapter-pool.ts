@@ -60,6 +60,18 @@ export interface SelectRequirements {
 	readonly modelProviders?: readonly string[];
 	/** X3: If set, only adapters with matching type are eligible. */
 	readonly harnessType?: string;
+	/**
+	 * AM4 CHANGE 1: Caller-supplied list of disabled harness types (pool is DB-free and
+	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
+	 * reads harnessDisabled from readServerConfig(db) and passes it here.
+	 * Paired with the builtin hard-exemption (CHANGE 2) — "builtin" is NEVER skipped
+	 * even if present in this list (back-stop against hand-edited/stale config).
+	 *
+	 * @lore AM4: Real persisted control backed by server_config.harnessDisabled + this
+	 * caller-supplied gate (AM4 R1 reversal, founder review + AC2). The pool stays a
+	 * pure in-memory registry (preserves the AM2 immutability lore).
+	 */
+	readonly disabledTypes?: readonly string[];
 }
 
 /** A selected adapter entry (returned from select()). */
@@ -204,6 +216,23 @@ export class AdapterPool {
 			// still be selected when harnessType is unspecified/undefined).
 			if (requirements?.harnessType) {
 				if (entry.meta.type !== requirements.harnessType) continue;
+			}
+
+			// AM4 CHANGE 1+2: disabledTypes gate with builtin hard-exemption.
+			// The caller (admitSession) passes harnessDisabled from server_config here.
+			// "builtin" is HARD-EXEMPT regardless of the persisted list — back-stop
+			// against stale config stranding the always-present fallback.
+			//
+			// @lore AM4: showsToggle(builtin) === false is the front-door guard (UI);
+			// this exemption is the back-stop (selection). Both are required (CHANGE 2).
+			if (
+				requirements?.disabledTypes &&
+				requirements.disabledTypes.length > 0 &&
+				entry.meta.type &&
+				entry.meta.type !== "builtin" && // CHANGE 2: builtin hard-exempt
+				requirements.disabledTypes.includes(entry.meta.type)
+			) {
+				continue;
 			}
 
 			// Least-loaded selection
