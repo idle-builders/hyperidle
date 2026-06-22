@@ -454,11 +454,14 @@ describe("AH6: per-agent model seam (resolveAgentModel, not resolveModelTier)", 
 
 		// Must have persisted a missing_key notice (never silent)
 		expect(noticeMessages.length).toBeGreaterThan(0);
-		// No assistant reply (not a real turn result)
+		// No assistant reply (not a real turn result).
+		// @lore AH6: Filter excludes founderId because the human trigger message
+		// also has { text: "..." } with no notice — we only care that no AI agent
+		// sent a text reply.
 		const replyMessages = threadMessages.filter((m) => {
 			try {
 				const payload = JSON.parse(m.payload) as { notice?: unknown; text?: string };
-				return !payload.notice && typeof payload.text === "string";
+				return !payload.notice && typeof payload.text === "string" && m.senderId !== founderId;
 			} catch {
 				return false;
 			}

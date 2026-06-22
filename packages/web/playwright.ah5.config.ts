@@ -17,9 +17,9 @@
  *   (AH1: 3099/5180, dev: 3001/5179 — untouched)
  *
  * @lore AH5: The UI-trigger assertion (message→turn→streamed-response) is
- * test.fixme()-gated until AH3 lands. The provisionSession-driven probe
- * (ah5-real-turn-probe.ts) is the AH5-own gating proof. See § "Sequencing
- * & the AH3 dependency" in plans/AH5/architecture.md.
+ * test.fixme()-gated pending AH3 landing. The encrypted-credential seed
+ * test (AC1) is the primary AH5 gate. The AH6 lane (playwright.ah6.config.ts)
+ * delivers the full message→turn→cassette-replay E2E proof.
  *
  * @lore AH5: The lane only runs in the ah5-smoke.yml CI workflow (scheduled +
  * dispatch + labeled-PR). It is NOT part of npm run test:e2e (the default E2E
