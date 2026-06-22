@@ -1,6 +1,8 @@
-# AM3 Session view — synthesis (content-rendering axis)
+# AM3 Session View — synthesis (content-rendering axis)
 
-**No `approved.md` is written here.** This is a `novel` DESIGN-CLASS → the founder picks the winner in `/human-design-review` by annotating the rendered variants in the viewer. This synthesis is the designer's recommendation + the rejection list, not a lock.
+> **HISTORICAL (designer recommendation, pre-approval).** The founder then ran `/human-design-review` (12 rounds) and **approved "1 · Calm Transcript", renamed "Session View"**, with two further reframes: session + conversation are ONE shared component, and the message pattern (my own = right grey box; everyone else incl. agents = left-plain) was fixed at the source in the shared `PartList`. The permission Allow/Deny prompt and the status roll-up were REMOVED. Final, authoritative state: `approved.md`.
+
+**This was the pre-pick synthesis** — designer's recommendation + the rejection list. The lock is in `approved.md`.
 
 **The axis is the rendering vocabulary of the session content — NOT placement.** Placement is settled (concept Phase 4: the session view IS a `ConversationSurface` reached via the `session` `OpenTarget`). The three variants are three rendering languages for displaying tool calls and the session's aspects.
 

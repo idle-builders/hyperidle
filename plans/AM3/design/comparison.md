@@ -1,4 +1,6 @@
-# AM3 Session view — variant comparison (content-rendering axis)
+# AM3 Session View — variant comparison (content-rendering axis)
+
+> **HISTORICAL (design exploration).** Record of the three-variant comparison. **Column "1 · Calm Transcript" is the chosen + founder-approved direction, renamed "Session View"** — final state in `approved.md`. Two rows below were superseded at review: the **permission Allow/Deny** prompt was REMOVED (review is the allow point) and the **status roll-up bar** was REMOVED; and authorship is the **unified self/other pattern** (my own = right grey box; everyone else incl. agents = left-plain), fixed at the source in the shared `PartList`. Read `approved.md` for the truth.
 
 All three render the SAME session fixture inside the SAME `ConversationSurface` shape. They differ ONLY in the **rendering vocabulary of the session content** — how a tool call is displayed at rest and how its I/O & diffs reveal. **Placement is settled, not compared.** Screenshots: `variants/v1.png`, `v2.png`, `v3.png`.
 
@@ -18,7 +20,7 @@ All three render the SAME session fixture inside the SAME `ConversationSurface` 
 | Motion budget | pin + caret + expands | + inline preview reflow | + panel slide |
 
 ## Where they converge (the shared spine)
-Bubble-vs-full-width authorship · reasoning fold · descriptor composer (model/effort/mode/permission pills; Sonnet declares none → its pills vanish) · queued dashed bubble + ✕ · plan list · permission Allow/Deny · artifact chip · cost tick · status roll-ups · scroll-to-bottom · Stop while streaming. All three pass the calm-rendering principles (collapse-by-default, aggregation over enumeration, monochrome restraint, no per-line chrome).
+Unified self/other authorship (my own = right grey box; everyone else incl. agents = left-plain) · reasoning fold · descriptor composer (model/effort/mode pills; a model declaring none → its pills vanish) · queued row + ✕ · plan list · artifact chip · session-total cost (header) · scroll-to-bottom · Stop while streaming. *(Historical: a permission Allow/Deny + status roll-up were in this spine; both REMOVED at review.)* All three pass the calm-rendering principles (collapse-by-default, aggregation over enumeration, monochrome restraint, no per-line chrome).
 
 ## The decision the founder is making
 Not *where* the session opens (settled) — but **how much each tool call reveals at rest, and how I/O & diffs surface**:

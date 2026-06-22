@@ -1,5 +1,5 @@
 /**
- * AM3 — APPROVED Session view: CALM TRANSCRIPT (founder review, 2026-06-22).
+ * AM3 — APPROVED "Session View" (founder review, 2026-06-22, 12 review rounds).
  *
  * Rendering axis: DISCLOSURE-MINIMAL + AGGREGATION-FORWARD. The calmest possible
  * reading of a session. At rest every tool call is a single bare line (icon · verb
@@ -10,13 +10,18 @@
  * click. The founder chose this variant: "I prefer this calm aspect with the
  * various tool calls closed and combined in an expander."
  *
- * REUSES THE CONVERSATION'S COMPONENTS (founder review): the surface header +
- * AVATARS, the LEFT-ALIGNED human-message row (NOT a right-aligned bubble — human
- * messages appear on the left, like the HyperIdle chat), and the COMPOSER chrome
- * incl. the "+" attach affordance. The session view ADDS only the session-specific
- * render kinds: tool/reasoning Parts, the folded tool aggregation, the descriptor
- * model·effort·mode pills, the working/queue/Stop state, and a sub-agent row that
- * OPENS its own nested session view.
+ * SHARES THE CONVERSATION'S RENDERING (founder review): session + conversation are
+ * ONE component — PartList / ConversationSurface. A session is "just a slightly
+ * different FORM of conversation". The UNIFIED message pattern (now fixed at the
+ * source in the shared `PartList`, inherited by both surfaces): only MY OWN messages
+ * (isMe) are highlighted — RIGHT-aligned, grey background box, capped ≤80% width,
+ * avatar+name header above the box's top-left corner; EVERYONE ELSE (other humans AND
+ * agents) renders LEFT-aligned, plain, no background. Round avatars on every author:
+ * GREEN for agent, GREY for human (no agent "star" glyph). The session differs from
+ * the conversation only in CONTENT — it ADDS the session-specific render kinds:
+ * tool/reasoning Parts, the folded tool aggregation, the descriptor model·effort·mode
+ * pills, the working/queue/Stop state, and a sub-agent row that OPENS its own nested
+ * session view.
  *
  * Aspect taxonomy rendered (concept Part 7): a/streaming text · b/reasoning fold ·
  * c/tool families incl. mcp + sub-agent(→nested session) · d/FAILED tool (✗ + stderr
@@ -57,7 +62,7 @@ import {
 	TurnHeader,
 } from "./sessionContentFixtures.js";
 
-export default { title: "Session View · Calm Transcript", group: "Conversations" as const };
+export default { title: "Session View", group: "Conversations" as const };
 
 // ── A BARE tool row — no inline I/O. Reveals output on click. A SUB-AGENT row
 //    additionally OPENS its own nested session view (recursion, concept aspect j). ──
@@ -187,7 +192,8 @@ function renderSingle(part: SessionPart): JSX.Element {
 	if (part.kind === "reasoning") {
 		return <ReasoningFold durationMs={part.durationMs} text={part.text} />;
 	}
-	// Human messages render LEFT-ALIGNED like the conversation (founder review).
+	// My own (isMe) human messages render RIGHT-aligned in a grey box, like the shared
+	// PartList self-message; other authors render left-plain (founder review).
 	if (!part.author.isAgent) return <HumanRow author={part.author} createdAt={part.createdAt} text={part.text} />;
 	return <AgentProse text={part.text} streaming={"streaming" in part && part.streaming === true} />;
 }
@@ -217,8 +223,8 @@ function TranscriptStream(): JSX.Element {
 			{blocks.map((b, i) => {
 				const part = b.kind === "single" ? b.part : b.tools[0];
 				const author = part?.author;
-				// Only the AGENT shows a turn header here; a human message carries its own
-				// left-aligned author row (HumanRow) — the conversation's grouping shape.
+				// Only the AGENT shows a turn header here; my own (isMe) human message carries
+				// its own right-aligned author row (HumanRow) with the header above the box.
 				const showAuthor = !!author && author.isAgent && author.id !== lastAuthorId;
 				if (author) lastAuthorId = author.id;
 				return (
@@ -244,7 +250,7 @@ function TranscriptStream(): JSX.Element {
 	);
 }
 
-export function CalmTranscript(): JSX.Element {
+export function SessionView(): JSX.Element {
 	return (
 		<div className="flex h-[900px] w-full flex-col bg-[var(--surface-page)]" style={{ fontFamily: "var(--font-sans)" }}>
 			{/* header — the ConversationSurface header shape: host tag · title · avatars.

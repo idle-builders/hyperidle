@@ -1,8 +1,8 @@
-# Variant 1 — Calm Transcript  ✅ APPROVED (founder review 2026-06-22)
+# "Session View" (explored as Variant 1 — Calm Transcript)  ✅ APPROVED (founder review 2026-06-22, 12 rounds)
 
-> Chosen direction. Founder annotations applied — see `../approved.md` for the locked spec. Deltas from the original below: human messages are LEFT-ALIGNED (reuse the conversation row, not a right-aligned bubble); no inline permission Allow/Deny card; no status-metrics roll-up bar; avatars + composer reuse the conversation's components; a sub-agent row opens its own nested session view. Story title is now `Session View · Calm Transcript`.
+> Chosen + founder-approved direction. **The authoritative locked spec is `../approved.md`** — read it first; this is the explored-variant note kept as history. Final deltas from the original exploration: the message row is the **unified self/other pattern** — my own (`isMe`) message RIGHT-aligned in a grey box, everyone else (incl. agents) left-plain — **fixed at the source in the shared `PartList`** (also fixing the AM1 conversation); no inline permission Allow/Deny card (review is the allow point); no status-metrics roll-up bar; cost = session-total in the header; avatars + composer reuse the shared conversation components; a sub-agent row opens its own nested session view.
 
-**Story:** `Session View · Calm Transcript` (`packages/web/src/components/SessionContentTranscript.stories.tsx`, export `CalmTranscript`).
+**Story:** `Session View` (`packages/web/src/components/SessionView.stories.tsx`, export `SessionView`).
 **Rendering axis:** disclosure-minimal + aggregation-forward. The calmest reading of a session — content first, activity a fold away.
 **Screenshot:** `screenshot.png`.
 
@@ -12,8 +12,8 @@
 - **Reasoning** folds to "Thought for 14s" (italic, tertiary), re-expands to muted prose under a left rule.
 - **File diff** stays as its own row (never folded into an aggregate) with an inline `name +N/−M` chip; a per-turn/session **Changed files (N)** panel sits below the stream with "View diff" → `ReviewCodeDiff`.
 
-## Aspect placement
-- a streaming caret on the last prose · b reasoning fold · c MCP + sub-agent in/after the aggregate · d failed `Run command` (✗; stderr on expand) · e hard aggregate · f diff chips + changed-files panel · g cost tick after the streaming prose · h permission Allow/Deny card · i artifact chip · k plan list (open) · l queued dashed bubble at the tail · m turn header · n "Working for 1m 47s" + Stop in composer · o descriptor pills · p top-bar status roll-up · q scroll-to-bottom pill.
+## Aspect placement (final)
+- a streaming caret on the last prose · b reasoning fold · c MCP + sub-agent in/after the aggregate (sub-agent → nested session) · d failed `Run command` (✗; folds into the aggregate, header signals "· 1 failed"; stderr on expand) · e hard aggregate (all completed fold; only the running tool standalone) · f diff chips + changed-files panel → `ReviewCodeDiff` · g **session-total cost in the HEADER** (`$0.71 · 48.2k tokens`) · ~~h permission card~~ REMOVED · i artifact chip · k plan list · l queued muted right-aligned box at the tail (unified self pattern) · m turn header (shared `PartList`) · n "Working for Ns" + Stop in composer · o descriptor pills · ~~p status roll-up~~ REMOVED · q scroll-to-bottom pill (centered above the composer).
 
 ## Why this is calm
 Every calm-rendering principle at maximum: collapse-by-default everywhere, aggregation over enumeration (a 6-call run = one line), monochrome restraint (status = a tiny glyph; only failure colored), no per-line chrome. Best for long-prose validation sessions where the founder reads the agent's reasoning, not its keystrokes.

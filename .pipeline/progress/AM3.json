@@ -1,17 +1,27 @@
 {
   "id": "AM3",
-  "title": "Session dial-in & activity view",
+  "title": "Session view (session dial-in & activity)",
   "track": "AM",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "1-concept-revisit",
+  "currentStep": "design-approved",
   "designClass": "novel",
-  "reframe": "Founder rejected first AM3 designs (2026-06-22) as wrong primitive. Session = streaming human+agent conversation (agent appends/streams, tool calls interleaved, human messages queue while agent works, thinking shown separately, diffs reuse ReviewCodeDiff). Going back to square one: concept revisit (reshape Part model with tool+reasoning kinds) -> fresh design variants on real references (t3code/ai-sdk-elements/claude-desktop) -> human-design-review -> architecture -> build. Research dossier: plans/AM3/research/session-following-analysis.md.",
   "dependsOn": ["AM1", "AM2"],
   "startedAt": "2026-06-22T11:47:00+02:00",
-  "parkedAt": "2026-06-22T12:05:00+02:00",
+  "designApprovedAt": "2026-06-22T18:30:00+02:00",
   "designScore": 8,
   "architectureScore": 9,
   "prNumber": 348,
-  "notes": "Phase 1 (design+architecture) and Phase 2 (critique, both APPROVED: design 8/10, architecture 9/10 after 1 revision round) complete. DESIGN-CLASS=novel -> designReviewDecision=run; autonomous mode (PIPELINE_INTERACTIVE unset) -> PARK at Phase 2.5 per stakes-gated hard gate. Build/review/docs/retro/ship NOT dispatched. Founder runs /human-design-review AM3 to unpark: open the rendered slide-over variant (SessionDialInSide.stories.tsx) in the :8098 viewer, annotate, designer revises TSX to approval, then pipeline resumes from Phase 3. Chosen direction: non-modal right slide-over opened from the conversation's session-reference Fold; descriptor-driven config band over 'What happened' activity rendered through AM1 PartList (no diff embeds this WP)."
+  "humanDesignReview": "approved",
+  "notes": "Founder ran the design-review loop in the :8098 viewer (12 rounds). REFRAMED twice: (1) session = streaming human+agent conversation, not a controls+activity panel; (2) session and conversation are ONE shared component (PartList/ConversationSurface) — a session is a slightly different FORM of conversation. Concept revisited (Part union extends with tool+reasoning kinds; streaming/queue/diff-reuse contracts). Design redone on the content-rendering axis (how tool calls + every session aspect display), NOT placement (placement is settled: session OpenTarget + ConversationSurface). Approved direction: 'Session View' (calm, folded-aggregation). Founder approved 2026-06-22. UNIFIED MESSAGE PATTERN now lives in the shared PartList: only my own messages right-bound+grey-box (capped width, header above box top-left), everyone else (other humans + agents) left-plain; round avatars green=agent/grey=human; session reference split from attachments; agent star glyph removed. This FIXED the AM1 conversation (was missing avatars + the self-box) at the source. Remaining = BUILD: render the session through the real PartList (extend PartKind union with tool+reasoning, wire derivePartsFromSession), then tests + DOM-snapshot re-bless + verify green.",
+  "buildScope": [
+    "Extend PartKind union: tool + reasoning kinds (closed, exhaustive, unknown fallback)",
+    "derivePartsFromSession adapter over normalized session activity (ActivityEntry)",
+    "Tool-run aggregation (renderer grouping beside groupParts): all completed fold incl. failures, only running standalone, aggregate signals failures",
+    "File diffs reuse ReviewCodeDiff via diff Embed (no new diff renderer)",
+    "Composer pills from HarnessCapabilityDescriptor (no per-backend branching)",
+    "Queued message: pre-Part FIFO state, non-interrupting, delivers to a prose Part",
+    "Render session through the shared PartList (self-right pattern) — no parallel renderer",
+    "Re-bless PartList/ConversationSurface/catalog DOM snapshots; update PartList tests for the new avatar/self-box/embed structure"
+  ]
 }

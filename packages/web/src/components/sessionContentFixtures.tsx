@@ -15,17 +15,22 @@
  *     an aggregation run, a file edit with a diff, a cost tick, a plan/todo, a
  *     completed-turn fold, an artifact, and a QUEUED human message.
  *  2. The shared rendering atoms — REUSING the conversation's components (avatars,
- *     left-aligned human-message row, composer chrome incl. the "+" attach
+ *     the unified self/other message rows, composer chrome incl. the "+" attach
  *     affordance) + the session-specific atoms (status glyph, diff stat, descriptor
  *     pills, queued row) — that the chosen variant composes.
  *
- * APPROVED DIRECTION (founder review, 2026-06-22): Variant 1 — "Calm Transcript".
- * Annotations applied here: NO inline permission/approval prompt (the REVIEW is the
- * allow point, not a per-tool gate); human messages render LEFT-ALIGNED like the
- * HyperIdle chat (not a right-aligned bubble); avatars + composer + human-row REUSE
- * the conversation's components; the header carries only minimal session identity
- * (no PR / change-count / Background / Artifacts metrics bar); a sub-agent tool row
- * OPENS its own nested session view. See `plans/AM3/design/approved.md`.
+ * APPROVED DIRECTION (founder review, 2026-06-22, 12 review rounds): "Session View".
+ * Session + conversation are ONE shared component (PartList / ConversationSurface) —
+ * a session is a slightly different FORM of conversation. UNIFIED message pattern
+ * (now fixed at the source in the shared `PartList`): only MY OWN (isMe) messages
+ * are highlighted — RIGHT-aligned, grey background box, capped ≤80% width, with the
+ * avatar+name header above the box's top-left corner; EVERYONE ELSE (other humans
+ * AND agents) renders LEFT-aligned, plain, no background. Round avatars: GREEN for
+ * agent, GREY for human (no agent "star" glyph). Annotations applied here: NO inline
+ * permission/approval prompt (the REVIEW is the allow point, not a per-tool gate);
+ * the header carries only minimal session identity + session-total cost (no PR /
+ * change-count / Background / Artifacts metrics bar); a sub-agent tool row OPENS its
+ * own nested session view. See `plans/AM3/design/approved.md`.
  *
  * Production rules this proves (architecture turns into the real adapter +
  * dispatch): the stream renders through the AM1 Part vocabulary EXTENDED with
@@ -33,8 +38,9 @@
  * grouping, not a Part kind); file diffs reuse `ReviewCodeDiff` via a `diff`
  * Embed; composer controls render declaratively from a HarnessCapabilityDescriptor.
  *
- * @lore AM3: populated real state only — incl. a REAL failed tool + a REAL
- * permission prompt as populated content. No skeleton/empty/error variants.
+ * @lore AM3: populated real state only — incl. a REAL failed tool as populated
+ * content. No inline permission prompt (reviews are the allow point). No
+ * skeleton/empty/error variants.
  */
 
 import type {
@@ -683,19 +689,16 @@ export function ParticipantGroup({ people }: { people: readonly PartAuthor[] }):
 	);
 }
 
-// ── Human message — LEFT-ALIGNED, like the HyperIdle conversation (founder review
-//    2026-06-22: "in the chat these messages appear on the left"). Carries the
-//    conversation's ROUND, human/agent-TINTED Avatar + name · "You" · time header
-//    (annotation 1). The BODY is a calm BACKGROUND BOX (founder review ROUND 5:
-//    "the message box of the human is missing the background like it has in the
-//    conversation") — a subtle `--surface-container` surface, modest padding,
-//    still LEFT-aligned. NOT a heavy colored chat bubble; the asymmetry is
-//    intentional: HUMAN = boxed, AGENT = plain full-width (the references). The
-//    calm `bg-[var(--surface-container)]` surface mirrors the conversation's own
-//    calm token (`Conversations.tsx` review-verdict hint). The AM1 conversation
-//    currently renders human messages PLAIN; for true parity it should adopt this
-//    same box — flagged as a cross-cutting follow-up in approved.md (AM3 scope
-//    only; not changed here). ──
+// ── Human message — MY OWN (isMe): RIGHT-aligned, grey background box, capped
+//    width (≤80%), with the conversation's ROUND, human/agent-TINTED Avatar + name ·
+//    "You" · time header ABOVE the box's top-left corner. This is the UNIFIED
+//    self-message pattern now fixed at the source in the shared `PartList` and
+//    inherited by BOTH the session and the AM1 conversation: only MY OWN messages are
+//    highlighted (right-bound grey box); everyone else — other humans AND agents —
+//    renders left-aligned, plain, no background. The grey box uses the calm
+//    `bg-[var(--surface-container)]` surface. The AM3 change that fixed this pattern
+//    in the shared PartList also fixed the AM1 conversation (which was missing the
+//    avatars + the self-box). See `plans/AM3/design/approved.md`. ──
 export function HumanRow({
 	author,
 	createdAt,
