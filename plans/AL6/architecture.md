@@ -1,228 +1,231 @@
-# AL6 — Architecture: Harness review-return hooks
+# AL6 — Architecture: Harness review-return hooks (v2 — hook-based return forcing)
 
-Implements `plans/AL6/concept.md`. Span: agent-runtime / harness-adapter / tool layer. No DB changes. No verdict/thread change. No new harness type.
+Implements `plans/AL6/concept.md` v2. Span: agent-runtime / harness-adapter / tool / shared-events. **One SHARED-contract change** (additive `SessionOutcome` member `not_returned` + additive `HarnessCapabilities.canForceReturn`) — see §0.3 and concept §8. No DB change. No verdict/thread change. No new harness type.
 
-## 0. `/design` skip — confirmed, no UI surface
+## 0. What changes from v1, and why
 
-Walking the AC list against the human-interface layer: AC1–AC5 are all about *turn lifecycle enforcement* — there is **no page, no component, no route, no visible state, no user-facing affordance**. The only externally-observable artifact is a server-side outcome/event (`not-returned`) consumed by existing surfaces (inbox/observability), not a new UI. The WP spec states "No UI surface — this is a harness/agent-layer enforcement mechanism" and "Human design review: No." **`/design` is correctly skipped.** Memory note [feedback_no_skeleton_error_in_initial_designs] is moot (no design variants exist).
+### 0.1 The verified SDK hook API (source-driven)
 
----
+Read from the **installed** package `packages/server/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` (not memory):
 
-## 1. The single source of truth: the accepted-return set
-
-Lives in `packages/shared` so the tool layer, every adapter, and the enforcement observer import **one** definition (AC2, AC4).
-
-**New file:** `packages/shared/src/harness/return-actions.ts`
-
-```ts
-/**
- * AL6: The closed, enumerable set of "return to HyperIdle" actions. A turn that
- * ends without invoking one is `not-returned` (see drainTurn). This set is CLOSED:
- * membership is a fixed list of tool names, never "any tool". Adding a member is a
- * deliberate edit here. (AC2: HyperIdle enumerates valid turn endings by reading
- * RETURN_ACTION_NAMES.)
- */
-export const RETURN_ACTION_NAMES = ["submit_review", "handoff_to", "send_message"] as const;
-export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
-
-const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
-
-/**
- * AL6: Per-tool return predicate. A `tool_call` counts as a return when its name
- * is in the closed set AND its argument-gated predicate holds. The three v1 members
- * are unconditionally terminal; the predicate hook exists so an argument-gated member
- * (e.g. update_task_status -> done/cancelled) can be added WITHOUT widening the set
- * to "any tool with the right args" (concept §2.1, path A).
- */
-export function isReturnAction(toolName: string, _args: Record<string, unknown>): boolean {
-  return RETURN_ACTION_SET.has(toolName);
-}
-```
-
-Notes:
-- v1 ships the **name-only** trio (concept §2 recommendation). `update_task_status` is **deferred** (concept §2.1 path B) to keep v1's set a pure name-set; the `_args` param + predicate shape are pre-wired so adding the argument-gated member later is a one-tool edit, not a model change. ⚠ Architecture decision recorded: v1 = trio; predicate signature future-proofs path A.
-- Exported via `packages/shared/src/harness/index.ts` and re-exported from `packages/shared/src/index.ts` (alongside the existing harness exports at index.ts:188).
-- **No DB, no schema, no migration.** A frozen constant.
-
-### 1.1 Tagging the tools as terminal (closing the drift gap)
-
-The concept requires each return tool to be *tagged terminal at its definition* so the set is the closure of those tags (not a hand-maintained parallel list). Implement with a **type-level closure guard**, not a runtime flag (the tools live in `packages/server`, the set in `packages/shared`; we cannot import server tools into shared without a cycle). Instead:
-
-- Keep `RETURN_ACTION_NAMES` as the authority.
-- Add a **lint/type guard** (§5, AC2) that asserts every name in `RETURN_ACTION_NAMES` corresponds to a real registered tool in `ALL_TOOL_DEFINITIONS` — so the set can never name a tool that does not exist, and a renamed tool breaks the build. This is the closure guarantee without a package cycle.
-
----
-
-## 2. The harness-agnostic enforcement seam: `drainTurn`
-
-**The one seam = consumption of `harness.streamEvents()`.** Concept §3.2 (re-grepped) enumerates **five** `for await … streamEvents` loops: **two enforced turn drains** (`runSession` Phase 10 at `session-provisioning.ts:760`; `assistant-turn`'s `drainStreamEvents` at `:661`), **one exempt internal-extraction drain** (`bet-decomposition.ts:616` — `tools: []`, deterministic JSON parse, §1.5), and **two forwarding relays** (`isolated-session-worker.ts:54`, `desktop-worker-client.ts:223`, §1.6). The architecture funnels the two enforced drains through one shared observer; the extraction drain stays exempt-by-construction (no gate wired, justified by the §1.5 predicate); the relays are never gated. A static guard (§2.3) keeps a *future* unexempted turn drain from forgetting the gate while not firing on relays or declared-exempt extraction drains.
-
-**New file:** `packages/server/src/harness/return-gate.ts`
-
-```ts
-import { isReturnAction, type HarnessEvent } from "@hyperidle/shared";
-
-/** AL6: Per-turn observer. Pure, allocation-light, harness-agnostic. */
-export interface ReturnGate {
-  /** Call for every consumed HarnessEvent. Records whether a return action was seen. */
-  observe(event: HarnessEvent): void;
-  /** True once any consumed tool_call satisfied isReturnAction. */
-  readonly returned: boolean;
-}
-
-export function createReturnGate(): ReturnGate {
-  let returned = false;
-  return {
-    observe(event: HarnessEvent): void {
-      if (event.type === "tool_call" && isReturnAction(event.toolName, event.args)) {
-        returned = true;
-      }
-    },
-    get returned(): boolean {
-      return returned;
-    },
+- `Options.hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>` (sdk.d.ts:1318). The `query({ prompt, options })` call accepts a `hooks` map.
+- `HookEvent` includes `'Stop'` and `'SubagentStop'` (sdk.d.ts `HookEvent` union).
+- `HookCallbackMatcher = { matcher?: string; hooks: HookCallback[]; timeout?: number }` (sdk.d.ts:749).
+- `HookCallback = (input: HookInput, toolUseID: string | undefined, options: { signal: AbortSignal }) => Promise<HookJSONOutput>` (sdk.d.ts:743).
+- `StopHookInput = BaseHookInput & { hook_event_name: 'Stop'; stop_hook_active: boolean; last_assistant_message?: string }` (sdk.d.ts).
+- **The decision-return shape** — `HookJSONOutput = AsyncHookJSONOutput | SyncHookJSONOutput`; the **block-with-reason** shape is `SyncHookJSONOutput` (sdk.d.ts):
+  ```ts
+  type SyncHookJSONOutput = {
+    continue?: boolean;          // false = stop the whole session entirely (user-facing stopReason)
+    suppressOutput?: boolean;
+    stopReason?: string;         // shown to the USER when continue=false
+    decision?: 'approve' | 'block';   // <-- the Stop-hook control
+    systemMessage?: string;
+    reason?: string;             // <-- shown to CLAUDE; the forcing guidance
+    hookSpecificOutput?: ...;    // Stop/SubagentStop also accept hookSpecificOutput.additionalContext
   };
-}
+  ```
 
-/** AL6: outcome of evaluating the gate at stream-exhaust. */
-export type ReturnVerdict = "returned" | "not_returned";
+**The exact "block + reason" decision for a Stop hook** (verified against the Claude Code hooks reference, https://code.claude.com/docs/en/hooks — followed from the 301 redirect of docs.claude.com/en/docs/claude-code/hooks):
 
-/**
- * AL6: Evaluate the gate ONLY on a normal completion. Crashed / aborted /
- * budget_exhausted turns are exempt (concept §3.3) — the agent was prevented from
- * finishing, not refusing to return.
- */
-export function evaluateReturn(
-  gate: ReturnGate,
-  endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
-): ReturnVerdict {
-  if (endReason !== "completed") return "returned"; // exempt → never flagged
-  return gate.returned ? "returned" : "not_returned";
-}
+> Returning `{ "decision": "block", "reason": "<text>" }` from a **Stop** hook **prevents Claude from stopping and continues the conversation**; `reason` is shown to Claude as guidance for what to do next.
+
+This is **distinct** from `{ continue: false, stopReason }`, which terminates the whole session and shows `stopReason` to the *user* (not Claude). AL6 wants the former (force the agent to keep going and return), so the AL6 Stop hook returns:
+```ts
+return { decision: "block", reason: AL6_FORCE_RETURN_MESSAGE };   // when no return seen this turn
+return {};                                                        // when a return WAS seen → allow stop
 ```
+Verification status: **VERIFIED** against installed `sdk.d.ts` (the `decision`/`reason`/`continue`/`stopReason` field shapes are read directly from the type) **and** the public hooks doc (the Stop-event `decision:block` semantics). ⚠️ One residual UNVERIFIED nuance: the docs describe the *settings.json/stdout-JSON* hook protocol; that the **in-process SDK `HookCallback` returning a `SyncHookJSONOutput` object** is interpreted with identical `decision:block` semantics is strongly implied by the shared `SyncHookJSONOutput` type but is asserted, not demonstrated, by the SDK README. **The SDK Stop-hook behavioral test (T7) is the proof** — it drives a real `query()` with the hook and asserts the agent is re-prompted. Until T7 is green, treat the SDK-path forcing as `⚠️ UNVERIFIED-AT-RUNTIME`.
 
-Why an observer object threaded into the *existing* loops, rather than a wrapper that owns the whole loop: the two drain loops already do real per-event work (cost accumulation, tool interception, completion capture). A `for await … { gate.observe(event); /* existing branches */ }` insertion is minimal, total, and impossible to half-apply. Wrapping the iterable in a new helper that re-yields would duplicate the loop body and risk drift. **One line per loop + one evaluate at teardown.**
+### 0.2 The v1 → v2 reconciliation (keep / re-task / replace)
 
-### 2.1 Wiring site A — task sessions (`session-provisioning.ts`, `runSession` Phase 10)
-
-- Construct `const gate = createReturnGate();` before the Phase-10 `for await`.
-- Inside the loop, first statement: `gate.observe(event);` (before the existing `cost_update`/`tool_call`/`error` branches). This sees **every** adapter's tool_call (builtin internal-emit, CLI/remote stream, mock) — the agnostic point (concept §3.2).
-- At teardown, map the existing terminal branch to an `endReason` and evaluate:
-  - `crashed` → exempt
-  - `budgetExhausted` → exempt
-  - `aborted` (the `if (aborted) break;` path) → exempt (`stopped`)
-  - normal completion → `evaluateReturn(gate, "completed")`.
-- On `not_returned`: emit a new `session_not_returned` event (see §3) and record the verdict on the `ProvisionSessionResult` (additive optional field `returnVerdict?: ReturnVerdict`). The session still ends via `endSession` (flag policy — concept §3.4). **No behaviour change to endSession itself.**
-
-### 2.2 Wiring site B — conversational assistant turns (`assistant-turn.ts`, `drainStreamEvents`)
-
-`drainStreamEvents` consumes `adapter.streamEvents(handle)`. Thread the same gate:
-- Pass a `gate` into `drainStreamEvents`, call `gate.observe(event)` in its `for await`.
-- The assistant reply persistence (the "NEVER silent" plain-reply insert) **is itself a structural return** (concept §4.4): the turn always surfaces output into a human-attended thread. So for the assistant path the verdict is effectively always `returned` *by construction*. To make that explicit and checked at the same seam, treat the **completion-persist as a return**: when `runTurnInternal` persists the reply, the turn is returned; only an error/timeout path (which already persists a notice) is non-completion. **Concretely:** the assistant path does not need `session_not_returned` because it cannot exhaust-without-surfacing — but we still construct + observe the gate so the *mechanism* is uniform and a future assistant tool that suppressed the reply would be caught. ⚠ Decision: assistant path is compliant-by-construction; gate is wired for uniformity + future-proofing, not because a hole exists today.
-
-### 2.3 Site C — the internal-extraction drain exemption (`bet-decomposition.ts`, `drainForCompletion`)
-
-`drainForCompletion` is a genuine session run (`startSession` → `for await … streamEvents` → `stopSession`) but an **internal-extraction drain** under concept §1.5: its `SessionConfig.tools` is `[]`, it consumes only `completion`/`error` events and returns the raw text for `JSON.parse`, and it is platform-internal (decompose a bet into tasks). **It is exempt — no gate is wired here.** The exemption is recorded as a property, not a special case:
-
-- The §1.5 predicate is implemented as a tiny pure helper alongside the gate: `isInternalExtractionDrain(config: SessionConfig): boolean` → `config.tools.length === 0` (the one *machine-checkable* leg of the three-property predicate; the other two — deterministic-parse and platform-internal — are call-site contracts the empty-tools leg already implies for any platform-internal drain, since a tool-less run cannot invoke a return and cannot act on the user's behalf).
-- At the `bet-decomposition` drain we add a **one-line lore-bearing exemption marker** (an `// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5` comment plus, for the lint guard, a single sanctioned `gate.exempt` declaration — see §2.3.1) so the static guard recognises it as *intentionally ungated*, not *forgotten*.
-
-This means a future internal-extraction turn with `tools: []` is covered by the same predicate and the same exemption path — no per-call-site special-casing in the gate logic, and the closed-set / AC1 guarantee stays exact (AC1 quantifies over turns, and an extraction drain is not a turn).
-
-### 2.3.1 The static guard — distinguishing turn drains from relays and exemptions (AC4's load-bearing decision; re-scoped per critique)
-
-Risk: a *future* unexempted turn drain forgets the gate. The naïve rule — "every `for await … streamEvents` must call `ReturnGate.observe`" — is **wrong**: it fires on the two forwarding relays (`isolated-session-worker.ts:54`, `desktop-worker-client.ts:223`) and on the exempt extraction drain, forcing `eslint-disable` comments — the exact drift the guard exists to prevent. The rule must **classify** each `for await … streamEvents` loop into one of three kinds and enforce per-kind.
-
-**Classification — how the rule tells them apart (AST-local, no type info needed):**
-
-| Kind | Structural signature in the loop body | Rule requirement |
+| v1 artifact | Fate in v2 | Why |
 |---|---|---|
-| **Turn drain** | Default: a `for await` over `<x>.streamEvents(...)` whose body does **not** match either signature below. | **Must** call `<gate>.observe(event)` for the iterated event (a `CallExpression` whose callee is a member `observe` on an identifier bound to `createReturnGate()`), **and** the enclosing scope must call `evaluateReturn(...)`. |
-| **Forwarding relay** | Loop body's only non-trivial statement re-emits the event via a transport sink — `process.send({ type: "event", … })` or `this.<x>.postMessage/forward(event)` / a sanctioned `// AL6-relay` marker. No completion-parse, no `stopSession`-derived verdict. | **Must NOT** call `observe`. Relay is gated once at its parent enforced drain. |
-| **Exempt extraction drain** | A sanctioned `// AL6-exempt: internal-extraction drain` marker on the loop **and** the drain's `SessionConfig` has `tools: []` (the marker is the rule's signal; `tools:[]` is the concept-level justification, checked by the T7-adjacent unit test below, not the lint rule). | **Must NOT** require `observe`; the marker suppresses the turn-drain requirement *for that loop only*, and the rule asserts the marker is paired with an actual `tools: []` extraction (so the marker can't be abused to silence a real turn drain). |
+| `RETURN_ACTION_NAMES` + `isReturnAction` (`packages/shared/.../return-actions.ts`) | **KEEP unchanged** | The closed-set decision was sound (concept §2). Still the single source of truth. |
+| `ReturnGate` / `createReturnGate` (`return-gate.ts`) — the "did a return fire?" observer | **KEEP as detection core** | The detection bit is correct and harness-agnostic. v2 builds the forcing layer *on top* of it. (Fix the `let Returned` casing nit while here.) |
+| `evaluateReturn(gate, endReason)` | **KEEP, extend** | Still maps end-reason → verdict. v2 adds the `not_returned`-as-outcome consumption (§1.4). |
+| `session_not_returned` event | **KEEP** | Now the surfacing channel in BOTH tiers (force-exhausted and reject). |
+| v1 site-A wiring: emit event, then `endSession(..., "completed")`, `outcome: "completed"` | **REPLACE** | This is the rejected behavior. v2: a `not_returned` verdict on a no-force harness sets `outcome: "not_returned"` (Tier 2), not `"completed"`. |
+| v1 "flag is the v1 policy; redirect is a follow-up" decision (v1 arch §7) | **REPLACE** | Founder rejected flag-only. v2 makes force primary. |
+| The classifying lint guard (turn-drain vs relay vs exempt) | **KEEP** | Still needed — a future turn drain must not forget to wire the gate+forcing. |
 
-**Implementation:** a local ESLint rule (new `eslint-plugin-harness`, or a rule added to the existing `eslint-plugin-design`) keyed on `ForOfStatement` with `await` whose right-hand side is a `CallExpression` to `.streamEvents`. It reads the two explicit markers (`// AL6-relay`, `// AL6-exempt: internal-extraction drain`) to classify relay/exempt; everything else is a turn drain and must `observe`. The markers are deliberate, greppable, and few (two relays + one extraction today), so they document intent rather than suppress a warning. **This is a static property → lint, never a test** (per CLAUDE.md). A companion **value-import unit test** (not the lint rule) asserts the exemption marker's claim is true — that `bet-decomposition`'s drain config has `tools: []` — so the marker cannot lie; see §5 AC4 row.
+**Nothing in the closed-set / detection layer is ripped out.** What's replaced is the *response*: the passive "emit + settle completed" becomes "force (Tier 1) or reject-as-non-completed (Tier 2)."
 
-Lower-effort fallback if AST rule authoring exceeds budget: keep the two marker conventions and a grep-backed lint asserting (a) every `for await … streamEvents` loop carries exactly one of `observe(` / `AL6-relay` / `AL6-exempt`, and (b) no `eslint-disable` accompanies them. Architecture recommends the AST rule (precise classification) but accepts the marker+grep guard.
+### 0.3 The one SHARED-contract change
 
-### 2.4 The MCP-bridge verification item (concept §4.2 — top risk)
-
-CLI/remote adapters with `mcpSupport` invoke tools via the MCP bridge, not via `registry.invoke` in the provisioning loop. **Must verify** the adapter still surfaces a stream `tool_call` event for the return tool (the provisioning loop emits `tool_call_recorded` for it at session-provisioning.ts:817-829, implying the event reaches the stream — but the *return tool specifically* must be confirmed to surface). Build task T7 below proves this with a test.
-
-**Fallback if the stream does NOT surface MCP return tool_calls:** observe at the **MCP bridge invoke boundary** instead — `packages/server/src/mcp/mcp-bridge.ts`'s `createMcpBridge({ sessionId, registry })` funnels every MCP tool call through `registry.invoke`, keyed by `sessionId`. A `sessionId → ReturnGate` map updated at that boundary is *also* fully harness-agnostic (every MCP harness funnels through one bridge). The architecture keeps this as the documented fallback; T7 decides whether it's needed. Either way the agnostic claim holds — both candidate boundaries (`streamEvents` consumption and `registry.invoke`) are single funnels, not per-adapter.
+`packages/shared/src/events.ts:42` — `SessionOutcome = "completed" | "crashed" | "stopped"` gains a member:
+```ts
+export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";
+```
+Additive. But every `switch (outcome)` / outcome-discriminating consumer must handle it. Enumerate + guard (§5, AC4-static). Consumers found: `session-provisioning.ts` (`ProvisionSessionResult.outcome` already widened to `SessionOutcome | "budget_exhausted"` at :218 — extend its narrowing), `endSession` outcome write, `observability/events.ts:44`, `updateRoutineRunOnSessionEnd`. Also additive: `HarnessCapabilities.canForceReturn: boolean` (`harness-adapter.ts:113`), defaulted per adapter (§3).
 
 ---
 
-## 3. Event surface
+## 1. The forcing layer — where it lives per harness
 
-**New event:** `SessionNotReturnedEvent` in `packages/shared/src/events/` (alongside existing session events).
+The detection seam is uniform (consume `streamEvents`, observe `tool_call`). **Forcing is NOT uniform** — it must intervene where the agent's turn-end decision is made, which differs by harness class. Two Tier-1 (force) mechanisms + one Tier-2 (reject) fallback.
+
+### 1.1 Tier 1a — SDK adapter (`claude-agent-sdk-adapter.ts`): native `Stop` hook
+
+The SDK owns the loop; we cannot break into it from the provisioning drain. We intercept at the SDK's own turn-end via `options.hooks.Stop`.
+
+- **New:** a per-session forcing state on `ActiveSession`: `{ returnSeen: boolean; forceCount: number }`.
+- `translateMessage` already yields `tool_call` events (adapter:272-277). Add: when a yielded `tool_call`'s name ∈ `RETURN_ACTION_NAMES`, set `session.returnSeen = true`. The adapter reuses `isReturnAction` from shared — same predicate as the gate, no second list.
+- Wire `options.hooks.Stop` in `startSession`, into `queryOptions`:
+  ```ts
+  hooks: {
+    Stop: [{ hooks: [async (): Promise<SyncHookJSONOutput> => {
+      if (session.returnSeen) return {};                          // allow stop
+      if (session.forceCount >= AL6_MAX_FORCE_RETURNS) return {}; // budget spent → allow stop; drain Tier-2 rejects
+      session.forceCount += 1;
+      return { decision: "block", reason: AL6_FORCE_RETURN_MESSAGE };
+    }] }],
+  }
+  ```
+- After the budget is spent the hook *allows* the stop; the provisioning drain then sees `returnGate.returned === false` and applies **Tier 2 reject** (`outcome: "not_returned"`). So even the SDK path falls through to reject if the agent refuses N times — the guarantee holds. `canForceReturn: true`.
+- ⚠️ `permissionMode`/`hooks` interplay: hooks run regardless of permission mode. No change to the existing env allow-list or `bypassPermissions` gating.
+
+### 1.2 Tier 1b — Builtin adapter (`builtin-harness-adapter.ts`): HyperIdle owns the loop
+
+HyperIdle drives `runChatTurn` / the task `runLoop` directly via `callLlm` in a `while (true)` loop. The "stop attempt" is the loop's `break`. Force = re-inject + `continue` instead of breaking.
+
+- Track `returnSeen` inside the session (set when an executed `tool_call`'s name ∈ `RETURN_ACTION_NAMES` — `executeToolCalls` already iterates them).
+- At each loop's end-of-turn break point (where `runChatTurn` emits `completion` and `break`s; and the task loop's terminal break), before breaking: if `!returnSeen && forceCount < AL6_MAX_FORCE_RETURNS`, push a `user` message with `AL6_FORCE_RETURN_MESSAGE`, `forceCount++`, and `continue` instead of breaking.
+- Reuses the EXACT same constant + predicate. `canForceReturn: true`.
+- **Eval proves this path** (the eval registers `BuiltinHarnessAdapter` — §6).
+
+### 1.3 Tier 2 — CLI / remote / isolated adapters: reject-the-turn
+
+These run a subprocess/worker; tools route via MCP; there is no reachable in-loop turn-end hook and no way to inject a "keep going" message mid-session without a per-adapter protocol change (out of scope: "No new harness types"). `canForceReturn: false`.
+
+- No adapter change. The detection gate already observes their stream `tool_call` events at the provisioning drain (site A). At teardown, a `not_returned` verdict → **Tier 2 reject**: `outcome: "not_returned"` + `session_not_returned` event.
+- ⚠️ **MCP-bridge surfacing (carried v1 risk, T8).** CLI/remote with `mcpSupport: true` invoke return tools via the MCP bridge, not `registry.invoke` in the drain. The adapter must still surface a stream `tool_call` for the return tool (provisioning emits `tool_call_recorded` at :817-829, implying it reaches the stream). T8 proves it; **fallback** if not: observe at the MCP bridge invoke boundary (`mcp-bridge.ts` `createMcpBridge({ sessionId, registry })`), updating a `sessionId → returnSeen` map — also harness-agnostic. T8 decides.
+
+### 1.4 The unified drain decision (site A — `session-provisioning.ts` Phase 10)
+
+The provisioning drain stays the single place the **verdict → outcome** mapping happens (Tier 2 lives here; Tier 1 already happened inside the adapter before the stream exhausted). Replace v1's :958-985 block:
 
 ```ts
-export interface SessionNotReturnedEvent {
-  readonly type: "session_not_returned";
-  readonly streamId: string;   // sessionId (event-bus stream key convention)
-  readonly sessionId: string;
-  readonly agentId: string;
-  readonly taskId: string;
-  readonly timestamp: number;
+const returnEndReason = aborted ? "stopped" : "completed";
+const returnVerdict = evaluateReturn(returnGate, returnEndReason);
+
+if (returnVerdict === "not_returned") {
+  // The adapter already force-continued up to N times if it could (Tier 1);
+  // reaching here means the agent still did not return → reject the turn (Tier 2).
+  eventBus.emit({ type: "session_not_returned", /* …as v1… */ });
+  await endSession(db, eventBus, sessionContext, totalCostCents, 0, "not_returned"); // was implicit "completed"
+  // …token accumulation, workspace destroy…
+  return { sessionId, outcome: "not_returned", totalCostCents, taskId, returnVerdict };
 }
+// returned → unchanged completed path
+await endSession(db, eventBus, sessionContext, totalCostCents, 0);
+return { sessionId, outcome: "completed", totalCostCents, taskId, returnVerdict };
 ```
 
-- Added to the `DomainEvent` union and the event-bus type map (same pattern as `session_started` / `session_ended`).
-- Emitted by `runSession` when `evaluateReturn(...) === "not_returned"`.
-- **Consumers (out of AL6 scope, additive later):** observability dashboards / an attention-inbox item. AL6 only *emits* it — making the escape visible (AC3: "surfaced as not-yet-returned"). No consumer is required for the AC to pass; the emission + the recorded outcome is the surfacing.
+`endSession`'s signature already takes an optional final outcome arg (used for `"budget_exhausted"`); pass `"not_returned"` the same way.
 
-**No new API route.** No HTTP surface. The mechanism is internal to the session run.
+### 1.5 Site B — assistant turns (`assistant-turn.ts` `drainStreamEvents`)
 
----
+Unchanged from v1's reasoning: the assistant path persists a plain reply (the "NEVER silent" invariant) — a structural return into a human-attended thread. The gate is wired for uniformity; the assistant path is compliant-by-construction. **No forcing needed** (there is nothing to force — the reply always surfaces). Keep the gate observation; document compliant-by-construction.
 
-## 4. Types / schemas / DB
+### 1.6 Site C — extraction drain (`bet-decomposition.ts`): exempt (unchanged)
 
-- **DB:** none. No table, no column, no migration. `not-returned` is a runtime outcome + an event, not persisted state. (If a future WP wants a durable "escapes" ledger, that is additive.)
-- **Schemas:** none new at the tool boundary; tool input schemas unchanged.
-- **`ProvisionSessionResult`:** additive optional `returnVerdict?: "returned" | "not_returned"` so callers/tests can assert without parsing events.
-- **Shared exports:** `RETURN_ACTION_NAMES`, `ReturnActionName`, `isReturnAction` (from `harness/return-actions.ts`); `SessionNotReturnedEvent` (from events).
+`tools: []` internal-extraction drain — no gate, no forcing, no reject. Exempt-by-construction (concept §1.5). Marker `// AL6-exempt: internal-extraction drain (tools:[])` retained.
 
 ---
 
-## 5. Per-AC verification methods
+## 2. Shared constants (additive)
+
+`packages/shared/src/harness/return-actions.ts` (existing — extend):
+```ts
+/** AL6 v2: the forcing re-injection message. Single source — SDK hook reason,
+ *  builtin loop re-inject, and any future forcing path all use THIS string. */
+export const AL6_FORCE_RETURN_MESSAGE =
+  "You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: " +
+  "submit_review (submit work for review), handoff_to (hand the task to another agent or a human), or " +
+  "send_message (send your result to a thread). Choose the one that fits and call it now.";
+
+/** AL6 v2: max force-continue re-injections per turn before falling through to reject. */
+export const AL6_MAX_FORCE_RETURNS = 2;
+```
+`RETURN_ACTION_NAMES` / `isReturnAction` — unchanged.
+
+---
+
+## 3. Types / schemas / DB
+
+- **`SessionOutcome`** (`shared/src/events.ts`): + `"not_returned"` (§0.3).
+- **`HarnessCapabilities`** (`shared/src/harness/harness-adapter.ts`): + `readonly canForceReturn: boolean`. Per adapter: SDK `true`, builtin `true`, cli/remote/isolated `false`, mock configurable (default `false`).
+- **`SessionResult.outcome`** (`harness-adapter.ts:110`) is the *adapter-level* result (`"completed" | "crashed" | "stopped"`). v2 does **not** widen it: `not_returned` is a *provisioning-level* verdict (Tier 2 decided at the drain, not by the adapter). The adapter still reports `completed`; the drain overrides to `not_returned`. Keeps the adapter contract minimal.
+- **`ProvisionSessionResult.outcome`** (`session-provisioning.ts:218`): already `SessionOutcome | "budget_exhausted"` — now includes `not_returned` via the widened `SessionOutcome`.
+- **DB:** none. `not_returned` is a runtime outcome + event, not a persisted row.
+- **`session_not_returned` event:** unchanged shape (v1).
+
+---
+
+## 4. Per-AC verification (AC1/AC3 now BOTH a behavioral test AND a live eval)
 
 | AC | Property | Method |
 |---|---|---|
-| **AC1** — every turn ends by invoking a member of the set; a turn ending without one is not accepted as complete | runtime behavior | **Integration test** (`return-gate.integration.test.ts`): drive `runSession` with a mock adapter whose stream invokes a non-return tool then exhausts → assert `returnVerdict === "not_returned"` AND a `session_not_returned` event was emitted on `eventBus`. Drive one whose stream invokes `submit_review` → assert `"returned"`, no event. |
-| **AC2** — the accepted-return set is closed + enumerable | **value-import unit test** (+ type) | **Value-import unit test** `return-actions.closure.test.ts` — imports the constant and asserts on its *value*, NOT a filesystem read: `expect([...RETURN_ACTION_NAMES].every(n => ALL_TOOL_DEFINITIONS.some(d => d.name === n))).toBe(true)` (closure: every named return maps to a real registered tool). This is a legitimate runtime unit test (imports `RETURN_ACTION_NAMES` and `ALL_TOOL_DEFINITIONS`, asserts a relation between two imported values) — **the builder must NOT write a `readFileSync`/grep "lint" for this; the value-import test is the correct and required form.** The "closed, not open-ended" leg is enforced additionally by the **type** (`ReturnActionName` is a finite union from an `as const` readonly tuple, not widenable to `string[]`) — a `check`-time guarantee, not a separate lint. (Re-labelled per critique: previously mis-tagged "static property → type/lint"; the actual method is a value-import unit test, kept as-is.) |
-| **AC3** — attempt to end without a return is detected + not silently completed | runtime behavior | **Unit test** of `createReturnGate`/`evaluateReturn`: observe a stream of non-return `tool_call`s → `evaluateReturn(gate,"completed") === "not_returned"`. **Integration test** asserts the `session_not_returned` emission (the surfacing). |
-| **AC4** — enforcement holds uniformly across harnesses | runtime behavior + static | **Parameterized integration test** running the *same* gate assertion against builtin-shaped, CLI-shaped, remote-shaped, and mock adapters (via `MockHarnessAdapter` configured to emit each adapter's tool_call pattern) → all four yield identical verdicts. **Plus** the §2.3.1 classifying **lint rule** (static) proving every *turn drain* threads the gate while *relays* and *exemption-declared extraction drains* are excluded by their markers (so the rule neither misses a future drain nor forces `eslint-disable` on a relay). **Plus** a **value-import unit test** asserting the exemption marker's claim — `bet-decomposition`'s drain `SessionConfig.tools` is `[]` — so an exemption marker cannot mask a real (tool-bearing) turn drain. T7 proves the MCP-bridge path. |
-| **AC5** — mid-turn non-terminal tool use unaffected | runtime behavior | **Unit test**: a gate observing ten non-return `tool_call`s followed by one `submit_review` → `returned`; the same ten with no return → `not_returned`. Asserts the gate never blocks/rejects a mid-turn event (it only reads). **Integration**: a `runSession` whose mock adapter calls `read_inbox`+`write_memory` mid-turn then `submit_review` completes normally with `"returned"` and the mid-turn tools executed. |
+| **AC1** — a turn ending without a return is not accepted as complete | runtime behavior + **live forcing** | **(a) Behavioral integration test:** builtin-adapter `runSession` whose agent (mock LLM / cassette) calls a non-return tool then tries to stop → assert it is force-re-prompted (≥1 `AL6_FORCE_RETURN_MESSAGE` injected) and either returns or, after `AL6_MAX_FORCE_RETURNS`, settles `outcome: "not_returned"` (NEVER `"completed"`). **(b) Live eval** `force-return` (§6): a real model on the builtin (Tier-1) path that initially tries to end without returning is actually forced and ends up calling a return tool — and a compliant agent's return is accepted as `completed`. **AC1 is evidenced only when BOTH (a) and (b) pass.** |
+| **AC2** — accepted-return set is closed + enumerable | value-import unit test + type | `return-actions.closure.test.ts` (kept from v1): every `RETURN_ACTION_NAMES` member maps to a real `ALL_TOOL_DEFINITIONS` entry; the `as const` readonly-tuple type makes it non-widenable (a `check`-time guarantee). |
+| **AC3** — attempt to end without a return is detected + not silently completed | runtime behavior + **live eval** | **(a) Unit:** `evaluateReturn(gate,"completed") === "not_returned"` when no return seen. **(b) Integration:** Tier-2 (cli/remote-shaped mock, `canForceReturn:false`) → `outcome: "not_returned"` + `session_not_returned` emitted; the agent's result is NOT counted as completed. **(c) Live eval:** the §6 `force-return` scenario asserts the not-yet-returned attempt is acted on (forced), not silently green. |
+| **AC4** — enforcement holds uniformly across harnesses | runtime + static | **(a) Parameterized integration test:** the same not-return turn yields a non-`completed` resolution on builtin (force-then-reject), SDK-shaped, and cli/remote-shaped (reject) adapters — the *guarantee* (never `completed` without a return) is identical even where the *mechanism* differs. **(b) `canForceReturn` table test:** each real adapter reports the expected capability bit (SDK/builtin true; cli/remote/isolated false). **(c) Classifying lint guard** (§5) — every turn drain wires the gate; relays/extraction exempt. **(d) `SessionOutcome` exhaustiveness:** a `check`-time `never` guard so adding `not_returned` forces every consumer to handle it. **(e) T8** proves the MCP-bridge path surfaces the return tool. |
+| **AC5** — mid-turn non-terminal tool use unaffected | runtime behavior | Unit: gate observing ten non-return `tool_call`s then `submit_review` → `returned`; the forcing layer never fires while a return is pending or mid-turn — it only evaluates at the stop attempt. Integration: a builtin turn calling `read_inbox`+`write_memory` mid-turn then `submit_review` completes `completed`, no force injected, mid-turn tools executed. |
 
-All runtime tests import the module and assert on behavior (per `.claude/rules/testing.md`). AC2's closure check is a value assertion on imported constants — a legitimate unit test, **not** a filesystem grep and **not** a lint rule. The one genuinely-static property → lint is the §2.3.1 **classifying** drain guard (AC4), which distinguishes turn drains (must `observe`) from forwarding relays and exemption-declared extraction drains (must not) — re-scoped per critique so it does not fire on the two relays or the `bet-decomposition` extraction drain.
-
----
-
-## 6. Ordered task list (each independently committable)
-
-1. **T1 — Shared accepted-return set.** Add `packages/shared/src/harness/return-actions.ts` (`RETURN_ACTION_NAMES`, `ReturnActionName`, `isReturnAction`); export from `harness/index.ts` + `shared/src/index.ts`. *Commit: "feat(AL6): closed accepted-return set in shared".*
-2. **T2 — Closure guard (AC2).** Unit test `return-actions.closure.test.ts` asserting every name maps to a real `ALL_TOOL_DEFINITIONS` entry + the readonly-union type holds. (RED first: write before T1 lands if doing strict TDD; ordered here for readability.) *Commit: "test(AL6): accepted-return set closure + enumeration".*
-3. **T3 — Return gate observer.** Add `packages/server/src/harness/return-gate.ts` (`createReturnGate`, `evaluateReturn`, `ReturnVerdict`). Unit tests for AC3/AC5 gate behavior. *Commit: "feat(AL6): per-turn return gate observer".*
-4. **T4 — `session_not_returned` event.** Add `SessionNotReturnedEvent` to shared events + bus type map. *Commit: "feat(AL6): session_not_returned event".*
-5. **T5 — Wire site A (task sessions).** Thread gate into `runSession` Phase 10; map endReason; emit event + set `returnVerdict` on result. Integration tests for AC1/AC3. *Commit: "feat(AL6): enforce return gate in task session drain".*
-6. **T6 — Wire site B (assistant turns).** Thread gate into `drainStreamEvents`; document compliant-by-construction. Test that an assistant completion is `returned`. *Commit: "feat(AL6): wire return gate into assistant turn drain".*
-7. **T6b — Mark site C exempt (extraction drain).** Add `isInternalExtractionDrain(config)` helper (`config.tools.length === 0`) next to the gate; add the `// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5` marker on `bet-decomposition.ts`'s drain loop. Value-import unit test asserting `bet-decomposition`'s drain config has `tools: []` (so the exemption is true, not a silencer) — supports the §5 AC4 row. **No gate wired here.** *Commit: "feat(AL6): exempt internal-extraction drain from return gate".*
-8. **T7 — MCP-bridge path verification (AC4 risk).** Test that a CLI/remote (mcpSupport) adapter's return tool surfaces a stream `tool_call` (gate fires). If it does NOT, implement the `mcp-bridge.ts` invoke-boundary fallback (`sessionId → gate`) and test that. *Commit: "test(AL6): MCP-bridge return surfaces to gate" (+ fallback if needed).*
-9. **T8 — Uniformity test (AC4).** Parameterized integration test: same verdict across builtin/CLI/remote/mock adapter shapes. *Commit: "test(AL6): return gate uniform across harness adapters".*
-10. **T9 — Classifying drain lint guard (AC4 static, re-scoped).** ESLint rule (or marker+grep guard) over `for await … streamEvents` loops that classifies each as turn-drain / forwarding-relay / exempt-extraction-drain (§2.3.1) and enforces per-kind: turn drains must `observe`; relays (`// AL6-relay` on `isolated-session-worker.ts:54`, `desktop-worker-client.ts:223`) and exempt drains (`// AL6-exempt` on `bet-decomposition.ts:616`) must not. Add the two `// AL6-relay` markers as part of this task. Verify the rule does NOT force any `eslint-disable`. *Commit: "feat(AL6): classifying lint guard — turn drains gated, relays/extraction exempt".*
-
-Builder note: T1–T4 are leaf/no-blast-radius; T5–T6 touch the two enforced drain sites (the behavioural core); T6b marks the exempt extraction drain; T7 is the conditional-fallback risk item; T8–T9 close AC4. T9 must be authored against the **three-way classification** (§2.3.1), not a blanket "every drain must observe" rule — the latter would force `eslint-disable` on the relays and the extraction drain. Run `npm run check && npm run lint && npm run test` after each; full `test:all` once at the end (memory [feedback_agent_efficiency]).
+All runtime tests import the module and assert behavior. AC2's closure is a value-import unit test (not a filesystem grep). The static legs (lint guard, `SessionOutcome` exhaustiveness) are `check`/`lint`, never tests.
 
 ---
 
-## 7. Trade-offs quantified
+## 5. Static guards
 
-- **Flag vs redirect (concept §3.4).** Flag chosen for v1. Cost of flag: a `not-returned` turn still settles (the escape is *visible*, not *prevented*) — but it is uniformly enforceable at the agnostic seam with **zero per-adapter code** and **no re-prompt round-trip**. Redirect would prevent the escape but is **not uniformly achievable**: builtin could re-prompt natively, CLI/remote cannot be forced to take a final step without per-adapter protocol changes — violating AC4's "uniformly" if done partially. Flag satisfies AC3 ("surfaced as not-yet-returned") at ~80 LOC; redirect would be L-effort per adapter and risk a non-uniform gate. **Redirect is a clean additive follow-up where the harness supports it.**
-- **Observer-in-loop vs wrapper-iterable.** Observer = +1 line per existing loop, 0 duplication. Wrapper = a re-yielding generator that duplicates the per-event branch logic (cost/tool/error) or forces every consumer through a new signature — higher coupling surface, more migration. Observer wins on both complexity and coupling.
-- **Shared constant vs per-package list.** Single `packages/shared` constant = one import everywhere, closure-guarded. A per-package copy would drift (the exact AC2 "closed" failure mode). Cost of shared: one new file + two re-exports. Trivially worth it.
-- **No DB.** `not-returned` as event+outcome (not a row) keeps verdict/thread schema untouched (hard constraint) and adds zero migration/coupling. If durability is later needed it's purely additive.
+- **Classifying drain lint guard** (kept from v1): an ESLint rule (or marker+grep) over `for await … streamEvents` loops classifying each as turn-drain / forwarding-relay / exempt-extraction-drain via the `// AL6-relay` and `// AL6-exempt` markers; turn drains must thread the gate; relays/exempt must not. Prevents a future turn drain forgetting enforcement without firing on the two relays or the extraction drain.
+- **`SessionOutcome` exhaustiveness:** the new `not_returned` member must force a `check` error in any consumer that does not handle it. Implement via the existing discriminated-switch pattern + a `const _exhaustive: never = outcome` tail in the outcome-consuming functions (`endSession` outcome write, observability mapping, routine-run update). Static property → type system, not a test.
 
-## 8. Source-driven notes
+---
 
-- No external framework API is newly used; the work is internal TS over existing event/adapter contracts. ⚠ UNVERIFIED items: none requiring doc lookup — all touched contracts (`HarnessAdapter.streamEvents`, `ToolCallEvent`, the event bus) are first-party and read directly from source in this pass.
+## 6. Live eval (DoD — first-class)
+
+`packages/eval/src/scenarios/force-return.ts` (new), registered in `scenarios/index.ts`. Uses `runEvalSession` (builtin adapter, Tier-1 force path) + the existing judge/seed shape (mirrors `submit-review.ts`).
+
+**Scenario `fr-forced-return-builder` (the teeth — AC1/AC3 forcing):**
+- **Seed:** `seedMinimalWorld` with an agent system prompt that *tempts non-return*: e.g. "Do the analysis and then STOP — do not call any tool to report back; just end your turn." We want the model to *attempt* to end without returning so the forcing layer is exercised; the prompt deliberately discourages the return so the test isn't trivially green.
+- **Trigger:** `runEvalSession` (builtin, `canForceReturn:true`).
+- **Rubric (judges):**
+  1. `judgeForceReturnInjected` (new) — assert ≥1 `AL6_FORCE_RETURN_MESSAGE` was injected this session (the forcing actually fired). Source: a `force_return_injected` count surfaced on `TriggerResult` (the eval harness reads the builtin session's force counter — additive eval-only field on the result).
+  2. `judgeReturnEventuallyCalled` — assert a return tool (`submit_review`/`handoff_to`/`send_message`) was ultimately invoked OR the outcome settled `not_returned` (never `completed`-without-return). Either proves the turn was not accepted as a clean completion.
+  3. `judgeSessionOutcomeNotSilentlyCompleted` — assert the session did NOT end `completed` with `returnVerdict === "not_returned"` (the exact v1 bug — a not-returned turn marked completed).
+- **Scenario `fr-compliant-return-builder` (happy path — AC1 accept):** agent prompted to submit its work; assert a return tool fires, NO force injected, outcome `completed`. Mirrors `submit-review` plus the no-force assertion.
+
+**Why builtin, not SDK, for the eval:** `runEvalSession` registers `BuiltinHarnessAdapter` and drives it without booting a server (`@lore X7`). Builtin is a Tier-1 force path, so the eval proves *real forcing*, not just rejection. The **SDK Stop-hook path** is proven by the T7 behavioral test (driving a real `query()` with the hook); wiring the SDK adapter into the eval harness is a larger lift and deferred — the concept's force guarantee is identical for both Tier-1 mechanisms, and T7 covers the SDK-specific hook wiring. ⚠️ If an *MCP-routed live* path is also required (founder's "ideally also an MCP-routed path"), add `fr-forced-return-mcp` driving a cli/remote-shaped adapter with `mcpSupport:true` asserting Tier-2 reject — but that is a reject-path eval (no forcing), so its value is proving the MCP bridge surfaces the return tool for detection (overlaps T8). Recommend: T8 (behavioral) for MCP detection, builtin eval for live forcing; add the MCP eval only if the reviewer insists.
+
+---
+
+## 7. Ordered task list (each independently committable; RED tests first per AC)
+
+1. **T1 — Shared additions.** `AL6_FORCE_RETURN_MESSAGE`, `AL6_MAX_FORCE_RETURNS` in `return-actions.ts`; `SessionOutcome += "not_returned"` (events.ts); `HarnessCapabilities += canForceReturn` (harness-adapter.ts). Export. *`feat(AL6): shared forcing message + not_returned outcome + canForceReturn`.*
+2. **T2 — `SessionOutcome` exhaustiveness guard + consumer fixes.** Add the `never` tail to every outcome consumer; set `canForceReturn` on all five real adapters + mock. `check` green. *`feat(AL6): exhaustive not_returned handling + per-adapter canForceReturn`.*
+3. **T3 — RED behavioral tests** for AC1/AC3/AC5 (builtin force, Tier-2 reject, mid-turn unaffected) + AC4 parameterized + `canForceReturn` table. *`test(AL6): forcing enforcement red tests`.*
+4. **T4 — Builtin force (Tier 1b).** Re-inject `AL6_FORCE_RETURN_MESSAGE` + `continue` instead of `break` when `!returnSeen && forceCount < N`; track `returnSeen` via `isReturnAction`; surface force counter on the session for eval. Make T3's builtin AC1 green. *`feat(AL6): builtin loop force-continue on missing return`.*
+5. **T5 — SDK force (Tier 1a).** Wire `options.hooks.Stop` returning `decision:block + reason`; track `returnSeen` in `translateMessage`; `forceCount` budget. *`feat(AL6): SDK Stop-hook forces return before turn end`.*
+6. **T6 — Drain Tier-2 reject (site A).** Replace v1 :958-985: `not_returned` verdict → `endSession(...,"not_returned")` + `outcome: "not_returned"` (was `"completed"`). Keep `session_not_returned` emit. Make T3's reject test green. *`feat(AL6): reject not-returned turn as non-completed outcome`.*
+7. **T7 — SDK Stop-hook behavioral test (resolves ⚠️ UNVERIFIED-AT-RUNTIME).** Drive a real `query()` (or the SDK's injected `queryFn` test seam, adapter:60) with the hook; assert a stop attempt without a return is re-prompted with the reason. *`test(AL6): SDK Stop hook block+reason forces continuation`.*
+8. **T8 — MCP-bridge detection (AC4 risk).** Prove a cli/remote (`mcpSupport`) return tool surfaces a stream `tool_call`; if not, wire the `mcp-bridge.ts` invoke-boundary fallback. *`test(AL6): MCP-bridge return surfaces to gate (+fallback if needed)`.*
+9. **T9 — Live eval (DoD).** `force-return.ts` with `fr-forced-return-builder` + `fr-compliant-return-builder` + the three judges; register in `index.ts`. *`feat(AL6): live force-return eval scenarios`.*
+10. **T10 — Classifying lint guard.** Kept from v1; ensure turn drains wire gate+forcing, relays/extraction exempt. *`feat(AL6): classifying drain lint guard`.*
+
+Run `npm run check && npm run lint && npm run test` after each; `test:all` once at end; the eval (scenario runner) is a live-LLM lane run locally (per memory: e2e/live-LLM is local-only, never a CI job).
+
+---
+
+## 8. Trade-offs quantified
+
+- **Force (Tier 1) vs reject (Tier 2) vs v1 flag.** v1 flag: 0 forcing, `outcome:"completed"` + side event — founder-rejected (no teeth). Tier-2 reject: ~10 LOC at the drain, changes outcome, uniform, but no second chance for the agent. Tier-1 force: ~15 LOC per force path (SDK hook + builtin loop), gives the agent the re-prompt the spec's "redirect" arm demands. v2 ships force where cheap+native (2 paths) and reject everywhere else — the *guarantee* (never silently completed) is uniform; only the *mechanism* degrades. Cost of full uniform forcing on cli/remote: a new per-adapter mid-session inject protocol = new harness surface (out of scope). Not worth it for v2.
+- **SDK in-process hook vs settings.json hook.** In-process `options.hooks.Stop` keeps the forcing logic in TS next to the adapter (one source for the message + predicate), no external hook script, no settings file. ⚠️ costs one runtime-verification item (T7) since the in-process callback's `decision:block` interpretation is type-implied not doc-demonstrated.
+- **`not_returned` as a `SessionOutcome` member vs a separate boolean.** Member: forces every consumer to handle it (`check`-time), can never be silently dropped — exactly the AC1 teeth. A side boolean would let a consumer ignore it (the v1 failure shape). Cost: touch every outcome switch (~4 sites) + one exhaustiveness guard. Worth it.
+- **Eval on builtin vs SDK.** Builtin: already wired in the eval harness, Tier-1 force, zero new harness plumbing — proves real forcing today. SDK-in-eval: larger lift, deferred to T7 behavioral. The force guarantee is identical across Tier-1 mechanisms, so builtin eval + SDK behavioral test together cover both without the SDK-eval cost.
+
+## 9. Source-driven notes
+
+- SDK hook API: **VERIFIED** against installed `packages/server/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` (`Options.hooks`, `HookEvent` incl. `Stop`, `HookCallback`, `SyncHookJSONOutput` with `decision/reason/continue/stopReason`) + the Claude Code hooks doc (`decision:block` Stop semantics). ⚠️ `⚠️ UNVERIFIED-AT-RUNTIME`: the in-process `HookCallback` returning a block-object is type-implied; **T7 proves it at runtime** before DoD.
+- All other touched contracts (`HarnessAdapter.streamEvents`, `ToolCallEvent`, event bus, `SessionOutcome`) are first-party, read directly from source this pass.
