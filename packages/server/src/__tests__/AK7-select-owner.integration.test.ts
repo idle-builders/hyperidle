@@ -115,6 +115,13 @@ function makeCapturingStrategy(returnAgentId: string | null): {
 				return { agentId: returnAgentId };
 			},
 		),
+		/**
+		 * AK8 T1/W3: decomposeBet added to satisfy Strategy<TDb> 5-method interface.
+		 * AK7 tests are not about decomposition — stub returns null decomposer.
+		 *
+		 * @lore AK8: fixture shape grows; frozen AK7 assertions byte-identical.
+		 */
+		decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 	};
 	return { strategy, calls };
 }
@@ -262,6 +269,8 @@ describe("AK7: selectOwner — attaches to user-id returned by Strategy (AC2)", 
 				calls.push(req);
 				return { agentId: "agent-1" };
 			}),
+			// AK8 T1/W3: decomposeBet stub — AK7 tests not about decomposition.
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		};
 		setActiveStrategy(strategy);
 
@@ -321,6 +330,8 @@ describe("AK7: selectOwner — Minimal Strategy single-agent (AC3, scenario 1)",
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: minimalSelectAgent,
+			// AK8 T1/W3: decomposeBet stub — AK7 tests not about decomposition.
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		const result = await selectOwner(
@@ -404,6 +415,8 @@ describe("AK7: bet_task spread regression via production flow — 2 candidates, 
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: fabricLike,
+			// AK8 T1/W3: decomposeBet stub — AK7 tests not about decomposition.
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		// Run the production decomposition insert: 3 tasks, all ownerRole=null.
@@ -463,6 +476,7 @@ describe("AK7: selectOwner — off-team valid agent (scenario 3, case 2)", () =>
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "agent-offteam" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		const result = await selectOwner(
@@ -500,6 +514,7 @@ describe("AK7: selectOwner — unattachable guard (scenario 3, case 3)", () => {
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: null }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		const result = await selectOwner(
@@ -527,6 +542,7 @@ describe("AK7: selectOwner — unattachable guard (scenario 3, case 3)", () => {
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "nonexistent-user-xyz" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		const result = await selectOwner(
@@ -559,6 +575,7 @@ describe("AK7: selectOwner — unattachable guard (scenario 3, case 3)", () => {
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			// Strategy picks the inactive agent (bad pick)
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "agent-inactive" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		const result = await selectOwner(
@@ -598,6 +615,7 @@ describe("AK7: selectOwner — unattachable guard (scenario 3, case 3)", () => {
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "human-user-1" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		// Need a team to give selectOwner a teamId
@@ -644,6 +662,7 @@ describe("AK7: selectOwner — new flow uses seam, no eligibility re-impl (AC4)"
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "agent-ac4" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		// The new flow only calls selectOwner — no findEligibleTeamAgents call here
@@ -694,6 +713,7 @@ describe("AK7: AC5 — existing dispatch path reused (selectOwner result → own
 			beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: "agent-dispatch" }),
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		// selectOwner returns the user-id — the caller writes it to tasks.ownerAgentId.
@@ -751,6 +771,8 @@ describe("AK7: selectOwner — candidates ordered by users.id (AC3 ordering)", (
 				}
 				return { agentId: req.candidates[0]?.agentId ?? null };
 			}),
+			// AK8 T1/W3: decomposeBet stub — AK7 tests not about decomposition.
+			decomposeBet: vi.fn().mockResolvedValue({ decomposerAgentId: null, tasks: [] }),
 		});
 
 		await selectOwner(

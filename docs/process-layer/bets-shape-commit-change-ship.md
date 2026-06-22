@@ -35,7 +35,7 @@ The provenance link appears in the bet detail header as "From knowledge: &lt;tit
 The founder commits a bet from the bet detail view. At that moment:
 
 1. The bet moves from `draft` to `active`.
-2. The Kernel immediately begins decomposition — a PM agent runs a task-free turn, reads the bet's goal and done condition, and produces a task breakdown.
+2. The Kernel emits `work_decompose_requested` and asks the active Strategy which agent decomposes the bet and whether it provides a pre-computed task breakdown. With the current Minimal and Fabric Strategies the Kernel runs a PM agent turn that reads the bet's goal and done condition and produces a task breakdown.
 3. The bet's task section shows "Planning the work" while decomposition runs. Tasks appear as soon as the PM agent finishes.
 
 Commit is a **human verdict that obliges the system to start work**. It is the handoff from shaping to doing. After commit, every active bet has either a task breakdown or an explicit, visible reason why one couldn't be produced — there is no "work will start eventually" limbo.
@@ -44,9 +44,9 @@ The `done_condition` guides what the PM agent produces. It is revisable during t
 
 ### 5.3 Decompose (v1: PM agent; destination: decentralized by the team)
 
-**As-built (v1):** When a bet is committed, a single PM agent runs a task-free turn — it reads the bet's goal and done condition and returns a structured task breakdown. The Kernel inserts these as tasks; **owner assignment routes through the active Strategy's `selectAgent` port method** (AK7): the Kernel enumerates eligible team candidates and asks the Strategy which agent takes each task. Each task is immediately accepted, which triggers the existing task → session dispatch path. No human approves the initial breakdown; the founder sees it on the bet surface after the fact.
+**As-built (v1):** When a bet is committed, the Kernel emits `work_decompose_requested` and calls the active Strategy's `decomposeBet` port method (AK8) — which returns the decomposer agent id and an optional task list. With the Minimal and Fabric Strategies, `decomposeBet` returns `tasks: []`, so the Kernel runs a PM agent turn: a task-free session where the agent reads the bet's goal and done condition and returns a structured task breakdown. The Kernel inserts these as tasks; **owner assignment routes through the active Strategy's `selectAgent` port method** (AK7): the Kernel enumerates eligible team candidates and asks the Strategy which agent takes each task. Each task is immediately accepted, which triggers the existing task → session dispatch path. No human approves the initial breakdown; the founder sees it on the bet surface after the fact.
 
-The PM agent's context comes through the active Strategy port (`assembleContext`). Under the Minimal Strategy the PM decomposes from the bet alone (no additional knowledge). Under the Fabric it receives practice context that can sharpen the breakdown.
+The PM agent's context comes through the active Strategy port (`assembleContext`). Under the Minimal Strategy the PM decomposes from the bet alone (no additional knowledge). Under the Fabric it receives practice context that can sharpen the breakdown. A future richer Strategy may return a pre-computed task list from `decomposeBet.tasks` directly, skipping the PM turn entirely.
 
 **Terminal outcomes (closed set):** decomposition always ends in one of two states:
 

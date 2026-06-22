@@ -289,11 +289,66 @@ Steps inside `selectOwner`:
 
 ---
 
-## 4. As-built — AK3 (shipped 2026-06-15)
+## 3c. As-built — AK8 (shipped 2026-06-22)
 
-> **Superseded framing — read §2a first.** AK3 shipped under the original "decomposition is Kernel" framing. The boundary was refined 2026-06-15 (§2a): decomposition is a **Strategy** response to a **Kernel-owned event**, and agent selection/assignment is **Strategy**. AK3-as-built (below) is retained as the **Minimal Strategy's default-PM fallback**; AK6–AK8 move the trigger to a Kernel event and the selection/decomposition behind the port. The description below remains accurate as *the current live behavior* until AK8 lands.
+**Decomposition is now a Strategy response to a Kernel event.** The Kernel emits `work_decompose_requested` and asks the active Strategy's `decomposeBet` method for a `DecompositionPlan`. The mechanism (sandbox, cost, CAS, crash-sweep, insert, dispatch) stays Kernel-side per §2a row 3. Changing the active Strategy changes decomposition behaviour without touching `bet-decomposition.ts` (AC4 runtime proof).
 
-**Decomposition (current, pre-AK8).** When a bet is committed (`draft→active`), the Kernel runs a PM agent turn that produces a task breakdown. The Strategy feeds the PM context via the port. Per §2a this kernel-side path becomes the Minimal Strategy's fallback once AK8 rewires the trigger as an event the active Strategy handles.
+### New shared contracts
+
+| Symbol | Package | Description |
+|---|---|---|
+| `WorkDecomposeRequestedEvent` | `@hyperidle/shared` | Sibling of `WorkSelectionRequestedEvent` — audit-only occasion event. Emitted post-CAS, post-eligible-check. |
+| `DecomposeBetRequest<TDb>` | `@hyperidle/shared` | Occasion handed to Strategy: db, teamId, betId, betDescription, betDoneCondition, candidates (Kernel-enumerated). |
+| `DecompositionPlan` | `@hyperidle/shared` | Strategy's answer: decomposerAgentId (null = no agent → Kernel blocks) + tasks ([] = run Kernel's PM turn). |
+| `Strategy.decomposeBet` | `@hyperidle/shared` | 5th method on the Strategy port. |
+
+### Rewired `runBetDecomposition` flow (AK8)
+
+```
+bet_state_changed(active) → registerBetDecomposition subscriber
+  CAS bets.decompositionStatus NULL→'running'  [idempotency — unchanged]
+  findEligibleTeamAgents                        [unchanged]
+  → emits work_decompose_requested              [NEW — post-CAS, post-eligible]
+  enumerateTeamCandidates                       [AK7 helper, NEW call site]
+  → getActiveStrategy().decomposeBet({ candidates, betId, ... })  [NEW]
+    try/catch: throw → blocked/failed           [no false promise]
+  plan.decomposerAgentId null → blocked/no_eligible_agent
+  inline validation: candidates.some(c => c.agentId === plan.decomposerAgentId)
+    → false → blocked/no_eligible_agent         [WARNING 1 guard]
+  checkCostCap(validated decomposer)            [unchanged — Kernel-side]
+  3-way turn-source precedence:
+    1. plan.tasks.length > 0  → persist tasks; skip turn (future Fabric path)
+    2. deps.runDecompositionTurn present → call with plan.decomposerAgentId
+       (protected-test seam — all AK3 tests + all v1 Strategies land here)
+    3. else → assembleContext + runRealPmTurn    [AK3/Minimal default fallback]
+  taskList empty → blocked/empty
+  insertProposedBetTasks → task_state_changed(accepted) → dispatcher  [unchanged]
+  markTerminal('done')
+  finally: rm scratch sandbox                   [unchanged]
+```
+
+### Strategy implementations
+
+**Minimal** (`packages/strategy-minimal/src/minimal-strategy.ts`):
+Role-match PM else first candidate, `tasks: []`. Kernel runs its PM turn → byte-identical to AK3-as-built. AK3 is the Minimal fallback, not a Kernel-permanent route.
+
+**Fabric** (`packages/fabric/src/fabric-strategy.ts`):
+Same PM role-match, `tasks: []`. The Fabric's knowledge edge enters at `assembleContext` (branch 3) — the PM turn runs in a knowledge-assembled context. A richer knowledge-derived task list is deferred; the `tasks` field is the seam for a future Fabric to return a pre-computed breakdown with zero Kernel change.
+
+### Key design decisions (AK8)
+
+- **`bet_decomposer` surface now dead at production.** The `selectOwner({ surface: 'bet_decomposer' })` call was removed from `runBetDecomposition`. The `bet_decomposer` value remains in the `SelectAgentRequest.surface` union (AK7 tests reference it) but has no production caller. Intentional — no churn of AK7 protected tests.
+- **Inline decomposerAgentId validation** replaces `selectOwner`'s internal guard. `candidates.some(c => c.agentId === plan.decomposerAgentId)` proves team-membership + active-AI in one check (same predicate `enumerateTeamCandidates` already applied). A third-party Strategy returning an off-team/inactive id → `blocked/no_eligible_agent` before any session.
+- **Turn-source precedence.** `plan.tasks` beats the override (test seam), which beats the real turn. The override never beats `plan.tasks` — that would let a test mask a Strategy decision.
+- **Empty-list asymmetry.** `plan.tasks === []` means "Strategy authored no breakdown → fall through to override/turn." An empty `taskList` produced by the turn means `blocked/empty`. Same `[]` value, opposite meaning depending on origin. `@lore AK8` comments at both sites.
+
+---
+
+## 4. As-built — AK3 (shipped 2026-06-15, superseded by §3c AK8)
+
+> **Superseded by §3c (AK8, shipped 2026-06-22).** AK3 shipped under the original "decomposition is Kernel" framing. AK8 rewired the trigger — `runBetDecomposition` now calls `getActiveStrategy().decomposeBet(...)` and the Minimal Strategy's PM turn is the *default fallback*, not the Kernel's permanent path. The description below is retained as historical record; see §3c for the current live behavior.
+
+**Decomposition (pre-AK8 historical).** When a bet was committed (`draft→active`), the Kernel ran a PM agent turn that produced a task breakdown. The Strategy fed the PM context via the port. Per §2a this kernel-side path became the Minimal Strategy's fallback once AK8 rewired the trigger as an event the active Strategy handles.
 
 ### The decomposition seam
 

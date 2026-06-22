@@ -132,6 +132,13 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 		return { agentId: null };
 	}
 
+	// AK8: decomposeBet stub — ContributorStrategy test is not about decomposition.
+	async decomposeBet(
+		_req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").DecompositionPlan> {
+		return { decomposerAgentId: null, tasks: [] };
+	}
+
 	toRecord(): ContributorRecord {
 		const call = this.assembleContextCalls[0];
 		return {
