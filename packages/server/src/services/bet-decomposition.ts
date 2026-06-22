@@ -609,10 +609,26 @@ async function runRealPmTurn(
 	return [];
 }
 
+/**
+ * AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5.
+ *
+ * This session run is an internal-extraction drain — exempt from return-gate
+ * enforcement — because its SessionConfig.tools is [] (line ~570 above). With
+ * no tools the run structurally CANNOT invoke a return action. The drain
+ * consumes only completion/error events and returns raw text for JSON.parse;
+ * it is platform-internal (not acting on the user's behalf).
+ *
+ * @lore AL6: Do NOT wire a ReturnGate here. A gate would fire not_returned on
+ * every PM decomposition run, because there is no return action to call in a
+ * tool-less turn. The exemption is a PROPERTY (concept §1.5 three-property
+ * predicate), not a file-list carve-out. Any future tool-less extraction drain
+ * is covered by the same predicate.
+ */
 async function drainForCompletion(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
 ): Promise<string> {
+	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
 	const stream = adapter.streamEvents(handle);
 	for await (const event of stream) {
 		if (event.type === "completion") {

@@ -220,6 +220,10 @@ export class DesktopWorkerClient {
 			const handle = await this.adapter.startSession(config);
 			this.sessionHandles.set(sessionId, handle);
 
+			// AL6-relay: forwarding relay — re-emits events verbatim to the server via
+			// WebSocket. This loop does NOT terminate a turn and must NOT wire a
+			// ReturnGate. The turn it carries is gated once, at the remote adapter's
+			// enforced drain (session-provisioning.ts site A).
 			for await (const event of this.adapter.streamEvents(handle)) {
 				const eventMsg: WorkerEventMessage = { type: "event", sessionId, event };
 				this.ws?.send(JSON.stringify(eventMsg));
