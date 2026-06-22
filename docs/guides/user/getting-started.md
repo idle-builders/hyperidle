@@ -90,6 +90,15 @@ Fill in the three fields:
 
 Click **Start HyperIdle**. A user record and Team are created; you land on **Work** (your team page, since you have one team).
 
+#### Check your agent backends
+
+After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. You'll see a row for each in-scope backend (Built-in, Claude Code, Codex, OpenCode) with a colored dot showing its current status.
+
+- **Built-in** shows **green** if your Anthropic API key was accepted. This is sufficient to run agents immediately.
+- Other backends (Claude Code, Codex, OpenCode) show **amber** if their CLI is not signed in. The row shows the sign-in command to run in a terminal. After signing in, click **Refresh** at the top of the section.
+
+You do not need to enable additional backends to get started — the Built-in backend is always available and handles all Claude model calls. The other backends become useful when you want to route specific agents through a locally-authenticated CLI.
+
 **Troubleshooting:**
 - `Failed to create user` — the server isn't running. Check that `npm run dev` is still active.
 - Form stays visible after clicking Start — check the browser console for error details.
