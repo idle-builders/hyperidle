@@ -10,7 +10,7 @@
  * per-backend branch. Populated real-state only (no skeleton/error/empty here).
  */
 
-import { Button, KeyValue, StatusChip, Toggle } from "@hyperidle/design-system";
+import { Button, KeyValue, StatusChip } from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { AM4_HARNESS_FIXTURES } from "./AM4HarnessVariants.fixtures.js";
@@ -19,9 +19,8 @@ import {
 	capabilitySummary,
 	commandText,
 	hasActionableNextStep,
-	isEnableable,
 	readinessToStatus,
-	showsToggle,
+	showsEnabledIndication,
 } from "./AM4HarnessPresentation.js";
 
 export default { title: "Settings/AM4 Harnesses · A Dense list", group: "Settings" as const };
@@ -43,17 +42,9 @@ function HarnessRow({ d }: { d: HarnessCapabilityDescriptor }): JSX.Element {
 					{d.discovery.version ? `v${d.discovery.version}` : accessModeLabel(d.accessMode)}
 				</span>
 				<span className="flex-1" />
-				{showsToggle(d) ? (
-					<div className="shrink-0 whitespace-nowrap">
-						<Toggle
-							label={`Enable ${d.name}`}
-							on={d.discovery.state === "ready"}
-							disabled={!isEnableable(d)}
-						/>
-					</div>
-				) : (
-					<span className="text-[12px] text-[var(--text-tertiary)] italic shrink-0">
-						No setup here
+				{showsEnabledIndication(d) && (
+					<span className="text-[12px] font-[500] text-[var(--accent-primary)] shrink-0 whitespace-nowrap">
+						Enabled
 					</span>
 				)}
 			</div>

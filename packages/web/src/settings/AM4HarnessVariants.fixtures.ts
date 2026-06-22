@@ -8,6 +8,14 @@
  *  - opencode      → installed (auth unknown; normalization unknown)
  *  - cursor-agent  → unavailable (no headless surface; NO install CTA)
  *
+ * HONEST PRODUCTION SHAPE — runtime caps are all-`false` on every backend,
+ * including the `ready` ones. Production discovery deliberately does NOT run the
+ * session probe (AM2 @lore; re-detect does not populate them either — same probe
+ * gating), so `fileEditing`/`toolUse`/`mcpSupport`/`subAgents` stay `false` until
+ * a first real run/AM3. The card must read correctly under this shape (the fold
+ * shows "confirmed after first run", never a wall of "No"). Do NOT hardcode caps
+ * `true` here — that would mask the realistic shape the founder reviews.
+ *
  * Design-only fixture. Builder replaces with the live /api/harnesses fetch.
  */
 
@@ -46,13 +54,14 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 				options: [],
 			},
 		],
+		// Production shape: session probe not run → runtime caps all-false (AM2 @lore).
 		runtime: {
 			preCompactionTrigger: false,
 			subAgents: false,
-			mcpSupport: true,
+			mcpSupport: false,
 			modelProviders: ["anthropic", "openrouter"],
-			fileEditing: true,
-			toolUse: true,
+			fileEditing: false,
+			toolUse: false,
 		},
 		modelProviders: ["anthropic", "openrouter"],
 	},
@@ -77,13 +86,14 @@ export const AM4_HARNESS_FIXTURES: readonly HarnessCapabilityDescriptor[] = [
 				options: [],
 			},
 		],
+		// Production shape: session probe not run → runtime caps all-false (AM2 @lore).
 		runtime: {
-			preCompactionTrigger: true,
-			subAgents: true,
-			mcpSupport: true,
+			preCompactionTrigger: false,
+			subAgents: false,
+			mcpSupport: false,
 			modelProviders: ["anthropic"],
-			fileEditing: true,
-			toolUse: true,
+			fileEditing: false,
+			toolUse: false,
 		},
 		modelProviders: ["anthropic"],
 	},

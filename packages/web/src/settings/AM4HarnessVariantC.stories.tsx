@@ -2,9 +2,10 @@
  * AM4 Variant C — "Provider cards" (t3code Providers lineage).
  *
  * Constraint: borrow t3code's Providers settings grammar — each backend is a
- * self-contained card: status header with enable toggle, an auth zone that
- * appears only when there is a next step, and a capabilities Fold (collapsed by
- * default — progressive disclosure). Clean embodiment, not chrome-copy.
+ * self-contained card: status header with an enabled indication, an auth zone
+ * that appears only when there is a next step, and a capabilities Fold
+ * (collapsed by default — progressive disclosure). Clean embodiment, not
+ * chrome-copy.
  * Thesis: a self-contained card per backend reads as "this is its own thing you
  * own and configure," and the auth zone makes the next step unmissable without
  * shouting at ready backends.
@@ -12,20 +13,33 @@
  * Descriptor-driven: card chrome is uniform; only the descriptor-derived zones
  * differ. No per-backend branch — the Fold/auth-zone presence is computed from
  * discovery.state + authAction via the shared mappers.
+ *
+ * Renders the HONEST PRODUCTION SHAPE (not a masked fixture):
+ *  - Enabled indication is shown ONLY for `ready` backends, as a non-interactive
+ *    "Enabled" status — nothing in the runtime consumes an on/off flag
+ *    (AdapterPool.select() gates on capacity/modelProviders/harnessType only),
+ *    so a flippable switch would be a control nothing backs. Non-ready states
+ *    show no indication — the auth CTA is the sole affordance there.
+ *  - Capabilities Fold renders only PROVEN (true) runtime caps. Production
+ *    discovery does NOT run the session probe (AM2 @lore), so real `ready`
+ *    backends return runtime caps all-`false` — the fold then reads
+ *    "Capabilities confirmed after first run", never a wall of "No".
  */
 
-import { Button, Fold, KeyValue, StatusChip, Toggle } from "@hyperidle/design-system";
+import { Button, Fold, KeyValue, StatusChip } from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
-import { AM4_HARNESS_FIXTURES } from "./AM4HarnessVariants.fixtures.js";
 import {
 	accessModeLabel,
+	capabilitySummary,
 	commandText,
 	hasActionableNextStep,
-	isEnableable,
+	hasCaps,
+	provenCapabilities,
 	readinessToStatus,
-	showsToggle,
+	showsEnabledIndication,
 } from "./AM4HarnessPresentation.js";
+import { AM4_HARNESS_FIXTURES } from "./AM4HarnessVariants.fixtures.js";
 
 export default { title: "Settings/AM4 Harnesses · C Cards", group: "Settings" as const };
 
@@ -34,11 +48,11 @@ function HarnessCard({ d }: { d: HarnessCapabilityDescriptor }): JSX.Element {
 	const { status, label } = readinessToStatus(d.discovery.state);
 	const cmd = commandText(d);
 	const actionable = hasActionableNextStep(d);
-	const hasCaps = d.models.length > 0 || d.runtime.fileEditing || d.runtime.mcpSupport;
+	const proven = provenCapabilities(d);
 
 	return (
 		<div className="bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] p-[18px] flex flex-col gap-[12px]">
-			{/* Header: identity + status + toggle */}
+			{/* Header: identity + status + enabled indication */}
 			<div className="flex items-center gap-[12px]">
 				<div className="flex flex-col gap-[3px] flex-1 min-w-0">
 					<div className="flex items-center gap-[9px]">
@@ -55,12 +69,12 @@ function HarnessCard({ d }: { d: HarnessCapabilityDescriptor }): JSX.Element {
 						)}
 					</span>
 				</div>
-				{showsToggle(d) && (
-					<Toggle
-						label={`Enable ${d.name}`}
-						on={d.discovery.state === "ready"}
-						disabled={!isEnableable(d)}
-					/>
+				{/* Non-interactive "Enabled" indication — only on ready backends.
+				    No flippable switch: no runtime consumes an on/off flag (see file header). */}
+				{showsEnabledIndication(d) && (
+					<span className="text-[12px] font-[500] text-[var(--accent-primary)] whitespace-nowrap">
+						Enabled
+					</span>
 				)}
 			</div>
 
@@ -91,8 +105,9 @@ function HarnessCard({ d }: { d: HarnessCapabilityDescriptor }): JSX.Element {
 				</div>
 			)}
 
-			{/* Capabilities — progressive disclosure */}
-			{hasCaps && (
+			{/* Capabilities — progressive disclosure. Renders proven caps only;
+			    falls back to the "confirmed after first run" line when caps unknown. */}
+			{hasCaps(d) && (
 				<div className="flex flex-col gap-[9px]">
 					<Fold
 						label="Models & capabilities"
@@ -109,9 +124,13 @@ function HarnessCard({ d }: { d: HarnessCapabilityDescriptor }): JSX.Element {
 									layout="inline"
 								/>
 							))}
-							<KeyValue label="File editing" value={d.runtime.fileEditing ? "Yes" : "No"} />
-							<KeyValue label="MCP" value={d.runtime.mcpSupport ? "Yes" : "No"} />
-							<KeyValue label="Sub-agents" value={d.runtime.subAgents ? "Yes" : "No"} />
+							{proven.length > 0 ? (
+								<KeyValue label="Capabilities" value={proven.join(" · ")} layout="inline" />
+							) : (
+								<span className="text-[12px] text-[var(--text-tertiary)]">
+									{capabilitySummary(d)}
+								</span>
+							)}
 						</div>
 					)}
 				</div>

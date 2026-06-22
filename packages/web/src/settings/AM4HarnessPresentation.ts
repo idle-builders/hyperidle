@@ -60,14 +60,47 @@ export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
 	return d.discovery.state === "unauthenticated" || d.discovery.state === "installed";
 }
 
-/** A backend can be enabled/toggled only once it is ready. */
-export function isEnableable(d: HarnessCapabilityDescriptor): boolean {
+/**
+ * Whether to render the non-interactive "Enabled" indication.
+ *
+ * Only `ready` backends are "enabled" — and the indication is non-interactive,
+ * never a flippable switch: nothing in the runtime consumes an on/off flag
+ * (`AdapterPool.select()` gates on capacity / modelProviders / harnessType only),
+ * so a switch the user could flip would be a control nothing backs. Non-ready
+ * states show no indication; their sole affordance is the auth CTA.
+ *
+ * @lore AM4: derived-from-readiness, NOT a persisted `harness.disabled` key.
+ * A persisted disable would be dead state no runtime honors. B1 (persisted
+ * per-harness enabled flag) is the follow-up only once a runtime consumer exists.
+ * Do not re-add a persisted flag thinking this was an oversight.
+ */
+export function showsEnabledIndication(d: HarnessCapabilityDescriptor): boolean {
 	return d.discovery.state === "ready";
 }
 
-/** Install/unavailable backends offer no toggle at all. */
-export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
-	return d.discovery.state === "ready" || d.discovery.state === "unauthenticated";
+/**
+ * Whether the capabilities Fold renders at all. Descriptor-driven, in one place
+ * (parity with the other predicates): a backend has caps to show if it declares
+ * any model OR proves any runtime capability.
+ */
+export function hasCaps(d: HarnessCapabilityDescriptor): boolean {
+	return d.models.length > 0 || provenCapabilities(d).length > 0;
+}
+
+/**
+ * The PROVEN (true) runtime capabilities, as display labels. Production
+ * discovery does NOT run the session probe (AM2 @lore), so real `ready`
+ * backends return every runtime cap `false` and this is empty — callers then
+ * fall back to `capabilitySummary` ("confirmed after first run") rather than
+ * rendering a wall of "No". Only positive, confirmed capabilities are surfaced.
+ */
+export function provenCapabilities(d: HarnessCapabilityDescriptor): readonly string[] {
+	const caps: string[] = [];
+	if (d.runtime.fileEditing) caps.push("File editing");
+	if (d.runtime.toolUse) caps.push("Tool use");
+	if (d.runtime.mcpSupport) caps.push("MCP");
+	if (d.runtime.subAgents) caps.push("Sub-agents");
+	return caps;
 }
 
 /** Render the CLI command as a copyable string, when present. */
@@ -76,12 +109,10 @@ export function commandText(d: HarnessCapabilityDescriptor): string | null {
 	return cmd && cmd.length > 0 ? cmd.join(" ") : null;
 }
 
-/** Short, scannable capability summary line from the runtime caps (reference). */
+/** Short, scannable capability summary line. Falls back to the honest
+ * "confirmed after first run" framing when no runtime cap is proven yet (the
+ * production shape, since discovery does not run the session probe). */
 export function capabilitySummary(d: HarnessCapabilityDescriptor): string {
-	const caps: string[] = [];
-	if (d.runtime.fileEditing) caps.push("File editing");
-	if (d.runtime.toolUse) caps.push("Tool use");
-	if (d.runtime.mcpSupport) caps.push("MCP");
-	if (d.runtime.subAgents) caps.push("Sub-agents");
+	const caps = provenCapabilities(d);
 	return caps.length > 0 ? caps.join(" · ") : "Capabilities confirmed after first run";
 }
