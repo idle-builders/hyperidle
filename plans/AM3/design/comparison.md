@@ -1,54 +1,40 @@
-# AM3 Session view — variant comparison + Phase-2 critique
+# AM3 Session view — variant comparison (content-rendering axis)
 
-All three render the SAME realistic session fixture (the AI-SDK-5→6 chat-bug session) so the founder compares **placement**, not content. The shared stream, tool/reasoning renderers, queued bubble, and descriptor-driven composer are identical across variants; only the entry surface + diff affordance + status placement differ.
+All three render the SAME session fixture inside the SAME `ConversationSurface` shape. They differ ONLY in the **rendering vocabulary of the session content** — how a tool call is displayed at rest and how its I/O & diffs reveal. **Placement is settled, not compared.** Screenshots: `variants/v1.png`, `v2.png`, `v3.png`.
 
-| Dimension | A · Focused Route | B · Companion Panel | C · Split + Diff Rail |
+| Dimension | 1 · Calm Transcript | 2 · Glanceable Activity | 3 · Activity Timeline |
 |---|---|---|---|
-| Signature (one tell) | one calm centered column, whole screen | wide dock over a dimmed conversation | persistent diff rail beside the stream |
-| Entry surface (Q1) | full-page route | 620px right dock (conversation mounted) | full-width route, two-pane split |
-| Diff affordance (Q5) | per-turn CHANGED FILES panel | inline diff chip per edit row | always-on diff rail |
-| Status (Q7) | top-bar roll-up | condensed in panel header | rail header + Ready-for-review |
-| Reading column width | 760px | 620px | 680px (− 440px rail) |
-| Component count | stream + panel + composer | stream(+chips) + composer | stream + composer + rail |
-| Density | medium (airy, calm) | high (condensed header) | highest (two panes) |
-| Primary action surface | bottom composer | dock composer | left composer + rail CTA |
-| State strategy | one column, panel for diff | one dock, inline diff | two panes, diff persistent |
-| Motion budget | pin + caret + expands | + slide-in open | + live rail append |
-| Best at | calm validation, long prose | not leaving the conversation | code-heavy, watch edits land |
-| Worst at | diff is one click away; you leave | narrowest column; dims conv. | empty rail on non-coding sessions |
-| **Phase-2 critique** | **8.4** | **8.1** | **8.0** |
+| Signature (one tell) | a calm ledger; tool runs fold to one line | every row shows its I/O inline at rest | a threaded gutter rail + side reveal panel |
+| Disclosure at rest | minimal — bare row, no I/O | maximal — one-line I/O preview per row | medium — node + verb; detail on select |
+| Tool-row grammar | indented one-liner | icon + verb + inline I/O block | gutter NODE (icon = node on a rail) |
+| Aggregation | HARD — one verb, count, fold-to-rows | SOFT — verb header, rows stay visible | one aggregate node, reveals steps to side |
+| How tool I/O reveals | inline `<pre>` on click | inline preview always; full body on click | docked right reveal panel on select |
+| How a diff reveals | inline diff chip → panel (click) | inline compact hunk under the edit row | side reveal panel (`ReviewCodeDiff` gutter) |
+| How a FAILURE reads | ✗ glyph; stderr on expand | destructive left rule + inline error line | red node + ✗; stderr in reveal panel |
+| Reading column | 760px, one column | 760px, one column | 680px + 400px reveal panel |
+| Density | medium (airy, calm) | high (substance on every row) | high (two panes) |
+| Best at | calm validation, long-prose sessions | watch-it-work, low-click scanning | code-heavy, see-structure + watch edits land |
+| Worst at | substance is one click away | busiest; long previews can crowd | reveal panel competes for width; rail faint on prose-only turns |
+| Motion budget | pin + caret + expands | + inline preview reflow | + panel slide |
 
-## Phase-2 critique (9 dimensions, 0–10)
+## Where they converge (the shared spine)
+Bubble-vs-full-width authorship · reasoning fold · descriptor composer (model/effort/mode/permission pills; Sonnet declares none → its pills vanish) · queued dashed bubble + ✕ · plan list · permission Allow/Deny · artifact chip · cost tick · status roll-ups · scroll-to-bottom · Stop while streaming. All three pass the calm-rendering principles (collapse-by-default, aggregation over enumeration, monochrome restraint, no per-line chrome).
 
-### A · Focused Route — 8.4
-- Hierarchy 9 — eye lands squarely on the agent column; tool noise recedes; one clear focus.
-- Spacing 9 — 6px grid throughout; airy 760px column matches the references' `max-w-3xl` calm.
-- Typography 8 — 15px prose / 13px rows / 12px meta; mono targets; tabular diff stats. Reasoning italic reads as distinct.
-- Color 9 — monochrome restraint; only failure (✗) uses `--status-error`, running uses `--accent-secondary`. No floods.
-- Coherence 8 — reuses `PartList` grouping, `ReviewCodeDiff` tints, `Fold` device, descriptor pills.
-- States 7 — populated + streaming + queued shown; empty/error deferred (correct for initial design).
-- A11y 8 — role=button tool rows, aria-expanded, motion-safe pulses, close ✕ labelled.
-- Anti-slop 9 — zero AI-aesthetic tells; no gradient/hero/3-col grid; dense + purposeful.
-- Premium polish 8 — streaming caret, live dot, calm aggregate verb. Loses 0.6: diff a click away.
+## The decision the founder is making
+Not *where* the session opens (settled) — but **how much each tool call reveals at rest, and how I/O & diffs surface**:
+- pick **1** if the session should read like a calm document and activity should recede;
+- pick **2** if the founder wants to read the agent's actual I/O without clicking;
+- pick **3** if the structure of the work (order, branching, edits) should be carried spatially with detail docked beside it.
 
-### B · Companion Panel — 8.1
-- Hierarchy 8 — clear in the dock; the dimmed conversation is a deliberate recessive layer.
-- Spacing 8 — tighter rhythm; condensed status header is dense but legible.
-- Typography 8 — same scale; inline diff chips read cleanly.
-- Color 9 — same restraint; dim layer via opacity only.
-- Coherence 9 — best "fits the existing app" (the kept attempt-1 entry mechanism + the Fold to the session).
-- States 7 — same as A.
-- A11y 7 — focus-trap-in-dock needed (build); otherwise parity.
-- Anti-slop 9 — clean.
-- Premium polish 7 — strong, but 620px is the narrowest calm column and the dim layer eats width.
+The pick is a **rendering language**, not a layout — and the three are composable: e.g. "1's calm spine with 2's inline preview on edits only" is a legitimate founder synthesis to express in `/human-design-review`.
 
-### C · Split + Diff Rail — 8.0
-- Hierarchy 8 — two co-equal foci is powerful for code but splits attention.
-- Spacing 8 — dense two-pane; rail hunk uses the review tint vocabulary faithfully.
-- Typography 8 — mono diff in the rail is crisp; stream column slightly tighter.
-- Color 9 — review tints reused exactly; restrained elsewhere.
-- Coherence 9 — strongest diff reuse (the rail IS the review look, live).
-- States 6 — the non-coding empty-rail case is the weak state (deferred but real).
-- A11y 7 — two-pane tab order needs care (build).
-- Anti-slop 9 — clean, distinctly not-AI.
-- Premium polish 8 — "diff always on" is the most impressive when the session is code; the most awkward when it isn't.
+## Per-aspect demonstration (all three render the full taxonomy)
+| Aspect (concept Part 7) | 1 Transcript | 2 Glance | 3 Timeline |
+|---|---|---|---|
+| c — MCP call | folded in aggregate; verb on expand | inline `→ 1 issue ENG-411…` | aggregate node; in reveal |
+| c — sub-agent | bare row, "Background" | row + nested mini-stream inline | (in stream; running node) |
+| d — failed tool | ✗ + stderr on expand | destructive rule + inline error | red node + stderr in reveal (shown selected) |
+| f — diff | chip → changed-files panel | inline compact hunk | side `ReviewCodeDiff` reveal (shown) |
+| h — permission | inline Allow/Deny card | inline Allow/Deny card | inline Allow/Deny card |
+| k — plan | foldable step list | foldable step list | foldable step list |
+| p — status | top-bar roll-up | top-bar roll-up | top-bar + Ready-for-review CTA |
