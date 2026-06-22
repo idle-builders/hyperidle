@@ -49,10 +49,10 @@ const S2_USER_MESSAGE =
 	"Do not respond with prose; emit only the tool call.";
 
 // ---------------------------------------------------------------------------
-// System prompt composition (mirroring composeAssistantPrompt from fabric)
+// System prompt builder (matches the fabric assistant system-prompt assembly)
 // ---------------------------------------------------------------------------
 
-function composeAssistantSystemPrompt(systemPromptText: string, hasDraftBet: boolean): string {
+function buildAssistantSystemPrompt(systemPromptText: string, hasDraftBet: boolean): string {
 	const parts: string[] = ["# Assistant Instructions", ""];
 
 	if (systemPromptText.length > 0) {
@@ -206,7 +206,7 @@ const S2_FOLLOWUP_RESPONSE = {
 // Compute keys and build cassette entries
 // ---------------------------------------------------------------------------
 
-const systemPromptNoTools = composeAssistantSystemPrompt(ASSISTANT_SYSTEM_PROMPT, false);
+const systemPromptNoTools = buildAssistantSystemPrompt(ASSISTANT_SYSTEM_PROMPT, false);
 
 // S1 / S3: simple question, with tools (the registry is always injected)
 // Messages: just the user question (the welcome message is from the assistant agent,
