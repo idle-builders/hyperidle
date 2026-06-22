@@ -1,0 +1,267 @@
+[
+	{
+		"key": "4715c8c4cbb1537ae7e78b04f70ec8c1c9df2f99f67547398d67ba27f5bfb6bf",
+		"request": {
+			"model": {
+				"provider": "anthropic",
+				"model": "claude-sonnet-4-6",
+				"apiKey": "__redacted__",
+				"baseUrl": "https://api.anthropic.com"
+			},
+			"messages": [
+				{
+					"role": "user",
+					"content": "What is 1 + 1?"
+				}
+			],
+			"tools": [
+				{
+					"name": "create_bet",
+					"description": "Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						},
+						"required": ["description"]
+					}
+				},
+				{
+					"name": "edit_bet",
+					"description": "Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						}
+					}
+				}
+			],
+			"system": "# Assistant Instructions\n\n## Identity\n\nYou are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.\n\n## Conversation\n\nYou are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.\n\n\n[CONTEXT: No draft bet exists yet. If the user wants to shape a bet, use create_bet to draft one.]",
+			"maxTokens": 16384
+		},
+		"response": {
+			"stopReason": "end_turn",
+			"content": [
+				{
+					"type": "text",
+					"text": "1 + 1 = 2."
+				}
+			],
+			"usage": {
+				"inputTokens": 150,
+				"outputTokens": 10
+			}
+		}
+	},
+	{
+		"key": "334217ee5a6c6a9e777d90052141051aaf31ca40a4c4d4b7b638691321dbe0c7",
+		"request": {
+			"model": {
+				"provider": "anthropic",
+				"model": "claude-sonnet-4-6",
+				"apiKey": "__redacted__",
+				"baseUrl": "https://api.anthropic.com"
+			},
+			"messages": [
+				{
+					"role": "user",
+					"content": "Call the create_bet tool with title set to 'Ship AH6 real-interaction lane'. Do not respond with prose; emit only the tool call."
+				}
+			],
+			"tools": [
+				{
+					"name": "create_bet",
+					"description": "Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						},
+						"required": ["description"]
+					}
+				},
+				{
+					"name": "edit_bet",
+					"description": "Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						}
+					}
+				}
+			],
+			"system": "# Assistant Instructions\n\n## Identity\n\nYou are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.\n\n## Conversation\n\nYou are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.\n\n\n[CONTEXT: No draft bet exists yet. If the user wants to shape a bet, use create_bet to draft one.]",
+			"maxTokens": 16384
+		},
+		"response": {
+			"stopReason": "tool_use",
+			"content": [
+				{
+					"type": "tool_use",
+					"id": "tu_ah6_create_bet_01",
+					"name": "create_bet",
+					"input": {
+						"description": "Ship AH6 real-interaction lane"
+					}
+				}
+			],
+			"usage": {
+				"inputTokens": 220,
+				"outputTokens": 55
+			}
+		}
+	},
+	{
+		"key": "431cf65a8fb42a190f7010a569221f471d79f1dad376d24cf4bc67207d9321ef",
+		"request": {
+			"model": {
+				"provider": "anthropic",
+				"model": "claude-sonnet-4-6",
+				"apiKey": "__redacted__",
+				"baseUrl": "https://api.anthropic.com"
+			},
+			"messages": [
+				{
+					"role": "user",
+					"content": "Call the create_bet tool with title set to 'Ship AH6 real-interaction lane'. Do not respond with prose; emit only the tool call."
+				},
+				{
+					"role": "assistant",
+					"content": [
+						{
+							"type": "tool_use",
+							"id": "tu_ah6_create_bet_01",
+							"name": "create_bet",
+							"input": {
+								"description": "Ship AH6 real-interaction lane"
+							}
+						}
+					]
+				},
+				{
+					"role": "user",
+					"content": [
+						{
+							"type": "tool_result",
+							"toolUseId": "tu_ah6_create_bet_01",
+							"content": "{\"betId\":\"00000000-0000-0000-0000-000000000001\",\"status\":\"draft\",\"teamId\":\"ah6-e2e-team\"}",
+							"isError": false
+						}
+					]
+				}
+			],
+			"tools": [
+				{
+					"name": "create_bet",
+					"description": "Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						},
+						"required": ["description"]
+					}
+				},
+				{
+					"name": "edit_bet",
+					"description": "Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						}
+					}
+				}
+			],
+			"system": "# Assistant Instructions\n\n## Identity\n\nYou are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.\n\n## Conversation\n\nYou are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.\n\n\n[CONTEXT: No draft bet exists yet. If the user wants to shape a bet, use create_bet to draft one.]",
+			"maxTokens": 16384
+		},
+		"response": {
+			"stopReason": "end_turn",
+			"content": [
+				{
+					"type": "text",
+					"text": "I've drafted the bet 'Ship AH6 real-interaction lane' for you."
+				}
+			],
+			"usage": {
+				"inputTokens": 280,
+				"outputTokens": 25
+			}
+		}
+	}
+]
