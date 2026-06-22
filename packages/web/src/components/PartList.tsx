@@ -53,8 +53,11 @@ function renderPart(part: Part, onOpen: OpenHandler): JSX.Element {
 	}
 }
 
-/** Two-letter initials from an author name (first + last word). */
-function initialsOf(name: string): string {
+/**
+ * Two-letter initials from an author name (first + last word).
+ * Exported so `SessionView` can reuse it without duplication (AM3 warning fix).
+ */
+export function initialsOf(name: string): string {
 	const words = name.trim().split(/\s+/).filter(Boolean);
 	if (words.length === 0) return "?";
 	if (words.length === 1) return (words[0] ?? "").slice(0, 2).toUpperCase();

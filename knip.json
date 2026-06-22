@@ -8,8 +8,7 @@
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
 		"plans/**",
-		"packages/web/src/**/*.stories.tsx",
-		"packages/web/src/components/SessionView.tsx"
+		"packages/web/src/**/*.stories.tsx"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],

@@ -36,10 +36,12 @@ import ConversationSurface, {
 	type ConversationSurfaceParticipant,
 } from "../components/ConversationSurface";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
+import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useHint } from "../hooks/useHints";
+import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import type { AppShellOutletContext } from "../layouts/AppShell";
@@ -152,6 +154,97 @@ function useActiveSessionForTask(taskId: string | null): UseActiveSessionResult 
 }
 
 // ---------------------------------------------------------------------------
+// AM3: SessionViewPanel — wraps useSessionActivity + SessionView.
+// Opened by the `session` OpenTarget (session-reference Embed or sub-agent row).
+// Placement: right-panel split (same pattern as dial-in). The page owns the
+// placement; the session view has no route of its own (architecture §entry).
+// ---------------------------------------------------------------------------
+
+interface SessionViewPanelProps {
+	sessionId: string;
+	agentName: string;
+	agentId: string;
+	threadTitle: string;
+	hostTitle: string;
+	viewerId: string;
+	viewerName: string;
+	onClose: () => void;
+	onOpen: import("@hyperidle/shared").OpenHandler;
+}
+
+function SessionViewPanel({
+	sessionId,
+	agentName,
+	agentId,
+	threadTitle,
+	hostTitle,
+	viewerId,
+	viewerName,
+	onClose,
+	onOpen,
+}: SessionViewPanelProps): JSX.Element {
+	const { entries, status } = useSessionActivity(sessionId);
+
+	const agent: import("@hyperidle/shared").PartAuthor = {
+		id: agentId,
+		name: agentName,
+		isAgent: true,
+		isMe: false,
+	};
+	const viewer: import("@hyperidle/shared").PartAuthor = {
+		id: viewerId,
+		name: viewerName,
+		isAgent: false,
+		isMe: true,
+	};
+
+	return (
+		<div className="flex flex-col h-full relative">
+			<button
+				type="button"
+				onClick={onClose}
+				aria-label="Close session view"
+				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<svg
+					viewBox="0 0 12 12"
+					className="h-[11px] w-[11px]"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.5"
+					aria-hidden="true"
+				>
+					<path d="M2 2 L10 10 M10 2 L2 10" strokeLinecap="round" />
+				</svg>
+			</button>
+			<SessionView
+				entries={[...entries]}
+				identity={{
+					agent,
+					viewer,
+					title: threadTitle,
+					host: hostTitle,
+				}}
+				status={
+					status === "connecting"
+						? "connecting"
+						: status === "streaming"
+							? "streaming"
+							: status === "error"
+								? "error"
+								: "ended"
+				}
+				onOpen={onOpen}
+				onSend={() => {
+					// Session-from-conversation view: sending is not supported here;
+					// use the conversation composer to interact with the agent.
+				}}
+			/>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
 // Detail sub-component (fetches + renders States B–E)
 // ---------------------------------------------------------------------------
 
@@ -182,6 +275,12 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	// Q1 §4.6: dial-in state
 	const [dialInSessionId, setDialInSessionId] = useState<string | null>(null);
+
+	// AM3: session-reference open state — fired by the `session` OpenTarget when a
+	// `session-reference` Embed is clicked in the conversation. The page owns the
+	// placement (a right-panel split, consistent with dial-in). A sub-agent tool row
+	// fires the SAME open seam → the same surface, recursed.
+	const [openedSessionId, setOpenedSessionId] = useState<string | null>(null);
 
 	// Q1 §4.6: check for active session when viewing a task-hosted thread
 	const taskId = data?.thread.hostKind === "task" ? (data.thread.hostId ?? null) : null;
@@ -321,7 +420,12 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
 	// host targets resolve through resolveHostRoute (total over BlockHostKind);
 	// user/factory are documented no-ops; review uses the page-sourced betId.
-	const openTarget = createOpenHandler(navigate, { betId: reviewBetId });
+	// AM3: onOpenSession fills the `case "session"` no-op — fires when a
+	// `session-reference` Embed or a sub-agent tool row is clicked (AC1).
+	const openTarget = createOpenHandler(navigate, {
+		betId: reviewBetId,
+		onOpenSession: (sessionId) => setOpenedSessionId(sessionId),
+	});
 	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle =
@@ -357,6 +461,45 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						agentName={agentName}
 						taskTitle={data.thread.hostId}
 						onClose={() => setDialInSessionId(null)}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// AM3 AC1: companion split layout when a session-reference Embed is opened.
+	// Fires when `onOpenSession(sessionId)` is called by the open-handler seam.
+	// Consistent placement with dial-in; the page owns placement, SessionView owns
+	// rendering. The open-handler `case "session"` is now wired (no longer a no-op).
+	if (openedSessionId) {
+		const agentId = activeSession?.agentId ?? data.thread.hostId;
+		const agentIdentity = data.identities[agentId];
+		const agentName = agentIdentity?.name ?? agentId;
+		const viewerName = data.identities[viewerId]?.name ?? viewerId;
+
+		return (
+			<div className="flex flex-row h-full gap-0" data-testid="conversations-page">
+				<div className="flex-[3] min-w-0 flex flex-col border-r border-[var(--border-subtle)]">
+					<ConversationSurface
+						parts={parts}
+						onOpen={openTarget}
+						header={header}
+						participants={participants}
+						onSend={onSend}
+						scroll
+					/>
+				</div>
+				<div className="flex-[2] min-w-0 flex flex-col" data-testid="session-view-panel">
+					<SessionViewPanel
+						sessionId={openedSessionId}
+						agentId={agentId}
+						agentName={agentName}
+						threadTitle={header.title}
+						hostTitle={header.hostTitle}
+						viewerId={viewerId}
+						viewerName={viewerName}
+						onClose={() => setOpenedSessionId(null)}
+						onOpen={openTarget}
 					/>
 				</div>
 			</div>
