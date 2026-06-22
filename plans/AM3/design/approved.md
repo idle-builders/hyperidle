@@ -1,0 +1,97 @@
+# AM3 — Session view: APPROVED design (locked direction)
+
+**Founder decision (2026-06-22):** Variant 1 — **"Calm Transcript"** — chosen. Reason: *"I prefer this calm aspect with the various tool calls closed and combined in an expander."* Variants 2 (Glanceable Activity) and 3 (Activity Timeline) are dropped (story files + plan folders deleted). This is the single source of truth for `/architecture`; supersedes `brief.md` / `comparison.md` / `synthesis.md` / `1-calm-transcript/spec.md` where they conflict.
+
+- **Approved story `title:`** `Session View · Calm Transcript`
+- **Viewer link:** `http://localhost:8098/#Session%20View%20%C2%B7%20Calm%20Transcript`
+- **Files:** `packages/web/src/components/SessionContentTranscript.stories.tsx` (export `CalmTranscript`) + `packages/web/src/components/sessionContentFixtures.tsx` (shared atoms + fixture). Screenshot: `plans/AM3/design/1-calm-transcript/screenshot.png`.
+- **DESIGN-CLASS:** `novel` (two new Part render kinds + a re-modeled surface). In an autonomous run a novel design parks for the founder — this revision IS that founder pass; the annotations below are applied.
+
+---
+
+## 1. The rendering language (the calm transcript)
+
+A streaming, append-only human+agent conversation read inside the `ConversationSurface` shape: **header → reading column → composer**, all in a centered `max-w-[760px]` measure. Content-first; tool activity recedes to a quiet, foldable ledger.
+
+- **Agent prose owns the column.** Full-width markdown, a quiet streaming caret on the in-progress turn. No bubble.
+- **Tool row = a bare one-liner.** `[per-kind icon] · verb · muted truncated target · (diff chip) · (open-session) · (▾ if expandable) · status glyph`. NO inline I/O at rest. Output reveals as an indented capped mono `<pre>` on click; a failure's `<pre>` carries a destructive left rule. Only `failed` uses the destructive color token.
+- **Hard tool aggregation (THE chosen behavior).** A consecutive run of foldable tool calls (not file-change, not failed, not running, not sub-agent) collapses to ONE row: a summary verb ("Ran a command, read 2 files, ran 2 searches, queried Linear") + step count, expanding to the bare rows beneath a left rule. `aggregateAt = 2` (calm bias). *This is the "various tool calls closed and combined in an expander" the founder approved.*
+- **Reasoning** folds to "Thought for Ns" (italic, tertiary), re-expands to muted prose under a left rule. (`reasoning` Part kind.)
+- **File diff** stays as its own row (never folded into an aggregate) with an inline `name +N/−M` chip; a per-turn/session **Changed files (N)** panel sits below the stream with "View diff" → `ReviewCodeDiff`.
+- **Tool icon family.** Typed icons for the common tools (view/read, search, edit, run command, web-search, create) + ONE shared generic icon for all MCP calls. *(Founder: "smart idea to have typical ones predefined with a specific icon, and all the various MCPs get a shared icon.")* Keep this.
+
+---
+
+## 2. Reuse-from-conversation contract (the dominant theme of the review)
+
+The session view is the conversation's components + the session-specific render kinds. **Reinvent as little as possible.** Architecture must wire these to the REAL conversation components, not the design-time copies in the fixture (which exist only so the story renders stand-alone in the viewer).
+
+| Session element | REUSES (production target) | Source |
+|---|---|---|
+| Surface shape (header · column · composer, `max-w-[760px]`) | `ConversationSurface` | `packages/web/src/components/ConversationSurface.tsx` |
+| Message column renderer | `PartList` over `derivePartsFromSession(...)` | `packages/web/src/components/PartList.tsx` |
+| **Human message row** | The conversation's **left-aligned** author-grouped row (name · "You" · time · full-width body) — NOT a right-aligned bubble | `PartList` group + `parts/ProsePart.tsx` |
+| **Avatars / participant group** | `ConversationSurface` `Avatar` + `ParticipantGroup` | `ConversationSurface.tsx` |
+| Turn header (name · time) | `PartList` group header (`clockTime`, `groupParts`) | `PartList.tsx` |
+| **Composer chrome + "+" attach affordance** | The `ConversationSurface` composer (rounded bordered surface · the SAME "+" attach button look · paper-plane send) | `ConversationSurface.tsx` `Composer`/`ComposerInputRow` |
+| Reference / artifact chips | `ReferenceChip` / `ArtifactEmbed` (DS) | design-system |
+| File diff | `ReviewCodeDiff` (one diff renderer in the product) | `packages/web/src/pages/review/ReviewCodeDiff.tsx` |
+
+**ADDS (session-specific, the only net-new render work):**
+- `tool` + `reasoning` Part render kinds (extend the closed `PartKind` union + the `PartList` exhaustive dispatch; `assertNeverPart` + `unknown` fallback preserved).
+- The folded **tool aggregation** (a renderer grouping beside `groupParts`, NOT a Part kind).
+- The **descriptor pill strip** on the composer (model · effort · mode from `HarnessCapabilityDescriptor`; `select`→pill, `boolean`→toggle; never per-backend-branched).
+- The **working/queue/Stop** composer state (streaming → Stop + "Working for Ns" + "queues while working"; idle → Send).
+- The **sub-agent → nested session** affordance (below).
+- The **changed-files panel** (per-turn/session, → `ReviewCodeDiff`).
+
+> Design-time note: the story's `sessionContentFixtures.tsx` copies `Avatar`/`ParticipantGroup`/`HumanRow`/the composer chrome so the story renders without the app router/context. **Architecture must collapse these onto the real `ConversationSurface` components** — they are intentionally byte-for-byte the conversation's look so the merge is mechanical, not a re-style.
+
+---
+
+## 3. Sub-agent recursion (the enhancement)
+
+A sub-agent `tool` call is itself a Session. Its row carries a **`session` `OpenTarget`** (`{ route: "session", sessionId }`) and an **"Open session"** affordance that **opens the sub-agent's OWN session view** — the SAME `ConversationSurface`-shaped surface, recursed, through the SAME open seam every reference uses (`packages/web/src/services/open-handler.ts` `case "session"`). The row also expands inline to a calm nested mini-stream (the sub-agent's tool rows). *(Founder: "very nice — this could yet again open a session view just of the sub agent, if that information is accessible in the same way.")* Fixture field: `ToolPart.opensSession`.
+
+---
+
+## 4. Removed aspects (founder review)
+
+- **Inline permission / approval prompt — REMOVED** (concept rejection 9). HyperIdle has no per-tool allow/deny gate; the agent acts freely and the **review** is the allow point (Approve / Reject / Request Changes at review time). No "Allow this command?" card; the `permission` Part kind and `PermissionPrompt` component are gone. The model/effort/mode pills are **launch settings**, not an inline gate (the `permission` launch option was also dropped from the descriptor fixture to keep the pill row to model·effort·mode).
+- **Status-metrics roll-up bar — REMOVED** (concept rejection 10). No PR # · change-count · Background · Artifacts counter strip. HyperIdle attaches no PRs to sessions. The header carries only **minimal session identity** (Session tag · host · title · avatars). Real changed-files work product still surfaces via the per-turn **Changed files** panel (aspect f) — that stays.
+
+---
+
+## 5. Full aspect list rendered (concept Part 7)
+
+| # | Aspect | Rendering in the approved variant |
+|---|---|---|
+| a | Streaming answer text | Full-width agent prose + a quiet streaming caret on the last turn. |
+| b | Reasoning | Folds to "Thought for Ns" (italic/tertiary), expands to muted prose under a left rule. |
+| c | Tool calls by family | Bare one-liner rows; typed icons + one shared MCP icon; per-family expanded I/O. |
+| d | Tool states | `running` pulse · `ok` ✓ · `failed` ✗ (destructive, stderr on expand) · `neutral` –. |
+| e | Tool aggregation | Hard fold to one summary verb + count; failure surfaces on the aggregate. |
+| f | File diffs / changed files | Inline `+N/−M` chip on a file-change row + a Changed files panel → `ReviewCodeDiff`. |
+| g | Cost / token tick | Quiet muted micro-row after the streaming prose (tabular-nums). |
+| ~~h~~ | ~~Permission prompt~~ | **REMOVED** — review is the allow point. |
+| i | Artifacts | `ArtifactChip` → opens its owned surface. |
+| j | Sub-agent / nested session | Sub-agent row → "Open session" → nested session view (recursion). |
+| k | Plan / todo | Compact foldable step list (done/active/todo), open at rest. |
+| l | Human + queued message | LEFT-ALIGNED conversation rows; queued = muted row + clock + "sends when the agent finishes" + ✕. |
+| m | Identity / turn boundaries | Conversation author-group header + conversation avatars; turn fold device available. |
+| n | Working state + Stop | "Working for Ns" pulse + Stop in the composer (calm, no loud spinner). |
+| o | Composer | Conversation composer chrome ("+" attach) + descriptor model·effort·mode pills + Send↔(Stop + queues). |
+| ~~p~~ | ~~Status roll-ups~~ | **REMOVED** — no PR/change-count metrics bar. |
+| q | Scroll-to-bottom / auto-pin | Floating "Scroll to bottom" pill; auto-pin while streaming, suppressed during user expand. |
+
+---
+
+## 6. Hard rules carried into architecture
+
+- One diff renderer in the product: reuse `ReviewCodeDiff`; any new per-file diff component is a concept violation.
+- One message renderer: `PartList` over `derivePartsFromSession`; no parallel/second renderer.
+- One composer: reuse the conversation composer chrome; do NOT invent a parallel composer.
+- `PartKind` stays closed + exhaustive + `unknown`-terminated; adding `tool`/`reasoning` is the only union growth (concept-doc-gated).
+- No color/token change (Hearth + AESTHETICS.md unchanged; only `failed` uses the existing destructive token).
+- Parts derived-never-stored; queued message is pre-Part composer/session state, FIFO, cancellable, non-interrupting (delivers into the NEXT turn).
+- No inline permission gate; no status-metrics roll-up bar.

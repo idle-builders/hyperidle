@@ -1,5 +1,5 @@
 /**
- * AM3 — Variant 1: CALM TRANSCRIPT.
+ * AM3 — APPROVED Session view: CALM TRANSCRIPT (founder review, 2026-06-22).
  *
  * Rendering axis: DISCLOSURE-MINIMAL + AGGREGATION-FORWARD. The calmest possible
  * reading of a session. At rest every tool call is a single bare line (icon · verb
@@ -7,17 +7,24 @@
  * ONE summary verb ("Read 2 files, ran a command, searched, queried Linear"). The
  * agent's prose owns the column; tool activity recedes to a quiet ledger you open
  * only when you want it. Output, diffs, and the changed-files panel all reveal on
- * click. This is the t3code/Claude-desktop "studio" calm — content first, activity
- * a fold away.
+ * click. The founder chose this variant: "I prefer this calm aspect with the
+ * various tool calls closed and combined in an expander."
  *
- * Demonstrates the full taxonomy (concept Part 7): a/streaming text · b/reasoning
- * fold · c/tool families incl. mcp + sub-agent · d/FAILED tool (✗ + stderr on
- * expand) · e/hard aggregation · f/inline diff chip + changed-files panel ·
- * g/cost tick · h/permission prompt · i/artifact chip · k/plan · l/queued message ·
- * m/turn header · n/working state · o/descriptor composer · p/status bar.
+ * REUSES THE CONVERSATION'S COMPONENTS (founder review): the surface header +
+ * AVATARS, the LEFT-ALIGNED human-message row (NOT a right-aligned bubble — human
+ * messages appear on the left, like the HyperIdle chat), and the COMPOSER chrome
+ * incl. the "+" attach affordance. The session view ADDS only the session-specific
+ * render kinds: tool/reasoning Parts, the folded tool aggregation, the descriptor
+ * model·effort·mode pills, the working/queue/Stop state, and a sub-agent row that
+ * OPENS its own nested session view.
  *
- * Inside the settled ConversationSurface shape: header · PartList-style column ·
- * composer. Placement is NOT explored — only the content-rendering vocabulary.
+ * Aspect taxonomy rendered (concept Part 7): a/streaming text · b/reasoning fold ·
+ * c/tool families incl. mcp + sub-agent(→nested session) · d/FAILED tool (✗ + stderr
+ * on expand) · e/hard aggregation · f/inline diff chip + changed-files panel ·
+ * g/cost tick · i/artifact chip · k/plan · l/queued message · m/turn header (reused
+ * conversation row) · n/working state · o/descriptor + conversation composer.
+ * REMOVED per review: h/permission prompt (reviews are the allow point, not a
+ * per-tool gate) · p/status-metrics roll-up (no PR/change-count bar).
  */
 
 import { type JSX, useState } from "react";
@@ -25,14 +32,15 @@ import {
 	aggregateVerb,
 	AgentProse,
 	ArtifactChip,
+	ATLAS,
 	blockStream,
 	Caret,
 	CHANGED_FILES,
 	CostTick,
 	DiffStat,
-	HumanBubble,
-	type PermissionPart,
-	PermissionPrompt,
+	FOUNDER,
+	HumanRow,
+	ParticipantGroup,
 	type PlanPart,
 	PlanList,
 	QUEUED,
@@ -42,7 +50,6 @@ import {
 	SESSION_PARTS,
 	type SessionPart,
 	SessionComposer,
-	SessionStatusBar,
 	StatusGlyph,
 	type StreamBlock,
 	type ToolPart,
@@ -50,15 +57,16 @@ import {
 	TurnHeader,
 } from "./sessionContentFixtures.js";
 
-export default { title: "Session View · 1 · Calm Transcript", group: "Conversations" as const };
+export default { title: "Session View · Calm Transcript", group: "Conversations" as const };
 
-// ── Variant-specific: a BARE tool row — no inline I/O. Reveals output on click. ──
+// ── A BARE tool row — no inline I/O. Reveals output on click. A SUB-AGENT row
+//    additionally OPENS its own nested session view (recursion, concept aspect j). ──
 function BareToolRow({ part }: { part: ToolPart }): JSX.Element {
 	const [open, setOpen] = useState(false);
-	const canExpand = part.output !== undefined;
+	const canExpand = part.output !== undefined || part.subStream !== undefined;
 	return (
 		<div data-ds-component="ToolRow">
-			{/* biome-ignore lint/a11y/useSemanticElements: a diff chip button nests inside; role/button avoids invalid nested-button DOM. */}
+			{/* biome-ignore lint/a11y/useSemanticElements: a diff chip / open-session button nests inside; role/button avoids invalid nested-button DOM. */}
 			<div
 				role={canExpand ? "button" : undefined}
 				tabIndex={canExpand ? 0 : undefined}
@@ -79,6 +87,20 @@ function BareToolRow({ part }: { part: ToolPart }): JSX.Element {
 						<DiffStat added={part.diff.added} removed={part.diff.removed} />
 					</button>
 				) : null}
+				{/* sub-agent → opens its OWN nested session view (founder review aspect j) */}
+				{part.opensSession ? (
+					<button
+						type="button"
+						onClick={(e) => e.stopPropagation()}
+						title={`Open the ${part.opensSession.label} session`}
+						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+					>
+						<svg viewBox="0 0 16 16" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+							<path d="M9 2.5h4.5V7M13.5 2.5L7 9M11 9.5V12a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 012 12V6a1.5 1.5 0 011.5-1.5H6" strokeLinecap="round" strokeLinejoin="round" />
+						</svg>
+						Open session
+					</button>
+				) : null}
 				{canExpand ? <Caret open={open} /> : null}
 				<StatusGlyph status={part.status} />
 			</div>
@@ -87,11 +109,23 @@ function BareToolRow({ part }: { part: ToolPart }): JSX.Element {
 					{part.output}
 				</pre>
 			) : null}
+			{/* a sub-agent's nested mini-stream — the same calm tool grammar, recursed */}
+			{open && part.subStream ? (
+				<div className="ms-[24px] mt-[3px] flex flex-col border-s border-[var(--border-subtle)] ps-[12px]">
+					{part.subStream.map((s) => (
+						<div key={`${s.verb}-${s.target}`} className="flex items-center gap-[9px] py-[3px] text-[13px]">
+							<span className="shrink-0 font-[500] text-[var(--text-tertiary)]">{s.verb}</span>
+							<span className="min-w-0 flex-1 truncate font-mono text-[12px] text-[var(--text-tertiary)]">{s.target}</span>
+						</div>
+					))}
+				</div>
+			) : null}
 		</div>
 	);
 }
 
-// ── Variant-specific: HARD aggregate — one summary verb, count, fold to bare rows. ──
+// ── HARD aggregate — one summary verb, count, fold to bare rows. The chosen calm
+//    behavior: tool calls closed at rest, combined in an expander. ──
 function HardAggregate({ tools }: { tools: readonly ToolPart[] }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const failed = tools.some((t) => t.status === "failed");
@@ -139,13 +173,13 @@ function ChangedFilesPanel(): JSX.Element {
 
 function renderSingle(part: SessionPart): JSX.Element {
 	if (part.kind === "tool") return <BareToolRow part={part} />;
-	if (part.kind === "permission") return <PermissionPrompt part={part as PermissionPart} />;
 	if (part.kind === "plan") return <PlanList part={part as PlanPart} />;
 	if (part.kind === "artifact") return <ArtifactChip part={part} />;
 	if (part.kind === "reasoning") {
 		return <ReasoningFold durationMs={part.durationMs} text={part.text} />;
 	}
-	if (!part.author.isAgent) return <HumanBubble text={part.text} />;
+	// Human messages render LEFT-ALIGNED like the conversation (founder review).
+	if (!part.author.isAgent) return <HumanRow author={part.author} createdAt={part.createdAt} text={part.text} />;
 	return <AgentProse text={part.text} streaming={"streaming" in part && part.streaming === true} />;
 }
 
@@ -174,6 +208,8 @@ function TranscriptStream(): JSX.Element {
 			{blocks.map((b, i) => {
 				const part = b.kind === "single" ? b.part : b.tools[0];
 				const author = part?.author;
+				// Only the AGENT shows a turn header here; a human message carries its own
+				// left-aligned author row (HumanRow) — the conversation's grouping shape.
 				const showAuthor = !!author && author.isAgent && author.id !== lastAuthorId;
 				if (author) lastAuthorId = author.id;
 				return (
@@ -193,18 +229,23 @@ function TranscriptStream(): JSX.Element {
 export function CalmTranscript(): JSX.Element {
 	return (
 		<div className="flex h-[900px] w-full flex-col bg-[var(--surface-page)]" style={{ fontFamily: "var(--font-sans)" }}>
-			{/* header — the ConversationSurface header shape */}
+			{/* header — the ConversationSurface header shape: host tag · title · avatars.
+			    Minimal session identity only; NO PR/change-count metrics bar (review). */}
 			<header className="flex shrink-0 items-center gap-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
-					<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
-						<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
-						Session
-					</span>
 					<div className="min-w-0 flex-1">
-						<div className="text-[12px] text-[var(--text-secondary)]">{SESSION_META.agent} · <span className="text-[var(--text-tertiary)]">{SESSION_META.host}</span></div>
-						<h1 className="mt-[3px] mb-0 text-[16px] font-[600] leading-[1.25] text-[var(--text-primary)]">{SESSION_META.task}</h1>
+						<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+								<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+								Session
+							</span>
+							<span className="text-[var(--text-tertiary)]">·</span>
+							<span className="truncate font-[500] text-[var(--text-primary)]">{SESSION_META.host}</span>
+						</div>
+						<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">{SESSION_META.task}</h1>
 					</div>
-					<div className="hidden md:block"><SessionStatusBar /></div>
+					{/* conversation avatars (founder review: "the avatar should look like in the chat") */}
+					<ParticipantGroup people={[ATLAS, FOUNDER]} />
 				</div>
 			</header>
 			{/* reading column */}
@@ -212,13 +253,13 @@ export function CalmTranscript(): JSX.Element {
 				<div className="mx-auto flex max-w-[760px] flex-col gap-[12px] px-[24px] py-[18px]">
 					<TranscriptStream />
 					<ChangedFilesPanel />
-					{QUEUED.map((q) => <QueuedBubble key={q.id} text={q.text} />)}
+					{QUEUED.map((q) => <QueuedBubble key={q.id} author={q.author} text={q.text} />)}
 				</div>
 				<div className="pointer-events-none absolute inset-x-0 bottom-[12px] flex justify-center">
 					<div className="pointer-events-auto"><ScrollToBottomPill /></div>
 				</div>
 			</div>
-			{/* composer — working state */}
+			{/* composer — the conversation composer chrome + descriptor pills + working state */}
 			<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] px-[24px] py-[12px]">
 				<div className="mx-auto max-w-[760px]"><SessionComposer running elapsedLabel={SESSION_META.elapsedLabel} /></div>
 			</div>

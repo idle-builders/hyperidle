@@ -1,6 +1,8 @@
-# Variant 1 — Calm Transcript
+# Variant 1 — Calm Transcript  ✅ APPROVED (founder review 2026-06-22)
 
-**Story:** `Session View · 1 · Calm Transcript` (`packages/web/src/components/SessionContentTranscript.stories.tsx`, export `CalmTranscript`).
+> Chosen direction. Founder annotations applied — see `../approved.md` for the locked spec. Deltas from the original below: human messages are LEFT-ALIGNED (reuse the conversation row, not a right-aligned bubble); no inline permission Allow/Deny card; no status-metrics roll-up bar; avatars + composer reuse the conversation's components; a sub-agent row opens its own nested session view. Story title is now `Session View · Calm Transcript`.
+
+**Story:** `Session View · Calm Transcript` (`packages/web/src/components/SessionContentTranscript.stories.tsx`, export `CalmTranscript`).
 **Rendering axis:** disclosure-minimal + aggregation-forward. The calmest reading of a session — content first, activity a fold away.
 **Screenshot:** `screenshot.png`.
 

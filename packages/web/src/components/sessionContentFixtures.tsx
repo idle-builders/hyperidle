@@ -11,16 +11,21 @@
  * This file holds:
  *  1. ONE rich session fixture (`SESSION_PARTS`) that exercises the FULL aspect
  *     taxonomy — streaming text, reasoning, several tool FAMILIES incl. a FAILED
- *     tool + an MCP call + a sub-agent spawn, an aggregation run, a file edit with
- *     a diff, a cost tick, a permission prompt, a plan/todo, a completed-turn fold,
- *     an artifact, and a QUEUED human message.
- *  2. The shared rendering atoms (status glyph, diff stat, descriptor pills,
- *     queued bubble, composer, status roll-ups) that EVERY variant composes — so
- *     the founder compares the RENDERING LANGUAGE, not the data.
+ *     tool + an MCP call + a sub-agent spawn (which OPENS its own nested session),
+ *     an aggregation run, a file edit with a diff, a cost tick, a plan/todo, a
+ *     completed-turn fold, an artifact, and a QUEUED human message.
+ *  2. The shared rendering atoms — REUSING the conversation's components (avatars,
+ *     left-aligned human-message row, composer chrome incl. the "+" attach
+ *     affordance) + the session-specific atoms (status glyph, diff stat, descriptor
+ *     pills, queued row) — that the chosen variant composes.
  *
- * The three variant stories (`SessionContent{Transcript,Glance,Timeline}`) differ
- * ONLY in how they render the SAME `SESSION_PARTS` — the disclosure/density of a
- * tool call, the tool-row grammar, how I/O & diffs reveal. NOT placement.
+ * APPROVED DIRECTION (founder review, 2026-06-22): Variant 1 — "Calm Transcript".
+ * Annotations applied here: NO inline permission/approval prompt (the REVIEW is the
+ * allow point, not a per-tool gate); human messages render LEFT-ALIGNED like the
+ * HyperIdle chat (not a right-aligned bubble); avatars + composer + human-row REUSE
+ * the conversation's components; the header carries only minimal session identity
+ * (no PR / change-count / Background / Artifacts metrics bar); a sub-agent tool row
+ * OPENS its own nested session view. See `plans/AM3/design/approved.md`.
  *
  * Production rules this proves (architecture turns into the real adapter +
  * dispatch): the stream renders through the AM1 Part vocabulary EXTENDED with
@@ -80,6 +85,13 @@ export interface ToolPart {
 	readonly diff?: { readonly label: string; readonly added: number; readonly removed: number };
 	/** A sub-agent spawn carries a nested mini-stream (concept aspect j). */
 	readonly subStream?: readonly { readonly verb: string; readonly target: string }[];
+	/**
+	 * A sub-agent spawn is ITSELF a Session — it carries a `session` OpenTarget and
+	 * OPENS its own nested session view (concept aspect j, founder review 2026-06-22:
+	 * "this could yet again open a session view just of the sub agent"). Design-time
+	 * shape; in build this is the real `OpenTarget` { route: "session", sessionId }.
+	 */
+	readonly opensSession?: { readonly sessionId: string; readonly label: string };
 }
 
 export interface ReasoningPart {
@@ -100,17 +112,6 @@ export interface StreamingProsePart {
 	readonly text: string;
 	readonly embeds: readonly [];
 	readonly streaming: true;
-}
-
-/** A permission/approval prompt (concept aspect h) — populated inline content. */
-export interface PermissionPart {
-	readonly id: string;
-	readonly kind: "permission";
-	readonly author: PartAuthor;
-	readonly createdAt: string;
-	readonly action: string;
-	readonly detail: string;
-	readonly toolKind: ToolKind;
 }
 
 /** A plan/todo the agent follows (concept aspect k). */
@@ -137,7 +138,6 @@ export type SessionPart =
 	| StreamingProsePart
 	| ReasoningPart
 	| ToolPart
-	| PermissionPart
 	| PlanPart
 	| ArtifactPart;
 
@@ -230,17 +230,9 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		embeds: [],
 		text: "Found it. AI SDK 6 sends messages with a `parts` array instead of a `content` string. Our backend still writes `content`, so the v6 client renders nothing — the message is dropped silently. Switching the server to emit `parts` and updating the append helper to match.",
 	},
-	// (h) a permission prompt before the edit (full-access not granted for this path)
-	{
-		id: "perm1",
-		kind: "permission",
-		author: ATLAS,
-		createdAt: T("0:34.000Z"),
-		toolKind: "edit",
-		action: "Edit a file outside the working tree",
-		detail: "server/chat/stream.ts",
-	},
-	// (c,f) the fix — a file-change tool carrying a diff (opens ReviewCodeDiff)
+	// (c,f) the fix — a file-change tool carrying a diff (opens ReviewCodeDiff).
+	// NO permission prompt precedes it — the agent acts freely; the REVIEW is the
+	// allow point (founder review 2026-06-22; concept rejection 9).
 	{ id: "t7", kind: "tool", author: ATLAS, createdAt: T("0:38.000Z"), toolKind: "edit", verb: "Edit", target: "server/chat/stream.ts", status: "ok", preview: "emit parts[] instead of content", diff: { label: "server/chat/stream.ts", added: 9, removed: 2 } },
 	// (d) a FAILED tool — reads distinctly: ✗ + stderr in the expanded body
 	{
@@ -258,7 +250,7 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 	},
 	// (c,f) the follow-up edit fixing the append helper
 	{ id: "t9", kind: "tool", author: ATLAS, createdAt: T("0:44.000Z"), toolKind: "edit", verb: "Edit", target: "client/useChatPanel.ts", status: "ok", preview: "spread parts[], drop content", diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 } },
-	// (c,j) a sub-agent spawn — nested mini-stream
+	// (c,j) a sub-agent spawn — opens its OWN nested session view (recursion)
 	{
 		id: "t10",
 		kind: "tool",
@@ -272,6 +264,7 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 			{ verb: "Run command", target: "playwright test chat.safari.spec" },
 			{ verb: "View", target: "chat.safari.spec.ts · 60 lines" },
 		],
+		opensSession: { sessionId: "sess-safari-verify", label: "Safari verifier" },
 	},
 	// (i) an artifact produced
 	{
@@ -308,6 +301,10 @@ export const QUEUED: readonly QueuedMessage[] = [
 	},
 ];
 
+// Minimal session identity only — NO PR # / change-count / Background / Artifacts
+// metrics roll-up (founder review 2026-06-22; concept rejection 10). `changesAdded/
+// Removed` remain ONLY for the per-turn changed-files panel (real work product,
+// aspect f), never a header metrics bar. `tokens/cost` feed the quiet cost tick.
 export const SESSION_META = {
 	agent: "Atlas",
 	task: "Fix agent chat broken by AI SDK 5→6",
@@ -315,9 +312,6 @@ export const SESSION_META = {
 	elapsedLabel: "Working for 1m 47s",
 	changesAdded: 15,
 	changesRemoved: 6,
-	prNumber: 8885,
-	backgroundCount: 1,
-	artifactCount: 1,
 	tokensLabel: "48.2k tokens",
 	costLabel: "$0.71",
 } as const;
@@ -372,18 +366,8 @@ export const DESCRIPTOR: HarnessCapabilityDescriptor = {
 					scope: "launch",
 					defaultValue: "build",
 				},
-				{
-					key: "permission",
-					label: "Permission",
-					control: { kind: "select", choices: [
-						{ value: "supervised", label: "Supervised" },
-						{ value: "accept-edits", label: "Accept edits" },
-						{ value: "full-access", label: "Full access" },
-					] },
-					required: false,
-					scope: "launch",
-					defaultValue: "full-access",
-				},
+				// NOTE: no `permission` pill — HyperIdle has no per-tool allow/deny gate
+				// (concept rejection 9). Model · Effort · Mode are the launch settings.
 			],
 		},
 		{
@@ -526,72 +510,91 @@ export function AgentProse({ text, streaming = false }: { text: string; streamin
 	);
 }
 
-/** Human message — right-aligned bubble (bubble vs full-width = authorship). */
-export function HumanBubble({ text }: { text: string }): JSX.Element {
+// ── Avatar — REUSED from the conversation (ConversationSurface): human vs agent
+//    tint + a stronger agent ring. Same initials, same sizes, same tokens. ──
+function initialsOf(name: string): string {
+	const parts = name.trim().split(/\s+/).filter(Boolean);
+	if (parts.length === 0) return "?";
+	if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
+	return `${parts[0]?.[0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase();
+}
+
+/** Conversation avatar — REUSED look (founder review: "the avatar should look like in the chat"). */
+export function Avatar({ who, size = 26 }: { who: PartAuthor; size?: number }): JSX.Element {
+	const color = who.isAgent
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
-		<div className="flex justify-end">
-			<div className="max-w-[80%] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px] text-[14px] leading-[1.5] text-[var(--text-primary)]">
-				{text}
-			</div>
+		<div
+			className={`inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 ${color}`}
+			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
+			aria-hidden="true"
+		>
+			{initialsOf(who.name)}
 		</div>
 	);
 }
 
-/** A queued (not-yet-delivered) human message — muted dashed bubble + clock + ✕. */
-export function QueuedBubble({ text, onCancel }: { text: string; onCancel?: () => void }): JSX.Element {
+/** Header avatar group — REUSED from the conversation surface. */
+export function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.Element {
 	return (
-		<div className="flex justify-end">
-			<div className="flex max-w-[80%] items-start gap-[9px] rounded-[var(--r-default)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] px-[12px] py-[9px] opacity-70">
-				<svg viewBox="0 0 16 16" className="mt-[3px] h-[12px] w-[12px] shrink-0 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-					<circle cx="8" cy="8" r="6" />
-					<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
-				</svg>
-				<div className="min-w-0">
-					<div className="text-[14px] leading-[1.5] text-[var(--text-secondary)]">{text}</div>
-					<div className="mt-[3px] text-[11px] text-[var(--text-tertiary)]">Queued · sends when the agent finishes</div>
+		<div data-ds-component="AvatarGroup" className="flex items-center pl-[3px]">
+			{people.map((p, i) => (
+				<div
+					key={p.id}
+					className="rounded-full ring-2 ring-[var(--surface-page)]"
+					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
+				>
+					<Avatar who={p} size={26} />
 				</div>
+			))}
+		</div>
+	);
+}
+
+// ── Human message — LEFT-ALIGNED, like the HyperIdle conversation (founder review
+//    2026-06-22: "in the chat these messages appear on the left"). This REUSES the
+//    conversation's author-grouped row shape (PartList group header: name · "You" ·
+//    time, full-width body) — NOT a right-aligned bubble. ──
+export function HumanRow({ author, createdAt, text }: { author: PartAuthor; createdAt: string; text: string }): JSX.Element {
+	return (
+		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex flex-col gap-[6px]">
+			<div className="flex items-baseline gap-[9px]">
+				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
+				{author.isMe ? <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span> : null}
+				<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+			</div>
+			<p className="m-0 text-[15px] leading-[1.6] text-[var(--text-primary)]">{text}</p>
+		</div>
+	);
+}
+
+// ── A queued (not-yet-delivered) human message — LEFT-ALIGNED to match the human
+//    row, muted + clock + "sends when the agent finishes" + dequeue ✕. ──
+export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; text: string; onCancel?: () => void }): JSX.Element {
+	return (
+		<div data-ds-component="QueuedRow" data-ds-sender="human" className="flex flex-col gap-[6px] opacity-70">
+			<div className="flex items-baseline gap-[9px]">
+				<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{author.name}</span>
+				<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
+					<svg viewBox="0 0 16 16" className="h-[11px] w-[11px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+						<circle cx="8" cy="8" r="6" />
+						<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
+					</svg>
+					Queued · sends when the agent finishes
+				</span>
 				<button
 					type="button"
 					onClick={onCancel}
 					aria-label="Remove queued message"
-					className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-page)] hover:text-[var(--text-secondary)]"
+					className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 				>
 					<svg viewBox="0 0 12 12" className="h-[10px] w-[10px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
 						<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
 					</svg>
 				</button>
 			</div>
-		</div>
-	);
-}
-
-/** Permission/approval prompt — Allow / Deny over the requested action (aspect h). */
-export function PermissionPrompt({ part }: { part: PermissionPart }): JSX.Element {
-	return (
-		<div
-			data-ds-component="PermissionPrompt"
-			className="rounded-[var(--r-subtle)] border border-[var(--status-warning)] bg-[color-mix(in_oklab,var(--status-warning)_8%,transparent)] px-[12px] py-[9px]"
-		>
-			<div className="flex items-center gap-[9px]">
-				<svg viewBox="0 0 16 16" className="h-[14px] w-[14px] shrink-0 text-[var(--status-warning)]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-					<path d="M8 1.5l6 11H2z" strokeLinejoin="round" />
-					<path d="M8 6v3M8 11h.01" strokeLinecap="round" />
-				</svg>
-				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{part.action}?</span>
-			</div>
-			<div className="ms-[23px] mt-[3px] flex items-center gap-[6px] font-mono text-[12px] text-[var(--text-tertiary)]">
-				<ToolGlyph kind={part.toolKind} size={12} />
-				{part.detail}
-			</div>
-			<div className="ms-[23px] mt-[9px] flex items-center gap-[6px]">
-				<button type="button" className="inline-flex h-[26px] items-center rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[12px] text-[12px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]">
-					Allow
-				</button>
-				<button type="button" className="inline-flex h-[26px] items-center rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]">
-					Deny
-				</button>
-				<span className="ms-[3px] text-[11px] text-[var(--text-tertiary)]">Supervised · this path is outside the working tree</span>
-			</div>
+			<p className="m-0 text-[15px] leading-[1.6] text-[var(--text-secondary)]">{text}</p>
 		</div>
 	);
 }
@@ -701,8 +704,27 @@ function PillSelect({ option, value, onPick }: { option: HarnessModelOptionDescr
 }
 
 const ICON_MODEL = "M8 1.5l1.1 3.4L12.5 6 9.1 7.1 8 10.5 6.9 7.1 3.5 6l3.4-1.1L8 1.5z";
+// REUSED from the conversation composer (ConversationSurface): the "+" attach
+// affordance + the send paper-plane. Founder review 2026-06-22: "the attach button
+// could/should use the same look as in the conversation."
+const ICON_PLUS = "M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25V2z";
+const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 
-/** The composer: model pill + one pill per declared option + Send/Stop+Queue. */
+function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
+	return (
+		<svg viewBox="0 0 16 16" fill="currentColor" className="shrink-0" style={{ width: size, height: size }} aria-hidden="true">
+			<path d={d} />
+		</svg>
+	);
+}
+
+/**
+ * The session composer — REUSES the conversation composer chrome (rounded bordered
+ * surface · the SAME "+" attach affordance · paper-plane send) and ADDS the
+ * session-specific bits: the descriptor-driven model · effort · mode pills and the
+ * working/queue/Stop state. NOT a parallel composer (founder review 2026-06-22:
+ * "try to reuse components with the chat — this is very similar").
+ */
 export function SessionComposer({ running = false, elapsedLabel }: { running?: boolean; elapsedLabel?: string }): JSX.Element {
 	const model = DESCRIPTOR.models[0];
 	const [modelId, setModelId] = useState(model?.id ?? "");
@@ -715,15 +737,40 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 	const [text, setText] = useState("");
 
 	return (
-		<div data-ds-component="SessionComposer" className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]">
-			<textarea
-				value={text}
-				onChange={(e) => setText(e.target.value)}
-				rows={2}
-				placeholder={running ? "Type to queue a message — it sends when the agent finishes" : "Ask anything · drop files/folders · @ to reference"}
-				className="block w-full resize-none bg-transparent px-[12px] pt-[12px] pb-[6px] text-[15px] leading-[1.5] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none"
-			/>
-			<div className="flex items-center gap-[3px] px-[9px] pb-[9px] pt-[3px]">
+		<div
+			data-ds-component="SessionComposer"
+			className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]"
+		>
+			{/* input row — the conversation composer shape: "+" attach · textarea · send */}
+			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
+				<button
+					type="button"
+					aria-label="Insert"
+					aria-haspopup="menu"
+					title="Insert block, attach, mention, reference, format"
+					className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+				>
+					<ComposerGlyph d={ICON_PLUS} size={14} />
+				</button>
+				<textarea
+					value={text}
+					onChange={(e) => setText(e.target.value)}
+					rows={2}
+					placeholder={running ? "Type to queue a message — it sends when the agent finishes" : "Message Atlas · drop files/folders · @ to reference"}
+					className="min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+				/>
+				{running ? (
+					<button type="button" aria-label="Stop the agent" className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]">
+						<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
+					</button>
+				) : (
+					<button type="button" aria-label="Send message" className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]">
+						<ComposerGlyph d={ICON_SEND} size={15} />
+					</button>
+				)}
+			</div>
+			{/* session-specific pill row — descriptor-driven model · effort · mode + working state */}
+			<div className="flex items-center gap-[3px] border-t border-[var(--border-subtle)] px-[9px] py-[6px]">
 				<button
 					type="button"
 					onClick={() => {
@@ -744,28 +791,19 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 					) : null,
 				)}
 				<span className="flex-1" />
-				{running && elapsedLabel ? (
-					<span className="mr-[6px] inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
-						<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
-						{elapsedLabel}
-					</span>
-				) : null}
 				{running ? (
 					<>
-						<button type="button" aria-label="Queue message" title="Send — queues while the agent works" className="inline-flex h-[30px] items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]">
-							Queue
-						</button>
-						<button type="button" aria-label="Stop the agent" className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]">
-							<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
-						</button>
+						{elapsedLabel ? (
+							<span className="mr-[3px] inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
+								<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+								{elapsedLabel}
+							</span>
+						) : null}
+						<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)]">
+							Queues while working
+						</span>
 					</>
-				) : (
-					<button type="button" aria-label="Send" className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]">
-						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-[14px] w-[14px]" aria-hidden="true">
-							<path d="M8 13V3M4 7l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
-					</button>
-				)}
+				) : null}
 			</div>
 		</div>
 	);
@@ -782,33 +820,11 @@ export function ScrollToBottomPill(): JSX.Element {
 	);
 }
 
-/** Session status roll-ups (aspect p) — Changes / PR / Background / Artifacts + Ready CTA. */
-export function SessionStatusBar({ withCta = false }: { withCta?: boolean }): JSX.Element {
-	return (
-		<div className="flex flex-wrap items-center gap-x-[18px] gap-y-[6px] text-[12px] text-[var(--text-secondary)]">
-			<span className="inline-flex items-center gap-[6px]">
-				<svg viewBox="0 0 16 16" className="h-[12px] w-[12px] text-[var(--text-tertiary)]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-					<path d="M11.5 2.5l2 2L6 12l-3 1 1-3 7.5-7.5z" strokeLinejoin="round" />
-				</svg>
-				Changes
-				<DiffStat added={SESSION_META.changesAdded} removed={SESSION_META.changesRemoved} />
-			</span>
-			<span className="inline-flex items-center gap-[6px]">
-				<svg viewBox="0 0 16 16" className="h-[12px] w-[12px] text-[var(--text-tertiary)]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-					<circle cx="4" cy="4" r="2" /><circle cx="4" cy="12" r="2" /><circle cx="12" cy="8" r="2" /><path d="M4 6v4M6 12h4a2 2 0 002-2" />
-				</svg>
-				PR <span className="font-mono tabular-nums text-[var(--text-primary)]">#{SESSION_META.prNumber}</span>
-			</span>
-			<span className="inline-flex items-center gap-[6px]">Background <span className="font-mono tabular-nums text-[var(--text-primary)]">{SESSION_META.backgroundCount}</span></span>
-			<span className="inline-flex items-center gap-[6px]">Artifacts <span className="font-mono tabular-nums text-[var(--text-primary)]">{SESSION_META.artifactCount}</span></span>
-			{withCta ? (
-				<button type="button" className="ms-[6px] inline-flex h-[26px] items-center rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[12px] text-[12px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]">
-					Ready for review
-				</button>
-			) : null}
-		</div>
-	);
-}
+// NOTE: the t3code-style SessionStatusBar (Changes / PR / Background / Artifacts +
+// Ready CTA) was REMOVED (founder review 2026-06-22; concept rejection 10).
+// HyperIdle attaches no PRs to sessions and surfaces no change-count metrics bar.
+// The header carries only minimal session identity; real changed-files work product
+// still surfaces via the per-turn changed-files panel (aspect f).
 
 // ── Shared turn-blocking: group by author, aggregate a CONSECUTIVE tool run ──
 // A file-change tool (carries a diff) or a failed/running tool never folds into a
