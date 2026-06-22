@@ -21,6 +21,7 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
+import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
 import { getServerSecret } from "./services/credential-encryption.js";
@@ -30,7 +31,6 @@ import { resolveModelTier } from "./services/model-gateway.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
 import { setActiveStrategy } from "./services/strategy-registry.js";
-import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**

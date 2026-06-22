@@ -25,7 +25,15 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { CallLlmOptions } from "./llm-client.js";
-import type { LlmContentBlock, LlmMessage, LlmResponse, LlmTextBlock, LlmToolDef, LlmToolResultBlock, LlmToolUseBlock } from "./llm-types.js";
+import type {
+	LlmContentBlock,
+	LlmMessage,
+	LlmResponse,
+	LlmTextBlock,
+	LlmToolDef,
+	LlmToolResultBlock,
+	LlmToolUseBlock,
+} from "./llm-types.js";
 
 // ---------------------------------------------------------------------------
 // CassetteEntry — the shape stored in cassette JSON files
@@ -82,8 +90,7 @@ function stripRoutingSuffix(modelId: string): string {
 }
 
 /** ISO-8601 timestamp regex */
-const ISO_TS_RE =
-	/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})/g;
+const ISO_TS_RE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})/g;
 
 /** Unix ms epoch — 13-digit numbers that look like timestamps */
 const MS_EPOCH_RE = /\b1[5-9]\d{11}\b/g;
@@ -123,7 +130,10 @@ function normalizeMessages(messages: readonly LlmMessage[]): unknown[] {
 
 	const idToToken = new Map<string, string>();
 	for (let i = 0; i < toolUseIds.length; i++) {
-		idToToken.set(toolUseIds[i]!, `__tooluse_${i}__`);
+		const id = toolUseIds[i];
+		if (id !== undefined) {
+			idToToken.set(id, `__tooluse_${i}__`);
+		}
 	}
 
 	return messages.map((msg) => {
@@ -233,7 +243,8 @@ export async function replayLlm(
 
 	// WARNING-1: Await the replay delay so the ThinkingRow is paintable
 	const delayMs = Number(process.env.LLM_REPLAY_DELAY_MS ?? DEFAULT_REPLAY_DELAY_MS);
-	const effectiveDelay = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : DEFAULT_REPLAY_DELAY_MS;
+	const effectiveDelay =
+		Number.isFinite(delayMs) && delayMs > 0 ? delayMs : DEFAULT_REPLAY_DELAY_MS;
 	await new Promise<void>((resolve) => setTimeout(resolve, effectiveDelay));
 
 	return entry.response;
@@ -330,8 +341,14 @@ function scheduleRecordFlush(): void {
 
 	// Register SIGTERM/SIGINT/exit handlers for graceful flush
 	process.once("exit", flush);
-	process.once("SIGTERM", () => { flush(); process.exit(0); });
-	process.once("SIGINT", () => { flush(); process.exit(0); });
+	process.once("SIGTERM", () => {
+		flush();
+		process.exit(0);
+	});
+	process.once("SIGINT", () => {
+		flush();
+		process.exit(0);
+	});
 }
 
 /**
