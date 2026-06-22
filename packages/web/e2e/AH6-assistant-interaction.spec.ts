@@ -66,14 +66,18 @@ const BET_SHAPING_PROMPT =
  * paths are NOT mocked — they go to the real test-server.
  */
 async function setupShellMocks(page: Parameters<typeof test>[1]["page"]): Promise<void> {
-	// Established founder (not redirected to /setup)
+	// Established founder (not redirected to /setup).
+	// @lore AH6: id MUST be "u-founder" — the ah6-test-server seeds this user
+	// and the server auth middleware (local mode) resolves to this ID.
+	// The frontend uses this ID to fetch the assistant thread
+	// (GET /api/threads?hostKind=user&hostId=u-founder). A mismatch → empty thread.
 	await page.route("**/api/auth/me", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					id: "ah6-test-founder",
+					id: "u-founder",
 					name: "AH6 Test Founder",
 					email: "ah6@hyperidle.dev",
 					role: "founder",
@@ -132,11 +136,16 @@ test.describe("AH6 S1 — assistant DM round-trip (replay, key-free)", () => {
 		const welcomeVisible = await welcomeLocator.isVisible().catch(() => false);
 		const welcomeText = welcomeVisible ? WELCOME_TEXT : "";
 
-		// Type and send the question
-		const composer = page.getByRole("textbox");
+		// Type and send the question.
+		// @lore AH6: getByRole("textbox") is ambiguous — the app has a Search input
+		// and the composer textarea both matching "textbox". Use the real testid.
+		// @lore AH6: The Composer component uses Cmd/Ctrl+Enter to submit, NOT bare Enter
+		// (bare Enter inserts a newline). Click the Send button to be explicit and
+		// platform-independent.
+		const composer = page.getByTestId("composer-textarea");
 		await expect(composer).toBeVisible({ timeout: 5000 });
 		await composer.fill("What is 1 + 1?");
-		await composer.press("Enter");
+		await page.getByRole("button", { name: /send/i }).click();
 
 		// Wait for the reply to appear (replay runs in ~80ms + processing)
 		// The reply must be non-empty and distinct from the welcome text
@@ -172,10 +181,11 @@ test.describe("AH6 S2 — real tool action visible in UI (replay, key-free)", ()
 		const assistantTrigger = page.getByRole("button", { name: /assistant/i });
 		await assistantTrigger.click();
 
-		const composer = page.getByRole("textbox");
+		const composer = page.getByTestId("composer-textarea");
 		await expect(composer).toBeVisible({ timeout: 5000 });
 		await composer.fill(BET_SHAPING_PROMPT);
-		await composer.press("Enter");
+		// @lore AH6: Composer submits on Cmd/Ctrl+Enter (not bare Enter). Click Send button.
+		await page.getByRole("button", { name: /send/i }).click();
 
 		// Wait for the tool-call-summaries row (rendered by renderToolCallSummaries, overlay L166)
 		// @lore AH6 R-4: tool-call-summaries is the real testid on AssistantOverlay L173
@@ -212,7 +222,7 @@ test.describe("AH6 S3 — thinking→answered streaming transition (replay, key-
 		const assistantTrigger = page.getByRole("button", { name: /assistant/i });
 		await assistantTrigger.click();
 
-		const composer = page.getByRole("textbox");
+		const composer = page.getByTestId("composer-textarea");
 		await expect(composer).toBeVisible({ timeout: 5000 });
 
 		// @lore AH6 WARNING-1: The 80ms replay delay is what makes the thinking row
@@ -220,9 +230,9 @@ test.describe("AH6 S3 — thinking→answered streaming transition (replay, key-
 		// thinking row flips invisible before Playwright can see it.
 		// The AH6 Playwright config sets LLM_REPLAY_DELAY_MS=80 via webServer.env.
 
-		// Send the message
+		// Send the message. @lore AH6: Click Send button (not bare Enter — Composer uses Cmd/Ctrl+Enter)
 		await composer.fill("What is 1 + 1?");
-		await composer.press("Enter");
+		await page.getByRole("button", { name: /send/i }).click();
 
 		// Step (a): thinking row APPEARS while replay is in-flight
 		// ThinkingRow renders when isThinking=true (overlay L409: "Assistant is thinking…")
