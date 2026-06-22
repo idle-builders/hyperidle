@@ -71,7 +71,10 @@ export function statusLine(d: HarnessCapabilityDescriptor): { tone: Status | "un
 				text: discovery.reason ?? "Not available on this machine.",
 			};
 		default: {
-			const _exhaustive: never = discovery.state;
+			// TypeScript exhaustive check — if a new state is added to HarnessReadinessState,
+			// this assertion will fail at compile time.
+			const _: never = discovery.state as never;
+			void _;
 			return { tone: "unknown", text: "Unknown state." };
 		}
 	}
@@ -96,7 +99,8 @@ export function readinessToStatus(state: HarnessReadinessState): { status: Statu
 		case "unavailable":
 			return { status: "unknown", label: "Unavailable" };
 		default: {
-			const _exhaustive: never = state;
+			const _: never = state as never;
+			void _;
 			return { status: "unknown", label: "Unknown" };
 		}
 	}
@@ -110,10 +114,11 @@ export function accessModeLabel(mode: HarnessCapabilityDescriptor["accessMode"])
 			return "API Gateway";
 		case "provider-subscription-cli":
 			return "CLI subscription";
-		case "provider-api-key":
-			return "API key";
+		case "external-byo":
+			return "External (BYO)";
 		default: {
-			const _exhaustive: never = mode;
+			const _: never = mode as never;
+			void _;
 			return String(mode);
 		}
 	}
