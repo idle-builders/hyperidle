@@ -23,7 +23,7 @@ HyperIdle is keyboard-first. The most common shortcuts:
 | ⌘2 | Switch to Work |
 | ⌘3 | Switch to Knowledge |
 | J / K | Next / previous item in a list |
-| A / R / X / S | Verdict actions in review threads (Approve / Request changes / Reject / Snooze) |
+| A / R / X / S | Verdict actions on the review page (Approve / Request changes / Reject / Snooze) |
 | Escape | Close any dialog, sheet, or popover |
 | ? | Show shortcut help overlay |
 

@@ -10,7 +10,11 @@
 
 import type { AnchorRef, BlockId } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads";
+import {
+	postPlainHostMessage,
+	postVerdictHostMessage,
+	resolveOrCreateHostThread,
+} from "../../services/host-threads";
 
 // Mock apiFetch so host-threads.ts does not call global.fetch directly.
 // Header injection is covered by api-fetch.test.ts; these tests focus on
@@ -201,5 +205,81 @@ describe("postPlainHostMessage (L18)", () => {
 		} as unknown as Response);
 
 		await expect(postPlainHostMessage("thread-fail", "some text", "key-fail")).rejects.toThrow();
+	});
+});
+
+describe("postVerdictHostMessage (AM1)", () => {
+	let fetchSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("POSTs a verdict message with type:verdict, decision, and resolvesMessageId", async () => {
+		fetchSpy.mockResolvedValueOnce(makePostMessageResponse());
+
+		const threadId = "thread-verdict";
+		const clientKey = "client-key-verdict";
+
+		await postVerdictHostMessage(threadId, "approve", "review-msg-7", clientKey);
+
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		expect(url).toContain(`/api/threads/${threadId}/messages`);
+		expect(options.method).toBe("POST");
+
+		const body = JSON.parse(options.body as string) as {
+			type: string;
+			payload: { decision: string; resolvesMessageId: string };
+			clientKey: string;
+		};
+		expect(body.type).toBe("verdict");
+		expect(body.payload.decision).toBe("approve");
+		expect(body.payload.resolvesMessageId).toBe("review-msg-7");
+		expect(body.clientKey).toBe(clientKey);
+	});
+
+	it("returns the server outcome ('ok') on 2xx", async () => {
+		fetchSpy.mockResolvedValueOnce(makePostMessageResponse());
+		const outcome = await postVerdictHostMessage("t", "reject", "rmid", "ck-reject-001");
+		expect(outcome).toBe("ok");
+	});
+
+	it("returns 'race' on a 409 verdict_race response (does not throw)", async () => {
+		fetchSpy.mockResolvedValueOnce({
+			ok: false,
+			status: 409,
+			json: () => Promise.resolve({ code: "verdict_race" }),
+		} as unknown as Response);
+
+		const outcome = await postVerdictHostMessage("t", "approve", "rmid", "ck-race-0001");
+		expect(outcome).toBe("race");
+	});
+
+	it("returns 'forbidden' on a 403 verdict_authorization response (does not throw)", async () => {
+		fetchSpy.mockResolvedValueOnce({
+			ok: false,
+			status: 403,
+			json: () => Promise.resolve({ code: "verdict_authorization" }),
+		} as unknown as Response);
+
+		const outcome = await postVerdictHostMessage("t", "approve", "rmid", "ck-authz-001");
+		expect(outcome).toBe("forbidden");
+	});
+
+	it("throws on an unexpected non-ok response", async () => {
+		fetchSpy.mockResolvedValueOnce({
+			ok: false,
+			status: 500,
+			json: () => Promise.resolve({ error: "boom" }),
+		} as unknown as Response);
+
+		await expect(postVerdictHostMessage("t", "approve", "rmid", "ck-fail-0001")).rejects.toThrow();
 	});
 });

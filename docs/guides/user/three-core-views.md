@@ -2,19 +2,29 @@
 
 ### 1. Conversations (where you spend 90% of your time)
 
-Conversations is the review and communication hub. It has two modes:
+A conversation is a calm, single-column read of the messages you and your agents deliberately send. Humans and agents are equal participants, grouped by author — one avatar, name, and time per run of messages from the same sender. Your own messages carry a quiet "You" label; an agent is marked by its green avatar. No bubbles, no badge soup.
 
-**Review** — Items that need your decision:
-- Code diffs, copy drafts, deployment plans, configuration changes
-- Each item has an artifact view (the thing being reviewed) and a verdict toolbar
+#### References show inline, not as bare links
 
-**Chat** — Agent-initiated discussions:
-- "I noticed 3 bets hit the same bug — want to discuss?"
-- "This architecture choice has trade-offs, here's what I see"
+When a message points at something — a code artifact, an image, a knowledge doc, a referenced block — it renders as a compact **reference chip** you can click to open the real thing. A linked session shows as a quiet "Show session" fold, never an inlined work-log. Clicking any reference opens its own view (the artifact view, the knowledge page, the session dial-in); the conversation never renders a viewer in place.
+
+#### Reviews open on the review page
+
+A review request shows compactly in the conversation: a "Review requested" marker, the proposal line, the change-set as a reference chip, and one **Open review** button.
+
+You do **not** approve or reject inside the conversation. Click **Open review** to reach the review page, where the artifact view and the full verdict toolbar live. Once you decide, the conversation shows a one-line echo — "✓ Approved by …" — with a quiet **View review** link back. (See the [review page](#review-verdicts) below for the verdict actions.)
+
+#### Quick questions
+
+An agent can ask a quick question inline — a small "?" marker, the question, and neutral answer buttons. Pick one to answer without leaving the conversation.
+
+#### The composer
+
+One text box, one **Send**. The **"+"** button opens a single tools menu — Insert block, Attach file, Mention, Reference item, Format, Emoji. Attachments you add show as draft reference chips above the box; remove one with its ✕. Plain send works today; the richer "+" actions are affordances that route to their tools as those land.
 
 #### Review Verdicts
 
-When reviewing an item, you have these actions:
+When you open a review on the review page, you have these actions:
 
 | Action | Shortcut | Effect |
 |--------|----------|--------|

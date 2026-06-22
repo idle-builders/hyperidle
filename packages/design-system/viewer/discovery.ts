@@ -180,6 +180,9 @@ export const DS_COMPONENT_GROUPS: Record<string, GroupName> = {
 	ThreadHostBanner: "Conversations",
 	NotificationRow: "Conversations",
 	"Review Anchored Comment": "Conversations",
+	// AM1: shared conversation reference primitives
+	ReferenceChip: "Conversations",
+	Fold: "Conversations",
 	// Artifacts domain
 	ArtifactCostChip: "Artifacts",
 	ArtifactEmbed: "Artifacts",

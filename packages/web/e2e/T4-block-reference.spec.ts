@@ -241,66 +241,91 @@ test.describe("T4 — Block Reference E2E", () => {
 		}
 	});
 
-	test("AC-7: degraded embed shows 'source changed' when block no longer exists", async ({
+	// AM1 §12.7: the heavy `BlockRefEmbed` (degraded/error resolve) is no longer
+	// wired into the MIGRATED conversation. A block ref now renders as a
+	// TITLE-ONLY `ReferenceChip` (kind `block`) that opens the block's HOST
+	// surface via the OpenTarget seam (design §6). This replaces the old
+	// degraded-embed assertion with the new positive render+route contract.
+	// (The legacy `BlockRefEmbed` survives only in the Assistant overlay, an
+	// out-of-AM1-scope surface — see report.)
+	test("AM1: a block ref in the conversation renders a title-only chip that routes to its host", async ({
 		page,
 	}) => {
-		// Mock the thread to return a message with a block ref pointing to a non-existent block
-		await page.route("**/api/threads/coach**", async (route) => {
+		const CONV_THREAD_ID = "thr-am1-block";
+		const BLOCK_HOST_BET = "bet-am1-block-host";
+		const conversationDetail = {
+			thread: {
+				id: CONV_THREAD_ID,
+				hostKind: "task",
+				hostId: "task-am1",
+				initiatorId: "u-founder",
+				participants: ["u-founder", "agent-1"],
+				pinned: false,
+				resolvedAt: null,
+				lastActiveAt: NOW_ISO,
+				createdAt: NOW_ISO,
+			},
+			messages: [
+				{
+					id: "msg-am1-block",
+					threadId: CONV_THREAD_ID,
+					senderId: "agent-1",
+					clientKey: "key-am1-block",
+					type: "plain",
+					payload: {
+						text: "Context for the migration:",
+						refs: [
+							{
+								kind: "block",
+								blockId: "blk:v1:auth-plan",
+								hostKind: "bet",
+								hostId: BLOCK_HOST_BET,
+							},
+						],
+					},
+					createdAt: NOW_ISO,
+					deletedAt: null,
+					redactedAt: null,
+					resolvedAt: null,
+				},
+			],
+			headMessageId: null,
+			identities: {
+				"u-founder": { name: "You" },
+				"agent-1": { name: "Aria", role: "agent" },
+			},
+		};
+
+		await page.route(`**/api/threads/${CONV_THREAD_ID}`, async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({
-					...COACH_THREAD_FIXTURE,
-					messages: [
-						{
-							id: "msg-with-orphan-ref",
-							threadId: COACH_THREAD_ID,
-							senderId: "u-founder",
-							clientKey: "key-orphan",
-							type: "plain",
-							payload: {
-								text: "Look at this block",
-								refs: [
-									{
-										kind: "block",
-										blockId: "blk:v1:nonexistent",
-										hostKind: "bet",
-										hostId: "bet-no-such-bet",
-									},
-								],
-							},
-							createdAt: NOW_ISO,
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-						},
-					],
-				}),
+				body: JSON.stringify(conversationDetail),
+			});
+		});
+		await page.route(`**/api/bets/${BLOCK_HOST_BET}**`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ...BET_FIXTURE, id: BLOCK_HOST_BET, title: "Auth migration bet" }),
 			});
 		});
 
-		// Also mock the bet endpoint to return 404 (so block resolution fails)
-		await page.route("**/api/bets/bet-no-such-bet**", async (route) => {
-			await route.fulfill({ status: 404 });
-		});
+		await page.goto(`/conversations/${CONV_THREAD_ID}`);
 
-		await page.goto("/conversations");
-		const trigger = page.getByRole("button", { name: /assistant/i });
-		await trigger.click();
+		// The conversation renders via the Part model (no heavy resolving embed).
+		const surface = page.getByTestId("conversation-surface");
+		await expect(surface).toBeVisible();
+		await expect(page.getByText("Context for the migration:")).toBeVisible();
 
-		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
-		await expect(dialog).toBeVisible();
+		// The block ref is a TITLE-ONLY chip — never a degraded/error embed.
+		await expect(page.getByTestId("block-ref-embed-degraded")).toHaveCount(0);
+		await expect(page.getByTestId("block-ref-embed-error")).toHaveCount(0);
 
-		// The message should render with the degraded embed indicator
-		// Wait for potential async resolution
-		await page.waitForTimeout(500);
-
-		// Either source-changed or error state should appear
-		const degradedIndicator = dialog.getByTestId("block-ref-embed-degraded");
-		const errorIndicator = dialog.getByTestId("block-ref-embed-error");
-		const eitherVisible =
-			(await degradedIndicator.isVisible().catch(() => false)) ||
-			(await errorIndicator.isVisible().catch(() => false));
-		expect(eitherVisible).toBe(true);
+		// Clicking the block chip routes to the block's HOST surface (the bet).
+		const blockChip = page.locator("[data-ds-kind='block']").first();
+		await expect(blockChip).toBeVisible();
+		await blockChip.click();
+		await expect(page).toHaveURL(new RegExp(`/work/bet/${BLOCK_HOST_BET}`));
 	});
 });
