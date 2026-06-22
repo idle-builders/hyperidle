@@ -230,19 +230,19 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		embeds: [],
 		text: "Found it. AI SDK 6 sends messages with a `parts` array instead of a `content` string. Our backend still writes `content`, so the v6 client renders nothing — the message is dropped silently. Switching the server to emit `parts` and updating the append helper to match.",
 	},
-	// (c,e,f) THE FIX — a CONSECUTIVE run of COMPLETED tool calls: edit · run-command
-	// · edit. Under the aggregation rule (concept Phase 4) a run of consecutive
-	// COMPLETED tool calls folds into ONE aggregate — INCLUDING edits. The edits'
-	// DIFFS are never lost: they surface in the per-turn Changed-files panel below
-	// regardless of the fold. (Founder review 2026-06-22: "this edit and the run
-	// command and the next edit could also be combined in an expander.") NO
-	// permission prompt precedes them — the agent acts freely; the REVIEW is the
+	// (c,e,f) THE FIX — a CONSECUTIVE run of tool calls: edit · run-command · edit ·
+	// failed-test. Under the round-5 aggregation rule ALL completed tool calls fold
+	// into ONE aggregate — edits AND the failed `npm test` (t10) included; the
+	// aggregate header signals "· 1 failed". The edits' DIFFS are never lost: they
+	// surface in the per-turn Changed-files panel below regardless of the fold.
+	// NO permission prompt precedes them — the agent acts freely; the REVIEW is the
 	// allow point (concept rejection 9).
 	{ id: "t7", kind: "tool", author: ATLAS, createdAt: T("0:38.000Z"), toolKind: "edit", verb: "Edit", target: "server/chat/stream.ts", status: "ok", preview: "emit parts[] instead of content", diff: { label: "server/chat/stream.ts", added: 9, removed: 2 } },
 	{ id: "t8", kind: "tool", author: ATLAS, createdAt: T("0:40.000Z"), toolKind: "command", verb: "Run command", target: "npx codemod content-to-parts ./client", status: "ok", preview: "rewrote 3 call sites" },
 	{ id: "t9", kind: "tool", author: ATLAS, createdAt: T("0:44.000Z"), toolKind: "edit", verb: "Edit", target: "client/useChatPanel.ts", status: "ok", preview: "spread parts[], drop content", diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 } },
-	// (d) a FAILED tool — STAYS STANDALONE, never folded into the aggregate, so
-	// breakage is always glanceable: ✗ + stderr in the expanded body.
+	// (d) a FAILED tool — round-5: FOLDS into the adjacent aggregate with t7/t8/t9.
+	// The aggregate header signals the failure ("· 1 failed" + ✗); on expand this
+	// step shows its ✗ + stderr. No completed tool call sits standalone.
 	{
 		id: "t10",
 		kind: "tool",
@@ -257,7 +257,8 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 			"FAIL  src/chat/__tests__/stream.test.ts\n  ● assembles a parts[] payload\n    Expected: [{ type: 'text', text: 'hi' }]\n    Received: undefined\n  appendMessage() still spreads the old { content } shape (line 88).\n\n  exit code 1",
 	},
 	// (c,j) a sub-agent spawn — opens its OWN nested session view (recursion).
-	// STAYS STANDALONE (a running tool is never folded into the aggregate).
+	// STAYS STANDALONE — round-5: the running sub-agent is the ONLY standalone tool
+	// row (a still-running/live tool is never folded; once it completes it folds too).
 	{
 		id: "t11",
 		kind: "tool",
@@ -561,12 +562,18 @@ export function ParticipantGroup({ people }: { people: readonly PartAuthor[] }):
 }
 
 // ── Human message — LEFT-ALIGNED, like the HyperIdle conversation (founder review
-//    2026-06-22: "in the chat these messages appear on the left"). REUSES the
-//    conversation's author-grouped row shape (name · "You" · time, NO background
-//    bubble — body is a plain ProsePart, leading 1.55) — NOT a right-aligned
-//    bubble — and carries the conversation's ROUND, human/agent-TINTED Avatar
-//    (founder review annotation 1+2). The avatar + the no-bubble plain body are
-//    the conversation's exact treatment. ──
+//    2026-06-22: "in the chat these messages appear on the left"). Carries the
+//    conversation's ROUND, human/agent-TINTED Avatar + name · "You" · time header
+//    (annotation 1). The BODY is a calm BACKGROUND BOX (founder review ROUND 5:
+//    "the message box of the human is missing the background like it has in the
+//    conversation") — a subtle `--surface-container` surface, modest padding,
+//    still LEFT-aligned. NOT a heavy colored chat bubble; the asymmetry is
+//    intentional: HUMAN = boxed, AGENT = plain full-width (the references). The
+//    calm `bg-[var(--surface-container)]` surface mirrors the conversation's own
+//    calm token (`Conversations.tsx` review-verdict hint). The AM1 conversation
+//    currently renders human messages PLAIN; for true parity it should adopt this
+//    same box — flagged as a cross-cutting follow-up in approved.md (AM3 scope
+//    only; not changed here). ──
 export function HumanRow({ author, createdAt, text }: { author: PartAuthor; createdAt: string; text: string }): JSX.Element {
 	return (
 		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex gap-[9px]">
@@ -577,8 +584,10 @@ export function HumanRow({ author, createdAt, text }: { author: PartAuthor; crea
 					{author.isMe ? <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span> : null}
 					<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
 				</div>
-				{/* plain body — NO background (matches ProsePart / the conversation). */}
-				<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">{text}</p>
+				{/* calm background BOX (round-5) — subtle surface, modest padding, still left-aligned. */}
+				<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px]">
+					<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">{text}</p>
+				</div>
 			</div>
 		</div>
 	);
@@ -611,8 +620,10 @@ export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; t
 						</svg>
 					</button>
 				</div>
-				{/* plain body — NO background (matches the human row / the conversation). */}
-				<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-secondary)]">{text}</p>
+				{/* calm background BOX — same human-message box as the delivered row (round-5), muted. */}
+				<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px]">
+					<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-secondary)]">{text}</p>
+				</div>
 			</div>
 		</div>
 	);
@@ -869,17 +880,20 @@ export function ScrollToBottomPill(): JSX.Element {
 
 // ── Shared turn-blocking: group by author, aggregate a CONSECUTIVE tool run ──
 //
-// THE AGGREGATION RULE (concept Phase 4, founder review 2026-06-22 annotation 3):
-//   DEFAULT — within an agent turn, a run of consecutive COMPLETED tool calls folds
-//   into ONE aggregate expander ("Edited 2 files, ran a command · N steps"),
-//   collapsed at rest. This INCLUDES edits/file-changes.
-//   STAY STANDALONE (never folded in): (a) a FAILED tool call (✗) — so breakage is
-//   always visible; (b) the currently-RUNNING tool while it streams (incl. a
-//   running sub-agent).
+// THE AGGREGATION RULE (concept Phase 4, founder review 2026-06-22 round 5 — SIMPLIFIED):
+//   ALL COMPLETED tool calls fold into the turn's aggregate expander — INCLUDING
+//   FAILED ones. The aggregate header SIGNALS failures when present (e.g. "Edited 2
+//   files, ran 2 commands · 1 failed" with a small ✗/--status-error marker), so
+//   breakage stays glanceable without a standalone row. On expand the failed step
+//   shows its ✗ + stderr.
+//   The ONLY tool that renders STANDALONE is the currently-RUNNING one (live /
+//   streaming — e.g. the running sub-agent), because it is still in progress. Once
+//   it completes it folds into the aggregate too.
 //   DIFFS ARE NEVER LOST TO FOLDING — a per-turn Changed-files summary (always
 //   visible, opens ReviewCodeDiff) surfaces the turn's file changes regardless of
-//   whether the edits folded. So edits CAN fold (calm) while their diffs stay
-//   reachable via the Changed-files panel.
+//   whether the edits folded.
+//   (Round-5 reversal of the earlier "failures stay standalone" exception — the
+//   founder rejected a completed/failed tool sitting standalone next to an aggregate.)
 export type StreamBlock =
 	| { readonly kind: "single"; readonly part: SessionPart }
 	| { readonly kind: "tool-run"; readonly tools: readonly ToolPart[] };
@@ -894,9 +908,9 @@ export function blockStream(parts: readonly SessionPart[], aggregateAt: number):
 		run = [];
 	};
 	for (const p of parts) {
-		// A COMPLETED tool call (ok | neutral) folds — edits included. Only a FAILED
-		// call, or a still-RUNNING tool (incl. a running sub-agent), stays standalone.
-		const foldable = p.kind === "tool" && p.status !== "failed" && p.status !== "running";
+		// EVERY completed tool call folds — edits AND failed calls included. The ONLY
+		// standalone tool row is a still-RUNNING tool (incl. a running sub-agent).
+		const foldable = p.kind === "tool" && p.status !== "running";
 		if (foldable) run.push(p as ToolPart);
 		else {
 			flush();

@@ -128,13 +128,22 @@ function BareToolRow({ part }: { part: ToolPart }): JSX.Element {
 //    behavior: tool calls closed at rest, combined in an expander. ──
 function HardAggregate({ tools, defaultOpen = false }: { tools: readonly ToolPart[]; defaultOpen?: boolean }): JSX.Element {
 	const [open, setOpen] = useState(defaultOpen);
-	const failed = tools.some((t) => t.status === "failed");
+	// Round-5: ALL completed tool calls fold here, including failed ones. The header
+	// SIGNALS failures (✗ + "N failed", --status-error) so breakage stays glanceable
+	// without a standalone row.
+	const failedCount = tools.filter((t) => t.status === "failed").length;
 	return (
 		<div data-ds-component="ToolAggregate">
 			<button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-[9px] py-[3px] text-left text-[13px] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]">
 				<Caret open={open} />
 				<span className="font-[500]">{aggregateVerb(tools)}</span>
-				{failed ? <StatusGlyph status="failed" /> : <span className="text-[var(--text-tertiary)] text-[12px]">{tools.length} steps</span>}
+				<span className="text-[var(--text-tertiary)] text-[12px]">· {tools.length} steps</span>
+				{failedCount > 0 ? (
+					<span className="inline-flex items-center gap-[3px] text-[12px] font-[500] text-[var(--status-error)]">
+						<StatusGlyph status="failed" />
+						{failedCount} failed
+					</span>
+				) : null}
 			</button>
 			{open ? (
 				<div className="ms-[3px] mt-[3px] flex flex-col border-s border-[var(--border-subtle)] ps-[12px]">
@@ -217,11 +226,11 @@ function TranscriptStream(): JSX.Element {
 					<div key={i} className="flex flex-col gap-[6px]">
 						{showAuthor && author && part ? <TurnHeader author={author} createdAt={part.createdAt} /> : null}
 						{b.kind === "tool-run" ? (
-							// EVERY completed-tool run folds into ONE expander, collapsed at rest — no
-							// completed tool call (incl. a completed run-command) ever sits standalone
-								// (round-4 annotation 1). The ONLY standalone tool rows left in the stream
-								// are the failed `npm test` (✗) and the running sub-agent. Expand-on-click
-								// reveals the bare edit+run+edit rows; collapsed at rest keeps the calm read.
+							// Round-5: EVERY completed tool call folds into ONE expander — INCLUDING
+							// failed ones. The aggregate header SIGNALS failures ("· 1 failed" + ✗) so
+							// breakage stays glanceable without a standalone row. The ONLY standalone
+							// tool row left in the stream is the RUNNING sub-agent (●). Expand reveals
+							// the bare edit+run+edit+failed-test rows (failed shows ✗ + stderr).
 							<HardAggregate tools={b.tools} />
 						) : (
 							renderSingle(b.part)
