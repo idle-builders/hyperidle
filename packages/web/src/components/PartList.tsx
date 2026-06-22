@@ -87,24 +87,27 @@ export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
 			{groups.map((group) => {
 				const head = group.parts[0];
 				const isAgent = group.author.isAgent;
+				// ONLY my own messages are highlighted: right-bound grey box. Everyone
+				// else — other people AND agents — reads left-aligned and plain. The
+				// avatar tint (green agent / grey human) carries the who; the box/side
+				// carries the it's-me. One pattern, shared by conversation + session.
+				const isSelf = group.author.isMe;
 				return (
 					<div
 						key={head?.id ?? group.author.id}
 						data-ds-component="PartGroup"
 						data-ds-sender={isAgent ? "agent" : "human"}
 						{...(isAgent ? { "data-ds-agent": "true" } : {})}
-						className={`flex flex-col ${isAgent ? "" : "items-end"}`}
+						{...(isSelf ? { "data-ds-self": "true" } : {})}
+						className={`flex flex-col ${isSelf ? "items-end" : ""}`}
 					>
-						{/* Inner block caps a human turn's width so it reads as a right-bound
-						    grey box; the author header sits above its TOP-LEFT corner. Agent
-						    turns are plain full-width left. One pattern, shared everywhere. */}
-						<div className={`flex flex-col gap-[9px] ${isAgent ? "" : "max-w-[80%]"}`}>
+						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
 							<div className="flex items-center gap-[9px]">
 								<GroupAvatar name={group.author.name} isAgent={isAgent} />
 								<span className="text-[13px] font-[600] text-[var(--text-primary)]">
 									{group.author.name}
 								</span>
-								{group.author.isMe && (
+								{isSelf && (
 									<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
 								)}
 								{head && (
@@ -115,9 +118,9 @@ export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
 							</div>
 							<div
 								className={
-									isAgent
-										? "flex flex-col gap-[12px]"
-										: "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
+									isSelf
+										? "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
+										: "flex flex-col gap-[12px]"
 								}
 							>
 								{group.parts.map((part) => (

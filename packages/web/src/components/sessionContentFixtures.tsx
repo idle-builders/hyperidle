@@ -47,7 +47,12 @@ import { clockTime } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 
 // ── Identities ──────────────────────────────────────────────────────
-export const FOUNDER: PartAuthor = { id: "u-founder", name: "A. Founder", isAgent: false, isMe: true };
+export const FOUNDER: PartAuthor = {
+	id: "u-founder",
+	name: "A. Founder",
+	isAgent: false,
+	isMe: true,
+};
 export const ATLAS: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
 // ════════════════════════════════════════════════════════════════════
@@ -191,8 +196,28 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		text: "Three breaking changes landed in the SDK bump. Let me trace where the message stream is assembled before I touch anything.",
 	},
 	// (c,e) a run of tool calls — these AGGREGATE. Includes read/command/search/web-search/mcp.
-	{ id: "t1", kind: "tool", author: ATLAS, createdAt: T("0:18.000Z"), toolKind: "read", verb: "View", target: "useChatPanel.ts · 41 lines", status: "ok", preview: "useChat({ api, ... }) → renders message.parts" },
-	{ id: "t2", kind: "tool", author: ATLAS, createdAt: T("0:19.000Z"), toolKind: "read", verb: "View", target: "chatPanel.tsx · 202 lines", status: "ok", preview: "maps msg.content (string) — stale shape" },
+	{
+		id: "t1",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:18.000Z"),
+		toolKind: "read",
+		verb: "View",
+		target: "useChatPanel.ts · 41 lines",
+		status: "ok",
+		preview: "useChat({ api, ... }) → renders message.parts",
+	},
+	{
+		id: "t2",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:19.000Z"),
+		toolKind: "read",
+		verb: "View",
+		target: "chatPanel.tsx · 202 lines",
+		status: "ok",
+		preview: "maps msg.content (string) — stale shape",
+	},
 	{
 		id: "t3",
 		kind: "tool",
@@ -204,10 +229,30 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		status: "ok",
 		preview: "@ai-sdk/react  6.0.3  · 4 matches",
 		output:
-			"node_modules/@ai-sdk/react/package.json\n  \"version\": \"6.0.3\"\nsrc/chat/useChatPanel.ts\n  import { useChat } from '@ai-sdk/react'  // v6 — expects parts[]\nsrc/chat/chatPanel.tsx\n  msg.content  // ← v5 shape, no longer rendered",
+			'node_modules/@ai-sdk/react/package.json\n  "version": "6.0.3"\nsrc/chat/useChatPanel.ts\n  import { useChat } from \'@ai-sdk/react\'  // v6 — expects parts[]\nsrc/chat/chatPanel.tsx\n  msg.content  // ← v5 shape, no longer rendered',
 	},
-	{ id: "t4", kind: "tool", author: ATLAS, createdAt: T("0:23.000Z"), toolKind: "web-search", verb: "Web search", target: "ai-sdk v6 useChat parts vs content breaking change", status: "ok", preview: "5 results · vercel.com/changelog, gh#4821" },
-	{ id: "t5", kind: "tool", author: ATLAS, createdAt: T("0:24.000Z"), toolKind: "search", verb: "Search", target: "msg.content", status: "ok", preview: "3 matches in 2 files" },
+	{
+		id: "t4",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:23.000Z"),
+		toolKind: "web-search",
+		verb: "Web search",
+		target: "ai-sdk v6 useChat parts vs content breaking change",
+		status: "ok",
+		preview: "5 results · vercel.com/changelog, gh#4821",
+	},
+	{
+		id: "t5",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:24.000Z"),
+		toolKind: "search",
+		verb: "Search",
+		target: "msg.content",
+		status: "ok",
+		preview: "3 matches in 2 files",
+	},
 	// (c) an MCP tool call — server/tool + args + result
 	{
 		id: "t6",
@@ -219,7 +264,8 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		target: 'query: "AI SDK chat regression"',
 		status: "ok",
 		preview: "1 issue · ENG-411 “chat blank after send”",
-		output: 'linear.search_issues({ query: "AI SDK chat regression" })\n→ ENG-411  chat blank after send  (in progress, assigned: atlas)',
+		output:
+			'linear.search_issues({ query: "AI SDK chat regression" })\n→ ENG-411  chat blank after send  (in progress, assigned: atlas)',
 	},
 	// (a) answer prose — the diagnosis
 	{
@@ -237,9 +283,41 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 	// surface in the per-turn Changed-files panel below regardless of the fold.
 	// NO permission prompt precedes them — the agent acts freely; the REVIEW is the
 	// allow point (concept rejection 9).
-	{ id: "t7", kind: "tool", author: ATLAS, createdAt: T("0:38.000Z"), toolKind: "edit", verb: "Edit", target: "server/chat/stream.ts", status: "ok", preview: "emit parts[] instead of content", diff: { label: "server/chat/stream.ts", added: 9, removed: 2 } },
-	{ id: "t8", kind: "tool", author: ATLAS, createdAt: T("0:40.000Z"), toolKind: "command", verb: "Run command", target: "npx codemod content-to-parts ./client", status: "ok", preview: "rewrote 3 call sites" },
-	{ id: "t9", kind: "tool", author: ATLAS, createdAt: T("0:44.000Z"), toolKind: "edit", verb: "Edit", target: "client/useChatPanel.ts", status: "ok", preview: "spread parts[], drop content", diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 } },
+	{
+		id: "t7",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:38.000Z"),
+		toolKind: "edit",
+		verb: "Edit",
+		target: "server/chat/stream.ts",
+		status: "ok",
+		preview: "emit parts[] instead of content",
+		diff: { label: "server/chat/stream.ts", added: 9, removed: 2 },
+	},
+	{
+		id: "t8",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:40.000Z"),
+		toolKind: "command",
+		verb: "Run command",
+		target: "npx codemod content-to-parts ./client",
+		status: "ok",
+		preview: "rewrote 3 call sites",
+	},
+	{
+		id: "t9",
+		kind: "tool",
+		author: ATLAS,
+		createdAt: T("0:44.000Z"),
+		toolKind: "edit",
+		verb: "Edit",
+		target: "client/useChatPanel.ts",
+		status: "ok",
+		preview: "spread parts[], drop content",
+		diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 },
+	},
 	// (d) a FAILED tool — round-5: FOLDS into the adjacent aggregate with t7/t8/t9.
 	// The aggregate header signals the failure ("· 1 failed" + ✗); on expand this
 	// step shows its ✗ + stderr. No completed tool call sits standalone.
@@ -354,11 +432,14 @@ export const DESCRIPTOR: HarnessCapabilityDescriptor = {
 				{
 					key: "effort",
 					label: "Effort",
-					control: { kind: "select", choices: [
-						{ value: "low", label: "Low" },
-						{ value: "medium", label: "Medium" },
-						{ value: "high", label: "High" },
-					] },
+					control: {
+						kind: "select",
+						choices: [
+							{ value: "low", label: "Low" },
+							{ value: "medium", label: "Medium" },
+							{ value: "high", label: "High" },
+						],
+					},
 					required: false,
 					scope: "launch",
 					defaultValue: "medium",
@@ -366,11 +447,14 @@ export const DESCRIPTOR: HarnessCapabilityDescriptor = {
 				{
 					key: "mode",
 					label: "Mode",
-					control: { kind: "select", choices: [
-						{ value: "interactive", label: "Interactive" },
-						{ value: "build", label: "Build" },
-						{ value: "plan", label: "Plan" },
-					] },
+					control: {
+						kind: "select",
+						choices: [
+							{ value: "interactive", label: "Interactive" },
+							{ value: "build", label: "Build" },
+							{ value: "plan", label: "Plan" },
+						],
+					},
 					required: false,
 					scope: "launch",
 					defaultValue: "build",
@@ -401,7 +485,8 @@ const TOOL_ICON: Record<ToolKind, string> = {
 	read: "M8 3.5C4.5 3.5 2 8 2 8s2.5 4.5 6 4.5S14 8 14 8 11.5 3.5 8 3.5zm0 6.5a2 2 0 110-4 2 2 0 010 4z",
 	edit: "M11.5 2.5l2 2L6 12l-3 1 1-3 7.5-7.5z",
 	search: "M7 1.5a5.5 5.5 0 014.2 9l3 3-1 1-3-3A5.5 5.5 0 117 1.5z",
-	"web-search": "M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM2 8h12M8 2a9 9 0 010 12M8 2a9 9 0 000 12",
+	"web-search":
+		"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM2 8h12M8 2a9 9 0 010 12M8 2a9 9 0 000 12",
 	mcp: "M8 1.5l1.7 1V5l2 .9v2.2l-2 .9v2.5l-1.7 1-1.7-1V9l-2-.9V5.9l2-.9V2.5z",
 	"sub-agent": "M4 2h8v4H4zM6 6v2M10 6v2M2 8h12v4a1 1 0 01-1 1H3a1 1 0 01-1-1z",
 	create: "M8 3v10M3 8h10",
@@ -436,15 +521,36 @@ export function StatusGlyph({ status }: { status: ToolStatus }): JSX.Element {
 	}
 	if (status === "ok") {
 		return (
-			<svg viewBox="0 0 12 12" className="h-[11px] w-[11px] shrink-0 text-[var(--status-success)]" aria-label="ok">
-				<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+			<svg
+				viewBox="0 0 12 12"
+				className="h-[11px] w-[11px] shrink-0 text-[var(--status-success)]"
+				aria-label="ok"
+			>
+				<path
+					d="M2.5 6.2 L5 8.5 L9.5 3.5"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.6"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
 			</svg>
 		);
 	}
 	if (status === "failed") {
 		return (
-			<svg viewBox="0 0 12 12" className="h-[11px] w-[11px] shrink-0 text-[var(--status-error)]" aria-label="failed">
-				<path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+			<svg
+				viewBox="0 0 12 12"
+				className="h-[11px] w-[11px] shrink-0 text-[var(--status-error)]"
+				aria-label="failed"
+			>
+				<path
+					d="M3 3 L9 9 M9 3 L3 9"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.6"
+					strokeLinecap="round"
+				/>
 			</svg>
 		);
 	}
@@ -474,7 +580,14 @@ export function Caret({ open, size = 11 }: { open: boolean; size?: number }): JS
 			style={{ width: size, height: size, transform: open ? "rotate(90deg)" : "none" }}
 			aria-hidden="true"
 		>
-			<path d="M4 2.5 L8 6 L4 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+			<path
+				d="M4 2.5 L8 6 L4 9.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
 		</svg>
 	);
 }
@@ -497,7 +610,10 @@ function renderInline(text: string): JSX.Element {
 			{parts.map((seg, i) =>
 				seg.startsWith("`") && seg.endsWith("`") ? (
 					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
-					<code key={i} className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] px-[3px] py-[3px] font-mono text-[13px] text-[var(--text-primary)]">
+					<code
+						key={i}
+						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] px-[3px] py-[3px] font-mono text-[13px] text-[var(--text-primary)]"
+					>
 						{seg.slice(1, -1)}
 					</code>
 				) : (
@@ -510,7 +626,13 @@ function renderInline(text: string): JSX.Element {
 }
 
 /** Agent full-width prose (no bubble) — markdown body, optional streaming caret. */
-export function AgentProse({ text, streaming = false }: { text: string; streaming?: boolean }): JSX.Element {
+export function AgentProse({
+	text,
+	streaming = false,
+}: {
+	text: string;
+	streaming?: boolean;
+}): JSX.Element {
 	return (
 		<p className="m-0 text-[15px] leading-[1.6] text-[var(--text-primary)]">
 			{renderInline(text)}
@@ -574,17 +696,31 @@ export function ParticipantGroup({ people }: { people: readonly PartAuthor[] }):
 //    currently renders human messages PLAIN; for true parity it should adopt this
 //    same box — flagged as a cross-cutting follow-up in approved.md (AM3 scope
 //    only; not changed here). ──
-export function HumanRow({ author, createdAt, text }: { author: PartAuthor; createdAt: string; text: string }): JSX.Element {
+export function HumanRow({
+	author,
+	createdAt,
+	text,
+}: {
+	author: PartAuthor;
+	createdAt: string;
+	text: string;
+}): JSX.Element {
+	// LEFT-aligned + capped width (round-8) — mirrors the conversation's PartList
+	// layout: avatar+name header above the box's top-left corner, a calm grey box
+	// below, the whole turn ≤80% wide so it reads short, not full-bleed.
 	return (
-		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex gap-[9px]">
-			<Avatar who={author} size={26} />
-			<div className="flex min-w-0 flex-1 flex-col gap-[6px] pt-[1px]">
-				<div className="flex items-baseline gap-[9px]">
+		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex flex-col">
+			<div className="flex max-w-[80%] flex-col gap-[9px]">
+				<div className="flex items-center gap-[9px]">
+					<Avatar who={author} size={26} />
 					<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
-					{author.isMe ? <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span> : null}
-					<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+					{author.isMe ? (
+						<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
+					) : null}
+					<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+						{clockTime(createdAt)}
+					</span>
 				</div>
-				{/* calm background BOX (round-5) — subtle surface, modest padding, still left-aligned. */}
 				<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px]">
 					<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">{text}</p>
 				</div>
@@ -595,7 +731,15 @@ export function HumanRow({ author, createdAt, text }: { author: PartAuthor; crea
 
 // ── A queued (not-yet-delivered) human message — LEFT-ALIGNED to match the human
 //    row, muted + clock + "sends when the agent finishes" + dequeue ✕. ──
-export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; text: string; onCancel?: () => void }): JSX.Element {
+export function QueuedBubble({
+	author,
+	text,
+	onCancel,
+}: {
+	author: PartAuthor;
+	text: string;
+	onCancel?: () => void;
+}): JSX.Element {
 	return (
 		<div data-ds-component="QueuedRow" data-ds-sender="human" className="flex gap-[9px] opacity-70">
 			<Avatar who={author} size={26} />
@@ -603,7 +747,14 @@ export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; t
 				<div className="flex items-baseline gap-[9px]">
 					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{author.name}</span>
 					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
-						<svg viewBox="0 0 16 16" className="h-[11px] w-[11px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+						<svg
+							viewBox="0 0 16 16"
+							className="h-[11px] w-[11px] shrink-0"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.3"
+							aria-hidden="true"
+						>
 							<circle cx="8" cy="8" r="6" />
 							<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
 						</svg>
@@ -615,7 +766,14 @@ export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; t
 						aria-label="Remove queued message"
 						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					>
-						<svg viewBox="0 0 12 12" className="h-[10px] w-[10px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+						<svg
+							viewBox="0 0 12 12"
+							className="h-[10px] w-[10px]"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							aria-hidden="true"
+						>
 							<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
 						</svg>
 					</button>
@@ -634,27 +792,60 @@ export function PlanList({ part }: { part: PlanPart }): JSX.Element {
 	const [open, setOpen] = useState(true);
 	const done = part.steps.filter((s) => s.state === "done").length;
 	return (
-		<div data-ds-component="PlanList" className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
-			<button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left">
+		<div
+			data-ds-component="PlanList"
+			className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+		>
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				aria-expanded={open}
+				className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
+			>
 				<Caret open={open} />
-				<span className="text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">Plan</span>
-				<span className="flex-1 truncate text-[13px] text-[var(--text-secondary)]">{part.steps.find((s) => s.state === "active")?.label ?? "Complete"}</span>
-				<span className="font-mono tabular-nums text-[12px] text-[var(--text-tertiary)]">{done}/{part.steps.length}</span>
+				<span className="text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					Plan
+				</span>
+				<span className="flex-1 truncate text-[13px] text-[var(--text-secondary)]">
+					{part.steps.find((s) => s.state === "active")?.label ?? "Complete"}
+				</span>
+				<span className="font-mono tabular-nums text-[12px] text-[var(--text-tertiary)]">
+					{done}/{part.steps.length}
+				</span>
 			</button>
 			{open ? (
 				<ul className="m-0 list-none border-t border-[var(--border-subtle)] px-[12px] py-[6px]">
 					{part.steps.map((s) => (
 						<li key={s.label} className="flex items-center gap-[9px] py-[3px] text-[13px]">
 							{s.state === "done" ? (
-								<svg viewBox="0 0 12 12" className="h-[12px] w-[12px] shrink-0 text-[var(--status-success)]" aria-hidden="true">
-									<path d="M2.5 6.2 L5 8.5 L9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+								<svg
+									viewBox="0 0 12 12"
+									className="h-[12px] w-[12px] shrink-0 text-[var(--status-success)]"
+									aria-hidden="true"
+								>
+									<path
+										d="M2.5 6.2 L5 8.5 L9.5 3.5"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="1.6"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									/>
 								</svg>
 							) : s.state === "active" ? (
 								<span className="h-[10px] w-[10px] shrink-0 rounded-full border-[1.5px] border-[var(--accent-primary)] bg-[var(--accent-primary-dim)]" />
 							) : (
 								<span className="h-[10px] w-[10px] shrink-0 rounded-full border-[1.5px] border-[var(--border-default)]" />
 							)}
-							<span className={s.state === "done" ? "text-[var(--text-tertiary)] line-through" : s.state === "active" ? "font-[500] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}>
+							<span
+								className={
+									s.state === "done"
+										? "text-[var(--text-tertiary)] line-through"
+										: s.state === "active"
+											? "font-[500] text-[var(--text-primary)]"
+											: "text-[var(--text-secondary)]"
+								}
+							>
 								{s.label}
 							</span>
 						</li>
@@ -673,7 +864,14 @@ export function ArtifactChip({ part }: { part: ArtifactPart }): JSX.Element {
 			data-ds-component="ArtifactChip"
 			className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
 		>
-			<svg viewBox="0 0 16 16" className="h-[13px] w-[13px] shrink-0 text-[var(--accent-primary)]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+			<svg
+				viewBox="0 0 16 16"
+				className="h-[13px] w-[13px] shrink-0 text-[var(--accent-primary)]"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.3"
+				aria-hidden="true"
+			>
 				<path d="M4 1.5h5l3 3v10H4z" strokeLinejoin="round" />
 				<path d="M9 1.5V4.5h3" />
 			</svg>
@@ -697,7 +895,10 @@ export function ArtifactChip({ part }: { part: ArtifactPart }): JSX.Element {
  */
 export function SessionCostTotal(): JSX.Element {
 	return (
-		<div data-ds-component="SessionCostTotal" className="flex shrink-0 items-center gap-[6px] font-mono tabular-nums text-[11px] text-[var(--text-tertiary)]">
+		<div
+			data-ds-component="SessionCostTotal"
+			className="flex shrink-0 items-center gap-[6px] font-mono tabular-nums text-[11px] text-[var(--text-tertiary)]"
+		>
 			<span className="text-[var(--text-secondary)]">{SESSION_META.costLabel}</span>
 			<span className="text-[var(--text-tertiary)]">·</span>
 			<span>{SESSION_META.tokensLabel}</span>
@@ -712,20 +913,37 @@ export function SessionCostTotal(): JSX.Element {
 const AGENT_GLYPH =
 	"M8 1.5l1.1 3.4L12.5 6 9.1 7.1 8 10.5 6.9 7.1 3.5 6l3.4-1.1L8 1.5zM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z";
 
-export function TurnHeader({ author, createdAt }: { author: PartAuthor; createdAt: string }): JSX.Element {
+export function TurnHeader({
+	author,
+	createdAt,
+}: {
+	author: PartAuthor;
+	createdAt: string;
+}): JSX.Element {
 	return (
 		<div className="flex items-center gap-[9px] pt-[6px]">
 			<Avatar who={author} size={26} />
 			<div className="flex items-baseline gap-[9px]">
 				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
 				{author.isAgent ? (
-					<span aria-label="Agent" title="Agent" className="flex items-center text-[var(--text-tertiary)]">
-						<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 11, height: 11 }} aria-hidden="true">
+					<span
+						aria-label="Agent"
+						title="Agent"
+						className="flex items-center text-[var(--text-tertiary)]"
+					>
+						<svg
+							viewBox="0 0 16 16"
+							fill="currentColor"
+							style={{ width: 11, height: 11 }}
+							aria-hidden="true"
+						>
 							<path d={AGENT_GLYPH} />
 						</svg>
 					</span>
 				) : null}
-				<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+				<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+					{clockTime(createdAt)}
+				</span>
 			</div>
 		</div>
 	);
@@ -735,7 +953,15 @@ export function TurnHeader({ author, createdAt }: { author: PartAuthor; createdA
 //  Composer + status roll-ups — descriptor-driven, shared across variants.
 // ════════════════════════════════════════════════════════════════════
 
-function PillSelect({ option, value, onPick }: { option: HarnessModelOptionDescriptor; value: string; onPick: (v: string) => void }): JSX.Element | null {
+function PillSelect({
+	option,
+	value,
+	onPick,
+}: {
+	option: HarnessModelOptionDescriptor;
+	value: string;
+	onPick: (v: string) => void;
+}): JSX.Element | null {
 	if (option.control.kind !== "select") return null;
 	const choices = option.control.choices;
 	const current = choices.find((c) => c.value === value) ?? choices[0];
@@ -748,8 +974,19 @@ function PillSelect({ option, value, onPick }: { option: HarnessModelOptionDescr
 			data-ds-control="select"
 		>
 			{current?.label}
-			<svg viewBox="0 0 12 12" className="h-[9px] w-[9px] text-[var(--text-tertiary)]" aria-hidden="true">
-				<path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+			<svg
+				viewBox="0 0 12 12"
+				className="h-[9px] w-[9px] text-[var(--text-tertiary)]"
+				aria-hidden="true"
+			>
+				<path
+					d="M2.5 4.5 L6 8 L9.5 4.5"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
 			</svg>
 		</button>
 	);
@@ -764,7 +1001,13 @@ const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 
 function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
 	return (
-		<svg viewBox="0 0 16 16" fill="currentColor" className="shrink-0" style={{ width: size, height: size }} aria-hidden="true">
+		<svg
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			className="shrink-0"
+			style={{ width: size, height: size }}
+			aria-hidden="true"
+		>
 			<path d={d} />
 		</svg>
 	);
@@ -777,13 +1020,20 @@ function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Elem
  * working/queue/Stop state. NOT a parallel composer (founder review 2026-06-22:
  * "try to reuse components with the chat — this is very similar").
  */
-export function SessionComposer({ running = false, elapsedLabel }: { running?: boolean; elapsedLabel?: string }): JSX.Element {
+export function SessionComposer({
+	running = false,
+	elapsedLabel,
+}: {
+	running?: boolean;
+	elapsedLabel?: string;
+}): JSX.Element {
 	const model = DESCRIPTOR.models[0];
 	const [modelId, setModelId] = useState(model?.id ?? "");
 	const selected = DESCRIPTOR.models.find((m) => m.id === modelId) ?? model;
 	const [values, setValues] = useState<Record<string, string>>(() => {
 		const v: Record<string, string> = {};
-		for (const o of selected?.options ?? []) if (typeof o.defaultValue === "string") v[o.key] = o.defaultValue;
+		for (const o of selected?.options ?? [])
+			if (typeof o.defaultValue === "string") v[o.key] = o.defaultValue;
 		return v;
 	});
 	const [text, setText] = useState("");
@@ -808,15 +1058,27 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 					value={text}
 					onChange={(e) => setText(e.target.value)}
 					rows={2}
-					placeholder={running ? "Type to queue a message — it sends when the agent finishes" : "Message Atlas · drop files/folders · @ to reference"}
+					placeholder={
+						running
+							? "Type to queue a message — it sends when the agent finishes"
+							: "Message Atlas · drop files/folders · @ to reference"
+					}
 					className="min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 				/>
 				{running ? (
-					<button type="button" aria-label="Stop the agent" className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]">
+					<button
+						type="button"
+						aria-label="Stop the agent"
+						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]"
+					>
 						<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
 					</button>
 				) : (
-					<button type="button" aria-label="Send message" className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]">
+					<button
+						type="button"
+						aria-label="Send message"
+						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
+					>
 						<ComposerGlyph d={ICON_SEND} size={15} />
 					</button>
 				)}
@@ -831,7 +1093,12 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 					}}
 					className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 				>
-					<svg viewBox="0 0 16 16" fill="currentColor" className="h-[12px] w-[12px] text-[var(--accent-primary)]" aria-hidden="true">
+					<svg
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						className="h-[12px] w-[12px] text-[var(--accent-primary)]"
+						aria-hidden="true"
+					>
 						<path d={ICON_MODEL} />
 					</svg>
 					{selected?.label}
@@ -839,7 +1106,12 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 				<span className="h-[16px] w-px bg-[var(--border-subtle)]" />
 				{(selected?.options ?? []).map((o) =>
 					o.control.kind === "select" ? (
-						<PillSelect key={o.key} option={o} value={values[o.key] ?? ""} onPick={(v) => setValues((p) => ({ ...p, [o.key]: v }))} />
+						<PillSelect
+							key={o.key}
+							option={o}
+							value={values[o.key] ?? ""}
+							onPick={(v) => setValues((p) => ({ ...p, [o.key]: v }))}
+						/>
 					) : null,
 				)}
 				<span className="flex-1" />
@@ -863,8 +1135,18 @@ export function SessionComposer({ running = false, elapsedLabel }: { running?: b
 
 export function ScrollToBottomPill(): JSX.Element {
 	return (
-		<button type="button" className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] shadow-[var(--shadow-default)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]">
-			<svg viewBox="0 0 12 12" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+		<button
+			type="button"
+			className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] shadow-[var(--shadow-default)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]"
+		>
+			<svg
+				viewBox="0 0 12 12"
+				className="h-[11px] w-[11px]"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				aria-hidden="true"
+			>
 				<path d="M6 2v8M2.5 6.5L6 10l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
 			</svg>
 			Scroll to bottom
@@ -925,7 +1207,9 @@ export function aggregateVerb(tools: readonly ToolPart[]): string {
 	const edits = tools.filter((t) => t.toolKind === "edit" || t.toolKind === "create").length;
 	const cmds = tools.filter((t) => t.toolKind === "command").length;
 	const reads = tools.filter((t) => t.toolKind === "read").length;
-	const searches = tools.filter((t) => t.toolKind === "web-search" || t.toolKind === "search").length;
+	const searches = tools.filter(
+		(t) => t.toolKind === "web-search" || t.toolKind === "search",
+	).length;
 	const mcp = tools.filter((t) => t.toolKind === "mcp").length;
 	const out: string[] = [];
 	if (edits) out.push(edits === 1 ? "edited a file" : `edited ${edits} files`);
