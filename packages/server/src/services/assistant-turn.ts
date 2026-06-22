@@ -44,6 +44,10 @@ import {
 import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+// AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
+// doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
+// Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
+import { CassetteMissError } from "../harness/llm-cassette.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
@@ -127,6 +131,16 @@ function mapErrorToNotice(err: unknown): {
 	}
 	if (err instanceof ProviderTimeoutError) {
 		// Explicitly mapped — does NOT trip the unmapped-cause console.error
+		return {
+			kind: "provider_error",
+			text: "The model provider returned an error and I couldn't complete that. Try again in a moment.",
+		};
+	}
+
+	if (err instanceof CassetteMissError) {
+		// AH6 WARNING-2: Explicitly mapped so cassette misses in the replay lane don't
+		// log a spurious "unmapped error class" error. A missing cassette is a test
+		// configuration issue (not a production code bug), persisted as provider_error.
 		return {
 			kind: "provider_error",
 			text: "The model provider returned an error and I couldn't complete that. Try again in a moment.",
