@@ -19,19 +19,17 @@
  * Record<string, unknown> so callers get precise types without unsafe casts.
  */
 
+import type { ActivityEntry } from "@hyperidle/shared";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
 
-// Q1 review issue #9: discriminated union for ActivityEntry data payloads
-export type ToolCallData = { toolName: string; argsSummary: string };
-export type ReasoningData = { excerpt: string };
-export type CostTickData = { deltaMinor: number; totalMinor: number; currency: string };
-
-export type ActivityEntry =
-	| { type: "tool_call"; timestamp: number; data: ToolCallData }
-	| { type: "reasoning"; timestamp: number; data: ReasoningData }
-	| { type: "cost_tick"; timestamp: number; data: CostTickData };
+// AM3: ActivityEntry is now the canonical type from @hyperidle/shared.
+// Re-export for existing callers.
+export type { ActivityEntry } from "@hyperidle/shared";
+export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
+export type ReasoningData = Extract<ActivityEntry, { type: "reasoning" }>["data"];
+export type CostTickData = Extract<ActivityEntry, { type: "cost_tick" }>["data"];
 
 export interface SessionSummary {
 	agentId: string;

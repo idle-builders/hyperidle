@@ -14,10 +14,12 @@
 
 import { describe, expect, it } from "vitest";
 // RED: green-phase exports.
-import { derivePartsFromMessages, derivePartsFromSession, PART_KINDS, type Part } from "../part.js";
+import { derivePartsFromMessages, derivePartsFromSession, PART_KINDS, type Part, type PartAuthor } from "../part.js";
 import type { Message } from "../thread.js";
 
-const IDENTITIES = [{ id: "a-atlas", name: "Atlas", isAgent: true, isMe: false }];
+const IDENTITIES: PartAuthor[] = [{ id: "a-atlas", name: "Atlas", isAgent: true, isMe: false }];
+/** A minimal agent author for the session adapter's required `agent` param. */
+const SESSION_AGENT: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
 function isWellFormedPart(p: Part): boolean {
 	return (
@@ -48,10 +50,11 @@ describe("AM1 AC5 — source-agnostic Part production (validation scenario 3)", 
 	});
 
 	it("a second (session) adapter produces Part[] of the SAME shape — no renderer change", () => {
-		// derivePartsFromSession is the stub AM3 will grow; in AM1 it proves the
-		// renderer input is source-agnostic. Whatever it returns must be the same
-		// Part[] contract the Message adapter returns.
-		const sessionParts = derivePartsFromSession();
+		// AM3 grows derivePartsFromSession from stub to real adapter;
+		// the renderer input is still source-agnostic — any well-formed ActivityEntry[]
+		// returns the same Part[] contract the Message adapter returns.
+		// Called with empty entries → empty array (still well-formed).
+		const sessionParts = derivePartsFromSession([], SESSION_AGENT);
 		expect(Array.isArray(sessionParts)).toBe(true);
 		expect(sessionParts.every(isWellFormedPart)).toBe(true);
 	});
@@ -76,7 +79,8 @@ describe("AM1 AC5 — source-agnostic Part production (validation scenario 3)", 
 			"u-me",
 			IDENTITIES,
 		);
-		const b: Part[] = [...derivePartsFromSession()];
+		// AM3 real adapter; empty entries → [] — same Part[] shape.
+		const b: Part[] = [...derivePartsFromSession([], SESSION_AGENT)];
 		const merged: Part[] = [...a, ...b];
 		expect(merged.every(isWellFormedPart)).toBe(true);
 	});

@@ -71,9 +71,11 @@ function plain(
 // ── PART_KINDS closure (AC4 + AC7) ───────────────────────────────
 
 describe("AM1 PART_KINDS — closed render vocabulary (AC4)", () => {
-	it("contains exactly the locked kinds, no session/work-log/event kind", () => {
+	it("contains exactly the locked kinds (AM1+AM3 extension), no session/work-log/event kind", () => {
+		// AM3 extends with `tool` + `reasoning` (concept Phase 4, locked).
+		// The union stays closed: prose | review | resolved | questionnaire | tool | reasoning | unknown.
 		expect([...PART_KINDS].sort()).toEqual(
-			["prose", "questionnaire", "resolved", "review", "unknown"].sort(),
+			["prose", "questionnaire", "reasoning", "resolved", "review", "tool", "unknown"].sort(),
 		);
 	});
 

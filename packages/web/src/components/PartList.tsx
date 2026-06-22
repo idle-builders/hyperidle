@@ -19,8 +19,10 @@ import { clockTime, groupParts } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";
+import { ReasoningPart } from "./parts/ReasoningPart.js";
 import { ReviewRequestPart } from "./parts/ReviewRequestPart.js";
 import { ReviewResolvedPart } from "./parts/ReviewResolvedPart.js";
+import { ToolPart } from "./parts/ToolPart.js";
 import { UnknownPart } from "./parts/UnknownPart.js";
 
 /** Compile-time exhaustiveness guard; renders UnknownPart at runtime (no throw). */
@@ -38,6 +40,12 @@ function renderPart(part: Part, onOpen: OpenHandler): JSX.Element {
 			return <ReviewResolvedPart part={part} onOpen={onOpen} />;
 		case "questionnaire":
 			return <QuestionnairePart part={part} />;
+		case "tool":
+			// AM3: tool Part — bare one-liner row; per-kind icon; expand-to-output.
+			return <ToolPart part={part} onOpen={onOpen} />;
+		case "reasoning":
+			// AM3: reasoning Part — collapsed "Thought for Ns"; expand to quiet prose.
+			return <ReasoningPart part={part} />;
 		case "unknown":
 			return <UnknownPart part={part} />;
 		default:

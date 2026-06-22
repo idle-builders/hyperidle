@@ -242,6 +242,16 @@ export type {
 } from "./notifications.js";
 export { NOTIFICATION_TYPES, shortLabelForType, urgencyForType } from "./notifications.js";
 export type { ObservabilityEvent } from "./observability/events.js";
+// ── AM3: Normalized session ActivityEntry union ──
+export type {
+	ActivityEntry,
+	AnswerDeltaData,
+	AnswerSettledData,
+	CostTickData,
+	HumanMessageData,
+	ReasoningData,
+	ToolCallData,
+} from "./session-activity.js";
 // ── AM1: Part vocabulary + source adapters (source-agnostic) ──
 export type {
 	Embed,
@@ -255,13 +265,18 @@ export type {
 	PartId,
 	PartKind,
 	ReviewTarget,
+	ToolKind,
+	ToolRunBlock,
 } from "./part.js";
 export {
+	aggregateToolRun,
+	deriveComposerPills,
 	derivePartsFromMessages,
 	derivePartsFromSession,
 	EMBED_KINDS,
 	groupParts,
 	PART_KINDS,
+	TOOL_KINDS,
 } from "./part.js";
 export {
 	AWS_AKIA_RE,
