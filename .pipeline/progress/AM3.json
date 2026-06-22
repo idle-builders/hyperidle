@@ -1,0 +1,11 @@
+{
+  "id": "AM3",
+  "title": "Session dial-in & activity view",
+  "track": "AM",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "1-design",
+  "dependsOn": ["AM1", "AM2"],
+  "startedAt": "2026-06-22T11:47:00+02:00",
+  "notes": "AM1 (Part rendering structure) + AM2 (capability descriptor) both merged to main. Concept not required (no new noun). Design required + human-design-review=YES; autonomous mode -> novel design will park at Phase 2.5."
+}
