@@ -12,6 +12,8 @@ Concept level: **per-workpackage**. Inherits the AM1 track concept (`plans/AM1/c
 - `plans/AM3/research/session-following-analysis.md` + `t3code-source-findings.md` — the evidence dossier this concept is built on.
 - `docs/human-interface-layer/part-model.md` — the AM1 Part/Embed/Fold contract this extends (must update at `/write-docs`).
 - `packages/shared/src/part.ts` — the `PartKind`/`Embed`/`OpenTarget` vocabulary + `derivePartsFromSession` stub (the seam AM3 fills).
+- `packages/web/src/services/open-handler.ts` — the `case "session"` no-op AM3 fills; entry/placement is SETTLED here (not a design fork).
+- `packages/web/src/components/ConversationSurface.tsx` — the established surface AM3's session view is a reading of (header + PartList + composer).
 - `packages/web/src/components/PartList.tsx` + `parts/*` — the source-agnostic renderer (extend the exhaustive dispatch; never fork).
 - `packages/shared/src/harness/harness-capability-descriptor.ts` — composer pills render from `models` + `HarnessModelOptionDescriptor[]`.
 - `packages/web/src/pages/review/ReviewCodeDiff.tsx` (+ `ReviewVisualDiff.tsx`) — the diff renderer the session REUSES (never re-invent).
@@ -188,8 +190,10 @@ A consecutive run of `tool` Parts in one turn MAY render as one aggregate ("N to
 ### Composer-controls contract (inherited from AM2, reaffirmed)
 - Controls render from the **`HarnessCapabilityDescriptor`** (`models` + `HarnessModelOptionDescriptor[]`): `select`→pill, `boolean`→toggle, `number`/`text`→input — **never per-backend-branched** (AM2 constraint). A model declaring no effort option → no effort pill (AC2 proof). These are a **compact composer pill strip**, not a config band (rejection 1).
 
-### Entry/exit contract (kept from attempt 1)
-- The session view opens from a `session-reference` Embed in the Conversation via the existing `session` `OpenTarget` (`part.ts:138`, no-op until AM3). Entry mechanism (dismissible, conversation stays mounted, Escape-close) is **kept**; the *contents* are re-modeled. Whether entry is panel-state vs a route is a **design-phase** decision (do not pre-resolve here — attempt-1 chose a 460px slide-over the dossier flags as possibly too narrow for full-width text + diffs).
+### Entry/exit contract — **SETTLED. Not a design fork.**
+- The session view is reached through the **existing `session` `OpenTarget`** (`packages/web/src/services/open-handler.ts`, `case "session"` — the documented no-op AM3 fills) fired from a `session-reference` Embed in a Conversation. How a referenced thing opens is **already solved** by the Conversation/Review surfaces; AM3 inherits it unchanged.
+- The surface itself is the established **`ConversationSurface`** pattern (`packages/web/src/components/ConversationSurface.tsx`): header + a `PartList` Part column + composer chrome. AM3's session view is a `ConversationSurface`-shaped *reading* of a process-layer Session — the SAME surface, fed the SAME `Part[]` contract through `derivePartsFromSession`. **Placement (route vs panel vs split) is NOT a design fork** — attempt-2's three placement variants were the wrong axis (founder, 2026-06-22). The relevant design exploration is the **rendering vocabulary of the session content** (Part 7 below), not where the surface sits.
+- Entry mechanism niceties (dismissible, Escape-close, conversation stays mounted) ride on the existing open seam; AM3 invents no new placement chrome.
 
 ---
 
@@ -226,12 +230,35 @@ Concept **locked**. (Autonomous mode: `PIPELINE_INTERACTIVE` not `1` → no reca
 
 ---
 
-## Open questions the DESIGN phase must resolve (NOT concept-level)
+## Part 7 — The session's "various aspects" to display (the design surface)
 
-1. **Entry surface — panel vs route.** Attempt 1's 460px slide-over may be too narrow for full-width agent text + diffs + tool output (dossier §12.8). Design decides panel-width / route / sheet by rendering variants. (Kept the *entry mechanism*; the *placement* is open.)
-2. **Aggregate row anatomy.** How the "N tool calls" / "Ran 4 commands, read a file" aggregate verb reads, expands, and re-folds — and the per-kind icon/verb vocabulary's visual treatment.
-3. **Reasoning resting style.** Exact quiet treatment of "Thought for Ns" vs answer prose (within Hearth tokens; no new tokens).
-4. **Queued-message affordance.** The pending-bubble visual (opacity / clock / dashed) + dequeue ✕ + whether "send now / interrupt" is offered (concept says interrupt is NOT default; design decides if it is even offered).
-5. **Changed-files surface.** Per-turn changed-files panel vs inline `diff` chip on the file-change `tool` Part — both feed `ReviewCodeDiff`; design picks the affordance.
-6. **Composer running state.** Send-which-queues + Stop layout while streaming; "Working for Ns" placement.
-7. **Status roll-ups (Should-have).** Whether the session-scoped status bar (Changes/PR/Background/Artifacts) is in AM3 scope or deferred.
+**Entry/placement is settled** (Phase 4 entry contract). The real design exploration is: **how do we DISPLAY the tool calls and every other aspect of a live session, calmly, inside the one `ConversationSurface`?** This is the taxonomy the design must give a *rendering language* for. Each aspect names what it IS and the existing primitive it builds on — there is a lot to build upon; the design composes, it does not reinvent.
+
+### A. Agent-output aspects
+
+| # | Aspect | What it IS | Builds on |
+|---|---|---|---|
+| **a** | **Streaming answer text** | The agent's primary output — progressive markdown (headings, lists, inline `code`, fenced code blocks), token-by-token. Two resting states: *in-progress* (a quiet caret / "still typing") vs *settled*. Empty-while-streaming renders nothing (no placeholder flash). | `ProsePart` look; build wires the real `ChatMarkdown`. Fenced code → `CodeRenderer` (DS). A streaming `prose` Part whose text grows (Phase 4 streaming contract). |
+| **b** | **Reasoning / "Thought for Ns"** | A span of agent thinking, rendered quieter than the answer, collapsed by default to an elapsed-time summary; re-expands to muted prose. Never a success/fail glyph. | the **`reasoning` Part** kind (Phase 4) + the `Fold` collapse device. Carries `durationMs` for the resting label. |
+| **c** | **Tool calls — BY FAMILY** | One compact row per tool call: `[per-kind icon] [verb] [— target/preview, muted] [▾ output] [status]`. Each family has its own icon/verb and its own expanded I/O shape: **run-command** (cmd + stdout + exit code); **read/view file** (path + preview); **edit/write file** (path + `+N/−M` diff → `ReviewCodeDiff`); **search/grep** (query + matches); **web search/fetch** (query/url + results); **MCP tool call** (server/tool + args + result); **sub-agent/task spawn** (a nested mini-stream); **create/delete** (path + verb). | the **`tool` Part** kind + a closed `ToolKind` family set with a generic fallback (Phase 4). One row renderer; per-kind icon/verb/output shape. |
+| **d** | **Tool-call STATES** | `running` (pulsing dot) / `ok` (✓) / `failed` (✗, the only state that uses the destructive token) / `neutral` (–). A **failure must read distinctly** — destructive status glyph + the error surfaced in the expanded output (stderr / `exit code N` / `ENOENT`), so a broken step is glanceable, not buried. | `status` field on the `tool` Part; `--status-error`/`--status-success` tokens (no new tokens). |
+| **e** | **Tool aggregation** | A consecutive run of tool rows collapses to one summary verb — "Ran 4 commands, read a file" / "N tool calls" — overflow behind a fold. Keeps a 30-call turn from being a wall. A *failed* call inside a run surfaces on the aggregate so failure is never hidden by aggregation. | a renderer **grouping beside `groupParts`** (Phase 4 aggregation contract), NOT a Part kind. |
+| **f** | **File diffs / changed files** | Two surfaces, both → `ReviewCodeDiff`: (1) an **inline `+N/−M` diff chip** on a file-change `tool` row; (2) a **per-turn / session changed-files surface** (file list + totals + "View diff"). Never a new diff renderer. | the existing **`diff` Embed** (`part.ts:115`) carried on the `tool` Part; opens/inlines **`ReviewCodeDiff`** (rejection 5). `ChangeBadge` stat look mirrored. |
+| **g** | **Cost / token usage tick** | A quiet per-turn (or session) usage read — tokens / cost — in muted micro-text, never competing with content. Reads cost; introduces no budget axis (Phase 5 note). | a muted micro-row; `tabular-nums`; mirrors `ArtifactCostChip` look. |
+| **h** | **Permission / approval prompt** | An inline "Allow this command?" prompt with **Allow / Deny** (the universal verdict set, narrowed) and the requested action shown (command / file-path / scope). Also: how the current **mode/permission** (Supervised / Accept-edits / Full-access) reads at rest — a composer pill, not a banner. | a populated inline prompt card (composition of a `tool`-row preview + two verdict buttons); the mode pill is descriptor-driven (Phase 4 composer contract). |
+| **i** | **Artifacts produced** | A reference to a thing the agent made (a doc, an image, a dataset) surfaced inline as a chip that opens its owned surface. | the `artifact` `OpenTarget` + **`ReferenceChip`** / `ArtifactEmbed` (DS) — no inline viewing surface (AM1 hard-rule). |
+| **j** | **Sub-sessions / background / parallel work** | "Background N" — work happening in a spawned sub-session or in parallel; a glanceable roll-up that can be opened. A sub-agent tool call (aspect c) is the inline form; this is the session-scoped roll-up. | a status roll-up chip; a sub-agent `tool` row links to the nested stream (same surface, recursed). |
+| **k** | **Plan / todo** | A short checklist the agent is following — steps with done / active / pending state — rendered as a calm compact list, distinct from prose. | a compact list (composition); reuses the `Fold` device to collapse a long plan; **not** a new DS primitive (a checkbox-row list look). |
+
+### B. Interaction aspects
+
+| # | Aspect | What it IS | Builds on |
+|---|---|---|---|
+| **l** | **Human message + QUEUED human message** | Sent human turn = right-aligned bubble. A message authored while the agent streams = a **queued, not-yet-delivered** pending bubble (muted / dashed / clock + "sends when the agent finishes") with a **dequeue ✕**. Non-interrupting; FIFO; converts to a normal bubble on delivery. | bubble look (mirrors `UserTimelineRow` grouping); the queue is **pre-Part composer/session state** (Phase 4 queue contract), not a Part kind. |
+| **m** | **Identity / timestamps / turn boundaries + completed-turn fold** | Two-party authorship by the cheapest signal (human bubble vs agent full-width, no per-line avatars); name · time at a turn boundary; a completed turn may **fold to a one-line summary** ("Worked for 1m 12s · Show"). | `PartList` group header pattern (`clockTime`, `groupParts`); the `Fold` device for the turn fold. |
+| **n** | **Working state + Stop** | While the agent runs: a quiet "Working for Ns" self-ticking indicator + a **Stop** control. Calm — pulsing dots + elapsed micro-text, not a loud spinner. | turn-scoped resting state (`status === streaming`, Phase 4); a bare Stop button. |
+| **o** | **Composer with descriptor pills + Send/queue** | A text input + a compact left **pill strip** rendered from the `HarnessCapabilityDescriptor` (model / effort / mode / permission) + a right Send (idle) that becomes **Send-which-queues + Stop** while streaming. Never per-backend-branched: a model declaring no effort option shows no effort pill. | the **`HarnessCapabilityDescriptor`** (AM2): `select`→pill, `boolean`→toggle, `number`/`text`→input (Phase 4 composer contract). |
+| **p** | **Session status roll-ups (should-have)** | A session-scoped strip: Changes `+X/−Y` · PR #N · Background N · Artifacts N · Ready-for-review CTA. Distinct from the per-turn changed-files surface (aspect f). | a bare roll-up strip; `ChangeBadge` look; the Ready-for-review verdict. |
+| **q** | **Scroll-to-bottom / auto-pin** | The stream auto-pins to the newest content while streaming; the pin is suppressed during a user-initiated expand (so the view never yanks); a "Scroll to bottom" pill appears when the user scrolls up. | a bare pill; the streaming-contract auto-pin (Phase 4). |
+
+**What the design must produce:** a coherent **rendering language** that gives every aspect above a calm, glanceable home inside the one `ConversationSurface`, reusing the catalogued vocabulary (PartList, `parts/*`, `Fold`, `ReferenceChip`, `ArtifactEmbed`, `ReviewCodeDiff`, the DS catalog, the AM2 descriptor) — composing, never reinventing. The variants explore the **vocabulary axis** (disclosure/density of a tool row; tool-row grammar; how I/O & diffs reveal; how reasoning/cost/permission/aggregation read), **never** placement.
