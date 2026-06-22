@@ -174,14 +174,21 @@ function makeFabricLikeStrategyWithDecompose(_pmAgentId?: string) {
 
 /**
  * AK8 T2 / AC4: Divergent-decomposer fixture.
- * Returns the LAST candidate (not the PM role-match) as the decomposer.
- * On a team with [pm-agent (product_manager), builder-agent (builder)],
- * this picks builder-agent — provably different from Minimal's PM pick.
+ * Returns the FIRST candidate (not the PM role-match) as the decomposer.
+ * On a team with [builder-agent (builder), pm-agent (product_manager)] ordered by users.id
+ * (alphabetically "builder-ac4" < "pm-ac4"), this picks builder-agent — provably different
+ * from Minimal's PM role-match pick.
  *
- * @lore AK8: "divergent" = different decomposer from the default (PM).
- * Minimal picks pm-agent via role-match; this fixture picks the last candidate.
- * The AC4 swap test asserts a different agent owns the decomposition work.
+ * @lore AK8: "divergent" = different decomposer from the Minimal default (PM role-match).
+ * Minimal picks pm-agent via role-match; this fixture picks candidates[0] (the first
+ * candidate by users.id ordering). With IDs "builder-ac4" < "pm-ac4" alphabetically,
+ * candidates[0] = builder-ac4 ≠ pm-ac4.
  * WARNING 2 / CRITICAL 2 resolved: NOT vacuous Minimal-vs-Fabric (both pick same PM).
+ *
+ * @lore AK8: candidates are ordered by users.id (enumerateTeamCandidates uses
+ * orderBy(users.id)). The seed IDs "pm-ac4" / "builder-ac4" yield order
+ * [builder-ac4 (0), pm-ac4 (1)] — so first = builder, last = pm.
+ * This fixture picks first (builder); Minimal picks by role (pm). Provably different.
  */
 function makeDivergentDecomposerStrategy() {
 	return {
@@ -191,21 +198,21 @@ function makeDivergentDecomposerStrategy() {
 		selectAgent: vi.fn(
 			async (req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> => {
 				if (req.surface === "bet_task") {
-					// Assign all tasks to the last candidate (mirrors divergent decomposer pick)
-					const last = req.candidates[req.candidates.length - 1];
-					return { agentId: last?.agentId ?? null };
+					// Assign all tasks to the first candidate (mirrors divergent decomposer pick)
+					const first = req.candidates[0];
+					return { agentId: first?.agentId ?? null };
 				}
 				return { agentId: null };
 			},
 		),
 		/**
-		 * Deliberately picks the LAST candidate (not the PM role-match).
-		 * On [pm-agent, builder-agent], returns builder-agent.
+		 * Deliberately picks the FIRST candidate (not the PM role-match).
+		 * With orderBy(users.id) and IDs "builder-ac4" < "pm-ac4", candidates[0] = builder-ac4.
 		 */
 		decomposeBet: vi.fn(
 			async (req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> => {
-				const last = req.candidates[req.candidates.length - 1];
-				return { decomposerAgentId: last?.agentId ?? null, tasks: [] };
+				const first = req.candidates[0];
+				return { decomposerAgentId: first?.agentId ?? null, tasks: [] };
 			},
 		),
 	};

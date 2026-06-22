@@ -36,7 +36,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import type { CredentialResolver } from "./credential-resolver.js";
-import { selectOwner } from "./select-agent.js";
+import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
 import { getActiveStrategy } from "./strategy-registry.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -253,18 +253,48 @@ async function markTerminal(
 /**
  * Run the full bet decomposition pipeline for a single bet.
  *
+ * AK8 rewire: delegates "who decomposes + what the breakdown is" to the
+ * active Strategy's decomposeBet method, then applies 3-way turn-source
+ * precedence to produce the final task list.
+ *
  * Steps:
- *   1. Load bet (assert it exists and status is 'running' — CAS already set it).
+ *   0. CAS NULL→'running' (idempotency gate).
+ *   1. Load bet.
  *   2. findEligibleTeamAgents → none → blocked/no_eligible_agent.
- *   3. Pick PM agent (product_manager role preferred, else first eligible).
- *   4. Cost pre-flight: checkCostCap → over cap → blocked/failed.
- *   5. Scratch sandbox dir + assembleContext via Strategy port → throw → blocked/failed.
- *   6. Run PM turn (via runDecompositionTurn override or real LLM) under turnTimeoutMs.
- *      → reject/timeout → blocked/failed; empty list → blocked/empty.
- *   7. insertProposedBetTasks → task_state_changed(accepted) → dispatcher picks up.
- *   8. finally: rm scratch sandbox dir (best-effort).
+ *   3. Emit work_decompose_requested (AC1 observable occasion). Post-CAS,
+ *      post-eligible-check — only the CAS winner emits.
+ *   4. enumerateTeamCandidates → getActiveStrategy().decomposeBet(...).
+ *      Wrapped in try/catch: throw → blocked/failed (no false promise).
+ *   5. plan.decomposerAgentId null → blocked/no_eligible_agent.
+ *   6. Inline-validate decomposerAgentId: candidates.some(c => c.agentId ===
+ *      plan.decomposerAgentId) — proves team-membership + active-AI in one check
+ *      (WARNING 1: selectOwner's internal guard no longer runs on this path).
+ *   7. Cost pre-flight: checkCostCap on validated decomposer.
+ *   8. Scratch sandbox + 3-way turn-source precedence:
+ *      a. plan.tasks.length > 0 → persist those tasks (Strategy-authored breakdown).
+ *      b. deps.runDecompositionTurn present → call it with plan.decomposerAgentId
+ *         (protected-test seam — branch 2, all v1 Strategies + all AK3 tests land here).
+ *      c. else → real PM turn (AK3/Minimal default fallback — branch 3).
+ *   9. taskList empty → blocked/empty. Else insertProposedBetTasks → dispatch.
+ *  10. markTerminal('done'). finally: rm scratch sandbox.
  *
  * NEVER throws. Always writes a terminal decompositionStatus before returning.
+ *
+ * @lore AK8: Turn-source precedence: plan.tasks → override → real turn.
+ * The override NEVER beats plan.tasks — that would let a test seam mask a
+ * Strategy decision (the inverse of what the seam is for). All v1 Strategies
+ * return tasks:[] → branch 2 (tests) or branch 3 (production).
+ *
+ * @lore AK8: []-from-Strategy (plan.tasks) means "Kernel, run your turn"
+ * (turn-source branch 2 or 3). []-from-turn (taskList after branch 3) means
+ * blocked/empty. Same [] value, opposite meaning depending on origin. See
+ * DecompositionPlan in strategy-port.ts.
+ *
+ * @lore AK8: The inline decomposerAgentId validation (step 6) replaces the
+ * selectOwner(bet_decomposer) call removed from the AK7 path. selectOwner's
+ * internal guard (active AI + kind=ai + status=active) no longer runs here;
+ * candidates.some() is the net-new inline equivalent. A third-party Strategy
+ * returning an off-team/inactive id → blocked/no_eligible_agent.
  */
 export async function runBetDecomposition(
 	deps: BetDecompositionDeps,
@@ -306,38 +336,70 @@ export async function runBetDecomposition(
 		return;
 	}
 
-	// --- 2. Pick the PM decomposer (AK7: route through selection seam) ---
-	// selectOwner: enumerates team candidates, emits work_selection_requested,
-	// calls Strategy.selectAgent({ surface: 'bet_decomposer', roleHint: 'product_manager' }),
-	// validates the result. Reproduces `eligible.find(role==='product_manager') ?? eligible[0]`
-	// byte-identically when Fabric is active (concept §5.2, §6.2).
-	//
-	// @lore AK7: selectOwner for bet_decomposer is the AC1 live emit site for the PM pick.
-	// The Fabric bet_decomposer branch: pick candidate with role===roleHint else candidates[0].
-	const pmId = await selectOwner(
-		{ db, eventBus },
-		{
-			surface: "bet_decomposer",
+	// --- 2. Emit work_decompose_requested (AC1 observable occasion) ---
+	// Post-CAS, post-eligible-check: only the CAS winner emits.
+	// Audit-only (no subscriber mutates state off this event). Sibling of
+	// work_selection_requested — same emit-then-call ordering (§3b precedent).
+	eventBus.emit({
+		type: "work_decompose_requested",
+		streamId: bet.teamId,
+		teamId: bet.teamId,
+		betId,
+		at: new Date().toISOString(),
+	});
+
+	// --- 3. Ask the active Strategy for a decomposition plan ---
+	// enumerateTeamCandidates → decomposeBet({ candidates, betId, ... }).
+	// Wrapped in try/catch: Strategy throw → blocked/failed (no false promise,
+	// mirrors the assembleContext catch in AK3).
+	const candidates = await enumerateTeamCandidates(db, bet.teamId);
+	let plan: import("@hyperidle/shared").DecompositionPlan;
+	try {
+		plan = await getActiveStrategy().decomposeBet({
+			db,
 			teamId: bet.teamId,
-			workKey: betId,
-			roleHint: "product_manager",
-		},
-	);
-	if (!pmId) {
+			betId,
+			betDescription: bet.description,
+			betDoneCondition: bet.doneCondition ?? null,
+			candidates,
+		});
+	} catch {
+		// Strategy threw — blocked/failed (no false promise).
+		await markTerminal(db, betId, "blocked", "failed");
+		return;
+	}
+
+	// --- 4. null decomposerAgentId → no eligible decomposer ---
+	if (plan.decomposerAgentId === null) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}
-	// Load the full PM user row (needed for harnessType/modelProvider/role in the real turn).
-	const [pm] = await db.select().from(users).where(eq(users.id, pmId)).limit(1);
+
+	// --- 5. Inline-validate decomposerAgentId (WARNING 1) ---
+	// candidates.some() proves: team-membership + active-AI + active-status (all in one
+	// check because enumerateTeamCandidates already filters kind=ai + status=active +
+	// category=team). selectOwner(bet_decomposer)'s internal guard is NO LONGER called;
+	// this is its net-new inline replacement.
+	//
+	// @lore AK8: candidates.some(c => c.agentId === plan.decomposerAgentId) is the
+	// cheapest correct form of the unattachable-session guard. A third-party Strategy
+	// returning an off-team/inactive/non-existent id hits this guard → blocked/no_eligible_agent.
+	const decomposerIsValid = candidates.some((c) => c.agentId === plan.decomposerAgentId);
+	if (!decomposerIsValid) {
+		await markTerminal(db, betId, "blocked", "no_eligible_agent");
+		return;
+	}
+
+	// Load the full decomposer user row (needed for harnessType/modelProvider/role in real turn).
+	const [pm] = await db.select().from(users).where(eq(users.id, plan.decomposerAgentId)).limit(1);
 	if (!pm) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}
 
-	// --- 3. Cost pre-flight ---
+	// --- 6. Cost pre-flight ---
 	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
-	// This is a pre-flight only (no per-event accrual) — acceptable v1 trade-off
-	// for a single bounded completion behind a human-gated commit (one per bet).
+	// Kernel-side — Strategy never enforces cost (strategy-port.ts hard rule).
 	const capResult = await checkCostCap(db, eventBus, {
 		agentId: pm.id,
 		teamId: bet.teamId,
@@ -347,7 +409,7 @@ export async function runBetDecomposition(
 		return;
 	}
 
-	// --- 4. Scratch sandbox + Strategy port context assembly ---
+	// --- 7. Scratch sandbox + 3-way turn-source precedence ---
 	const scratchSandboxPath = path.join(sandboxBasePath, `decomp-${betId}`);
 	try {
 		fs.mkdirSync(scratchSandboxPath, { recursive: true });
@@ -358,13 +420,36 @@ export async function runBetDecomposition(
 	}
 
 	try {
-		// If a test override is present, skip the real LLM path entirely (no Strategy call needed).
-		if (!deps.runDecompositionTurn) {
-			// --- 5. assembleContext via Strategy port (path a — CRITICAL-1) ---
+		let taskList: DecompositionTaskInput[];
+
+		// --- 8. Turn-source precedence (CRITICAL 1) ---
+		// Branch 1: Strategy authored the breakdown (future Fabric path).
+		// Branch 2: Test-injectable override (protected-test seam — all AK3 tests).
+		// Branch 3: Real PM turn (AK3/Minimal default fallback).
+		//
+		// @lore AK8: Branch 1 > branch 2 > branch 3. The override NEVER beats plan.tasks
+		// because that would let a test seam mask a Strategy's authored decision.
+		// All v1 Strategies (Minimal, Fabric) return tasks:[] → branch 2 or 3.
+		if (plan.tasks.length > 0) {
+			// Branch 1: Strategy-authored breakdown. Skip assembleContext + turn entirely.
+			taskList = [...plan.tasks];
+		} else if (deps.runDecompositionTurn) {
+			// Branch 2: Test-injectable override (no real LLM call).
+			// Supply the Strategy-chosen decomposerAgentId as pmAgentId so that
+			// test assertions on "which agent decomposes" reflect the Strategy's choice.
+			try {
+				taskList = await withTimeout(
+					deps.runDecompositionTurn({ betId, pmAgentId: pm.id }),
+					timeoutMs,
+				);
+			} catch {
+				await markTerminal(db, betId, "blocked", "failed");
+				return;
+			}
+		} else {
+			// Branch 3: Real PM turn — scratch sandbox + assembleContext + runRealPmTurn.
 			// @lore AK3: isRoutine=true tells the Strategy "do NOT read task/bet context
-			// off taskId" — the synthetic taskId has no tasks row. Under minimal Strategy
-			// this is a no-op (writes only scaffold dirs). Under Fabric it branches on
-			// isRoutine to avoid reading the non-existent task row.
+			// off taskId" — the synthetic taskId has no tasks row.
 			try {
 				await getActiveStrategy().assembleContext({
 					db,
@@ -377,43 +462,31 @@ export async function runBetDecomposition(
 					isRoutine: true,
 				});
 			} catch {
-				// assembleContext MAY throw (strategy-port.ts:107). A throw → blocked/failed.
+				// assembleContext MAY throw (strategy-port.ts). A throw → blocked/failed.
+				await markTerminal(db, betId, "blocked", "failed");
+				return;
+			}
+
+			try {
+				taskList = await withTimeout(
+					runRealPmTurn(deps, pm, bet, scratchSandboxPath, timeoutMs),
+					timeoutMs,
+				);
+			} catch {
 				await markTerminal(db, betId, "blocked", "failed");
 				return;
 			}
 		}
 
-		// --- 6. Run PM turn ---
-		let taskList: DecompositionTaskInput[];
-		try {
-			if (deps.runDecompositionTurn) {
-				// Test-injectable override — no real LLM call.
-				taskList = await withTimeout(
-					deps.runDecompositionTurn({ betId, pmAgentId: pm.id }),
-					timeoutMs,
-				);
-			} else {
-				// Real PM turn — AH3-shaped task-free turn producing a structured JSON breakdown.
-				// @lore AK3: The real LLM turn path is intentionally minimal for v1.
-				// It uses the assembledContext in scratchSandboxPath and runs tools:[].
-				// The structured output is parsed as a JSON array of DecompositionTaskInput.
-				// This path is exercised by evals (real LLM, local-only) — not by unit tests.
-				taskList = await withTimeout(
-					runRealPmTurn(deps, pm, bet, scratchSandboxPath, timeoutMs),
-					timeoutMs,
-				);
-			}
-		} catch {
-			await markTerminal(db, betId, "blocked", "failed");
-			return;
-		}
-
+		// --- 9. Empty task list → blocked/empty ---
+		// @lore AK8: []-from-turn means blocked/empty (plan.tasks=[] already handled
+		// above by falling through to branch 2 or 3). This is the turn's empty result.
 		if (!Array.isArray(taskList) || taskList.length === 0) {
 			await markTerminal(db, betId, "blocked", "empty");
 			return;
 		}
 
-		// --- 7. Insert tasks → accepted ---
+		// --- 10. Insert tasks → accepted → dispatch ---
 		await insertProposedBetTasks(
 			{ db, eventBus },
 			{ id: bet.id, teamId: bet.teamId },
@@ -422,7 +495,7 @@ export async function runBetDecomposition(
 		);
 		await markTerminal(db, betId, "done", null);
 	} finally {
-		// --- 8. rm scratch sandbox dir (best-effort) ---
+		// --- 11. rm scratch sandbox dir (best-effort) ---
 		try {
 			fs.rmSync(scratchSandboxPath, { recursive: true, force: true });
 		} catch {
