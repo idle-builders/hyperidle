@@ -3,9 +3,13 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "3-build",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-22T22:34:00+02:00",
+  "completedAt": "2026-06-23T00:10:00+02:00",
   "runMode": "autonomous",
-  "notes": "Concept-introducing harness/agent-layer enforcement WP. No UI surface — /design + /design-critique skipped. Base origin/main=3be9fa69."
+  "pr": 350,
+  "branch": "feat/AL6-review-return-hooks",
+  "reviewVerdict": "DONE",
+  "notes": "Concept-introducing harness/agent-layer enforcement WP. No UI surface. ReturnGate observer over streamEvents at two enforced drain sites; tools:[] extraction drains exempt; session_not_returned flag-not-block v1; no-ungated-stream-drain lint guard."
 }
