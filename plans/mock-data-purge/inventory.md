@@ -13,7 +13,7 @@ Total offenders: **12**
 | `packages/server/src/middleware/auth.ts` | 231 | `u-founder` | literal-id | string |
 | `packages/server/src/middleware/auth.ts` | 235 | `u-founder` | literal-id | string |
 | `packages/server/src/routes/auth.ts` | 62 | `u-founder` | literal-id | string |
-| `packages/web/src/components/sessionContentFixtures.tsx` | 57 | `u-founder` | literal-id | string |
+| `packages/web/src/components/sessionContentFixtures.tsx` | 30 | `u-founder` | literal-id | string |
 
 ## borderline (6)
 

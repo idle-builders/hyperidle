@@ -46,7 +46,7 @@
   },
   {
     "path": "packages/web/src/components/sessionContentFixtures.tsx",
-    "line": 57,
+    "line": 30,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
