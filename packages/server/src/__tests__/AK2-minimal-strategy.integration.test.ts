@@ -80,6 +80,7 @@ class EchoHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			canForceReturn: false,
 		};
 	}
 }

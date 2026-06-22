@@ -243,6 +243,9 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
+			// AL6 v2: SDK exposes a native Stop hook (decision:block + reason) that
+			// blocks a stop attempt and continues the turn. Tier-1 force.
+			canForceReturn: true,
 		};
 	}
 

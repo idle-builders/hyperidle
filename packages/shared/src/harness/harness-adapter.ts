@@ -126,6 +126,17 @@ export interface HarnessCapabilities {
 	 * dispatched to the tool registry by the provisioner.
 	 */
 	readonly mcpSupport: boolean;
+	/**
+	 * AL6 v2: Whether this adapter can natively block a stop attempt and
+	 * continue the turn (Tier-1 force). When true, the forcing layer re-injects
+	 * AL6_FORCE_RETURN_MESSAGE up to AL6_MAX_FORCE_RETURNS times before falling
+	 * through to the Tier-2 reject path. When false, the provisioning drain
+	 * applies the Tier-2 reject directly (outcome: "not_returned").
+	 *
+	 * @lore AL6 v2: SDK adapter = true (Stop hook), builtin = true (owns the loop).
+	 * CLI/remote/isolated = false (subprocess/transport, no reachable turn-end hook).
+	 */
+	readonly canForceReturn: boolean;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
 	readonly accessMode?: HarnessAccessMode;
 	readonly authAction?: HarnessAuthActionDescriptor;

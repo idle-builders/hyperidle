@@ -89,6 +89,7 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			canForceReturn: false,
 		};
 	}
 }
@@ -283,6 +284,7 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 					subAgents: false,
 					modelProviders: ["anthropic"],
 					mcpSupport: false,
+					canForceReturn: false,
 				};
 			}
 		}
@@ -363,6 +365,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 					subAgents: false,
 					modelProviders: ["anthropic"],
 					mcpSupport: false,
+					canForceReturn: false,
 				};
 			}
 		}
@@ -434,6 +437,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 					subAgents: false,
 					modelProviders: ["anthropic"],
 					mcpSupport: false,
+					canForceReturn: false,
 				};
 			}
 		}
@@ -487,6 +491,7 @@ describe("AC6: .mcp.json written to workspace for auto-discovery", () => {
 					subAgents: false,
 					modelProviders: ["anthropic"],
 					mcpSupport: false,
+					canForceReturn: false,
 				};
 			}
 		}

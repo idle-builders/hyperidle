@@ -45,6 +45,7 @@ function makeStubAdapter(mcpSupport = false): HarnessAdapter {
 				subAgents: false,
 				modelProviders: [],
 				mcpSupport,
+				canForceReturn: false,
 			};
 		},
 	};

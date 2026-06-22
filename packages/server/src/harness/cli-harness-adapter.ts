@@ -401,6 +401,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
 			// for HyperIdle tool calling.
 			mcpSupport: true,
+			// AL6 v2: CLI runs as a subprocess; no reachable turn-end hook to inject
+			// a forcing message mid-session. Tier-2 reject on not-returned turns.
+			canForceReturn: false,
 		};
 	}
 

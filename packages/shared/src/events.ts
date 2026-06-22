@@ -39,7 +39,13 @@ export interface SessionStartedEvent {
 	timestamp: number;
 }
 
-export type SessionOutcome = "completed" | "crashed" | "stopped";
+/**
+ * AL6 v2: "not_returned" added as a non-completed outcome for a turn that
+ * exhausted its stream without a return action (after force budget spent, or
+ * on a Tier-2 harness). Every switch(outcome) consumer MUST handle this member
+ * — see the exhaustiveness guard in session-lifecycle.ts.
+ */
+export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";
 
 export interface SessionEndedEvent {
 	type: "session_ended";

@@ -61,3 +61,51 @@ export function isReturnAction(toolName: string, _args?: Record<string, unknown>
 export function isInternalExtractionDrain(config: { tools: readonly string[] }): boolean {
 	return config.tools.length === 0;
 }
+
+/**
+ * AL6 v2: The canonical forcing message re-injected when an agent attempts to
+ * stop without returning. Single source of truth — used by the SDK Stop hook
+ * callback, the builtin loop re-inject, and any future forcing path.
+ *
+ * @lore AL6 v2: This string is what the agent sees when forced to return.
+ * All three return tools are named so the agent can choose the appropriate one.
+ * The message is intentionally direct and action-oriented.
+ */
+export const AL6_FORCE_RETURN_MESSAGE =
+	"You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: " +
+	"submit_review (submit work for review), handoff_to (hand the task to another agent or a human), or " +
+	"send_message (send your result to a thread). Choose the one that fits and call it now.";
+
+/**
+ * AL6 v2: Maximum number of force-continue re-injections per turn before
+ * falling through to Tier-2 reject. N=2 matches the builtin's bounded-retry
+ * discipline (one nudge, one recovery).
+ *
+ * @lore AL6 v2: After this budget is spent the forcing hook allows the stop
+ * and the provisioning drain applies the not_returned outcome. The session
+ * never loops forever and never hard-crashes losing mid-turn side-effects.
+ */
+export const AL6_MAX_FORCE_RETURNS = 2;
+
+/**
+ * AL6 v2: Pure helper — determines whether to inject the forcing message.
+ *
+ * Returns `AL6_FORCE_RETURN_MESSAGE` when:
+ *   - No return action was seen this turn (gate.returned === false), AND
+ *   - The force budget has not been spent (forceCount < AL6_MAX_FORCE_RETURNS).
+ *
+ * Returns `null` when:
+ *   - A return was already seen (gate.returned === true) — no force needed, OR
+ *   - Budget spent (forceCount >= AL6_MAX_FORCE_RETURNS) — fall through to Tier-2 reject.
+ *
+ * Pure: does NOT mutate the gate or forceCount. The caller increments forceCount
+ * and re-prompts. This function is safe to call multiple times with the same inputs.
+ */
+export function shouldForceReturn(
+	gate: { readonly returned: boolean },
+	forceCount: number,
+): string | null {
+	if (gate.returned) return null; // return was seen — allow stop
+	if (forceCount >= AL6_MAX_FORCE_RETURNS) return null; // budget spent — Tier-2 reject
+	return AL6_FORCE_RETURN_MESSAGE;
+}

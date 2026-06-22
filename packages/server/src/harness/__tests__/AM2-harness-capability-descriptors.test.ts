@@ -21,6 +21,7 @@ const BASE_CAPS: HarnessCapabilities = {
 	subAgents: false,
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	mcpSupport: false,
+	canForceReturn: false,
 };
 
 describe("AM2 harness capability descriptor builders", () => {
@@ -49,6 +50,7 @@ describe("AM2 harness capability descriptor builders", () => {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: true,
+				canForceReturn: false,
 			},
 		);
 

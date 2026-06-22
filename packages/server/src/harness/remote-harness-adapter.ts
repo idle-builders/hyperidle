@@ -216,6 +216,9 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
 			mcpSupport: false,
+			// AL6 v2: remote worker runs over a transport (worker protocol); no
+			// reachable turn-end hook for in-process forcing. Tier-2 reject.
+			canForceReturn: false,
 		};
 	}
 

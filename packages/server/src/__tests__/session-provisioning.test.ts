@@ -171,6 +171,7 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			canForceReturn: false,
 		};
 	}
 }

@@ -334,6 +334,9 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
+			// AL6 v2: builtin owns the loop — re-injects the forcing message and
+			// continues instead of breaking. Tier-1 force.
+			canForceReturn: true,
 		};
 	}
 

@@ -61,6 +61,7 @@ function makeScriptedAdapter(events: HarnessEvent[] = []): HarnessAdapter {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
+				canForceReturn: false,
 			};
 		},
 	};

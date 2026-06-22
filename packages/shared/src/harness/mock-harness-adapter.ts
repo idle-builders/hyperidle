@@ -53,11 +53,14 @@ export class MockHarnessAdapter implements HarnessAdapter {
 
 	getCapabilities(): HarnessCapabilities {
 		// X5: mcpSupport: false — mock adapter is test-only and does not wire MCP.
+		// AL6 v2: canForceReturn: false — mock is Tier-2 by default (tests that need
+		// Tier-1 behavior construct their own adapter with canForceReturn:true).
 		return {
 			preCompactionTrigger: true,
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			canForceReturn: false,
 		};
 	}
 }

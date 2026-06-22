@@ -218,6 +218,10 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
+			// AL6 v2: isolated runs in a forked worker; no reachable turn-end hook
+			// for in-process forcing. The relay (isolated-session-worker) forwards
+			// events but has no forcing seam. Tier-2 reject.
+			canForceReturn: false,
 		};
 	}
 
