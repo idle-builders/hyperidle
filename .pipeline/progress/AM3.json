@@ -4,7 +4,7 @@
   "track": "AM",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "review",
+  "currentStep": "review-fix-1",
   "designClass": "novel",
   "dependsOn": ["AM1", "AM2"],
   "startedAt": "2026-06-22T11:47:00+02:00",
