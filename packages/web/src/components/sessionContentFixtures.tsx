@@ -677,18 +677,19 @@ export function ArtifactChip({ part }: { part: ArtifactPart }): JSX.Element {
  * NOT inline per-turn (founder review 2026-06-22 annotation 4: "this might be cool
  * at the top for the whole session combined, like in the header"). A quiet muted
  * read (cost · tokens) in tabular numerals; reads cost, introduces no budget axis.
+ *
+ * Round-4 annotation 2: the custom dollar SVG glyph was REMOVED — it read as a
+ * "weird" icon. The product's canonical cost renderer (`ArtifactCostChip` +
+ * `formatMoney`) carries NO icon and prints a plain Intl "$" prefix; the design
+ * system ships no currency icon. So the cost reads as plain text — the "$" is the
+ * glyph (`costLabel` = "$0.71") — and a middot separates it from the token count.
  */
 export function SessionCostTotal(): JSX.Element {
 	return (
-		<div data-ds-component="SessionCostTotal" className="flex shrink-0 items-center gap-[9px] text-[11px] text-[var(--text-tertiary)]">
-			<span className="inline-flex items-center gap-[4px]">
-				<svg viewBox="0 0 16 16" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-					<circle cx="8" cy="8" r="6" />
-					<path d="M8 5v6M6.5 6.5h2.2a1.3 1.3 0 010 2.6H7.3a1.3 1.3 0 000 2.6H10" strokeLinecap="round" />
-				</svg>
-				<span className="font-mono tabular-nums text-[var(--text-secondary)]">{SESSION_META.costLabel}</span>
-			</span>
-			<span className="font-mono tabular-nums">{SESSION_META.tokensLabel}</span>
+		<div data-ds-component="SessionCostTotal" className="flex shrink-0 items-center gap-[6px] font-mono tabular-nums text-[11px] text-[var(--text-tertiary)]">
+			<span className="text-[var(--text-secondary)]">{SESSION_META.costLabel}</span>
+			<span className="text-[var(--text-tertiary)]">·</span>
+			<span>{SESSION_META.tokensLabel}</span>
 		</div>
 	);
 }

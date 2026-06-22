@@ -217,9 +217,12 @@ function TranscriptStream(): JSX.Element {
 					<div key={i} className="flex flex-col gap-[6px]">
 						{showAuthor && author && part ? <TurnHeader author={author} createdAt={part.createdAt} /> : null}
 						{b.kind === "tool-run" ? (
-							// The aggregate is collapsed at rest. The edit+run+edit run (the founder's
-							// annotation-3 example) is rendered EXPANDED so both states are visible.
-							<HardAggregate tools={b.tools} defaultOpen={b.tools.some((t) => t.toolKind === "edit")} />
+							// EVERY completed-tool run folds into ONE expander, collapsed at rest — no
+							// completed tool call (incl. a completed run-command) ever sits standalone
+								// (round-4 annotation 1). The ONLY standalone tool rows left in the stream
+								// are the failed `npm test` (✗) and the running sub-agent. Expand-on-click
+								// reveals the bare edit+run+edit rows; collapsed at rest keeps the calm read.
+							<HardAggregate tools={b.tools} />
 						) : (
 							renderSingle(b.part)
 						)}
@@ -258,13 +261,20 @@ export function CalmTranscript(): JSX.Element {
 				</div>
 			</header>
 			{/* reading column */}
-			<div className="relative flex-1 overflow-y-auto">
+			<div className="relative flex-1 overflow-hidden">
+				<div className="h-full overflow-y-auto">
 				<div className="mx-auto flex max-w-[760px] flex-col gap-[12px] px-[24px] py-[18px]">
 					<TranscriptStream />
 					<ChangedFilesPanel />
 					{QUEUED.map((q) => <QueuedBubble key={q.id} author={q.author} text={q.text} />)}
 				</div>
-				<div className="pointer-events-none absolute inset-x-0 bottom-[12px] flex justify-center">
+				</div>
+				{/* Scroll-to-bottom — round-4 annotation 3: centered, floating JUST ABOVE the
+				    composer (anchored to the bottom of the reading area, NOT buried mid-stream).
+				    Shown only when the stream is far from the bottom; auto-pin while streaming.
+				    Follow-up flagged in approved.md: this should become the SHARED conversation
+				    affordance too — NOT changed here (AM3 scope only). */}
+				<div className="pointer-events-none absolute inset-x-0 bottom-[12px] z-[1] flex justify-center">
 					<div className="pointer-events-auto"><ScrollToBottomPill /></div>
 				</div>
 			</div>
