@@ -48,7 +48,7 @@ import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
 // Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
 import { CassetteMissError } from "../harness/llm-cassette.js";
-import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
+import { createReturnGate } from "../harness/return-gate.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
@@ -678,6 +678,11 @@ async function drainStreamEvents(
 	let completionText = "";
 
 	try {
+		// AL6-observe-only: assistant turn compliant-by-construction; verdict deferred to caller (concept §4.4).
+		// The assistant path ALWAYS persists a reply (NEVER-silent invariant) so no session_not_returned
+		// verdict is ever emitted here. gate.observe() is wired for harness-uniform enforcement and
+		// future-proofing — a future assistant tool that suppressed the reply would be caught.
+		// evaluateReturn() is intentionally absent: the caller (runChatTurn) owns the verdict.
 		for await (const event of stream) {
 			// AL6: Observe every event — gate is read-only, never blocks events.
 			gate.observe(event);
@@ -698,16 +703,8 @@ async function drainStreamEvents(
 			}
 		}
 	} catch {
-		// AL6: evaluate gate on error path (crashed → exempt → always "returned").
-		evaluateReturn(gate, "crashed");
 		return { type: "error", message: "Stream error" };
 	}
-
-	// AL6: Evaluate gate for uniformity (AC4). The assistant path is compliant-by-
-	// construction (concept §4.4 — it NEVER exits without persisting a reply), so
-	// the verdict here is always "returned". We evaluate explicitly so the mechanism
-	// is uniform and a future assistant tool that suppressed the reply would be caught.
-	evaluateReturn(gate, "completed");
 
 	// Generator exhausted without explicit completion — treat as empty completion
 	return { type: "completion", text: completionText };

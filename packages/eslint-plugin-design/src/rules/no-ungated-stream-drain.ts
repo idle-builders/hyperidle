@@ -40,6 +40,18 @@ import { asReportNode } from "../util.js";
 const RELAY_MARKER = "AL6-relay";
 /** Marker text embedded in a comment that classifies the loop as an exempt drain. */
 const EXEMPT_MARKER = "AL6-exempt: internal-extraction drain";
+/**
+ * Marker text for an observe-only enforced drain: the drain MUST call gate.observe()
+ * (for harness-uniform enforcement) but legitimately does NOT call evaluateReturn()
+ * because the verdict is deferred to its caller or the path is compliant-by-construction
+ * (e.g. assistant path, concept §4.4). observe is still mandatory — absence still errors.
+ *
+ * @lore AL6: This classification was added in the fix pass after the reviewer flagged
+ * two dead `evaluateReturn(gate, …)` calls in drainStreamEvents that existed solely to
+ * satisfy the lint rule's textual presence-check. The observe-only marker lets the rule
+ * be honest: require the real enforcement hook (observe) without forcing dead computation.
+ */
+const OBSERVE_ONLY_MARKER = "AL6-observe-only:";
 
 /**
  * Walk the ancestor chain of a node to find the closest enclosing function body,
@@ -156,11 +168,13 @@ export const noUngatedStreamDrain: Rule.RuleModule = {
 			missingObserve:
 				"Turn-drain loop over streamEvents() must call `<gate>.observe(event)` inside the loop body. " +
 				"If this is a forwarding relay, add `// AL6-relay` before the loop. " +
-				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`.",
+				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`. " +
+				"If observe-only (verdict deferred to caller), add `// AL6-observe-only: <reason>` — observe is still required.",
 			missingEvaluateReturn:
 				"Turn-drain loop over streamEvents() must call `evaluateReturn(...)` in the enclosing function. " +
 				"If this is a forwarding relay, add `// AL6-relay` before the loop. " +
-				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`.",
+				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`. " +
+				"If observe-only (verdict deferred to caller), add `// AL6-observe-only: <reason>` — evaluateReturn is then NOT required.",
 		},
 	},
 	create(context) {
@@ -204,11 +218,13 @@ export const noUngatedStreamDrain: Rule.RuleModule = {
 				const commentText = getLeadingCommentText(node, context.sourceCode);
 				const isRelay = commentText.includes(RELAY_MARKER);
 				const isExempt = commentText.includes(EXEMPT_MARKER);
+				const isObserveOnly = commentText.includes(OBSERVE_ONLY_MARKER);
 
 				// Relay and exempt loops need no gate — classification is sufficient.
 				if (isRelay || isExempt) return;
 
-				// Turn-drain: must have gate.observe() in body AND evaluateReturn in fn.
+				// All non-relay, non-exempt drains (both turn-drain and observe-only)
+				// MUST call gate.observe() in the loop body — the real enforcement hook.
 				const body = forOf.body;
 				const hasObserve = bodyHasObserveCall(body);
 				if (!hasObserve) {
@@ -219,6 +235,11 @@ export const noUngatedStreamDrain: Rule.RuleModule = {
 					return; // Don't also report missingEvaluateReturn — fix one at a time.
 				}
 
+				// Observe-only drains: observe is wired (checked above), verdict is deferred
+				// to caller — evaluateReturn is legitimately absent. No further check needed.
+				if (isObserveOnly) return;
+
+				// Turn-drain: must also have evaluateReturn in the enclosing function.
 				const enclosingFn = getEnclosingFunctionBody(node as Node & { parent?: Node });
 				if (enclosingFn && !functionTextHasEvaluateReturn(enclosingFn, context.sourceCode)) {
 					context.report({
