@@ -36,7 +36,6 @@ import {
 	blockStream,
 	Caret,
 	CHANGED_FILES,
-	CostTick,
 	DiffStat,
 	FOUNDER,
 	HumanRow,
@@ -50,6 +49,7 @@ import {
 	SESSION_PARTS,
 	type SessionPart,
 	SessionComposer,
+	SessionCostTotal,
 	StatusGlyph,
 	type StreamBlock,
 	type ToolPart,
@@ -126,8 +126,8 @@ function BareToolRow({ part }: { part: ToolPart }): JSX.Element {
 
 // ── HARD aggregate — one summary verb, count, fold to bare rows. The chosen calm
 //    behavior: tool calls closed at rest, combined in an expander. ──
-function HardAggregate({ tools }: { tools: readonly ToolPart[] }): JSX.Element {
-	const [open, setOpen] = useState(false);
+function HardAggregate({ tools, defaultOpen = false }: { tools: readonly ToolPart[]; defaultOpen?: boolean }): JSX.Element {
+	const [open, setOpen] = useState(defaultOpen);
 	const failed = tools.some((t) => t.status === "failed");
 	return (
 		<div data-ds-component="ToolAggregate">
@@ -216,9 +216,15 @@ function TranscriptStream(): JSX.Element {
 					// biome-ignore lint/suspicious/noArrayIndexKey: stream order is stable for the fixture
 					<div key={i} className="flex flex-col gap-[6px]">
 						{showAuthor && author && part ? <TurnHeader author={author} createdAt={part.createdAt} /> : null}
-						{b.kind === "tool-run" ? <HardAggregate tools={b.tools} /> : renderSingle(b.part)}
-						{/* a quiet cost tick after the last (streaming) prose */}
-						{b.kind === "single" && b.part.id === "a3" ? <CostTick /> : null}
+						{b.kind === "tool-run" ? (
+							// The aggregate is collapsed at rest. The edit+run+edit run (the founder's
+							// annotation-3 example) is rendered EXPANDED so both states are visible.
+							<HardAggregate tools={b.tools} defaultOpen={b.tools.some((t) => t.toolKind === "edit")} />
+						) : (
+							renderSingle(b.part)
+						)}
+						{/* cost is no longer inline — it lives in the header as the combined
+						    SESSION-TOTAL (founder review annotation 4). */}
 					</div>
 				);
 			})}
@@ -244,6 +250,9 @@ export function CalmTranscript(): JSX.Element {
 						</div>
 						<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">{SESSION_META.task}</h1>
 					</div>
+					{/* combined SESSION-TOTAL cost — in the header (founder review annotation 4) */}
+					<SessionCostTotal />
+					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
 					{/* conversation avatars (founder review: "the avatar should look like in the chat") */}
 					<ParticipantGroup people={[ATLAS, FOUNDER]} />
 				</div>
@@ -259,9 +268,13 @@ export function CalmTranscript(): JSX.Element {
 					<div className="pointer-events-auto"><ScrollToBottomPill /></div>
 				</div>
 			</div>
-			{/* composer — the conversation composer chrome + descriptor pills + working state */}
-			<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] px-[24px] py-[12px]">
-				<div className="mx-auto max-w-[760px]"><SessionComposer running elapsedLabel={SESSION_META.elapsedLabel} /></div>
+			{/* composer — the conversation composer's EXACT outer treatment (founder review
+			    annotation 5): no top border, px-[18px] pb-[18px] pt-[9px], mx-auto
+			    max-w-[760px] — identical to ConversationSurface's Composer wrapper. The
+			    inner bordered/elevated surface is the conversation composer chrome; the
+			    session ADDS the descriptor pills + working/queue/Stop state. */}
+			<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
+				<div className="mx-auto w-full max-w-[760px]"><SessionComposer running elapsedLabel={SESSION_META.elapsedLabel} /></div>
 			</div>
 		</div>
 	);

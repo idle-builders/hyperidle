@@ -230,16 +230,24 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		embeds: [],
 		text: "Found it. AI SDK 6 sends messages with a `parts` array instead of a `content` string. Our backend still writes `content`, so the v6 client renders nothing — the message is dropped silently. Switching the server to emit `parts` and updating the append helper to match.",
 	},
-	// (c,f) the fix — a file-change tool carrying a diff (opens ReviewCodeDiff).
-	// NO permission prompt precedes it — the agent acts freely; the REVIEW is the
-	// allow point (founder review 2026-06-22; concept rejection 9).
+	// (c,e,f) THE FIX — a CONSECUTIVE run of COMPLETED tool calls: edit · run-command
+	// · edit. Under the aggregation rule (concept Phase 4) a run of consecutive
+	// COMPLETED tool calls folds into ONE aggregate — INCLUDING edits. The edits'
+	// DIFFS are never lost: they surface in the per-turn Changed-files panel below
+	// regardless of the fold. (Founder review 2026-06-22: "this edit and the run
+	// command and the next edit could also be combined in an expander.") NO
+	// permission prompt precedes them — the agent acts freely; the REVIEW is the
+	// allow point (concept rejection 9).
 	{ id: "t7", kind: "tool", author: ATLAS, createdAt: T("0:38.000Z"), toolKind: "edit", verb: "Edit", target: "server/chat/stream.ts", status: "ok", preview: "emit parts[] instead of content", diff: { label: "server/chat/stream.ts", added: 9, removed: 2 } },
-	// (d) a FAILED tool — reads distinctly: ✗ + stderr in the expanded body
+	{ id: "t8", kind: "tool", author: ATLAS, createdAt: T("0:40.000Z"), toolKind: "command", verb: "Run command", target: "npx codemod content-to-parts ./client", status: "ok", preview: "rewrote 3 call sites" },
+	{ id: "t9", kind: "tool", author: ATLAS, createdAt: T("0:44.000Z"), toolKind: "edit", verb: "Edit", target: "client/useChatPanel.ts", status: "ok", preview: "spread parts[], drop content", diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 } },
+	// (d) a FAILED tool — STAYS STANDALONE, never folded into the aggregate, so
+	// breakage is always glanceable: ✗ + stderr in the expanded body.
 	{
-		id: "t8",
+		id: "t10",
 		kind: "tool",
 		author: ATLAS,
-		createdAt: T("0:40.000Z"),
+		createdAt: T("0:46.000Z"),
 		toolKind: "command",
 		verb: "Run command",
 		target: "npm test -- chat/stream",
@@ -248,11 +256,10 @@ export const SESSION_PARTS: readonly SessionPart[] = [
 		output:
 			"FAIL  src/chat/__tests__/stream.test.ts\n  ● assembles a parts[] payload\n    Expected: [{ type: 'text', text: 'hi' }]\n    Received: undefined\n  appendMessage() still spreads the old { content } shape (line 88).\n\n  exit code 1",
 	},
-	// (c,f) the follow-up edit fixing the append helper
-	{ id: "t9", kind: "tool", author: ATLAS, createdAt: T("0:44.000Z"), toolKind: "edit", verb: "Edit", target: "client/useChatPanel.ts", status: "ok", preview: "spread parts[], drop content", diff: { label: "client/useChatPanel.ts", added: 6, removed: 4 } },
-	// (c,j) a sub-agent spawn — opens its OWN nested session view (recursion)
+	// (c,j) a sub-agent spawn — opens its OWN nested session view (recursion).
+	// STAYS STANDALONE (a running tool is never folded into the aggregate).
 	{
-		id: "t10",
+		id: "t11",
 		kind: "tool",
 		author: ATLAS,
 		createdAt: T("0:47.000Z"),
@@ -304,7 +311,8 @@ export const QUEUED: readonly QueuedMessage[] = [
 // Minimal session identity only — NO PR # / change-count / Background / Artifacts
 // metrics roll-up (founder review 2026-06-22; concept rejection 10). `changesAdded/
 // Removed` remain ONLY for the per-turn changed-files panel (real work product,
-// aspect f), never a header metrics bar. `tokens/cost` feed the quiet cost tick.
+// aspect f), never a header metrics bar. `tokens/cost` feed the COMBINED
+// SESSION-TOTAL cost in the HEADER (annotation 4) — not an inline per-turn tick.
 export const SESSION_META = {
 	agent: "Atlas",
 	task: "Fix agent chat broken by AI SDK 5→6",
@@ -553,18 +561,25 @@ export function ParticipantGroup({ people }: { people: readonly PartAuthor[] }):
 }
 
 // ── Human message — LEFT-ALIGNED, like the HyperIdle conversation (founder review
-//    2026-06-22: "in the chat these messages appear on the left"). This REUSES the
-//    conversation's author-grouped row shape (PartList group header: name · "You" ·
-//    time, full-width body) — NOT a right-aligned bubble. ──
+//    2026-06-22: "in the chat these messages appear on the left"). REUSES the
+//    conversation's author-grouped row shape (name · "You" · time, NO background
+//    bubble — body is a plain ProsePart, leading 1.55) — NOT a right-aligned
+//    bubble — and carries the conversation's ROUND, human/agent-TINTED Avatar
+//    (founder review annotation 1+2). The avatar + the no-bubble plain body are
+//    the conversation's exact treatment. ──
 export function HumanRow({ author, createdAt, text }: { author: PartAuthor; createdAt: string; text: string }): JSX.Element {
 	return (
-		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex flex-col gap-[6px]">
-			<div className="flex items-baseline gap-[9px]">
-				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
-				{author.isMe ? <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span> : null}
-				<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex gap-[9px]">
+			<Avatar who={author} size={26} />
+			<div className="flex min-w-0 flex-1 flex-col gap-[6px] pt-[1px]">
+				<div className="flex items-baseline gap-[9px]">
+					<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
+					{author.isMe ? <span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span> : null}
+					<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+				</div>
+				{/* plain body — NO background (matches ProsePart / the conversation). */}
+				<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">{text}</p>
 			</div>
-			<p className="m-0 text-[15px] leading-[1.6] text-[var(--text-primary)]">{text}</p>
 		</div>
 	);
 }
@@ -573,28 +588,32 @@ export function HumanRow({ author, createdAt, text }: { author: PartAuthor; crea
 //    row, muted + clock + "sends when the agent finishes" + dequeue ✕. ──
 export function QueuedBubble({ author, text, onCancel }: { author: PartAuthor; text: string; onCancel?: () => void }): JSX.Element {
 	return (
-		<div data-ds-component="QueuedRow" data-ds-sender="human" className="flex flex-col gap-[6px] opacity-70">
-			<div className="flex items-baseline gap-[9px]">
-				<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{author.name}</span>
-				<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
-					<svg viewBox="0 0 16 16" className="h-[11px] w-[11px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-						<circle cx="8" cy="8" r="6" />
-						<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
-					</svg>
-					Queued · sends when the agent finishes
-				</span>
-				<button
-					type="button"
-					onClick={onCancel}
-					aria-label="Remove queued message"
-					className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
-				>
-					<svg viewBox="0 0 12 12" className="h-[10px] w-[10px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-						<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
-					</svg>
-				</button>
+		<div data-ds-component="QueuedRow" data-ds-sender="human" className="flex gap-[9px] opacity-70">
+			<Avatar who={author} size={26} />
+			<div className="flex min-w-0 flex-1 flex-col gap-[6px] pt-[1px]">
+				<div className="flex items-baseline gap-[9px]">
+					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">{author.name}</span>
+					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
+						<svg viewBox="0 0 16 16" className="h-[11px] w-[11px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+							<circle cx="8" cy="8" r="6" />
+							<path d="M8 5v3l2 1.5" strokeLinecap="round" strokeLinejoin="round" />
+						</svg>
+						Queued · sends when the agent finishes
+					</span>
+					<button
+						type="button"
+						onClick={onCancel}
+						aria-label="Remove queued message"
+						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+					>
+						<svg viewBox="0 0 12 12" className="h-[10px] w-[10px]" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+							<path d="M3 3 L9 9 M9 3 L3 9" strokeLinecap="round" />
+						</svg>
+					</button>
+				</div>
+				{/* plain body — NO background (matches the human row / the conversation). */}
+				<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-secondary)]">{text}</p>
 			</div>
-			<p className="m-0 text-[15px] leading-[1.6] text-[var(--text-secondary)]">{text}</p>
 		</div>
 	);
 }
@@ -653,28 +672,49 @@ export function ArtifactChip({ part }: { part: ArtifactPart }): JSX.Element {
 	);
 }
 
-/** A per-turn cost/token tick (aspect g) — muted micro-row, never competing. */
-export function CostTick(): JSX.Element {
+/**
+ * Combined SESSION-TOTAL cost — lives in the HEADER beside the session identity,
+ * NOT inline per-turn (founder review 2026-06-22 annotation 4: "this might be cool
+ * at the top for the whole session combined, like in the header"). A quiet muted
+ * read (cost · tokens) in tabular numerals; reads cost, introduces no budget axis.
+ */
+export function SessionCostTotal(): JSX.Element {
 	return (
-		<div className="flex items-center gap-[9px] text-[11px] text-[var(--text-tertiary)]">
+		<div data-ds-component="SessionCostTotal" className="flex shrink-0 items-center gap-[9px] text-[11px] text-[var(--text-tertiary)]">
 			<span className="inline-flex items-center gap-[4px]">
 				<svg viewBox="0 0 16 16" className="h-[11px] w-[11px]" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
 					<circle cx="8" cy="8" r="6" />
 					<path d="M8 5v6M6.5 6.5h2.2a1.3 1.3 0 010 2.6H7.3a1.3 1.3 0 000 2.6H10" strokeLinecap="round" />
 				</svg>
-				<span className="font-mono tabular-nums">{SESSION_META.costLabel}</span>
+				<span className="font-mono tabular-nums text-[var(--text-secondary)]">{SESSION_META.costLabel}</span>
 			</span>
 			<span className="font-mono tabular-nums">{SESSION_META.tokensLabel}</span>
 		</div>
 	);
 }
 
-// ── Author turn header (name · time) — the PartList group-header shape. ──
+// ── Author turn header — the PartList group-header shape, carrying the
+//    conversation's ROUND, agent-TINTED Avatar + the agent glyph + name · time
+//    (founder review annotation 1). The agent body that follows is plain
+//    (AgentProse / tool rows) — NO background bubble. ──
+const AGENT_GLYPH =
+	"M8 1.5l1.1 3.4L12.5 6 9.1 7.1 8 10.5 6.9 7.1 3.5 6l3.4-1.1L8 1.5zM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z";
+
 export function TurnHeader({ author, createdAt }: { author: PartAuthor; createdAt: string }): JSX.Element {
 	return (
-		<div className="flex items-baseline gap-[9px] pt-[6px]">
-			<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
-			<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+		<div className="flex items-center gap-[9px] pt-[6px]">
+			<Avatar who={author} size={26} />
+			<div className="flex items-baseline gap-[9px]">
+				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{author.name}</span>
+				{author.isAgent ? (
+					<span aria-label="Agent" title="Agent" className="flex items-center text-[var(--text-tertiary)]">
+						<svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 11, height: 11 }} aria-hidden="true">
+							<path d={AGENT_GLYPH} />
+						</svg>
+					</span>
+				) : null}
+				<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{clockTime(createdAt)}</span>
+			</div>
 		</div>
 	);
 }
@@ -827,8 +867,18 @@ export function ScrollToBottomPill(): JSX.Element {
 // still surfaces via the per-turn changed-files panel (aspect f).
 
 // ── Shared turn-blocking: group by author, aggregate a CONSECUTIVE tool run ──
-// A file-change tool (carries a diff) or a failed/running tool never folds into a
-// noise aggregate — those are load-bearing and stay as their own rows.
+//
+// THE AGGREGATION RULE (concept Phase 4, founder review 2026-06-22 annotation 3):
+//   DEFAULT — within an agent turn, a run of consecutive COMPLETED tool calls folds
+//   into ONE aggregate expander ("Edited 2 files, ran a command · N steps"),
+//   collapsed at rest. This INCLUDES edits/file-changes.
+//   STAY STANDALONE (never folded in): (a) a FAILED tool call (✗) — so breakage is
+//   always visible; (b) the currently-RUNNING tool while it streams (incl. a
+//   running sub-agent).
+//   DIFFS ARE NEVER LOST TO FOLDING — a per-turn Changed-files summary (always
+//   visible, opens ReviewCodeDiff) surfaces the turn's file changes regardless of
+//   whether the edits folded. So edits CAN fold (calm) while their diffs stay
+//   reachable via the Changed-files panel.
 export type StreamBlock =
 	| { readonly kind: "single"; readonly part: SessionPart }
 	| { readonly kind: "tool-run"; readonly tools: readonly ToolPart[] };
@@ -843,7 +893,9 @@ export function blockStream(parts: readonly SessionPart[], aggregateAt: number):
 		run = [];
 	};
 	for (const p of parts) {
-		const foldable = p.kind === "tool" && p.diff === undefined && p.status !== "failed" && p.status !== "running" && p.toolKind !== "sub-agent";
+		// A COMPLETED tool call (ok | neutral) folds — edits included. Only a FAILED
+		// call, or a still-RUNNING tool (incl. a running sub-agent), stays standalone.
+		const foldable = p.kind === "tool" && p.status !== "failed" && p.status !== "running";
 		if (foldable) run.push(p as ToolPart);
 		else {
 			flush();
@@ -855,11 +907,13 @@ export function blockStream(parts: readonly SessionPart[], aggregateAt: number):
 }
 
 export function aggregateVerb(tools: readonly ToolPart[]): string {
+	const edits = tools.filter((t) => t.toolKind === "edit" || t.toolKind === "create").length;
 	const cmds = tools.filter((t) => t.toolKind === "command").length;
 	const reads = tools.filter((t) => t.toolKind === "read").length;
 	const searches = tools.filter((t) => t.toolKind === "web-search" || t.toolKind === "search").length;
 	const mcp = tools.filter((t) => t.toolKind === "mcp").length;
 	const out: string[] = [];
+	if (edits) out.push(edits === 1 ? "edited a file" : `edited ${edits} files`);
 	if (cmds) out.push(cmds === 1 ? "ran a command" : `ran ${cmds} commands`);
 	if (reads) out.push(reads === 1 ? "read a file" : `read ${reads} files`);
 	if (searches) out.push(searches === 1 ? "searched" : `ran ${searches} searches`);

@@ -7,6 +7,13 @@
 - **Files:** `packages/web/src/components/SessionContentTranscript.stories.tsx` (export `CalmTranscript`) + `packages/web/src/components/sessionContentFixtures.tsx` (shared atoms + fixture). Screenshot: `plans/AM3/design/1-calm-transcript/screenshot.png`.
 - **DESIGN-CLASS:** `novel` (two new Part render kinds + a re-modeled surface). In an autonomous run a novel design parks for the founder — this revision IS that founder pass; the annotations below are applied.
 
+**ROUND-2 annotations applied (founder review, 2026-06-22):**
+1. **Avatar** — the human row AND the agent turn header now carry the conversation's ROUND, human/agent-TINTED Avatar (not a plain initial), byte-identical to `ConversationSurface`'s `Avatar`.
+2. **Message background** — there is NO message-row background/bubble. Human + agent bodies render as plain left-aligned rows (avatar + name · "You"/agent-glyph · time + plain body, leading 1.55), exactly like the conversation's `ProsePart`.
+3. **Aggregation rule** — defined + rendered (see §1). A run of consecutive COMPLETED tool calls (incl. edits) folds into ONE aggregate; failed + running stay standalone; the Changed-files panel always surfaces diffs. Shown both collapsed (first run) and expanded (the edit+run+edit run).
+4. **Cost → header** — the inline `CostTick` is removed from the stream; the **combined session-total** cost + tokens now reads in the **header** beside the avatars (`SessionCostTotal`).
+5. **Composer container** — the session composer uses the conversation composer's EXACT container treatment (same border/bg/shadow/radius + outer `px-[18px] pb-[18px] pt-[9px]`, no top border), verified side-by-side against `ConversationSurface` in the `:8098` viewer.
+
 ---
 
 ## 1. The rendering language (the calm transcript)
@@ -15,7 +22,7 @@ A streaming, append-only human+agent conversation read inside the `ConversationS
 
 - **Agent prose owns the column.** Full-width markdown, a quiet streaming caret on the in-progress turn. No bubble.
 - **Tool row = a bare one-liner.** `[per-kind icon] · verb · muted truncated target · (diff chip) · (open-session) · (▾ if expandable) · status glyph`. NO inline I/O at rest. Output reveals as an indented capped mono `<pre>` on click; a failure's `<pre>` carries a destructive left rule. Only `failed` uses the destructive color token.
-- **Hard tool aggregation (THE chosen behavior).** A consecutive run of foldable tool calls (not file-change, not failed, not running, not sub-agent) collapses to ONE row: a summary verb ("Ran a command, read 2 files, ran 2 searches, queried Linear") + step count, expanding to the bare rows beneath a left rule. `aggregateAt = 2` (calm bias). *This is the "various tool calls closed and combined in an expander" the founder approved.*
+- **Hard tool aggregation — THE AGGREGATION RULE (chosen behavior, round-2 annotation 3).** A run of **consecutive COMPLETED tool calls (incl. edits/file-changes)** collapses to ONE row: a summary verb ("Edited 2 files, ran a command" / "Ran a command, read 2 files, ran 2 searches, queried Linear") + step count, expanding to the bare rows beneath a left rule. **Stay standalone (never folded in):** a **failed** tool call (✗ — breakage always glanceable) and the **currently-running** tool (incl. a running sub-agent). **Diffs are never lost:** the per-turn **Changed files (N)** panel always surfaces the turn's file changes regardless of whether the edits folded. `aggregateAt = 2` (calm bias). *This is the rule that satisfies the founder's "this edit and the run command and the next edit could also be combined in an expander" — fold everything completed, keep only failures + in-flight standalone, never lose a diff.* The variant shows the aggregate BOTH collapsed (first run) and expanded (the edit+run+edit run).
 - **Reasoning** folds to "Thought for Ns" (italic, tertiary), re-expands to muted prose under a left rule. (`reasoning` Part kind.)
 - **File diff** stays as its own row (never folded into an aggregate) with an inline `name +N/−M` chip; a per-turn/session **Changed files (N)** panel sits below the stream with "View diff" → `ReviewCodeDiff`.
 - **Tool icon family.** Typed icons for the common tools (view/read, search, edit, run command, web-search, create) + ONE shared generic icon for all MCP calls. *(Founder: "smart idea to have typical ones predefined with a specific icon, and all the various MCPs get a shared icon.")* Keep this.
@@ -30,10 +37,10 @@ The session view is the conversation's components + the session-specific render 
 |---|---|---|
 | Surface shape (header · column · composer, `max-w-[760px]`) | `ConversationSurface` | `packages/web/src/components/ConversationSurface.tsx` |
 | Message column renderer | `PartList` over `derivePartsFromSession(...)` | `packages/web/src/components/PartList.tsx` |
-| **Human message row** | The conversation's **left-aligned** author-grouped row (name · "You" · time · full-width body) — NOT a right-aligned bubble | `PartList` group + `parts/ProsePart.tsx` |
-| **Avatars / participant group** | `ConversationSurface` `Avatar` + `ParticipantGroup` | `ConversationSurface.tsx` |
+| **Human message row** | The conversation's **left-aligned** author-grouped row (avatar + name · "You" · time · **plain full-width body, NO background bubble**, leading 1.55) — NOT a right-aligned bubble | `PartList` group + `parts/ProsePart.tsx` |
+| **Avatars / participant group** | `ConversationSurface` `Avatar` (ROUND, human/agent-TINTED) + `ParticipantGroup` — on the header AND on the human row AND the agent turn header | `ConversationSurface.tsx` |
 | Turn header (name · time) | `PartList` group header (`clockTime`, `groupParts`) | `PartList.tsx` |
-| **Composer chrome + "+" attach affordance** | The `ConversationSurface` composer (rounded bordered surface · the SAME "+" attach button look · paper-plane send) | `ConversationSurface.tsx` `Composer`/`ComposerInputRow` |
+| **Composer chrome + "+" attach affordance + EXACT container** | The `ConversationSurface` composer — its EXACT container (`rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] focus-within:shadow-[var(--shadow-default)]`, outer `px-[18px] pb-[18px] pt-[9px]`, no top border) · the SAME "+" attach button look · paper-plane send | `ConversationSurface.tsx` `Composer`/`ComposerInputRow` |
 | Reference / artifact chips | `ReferenceChip` / `ArtifactEmbed` (DS) | design-system |
 | File diff | `ReviewCodeDiff` (one diff renderer in the product) | `packages/web/src/pages/review/ReviewCodeDiff.tsx` |
 
@@ -70,15 +77,15 @@ A sub-agent `tool` call is itself a Session. Its row carries a **`session` `Open
 | b | Reasoning | Folds to "Thought for Ns" (italic/tertiary), expands to muted prose under a left rule. |
 | c | Tool calls by family | Bare one-liner rows; typed icons + one shared MCP icon; per-family expanded I/O. |
 | d | Tool states | `running` pulse · `ok` ✓ · `failed` ✗ (destructive, stderr on expand) · `neutral` –. |
-| e | Tool aggregation | Hard fold to one summary verb + count; failure surfaces on the aggregate. |
-| f | File diffs / changed files | Inline `+N/−M` chip on a file-change row + a Changed files panel → `ReviewCodeDiff`. |
-| g | Cost / token tick | Quiet muted micro-row after the streaming prose (tabular-nums). |
+| e | Tool aggregation | The AGGREGATION RULE: fold consecutive COMPLETED calls (incl. edits) to one summary verb + count; failed + running stay standalone; diffs never lost (Changed files panel). Shown collapsed + expanded. |
+| f | File diffs / changed files | Inline `+N/−M` chip on a file-change row (when standalone) + a per-turn Changed files panel → `ReviewCodeDiff` (always surfaces diffs, even when edits folded). |
+| g | Cost / token — SESSION TOTAL in HEADER | Combined session-total cost + tokens in the **header** beside the avatars (tabular-nums). NOT an inline per-turn tick (round-2 annotation 4). |
 | ~~h~~ | ~~Permission prompt~~ | **REMOVED** — review is the allow point. |
 | i | Artifacts | `ArtifactChip` → opens its owned surface. |
 | j | Sub-agent / nested session | Sub-agent row → "Open session" → nested session view (recursion). |
 | k | Plan / todo | Compact foldable step list (done/active/todo), open at rest. |
-| l | Human + queued message | LEFT-ALIGNED conversation rows; queued = muted row + clock + "sends when the agent finishes" + ✕. |
-| m | Identity / turn boundaries | Conversation author-group header + conversation avatars; turn fold device available. |
+| l | Human + queued message | LEFT-ALIGNED conversation rows with the ROUND tinted Avatar, NO background bubble; queued = muted row + avatar + clock + "sends when the agent finishes" + ✕. |
+| m | Identity / turn boundaries | Conversation author-group header carrying the ROUND tinted Avatar + agent glyph + name · time; turn fold device available. |
 | n | Working state + Stop | "Working for Ns" pulse + Stop in the composer (calm, no loud spinner). |
 | o | Composer | Conversation composer chrome ("+" attach) + descriptor model·effort·mode pills + Send↔(Stop + queues). |
 | ~~p~~ | ~~Status roll-ups~~ | **REMOVED** — no PR/change-count metrics bar. |
