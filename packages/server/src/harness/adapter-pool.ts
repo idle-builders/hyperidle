@@ -71,7 +71,13 @@ export interface SelectedEntry {
 
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
-	private readonly discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
+	/**
+	 * @lore AM4: `readonly` dropped to allow refreshDiscoveries() to reassign the snapshot.
+	 * The freeze() is still applied to each new assignment so callers reading the snapshot
+	 * see a stable (frozen) map. Reassignment is atomic in JS single-thread; the await in
+	 * refreshDiscoveries() completes before the reassign so no concurrent read sees a partial map.
+	 */
+	private discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
 
 	constructor(
 		discoveries?: HarnessDiscoveryResult | Readonly<Record<string, HarnessDiscoveryInput>>,
@@ -83,6 +89,23 @@ export class AdapterPool {
 				) as Readonly<Record<string, HarnessDiscoveryInput>>,
 			);
 		}
+	}
+
+	/**
+	 * AM4: Re-run discoverLocalHarnesses() and replace the discovery snapshot.
+	 * Refreshes readiness/version/auth state — does NOT run the session probe
+	 * (same probe-gating as boot; runtime caps stay false until AM3).
+	 *
+	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
+	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
+	 */
+	async refreshDiscoveries(): Promise<void> {
+		const fresh = await discoverLocalHarnesses();
+		this.discoveries = Object.freeze(
+			Object.fromEntries(
+				Object.entries(fresh).map(([k, v]) => [k, v as HarnessDiscoveryInput]),
+			) as Readonly<Record<string, HarnessDiscoveryInput>>,
+		);
 	}
 
 	/** Number of registered adapters. */
