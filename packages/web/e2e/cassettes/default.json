@@ -79,7 +79,7 @@
 		}
 	},
 	{
-		"key": "334217ee5a6c6a9e777d90052141051aaf31ca40a4c4d4b7b638691321dbe0c7",
+		"key": "f33fd9096833e6081c29c0064055ad340a5c9869499eecac1d9bdb4b44b447d5",
 		"request": {
 			"model": {
 				"provider": "anthropic",
@@ -88,6 +88,14 @@
 				"baseUrl": "https://api.anthropic.com"
 			},
 			"messages": [
+				{
+					"role": "user",
+					"content": "What is 1 + 1?"
+				},
+				{
+					"role": "assistant",
+					"content": "1 + 1 = 2."
+				},
 				{
 					"role": "user",
 					"content": "Call the create_bet tool with title set to 'Ship AH6 real-interaction lane'. Do not respond with prose; emit only the tool call."
@@ -148,7 +156,7 @@
 			"content": [
 				{
 					"type": "tool_use",
-					"id": "tu_ah6_create_bet_01",
+					"id": "tu_ah6_create_bet_s2",
 					"name": "create_bet",
 					"input": {
 						"description": "Ship AH6 real-interaction lane"
@@ -162,7 +170,7 @@
 		}
 	},
 	{
-		"key": "431cf65a8fb42a190f7010a569221f471d79f1dad376d24cf4bc67207d9321ef",
+		"key": "b082ef6b3dbf481d615227c3a4e0cac460f5f47316ae62d91698a8380a97dc86",
 		"request": {
 			"model": {
 				"provider": "anthropic",
@@ -173,6 +181,14 @@
 			"messages": [
 				{
 					"role": "user",
+					"content": "What is 1 + 1?"
+				},
+				{
+					"role": "assistant",
+					"content": "1 + 1 = 2."
+				},
+				{
+					"role": "user",
 					"content": "Call the create_bet tool with title set to 'Ship AH6 real-interaction lane'. Do not respond with prose; emit only the tool call."
 				},
 				{
@@ -180,7 +196,7 @@
 					"content": [
 						{
 							"type": "tool_use",
-							"id": "tu_ah6_create_bet_01",
+							"id": "tu_ah6_create_bet_s2",
 							"name": "create_bet",
 							"input": {
 								"description": "Ship AH6 real-interaction lane"
@@ -193,8 +209,8 @@
 					"content": [
 						{
 							"type": "tool_result",
-							"toolUseId": "tu_ah6_create_bet_01",
-							"content": "{\"betId\":\"00000000-0000-0000-0000-000000000001\",\"status\":\"draft\",\"teamId\":\"ah6-e2e-team\"}",
+							"toolUseId": "tu_ah6_create_bet_s2",
+							"content": "{\"betId\":\"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\"status\":\"draft\",\"teamId\":\"ah6-e2e-team\"}",
 							"isError": false
 						}
 					]
@@ -261,6 +277,101 @@
 			"usage": {
 				"inputTokens": 280,
 				"outputTokens": 25
+			}
+		}
+	},
+	{
+		"key": "f777ff3333a937615cc6f2c2861ab4326322b8746bb9ea374a6bce007076863b",
+		"request": {
+			"model": {
+				"provider": "anthropic",
+				"model": "claude-sonnet-4-6",
+				"apiKey": "__redacted__",
+				"baseUrl": "https://api.anthropic.com"
+			},
+			"messages": [
+				{
+					"role": "user",
+					"content": "What is 1 + 1?"
+				},
+				{
+					"role": "assistant",
+					"content": "1 + 1 = 2."
+				},
+				{
+					"role": "user",
+					"content": "Call the create_bet tool with title set to 'Ship AH6 real-interaction lane'. Do not respond with prose; emit only the tool call."
+				},
+				{
+					"role": "assistant",
+					"content": "I've drafted the bet 'Ship AH6 real-interaction lane' for you."
+				},
+				{
+					"role": "user",
+					"content": "What is 1 + 1?"
+				}
+			],
+			"tools": [
+				{
+					"name": "create_bet",
+					"description": "Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						},
+						"required": ["description"]
+					}
+				},
+				{
+					"name": "edit_bet",
+					"description": "Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
+					"inputSchema": {
+						"type": "object",
+						"properties": {
+							"description": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 65536
+							},
+							"doneCondition": {
+								"type": "string",
+								"maxLength": 65536
+							},
+							"hypothesis": {
+								"type": "string",
+								"maxLength": 65536
+							}
+						}
+					}
+				}
+			],
+			"system": "# Assistant Instructions\n\n## Identity\n\nYou are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.\n\n## Conversation\n\nYou are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.\n\n\n[CONTEXT: You previously drafted bet a1b2c3d4-e5f6-7890-abcd-ef1234567890. Use edit_bet to refine it; do not create a new bet unless the user explicitly asks for one.]",
+			"maxTokens": 16384
+		},
+		"response": {
+			"stopReason": "end_turn",
+			"content": [
+				{
+					"type": "text",
+					"text": "1 + 1 = 2."
+				}
+			],
+			"usage": {
+				"inputTokens": 350,
+				"outputTokens": 10
 			}
 		}
 	}

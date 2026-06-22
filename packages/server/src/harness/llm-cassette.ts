@@ -197,9 +197,13 @@ function normalizeTools(tools: readonly LlmToolDef[] | undefined): unknown[] {
  *   - tool array is sorted by name (order-independent)
  */
 export function buildCassetteKey(options: CallLlmOptions): string {
+	// @lore AH6: The system prompt is normalized (UUIDs, timestamps, agent IDs replaced)
+	// so cassette keys are stable even when the system prompt includes runtime-generated
+	// values like currentDraftBetId (e.g. "[CONTEXT: You previously drafted bet <uuid>...]").
+	// Without this normalization, S3's key would be non-deterministic across runs.
 	const hashInput = {
 		model: stripRoutingSuffix(options.model.model),
-		system: options.system ?? "",
+		system: normalizeText(options.system ?? ""),
 		messages: normalizeMessages(options.messages),
 		tools: normalizeTools(options.tools),
 		maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
