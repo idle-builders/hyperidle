@@ -705,11 +705,11 @@ export function HumanRow({
 	createdAt: string;
 	text: string;
 }): JSX.Element {
-	// LEFT-aligned + capped width (round-8) — mirrors the conversation's PartList
-	// layout: avatar+name header above the box's top-left corner, a calm grey box
-	// below, the whole turn ≤80% wide so it reads short, not full-bleed.
+	// RIGHT-aligned + capped width (round-9) — identical to the conversation's
+	// PartList self-message: my own turns are right-bound, capped ≤80%, with the
+	// avatar+name header above the box's top-left corner and a calm grey box below.
 	return (
-		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex flex-col">
+		<div data-ds-component="HumanRow" data-ds-sender="human" className="flex flex-col items-end">
 			<div className="flex max-w-[80%] flex-col gap-[9px]">
 				<div className="flex items-center gap-[9px]">
 					<Avatar who={author} size={26} />
