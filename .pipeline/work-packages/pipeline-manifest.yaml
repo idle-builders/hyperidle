@@ -1213,3 +1213,24 @@ stories:
     track: AM
     depends: []
     complexity: L
+  # Track AN: Tool Integration
+  - id: AN1
+    title: External Connections (credential vault + OAuth)
+    track: AN
+    depends: []
+    complexity: L
+  - id: AN2
+    title: Outbound tool brokering (hybrid)
+    track: AN
+    depends: [AN1, AL7]
+    complexity: L
+  - id: AN3
+    title: Sandbox tool provisioning
+    track: AN
+    depends: [AN2]
+    complexity: L
+  - id: AN4
+    title: Ecosystem integration registry
+    track: AN
+    depends: [AN2, AL5]
+    complexity: L
