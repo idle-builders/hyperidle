@@ -213,7 +213,6 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 		// Mock discoverLocalHarnesses to return known fresh data
 		const discoverSpy = vi
 			.spyOn(harnessDiscovery, "discoverLocalHarnesses")
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
 			.mockResolvedValue(freshDiscoveries as any);
 
@@ -248,7 +247,6 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 		};
 
 		vi.spyOn(harnessDiscovery, "discoverLocalHarnesses")
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			// biome-ignore lint/suspicious/noExplicitAny: test mock requires partial shape
 			.mockResolvedValue(freshDiscoveries as any);
 

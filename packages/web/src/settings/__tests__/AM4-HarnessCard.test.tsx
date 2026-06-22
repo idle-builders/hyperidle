@@ -264,10 +264,12 @@ describe("AM4 AC2-production-shape — ready descriptor with all-false runtime c
 // ── AC3: Unauthenticated shows actionable next step ───────────────────────────
 
 describe("AM4 AC3 — HarnessCard unauthenticated shows actionable next step", () => {
-	it("renders auth zone with action button labeled with authAction.label", () => {
+	it("renders auth zone with copyable CLI command (no dead CTA button)", () => {
 		render(<HarnessCard descriptor={UNAUTHENTICATED_DESCRIPTOR} onToggle={vi.fn()} />);
-		// Primary CTA button with the auth label must be present
-		expect(screen.getByRole("button", { name: /log in to codex/i })).toBeInTheDocument();
+		// The copyable command IS the action — no dead CTA button for native_cli_login (ADV1)
+		expect(screen.getByText("codex login")).toBeInTheDocument();
+		// No dead button — the command itself is the actionable surface
+		expect(screen.queryByRole("button", { name: /log in to codex/i })).toBeNull();
 	});
 
 	it("renders the mono CLI command (codex login)", () => {

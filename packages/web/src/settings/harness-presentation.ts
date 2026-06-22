@@ -14,7 +14,7 @@
  * allows the single "builtin" literal and bans the rest (codex, claude-code, etc.).
  */
 
-import type { HarnessCapabilityDescriptor, HarnessReadinessState } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 
 // Status type mirrors StatusChip Status — imported from shared to avoid coupling
 type Status = "healthy" | "behind" | "paused" | "blocked" | "done" | "error";
@@ -83,53 +83,6 @@ export function statusLine(d: HarnessCapabilityDescriptor): {
 	}
 }
 
-// ── readinessToStatus ─────────────────────────────────────────────────────────
-
-/**
- * Legacy mapper kept for any remaining variant-A usage; deleted at task 13 cleanup.
- * @deprecated Use statusLine() instead.
- */
-export function readinessToStatus(state: HarnessReadinessState): {
-	status: Status | "unknown";
-	label: string;
-} {
-	switch (state) {
-		case "ready":
-			return { status: "healthy", label: "Ready" };
-		case "unauthenticated":
-			return { status: "behind", label: "Sign in needed" };
-		case "installed":
-			return { status: "behind", label: "Installed" };
-		case "missing":
-			return { status: "paused", label: "Not installed" };
-		case "unavailable":
-			return { status: "unknown", label: "Unavailable" };
-		default: {
-			const _: never = state as never;
-			void _;
-			return { status: "unknown", label: "Unknown" };
-		}
-	}
-}
-
-// ── accessModeLabel ───────────────────────────────────────────────────────────
-
-export function accessModeLabel(mode: HarnessCapabilityDescriptor["accessMode"]): string {
-	switch (mode) {
-		case "api-gateway":
-			return "API Gateway";
-		case "provider-subscription-cli":
-			return "CLI subscription";
-		case "external-byo":
-			return "External (BYO)";
-		default: {
-			const _: never = mode as never;
-			void _;
-			return String(mode);
-		}
-	}
-}
-
 // ── hasActionableNextStep ─────────────────────────────────────────────────────
 
 /**
@@ -181,17 +134,6 @@ export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
 export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
 	const discovery = getDiscovery(d);
 	return !discovery.disabled;
-}
-
-// ── showsEnabledIndication ────────────────────────────────────────────────────
-
-/**
- * Legacy alias for the retired non-interactive "Enabled" label (variant A).
- * Kept until task 13 deletes the variant A/B scaffold.
- * @deprecated
- */
-export function showsEnabledIndication(d: HarnessCapabilityDescriptor): boolean {
-	return showsToggle(d) && isEnabled(d);
 }
 
 // ── provenCapabilities ────────────────────────────────────────────────────────

@@ -1,0 +1,18 @@
+{
+	"sha": "67babd37bf26500074763f44890c2ca97e2bfa4b",
+	"srcHash": "d1cfe01b52850b6d8bbd678b5344812f8107fbd6cb6f3488dc40ab4af2d4d8ec",
+	"status": "passed",
+	"dirty": true,
+	"tools": [
+		"test",
+		"test:integration"
+	],
+	"allTools": [
+		"test",
+		"test:integration"
+	],
+	"partial": false,
+	"smartSkipped": [],
+	"timestamp": "2026-06-22T23:08:09.101Z",
+	"hmac": "731aff029eca0377a9a7adfcfc577b2ee50c41acd496cd56f5df4b8e72386d27"
+}

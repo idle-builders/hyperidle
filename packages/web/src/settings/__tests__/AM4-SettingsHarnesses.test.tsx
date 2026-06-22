@@ -138,7 +138,6 @@ const DISABLED_DESCRIPTOR = {
 	} as { state: "ready"; version: string; disabled: boolean; reason: string },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 // biome-ignore lint/suspicious/noExplicitAny: test fixture accepts partial descriptor shapes
 function mockFetch(descriptors: any[] = MOCK_DESCRIPTORS): void {
 	vi.stubGlobal(
@@ -209,8 +208,8 @@ describe("AM4 AC1 — SettingsHarnesses renders in-scope backends with status/ve
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => {
-			// Codex is unauthenticated → auth CTA must appear
-			expect(screen.getByRole("button", { name: /log in to codex/i })).toBeInTheDocument();
+			// Codex is unauthenticated → auth zone shows copyable CLI command (no dead CTA button, ADV1)
+			expect(screen.getByText("codex login")).toBeInTheDocument();
 		});
 	});
 });
@@ -404,7 +403,6 @@ describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
 	it("renders 'Disabled —' status line for discovery.disabled=true", async () => {
 		const descriptorsWithDisabled = [
 			...MOCK_DESCRIPTORS.slice(0, 1),
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			// biome-ignore lint/suspicious/noExplicitAny: test fixture uses partial disabled shape
 			DISABLED_DESCRIPTOR as any,
 			...MOCK_DESCRIPTORS.slice(2),
@@ -421,7 +419,6 @@ describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
 	});
 
 	it("toggle is OFF for disabled row", async () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		// biome-ignore lint/suspicious/noExplicitAny: test fixture uses partial disabled shape
 		const descriptorsWithDisabled = [DISABLED_DESCRIPTOR as any, ...MOCK_DESCRIPTORS.slice(2)];
 		mockFetch(descriptorsWithDisabled);

@@ -21,7 +21,7 @@
 
 // hearth-internal-padding
 
-import { Button, Fold, KeyValue, Toggle } from "@hyperidle/design-system";
+import { Fold, KeyValue, Toggle } from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import {
@@ -41,13 +41,16 @@ export interface HarnessCardProps {
 	onToggle: (type: string, disabled: boolean) => void;
 }
 
-// Status dot color map — uses Hearth status token family (AQ-008: no hardcoded colors)
+// Status dot color map — maps tone names to defined Hearth status tokens (AQ-008: no hardcoded colors).
+// Tone → token mapping mirrors StatusChip.tsx STATUS_STYLES; tokens defined in tokens.css.
+// @lore AM4 ADV1: dead --status-healthy/behind/paused/blocked/done tokens replaced with defined
+// --status-success/warning/info/error equivalents (token-resolution-guard flagged them as undefined).
 const STATUS_DOT_COLORS: Record<string, string> = {
-	healthy: "var(--status-healthy)",
-	behind: "var(--status-behind)",
-	paused: "var(--status-paused)",
-	blocked: "var(--status-blocked)",
-	done: "var(--status-done)",
+	healthy: "var(--status-success)",
+	behind: "var(--status-warning)",
+	paused: "var(--status-info)",
+	blocked: "var(--status-error)",
+	done: "var(--status-success)",
 	error: "var(--status-error)",
 	unknown: "var(--text-tertiary)",
 };
@@ -71,7 +74,7 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 	const [foldOpen, setFoldOpen] = useState(false);
 
 	// Version from discovery
-	const version = (d.discovery as { version?: string }).version;
+	const version = d.discovery.version;
 
 	return (
 		<div className="flex flex-col">
@@ -130,23 +133,14 @@ export function HarnessCard({ descriptor, onToggle }: HarnessCardProps): JSX.Ele
 				</div>
 			</div>
 
-			{/* Auth zone — only when hasActionableNextStep */}
-			{showAuthZone && (
+			{/* Auth zone — only when hasActionableNextStep.
+			    For native_cli_login the copyable command IS the action — no dead CTA button.
+			    @lore AM4 ADV1: dead button removed; enter_api_key actions are a future follow-up. */}
+			{showAuthZone && cmd && (
 				<div className="flex items-center gap-[9px] px-[12px] pb-[9px] pl-[27px]">
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={() => {
-							/* auth action — managed by parent */
-						}}
-					>
-						{d.authAction.label}
-					</Button>
-					{cmd && (
-						<code className="text-[12px] font-mono text-[var(--text-tertiary)] bg-[var(--surface-default)] px-[6px] py-[3px] rounded-[var(--r-subtle)] select-all">
-							{cmd}
-						</code>
-					)}
+					<code className="text-[12px] font-mono text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[6px] py-[3px] rounded-[var(--r-subtle)] select-all">
+						{cmd}
+					</code>
 				</div>
 			)}
 
