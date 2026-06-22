@@ -65,6 +65,9 @@ export type { EmptyStateProps } from "./EmptyState.js";
 export { EmptyState } from "./EmptyState.js";
 export type { ErrorStateProps } from "./ErrorState.js";
 export { ErrorState } from "./ErrorState.js";
+// ── AM1: Fold — calm collapse-to-summary device ──
+export type { FoldProps } from "./Fold.js";
+export { Fold } from "./Fold.js";
 export type { InputProps } from "./Input.js";
 export { Input } from "./Input.js";
 // ── AG6: Row + ItemList + RowDot shared list-row primitives ──
@@ -105,6 +108,9 @@ export { PageHeader, pageTitleClassName } from "./PageHeader.js";
 export type { ProgressProps } from "./Progress.js";
 export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.
+// ── AM1: ReferenceChip — single shared attachment/reference primitive ──
+export type { ReferenceChipKind, ReferenceChipMode, ReferenceChipProps } from "./ReferenceChip.js";
+export { ReferenceChip } from "./ReferenceChip.js";
 export type {
 	RichMessageCardAction,
 	RichMessageCardProps,

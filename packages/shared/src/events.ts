@@ -288,6 +288,32 @@ export interface PropagationFailedEvent {
 }
 
 /**
+ * AK7: Emitted by the Kernel at a selection point BEFORE an owner is chosen.
+ * Observable announcement of "work needs an agent" (AC1). The owner decision
+ * is made via the synchronous selectAgent port call, NOT by a subscriber to
+ * this event. Carried for audit + AK8 + future async subscribers.
+ *
+ * streamId = teamId for per-team routing (bet_* surfaces).
+ *
+ * @lore AK7: This event is audit-only in AK7 — no subscriber acts on it to
+ * mutate state. Emit-then-call ordering (event fires BEFORE selectAgent is
+ * called) makes the occasion observable without being the reply channel.
+ * Idempotency: a crash between emit and the ownerAgentId write leaves only
+ * an orphan audit record; re-running re-emits and existing CAS/owner-already-set
+ * guards prevent double-assignment.
+ */
+export interface WorkSelectionRequestedEvent {
+	type: "work_selection_requested";
+	streamId: string; // = teamId for bet_* surfaces
+	teamId: string;
+	surface: "bet_task" | "bet_decomposer" | "routine_delegate";
+	/** The bet/routine the work is keyed to (for audit correlation). */
+	workKey: string;
+	roleHint: string | null;
+	at: string;
+}
+
+/**
  * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
  * teamMembers, and all scaffolded agent users rows have been persisted.
  * streamId = teamId for per-team stream routing.
@@ -364,7 +390,9 @@ export type KernelEvent =
 	// AK6: creation events
 	| TeamCreatedEvent
 	| AgentAddedEvent
-	| UserCreatedEvent;
+	| UserCreatedEvent
+	// AK7: selection occasion event
+	| WorkSelectionRequestedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

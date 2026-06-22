@@ -39,6 +39,8 @@ import type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
 	Strategy,
 } from "@hyperidle/shared";
 
@@ -151,5 +153,22 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 					},
 				];
 		}
+	},
+
+	/**
+	 * AK7: Decide which agent owns a unit of work under the Minimal Strategy.
+	 *
+	 * Minimal = no knowledge, no skill match. For bet_* surfaces: honor roleHint
+	 * if a candidate matches; else first candidate; else null. For routine_delegate:
+	 * candidates is always [] and Minimal has no delegation knowledge → null.
+	 *
+	 * @lore AK7: Satisfies the seam trivially (AK2 hard rule). A one-agent team
+	 * always returns that agent. routine_delegate falls through to null because
+	 * candidates is [] for that surface — the Fabric handles real delegation.
+	 */
+	async selectAgent(req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		const byRole = req.roleHint ? req.candidates.find((c) => c.role === req.roleHint) : undefined;
+		const chosen = byRole ?? req.candidates[0];
+		return { agentId: chosen?.agentId ?? null };
 	},
 };

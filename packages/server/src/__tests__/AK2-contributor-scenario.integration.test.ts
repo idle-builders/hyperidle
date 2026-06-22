@@ -125,6 +125,13 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 		return [];
 	}
 
+	// AK7: selectAgent stub — ContributorStrategy test is not about agent selection.
+	async selectAgent(
+		_req: import("@hyperidle/shared").SelectAgentRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").SelectAgentOutcome> {
+		return { agentId: null };
+	}
+
 	toRecord(): ContributorRecord {
 		const call = this.assembleContextCalls[0];
 		return {

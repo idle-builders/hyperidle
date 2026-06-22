@@ -63,7 +63,9 @@ The original boundary put "running a PM agent" and agent selection on the Kernel
 
 So AK6's first job is to **emit the creation triggers as events / a creation seam** (without it there is nothing to own), and AK7's is to **make selection consult the Strategy** (generalizing the lone `findDelegate` precedent).
 
-The build-out is **TRACK-AK / AK6 → AK7 → AK8** (agent-creation behind the Strategy + creation events → selection seam + work events → event-driven decomposition). AK6 covers *all* creation surfaces above; AK7 covers *all* selection surfaces; AK8 (decomposition) is one application of both. Until those land, §4's AK3 path is the live behavior. Full inventory + file:line citations: `plans/AK/agent-decision-surfaces.md`.
+The build-out is **TRACK-AK / AK6 → AK7 → AK8** (agent-creation behind the Strategy + creation events → selection seam + work events → event-driven decomposition). AK6 covers *all* creation surfaces above; AK7 covers *all* selection surfaces; AK8 (decomposition) is one application of both. Full inventory + file:line citations: `plans/AK/agent-decision-surfaces.md`.
+
+> **Status update:** Both structural gaps described above are now closed. AK6 (§3a) closed the creation gap — `team_created` / `agent_added` / `user_created` events exist and creation routes through `scaffoldAgents`. AK7 (§3b) closed the selection gap — all bet-side selection routes through `selectAgent` via `selectOwner`; routine delegation routes through `selectAgentFabric`. What remains for AK8: the *decomposition trigger* (moving `runBetDecomposition` from the Kernel-side subscriber to a Strategy-handled event).
 
 ---
 
@@ -215,7 +217,75 @@ Two ESLint mechanisms in `eslint.config.ts` enforce that no Kernel creation surf
 
 ### What AK6 does NOT move (deferred to AK7/AK8)
 
-Selection — which *existing* agent takes a unit of work — is still Kernel-side (role eligibility + round-robin, AK3 path). AK7 moves selection behind the Strategy port. AK8 moves bet decomposition from the Kernel-side PM path to an event the active Strategy handles. AK6 covers creation only.
+Selection — which *existing* agent takes a unit of work — is moved by AK7 (below). AK8 moves bet decomposition's *trigger* from the Kernel-side PM path to an event the active Strategy handles. AK6 covers creation only.
+
+---
+
+## 3b. As-built — AK7 (shipped 2026-06-22): the selection seam
+
+§2a identified "selection is knowledge-blind" as the second structural gap — which agent takes a unit of work was determined by Kernel-side role eligibility + round-robin with zero Strategy input. AK7 closes that gap: every selection surface now routes through a fourth Strategy Port method, and the Kernel emits an observable occasion event before delegating the choice.
+
+### What changed
+
+Before AK7, `bet-decomposition.ts` computed `ownerAgentId` inline (exact role-match then `eligible[i % eligible.length]`), and the routine scheduler called `findDelegate` (the only knowledge-aware selector) directly. Neither consulted the Strategy for *who* takes the work.
+
+After AK7:
+- **The selection decision is Strategy-owned.** The Kernel enumerates eligible candidates (mechanism: a roster query) and asks the active Strategy to pick. The Strategy returns a `users.id`; the Kernel resolves and validates it; the existing dispatch path continues unchanged.
+- **`work_selection_requested` is emitted at every bet-side selection point.** Observable occasion for audit and future async subscribers. The selection answer arrives via the synchronous port call, not a subscriber reply — event + port call is the settled hybrid (concept §1, architecture §1).
+- **Routine delegation routes through the seam method.** `findDelegate`'s body moves to the Fabric's `selectAgentFabric` under the `routine_delegate` surface; the call site in `routine-scheduler.ts` swaps to `selectAgentFabric({ surface: "routine_delegate", … })`. Behaviour is byte-identical; no `work_selection_requested` event for this surface (routine delegation is Fabric-internal, out of the Kernel AC1 scope).
+
+### The Strategy Port: fourth method
+
+`selectAgent` is added to the `Strategy<TDb>` interface in `packages/shared/src/strategy-port.ts`:
+
+```ts
+selectAgent(req: SelectAgentRequest<TDb>): Promise<SelectAgentOutcome>;
+```
+
+`SelectAgentRequest` carries the **occasion** (which surface, which team, which candidates the Kernel enumerated, a role hint, the loop spread index, and for `routine_delegate`: `excludeAgentId` / `skillId`). It never carries an agent identity — choosing the agent is exactly what it delegates. `SelectAgentOutcome` is `{ agentId: string | null }`.
+
+**Surface set is closed:** `"bet_task" | "bet_decomposer" | "routine_delegate"`. Adding a surface adds to this union.
+
+**Key design choices:**
+- **Option A (Kernel enumerates `bet_*` candidates).** For `bet_task` and `bet_decomposer`, the Kernel computes the eligible team roster (mechanism: active, AI, `category='team'`, ordered by `users.id` for deterministic spread) and passes it as `candidates`. The Strategy picks. This keeps the §2a cut exact: Kernel enumerates (mechanism), Strategy decides (knowledge). Candidates carry `role` only — no `systemPrompt`, no WIP count — the Kernel never reads a persona.
+- **`routine_delegate` carved out.** The routine call site has no `teamId`; `findDelegate`'s population is system-wide-by-skill in `userSkills` insertion order — a different set and a different order than the `bet_*` team roster. Routing it through the `bet_*` enumeration would drop delegates and reorder selection silently. The Fabric's `selectAgent` ignores `candidates` for this surface and runs the verbatim `userSkills`-scoped query itself. The seam (one method) is shared; the candidate source is surface-specific by design.
+- **`spreadIndex` on `bet_task`.** The loop index `i` is passed in so the Fabric's `bet_task` branch can reproduce the exact `candidates[i % len]` round-robin spread on the role-mismatch branch. Without it, all null-role tasks collapse to `candidates[0]` — a silent regression.
+
+### The Kernel selection helper: `selectOwner`
+
+`packages/server/src/services/select-agent.ts` exports `selectOwner(deps, occasion)` — the **single Kernel caller** of `getActiveStrategy().selectAgent`. Every `bet_*` Kernel surface calls it; `routine_delegate` does not (it is Fabric-internal and calls `selectAgentFabric` directly).
+
+Steps inside `selectOwner`:
+1. `enumerateTeamCandidates(db, teamId)` — the `bet_*` team roster query (`role` only, `orderBy(users.id)`, no WIP join).
+2. Emit `work_selection_requested` (pre-decision, observable).
+3. `getActiveStrategy().selectAgent(req)` — the decision.
+4. Load-and-validate the returned `agentId`: if null, missing row, `kind !== "ai"`, or `status !== "active"` → return null. Off-team-but-valid → returned as-is. **This is the unattachable-session guard** (concept §3): selection can never produce an unattachable session; failure surfaces as "no agent available," identical to the pre-AK7 empty-eligible-list behaviour.
+
+### Selection surfaces wired
+
+| Surface | Before AK7 | After AK7 |
+|---|---|---|
+| `bet_task` per-task owner (`insertProposedBetTasks`) | `eligible[i % eligible.length]` inline | `selectOwner({ surface: 'bet_task', spreadIndex: i })` |
+| `bet_decomposer` PM pick (`runBetDecomposition`) | `eligible.find(role==='product_manager') ?? eligible[0]` inline | `selectOwner({ surface: 'bet_decomposer', roleHint: 'product_manager' })` |
+| `routine_delegate` (`routine-scheduler.ts`) | `findDelegate(db, skillId, ownerAgentId)` directly | `selectAgentFabric({ surface: 'routine_delegate', … })` — same query, byte-identical |
+
+### Strategy behaviour: Minimal vs Fabric
+
+| Surface | Minimal | Fabric |
+|---|---|---|
+| `bet_task` | `candidates[0]` (honors `roleHint` if a candidate matches) | Exact role-match if `roleHint` set; else `candidates[spreadIndex % len]` — byte-identical to AK3 round-robin |
+| `bet_decomposer` | First PM candidate, else `candidates[0]` | Role-match `'product_manager'`, else `candidates[0]` |
+| `routine_delegate` | `null` (candidates empty; no delegation knowledge in Minimal) | `findDelegate`'s `userSkills`-scoped query verbatim (relocated into `agent-selection.ts`) |
+
+### Static guards
+
+`eslint.config.ts` adds two rules:
+1. **AC1 absence guard** — bans `% <expr>.length` (round-robin pattern) across `packages/server/src/services/**`, allowlisting only `select-agent.ts`. Proven non-vacuous: fires on `arr[i%len]` in `bet-decomposition.ts` if reintroduced.
+2. **AC2 persona guard** — bans `systemPrompt` / `AGENTS.md` literal reads inside `select-agent.ts`. The Kernel's selection helper must never inspect a persona.
+
+### What AK7 does NOT move (deferred to AK8)
+
+**AK8** rewires the *decomposition trigger* — moving `runBetDecomposition`'s subscriber from the Kernel-side `registerBetDecomposition` handler to "a Strategy response to a Kernel event." That is the event-driven trigger (concept §1 AK8 scope). AK7 leaves `runBetDecomposition` Kernel-driven; only its per-task selection sub-steps route through the seam.
 
 ---
 
@@ -250,7 +320,7 @@ POST /bets/:id/commit
 - **v1 inserts tasks server-side (no tool call).** The PM turn runs `tools: []` and returns a JSON array. The server inserts via `insertProposedBetTasks` directly — no session-less tool call is needed. A future `propose_bet_tasks` harness tool would call `insertProposedBetTasks` as its body unchanged.
 - **Idempotency via CAS.** The `NULL → 'running'` CAS on `bets.decompositionStatus` is the dedup guard. A duplicate `bet_state_changed(active)` whose CAS affects 0 rows returns immediately.
 - **Crash recovery at boot.** `resolveOrphanedDecompositions(db)` runs at startup before the subscriber is registered. It flips any `'running'` bet to `blocked/failed` — an in-process turn that died with the previous process can never resume.
-- **Owner assignment.** Each produced task gets `ownerAgentId` set to an eligible team agent (active AI user in the team's membership group whose role maps to `category === 'team'` in the role catalog). Exact role match first; round-robin fallback over the eligible list. `betId` is bound from the bet, not from agent output (cross-bet injection prevention).
+- **Owner assignment.** Each produced task gets `ownerAgentId` via the active Strategy's `selectAgent` port method (AK7). The Kernel enumerates eligible team candidates (active AI, `category='team'`, ordered by `users.id`) and asks the Strategy which agent to assign; the Fabric strategy does exact role-match first, then round-robin spread (`candidates[i % len]`) on the mismatch branch. `betId` is bound from the bet, not from agent output (cross-bet injection prevention). Pre-AK7 the selection was computed inline with the same role-match + round-robin logic; AK7 moves the decision to the Strategy while preserving byte-identical behaviour.
 - **Decomposition status on `bets`.** Two new columns: `decompositionStatus` (`null | 'running' | 'done' | 'blocked'`) and `decompositionBlockerReason` (`null | 'no_eligible_agent' | 'empty' | 'failed'`). GET `/bets/:id` returns both. `WorkBet.tsx` renders a four-state tasks section: tasks present, draft, blocked (reason-specific copy + "Add an agent" link), decomposing.
 - **Cost stays Kernel-side.** `checkCostCap` is imported directly from `@hyperidle/fabric` by the decomposition service — it is not behind the Strategy port. This is consistent with §2 and §3 ("cost enforcement stays Kernel-side").
 

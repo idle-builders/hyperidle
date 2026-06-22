@@ -249,6 +249,9 @@ describe("T2: switch(event.type) over KernelEvent compiles exhaustively for new 
 					return "agent_added";
 				case "user_created":
 					return "user_created";
+				// AK7: selection occasion event
+				case "work_selection_requested":
+					return "work_selection_requested";
 			}
 		}
 

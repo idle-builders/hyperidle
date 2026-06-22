@@ -486,6 +486,8 @@ export function registerObservabilityDispatcher(
 			case "team_created":
 			case "agent_added":
 			case "user_created":
+			// AK7: selection occasion event — audit-only in AK7, not an observability event.
+			case "work_selection_requested":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

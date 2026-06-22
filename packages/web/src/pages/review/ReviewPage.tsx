@@ -1,4 +1,11 @@
-import type { AnchorRef, BlockId, HostKind, Message, PlainPayload } from "@hyperidle/shared";
+import type {
+	AnchorRef,
+	BlockId,
+	HostKind,
+	Message,
+	PlainPayload,
+	VerdictDecision,
+} from "@hyperidle/shared";
 import { isRedactedPayload, relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -7,7 +14,11 @@ import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
 import { useHostThread } from "../../hooks/useHostThread.js";
 import { apiFetch } from "../../services/api-fetch.js";
-import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads.js";
+import {
+	postPlainHostMessage,
+	postVerdictHostMessage,
+	resolveOrCreateHostThread,
+} from "../../services/host-threads.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
@@ -145,9 +156,31 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
 	);
 
-	const handleSubmitVerdict = useCallback(async () => {
-		// AL3: the surface captures the decision; wiring to the thread API is out of scope.
-	}, []);
+	const handleSubmitVerdict = useCallback(
+		async (decision: VerdictDecision) => {
+			const threadId = hostThread.data?.thread.id;
+			if (!(threadId && reviewId && user)) return;
+			// The verdict resolves a specific type:"review" message. The route
+			// `reviewId` IS that message's id — the OpenTarget is built directly
+			// from the review Message (`shared/src/part.ts` reviewTarget:
+			// { reviewId: message.id }), and the server resolves the exact
+			// resolvesMessageId supplied. Reviews re-open by design, so a thread
+			// can hold multiple review messages; only the route's id is correct.
+			const reviewMessageId = reviewId;
+
+			// postVerdictHostMessage returns "ok" | "race" | "forbidden" without
+			// throwing for the two expected non-OK conditions. On success the review
+			// is resolved; on a race (409) another verdict already won; on forbidden
+			// (403) the sender lacked authority. In every case we refresh so the
+			// surface shows the authoritative resolved state, not a stale/optimistic
+			// one — which is also how the user sees a race/authz failure surface.
+			await postVerdictHostMessage(threadId, decision, reviewMessageId, crypto.randomUUID());
+			hostThread.refresh();
+			const refreshed = await loader({ betId, reviewId });
+			setSubject(refreshed);
+		},
+		[betId, hostThread, loader, reviewId, user],
+	);
 
 	if (error) {
 		return (

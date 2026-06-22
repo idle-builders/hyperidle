@@ -38,10 +38,10 @@ After you commit a bet, the task section briefly shows "Planning the work" while
 ### An Agent is Blocked
 
 1. Sidebar shows a blocked agent with duration
-2. Click to open the review thread
-3. Artifact view shows what the agent is waiting on
+2. Click to open the conversation — the review shows compactly with an **Open review** button
+3. Click **Open review** to reach the review page; the artifact view shows what the agent is waiting on
 4. Press `A` to approve, `R` to request changes, or `X` to reject
-5. Agent resumes immediately
+5. Agent resumes immediately; the conversation shows a one-line verdict echo
 
 ### A Bet is Over Budget
 
@@ -90,6 +90,7 @@ When two agents modify the same knowledge:
 
 ### You Disagree with an Agent's Approach
 
-1. Press `R` (Request Changes) on the review item
-2. Add a comment explaining what you want differently
-3. The agent revises and resubmits
+1. Click **Open review** on the review in the conversation
+2. On the review page, press `R` (Request Changes)
+3. Add a comment explaining what you want differently
+4. The agent revises and resubmits

@@ -2915,6 +2915,40 @@ exports[`ErrorState > WithoutRetry 1`] = `
 "
 `;
 
+exports[`Fold > SessionFold 1`] = `
+"<button class="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]" data-ds-component="Fold" data-ds-source="design-system" data-ds-tier="1" type="button">
+  <span style="transform: rotate(-90deg); display: inline-flex;">
+    <svg class="shrink-0" style="width: 12px; height: 12px;" aria-hidden="true">
+      <path />
+    </svg>
+  </span>
+  <span class="text-[var(--accent-primary)]">
+    "Show session"
+  </span>
+</button>
+"
+`;
+
+exports[`Fold > WorkFold 1`] = `
+"<button class="inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]" data-ds-component="Fold" data-ds-source="design-system" data-ds-tier="1" type="button">
+  <span style="transform: rotate(-90deg); display: inline-flex;">
+    <svg class="shrink-0" style="width: 12px; height: 12px;" aria-hidden="true">
+      <path />
+    </svg>
+  </span>
+  <span>
+    "Worked for 1m 12s"
+  </span>
+  <span class="text-[var(--text-tertiary)]">
+    "·"
+  </span>
+  <span class="text-[var(--accent-primary)]">
+    "Show"
+  </span>
+</button>
+"
+`;
+
 exports[`Input > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <div class="flex flex-col gap-[6px] " data-ds-component="Input" data-ds-source="design-system" data-ds-tier="0">
@@ -5896,6 +5930,190 @@ exports[`Progress > WithLabels 1`] = `
       <div class="h-full rounded-full transition-[width] duration-[var(--motion-slow)] ease-[var(--motion-ease)] bg-[var(--accent-secondary)]" style="width: 35%;" role="progressbar" aria-valuemax="100" aria-valuemin="0" aria-valuenow="35" />
     </div>
   </div>
+</div>
+"
+`;
+
+exports[`ReferenceChip > DraftKinds 1`] = `
+"<div class="flex flex-wrap gap-[6px]">
+  <span class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="draft" data-ds-source="design-system" data-ds-tier="1">
+    <button class="flex min-w-0 items-center gap-[6px] text-left" aria-label="Open artifact.ts" type="button" title="Open artifact.ts">
+      <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+        <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+          <path />
+        </svg>
+      </span>
+      <span class="truncate font-[500] text-[var(--text-primary)]">
+        "artifact.ts"
+      </span>
+    </button>
+    <button class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]" aria-label="Remove artifact.ts" type="button" title="Remove">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </button>
+  </span>
+  <span class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]" data-ds-component="ReferenceChip" data-ds-kind="image" data-ds-mode="draft" data-ds-source="design-system" data-ds-tier="1">
+    <button class="flex min-w-0 items-center gap-[6px] text-left" aria-label="Open image.ts" type="button" title="Open image.ts">
+      <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+        <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+          <path />
+        </svg>
+      </span>
+      <span class="truncate font-[500] text-[var(--text-primary)]">
+        "image.ts"
+      </span>
+    </button>
+    <button class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]" aria-label="Remove image.ts" type="button" title="Remove">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </button>
+  </span>
+  <span class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]" data-ds-component="ReferenceChip" data-ds-kind="knowledge" data-ds-mode="draft" data-ds-source="design-system" data-ds-tier="1">
+    <button class="flex min-w-0 items-center gap-[6px] text-left" aria-label="Open knowledge.ts" type="button" title="Open knowledge.ts">
+      <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+        <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+          <path />
+        </svg>
+      </span>
+      <span class="truncate font-[500] text-[var(--text-primary)]">
+        "knowledge.ts"
+      </span>
+    </button>
+    <button class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]" aria-label="Remove knowledge.ts" type="button" title="Remove">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </button>
+  </span>
+  <span class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]" data-ds-component="ReferenceChip" data-ds-kind="block" data-ds-mode="draft" data-ds-source="design-system" data-ds-tier="1">
+    <button class="flex min-w-0 items-center gap-[6px] text-left" aria-label="Open block.ts" type="button" title="Open block.ts">
+      <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+        <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+          <path />
+        </svg>
+      </span>
+      <span class="truncate font-[500] text-[var(--text-primary)]">
+        "block.ts"
+      </span>
+    </button>
+    <button class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]" aria-label="Remove block.ts" type="button" title="Remove">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </button>
+  </span>
+</div>
+"
+`;
+
+exports[`ReferenceChip > PostedKinds 1`] = `
+"<div class="flex flex-wrap gap-[6px]">
+  <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open artifact reference" type="button" title="Open artifact reference">
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+      <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+    <span class="truncate font-[500] text-[var(--text-primary)]">
+      "artifact reference"
+    </span>
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+  </button>
+  <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="image" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open image reference" type="button" title="Open image reference">
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+      <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+    <span class="truncate font-[500] text-[var(--text-primary)]">
+      "image reference"
+    </span>
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+  </button>
+  <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="knowledge" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open knowledge reference" type="button" title="Open knowledge reference">
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+      <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+    <span class="truncate font-[500] text-[var(--text-primary)]">
+      "knowledge reference"
+    </span>
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+  </button>
+  <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="block" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open block reference" type="button" title="Open block reference">
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+      <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+    <span class="truncate font-[500] text-[var(--text-primary)]">
+      "block reference"
+    </span>
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+  </button>
+</div>
+"
+`;
+
+exports[`ReferenceChip > WithMeta 1`] = `
+"<div class="flex flex-wrap gap-[6px]">
+  <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open auth/passkey.ts" type="button" title="Open auth/passkey.ts">
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+      <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+    <span class="truncate font-[500] text-[var(--text-primary)]">
+      "auth/passkey.ts"
+    </span>
+    <span class="shrink-0 tabular-nums text-[var(--text-tertiary)]">
+      "+2 −1"
+    </span>
+    <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </span>
+  </button>
+  <span class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]" data-ds-component="ReferenceChip" data-ds-kind="image" data-ds-mode="draft" data-ds-source="design-system" data-ds-tier="1">
+    <button class="flex min-w-0 items-center gap-[6px] text-left" aria-label="Open auth-flow.png" type="button" title="Open auth-flow.png">
+      <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+        <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+          <path />
+        </svg>
+      </span>
+      <span class="truncate font-[500] text-[var(--text-primary)]">
+        "auth-flow.png"
+      </span>
+      <span class="shrink-0 tabular-nums text-[var(--text-tertiary)]">
+        "82 KB"
+      </span>
+    </button>
+    <button class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]" aria-label="Remove auth-flow.png" type="button" title="Remove">
+      <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+        <path />
+      </svg>
+    </button>
+  </span>
 </div>
 "
 `;

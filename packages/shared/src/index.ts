@@ -122,6 +122,7 @@ export type {
 	UserCreatedEvent,
 	WildcardHandler,
 	WildcardType,
+	WorkSelectionRequestedEvent,
 } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
@@ -240,6 +241,27 @@ export type {
 } from "./notifications.js";
 export { NOTIFICATION_TYPES, shortLabelForType, urgencyForType } from "./notifications.js";
 export type { ObservabilityEvent } from "./observability/events.js";
+// ── AM1: Part vocabulary + source adapters (source-agnostic) ──
+export type {
+	Embed,
+	EmbedKind,
+	FoldDescriptor,
+	OpenHandler,
+	OpenTarget,
+	Part,
+	PartAuthor,
+	PartGroup,
+	PartId,
+	PartKind,
+	ReviewTarget,
+} from "./part.js";
+export {
+	derivePartsFromMessages,
+	derivePartsFromSession,
+	EMBED_KINDS,
+	groupParts,
+	PART_KINDS,
+} from "./part.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,
@@ -279,6 +301,9 @@ export type {
 	IngestionHandle,
 	IngestionRequest,
 	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
+	SelectionCandidate,
 	Strategy,
 } from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──

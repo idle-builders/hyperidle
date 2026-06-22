@@ -14,11 +14,12 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, SelectAgentOutcome, SelectAgentRequest } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { registerBetDecomposition } from "../services/bet-decomposition-subscriber.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // AK3 red phase: DecompositionTaskInput will be in @hyperidle/shared after green phase
@@ -93,10 +94,53 @@ function emitBetActive(eventBus: EventBus, betId: string, teamId: string): void 
 }
 
 // ---------------------------------------------------------------------------
+// Fabric-equivalent strategy fixture (AK7 Phase-4 fix)
+//
+// runBetDecomposition now routes PM pick + per-task owner through selectOwner →
+// getActiveStrategy(). These describe blocks register a Fabric-equivalent strategy
+// that reproduces AK3 behaviour byte-identically. Assertions are FROZEN.
+// ---------------------------------------------------------------------------
+
+function makeFabricLikeStrategy() {
+	return {
+		assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
+		beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+		scaffoldAgents: vi.fn().mockResolvedValue([]),
+		selectAgent: vi.fn(
+			async (req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> => {
+				if (req.surface === "bet_task") {
+					const byRole = req.roleHint
+						? req.candidates.find((c) => c.role === req.roleHint)
+						: undefined;
+					if (byRole) return { agentId: byRole.agentId };
+					const len = req.candidates.length;
+					if (len === 0) return { agentId: null };
+					const idx = (req.spreadIndex ?? 0) % len;
+					return { agentId: req.candidates[idx]?.agentId ?? null };
+				}
+				if (req.surface === "bet_decomposer") {
+					const byRole = req.roleHint
+						? req.candidates.find((c) => c.role === req.roleHint)
+						: undefined;
+					const chosen = byRole ?? req.candidates[0];
+					return { agentId: chosen?.agentId ?? null };
+				}
+				return { agentId: null };
+			},
+		),
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("AK3: registerBetDecomposition subscriber — idempotency (AC7)", () => {
+	// AK7 Phase-4: runBetDecomposition routes PM pick through selectOwner.
+	// Register Fabric-equivalent strategy. Assertions frozen.
+	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
+	afterEach(() => clearActiveStrategy());
+
 	test("emitting bet_state_changed(active) twice runs decomposition only once (CAS guard)", async ({
 		db,
 		eventBus,
@@ -163,6 +207,10 @@ describe("AK3: registerBetDecomposition subscriber — idempotency (AC7)", () =>
 });
 
 describe("AK3: subscriber → dispatch path (AC2)", () => {
+	// AK7 Phase-4: runBetDecomposition routes PM pick + task selection through selectOwner.
+	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
+	afterEach(() => clearActiveStrategy());
+
 	test("after decomposition, tasks are in accepted state (dispatcher-ready)", async ({
 		db,
 		eventBus,
