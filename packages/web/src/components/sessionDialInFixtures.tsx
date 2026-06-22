@@ -13,6 +13,13 @@
  *     source-agnostic renderer the conversation uses. The fixture below is the
  *     SHAPE `derivePartsFromSession()` will produce (architecture decides the
  *     adapter). Two backends producing the same action → the same Part shape.
+ *
+ * SCOPE NOTE (architecture critique round 1): the live activity stream only
+ * carries `tool_call` entries (`SessionActivityBuffer` records `tool_call_recorded`;
+ * `reasoning` is in the `ActivityEntry` union but no producer emits it yet, and
+ * there is NO edit/diff entry anywhere in the stream). The fixture therefore
+ * renders ONLY tool-call prose Parts — no `diff` Embeds. Diff capture is a later
+ * WP (the buffer must first capture file edits); see architecture.md.
  */
 
 import { Fold, StatusChip } from "@hyperidle/design-system";
@@ -113,10 +120,11 @@ export const FIXTURE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 };
 
 // ── Fixture: session activity as Part[] (the derivePartsFromSession SHAPE) ──
-// Tool calls + reasoning render as `prose` Parts (concept §Part: a session text
-// event is a prose Part, decoupled from `plain`). A diff renders as a `diff`
-// Embed → the same ReferenceChip the conversation uses. The agent is the author
-// of every Part, so PartList's author grouping reads as one calm agent column.
+// Each tool call renders as one `prose` Part authored by the agent (concept
+// §Part: a session text event is a prose Part, decoupled from `plain`). The
+// agent is the author of every Part, so PartList's author grouping reads as one
+// calm agent column. NO diff Embeds — the activity stream carries no edit/diff
+// entry today (see the SCOPE NOTE above); each entry is a tool_call summary.
 const ATLAS = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
 export const SESSION_PARTS: Part[] = [
@@ -133,30 +141,16 @@ export const SESSION_PARTS: Part[] = [
 		kind: "prose",
 		author: ATLAS,
 		createdAt: "2026-06-17T10:01:09.000Z",
-		embeds: [
-			{
-				kind: "diff",
-				label: "auth/passkey.ts",
-				meta: "+24 −3",
-				target: { route: "artifact", artifactId: "art-1" },
-			},
-		],
-		text: "Added the registration ceremony and a dual-auth fallback window.",
+		embeds: [],
+		text: "Edited auth/passkey.ts — added the registration ceremony and a dual-auth fallback window.",
 	},
 	{
 		id: "ev-3",
 		kind: "prose",
 		author: ATLAS,
 		createdAt: "2026-06-17T10:01:21.000Z",
-		embeds: [
-			{
-				kind: "diff",
-				label: "auth/passkey.test.ts",
-				meta: "+41 −0",
-				target: { route: "artifact", artifactId: "art-2" },
-			},
-		],
-		text: "Wrote coverage for the happy path and the timeout fallback.",
+		embeds: [],
+		text: "Edited auth/passkey.test.ts — wrote coverage for the happy path and the timeout fallback.",
 	},
 	{
 		id: "ev-4",
@@ -164,7 +158,7 @@ export const SESSION_PARTS: Part[] = [
 		author: ATLAS,
 		createdAt: "2026-06-17T10:01:33.000Z",
 		embeds: [],
-		text: "Ran the suite — 14 passed. The fallback window closes cleanly after 90s.",
+		text: "Ran the test suite — 14 passed. The fallback window closes cleanly after 90s.",
 	},
 ];
 

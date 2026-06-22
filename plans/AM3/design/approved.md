@@ -8,7 +8,7 @@ A dismissible right **slide-over** dial-in opened from a `session-reference` in 
 
 1. **Header** — `Session` tag · agent name · host task · `StatusChip` (live/ended) · close ✕. Mirrors `ConversationHeader` so the sub-room reads as the same product.
 2. **Config band** (`--surface-container`) — a `Fold` ("Configuration · Hide/Show") over `DialInControls`: one control per option the harness DECLARES, rendered inline-compact. Foldable to give activity the height while auditing.
-3. **Activity** — `What happened` mono micro-label + **`PartList`** over `derivePartsFromSession()` — the SAME renderer the conversation uses.
+3. **Activity** — `What happened` mono micro-label + **`PartList`** over `derivePartsFromSession()` — the SAME renderer the conversation uses. Each activity entry (a tool call) renders as one calm agent `prose` Part. (Scope: the live activity stream carries only `tool_call` entries today — no edit/diff entry exists, so the activity column shows tool-call prose, not diff chips. Diff capture is a later WP — see architecture.md, critique resolution round 1.)
 
 **Embodiment story:** `packages/web/src/components/SessionDialInSide.stories.tsx` → "SessionDialIn · A Side panel" (screenshot: `a-side-panel/screenshot.png`). Shared controls/fixtures: `packages/web/src/components/sessionDialInFixtures.tsx`.
 
@@ -28,8 +28,7 @@ A dismissible right **slide-over** dial-in opened from a `session-reference` in 
 | Config disclosure | `Fold` (DS) | `label="Configuration"`, `cta="Hide"/"Show"` |
 | Config controls | `DialInControls` (NEW web composition) | renders one control per `HarnessModelOptionDescriptor`; `select`→pill row, `boolean`→`Checkbox`, `number`/`text`→`Input` |
 | Model selector | pill row over `descriptor.models.filter(selectable)` | active pill = accent ring + `--accent-primary-dim` |
-| Diff in activity | `ReferenceChip kind="artifact"` via the existing `diff` Embed | `+N −M` meta |
-| Activity column | **`PartList`** (web) | over `derivePartsFromSession(...)` — AC3/AC4 |
+| Activity column | **`PartList`** (web) | over `derivePartsFromSession(...)` — AC3/AC4. Each `tool_call` entry → one agent `prose` Part. No diff Embed this WP (no edit/diff entry in the stream — see architecture critique resolution round 1). |
 | Session entry (in conversation) | `Fold cta="Show session"` (already built, AM1) | opens this panel |
 
 ## States (build-phase — initial design renders populated only)
@@ -50,7 +49,7 @@ A dismissible right **slide-over** dial-in opened from a `session-reference` in 
 ## Mobile adaptation
 Panel becomes a full-height bottom-up sheet over the conversation tab; ✕ returns. Config folds by default on mobile to prioritize activity. Inputs ≥16px (AQ-005).
 
-## Open questions for the architect
+## Open questions for the architect — RESOLVED (see architecture.md "Critique resolution (round 1)")
 1. **Part-kind extension vs prose-only.** Activity tool-calls/reasoning render as `prose` Parts today (per AM1 concept §Part). Does AM3 ADD a Part kind (e.g. `activity`/`tool-call`) to the closed `PartKind` union for richer activity affordances, or stay prose+Embeds? Default recommendation: stay `prose` + the existing `diff` Embed (zero renderer change, honors AC3 "no duplicated renderer"). If a tool-call needs distinct chrome, extend the closed `PartKind` union (and its exhaustive dispatch) — never a parallel renderer.
 2. **`derivePartsFromSession` input shape.** It must take session activity events (`ActivityEntry` from `useSessionActivity` / `HarnessEvent` normalized) and the agent identity, and return `Part[]`. Confirm the source type the adapter consumes (normalized activity, NOT raw `HarnessEvent` per backend) so the renderer stays source-agnostic and AC4 (cross-backend uniformity) holds.
 3. **Config persistence scope.** `HarnessModelOptionDescriptor.scope` is `"launch" | "durable"` — does the dial-in WRITE config (and to where — agent `modelTierPreference`/`reasoning`, or a session-launch payload), or is AM3 read-config-only this WP? Recommendation: surface controls + emit an `onConfigure(change)` callback; the persistence endpoint is the architect's call (likely launch-scope to the session, durable-scope to the agent).
