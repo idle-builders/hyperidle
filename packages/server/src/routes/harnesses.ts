@@ -41,10 +41,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
-// AM4: Dedicated rate limiter for POST /redetect only.
-// 1 call per 5s per identity — discoverLocalHarnesses() spawns ~10 execFile probes with 15s
-// timeout each. The global 300/min limiter alone allows a local fork-bomb. (WARNING 3)
-const redetectRateLimiter = createRateLimiter({ limit: 1, windowMs: 5_000 });
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.
@@ -75,6 +71,12 @@ function stampDisabled(
 export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 	const router = new Hono();
 
+	// AM4: Dedicated rate limiter for POST /redetect — created per router instance so
+	// test apps each get an independent bucket (avoids cross-test rate-limit bleed).
+	// 1 call per 5s per identity — discoverLocalHarnesses() spawns ~10 execFile probes
+	// with 15s timeout each; the global 300/min limiter alone allows a local fork-bomb. (WARNING 3)
+	const redetectRateLimiter = createRateLimiter({ limit: 1, windowMs: 5_000 });
+
 	// GET / — list all known harness descriptors with discovery.disabled stamped
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const { harnessDisabled } = await readServerConfig(db);
@@ -84,8 +86,10 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 	});
 
 	// POST /redetect — re-run discovery and return fresh descriptors (with disabled stamped)
-	// Dedicated rate-limiter: 1 call / 5s per identity (fork-bomb guard — WARNING 3)
-	router.post("/redetect", redetectRateLimiter, requireBoundary({ kind: "public-data" }), async (c) => {
+	// requireBoundary must come before the rate-limiter so AF11 assertion sees it declared
+	// even when the rate-limiter returns 429. The dedicated rate-limiter is route-scoped
+	// (fork-bomb guard — WARNING 3): 1 call / 5s per identity.
+	router.post("/redetect", requireBoundary({ kind: "public-data" }), redetectRateLimiter, async (c) => {
 		await pool.refreshDiscoveries();
 		const { harnessDisabled } = await readServerConfig(db);
 		const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
