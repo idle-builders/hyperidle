@@ -43,6 +43,12 @@ const AH6_API_KEY = "ah6-e2e-test-key";
 // Absolute path to the cassettes directory — WARNING-3 compliance.
 const CASSETTES_DIR = path.resolve(Dirname, "e2e/cassettes");
 
+// Absolute path to the cost report written by recordLlm in record mode.
+// ah6-assert-budget.ts reads packages/web/playwright-report-ah6/ah6-cost.json.
+// @lore AH6 CRITICAL-2: This path is passed to the test-server as AH6_COST_REPORT_PATH
+// so recordLlm knows where to write the cost report on flush.
+const COST_REPORT_PATH = path.resolve(Dirname, "playwright-report-ah6/ah6-cost.json");
+
 export default defineConfig({
 	testDir: "./e2e",
 	testMatch: "**/AH6-*.spec.ts",
@@ -89,8 +95,16 @@ export default defineConfig({
 				HYPERIDLE_API_KEY: AH6_API_KEY,
 				HYPERIDLE_CREDENTIAL_KEY: "ah6-e2e-cred-key-32-chars!!!!!",
 				HYPERIDLE_PROFILE: "laptop",
-				// Cassette replay mode — no real LLM API key needed
-				LLM_CASSETTE_MODE: "replay",
+				// CRITICAL-1: Pass LLM_CASSETTE_MODE from the parent env (not hardcoded
+				// to "replay") so `npm run smoke:ah6` (which sets LLM_CASSETTE_MODE=record)
+				// boots the test-server in record mode. Defaults to "replay" when unset
+				// (everyday key-free lane). Hardcoding "replay" here prevented the live
+				// record run from ever making a real call.
+				// @lore AH6 CRITICAL-1: process.env.LLM_CASSETTE_MODE is set by the
+				// smoke orchestrator before spawning Playwright. Without this fix, even
+				// `LLM_CASSETTE_MODE=record npm run test:e2e:ah6` boots the server in
+				// replay mode, silently ignoring the parent env override.
+				LLM_CASSETTE_MODE: process.env.LLM_CASSETTE_MODE ?? "replay",
 				LLM_CASSETTE_DIR: CASSETTES_DIR,
 				// LLM_CASSETTE_SCENARIO defaults to "default" (loads default.json which
 				// contains entries for all three scenarios: S1, S2, S3).
@@ -102,6 +116,17 @@ export default defineConfig({
 				// can build a resolvedModel without throwing MissingCredentialError.
 				// @lore AH6: ah6-test-server.ts also sets this if absent; explicit here for clarity.
 				ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "ah6-e2e-fake-anthropic-key",
+				// CRITICAL-2: Cost report path — recordLlm writes here on flush (record mode).
+				// ah6-assert-budget.ts reads this path. Harmless in replay mode (never written).
+				AH6_COST_REPORT_PATH: COST_REPORT_PATH,
+				// CRITICAL-3: Pass RESOLVE_MODEL_FILE so ah6-test-server.ts can seed the
+				// assistant agent with the dynamically-resolved OpenRouter model id.
+				// In replay mode this env may be absent (ah6-test-server falls back to a
+				// default model). In record mode smoke orchestrator sets this before launch.
+				RESOLVE_MODEL_FILE: process.env.RESOLVE_MODEL_FILE ?? "",
+				// Pass OPENROUTER_API_KEY for record mode (smoke orchestrator sets it).
+				// In replay mode this is absent; ah6-test-server.ts tolerates absence.
+				OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? "",
 			},
 		},
 		{
