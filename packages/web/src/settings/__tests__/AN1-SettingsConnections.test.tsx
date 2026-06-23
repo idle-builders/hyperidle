@@ -480,9 +480,7 @@ describe("AN1 SettingsConnections — remove failure surface (WARN-4)", () => {
 
 		// Confirm? appears — click it.
 		await waitFor(() =>
-			expect(
-				screen.getByRole("button", { name: /confirm remove stripe/i }),
-			).toBeInTheDocument(),
+			expect(screen.getByRole("button", { name: /confirm remove stripe/i })).toBeInTheDocument(),
 		);
 		await user.click(screen.getByRole("button", { name: /confirm remove stripe/i }));
 
