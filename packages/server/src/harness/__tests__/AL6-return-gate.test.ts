@@ -1,21 +1,22 @@
 /**
- * AL6 v3 — Unit tests for ReturnGate observer + force-budget helper.
+ * AL6 v4-final — Unit tests for ReturnGate + force-budget helper.
  *
- * RE-AUTHORED from v2 (W3): deleted the `canForceReturn`-table block (v2 `:332-414`)
- * encoding the rejected Tier-2 reject semantics. Kept: gate detection/exemption/AC5.
- * Added: `hasNativeReturnHook`/`canReEngage` assertions under the v3 semantics.
+ * RE-AUTHORED from v3 (second re-author — v4-final):
+ *   - Deleted: hasNativeReturnHook/canReEngage capability shape tests (v3 fields REMOVED)
+ *   - Deleted: "canForceReturn is GONE" assertion (now returnEnforcement replaces it)
+ *   - Added: returnEnforcement channel declared on every adapter (v4 model)
+ *   - Kept: AC2, AC3, AC5, shouldForceReturn — unchanged
  *
  * Covers:
  *   AC2: Closed return set — every RETURN_ACTION_NAMES member maps to a real tool.
  *   AC3: Detection — not_returned when no return seen; returned when return seen.
  *   AC5: Mid-turn non-terminal tool use is unaffected by the gate.
  *   AC1/forcing (unit): shouldForceReturn helper is bounded at AL6_MAX_FORCE_RETURNS.
- *   v3 capability shape: hasNativeReturnHook (sdk/builtin=true; cli/isolated=false);
- *     canReEngage (ALL in-tree adapters = true).
+ *   v4 capability shape: returnEnforcement channel declared per adapter (non-optional).
  *
- * Tests that import missing v3 behavior FAIL (red) until:
- *   - T1: hasNativeReturnHook / canReEngage added to HarnessCapabilities
- *   - T3: all 5 adapters implement the v3 capability shape
+ * Tests FAIL (red) until:
+ *   - Task 1: returnEnforcement replaces hasNativeReturnHook/canReEngage
+ *   - Tasks 5-8: all adapters implement returnEnforcement
  */
 
 import type { HarnessEvent } from "@hyperidle/shared";
@@ -286,59 +287,36 @@ describe("AL6 — shouldForceReturn helper", () => {
 	});
 });
 
-// ── v3: hasNativeReturnHook / canReEngage capability shape ─────────────────────
+// ── v4: returnEnforcement channel declared per adapter ─────────────────────
 //
-// REPLACES v2's canForceReturn reject-table block (`:332-414`).
+// REPLACES v3's hasNativeReturnHook/canReEngage shape.
 //
-// v3 semantics:
-//   hasNativeReturnHook = optimization hint: true only for sdk+builtin (Layer-A fast-path).
-//   canReEngage         = universal forcing gate: true for ALL in-tree adapters.
+// v4 semantics:
+//   returnEnforcement: non-optional — every adapter must declare its provisioning channel.
+//   The type system forces this (npm run check fails any omission).
 //
-// These tests FAIL (red) until T1 (type) + T3 (all adapters) are shipped:
-//   - hasNativeReturnHook replaces canForceReturn on HarnessCapabilities (T1)
-//   - canReEngage added to HarnessCapabilities (T1)
-//   - All 5 adapters updated to return v3 capability shape (T3)
+// These tests FAIL (red) until Task 1 (type) + Tasks 5-8 (all adapters) ship:
+//   - returnEnforcement replaces hasNativeReturnHook/canReEngage (Task 1)
+//   - All adapters updated with the correct channel (Tasks 5-8)
 
-// AL6 v3 (T1 red): access the v3 fields via cast until T1 ships them.
-// After T1 lands, the cast is redundant but harmless.
-type CapsV3 = import("@hyperidle/shared").HarnessCapabilities & {
-	hasNativeReturnHook?: boolean;
-	canReEngage?: boolean;
-};
+describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 red)", () => {
+	// ── Hard-block adapters ────────────────────────────────────────────────
 
-describe("AL6 v3 — hasNativeReturnHook / canReEngage capability shape (T1/T3 red)", () => {
-	// ── Layer-A fast-path adapters (sdk + builtin): hasNativeReturnHook = true ──
-
-	it("BuiltinHarnessAdapter: hasNativeReturnHook=true (Layer-A fast-path)", () => {
+	it("BuiltinHarnessAdapter: returnEnforcement='builtin-loop'", () => {
 		const adapter = new BuiltinHarnessAdapter();
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3 renames canForceReturn → hasNativeReturnHook
-		expect(caps.hasNativeReturnHook).toBe(true);
+		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until Task 6 adds returnEnforcement:"builtin-loop"
+		expect(caps.returnEnforcement).toBe("builtin-loop");
 	});
 
-	it("ClaudeAgentSdkAdapter: hasNativeReturnHook=true (SDK Stop hook)", () => {
+	it("ClaudeAgentSdkAdapter: returnEnforcement='sdk-inprocess'", () => {
 		const adapter = new ClaudeAgentSdkAdapter();
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.hasNativeReturnHook).toBe(true);
+		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until Task 5 adds returnEnforcement:"sdk-inprocess"
+		expect(caps.returnEnforcement).toBe("sdk-inprocess");
 	});
 
-	// ── External adapters (cli + isolated): hasNativeReturnHook = false ─────────
-
-	it("CliHarnessAdapter: hasNativeReturnHook=false (sandbox-carrier-only, no native hook)", () => {
-		const adapter = new CliHarnessAdapter({
-			binary: "claude-code",
-			args: [],
-			envMap: {},
-			eventFormat: "ndjson",
-			envAllowlist: [],
-		});
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.hasNativeReturnHook).toBe(false);
-	});
-
-	it("IsolatedHarnessAdapter: hasNativeReturnHook=false (sandbox-carrier-only, no native hook)", () => {
+	it("IsolatedHarnessAdapter: returnEnforcement='sdk-inprocess' (inherits inner SDK hook)", () => {
 		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
 		const stubResolver = { resolve: async () => undefined } as any;
 		const adapter = new IsolatedHarnessAdapter(stubResolver, {
@@ -346,62 +324,28 @@ describe("AL6 v3 — hasNativeReturnHook / canReEngage capability shape (T1/T3 r
 			maxDurationMs: 30_000,
 			envAllowlist: [],
 		});
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.hasNativeReturnHook).toBe(false);
+		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until Task 7 adds returnEnforcement:"sdk-inprocess"
+		expect(caps.returnEnforcement).toBe("sdk-inprocess");
 	});
 
-	// ── canReEngage = true on ALL in-tree adapters (v3 universal-forcing guarantee) ─
+	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────
 
-	it("BuiltinHarnessAdapter: canReEngage=true", () => {
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as CapsV3;
-		// FAILS red until T3 adds canReEngage:true
-		expect(caps.canReEngage).toBe(true);
+	it("HarnessCapabilities NO LONGER has hasNativeReturnHook (v3 removed in Task 1)", () => {
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until Task 1/6 removes hasNativeReturnHook
+		expect("hasNativeReturnHook" in caps).toBe(false);
 	});
 
-	it("ClaudeAgentSdkAdapter: canReEngage=true", () => {
-		const caps = new ClaudeAgentSdkAdapter().getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.canReEngage).toBe(true);
+	it("HarnessCapabilities NO LONGER has canReEngage (v3 removed in Task 1)", () => {
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until Task 1/6 removes canReEngage
+		expect("canReEngage" in caps).toBe(false);
 	});
 
-	it("CliHarnessAdapter: canReEngage=true (sandbox-file carrier makes re-engage feasible)", () => {
-		const adapter = new CliHarnessAdapter({
-			binary: "claude-code",
-			args: [],
-			envMap: {},
-			eventFormat: "ndjson",
-			envAllowlist: [],
-		});
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.canReEngage).toBe(true);
-	});
-
-	it("IsolatedHarnessAdapter: canReEngage=true (sandbox-file carrier makes re-engage feasible)", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
-		const stubResolver = { resolve: async () => undefined } as any;
-		const adapter = new IsolatedHarnessAdapter(stubResolver, {
-			maxMemoryMb: 512,
-			maxDurationMs: 30_000,
-			envAllowlist: [],
-		});
-		const caps = adapter.getCapabilities() as CapsV3;
-		// FAILS red until T3
-		expect(caps.canReEngage).toBe(true);
-	});
-
-	// ── v2 canForceReturn is GONE — no adapter should still export it ───────────
-	// These assert the negative: the v2 field must be removed from the type and adapters.
-	// They FAIL red while canForceReturn still exists on HarnessCapabilities (T1 not done).
-
-	it("HarnessCapabilities NO LONGER has canForceReturn (v2 field removed in T1)", () => {
-		// If canForceReturn still exists on any adapter, the field has not been renamed yet.
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
-			string,
-			unknown
-		>;
-		// FAILS red until T1/T3 renames the field — currently canForceReturn=true exists
-		expect("canForceReturn" in caps).toBe(false);
+	it("HarnessAdapter NO LONGER has continueSession? (v3 Mode-2 removed in Task 1)", () => {
+		const adapter = new BuiltinHarnessAdapter() as unknown as Record<string, unknown>;
+		// FAILS red until Task 1 removes continueSession? from the interface
+		expect("continueSession" in adapter).toBe(false);
 	});
 });

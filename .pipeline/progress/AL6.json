@@ -4,7 +4,7 @@
   "track": "AL",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "1-architecture-v4-r2-research-real-harness-hooks",
+  "currentStep": "3-build-v4",
   "startedAt": "2026-06-22T22:34:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
