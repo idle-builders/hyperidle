@@ -1,18 +1,18 @@
 {
   "id": "AL7",
-  "status": "in_progress",
-  "currentStep": "5-docs",
+  "status": "done",
+  "currentStep": "shipped",
   "track": "AL",
   "complexity": "L",
   "dependsOn": [],
   "scopeLock": "execution loop + at-least-one real tool path; staged-operation fixture proof; wide tool coverage is follow-on (AL8). Built in-place on concept/AL7-review-execution-loop (PR #351) per founder — concept + implementation ship as one PR.",
   "startedAt": "2026-06-23T00:00:00Z",
-  "completedAt": null,
+  "completedAt": "2026-06-23T10:00:00Z",
   "branch": "concept/AL7-review-execution-loop",
   "prNumber": 351,
   "prUrl": "https://github.com/ambrovia/hyperidle/pull/351",
   "conceptLocked": "plans/AL7/concept.md + docs/process-layer/staged-operation.md (commit 193c2d56)",
   "blockedAt": null,
   "blockedReason": null,
-  "notes": "CRITICAL-1 live-proof status: github/merge_pr capability is contract-tested (fetch-stub, see AL7-github-capability.test.ts). A live run against a real PR was NOT executed — no GITHUB_TOKEN available in this env. To live-prove: set GITHUB_TOKEN (pull_requests:write scope) and run: GITHUB_TOKEN=ghp_... npx vitest run AL7-github-capability. The at-most-once loop is end-to-end proven via fixture:staged-op in AL7-staged-operation-dispatcher.integration.test.ts. CRITICAL-3 scope-cut: stage-time capability validation is a kernel-held-verb gate (KERNEL_DISPATCHABLE_CAPABILITIES) — it rejects ops whose (capabilityTool, operation) the kernel has no executor for. Per-agent capability provisioning ('this specific agent holds this capability') is deferred to AL8 (tool grant / trust tier) + AM2 (harness capability descriptor, marked OPEN in the concept's StagedOperation shape). Those surfaces do not exist yet — buildToolRegistry gates by ROLE only. AC row (a) 'stage against a capability the agent does NOT hold → stage rejected' is narrowed: AL7 enforces the kernel-held-verb gate; per-agent enforcement is AL8/AM2 downstream work."
+  "notes": "CI-green OPEN PR awaiting human merge — no auto-merge (founder rule). arch 8, design 9, code-review DONE (round 3). Deferrals: live github/merge_pr not run (no GITHUB_TOKEN, loop proven via fixture + DB); per-agent capability provisioning deferred AL8/AM2 (kernel-held-verb gate enforced). CRITICAL-1 live-proof status: github/merge_pr capability is contract-tested (fetch-stub, see AL7-github-capability.test.ts). A live run against a real PR was NOT executed — no GITHUB_TOKEN available in this env. To live-prove: set GITHUB_TOKEN (pull_requests:write scope) and run: GITHUB_TOKEN=ghp_... npx vitest run AL7-github-capability. The at-most-once loop is end-to-end proven via fixture:staged-op in AL7-staged-operation-dispatcher.integration.test.ts. CRITICAL-3 scope-cut: stage-time capability validation is a kernel-held-verb gate (KERNEL_DISPATCHABLE_CAPABILITIES) — it rejects ops whose (capabilityTool, operation) the kernel has no executor for. Per-agent capability provisioning ('this specific agent holds this capability') is deferred to AL8 (tool grant / trust tier) + AM2 (harness capability descriptor, marked OPEN in the concept's StagedOperation shape). Those surfaces do not exist yet — buildToolRegistry gates by ROLE only. AC row (a) 'stage against a capability the agent does NOT hold → stage rejected' is narrowed: AL7 enforces the kernel-held-verb gate; per-agent enforcement is AL8/AM2 downstream work."
 }
