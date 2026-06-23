@@ -154,15 +154,50 @@ Three-way field equivalence (codex ≡ claude-code ≡ builtin) is asserted in `
 
 ---
 
-## API Surface
+## API Surface (as-built — AM2 + AM4)
 
-`GET /api/harnesses` → `HarnessCapabilityDescriptor[]`
+### `GET /api/harnesses` → `HarnessCapabilityDescriptor[]`
 
-The route calls `pool.listCapabilityDescriptors()`, which:
-1. Emits descriptors for all registered adapters (deduped by harness type).
-2. Appends `missingKnownHarnessDescriptors()` for any of the four first-class families not yet registered, using discovery probe results.
+The route handler:
+1. Calls `pool.listCapabilityDescriptors()` — emits descriptors for all registered adapters (deduped by harness type), then appends `missingKnownHarnessDescriptors()` for any of the four first-class families not yet registered.
+2. Reads `readServerConfig(db).harnessDisabled` and stamps `discovery.disabled: true` on each descriptor whose `type` appears in the set. `builtin` is hard-exempt — it is never stamped disabled regardless of config.
+3. Returns the stamped list.
 
 The response never includes API keys, base URLs, subscription tokens, or credential file contents. Route tests assert `not.toContain("apiKey" | "baseUrl" | "sk-" | "subscriptionToken")`.
+
+### `POST /api/harnesses/redetect` → `HarnessCapabilityDescriptor[]`
+
+Re-runs `discoverLocalHarnesses()` server-side, refreshes the pool's discovery snapshot, stamps `discovery.disabled`, and returns the fresh descriptor list. Same shape as GET.
+
+- Auth boundary: `requireBoundary({ kind: "public-data" })` — same as GET.
+- Rate limit: dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` scoped to this route only (not the global 300/min). Excess returns 429. Rationale: `discoverLocalHarnesses()` spawns ~10 `execFile` probes each with a 15 000ms timeout — the global limiter would not protect against fork-bomb amplification.
+- **What re-detect refreshes:** readiness state, version, auth status. **What it does NOT refresh:** runtime capabilities (`fileEditing`, `toolUse`, `mcpSupport`, `subAgents`). Those are gated on `sessionProbe.ok === true` and the session probe is not re-run on re-detect (cost/latency tradeoff; see AM2 `@lore`). Runtime caps remain `false` until AM3 wires the session probe into the dial-in pipeline.
+
+### `POST /api/harnesses/:type/disabled` — enable/disable a backend
+
+Persists the per-harness disabled state by writing to `server_config.harnessDisabled: string[]`.
+
+- Body: `{ disabled: boolean }`
+- `:type` must be a known harness type from `listCapabilityDescriptors()` → 400 on unknown type (prevents arbitrary key injection into the config blob).
+- `{ disabled: true }` for `builtin` → 400/409 (the built-in harness is the always-present fallback and cannot be disabled; enforced as a write-boundary trust check independent of the UI).
+- Returns the fresh `HarnessCapabilityDescriptor[]` with `discovery.disabled` re-stamped.
+- Auth boundary: same as GET. Rate limit: global 300/min (single DB write, no CLI spawns, no amplification).
+
+### `discovery.disabled` field
+
+`HarnessDiscoveryStatus` carries an optional `discovery.disabled?: boolean` field (additive, does not break AM2/AH2 contract tests). It is **stamped in the route handler** — not by `listCapabilityDescriptors()` — because the pool is DB-free and `listCapabilityDescriptors()` is synchronous. The handler reads `readServerConfig(db).harnessDisabled` and maps disabled state over the descriptor list on every GET/redetect/disable response.
+
+---
+
+## Enable/Disable and `AdapterPool.select()`
+
+AM4 adds a real per-harness enable/disable control backed by persisted config. When a backend is disabled:
+
+1. **UI:** the backend row renders dimmed with `Toggle` off and "Disabled — …" status line; the capabilities fold hides.
+2. **Session selection:** `AdapterPool.select()` skips the disabled backend. The disabled set is passed in by the **caller** (`admitSession` in `session-provisioning.ts`) via a new `disabledTypes?: readonly string[]` field on `SelectRequirements`. The pool itself is DB-free and synchronous — it cannot read config. `admitSession` reads `readServerConfig(db).harnessDisabled` and spreads `disabledTypes` into `selectRequirements` before calling `select()`.
+3. **Builtin hard-exemption:** `select()` HARD-EXEMPTS `type === "builtin"` from the disabled filter regardless of what the persisted set contains. This is a back-stop against hand-edited or stale config — the always-present fallback can never be stranded.
+
+The `builtin` hard-exemption is enforced in two independent places: the `select()` filter (back-stop) and the `POST /:type/disabled` write boundary (front-door) — both, not either/or.
 
 ---
 
@@ -187,6 +222,8 @@ The response never includes API keys, base URLs, subscription tokens, or credent
 | **Evidence chain** | The traceable path: dossier → architecture → implementation → real integration test |
 | **Normalized harness event** | Backend-native event mapped into `HarnessEvent` before downstream consumers see it |
 | **`UnknownHarnessEvent`** | Fallback for unrecognized native event types; preserves the raw type string in an `error` event |
+| **`discovery.disabled`** | Optional boolean stamped by the route handler (not the pool) from `server_config.harnessDisabled`; `true` means the user has disabled this backend |
+| **`harnessDisabled`** | `string[]` key in the `server_config` blob listing harness types the user has disabled; `builtin` is always exempt |
 
 ---
 
