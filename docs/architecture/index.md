@@ -21,6 +21,7 @@ This document describes the parts of HyperIdle, how they interface with each oth
 - [Deployment Architecture](./deployment-architecture.md)
 - [Data Flow Examples](./data-flow-examples.md)
 - [What This Architecture Does Not Include](./what-this-architecture-does-not-include.md)
+- [System Boundary — HyperIdle vs. git-host / CI / deploy](./system-boundary.md) — ride the git substrate (local-first), integrate CI/registries/SSO via API/MCP, replace the human-centric collaboration layer (review/planning/knowledge); the trigger-not-executor seam
 - [Decisions](./decisions.md)
 - [Event bus guarantees](./event-bus-guarantees.md)
 - [WebSocket push contract](./websocket-push-contract.md)
