@@ -1,22 +1,24 @@
 /**
- * AL6 v2 — Unit tests for ReturnGate observer + force-budget helper.
+ * AL6 v3 — Unit tests for ReturnGate observer + force-budget helper.
+ *
+ * RE-AUTHORED from v2 (W3): deleted the `canForceReturn`-table block (v2 `:332-414`)
+ * encoding the rejected Tier-2 reject semantics. Kept: gate detection/exemption/AC5.
+ * Added: `hasNativeReturnHook`/`canReEngage` assertions under the v3 semantics.
  *
  * Covers:
+ *   AC2: Closed return set — every RETURN_ACTION_NAMES member maps to a real tool.
  *   AC3: Detection — not_returned when no return seen; returned when return seen.
  *   AC5: Mid-turn non-terminal tool use is unaffected by the gate.
- *   AC1/forcing (unit): the force-budget helper injects the forcing message up to
- *     AL6_MAX_FORCE_RETURNS times, then falls through (returns null so the caller
- *     applies Tier-2 reject). Must NEVER inject more than AL6_MAX_FORCE_RETURNS times.
+ *   AC1/forcing (unit): shouldForceReturn helper is bounded at AL6_MAX_FORCE_RETURNS.
+ *   v3 capability shape: hasNativeReturnHook (sdk/builtin=true; cli/isolated=false);
+ *     canReEngage (ALL in-tree adapters = true).
  *
- * Tests that import AL6_FORCE_RETURN_MESSAGE / AL6_MAX_FORCE_RETURNS / shouldForceReturn
- * WILL FAIL (red) until T1 (shared constants) and the forcing helper are implemented.
+ * Tests that import missing v3 behavior FAIL (red) until:
+ *   - T1: hasNativeReturnHook / canReEngage added to HarnessCapabilities
+ *   - T3: all 5 adapters implement the v3 capability shape
  */
 
 import type { HarnessEvent } from "@hyperidle/shared";
-// AL6 v2 T1 (red): AL6_FORCE_RETURN_MESSAGE / AL6_MAX_FORCE_RETURNS /
-// shouldForceReturn are not yet exported from @hyperidle/shared. Access them
-// via the module namespace with 'any' cast to avoid TS2305 errors. The tests
-// that reference them will fail red (value is undefined) until T1 ships.
 import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
@@ -25,13 +27,9 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { IsolatedHarnessAdapter } from "../isolated-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
-// biome-ignore lint/suspicious/noExplicitAny: T1 red — accessing not-yet-exported members
+// biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
 const sharedNs = sharedAll as Record<string, any>;
 
-// Cast to concrete types so strict mode doesn't error on usage sites.
-// At runtime these are `undefined` (T1 not shipped yet) → tests fail red
-// with "TypeError: not a function" or "expected undefined to be 'string'",
-// which is the correct missing-behavior failure mode.
 const AL6_FORCE_RETURN_MESSAGE: string = sharedNs.AL6_FORCE_RETURN_MESSAGE;
 const AL6_MAX_FORCE_RETURNS: number = sharedNs.AL6_MAX_FORCE_RETURNS;
 const shouldForceReturn: (
@@ -54,7 +52,6 @@ function completionEvent(text = "done"): HarnessEvent {
 describe("ReturnGate — AC3: detection (not_returned when no return seen)", () => {
 	it("verdicts 'not_returned' when stream exhausts with no return action", () => {
 		const gate = createReturnGate();
-		// Observe non-return tool calls + a completion, but NO return action
 		gate.observe(toolCallEvent("read_inbox"));
 		gate.observe(toolCallEvent("write_memory", { key: "foo", value: "bar" }));
 		gate.observe(completionEvent());
@@ -107,7 +104,6 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 describe("ReturnGate — AC3: exemptions (non-completion end-reasons never flagged)", () => {
 	it("'crashed' end-reason is exempt — never flagged not_returned", () => {
 		const gate = createReturnGate();
-		// Stream had no return action (agent crashed before it could return)
 		gate.observe(toolCallEvent("read_inbox"));
 
 		expect(evaluateReturn(gate, "crashed")).toBe("returned");
@@ -122,7 +118,6 @@ describe("ReturnGate — AC3: exemptions (non-completion end-reasons never flagg
 
 	it("'budget_exhausted' end-reason is exempt", () => {
 		const gate = createReturnGate();
-		// No return action before budget cut
 		expect(evaluateReturn(gate, "budget_exhausted")).toBe("returned");
 	});
 });
@@ -147,7 +142,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 		for (const name of midTurnTools) {
 			gate.observe(toolCallEvent(name, {}));
 		}
-		// Confirm still not-returned at this point
 		expect(gate.returned).toBe(false);
 
 		gate.observe(toolCallEvent("submit_review", { message: "Done" }));
@@ -171,7 +165,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 		gate.observe({ type: "token_usage", inputTokens: 100, outputTokens: 50 });
 		gate.observe({ type: "cost_update", totalCost: 1.0, deltaCost: 0.5 });
 
-		// No tool_call emitted — gate must see no return
 		expect(gate.returned).toBe(false);
 		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
@@ -194,8 +187,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 	it("error event does not count as a return action", () => {
 		const gate = createReturnGate();
 		gate.observe({ type: "error", message: "tool failed", code: "ETOOLBROKE" });
-		// A crashed event path would be exempt via evaluateReturn, but the gate
-		// itself must not see the error event as a return.
 		expect(gate.returned).toBe(false);
 	});
 });
@@ -205,7 +196,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 describe("ReturnGate — AC5: gate is observation-only", () => {
 	it("observe() on a return tool_call does not throw or intercept", () => {
 		const gate = createReturnGate();
-		// The gate must be passive: it can't prevent the event from proceeding
 		expect(() => gate.observe(toolCallEvent("submit_review", {}))).not.toThrow();
 	});
 
@@ -215,55 +205,35 @@ describe("ReturnGate — AC5: gate is observation-only", () => {
 
 		gateA.observe(toolCallEvent("submit_review", {}));
 
-		// gateB must be unaffected by gateA's observation
 		expect(gateA.returned).toBe(true);
 		expect(gateB.returned).toBe(false);
 	});
 });
 
-// ── v2: Shared constants exist and are correctly shaped ─────────────────────
-// These tests FAIL (red) until T1 ships AL6_FORCE_RETURN_MESSAGE + AL6_MAX_FORCE_RETURNS.
+// ── Shared constants (kept, already green from v2) ───────────────────────────
 
-describe("AL6 v2 — shared forcing constants (T1 red)", () => {
+describe("AL6 — shared forcing constants", () => {
 	it("AL6_FORCE_RETURN_MESSAGE is a non-empty string naming the three return tools", () => {
 		expect(typeof AL6_FORCE_RETURN_MESSAGE).toBe("string");
 		expect(AL6_FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
-		// Must name the three canonical return tools
 		expect(AL6_FORCE_RETURN_MESSAGE).toContain("submit_review");
 		expect(AL6_FORCE_RETURN_MESSAGE).toContain("handoff_to");
 		expect(AL6_FORCE_RETURN_MESSAGE).toContain("send_message");
 	});
 
-	it("AL6_MAX_FORCE_RETURNS is a positive integer (the force-continue budget)", () => {
+	it("AL6_MAX_FORCE_RETURNS is 2 (architecture-specified budget)", () => {
 		expect(typeof AL6_MAX_FORCE_RETURNS).toBe("number");
 		expect(Number.isInteger(AL6_MAX_FORCE_RETURNS)).toBe(true);
-		expect(AL6_MAX_FORCE_RETURNS).toBeGreaterThan(0);
-	});
-
-	it("AL6_MAX_FORCE_RETURNS === 2 (the architecture-specified budget)", () => {
-		// The plan names N=2 explicitly (concept §3.4). This test pins the constant.
-		// Changing N=2 must be a deliberate arch decision, caught here.
 		expect(AL6_MAX_FORCE_RETURNS).toBe(2);
 	});
 });
 
-// ── v2: Force-budget helper (shouldForceReturn) ───────────────────────────────
-// These tests FAIL (red) until the shouldForceReturn helper is exported from @hyperidle/shared.
-//
-// shouldForceReturn(gate, forceCount) behavior:
-//   - gate.returned === true → return null (return was seen; no force needed)
-//   - gate.returned === false AND forceCount < AL6_MAX_FORCE_RETURNS
-//       → return AL6_FORCE_RETURN_MESSAGE (inject forcing message, increment budget outside)
-//   - gate.returned === false AND forceCount >= AL6_MAX_FORCE_RETURNS
-//       → return null (budget spent; fall through to Tier-2 reject)
-//
-// The CALLER increments forceCount and re-prompts. shouldForceReturn is pure.
+// ── Force-budget helper (shouldForceReturn) ───────────────────────────────────
 
-describe("AL6 v2 — shouldForceReturn helper (T1 red)", () => {
+describe("AL6 — shouldForceReturn helper", () => {
 	it("returns null when return was already seen (gate.returned === true)", () => {
 		const gate = createReturnGate();
 		gate.observe(toolCallEvent("submit_review", {}));
-		// Return was seen — no force needed regardless of forceCount
 		expect(shouldForceReturn(gate, 0)).toBeNull();
 		expect(shouldForceReturn(gate, 1)).toBeNull();
 		expect(shouldForceReturn(gate, 99)).toBeNull();
@@ -271,124 +241,91 @@ describe("AL6 v2 — shouldForceReturn helper (T1 red)", () => {
 
 	it("returns AL6_FORCE_RETURN_MESSAGE on first no-return stop attempt (forceCount=0)", () => {
 		const gate = createReturnGate();
-		// No return seen, budget not started
 		expect(shouldForceReturn(gate, 0)).toBe(AL6_FORCE_RETURN_MESSAGE);
 	});
 
 	it("returns AL6_FORCE_RETURN_MESSAGE on second no-return stop attempt (forceCount=1)", () => {
 		const gate = createReturnGate();
-		// No return seen, one force already done
 		expect(shouldForceReturn(gate, 1)).toBe(AL6_FORCE_RETURN_MESSAGE);
 	});
 
 	it("returns null (budget exhausted) when forceCount === AL6_MAX_FORCE_RETURNS", () => {
 		const gate = createReturnGate();
-		// Budget exactly spent — fall through to Tier-2 reject, never inject again
 		expect(shouldForceReturn(gate, AL6_MAX_FORCE_RETURNS)).toBeNull();
 	});
 
 	it("returns null (budget exhausted) when forceCount > AL6_MAX_FORCE_RETURNS", () => {
 		const gate = createReturnGate();
-		// Over-budget — also null; the loop cannot run forever
 		expect(shouldForceReturn(gate, AL6_MAX_FORCE_RETURNS + 1)).toBeNull();
 		expect(shouldForceReturn(gate, 100)).toBeNull();
 	});
 
-	it("force is bounded: exactly AL6_MAX_FORCE_RETURNS injections, then null (never loops forever)", () => {
-		// Model a turn where the agent keeps refusing to return.
-		// Simulate the forceCount incrementing as the caller re-prompts.
+	it("force is bounded: exactly AL6_MAX_FORCE_RETURNS injections, then null", () => {
 		const gate = createReturnGate();
 		const injections: (string | null)[] = [];
-
-		// Simulate the loop: each iteration checks shouldForceReturn and increments
 		let forceCount = 0;
 		for (let attempt = 0; attempt <= AL6_MAX_FORCE_RETURNS + 1; attempt++) {
 			const msg = shouldForceReturn(gate, forceCount);
 			injections.push(msg);
 			if (msg !== null) forceCount++;
 		}
-
-		// The first AL6_MAX_FORCE_RETURNS calls return the message; thereafter null
 		const forceMessages = injections.filter((m) => m !== null);
 		const nullResponses = injections.filter((m) => m === null);
 
 		expect(forceMessages).toHaveLength(AL6_MAX_FORCE_RETURNS);
 		expect(nullResponses.length).toBeGreaterThan(0);
-		// After the budget is spent the remaining calls all return null
 		expect(injections[AL6_MAX_FORCE_RETURNS]).toBeNull();
 	});
 
 	it("shouldForceReturn is pure: same inputs same output, no mutation of gate", () => {
 		const gate = createReturnGate();
-		// Calling shouldForceReturn must NOT mutate gate.returned
 		const result1 = shouldForceReturn(gate, 0);
 		const result2 = shouldForceReturn(gate, 0);
 		expect(result1).toBe(result2);
-		// gate.returned is still false — shouldForceReturn is read-only
 		expect(gate.returned).toBe(false);
 	});
 });
 
-// ── v2: canForceReturn table — per-adapter capability bit (AC4 static) ──────
-// The canForceReturn capability is a static type property added in T1/T2.
-// AC4's per-adapter table (SDK: true, builtin: true, cli: false, remote: false,
-// isolated: false) is enforced by the type system. The runtime test asserts that
-// mock / stub adapters can be created with either value, covering the type surface.
-// The real-adapter canForceReturn table is AC4's static property tested via
-// `npm run check` (every getCapabilities() must include the field).
-// This unit test just pins the structural expectation so green cannot omit the field.
-
-// v2: canForceReturn is added to HarnessCapabilities in T1. Until T1 ships, access
-// the field via a cast so this test RUNS (and fails red) instead of failing to compile.
-type CapsV2 = import("@hyperidle/shared").HarnessCapabilities & { canForceReturn?: boolean };
-
-describe("AL6 v2 — canForceReturn capability bit exists on HarnessCapabilities (AC4)", () => {
-	it("a HarnessCapabilities object with canForceReturn:true satisfies the type", () => {
-		// After T1 ships the cast is redundant. The RUNTIME assertion (read the field)
-		// fails red while the field is absent (undefined !== true), and passes green
-		// once T1 adds canForceReturn to HarnessCapabilities.
-		const caps = {
-			preCompactionTrigger: true,
-			subAgents: true,
-			modelProviders: ["anthropic"],
-			mcpSupport: false,
-			canForceReturn: true, // T1: Tier-1 force adapter
-		} as CapsV2;
-		expect(caps.canForceReturn).toBe(true);
-	});
-
-	it("a HarnessCapabilities object with canForceReturn:false satisfies the type", () => {
-		const caps = {
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: [],
-			mcpSupport: true,
-			canForceReturn: false, // T1: Tier-2 reject adapter
-		} as CapsV2;
-		expect(caps.canForceReturn).toBe(false);
-	});
-});
-
-// ── AL6 v2 T8 — Real-adapter canForceReturn table (AC4b) ─────────────────────
+// ── v3: hasNativeReturnHook / canReEngage capability shape ─────────────────────
 //
-// @lore AL6 v2 T8: Each real adapter must report the correct capability bit.
-// Tier-1 adapters (builtin, SDK) can force-return the agent in-flight;
-// Tier-2 adapters (cli, isolated) have no in-process hook and reject the turn.
-// RemoteHarnessAdapter is omitted here because its constructor requires a live
-// WebSocket connection — its canForceReturn:false is enforced by the type system.
+// REPLACES v2's canForceReturn reject-table block (`:332-414`).
+//
+// v3 semantics:
+//   hasNativeReturnHook = optimization hint: true only for sdk+builtin (Layer-A fast-path).
+//   canReEngage         = universal forcing gate: true for ALL in-tree adapters.
+//
+// These tests FAIL (red) until T1 (type) + T3 (all adapters) are shipped:
+//   - hasNativeReturnHook replaces canForceReturn on HarnessCapabilities (T1)
+//   - canReEngage added to HarnessCapabilities (T1)
+//   - All 5 adapters updated to return v3 capability shape (T3)
 
-describe("AL6 v2 T8 — Real-adapter canForceReturn capability table (AC4b)", () => {
-	it("BuiltinHarnessAdapter (Tier-1) reports canForceReturn=true", () => {
+// AL6 v3 (T1 red): access the v3 fields via cast until T1 ships them.
+// After T1 lands, the cast is redundant but harmless.
+type CapsV3 = import("@hyperidle/shared").HarnessCapabilities & {
+	hasNativeReturnHook?: boolean;
+	canReEngage?: boolean;
+};
+
+describe("AL6 v3 — hasNativeReturnHook / canReEngage capability shape (T1/T3 red)", () => {
+	// ── Layer-A fast-path adapters (sdk + builtin): hasNativeReturnHook = true ──
+
+	it("BuiltinHarnessAdapter: hasNativeReturnHook=true (Layer-A fast-path)", () => {
 		const adapter = new BuiltinHarnessAdapter();
-		expect(adapter.getCapabilities().canForceReturn).toBe(true);
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3 renames canForceReturn → hasNativeReturnHook
+		expect(caps.hasNativeReturnHook).toBe(true);
 	});
 
-	it("ClaudeAgentSdkAdapter (Tier-1) reports canForceReturn=true", () => {
+	it("ClaudeAgentSdkAdapter: hasNativeReturnHook=true (SDK Stop hook)", () => {
 		const adapter = new ClaudeAgentSdkAdapter();
-		expect(adapter.getCapabilities().canForceReturn).toBe(true);
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.hasNativeReturnHook).toBe(true);
 	});
 
-	it("CliHarnessAdapter (Tier-2) reports canForceReturn=false", () => {
+	// ── External adapters (cli + isolated): hasNativeReturnHook = false ─────────
+
+	it("CliHarnessAdapter: hasNativeReturnHook=false (sandbox-carrier-only, no native hook)", () => {
 		const adapter = new CliHarnessAdapter({
 			binary: "claude-code",
 			args: [],
@@ -396,12 +333,12 @@ describe("AL6 v2 T8 — Real-adapter canForceReturn capability table (AC4b)", ()
 			eventFormat: "ndjson",
 			envAllowlist: [],
 		});
-		expect(adapter.getCapabilities().canForceReturn).toBe(false);
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.hasNativeReturnHook).toBe(false);
 	});
 
-	it("IsolatedHarnessAdapter (Tier-2) reports canForceReturn=false", () => {
-		// IsolatedHarnessAdapter needs a credential resolver and isolation config.
-		// Supply minimal stubs — only getCapabilities() is tested, no session is started.
+	it("IsolatedHarnessAdapter: hasNativeReturnHook=false (sandbox-carrier-only, no native hook)", () => {
 		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
 		const stubResolver = { resolve: async () => undefined } as any;
 		const adapter = new IsolatedHarnessAdapter(stubResolver, {
@@ -409,6 +346,59 @@ describe("AL6 v2 T8 — Real-adapter canForceReturn capability table (AC4b)", ()
 			maxDurationMs: 30_000,
 			envAllowlist: [],
 		});
-		expect(adapter.getCapabilities().canForceReturn).toBe(false);
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.hasNativeReturnHook).toBe(false);
+	});
+
+	// ── canReEngage = true on ALL in-tree adapters (v3 universal-forcing guarantee) ─
+
+	it("BuiltinHarnessAdapter: canReEngage=true", () => {
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as CapsV3;
+		// FAILS red until T3 adds canReEngage:true
+		expect(caps.canReEngage).toBe(true);
+	});
+
+	it("ClaudeAgentSdkAdapter: canReEngage=true", () => {
+		const caps = new ClaudeAgentSdkAdapter().getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.canReEngage).toBe(true);
+	});
+
+	it("CliHarnessAdapter: canReEngage=true (sandbox-file carrier makes re-engage feasible)", () => {
+		const adapter = new CliHarnessAdapter({
+			binary: "claude-code",
+			args: [],
+			envMap: {},
+			eventFormat: "ndjson",
+			envAllowlist: [],
+		});
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.canReEngage).toBe(true);
+	});
+
+	it("IsolatedHarnessAdapter: canReEngage=true (sandbox-file carrier makes re-engage feasible)", () => {
+		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
+		const stubResolver = { resolve: async () => undefined } as any;
+		const adapter = new IsolatedHarnessAdapter(stubResolver, {
+			maxMemoryMb: 512,
+			maxDurationMs: 30_000,
+			envAllowlist: [],
+		});
+		const caps = adapter.getCapabilities() as CapsV3;
+		// FAILS red until T3
+		expect(caps.canReEngage).toBe(true);
+	});
+
+	// ── v2 canForceReturn is GONE — no adapter should still export it ───────────
+	// These assert the negative: the v2 field must be removed from the type and adapters.
+	// They FAIL red while canForceReturn still exists on HarnessCapabilities (T1 not done).
+
+	it("HarnessCapabilities NO LONGER has canForceReturn (v2 field removed in T1)", () => {
+		// If canForceReturn still exists on any adapter, the field has not been renamed yet.
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		// FAILS red until T1/T3 renames the field — currently canForceReturn=true exists
+		expect("canForceReturn" in caps).toBe(false);
 	});
 });

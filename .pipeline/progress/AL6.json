@@ -3,16 +3,13 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "done",
-  "currentStep": "shipped",
+  "status": "in_progress",
+  "currentStep": "3-build-v3",
   "startedAt": "2026-06-22T22:34:00+02:00",
-  "completedAt": "2026-06-23T04:10:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
-  "reviewVerdict": "DONE",
-  "version": "v2",
-  "reopenedAt": "2026-06-23T00:40:00+02:00",
-  "reopenReason": "founder-rejected v1 (flag-only, no hook mechanism, no live eval). Re-architected.",
-  "notes": "v2: two-tier forcing — Tier-1 (SDK Stop hook + builtin re-inject, N=2) forces return; Tier-2 (cli/remote/isolated) rejects to SessionOutcome 'not_returned' persisted to row + bus event. Uniform never-completed-without-return guarantee. Live force-return eval ran on real model (deepseek-v4-pro) score 1.000/1.000. Review DONE."
+  "reopenedAt": "2026-06-23T05:00:00+02:00",
+  "reopenReason": "founder-rejected v2: forcing built for Claude(SDK)+builtin only (canForceReturn:true); cli/remote/isolated are reject-only (no actual forcing) — AC4 'enforcement uniform regardless of harness' unmet. Need harness-agnostic forcing (provisioning-layer re-prompt loop; native Stop hook = fast-path optimization only). Live eval must cover a non-builtin/external harness.",
+  "notes": "v3: make forcing harness-agnostic. Re-prompt loop at provisioning/drain layer re-engages ANY adapter on a no-return turn; native hooks are an optimization, not the only force path. Prove on an external (cli-shaped) harness via live eval."
 }

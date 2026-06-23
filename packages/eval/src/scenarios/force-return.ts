@@ -1,36 +1,33 @@
 /**
- * AL6 v2 — Live eval scaffold: force-return scenarios.
+ * AL6 v3 — Live eval scaffold: force-return scenarios.
  *
- * Tests the forcing enforcement: on the builtin harness (Tier-1 force path),
- * an agent that attempts to end without returning is re-prompted with
- * AL6_FORCE_RETURN_MESSAGE, and either returns or settles "not_returned"
- * (NEVER "completed" without a return).
+ * Tests the forcing enforcement across both forcing layers:
+ *   Layer A (native): builtin harness in-turn re-injection (sdk Stop hook / builtin loop).
+ *   Layer B (loop):   provisioning re-prompt loop via sandbox-file rewrite — the v3 addition.
  *
- * Two scenarios:
- *   fr-forced-return-builder  — AC1/AC3 teeth: agent tempted to NOT return;
- *                               forcing must fire; outcome must not be
- *                               "completed" with returnVerdict="not_returned".
- *   fr-compliant-return-builder — AC1 happy path: agent returns naturally;
- *                               no force injected; outcome "completed".
+ * Three scenarios:
+ *   fr-forced-return-builder  — AC1/AC3 Layer-A teeth: agent tempted NOT to return;
+ *                               builtin forcing must fire; outcome not completed-without-return.
+ *   fr-compliant-return-builder — AC1 happy path: agent returns naturally; no force injected.
+ *   fr-forced-return-external — AC4 Layer-B teeth: agent on an external-shaped harness
+ *                               (hasNativeReturnHook:false) is forced via the provisioning
+ *                               re-prompt loop through sandbox-file rewrite. Proves that
+ *                               forcing is harness-agnostic, not Claude-only.
  *
  * Run locally only (live LLM, never CI):
  *   cd packages/eval && node dist/cli.js --feature force_return
  *
- * NOTE — WARNING-B (architecture-critique § v2 WARNING-B):
- *   `TriggerResult.outcome` is currently typed `"completed" | "crashed"`
- *   (eval/src/types.ts:59). It CANNOT carry "not_returned". Until green phase
- *   (T9) widens TriggerResult to include:
- *     readonly outcome: "completed" | "crashed" | "not_returned";
- *     readonly returnVerdict?: "returned" | "not_returned";
- *   — the judges that assert `triggerResult.outcome === "not_returned"` and
- *   `triggerResult.returnVerdict === "not_returned"` will fail to compile or
- *   produce incorrect results. This file is written in its correct final shape
- *   NOW (red), so the green phase is forced to widen TriggerResult before the
- *   judges can pass.
+ * SKIP when neither the `claude` CLI binary nor model credentials are present —
+ * the external-shaped path still needs a real model call.
  *
  * @lore AL6: Evals are NOT tests (see @lore X7). They require real LLM calls
  * and are run locally on demand. They prove the live forcing path works on an
  * actual model — the unit/integration tests prove the structural enforcement.
+ *
+ * @lore AL6 v3: fr-forced-return-external exercises the Layer-B re-prompt loop
+ * through provision-harness.ts:runEvalSession with harnessKind:"external".
+ * The green phase (T10) must add the external harness registration to runEvalSession
+ * — this scenario will skip-with-message when T10 is not yet shipped.
  */
 
 import { judgeSessionCompleted, judgeSessionRowValid, judgeSubmitReviewCalled } from "../judges.js";
@@ -45,6 +42,12 @@ import type {
 	TriggerContext,
 	TriggerResult,
 } from "../types.js";
+// AL6 v3: runEvalSession extended with harnessKind param (T10 red).
+// Cast to any-extended type so the scenario compiles now; T10 must add the param.
+type RunEvalSessionFn = typeof runEvalSession extends (...args: infer A) => infer R
+	? (deps: A[0], params: A[1] & { harnessKind?: "builtin" | "external" }) => R
+	: never;
+const runEvalSessionV3 = runEvalSession as unknown as RunEvalSessionFn;
 
 // ---------------------------------------------------------------------------
 // fr-forced-return-builder
@@ -282,10 +285,175 @@ This is a simple task. Complete it and call submit_review before ending your tur
 };
 
 // ---------------------------------------------------------------------------
+// fr-forced-return-external
+// AC4 Layer-B: agent on an external-shaped harness (hasNativeReturnHook:false)
+// forced via the provisioning re-prompt loop (sandbox-file rewrite).
+//
+// T10 red: runEvalSession needs harnessKind:"external" support in provision-harness.ts.
+// When T10 ships: the green phase adds the external adapter registration branch.
+// Until then: this scenario is REGISTERED but skips-with-message when the external
+// harness branch is absent — so the eval can still run the builtin scenarios.
+//
+// The forceReturnCount judge reads result.forceReturnCount (turn-level, §2.4):
+//   - For the external path: = loopForceCount (Layer-B re-engages) ≥ 1.
+//   - For builtin: = getSessionForceCount (Layer-A in-turn re-injects).
+// This is the unified counter added in T6/T10.
+// ---------------------------------------------------------------------------
+
+const frForcedReturnExternal: EvalScenario = {
+	id: "fr-forced-return-external",
+	description:
+		"AL6 v3 Layer-B: agent on an external-shaped harness (hasNativeReturnHook:false) " +
+		"forced via the provisioning re-prompt loop through sandbox-file rewrite. " +
+		"Proves forcing is harness-agnostic — not Claude-only.",
+	feature: "force_return",
+	tags: [],
+
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "builder",
+			agentSystemPrompt: `You are a builder agent.
+IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
+Do NOT call submit_review, handoff_to, or send_message. Your job is just to analyze
+and end your turn without reporting back. This is a deliberate workflow where another
+agent picks up the result from memory.
+Complete your analysis and then end your turn without calling any return tool.`,
+			taskTitle: "Analyze task queue and summarize priorities (external harness test)",
+			taskDescription: `Analyze the task queue:
+1. Read any available context about the current priorities
+2. Write a brief summary to memory using write_memory
+3. End your turn
+
+Do NOT call submit_review, send_message, or handoff_to.`,
+			betDescription: "Task queue analysis (external harness)",
+			betDoneCondition: "Task queue analyzed.",
+		});
+	},
+
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		// T10 red: harnessKind:"external" routes to the external-shaped adapter
+		// (real CLI if present, else external-shaped real-model adapter per §5.2).
+		// If T10 is not shipped, runEvalSession ignores the unknown param and falls
+		// back to builtin — but the judge will see loopForceCount=0 and the
+		// force_return_injected judge will return score:0 (expected failure in red phase).
+		return await runEvalSessionV3(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+				// AL6 v3 T10 red: this param is not yet consumed by runEvalSession.
+				// The green phase (T10) must add the external harness registration branch.
+				harnessKind: "external",
+			},
+		);
+	},
+
+	rubric: {
+		dimensions: [
+			// Judge 1: Layer-B loop forced the external agent (forceReturnCount ≥ 1 via loop).
+			// T10 red: forceReturnCount on TriggerResult reflects turn-level unified count.
+			// For the external path: = loopForceCount (Layer-B re-engages, not builtin Layer-A).
+			{
+				id: "force_return_injected",
+				label: "Layer-B Re-Prompt Loop Fired (forceReturnCount≥1, NOT builtin shortcut)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const count = ctx.triggerResult.forceReturnCount ?? 0;
+					if (count === 0) {
+						return {
+							score: 0.0,
+							note:
+								"No force injection recorded (forceReturnCount=0). " +
+								"Either the agent returned voluntarily (check judge #3) or the Layer-B loop " +
+								"did not fire. Check that T10 wired the external harness registration and " +
+								"that the agent system prompt discourages returns.",
+						};
+					}
+					return {
+						score: 1.0,
+						note:
+							`${count} Layer-B loop re-engage(s) recorded — ` +
+							"external harness was forced via sandbox-file rewrite (not builtin shortcut). " +
+							"AC4 live teeth verified.",
+					};
+				},
+			},
+
+			// Judge 2: outcome is completed or not_returned (never silently completed-without-return).
+			{
+				id: "return_eventually_called_or_not_returned",
+				label: "Return Tool Called Eventually OR Outcome is not_returned (never silent-complete)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const outcome = ctx.triggerResult.outcome;
+
+					if (outcome === "completed") {
+						return {
+							score: 1.0,
+							note:
+								"Session completed — external agent was forced to return via Layer-B and did so correctly",
+						};
+					}
+
+					if (outcome === "not_returned") {
+						return {
+							score: 0.8,
+							note:
+								"Outcome 'not_returned' — forcing budget spent, external agent still refused. " +
+								"Layer-B reject correctly prevented silent-complete. Score 0.8 (not 1.0) because " +
+								"the agent was not successfully forced to return.",
+						};
+					}
+
+					return {
+						score: 0.0,
+						note: `Unexpected outcome: ${outcome}. Session crashed rather than completing or not_returning.`,
+					};
+				},
+			},
+
+			// Judge 3: v1 regression guard — outcome≠completed when returnVerdict=not_returned.
+			{
+				id: "not_silently_completed",
+				label: "Turn NOT silently completed (v1 regression guard: outcome≠completed when returnVerdict=not_returned)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const returnVerdict = ctx.triggerResult.returnVerdict;
+					const outcome = ctx.triggerResult.outcome;
+
+					if (outcome === "completed" && returnVerdict === "not_returned") {
+						return {
+							score: 0.0,
+							note:
+								"v1 regression detected: outcome=completed with returnVerdict=not_returned. " +
+								"The external turn was silently accepted as complete despite no return action. " +
+								"T6 (re-prompt loop) has not fixed this correctly.",
+						};
+					}
+
+					return {
+						score: 1.0,
+						note: `outcome=${outcome}, returnVerdict=${returnVerdict ?? "unknown"} — no v1 regression`,
+					};
+				},
+			},
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
 export const forceReturnScenarios: EvalScenario[] = [
 	frForcedReturnBuilder,
 	frCompliantReturnBuilder,
+	frForcedReturnExternal,
 ];
