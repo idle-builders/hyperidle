@@ -1,15 +1,13 @@
 /**
- * AN1 design variants — the connect / manage-connections surface.
+ * Canonical approved design fixture for the Connections settings surface.
  *
- * THREE NOVEL variants rendered as populated real-state stories (no empty /
- * loading / error — project rule: initial variants render the populated real
- * state only). Each variant composes ONLY catalogued design-system primitives
- * (Row, ItemList, SectionLabel, StatusChip, Tag, Button, Menu, TabBar, Dialog,
- * Input, Select) — zero new shapes (see plans/AN1/design/brief.md reuse inventory).
+ * Single render — "Inherited-default": connections grouped by auth source, with
+ * the harness/env group first (the first-class signal: HyperIdle stores nothing,
+ * auth lives where the user set it up). Matches the visual contract implemented
+ * in SettingsConnections.tsx.
  *
- * These are DESIGN ARTIFACTS for /design + /human-design-review. The production
- * SettingsConnections.tsx is the builder's job; these stories define the visual
- * contract the build renders.
+ * Composes only catalogued design-system primitives (Row, ItemList, SectionLabel,
+ * StatusChip, Tag, Button, Menu, Dialog, Input, Select) — zero new shapes.
  */
 
 import {
@@ -24,7 +22,6 @@ import {
 	Select,
 	type Status,
 	StatusChip,
-	TabBar,
 	Tag,
 } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
@@ -142,17 +139,6 @@ function healthLabel(h: Health): string {
 	}
 }
 
-function sourceLabel(s: AuthSource): string {
-	switch (s) {
-		case "harness":
-			return "Inherited";
-		case "token":
-			return "Token";
-		case "mcp-oauth":
-			return "MCP OAuth";
-	}
-}
-
 /** The trust signal that never implies agent visibility. */
 function containmentNote(s: AuthSource): string | null {
 	if (s === "token") return "Held in vault · server-side only";
@@ -189,14 +175,14 @@ function rowMenuItems(): MenuItem[] {
 	];
 }
 
-// ===========================================================================
-// VARIANT A — "Inherited-default": grouped by source, harness/env group FIRST
-// and visually primary. Each group is a SectionLabel + ItemList, with an inline
-// add affordance on the group header (SectionLabel.trailing). Harness group has
-// NO add button (the harness already authed — that IS the first-class signal).
-// ===========================================================================
+// ---------------------------------------------------------------------------
+// "Inherited-default": grouped by source, harness/env group FIRST and visually
+// primary. Each group is a SectionLabel + ItemList, with an inline add affordance
+// on the group header (SectionLabel.trailing). Harness group has NO add button
+// (the harness already authed — that IS the first-class signal).
+// ---------------------------------------------------------------------------
 
-function VariantARow({ c }: { c: ConnectionView }): JSX.Element {
+function ConnectionRow({ c }: { c: ConnectionView }): JSX.Element {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const note = containmentNote(c.authSource);
 	return (
@@ -246,7 +232,7 @@ function bySeverity(a: ConnectionView, b: ConnectionView): number {
 	return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
 }
 
-function VariantAGroup({
+function ConnectionGroup({
 	label,
 	help,
 	connections,
@@ -281,235 +267,10 @@ function VariantAGroup({
 			</div>
 			<ItemList variant="contained" isEmpty={sorted.length === 0}>
 				{sorted.map((c) => (
-					<VariantARow key={c.id} c={c} />
+					<ConnectionRow key={c.id} c={c} />
 				))}
 			</ItemList>
 		</section>
-	);
-}
-
-export const VariantAInheritedDefault = (): JSX.Element => {
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const harness = CONNECTIONS.filter((c) => c.authSource === "harness");
-	const token = CONNECTIONS.filter((c) => c.authSource === "token");
-	const oauth = CONNECTIONS.filter((c) => c.authSource === "mcp-oauth");
-	return (
-		<div className="p-[24px] max-w-[760px] flex flex-col gap-[24px] bg-[var(--surface-page)]">
-			<div className="flex items-start justify-between gap-[12px]">
-				<div>
-					<h2 className="text-[20px] font-[600] text-[var(--text-primary)]">Connections</h2>
-					<p className="text-[13px] text-[var(--text-secondary)] mt-[3px] max-w-[520px]">
-						External services your agents can act on. Your agents never see a secret — only that a
-						service is available.
-					</p>
-				</div>
-				<Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
-					+ Add connection
-				</Button>
-			</div>
-			<VariantAGroup
-				label="Inherited from your environment"
-				help="Tools your harness and CLIs are already logged into. HyperIdle stores nothing — auth lives where you set it up."
-				connections={harness}
-				autoDetected
-			/>
-			<VariantAGroup
-				label="Connected with a token"
-				help="An API key or PAT you generated. Held encrypted, resolved server-side, never given to an agent."
-				connections={token}
-			/>
-			<VariantAGroup
-				label="Connected via an MCP server"
-				help="A remote MCP server that owns its own sign-in. HyperIdle registers no app and never appears on the consent screen."
-				connections={oauth}
-			/>
-			<AddConnectionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
-		</div>
-	);
-};
-VariantAInheritedDefault.storyName =
-	"Variant A — Inherited-default (grouped by source) [APPROVED base]";
-
-// ===========================================================================
-// VARIANT B — "Source tabs": a TabBar across the 3 sources, harness/env default-
-// selected, each tab carrying a count + needs-attention badge. One ItemList,
-// contents swap per tab. Add scoped to the active source. Trust + health as
-// row cells. Remove via row Menu.
-// ===========================================================================
-
-function VariantBRow({ c }: { c: ConnectionView }): JSX.Element {
-	const [menuOpen, setMenuOpen] = useState(false);
-	const note = containmentNote(c.authSource);
-	return (
-		<Row
-			lead={<ServiceMark service={c.service} />}
-			title={c.service}
-			subtitle={
-				<span className="flex items-center gap-[6px]">
-					{c.via}
-					{note ? <span className="text-[var(--text-tertiary)]">· {note}</span> : null}
-				</span>
-			}
-			cells={[
-				{ content: <TrustTag tier={c.trustTier} />, width: 96, align: "start" },
-				{ content: `${c.toolCount} tools`, numeric: true, tone: "neutral", width: 64 },
-			]}
-			actions={
-				<span className="flex items-center gap-[9px]">
-					<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
-					<div className="relative">
-						<Button
-							variant="ghost"
-							size="sm"
-							aria-label={`Actions for ${c.service}`}
-							onClick={() => setMenuOpen((o) => !o)}
-						>
-							⋯
-						</Button>
-						<Menu
-							open={menuOpen}
-							onClose={() => setMenuOpen(false)}
-							items={rowMenuItems()}
-							label={`Actions for ${c.service}`}
-						/>
-					</div>
-				</span>
-			}
-		/>
-	);
-}
-
-export const VariantBSourceTabs = (): JSX.Element => {
-	const [tab, setTab] = useState<AuthSource>("harness");
-	const rows = CONNECTIONS.filter((c) => c.authSource === tab);
-	const count = (s: AuthSource) => CONNECTIONS.filter((c) => c.authSource === s).length;
-	const attention = (s: AuthSource) =>
-		CONNECTIONS.filter((c) => c.authSource === s && c.health !== "usable").length;
-
-	const addFor: Record<AuthSource, string | null> = {
-		harness: null, // inherited — nothing to add; the harness did the auth
-		token: "+ Add token",
-		"mcp-oauth": "+ Add MCP server",
-	};
-
-	const tabHelp: Record<AuthSource, string> = {
-		harness:
-			"Tools your harness and CLIs are already logged into. HyperIdle stores nothing — this is why agents inherit them automatically.",
-		token:
-			"API keys you generated. Held encrypted, resolved server-side, never handed to an agent.",
-		"mcp-oauth":
-			"Remote MCP servers that own their own sign-in. HyperIdle registers no app and never appears on a consent screen.",
-	};
-
-	return (
-		<div className="p-[24px] max-w-[760px] flex flex-col gap-[18px] bg-[var(--surface-page)]">
-			<div>
-				<h2 className="text-[20px] font-[600] text-[var(--text-primary)]">Connections</h2>
-				<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
-					External services your agents can act on — by source. Agents never see a secret, only that
-					a service is available.
-				</p>
-			</div>
-
-			<TabBar
-				tabs={[
-					{ id: "harness", label: `Inherited · ${count("harness")}` },
-					{
-						id: "token",
-						label: `Token · ${count("token")}${attention("token") ? ` (${attention("token")}!)` : ""}`,
-					},
-					{
-						id: "mcp-oauth",
-						label: `MCP · ${count("mcp-oauth")}${attention("mcp-oauth") ? ` (${attention("mcp-oauth")}!)` : ""}`,
-					},
-				]}
-				activeId={tab}
-				onChange={(id) => setTab(id as AuthSource)}
-				variant="underline"
-			/>
-
-			<div className="flex items-start justify-between gap-[12px]">
-				<p className="text-[12px] text-[var(--text-tertiary)] max-w-[520px]">{tabHelp[tab]}</p>
-				{addFor[tab] ? (
-					<Button variant="secondary" size="sm">
-						{addFor[tab]}
-					</Button>
-				) : (
-					<span className="text-[11px] text-[var(--text-tertiary)] shrink-0 pt-[6px]">
-						Auto-detected
-					</span>
-				)}
-			</div>
-
-			<ItemList variant="contained" isEmpty={rows.length === 0}>
-				{rows.map((c) => (
-					<VariantBRow key={c.id} c={c} />
-				))}
-			</ItemList>
-		</div>
-	);
-};
-VariantBSourceTabs.storyName = "Variant B — Source tabs (default: Inherited)";
-
-// ===========================================================================
-// VARIANT C — "Unified feed": one flat list, needs-attention sorted to the top.
-// Source is a per-row inline label (not a structural divide). Single global "Add
-// connection" opens a Dialog with a source picker (the only place the 3 sources
-// are chosen). Remove via row Menu. Highest density, fastest triage.
-// ===========================================================================
-
-function SourcePill({ source }: { source: AuthSource }): JSX.Element {
-	return (
-		<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[11px] font-[family-name:var(--font-mono)] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-secondary)] whitespace-nowrap">
-			{sourceLabel(source)}
-		</span>
-	);
-}
-
-function VariantCRow({ c }: { c: ConnectionView }): JSX.Element {
-	const [menuOpen, setMenuOpen] = useState(false);
-	const note = containmentNote(c.authSource);
-	return (
-		<Row
-			lead={<ServiceMark service={c.service} />}
-			title={
-				<span className="flex items-center gap-[9px]">
-					{c.service}
-					<TrustTag tier={c.trustTier} />
-				</span>
-			}
-			subtitle={
-				<span className="flex items-center gap-[6px]">
-					{c.via}
-					{note ? <span className="text-[var(--text-tertiary)]">· {note}</span> : null}
-				</span>
-			}
-			cells={[
-				{ content: <SourcePill source={c.authSource} />, width: 96, align: "start" },
-				{ content: `${c.toolCount} tools`, numeric: true, tone: "neutral", width: 64 },
-			]}
-			actions={
-				<span className="flex items-center gap-[9px]">
-					<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
-					<div className="relative">
-						<Button
-							variant="ghost"
-							size="sm"
-							aria-label={`Actions for ${c.service}`}
-							onClick={() => setMenuOpen((o) => !o)}
-						>
-							⋯
-						</Button>
-						<Menu
-							open={menuOpen}
-							onClose={() => setMenuOpen(false)}
-							items={rowMenuItems()}
-							label={`Actions for ${c.service}`}
-						/>
-					</div>
-				</span>
-			}
-		/>
 	);
 }
 
@@ -573,36 +334,43 @@ function AddConnectionDialog({
 	);
 }
 
-export const VariantCUnifiedFeed = (): JSX.Element => {
+export const Populated = (): JSX.Element => {
 	const [dialogOpen, setDialogOpen] = useState(false);
-	// needs-attention + expired float to top, then by service name.
-	const sorted = [...CONNECTIONS].sort((a, b) => {
-		const rank = (h: Health) => (h === "usable" ? 1 : 0);
-		return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
-	});
+	const harness = CONNECTIONS.filter((c) => c.authSource === "harness");
+	const token = CONNECTIONS.filter((c) => c.authSource === "token");
+	const oauth = CONNECTIONS.filter((c) => c.authSource === "mcp-oauth");
 	return (
-		<div className="p-[24px] max-w-[760px] flex flex-col gap-[18px] bg-[var(--surface-page)]">
+		<div className="p-[24px] max-w-[760px] flex flex-col gap-[24px] bg-[var(--surface-page)]">
 			<div className="flex items-start justify-between gap-[12px]">
 				<div>
 					<h2 className="text-[20px] font-[600] text-[var(--text-primary)]">Connections</h2>
 					<p className="text-[13px] text-[var(--text-secondary)] mt-[3px] max-w-[520px]">
-						Every external service your agents can act on, in one list. Inherited tools appear
-						automatically; agents never see a secret.
+						External services your agents can act on. Your agents never see a secret — only that a
+						service is available.
 					</p>
 				</div>
 				<Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
 					+ Add connection
 				</Button>
 			</div>
-
-			<ItemList variant="contained" isEmpty={sorted.length === 0}>
-				{sorted.map((c) => (
-					<VariantCRow key={c.id} c={c} />
-				))}
-			</ItemList>
-
+			<ConnectionGroup
+				label="Inherited from your environment"
+				help="Tools your harness and CLIs are already logged into. HyperIdle stores nothing — auth lives where you set it up."
+				connections={harness}
+				autoDetected
+			/>
+			<ConnectionGroup
+				label="Connected with a token"
+				help="An API key or PAT you generated. Held encrypted, resolved server-side, never given to an agent."
+				connections={token}
+			/>
+			<ConnectionGroup
+				label="Connected via an MCP server"
+				help="A remote MCP server that owns its own sign-in. HyperIdle registers no app and never appears on the consent screen."
+				connections={oauth}
+			/>
 			<AddConnectionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
 		</div>
 	);
 };
-VariantCUnifiedFeed.storyName = "Variant C — Unified feed (one list, health-sorted)";
+Populated.storyName = "Connections — Inherited-default (grouped by source)";
