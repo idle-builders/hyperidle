@@ -290,13 +290,20 @@ export async function runEvalSession(
 
 	if (harnessKind === "external") {
 		// AL6 v3 T10: external path.
-		// Prefer real claude CLI if available (proves subprocess + sandbox-file carrier).
+		// Prefer real claude CLI if available AND the model is Anthropic (the CLI
+		// only authenticates via ANTHROPIC_API_KEY, not OpenRouter).
 		// Fall back to ExternalShapedAdapter (direct LLM call, no subprocess).
 		//
 		// @lore AL6 v3 T10: The carrier IS the sandbox file — both choices read
 		// AGENTS.md/CLAUDE.md from cwd:sandboxPath. The CLI reads it on spawn;
 		// ExternalShapedAdapter reads it in startSession(). Neither has a Layer-A hook.
-		const claudeAvailable = await CliHarnessAdapter.checkAvailability("claude");
+		//
+		// @lore AL6 v3: claude CLI requires ANTHROPIC_API_KEY. When the resolved model
+		// is openrouter (or openai-compatible), the CLI would fail auth even if the
+		// binary exists. Guard: only use CLI when provider="anthropic".
+		const claudeAvailable =
+			deps.resolvedModel.provider === "anthropic" &&
+			(await CliHarnessAdapter.checkAvailability("claude"));
 
 		if (claudeAvailable) {
 			// Real claude CLI in ndjson/stream-json mode.

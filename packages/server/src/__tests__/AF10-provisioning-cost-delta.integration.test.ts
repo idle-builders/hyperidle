@@ -187,7 +187,11 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			// re-prompt loop runs AL6_MAX_FORCE_RETURNS+1=3 times → 60 cents.
 			// This also validates the AL6 T2 delta fix: deltaMinor (10+5+5=20) is
 			// now passed to recordCostAndCheck, not totalCostCents (10+15+20=45).
-			{ type: "tool_call", toolName: "submit_review", args: { title: "AF10 done", reasoning: ["done"] } },
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10 done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
@@ -229,7 +233,11 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.15, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.2, currency: "USD" },
 			// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
-			{ type: "tool_call", toolName: "submit_review", args: { title: "AF10-b done", reasoning: ["done"] } },
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10-b done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
@@ -276,7 +284,11 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.15, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.2, currency: "USD" },
 			// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
-			{ type: "tool_call", toolName: "submit_review", args: { title: "AF10-c done", reasoning: ["done"] } },
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10-c done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
