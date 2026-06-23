@@ -19,10 +19,10 @@ import { describe, expect, it } from "vitest";
 import {
 	CONNECTION_AUTH_SOURCES,
 	CONNECTION_HEALTH,
-	TRUST_TIERS,
 	type ConnectionAuthSource,
 	type ConnectionHealth,
 	type ServiceConnectionView,
+	TRUST_TIERS,
 	type TrustTier,
 } from "../connection.js";
 

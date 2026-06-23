@@ -44,11 +44,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-async function seedUser(
-	db: HyperIdleDb,
-	id: string,
-	name: string,
-): Promise<void> {
+async function seedUser(db: HyperIdleDb, id: string, name: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
 		id,
@@ -130,10 +126,7 @@ describe("AN1 AC1 — POST token + POST mcp-oauth → both in GET", () => {
 		expect(body.secret).toBeUndefined();
 	});
 
-	test("POST mcp-oauth connection returns 201 with ServiceConnectionView", async ({
-		db,
-		app,
-	}) => {
+	test("POST mcp-oauth connection returns 201 with ServiceConnectionView", async ({ db, app }) => {
 		await seedUser(db, "u-ac1-mcp", "AC1 MCP User");
 
 		const res = await app.request("/api/connections", {
@@ -244,10 +237,7 @@ describe("AN1 AC2 — DELETE connection → resolver returns null + row absent f
 		vi.unstubAllEnvs();
 	});
 
-	test("DELETE returns 204 and connection is absent from subsequent GET", async ({
-		db,
-		app,
-	}) => {
+	test("DELETE returns 204 and connection is absent from subsequent GET", async ({ db, app }) => {
 		await seedUser(db, "u-ac2-revoke", "AC2 Revoke User");
 
 		// Create a token connection.
@@ -278,35 +268,35 @@ describe("AN1 AC2 — DELETE connection → resolver returns null + row absent f
 		expect(found).toBeUndefined();
 	});
 
-	test(
-		"after DELETE, ServiceConnectionResolver.resolve() returns null (AN2 seam)",
-		async ({ db, app }) => {
-			await seedUser(db, "u-ac2-resolver", "AC2 Resolver User");
+	test("after DELETE, ServiceConnectionResolver.resolve() returns null (AN2 seam)", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-ac2-resolver", "AC2 Resolver User");
 
-			// Create connection.
-			const createRes = await app.request("/api/connections", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ service: "Stripe", authSource: "token", token: "sk-seam" }),
-			});
-			const created = (await createRes.json()) as { id: string };
-			const connectionId = created.id;
+		// Create connection.
+		const createRes = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ service: "Stripe", authSource: "token", token: "sk-seam" }),
+		});
+		const created = (await createRes.json()) as { id: string };
+		const connectionId = created.id;
 
-			// Delete via route.
-			await app.request(`/api/connections/${connectionId}`, {
-				method: "DELETE",
-				headers: authHeaders(),
-			});
+		// Delete via route.
+		await app.request(`/api/connections/${connectionId}`, {
+			method: "DELETE",
+			headers: authHeaders(),
+		});
 
-			// The resolver returns null — this is the seam AN2's broker depends on.
-			const { ServiceConnectionResolver } = await import(
-				"../../services/service-connection-resolver.js"
-			);
-			const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
-			const result = await resolver.resolve("u-ac2-resolver", connectionId);
-			expect(result).toBeNull();
-		},
-	);
+		// The resolver returns null — this is the seam AN2's broker depends on.
+		const { ServiceConnectionResolver } = await import(
+			"../../services/service-connection-resolver.js"
+		);
+		const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
+		const result = await resolver.resolve("u-ac2-resolver", connectionId);
+		expect(result).toBeNull();
+	});
 
 	test("DELETE nonexistent connection returns 404", async ({ db, app }) => {
 		await seedUser(db, "u-ac2-notfound", "AC2 Not Found User");
@@ -332,75 +322,73 @@ describe("AN1 AC3 — expired connection surfaces in GET with health:expired", (
 		vi.unstubAllEnvs();
 	});
 
-	test(
-		"a connection stored with health=expired appears as health:expired in GET (never silent)",
-		async ({ db, app }) => {
-			await seedUser(db, "u-ac3-expired", "AC3 Expired User");
+	test("a connection stored with health=expired appears as health:expired in GET (never silent)", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-ac3-expired", "AC3 Expired User");
 
-			// Insert a row directly with expired health (simulates AN2 write-back).
-			const { serviceConnections } = await import("@hyperidle/db");
-			const { encryptCredentialValue } = await import(
-				"../../services/credential-encryption.js"
-			);
-			const now = new Date().toISOString();
-			const encryptedToken = encryptCredentialValue("expired-tok", TEST_SERVER_SECRET);
-			await db.insert(serviceConnections).values({
-				id: "sc-expired-1",
-				userId: "u-ac3-expired",
-				service: "SendGrid",
-				authSource: "token",
-				encryptedToken,
-				serverUrl: null,
-				trustTier: "community",
-				health: "expired",
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
+		// Insert a row directly with expired health (simulates AN2 write-back).
+		const { serviceConnections } = await import("@hyperidle/db");
+		const { encryptCredentialValue } = await import("../../services/credential-encryption.js");
+		const now = new Date().toISOString();
+		const encryptedToken = encryptCredentialValue("expired-tok", TEST_SERVER_SECRET);
+		await db.insert(serviceConnections).values({
+			id: "sc-expired-1",
+			userId: "u-ac3-expired",
+			service: "SendGrid",
+			authSource: "token",
+			encryptedToken,
+			serverUrl: null,
+			trustTier: "community",
+			health: "expired",
+			lastValidatedAt: null,
+			createdAt: now,
+			updatedAt: now,
+		});
 
-			const res = await app.request("/api/connections", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-			const list = (await res.json()) as Array<{ service: string; health: string }>;
-			const sendgrid = list.find((c) => c.service === "SendGrid");
-			expect(sendgrid).toBeDefined();
-			// Must NOT be silent — health must be "expired", not "usable".
-			expect(sendgrid?.health).toBe("expired");
-		},
-	);
+		const res = await app.request("/api/connections", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const list = (await res.json()) as Array<{ service: string; health: string }>;
+		const sendgrid = list.find((c) => c.service === "SendGrid");
+		expect(sendgrid).toBeDefined();
+		// Must NOT be silent — health must be "expired", not "usable".
+		expect(sendgrid?.health).toBe("expired");
+	});
 
-	test(
-		"a connection stored with health=needs-attention appears as health:needs-attention (not silent)",
-		async ({ db, app }) => {
-			await seedUser(db, "u-ac3-attention", "AC3 Needs Attention User");
+	test("a connection stored with health=needs-attention appears as health:needs-attention (not silent)", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-ac3-attention", "AC3 Needs Attention User");
 
-			const { serviceConnections } = await import("@hyperidle/db");
-			const now = new Date().toISOString();
-			await db.insert(serviceConnections).values({
-				id: "sc-needs-attention-1",
-				userId: "u-ac3-attention",
-				service: "Figma",
-				authSource: "mcp-oauth",
-				encryptedToken: null,
-				serverUrl: "https://mcp.figma.com",
-				trustTier: "vetted",
-				health: "needs-attention",
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
+		const { serviceConnections } = await import("@hyperidle/db");
+		const now = new Date().toISOString();
+		await db.insert(serviceConnections).values({
+			id: "sc-needs-attention-1",
+			userId: "u-ac3-attention",
+			service: "Figma",
+			authSource: "mcp-oauth",
+			encryptedToken: null,
+			serverUrl: "https://mcp.figma.com",
+			trustTier: "vetted",
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: now,
+			updatedAt: now,
+		});
 
-			const res = await app.request("/api/connections", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			const list = (await res.json()) as Array<{ service: string; health: string }>;
-			const figma = list.find((c) => c.service === "Figma");
-			expect(figma?.health).toBe("needs-attention");
-		},
-	);
+		const res = await app.request("/api/connections", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		const list = (await res.json()) as Array<{ service: string; health: string }>;
+		const figma = list.find((c) => c.service === "Figma");
+		expect(figma?.health).toBe("needs-attention");
+	});
 
 	test("validate endpoint sets health on the connection", async ({ db, app }) => {
 		await seedUser(db, "u-ac3-validate", "AC3 Validate User");
@@ -415,13 +403,10 @@ describe("AN1 AC3 — expired connection surfaces in GET with health:expired", (
 		const connectionId = created.id;
 
 		// Call validate endpoint.
-		const validateRes = await app.request(
-			`/api/connections/${connectionId}/validate`,
-			{
-				method: "POST",
-				headers: authHeaders(),
-			},
-		);
+		const validateRes = await app.request(`/api/connections/${connectionId}/validate`, {
+			method: "POST",
+			headers: authHeaders(),
+		});
 		// Should return the health state (any valid state is acceptable here —
 		// we're asserting the shape, not a specific health value, since the
 		// green builder will call the external service or set needs-attention).
@@ -519,73 +504,66 @@ describe("AN1 AC5 — per-user isolation", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test(
-		"user A's GET does not return user B's connection (two isolated DB states per test)",
-		async ({ db, app }) => {
-			// Isolation: the auth middleware resolves userId = first kind='human' user.
-			// We test isolation at the resolver layer (seed a connection owned by a
-			// second userId and assert the first user's GET does not return it).
-
-			const { serviceConnections } = await import("@hyperidle/db");
-			const { encryptCredentialValue } = await import(
-				"../../services/credential-encryption.js"
-			);
-
-			const now = new Date().toISOString();
-			// Seed user-A (will become the resolved principal for app.request).
-			await db.insert(users).values({
-				id: "u-iso-a",
-				kind: "human",
-				name: "Iso User A",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			});
-			// Seed user-B (different user — NOT kind='human' so auth resolves to user-A).
-			await db.insert(users).values({
-				id: "u-iso-b",
-				kind: "ai",
-				name: "Iso User B (AI)",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			});
-
-			// Insert a connection owned by user-B directly.
-			const encryptedToken = encryptCredentialValue("stripe-b-secret", TEST_SERVER_SECRET);
-			await db.insert(serviceConnections).values({
-				id: "sc-iso-b",
-				userId: "u-iso-b", // owned by B
-				service: "Stripe",
-				authSource: "token",
-				encryptedToken,
-				serverUrl: null,
-				trustTier: "community",
-				health: "usable",
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			// User-A (resolved principal) GET must not see user-B's connection.
-			const res = await app.request("/api/connections", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			const list = (await res.json()) as Array<{ id: string }>;
-			const found = list.find((c) => c.id === "sc-iso-b");
-			expect(found).toBeUndefined();
-		},
-	);
-
-	test("cross-user DELETE returns 404 (not 403 — don't leak existence)", async ({
+	test("user A's GET does not return user B's connection (two isolated DB states per test)", async ({
 		db,
 		app,
 	}) => {
+		// Isolation: the auth middleware resolves userId = first kind='human' user.
+		// We test isolation at the resolver layer (seed a connection owned by a
+		// second userId and assert the first user's GET does not return it).
+
 		const { serviceConnections } = await import("@hyperidle/db");
-		const { encryptCredentialValue } = await import(
-			"../../services/credential-encryption.js"
-		);
+		const { encryptCredentialValue } = await import("../../services/credential-encryption.js");
+
+		const now = new Date().toISOString();
+		// Seed user-A (will become the resolved principal for app.request).
+		await db.insert(users).values({
+			id: "u-iso-a",
+			kind: "human",
+			name: "Iso User A",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
+		// Seed user-B (different user — NOT kind='human' so auth resolves to user-A).
+		await db.insert(users).values({
+			id: "u-iso-b",
+			kind: "ai",
+			name: "Iso User B (AI)",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
+
+		// Insert a connection owned by user-B directly.
+		const encryptedToken = encryptCredentialValue("stripe-b-secret", TEST_SERVER_SECRET);
+		await db.insert(serviceConnections).values({
+			id: "sc-iso-b",
+			userId: "u-iso-b", // owned by B
+			service: "Stripe",
+			authSource: "token",
+			encryptedToken,
+			serverUrl: null,
+			trustTier: "community",
+			health: "usable",
+			lastValidatedAt: null,
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		// User-A (resolved principal) GET must not see user-B's connection.
+		const res = await app.request("/api/connections", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		const list = (await res.json()) as Array<{ id: string }>;
+		const found = list.find((c) => c.id === "sc-iso-b");
+		expect(found).toBeUndefined();
+	});
+
+	test("cross-user DELETE returns 404 (not 403 — don't leak existence)", async ({ db, app }) => {
+		const { serviceConnections } = await import("@hyperidle/db");
+		const { encryptCredentialValue } = await import("../../services/credential-encryption.js");
 
 		const now = new Date().toISOString();
 		// Resolved principal = user-A (first kind='human').
@@ -633,53 +611,48 @@ describe("AN1 AC5 — per-user isolation", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test(
-		"ServiceConnectionResolver cross-user access returns null",
-		async ({ db }) => {
-			const { serviceConnections } = await import("@hyperidle/db");
-			const { encryptCredentialValue } = await import(
-				"../../services/credential-encryption.js"
-			);
-			const { ServiceConnectionResolver } = await import(
-				"../../services/service-connection-resolver.js"
-			);
+	test("ServiceConnectionResolver cross-user access returns null", async ({ db }) => {
+		const { serviceConnections } = await import("@hyperidle/db");
+		const { encryptCredentialValue } = await import("../../services/credential-encryption.js");
+		const { ServiceConnectionResolver } = await import(
+			"../../services/service-connection-resolver.js"
+		);
 
-			const now = new Date().toISOString();
-			await db.insert(users).values({
-				id: "u-resolver-owner",
-				kind: "human",
-				name: "Resolver Owner",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			});
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "u-resolver-owner",
+			kind: "human",
+			name: "Resolver Owner",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
 
-			const encryptedToken = encryptCredentialValue("figma-secret", TEST_SERVER_SECRET);
-			await db.insert(serviceConnections).values({
-				id: "sc-resolver-iso",
-				userId: "u-resolver-owner",
-				service: "Figma",
-				authSource: "token",
-				encryptedToken,
-				serverUrl: null,
-				trustTier: "community",
-				health: "usable",
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
+		const encryptedToken = encryptCredentialValue("figma-secret", TEST_SERVER_SECRET);
+		await db.insert(serviceConnections).values({
+			id: "sc-resolver-iso",
+			userId: "u-resolver-owner",
+			service: "Figma",
+			authSource: "token",
+			encryptedToken,
+			serverUrl: null,
+			trustTier: "community",
+			health: "usable",
+			lastValidatedAt: null,
+			createdAt: now,
+			updatedAt: now,
+		});
 
-			const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
 
-			// Owner gets the token.
-			const ownerResult = await resolver.resolve("u-resolver-owner", "sc-resolver-iso");
-			expect(ownerResult).toBe("figma-secret");
+		// Owner gets the token.
+		const ownerResult = await resolver.resolve("u-resolver-owner", "sc-resolver-iso");
+		expect(ownerResult).toBe("figma-secret");
 
-			// Attacker gets null.
-			const attackerResult = await resolver.resolve("u-attacker-other", "sc-resolver-iso");
-			expect(attackerResult).toBeNull();
-		},
-	);
+		// Attacker gets null.
+		const attackerResult = await resolver.resolve("u-attacker-other", "sc-resolver-iso");
+		expect(attackerResult).toBeNull();
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -741,31 +714,31 @@ describe("AN1 — validation scenario: revoke → resolver null", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test(
-		"given a connected service, when user revokes, ServiceConnectionResolver.resolve() returns null",
-		async ({ db, app }) => {
-			await seedUser(db, "u-scenario-revoke", "Scenario Revoke User");
+	test("given a connected service, when user revokes, ServiceConnectionResolver.resolve() returns null", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-scenario-revoke", "Scenario Revoke User");
 
-			const createRes = await app.request("/api/connections", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ service: "GitHub", authSource: "token", token: "gh-tok-rev" }),
-			});
-			const created = (await createRes.json()) as { id: string };
+		const createRes = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ service: "GitHub", authSource: "token", token: "gh-tok-rev" }),
+		});
+		const created = (await createRes.json()) as { id: string };
 
-			// Revoke.
-			await app.request(`/api/connections/${created.id}`, {
-				method: "DELETE",
-				headers: authHeaders(),
-			});
+		// Revoke.
+		await app.request(`/api/connections/${created.id}`, {
+			method: "DELETE",
+			headers: authHeaders(),
+		});
 
-			// Resolver returns null → AN2 broker has no credential → agent attempt refused.
-			const { ServiceConnectionResolver } = await import(
-				"../../services/service-connection-resolver.js"
-			);
-			const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
-			const result = await resolver.resolve("u-scenario-revoke", created.id);
-			expect(result).toBeNull();
-		},
-	);
+		// Resolver returns null → AN2 broker has no credential → agent attempt refused.
+		const { ServiceConnectionResolver } = await import(
+			"../../services/service-connection-resolver.js"
+		);
+		const resolver = new ServiceConnectionResolver(db, TEST_SERVER_SECRET);
+		const result = await resolver.resolve("u-scenario-revoke", created.id);
+		expect(result).toBeNull();
+	});
 });

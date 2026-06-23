@@ -371,9 +371,7 @@ describe("AN1 SettingsConnections — error state", () => {
 
 		await waitFor(() => {
 			// An error state must be shown — "couldn't load", "error", or similar.
-			expect(
-				screen.getByText(/couldn't load|error|failed/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/couldn't load|error|failed/i)).toBeInTheDocument();
 		});
 
 		vi.restoreAllMocks();

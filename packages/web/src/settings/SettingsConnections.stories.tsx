@@ -22,8 +22,8 @@ import {
 	Row,
 	SectionLabel,
 	Select,
-	StatusChip,
 	type Status,
+	StatusChip,
 	TabBar,
 	Tag,
 } from "@hyperidle/design-system";
@@ -214,9 +214,7 @@ function VariantARow({ c }: { c: ConnectionView }): JSX.Element {
 					{note ? <span className="text-[var(--text-tertiary)]">· {note}</span> : null}
 				</span>
 			}
-			cells={[
-				{ content: `${c.toolCount} tools`, tone: "neutral", numeric: true, width: 70 },
-			]}
+			cells={[{ content: `${c.toolCount} tools`, tone: "neutral", numeric: true, width: 70 }]}
 			actions={
 				<span className="flex items-center gap-[9px]">
 					<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
@@ -329,7 +327,8 @@ export const VariantAInheritedDefault = (): JSX.Element => {
 		</div>
 	);
 };
-VariantAInheritedDefault.storyName = "Variant A — Inherited-default (grouped by source) [APPROVED base]";
+VariantAInheritedDefault.storyName =
+	"Variant A — Inherited-default (grouped by source) [APPROVED base]";
 
 // ===========================================================================
 // VARIANT B — "Source tabs": a TabBar across the 3 sources, harness/env default-
@@ -396,7 +395,8 @@ export const VariantBSourceTabs = (): JSX.Element => {
 	const tabHelp: Record<AuthSource, string> = {
 		harness:
 			"Tools your harness and CLIs are already logged into. HyperIdle stores nothing — this is why agents inherit them automatically.",
-		token: "API keys you generated. Held encrypted, resolved server-side, never handed to an agent.",
+		token:
+			"API keys you generated. Held encrypted, resolved server-side, never handed to an agent.",
 		"mcp-oauth":
 			"Remote MCP servers that own their own sign-in. HyperIdle registers no app and never appears on a consent screen.",
 	};
@@ -513,7 +513,13 @@ function VariantCRow({ c }: { c: ConnectionView }): JSX.Element {
 	);
 }
 
-function AddConnectionDialog({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
+function AddConnectionDialog({
+	open,
+	onClose,
+}: {
+	open: boolean;
+	onClose: () => void;
+}): JSX.Element {
 	const [source, setSource] = useState<AuthSource>("token");
 	return (
 		<Dialog
@@ -532,8 +538,8 @@ function AddConnectionDialog({ open, onClose }: { open: boolean; onClose: () => 
 		>
 			<div className="flex flex-col gap-[18px]">
 				<p className="text-[13px] text-[var(--text-secondary)]">
-					Tools your harness is already logged into appear automatically — nothing to add here.
-					Use this to add a token or point at an MCP server.
+					Tools your harness is already logged into appear automatically — nothing to add here. Use
+					this to add a token or point at an MCP server.
 				</p>
 				<Select
 					id="add-source"
