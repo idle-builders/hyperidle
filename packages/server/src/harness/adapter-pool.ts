@@ -60,6 +60,18 @@ export interface SelectRequirements {
 	readonly modelProviders?: readonly string[];
 	/** X3: If set, only adapters with matching type are eligible. */
 	readonly harnessType?: string;
+	/**
+	 * AM4 CHANGE 1: Caller-supplied list of disabled harness types (pool is DB-free and
+	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
+	 * reads harnessDisabled from readServerConfig(db) and passes it here.
+	 * Paired with the builtin hard-exemption (CHANGE 2) — "builtin" is NEVER skipped
+	 * even if present in this list (back-stop against hand-edited/stale config).
+	 *
+	 * @lore AM4: Real persisted control backed by server_config.harnessDisabled + this
+	 * caller-supplied gate (AM4 R1 reversal, founder review + AC2). The pool stays a
+	 * pure in-memory registry (preserves the AM2 immutability lore).
+	 */
+	readonly disabledTypes?: readonly string[];
 }
 
 /** A selected adapter entry (returned from select()). */
@@ -71,7 +83,13 @@ export interface SelectedEntry {
 
 export class AdapterPool {
 	private readonly entries = new Map<string, PoolEntry>();
-	private readonly discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
+	/**
+	 * @lore AM4: `readonly` dropped to allow refreshDiscoveries() to reassign the snapshot.
+	 * The freeze() is still applied to each new assignment so callers reading the snapshot
+	 * see a stable (frozen) map. Reassignment is atomic in JS single-thread; the await in
+	 * refreshDiscoveries() completes before the reassign so no concurrent read sees a partial map.
+	 */
+	private discoveries?: Readonly<Record<string, HarnessDiscoveryInput>>;
 
 	constructor(
 		discoveries?: HarnessDiscoveryResult | Readonly<Record<string, HarnessDiscoveryInput>>,
@@ -83,6 +101,23 @@ export class AdapterPool {
 				) as Readonly<Record<string, HarnessDiscoveryInput>>,
 			);
 		}
+	}
+
+	/**
+	 * AM4: Re-run discoverLocalHarnesses() and replace the discovery snapshot.
+	 * Refreshes readiness/version/auth state — does NOT run the session probe
+	 * (same probe-gating as boot; runtime caps stay false until AM3).
+	 *
+	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
+	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
+	 */
+	async refreshDiscoveries(): Promise<void> {
+		const fresh = await discoverLocalHarnesses();
+		this.discoveries = Object.freeze(
+			Object.fromEntries(
+				Object.entries(fresh).map(([k, v]) => [k, v as HarnessDiscoveryInput]),
+			) as Readonly<Record<string, HarnessDiscoveryInput>>,
+		);
 	}
 
 	/** Number of registered adapters. */
@@ -181,6 +216,23 @@ export class AdapterPool {
 			// still be selected when harnessType is unspecified/undefined).
 			if (requirements?.harnessType) {
 				if (entry.meta.type !== requirements.harnessType) continue;
+			}
+
+			// AM4 CHANGE 1+2: disabledTypes gate with builtin hard-exemption.
+			// The caller (admitSession) passes harnessDisabled from server_config here.
+			// "builtin" is HARD-EXEMPT regardless of the persisted list — back-stop
+			// against stale config stranding the always-present fallback.
+			//
+			// @lore AM4: showsToggle(builtin) === false is the front-door guard (UI);
+			// this exemption is the back-stop (selection). Both are required (CHANGE 2).
+			if (
+				requirements?.disabledTypes &&
+				requirements.disabledTypes.length > 0 &&
+				entry.meta.type &&
+				entry.meta.type !== "builtin" && // CHANGE 2: builtin hard-exempt
+				requirements.disabledTypes.includes(entry.meta.type)
+			) {
+				continue;
 			}
 
 			// Least-loaded selection

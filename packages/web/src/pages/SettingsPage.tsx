@@ -18,6 +18,7 @@ import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
+import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
@@ -90,6 +91,16 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agents</SectionTitle>
 						<SettingsAgents />
+					</section>
+
+					{/* AM4: Agent backends section — harness detection + enable/disable */}
+					<section
+						id="settings-section-agent-backends"
+						data-testid="settings-section-agent-backends"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Agent backends</SectionTitle>
+						<SettingsHarnesses />
 					</section>
 
 					{/* AD8b AC-2: Assistant section — system prompt editor, between Agents and Appearance */}

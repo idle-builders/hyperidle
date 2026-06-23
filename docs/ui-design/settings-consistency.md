@@ -36,6 +36,7 @@ The distinguishing factor is **does the row contain a form**, not whether the se
 | Notifications | toggles | flat |
 | Worker | form fields + status | flat |
 | Backend | read-only labels | flat |
+| **Agent backends** | dense harness list (pure display + toggles per row) | ONE `--surface-elevated` container with `--border-subtle` hairline row separators (`overflow-hidden`); no individual row cards; section header flat above the container |
 
 ---
 
@@ -63,6 +64,17 @@ Connection and configuration states use `StatusChip`. The `status` prop determin
 | Models | credential set | `healthy` | green | configured and ready |
 | Models | no credential | `unknown` | neutral grey | absence, not an error |
 | Agents | harness unavailable | `behind` | amber | degraded/recoverable config problem |
+
+**Agent backends** (AM4) uses a 6px inline **dot** (not `StatusChip`) — the section uses `--status-*` CSS variables directly:
+
+| State | Dot tone | Status line |
+|---|---|---|
+| `ready` | `healthy` (green) | "Authenticated …" |
+| `ready` + disabled | `unknown` (grey, dimmed) | "Disabled — …" |
+| `unauthenticated` | `behind` (amber) | "Present — not signed in yet." |
+| `installed` | `behind` (amber) | "Installed — auth status not yet confirmed." |
+| `missing` | `paused` (amber) | reason ("Not installed.") |
+| `unavailable` | `unknown` (grey) | reason text, no CTA |
 
 **Hard constraint:** "Connecting" (blue) must read *calmer* than "Disconnected" and "Harness unavailable" (both amber). Never swap these assignments. `paused`/blue is reserved for transitional states; `behind`/amber is the only attention/degraded color.
 
@@ -97,7 +109,7 @@ Two list surfaces use `Row` + `ItemList`:
 
 **Why it exists.** `npm run lint`'s `eslint-plugin-design` rules only flag *arbitrary-value* utilities (`gap-[16px]`, `text-[14px]`). They pass the *alias* utilities that are the actual Settings divergences (`gap-4`, `gap-3`, `text-sm`, `text-xs`) and pass DaisyUI control classes (`input input-*`, `btn btn-*`). The static gate closes this gap.
 
-**What it checks.** Scans exactly 10 files:
+**What it checks.** Scans exactly 11 files:
 
 ```
 packages/web/src/settings/SettingsBackend.tsx
@@ -110,6 +122,7 @@ packages/web/src/settings/SettingsWorker.tsx
 packages/web/src/settings/SettingsOrgChart.tsx
 packages/web/src/settings/SettingsAgents.tsx
 packages/web/src/components/CredentialsTab.tsx
+packages/web/src/settings/SettingsHarnesses.tsx
 ```
 
 **Forbidden tokens (whole-token bounded by quote/space/backtick so `gap-[12px]` is not a false positive):**
@@ -138,8 +151,21 @@ Exit 0 = clean. Non-zero = prints `file:line  matched-token`. It is also chained
 
 ---
 
+---
+
+## Agent backends section — descriptor-driven contract
+
+`SettingsHarnesses.tsx` and `HarnessCard.tsx` are governed by an additional ESLint rule (`no-restricted-syntax`) that bans string-literal comparisons against known harness type names (`"codex"`, `"claude-code"`, `"opencode"`, `"builtin"`, `"cursor-agent"`) inside those files and `harness-presentation.ts`. The sole allowed `type` check is the `builtin` exemption in `showsToggle` / `select()` (founder rule: built-in is not disableable — intentional, not per-family branching).
+
+All status dot tone, toggle visibility, auth zone visibility, and capabilities fold visibility are computed from `discovery.state`, `discovery.disabled`, and `authAction.kind` via pure mappers in `packages/web/src/settings/harness-presentation.ts`. No per-family switch statement is permitted in the rendered surface.
+
+The `Toggle` used in `SettingsHarnesses` / `HarnessCard` is the label-less variant (DS `Toggle` with `labelHidden`) added in AM4 — the right-aligned switch with only an `aria-label` and no visible text. This variant is reusable for any settings row toggling without adjacent text.
+
+---
+
 ## Next steps for contributors
 
 - To add a new Settings section: follow the per-section pattern (flat, on-grid, primitives only) and add the file to the static gate's scan list.
 - To change a StatusChip status assignment: update the color=meaning table above and the code comment in the same PR.
 - To widen the `Status` union to include `"unknown"`: edit `StatusChip.tsx` `Status` type and remove the `as Status` cast in `SettingsModels.tsx`. No behavior change.
+- To add a new harness type to the descriptor-driven ESLint rule: update the `no-restricted-syntax` selector string in the ESLint config and the `harness-presentation.ts` type assertions.
