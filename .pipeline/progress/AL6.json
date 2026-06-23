@@ -3,15 +3,16 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "5-docs-v2",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-22T22:34:00+02:00",
+  "completedAt": "2026-06-23T04:10:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
+  "reviewVerdict": "DONE",
+  "version": "v2",
   "reopenedAt": "2026-06-23T00:40:00+02:00",
-  "reopenReason": "founder-rejected: (1) enforcement is flag-only, does not force return/continue — AC1/AC3 'not accepted as complete' unmet; (2) ignored purpose-built hook mechanism (Stop/turn-end hooks) in favor of passive observer; (3) no LLM integration test/eval proving live-agent behavior. Back to /architecture.",
-  "notes": "v1 shipped a read-only ReturnGate observer that only emits session_not_returned. Re-architecting for hook-based forcing enforcement + live-agent eval as DoD. Prior artifacts retired into docs/agent-layer/return-gate-enforcement.md (git history has plans/AL6).",
-  "phase3CompletedAt": "2026-06-23T03:45:00+02:00",
-  "phase3Notes": "v2 GREEN: two-tier forcing (Tier-1 builtin+SDK force-inject, Tier-2 cli/isolated reject-as-not_returned), canForceReturn capability field, T8 real-adapter table, live eval force_return score=1.000/1.000. CI green PR #350."
+  "reopenReason": "founder-rejected v1 (flag-only, no hook mechanism, no live eval). Re-architected.",
+  "notes": "v2: two-tier forcing — Tier-1 (SDK Stop hook + builtin re-inject, N=2) forces return; Tier-2 (cli/remote/isolated) rejects to SessionOutcome 'not_returned' persisted to row + bus event. Uniform never-completed-without-return guarantee. Live force-return eval ran on real model (deepseek-v4-pro) score 1.000/1.000. Review DONE."
 }
