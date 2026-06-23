@@ -51,4 +51,13 @@ A credential write with no Root-of-trust secret available is **rejected** with a
 - openai-compatible keying — single global slot vs. composite by endpoint/baseUrl (a tier carries its own `baseUrl`). Invariant either way: ciphertext in the one store, never in `server_config`.
 - Migration mechanics and the resolver-rewiring in `server-factory`.
 
+## The open Connection set (AN1)
+
+AN1 adds a second, parallel store for the **open per-(user × service) Connection set** — distinct from the closed infra catalog above. The two stores share the AES-256-GCM encryption primitive but are separate tables with separate resolvers:
+
+- **`serverCredentials`** — closed catalog; LLM provider keys; keyed by name; no userId; `CredentialResolver.resolve(name)`.
+- **`serviceConnections`** — open set; per-(user × service) connections (GitHub tokens, MCP server URLs, harness-derived tools); `ServiceConnectionResolver.resolve(userId, connectionId)`.
+
+The "one store, one resolver" contract is preserved for the infra-secret path. The Connection set sits alongside it — same encryption primitive, no pollution of the closed catalog. See `docs/agent-layer/tool-integration.md` for the full model.
+
 See also: `authorization-model.md` (Secrets, Hard Rule 4), `agent-layer/harness-error-taxonomy.md` (`MissingCredentialError`).

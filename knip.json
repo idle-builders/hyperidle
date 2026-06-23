@@ -16,7 +16,8 @@
 		"**/__tests__/_helpers.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
-		"packages/server/src/middleware/response-validator.ts"
+		"packages/server/src/middleware/response-validator.ts",
+		"packages/server/src/services/service-connection-resolver.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],

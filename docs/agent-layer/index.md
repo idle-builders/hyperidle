@@ -28,3 +28,4 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 - [Founder Responsibility Routing](./founder-responsibility-routing.md)
 - [What This Document Does Not Cover](./what-this-document-does-not-cover.md)
 - [Harness error taxonomy](./harness-error-taxonomy.md)
+- [Tool Integration — Connections and the External Tool Path](./tool-integration.md)

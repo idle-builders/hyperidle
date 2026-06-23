@@ -60,6 +60,14 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── AN1: External Connections (open per-(user×service) set) ──
+export type {
+	ConnectionAuthSource,
+	ConnectionHealth,
+	ServiceConnectionView,
+	TrustTier,
+} from "./connection.js";
+export { CONNECTION_AUTH_SOURCES, CONNECTION_HEALTH, TRUST_TIERS } from "./connection.js";
 // ── Credential catalog (P3) ──
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
