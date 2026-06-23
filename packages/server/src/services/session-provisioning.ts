@@ -968,6 +968,22 @@ export async function runSession(
 			taskId: params.taskId,
 			timestamp: Date.now(),
 		});
+
+		// AL6 v2 (T6 / WARNING-A): Tier-2 reject — the turn did not return.
+		// Pass "not_returned" to endSession so BOTH the persisted sessions.outcome
+		// row and the session_ended bus event carry the correct outcome (not the
+		// hardcoded "completed" that v1 emitted). This is the AC1 teeth at the
+		// persistence layer: a not-returned turn is never recorded as "completed".
+		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
+		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		await workspace.destroy(sandboxHandle);
+		return {
+			sessionId,
+			outcome: "not_returned",
+			totalCostCents,
+			taskId: params.taskId,
+			returnVerdict,
+		};
 	}
 
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
