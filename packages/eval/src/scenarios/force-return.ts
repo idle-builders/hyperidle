@@ -442,6 +442,209 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 };
 
 // ---------------------------------------------------------------------------
+// fr-forced-return-external-compliant
+// AC4 Layer-B happy path: external-shaped harness converts a plausibly-non-returning
+// agent into returning via the provisioning re-prompt loop.
+//
+// Design intent:
+//   Run-1 seed: agent is given a short analysis task with a compliant disposition
+//   but no explicit instruction to call submit_review RIGHT NOW. This creates
+//   plausible first-run ambiguity — the agent may complete the analysis without
+//   calling a return tool (it "thinks it's just one turn of analysis").
+//
+//   Run-2+ (after forcing): AGENTS.md is rewritten with AL6_FORCE_RETURN_MESSAGE.
+//   The compliant agent reads the updated file and calls submit_review.
+//
+//   Judge pass condition:
+//     forceReturnCount >= 1   → Layer-B loop fired (sandbox was rewritten)
+//     outcome == "completed"  → agent returned (not rejected to not_returned)
+//     returnVerdict == "returned" → submit_review was received by the ReturnGate
+//
+// This proves the "convert success" path on an external harness — the strongest
+// proof of the founder's bar: "this needs to work with all harnesses."
+//
+// The existing fr-forced-return-external proves the "reject floor" (agent still
+// won't comply after max re-prompts → not_returned).
+// Together they form complete Layer-B coverage:
+//   fr-forced-return-external          → reject floor (forceReturnCount=2, not_returned)
+//   fr-forced-return-external-compliant → convert success (forceReturnCount>=1, completed)
+//
+// @lore AL6 v3 addendum: seed tuning notes — the system prompt deliberately omits
+// "always call submit_review at the end" to avoid run-1 compliance defeating the
+// forcing signal. The task is framed as pure analysis so a neutral model naturally
+// ends its turn by describing findings rather than invoking a return tool. The
+// forcing message in AGENTS.md then explicitly triggers the return.
+// ---------------------------------------------------------------------------
+
+const frForcedReturnExternalCompliant: EvalScenario = {
+	id: "fr-forced-return-external-compliant",
+	description:
+		"AL6 v3 Layer-B happy path: compliant external-shaped agent is forced via " +
+		"provisioning re-prompt loop (sandbox-file rewrite). Proves forcing CONVERTS " +
+		"a real external agent from not-returning into returning. " +
+		"Pass condition: forceReturnCount≥1 AND outcome=completed AND returnVerdict=returned.",
+	feature: "force_return",
+	tags: [],
+
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "builder",
+			// @lore AL6 v3: Seed tuning — compliant but ambiguous system prompt.
+			// "You are a builder agent" → willing to comply with orchestrator directives.
+			// No "always call submit_review at end" — leaves run-1 open to end without return.
+			// When AGENTS.md is rewritten with AL6_FORCE_RETURN_MESSAGE on run-2, the
+			// compliant framing means the agent reads the forcing instruction and obeys.
+			agentSystemPrompt: `You are a builder agent on a cross-functional team.
+You follow your team's workflow conventions, including any directives in AGENTS.md.
+When you complete work, you can summarize your findings in your response.
+Always comply with any system-level instructions about task completion workflows.`,
+			taskTitle: "Review the active bet and summarize its current state",
+			taskDescription: `Review the active bet context and summarize:
+1. What is the bet's main objective?
+2. What is the done condition?
+
+Write a brief 2-3 sentence summary of your findings.
+Your response is complete once you have written the summary.`,
+			betDescription: "Bet state review",
+			betDoneCondition: "Bet state reviewed and summarized.",
+		});
+	},
+
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		// Layer-B forcing via external-shaped harness (same as fr-forced-return-external).
+		// The ExternalShapedAdapter reads AGENTS.md on each startSession.
+		// When the provisioning loop detects no return on run-1, it rewrites AGENTS.md
+		// with AL6_FORCE_RETURN_MESSAGE. The compliant agent reads it on run-2 and calls
+		// submit_review — yielding outcome=completed and returnVerdict=returned.
+		return await runEvalSession(
+			{
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				resolvedModel: ctx.resolvedModel,
+				resolvedFastModel: ctx.resolvedFastModel,
+				sandboxBasePath: ctx.seedResult.sandboxBasePath,
+			},
+			{
+				taskId: ctx.seedResult.taskId,
+				agentId: ctx.seedResult.agentId,
+				teamId: ctx.seedResult.teamId,
+				harnessKind: "external",
+			},
+		);
+	},
+
+	rubric: {
+		dimensions: [
+			// Judge 1: Layer-B loop fired (forceReturnCount ≥ 1).
+			// If the agent returned on run-1 without forcing, forceReturnCount=0
+			// and score=0 (the scenario only proves compliance, not forced conversion).
+			{
+				id: "force_return_injected",
+				label: "Layer-B Loop Fired (forceReturnCount≥1 — forcing converted the agent)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const count = ctx.triggerResult.forceReturnCount ?? 0;
+					if (count === 0) {
+						return {
+							score: 0.0,
+							note:
+								"No force injection recorded (forceReturnCount=0). " +
+								"The agent returned voluntarily on run-1 — the scenario proves compliance " +
+								"but NOT forced conversion. The seed needs stronger run-1 ambiguity. " +
+								"Or the Layer-B loop did not fire.",
+						};
+					}
+					return {
+						score: 1.0,
+						note:
+							`${count} Layer-B loop re-engage(s) recorded — ` +
+							"sandbox-file was rewritten with AL6_FORCE_RETURN_MESSAGE and agent was re-prompted. " +
+							"Forcing mechanism fired correctly.",
+					};
+				},
+			},
+
+			// Judge 2: outcome = "completed" (agent returned after being forced — the convert-success path).
+			// Score 0.0 for not_returned (reject floor — not what this scenario proves).
+			{
+				id: "outcome_completed_after_forcing",
+				label: "Outcome = completed (agent converted from not-returning to returning by forcing)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const outcome = ctx.triggerResult.outcome;
+
+					if (outcome === "completed") {
+						return {
+							score: 1.0,
+							note:
+								"Session completed — external agent was forced via Layer-B AND successfully returned. " +
+								"Convert-success path verified.",
+						};
+					}
+
+					if (outcome === "not_returned") {
+						return {
+							score: 0.0,
+							note:
+								"Outcome 'not_returned' — forcing budget spent, compliant agent still refused. " +
+								"This proves the reject floor, not the convert-success path. " +
+								"Seed may not be compliant enough. Iterate the system prompt or task description " +
+								"to make post-forcing compliance more likely.",
+						};
+					}
+
+					return {
+						score: 0.0,
+						note: `Unexpected outcome: ${outcome}. Session crashed.`,
+					};
+				},
+			},
+
+			// Judge 3: returnVerdict = "returned" (submit_review was received by ReturnGate).
+			// The combination forceReturnCount≥1 + outcome=completed + returnVerdict=returned
+			// is the exact proof the founder asked for: "forcing converts a real external agent."
+			{
+				id: "return_verdict_returned",
+				label: "returnVerdict = returned (submit_review received by ReturnGate after forcing)",
+				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const returnVerdict = ctx.triggerResult.returnVerdict;
+					const outcome = ctx.triggerResult.outcome;
+
+					if (returnVerdict === "returned") {
+						return {
+							score: 1.0,
+							note:
+								`returnVerdict=returned, outcome=${outcome} — ` +
+								"submit_review was called after forcing. Convert-success on external harness proven.",
+						};
+					}
+
+					// After the "returned" guard above, returnVerdict is "not_returned" | undefined.
+					// If the session completed without a valid return action, that is the v1 regression.
+					if (outcome === "completed") {
+						return {
+							score: 0.0,
+							note:
+								"v1 regression: outcome=completed but returnVerdict≠returned. " +
+								`returnVerdict=${returnVerdict ?? "absent"}. ` +
+								"The session closed without a valid return action.",
+						};
+					}
+
+					return {
+						score: 0.0,
+						note:
+							`returnVerdict=${returnVerdict ?? "absent"}, outcome=${outcome} — ` +
+							"no return action received by ReturnGate.",
+					};
+				},
+			},
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
@@ -449,4 +652,5 @@ export const forceReturnScenarios: EvalScenario[] = [
 	frForcedReturnBuilder,
 	frCompliantReturnBuilder,
 	frForcedReturnExternal,
+	frForcedReturnExternalCompliant,
 ];

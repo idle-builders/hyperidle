@@ -4,7 +4,7 @@
   "track": "AL",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "4-review",
+  "currentStep": "4-review-followup-external-happypath-eval",
   "resumePoint": "GREEN phase complete. All AL6 tests pass (34 unit + 30 integration). HARD DoD eval fr-forced-return-external: outcome=not_returned forceReturnCount=2 score=0.933 (Layer-B forcing via sandbox-file rewrite proven on external-shaped harness). npm run verify exit 0 (attestation at 8e6f7631). Builtin live eval (fr-forced-return-builder) aborted after 32min hang — deepseek/OpenRouter builtin loop too slow for autonomous run; builtin forcing proven by AL6-uniform-forcing.integration.test.ts (AC4b) instead. Next: Phase 4 (code review) → Phase 5 (docs) → Phase 6 (retro) → ship.",
   "startedAt": "2026-06-22T22:34:00+02:00",
   "runMode": "autonomous",
