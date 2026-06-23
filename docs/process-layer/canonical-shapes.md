@@ -182,9 +182,9 @@ type StagedOperationView = {
 ```
 
 - **Every approve fires ≥1 consequence** (internal state move or external tool call) — a review that changes nothing should not exist. A **Staged Operation** is the *irreversible* subset that a human must clear.
-- The gate keys on **reversibility, not familiarity** (ETHOS §3) — reversible consequences flow at the agent×skill autonomy level; unknown-but-reversible is not gated.
+- The gate keys on **reversibility, not familiarity** (ETHOS §3) — reversible consequences flow per the agent's earned trust signal (verdict-history approval rate); unknown-but-reversible is not gated.
 - **Capability split:** the agent never holds the live commit verb / credential — it is Kernel-held, provisioned to the agent only in draft form. Enforced by provisioning + sandbox + interception, not agent self-policing.
-- The single trust dial is **graduated autonomy per agent × skill (L1→L4)** ([trust-building](../human-interface-layer/trust-building-slow-cumulative.md) §10) — classification, customization, and learning in one; NOT a thresholds/allowlists policy engine. Ratchet is one-way-safe (auto-tighten; loosening only proposed). Irreversible + high-blast-radius stays blocked even at L4.
+- The trust signal is the agent's **verdict-history approval rate**, evaluated by the policy engine (`packages/fabric/src/services/policy-engine.ts`) against global thresholds with cold-start protection — NOT a per-tool allowlist/risk-table matrix, and NOT the per-skill autonomy ladder (removed by AD4; vestige removed by AL9). Irreversible consequences stay gated regardless of trust. AL7 ships only the gated arm; reversible auto-flow is AL8.
 - At-most-once is enforced by a persisted conditional transition on `status` (mirroring first-verdict-wins `WHERE resolvedAt IS NULL` in `threads.ts`), **independent of the at-least-once event bus**.
 - `idempotencyKey UNIQUE` is an **anti-fork guard** (prevents two rows for the same key), NOT the at-most-once execution guarantee (that is the `WHERE status='pending'` conditional UPDATE claim).
 - The `approve` verdict fires **all** of its Subject's consequences (verdict resolves the whole Subject); grammar unchanged. HyperIdle triggers; the connected tool/MCP executes (trigger-not-executor).

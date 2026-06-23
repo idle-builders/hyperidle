@@ -286,3 +286,98 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 **Out of scope.** The harness return-enforcement (AL6). Broad per-tool dispatch coverage (the loop + at least one real tool path; wide tool coverage is follow-on). Multi-step transactional rollback beyond the single staged operation's own undo.
 
 **Effort.** L (~4-5d)
+
+---
+
+### AL8 — Reversibility-driven auto-flow for staged operations
+
+**Workpackage.** As a founder who has built trust with an agent, I want that agent's *reversible* staged operations to flow without me approving each one — while *irreversible* ones still gate — so that my approval effort concentrates on what genuinely can't be undone instead of every consequence. Today every staged operation from AL7 waits for an explicit human approve regardless of reversibility or how much the agent has earned my trust. The system already auto-resolves high-trust, low-risk review *items* via the policy engine, but staged operations bypass it entirely. This wires the two together so trust actually translates into less work.
+
+**Why this matters.** This is the other half of AL7's founding principle (ETHOS §3): *never put a human in front of a reversible one.* AL7 shipped only the gated arm, so the system currently interrupts the human for reversible work too — the exact approval fatigue ETHOS warns against. The founder and every reviewer benefit directly: as an agent's approval-rate history climbs, its reversible operations stop demanding clicks. The cost of not building it: the review queue stays full of reversible no-brainers, earned trust never reduces the human's load, and HyperIdle feels like every other approval-fatigued agent tool.
+
+**What exists today.** AL7's staged-operation model — `staged_operations` (carrying a `reversibility` field), the dispatcher, at-most-once execution on approve. The policy engine (`packages/fabric/src/services/policy-engine.ts`) already decides push / queue / auto_resolve for review *items* using the agent's approval-rate trust signal (verdict history over a factory-settings window, cold-start protection) and a `riskTier` (high/low). The two are unconnected: staged operations always gate, and the policy engine never sees them. AL7's `reversibility` axis and the policy engine's `riskTier` axis are two parallel, unreconciled risk vocabularies.
+
+**What's genuinely missing.** A path where a staged operation's reversibility, crossed with the agent's trust signal, lets a *reversible* operation execute without a human verdict — plus a single reconciled risk model so "reversible" and "low riskTier" are not two conflicting axes. Irreversible operations must still always gate.
+
+**Depends on.** AL7 — this consumes the staged-operation model and its execution path; it cannot be built or verified until AL7 is `done`.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Concept:** Required — run `/concept AL8` first. It reshapes the gating classifier: reconcile AL7's `reversibility` axis with the shipped policy engine's `riskTier` + approval-rate trust signal into one model, and define when a staged operation auto-executes vs gates. A load-bearing reshape of how the gate decides — point at `docs/process-layer/staged-operation.md` and `packages/fabric/src/services/policy-engine.ts`.
+- **Design:** Light — extends existing review/outcome surfaces (an auto-executed staged op appears with its outcome, like the existing item auto_resolve path); no novel surface. Single-variant `/design` to place auto-execution provenance, no human-review park.
+
+**Human design review.** No — backend gating reconciliation; the only surface change is showing auto-execution provenance on existing review/outcome surfaces, not a new primitive.
+
+**Acceptance criteria.**
+- A reversible staged operation from a sufficiently-trusted agent executes without requiring a human verdict, and its outcome is still recorded and visible against the review.
+- An irreversible staged operation always requires a binding human approval, regardless of trust level, and never auto-executes.
+- An agent with insufficient trust history has all its staged operations gated — reversible or not — until it accumulates enough verdict history.
+- For any staged operation, a reader can tell why it gated or flowed under one coherent risk model, without reconciling two separate risk vocabularies.
+- An auto-executed operation is distinguishable from a human-approved one wherever outcomes are surfaced (its provenance is recorded).
+- At-most-once execution holds for auto-flowed operations exactly as for approved ones.
+
+**Validation scenarios.**
+- Given a high-trust agent and a reversible staged operation, when the agent stages it, then it executes without a human verdict and its outcome is recorded.
+- Given any agent and an irreversible staged operation, when the agent stages it, then nothing executes until a human approves.
+- Given a new agent with no verdict history, when it stages a reversible operation, then it is gated (cold-start protection), not auto-executed.
+- Given an auto-executed operation, when a human views the review, then it is shown as auto-executed rather than human-approved.
+
+**Plan calls.** Concept-reshaping — run `/concept AL8` first (reconcile reversibility × riskTier × approval-rate trust into one classifier). Then a standard architecture pass plus a light `/design` to place auto-execution provenance on the existing review surfaces. Spans the fabric policy-engine and the staged-operation-dispatcher domains.
+
+**Contracts / constraints.**
+- Irreversible + any trust level → always gated; never auto-executes. The ETHOS §3 floor is preserved.
+- One reconciled risk model — `reversibility` and `riskTier` are unified or one is defined in terms of the other; no two parallel conflicting axes survive.
+- Cold-start protection holds — insufficient verdict history → gated regardless of reversibility.
+- At-most-once execution is preserved for auto-flowed operations (no weaker guarantee than the gated path).
+- The trust signal stays Kernel/Strategy-owned (approval-rate from verdict history); an agent never sets its own flow eligibility.
+- Auto-execution provenance is recorded and surfaced — an auto-executed operation is never indistinguishable from a human-approved one.
+
+**Out of scope.** The layer-3 pre-call interception backstop (deferred). Broad per-tool dispatch coverage (Track AN). Any change to the verdict grammar or the human-approval path for irreversible ops. Re-introducing per-skill autonomy levels (removed by AD4; this uses the verdict-history trust signal — see AL9).
+
+**Effort.** L (~4-5d)
+
+---
+
+### AL9 — Trust-model consolidation: remove vestigial per-skill autonomy
+
+**Workpackage.** As a developer or agent reading the codebase, I want one trust model — the verdict-history approval-rate signal AD4 introduced — with no leftover per-skill autonomy-level data, routes, or types, so that nobody mistakes the dead L1→L4 dial for the live gating mechanism. AD4 replaced per-skill autonomy in the policy engine but left the `autonomyLevel` CRUD endpoint, settings field, and types in place; they are stored and editable yet consumed by nothing for gating decisions.
+
+**Why this matters.** This dead code already caused a concrete failure: an audit (and nearly an AL7 follow-up planning pass) mistook the vestigial per-skill autonomy CRUD for the live trust model, because the data and routes still exist. Every future reader, agent, and reviewer pays that confusion tax, and AL7's gate concept cannot be explained cleanly while two trust models appear to coexist. The cost of not building it: the next person re-derives the same wrong conclusion. Removing it makes the one real model legible — a maintainability cost already being paid in misreads.
+
+**What exists today.** AD4 (merged, PR #220) rewrote `packages/fabric/src/services/policy-engine.ts` to gate on `getAgentTrustSignal` (approval-rate from verdict history) and removed `getAutonomyLevel`. But the per-skill autonomy level survives as unconsumed vestige: the `PATCH /:id/skills/:skillId` route in `packages/server/src/routes/users.ts` (still emits `autonomy_change` events), `autonomyLevel` in `packages/server/src/routes/settings.ts`, and the `AutonomyLevel` type in `packages/fabric/src/types.ts` and `packages/web/src/settings/settings-types.ts`. `packages/shared/src/agent-profile.ts` already records that the review track record "replaces per-skill autonomy level."
+
+**What's genuinely missing.** The removal of the per-skill autonomy data model, routes, types, and any residual UI surface AD4 left behind — so the verdict-history trust signal is the only trust mechanism present in the code. Whether routine `autonomyLevel` (a distinct axis for recurring routines) is the same dead path or a genuinely live one is for the architect to determine before deleting.
+
+**Depends on.** None — AD4 is `done`; this finishes its cleanup.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — consumes the already-locked AD4 trust model (verdict-history approval rate, settled in `policy-engine.ts` + `agent-profile.ts`); introduces no noun.
+- **Design:** Not required — backend/data/route removal. Any residual autonomy UI field is removed as dead UI, not a design decision; if a surface genuinely needs rework, that is flagged back, not pre-resolved here.
+
+**Human design review.** No — vestigial-code removal; no new or reshaped surface.
+
+**Acceptance criteria.**
+- The per-skill autonomy level can no longer be set or read through any API — the route that mutated it is gone.
+- No code path stores, reads, or emits events for a per-skill autonomy level.
+- The codebase contains exactly one agent trust model (the verdict-history approval-rate signal); a search for autonomy-level types/fields returns only genuinely-distinct live concepts, nothing vestigial tied to the removed per-skill dial.
+- Gating behavior is unchanged after the removal (proof the autonomy level was already unused).
+
+**Validation scenarios.**
+- Given the cleaned codebase, when a client calls the former per-skill autonomy endpoint, then it no longer exists and no other behavior regresses.
+- Given the policy engine, when it makes a gating decision, then it relies solely on the verdict-history trust signal (unchanged behavior).
+- Given a code search for the per-skill autonomy type, when run after the change, then it returns no vestigial references.
+
+**Plan calls.** Skip `/design`. Standard architecture pass — locate every reference to the per-skill autonomy level (routes, settings, types, events, any UI), confirm none feeds a live gating decision, and remove them. Distinguish the dead per-skill dial from any genuinely-live axis (e.g. routine autonomy) before deleting. Spans server routes + fabric/web types.
+
+**Contracts / constraints.**
+- Gating behavior is unchanged — removal is provably behavior-neutral (the data was unconsumed for decisions).
+- After this WP, the verdict-history approval-rate signal is the only agent trust mechanism in the code.
+- Forward-only — no migration that preserves the dead column's data; it is removed.
+- Do not touch any genuinely-distinct live axis (routine autonomy) unless proven to be the same dead path.
+
+**Out of scope.** The reversibility-driven auto-flow wiring (AL8). Any change to the verdict-history trust signal itself (AD4 owns it). Routine autonomy, if it is a separate live mechanism.
+
+**Effort.** M (~3-4h)

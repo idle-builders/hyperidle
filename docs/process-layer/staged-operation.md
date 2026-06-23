@@ -32,17 +32,19 @@ The live commit verb / live credential lives with the **Kernel**, never in the a
 2. **Sandbox boundary** — no side-door egress (shell, raw HTTP, another MCP server) to the capability.
 3. **Interception** (backstop) — a pre-call hook refuses anything gated requested directly.
 
-Who classifies a verb as gated is **not the agent** — it is resolved from the consequence's *reversibility* (verb, MCP `destructiveHint`/`idempotentHint`, native undo/test affordance) crossed with the agent×skill **autonomy level**. Both are Kernel/Strategy-owned.
+Who classifies a verb as gated is **not the agent** — it is resolved from the consequence's *reversibility* (verb, MCP `destructiveHint`/`idempotentHint`, native undo/test affordance) crossed with the agent's **trust signal** (its verdict-history approval rate). Both are Kernel/Strategy-owned.
 
-## The single dial: graduated autonomy
+## The single signal: earned trust from verdict history
 
-There is **no separate policy engine** — no thresholds matrix, no allowlists, no per-tool risk table (the enterprise smell HyperIdle rejects). There is **one dial already in the system**: autonomy level per agent per skill, L1 (human in every loop) → L4 (autonomous unless blocked) ([trust-building](../human-interface-layer/trust-building-slow-cumulative.md) §10). It is at once:
+There is **no per-tool risk table or allowlist matrix** (the enterprise smell HyperIdle rejects). The trust signal is **earned, not configured**: an agent's **approval rate over its recent verdict history**, computed by the policy engine (`packages/fabric/src/services/policy-engine.ts`) over a sliding window against a few global factory-settings thresholds. It is at once:
 
-- **Classification** — the level × reversibility decides whether an irreversible commit surfaces now or flows.
-- **Customization** — the human moves one thing, the level; even that mostly arrives as a system-proposed review item ("Builder landed this 20× clean — promote to L3?"). The system owns *how* gating works; the human owns the trust level.
-- **Learning** — the level graduates off the review track record (clean approvals propose a raise; rejections/edits hold or drop it). The review history *is* the training signal, per agent × skill × product. No ML subsystem.
+- **Classification** — the trust signal crossed with the operation's risk decides whether a consequence surfaces for review now or flows. High-risk always surfaces; a trusted agent's low-risk work can flow.
+- **No manual dial** — there is nothing per-skill for a human to set. Trust moves on its own as verdicts accumulate; the human's only input is the verdicts themselves.
+- **Learning** — the signal *is* the review track record: clean approvals raise the approval rate; rejections/edits lower it. No ML subsystem, no per-skill autonomy ladder.
 
-The ratchet is **asymmetric**: the system may **auto-tighten** but may only **propose** loosening; a human always grants autonomy. And there is a **floor autonomy cannot cross** — irreversible **and** high-blast-radius consequences (large money, mass customer sends, prod data deletion) stay *blocked* even at L4. That permanent thin gate is the reason the product exists.
+The ratchet is **cold-start-safe**: an agent with too few verdicts has everything surfaced regardless of rate, so new agents get maximum oversight until they earn history. And there is a **floor trust cannot cross** — irreversible consequences stay gated regardless of approval rate. That permanent thin gate is the reason the product exists.
+
+> **Implementation note (AD4 / AL7 / AL8).** An earlier framing of this signal as a manually-set **per-skill autonomy ladder (L1→L4)** was removed by **AD4** in favor of the verdict-history approval rate above; the surviving `autonomyLevel` data is vestigial and removed by **AL9**. AL7 itself ships only the **gated arm** — every staged operation waits for an explicit human approve. Wiring the trust signal so *reversible* staged operations auto-flow (and reconciling AL7's `reversibility` axis with the policy engine's `riskTier`) is **AL8**, not built yet.
 
 ## Definition
 
@@ -94,16 +96,16 @@ Grammar unchanged — five decisions, `approve` stays `approve`. An `approve` / 
 
 - **Cardinality.** Staged Operation → exactly 1 consequence it commits; Subject → 0..N consequences, 0..N staged operations; approve → fires all of its Subject's consequences; Staged Operation → 0..1 Operation Outcome, exactly 1 idempotency key.
 - **Closure.** Executable tools/operations are **OPEN** (resolved via the harness capability descriptor). The reversibility axis and the L1–L4 autonomy ladder are **CLOSED**. AL7 proves the loop + at least one real tool path; broad coverage is follow-on.
-- **Mutability.** The staged-operation **spec is immutable once staged** (no rebind between approve and execution — no TOCTOU). Only status mutates. Outcome immutable once recorded. The autonomy level changes only via a Kernel/Strategy path (a review item), never by the agent.
+- **Mutability.** The staged-operation **spec is immutable once staged** (no rebind between approve and execution — no TOCTOU). Only status mutates. Outcome immutable once recorded. The trust signal (verdict-history approval rate) changes only as verdicts accumulate — never by the agent's own action.
 - **Identity.** Opaque stable id; the **idempotency key** is the at-most-once execution identity.
 
 ## Hard rules
 
 1. **At-most-once per approval** — a persisted conditional transition on the idempotency key / status (`WHERE status='pending'`, mirroring first-verdict-wins in `packages/server/src/routes/threads.ts`), **independent of the at-least-once event bus**. A re-delivered `thread_resolved`, a re-opened review, or a re-rendered canvas must never double-execute.
-2. **Never irreversible without a human** (ETHOS §3). Reversible consequences may flow per the agent×skill autonomy level.
+2. **Never irreversible without a human** (ETHOS §3). Reversible consequences may flow per the agent's verdict-history trust signal (the gated-vs-flow wiring for staged operations is AL8).
 3. **The agent never holds the live verb** — Kernel-held; agent gets only the draft form. Enforced by provisioning + sandbox + interception, not self-policing.
 4. **Gate keys on irreversibility, not familiarity.** Unknown-but-reversible flows.
-5. **The trust ratchet is one-way-safe** — auto-tighten allowed; loosening only proposed, human grants. Irreversible + high-blast-radius stays blocked even at L4.
+5. **The trust ratchet is cold-start-safe** — trust is the agent's verdict-history approval rate (earned, not a manual dial); too few verdicts → everything gated. Irreversible consequences stay blocked regardless of trust.
 6. **No consequence-free review** — every approve fires ≥1 consequence.
 7. **Verdict grammar unchanged.**
 8. **Failure surfaces** as a `failed` Outcome — never silently swallowed.
@@ -119,7 +121,7 @@ Grammar unchanged — five decisions, `approve` stays `approve`. An `approve` / 
 | **Reversibility / irreversible** | Whether a consequence can be undone; the classifier that decides gating. | risk level, criticality (name the parts: irreversibility × blast-radius) |
 | **Draft space** | The reversible place the agent iterates so only one verb is irreversible. | staging environment (only archetype-deploy is literally an env) |
 | **Capability split** | Agent holds draft verbs only; live verb/credential is Kernel-held. | permission, RBAC |
-| **Graduated autonomy** | The single trust dial: per agent × skill, L1→L4. | policy, ruleset, threshold matrix, allowlist |
+| **Trust signal** | The agent's verdict-history approval rate; the policy engine crosses it with risk to gate or flow. | graduated autonomy, per-skill autonomy level (removed — AD4), per-tool risk table |
 | **execute / Execution** | The durable Kernel act of carrying a staged op out through its tool. | dispatch (collides with `task-dispatcher`), fire, run |
 | **Operation Outcome** | Recorded terminal result (ok/failed + payload/error). | result (banned Artifact alias), response, receipt |
 | **Idempotency key** | The at-most-once identity; tool/MCP + Kernel dedupe on it. | nonce, request id, dedup token |
@@ -170,13 +172,13 @@ After the resolution transaction commits, **only** for `approve` / `approve-with
 
 These are explicitly NOT built in AL7:
 - **Per-agent capability provisioning** — AL8 (tool grant / trust tier) + AM2 (harness capability descriptor). The `KERNEL_DISPATCHABLE_CAPABILITIES` allowlist is a stopgap until those land.
-- **Graduated-autonomy auto-flow path** — the reversible-consequence path that bypasses review entirely at high autonomy levels. AL7's loop is the *gated* arm only.
+- **Trust-signal auto-flow path** — the reversible-consequence path that bypasses review when the agent's verdict-history approval rate is high enough. AL7's loop is the *gated* arm only.
 - **Broad per-tool dispatch coverage** — `executeCapability` is a 2-entry map (fixture + GitHub merge). Additional connectors land in AL8.
 - **Multi-step transactional rollback / retry engine** — the narrow boot sweep (stranded `executing` → `failed`) is in scope; the broad rollback engine is not.
 
 ## Rationale
 
-AL1–AL4 built the *review*; the action-operation canvas approves into the void. AL7 is the **act**. The founder deep-dive (2026-06-22/23) reshaped it away from two flaws worth recording so they are never reintroduced: (1) "descriptive artifacts do nothing on approve" — wrong, a review that changes nothing should not exist; replaced by *every approve fires consequences*, classified by **reversibility**. (2) "unknown defaults to gated, via a multi-layer policy waterfall" — wrong twice: gating the unfamiliar-but-reversible is approval fatigue, and a thresholds/allowlists policy engine is the enterprise product HyperIdle is not; replaced by ETHOS §3's line (**irreversibility**) and the existing single dial, **graduated autonomy per agent×skill**, which is classification, customization, and learning in one. The load-bearing safety idea is the **capability split**: the agent works freely in a reversible draft space and never holds the one irreversible commit verb, which the Kernel exercises only on a human approve.
+AL1–AL4 built the *review*; the action-operation canvas approves into the void. AL7 is the **act**. The founder deep-dive (2026-06-22/23) reshaped it away from two flaws worth recording so they are never reintroduced: (1) "descriptive artifacts do nothing on approve" — wrong, a review that changes nothing should not exist; replaced by *every approve fires consequences*, classified by **reversibility**. (2) "unknown defaults to gated, via a multi-layer policy waterfall" — wrong twice: gating the unfamiliar-but-reversible is approval fatigue, and a thresholds/allowlists policy engine is the enterprise product HyperIdle is not; replaced by ETHOS §3's line (**irreversibility**) and the **verdict-history trust signal** (an earned approval rate, not a manual dial), which is classification and learning in one. The load-bearing safety idea is the **capability split**: the agent works freely in a reversible draft space and never holds the one irreversible commit verb, which the Kernel exercises only on a human approve.
 
 Parked unbiased in `plans/AL1/design/review-system.md` §4 (2026-06-17); shaped + locked as concept (2026-06-22/23); implementation shipped as AL7. Framed by `plans/AL8/boundary-concept.md`.
 
