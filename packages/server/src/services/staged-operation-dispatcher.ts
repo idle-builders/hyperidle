@@ -284,30 +284,38 @@ async function githubMergePr(op: StagedOperationSpec): Promise<{ payload: unknow
 }
 
 /**
- * The set of (capabilityTool, operation) pairs that the kernel capability map
- * knows how to execute. Used at STAGE TIME (CRITICAL-3) to reject ops that
- * reference capabilities the kernel cannot dispatch — enforces the capability
- * split at the write boundary, not only at dispatch time.
+ * The set of (capabilityTool, operation) pairs that the kernel knows how to
+ * dispatch. Used at STAGE TIME to enforce the kernel-held-verb half of the
+ * capability split: an agent cannot stage an op for an arbitrary/forged string
+ * the kernel has no executor for.
  *
- * @lore AL7 CRITICAL-3: capability validation must be at the WRITE boundary,
- * not only at dispatch. An agent cannot stage an op for a capability the kernel
- * doesn't hold. Unknown tools are surfaced at dispatch anyway (failed Outcome),
- * but the plan requires the stage itself to be rejected — not silently accepted
- * and deferred to dispatch failure.
+ * @lore AL7 — what this IS and what it is NOT:
+ * This is a kernel-dispatchable-verb guard, NOT a per-agent provisioning check.
+ * It enforces: "the staged capability must be a verb the kernel can dispatch."
+ * It does NOT enforce: "this specific agent was provisioned this capability."
+ * Per-agent capability provisioning (AL8 tool grant / trust tier) and the
+ * harness capability descriptor (AM2 StagedOperation OPEN vocab shape) are
+ * downstream surfaces that do not exist yet. buildToolRegistry gates by ROLE,
+ * not by per-agent external-capability grants. When AL8/AM2 land, this
+ * allowlist can be retired in favour of the descriptor lookup.
  *
  * Format: `"${capabilityTool}/${operation}"` — e.g. "github/merge_pr".
  */
-export const KNOWN_CAPABILITY_KEYS: ReadonlySet<string> = new Set([
+export const KERNEL_DISPATCHABLE_CAPABILITIES: ReadonlySet<string> = new Set([
 	"fixture:staged-op/echo", // deterministic in-process capability for tests + demos
 	"github/merge_pr", // real archetype-A forge path — requires GITHUB_TOKEN
 ]);
 
 /**
- * Check whether a (capabilityTool, operation) pair is registered in the kernel
- * capability map. Returns false for any unrecognized pair.
+ * Check whether a (capabilityTool, operation) pair is a kernel-dispatchable
+ * verb. Returns false for any unrecognized pair.
+ *
+ * This enforces the kernel-held-verb gate: an agent cannot stage an operation
+ * the kernel has no executor for. It does NOT check per-agent provisioning —
+ * that is deferred to AL8 (tool grant) + AM2 (harness capability descriptor).
  */
-export function isKnownCapability(capabilityTool: string, operation: string): boolean {
-	return KNOWN_CAPABILITY_KEYS.has(`${capabilityTool}/${operation}`);
+export function isKernelDispatchableCapability(capabilityTool: string, operation: string): boolean {
+	return KERNEL_DISPATCHABLE_CAPABILITIES.has(`${capabilityTool}/${operation}`);
 }
 
 /**

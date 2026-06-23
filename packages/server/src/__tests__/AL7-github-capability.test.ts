@@ -23,7 +23,7 @@ import type { StagedOperationSpec } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	buildExecuteCapability,
-	KNOWN_CAPABILITY_KEYS,
+	KERNEL_DISPATCHABLE_CAPABILITIES,
 } from "../services/staged-operation-dispatcher.js";
 
 function makeSpec(override?: Partial<StagedOperationSpec>): StagedOperationSpec {
@@ -44,13 +44,13 @@ function makeSpec(override?: Partial<StagedOperationSpec>): StagedOperationSpec 
 }
 
 describe("AL7 — github:merge-pr capability (contract test)", () => {
-	describe("KNOWN_CAPABILITY_KEYS", () => {
+	describe("KERNEL_DISPATCHABLE_CAPABILITIES (kernel-held-verb allowlist)", () => {
 		it("includes github/merge_pr", () => {
-			expect(KNOWN_CAPABILITY_KEYS.has("github/merge_pr")).toBe(true);
+			expect(KERNEL_DISPATCHABLE_CAPABILITIES.has("github/merge_pr")).toBe(true);
 		});
 
 		it("includes fixture:staged-op/echo", () => {
-			expect(KNOWN_CAPABILITY_KEYS.has("fixture:staged-op/echo")).toBe(true);
+			expect(KERNEL_DISPATCHABLE_CAPABILITIES.has("fixture:staged-op/echo")).toBe(true);
 		});
 	});
 

@@ -82,7 +82,7 @@ export const stagedOperations = pgTable(
       .notNull()
       .references(() => artifacts.id, { onDelete: "restrict" }),
     consequenceId: text("consequence_id").notNull(),   // the consequence it commits (concept)
-    // Capability resolved via the harness capability descriptor (OPEN vocab) — NOT a hardcoded map.
+    // Capability validated against kernel-dispatchable-verb allowlist (AL7); per-agent descriptor (OPEN vocab) deferred to AL8/AM2.
     capabilityTool: text("capability_tool").notNull(), // e.g. "stripe" / the registered tool name
     capabilityHarnessType: text("capability_harness_type"), // optional; null = built-in registry
     operation: text("operation").notNull(),            // the verb/call, e.g. "refund_payment"
@@ -186,13 +186,15 @@ Handler:
    from it (not the other way around), so the op is always bound to the exact review whose approve
    will fire it. Reject if the message is not a `review`/`questionnaire`-type message in a bet host
    thread (an op can only hang off a reviewable Subject).
-2. **Capability validation at stage time (W2):** resolve `(capability.tool, operation)` against the
-   harness **capability descriptor** for the staging agent — the same provisioning surface
-   `buildToolRegistry` reads. Reject the stage if the agent was never provisioned that capability
-   (the agent cannot stage an op it has no live capability for). This makes the capability split an
-   *enforcement* at the write boundary, not a comment — an agent's `stage_operation` call can only
-   create executables for capabilities it actually holds. `capabilityTool`/`operation` stay OPEN
-   vocab (no hardcoded map), but must resolve through the descriptor.
+2. **Capability validation at stage time (W2 — narrowed):** check `(capabilityTool, operation)`
+   against the **kernel-dispatchable-verb allowlist** (`KERNEL_DISPATCHABLE_CAPABILITIES`). Reject
+   the stage if the kernel has no executor for the requested verb. This prevents an agent from
+   staging an arbitrary/forged capability string. NOTE: this is the **kernel-held-verb gate only**
+   — it is NOT a per-agent provisioning check. Per-agent capability grants (an agent can only stage
+   ops for capabilities it was provisioned) are deferred: **AL8** (tool grant / trust tier) owns
+   the provisioning surface, and **AM2** (harness capability descriptor, OPEN vocab) owns the
+   descriptor lookup that would replace this closed allowlist. Until those land, `buildToolRegistry`
+   gates by ROLE only, and per-agent external-capability grants don't exist.
 3. Insert a `staged_operations` row `status='pending'` with the derived `subjectThreadId` +
    `reviewMessageId`. **The tool does NOT execute** — it only stages. This is the capability split:
    the agent's only verb is `stage_operation`; there is no agent-facing `execute_operation`. Returns
@@ -444,7 +446,7 @@ The Outcome must be returned by **a loader that actually queries the new tables*
 | A staged op never approved is never executed | integration test: stage op, post non-approving verdict (or never resolve) → assert no Outcome, `executeCapability` not called | dispatcher test |
 | Descriptive artifacts do not execute on approve; only operative do | integration test: review with only a `code_diff` artifact (no staged op row) → approve → `executeCapability` not called. Operative = "has a staged_operations row"; descriptive = none | dispatcher test |
 | At-most-once is idempotent per approval (constraint) | unit test: two concurrent claims on one `pending` row → exactly one returns rows; **DB UNIQUE on idempotencyKey rejects a duplicate stage** (the DB-level defense) | dispatcher unit test + `stage-operation.integration.test.ts` |
-| Capability validated at stage; unknown capability surfaces (W2) | integration test: (a) stage against a capability the agent does NOT hold → stage rejected; (b) approve an op whose `(tool,operation)` has no `executeCapability` entry → **`failed` Outcome surfaced, never a silent skip** | stage-tool + dispatcher test |
+| Capability validated at stage; unknown capability surfaces (W2) | integration test: (a) stage against a capability the **kernel cannot dispatch** → stage FORBIDDEN at write boundary (kernel-held-verb gate via `KERNEL_DISPATCHABLE_CAPABILITIES`); ~~stage against a capability the agent does NOT hold~~ **DEFERRED to AL8/AM2** — per-agent provisioning surface does not exist yet (`buildToolRegistry` gates by ROLE only); (b) approve an op whose `(tool,operation)` has no `executeCapability` entry → **`failed` Outcome surfaced, never a silent skip** | stage-tool + dispatcher test. Scope note: row (a) narrowed to kernel-verb gate; per-agent enforcement (AL8 tool grant + AM2 harness capability descriptor) is follow-on work. |
 | Crash recovery: a stranded `executing` op reaches a terminal Outcome (C2) | integration test: insert an `executing` op with no Outcome → run `sweepStrandedOperations` → assert it becomes `failed` with the interrupted-message Outcome | dispatcher integration test |
 | Live server boot wires dispatch (C3) | integration test: construct the production app (`createApp`) and assert the threads route was built **with `dispatchDeps`** — an approve through the real app executes the op (not a no-op) | `app.integration.test.ts` |
 | Verdict grammar unchanged (constraint) | no change to `VERDICT_DECISIONS`; `tsc` — no new verdict decision added | `npm run check` |

@@ -1,14 +1,16 @@
 /**
  * AL7 — stage_operation tool integration tests.
  *
- * CRITICAL-3: Stage-time capability validation — an agent cannot stage an op
- * for a capability the kernel does not hold. The stage is REJECTED at the write
- * boundary (not silently accepted to fail at dispatch).
+ * Kernel-held-verb gate (CRITICAL-3): an agent cannot stage an op for a capability
+ * the kernel has no executor for. Stage is REJECTED at the write boundary (FORBIDDEN),
+ * not silently accepted to fail later at dispatch.
+ *
+ * Scope note: this is a kernel-dispatchable-verb check, NOT per-agent provisioning.
+ * Per-agent capability grants are deferred to AL8 (tool grant / trust tier) + AM2
+ * (harness capability descriptor). buildToolRegistry gates by ROLE only today.
  *
  * WARNING-1: subjectThreadId is derived from reviewMessageId (not agent-supplied).
  * An agent cannot misalign the thread anchor.
- *
- * AC table row: "(a) stage against a capability the agent does NOT hold → stage rejected"
  */
 
 import * as os from "node:os";
@@ -157,14 +159,18 @@ describe("AL7 — stage_operation tool", () => {
 			expect(row?.subjectThreadId).toBe(threadId);
 		});
 
-		test("staging an UNKNOWN capability is REJECTED at stage time (not silently accepted)", async ({
+		test("staging a capability the kernel cannot dispatch → FORBIDDEN at stage time", async ({
 			db,
 			eventBus,
 		}) => {
 			const { agentId, artifactId, reviewMessageId } = await seedWorld(db);
 			const ctx = makeCtx(db, eventBus, agentId);
 
-			// "stripe/refund_payment" is NOT in KNOWN_CAPABILITY_KEYS
+			// "stripe/refund_payment" is not in KERNEL_DISPATCHABLE_CAPABILITIES —
+			// the kernel has no executor for it, so staging must be rejected.
+			// Note: this tests the kernel-held-verb gate, not per-agent provisioning.
+			// An agent provisioned with no external tools could also stage "github/merge_pr"
+			// and pass — that per-agent check is deferred to AL8/AM2.
 			const result = await stageOperationTool.handler(
 				{
 					artifactId,

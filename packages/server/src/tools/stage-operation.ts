@@ -3,8 +3,8 @@ import { artifacts, messages, stagedOperations } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import {
-	isKnownCapability,
-	KNOWN_CAPABILITY_KEYS,
+	isKernelDispatchableCapability,
+	KERNEL_DISPATCHABLE_CAPABILITIES,
 } from "../services/staged-operation-dispatcher.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -30,12 +30,15 @@ import { err, ok, type ToolResult } from "./tool-result.js";
  * the op is always bound to the exact review whose approve will fire it — an
  * agent bug or malicious input cannot misalign the thread anchor.
  *
- * @lore AL7 CRITICAL-3: Capability validation at stage time. The (capabilityTool,
- * operation) pair MUST be in the kernel capability descriptor (KNOWN_CAPABILITY_KEYS).
- * Stage is rejected if the agent references a capability the kernel cannot execute.
- * This makes the capability split an enforcement at the write boundary, not just
- * a dispatch-time failure. An unknown tool surfaces here (rejected) and at dispatch
- * (failed Outcome) — defense in depth.
+ * @lore AL7 CRITICAL-3: Kernel-held-verb gate at stage time. The (capabilityTool,
+ * operation) pair must be a kernel-dispatchable verb (KERNEL_DISPATCHABLE_CAPABILITIES).
+ * Stage is rejected if the kernel has no executor for the requested capability.
+ * This prevents an agent from staging an arbitrary/forged capability string.
+ *
+ * SCOPE NOTE: this is a kernel-dispatchable-verb check, NOT a per-agent
+ * provisioning check. Per-agent capability grants are deferred to AL8 (tool grant /
+ * trust tier) + AM2 (harness capability descriptor). buildToolRegistry currently gates
+ * by ROLE only; per-agent external-capability grants don't exist yet.
  */
 
 // reviewableTypes: only these message types can gate a staged op.
@@ -92,15 +95,17 @@ async function handler(args: StageOperationInput, ctx: ToolContext): Promise<Too
 	}
 	const input = parsed.data;
 
-	// CRITICAL-3: Validate the capability at stage time (write boundary).
-	// Reject if the (capabilityTool, operation) pair is not in the kernel map.
-	if (!isKnownCapability(input.capabilityTool, input.operation)) {
+	// Kernel-held-verb gate: reject if the (capabilityTool, operation) pair is not
+	// a kernel-dispatchable verb. An agent cannot stage an arbitrary/forged capability.
+	// NOTE: this is NOT a per-agent provisioning check — per-agent grants are deferred
+	// to AL8 (tool grant / trust tier) + AM2 (harness capability descriptor).
+	if (!isKernelDispatchableCapability(input.capabilityTool, input.operation)) {
 		return err(
 			"FORBIDDEN",
-			`Capability not provisioned: the kernel has no executor for ` +
+			`Unknown kernel capability: the kernel has no executor for ` +
 				`"${input.capabilityTool}/${input.operation}". ` +
-				`Staged operations must reference a capability the kernel can execute. ` +
-				`Known capabilities: ${Array.from(KNOWN_CAPABILITY_KEYS).join(", ")}`,
+				`Staged operations must reference a kernel-dispatchable verb. ` +
+				`Kernel-dispatchable capabilities: ${Array.from(KERNEL_DISPATCHABLE_CAPABILITIES).join(", ")}`,
 		);
 	}
 
