@@ -175,23 +175,6 @@ export function initProgress(target: string, stories: Story[]): PipelineState {
 	};
 }
 
-/**
- * Compatibility view used by callers that still consume the legacy
- * `PipelineState` shape. Reads run.json + every per-story file and returns
- * them in one object. Returns null when neither exists.
- */
-export function loadProgress(): PipelineState | null {
-	const run = loadRun();
-	const stories = loadAllProgress();
-	if (!run && stories.length === 0) return null;
-	return {
-		target: run?.target ?? "",
-		startedAt: run?.startedAt ?? "",
-		lastSessionAt: run?.lastSessionAt ?? "",
-		stories,
-	};
-}
-
 export function updateStory(
 	state: PipelineState,
 	storyId: string,

@@ -62,16 +62,6 @@ export interface MockKnowledgeItem {
 	relatedItems?: ReadonlyArray<string>;
 }
 
-export interface MockCurationSuggestion {
-	id: string;
-	scope: KnowledgeScope;
-	topic: string;
-	/** Headline action, e.g. "Merge these 3 items?" */
-	action: string;
-	/** One-line supporting detail (truncated in the UI if long). */
-	detail: string;
-}
-
 /**
  * Practice scope carries the 5 original pre-J6 titles so the protected
  * KnowledgeList tests continue to pass without modification. Product and
@@ -281,52 +271,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		version: "v3.0",
 	},
 ];
-
-/**
- * Mock curation suggestions. These render as distinct action-oriented cards
- * in the Triage tab (J6 AC: "visually distinct from KnowledgeRows").
- */
-// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
-export const MOCK_CURATION_SUGGESTIONS: ReadonlyArray<MockCurationSuggestion> = [
-	{
-		id: "cs1",
-		scope: "practice",
-		topic: "Architecture",
-		action: "Merge these 3 items?",
-		detail: "Auth Strategy, Rate Limiting, Legacy Mesh overlap on access-control concerns",
-	},
-	{
-		id: "cs2",
-		scope: "product",
-		topic: "Onboarding",
-		action: "No coverage for topic Activation in 2 cycles",
-		detail: "Consider creating a brief for activation flow patterns",
-	},
-	{
-		id: "cs3",
-		scope: "factory",
-		topic: "Governance",
-		action: "Consolidate duplicate cost-cap policies?",
-		detail: "2 items describe overlapping escalation rules",
-	},
-];
-
-/**
- * Topics available per scope, used by the scope browser / NavItems.
- * @lore J6: derived from the fixture list so topics stay in sync with items.
- */
-export function topicsForScope(
-	scope: KnowledgeScope,
-	items: ReadonlyArray<MockKnowledgeItem> = MOCK_KNOWLEDGE_ITEMS,
-): Array<{ topic: string; itemCount: number; staleCount: number; health: KnowledgeTopicHealth }> {
-	const groups = groupItemsByTopic(items.filter((i) => i.scope === scope));
-	return groups.map((g) => ({
-		topic: g.topic,
-		itemCount: g.items.length,
-		staleCount: g.staleCount,
-		health: g.health,
-	}));
-}
 
 /**
  * Derive topic health from the share of stale items in the group.

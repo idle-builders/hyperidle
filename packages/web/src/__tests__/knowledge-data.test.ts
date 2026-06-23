@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	deriveTopicHealth,
 	groupItemsByTopic,
-	MOCK_CURATION_SUGGESTIONS,
 	MOCK_KNOWLEDGE_ITEMS,
-	topicsForScope,
 } from "../fixtures/knowledge-data";
 
 describe("knowledge-data fixtures (J6)", () => {
@@ -25,12 +23,6 @@ describe("knowledge-data fixtures (J6)", () => {
 			"Sprint Retro Outcomes",
 		]) {
 			expect(titles).toContain(title);
-		}
-	});
-
-	it("each scope has at least one curation suggestion", () => {
-		for (const scope of ["practice", "product", "factory"] as const) {
-			expect(MOCK_CURATION_SUGGESTIONS.some((s) => s.scope === scope)).toBe(true);
 		}
 	});
 });
@@ -71,14 +63,5 @@ describe("groupItemsByTopic (J6)", () => {
 		const architecture = groups.find((g) => g.topic === "Architecture");
 		expect(architecture?.staleCount).toBe(1); // k7 is stale
 		expect(architecture?.items).toHaveLength(3); // k1, k2, k7
-	});
-});
-
-describe("topicsForScope (J6)", () => {
-	it("returns only the topics belonging to the requested scope", () => {
-		const product = topicsForScope("product").map((t) => t.topic);
-		expect(product).toContain("Onboarding");
-		expect(product).toContain("UI Kit");
-		expect(product).not.toContain("Architecture");
 	});
 });

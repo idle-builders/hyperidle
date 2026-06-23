@@ -8,47 +8,67 @@
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js",
 		"plans/**",
-		"packages/web/src/**/*.stories.tsx"
+		"packages/web/src/**/*.stories.tsx",
+		"**/vitest-setup.ts",
+		"**/vitest-integration-setup.ts",
+		"**/test-setup.ts",
+		"**/__tests__/setup.ts",
+		"**/__tests__/_helpers.ts",
+		"packages/server/src/test-fixtures.ts",
+		"packages/web/e2e/fixtures.ts",
+		"packages/server/src/middleware/response-validator.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts"],
+			"entry": ["scripts/*.ts!"],
 			"ignoreBinaries": ["bin/pipeline", "vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
 		"packages/db": {
-			"entry": ["src/migrate-pg.ts"],
+			"entry": [
+				"src/migrate-pg.ts!",
+				"src/bootstrap-pg.ts!",
+				"src/seed-pg-cli.ts!",
+				"src/pg-test-runner.ts!",
+				"scripts/strip-public-schema.ts!"
+			],
 			"ignoreBinaries": ["drizzle-kit"],
 			"ignoreDependencies": ["zod"]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
-			"entry": ["src/harness/isolated-session-worker.ts"],
+			"entry": [
+				"src/harness/isolated-session-worker.ts!",
+				"src/harness/isolated-harness-adapter.ts!",
+				"src/harness/docker-sandbox-adapter.ts!",
+				"src/harness/harness-session-probe.ts!"
+			],
 			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
 			"entry": [
 				"src/**/*.stories.tsx",
-				"scripts/*.ts",
-				"viewer/discovery.ts",
-				"viewer/tailwind.config.ts",
-				"viewer/postcss.config.ts"
+				"scripts/*.ts!",
+				"viewer/discovery.ts!",
+				"viewer/tailwind.config.ts!",
+				"viewer/postcss.config.ts!",
+				"viewer/annotations/vite-plugin-annotations.ts!"
 			],
 			"ignoreBinaries": ["vite"],
 			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"]
 		},
 		"packages/web": {
 			"entry": [
-				"src/api/client.ts",
-				"scripts/*.ts",
-				"vite.ah1.config.ts",
-				"vite.ah5.config.ts",
-				"vite.ah6.config.ts"
+				"src/api/client.ts!",
+				"scripts/*.ts!",
+				"vite.ah1.config.ts!",
+				"vite.ah5.config.ts!",
+				"vite.ah6.config.ts!"
 			],
 			"playwright": {
 				"config": [
@@ -82,18 +102,18 @@
 		"packages/pipeline": {},
 		"packages/strategy-minimal": {},
 		"packages/desktop": {
-			"entry": ["src/preload.ts"],
+			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
 			"ignoreBinaries": ["electron", "electron-builder"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/eslint-plugin-design": {},
 		"packages/eval": {
-			"entry": ["src/judges.ts", "src/cli.ts"],
+			"entry": ["src/judges.ts!", "src/cli.ts!"],
 			"ignoreBinaries": ["tsx"],
 			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
-			"entry": ["*.ts", "__tests__/**/*.test.ts"]
+			"entry": ["*.ts!", "__tests__/**/*.test.ts"]
 		}
 	}
 }

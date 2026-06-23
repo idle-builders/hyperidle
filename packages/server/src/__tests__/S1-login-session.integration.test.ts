@@ -5,7 +5,7 @@
  * - Token generation (generateToken, hashToken)
  * - LoginSession CRUD (createLoginSession, findLoginSessionByTokenHash)
  * - Validation (validateBearerToken: happy, expired, revoked, invalid)
- * - Revocation (revokeLoginSession, revokeAllUserSessions)
+ * - Revocation (revokeLoginSession)
  *
  * @lore S1 PGLite migration: All tests are now async because createTestDb()
  * returns a Promise<TestDbHandle> and all service functions are async.
@@ -20,7 +20,6 @@ import {
 	findLoginSessionByTokenHash,
 	generateToken,
 	hashToken,
-	revokeAllUserSessions,
 	revokeLoginSession,
 	validateBearerToken,
 } from "../services/login-session.js";
@@ -253,63 +252,5 @@ describe("S1 — revokeLoginSession", () => {
 		if (!result.ok) {
 			expect(result.reason).toBe("SESSION_REVOKED");
 		}
-	});
-});
-
-describe("S1 — revokeAllUserSessions", () => {
-	test("revokes all sessions for a user", async ({ db }) => {
-		await seedUser(db, "u-revall-1");
-		await seedUser(db, "u-revall-2");
-
-		const { session: s1 } = await createLoginSession(db, "u-revall-1");
-		const { session: s2 } = await createLoginSession(db, "u-revall-1");
-
-		const count = await revokeAllUserSessions(db, "u-revall-1");
-		expect(count).toBe(2);
-
-		const found1 = await findLoginSessionByTokenHash(db, s1.tokenHash);
-		const found2 = await findLoginSessionByTokenHash(db, s2.tokenHash);
-		expect(found1?.revokedAt).not.toBeNull();
-		expect(found2?.revokedAt).not.toBeNull();
-	});
-
-	test("does not affect sessions of other users", async ({ db }) => {
-		await seedUser(db, "u-revall-1");
-		await seedUser(db, "u-revall-2");
-
-		const { session: s1 } = await createLoginSession(db, "u-revall-1");
-		const { session: s2 } = await createLoginSession(db, "u-revall-2");
-
-		await revokeAllUserSessions(db, "u-revall-1");
-
-		const found1 = await findLoginSessionByTokenHash(db, s1.tokenHash);
-		const found2 = await findLoginSessionByTokenHash(db, s2.tokenHash);
-		expect(found1?.revokedAt).not.toBeNull();
-		expect(found2?.revokedAt).toBeNull();
-	});
-
-	test("returns 0 if no sessions exist for user", async ({ db }) => {
-		await seedUser(db, "u-revall-1");
-		const count = await revokeAllUserSessions(db, "u-revall-1");
-		expect(count).toBe(0);
-	});
-
-	test("only revokes unrevoked sessions (idempotent on revoked ones)", async ({ db }) => {
-		await seedUser(db, "u-revall-1");
-		await seedUser(db, "u-revall-2");
-
-		const { session: s1 } = await createLoginSession(db, "u-revall-1");
-		const { session: s2 } = await createLoginSession(db, "u-revall-1");
-
-		// Pre-revoke s1
-		await revokeLoginSession(db, s1.id);
-
-		// revokeAllUserSessions should handle already-revoked sessions gracefully
-		const count = await revokeAllUserSessions(db, "u-revall-1");
-		// count of operations may vary; what matters is both end up revoked
-		expect(count).toBeGreaterThanOrEqual(0);
-
-		const found2 = await findLoginSessionByTokenHash(db, s2.tokenHash);
-		expect(found2?.revokedAt).not.toBeNull();
 	});
 });

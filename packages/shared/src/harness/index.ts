@@ -35,8 +35,6 @@ export type {
 	TokenUsageEvent,
 	ToolCallEvent,
 } from "./harness-events.js";
-export { normalizeNativeHarnessEvent } from "./harness-native-normalization.js";
-
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
 
 export type {
