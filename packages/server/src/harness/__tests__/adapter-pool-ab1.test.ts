@@ -29,7 +29,8 @@ function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 		subAgents: caps?.subAgents ?? true,
 		modelProviders: caps?.modelProviders ?? ["anthropic"],
 		mcpSupport: caps?.mcpSupport ?? false,
-		canForceReturn: caps?.canForceReturn ?? false,
+		hasNativeReturnHook: caps?.hasNativeReturnHook ?? false,
+		canReEngage: caps?.canReEngage ?? true,
 	};
 
 	return {
@@ -86,7 +87,7 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			canForceReturn: false,
+			hasNativeReturnHook: false, canReEngage: true,
 		};
 		pool.register("local-claude-code", makeAdapter(caps), {
 			...BASE_META,

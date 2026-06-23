@@ -308,10 +308,21 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			// AL6 v2: SDK exposes a native Stop hook (decision:block + reason) that
-			// blocks a stop attempt and continues the turn. Tier-1 force.
-			canForceReturn: true,
+			// AL6 v3: SDK Stop hook (decision:block + reason) catches the stop in-turn
+			// and re-injects — the Layer-A fast-path. hasNativeReturnHook=true (optimization only).
+			hasNativeReturnHook: true,
+			// AL6 v3: SDK can re-engage via Mode-1 sandbox rewrite + new startSession backstop.
+			canReEngage: true,
 		};
+	}
+
+	/**
+	 * AL6 v3 (T4): Implements HarnessAdapter.getForceReturnCount (optional interface method).
+	 * Returns the count of in-turn Stop-hook re-injections (Layer-A) for a session.
+	 * Used by the provisioning loop to unify forceReturnCount across layers.
+	 */
+	getForceReturnCount(sessionId: string): number {
+		return this.sessions.get(sessionId)?.al6.stopHookCount ?? 0;
 	}
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SDK message translation requires branching on message type/subtype

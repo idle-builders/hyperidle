@@ -66,7 +66,7 @@ describe("HarnessCapabilities includes mcpSupport", () => {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			canForceReturn: false,
+			hasNativeReturnHook: false, canReEngage: true,
 		};
 		expect(caps.mcpSupport).toBe(true);
 	});
@@ -77,7 +77,7 @@ describe("HarnessCapabilities includes mcpSupport", () => {
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: false,
-			canForceReturn: false,
+			hasNativeReturnHook: false, canReEngage: true,
 		};
 		expect(caps.mcpSupport).toBe(false);
 	});

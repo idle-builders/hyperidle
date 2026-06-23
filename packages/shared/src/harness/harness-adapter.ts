@@ -127,16 +127,28 @@ export interface HarnessCapabilities {
 	 */
 	readonly mcpSupport: boolean;
 	/**
-	 * AL6 v2: Whether this adapter can natively block a stop attempt and
-	 * continue the turn (Tier-1 force). When true, the forcing layer re-injects
-	 * AL6_FORCE_RETURN_MESSAGE up to AL6_MAX_FORCE_RETURNS times before falling
-	 * through to the Tier-2 reject path. When false, the provisioning drain
-	 * applies the Tier-2 reject directly (outcome: "not_returned").
+	 * AL6 v3: TRUE iff this adapter has a native in-turn fast-path that catches a
+	 * stop BEFORE the session ends and re-injects the forcing message without a new
+	 * startSession (SDK Stop hook; builtin loop). OPTIMIZATION HINT ONLY — does NOT
+	 * gate whether forcing happens. Forcing is universal via the provisioning
+	 * re-prompt loop (sandbox-file rewrite). Replaces v2's `canForceReturn`.
 	 *
-	 * @lore AL6 v2: SDK adapter = true (Stop hook), builtin = true (owns the loop).
-	 * CLI/remote/isolated = false (subprocess/transport, no reachable turn-end hook).
+	 * @lore AL6 v3: SDK adapter = true (Stop hook), builtin = true (owns the loop).
+	 * CLI/remote/isolated = false (no in-turn hook — forced via Layer-B sandbox rewrite).
 	 */
-	readonly canForceReturn: boolean;
+	readonly hasNativeReturnHook: boolean;
+	/**
+	 * AL6 v3: TRUE iff this adapter can run a second turn with augmented context
+	 * (sandbox-file rewrite re-engage, or Mode-2 continueSession). The re-prompt
+	 * loop only re-engages adapters where this is true; a `false` adapter is a
+	 * genuine reject-only floor. ALL in-tree adapters: true (static guarantee).
+	 *
+	 * @lore AL6 v3: All five in-tree adapters set this true — enforced by the
+	 * non-optional field (npm run check fails any omission). A future adapter MAY
+	 * set false for a provably context-unreachable worker; that is a deliberate,
+	 * reviewed edit, not a silent regression.
+	 */
+	readonly canReEngage: boolean;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
 	readonly accessMode?: HarnessAccessMode;
 	readonly authAction?: HarnessAuthActionDescriptor;
@@ -150,4 +162,27 @@ export interface HarnessAdapter {
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
 	stopSession(handle: SessionHandle): Promise<SessionResult>;
 	getCapabilities(): HarnessCapabilities;
+
+	/**
+	 * AL6 v3 (optional): Return the count of in-turn force re-injections applied
+	 * by this adapter's native Layer-A hook (SDK Stop hook; builtin loop) during a
+	 * given session. Used to unify the turn-level `forceReturnCount` on
+	 * `ProvisionSessionResult` as: loopForceCount + (harness.getForceReturnCount?.(sessionId) ?? 0).
+	 *
+	 * Only builtin and SDK adapters implement this. External adapters (cli/isolated/remote)
+	 * do not have a native hook and return 0 (or leave this undefined).
+	 */
+	getForceReturnCount?(sessionId: string): number;
+
+	/**
+	 * AL6 v3 (optional — Mode-2, SDK-only optimization): re-engage a LIVE
+	 * in-process handle (SDK's open query) with a follow-up message. Mode-1
+	 * (sandbox-rewrite + new startSession) adapters DO NOT implement this; the
+	 * provisioner falls back to Mode-1 when absent.
+	 *
+	 * @lore AL6 v3: unverified feasibility (live-query follow-up injection via
+	 * Options.resume/input streaming). If infeasible, omit — the SDK Stop hook
+	 * (Layer A) already forces in-turn; Mode-1 sandbox rewrite is the backstop.
+	 */
+	continueSession?(handle: SessionHandle, message: string): Promise<SessionHandle>;
 }

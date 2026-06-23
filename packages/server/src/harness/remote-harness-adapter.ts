@@ -216,9 +216,15 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
 			mcpSupport: false,
-			// AL6 v2: remote worker runs over a transport (worker protocol); no
-			// reachable turn-end hook for in-process forcing. Tier-2 reject.
-			canForceReturn: false,
+			// AL6 v3: remote has no in-process turn-end hook (Layer-A). Forced via
+			// Layer-B: sandbox-file rewrite + re-dispatch of config over the WS.
+			hasNativeReturnHook: false,
+			// AL6 v3: remote can re-engage — HyperIdle's own worker re-runs provisioning
+			// (reads the sandbox file). canReEngage=true; a non-conforming third-party
+			// worker that ignores the sandbox degrades to not_returned after budget.
+			// @lore AL6 v3: remote third-party worker degradation is a WORKER limitation,
+			// not an adapter limitation. HyperIdle dispatches correctly and rewrites the file.
+			canReEngage: true,
 		};
 	}
 

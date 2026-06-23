@@ -128,27 +128,25 @@ const FAKE_RESOLVED_MODEL = {
 /**
  * Build a stub HarnessAdapter whose stream emits a fixed sequence of events,
  * then exhausts. `events` controls what tool_calls (if any) the "agent" makes.
- * `canForceReturn` controls the Tier-1 vs Tier-2 capability.
+ * `hasNativeReturnHook` / `canReEngage` control the v3 capability shape.
  *
- * v2: canForceReturn defaults to false (Tier-2 / reject path) — the expected
- * behavior for CLI/remote/isolated adapters that cannot natively force-continue.
+ * v3: hasNativeReturnHook defaults to false (no in-turn hook) — the expected
+ * behavior for CLI/remote/isolated-shaped stubs.
  */
 function makeStubAdapter(
 	streamEvents: HarnessEvent[],
 	caps: Partial<HarnessCapabilities> = {},
 ): HarnessAdapter {
-	// v2: canForceReturn is added to HarnessCapabilities in T1. Cast to include it
-	// now so the test is runnable in the red phase. After T1 ships the field, the
-	// cast becomes redundant but harmless (green phase removes it).
-	const capabilities = {
+	const capabilities: HarnessCapabilities = {
 		preCompactionTrigger: false,
 		subAgents: false,
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		mcpSupport: false,
-		// v2 (T1): canForceReturn defaults false → Tier-2 reject path in tests
-		canForceReturn: false,
+		// v3: defaults — no in-turn hook (external shape); re-engage via Layer-B.
+		hasNativeReturnHook: false,
+		canReEngage: true,
 		...caps,
-	} as HarnessCapabilities;
+	};
 
 	return {
 		async startSession(config: SessionConfig): Promise<SessionHandle> {
@@ -510,9 +508,9 @@ describe("AL6 v2 — return-gate integration", () => {
 	// without return) holds for both Tier-1-shaped and Tier-2-shaped adapters.
 
 	describe("AC4 v2 — enforcement guarantee (never completed-without-return) holds uniformly", () => {
-		// v2: canForceReturn is added to HarnessCapabilities in T1. Cast caps to
-		// include it now so the tests run in red. After T1 the casts are redundant.
-		type CapsWithForce = Partial<HarnessCapabilities> & { canForceReturn?: boolean };
+		// v3: canForceReturn renamed to hasNativeReturnHook; canReEngage added.
+		// All adapters use v3 capability shape now — no cast needed.
+		type CapsWithForce = Partial<HarnessCapabilities>;
 		const adapterShapes: Array<{
 			name: string;
 			caps: CapsWithForce;
@@ -521,28 +519,28 @@ describe("AL6 v2 — return-gate integration", () => {
 			// Tier-1 (force): canForceReturn:true — SDK + builtin
 			{
 				name: "builtin-shaped-tier1",
-				caps: { canForceReturn: true, mcpSupport: false },
+				caps: { hasNativeReturnHook: true, canReEngage: true, mcpSupport: false },
 				tier: "tier1-force",
 			},
 			{
 				name: "sdk-shaped-tier1",
-				caps: { canForceReturn: true, mcpSupport: true, subAgents: true },
+				caps: { hasNativeReturnHook: true, canReEngage: true, mcpSupport: true, subAgents: true },
 				tier: "tier1-force",
 			},
 			// Tier-2 (reject): canForceReturn:false — cli/remote/isolated
 			{
 				name: "cli-shaped-tier2",
-				caps: { canForceReturn: false, mcpSupport: false },
+				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: false },
 				tier: "tier2-reject",
 			},
 			{
 				name: "remote-shaped-tier2",
-				caps: { canForceReturn: false, mcpSupport: false, subAgents: false },
+				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: false, subAgents: false },
 				tier: "tier2-reject",
 			},
 			{
 				name: "isolated-shaped-tier2",
-				caps: { canForceReturn: false, mcpSupport: true },
+				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: true },
 				tier: "tier2-reject",
 			},
 		];
@@ -614,35 +612,30 @@ describe("AL6 v2 — return-gate integration", () => {
 		});
 	});
 
-	// ── AC4: per-adapter canForceReturn table ──────────────────────────────────
-	// Assert each real adapter class reports the expected canForceReturn bit.
-	// Tier-1 (force): SDK + builtin = true
-	// Tier-2 (reject): CLI + remote + isolated = false
-	//
-	// v2 (T1): canForceReturn is not yet on HarnessCapabilities. The cast below
-	// accesses the field anyway — it will be `undefined` until T2 adds it to each
-	// adapter's getCapabilities(). The test fails red until both T1 (type) and T2
-	// (implementation) are shipped.
+	// ── AC4: per-adapter hasNativeReturnHook / canReEngage table (v3 renamed) ──────
+	// Assert each real adapter class reports the expected v3 capability shape.
+	// Layer-A fast-path (hasNativeReturnHook:true): SDK + builtin
+	// Layer-B only (hasNativeReturnHook:false): CLI + remote + isolated
+	// canReEngage:true for ALL in-tree adapters (universal forcing guarantee).
 
-	describe("AC4 v2 — canForceReturn capability table for real adapters", () => {
-		/** Helper: read canForceReturn from capabilities via a cast until T1 ships. */
-		function getCanForce(caps: HarnessCapabilities): boolean | undefined {
-			return (caps as HarnessCapabilities & { canForceReturn?: boolean }).canForceReturn;
-		}
-
-		test("BuiltinHarnessAdapter: canForceReturn === true (Tier-1 force)", async () => {
+	describe("AC4 v3 — hasNativeReturnHook / canReEngage capability table for real adapters", () => {
+		test("BuiltinHarnessAdapter: hasNativeReturnHook=true, canReEngage=true (Layer-A fast-path)", async () => {
 			const { BuiltinHarnessAdapter } = await import("../../harness/builtin-harness-adapter.js");
 			const adapter = new BuiltinHarnessAdapter();
-			expect(getCanForce(adapter.getCapabilities())).toBe(true);
+			const caps = adapter.getCapabilities();
+			expect(caps.hasNativeReturnHook).toBe(true);
+			expect(caps.canReEngage).toBe(true);
 		});
 
-		test("ClaudeAgentSdkAdapter: canForceReturn === true (Tier-1 force, SDK Stop hook)", async () => {
+		test("ClaudeAgentSdkAdapter: hasNativeReturnHook=true, canReEngage=true (SDK Stop hook)", async () => {
 			const { ClaudeAgentSdkAdapter } = await import("../../harness/claude-agent-sdk-adapter.js");
 			const adapter = new ClaudeAgentSdkAdapter();
-			expect(getCanForce(adapter.getCapabilities())).toBe(true);
+			const caps = adapter.getCapabilities();
+			expect(caps.hasNativeReturnHook).toBe(true);
+			expect(caps.canReEngage).toBe(true);
 		});
 
-		test("CliHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+		test("CliHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via sandbox rewrite)", async () => {
 			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
 			const adapter = new CliHarnessAdapter({
 				binary: "claude",
@@ -651,12 +644,13 @@ describe("AL6 v2 — return-gate integration", () => {
 				envAllowlist: [],
 				eventFormat: "ndjson" as const,
 			});
-			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+			const caps = adapter.getCapabilities();
+			expect(caps.hasNativeReturnHook).toBe(false);
+			expect(caps.canReEngage).toBe(true);
 		});
 
-		test("RemoteHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+		test("RemoteHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via re-dispatch)", async () => {
 			const { RemoteHarnessAdapter } = await import("../../harness/remote-harness-adapter.js");
-			// RemoteHarnessAdapter(ws, registration) — provide minimal stubs
 			const fakeWs = {
 				send: () => undefined,
 				close: () => undefined,
@@ -674,12 +668,13 @@ describe("AL6 v2 — return-gate integration", () => {
 				fakeWs as unknown as ConstructorParameters<typeof RemoteHarnessAdapter>[0],
 				fakeRegistration as unknown as ConstructorParameters<typeof RemoteHarnessAdapter>[1],
 			);
-			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+			const caps = adapter.getCapabilities();
+			expect(caps.hasNativeReturnHook).toBe(false);
+			expect(caps.canReEngage).toBe(true);
 		});
 
-		test("IsolatedHarnessAdapter: canForceReturn === false (Tier-2 reject)", async () => {
+		test("IsolatedHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via sandbox rewrite)", async () => {
 			const { IsolatedHarnessAdapter } = await import("../../harness/isolated-harness-adapter.js");
-			// IsolatedHarnessAdapter(resolver, config) — provide minimal stubs
 			const fakeResolver = { resolve: async (_key: string) => null };
 			const fakeConfig = {
 				maxMemoryMb: 512,
@@ -690,7 +685,9 @@ describe("AL6 v2 — return-gate integration", () => {
 				fakeResolver as unknown as ConstructorParameters<typeof IsolatedHarnessAdapter>[0],
 				fakeConfig,
 			);
-			expect(getCanForce(adapter.getCapabilities())).toBe(false);
+			const caps = adapter.getCapabilities();
+			expect(caps.hasNativeReturnHook).toBe(false);
+			expect(caps.canReEngage).toBe(true);
 		});
 	});
 

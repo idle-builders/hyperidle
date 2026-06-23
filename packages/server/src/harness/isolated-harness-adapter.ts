@@ -218,10 +218,13 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			// AL6 v2: isolated runs in a forked worker; no reachable turn-end hook
-			// for in-process forcing. The relay (isolated-session-worker) forwards
-			// events but has no forcing seam. Tier-2 reject.
-			canForceReturn: false,
+			// AL6 v3: isolated has no outer-boundary in-turn hook (Layer-A). The inner
+			// SDK adapter (isolated-session-worker.ts:49-51) has its own Stop hook as a
+			// bonus — but the outer forcing layer uses Layer-B sandbox-file rewrite.
+			hasNativeReturnHook: false,
+			// AL6 v3: isolated can re-engage — the second startSession forks a fresh
+			// worker/SDK session that reads the rewritten CLAUDE.md from config.sandboxPath.
+			canReEngage: true,
 		};
 	}
 

@@ -350,24 +350,34 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
-			// AL6 v2: builtin owns the loop — re-injects the forcing message and
-			// continues instead of breaking. Tier-1 force.
-			canForceReturn: true,
+			// AL6 v3: builtin owns the loop — re-injects the forcing message in-turn
+			// (Layer-A fast-path). hasNativeReturnHook=true (optimization hint only).
+			hasNativeReturnHook: true,
+			// AL6 v3: builtin can re-engage (Layer A handles it in-turn; Layer B is the backstop).
+			canReEngage: true,
 		};
 	}
 
 	/**
-	 * AL6 v2 (T4): Concrete-only method (NOT on HarnessAdapter interface) that
-	 * returns the number of force-continue re-injections applied during a session.
-	 * Used by the eval harness to populate TriggerResult.forceReturnCount.
+	 * AL6 v3 (T4): Implements the optional HarnessAdapter.getForceReturnCount interface.
+	 * Returns the number of in-turn force-continue re-injections (Layer-A) applied by the
+	 * builtin loop during a session. Used by the provisioning loop to unify the
+	 * turn-level forceReturnCount: loopForceCount + (harness.getForceReturnCount?.() ?? 0).
 	 *
-	 * @lore AL6 v2: Follows the same pattern as setSessionToolRegistry — concrete
-	 * class method that the eval/provisioning cast to BuiltinHarnessAdapter to call.
-	 * Not on the interface because force-count tracking is Tier-1-builtin-specific;
-	 * the SessionResult shape stays minimal.
+	 * @lore AL6 v3: Renamed from getSessionForceCount (v2 concrete-only method) to
+	 * getForceReturnCount (v3 HarnessAdapter optional interface method). The underlying
+	 * sessions.get(sessionId)?.forceCount data is unchanged.
+	 */
+	getForceReturnCount(sessionId: string): number {
+		return this.sessions.get(sessionId)?.forceCount ?? 0;
+	}
+
+	/**
+	 * @deprecated Use getForceReturnCount instead (AL6 v3 rename).
+	 * Kept for backward compat with eval code that calls it by the old name.
 	 */
 	getSessionForceCount(sessionId: string): number {
-		return this.sessions.get(sessionId)?.forceCount ?? 0;
+		return this.getForceReturnCount(sessionId);
 	}
 
 	// ── Internal loop ─────────────────────────────────────────────────────────

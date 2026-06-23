@@ -51,7 +51,7 @@ function makeAdapter(): HarnessAdapter {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
-				canForceReturn: false,
+				hasNativeReturnHook: false, canReEngage: true,
 			};
 		},
 	};

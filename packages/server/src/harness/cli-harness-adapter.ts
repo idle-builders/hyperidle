@@ -401,9 +401,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
 			// for HyperIdle tool calling.
 			mcpSupport: true,
-			// AL6 v2: CLI runs as a subprocess; no reachable turn-end hook to inject
-			// a forcing message mid-session. Tier-2 reject on not-returned turns.
-			canForceReturn: false,
+			// AL6 v3: CLI has no native in-turn hook (Layer-A). Forced via Layer-B
+			// sandbox-file rewrite + re-spawn (the only instruction channel CLI reads).
+			hasNativeReturnHook: false,
+			// AL6 v3: CLI can re-engage — the re-spawned subprocess reads the rewritten
+			// AGENTS.md/CLAUDE.md from cwd:sandboxPath on each startSession.
+			canReEngage: true,
 		};
 	}
 

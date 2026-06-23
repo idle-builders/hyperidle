@@ -113,7 +113,7 @@ describe("HarnessAdapter interface (D1)", () => {
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
 				// AL6 v2: MockHarnessAdapter is Tier-2 by default (no native force hook).
-				canForceReturn: false,
+				hasNativeReturnHook: false, canReEngage: true,
 			});
 		});
 
