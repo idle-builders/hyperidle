@@ -8,28 +8,22 @@
  * - app.ts passes db to createReviewRoutes
  */
 
-// @ts-expect-error — tables not yet added to schema (red phase)
-import { stagedOperations, operationOutcomes } from "@hyperidle/db";
-
 import {
 	artifacts,
 	bets,
+	type HyperIdleDb,
 	messages,
+	operationOutcomes,
+	stagedOperations,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
-	type HyperIdleDb,
 } from "@hyperidle/db";
-import { test, describe, expect } from "../test-fixtures.js";
+import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const so: any = stagedOperations;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const oo: any = operationOutcomes;
 
 async function seedReviewWorld(db: HyperIdleDb): Promise<{
 	agentId: string;
@@ -46,32 +40,64 @@ async function seedReviewWorld(db: HyperIdleDb): Promise<{
 	const artifactId = "artifact-rl7";
 
 	await db.insert(teams).values({ id: teamId, name: "RL7 Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({ id: "tm-rl7", teamId, capacity: 3, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "tm-rl7", teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values([
 		{ id: agentId, kind: "ai", name: "Builder", role: "builder", status: "active", createdAt: NOW },
-		{ id: founderId, kind: "human", name: "Founder", role: "founder", status: "active", createdAt: NOW },
+		{
+			id: founderId,
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		},
 	]);
-	await db.insert(bets).values({ id: betId, teamId, description: "RL7 bet", status: "active", createdAt: NOW });
+	await db
+		.insert(bets)
+		.values({ id: betId, teamId, description: "RL7 bet", status: "active", createdAt: NOW });
 	await db.insert(tasks).values({
-		id: taskId, betId, teamId, ownerAgentId: agentId,
-		title: "RL7 task", state: "in_progress", createdAt: NOW, updatedAt: NOW,
+		id: taskId,
+		betId,
+		teamId,
+		ownerAgentId: agentId,
+		title: "RL7 task",
+		state: "in_progress",
+		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(artifacts).values({
-		id: artifactId, producingTaskId: taskId, kind: "action_operation", createdAt: NOW,
+		id: artifactId,
+		producingTaskId: taskId,
+		kind: "action_operation",
+		createdAt: NOW,
 	});
 
 	const threadId = `thread-rl7-${crypto.randomUUID()}`;
 	await db.insert(threads).values({
-		id: threadId, hostKind: "bet", hostId: betId,
-		initiatorId: agentId, participants: JSON.stringify([agentId, founderId]),
-		lastActiveAt: NOW, createdAt: NOW,
+		id: threadId,
+		hostKind: "bet",
+		hostId: betId,
+		initiatorId: agentId,
+		participants: JSON.stringify([agentId, founderId]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
 	});
 
 	const reviewMessageId = `msg-rl7-${crypto.randomUUID()}`;
 	await db.insert(messages).values({
-		id: reviewMessageId, senderId: agentId, threadId, type: "review",
-		payload: JSON.stringify({ title: "RL7 Review", reasoning: ["reason"], artifactRef: { id: artifactId, kind: "action_summary" } }),
-		clientKey: reviewMessageId, createdAt: NOW,
+		id: reviewMessageId,
+		senderId: agentId,
+		threadId,
+		type: "review",
+		payload: JSON.stringify({
+			title: "RL7 Review",
+			reasoning: ["reason"],
+			artifactRef: { id: artifactId, kind: "action_summary" },
+		}),
+		clientKey: reviewMessageId,
+		createdAt: NOW,
 	});
 
 	return { agentId, founderId, artifactId, threadId, reviewMessageId };
@@ -79,13 +105,16 @@ async function seedReviewWorld(db: HyperIdleDb): Promise<{
 
 describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMessageId", () => {
 	describe("W3 — loader returns executed outcome", () => {
-		test("returns stagedOperation.outcome with humanized executedAt for executed op", async ({ db, app }) => {
+		test("returns stagedOperation.outcome with humanized executedAt for executed op", async ({
+			db,
+			app,
+		}) => {
 			const { reviewMessageId, threadId, agentId, artifactId } = await seedReviewWorld(db);
 
 			const opId = `op-loader-${crypto.randomUUID()}`;
 			const twoMinutesAgo = new Date(Date.now() - 120_000).toISOString();
 
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -101,7 +130,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 				createdAt: NOW,
 			});
 
-			await db.insert(oo).values({
+			await db.insert(operationOutcomes).values({
 				stagedOperationId: opId,
 				status: "ok",
 				payload: JSON.stringify({ re_xxxxx: "refunded" }),
@@ -136,7 +165,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			const verbatimError =
 				"Stripe error: card_declined\nYour card was declined.\nCode: card_declined\nRequest-ID: req_abc123\nFull stack:\n  at stripe.refund()";
 
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -152,7 +181,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 				createdAt: NOW,
 			});
 
-			await db.insert(oo).values({
+			await db.insert(operationOutcomes).values({
 				stagedOperationId: opId,
 				status: "failed",
 				payload: null,
@@ -177,7 +206,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			const { reviewMessageId, threadId, agentId, artifactId } = await seedReviewWorld(db);
 
 			const opId = `op-pend-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,

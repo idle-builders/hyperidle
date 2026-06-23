@@ -15,24 +15,28 @@
  * C3 — prod boot wires dispatch: createApp constructs threads route with dispatchDeps.
  */
 
-// @ts-expect-error — module not yet created (red phase)
-import { resolveStagedOperations, sweepStrandedOperations } from "../services/staged-operation-dispatcher.js";
-// @ts-expect-error — tables not yet added to schema (red phase)
-import { stagedOperations, operationOutcomes } from "@hyperidle/db";
-
 import {
 	artifacts,
 	bets,
+	type HyperIdleDb,
 	messages,
+	operationOutcomes,
+	stagedOperations,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
-	type HyperIdleDb,
 } from "@hyperidle/db";
-import { test, describe, expect, vi } from "../test-fixtures.js";
 import { eq } from "drizzle-orm";
+// @ts-expect-error — module not yet created (red phase)
+import * as _dispatcher from "../services/staged-operation-dispatcher.js";
+import { describe, expect, test, vi } from "../test-fixtures.js";
+
+const { resolveStagedOperations, sweepStrandedOperations } = _dispatcher as unknown as {
+	resolveStagedOperations: unknown;
+	sweepStrandedOperations: unknown;
+};
 
 // ── StagedOperationDispatchDeps interface (mirrors the plan §4) ───────────────
 // Declared here for type-checking in red phase; will be imported from impl.
@@ -154,14 +158,13 @@ async function seedReviewThread(
 	return { threadId, reviewMessageId };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const so: any = stagedOperations;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const oo: any = operationOutcomes;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const rs: (deps: StagedOperationDispatchDeps, reviewMessageId: string) => Promise<void> = resolveStagedOperations as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const sweep: (deps: StagedOperationDispatchDeps) => Promise<void> = sweepStrandedOperations as any;
+const rs = resolveStagedOperations as unknown as (
+	deps: StagedOperationDispatchDeps,
+	reviewMessageId: string,
+) => Promise<void>;
+const sweep = sweepStrandedOperations as unknown as (
+	deps: StagedOperationDispatchDeps,
+) => Promise<void>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -179,7 +182,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -200,10 +203,13 @@ describe("AL7 — staged-operation dispatcher", () => {
 
 			await rs(deps, reviewMessageId);
 
-			const [op] = await db.select().from(so).where(eq(so.id, opId));
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 			expect(op?.status).toBe("executed");
 
-			const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcome?.status).toBe("ok");
 			expect(outcome?.error).toBeNull();
 			expect(executeCapability).toHaveBeenCalledOnce();
@@ -214,7 +220,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// C1 — MULTI-REVIEW-PER-THREAD ISOLATION
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("C1 — multi-review-per-thread isolation", () => {
-		test("approving review B does NOT execute review A's pending op on the same thread", async ({ db, eventBus }) => {
+		test("approving review B does NOT execute review A's pending op on the same thread", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const sharedThreadId = `thread-shared-${crypto.randomUUID()}`;
 
@@ -236,7 +245,11 @@ describe("AL7 — staged-operation dispatcher", () => {
 					senderId: agentId,
 					threadId: sharedThreadId,
 					type: "review",
-					payload: JSON.stringify({ title: "Review A", reasoning: ["r"], artifactRef: { id: artifactId, kind: "action_summary" } }),
+					payload: JSON.stringify({
+						title: "Review A",
+						reasoning: ["r"],
+						artifactRef: { id: artifactId, kind: "action_summary" },
+					}),
 					clientKey: reviewAId,
 					createdAt: NOW,
 				},
@@ -245,7 +258,11 @@ describe("AL7 — staged-operation dispatcher", () => {
 					senderId: agentId,
 					threadId: sharedThreadId,
 					type: "review",
-					payload: JSON.stringify({ title: "Review B", reasoning: ["r"], artifactRef: { id: artifactId, kind: "action_summary" } }),
+					payload: JSON.stringify({
+						title: "Review B",
+						reasoning: ["r"],
+						artifactRef: { id: artifactId, kind: "action_summary" },
+					}),
 					clientKey: reviewBId,
 					createdAt: NOW,
 				},
@@ -254,7 +271,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			const opAId = `op-a-${crypto.randomUUID()}`;
 			const opBId = `op-b-${crypto.randomUUID()}`;
 
-			await db.insert(so).values([
+			await db.insert(stagedOperations).values([
 				{
 					id: opAId,
 					reviewMessageId: reviewAId,
@@ -294,15 +311,18 @@ describe("AL7 — staged-operation dispatcher", () => {
 			await rs(deps, reviewBId);
 
 			// op-B executed
-			const [opB] = await db.select().from(so).where(eq(so.id, opBId));
+			const [opB] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opBId));
 			expect(opB?.status).toBe("executed");
 
 			// op-A still pending — CRITICAL assertion
-			const [opA] = await db.select().from(so).where(eq(so.id, opAId));
+			const [opA] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opAId));
 			expect(opA?.status).toBe("pending");
 
 			// No outcome for op-A
-			const outcomesA = await db.select().from(oo).where(eq(oo.stagedOperationId, opAId));
+			const outcomesA = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opAId));
 			expect(outcomesA).toHaveLength(0);
 
 			// executeCapability called exactly once (for B only)
@@ -316,7 +336,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// AT-MOST-ONCE: re-delivery idempotency
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("at-most-once execution (re-delivery)", () => {
-		test("calling resolveStagedOperations twice on same reviewMessageId executes exactly once", async ({ db, eventBus }) => {
+		test("calling resolveStagedOperations twice on same reviewMessageId executes exactly once", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -325,7 +348,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-once-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -349,7 +372,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 
 			expect(executeCapability).toHaveBeenCalledOnce();
 
-			const outcomes = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const outcomes = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcomes).toHaveLength(1);
 		});
 	});
@@ -360,7 +386,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// with that reviewMessageId → the original op is NOT re-fired.
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("W4 — real re-open: original op not re-fired on new review message", () => {
-		test("approve original → op executed; re-open + approve new message → op NOT re-executed", async ({ db, eventBus }) => {
+		test("approve original → op executed; re-open + approve new message → op NOT re-executed", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -369,7 +398,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-reopen-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId, // anchored to original review message M
 				subjectThreadId: threadId,
@@ -392,7 +421,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 			await rs(deps, reviewMessageId);
 			expect(executeCapability).toHaveBeenCalledOnce();
 
-			const [opAfter] = await db.select().from(so).where(eq(so.id, opId));
+			const [opAfter] = await db
+				.select()
+				.from(stagedOperations)
+				.where(eq(stagedOperations.id, opId));
 			expect(opAfter?.status).toBe("executed");
 
 			// Step 2: re-open posts a NEW review message R on the same thread
@@ -402,7 +434,11 @@ describe("AL7 — staged-operation dispatcher", () => {
 				senderId: agentId,
 				threadId,
 				type: "review",
-				payload: JSON.stringify({ title: "Re-review", reasoning: ["r"], artifactRef: { id: artifactId, kind: "action_summary" } }),
+				payload: JSON.stringify({
+					title: "Re-review",
+					reasoning: ["r"],
+					artifactRef: { id: artifactId, kind: "action_summary" },
+				}),
 				clientKey: newReviewMessageId,
 				createdAt: new Date(Date.now() + 1000).toISOString(),
 			});
@@ -414,11 +450,17 @@ describe("AL7 — staged-operation dispatcher", () => {
 			expect(executeCapability).toHaveBeenCalledOnce();
 
 			// Original op still executed (not re-run)
-			const [opFinal] = await db.select().from(so).where(eq(so.id, opId));
+			const [opFinal] = await db
+				.select()
+				.from(stagedOperations)
+				.where(eq(stagedOperations.id, opId));
 			expect(opFinal?.status).toBe("executed");
 
 			// Still one outcome row
-			const outcomes = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const outcomes = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcomes).toHaveLength(1);
 		});
 	});
@@ -436,7 +478,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-never-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -452,10 +494,13 @@ describe("AL7 — staged-operation dispatcher", () => {
 				createdAt: NOW,
 			});
 
-			const [op] = await db.select().from(so).where(eq(so.id, opId));
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 			expect(op?.status).toBe("pending");
 
-			const outcomes = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const outcomes = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcomes).toHaveLength(0);
 		});
 	});
@@ -464,7 +509,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// DESCRIPTIVE ARTIFACTS: no staged op → executeCapability never called
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("descriptive artifacts do not execute on approve", () => {
-		test("approve with no staged_operations row → executeCapability not called", async ({ db, eventBus }) => {
+		test("approve with no staged_operations row → executeCapability not called", async ({
+			db,
+			eventBus,
+		}) => {
 			await seedBase(db);
 			const { reviewMessageId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -485,7 +533,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// EXECUTION FAILURE SURFACES: tool throws → failed Outcome, no exception
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("execution failure surfaces as failed Outcome", () => {
-		test("executeCapability throws → failed Outcome with verbatim error, does not throw", async ({ db, eventBus }) => {
+		test("executeCapability throws → failed Outcome with verbatim error, does not throw", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -494,7 +545,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-fail-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -517,10 +568,13 @@ describe("AL7 — staged-operation dispatcher", () => {
 			// Must NOT throw
 			await expect(rs(deps, reviewMessageId)).resolves.toBeUndefined();
 
-			const [op] = await db.select().from(so).where(eq(so.id, opId));
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 			expect(op?.status).toBe("failed");
 
-			const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcome?.status).toBe("failed");
 			expect(outcome?.error).toBe(verbatimError);
 			expect(outcome?.payload).toBeNull();
@@ -531,7 +585,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// UNKNOWN CAPABILITY: surfaces as failed Outcome, never silent skip
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("unknown capability surfaces as failed Outcome", () => {
-		test("op with unknown capabilityTool → failed Outcome (approve did nothing is forbidden)", async ({ db, eventBus }) => {
+		test("op with unknown capabilityTool → failed Outcome (approve did nothing is forbidden)", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -540,7 +597,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-unknown-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -556,17 +613,20 @@ describe("AL7 — staged-operation dispatcher", () => {
 				createdAt: NOW,
 			});
 
-			const executeCapability = vi.fn().mockRejectedValue(
-				new Error("Unknown capability: github/merge_pr")
-			);
+			const executeCapability = vi
+				.fn()
+				.mockRejectedValue(new Error("Unknown capability: github/merge_pr"));
 			const deps: StagedOperationDispatchDeps = { db, eventBus, executeCapability };
 
 			await expect(rs(deps, reviewMessageId)).resolves.toBeUndefined();
 
-			const [op] = await db.select().from(so).where(eq(so.id, opId));
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 			expect(op?.status).toBe("failed");
 
-			const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcome?.status).toBe("failed");
 			expect(outcome?.error).toContain("Unknown capability");
 		});
@@ -576,7 +636,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// C2 — CRASH RECOVERY: sweepStrandedOperations
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("C2 — sweepStrandedOperations: stranded executing → failed", () => {
-		test("stranded executing op with no Outcome → failed after sweep with interrupted message", async ({ db, eventBus }) => {
+		test("stranded executing op with no Outcome → failed after sweep with interrupted message", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -585,7 +648,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-stranded-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -605,10 +668,13 @@ describe("AL7 — staged-operation dispatcher", () => {
 			const deps: StagedOperationDispatchDeps = { db, eventBus, executeCapability: vi.fn() };
 			await sweep(deps);
 
-			const [op] = await db.select().from(so).where(eq(so.id, opId));
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 			expect(op?.status).toBe("failed");
 
-			const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			expect(outcome?.status).toBe("failed");
 			expect(outcome?.error).toContain("interrupted");
 		});
@@ -622,7 +688,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			const opId = `op-already-ok-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -637,7 +703,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 				stagedByAgentId: agentId,
 				createdAt: NOW,
 			});
-			await db.insert(oo).values({
+			await db.insert(operationOutcomes).values({
 				stagedOperationId: opId,
 				status: "ok",
 				payload: JSON.stringify({ ok: true }),
@@ -648,7 +714,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 			const deps: StagedOperationDispatchDeps = { db, eventBus, executeCapability: vi.fn() };
 			await sweep(deps);
 
-			const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
 			// Still ok — not overwritten
 			expect(outcome?.status).toBe("ok");
 		});
@@ -668,7 +737,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 
 			const sharedKey = `shared-idem-${crypto.randomUUID()}`;
 
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: `op-first-${crypto.randomUUID()}`,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -685,7 +754,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 			});
 
 			await expect(
-				db.insert(so).values({
+				db.insert(stagedOperations).values({
 					id: `op-second-${crypto.randomUUID()}`,
 					reviewMessageId,
 					subjectThreadId: threadId,
@@ -708,7 +777,10 @@ describe("AL7 — staged-operation dispatcher", () => {
 	// SPEC IMMUTABILITY: frozen params + idempotencyKey forwarded to tool
 	// ──────────────────────────────────────────────────────────────────────────
 	describe("spec immutability — frozen params forwarded to executeCapability", () => {
-		test("executeCapability receives params + idempotencyKey from the row verbatim", async ({ db, eventBus }) => {
+		test("executeCapability receives params + idempotencyKey from the row verbatim", async ({
+			db,
+			eventBus,
+		}) => {
 			const { agentId, artifactId } = await seedBase(db);
 			const { reviewMessageId, threadId } = await seedReviewThread(db, {
 				betId: "bet-al7",
@@ -718,7 +790,7 @@ describe("AL7 — staged-operation dispatcher", () => {
 
 			const frozenParams = { prNumber: 99, repo: "hyperidle/hyperidle" };
 			const opId = `op-frozen-${crypto.randomUUID()}`;
-			await db.insert(so).values({
+			await db.insert(stagedOperations).values({
 				id: opId,
 				reviewMessageId,
 				subjectThreadId: threadId,
@@ -766,7 +838,7 @@ describe("C3 — live server boot wires dispatch", () => {
 		});
 
 		const opId = `op-c3-${crypto.randomUUID()}`;
-		await db.insert(so).values({
+		await db.insert(stagedOperations).values({
 			id: opId,
 			reviewMessageId,
 			subjectThreadId: threadId,
@@ -804,10 +876,13 @@ describe("C3 — live server boot wires dispatch", () => {
 		expect(res.status).toBe(201);
 
 		// After approve through the real app, the op must be executed
-		const [op] = await db.select().from(so).where(eq(so.id, opId));
+		const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
 		expect(op?.status).toBe("executed");
 
-		const [outcome] = await db.select().from(oo).where(eq(oo.stagedOperationId, opId));
+		const [outcome] = await db
+			.select()
+			.from(operationOutcomes)
+			.where(eq(operationOutcomes.stagedOperationId, opId));
 		expect(outcome?.status).toBe("ok");
 	});
 });

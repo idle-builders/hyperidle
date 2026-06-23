@@ -1,0 +1,17 @@
+{
+  "id": "AL7",
+  "status": "in_progress",
+  "currentStep": "3-build",
+  "track": "AL",
+  "complexity": "L",
+  "dependsOn": [],
+  "scopeLock": "execution loop + at-least-one real tool path; staged-operation fixture proof; wide tool coverage is follow-on (AL8). Built in-place on concept/AL7-review-execution-loop (PR #351) per founder — concept + implementation ship as one PR.",
+  "startedAt": "2026-06-23T00:00:00Z",
+  "completedAt": null,
+  "branch": "concept/AL7-review-execution-loop",
+  "prNumber": 351,
+  "prUrl": "https://github.com/ambrovia/hyperidle/pull/351",
+  "conceptLocked": "plans/AL7/concept.md + docs/process-layer/staged-operation.md (commit 193c2d56)",
+  "blockedAt": null,
+  "blockedReason": null
+}

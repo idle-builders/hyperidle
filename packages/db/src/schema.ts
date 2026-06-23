@@ -979,6 +979,85 @@ export const inviteCodes = pgTable(
 	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
 );
 
+// --- AL7: Staged operations + operation outcomes ---
+
+/**
+ * Staged operations — irreversible commits parked behind the human gate.
+ *
+ * @lore AL7 C1: `reviewMessageId` is the DISPATCH KEY — the approve verdict
+ * resolves a specific review message, so dispatch is keyed on this FK, not the
+ * thread. One bet thread accumulates many reviews; keying on the thread would
+ * fire unrelated reviews' ops.
+ *
+ * @lore AL7 W1: `idempotencyKey` UNIQUE is an ANTI-FORK guard only. The actual
+ * at-most-once-*execution* guarantee is solely the `WHERE status='pending'` claim
+ * in the dispatcher. An agent issuing a fresh key gets a fresh row by design
+ * (retry = new op, new key). The UNIQUE prevents two live commits forked from
+ * one staging call.
+ *
+ * @lore AL7 W5: `onDelete: restrict` on all FKs. A deletion of a message/thread/
+ * artifact/user with a live staged op throws a constraint error. The sweeper
+ * converts stranded `executing` ops to `failed` on boot, so only `pending` or
+ * terminal ops remain at rest. Verify no existing deletion path deletes these
+ * parent rows while an op is live.
+ */
+export const stagedOperations = pgTable(
+	"staged_operations",
+	{
+		id: text("id").primaryKey(),
+		// C1: THE dispatch key. The verdict resolves THIS message; resolveStagedOperations
+		// filters on it. Never dispatch by subjectThreadId.
+		reviewMessageId: text("review_message_id")
+			.notNull()
+			.references(() => messages.id, { onDelete: "restrict" }),
+		// Loader/index anchor ONLY — never the dispatch key.
+		subjectThreadId: text("subject_thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
+		artifactId: text("artifact_id")
+			.notNull()
+			.references(() => artifacts.id, { onDelete: "restrict" }),
+		consequenceId: text("consequence_id").notNull(),
+		capabilityTool: text("capability_tool").notNull(),
+		capabilityHarnessType: text("capability_harness_type"),
+		operation: text("operation").notNull(),
+		params: text("params").notNull(),
+		// W1: anti-fork guard ONLY (see @lore above). NOT the at-most-once-execution guard.
+		idempotencyKey: text("idempotency_key").notNull(),
+		reversibility: text("reversibility").notNull(),
+		// pending | executing | executed | failed  (no 'held' value stored — see concept)
+		status: text("status").notNull().default("pending"),
+		stagedByAgentId: text("staged_by_agent_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("staged_ops_review_msg_idx").on(table.reviewMessageId, table.status),
+		index("staged_ops_subject_idx").on(table.subjectThreadId),
+		index("staged_ops_artifact_idx").on(table.artifactId),
+		uniqueIndex("staged_ops_idempotency_uq").on(table.idempotencyKey),
+	],
+);
+
+/**
+ * Operation outcomes — immutable terminal result of one executed staged op.
+ *
+ * @lore AL7: stagedOperationId IS the PK — enforces 0..1 per op and immutability
+ * structurally. A second write throws on PK conflict rather than overwriting.
+ * A retry produces a new staged op with its own outcome row.
+ */
+export const operationOutcomes = pgTable("operation_outcomes", {
+	// 0..1 per staged op — PK enforces immutability.
+	stagedOperationId: text("staged_operation_id")
+		.primaryKey()
+		.references(() => stagedOperations.id, { onDelete: "restrict" }),
+	status: text("status").notNull(), // "ok" | "failed"
+	payload: text("payload"), // JSON tool return on ok
+	error: text("error"), // surfaced verbatim on failed — never null+failed
+	executedAt: text("executed_at").notNull(),
+});
+
 // --- Inferred types ---
 
 // @lore U1: Team (formerly Product) is the domain entity. TeamMember (formerly Team)
@@ -1066,3 +1145,9 @@ export type NewLoginSession = typeof loginSessions.$inferInsert;
 
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
+
+export type StagedOperation = typeof stagedOperations.$inferSelect;
+export type NewStagedOperation = typeof stagedOperations.$inferInsert;
+
+export type OperationOutcome = typeof operationOutcomes.$inferSelect;
+export type NewOperationOutcome = typeof operationOutcomes.$inferInsert;

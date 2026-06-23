@@ -450,8 +450,7 @@ export function ReviewActionOperation({
 	artifact,
 	status,
 	outcome,
-}: ReviewCanvasProps &
-	Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
+}: ReviewCanvasProps & Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
 	const operation = isActionOperationPayload(artifact.payload)
 		? mapActionPayload(artifact.payload)
 		: REFUND;

@@ -65,6 +65,7 @@ export {
 	type NewLoginSession,
 	type NewMessage,
 	type NewNotificationQueueRow,
+	type NewOperationOutcome,
 	type NewOrgEdge,
 	type NewPropagationLogRow,
 	type NewRoutine,
@@ -72,6 +73,7 @@ export {
 	type NewServerConfigRow,
 	type NewServerCredential,
 	type NewSession,
+	type NewStagedOperation,
 	type NewTask,
 	type NewTaskStrategyFabricRow,
 	// @lore U1: NewTeam (formerly NewProduct) is the domain entity insert type.
@@ -83,7 +85,9 @@ export {
 	type NewUserSkill,
 	type NotificationQueueRow,
 	notificationQueue,
+	type OperationOutcome,
 	type OrgEdge,
+	operationOutcomes,
 	orgEdges,
 	type PropagationLogRow,
 	propagationLog,
@@ -94,9 +98,12 @@ export {
 	type ServerConfigRow,
 	type ServerCredential,
 	type Session,
+	// AL7: staged operations + operation outcomes
+	type StagedOperation,
 	serverConfig,
 	serverCredentials,
 	sessions,
+	stagedOperations,
 	type Task,
 	type TaskStrategyFabricRow,
 	// @lore U1: Team (formerly Product) is the domain entity select type.

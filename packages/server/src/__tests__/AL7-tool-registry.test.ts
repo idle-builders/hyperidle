@@ -10,9 +10,9 @@
  *   in ALL_TOOL_DEFINITIONS
  */
 
+import type { UserRole } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { ALL_TOOL_DEFINITIONS, toolsForRole } from "../tools/tool-registry.js";
-import type { UserRole } from "@hyperidle/shared";
 
 const ALL_ROLES: readonly UserRole[] = [
 	"builder",
