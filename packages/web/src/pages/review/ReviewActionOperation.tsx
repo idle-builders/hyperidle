@@ -85,8 +85,14 @@ interface OperationOutcomeView {
 	readonly status: "ok" | "failed";
 	/** the tool's return identity that proves it happened (e.g. `re_3Qs… · refunded`). */
 	readonly receipt?: string;
-	/** surfaced verbatim on failure — never swallowed. */
+	/** surfaced verbatim + un-truncated on failure — never swallowed, never clipped. */
 	readonly error?: string;
+	/**
+	 * Already-formatted short/relative display string (e.g. "2 min ago"), matching
+	 * the review surface's time convention (`producedAgo`). The loader humanizes the
+	 * stored ISO `executedAt` at the response boundary — the component never sees a
+	 * raw ISO string, never parses time.
+	 */
 	readonly executedAt: string;
 }
 
@@ -278,10 +284,12 @@ function ReviewActionOperationView({
 
 // ── small parts ───────────────────────────────────────────────────────────
 
-// AL7: the outcome band. Success is calm (forest-green accent — a done refund is
-// now history); failure is loud (status-error, the same family as the
-// irreversibility warning — a failed irreversible op is the dangerous moment the
-// product exists to surface). The surfaced error renders verbatim (rule #8).
+// AL7: the outcome band. Success is calm (forest-green success family — a done
+// refund is now history); failure is loud (status-error). Success uses the
+// success/primary fill (`--accent-primary-dim`), NOT the warning fill the amount
+// block + IrreversibleBadge use (`--accent-secondary-dim`) — a succeeded op must
+// not read in the danger/money color family. The surfaced error renders verbatim
+// AND un-truncated (rule #8: failure must be impossible to miss — never clipped).
 function OutcomeBand({
 	outcome,
 	ok = false,
@@ -295,7 +303,7 @@ function OutcomeBand({
 			style={{
 				borderRadius: "var(--r-subtle)",
 				borderColor: ok ? "var(--accent-primary)" : "var(--status-error)",
-				background: ok ? "var(--accent-secondary-dim)" : "var(--status-error-dim)",
+				background: ok ? "var(--accent-primary-dim)" : "var(--status-error-dim)",
 			}}
 		>
 			<span
@@ -338,9 +346,21 @@ function OutcomeBand({
 						{outcome.executedAt}
 					</span>
 				</div>
-				<p className="mt-[3px] truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
-					{ok ? outcome.receipt : outcome.error}
-				</p>
+				{ok ? (
+					// the receipt is a short identity (e.g. `re_3Qs… · refunded`) — one line is fine.
+					<p className="mt-[3px] truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+						{outcome.receipt}
+					</p>
+				) : (
+					// rule #8: the failure error renders verbatim and un-clipped. A real tool
+					// error (Stripe `card_declined` body, GitHub merge-conflict, API stack) wraps
+					// across lines — NEVER `truncate`, which would clip the thing the reviewer
+					// most needs to read. `whitespace-pre-wrap` preserves the tool's own newlines;
+					// `break-words` keeps long unbroken tokens inside the band.
+					<p className="mt-[3px] whitespace-pre-wrap break-words font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+						{outcome.error}
+					</p>
+				)}
 			</div>
 		</section>
 	);
