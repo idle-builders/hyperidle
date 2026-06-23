@@ -3,15 +3,14 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "done",
-  "currentStep": "shipped",
+  "status": "in_progress",
+  "currentStep": "1-architecture-v4-r2-research-real-harness-hooks",
   "startedAt": "2026-06-22T22:34:00+02:00",
-  "completedAt": "2026-06-23T20:00:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
-  "reviewVerdict": "DONE",
-  "version": "v3",
-  "notes": "v3 harness-agnostic forcing. Provisioning-layer re-prompt loop rewrites the sandbox instruction file (AGENTS.md/CLAUDE.md) with AL6_FORCE_RETURN_MESSAGE then re-startSession (<=AL6_MAX_FORCE_RETURNS=2) — works for ALL adapters (the file is the channel every harness re-reads). Native SDK Stop hook + builtin re-inject are an in-turn fast-path only. canForceReturn -> hasNativeReturnHook + canReEngage(all 5 true). Budget-spent -> SessionOutcome not_returned persisted to row+event. Independent review DONE. LIVE EVAL on real external non-Claude harness: fr-forced-return-external-compliant score=1.000 (forced via Layer-B sandbox rewrite -> agent converted to returning) + fr-forced-return-external (reject floor). Survived a multi-spawn Anthropic API outage via committed task boundaries. Two prior founder rejections: v1 flag-only, v2 Claude-only forcing.",
-  "history": "v1=flag-only (founder-rejected), v2=Claude/builtin-only forcing (founder-rejected), v3=harness-agnostic forcing (proven external live)"
+  "reopenedAt": "2026-06-23T20:30:00+02:00",
+  "reopenReason": "founder-rejected v3: hooks were the RIGHT mechanism but v3 abandoned them for a re-prompt-loop + sandbox-instruction-file-rewrite workaround (soft, expensive, not actually a hook). Correct design: provision a real turn-end/stop hook into EACH harness's NATIVE hook system as part of harness-adapter / sandbox setup — the same provisioning pattern as skills/MCP/AGENTS.md. All modern harnesses (Claude Code, Codex, Gemini CLI, etc.) support hooks. The harness itself enforces the return natively + uniformly; HyperIdle provisions the hook per-adapter. Not Claude-specific, not a re-prompt loop.",
+  "notes": "v4: hook provisioning as first-class sandbox/harness-adapter setup. Replace v3 re-prompt loop + sandbox-file carrier. Keep closed return set + not_returned outcome semantics. Prove on an external non-Claude harness via its native hook.",
+  "history": "v1=flag-only (rejected), v2=Claude-only SDK hook (rejected), v3=harness-agnostic re-prompt loop / instruction-file rewrite (rejected: not a real hook), v4=native hook provisioned per-harness at sandbox setup"
 }

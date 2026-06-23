@@ -23,7 +23,7 @@ import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-d
 export interface AdapterMeta {
 	readonly name: string;
 	readonly kind: "local" | "remote";
-	/** X3: Harness type for agent preference matching (e.g. "claude-code", "aider"). */
+	/** X3: Harness type for agent preference matching (e.g. "claude-code", "opencode"). */
 	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly maxConcurrent: number;
@@ -315,35 +315,40 @@ export class AdapterPool {
 /**
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
- * express a preference: harnessType: "aider" routes to the Aider adapter.
+ * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
  *
  * @lore X5: CLI tool flags are provisional — they reflect the best-known
  * invocation at the time of writing. Validate during X7 (E2E evals) or
  * manual testing. Prefer --no-interactive / headless flags where supported.
+ *
+ * @lore X5: codex session-spawn invocation is `codex exec <prompt> --json`
+ * (proven by probeCodexSession in harness-session-probe.ts and the committed
+ * fixture packages/server/src/harness/__tests__/fixtures/codex-exec.jsonl).
+ * {{sandbox}} is the working directory; codex is invoked from cwd:sandboxPath
+ * so no explicit --dir flag is needed — codex picks up the cwd automatically.
+ * Event format is "ndjson" because codex emits JSONL turn.completed lines
+ * normalised by normalizeNativeHarnessEvent("codex", ...).
  */
 const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
-	aider: {
-		binary: "aider",
-		args: ["--no-auto-commits", "--no-git", "{{workspace}}"],
+	codex: {
+		binary: "codex",
+		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
+		// JSONL event lines including turn.completed with usage fields. stdin is not
+		// needed (no interactive prompt). The task prompt is injected via the system
+		// prompt / AGENTS.md written to sandboxPath before startSession is called.
+		args: ["exec", "proceed", "--json"],
 		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
-		eventFormat: "text",
+		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
-	},
-	goose: {
-		binary: "goose",
-		args: ["session", "--workspace", "{{workspace}}"],
-		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
-		},
-		eventFormat: "text",
-		envAllowlist: ["PATH", "HOME", "LANG"],
+		costField: "total_cost_usd",
 	},
 	opencode: {
 		binary: "opencode",
-		args: ["--dir", "{{workspace}}"],
+		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
+		// opencode uses --dir to set the working directory for the session.
+		args: ["--dir", "{{sandbox}}"],
 		envMap: {
 			ANTHROPIC_API_KEY: "{{apiKey}}",
 		},
@@ -357,7 +362,7 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
  * Silently skips tools whose binary is not found — no error thrown.
  *
  * @lore X5: Each CLI tool gets its own harnessType (the binary name) so an
- * agent's harnessType: "aider" selection is unambiguous. A generic "cli" type
+ * agent's harnessType: "opencode" selection is unambiguous. A generic "cli" type
  * was considered but rejected — the founder chose a specific tool for a reason.
  */
 async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> {
@@ -384,7 +389,7 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * Create an AdapterPool pre-loaded with all available local adapters:
  * 1. claude-code (ClaudeAgentSdkAdapter) — always registered
  * 2. builtin (BuiltinHarnessAdapter stub) — always registered (X6 fills in)
- * 3. aider / goose / opencode — registered if their binary is on PATH
+ * 3. codex / opencode — registered if their binary is on PATH
  *
  * @lore S2 AC4: this factory keeps server-factory.ts clean — it just calls
  * createLocalAdapterPool() instead of knowing about adapter internals.

@@ -4,7 +4,7 @@
  *
  * Supports any tool that can be invoked as a subprocess. Each CLI tool is
  * registered as its own adapter instance in the pool with its own harnessType
- * (e.g. "aider", "goose", "opencode").
+ * (e.g. "codex", "opencode").
  *
  * @lore X5 W1: spawn() is called with the args ARRAY form, never a shell string.
  * This is the critical security boundary: array form prevents shell injection

@@ -310,7 +310,6 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 | Feature | Doc reference | Status |
 |---------|--------------|--------|
 | **Letta harness adapter** | `docs/architecture/components.md` §2.7 "Letta (planned)" | Not implemented. Only `claude-agent-sdk`, `cli`, `builtin`, `isolated`, and `remote` adapters exist. |
-| **Goose harness adapter** | `docs/architecture/components.md` §2.7 "Goose (planned)" | Not implemented. |
 | **OpenHands harness adapter** | `docs/architecture/components.md` §2.7 "OpenHands (planned)" | Not implemented. |
 | **E2B Desktop Sandbox workspace** | `docs/architecture/components.md` §2.8 "E2B Desktop Sandbox (managed cloud)" | Not implemented. Only local and Docker workspace adapters exist. |
 | **Daytona workspace adapter** | `docs/architecture/components.md` §2.8 "Daytona (self-hosted cloud)" | Not implemented. |
