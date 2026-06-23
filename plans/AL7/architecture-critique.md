@@ -126,3 +126,78 @@ The architecture *frame* is right and would score ~8 on the bookkeeping half alo
 - `packages/server/src/routes/threads.ts:1293-1382` — verdict resolution + first-verdict-wins CAS pattern (model for WARNING-6); current `resolveStagedOperations` call to discard.
 - `packages/shared/src/strategy-port.ts:50-65` — `assembleContext` return discarded; not a prompt-injection seam (CRITICAL-1).
 - `packages/db/src/schema.ts:1004-1059` — `staged_operations`/`operation_outcomes` exec-queue shape to reshape.
+
+---
+
+# Round 2 — Re-critique of the revision (commit 681a07fd)
+
+Re-evaluated each prior finding against **code**, not the plan's word. The bookkeeping half is now genuinely tight. Two of the three CRITICALs are honestly resolved with real, verified mechanisms. **CRITICAL-1 is NOT resolved** — the revision names a concrete seam (`SessionConfig.messages`) but that seam structurally cannot do what the plan claims, on either harness, and the failure is worse than r1 because the plan now *asserts* it works with line citations that don't hold up.
+
+## Per-finding
+
+### CRITICAL-1 — replay-from-record via `SessionConfig.messages` → **OPEN (still CRITICAL).**
+The plan claims (arch §CRITICAL-1, Q2, Type signatures): seeding session 2's `config.messages` with a pre-filled assistant `tool_use` block makes "the harness emit the recorded bytes" to `registry.invoke`, consumed at `builtin-harness-adapter.ts:356` and replayed at `:441-447`. **Verified false on both counts the brief demanded:**
+
+(a) **The channel exists but does not do what's claimed (builtin).** `runLoop` does branch on `config.messages.length > 0` → `runChatTurn` (`builtin-harness-adapter.ts:356`). `runChatTurn` copies `config.messages` into `session.messages` (`:441-447`) — but those messages are then handed to **`callLlm`** (`:454-462`) as the model's input context. The tool calls that actually reach `executeToolCalls` → `registry.invoke` come from **`response.content`** (`:471-483`) — i.e. **what the LLM returns**, not the seeded block. So seeding an assistant `tool_use` turn does NOT make the harness emit those bytes; it shows the model a prior turn that already "called" the tool, and the model's *next* response is what runs. This is **exactly the LLM-re-derivation path the concept rejected (rejection #5)** and that CRITICAL-1 set out to remove — re-introduced under a new name. The seed is LLM context, not a dispatch instruction. The cited replay point `:441-447` is a push into the LLM message list, not a path to `registry.invoke`.
+
+   Worse, `runChatTurn` is the wrong loop for AL7's session 2: it is the **assistant-chat** turn (capped at `MAX_TOOL_ITERATIONS=3`, no planning/sandbox, `@lore AH3/AK4`), not the task execute loop. Routing a re-provisioned *task* session through `config.messages` flips it into chat mode — a behavior change well beyond AL7's stated surface.
+
+(b) **GENERALITY CHECK — replay-from-record does NOT work for the SDK/CLI adapters. This is the decisive hole.** The production harness is the Claude Agent SDK adapter. Verified: `claude-agent-sdk-adapter.ts` reads `config.messages` **nowhere** (`grep` → NONE across the file; the only message-history channel into `query()` is the hardcoded `prompt: "Begin working on your assigned task."` at `:172-174`). `SessionConfig.messages` is a **builtin-only** field — the AH3 §1.4 chat channel — and no other adapter consumes it. So the plan's own production path (R5 says the live-proof may run "through builtin or SDK-MCP") has **no replay-from-record mechanism for SDK or CLI at all**. The plan's claim that the SDK live-proof "seeds the equivalent first turn through the SDK adapter's history" (Type-signatures §, parenthetical) is unfounded — there is no such history channel in the SDK adapter; it would be net-new work the plan does not scope. The honest consequence: **replay-from-record as designed works only for builtin, and even there only as LLM-mediated context — not byte-faithful.** The brief's worry is confirmed: the live-proof and the model have a hole for the real harnesses.
+
+   Additional gap: `provisionSession` does **not** forward `messages` to `startSession` today (`session-provisioning.ts:703-722` — no `messages` field). So even the builtin path requires net-new provisioning wiring the task list (Task 8) gestures at but the seam analysis treats as "existing." The "existing channel" framing overstates what is in place.
+
+   **What the fix actually requires (and the plan must commit to):** byte-faithful replay means the harness must *emit the recorded tool call without asking the model*. On builtin that is a **new dispatch path** — when session 2 is grant-bearing, call `registry.invoke(toolId, args)` with the recorded args directly from the run loop (or a dedicated replay turn), bypassing `callLlm`, then let the agent continue. On the SDK that is **not expressible** through the current adapter at all (the SDK owns its own loop; you cannot inject an assistant `tool_use` it will execute via `query()` options as wired). So either (i) AL7's live-proof is pinned to **builtin + a real new direct-invoke replay path** (not `config.messages`), and the SDK replay is explicitly deferred/scoped as net-new — stated as a known limitation; or (ii) the SDK replay channel is designed now. The current plan does neither; it asserts a single uniform `config.messages` seam that is neither uniform nor a replayer.
+
+   The deadlock fallback (Task 8.5) is reasonable *as a safety net*, but it is now load-bearing for the common case (because the "happy path" replay is probabilistic on builtin and absent on SDK), which means the headline ACs (AC4, AC11) would routinely fall into the fallback → `held` + `failed`. That is the r1 product-failure verdict restated: a loop that often does not execute the approved work.
+
+### CRITICAL-2 — session-1 abort on capture → **RESOLVED.**
+Verified `sessionRunRegistry.abort` is real and load-bearing: `abort(sessionId)` → `entry.adapter.stopSession(entry.handle)` (`session-run-registry.ts:72-84`), and the `@lore AF7 §5` block explicitly states `stopSession` (not the loop flag alone) is the real builtin revocation — it sets the builtin `aborted` flag, which `executeToolCalls` checks at `:717` before each invoke (verified). So calling `abort` on first capture genuinely breaks the loop after the blocked result. Idempotent capture on `(origin_session_id, identity_hash)` is specified (schema + wrapper + AC1). Mechanism is concrete and in the task list (Task 5). **Resolved.** (Minor: for the SDK path the abort terminates the subprocess via `stopSession`, also real — but see CRITICAL-1, the SDK never gets to a clean single-capture replay anyway.)
+
+### CRITICAL-3 — explicit `proposed_call_granted` re-dispatch → **RESOLVED.**
+Verified the gap is real: `handleSessionEnded` re-dispatches only on owner *change* (`task-dispatcher.ts:500-514`, `task.ownerAgentId !== event.agentId`) — false for AL7's same-agent resume. The revision's fix is coherent: a new `proposed_call_granted` event emitted from the verdict→grant path, a dedicated `handleProposedCallGranted` subscription that `enqueue`s `{taskId, agentId, teamId}` guarded by the existing `hasActiveSession` idempotency (`:176-183, 195`). The `enqueue` guard is correct — it both dedups the queue and skips if an active session exists, so an approve reliably spawns session 2 and a double-emit can't double-spawn. Mechanism is concrete and in the task list (Task 7+8). **Resolved.** (Depends on CRITICAL-1 for session 2 to then *do* the right thing, but the dispatch trigger itself is sound.)
+
+### WARNING-4 — grant scope `(taskScope, agentScope)` → **RESOLVED.**
+Schema (`one_shot_grants.taskScope`/`agentScope`), the index (`grants_match_idx` on `(taskScope, agentScope, identityHash, consumed)`), the mint (`threads.ts` §), and the wrapper CAS lookup all key on `(taskScope, agentScope, identityHash)` consistently. The r1 `session_scope`/`findUnconsumedGrant(ctx.sessionId)` chicken-and-egg is removed. Consistent. **Resolved.**
+
+### WARNING-5 — canonicalization spec → **RESOLVED.**
+D3 now fully specifies `canonicalJson`: recursive lexicographic key sort at every depth, arrays order-preserved, JS number normalization with non-finite rejection, NFC string normalization, `undefined`-drop/`null`-keep, and — critically — **hash computed on `parsed.data` (post-Zod) at both ends**, with the capture/replay round-trip identity asserted in Task 4 red tests (D3 1–4). Capture-side and replay-side hash the same post-parse shape. Complete and internally consistent. **Resolved.** (Caveat downstream of CRITICAL-1: replay only re-parses if the recorded args actually reach the wrapper — which on SDK they may not.)
+
+### WARNING-6 — single-statement CAS → **RESOLVED.**
+The wrapper (arch §wrapper, `:226-235`) is now a single conditional `UPDATE one_shot_grants SET consumed=true … WHERE … AND consumed=false RETURNING *` — no pre-read, mirroring `threads.ts:1294-1303` first-verdict-wins (verified that pattern exists and uses `.returning().length` for PGlite). AC6 red test invokes twice concurrently and asserts exactly one Outcome. **Resolved.**
+
+### WARNING-7 — handler throw / Outcome semantics → **RESOLVED.**
+Wrapper now wraps `def.handler` in try/catch: a throw records `status:failed` + error and surfaces `EXECUTION_FAILED` (Hard Rule 8). The consume-then-execute crash window is documented with a stated recovery (surfaced as needs-attention, never silently lost). AC10 covers the failure path. **Resolved.**
+
+### WARNING-8 — `classifyReversibility` fail-closed → **RESOLVED.**
+Q4 now states the no-signal default is **`irreversible` (gated, fail-closed)**, with the explicit known-reversible-vs-no-signal distinction, and a Task 4 red test for the no-hint case. **Resolved.**
+
+### WARNING-9 / WARNING-10 — live-proof tool pinned + MCP-routed → **PARTIALLY RESOLVED.**
+`commit_file` is named, classified `irreversible`, MCP-exposed so it funnels through `mcp-bridge.ts:132` → `registry.invoke` (verified that bridge calls `registry.invoke` at `:132`), and wired in Task 4 before consumers (topological order respected). AC12 honestly carves out that builtin `def.handler` runs in-process by design and pins the inverted-ownership proof to the MCP path. This is sound **for the gate/capture/consume seam**. BUT the end-to-end live-proof (AC4/AC11) still depends on CRITICAL-1's replay reaching `commit_file` in session 2 — and on the SDK-MCP path there is no replay channel (CRITICAL-1b). So the live-proof tool is pinned, but the live-proof **lane** cannot run end-to-end as designed until CRITICAL-1 has a real mechanism. **Open insofar as it's gated on CRITICAL-1.**
+
+### NITs 11/12/13 — **RESOLVED.** `held` write-path covered (Task 7 non-approve branch); drop+recreate migration stated (NIT-12); 3 subscribers enumerated by file+line (NIT-13).
+
+## New issues introduced by the revision
+
+- **NEW-A (CRITICAL, folded into CRITICAL-1):** the `ConversationMessage.content` widening to `string | readonly SeededToolUse[]` is wired to a consumer (`builtin-harness-adapter.ts:441-447`) that pushes into `session.messages` for the LLM — but `session.messages` holds `LlmMessage[]`, and the chat loop sends them to `callLlm`. A `SeededToolUse[]` content there is LLM input, not a dispatch. The widening enables the *wrong* mechanism. It also widens a type consumed by the AH3 chat path (`:477-502` already pushes `LlmContentBlock[]` as `content` internally — the public `ConversationMessage` is the seam), so the widening must not break AH3's string-only transcript contract. Low regression risk but the type change is in service of a seam that doesn't work.
+- **NEW-B (WARNING):** routing session 2 through `config.messages` puts a re-provisioned **task** session into `runChatTurn` (the assistant-chat loop, `MAX_TOOL_ITERATIONS=3`, no planning/reflection/sandbox-execute). That is a silent mode-switch with consequences for AC11 ("agent continues working") — the chat loop caps at 3 tool iterations and emits a CAP_FALLBACK, which is not the task execute loop's continuation semantics. The plan does not acknowledge this.
+- **NEW-C (NIT):** the deadlock fallback (Task 8.5) keys re-provision on `session_ended` with an unconsumed grant, but `handleSessionEnded` already exists with its own owner-change logic; adding a second concern (unconsumed-grant detection) to the same event needs to compose with `scheduleDrain`/the owner-change branch without double-enqueue. The plan should state where this lives (a third subscription vs. extending `handleSessionEnded`) — currently ambiguous.
+
+## Score: 6 / 10 — ANOTHER ROUND NEEDED
+
+1 CRITICAL (CRITICAL-1, with NEW-A folded in), 1 conditionally-open WARNING (W9/10, gated on C1), plus NEW-B/NEW-C. Up from 5/10: CRITICAL-2 and CRITICAL-3 are genuinely fixed with verified mechanisms, and every WARNING on the bookkeeping/security half (4,5,6,7,8) is resolved with concrete specs. The plan is now build-ready for capture, abort, grant, consume, outcome, and re-dispatch.
+
+It is **not** build-ready because the single most load-bearing mechanism — byte-faithful replay so "executed == reviewed" actually executes — names a seam (`SessionConfig.messages`) that (a) on builtin feeds the LLM rather than emitting recorded bytes (re-introducing the rejected re-derivation path), and (b) on the SDK/CLI production harness is read by nothing. The brief's generality worry is confirmed.
+
+**Generality verdict on replay-from-record (#1):** Does NOT generalize. `SessionConfig.messages` is a builtin-only context-seed channel; the Claude Agent SDK adapter ignores it entirely (driven by a fixed kickoff prompt), and even on builtin the seeded block is LLM input, not a dispatch to `registry.invoke`. Replay-from-record as specified is neither byte-faithful nor cross-adapter. A real fix is a **direct `registry.invoke(toolId, args)` replay path in the grant-bearing run loop** (builtin), with the SDK/CLI replay channel either designed now or explicitly scoped as net-new and the live-proof pinned to builtin.
+
+**Build-ready judgment:** Not build-ready — one unresolved CRITICAL (replay fidelity) with a named-but-non-functional seam; needs round 3 to commit a real byte-faithful, adapter-honest replay mechanism (and acknowledge the chat-loop mode-switch).
+
+## Verified file references (round 2)
+- `packages/server/src/harness/builtin-harness-adapter.ts:356, 427-531` — `runChatTurn`: `config.messages` → `session.messages` → `callLlm`; executed tool calls come from `response.content` (`:471-483`), NOT the seed (CRITICAL-1a).
+- `packages/server/src/harness/claude-agent-sdk-adapter.ts:172-174` — fixed kickoff `prompt`; `config.messages` read NOWHERE (CRITICAL-1b, generality hole).
+- `packages/server/src/services/session-provisioning.ts:703-722` — `startSession` config forwards no `messages` today (replay wiring is net-new even for builtin).
+- `packages/server/src/services/session-run-registry.ts:72-84` — `abort` → `stopSession` is the real builtin revocation (CRITICAL-2 resolved).
+- `packages/server/src/harness/builtin-harness-adapter.ts:717` — `executeToolCalls` honors `aborted` before each invoke (CRITICAL-2 resolved).
+- `packages/fabric/src/services/task-dispatcher.ts:176-209, 500-514` — `enqueue`/`hasActiveSession` guard sound; `handleSessionEnded` owner-change-only confirmed (CRITICAL-3 fix is the right shape).
+- `packages/server/src/routes/threads.ts:1293-1303, 1361-1382` — first-verdict-wins CAS model (WARNING-6); current `resolveStagedOperations` call to replace with mint+emit (CRITICAL-3).
+- `packages/server/src/mcp/mcp-bridge.ts:132` — bridge calls `registry.invoke` (live-proof MCP routing confirmed).

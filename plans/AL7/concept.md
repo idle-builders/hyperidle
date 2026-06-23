@@ -24,9 +24,12 @@ SESSION 1 — irreversible call BLOCKED at the gate
         │
 SESSION 2 — re-provisioned via an EXPLICIT proposed_call_granted trigger on the task-dispatcher
   (the same-owner resume is NOT fired by the owner-change session_ended path)
-  seeded with the recorded call (replay-from-record via SessionConfig.messages, a pre-filled
-  tool_use block — NOT assembleContext) → the ONE approved call permitted,
-  once, exactly as captured → agent executes it with its own tools → continues working
+  the recorded call is run BYTE-FAITHFULLY — per harness:
+    builtin → run loop drives registry.invoke(recordedToolId, recordedArgs) on the
+              agent's OWN registry directly (no LLM re-issue)
+    SDK     → canUseTool returns {allow, updatedInput: recordedArgs}, overriding LLM args
+  → the ONE approved call permitted, once, exactly as captured
+  → agent executes it with its own tools/creds → continues working
 ```
 
 A thin **HyperIdle wrapper** is the load-bearing mechanism — native permissions alone are NOT enough. It does two things native gates cannot: **(a)** at block-time, capture the exact bound call (tool + args) as the review subject; **(b)** at approve-time, enforce that session 2 runs **exactly that call, once** — native allow-lists gate by tool *name/pattern*, never "this exact call with these args, one time." Without the wrapper, session 2 could merge a *different* PR than the one reviewed. This is NOT the rejected executor: HyperIdle **captures + permits**; the agent's harness **executes**.
@@ -37,7 +40,9 @@ A thin **HyperIdle wrapper** is the load-bearing mechanism — native permission
 
 - This file — the locked concept.
 - `docs/process-layer/staged-operation.md` — ground-truth (file path kept stable for cross-refs; the noun is now `Proposed Call`, model reframed to ride-the-native-gate).
-- `packages/shared/src/harness/harness-adapter.ts` — `SessionConfig` (init surface, line 36); `SessionConfig.messages` (line 91, the replay-from-record seam) + `ConversationMessage` (line 31, widened) + `HarnessAdapter` interface.
+- `packages/shared/src/harness/harness-adapter.ts` — `SessionConfig` (init surface, line 36; AL7 adds `permissionPolicy` with the recorded `grantedCall`). `SessionConfig.messages` (line 91) is the AH3 chat channel, **NOT** the replay seam.
+- `packages/server/src/harness/builtin-harness-adapter.ts:368,590-668,741` — builtin replay seam: drive `registry.invoke(recordedToolId, recordedArgs)` from `runLoop` before the LLM execute loop (executed calls otherwise come from `response.content`, not any seed).
+- `packages/server/src/harness/claude-agent-sdk-adapter.ts:154-162` — SDK replay seam: net-new `canUseTool` callback in `queryOptions` returning `{behavior:"allow", updatedInput: recordedArgs}`.
 - `packages/server/src/services/session-provisioning.ts:686-722` — `harness.startSession` call; `allowedToolNames` / `tools` passing.
 - `packages/server/src/harness/claude-agent-sdk-adapter.ts:120-188` — `permissionMode` wiring (NO `canUseTool`/hooks today — net-new).
 - `packages/server/src/tools/tool-registry.ts:264-294` — the `invoke` chokepoint (builtin + MCP-routed tools funnel here).
@@ -155,7 +160,7 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **perm
 - **Mutability.** The captured tool id + args + identity hash are **immutable** once captured (they are what the human reviewed). The Outcome is **immutable** (PK = proposed-call id enforces 0..1 + no overwrite). A retry produces a **new** Proposed Call with its own identity and Outcome.
 - **Identity.** A Proposed Call's identity is a **deterministic hash over (tool id, canonically-normalized args)**. This is the value the one-shot grant matches and consumes — it is what makes "executed == reviewed" enforceable.
 - **Hard rules:**
-  1. **HyperIdle executes nothing.** The agent's own session/tools/credentials run the call. HyperIdle captures, permits, and records.
+  1. **HyperIdle executes nothing of its own.** The agent's own session/tools/credentials run the call. The builtin deterministic replay drives the **agent's own per-session registry** (`registry.invoke` — same tools + creds the agent would hit); the SDK `canUseTool` allows the **agent's own SDK tool** (HyperIdle only forces the recorded args via `updatedInput`). HyperIdle captures, permits, forces the recorded bytes, and records — it never calls a tool from its own process or with its own creds.
   2. **Executed == reviewed, once.** Session 2 may run only a call whose identity matches an approved Proposed Call, exactly once. A non-matching call in session 2 is blocked like any other.
   3. **Two-session async resume, not live pause.** Block ends session 1; approve re-provisions session 2 via the task-dispatcher rail; the agent re-attempts and the grant permits.
   4. **Reversible auto-flows; irreversible gates.** Reversible calls are allowed at the gate with no review. Only irreversible calls are captured → reviewed.
@@ -169,10 +174,20 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **perm
 ### 1. Fidelity: replay vs re-derive → **REPLAY (locked).**
 Session 2 executes the **captured exact call** (the wrapper rejects any non-matching call), it does NOT re-derive. *Justification:* re-derivation breaks Hard Rule 2 ("executed == reviewed") — the agent, re-provisioned with fresh context, could compute different args (different PR, larger refund) than the human approved, silently. Replay makes "the human approved THIS call" enforceable by construction: the grant is keyed to the identity hash; only a byte-faithful re-attempt matches.
 
-**Replay-from-record, not LLM re-issue (the load-bearing distinction).** An LLM is *not* a deterministic replayer — a re-summarized PR number, reordered JSON keys, `42` vs `42.0`, or a unicode shift would drift the args, miss the hash, and **deadlock the approved work** (the call stays blocked, the grant unconsumed). So HyperIdle does not hope the LLM reproduces the call. It **seeds session 2's message history** (`SessionConfig.messages` — the existing AH3 §1.4 channel, NOT `assembleContext`, which only writes knowledge to disk and discards its return) with a **pre-filled `tool_use` block carrying the verbatim recorded `{toolId, args}`**, so the harness emits the *recorded bytes*. The agent's own session/creds still execute the resulting permitted call — HyperIdle seeds the request, never calls the tool. **Deadlock fallback:** if session 2 ends with the grant unconsumed, HyperIdle re-provisions once more, then surfaces a `failed` Outcome + holds the call — never a silent hang. Replay-from-record is the only option consistent with the rejection list (#5).
+**The recorded call is executed byte-faithfully — never by trusting the LLM to reproduce the args (the load-bearing distinction).** An LLM is *not* a deterministic replayer — a re-summarized PR number, reordered JSON keys, `42` vs `42.0`, or a unicode shift would drift the args, miss the hash, and **deadlock the approved work**. So HyperIdle does not hope the LLM reproduces the call; it **forces the recorded bytes, per harness:**
+- **builtin → deterministic registry replay.** Session 2's run loop invokes the **agent's own per-session tool registry** directly with the recorded `{toolId, args}` (`registry.invoke(recordedToolId, recordedArgs)`) — the same registry + the same tool handler + the same creds the agent's own call would hit — *before* the LLM gets a turn. The LLM never re-issues the call; it only continues working after the recorded result is in context.
+- **SDK (production) → `canUseTool` arg-override.** The agent attempts the call; HyperIdle's `canUseTool` callback returns `{behavior:"allow", updatedInput: <recorded approved args>}`, overwriting whatever args the LLM produced with the exact recorded approved args before the agent's own SDK session executes the tool. Executed == reviewed even under full LLM drift.
+- **CLI/Codex/opencode → block+capture covered now; arg-override replay is future per-adapter work** (stated honestly, not proven in AL7).
+
+The earlier "seed `SessionConfig.messages` with a `tool_use` block" idea is rejected: that seed is only LLM *context* — builtin still executes the call the model returns, and the production SDK adapter ignores `messages` entirely — so it is the rejected re-derivation path under a new name. HyperIdle still **executes nothing of its own**: `registry.invoke` is the agent's own registry, and `canUseTool` allows the agent's own SDK tool — HyperIdle forces the args, the agent's harness runs the call with the agent's creds. **Deadlock fallback:** if session 2 ends with the grant unconsumed, HyperIdle re-provisions once more, then surfaces a `failed` Outcome + holds the call — never a silent hang. Byte-faithful replay is the only option consistent with the rejection list (#5).
 
 ### 2. Wrapper location → **`registry.invoke` is the uniform seam (confirmed).**
-`tool-registry.ts:274 registry.invoke` is the one place all tool paths funnel — builtin (internal) AND all MCP-routed tools (SDK, CLI). The wrapper's **capture** (block-time) and **grant enforcement** (approve-time, session 2) live here as the uniform mechanism. The per-adapter native gates are **dressing on top**: SDK `canUseTool(tool,input)` / `permissionMode`; Codex `execCommandApproval`/`applyPatchApproval` JSON-RPC; opencode `permission.asked` SSE. Rationale: the native gates differ per harness and some don't exist yet in our adapters; `registry.invoke` is already present, already covers the MCP-routed path for SDK/CLI, and is the only seam guaranteed for every adapter. Native gates are an optimization/UX layer (block at the harness edge before the call reaches MCP), not the source of truth for capture + one-shot enforcement.
+`tool-registry.ts:274 registry.invoke` is the one place all tool paths funnel — builtin (internal) AND all MCP-routed tools (SDK, CLI). The wrapper's **capture** (block-time) and **one-shot consume** (approve-time, session 2) live here as the uniform mechanism for **every** adapter — that part is the wrapper's, not the native gate's. But **arg-fidelity replay is per-harness and load-bearing, not optional dressing** (this is the r2 correction): the wrapper alone cannot *force the recorded args* into the call the harness emits. So:
+- **builtin** has no native gate; HyperIdle owns the run loop, so it drives the recorded `registry.invoke(recordedToolId, recordedArgs)` directly — the replay is internal to the loop.
+- **SDK (production)** owns its own loop; the **`canUseTool` callback is the only way to force the recorded args** (`updatedInput`) before the SDK executes — it is **required for AL7**, not optional UX. (It is also a block-at-edge gate, but its load-bearing role here is arg-override.)
+- **Codex/opencode** native gates (`execCommandApproval` JSON-RPC / `permission.asked` SSE) would carry the equivalent replay; they are net-new transport and their replay is deferred — their MCP-routed calls are still captured + one-shot-consumed by the wrapper.
+
+Rationale: `registry.invoke` is the guaranteed-for-every-adapter seam for capture + one-shot enforcement; the per-harness replay mechanism is what guarantees *executed == reviewed* against LLM drift.
 
 ### 3. One-shot exact-call enforcement → **wrapper-owned, hash-match + atomic consume.**
 No harness expresses "allow this exact call once" — native allow-lists gate by name/pattern. So the wrapper owns it:
