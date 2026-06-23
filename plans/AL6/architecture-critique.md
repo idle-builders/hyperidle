@@ -76,3 +76,62 @@ CLAUDE.md: static codebase properties → type system or lint rule, not a test. 
 5. **Fix the mock-adapter premise:** the AC4 Mode-1 mock must NOT read `config.messages` to "see" the forcing — it must mirror the real carrier (sandbox file or its own equivalent), or the green integration test will pass while the real CLI silently fails (tests-drive-behavior trap; MEMORY: tests must not drive behavior).
 
 **Carry-forward to Phase 4:** verify, in the built code, that for the cli path the forcing message physically lands where the agent reads it (sandbox file content changed between runs), and that the live cli eval (if shipped) actually executed and recorded `forceReturnCount >= 1` against a real external agent — a green integration test alone does NOT discharge AC4 (MEMORY: live-proof lanes run before ship; AL6 v1/v2 both passed gates and were founder-rejected).
+
+---
+
+## v3 round 2 — sandbox-file forcing carrier (re-critique against source)
+
+**Reviewer verdict: APPROVED. Score 8/9.** v3-r2 replaces the fabricated `config.messages` carrier with the **sandbox instruction file** (`AGENTS.md`/`CLAUDE.md`), and — unlike r1 — every load-bearing claim now survives a read of the actual adapter code. I verified each prior CRITICAL against source, trusting nothing the plan asserted. All three are closed; the four WARNINGs are addressed; the file-watcher interaction is benign. One residual NIT (eval `claude`-CLI args template doesn't exist — but the plan's primary external-shaped path doesn't depend on it) keeps this off a 9. The bar is met: forcing reaches a real external non-Claude agent via a carrier the code actually delivers (`writeSandboxAgentsMd` → `cwd: config.sandboxPath` re-read on re-spawn), provable by a non-vacuous eval.
+
+### Bar check
+> Does v3-r2 force a real EXTERNAL agent via a carrier the code actually delivers?
+
+**Yes.** The carrier is `writeSandboxAgentsMd(sandboxPath, prompt + AL6_FORCE_RETURN_MESSAGE)` (`packages/fabric/src/context-assembly-prompt.ts:277-279`, dual `fs.writeFileSync` of AGENTS.md+CLAUDE.md). Every external adapter spawns with `cwd: config.sandboxPath` and re-reads that file on each `startSession`. Confirmed against code, not asserted.
+
+### CRITICAL-1 (carrier) — CLOSED. Verified against source.
+- **`writeSandboxAgentsMd` exists and writes what agents read.** `context-assembly-prompt.ts:277-279`: `fs.writeFileSync(path.join(sandboxPath,"AGENTS.md"),…)` + same for `CLAUDE.md`. Idempotent → safe to re-write per re-engage. ✓
+- **cli re-reads the rewritten file on re-spawn.** `cli-harness-adapter.ts:207-208` spawns `cwd: config.sandboxPath`; template set is the fixed 5 vars `{{sandbox}}{{model}}{{apiKey}}{{baseUrl}}{{mcpUrl}}` (`:35`, `:186-190`) — **no `{{prompt}}`/messages arg**. The agent's only instruction channel IS the sandbox file. A re-spawn after rewrite genuinely reaches the model. The plan's §0/§3.1 cite the real lines. ✓ **The load-bearing claim holds.**
+- **isolated works WITHOUT the inner Claude Stop hook.** `isolated-session-worker.ts:49-51` forks `new ClaudeAgentSdkAdapter()` + `startSession(config)`; the forked SDK reads `CLAUDE.md` from `cwd: config.sandboxPath` (`claude-agent-sdk-adapter.ts:217`, `:231-234`). So the isolated carrier is the sandbox file the forked adapter re-reads — NOT secretly Stop-hook-only. The inner Stop hook is a documented bonus, not the mechanism. ✓
+- **remote degradation is honest and narrow.** `remote-harness-adapter.ts:104-113` re-dispatches `config`; the rewritten sandbox reaches the model iff the worker shares the FS / re-runs provisioning (HyperIdle's own worker does). `canReEngage` stays `true`; only a non-conforming third-party worker degrades to reject (§3.6). Correctly scoped to the external worker, not the adapter layer. ✓
+- **`config.messages` isolation verified.** grep confirms `config.messages` is read ONLY by `builtin-harness-adapter.ts` (chat path `:389`, `:474`) — never cli/sdk/isolated/remote. r1's carrier was genuinely fictional; r2's is genuinely real.
+
+### CRITICAL-2 (external eval) — CLOSED. Runnable and non-vacuous.
+- **The pool accepts non-builtin registration.** `adapter-pool.ts:97` `register(id, adapter, meta)` is generic — any `HarnessAdapter`. `provision-harness.ts:70-71` registers builtin-only today (the gap the plan names honestly, §5.1). Adding a `harnessKind:"external"` branch that `pool.register`s an external-shaped adapter is concretely buildable against this API. ✓
+- **Exercises the real Layer-B loop, not the builtin shortcut.** The external-shaped adapter has `hasNativeReturnHook:false` and its only channel is the sandbox file (`cwd`), so it cannot resolve in-turn — the `runSession` re-prompt loop must rewrite the sandbox and re-spawn for a return to occur. ✓
+- **Non-vacuous.** A return happens ONLY if the loop rewrote the file and re-engaged; if forcing didn't reach the external agent, the agent never returns and the eval settles `not_returned` / fails `force_return_injected` (`forceReturnCount >= 1`). The judge would catch a dead carrier. ✓
+- Residual: the "real `claude` CLI when present" sub-path needs a `claude` args template absent from `CLI_TOOL_CONFIGS` (`adapter-pool.ts:272`, covers aider/goose/opencode only). But that's the *optional* branch; the *primary* external-shaped real-model adapter (the `else`) is the buildable lane and the one the DoD rides on. Demoted from CRITICAL to NIT (below).
+
+### CRITICAL-3 (force counter) — CLOSED. Coherent, no double-count, no miss.
+- `ProvisionSessionResult` (`session-provisioning.ts:215-231`) has NO `forceReturnCount` today (only `returnVerdict`) — the plan adds it (§2.4, T6). ✓
+- Unification `forceReturnCount = loopForceCount + (harness.getForceReturnCount?.(handle) ?? 0)` is coherent because the two layers are **mutually exclusive per turn**: Layer A (native hook) resolves in-turn → the loop never re-engages → `loopForceCount = 0`; Layer B fires only when no native hook caught it → native count = 0. No double-count, no miss. ✓
+- Sources verified: builtin `getSessionForceCount` (`builtin-harness-adapter.ts:369-370`, reads `forceCount`), SDK `al6.stopHookCount` (`claude-agent-sdk-adapter.ts:66,204`). T4 generalizes both behind optional `getForceReturnCount?`. The kept builtin judge still sees Layer-A; the new external judge sees Layer-B. ✓
+
+### WARNINGs — all addressed.
+- **W1 (slot held across loop):** the three real `adapterPool.release(adapterId)` sites exist (`session-provisioning.ts:732` start-fail, `:888` crash, `:894` normal). §2.3 + T7 MANDATE (not ⚠️-fallback) collapsing to one post-loop release with try/finally. Addressed as a required shape. ✓
+- **W2 (single `session_ended`, register/deregister/onHarnessStarted once, no cost double-count):** `onHarnessStarted?.()` (`:753`), `register` (`:741`), `deregister` (`:907`) are real single-call sites. §2.3 pins: `firstRun` guard for `onHarnessStarted` + register; `updateHandle` per run to re-arm abort; deregister + one `session_ended` post-loop; cost accumulates via the per-event `cost_update` stream (not `SessionResult.cost`), so N runs sum into one `totalCostCents`. Coherent. ✓
+- **W3 (re-author v2 test, not protect):** `AL6-return-gate.test.ts:332-366` encodes the v2 `canForceReturn` table with Tier-2 reject semantics. Plan T9 + `protectedTests` section explicitly mark it NOT protected and RE-AUTHORED (delete the reject-table block, keep gate-detection/exemption/AC5). Self-contradiction from r1 resolved. ✓
+- **W4 (`canReEngage` all-true as STATIC guard):** §9 makes `canReEngage` a non-optional field (`npm run check` fails an omission) PLUS a `satisfies`/eslint-plugin-design compile assertion that each in-tree literal is `true` — explicitly NOT a runtime test, and explicitly does NOT overstate "no adapter can be reject-only" (a future adapter MAY set `false`). Honest and CLAUDE.md-correct. ✓
+
+### Sanity checks
+- **Loop bounded:** `AL6_MAX_FORCE_RETURNS = 2` (`return-actions.ts:88`). An adversarial refuser costs ≤3 runs then `not_returned`. ✓
+- **File-watcher interaction is BENIGN.** The fabric watcher (`file-watcher.ts:114-118`) watches ONLY `sandboxPath/knowledge` and `sandboxPath/work` (`:33-34`). `writeSandboxAgentsMd` writes AGENTS.md/CLAUDE.md to the **sandbox ROOT** — outside both watched dirs. Rewriting them mid-session triggers NO ingestion/writeback event. No loop, no corruption. (The plan should add this as an explicit @lore in T12 — currently only implied by §2.3 "rewrites the file inside the existing sandbox"; the underlying fact is sound.) ✓
+
+### Residual findings
+- **NIT-1 (eval `claude`-CLI template gap):** `CLI_TOOL_CONFIGS` (`adapter-pool.ts:272-301`) has no `claude` entry; the §5.2 "real `claude` CLI when present" branch would need one built. Non-blocking — the external-shaped real-model adapter is the primary buildable lane and the one the DoD relies on. Builder: if wiring the real-CLI branch, add a `claude -p`/`--print` (or sandbox-file) args config; otherwise scope to the external-shaped adapter and skip-with-message when no model creds.
+- **NIT-2 (Mode-2 `continueSession` is speculative surface):** adding `continueSession?` to the interface for a path Layer-A already covers is YAGNI. The plan flags it ⚠️UNVERIFIED with a "omit entirely if infeasible" off-ramp (§1.2, §3.3, Risk 1) — acceptable, but the builder should default to OMITTING it unless the live SDK feasibility check passes cheaply. Carried, not blocking.
+- **NIT-3 (carry-forward to Phase 4):** the AC4 sandbox-carrier mock MUST gate its run-2 return on reading the rewritten sandbox file content (not unconditional return on run-2), else a no-op carrier passes the test — repeating r1's hole at the test layer. The plan states this (§4 AC4 note, T8, Risk 2) but it is THE thing to verify in built code: confirm the file content physically changed between runs AND the mock keyed off it. A green integration test alone does NOT discharge AC4 (MEMORY: live-proof lanes run before ship; v1/v2 both passed gates, founder-rejected).
+
+### Dimension scores (9)
+| # | Dimension | Score | Note |
+|---|---|---|---|
+| 1 | Spec/concept fidelity (AC4 uniform forcing) | 8 | "No genuine floor" now TRUE for cli/isolated — carrier verified against `cwd: config.sandboxPath` re-read. remote degradation honest+narrow. |
+| 2 | Data/contract correctness | 8 | `hasNativeReturnHook`+`canReEngage` rename/add sound; `forceReturnCount` unification coherent (mutually-exclusive layers, no double-count). |
+| 3 | Layering / boundary integrity | 8 | Forcing at the provisioning layer above `streamEvents`; carrier is a fabric function the provisioner already calls. Clean. |
+| 4 | Verification method correctness | 7 | External eval is now a real, non-vacuous lane (`pool.register` confirmed). `canReEngage` is a static guard not a runtime test (W4 fixed). AC4 mock must gate on file content (NIT-3). |
+| 5 | Loop coherence at provisioning layer | 8 | Hold-slot-once / register-once / deregister-post-loop / one `session_ended` are MANDATED shapes (W1/W2), not footnotes. |
+| 6 | Keep/change boundary vs v2 | 8 | `not_returned`+terminal-outcome kept; v2 reject-table test RE-AUTHORED not protected (W3 resolved). |
+| 7 | Security / abuse | 8 | Loop bounded at N=2; cost cap breaks loop; forcing message a frozen constant; sandbox-rewrite reuses same path (no traversal); no new outbound surface. |
+| 8 | Simplicity / no over-engineering | 7 | Mode-2 `continueSession` is speculative (NIT-2) but has an explicit omit off-ramp. Otherwise proportionate. |
+| 9 | Honesty / no hand-waving | 9 | The dimension r1 scored 3 on. r2 traces every carrier to file:line, concedes the eval `claude`-CLI gap openly, scopes the remote degradation narrowly, and does NOT overstate the static guard. Read against source — the claims hold. |
+
+**Total: 8/9 → APPROVED** (threshold ≥7). The fabricated carrier is replaced by one the code actually delivers; the eval is a real non-vacuous lane; the force counter is coherent; the loop invariants are mandated; the file-watcher interaction is benign. Proceed to build, with NIT-3 as the hard Phase-4 proof gate.
