@@ -29,7 +29,7 @@
  * separate test DB states (each test gets a clean truncated DB via fixtures).
  */
 
-import { users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -45,7 +45,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function seedUser(
-	db: Parameters<Parameters<typeof test>[1]>[0]["db"],
+	db: HyperIdleDb,
 	id: string,
 	name: string,
 ): Promise<void> {
@@ -593,6 +593,16 @@ describe("AN1 AC5 — per-user isolation", () => {
 			id: "u-xdelete-a",
 			kind: "human",
 			name: "XDelete User A",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
+		// Seed u-iso-other as a non-human user so FK constraint is satisfied.
+		// Auth middleware resolves to u-xdelete-a (first kind='human') — u-iso-other is not principal.
+		await db.insert(users).values({
+			id: "u-iso-other",
+			kind: "ai",
+			name: "Iso Other (AI)",
 			role: "founder",
 			status: "active",
 			createdAt: now,
