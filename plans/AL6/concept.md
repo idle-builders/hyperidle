@@ -1,10 +1,26 @@
-# AL6 — Concept: Harness review-return hooks (v3 — harness-agnostic forcing)
+# AL6 — Concept: Harness review-return hooks (v3 — harness-agnostic forcing via the sandbox instruction file)
 
 **Concept act.** AL6 makes returning to HyperIdle the mandatory last step of every agent turn, on every harness, drawn from a closed set of accepted return actions. v1 *flagged* (passive event, turn settles anyway) — rejected. v2 *forced on Claude only* (SDK `Stop` hook + builtin loop) and **reject-only on the three genuinely-external harnesses (CLI, remote, isolated)** — rejected again. The founder: *"was this only built for claude? this needs to work with all harnesses."* (AC4: "the enforcement holds uniformly regardless of which harness produced the turn.")
 
-**The v3 reshape — one decision point only: where forcing lives.** v2 located forcing *inside the harness* (a native turn-end hook the harness must expose). Only Claude exposes one, so only Claude got forced. v3 relocates the **primary forcing mechanism to the provisioning layer** as a **re-prompt loop**: when a turn ends without a return, the provisioner **re-engages the same session with the forcing message and runs another turn** — using the one operation *every* adapter already implements (`startSession` → `streamEvents` → `stopSession`). **Any harness that can run a turn can run another turn.** The native hook (SDK `Stop`) is demoted from "the forcing mechanism" to **a fast-path optimization**: it catches the agent *in-turn* (cheaper — no new session) where available, but it is no longer the *only* place forcing happens. The closed return set, the `ReturnGate` detection, the `not_returned` outcome, and the SDK Stop hook are all carried forward; what changes is that **forcing is now universal, and reject is the genuine floor only where re-engagement is technically impossible.**
+**v3-r2 honesty correction.** The first v3 draft claimed forcing reached cli/remote/isolated by appending the forcing message to `SessionConfig.messages` (and "threading it into the prompt arg"). **That claim was false, and reading the adapters proves it:** no external adapter reads `config.messages`, and the CLI adapter has no prompt/messages arg at all. This v3-r2 traces, per adapter, the channel the running model *actually* reads, and pins the carrier to **the sandbox instruction file (`AGENTS.md`/`CLAUDE.md`) that `writeSandboxAgentsMd` already writes** — the one surface every harness reads on every spawn. Every carrier claim below cites the file:line where the model reads it.
 
-> **History.** v1: read-only observer, emits `session_not_returned`, turn settles `completed`. Rejected (flag ≠ force). v2: `canForceReturn:true` on `claude-agent-sdk-adapter` + `builtin-harness-adapter` (force); `canForceReturn:false` on `cli`/`remote`/`isolated` (reject-only — the turn is marked `not_returned` but the agent is **never re-prompted to return**). Rejected: the v1 "flag ≠ force" gap **still exists for every non-Claude harness.**
+> **History.** v1: read-only observer, emits `session_not_returned`, turn settles `completed`. Rejected (flag ≠ force). v2: `canForceReturn:true` on sdk+builtin (force); `false` on cli/remote/isolated (reject-only — never re-prompted). Rejected: the v1 "flag ≠ force" gap **still exists for every non-Claude harness.** v3-r1: re-prompt loop with `config.messages` as the carrier. **Carrier falsified by code** (no external adapter reads `messages`). v3-r2 (this doc): carrier = sandbox instruction-file rewrite, verified against each adapter.
+
+---
+
+## 0. The carrier, traced (the load-bearing correction)
+
+**What the running model actually reads, per adapter** — verified by reading each `startSession` and the worker:
+
+| Adapter | The model's instruction surface (file:line) | Reads `config.messages`? | Re-engage carrier (verified) |
+|---|---|---|---|
+| **cli** (`cli-harness-adapter.ts`) | `startSession` (`:183-211`) resolves a **fixed 5-var template set** `{{sandbox}} {{model}} {{apiKey}} {{baseUrl}} {{mcpUrl}}` (`:35`, `:184-194`) and spawns with `cwd: config.sandboxPath` (`:209`). **No prompt arg, no messages arg.** The agent's entire context is the files in `cwd` — i.e. `AGENTS.md`/`CLAUDE.md`. | **No** (grep-confirmed: `config.messages` read only by builtin). | **Rewrite the sandbox file** (`writeSandboxAgentsMd`, fabric `context-assembly-prompt.ts:277-280`) with the forcing message appended, then a fresh `startSession`. The re-spawned subprocess reads the rewritten file from `cwd`. |
+| **SDK** (`claude-agent-sdk-adapter.ts`) | `startSession` passes `cwd: config.sandboxPath` (`:217`) and a **constant** kickoff `prompt: "Begin working on your assigned task."` (`:237`); real context is auto-discovered from `CLAUDE.md` in `cwd` (`@lore X1`, `:231-235`). | **No.** | **Layer A** = the live `Stop` hook (`:198-213`, `decision:block + reason=forcing`) re-injects in-turn — the real, verified primary. **Layer B backstop** = rewrite sandbox file + new `startSession` (same carrier as cli). |
+| **isolated** (`isolated-harness-adapter.ts`) | `startSession` `child.send({type:"start",config})` (`:128`); the worker (`isolated-session-worker.ts:49-51`) constructs a **fresh `ClaudeAgentSdkAdapter`** and calls `startSession(config)` → the inner SDK reads `CLAUDE.md` from `config.sandboxPath`. | **No.** | **Rewrite the sandbox file** + a second isolated `startSession`; the worker forks a second SDK session that reads the rewritten file. **Bonus:** the inner SDK's own Stop hook (Layer A) *also* fires, so an isolated turn is doubly forced in-turn. |
+| **remote** (`remote-harness-adapter.ts`) | `startSession` `ws.send({type:"dispatch",sessionId,config})` (`:104-113`) — the whole `config` crosses the WS to a worker process. What the worker does with it is **out of tree**. | The config object (incl. `messages` if present) is *sent on the wire*, but **nothing in-tree proves a worker reads `messages`**; HyperIdle's own remote worker is expected to re-run provisioning (which reads the sandbox file). | **Rewrite the sandbox file** when the worker shares the filesystem/sandbox surface; re-dispatch carries the updated `config`. Honest degradation (§5): a third-party worker that neither re-reads the sandbox nor replays context cannot be context-re-engaged — a worker limitation, narrowly documented. |
+| **builtin** (`builtin-harness-adapter.ts`) | In-process loop; on the **chat path** reads `config.messages` (`@lore AH3 H3`); on the **task path** runs the planning loop (no `messages`). | **Yes (chat path only).** | **Layer A** = the loop's own re-inject of `AL6_FORCE_RETURN_MESSAGE` (v2 code, kept), in-turn, no new session. |
+
+**The single load-bearing fact:** `writeSandboxAgentsMd(sandboxPath, assembledPrompt)` (fabric `context-assembly-prompt.ts:277-280`) does a plain idempotent `writeFileSync` of `AGENTS.md` **and** `CLAUDE.md`, and its own doc (`:286-308`) states this is the canonical surface "the same bytes reach the model regardless of which harness executes." Because every adapter sets `cwd: config.sandboxPath` fresh on each `startSession`, **rewriting that file before re-spawn is a carrier that genuinely reaches the model on every harness.** `config.messages` is not — and v3-r1 was wrong to claim it.
 
 ---
 
@@ -12,11 +28,11 @@
 
 ### 1.1 Turn (unchanged)
 
-**A turn is one bounded run of an agent acting on the user's behalf through a harness, from `startSession(config)` until the adapter's `streamEvents` iterable exhausts.** This is the one event structurally identical across every adapter (all implement `HarnessAdapter.streamEvents()`). Two enforced turn drains (`session-provisioning.ts` Phase 10 = site A; `assistant-turn.ts` `drainStreamEvents` = site B); one exempt internal-extraction drain (`bet-decomposition.ts`); two forwarding relays (`isolated-session-worker.ts`, `desktop-worker-client.ts`).
+**A turn is one bounded run of an agent acting on the user's behalf through a harness, from `startSession(config)` until the adapter's `streamEvents` iterable exhausts.** This is the one event structurally identical across every adapter. Two enforced turn drains (`session-provisioning.ts` Phase 10; `assistant-turn.ts` `drainStreamEvents`); one exempt internal-extraction drain (`bet-decomposition.ts`); two forwarding relays (`isolated-session-worker.ts`, `desktop-worker-client.ts`).
 
 A turn is **NOT** a single LLM round-trip, a single tool call, a task/bet, or a thread/message.
 
-> **v3 refinement.** A turn may now span **more than one harness session** at the provisioning layer: a re-prompted turn is `session run #1 (no return)` → `session run #2 (forcing message seeded, agent returns)`. The *conceptual* turn is the whole enforced span; the *harness session* is its unit of re-engagement. The gate's question — "did a return fire across this span?" — is answered over all runs of the span, not per harness-session.
+> **v3 refinement.** A turn may now span **more than one harness session** at the provisioning layer: a re-prompted turn is `session run #1 (no return)` → `session run #2 (sandbox file rewritten with forcing, agent returns)`. The *conceptual* turn is the whole enforced span; the *harness session* is its unit of re-engagement. The gate's question — "did a return fire across this span?" — is answered over all runs of the span.
 
 ### 1.2 Return action (unchanged)
 
@@ -24,143 +40,149 @@ A tool invocation, from a fixed closed set, that surfaces the turn's work into a
 
 ### 1.3 Accepted-return set (unchanged)
 
-The closed, enumerable set of tool names that count as a valid turn ending. Single `packages/shared` constant `RETURN_ACTION_NAMES = { submit_review, handoff_to, send_message }`. Closed (membership fixed in code), enumerable (AC2), harness-agnostic (AC4 — same set gates every adapter). **v3 carries this forward verbatim.**
+Single `packages/shared` constant `RETURN_ACTION_NAMES = { submit_review, handoff_to, send_message }`. Closed, enumerable (AC2), harness-agnostic (AC4). v3 carries this forward verbatim.
 
-### 1.4 Re-engagement (NEW — the v3 mechanism)
+### 1.4 Re-engagement (the v3 mechanism) — carrier corrected
 
-**Re-engagement is running another turn-run of the same session, seeded with the forcing message, when the prior run ended without a return.** It is the **harness-agnostic** primary forcing mechanism. Concretely: the provisioner builds a fresh `SessionConfig` that carries the *prior context plus the `AL6_FORCE_RETURN_MESSAGE`*, calls `harness.startSession(forcedConfig)` again, drains it through the *same* `ReturnGate`-observed loop, up to `AL6_MAX_FORCE_RETURNS` re-engagements.
+**Re-engagement is running another turn-run of the same session after the prior run ended without a return, with the forcing message delivered through the channel the target adapter's model actually reads.** It is the **harness-agnostic** primary forcing mechanism for adapters without a native in-turn hook.
 
-The defining property: **re-engagement needs nothing the adapter doesn't already have** — it is `startSession` + `streamEvents` + `stopSession`, the four-method interface. It does NOT require a native turn-end hook. The native hook is the *in-turn fast-path*; re-engagement is the *cross-turn floor that every adapter clears*.
+The defining property: re-engagement needs nothing beyond the four-method interface **plus the sandbox file the provisioner already writes.** Concretely, for an external adapter: **rewrite `AGENTS.md`/`CLAUDE.md` in the sandbox with the forcing message appended (re-call `writeSandboxAgentsMd`), then `harness.startSession(config)` again.** The re-spawned process reads the rewritten file from `cwd`.
 
-**Re-engagement is NOT** a retry-on-crash (crashes are exempt, §3.3), NOT an infinite loop (bounded at N), NOT a new tool/event the adapter must emit. It is **NOT** "continue the same SDK conversation" except as the SDK fast-path special-case (§4.1) — at the provisioning layer it is structurally a new session run with augmented context.
+**Re-engagement is NOT** a retry-on-crash (crashes exempt, §3.3), NOT an infinite loop (bounded at N), NOT a new event the adapter must emit, and — the v3-r2 correction — **NOT "append to `config.messages`"** (no external adapter reads that field).
 
-The **carrier of "prior context + forcing message"** is the existing `SessionConfig.messages` field (AH3) — the conversational transcript an adapter already replays. The forcing message is appended as a final `{ role: "user" }` entry. (§4 details which adapters consume `messages` natively and which need a `continueSession` seam.)
+### 1.5 Not-returned (turn outcome) — reshaped in v3
 
-### 1.5 Not-returned (turn outcome) — RESHAPED again in v3
+**`not_returned` is the outcome of a turn that, after all re-engagement attempts were exhausted (or were genuinely impossible), still ended without a return action**, for ALL harnesses uniformly. A harness reaches `not_returned` only when: (a) it re-engaged N times and the agent still refused, OR (b) it is a `canReEngage:false` floor (§5 — and v3 ships none). It remains a non-completed `SessionOutcome` member (v2 SHARED change kept).
 
-**`not_returned` is the outcome of a turn that, after all re-engagement attempts were exhausted (or were genuinely impossible), still ended without a return action.** In v2, `not_returned` was the *immediate* outcome on any non-force harness (no re-prompt). **In v3 it is the outcome only after the re-prompt loop is spent** — for ALL harnesses uniformly. A harness reaches `not_returned` only when: (a) it re-engaged N times and the agent still refused, OR (b) it is a genuine reject-only floor where re-engagement is technically impossible (§5 — and v3 proves there is at most one such floor, with justification).
-
-`not_returned` is **NOT** a crash, a `stopped`/aborted turn, a `budget_exhausted` turn, or an internal-extraction-drain end. It remains a **non-completed `SessionOutcome` member** (the v2 SHARED change is kept).
+`not_returned` is **NOT** a crash, a `stopped`/aborted turn, a `budget_exhausted` turn, or an internal-extraction-drain end.
 
 ### 1.6 Internal-extraction drain (NOT a turn) — exempt (unchanged)
 
-A session run with `SessionConfig.tools === []` is a tool-less, deterministic, platform-internal extraction — structurally cannot invoke a return, so exempt by construction. `isInternalExtractionDrain(config)` carried forward.
+A session run with `SessionConfig.tools === []` is a tool-less, deterministic, platform-internal extraction — structurally cannot invoke a return, so exempt. `isInternalExtractionDrain(config)` carried forward.
 
-### 1.7 Forwarding relay (NOT an enforcement site) — REFRAMED in v3
+### 1.7 Forwarding relay (NOT an enforcement site) — reframed in v3
 
-A relay (`isolated-session-worker.ts`, `desktop-worker-client.ts`) re-emits events verbatim to another process/transport. It terminates no turn and must not gate. **v3 reframe:** the relay is also **not where forcing happens** — but it IS the conduit through which a re-engagement reaches the inner agent. The isolated worker forks a `ClaudeAgentSdkAdapter`; re-engagement of an isolated session means the *parent provisioner* starts a second isolated session whose worker forks a second SDK session seeded with the forcing message. The relay forwards that second run's events exactly as it forwarded the first. No relay-level forcing logic; the relay's contract is unchanged.
+A relay (`isolated-session-worker.ts`, `desktop-worker-client.ts`) re-emits events verbatim. It terminates no turn and must not gate. **v3 reframe:** the relay is also not where forcing happens, but IS the conduit for a re-engagement. Re-engaging an isolated session = the *parent provisioner* rewrites the sandbox file and starts a second isolated session whose worker forks a second SDK session that reads the rewritten file. The relay forwards the second run's events exactly as the first. No relay-level forcing logic; the relay's contract is unchanged.
 
 ---
 
 ## 2. The closed accepted-return set (unchanged from v2)
 
-`{ submit_review, handoff_to, send_message }` — exactly the spec's named trio. `update_task_status`→`done` deferred (argument-gated; would make the forcing message ambiguous). The `_args` predicate seam in `isReturnAction` is pre-wired. Everything else in `ALL_TOOL_DEFINITIONS` is NOT a return.
+`{ submit_review, handoff_to, send_message }` — exactly the spec's trio. `update_task_status`→`done` deferred (argument-gated). The `_args` predicate seam in `isReturnAction` is pre-wired. Everything else in `ALL_TOOL_DEFINITIONS` is NOT a return.
 
 ---
 
 ## 3. Enforcement — operational meaning of "a turn cannot end without returning"
 
-### 3.1 Detection (unchanged from v1/v2)
+### 3.1 Detection (unchanged core; lifetime extended)
 
-The `ReturnGate` observes every consumed `HarnessEvent`; the single bit "was a `tool_call` in `RETURN_ACTION_NAMES` seen?" is the detection core. Sits at the one agnostic seam: consumption of `streamEvents()`. **In v3 the gate's lifetime spans the whole re-engagement loop** — one gate per *turn* (the conceptual span), observing all session-runs, so a return on run #2 satisfies a no-return on run #1.
+The `ReturnGate` observes every consumed `HarnessEvent`; the single bit "was a `tool_call` in `RETURN_ACTION_NAMES` seen?" is the detection core. Sits at the agnostic seam: consumption of `streamEvents()`. **In v3 the gate's lifetime spans the whole re-engagement loop** — one gate per *turn*, observing all session-runs, so a return on run #2 satisfies a no-return on run #1.
 
-### 3.2 The forcing layer — RELOCATED to the provisioning layer (the v3 core)
+### 3.2 The forcing layer — relocated to the provisioning layer (the v3 core)
 
-v2 put forcing *inside the harness* (hook the harness must expose). v3 puts the **primary forcing loop in the provisioner**, above the agnostic `streamEvents` seam:
+v2 put forcing *inside the harness*. v3 puts the **primary forcing loop in the provisioner**, above the agnostic `streamEvents` seam, with the **sandbox-file rewrite as the carrier**:
 
 ```
 turn = one ReturnGate, forceCount = 0
 loop:
-  run = harness.startSession(config_with_any_forcing_message_so_far)
+  run = harness.startSession(config)              // reads the sandbox file from cwd
   drain run through gate (Phase 10)
   stopSession(run)
   end-reason exempt (crash/abort/budget/extraction)?  → settle, exit loop
   gate.returned?                                       → settle "completed", exit loop
   forceCount >= AL6_MAX_FORCE_RETURNS?                 → settle "not_returned", emit event, exit loop
+  !canReEngage?                                        → settle "not_returned" (no in-tree adapter)
   forceCount++
-  config = re-engage(config, AL6_FORCE_RETURN_MESSAGE)  ← append forcing msg to messages
-  (loop: run another turn)
+  rewriteSandboxForcing(sandboxPath, assembledPrompt)  ← append AL6_FORCE_RETURN_MESSAGE, re-write AGENTS.md/CLAUDE.md
+  (loop: run another turn; the re-spawn reads the rewritten file)
 ```
 
-This loop uses ONLY the four-method `HarnessAdapter` interface. **It is harness-agnostic by construction** — there is no `canForceReturn` branch in it. Every adapter that can `startSession` twice is forced.
+This loop uses the four-method interface **plus a file write the provisioner already does**. There is no `canForceReturn` branch in it. Every adapter that can `startSession` twice over a stable sandbox is forced.
+
+> **The carrier is NOT `config.messages`.** The loop never relies on an adapter replaying `messages`; it relies on the adapter reading its `cwd` sandbox file — which every adapter verifiably does.
 
 ### 3.3 Exemptions (unchanged)
 
-The re-prompt loop fires only on **normal completion with no return**. Exempt end-reasons: **crashed** (error event / `startSession` threw), **aborted/stopped** (handoff/PATCH cut it — note `handoff_to` is itself a return so the gate is already satisfied), **budget_exhausted** (cap cut it), **internal-extraction drain** (§1.6 — not a turn). A re-engagement that itself crashes/aborts/exhausts-budget is exempt and ends the loop (don't re-engage a crashed session).
+The re-prompt loop fires only on **normal completion with no return**. Exempt end-reasons: **crashed**, **aborted/stopped** (`handoff_to` is itself a return so the gate is already satisfied), **budget_exhausted**, **internal-extraction drain**. A re-engagement that itself crashes/aborts/exhausts-budget is exempt and ends the loop.
 
 ### 3.4 The two layers of forcing — fast-path (native hook) + floor (re-prompt)
 
-v3 keeps BOTH, but reframes the relationship. They are not "Tier 1 vs Tier 2 harness classes" (the v2 framing the founder rejected). They are **two layers that compose on every harness:**
+v3 keeps BOTH, reframed. Not "Tier 1 vs Tier 2 harness classes" (the v2 framing the founder rejected). They are **two layers that compose on every harness:**
 
 **Layer A — native in-turn fast-path (where the harness exposes a turn-end hook).**
-The SDK `Stop` hook (`decision:block + reason`) and the builtin loop's own `break`-point catch the agent *before the session ends* and re-inject the forcing message *without starting a new session*. This is strictly an **optimization**: it is cheaper (no new `startSession`, no context re-replay) and it avoids a perceptible "the agent stopped then started again." When present and it succeeds, the turn returns within the first session-run and Layer B never engages.
+The SDK `Stop` hook (`claude-agent-sdk-adapter.ts:198-213`, verified) and the builtin loop's re-inject catch the agent *before the session ends* and re-inject the forcing message *without a new session*. Strictly an optimization: cheaper, no sandbox re-read, no perceptible stop/restart. Where present and successful, the turn returns within the first run and Layer B never engages.
 
 **Layer B — provisioning re-prompt loop (the universal floor — §3.2).**
-After a session-run drains and the gate is still empty, the provisioner re-engages with a new run. **This works for every adapter.** It is what makes forcing uniform.
+After a run drains with the gate still empty, the provisioner rewrites the sandbox file with the forcing message and re-engages with a new run. **This works for every adapter that reads its sandbox `cwd`** — i.e. all of them.
 
 **How they compose, per adapter:**
-- **SDK / builtin:** Layer A handles forcing in-turn. Layer B is the backstop if the agent slips past the hook budget within the session, *and* the universal guarantee. In practice Layer A resolves it first.
-- **CLI / remote / isolated:** No Layer A. **Layer B forces them** — the provisioner re-engages with a fresh `startSession` seeded with the forcing message. This is the exact gap v2 left open; v3 closes it.
+- **SDK / builtin:** Layer A handles forcing in-turn. Layer B is the backstop and the universal guarantee. In practice Layer A resolves first.
+- **cli / isolated:** No Layer A at the outer boundary. **Layer B forces them** — sandbox file rewritten, re-spawn reads it. (Isolated's inner SDK also self-forces via its own Stop hook.) This is the exact gap v2 left open; v3 closes it through a *real, verified* carrier.
+- **remote:** Layer B via re-dispatch; carrier reaches the model iff the worker shares the sandbox surface or re-runs provisioning (HyperIdle's own worker does). §5 documents the narrow third-party degradation.
 
-**The guarantee (uniform):** no turn settles `completed` without a return. **The forcing (now also uniform):** every harness that can run a second turn is actively re-prompted before any reject. Reject (`not_returned`) is reached only after the re-prompt budget is spent, or on a genuine technical floor (§5).
+**The guarantee (uniform):** no turn settles `completed` without a return. **The forcing (now also uniform):** every harness that can run a second turn over its sandbox is actively re-prompted before any reject.
 
-### 3.5 `canForceReturn` — REDEFINED in v3
+### 3.5 `canForceReturn` — redefined in v3
 
-v2: `canForceReturn` = "can force at all" (true only for SDK+builtin; the false adapters never got forced). **This is the rejected semantics.**
+v2: `canForceReturn` = "can force at all" (true only for sdk+builtin; the false adapters never got forced) — the rejected semantics.
 
-v3: **`canForceReturn` is renamed/redefined to mean "has a native in-turn fast-path (Layer A)" — an *optimization* hint, NOT "can be forced."** Forcing-at-all is universal via Layer B and needs no capability bit. Concretely:
+v3: **`canForceReturn` is renamed/redefined to `hasNativeReturnHook` — "has a native in-turn fast-path (Layer A)", an optimization hint, NOT "can be forced."** Forcing-at-all is universal via Layer B (sandbox-file rewrite) and needs no capability bit. Concretely:
 
-- New name: **`hasNativeReturnHook`** (replaces `canForceReturn`). `true` = the adapter catches the stop in-turn (SDK Stop hook; builtin loop). `false` = no in-turn hook, **but the provisioner still forces it via the Layer-B re-prompt loop.**
-- It is purely an optimization signal: when `true`, the provisioner *may* skip the first redundant re-engagement because the in-turn hook already had N attempts. When `false`, the provisioner runs the full Layer-B loop. **Neither value gates whether forcing happens** — only *where*.
-- Removing the "force vs reject" meaning is the load-bearing rename. A reviewer grepping for "which harness can't be forced" must find **nothing** — there is no such category anymore (except the §5 floor, which is `canReEngage:false`, a distinct, separately-justified bit).
+- New name **`hasNativeReturnHook`**: `true` = adapter catches the stop in-turn (SDK Stop hook; builtin loop). `false` = no in-turn hook, **but the provisioner still forces it via Layer B.**
+- Pure optimization signal: `true` ⇒ provisioner *may* skip the first redundant re-engage (the in-turn hook already had N attempts). Neither value gates whether forcing happens — only *where*.
+- A reviewer grepping for "which harness can't be forced" must find **nothing**. The only reject category is `canReEngage:false` (a distinct bit, §5), and no in-tree adapter sets it false.
 
 ### 3.6 AC5 — mid-turn non-terminal tool use unaffected (unchanged)
 
-The gate constrains only the *ending*. Mid-turn tools are never blocked. The re-prompt loop fires after a session-run drains, never per-call. A turn that calls ten non-terminal tools then `submit_review` passes; ten then stop triggers re-engagement.
+The gate constrains only the *ending*. Mid-turn tools are never blocked. The re-prompt loop fires after a run drains, never per-call.
 
 ---
 
 ## 4. Re-engagement per adapter — the mechanism question (concept-level; architecture specs signatures)
 
-The adapter interface today is `startSession / streamEvents / stopSession / getCapabilities` — **no `continue/send-followup` method.** The concept locks WHICH of two re-engagement modes each adapter uses; the architecture specs the exact signatures.
+The adapter interface today is `startSession / streamEvents / stopSession / getCapabilities` — no continue method. The concept locks WHICH re-engagement mode each adapter uses; the architecture specs the exact signatures.
 
-**Mode 1 — `startSession`-reuse with augmented `messages`.** The provisioner builds a new `SessionConfig` whose `messages` = prior transcript + `{role:"user", content: AL6_FORCE_RETURN_MESSAGE}`, and calls `harness.startSession(forcedConfig)`. Works for any adapter that (a) is stateless across `startSession` calls and (b) replays `messages`. **No new interface method.**
+**Mode 1 — sandbox-file rewrite + `startSession`-reuse (the universal carrier).** The provisioner re-writes the sandbox `AGENTS.md`/`CLAUDE.md` (`writeSandboxAgentsMd` with `assembledPrompt + "\n\n" + AL6_FORCE_RETURN_MESSAGE`) and calls `harness.startSession(config)` again. Works for any adapter that reads its `cwd` sandbox on spawn — **cli, isolated, remote (FS-sharing), and as the SDK/builtin backstop.** No new interface method. No reliance on `config.messages`.
 
-**Mode 2 — `continueSession(handle, message)` (NEW optional adapter method).** For adapters that hold live in-process session state (an open SDK `query`, a running subprocess) where a fresh `startSession` would lose context or be wasteful, an *optional* `continueSession` method re-engages the existing handle. Adapters implement it where they can; the provisioner falls back to Mode 1 (or to reject, §5) where the method is absent.
+**Mode 2 — `continueSession(handle, message)` (optional adapter method).** For adapters holding live in-process session state (an open SDK `query`) where a fresh `startSession` would lose context. Only the SDK adapter is a candidate, and even there Layer A (the Stop hook) already forces in-turn, so Mode 2 is a pure optimization. Adapters fall back to Mode 1 where absent.
 
-**The concept's per-adapter ruling** (architecture proves feasibility against real code and finalizes):
+**Per-adapter ruling** (architecture proves feasibility against real code and finalizes):
 
-| Adapter | Owns/holds live loop? | Re-engagement mode | Native fast-path (Layer A)? | Forced how |
+| Adapter | Holds live loop? | Re-engage mode | Native fast-path (Layer A)? | Forced how (carrier verified) |
 |---|---|---|---|---|
-| **builtin** (`builtin-harness-adapter`) | Yes (in-proc loop, replays `messages`) | **Layer A in-turn** (loop re-inject); Layer B = Mode 1 (`startSession` replays `messages`) | Yes | In-turn re-inject (primary); Mode-1 re-engage as backstop |
-| **SDK** (`claude-agent-sdk-adapter`) | Yes (live `query`) | **Layer A in-turn** (`Stop` hook); Layer B = **Mode 2** `continueSession` (feed `forcing` into the live `query`) OR Mode 1 (new `startSession` with `messages`) | Yes | Stop hook (primary); re-engage backstop |
-| **cli** (`cli-harness-adapter`) | No — subprocess, exits per run; **stateless** | **Mode 1** — new `startSession` with forcing appended to `messages`/prompt. The subprocess is invoked fresh; augmented context is the natural input. | No | **Layer-B Mode-1 re-engage** (the v2 gap, now closed) |
-| **isolated** (`isolated-harness-adapter`) | No — forks a worker that runs an **SDK adapter internally** | **Mode 1** — parent starts a second isolated session; its worker forks a second SDK session seeded with forcing. (Inner SDK *also* has the Stop hook, so the inner run self-forces too.) | No (at the isolated boundary) | **Layer-B Mode-1 re-engage**; inner SDK Stop hook is a bonus |
-| **remote** (`remote-harness-adapter`) | No — worker over WS transport | **Mode 1** if the worker is stateless per `dispatch` (new `startSession`→new `dispatch` with forcing in `config.messages`); **Mode 2** if the worker protocol can carry a follow-up to a live session | No locally | **Layer-B Mode-1 re-engage** (dispatch a forcing run); see §5 caveat |
+| **builtin** | Yes (in-proc loop) | Layer A in-turn | Yes (`hasNativeReturnHook:true`) | Loop re-injects `AL6_FORCE_RETURN_MESSAGE` (`builtin-harness-adapter.ts`, v2 kept). Layer B never reached. |
+| **SDK** | Yes (live `query`) | Layer A (`Stop` hook); Mode-2 backstop | Yes | Stop hook `:198-213` (verified). Backstop = sandbox-file rewrite + new `startSession`. |
+| **cli** | No — subprocess, stateless | **Mode 1 (sandbox rewrite)** | No | Re-write `AGENTS.md`/`CLAUDE.md`; re-spawn reads it from `cwd:sandboxPath` (`:209`). The v2 gap, closed via a carrier the adapter provably reads. |
+| **isolated** | No — forks a worker running an SDK adapter | **Mode 1 (sandbox rewrite)** | No (at the isolated boundary) | Re-write the sandbox file; second isolated `startSession` → worker forks a second SDK session reading the rewritten file. Inner Stop hook is a bonus. |
+| **remote** | No — worker over WS | **Mode 1 (sandbox rewrite + re-dispatch)** | No locally | Re-write sandbox + re-dispatch `config`; reaches the model iff the worker shares the sandbox or re-runs provisioning. §5 caveat. |
 
-**Key feasibility findings (verified against real adapter code):**
-- **cli** `startSession` reads `config.sandboxPath`, `config.resolvedModel`, and `config.mcpConnectionInfo`; it spawns fresh each call. Appending the forcing message to `config.messages` (and threading it into the prompt/args the CLI consumes) is a clean Mode-1 re-engage. **No genuine floor.**
-- **isolated** `startSession` forks `isolated-session-worker.js`, which constructs a `new ClaudeAgentSdkAdapter()` and calls `startSession(config)`. A second isolated `startSession` re-runs that whole path with the forcing-augmented config. **No genuine floor** — and the inner SDK already carries the Stop hook, so an isolated turn is *doubly* forced.
-- **remote** is the only **possible** floor: `startSession` does `ws.send({type:"dispatch", sessionId, config})` to an external worker. A Mode-1 re-engage dispatches a *new* session with `config.messages` carrying the forcing message — **viable iff the remote worker replays `config.messages`** (the same AH3 contract local adapters honor). If a given remote worker ignores `messages`, re-engagement is technically impossible *for that worker* and it falls to reject — **but that is a worker-implementation limitation, not an architectural floor**, and HyperIdle's own worker protocol can and should replay `messages`. The architecture treats remote re-engage as **Mode-1-by-default, reject only if the worker demonstrably cannot replay context** (a documented, narrow, justified floor — not a blanket "remote can't be forced").
-
-**Net:** v2 had **three** reject-only harnesses. v3 has **zero architectural floors**: cli + isolated are forced via Mode-1 re-engage; remote is forced via Mode-1 re-engage whenever its worker honors `messages` (which HyperIdle's worker does), reject only as a documented per-worker degradation, never a class-level "remote can't force."
+**Net:** v2 had **three** reject-only harnesses. v3 has **zero architectural floors**: cli + isolated are forced via Mode-1 sandbox-rewrite (verified carrier); remote is forced whenever its worker reads the sandbox/re-runs provisioning (HyperIdle's does), with one narrow, honest third-party degradation.
 
 ---
 
 ## 5. The genuine floor — and why there is essentially none
 
-A genuine reject-only floor exists **only** when re-engagement is *technically impossible* — i.e. the adapter cannot run a second turn with augmented context. v3's finding: **no adapter is architecturally in this category.** The narrowest possible residual floor is **a remote worker that ignores `config.messages`** — and that is a property of the *external worker*, not of HyperIdle's adapter layer. The architecture:
-1. Implements Mode-1 re-engage for cli, isolated, and remote.
-2. Adds an optional `canReEngage` capability bit (distinct from `hasNativeReturnHook`) defaulting `true`; an adapter sets it `false` only if it provably cannot replay context. **All five in-tree adapters set it `true`.**
-3. Reject (`not_returned`) is reached only after the re-prompt budget is spent on a re-engageable adapter, OR on a `canReEngage:false` adapter — and v3 ships with no `canReEngage:false` adapter.
+A genuine reject-only floor exists **only** when re-engagement is *technically impossible* — the adapter cannot deliver augmented context to a second run. v3's finding: **no in-tree adapter is in this category**, because the carrier is the sandbox file every adapter reads, not a field some adapter might ignore.
+
+The narrowest residual: **a third-party remote worker that neither shares HyperIdle's sandbox filesystem nor re-runs provisioning** — so the rewritten sandbox file never reaches its model. That is a property of the *external worker*, not of HyperIdle's adapter layer. The architecture:
+1. Implements Mode-1 sandbox-rewrite re-engage for cli, isolated, remote.
+2. Adds an optional `canReEngage` capability bit (distinct from `hasNativeReturnHook`) defaulting `true`; an adapter sets it `false` only if it provably cannot deliver augmented context. **All five in-tree adapters set it `true`.** This is enforced *statically* (type + a compile-time/lint assertion, not a runtime test): the field is non-optional on the two in-tree-relevant adapters and any future adapter shipping `canReEngage:false` is a deliberate, reviewed, justified edit.
+3. Reject (`not_returned`) is reached only after the re-prompt budget is spent on a re-engageable adapter, OR on a `canReEngage:false` adapter — and v3 ships none.
 
 This is the bar the founder set: **forcing works for ALL harnesses that can technically run a second turn**, and every in-tree harness can.
 
 ---
 
-## 6. Live eval (DoD) — must prove forcing on an external harness
+## 6. Live eval (DoD) — must prove forcing on the external re-prompt path
 
-v2's eval ran only on builtin (the easy in-proc loop). v3's eval **must prove the Layer-B re-prompt loop on a non-builtin, external-shaped harness.** The eval harness (`provision-harness.ts`) registers only `BuiltinHarnessAdapter` today. v3 specifies adding a **cli-shaped adapter path** to the eval harness: register a `CliHarnessAdapter` (or an isolated-shaped adapter) configured to run a real agent that tries to end without returning, and assert the provisioner re-engaged it (`forceReturnCount >= 1` sourced from the **provisioning loop**, not from a builtin-only `getSessionForceCount`) and the agent ended up returning (or `not_returned` only if truly un-re-engageable). The eval's force-count must be surfaced by the **provisioner** (turn-level), not the builtin adapter (session-level) — so it works for the external path. §architecture details the eval wiring.
+v2's eval ran only on builtin (the easy in-proc Layer-A loop) and read force-count from a **builtin-only** `getSessionForceCount` (`builtin-harness-adapter.ts:369`). That cannot exercise the Layer-B loop, and `provision-harness.ts` registers **only `BuiltinHarnessAdapter`** (`:70-77`) — so the external path is unproven.
+
+v3's eval **must prove the Layer-B re-prompt loop drives a real model through the same `runSession` code path the real cli/isolated harness uses** — not the builtin Layer-A shortcut. Two honest constraints shape the design:
+
+1. **Force-count must be turn-level.** The eval reads `forceReturnCount` from a new **`ProvisionSessionResult.forceReturnCount`** (the provisioning loop's counter), not from the builtin adapter. §architecture defines how the loop counter and the builtin in-turn count combine into one number so the kept builtin judge doesn't regress.
+2. **The external binary may be absent.** Running the real `claude` CLI needs a binary + auth that may not be present in the eval env. So the eval proves the harness-agnostic forcing on an **external-SHAPED adapter** — one with `hasNativeReturnHook:false, canReEngage:true` whose only carrier is the sandbox file — driven by a **real model**, through the **same provisioning re-prompt loop** the real CLI uses. This adapter is NOT the builtin (no Layer-A shortcut); it `startSession`s a process/agent whose context is solely the sandbox `cwd`, so a return only happens if the loop rewrote the sandbox file and re-spawned. If the true `claude` CLI binary is present, the eval uses it; otherwise it uses the external-shaped adapter — either way the **loop forces through the external code path**, never the builtin fast-path. §architecture details the registration plumbing (`runEvalSession` harness-kind branch).
+
+The eval's pass condition: the external-path agent was re-prompted (`forceReturnCount >= 1`) **and** ended `completed` (returned) or honestly `not_returned`, never silently `completed` with `returnVerdict:"not_returned"`.
 
 ---
 
@@ -170,11 +192,11 @@ v2's eval ran only on builtin (the easy in-proc loop). v3's eval **must prove th
 |---|---|---|
 | **Return action** | A closed-set tool call that surfaces the turn's work into a human-attended HyperIdle surface. | terminal action, finish tool |
 | **Accepted-return set** | The closed, enumerable set of tool names that count as a valid turn ending. | return list, allow-list |
-| **Re-engagement / re-prompt loop** | Running another session-run of the same turn, seeded with the forcing message, when the prior run ended without a return. The harness-agnostic primary forcing mechanism. | retry, nudge |
-| **Native return hook (Layer A)** | An in-turn fast-path (SDK `Stop` hook; builtin loop break) that catches the stop before the session ends — an optimization, not the only forcing. | the force mechanism |
-| **`hasNativeReturnHook`** | Capability bit: true iff the adapter has a Layer-A in-turn fast-path. An optimization hint; does NOT gate whether forcing happens. (Replaces v2's `canForceReturn`.) | canForceReturn, forceable |
-| **`canReEngage`** | Capability bit: true iff the adapter can run a second turn with augmented context (Mode 1 or Mode 2). All in-tree adapters: true. False ⇒ genuine reject floor. | — |
-| **`continueSession`** | Optional adapter method to re-engage a live in-process handle (Mode 2). Adapters fall back to Mode-1 `startSession`-reuse where absent. | followUp, sendMessage(adapter) |
+| **Re-engagement / re-prompt loop** | Running another session-run of the same turn, with the forcing message delivered via the **sandbox instruction file** the target adapter reads, when the prior run ended without a return. | retry, nudge |
+| **Forcing carrier** | The channel the running model actually reads the forcing message from. For external adapters: the sandbox `AGENTS.md`/`CLAUDE.md` (NOT `config.messages`). For SDK/builtin: the native in-turn hook. | config.messages (rejected for externals) |
+| **Native return hook (Layer A)** | An in-turn fast-path (SDK `Stop` hook; builtin loop) — an optimization, not the only forcing. | the force mechanism |
+| **`hasNativeReturnHook`** | Capability bit: true iff the adapter has a Layer-A in-turn fast-path. Optimization hint; does NOT gate whether forcing happens. (Replaces v2's `canForceReturn`.) | canForceReturn, forceable |
+| **`canReEngage`** | Capability bit: true iff the adapter can run a second turn with augmented context (sandbox rewrite or Mode 2). All in-tree adapters: true (static guarantee). False ⇒ genuine reject floor. | — |
 | **`not_returned`** | Non-completed turn outcome reached only after the re-prompt budget is spent or on a `canReEngage:false` floor. | flag, escape |
 
 ---
@@ -183,31 +205,32 @@ v2's eval ran only on builtin (the easy in-proc loop). v3's eval **must prove th
 
 - **Cardinality.** A completed turn ends with ≥1 return action across the whole re-engagement span.
 - **Closure.** The accepted-return set is closed (one `packages/shared` constant).
+- **Carrier.** The forcing message reaches an external adapter's model **only** through the rewritten sandbox file (`writeSandboxAgentsMd`), never through `config.messages`.
 - **Mutability.** Set, forcing message, N (re-prompt budget) are frozen constants. A settled `not_returned` outcome is immutable.
-- **Identity.** A turn has no persistent identity (runtime span, now possibly multi-session-run). The accepted-return set's identity is the constant.
 - **Hard rules.**
   1. **No turn settles `completed` without a return** (AC1 teeth).
-  2. **Forcing is uniform** — every harness that can run a second turn is re-engaged before any reject. There is no harness class that is reject-only by design (AC4 teeth — the v3 fix).
-  3. **Forcing is bounded** at N re-engagements; after the budget, settle `not_returned` (never loop forever, never crash and lose mid-turn side-effects).
+  2. **Forcing is uniform** — every harness that can run a second turn over its sandbox is re-engaged before any reject. There is no harness class that is reject-only by design (AC4 teeth — the v3 fix).
+  3. **Forcing is bounded** at N re-engagements; after the budget, settle `not_returned`.
   4. **Detection is observation-only and never blocks a mid-turn tool** (AC5).
   5. **Internal-extraction drains and relays are never forced or rejected.**
   6. **Native hooks are an optimization, not a gate** — their absence never downgrades a harness to reject-only.
+  7. **`canReEngage:true` for all in-tree adapters is a static guarantee** (type + compile/lint), not a runtime claim.
 
 ---
 
 ## 9. SHARED-contract impact (v3 delta over v2)
 
-v2 already added `not_returned` to `SessionOutcome` (kept). v3 adds **two SHARED-contract changes** to the `HarnessAdapter` boundary (`packages/shared/src/harness/harness-adapter.ts`):
-1. **`HarnessCapabilities`:** rename `canForceReturn` → `hasNativeReturnHook` (semantics redefined to "has Layer-A fast-path", §3.5), and **add `canReEngage: boolean`** (Mode-1/2 re-engageability; §5). Both additive/rename to an existing additive bit; every `getCapabilities()` impl updates.
-2. **`HarnessAdapter`:** add an **optional** `continueSession?(handle: SessionHandle, message: string): Promise<SessionHandle>` (Mode 2). Optional ⇒ existing adapters that use Mode-1 re-engage need not implement it; the SDK adapter implements it for the live-`query` fast-path. **This is the adapter-interface change the prompt anticipated.**
+v2 already added `not_returned` to `SessionOutcome` (kept). v3 adds **two SHARED-contract changes** to `packages/shared/src/harness/harness-adapter.ts`:
+1. **`HarnessCapabilities`:** rename `canForceReturn` → `hasNativeReturnHook` (semantics redefined, §3.5) and **add `canReEngage: boolean`** (§5). Both update every `getCapabilities()` impl (5 in-tree + mock).
+2. **`HarnessAdapter`:** add an **optional** `continueSession?(handle, message): Promise<SessionHandle>` (Mode 2). Optional ⇒ Mode-1 adapters need not implement it; only the SDK is a candidate, and Layer A already forces it, so this is a pure optimization seam.
 
-Everything else unchanged: verdict grammar, thread model, no new DB table. The `session_not_returned` event is kept as the surfacing channel (now emitted only after the re-prompt loop is spent).
+Everything else unchanged: verdict grammar, thread model, no new DB table. `session_not_returned` kept as the surfacing channel (emitted only after the re-prompt loop is spent).
 
 ---
 
 ## 10. Rationale
 
-The founder rejected v2 because forcing was Claude-only: the native turn-end hook is a Claude SDK feature, so locating forcing *at the hook* made forcing inherit the hook's availability. v3's correction is to **locate the primary forcing at the provisioning layer**, where the only requirement is "can the adapter run another turn?" — which every adapter satisfies, because running a turn IS the adapter's job. The native hook survives as a cheaper in-turn fast-path, not as the forcing mechanism's gate. `canForceReturn` is redefined to `hasNativeReturnHook` (an optimization hint) precisely so no one reads "this harness can't be forced" off the capability surface again. The eval is upgraded to prove the external path live, closing the v2 hole where only the easy builtin loop was exercised.
+The founder rejected v2 because forcing was Claude-only: the native turn-end hook is a Claude SDK feature, so locating forcing at the hook made forcing inherit the hook's availability. v3 relocates the primary forcing to the provisioning layer. **The first v3 draft then made a second mistake** — it named `config.messages` as the universal carrier without checking that any external adapter reads it. Reading the adapters shows none do. The corrected v3-r2 pins the carrier to the one surface every adapter verifiably reads on every spawn — the sandbox `AGENTS.md`/`CLAUDE.md` that `writeSandboxAgentsMd` already writes — so re-engagement actually reaches the model. The native hook survives as a cheaper in-turn fast-path. `canForceReturn` becomes `hasNativeReturnHook` so no one reads "this harness can't be forced" off the capability surface again. The eval is upgraded to prove the external re-prompt path live (or via an external-shaped real-model adapter when the CLI binary is absent), closing the v2 hole.
 
 ---
 
@@ -215,11 +238,14 @@ The founder rejected v2 because forcing was Claude-only: the native turn-end hoo
 
 - `.pipeline/work-packages/TRACK-AL.md` §AL6 (lines 206–244) — spec + ACs + constraints (esp. AC4 uniform enforcement).
 - This concept (`plans/AL6/concept.md`).
-- `packages/shared/src/harness/harness-adapter.ts` — the interface that gains `continueSession?` + `hasNativeReturnHook`/`canReEngage`; `SessionConfig.messages` (AH3) is the forcing carrier.
-- `packages/shared/src/harness/return-actions.ts` — closed set, `AL6_FORCE_RETURN_MESSAGE`, `AL6_MAX_FORCE_RETURNS`, `shouldForceReturn` (carried; force-count semantics move to the loop).
-- `packages/server/src/harness/return-gate.ts` — the detection observer (carried; gate lifetime now spans the loop).
-- `packages/server/src/services/session-provisioning.ts` Phase 10 drain (the re-prompt loop's home) + Phase 11 teardown.
-- The five adapters: `builtin-harness-adapter.ts`, `claude-agent-sdk-adapter.ts`, `cli-harness-adapter.ts`, `isolated-harness-adapter.ts`, `remote-harness-adapter.ts`, plus `isolated-session-worker.ts` (the relay that forwards the re-engaged inner run).
+- **The carrier — verified:** `packages/fabric/src/context-assembly-prompt.ts:277-280` (`writeSandboxAgentsMd` — the universal sandbox-file carrier) + its doc `:286-308`.
+- `packages/shared/src/harness/harness-adapter.ts` — gains `hasNativeReturnHook`/`canReEngage` + optional `continueSession?`.
+- `packages/shared/src/harness/return-actions.ts` — closed set, `AL6_FORCE_RETURN_MESSAGE`, `AL6_MAX_FORCE_RETURNS`, `shouldForceReturn`.
+- `packages/server/src/harness/return-gate.ts` — detection observer (gate lifetime spans the loop).
+- `packages/server/src/services/session-provisioning.ts` — Phase 8.5 sandbox write (`:651`), Phase 9 start (`:709-728`), Phase 10 drain (`:760-897`), Phase 11 teardown — the re-prompt loop's home.
+- The five adapters (carrier traced per §0): `cli-harness-adapter.ts:183-211`, `claude-agent-sdk-adapter.ts:198-239`, `isolated-harness-adapter.ts:128` + `isolated-session-worker.ts:49-51`, `remote-harness-adapter.ts:104-113`, `builtin-harness-adapter.ts:369`.
 - `packages/server/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` — `SyncHookJSONOutput` (`decision:block + reason`, verified), the Layer-A fast-path.
-- `packages/eval/src/provision-harness.ts`, `packages/eval/src/scenarios/force-return.ts`, `packages/eval/src/types.ts` — the live-eval harness; v3 adds an external (cli-shaped) adapter path.
+- `packages/eval/src/{provision-harness.ts,scenarios/force-return.ts,types.ts}` — eval; v3 adds the external (sandbox-carrier) path.
 - `packages/shared/src/events.ts` — `SessionOutcome` (`not_returned` member, kept).
+</content>
+</invoke>
