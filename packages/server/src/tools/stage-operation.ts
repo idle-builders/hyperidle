@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { artifacts, stagedOperations } from "@hyperidle/db";
+import { artifacts, messages, stagedOperations } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import {
+	isKnownCapability,
+	KNOWN_CAPABILITY_KEYS,
+} from "../services/staged-operation-dispatcher.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -20,11 +24,28 @@ import { err, ok, type ToolResult } from "./tool-result.js";
  * @lore AL7: artifactId MUST reference a row in the artifacts table with
  * kind="action_operation". The artifact is the plan document; the staged op
  * is the live execution record anchored to a specific review message.
+ *
+ * @lore AL7 WARNING-1: subjectThreadId is NO LONGER agent-supplied. The tool
+ * derives it from messages.threadId for the given reviewMessageId. This ensures
+ * the op is always bound to the exact review whose approve will fire it — an
+ * agent bug or malicious input cannot misalign the thread anchor.
+ *
+ * @lore AL7 CRITICAL-3: Capability validation at stage time. The (capabilityTool,
+ * operation) pair MUST be in the kernel capability descriptor (KNOWN_CAPABILITY_KEYS).
+ * Stage is rejected if the agent references a capability the kernel cannot execute.
+ * This makes the capability split an enforcement at the write boundary, not just
+ * a dispatch-time failure. An unknown tool surfaces here (rejected) and at dispatch
+ * (failed Outcome) — defense in depth.
  */
+
+// reviewableTypes: only these message types can gate a staged op.
+// An agent cannot stage ops against a plain message or a task note.
+const REVIEWABLE_TYPES = new Set(["review", "questionnaire"]);
 
 const stageOperationInputSchema = z.object({
 	artifactId: z.string().min(1).describe("ID of the action_operation artifact for this review."),
-	subjectThreadId: z.string().min(1).describe("Thread ID of the work being reviewed."),
+	// WARNING-1 fix: subjectThreadId is removed from the agent-facing schema.
+	// The tool derives it from messages.threadId for reviewMessageId.
 	reviewMessageId: z
 		.string()
 		.min(1)
@@ -37,7 +58,7 @@ const stageOperationInputSchema = z.object({
 		.string()
 		.min(1)
 		.describe(
-			"Tool identifier (e.g. 'fixture:staged-op', 'github:merge-pr'). Must be in the Kernel capability map.",
+			"Tool identifier (e.g. 'fixture:staged-op', 'github'). Must be in the Kernel capability map.",
 		),
 	capabilityHarnessType: z
 		.string()
@@ -46,7 +67,9 @@ const stageOperationInputSchema = z.object({
 	operation: z
 		.string()
 		.min(1)
-		.describe("Operation verb within the capability tool (e.g. 'echo', 'merge')."),
+		.describe(
+			"Operation verb within the capability tool (e.g. 'echo', 'merge_pr'). Must be registered.",
+		),
 	// @lore AF4/§4c: zod v4 removed single-arg z.record; must be z.record(keySchema, valueSchema).
 	params: z.record(z.string(), z.unknown()).describe("Fully-bound parameters for the operation."),
 	idempotencyKey: z
@@ -69,7 +92,40 @@ async function handler(args: StageOperationInput, ctx: ToolContext): Promise<Too
 	}
 	const input = parsed.data;
 
-	// Verify the artifact exists and belongs to this context.
+	// CRITICAL-3: Validate the capability at stage time (write boundary).
+	// Reject if the (capabilityTool, operation) pair is not in the kernel map.
+	if (!isKnownCapability(input.capabilityTool, input.operation)) {
+		return err(
+			"FORBIDDEN",
+			`Capability not provisioned: the kernel has no executor for ` +
+				`"${input.capabilityTool}/${input.operation}". ` +
+				`Staged operations must reference a capability the kernel can execute. ` +
+				`Known capabilities: ${Array.from(KNOWN_CAPABILITY_KEYS).join(", ")}`,
+		);
+	}
+
+	// WARNING-1: resolve reviewMessageId → its thread. subjectThreadId is derived,
+	// never agent-supplied, so the op is always bound to the exact review thread.
+	const [reviewMsg] = await ctx.db
+		.select()
+		.from(messages)
+		.where(eq(messages.id, input.reviewMessageId))
+		.limit(1);
+
+	if (!reviewMsg) {
+		return err("NOT_FOUND", `Review message not found: ${input.reviewMessageId}`);
+	}
+
+	if (!REVIEWABLE_TYPES.has(reviewMsg.type)) {
+		return err(
+			"INVALID_INPUT",
+			`Message ${input.reviewMessageId} has type "${reviewMsg.type}" — only "review" or "questionnaire" messages can gate a staged operation.`,
+		);
+	}
+
+	const subjectThreadId = reviewMsg.threadId;
+
+	// Verify the artifact exists.
 	const [artifact] = await ctx.db
 		.select()
 		.from(artifacts)
@@ -86,7 +142,7 @@ async function handler(args: StageOperationInput, ctx: ToolContext): Promise<Too
 	await ctx.db.insert(stagedOperations).values({
 		id,
 		reviewMessageId: input.reviewMessageId,
-		subjectThreadId: input.subjectThreadId,
+		subjectThreadId, // derived from reviewMsg.threadId, not agent-supplied
 		artifactId: input.artifactId,
 		consequenceId: input.consequenceId,
 		capabilityTool: input.capabilityTool,

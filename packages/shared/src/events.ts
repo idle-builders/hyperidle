@@ -386,9 +386,15 @@ export interface WorkDecomposeRequestedEvent {
  * @hyperidle/shared/staged-operation. Carries both reviewMessageId and
  * stagedOperationId so subscribers can correlate back to the review.
  */
+/**
+ * @lore AL7 W4: streamId = subjectThreadId (the bet host thread).
+ * The UI subscribes per thread to refresh the Outcome band on the review canvas.
+ * Aligning here so the follow-on AL8 live-refresh wiring subscribes to the
+ * correct stream. Using opId as streamId would require re-wiring every subscriber.
+ */
 export interface OperationExecutedEvent {
 	type: "operation_executed";
-	streamId: string; // = stagedOperationId
+	streamId: string; // = subjectThreadId (the bet host thread)
 	stagedOperationId: string;
 	reviewMessageId: string;
 	status: "ok" | "failed";

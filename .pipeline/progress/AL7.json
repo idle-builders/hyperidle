@@ -1,7 +1,7 @@
 {
   "id": "AL7",
   "status": "in_progress",
-  "currentStep": "3-build",
+  "currentStep": "4-review",
   "track": "AL",
   "complexity": "L",
   "dependsOn": [],
@@ -13,5 +13,6 @@
   "prUrl": "https://github.com/ambrovia/hyperidle/pull/351",
   "conceptLocked": "plans/AL7/concept.md + docs/process-layer/staged-operation.md (commit 193c2d56)",
   "blockedAt": null,
-  "blockedReason": null
+  "blockedReason": null,
+  "notes": "CRITICAL-1 live-proof status: github/merge_pr capability is contract-tested (fetch-stub, see AL7-github-capability.test.ts). A live run against a real PR was NOT executed — no GITHUB_TOKEN available in this env. To live-prove: set GITHUB_TOKEN (pull_requests:write scope) and run: GITHUB_TOKEN=ghp_... npx vitest run AL7-github-capability. The at-most-once loop is end-to-end proven via fixture:staged-op in AL7-staged-operation-dispatcher.integration.test.ts."
 }

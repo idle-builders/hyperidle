@@ -28,12 +28,20 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
+import { createApp, disposeApp } from "../app.js";
 import {
 	resolveStagedOperations,
 	type StagedOperationDispatchDeps,
 	sweepStrandedOperations,
 } from "../services/staged-operation-dispatcher.js";
+import {
+	clearActiveStrategy,
+	getActiveStrategyOrNull,
+	setActiveStrategy,
+} from "../services/strategy-registry.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
@@ -861,5 +869,143 @@ describe("C3 — live server boot wires dispatch", () => {
 			.from(operationOutcomes)
 			.where(eq(operationOutcomes.stagedOperationId, opId));
 		expect(outcome?.status).toBe("ok");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WARNING-2 — NON-APPROVING VERDICT: route-level test
+// A request-changes verdict must NOT execute ops; op stays pending.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("WARNING-2 — non-approving verdict leaves staged op pending", () => {
+	test("request-changes verdict via HTTP: op stays pending, no Outcome row", async ({
+		db,
+		app,
+	}) => {
+		const { agentId, artifactId, founderId } = await seedBase(db);
+		const { reviewMessageId, threadId } = await seedReviewThread(db, {
+			betId: "bet-al7",
+			agentId,
+			founderId,
+		});
+
+		const opId = `op-w2-${crypto.randomUUID()}`;
+		await db.insert(stagedOperations).values({
+			id: opId,
+			reviewMessageId,
+			subjectThreadId: threadId,
+			artifactId,
+			consequenceId: "con-w2",
+			capabilityTool: "fixture:staged-op",
+			operation: "echo",
+			params: JSON.stringify({ value: "w2" }),
+			idempotencyKey: `idem-w2-${opId}`,
+			reversibility: "irreversible",
+			status: "pending",
+			stagedByAgentId: agentId,
+			createdAt: NOW,
+		});
+
+		// POST a request-changes verdict through the real app
+		const res = await app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Identity": founderId,
+			},
+			body: JSON.stringify({
+				type: "verdict",
+				payload: {
+					decision: "request-changes",
+					resolvesMessageId: reviewMessageId,
+					text: "Needs changes",
+					refs: [],
+				},
+				clientKey: `verdict-w2-${crypto.randomUUID()}`,
+			}),
+		});
+
+		expect(res.status).toBe(201);
+
+		// Op must still be pending — request-changes does NOT dispatch
+		const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
+		expect(op?.status).toBe("pending");
+
+		// No Outcome row
+		const outcomes = await db
+			.select()
+			.from(operationOutcomes)
+			.where(eq(operationOutcomes.stagedOperationId, opId));
+		expect(outcomes).toHaveLength(0);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WARNING-3 — BOOT SWEEP: prod-app test
+// The production app must sweep stranded executing ops on createApp.
+//
+// @lore AL7 WARNING-3: The `app` fixture creates the app BEFORE the test body
+// runs (Vitest fixture semantics). If the test used the `app` fixture, the
+// sweep would run on empty data before the stranded op is seeded — making the
+// assertion vacuously wrong. This test therefore uses only `db` and calls
+// createApp manually AFTER seeding, so the sweep sees the stranded op.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("WARNING-3 — sweepStrandedOperations runs at boot in the production app", () => {
+	test("stranded executing op is swept to failed after createApp (sweep runs at boot)", async ({
+		db,
+	}) => {
+		// Seed a stranded "executing" op (no outcome row) — as if the process
+		// crashed between claim and outcome write.
+		const { agentId, artifactId } = await seedBase(db);
+		const { threadId, reviewMessageId } = await seedReviewThread(db, {
+			betId: "bet-al7",
+			agentId,
+			founderId: "founder-al7",
+		});
+
+		const opId = `op-boot-sweep-${crypto.randomUUID()}`;
+		await db.insert(stagedOperations).values({
+			id: opId,
+			reviewMessageId,
+			subjectThreadId: threadId,
+			artifactId,
+			consequenceId: "con-boot-sweep",
+			capabilityTool: "fixture:staged-op",
+			operation: "echo",
+			params: JSON.stringify({ value: "boot-sweep" }),
+			idempotencyKey: `idem-boot-${opId}`,
+			reversibility: "irreversible",
+			status: "executing", // stranded — no outcome row
+			stagedByAgentId: agentId,
+			createdAt: NOW,
+		});
+		// Deliberately no operationOutcomes row — simulates a crash mid-execute.
+
+		// Now call createApp manually so the sweep sees the seeded stranded op.
+		// createApp awaits the sweep (fixed from fire-and-forget) — by the time
+		// createApp resolves the sweep is done.
+		const alreadyRegistered = getActiveStrategyOrNull() !== null;
+		if (!alreadyRegistered) {
+			setActiveStrategy(minimalStrategy);
+		}
+		const eventBus = new EventBus();
+		const testApp = await createApp({ db, eventBus });
+
+		try {
+			// After createApp, the stranded op must be failed + have a failed Outcome row.
+			const [op] = await db.select().from(stagedOperations).where(eq(stagedOperations.id, opId));
+			expect(op?.status).toBe("failed");
+
+			const [outcome] = await db
+				.select()
+				.from(operationOutcomes)
+				.where(eq(operationOutcomes.stagedOperationId, opId));
+			expect(outcome?.status).toBe("failed");
+			expect(outcome?.error).toContain("interrupted");
+		} finally {
+			disposeApp(testApp);
+			if (!alreadyRegistered) {
+				clearActiveStrategy();
+			}
+		}
 	});
 });

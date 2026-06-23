@@ -5,7 +5,12 @@
  * - createReviewRoutes(db) accepts a db argument
  * - Route queries staged_operations LEFT JOIN operation_outcomes by reviewMessageId
  * - executedAt is humanized at the boundary (not raw ISO)
+ * - stagedOperation is nested on the artifact (artifact.stagedOperation), NOT top-level
+ * - field names: stagedOperationId (not id), receipt (string, not payload object)
  * - app.ts passes db to createReviewRoutes
+ *
+ * CRITICAL-2: the loader shape must match StagedOperationView from review-composition.ts.
+ * The canvas reads artifact.stagedOperation.stagedOperationId and artifact.stagedOperation.outcome.receipt.
  */
 
 import {
@@ -104,8 +109,8 @@ async function seedReviewWorld(db: HyperIdleDb): Promise<{
 }
 
 describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMessageId", () => {
-	describe("W3 — loader returns executed outcome", () => {
-		test("returns stagedOperation.outcome with humanized executedAt for executed op", async ({
+	describe("W3 — loader returns executed outcome nested on artifact", () => {
+		test("returns artifact.stagedOperation.outcome with humanized executedAt for executed op", async ({
 			db,
 			app,
 		}) => {
@@ -133,7 +138,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			await db.insert(operationOutcomes).values({
 				stagedOperationId: opId,
 				status: "ok",
-				payload: JSON.stringify({ re_xxxxx: "refunded" }),
+				payload: JSON.stringify({ echoed: { value: "loader" } }),
 				error: null,
 				executedAt: twoMinutesAgo,
 			});
@@ -142,9 +147,22 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body).toHaveProperty("stagedOperation");
 
-			const stagedOp = body.stagedOperation as Record<string, unknown>;
+			// CRITICAL-2: stagedOperation must be on the artifact, not at the top level.
+			expect(body.stagedOperation).toBeUndefined();
+			expect(Array.isArray(body.artifacts)).toBe(true);
+
+			const arts = body.artifacts as Array<Record<string, unknown>>;
+			const actionArtifact = arts.find((a) => a.id === artifactId);
+			expect(actionArtifact).toBeDefined();
+
+			const stagedOp = actionArtifact?.stagedOperation as Record<string, unknown>;
+			expect(stagedOp).toBeDefined();
+
+			// CRITICAL-2: field name must be stagedOperationId (not id)
+			expect(stagedOp.stagedOperationId).toBe(opId);
+			expect(stagedOp.id).toBeUndefined();
+
 			expect(stagedOp.status).toBe("executed");
 			expect(stagedOp).toHaveProperty("outcome");
 
@@ -156,9 +174,19 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			expect(executedAtDisplay).not.toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(typeof executedAtDisplay).toBe("string");
 			expect(executedAtDisplay.length).toBeGreaterThan(0);
+
+			// CRITICAL-2: receipt must be a string (not a payload object)
+			if (outcome.receipt !== undefined) {
+				expect(typeof outcome.receipt).toBe("string");
+			}
+			// payload field must NOT be on outcome (old wrong shape)
+			expect((outcome as Record<string, unknown>).payload).toBeUndefined();
 		});
 
-		test("returns verbatim error for failed op (not truncated)", async ({ db, app }) => {
+		test("returns verbatim error for failed op (not truncated) on artifact.stagedOperation", async ({
+			db,
+			app,
+		}) => {
 			const { reviewMessageId, threadId, agentId, artifactId } = await seedReviewWorld(db);
 
 			const opId = `op-fail-${crypto.randomUUID()}`;
@@ -193,7 +221,9 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			const stagedOp = body.stagedOperation as Record<string, unknown>;
+			const arts = body.artifacts as Array<Record<string, unknown>>;
+			const actionArtifact = arts.find((a) => a.id === artifactId);
+			const stagedOp = actionArtifact?.stagedOperation as Record<string, unknown>;
 			expect(stagedOp.status).toBe("failed");
 
 			const outcome = stagedOp.outcome as Record<string, unknown>;
@@ -202,7 +232,7 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			expect(outcome.error).toBe(verbatimError);
 		});
 
-		test("pending op returns stagedOperation with no outcome", async ({ db, app }) => {
+		test("pending op returns artifact.stagedOperation with no outcome", async ({ db, app }) => {
 			const { reviewMessageId, threadId, agentId, artifactId } = await seedReviewWorld(db);
 
 			const opId = `op-pend-${crypto.randomUUID()}`;
@@ -226,19 +256,43 @@ describe("AL7 — reviews loader: stagedOperation in GET /api/reviews/:reviewMes
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			const stagedOp = body.stagedOperation as Record<string, unknown>;
+			const arts = body.artifacts as Array<Record<string, unknown>>;
+			const actionArtifact = arts.find((a) => a.id === artifactId);
+			const stagedOp = actionArtifact?.stagedOperation as Record<string, unknown>;
 			expect(stagedOp.status).toBe("pending");
 			expect(stagedOp.outcome).toBeUndefined();
 		});
 
-		test("review with no staged op returns no stagedOperation field", async ({ db, app }) => {
+		test("review with no staged op returns no stagedOperation on any artifact", async ({
+			db,
+			app,
+		}) => {
 			const { reviewMessageId } = await seedReviewWorld(db);
 
 			const res = await app.request(`/api/reviews/${reviewMessageId}`);
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
+			// No stagedOperation at top level
 			expect(body.stagedOperation).toBeUndefined();
+			// artifacts array may be empty or absent — no stagedOperation on any artifact
+			if (Array.isArray(body.artifacts)) {
+				const arts = body.artifacts as Array<Record<string, unknown>>;
+				for (const a of arts) {
+					expect(a.stagedOperation).toBeUndefined();
+				}
+			}
+		});
+
+		test("GET /api/reviews/rev-1 returns the fixture review (stub data preserved)", async ({
+			app,
+		}) => {
+			const res = await app.request("/api/reviews/rev-1");
+			expect(res.status).toBe(200);
+
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.id).toBe("review:AL3:fixture");
+			expect(body.betId).toBe("bet-123");
 		});
 	});
 });

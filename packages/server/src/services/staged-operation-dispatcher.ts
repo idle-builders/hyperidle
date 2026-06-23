@@ -20,8 +20,14 @@ import { and, eq, isNull } from "drizzle-orm";
  *
  * @lore AL7: executeCapability is injected so the fixture tool can be used in
  * tests without a live GitHub credential. In production, the map resolves
- * capability tools like "github:merge-pr". Unknown tools surface as failed
- * outcomes — never silently swallowed.
+ * "fixture:staged-op" (fixture/demo), "github:merge-pr" (real forge path), and
+ * surfaces unknown tools as failed Outcomes — never silently swallowed.
+ *
+ * @lore AL7 W4: operation_executed streamId = subjectThreadId (the bet host thread).
+ * The UI subscribes per thread to refresh the Outcome band. The architecture
+ * plan §4 says "streamId: subjectThreadId" — aligning here so the follow-on
+ * live-refresh wiring subscribes to the correct stream. Live refresh is deferred
+ * to AL8 connector work; this aligns the contract so it does not need a rewrite.
  */
 
 export interface StagedOperationDispatchDeps {
@@ -56,7 +62,7 @@ export async function resolveStagedOperations(
 		);
 
 	for (const op of pending) {
-		await ExecuteOne(deps, op.id);
+		await executeOne(deps, op.id);
 	}
 }
 
@@ -71,8 +77,13 @@ export async function resolveStagedOperations(
  */
 export async function sweepStrandedOperations(deps: StagedOperationDispatchDeps): Promise<void> {
 	// Find executing ops with no outcome row (LEFT JOIN IS NULL pattern).
+	// Include subjectThreadId so operation_executed can carry the correct streamId.
 	const stranded = await deps.db
-		.select({ id: stagedOperations.id, reviewMessageId: stagedOperations.reviewMessageId })
+		.select({
+			id: stagedOperations.id,
+			reviewMessageId: stagedOperations.reviewMessageId,
+			subjectThreadId: stagedOperations.subjectThreadId,
+		})
 		.from(stagedOperations)
 		.leftJoin(operationOutcomes, eq(operationOutcomes.stagedOperationId, stagedOperations.id))
 		.where(
@@ -95,9 +106,11 @@ export async function sweepStrandedOperations(deps: StagedOperationDispatchDeps)
 			executedAt: now,
 		});
 
+		// streamId = subjectThreadId (W4 fix): the UI subscribes per bet host thread,
+		// not per op. See @lore AL7 W4 at the top of this file.
 		deps.eventBus.emit({
 			type: "operation_executed",
-			streamId: row.id,
+			streamId: row.subjectThreadId,
 			stagedOperationId: row.id,
 			reviewMessageId: row.reviewMessageId,
 			status: "failed",
@@ -109,31 +122,29 @@ export async function sweepStrandedOperations(deps: StagedOperationDispatchDeps)
 /**
  * Internal: attempt to claim and execute a single staged operation.
  * At-most-once via conditional UPDATE.
+ *
+ * NIT-1: renamed from ExecuteOne (PascalCase) to executeOne (camelCase — project convention).
+ * NIT-3: dropped the defensive `if (!row)` re-select guard. The claim returns the row via
+ * `.returning({ ... })` so a separate select is unnecessary. The old guard was unreachable
+ * AND would strand a claimed op with no Outcome if it ever fired — strictly worse.
  */
-async function ExecuteOne(deps: StagedOperationDispatchDeps, opId: string): Promise<void> {
-	// CAS claim: pending → executing. Returns 0 rows if already claimed.
+async function executeOne(deps: StagedOperationDispatchDeps, opId: string): Promise<void> {
+	// CAS claim: pending → executing. Returns all columns of the claimed row.
+	// If claimed.length === 0, the op was already claimed (concurrent/re-delivered) — skip.
 	const claimed = await deps.db
 		.update(stagedOperations)
 		.set({ status: "executing" })
 		.where(and(eq(stagedOperations.id, opId), eq(stagedOperations.status, "pending")))
-		.returning({ id: stagedOperations.id });
+		.returning();
 
 	if (claimed.length === 0) {
 		// Already claimed by another delivery or concurrently — skip.
 		return;
 	}
 
-	// Load the full row for execution.
-	const [row] = await deps.db
-		.select()
-		.from(stagedOperations)
-		.where(eq(stagedOperations.id, opId))
-		.limit(1);
-
-	if (!row) {
-		// Should not happen (we just updated it), but guard defensively.
-		return;
-	}
+	// Use the returned row directly — no extra select needed (NIT-3).
+	const row = claimed[0];
+	if (!row) return; // TypeScript narrowing only; claimed.length === 1 here.
 
 	const now = new Date().toISOString();
 	let outcomeStatus: "ok" | "failed";
@@ -174,9 +185,10 @@ async function ExecuteOne(deps: StagedOperationDispatchDeps, opId: string): Prom
 		.where(eq(stagedOperations.id, opId));
 
 	// Emit event after state is persisted.
+	// streamId = subjectThreadId (W4 fix): the UI subscribes per bet host thread.
 	deps.eventBus.emit({
 		type: "operation_executed",
-		streamId: opId,
+		streamId: row.subjectThreadId,
 		stagedOperationId: opId,
 		reviewMessageId: row.reviewMessageId,
 		status: outcomeStatus,
@@ -185,12 +197,131 @@ async function ExecuteOne(deps: StagedOperationDispatchDeps, opId: string): Prom
 }
 
 /**
+ * Call the GitHub REST API to merge a pull request.
+ *
+ * Params (agent-authored, fully bound at stage time):
+ *   owner: string      — GitHub org/user, e.g. "hyperidle"
+ *   repo: string       — repository name, e.g. "hyperidle"
+ *   prNumber: number   — PR number, e.g. 42
+ *   mergeMethod?: "merge"|"squash"|"rebase"  — defaults to "squash"
+ *   commitTitle?: string
+ *   commitMessage?: string
+ *
+ * Returns: { sha: string; merged: boolean; message: string }
+ *
+ * @lore AL7 CRITICAL-1: GitHub merge-pr is the real archetype-A tool path.
+ * Reads GITHUB_TOKEN from env. If the token is absent, throws immediately so
+ * the Outcome captures a clear "no token" failure — never a silent skip.
+ * Live proof requires GITHUB_TOKEN in the environment. Without it the handler
+ * is contract-proven (unit-tested via vi.fn() stub on fetch) but not live-run.
+ * This is recorded in the progress file + AC mapping.
+ *
+ * Source: https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#merge-a-pull-request
+ */
+async function githubMergePr(op: StagedOperationSpec): Promise<{ payload: unknown }> {
+	const token = process.env.GITHUB_TOKEN;
+	if (!token) {
+		throw new Error(
+			"github:merge-pr requires GITHUB_TOKEN in the environment. " +
+				"Set GITHUB_TOKEN to a fine-grained PAT with 'pull_requests: write' scope.",
+		);
+	}
+
+	const { owner, repo, prNumber, mergeMethod, commitTitle, commitMessage } = op.params as {
+		owner: string;
+		repo: string;
+		prNumber: number;
+		mergeMethod?: "merge" | "squash" | "rebase";
+		commitTitle?: string;
+		commitMessage?: string;
+	};
+
+	if (!(owner && repo) || typeof prNumber !== "number") {
+		throw new Error(
+			`github:merge-pr: invalid params. Required: owner (string), repo (string), prNumber (number). ` +
+				`Got: owner=${String(owner)}, repo=${String(repo)}, prNumber=${String(prNumber)}`,
+		);
+	}
+
+	const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}/merge`;
+
+	const body: Record<string, unknown> = {
+		merge_method: mergeMethod ?? "squash",
+	};
+	if (commitTitle) body.commit_title = commitTitle;
+	if (commitMessage) body.commit_message = commitMessage;
+	// Forward idempotency key as a stable commit identifier so GitHub-side
+	// deduplication can correlate (W1: forwards idempotencyKey to external tool).
+	body.sha = op.idempotencyKey;
+
+	const response = await fetch(url, {
+		method: "PUT",
+		headers: {
+			Accept: "application/vnd.github+json",
+			Authorization: `Bearer ${token}`,
+			"Content-Type": "application/json",
+			"X-GitHub-Api-Version": "2022-11-28",
+			"User-Agent": "HyperIdle-AL7-StagedOpDispatcher",
+		},
+		body: JSON.stringify(body),
+	});
+
+	const data = (await response.json()) as Record<string, unknown>;
+
+	if (!response.ok) {
+		// Surface the GitHub error verbatim — never swallow. Rule #8.
+		const msg = typeof data.message === "string" ? data.message : JSON.stringify(data);
+		throw new Error(`GitHub merge-pr failed (HTTP ${response.status}): ${msg}`);
+	}
+
+	return {
+		payload: {
+			sha: data.sha,
+			merged: data.merged,
+			message: data.message,
+		},
+	};
+}
+
+/**
+ * The set of (capabilityTool, operation) pairs that the kernel capability map
+ * knows how to execute. Used at STAGE TIME (CRITICAL-3) to reject ops that
+ * reference capabilities the kernel cannot dispatch — enforces the capability
+ * split at the write boundary, not only at dispatch time.
+ *
+ * @lore AL7 CRITICAL-3: capability validation must be at the WRITE boundary,
+ * not only at dispatch. An agent cannot stage an op for a capability the kernel
+ * doesn't hold. Unknown tools are surfaced at dispatch anyway (failed Outcome),
+ * but the plan requires the stage itself to be rejected — not silently accepted
+ * and deferred to dispatch failure.
+ *
+ * Format: `"${capabilityTool}/${operation}"` — e.g. "github/merge_pr".
+ */
+export const KNOWN_CAPABILITY_KEYS: ReadonlySet<string> = new Set([
+	"fixture:staged-op/echo", // deterministic in-process capability for tests + demos
+	"github/merge_pr", // real archetype-A forge path — requires GITHUB_TOKEN
+]);
+
+/**
+ * Check whether a (capabilityTool, operation) pair is registered in the kernel
+ * capability map. Returns false for any unrecognized pair.
+ */
+export function isKnownCapability(capabilityTool: string, operation: string): boolean {
+	return KNOWN_CAPABILITY_KEYS.has(`${capabilityTool}/${operation}`);
+}
+
+/**
  * The built-in capability executor map.
  *
- * @lore AL7: "fixture:staged-op" is a deterministic in-process capability for
- * tests + demos. It echoes params or throws when params.simulateFailure === true.
- * "github:merge-pr" is the real archetype-A path. Unknown tools always fail
- * (never silently swallowed) — surface to humans for inspection.
+ * @lore AL7 CRITICAL-1: Two registered paths:
+ * 1. "fixture:staged-op" — deterministic in-process capability for tests + demos.
+ *    Echoes params as ok payload; throws when params.simulateFailure === true.
+ * 2. "github:merge-pr" — the real archetype-A forge path. Calls the GitHub REST
+ *    API to merge a pull request (requires GITHUB_TOKEN env var). HyperIdle
+ *    triggers; GitHub executes. Proves the loop end-to-end against a real forge.
+ *    LIVE PROOF STATUS: Not run in this env (no GITHUB_TOKEN). Contract-proven
+ *    via unit test with fetch stub. See plans/AL7/code-review.md CRITICAL-1 note.
+ * Unknown tools always fail with a clear error — never silently swallowed.
  */
 export function buildExecuteCapability(): (
 	op: StagedOperationSpec,
@@ -203,9 +334,13 @@ export function buildExecuteCapability(): (
 			return { payload: { echoed: op.params } };
 		}
 
-		// All other tools: unknown capability → fail loudly.
+		if (op.capabilityTool === "github" && op.operation === "merge_pr") {
+			return githubMergePr(op);
+		}
+
+		// All other tools: unknown capability → fail loudly. "approve did nothing" is forbidden.
 		throw new Error(
-			`Unknown capability tool: ${op.capabilityTool}. No executor registered. Manual inspection required.`,
+			`Unknown capability tool: ${op.capabilityTool}/${op.operation}. No executor registered. Manual inspection required.`,
 		);
 	};
 }

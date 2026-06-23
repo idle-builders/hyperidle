@@ -423,12 +423,18 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		};
 
 		// AL7 C2: sweep stranded executing ops on boot (crash recovery).
-		// Fire-and-forget: boot should not block on sweep; failures are logged.
-		void sweepStrandedOperations(dispatchDeps).catch((e: unknown) => {
+		// Awaited so the app doesn't serve traffic with mid-execute ops still
+		// in "executing" state. The sweep is a fast DB query — negligible at boot.
+		// @lore AL7 WARNING-3: originally fire-and-forget, changed to await so
+		// the boot-sweep integration test can assert the outcome synchronously.
+		// The code review explicitly noted "await if races matter".
+		try {
+			await sweepStrandedOperations(dispatchDeps);
+		} catch (e: unknown) {
 			appLogger.error("sweepStrandedOperations failed on boot", {
 				error: e instanceof Error ? e.message : String(e),
 			});
-		});
+		}
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
