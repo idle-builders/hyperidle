@@ -990,6 +990,49 @@ export default [
 		},
 	},
 
+	// AM4 — Descriptor-driven contract guard (AC2 static half).
+	//
+	// The presentation layer (harness-presentation.ts, HarnessCard.tsx,
+	// SettingsHarnesses.tsx) must contain ZERO per-backend string literal
+	// comparisons — the entire surface is descriptor-driven.
+	//
+	// The ONLY allowed type literal is "builtin" — it is the intentional
+	// founder-rule exemption in showsToggle (NOT disableable) and is paired
+	// with the select() hard-exemption in adapter-pool.ts (AM4 Seam 2).
+	//
+	// All other harness type strings (claude-code, codex, opencode, cursor-agent…)
+	// are banned so a new backend can be added to the descriptor without touching
+	// any presentation file.
+	//
+	// Scoped to production code only — stories and tests are exempt.
+	{
+		files: [
+			"packages/web/src/settings/harness-presentation.ts",
+			"packages/web/src/settings/HarnessCard.tsx",
+			"packages/web/src/settings/SettingsHarnesses.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					// Ban any string literal that is a known harness type EXCEPT "builtin".
+					// The regex covers the AM4-scope types; extend if new families are added.
+					// Pattern: Literal value matching a known non-builtin harness family slug.
+					selector:
+						"Literal[value=/^(claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante)$/]",
+					message:
+						'AM4 descriptor-driven contract: harness-type string literals (other than "builtin") are banned in presentation files. Add a field to HarnessCapabilityDescriptor and use that instead. The ONLY allowed type literal is "builtin" (showsToggle exemption — founder rule).',
+				},
+			],
+		},
+	},
+
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
 	// `OpenTarget` vocabulary (@hyperidle/shared). They must NEVER import a

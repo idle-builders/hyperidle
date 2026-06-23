@@ -49,9 +49,27 @@ beforeEach(async () => {
 		if (urlStr.includes("/api/harnesses")) {
 			return Promise.resolve(
 				new Response(
-					// AH2: return empty array so SettingsAgents harness select has no options but doesn't crash
+					// AM4: SettingsHarnesses now renders in SettingsPage and requires full descriptors.
+					// Return a minimal but complete HarnessCapabilityDescriptor to avoid render errors.
 					JSON.stringify([
-						{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						{
+							type: "builtin",
+							name: "Built-in",
+							kind: "local",
+							accessMode: "api-gateway",
+							authAction: { kind: "enter_api_key", label: "Enter API key" },
+							discovery: { state: "ready" },
+							models: [],
+							runtime: {
+								preCompactionTrigger: false,
+								subAgents: false,
+								mcpSupport: false,
+								modelProviders: ["anthropic"],
+								fileEditing: false,
+								toolUse: false,
+							},
+							modelProviders: ["anthropic"],
+						},
 					]),
 					{ status: 200 },
 				),

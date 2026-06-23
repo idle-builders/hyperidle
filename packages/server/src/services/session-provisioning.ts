@@ -38,6 +38,7 @@ import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
+import { readServerConfig } from "./server-config.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import { getActiveStrategy } from "./strategy-registry.js";
@@ -338,9 +339,14 @@ export async function admitSession(
 	// enforces cross-axis harness↔provider compatibility (ARCH-1). An agent whose
 	// only registered harness cannot serve its provider gets NoEligibleHarnessError
 	// instead of silently picking a provider-incompatible adapter.
+	// AM4 CHANGE 1 (Seam 1 caller side): read harnessDisabled from server_config and
+	// pass as disabledTypes to select(). The pool is DB-free + select() is synchronous
+	// so the caller must supply the set. db is already in deps (line 276).
+	const { harnessDisabled } = await readServerConfig(db);
 	const selectRequirements = {
 		harnessType: agent.harnessType ?? undefined,
 		...(agent.modelProvider ? { modelProviders: [agent.modelProvider] as readonly string[] } : {}),
+		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {

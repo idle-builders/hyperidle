@@ -448,7 +448,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		if (options.adapterPool) {
 			api.route("/workers", createWorkersRoutes(options.adapterPool));
 			// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
-			api.route("/harnesses", createHarnessRoutes(options.adapterPool));
+			// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
+			// and the redetect/disable routes can read/write server_config.
+			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));

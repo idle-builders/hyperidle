@@ -49,3 +49,29 @@ export function FocusRing(): JSX.Element {
 		</div>
 	);
 }
+
+/**
+ * AM4: Label-hidden variant — sr-only label for settings rows that toggle without
+ * adjacent text (e.g. harness enable/disable rows in SettingsHarnesses).
+ * The label is read by screen readers via aria-label but not visually rendered.
+ */
+export function LabelHidden(): JSX.Element {
+	return (
+		<div className="p-[18px] flex flex-col gap-[12px]">
+			<div className="flex items-center gap-[12px]">
+				<span className="text-[13px] text-[var(--text-primary)]">Claude Code</span>
+				<Toggle label="Enable Claude Code" labelHidden on />
+			</div>
+			<div className="flex items-center gap-[12px]">
+				<span className="text-[13px] text-[var(--text-primary)] opacity-50">Codex</span>
+				<Toggle label="Enable Codex" labelHidden />
+			</div>
+			<div className="flex items-center gap-[12px]">
+				<span className="text-[13px] text-[var(--text-primary)] opacity-50">
+					OpenCode (disabled)
+				</span>
+				<Toggle label="Enable OpenCode" labelHidden disabled />
+			</div>
+		</div>
+	);
+}
