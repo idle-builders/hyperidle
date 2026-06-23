@@ -253,6 +253,13 @@
 			"when": 1784600000000,
 			"tag": "0035_worried_shadowcat",
 			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1784700000000,
+			"tag": "0036_bizarre_leopardon",
+			"breakpoints": true
 		}
 	]
 }
