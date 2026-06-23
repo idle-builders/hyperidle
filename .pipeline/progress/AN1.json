@@ -1,0 +1,41 @@
+{
+  "id": "AN1",
+  "track": "AN",
+  "title": "External Connections (ride harness/MCP auth + user tokens)",
+  "complexity": "L",
+  "status": "done",
+  "currentStep": "shipped",
+  "startedAt": "2026-06-23T13:11:41Z",
+  "branch": "feat/AN1-external-connections",
+  "pr": 353,
+  "designClass": "novel",
+  "designReviewDecision": "run",
+  "runMode": "autonomous",
+  "reviewTarget": ":8098#SettingsConnections export VariantAInheritedDefault (approved base)",
+  "phasesComplete": [
+    "1-design",
+    "1-architecture",
+    "2-design-critique",
+    "2-architecture-critique",
+    "2-critique-revision",
+    "2.5-human-design-review",
+    "3-write-tests",
+    "3-write-code",
+    "4-review",
+    "5-docs",
+    "6-retro"
+  ],
+  "critiqueScores": {
+    "design": 8.6,
+    "architecture": 8.7
+  },
+  "notes": "Concept locked (plans/AN/concept.md). Design+architecture produced and critique-passed (no CRITICAL; warnings folded in). Novel DESIGN-CLASS + human-design-review=Yes; autonomous run \u2192 parked at Phase 2.5 per pipeline contract (a novel design must not auto-ship unreviewed). Resolution: founder runs /human-design-review AN1. Build/ship NOT dispatched.",
+  "humanDesignReview": {
+    "decision": "approved",
+    "variant": "VariantAInheritedDefault",
+    "annotations": 1,
+    "approvedAt": "2026-06-23T15:53:20Z"
+  },
+  "reviewVerdict": "DONE",
+  "completedAt": "2026-06-23T20:30:00Z"
+}
