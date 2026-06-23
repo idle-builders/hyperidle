@@ -10,15 +10,15 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 ---
 
-### AN1 — External Connections (credential vault + OAuth)
+### AN1 — External Connections (ride harness/MCP auth + user tokens)
 
-**Workpackage.** As a user, I want to connect HyperIdle to my external services (GitHub, Stripe, Figma, Gmail…) by authorizing once, so that my agents can act on those services on my behalf without me ever handing a raw key to an agent. Today HyperIdle can store the keys for its own LLM providers but has no notion of "I authorized this app to act on my GitHub." This adds the authorized, per-user link to a service — the durable record that an agent's later actions on that service are permitted — plus the place a user manages those links.
+**Workpackage.** As a user, I want to make my external services (GitHub, Stripe, Figma, Gmail…) available to my HyperIdle agents the same way I already do in any coding tool — by pointing at an MCP server I run, pasting a token I generate, or simply letting the agent inherit the tools my harness/environment is already logged into — so that agents can act on those services without me ever handing a secret to an agent, **and without HyperIdle ever registering an OAuth app or becoming a "verified company" to do it.** This adds the per-user record of "service S is available to me" plus the place a user manages it.
 
-**Why this matters.** Agents can reach zero external services today; every downstream integration workpackage (AN2–AN4) has nothing to broker against until authorized Connections exist. The user is the direct beneficiary — connect once, then agents work across the tools the user already uses, without the user ever trusting an agent with a secret. The cost of not building it: agents stay sealed off from the real tools the work needs, and "review for anything across every tool" can't begin.
+**Why this matters.** Agents can reach zero external services today; every downstream integration workpackage (AN2–AN4) has nothing to broker against until Connections exist. The user benefits — make a service available once, then agents work across the tools the user already uses. Critically, riding the user's existing auth (harness/MCP/token) is *why HyperIdle is built on harnesses*: the connectors and credentials already live there, so HyperIdle avoids the per-service OAuth-app registration, publisher verification, and enterprise baggage that would otherwise be forced on it. The cost of not building it: agents stay sealed off from real tools, and "review for anything across every tool" can't begin.
 
-**What exists today.** The credential model (`docs/architecture/credential-model.md`) — one canonical store, one resolver, AES-GCM at rest, per-user — scoped to a **closed catalog of LLM-provider keys** (`packages/shared/src/credential.ts`: 4 entries). No OAuth flow, no external-service credentials, no connect/disconnect surface anywhere.
+**What exists today.** The credential model (`docs/architecture/credential-model.md`) — one canonical store, one resolver, AES-GCM at rest, per-user — scoped to a **closed catalog of LLM-provider keys** (`packages/shared/src/credential.ts`: 4 entries). The harnesses HyperIdle runs already carry their own tool connectors and MCP config, and the inbound MCP bridge exists. No per-(user×service) connection record, no manage surface, no path to reference a user's MCP servers or store a user-supplied service token.
 
-**What's genuinely missing.** An open, per-(user × service) authorization record (the granted token/key + scopes + validation state), the authorization flows (OAuth and direct-key) that produce it, and a surface where a user connects, inspects, and revokes services.
+**What's genuinely missing.** A per-(user × service) Connection record whose auth resolves from one of three sources — the user's harness/environment, a user-supplied token HyperIdle stores (vault extended past the closed LLM catalog), or the MCP server's own OAuth (service is the provider; client self-registers via DCR/CIMD) — and a surface where a user makes a service available, inspects it, and revokes it. **No HyperIdle-hosted OAuth-app flow.**
 
 **Depends on.** None — it is the foundation the rest broker against.
 
@@ -31,22 +31,22 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 **Human design review.** Yes — introduces a new user-facing connect/manage surface (authorize, list, trust, revoke); its shape is what's being decided.
 
 **Acceptance criteria.**
-- A user can authorize HyperIdle to act on an external service and afterward see that service listed as connected, alongside the other services they have connected.
-- A user can revoke a connection, after which agents can no longer act on that service.
-- A connection records which permissions were granted and whether it is currently valid; an expired or revoked connection surfaces as needing reconnection rather than failing silently.
-- The secret behind a connection is never readable by an agent or visible in any agent-facing surface — only the fact that the service is connected is.
+- A user can make an external service available — by referencing an MCP server, supplying a token, or relying on their harness/environment's existing auth — and afterward see it listed alongside their other available services.
+- A user can remove a connection, after which agents can no longer act on that service.
+- A connection records its auth source and whether it is currently usable; an expired/invalid token surfaces as needing attention rather than failing silently.
+- Any secret a user supplies is never readable by an agent or visible in any agent-facing surface — only the fact that the service is available is.
 - Connections are per user; one user's connection is never usable from another user's session.
-- Both an OAuth-style authorization and a direct-key authorization can produce a connection.
+- HyperIdle registers **no per-service OAuth app** and acts as **no OAuth provider** — making a service available never requires HyperIdle to appear on the service's consent screen or pass publisher verification.
 
 **Validation scenarios.**
 - Given a user with no connections, when they authorize a service, then it appears as connected and its granted scopes are recorded.
 - Given a connected service, when the user revokes it, then subsequent agent attempts to act on that service are refused.
-- Given a connection whose authorization has expired, when the user views their connections, then it is shown as needing reconnection.
-- Given two users, when each connects the same service, then neither can act through the other's connection.
+- Given a connection backed by a user-supplied token that has expired, when the user views their connections, then it is shown as needing attention.
+- Given two users, when each makes the same service available, then neither can act through the other's connection.
 
-**Plan calls.** Concept locked — skip `/concept`. `/design` the connect/manage surface (novel → human review; the direction forks — how connecting, trust display, and revocation are presented — are decided by rendered variants, not prose). Then a standard architecture pass extending the credential store from a closed catalog to open per-service Connections and the authorization flows.
+**Plan calls.** Concept locked — skip `/concept`. `/design` the connect/manage surface (novel → human review; the direction forks — how a user references an MCP server vs pastes a token vs sees harness-inherited tools, and how trust/removal are presented — are decided by rendered variants, not prose). Then a standard architecture pass extending the credential store to reference per-(user×service) Connections and store user-supplied tokens. **No hosted OAuth-app flow is in scope.**
 
-**Contracts / constraints.** The secret is resolved server-side only and is never present in any agent-facing surface, sandbox, or log. Per-user isolation holds. The one-store/one-resolver invariant of the credential model is preserved (one place credentials live, one resolver path). The open Connection set is distinct from the closed infra-secret catalog — the infra catalog stays closed.
+**Contracts / constraints.** Any stored secret is resolved server-side only and never present in any agent-facing surface, sandbox, or log. Per-user isolation holds. The one-store/one-resolver invariant of the credential model is preserved. The open Connection set is distinct from the closed infra-secret catalog — the infra catalog stays closed. **HyperIdle registers no per-service OAuth app and is never an OAuth provider** — auth rides the user's harness/environment, a user-supplied token, or the MCP server's own OAuth (DCR/CIMD; the service is the provider).
 
 **Out of scope.** Brokering calls through a connection (AN2). Sandbox provisioning (AN3). The community registry (AN4). Per-team shared connections.
 

@@ -1215,7 +1215,7 @@ stories:
     complexity: L
   # Track AN: Tool Integration
   - id: AN1
-    title: External Connections (credential vault + OAuth)
+    title: External Connections (ride harness/MCP auth + user tokens)
     track: AN
     depends: []
     complexity: L
