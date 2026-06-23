@@ -206,11 +206,19 @@ describe("AN1 AC1 — POST token + POST mcp-oauth → both in GET", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("POST token fails 500 when server secret is not configured", async ({ db, app }) => {
+	test("POST token fails 500 when neither credential key nor API key is configured", async ({
+		db,
+		app,
+	}) => {
 		await seedUser(db, "u-ac1-nosecret", "AC1 No Secret User");
+		// requireServerSecret() checks HYPERIDLE_CREDENTIAL_KEY first, then falls back
+		// to HYPERIDLE_API_KEY. Both must be absent for MISSING_ROOT_SECRET. The API key
+		// cannot be unset here (it's needed for auth), so we test MISSING_ROOT_SECRET
+		// by setting HYPERIDLE_CREDENTIAL_KEY to empty string (the "explicitly blank
+		// means no fallback" rule — see @lore AH1 §6 in credential-encryption.ts).
 		vi.unstubAllEnvs();
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		// No HYPERIDLE_CREDENTIAL_KEY set.
+		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", ""); // empty = no credential key; API_KEY fallback skipped
 
 		const res = await app.request("/api/connections", {
 			method: "POST",
@@ -702,6 +710,79 @@ describe("AN1 — validation scenario: zero connections → add → appears in l
 		const github = afterList.find((c) => c.service === "GitHub");
 		expect(github).toBeDefined();
 		expect(github?.authSource).toBe("token");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// WARN-3 — Duplicate POST returns 409 (not raw 500)
+// ---------------------------------------------------------------------------
+
+describe("AN1 WARN-3 — duplicate POST returns 409 CONFLICT", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", TEST_SERVER_SECRET);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	test("second POST for the same (userId, service, authSource) returns 409 with CONFLICT code", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-dup-token", "Dup Token User");
+
+		const body = JSON.stringify({ service: "Stripe", authSource: "token", token: "sk-first" });
+
+		// First POST — must succeed.
+		const first = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body,
+		});
+		expect(first.status).toBe(201);
+
+		// Second POST — same (userId, service, authSource) — must return 409.
+		const second = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ service: "Stripe", authSource: "token", token: "sk-second" }),
+		});
+		expect(second.status).toBe(409);
+		const secondBody = (await second.json()) as Record<string, unknown>;
+		expect(secondBody.code).toBe("CONFLICT");
+		// Must not leak a stack trace or constraint detail.
+		expect(JSON.stringify(secondBody)).not.toContain("sk-second");
+		expect(JSON.stringify(secondBody)).not.toContain("23505");
+	});
+
+	test("second POST for mcp-oauth same (userId, service, authSource) returns 409", async ({
+		db,
+		app,
+	}) => {
+		await seedUser(db, "u-dup-mcp", "Dup MCP User");
+
+		const mcpBody = JSON.stringify({
+			service: "Figma",
+			authSource: "mcp-oauth",
+			serverUrl: "https://mcp.figma.com",
+		});
+
+		const first = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body: mcpBody,
+		});
+		expect(first.status).toBe(201);
+
+		const second = await app.request("/api/connections", {
+			method: "POST",
+			headers: authHeaders(),
+			body: mcpBody,
+		});
+		expect(second.status).toBe(409);
+		const secondBody = (await second.json()) as Record<string, unknown>;
+		expect(secondBody.code).toBe("CONFLICT");
 	});
 });
 

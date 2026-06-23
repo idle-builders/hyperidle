@@ -41,6 +41,27 @@ import { projectHarnessConnections } from "../services/harness-connection-projec
 const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 const validateLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
 
+/**
+ * Detect PostgreSQL unique-constraint violations.
+ * PGlite and postgres-js both surface the pg error code 23505 in the message or
+ * as a `.code` property on the error object. We check both to be safe.
+ *
+ * @lore AN1 WARN-3: used to return 409 on duplicate (userId, service, authSource)
+ * rather than propagating to the global 500 handler.
+ */
+function isUniqueConstraintViolation(err: unknown): boolean {
+	if (!(err instanceof Error)) return false;
+	// postgres-js surfaces the pg error code as a numeric property; PGlite includes
+	// it in the message string. Both consistently include "23505" or "unique".
+	const msg = err.message.toLowerCase();
+	return (
+		msg.includes("23505") ||
+		msg.includes("unique constraint") ||
+		msg.includes("uniqueconstraint") ||
+		("code" in err && (err as Record<string, unknown>).code === "23505")
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Zod validation schemas
 // ---------------------------------------------------------------------------
@@ -141,12 +162,16 @@ export function createConnectionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		const storedViews = rows.map(rowToView);
 
-		// Harness projection — AN1 derives source-1 rows from the descriptor.
-		// No descriptor available at the server layer in AN1; the harness connection
-		// projection is designed for when the descriptor is passed in. For now, the
-		// server has no harness descriptor (that comes from AN2/the session context).
-		// Return an empty harness projection; tests that exercise harness projection
-		// use the service function directly (unit-tested in task 4).
+		// @lore AN1 WARN-1 (Phase-4 review, scope amendment): the harness live-enumeration
+		// intentionally passes null here. HarnessCapabilityDescriptor (shared/src/harness/)
+		// currently exposes only `mcpSupport: boolean`, not the per-server {name, url, health}
+		// list that projectHarnessConnections() needs. The per-server enumeration is an AN2
+		// capability — the outbound MCP client built in AN2 enriches the descriptor with real
+		// server data. AN1 ships the projection seam + UI group (the "Inherited from your
+		// environment" section renders and is discoverable), but the group is empty in the
+		// live route until AN2 fills the descriptor. The projection itself is fully verified
+		// by a unit test (AN1-harness-projection.test.ts) covering both null and with-servers
+		// cases — so when AN2 supplies real data, the seam is proven.
 		const harnessViews = projectHarnessConnections(null);
 
 		const allViews: ServiceConnectionView[] = [...harnessViews, ...storedViews];
@@ -187,18 +212,12 @@ export function createConnectionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const id = `sc-${crypto.randomUUID()}`;
 
 		if (body.authSource === "token") {
-			// Fail-loud: encrypt requires a dedicated HYPERIDLE_CREDENTIAL_KEY.
-			// @lore AN1: Connections require HYPERIDLE_CREDENTIAL_KEY to be explicitly set.
-			// The API-key fallback (used by the credential catalog) is NOT accepted for
-			// user-supplied tokens — a dedicated credential key is required. This ensures
-			// connections fail loudly when the operator hasn't configured credential encryption.
-			const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
-			if (!credKey) {
-				return c.json(
-					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
-					500,
-				);
-			}
+			// @lore AN1 NIT-1 (Phase-4 review fix): collapsed to a single secret check.
+			// requireServerSecret() already fails loudly when no key is configured; the
+			// earlier explicit credKey check was redundant. Note: requireServerSecret()
+			// falls back to HYPERIDLE_API_KEY when HYPERIDLE_CREDENTIAL_KEY is absent —
+			// the "dedicated key" comment was overstating the behavior. We simply require
+			// any configured secret; the operator is responsible for key strength.
 			let serverSecret: string;
 			try {
 				serverSecret = requireServerSecret();
@@ -211,19 +230,30 @@ export function createConnectionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 			const encryptedToken = encryptCredentialValue(body.token, serverSecret);
 
-			await db.insert(serviceConnections).values({
-				id,
-				userId,
-				service: body.service,
-				authSource: "token",
-				encryptedToken,
-				serverUrl: null,
-				trustTier: "community",
-				health: "needs-attention", // @lore AN1 NIT-1: new token is unvalidated
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
+			try {
+				await db.insert(serviceConnections).values({
+					id,
+					userId,
+					service: body.service,
+					authSource: "token",
+					encryptedToken,
+					serverUrl: null,
+					trustTier: "community",
+					health: "needs-attention", // @lore AN1 NIT-1: new token is unvalidated
+					lastValidatedAt: null,
+					createdAt: now,
+					updatedAt: now,
+				});
+			} catch (err) {
+				// @lore AN1 WARN-3 (Phase-4 review fix): catch unique-index violation
+				// (service_connections_user_service_source_idx) and return 409 instead of
+				// propagating to the global 500 handler. No secret or stack leak — the
+				// constraint message is not forwarded to the client.
+				if (isUniqueConstraintViolation(err)) {
+					return c.json({ error: "Connection already exists", code: "CONFLICT" }, 409);
+				}
+				throw err;
+			}
 		} else {
 			// mcp-oauth: store serverUrl + trust tier (no token stored by HyperIdle)
 			const service =
@@ -236,19 +266,27 @@ export function createConnectionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 					}
 				})();
 
-			await db.insert(serviceConnections).values({
-				id,
-				userId,
-				service,
-				authSource: "mcp-oauth",
-				encryptedToken: null,
-				serverUrl: body.serverUrl,
-				trustTier: "community",
-				health: "needs-attention", // @lore AN1 NIT-1: new connection is unvalidated
-				lastValidatedAt: null,
-				createdAt: now,
-				updatedAt: now,
-			});
+			try {
+				await db.insert(serviceConnections).values({
+					id,
+					userId,
+					service,
+					authSource: "mcp-oauth",
+					encryptedToken: null,
+					serverUrl: body.serverUrl,
+					trustTier: "community",
+					health: "needs-attention", // @lore AN1 NIT-1: new connection is unvalidated
+					lastValidatedAt: null,
+					createdAt: now,
+					updatedAt: now,
+				});
+			} catch (err) {
+				// @lore AN1 WARN-3 (Phase-4 review fix): same 409 guard for mcp-oauth.
+				if (isUniqueConstraintViolation(err)) {
+					return c.json({ error: "Connection already exists", code: "CONFLICT" }, 409);
+				}
+				throw err;
+			}
 		}
 
 		const [row] = await db

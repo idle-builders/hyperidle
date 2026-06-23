@@ -48,7 +48,7 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 **Contracts / constraints.** Any stored secret is resolved server-side only and never present in any agent-facing surface, sandbox, or log. Per-user isolation holds. The one-store/one-resolver invariant of the credential model is preserved. The open Connection set is distinct from the closed infra-secret catalog — the infra catalog stays closed. **HyperIdle registers no per-service OAuth app and is never an OAuth provider** — auth rides the user's harness/environment, a user-supplied token, or the MCP server's own OAuth (DCR/CIMD; the service is the provider).
 
-**Out of scope.** Brokering calls through a connection (AN2). Sandbox provisioning (AN3). The community registry (AN4). Per-team shared connections.
+**Out of scope.** Brokering calls through a connection (AN2). Sandbox provisioning (AN3). The community registry (AN4). Per-team shared connections. **Harness-source live enumeration** (populating the "Inherited from your environment" group with the user's actual MCP servers) depends on AN2's outbound MCP client / descriptor enrichment — AN1 ships the projection seam + UI group; token and mcp-oauth sources are fully live at AN1. (Phase-4 review scope amendment, 2026-06-23.)
 
 **Effort.** L (~5d)
 
