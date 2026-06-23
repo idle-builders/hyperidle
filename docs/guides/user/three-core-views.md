@@ -56,6 +56,11 @@ When you open a review on the review page, you have these actions:
 
 Most reviews take 15-30 seconds. The artifact view shows you exactly what changed — code diffs, content previews, before/after comparisons, or action summaries.
 
+**After approving an action.** If the review includes an irreversible action (a refund, a merge/landing, a send), approving triggers it immediately. The `action_operation` card shows a result band below the receipt:
+
+- Green "Executed" band — the action completed; a short receipt identity confirms it (e.g. the merged commit SHA, the refund reference).
+- Red "Execution failed" band — the external tool returned an error; the exact error text is shown untruncated so you can act on it. A failed action is never silently swallowed — if something went wrong, the band says what.
+
 #### assistant Thread
 
 A pinned thread at the top of Conversations. Your assistant agent surfaces cross-product patterns, monthly reflections, and coaching suggestions. This is where strategic conversations happen.

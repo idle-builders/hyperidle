@@ -103,26 +103,81 @@ Implementation story: **AC1** — Structured Outcome Fields (`plans/work-package
 
 **Staged Operation primitive — full spec at `docs/process-layer/staged-operation.md`.**
 
-The irreversible commit verb, frozen and parked un-executed behind a binding `approve` verdict — the one consequence that needs a human, while the agent iterates freely in a reversible draft space (branch / test key / in-app proposal). Shape (concept-level; `/architecture` binds the concrete schema):
+The irreversible commit verb, frozen and parked un-executed behind a binding `approve` verdict — the one consequence that needs a human, while the agent iterates freely in a reversible draft space (branch / test key / in-app proposal).
+
+**Shipped schema** (`packages/db/src/schema.ts` — `staged_operations` + `operation_outcomes`):
 
 ```
+// staged_operations table
 type StagedOperation = {
-  id: string                      // opaque, stable
-  consequenceId: string           // the consequence it commits, within a Subject
-  capability: { tool: string; harnessType?: string }  // resolved via harness capability descriptor (OPEN)
-  operation: string               // the verb/call
-  params: Record<string, unknown> // fully-bound; IMMUTABLE once staged
-  idempotencyKey: string          // at-most-once identity; tool/MCP + Kernel dedupe on it
-  reversibility: string           // undo path, or "irreversible"
-  status: 'pending' | 'executing' | 'executed' | 'failed' | 'held'
+  id: string                       // opaque, stable
+  reviewMessageId: string          // FK → messages.id — THE dispatch key (C1).
+                                   // The verdict resolves this specific message;
+                                   // dispatch filters on it. Never dispatch by subjectThreadId.
+  subjectThreadId: string          // FK → threads.id — loader/index anchor ONLY
+  artifactId: string               // FK → artifacts.id
+  consequenceId: string            // the consequence it commits, within a Subject
+  capabilityTool: string           // e.g. "stripe", "github", registered tool name
+  capabilityHarnessType?: string   // null = built-in registry
+  operation: string                // the verb/call, e.g. "merge_pr"
+  params: string                   // JSON; fully-bound, IMMUTABLE once staged
+                                   // (dispatcher JSON.parse()s before calling executeCapability)
+  idempotencyKey: string           // UNIQUE (anti-fork guard — prevents two rows for the same key)
+                                   // NOT the at-most-once execution guard (that is
+                                   // WHERE status='pending' conditional UPDATE in the dispatcher)
+  reversibility: string            // undo path, or "irreversible"
+  status: string                   // "pending" | "executing" | "executed" | "failed"
+                                   // No "held" value stored — non-approving verdict leaves
+                                   // the op in "pending". "held" is the conceptual label only.
+  stagedByAgentId: string          // FK → users.id
+  createdAt: string
 }
 
+// operation_outcomes table
+// PK = stagedOperationId — enforces 0..1 per staged op and immutability.
+// A second write throws on PK conflict rather than overwriting.
 type OperationOutcome = {
+  stagedOperationId: string        // PK — 0..1 per staged op, immutable once written
+  status: string                   // "ok" | "failed"
+  payload: string | null           // JSON tool return on ok (dispatcher stringifies)
+  error: string | null             // verbatim error on failed — never null+failed
+  executedAt: string               // ISO 8601; humanized by the reviews loader before response
+}
+```
+
+**Shared types** (`packages/shared/src/staged-operation.ts`):
+
+```ts
+const STAGED_OPERATION_STATUSES = ["pending", "executing", "executed", "failed"] as const;
+type StagedOperationStatus = (typeof STAGED_OPERATION_STATUSES)[number];
+
+const OPERATION_OUTCOME_STATUSES = ["ok", "failed"] as const;
+type OperationOutcomeStatus = (typeof OPERATION_OUTCOME_STATUSES)[number];
+
+// Passed to executeCapability — params is already Record<string,unknown> (JSON-parsed by dispatcher)
+interface StagedOperationSpec {
+  id: string;
+  capabilityTool: string;
+  operation: string;
+  params: Record<string, unknown>;
+  idempotencyKey: string;  // forwarded to external tool so it dedupes on its side (W1)
+  reversibility: string;
+}
+```
+
+**Reviews loader response shape** (`StagedOperationView`, nested on the artifact):
+
+```ts
+// Nested as artifact.stagedOperation for action_operation kind artifacts
+type StagedOperationView = {
   stagedOperationId: string
-  status: 'ok' | 'failed'
-  payload?: unknown               // tool return on ok
-  error?: string                  // surfaced on failed — never silent
-  executedAt: string
+  status: StagedOperationStatus
+  outcome?: {
+    status: 'ok' | 'failed'
+    receipt?: string    // ok: extracted tool-identity string (e.g. "abc1234… · merged")
+    error?: string      // failed: verbatim, un-truncated
+    executedAt: string  // humanized relative string ("2 min ago") — never raw ISO
+  }
 }
 ```
 
@@ -131,6 +186,8 @@ type OperationOutcome = {
 - **Capability split:** the agent never holds the live commit verb / credential — it is Kernel-held, provisioned to the agent only in draft form. Enforced by provisioning + sandbox + interception, not agent self-policing.
 - The single trust dial is **graduated autonomy per agent × skill (L1→L4)** ([trust-building](../human-interface-layer/trust-building-slow-cumulative.md) §10) — classification, customization, and learning in one; NOT a thresholds/allowlists policy engine. Ratchet is one-way-safe (auto-tighten; loosening only proposed). Irreversible + high-blast-radius stays blocked even at L4.
 - At-most-once is enforced by a persisted conditional transition on `status` (mirroring first-verdict-wins `WHERE resolvedAt IS NULL` in `threads.ts`), **independent of the at-least-once event bus**.
+- `idempotencyKey UNIQUE` is an **anti-fork guard** (prevents two rows for the same key), NOT the at-most-once execution guarantee (that is the `WHERE status='pending'` conditional UPDATE claim).
 - The `approve` verdict fires **all** of its Subject's consequences (verdict resolves the whole Subject); grammar unchanged. HyperIdle triggers; the connected tool/MCP executes (trigger-not-executor).
+- **Per-agent capability provisioning is deferred to AL8/AM2** — `KERNEL_DISPATCHABLE_CAPABILITIES` is the current kernel-held-verb gate (validates capability at stage time); per-agent grants and the OPEN-vocab harness descriptor lookup land in those follow-on workpackages.
 
 Implementation story: **AL7** — Review execution loop (`.pipeline/work-packages/TRACK-AL.md`).

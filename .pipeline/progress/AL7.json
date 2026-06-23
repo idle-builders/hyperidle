@@ -1,7 +1,7 @@
 {
   "id": "AL7",
   "status": "in_progress",
-  "currentStep": "4-review",
+  "currentStep": "5-docs",
   "track": "AL",
   "complexity": "L",
   "dependsOn": [],

@@ -124,10 +124,60 @@ Grammar unchanged — five decisions, `approve` stays `approve`. An `approve` / 
 | **Operation Outcome** | Recorded terminal result (ok/failed + payload/error). | result (banned Artifact alias), response, receipt |
 | **Idempotency key** | The at-most-once identity; tool/MCP + Kernel dedupe on it. | nonce, request id, dedup token |
 
+## As-built implementation (AL7)
+
+### Data model (`packages/db/src/schema.ts`)
+
+Two tables: `staged_operations` and `operation_outcomes`.
+
+**`staged_operations` key fields:**
+- `review_message_id` (FK → `messages.id`, `onDelete: restrict`) — the **dispatch key**. Verdict resolution is per-message (`threads.ts` first-verdict-wins); staged ops are keyed to the exact review message whose `approve` will fire them. This prevents a bet's reused host thread from firing one review's ops when a different review is approved (C1 correctness).
+- `subject_thread_id` (FK → `threads.id`) — the bet host thread. Used as a **loader/index anchor only** — never the dispatch key.
+- `status` text column: `"pending" | "executing" | "executed" | "failed"`. No `"held"` value is stored — a non-approving verdict simply does not dispatch; the op stays `"pending"`. `"held"` is the conceptual label for that state.
+- `idempotency_key` UNIQUE index — an **anti-fork guard**: prevents two rows for the same key (forked commits). This is NOT the at-most-once execution guard (that is the `WHERE status='pending'` conditional UPDATE claim in the dispatcher).
+- `params` stored as JSON text; the dispatcher `JSON.parse`s before calling `executeCapability`.
+
+**`operation_outcomes`:** `staged_operation_id` is the PK (enforces 0..1 per staged op and immutability — a duplicate write throws on PK conflict rather than overwriting).
+
+### Dispatcher (`packages/server/src/services/staged-operation-dispatcher.ts`)
+
+`resolveStagedOperations(deps, reviewMessageId)`:
+1. Selects all `status='pending'` rows for the given `reviewMessageId`.
+2. For each: conditional UPDATE `status='pending' → 'executing'` (the at-most-once claim — mirrors `threads.ts` first-verdict-wins). If 0 rows updated, already claimed — skip.
+3. Passes the **frozen spec** (params JSON-parsed, idempotencyKey forwarded) to `deps.executeCapability`. On success writes `operation_outcomes` row `status='ok'` + sets staged op `status='executed'`. On error writes `status='failed'` with verbatim error message — never silenced.
+4. Emits `operation_executed` event with `streamId = subjectThreadId` for the UI.
+
+`sweepStrandedOperations(deps)`: runs on **server boot**. Finds any `status='executing'` row with no `operation_outcomes` row (crash-stranded between claim and outcome write). Writes a `failed` Outcome: `"Operation interrupted: process crashed during execution. Manual inspection required."` — honest surfacing, not re-execution (cannot know if the side-effect already landed).
+
+### Kernel-held-verb gate (`KERNEL_DISPATCHABLE_CAPABILITIES`)
+
+At **stage time**, the `stage_operation` tool validates `(capabilityTool, operation)` against `KERNEL_DISPATCHABLE_CAPABILITIES` — a `ReadonlySet` in the dispatcher module. Currently: `"fixture:staged-op/echo"` (deterministic in-process) and `"github/merge_pr"` (real archetype-A forge path).
+
+**What this IS and is NOT:**
+- It enforces: "the staged capability must be a verb the kernel can dispatch."
+- It does NOT enforce: "this specific agent was provisioned this capability."
+- Per-agent capability provisioning is **deferred**: AL8 (tool grant / trust tier) owns the provisioning surface; AM2 (harness capability descriptor, OPEN vocab) owns the descriptor lookup that will eventually replace this closed allowlist. Until those land, `buildToolRegistry` gates by ROLE only, and per-agent external-capability grants do not exist.
+
+### Verdict path wiring (`packages/server/src/routes/threads.ts`)
+
+After the resolution transaction commits, **only** for `approve` / `approve-with-comments`, dispatch is called keyed on the resolved review message id (`resolvesMessageRow.id`). Awaited inline (not fire-and-forget). `dispatchDeps` is non-optional in the live boot — an absent dep in the approve branch surfaces as an error, never a silent no-op.
+
+### Reviews loader (`packages/server/src/routes/reviews.ts`)
+
+`createReviewRoutes(db)` now takes a `db` dependency (was unwired; `app.ts` previously called it with no args). The loader queries `staged_operations LEFT JOIN operation_outcomes WHERE review_message_id = ?`, humanizes `executedAt` (stored ISO → relative display string via `relativeLong`), and nests `stagedOperation` on the matching artifact in the response. Field names: `stagedOperationId` (not `id`), `outcome.receipt` (extracted tool-identity string, not raw payload object). The `rev-1` stub fixture is preserved for design/demo.
+
+### Scope deferrals (honest — not overclaimed)
+
+These are explicitly NOT built in AL7:
+- **Per-agent capability provisioning** — AL8 (tool grant / trust tier) + AM2 (harness capability descriptor). The `KERNEL_DISPATCHABLE_CAPABILITIES` allowlist is a stopgap until those land.
+- **Graduated-autonomy auto-flow path** — the reversible-consequence path that bypasses review entirely at high autonomy levels. AL7's loop is the *gated* arm only.
+- **Broad per-tool dispatch coverage** — `executeCapability` is a 2-entry map (fixture + GitHub merge). Additional connectors land in AL8.
+- **Multi-step transactional rollback / retry engine** — the narrow boot sweep (stranded `executing` → `failed`) is in scope; the broad rollback engine is not.
+
 ## Rationale
 
 AL1–AL4 built the *review*; the action-operation canvas approves into the void. AL7 is the **act**. The founder deep-dive (2026-06-22/23) reshaped it away from two flaws worth recording so they are never reintroduced: (1) "descriptive artifacts do nothing on approve" — wrong, a review that changes nothing should not exist; replaced by *every approve fires consequences*, classified by **reversibility**. (2) "unknown defaults to gated, via a multi-layer policy waterfall" — wrong twice: gating the unfamiliar-but-reversible is approval fatigue, and a thresholds/allowlists policy engine is the enterprise product HyperIdle is not; replaced by ETHOS §3's line (**irreversibility**) and the existing single dial, **graduated autonomy per agent×skill**, which is classification, customization, and learning in one. The load-bearing safety idea is the **capability split**: the agent works freely in a reversible draft space and never holds the one irreversible commit verb, which the Kernel exercises only on a human approve.
 
-Parked unbiased in `plans/AL1/design/review-system.md` §4 (2026-06-17); shaped + locked in `plans/AL7/concept.md` (2026-06-22/23); framed by `plans/AL8/boundary-concept.md`.
+Parked unbiased in `plans/AL1/design/review-system.md` §4 (2026-06-17); shaped + locked as concept (2026-06-22/23); implementation shipped as AL7. Framed by `plans/AL8/boundary-concept.md`.
 
 Next: [Review primitive](../human-interface-layer/review-primitive.md) · [Artifact primitive](./artifact-primitive.md) · [Harness capability descriptor](../agent-layer/harness-capability-descriptor.md) · [Trust-building](../human-interface-layer/trust-building-slow-cumulative.md) · [System boundary](../architecture/system-boundary.md).

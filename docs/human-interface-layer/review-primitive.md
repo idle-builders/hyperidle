@@ -49,6 +49,26 @@ Every canvas carries its source tool via `ToolLogo` and a jump-off link via `Can
 
 Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the **commit trigger**: it executes the Subject's [Staged Operations](../process-layer/staged-operation.md) — the *irreversible* commit verbs (a refund, a merge/landing, a send) — through their connected tools, at-most-once, recording the result against the review. Reversible consequences flow at the agent×skill autonomy level; the gate is reserved for the irreversible. Non-approving verdicts hold the staged operations un-executed. HyperIdle is the trigger and gate; the connected tool executes (trigger-not-executor). The verdict grammar is unchanged — approve gains consequences, not a new action. Full spec: [Staged Operation primitive](../process-layer/staged-operation.md).
 
+### OutcomeBand — what the reviewer sees after approving
+
+The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **OutcomeBand** once execution completes. The band replaces nothing — it appears below the receipt on the same card.
+
+**States:**
+
+| Band | When | Visual |
+|---|---|---|
+| *(none)* | `status = "pending"` — op not yet approved | Canvas shows the pre-commit receipt unchanged |
+| **Executing…** (spinner) | `status = "executing"` — dispatch in flight | Neutral border/surface, spinning indicator |
+| **Executed** (green) | `status = "executed"`, `outcome.status = "ok"` | `--accent-primary` / `--accent-primary-dim` fill; tick icon; short `receipt` identity (e.g. `abc1234… · merged`) + humanized `executedAt` |
+| **Execution failed** (red) | `status = "failed"`, `outcome.status = "failed"` | `--status-error` / `--status-error-dim` fill; ✕ icon; **verbatim, un-truncated** error text (`whitespace-pre-wrap break-words`) + humanized `executedAt` |
+
+**Design rules:**
+- The success band uses `--accent-primary-dim` (forest green), **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family.
+- The failure error is **never truncated** (hard rule #8 — a reviewer cannot be forced to miss the exact tool error). `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
+- `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it; the component never parses time.
+- The `executing` state is transient. The boot sweep (`sweepStrandedOperations`) converts any crash-stranded `executing` op to `failed` at next server start, so a reviewer never sits on a permanent spinner after a crash.
+- The band is **persistent** — a re-opened review shows the terminal Outcome state instead of re-prompting for a verdict on an already-executed op.
+
 ## Where it lives
 
 The registry, types, canvases, and composition component are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewId` as the Subject loader stub; the route is mounted in `packages/server/src/app.ts`.
