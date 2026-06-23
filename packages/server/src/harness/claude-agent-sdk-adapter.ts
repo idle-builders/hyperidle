@@ -1,6 +1,6 @@
 /** Claude Agent SDK adapter — concrete HarnessAdapter implementation (D2). */
 
-import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Query, SDKMessage, SyncHookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type {
 	CurrencyCode,
@@ -12,7 +12,13 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { createLogger, MissingCredentialError } from "@hyperidle/shared";
+import {
+	AL6_MAX_FORCE_RETURNS,
+	createLogger,
+	isReturnAction,
+	MissingCredentialError,
+	shouldForceReturn,
+} from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
 
@@ -44,6 +50,22 @@ const sdkLogger = createLogger({ pkg: "harness.claude-sdk" });
 
 let unsafeModeWarningEmitted = false;
 
+/**
+ * AL6 v2 (T5): Mutable state for force-return tracking in the SDK adapter.
+ * Shared between the Stop hook closure and translateMessage so they both
+ * read/write the same live object.
+ *
+ * @lore AL6 T5: ActiveSession.al6 is the shared mutable ref because
+ * `returnSeen` and `stopHookCount` are primitive booleans/numbers — JS doesn't
+ * allow field aliasing. The hook closure and translateMessage both receive the
+ * same ActiveSession reference, so mutating session.al6.returnSeen is visible
+ * to the hook even though the hook was created before this.sessions.set().
+ */
+interface AL6ForceState {
+	returnSeen: boolean;
+	stopHookCount: number;
+}
+
 interface ActiveSession {
 	query: Query;
 	abortController: AbortController;
@@ -52,6 +74,11 @@ interface ActiveSession {
 	totalCost: number;
 	/** L17: the model tier from SessionConfig — used to tag token_usage events. */
 	modelTier: string;
+	/**
+	 * AL6 v2 (T5): Shared mutable state for force-return tracking.
+	 * Read/written by both the Stop hook closure and translateMessage.
+	 */
+	al6: AL6ForceState;
 }
 
 interface AdapterOptions {
@@ -151,6 +178,40 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			unsafeModeWarningEmitted = true;
 		}
 
+		// AL6 v2 (T5): Shared mutable state for force-return tracking.
+		// Created before the query so the Stop hook closure captures a live reference.
+		// @lore AL6 T5: al6 is shared between the hook closure and translateMessage
+		// via the ActiveSession object. Both receive the same al6 reference, so
+		// translateMessage can set al6.returnSeen=true and the hook sees it immediately.
+		const al6: AL6ForceState = { returnSeen: false, stopHookCount: 0 };
+
+		// AL6 v2 (T5): Wire the Stop hook for Tier-1 force-return.
+		// When Claude tries to stop without calling a return action, block it and
+		// re-inject AL6_FORCE_RETURN_MESSAGE. Budget: AL6_MAX_FORCE_RETURNS attempts.
+		// After budget exhausted, let the stop proceed (Tier-2 drain handles rejection).
+		//
+		// @lore AL6 T5: The Stop hook fires when Claude emits stop_reason: "end_turn"
+		// or similar. Returning { decision: "block", reason: "..." } injects the reason
+		// as a user message and continues the turn. The hook is async per SDK contract
+		// but we do no async work here.
+		// biome-ignore lint/suspicious/useAwait: SDK hook interface requires Promise return; no async work needed
+		const stopHook = async (
+			_input: unknown,
+			_toolUseId: string | undefined,
+		): Promise<SyncHookJSONOutput> => {
+			const forceMsg = shouldForceReturn({ returned: al6.returnSeen }, al6.stopHookCount);
+			if (forceMsg !== null) {
+				al6.stopHookCount++;
+				sdkLogger.debug(
+					`AL6: Stop hook blocking stop (attempt ${al6.stopHookCount}/${AL6_MAX_FORCE_RETURNS}) — ` +
+						"return not yet seen, re-injecting force message",
+				);
+				return { decision: "block", reason: forceMsg };
+			}
+			// Budget exhausted or return was seen — allow stop.
+			return { decision: "approve" };
+		};
+
 		const queryOptions: Record<string, unknown> = {
 			model,
 			cwd: config.sandboxPath,
@@ -159,6 +220,9 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			permissionMode: unsafeMode ? "bypassPermissions" : "default",
 			persistSession: false,
 			env: sandboxedEnv,
+			hooks: {
+				Stop: [{ hooks: [stopHook] }],
+			},
 		};
 		if (unsafeMode) {
 			queryOptions.allowDangerouslySkipPermissions = true;
@@ -182,6 +246,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			totalOutputTokens: 0,
 			totalCost: 0,
 			modelTier: config.modelTier,
+			al6,
 		});
 
 		return { sessionId };
@@ -273,6 +338,11 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 				if (Array.isArray(content)) {
 					for (const block of content) {
 						if (block.type === "tool_use") {
+							// AL6 v2 (T5): track return-action tool calls so the Stop hook
+							// knows not to block a stop after a return has been called.
+							if (isReturnAction(block.name)) {
+								session.al6.returnSeen = true;
+							}
 							yield {
 								type: "tool_call",
 								toolName: block.name,

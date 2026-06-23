@@ -336,6 +336,12 @@ describe("Session Provisioning (D5)", () => {
 				events: [
 					{ type: "token_usage", inputTokens: 50, outputTokens: 20 },
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC1 review", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "Done." },
 				],
 				fileWrites: [{ relativePath, content }],
@@ -699,6 +705,12 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
 					{ type: "cost_update", totalCost: 0.03, deltaCost: 0.02 },
 					{ type: "cost_update", totalCost: 0.06, deltaCost: 0.03 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC7 review", reasoning: ["done"] },
+					},
 				],
 				stopResult: {
 					outcome: "completed",
@@ -774,6 +786,12 @@ describe("Session Provisioning (D5)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.05, deltaCost: 0.05 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC8 review", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "done" },
 				],
 				stopResult: {

@@ -1,6 +1,10 @@
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/shared";
-import { MissingCredentialError } from "@hyperidle/shared";
+import {
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
+	MissingCredentialError,
+} from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../../services/model-gateway.js";
@@ -537,6 +541,8 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: true,
+				// AL6 v2: SDK adapter is Tier-1 (has Stop hook → canForceReturn=true).
+				canForceReturn: true,
 			});
 		});
 	});
@@ -621,6 +627,133 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 					}),
 				}),
 			);
+		});
+	});
+
+	// ── T7 (AL6 v2): SDK Stop hook behavioral tests ──────────────────────────────
+	//
+	// Verifies the in-process Stop hook closure honors `decision:block` semantics:
+	//   (a) Hook blocks the stop and returns AL6_FORCE_RETURN_MESSAGE when no return seen.
+	//   (b) Hook allows stop when a return action was observed (returnSeen=true).
+	//   (c) Hook allows stop after budget is exhausted (AL6_MAX_FORCE_RETURNS invocations).
+	//   (d) returnSeen is set by translateMessage when submit_review is seen in the stream.
+	//
+	// The hook is extracted from the options captured by the queryFn spy — it fires
+	// in-process, not via subprocess. This is a pure behavioral unit test.
+
+	describe("AL6 v2 T7 — SDK Stop hook (canForceReturn=true, decision:block)", () => {
+		// Type alias for the Stop hook function extracted from captured options.
+		type StopHookFn = (
+			input: unknown,
+			toolUseId: string | undefined,
+			options: { signal: AbortSignal },
+		) => Promise<{ decision?: string; reason?: string }>;
+
+		// Type-safe wrapper around the mock call args for hook extraction.
+		type HookCallArg = {
+			options?: { hooks?: { Stop?: Array<{ hooks: StopHookFn[] }> } };
+		};
+
+		/** Extract the Stop hook from a queryFn spy after startSession is called. */
+		function extractStopHook(queryFn: ReturnType<typeof vi.fn>): StopHookFn | undefined {
+			const calls = queryFn.mock.calls as unknown as Array<[HookCallArg, ...unknown[]]>;
+			const firstCall = calls[0];
+			if (!firstCall) return undefined;
+			return firstCall[0]?.options?.hooks?.Stop?.[0]?.hooks?.[0];
+		}
+
+		const dummySignal = new AbortController().signal;
+
+		it("returns decision:'block' + AL6_FORCE_RETURN_MESSAGE when no return was seen (first call)", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// No return action observed, forceCount=0 → should block
+			const result = await hook!({}, undefined, { signal: dummySignal });
+			expect(result.decision).toBe("block");
+			expect(result.reason).toBe(AL6_FORCE_RETURN_MESSAGE);
+		});
+
+		it("blocks a second time when forceCount=1 and budget not exhausted", async () => {
+			// AL6_MAX_FORCE_RETURNS = 2, so forceCount=1 < 2 → still block
+			// Simulate by calling hook twice on same session's hook closure.
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// First call: forceCount goes 0→1, budget=2 → still block
+			const first = await hook!({}, undefined, { signal: dummySignal });
+			expect(first.decision).toBe("block");
+
+			// Second call: forceCount goes 1→2 (1 < 2) → still block
+			const second = await hook!({}, undefined, { signal: dummySignal });
+			expect(second.decision).toBe("block");
+		});
+
+		it("allows stop after AL6_MAX_FORCE_RETURNS budget is exhausted", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// Exhaust the budget: call AL6_MAX_FORCE_RETURNS times
+			for (let i = 0; i < AL6_MAX_FORCE_RETURNS; i++) {
+				await hook!({}, undefined, { signal: dummySignal });
+			}
+
+			// Budget spent → allow stop
+			const afterBudget = await hook!({}, undefined, { signal: dummySignal });
+			expect(afterBudget.decision).toBe("approve");
+		});
+
+		it("allows stop immediately when a return action was observed in the stream", async () => {
+			// Simulate: adapter processes a submit_review tool_use → returnSeen=true
+			// Then hook fires and should approve the stop.
+			const returnActionMessage: SDKMessage = {
+				type: "assistant",
+				message: {
+					usage: { input_tokens: 10, output_tokens: 5 },
+					content: [{ type: "tool_use", name: "submit_review", input: {}, id: "t1" }],
+				},
+				parent_tool_use_id: null,
+				uuid: "msg-2",
+				session_id: "sess-2",
+			} as unknown as SDKMessage;
+
+			const mockQuery = createMockQuery([returnActionMessage]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			// Drain the stream so translateMessage processes the submit_review block
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: draining stream intentionally to set returnSeen
+			for await (const _ of adapter.streamEvents(handle)) {
+			}
+
+			// Extract the hook from the same session's closure
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// submit_review was observed → returnSeen=true → approve immediately
+			const result = await hook!({}, undefined, { signal: dummySignal });
+			expect(result.decision).toBe("approve");
+		});
+
+		it("canForceReturn capability is true for ClaudeAgentSdkAdapter (Tier-1)", () => {
+			const adapter = new ClaudeAgentSdkAdapter();
+			expect(adapter.getCapabilities().canForceReturn).toBe(true);
 		});
 	});
 

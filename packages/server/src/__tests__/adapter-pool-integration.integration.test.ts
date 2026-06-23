@@ -37,7 +37,13 @@ import { test } from "../test-fixtures.js";
 
 // ── Scripted mock adapter ─────────────────────────────────────────────────────
 
-function makeScriptedAdapter(events: HarnessEvent[] = []): HarnessAdapter {
+/** Default events include submit_review so the return gate sees a return action. */
+const DEFAULT_STUB_EVENTS: HarnessEvent[] = [
+	{ type: "tool_call", toolName: "submit_review", args: { message: "stub done" } },
+	{ type: "completion", text: "stub complete" },
+];
+
+function makeScriptedAdapter(events: HarnessEvent[] = DEFAULT_STUB_EVENTS): HarnessAdapter {
 	let nextId = 1;
 	return {
 		async startSession(_config: SessionConfig): Promise<SessionHandle> {
@@ -233,6 +239,12 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 			"local",
 			makeScriptedAdapter([
 				{ type: "token_usage", inputTokens: 10, outputTokens: 5 },
+				// AL6 v2: emit submit_review so the return gate sees a return action.
+				{
+					type: "tool_call",
+					toolName: "submit_review",
+					args: { message: "backward-compat stub done" },
+				},
 				{ type: "completion", text: "done" },
 			]),
 			LOCAL_META,

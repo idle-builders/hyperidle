@@ -81,7 +81,10 @@ class CapturingHarnessAdapter implements HarnessAdapter {
 	}
 
 	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
-		// Completes immediately — simulates fast harness
+		// AL6 v2: emit submit_review so the return gate sees a return action.
+		// Without this, the session outcome is "not_returned", not "completed".
+		yield { type: "tool_call", toolName: "submit_review", args: { message: "AD2 stub done" } };
+		yield { type: "completion", text: "stub done" };
 	}
 
 	async stopSession(_handle: SessionHandle): Promise<SessionResult> {

@@ -187,6 +187,12 @@ describe("AC5: MCP bridge lifecycle in session provisioning", () => {
 		const harness = new ScriptedHarnessAdapter({
 			events: [
 				{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+				// AL6 v2: emit submit_review so the return gate sees a return action.
+				{
+					type: "tool_call",
+					toolName: "submit_review",
+					args: { title: "AC5 bridge test", reasoning: ["ok"] },
+				},
 				{ type: "completion", text: "ok" },
 			],
 			stopResult: {
@@ -544,6 +550,12 @@ describe("AC7: event-stream fallback (no mcpBridgeRegistry)", () => {
 		const harness = new ScriptedHarnessAdapter({
 			events: [
 				{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+				// AL6 v2: emit submit_review so the return gate sees a return action.
+				{
+					type: "tool_call",
+					toolName: "submit_review",
+					args: { title: "AC7 fallback test", reasoning: ["ok"] },
+				},
 				{ type: "completion", text: "ok" },
 			],
 			stopResult: {
@@ -684,6 +696,7 @@ describe("Critique: bridge creation failure → graceful degradation", () => {
 		const result = await provisionSession(deps, baseParams(tmpDir));
 
 		// Session should complete (not throw, not crash due to bridge failure)
-		expect(["completed", "crashed"]).toContain(result.outcome);
+		// AL6 v2: "not_returned" is also a valid outcome (agent ran without calling a return tool)
+		expect(["completed", "crashed", "not_returned"]).toContain(result.outcome);
 	});
 });

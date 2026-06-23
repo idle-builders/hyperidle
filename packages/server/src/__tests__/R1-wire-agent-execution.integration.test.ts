@@ -232,6 +232,8 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
+					// AL6 v2: include submit_review so the return gate sees a return action.
+					{ type: "tool_call", toolName: "submit_review", args: { message: "R1 stub done" } },
 					{ type: "completion", text: "done" },
 				],
 				stopResult: {

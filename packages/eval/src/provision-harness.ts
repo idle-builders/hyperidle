@@ -12,12 +12,17 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { fabricStrategy } from "@hyperidle/fabric";
 import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
 import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
 import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
 import { provisionSession } from "@hyperidle/server/services/session-provisioning";
+import { setActiveStrategy } from "@hyperidle/server/services/strategy-registry";
 import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 import type { TriggerResult } from "./types.js";
+
+/** @internal The eval-builtin adapter name, used to read forceReturnCount. */
+const EVAL_BUILTIN_NAME = "eval-builtin";
 
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
@@ -53,12 +58,17 @@ export async function runEvalSession(
 		readonly teamId: string;
 	},
 ): Promise<TriggerResult> {
+	// @lore X7 AL6: setActiveStrategy must be called before provisionSession.
+	// The eval harness boots without a server process, so no boot-time strategy
+	// registration happens. Set fabricStrategy here (the production default).
+	setActiveStrategy(fabricStrategy);
+
 	const workspace = new LocalSandboxAdapter();
 	const pool = new AdapterPool();
 
 	// Register a BuiltinHarnessAdapter with maxIterations: 20 to limit eval cost.
 	const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 20 });
-	pool.register("eval-builtin", builtinAdapter, {
+	pool.register(EVAL_BUILTIN_NAME, builtinAdapter, {
 		name: "Eval Built-in Harness",
 		kind: "local",
 		type: "builtin",
@@ -93,9 +103,21 @@ export async function runEvalSession(
 
 	const durationMs = Date.now() - startMs;
 
-	// Map "stopped" → "crashed": eval sessions cannot be manually stopped.
-	// If stopSession is somehow called (e.g. via a tool), treat as crashed.
-	const outcome: "completed" | "crashed" = result.outcome === "completed" ? "completed" : "crashed";
+	// AL6 v2 (T9 WARNING-B): Map outcomes to TriggerResult.
+	// "completed" → "completed", "not_returned" → "not_returned" (first-class).
+	// "stopped" → "crashed" (eval sessions cannot be manually stopped).
+	// "budget_exhausted" | "crashed" → "crashed".
+	const outcome: "completed" | "crashed" | "not_returned" =
+		result.outcome === "completed"
+			? "completed"
+			: result.outcome === "not_returned"
+				? "not_returned"
+				: "crashed";
+
+	// AL6 v2 (T9 WARNING-B): Surface forceReturnCount from the builtin adapter.
+	// getSessionForceCount is a concrete-only method (not on HarnessAdapter interface),
+	// so we call it directly on builtinAdapter.
+	const forceReturnCount = builtinAdapter.getSessionForceCount(result.sessionId);
 
 	return {
 		sessionId: result.sessionId,
@@ -103,5 +125,8 @@ export async function runEvalSession(
 		totalCostCents: result.totalCostCents,
 		taskId: result.taskId,
 		durationMs,
+		// AL6 v2: Return verdict and force count for eval judges.
+		returnVerdict: result.returnVerdict,
+		forceReturnCount,
 	};
 }

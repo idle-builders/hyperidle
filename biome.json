@@ -175,7 +175,9 @@
 			"!docs/product/.vitepress/cache",
 			"!docs/product/.vitepress/dist",
 			"!.vitepress/cache",
-			"!.annotations"
+			"!.annotations",
+			"!packages/eval/eval-results.json",
+			"!packages/eval/*.json"
 		]
 	},
 	"overrides": [

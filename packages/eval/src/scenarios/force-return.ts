@@ -101,131 +101,95 @@ Your system prompt has specific instructions about how to end this task.`,
 	rubric: {
 		dimensions: [
 			// Judge 1: force was injected (≥1 AL6_FORCE_RETURN_MESSAGE injection)
-			// WARNING-B: reads triggerResult.forceReturnCount — an additive eval-only field
-			// that runEvalSession must surface (currently absent from TriggerResult).
-			// This judge will compile only when TriggerResult gains forceReturnCount.
+			// T9: TriggerResult.forceReturnCount is now surfaced by provision-harness.ts.
 			{
 				id: "force_return_injected",
 				label: "Forcing Message Injected (≥1 AL6_FORCE_RETURN_MESSAGE)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed here
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// WARNING-B: TriggerResult.forceReturnCount is not yet defined.
-					// When green (T9) adds it, this cast becomes safe.
-					// Until then this judge compiles but will score 0 (field undefined).
-					const extResult = ctx.triggerResult as TriggerResult & {
-						forceReturnCount?: number;
-					};
-					const count = extResult.forceReturnCount ?? 0;
+					const count = ctx.triggerResult.forceReturnCount ?? 0;
 					if (count === 0) {
 						return {
 							score: 0.0,
 							note:
-								"No force injection recorded (forceReturnCount=0 or field absent). " +
-								"Either the agent returned voluntarily (check judge #3) or T9 has not " +
-								"yet widened TriggerResult.forceReturnCount.",
+								"No force injection recorded (forceReturnCount=0). " +
+								"Either the agent returned voluntarily (check judge #3) or the forcing " +
+								"layer did not fire. Check that the agent system prompt discourages returns.",
 						};
 					}
 					return {
 						score: 1.0,
-						note: `${count} force injection(s) recorded`,
+						note: `${count} force injection(s) recorded — forcing layer fired correctly`,
 					};
 				},
 			},
 
-			// Judge 2: return eventually called OR outcome is not_returned
-			// (either proves the turn was NOT accepted as clean completed-without-return)
-			// WARNING-B: reads triggerResult.outcome which is currently narrow to
-			// "completed"|"crashed". Until T9 widens it to include "not_returned",
-			// this judge cannot distinguish "not_returned" from "crashed".
+			// Judge 2: outcome is "completed" (agent returned after being forced) OR
+			// "not_returned" (agent refused all force attempts — rejection fallback fired).
+			// Either proves the turn was NOT silently accepted as completed-without-return.
 			{
 				id: "return_eventually_called_or_not_returned",
 				label:
 					"Return Tool Called Eventually OR Outcome is not_returned (NEVER completed-without-return)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed here
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// WARNING-B: outcome may be "crashed" because runEvalSession currently maps
-					// "not_returned" → "crashed" (it's not in the "completed" | "crashed" union).
-					// After T9 widens TriggerResult.outcome, "not_returned" flows through directly.
 					const outcome = ctx.triggerResult.outcome;
 
-					// If the return tools was called, the session should be "completed"
 					if (outcome === "completed") {
-						// Agent was forced and then returned — the good path.
-						// Check that it wasn't trivially compliant (judge #1 will catch that).
+						// Agent was forced and then returned — the ideal path.
 						return {
 							score: 1.0,
-							note: "Session completed — agent was eventually forced to return and did so",
+							note: "Session completed — agent was forced to return and did so correctly",
 						};
 					}
 
-					// WARNING-B: when T9 widens TriggerResult.outcome:
-					// "not_returned" outcome = forcing was attempted but agent refused both times;
-					// the rejection fallback fired — still correct (turn not silently completed).
-					// For now, "crashed" is the proxy for "not_returned" in the current narrow type.
-					if (outcome === "crashed") {
+					if (outcome === "not_returned") {
+						// Force budget spent, agent still refused — Tier-2 reject fired.
+						// Still correct: the turn was not silently accepted as completed.
 						return {
 							score: 0.8,
 							note:
-								"Outcome 'crashed' (proxy for 'not_returned' before T9 widens TriggerResult). " +
-								"If this is 'not_returned' mapped to 'crashed' by runEvalSession, score is correct. " +
-								"After T9, re-evaluate against outcome:'not_returned'.",
+								"Outcome 'not_returned' — forcing budget spent, agent refused both re-injections. " +
+								"The Tier-2 reject correctly prevented the turn from settling as 'completed'. " +
+								"Score 0.8 (not 1.0) because the agent was not successfully forced to return.",
 						};
 					}
 
+					// "crashed" is an unexpected outcome for this scenario
 					return {
 						score: 0.0,
-						note: `Unexpected outcome: ${outcome}`,
+						note: `Unexpected outcome: ${outcome}. Session crashed rather than completing.`,
 					};
 				},
 			},
 
-			// Judge 3: outcome is NOT completed-with-not_returned-verdict (the v1 bug)
-			// This is the exact regression test: a "completed" outcome where
-			// returnVerdict="not_returned" was the v1 failure mode.
-			// WARNING-B: reads triggerResult.returnVerdict — another additive field absent
-			// from the current TriggerResult type. Until T9 adds it, this judge cannot
-			// directly assert the verdict. It falls back to outcome-based detection.
+			// Judge 3: outcome is NOT completed-with-not_returned-verdict (the v1 bug).
+			// The exact regression: a "completed" outcome where returnVerdict="not_returned"
+			// was the v1 failure mode. T9 surfaces returnVerdict on TriggerResult.
 			{
 				id: "not_silently_completed",
 				label:
 					"Turn NOT silently completed (v1 regression guard: outcome≠completed when returnVerdict=not_returned)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed here
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// WARNING-B: returnVerdict is not yet on TriggerResult.
-					// After T9 widens TriggerResult, use:
-					//   if (ctx.triggerResult.outcome === "completed" &&
-					//       ctx.triggerResult.returnVerdict === "not_returned") { score: 0 }
-					const extResult = ctx.triggerResult as TriggerResult & {
-						returnVerdict?: string;
-					};
-					const returnVerdict = extResult.returnVerdict;
+					const returnVerdict = ctx.triggerResult.returnVerdict;
 					const outcome = ctx.triggerResult.outcome;
 
 					if (outcome === "completed" && returnVerdict === "not_returned") {
-						// Exact v1 bug: completed but not returned — regression
+						// Exact v1 bug: completed but not returned — regression detected
 						return {
 							score: 0.0,
 							note:
 								"v1 regression detected: outcome=completed with returnVerdict=not_returned. " +
 								"The turn was silently accepted as complete despite no return action. " +
-								"T6 (endSession outcome threading) has not been fixed.",
+								"T6 (endSession outcome threading) has not fixed this correctly.",
 						};
 					}
 
-					if (outcome === "completed" && returnVerdict === undefined) {
-						// returnVerdict not yet surfaced — ambiguous; partial credit
-						return {
-							score: 0.5,
-							note:
-								"outcome=completed but returnVerdict not yet surfaced by TriggerResult (WARNING-B). " +
-								"Cannot confirm v1 regression absence until T9 widens TriggerResult.",
-						};
-					}
-
-					// "not_returned" (or proxy "crashed") + any verdict = no regression
+					// "not_returned" outcome or "completed" with returnVerdict="returned" = no regression
 					return {
 						score: 1.0,
-						note: `outcome=${outcome}, returnVerdict=${returnVerdict ?? "not-yet-surfaced"} — no v1 regression`,
+						note: `outcome=${outcome}, returnVerdict=${returnVerdict ?? "unknown"} — no v1 regression`,
 					};
 				},
 			},
@@ -292,27 +256,13 @@ This is a simple task. Complete it and call submit_review before ending your tur
 			judgeSessionRowValid(),
 
 			// Judge: NO force injection (compliant agent returns without being forced)
-			// WARNING-B: reads triggerResult.forceReturnCount — additive field not yet on TriggerResult.
-			// After T9, this will directly assert forceReturnCount === 0.
+			// T9: forceReturnCount is now first-class on TriggerResult.
 			{
 				id: "no_force_injected",
 				label: "No Forcing Message Injected (compliant return — agent returned voluntarily)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed here
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const extResult = ctx.triggerResult as TriggerResult & {
-						forceReturnCount?: number;
-					};
-					const count = extResult.forceReturnCount;
-
-					if (count === undefined) {
-						// forceReturnCount not yet surfaced (WARNING-B)
-						return {
-							score: 0.5,
-							note:
-								"forceReturnCount not yet surfaced on TriggerResult (WARNING-B). " +
-								"Cannot confirm no-force until T9 widens TriggerResult.",
-						};
-					}
+					const count = ctx.triggerResult.forceReturnCount ?? 0;
 
 					if (count === 0) {
 						return {

@@ -19,6 +19,10 @@ import type { HarnessEvent } from "@hyperidle/shared";
 // that reference them will fail red (value is undefined) until T1 ships.
 import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
+import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { IsolatedHarnessAdapter } from "../isolated-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: T1 red — accessing not-yet-exported members
@@ -362,5 +366,49 @@ describe("AL6 v2 — canForceReturn capability bit exists on HarnessCapabilities
 			canForceReturn: false, // T1: Tier-2 reject adapter
 		} as CapsV2;
 		expect(caps.canForceReturn).toBe(false);
+	});
+});
+
+// ── AL6 v2 T8 — Real-adapter canForceReturn table (AC4b) ─────────────────────
+//
+// @lore AL6 v2 T8: Each real adapter must report the correct capability bit.
+// Tier-1 adapters (builtin, SDK) can force-return the agent in-flight;
+// Tier-2 adapters (cli, isolated) have no in-process hook and reject the turn.
+// RemoteHarnessAdapter is omitted here because its constructor requires a live
+// WebSocket connection — its canForceReturn:false is enforced by the type system.
+
+describe("AL6 v2 T8 — Real-adapter canForceReturn capability table (AC4b)", () => {
+	it("BuiltinHarnessAdapter (Tier-1) reports canForceReturn=true", () => {
+		const adapter = new BuiltinHarnessAdapter();
+		expect(adapter.getCapabilities().canForceReturn).toBe(true);
+	});
+
+	it("ClaudeAgentSdkAdapter (Tier-1) reports canForceReturn=true", () => {
+		const adapter = new ClaudeAgentSdkAdapter();
+		expect(adapter.getCapabilities().canForceReturn).toBe(true);
+	});
+
+	it("CliHarnessAdapter (Tier-2) reports canForceReturn=false", () => {
+		const adapter = new CliHarnessAdapter({
+			binary: "claude-code",
+			args: [],
+			envMap: {},
+			eventFormat: "ndjson",
+			envAllowlist: [],
+		});
+		expect(adapter.getCapabilities().canForceReturn).toBe(false);
+	});
+
+	it("IsolatedHarnessAdapter (Tier-2) reports canForceReturn=false", () => {
+		// IsolatedHarnessAdapter needs a credential resolver and isolation config.
+		// Supply minimal stubs — only getCapabilities() is tested, no session is started.
+		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
+		const stubResolver = { resolve: async () => undefined } as any;
+		const adapter = new IsolatedHarnessAdapter(stubResolver, {
+			maxMemoryMb: 512,
+			maxDurationMs: 30_000,
+			envAllowlist: [],
+		});
+		expect(adapter.getCapabilities().canForceReturn).toBe(false);
 	});
 });
