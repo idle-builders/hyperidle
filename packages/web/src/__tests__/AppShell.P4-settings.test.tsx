@@ -53,8 +53,27 @@ describe("AppShell — P4 Settings overlay", () => {
 				return Promise.resolve({
 					ok: true,
 					json: () =>
+						// AM4: SettingsHarnesses now renders in the Settings page and requires
+						// a full HarnessCapabilityDescriptor shape to avoid rendering errors.
 						Promise.resolve([
-							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+							{
+								type: "builtin",
+								name: "Built-in",
+								kind: "local",
+								accessMode: "api-gateway",
+								authAction: { kind: "enter_api_key", label: "Enter API key" },
+								discovery: { state: "ready" },
+								models: [],
+								runtime: {
+									preCompactionTrigger: false,
+									subAgents: false,
+									mcpSupport: false,
+									modelProviders: ["anthropic"],
+									fileEditing: false,
+									toolUse: false,
+								},
+								modelProviders: ["anthropic"],
+							},
 						]),
 				});
 			}

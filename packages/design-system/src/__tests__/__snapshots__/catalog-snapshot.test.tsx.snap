@@ -9191,6 +9191,51 @@ exports[`Toggle > FocusRing 1`] = `
 "
 `;
 
+exports[`Toggle > LabelHidden 1`] = `
+"<div class="p-[18px] flex flex-col gap-[12px]">
+  <div class="flex items-center gap-[12px]">
+    <span class="text-[13px] text-[var(--text-primary)]">
+      "Claude Code"
+    </span>
+    <span class="inline-flex items-center " data-ds-component="Toggle" data-ds-source="design-system" data-ds-tier="0">
+      <button class="relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] bg-[var(--accent-primary)] border-[var(--accent-primary)]" role="switch" aria-checked="true" aria-label="Enable Claude Code" type="button">
+        <span class="absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px]" style="transition-timing-function: var(--easing-expressive);" />
+      </button>
+      <span class="sr-only">
+        "Enable Claude Code"
+      </span>
+    </span>
+  </div>
+  <div class="flex items-center gap-[12px]">
+    <span class="text-[13px] text-[var(--text-primary)] opacity-50">
+      "Codex"
+    </span>
+    <span class="inline-flex items-center " data-ds-component="Toggle" data-ds-source="design-system" data-ds-tier="0">
+      <button class="relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]" role="switch" aria-checked="false" aria-label="Enable Codex" type="button">
+        <span class="absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[2px]" style="transition-timing-function: var(--easing-expressive);" />
+      </button>
+      <span class="sr-only">
+        "Enable Codex"
+      </span>
+    </span>
+  </div>
+  <div class="flex items-center gap-[12px]">
+    <span class="text-[13px] text-[var(--text-primary)] opacity-50">
+      "OpenCode (disabled)"
+    </span>
+    <span class="inline-flex items-center opacity-50 cursor-not-allowed" data-ds-component="Toggle" data-ds-source="design-system" data-ds-tier="0">
+      <button class="relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]" role="switch" aria-checked="false" aria-label="Enable OpenCode" type="button" disabled="">
+        <span class="absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[2px]" style="transition-timing-function: var(--easing-expressive);" />
+      </button>
+      <span class="sr-only">
+        "Enable OpenCode"
+      </span>
+    </span>
+  </div>
+</div>
+"
+`;
+
 exports[`Tokens > Borders 1`] = `
 "<div style="display: flex; gap: 18px;">
   <div>
