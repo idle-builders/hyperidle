@@ -490,6 +490,8 @@ export function registerObservabilityDispatcher(
 			case "work_selection_requested":
 			// AK8: decomposition occasion event — audit-only, not an observability event.
 			case "work_decompose_requested":
+			// AL7: staged op execution — audit-only, not an observability event.
+			case "operation_executed":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

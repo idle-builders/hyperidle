@@ -29,31 +29,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-// @ts-expect-error — module not yet created (red phase)
-import * as _dispatcher from "../services/staged-operation-dispatcher.js";
+import {
+	resolveStagedOperations,
+	type StagedOperationDispatchDeps,
+	sweepStrandedOperations,
+} from "../services/staged-operation-dispatcher.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
-
-const { resolveStagedOperations, sweepStrandedOperations } = _dispatcher as unknown as {
-	resolveStagedOperations: unknown;
-	sweepStrandedOperations: unknown;
-};
-
-// ── StagedOperationDispatchDeps interface (mirrors the plan §4) ───────────────
-// Declared here for type-checking in red phase; will be imported from impl.
-interface StagedOperationSpec {
-	readonly id: string;
-	readonly capabilityTool: string;
-	readonly operation: string;
-	readonly params: Record<string, unknown>;
-	readonly idempotencyKey: string;
-	readonly reversibility: string;
-}
-
-interface StagedOperationDispatchDeps {
-	readonly db: HyperIdleDb;
-	readonly eventBus: import("@hyperidle/shared").EventBus;
-	readonly executeCapability: (op: StagedOperationSpec) => Promise<{ payload: unknown }>;
-}
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -158,13 +139,9 @@ async function seedReviewThread(
 	return { threadId, reviewMessageId };
 }
 
-const rs = resolveStagedOperations as unknown as (
-	deps: StagedOperationDispatchDeps,
-	reviewMessageId: string,
-) => Promise<void>;
-const sweep = sweepStrandedOperations as unknown as (
-	deps: StagedOperationDispatchDeps,
-) => Promise<void>;
+// Aliases for readability in tests.
+const rs = resolveStagedOperations;
+const sweep = sweepStrandedOperations;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

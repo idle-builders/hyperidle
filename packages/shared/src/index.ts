@@ -104,6 +104,7 @@ export type {
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,
 	NotificationEvent,
+	OperationExecutedEvent,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
 	RoutineFiredEvent,
@@ -308,6 +309,13 @@ export type {
 	ReasoningData,
 	ToolCallData,
 } from "./session-activity.js";
+// ── AL7: Staged operation constants + types ──
+export type {
+	OperationOutcomeStatus,
+	StagedOperationSpec,
+	StagedOperationStatus,
+} from "./staged-operation.js";
+export { OPERATION_OUTCOME_STATUSES, STAGED_OPERATION_STATUSES } from "./staged-operation.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──

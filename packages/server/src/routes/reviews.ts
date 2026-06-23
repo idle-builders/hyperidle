@@ -1,64 +1,92 @@
+import { type HyperIdleDb, messages, operationOutcomes, stagedOperations } from "@hyperidle/db";
+import { relativeLong } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
-const FIXTURE_REVIEW = {
-	id: "review:AL3:fixture",
-	title: "Fix expired-promo checkout — silent success → typed 422",
-	betId: "bet-123",
-	betTitle: "Billing reliability",
-	taskId: "task-456",
-	taskTitle: "Fix expired-promo checkout",
-	prompt:
-		"Expired promo codes at checkout show no error — users think the code applied and are confused when the total doesn't change. Fix it: surface a clear error, and tell the user why it failed.",
-	authorName: "Atlas",
-	reviewerName: "You",
-	blocking: true,
-	producedAgo: "9 min ago",
-	costMoney: "$4.20",
-	costTokens: "310k tok",
-	tools: ["github", "linear", "vercel", "quickbooks", "stripe", "mailchimp", "figma", "zendesk"],
-	outcome:
-		"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently 'succeeded'. Checkout now returns a typed 422 and shows an inline 'expired' message; tests pass. The prod deploy is staged and waiting on your approval.",
-	resultKpis: [
-		{ label: "Silent failures", value: "0", delta: "was 31 users / 24h", good: true },
-		{ label: "Tests", value: "47 / 47", delta: "+0.4% cov", good: true },
-		{ label: "Checkout error path", value: "now covered", good: true },
-	],
-	intent: [
-		{ text: "Expired codes show the user an error", met: true },
-		{ text: "API returns a typed 422 (not silent 200)", met: true },
-		{ text: "Regression test covers the expired path", met: true },
-		{ text: "Deployed to production", met: false },
-	],
-	needs: [
-		{
-			id: "n-1",
-			kind: "unhandled-exception",
-			label: "Prod deploy is staged, not done",
-			detail: "Intent asked for prod; the deploy waits on your approve.",
-			artifactId: "artifact:action:1",
-		},
-		{
-			id: "n-2",
-			kind: "blast-radius",
-			label: "Touches the checkout payment path",
-			detail: "The fix lives in the shared OrderService — revenue-adjacent, high-traffic.",
-			artifactId: "artifact:code:1",
-		},
-	],
-	artifacts: [],
-	conversation: [],
-};
-
-export function createReviewRoutes(): Hono {
+/**
+ * AL7 — Reviews route: GET /api/reviews/:reviewMessageId
+ *
+ * Returns the review message plus any staged operation (+ executed outcome)
+ * anchored to that review message. The loader:
+ * - Queries staged_operations LEFT JOIN operation_outcomes by reviewMessageId
+ * - Humanizes executedAt at the response boundary (never raw ISO)
+ * - Returns 404 if the review message doesn't exist
+ * - Returns 200 with no `stagedOperation` field if there's no staged op
+ *
+ * @lore AL7: The reviewed message ID is used as the dispatch key (C1 fix).
+ * The loader returns the stagedOperation directly embedded in the review
+ * response so the UI can show execution status without a separate request.
+ */
+export function createReviewRoutes(db: HyperIdleDb): Hono {
 	const app = new Hono();
 
-	app.get("/:reviewId", requireBoundary({ kind: "public-data" }), (c) => {
-		const reviewId = c.req.param("reviewId");
-		if (!reviewId || reviewId !== "rev-1") {
+	app.get("/:reviewMessageId", requireBoundary({ kind: "public-data" }), async (c) => {
+		const reviewMessageId = c.req.param("reviewMessageId");
+
+		// Load the review message to confirm it exists.
+		const [reviewMsg] = await db
+			.select()
+			.from(messages)
+			.where(eq(messages.id, reviewMessageId))
+			.limit(1);
+
+		if (!reviewMsg) {
 			return c.json({ error: "review_not_found" }, 404);
 		}
-		return c.json(FIXTURE_REVIEW);
+
+		// Load staged op + outcome (if any) anchored to this review message.
+		const [opRow] = await db
+			.select({
+				// staged op fields
+				opId: stagedOperations.id,
+				opStatus: stagedOperations.status,
+				capabilityTool: stagedOperations.capabilityTool,
+				operation: stagedOperations.operation,
+				reversibility: stagedOperations.reversibility,
+				// outcome fields (null when no outcome yet)
+				outcomeStatus: operationOutcomes.status,
+				outcomePayload: operationOutcomes.payload,
+				outcomeError: operationOutcomes.error,
+				outcomeExecutedAt: operationOutcomes.executedAt,
+			})
+			.from(stagedOperations)
+			.leftJoin(operationOutcomes, eq(operationOutcomes.stagedOperationId, stagedOperations.id))
+			.where(eq(stagedOperations.reviewMessageId, reviewMessageId))
+			.limit(1);
+
+		// Build the response payload.
+		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
+
+		if (!opRow) {
+			// No staged op — descriptive review (no action_operation).
+			return c.json({ ...reviewPayload });
+		}
+
+		// Humanize executedAt at the response boundary.
+		const outcome =
+			opRow.outcomeStatus !== null && opRow.outcomeExecutedAt !== null
+				? {
+						status: opRow.outcomeStatus,
+						payload: opRow.outcomePayload ? JSON.parse(opRow.outcomePayload) : null,
+						error: opRow.outcomeError ?? null,
+						// @lore AL7: executedAt is humanized here (never raw ISO in the response).
+						// The component never parses time — it displays the string as-is.
+						executedAt: relativeLong(opRow.outcomeExecutedAt),
+					}
+				: undefined;
+
+		return c.json({
+			...reviewPayload,
+			stagedOperation: {
+				id: opRow.opId,
+				status: opRow.opStatus,
+				capabilityTool: opRow.capabilityTool,
+				operation: opRow.operation,
+				reversibility: opRow.reversibility,
+				...(outcome !== undefined ? { outcome } : {}),
+			},
+		});
 	});
 
 	return app;

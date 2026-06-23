@@ -1,4 +1,4 @@
-import type { AnchorRef, VerdictDecision } from "@hyperidle/shared";
+import type { AnchorRef, StagedOperationStatus, VerdictDecision } from "@hyperidle/shared";
 import type { ReviewArtifact, ReviewSubject } from "./review-artifact.js";
 
 export interface ReviewCommentRef {
@@ -45,11 +45,41 @@ export interface ReviewVerdictState {
 	readonly resolvedAt?: string;
 }
 
+/**
+ * AL7: the execution outcome returned by the reviews loader.
+ * The component never parses time — `executedAt` is pre-humanized by the loader.
+ */
+export interface StagedOperationOutcomeView {
+	readonly status: "ok" | "failed";
+	/** The tool's return identity that proves it happened (e.g. `re_3Qs… · refunded`). */
+	readonly receipt?: string;
+	/** Surfaced verbatim + un-truncated on failure — never swallowed, never clipped. */
+	readonly error?: string;
+	/** Already-formatted short/relative display string (e.g. "2 min ago"). */
+	readonly executedAt: string;
+}
+
+/**
+ * AL7: the staged operation + outcome data returned by the reviews loader for
+ * an operative artifact (`action_operation` kind).
+ */
+export interface StagedOperationView {
+	readonly stagedOperationId: string;
+	readonly status: StagedOperationStatus;
+	readonly outcome?: StagedOperationOutcomeView;
+}
+
 export interface ComposedReviewArtifact extends ReviewArtifact {
 	/** Optional one-line summary shown in the artifact opener row. */
 	readonly summary?: string;
 	/** Optional badge shown at the right of the opener row. */
 	readonly badge?: string;
+	/**
+	 * AL7: present only for `action_operation` kind artifacts that have a staged
+	 * operation row. Undefined for descriptive artifacts (code_diff, field_change_set, etc.)
+	 * and for operative artifacts that have not yet been staged.
+	 */
+	readonly stagedOperation?: StagedOperationView;
 }
 
 /**

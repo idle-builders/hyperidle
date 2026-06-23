@@ -50,12 +50,15 @@ describe("buildToolRegistry", () => {
 				"update_routine",
 				// AK4: bet draft/edit tool for assistant conversational drafting
 				"edit_bet",
+				// AL7: stage_operation — agent-facing verb to park ops behind the human gate
+				"stage_operation",
 			].sort(),
 		);
 		// 12 base tools + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
 		// + 1 AK4 draft tool: edit_bet = 21
-		expect(registry.definitions).toHaveLength(21);
+		// + 1 AL7: stage_operation = 22
+		expect(registry.definitions).toHaveLength(22);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {

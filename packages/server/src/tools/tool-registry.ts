@@ -19,6 +19,7 @@ import { readInboxTool } from "./read-inbox.js";
 import { routeItemTool } from "./route-item.js";
 import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
+import { stageOperationTool } from "./stage-operation.js";
 import { submitReviewTool } from "./submit-review.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 import { updateRoutineTool } from "./update-routine.js";
@@ -205,6 +206,9 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
 	toRegistered(submitReviewTool),
 	// R6: create_artifact is available to all agent roles — no `roles` filter.
 	toRegistered(createArtifactTool),
+	// AL7: stage_operation is the agent-facing verb for parking ops behind the human gate.
+	// The dispatcher (execute verb) is Kernel-held — NOT registered here.
+	toRegistered(stageOperationTool),
 	// G1 facilitator tools — restricted to facilitator roles.
 	toRegistered(routeItemTool),
 	toRegistered(scoreAttentionTool),

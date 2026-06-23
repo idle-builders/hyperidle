@@ -379,6 +379,23 @@ export interface WorkDecomposeRequestedEvent {
 }
 
 /**
+ * AL7: Emitted by the dispatcher after a staged operation executes (ok or failed).
+ * streamId = stagedOperationId so per-op streams receive the event.
+ *
+ * @lore AL7: status is "ok" | "failed" matching OperationOutcomeStatus from
+ * @hyperidle/shared/staged-operation. Carries both reviewMessageId and
+ * stagedOperationId so subscribers can correlate back to the review.
+ */
+export interface OperationExecutedEvent {
+	type: "operation_executed";
+	streamId: string; // = stagedOperationId
+	stagedOperationId: string;
+	reviewMessageId: string;
+	status: "ok" | "failed";
+	timestamp: number;
+}
+
+/**
  * Kernel events: entity lifecycle facts. When a kernel entity changes state,
  * these events announce what happened.
  *
@@ -413,7 +430,9 @@ export type KernelEvent =
 	// AK7: selection occasion event
 	| WorkSelectionRequestedEvent
 	// AK8: decomposition occasion event
-	| WorkDecomposeRequestedEvent;
+	| WorkDecomposeRequestedEvent
+	// AL7: staged operation executed
+	| OperationExecutedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

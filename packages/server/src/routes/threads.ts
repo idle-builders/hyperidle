@@ -54,6 +54,10 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import type { AssistantTurnDeps } from "../services/assistant-turn.js";
 import { persistTurnFailure, runAssistantTurn } from "../services/assistant-turn.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import {
+	resolveStagedOperations,
+	type StagedOperationDispatchDeps,
+} from "../services/staged-operation-dispatcher.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -618,6 +622,7 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	assistantTurnDeps?: AssistantTurnDeps,
+	dispatchDeps?: StagedOperationDispatchDeps,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -1362,6 +1367,18 @@ export function createThreadRoutes(
 					timestamp: Date.now(),
 				};
 				eventBus.emit(resolvedEvent);
+
+				// AL7: execute staged operations on approve verdict.
+				// @lore AL7 C1: keyed on resolvesMessageRow.id (NOT threadId) — one
+				// review message → only its ops fire. Thread-keyed would fire ALL
+				// reviews' ops on the same thread.
+				// @lore AL7: awaited inline — the 201 response waits for execution to
+				// complete so callers (tests + UI) observe final status synchronously.
+				// Execution failure surfaces as a failed Outcome row, never a 500.
+				const decision = input.payload.decision;
+				if (dispatchDeps && (decision === "approve" || decision === "approve-with-comments")) {
+					await resolveStagedOperations(dispatchDeps, resolvesMessageRow.id);
+				}
 			}
 			if (willReopen) {
 				const reopenedEvent: ThreadReopenedEvent = {

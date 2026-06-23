@@ -16,16 +16,15 @@ describe("GET /api/reviews/:reviewId", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns the fixture review subject for a valid review id", async ({ app }) => {
+	// AL7: the fixture review (rev-1) was removed; reviews route now queries real DB.
+	// rev-1 is not a real message ID → 404. Real review loading is tested in AL7-reviews-loader.integration.test.ts.
+	test("returns 404 for the old fixture review id (rev-1 no longer hardcoded)", async ({ app }) => {
 		const res = await app.request("/api/reviews/rev-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
 
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { id: string; title: string };
-		expect(body.id).toBe("review:AL3:fixture");
-		expect(body.title).toBe("Fix expired-promo checkout — silent success → typed 422");
+		expect(res.status).toBe(404);
 	});
 
 	test("returns 404 for an unknown review id", async ({ app }) => {

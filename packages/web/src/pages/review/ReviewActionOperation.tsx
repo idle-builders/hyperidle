@@ -16,10 +16,12 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
+import type { StagedOperationStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
+import type { StagedOperationOutcomeView } from "./review-composition";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -79,28 +81,18 @@ const REFUND: RefundOperation = {
 // Outcome with status="failed" + a surfaced error — NEVER a missing/silent
 // outcome, never a toast. The band is a persistent part of the card so a
 // re-opened review shows the terminal state instead of re-prompting.
-type StagedOperationStatus = "pending" | "executing" | "executed" | "failed" | "held";
-
-interface OperationOutcomeView {
-	readonly status: "ok" | "failed";
-	/** the tool's return identity that proves it happened (e.g. `re_3Qs… · refunded`). */
-	readonly receipt?: string;
-	/** surfaced verbatim + un-truncated on failure — never swallowed, never clipped. */
-	readonly error?: string;
-	/**
-	 * Already-formatted short/relative display string (e.g. "2 min ago"), matching
-	 * the review surface's time convention (`producedAgo`). The loader humanizes the
-	 * stored ISO `executedAt` at the response boundary — the component never sees a
-	 * raw ISO string, never parses time.
-	 */
-	readonly executedAt: string;
-}
+//
+// @lore AL7 N2: StagedOperationStatus is imported from @hyperidle/shared (the
+// shared STAGED_OPERATION_STATUSES const tuple), NOT defined inline here.
+// This ensures the canvas cannot drift from the dispatcher's status values.
+// StagedOperationOutcomeView is imported from review-composition — the loader
+// uses the same shape, so canvas and loader cannot drift either.
 
 export interface ReviewActionOperationProps {
 	readonly operation?: RefundOperation;
 	/** AL7: drives the outcome band. `pending` renders the AL2 canvas unchanged. */
 	readonly status?: StagedOperationStatus;
-	readonly outcome?: OperationOutcomeView;
+	readonly outcome?: StagedOperationOutcomeView;
 	readonly onApprove?: () => void;
 	readonly onReject?: () => void;
 }
@@ -194,7 +186,11 @@ function ReviewActionOperationView({
 				))}
 			</dl>
 
-			{/* ── AL7 · the execution outcome band (success | failure) ── */}
+			{/* ── AL7 · the execution outcome band (executing | success | failure) ── */}
+			{/* @lore AL7: `executing` is transient — the boot sweep (sweepStrandedOperations)
+			    converts any crash-stranded `executing` op to `failed`, so a reviewer never
+			    sits on a permanent spinner. The spinner is for the brief in-flight window. */}
+			{status === "executing" ? <ExecutingBand /> : null}
 			{status === "executed" && outcome ? <OutcomeBand outcome={outcome} ok /> : null}
 			{status === "failed" && outcome ? <OutcomeBand outcome={outcome} /> : null}
 
@@ -284,6 +280,30 @@ function ReviewActionOperationView({
 
 // ── small parts ───────────────────────────────────────────────────────────
 
+// AL7: the executing band — transient in-flight state. Shown while dispatch is
+// running; converted to failed by the boot sweep if a crash strands the op.
+function ExecutingBand(): JSX.Element {
+	return (
+		<section
+			className="mx-[18px] mt-[12px] flex items-center gap-[9px] border px-[12px] py-[9px]"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				borderColor: "var(--border-default)",
+				background: "var(--surface-container)",
+			}}
+		>
+			<span
+				aria-label="executing"
+				className="h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent"
+				style={{ animation: "spin 0.75s linear infinite" }}
+			/>
+			<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				Executing…
+			</span>
+		</section>
+	);
+}
+
 // AL7: the outcome band. Success is calm (forest-green success family — a done
 // refund is now history); failure is loud (status-error). Success uses the
 // success/primary fill (`--accent-primary-dim`), NOT the warning fill the amount
@@ -294,7 +314,7 @@ function OutcomeBand({
 	outcome,
 	ok = false,
 }: {
-	readonly outcome: OperationOutcomeView;
+	readonly outcome: StagedOperationOutcomeView;
 	readonly ok?: boolean;
 }): JSX.Element {
 	return (

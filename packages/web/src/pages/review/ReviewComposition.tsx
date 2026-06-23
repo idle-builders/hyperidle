@@ -2,6 +2,7 @@ import { Composer } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { getReviewCanvas } from "./canvas-registry.js";
+import { ReviewActionOperation } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,
@@ -668,7 +669,18 @@ function ExaminePane({
 
 			<div className="min-h-0 flex-1 overflow-auto">
 				<div className="flex flex-col gap-[18px] p-[18px]">
-					<Canvas artifact={artifact} />
+					{/* AL7: action_operation canvases receive status+outcome from the loader via
+					    ComposedReviewArtifact.stagedOperation. All other canvases receive only
+					    the artifact (ReviewCanvasProps contract unchanged). */}
+					{artifact.kind === "action_operation" ? (
+						<ReviewActionOperation
+							artifact={artifact}
+							status={artifact.stagedOperation?.status}
+							outcome={artifact.stagedOperation?.outcome}
+						/>
+					) : (
+						<Canvas artifact={artifact} />
+					)}
 				</div>
 			</div>
 		</aside>

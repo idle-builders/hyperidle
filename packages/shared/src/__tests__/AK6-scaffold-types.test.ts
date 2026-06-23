@@ -255,6 +255,9 @@ describe("T2: switch(event.type) over KernelEvent compiles exhaustively for new 
 				// AK8: decomposition occasion event
 				case "work_decompose_requested":
 					return "work_decompose_requested";
+				// AL7: staged operation executed
+				case "operation_executed":
+					return "operation_executed";
 			}
 		}
 

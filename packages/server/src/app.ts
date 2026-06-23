@@ -61,6 +61,11 @@ import type {
 	ObservabilityDispatcher,
 } from "./services/observability/types.js";
 import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
+import {
+	buildExecuteCapability,
+	type StagedOperationDispatchDeps,
+	sweepStrandedOperations,
+} from "./services/staged-operation-dispatcher.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -196,6 +201,16 @@ interface AppOptions {
 	 * setting environment variables.
 	 */
 	sharedMode?: boolean;
+	/**
+	 * AL7: Staged operation dispatch dependencies. When provided, approve verdicts
+	 * execute staged operations. When absent, dispatch is a no-op (tests that
+	 * only test thread semantics can omit). Production boot MUST provide this.
+	 *
+	 * @lore AL7 C3: createApp builds dispatchDeps internally when not provided
+	 * (using buildExecuteCapability) so production is always wired. Tests that
+	 * need to inject a mock executeCapability pass their own deps.
+	 */
+	dispatchDeps?: StagedOperationDispatchDeps;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -396,6 +411,25 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
+
+		// AL7 C3: build dispatchDeps if not provided. Production boot is always wired;
+		// tests that don't inject dispatchDeps get the real fixture-capable executor.
+		// @lore AL7 C3: non-optional in production semantics — `dispatchDeps` defaults
+		// to a real executor so no code path ever runs with silent at-most-zero dispatch.
+		const dispatchDeps: StagedOperationDispatchDeps = options.dispatchDeps ?? {
+			db: options.db,
+			eventBus,
+			executeCapability: buildExecuteCapability(),
+		};
+
+		// AL7 C2: sweep stranded executing ops on boot (crash recovery).
+		// Fire-and-forget: boot should not block on sweep; failures are logged.
+		void sweepStrandedOperations(dispatchDeps).catch((e: unknown) => {
+			appLogger.error("sweepStrandedOperations failed on boot", {
+				error: e instanceof Error ? e.message : String(e),
+			});
+		});
+
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
@@ -403,13 +437,16 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
-		api.route("/reviews", createReviewRoutes());
+		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route("/threads", createThreadRoutes(options.db, eventBus, options.assistantTurnDeps));
+		api.route(
+			"/threads",
+			createThreadRoutes(options.db, eventBus, options.assistantTurnDeps, dispatchDeps),
+		);
 		api.route("/users", createUserRoutes(options.db, eventBus));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route(

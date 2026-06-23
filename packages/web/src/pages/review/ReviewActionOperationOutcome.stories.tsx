@@ -65,6 +65,12 @@ export function Executed(): JSX.Element {
 // Terminal state 2 — failed: the loud failure band surfaces the tool's error
 // verbatim and never as a toast. Hard rule #8 — failure surfaces, never silently
 // swallowed; persists on the canvas across re-open.
+//
+// Design finding #5: the error is realistic + multi-line — a real Stripe API response
+// includes the error code, a human-readable message, the request-id, and a stack
+// trace. whitespace-pre-wrap + break-words ensures every line is readable;
+// never truncated (`no truncate` per rule #8). This variant proves the layout
+// holds on real tool error bodies.
 export function Failed(): JSX.Element {
 	return (
 		<div className="bg-[var(--surface-page)] p-[24px]">
@@ -73,7 +79,13 @@ export function Failed(): JSX.Element {
 				status="failed"
 				outcome={{
 					status: "failed",
-					error: "charge_already_refunded: ch_3QspeeJ2a7kLmN0p has a prior refund",
+					error:
+						"Stripe API error: charge_already_refunded\n" +
+						"ch_3QspeeJ2a7kLmN0p has a prior refund of $1,240.00 posted on 2026-06-22.\n" +
+						"Code: charge_already_refunded\n" +
+						"Request-ID: req_Km7aNpXe3fQr1vT9\n" +
+						"Idempotency-Key: refund_2026_INV4471_dup\n" +
+						"Doc: https://stripe.com/docs/error-codes#charge-already-refunded",
 					executedAt: "2026-06-23 14:02",
 				}}
 			/>
