@@ -73,14 +73,36 @@ const REFUND: RefundOperation = {
 
 // ── canvas ──────────────────────────────────────────────────────────────────
 
+// ── AL7: the staged-operation execution outcome ──────────────────────────────
+// The terminal result of an executed staged operation, surfaced on the same
+// canvas that rendered the pre-commit receipt. Hard rule #8: a failure is an
+// Outcome with status="failed" + a surfaced error — NEVER a missing/silent
+// outcome, never a toast. The band is a persistent part of the card so a
+// re-opened review shows the terminal state instead of re-prompting.
+type StagedOperationStatus = "pending" | "executing" | "executed" | "failed" | "held";
+
+interface OperationOutcomeView {
+	readonly status: "ok" | "failed";
+	/** the tool's return identity that proves it happened (e.g. `re_3Qs… · refunded`). */
+	readonly receipt?: string;
+	/** surfaced verbatim on failure — never swallowed. */
+	readonly error?: string;
+	readonly executedAt: string;
+}
+
 export interface ReviewActionOperationProps {
 	readonly operation?: RefundOperation;
+	/** AL7: drives the outcome band. `pending` renders the AL2 canvas unchanged. */
+	readonly status?: StagedOperationStatus;
+	readonly outcome?: OperationOutcomeView;
 	readonly onApprove?: () => void;
 	readonly onReject?: () => void;
 }
 
 function ReviewActionOperationView({
 	operation = REFUND,
+	status = "pending",
+	outcome,
 	onApprove,
 	onReject,
 }: ReviewActionOperationProps): JSX.Element {
@@ -165,6 +187,10 @@ function ReviewActionOperationView({
 					</div>
 				))}
 			</dl>
+
+			{/* ── AL7 · the execution outcome band (success | failure) ── */}
+			{status === "executed" && outcome ? <OutcomeBand outcome={outcome} ok /> : null}
+			{status === "failed" && outcome ? <OutcomeBand outcome={outcome} /> : null}
 
 			{/* ── L3 toggle ── */}
 			<button
@@ -252,6 +278,74 @@ function ReviewActionOperationView({
 
 // ── small parts ───────────────────────────────────────────────────────────
 
+// AL7: the outcome band. Success is calm (forest-green accent — a done refund is
+// now history); failure is loud (status-error, the same family as the
+// irreversibility warning — a failed irreversible op is the dangerous moment the
+// product exists to surface). The surfaced error renders verbatim (rule #8).
+function OutcomeBand({
+	outcome,
+	ok = false,
+}: {
+	readonly outcome: OperationOutcomeView;
+	readonly ok?: boolean;
+}): JSX.Element {
+	return (
+		<section
+			className="mx-[18px] mt-[12px] flex gap-[9px] border px-[12px] py-[9px]"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				borderColor: ok ? "var(--accent-primary)" : "var(--status-error)",
+				background: ok ? "var(--accent-secondary-dim)" : "var(--status-error-dim)",
+			}}
+		>
+			<span
+				aria-hidden="true"
+				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
+				style={{ background: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+			>
+				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+					<title>{ok ? "executed" : "failed"}</title>
+					{ok ? (
+						<path
+							d="M2.5 6.5 5 9l4.5-5"
+							stroke="var(--text-on-accent)"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					) : (
+						<path
+							d="M3 3l6 6M9 3l-6 6"
+							stroke="var(--text-on-accent)"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+						/>
+					)}
+				</svg>
+			</span>
+			<div className="min-w-0 flex-1">
+				<div className="flex items-baseline justify-between gap-[9px]">
+					<span
+						className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+						style={{ color: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+					>
+						{ok ? "Executed" : "Execution failed"}
+					</span>
+					<span
+						className="shrink-0 text-[12px] text-[var(--text-tertiary)]"
+						style={{ fontVariantNumeric: "tabular-nums" }}
+					>
+						{outcome.executedAt}
+					</span>
+				</div>
+				<p className="mt-[3px] truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+					{ok ? outcome.receipt : outcome.error}
+				</p>
+			</div>
+		</section>
+	);
+}
+
 function IrreversibleBadge(): JSX.Element {
 	return (
 		<span
@@ -332,7 +426,12 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 	};
 }
 
-export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Element {
+export function ReviewActionOperation({
+	artifact,
+	status,
+	outcome,
+}: ReviewCanvasProps &
+	Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
 	const operation = isActionOperationPayload(artifact.payload)
 		? mapActionPayload(artifact.payload)
 		: REFUND;
@@ -344,7 +443,7 @@ export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Elem
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewActionOperationView operation={operation} />
+			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
 		</div>
 	);
 }
