@@ -34,7 +34,7 @@ The irreversible call is **blocked at the harness's native gate** in session 1, 
 2. **Sandbox boundary** — no side-door egress (shell, raw HTTP, another MCP server) around the gate.
 3. **One-shot grant** (the teeth) — session 2 may run only a call whose **identity** matches an approved Proposed Call, consumed atomically on first match. Any non-matching call is blocked like any other.
 
-Who classifies a verb as gated is **not the agent** — it is resolved from the consequence's *reversibility* (verb, MCP `destructiveHint`/`idempotentHint`, native undo/test affordance) crossed with the agent's **trust signal** (verdict-history approval rate). Both are Kernel/Strategy-owned.
+Who classifies a verb as gated is **not the agent** — it is resolved from the consequence's *reversibility* (verb, MCP `destructiveHint`/`idempotentHint`, native undo/test affordance) crossed with the agent's **trust signal** (verdict-history approval rate). Both are Kernel/Strategy-owned. The classifier is **fail-closed**: a tool with **no reversibility signal at all** defaults to `irreversible` (gated) — "unknown does not mean gated" applies to a *known-reversible* tool, not to one carrying no signal, which must never auto-fire without review.
 
 ## The single signal: earned trust from verdict history
 
@@ -64,7 +64,7 @@ It carries **no** HyperIdle-side executor reference and **no** capability-allowl
 - **Not a curated capability allowlist.** No `KERNEL_DISPATCHABLE_CAPABILITIES`. The gate, capture, and grant are all generic; HyperIdle never needs to know what a tool *means*.
 - **Not a live session pause / native held "ask."** HyperIdle sessions are detached one-shots, not pausable; the review spans **two sessions** with context reassembly.
 - **Not an agent-authored spec.** There is no `stage_operation` tool. The subject is the *real attempted call*, captured at the gate — an agent-authored spec could drift or lie.
-- **Not re-derived on approve.** Session 2 **replays** the captured call; it does not re-plan it with the tool now unblocked (re-derivation risks drift — a different PR, a larger refund).
+- **Not re-derived on approve.** Session 2 **replays from record** — HyperIdle seeds the verbatim captured `{toolId, args}` into session 2's message history as a pre-filled `tool_use` block so the harness emits the recorded bytes. It does not re-plan the call with the tool now unblocked, nor hope the LLM reproduces it (an LLM is not a deterministic replayer; re-derivation risks drift — a different PR, a larger refund — which would deadlock the approved work on a hash mismatch).
 - **Not a verdict.** The verdict authorizes; the Proposed Call is authorized.
 - **Not a `ToolCallSummary`.** That records a reversible action the assistant *already ran* (AD8b). A Proposed Call is the not-yet-run irreversible call routed to review.
 - **Not the `action_operation` canvas.** The canvas renders a *view*; the Proposed Call is the backing captured call.
@@ -77,9 +77,9 @@ captured ──(blocked at gate in session 1; wrapper records the exact call)
    │
    ├── approve verdict ──▶ granted ──(one-shot grant minted, scoped to session 2)
    │                          │
-   │                  session 2 re-provisioned (task-dispatcher rail);
-   │                  agent re-attempts the call; wrapper matches identity,
-   │                  consumes the grant once, permits it
+   │                  `proposed_call_granted` re-dispatches session 2;
+   │                  session 2 seeded with the recorded call (replay-from-record);
+   │                  wrapper matches identity, consumes the grant once, permits it
    │                          │
    │                    ┌─────┴─────┐
    │                 executed     failed   (Outcome written; terminal)
@@ -136,15 +136,17 @@ Grammar unchanged — five decisions, `approve` stays `approve`. An `approve` / 
 
 ## How the loop works (as-designed, AL7 redo)
 
-1. **Session 1 — block + capture.** The session's permission policy (carried on `SessionConfig`, translated per adapter) blocks irreversible calls. When the agent attempts one, the wrapper on `registry.invoke` intercepts, computes the identity hash, and writes a **Proposed Call** (status `captured`) anchored to a review message + subject thread. The review canvas (`reviews.ts`) renders it. Session 1 ends — work paused (not suspended).
-2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open). On `approve`/`approve-with-comments`, mint a **one-shot grant** `{ proposedCallId, identityHash, sessionScope, consumed: false }`. A non-approving verdict leaves the Proposed Call `held`.
-3. **Session 2 — resume + replay.** The task-dispatcher rail (`session_ended`/`task_state_changed` → `provisionSession` → `strategy.assembleContext`) re-provisions session 2 with context reassembled, seeded with the approved Proposed Call so the agent re-issues it, and the permission policy now carrying the grant. The agent re-attempts the call; the wrapper hashes it, finds the matching unconsumed grant, **atomically consumes it** (`WHERE consumed = false`), and permits the call **once**. The agent's own tool runs it; the real return is recorded as the **Outcome**. The agent **continues working** in session 2.
+1. **Session 1 — block + capture + end.** The session's permission policy (carried on `SessionConfig`, translated per adapter) blocks irreversible calls. When the agent attempts one, the wrapper on `registry.invoke` intercepts, computes the identity hash, and writes a **Proposed Call** (status `captured`) anchored to a review message + subject thread — **idempotently per `(origin session, identity)`** so a retry mints no duplicate. The review canvas (`reviews.ts`) renders it. On first capture the wrapper **terminates session 1 via the abort rail** (`sessionRunRegistry.abort` → `stopSession` → the builtin loop's `aborted` flag), so a blocked call cannot loop and retry with drifted args. Work paused (not suspended).
+2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open). On `approve`/`approve-with-comments`, mint a **one-shot grant** `{ proposedCallId, identityHash, taskScope, agentScope, consumed: false }` (scoped to task id + agent id — session 2's id does not exist yet) and emit a **`proposed_call_granted`** event that **explicitly re-dispatches** session 2 (the task-dispatcher's same-owner resume is not triggered by the owner-change `session_ended` path). A non-approving verdict leaves the Proposed Call `held`.
+3. **Session 2 — resume + replay-from-record.** The task-dispatcher re-provisions session 2 (same task + same agent) **seeded with the captured call as a pre-filled `tool_use` block in its message history** (`SessionConfig.messages`) so the harness emits the **recorded bytes** — HyperIdle does not hope the LLM reproduces the call (an LLM is not a deterministic replayer; arg drift would deadlock the approved work). The permission policy now carries the grant role. The harness emits the recorded call; the wrapper hashes it, finds the matching unconsumed grant, **atomically consumes it in a single conditional statement** (`UPDATE … WHERE consumed = false RETURNING *`), and permits the call **once**. The agent's own tool runs it; the real return is recorded as the **Outcome**. The agent **continues working** in session 2. **Fallback:** if session 2 ends without consuming the grant, HyperIdle re-provisions once more; a second miss surfaces a `failed` Outcome and holds the call — never a silent hang.
+
+> **Not `assembleContext`.** Context assembly writes retrieved knowledge to disk and returns only counts; it cannot force a specific call. The replay channel is the session's **message history** (`SessionConfig.messages`), seeded with the verbatim recorded call.
 
 ## Per-harness implementation surface
 
 | Harness | Native gate | AL7 work |
 |---|---|---|
-| **builtin (api-gateway)** | none — HyperIdle owns the loop | config: gate at `registry.invoke` (its own dispatch). Block + capture + one-shot grant live here. |
+| **builtin (api-gateway)** | none — HyperIdle owns the loop | config: gate at `registry.invoke`. Block + capture + one-shot grant live here. Session-1 termination via `sessionRunRegistry.abort`→`stopSession`; session-2 replay via a `tool_use` block seeded into `SessionConfig.messages`. |
 | **Claude Code (Agent SDK)** | `permissionMode` + `allowedTools`/`disallowedTools` at init; `canUseTool(tool,input)` callback; `PreToolUse` hooks | **net-new wiring** — the production `ClaudeAgentSdkAdapter` wires only `permissionMode` today; `canUseTool` is the per-adapter dressing. The capture/grant source of truth is `registry.invoke` (MCP-routed). |
 | **Codex** | `approval_policy`/`sandbox_mode` at init; `execCommandApproval`/`applyPatchApproval` JSON-RPC at call-time | **net-new transport** — CLI adapter is stdout-only today; bidirectional app-server transport is required for the native call-time gate. `registry.invoke` covers the MCP path. |
 | **opencode** | `permission` allow/ask/deny in config; `permission.asked` SSE + reply | **net-new transport** — SSE reply channel. `registry.invoke` covers the MCP path. |

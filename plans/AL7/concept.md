@@ -17,12 +17,15 @@ Every harness already gates tool calls (allow / deny / ask), configured at sessi
 ```
 SESSION 1 — irreversible call BLOCKED at the gate
   agent attempts the call → wrapper intercepts → captures the exact bound call
-  → posts it as the review subject → session 1 ends (work paused, not suspended)
+  → posts it as the review subject → session 1 ENDED via the abort rail
+    (sessionRunRegistry.abort → stopSession) so the blocked call cannot loop/retry-with-drift
         │
      REVIEW — human approves (or holds with a non-approving verdict)
         │
-SESSION 2 — re-provisioned via the existing task-dispatcher rail
-  context reassembled (strategy.assembleContext) → the ONE approved call permitted,
+SESSION 2 — re-provisioned via an EXPLICIT proposed_call_granted trigger on the task-dispatcher
+  (the same-owner resume is NOT fired by the owner-change session_ended path)
+  seeded with the recorded call (replay-from-record via SessionConfig.messages, a pre-filled
+  tool_use block — NOT assembleContext) → the ONE approved call permitted,
   once, exactly as captured → agent executes it with its own tools → continues working
 ```
 
@@ -33,12 +36,12 @@ A thin **HyperIdle wrapper** is the load-bearing mechanism — native permission
 ## Required reading (for `/architecture` and `/pipeline`)
 
 - This file — the locked concept.
-- `docs/process-layer/review-gated-execution.md` — ground-truth (renamed from `staged-operation.md`, which never existed as ground truth; the noun changed).
-- `packages/shared/src/harness/harness-adapter.ts` — `SessionConfig` (init surface, line 36) + `HarnessAdapter` interface.
+- `docs/process-layer/staged-operation.md` — ground-truth (file path kept stable for cross-refs; the noun is now `Proposed Call`, model reframed to ride-the-native-gate).
+- `packages/shared/src/harness/harness-adapter.ts` — `SessionConfig` (init surface, line 36); `SessionConfig.messages` (line 91, the replay-from-record seam) + `ConversationMessage` (line 31, widened) + `HarnessAdapter` interface.
 - `packages/server/src/services/session-provisioning.ts:686-722` — `harness.startSession` call; `allowedToolNames` / `tools` passing.
 - `packages/server/src/harness/claude-agent-sdk-adapter.ts:120-188` — `permissionMode` wiring (NO `canUseTool`/hooks today — net-new).
 - `packages/server/src/tools/tool-registry.ts:264-294` — the `invoke` chokepoint (builtin + MCP-routed tools funnel here).
-- `packages/fabric/src/services/task-dispatcher.ts` — the re-engagement rail (`session_ended` / `task_state_changed` → `provisionSession`).
+- `packages/fabric/src/services/task-dispatcher.ts` — the re-engagement rail (`enqueue`/`hasActiveSession` reused). NOTE: `handleSessionEnded` re-dispatches only on owner *change* — AL7's same-agent resume needs an EXPLICIT `proposed_call_granted` trigger (new dispatcher subscription), not this path.
 - `packages/server/src/services/session-run-registry.ts` — the abort rail.
 - `packages/server/src/routes/threads.ts:1254-1392` — verdict resolution (first-verdict-wins `WHERE resolvedAt IS NULL`, 409 race, re-open).
 - `packages/server/src/routes/reviews.ts` — review composition / loader (the action-operation canvas binding).
@@ -164,20 +167,22 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **perm
 ## The four open details — RESOLVED
 
 ### 1. Fidelity: replay vs re-derive → **REPLAY (locked).**
-Session 2 executes the **captured exact call** (the wrapper rejects any non-matching call), it does NOT re-derive. *Justification:* re-derivation breaks Hard Rule 2 ("executed == reviewed") — the agent, re-provisioned with fresh context, could compute different args (different PR, larger refund) than the human approved, silently. Replay makes "the human approved THIS call" enforceable by construction: the grant is keyed to the identity hash; only a byte-faithful re-attempt matches. The cost is that session 2 must re-attempt *the same* call — handled by re-seeding the agent's context with the approved Proposed Call so the agent re-issues it (and if the agent's re-attempt drifts, the wrapper blocks it, and we surface that as a held/failed state rather than executing the wrong thing). Replay is the only option consistent with the rejection list (#5).
+Session 2 executes the **captured exact call** (the wrapper rejects any non-matching call), it does NOT re-derive. *Justification:* re-derivation breaks Hard Rule 2 ("executed == reviewed") — the agent, re-provisioned with fresh context, could compute different args (different PR, larger refund) than the human approved, silently. Replay makes "the human approved THIS call" enforceable by construction: the grant is keyed to the identity hash; only a byte-faithful re-attempt matches.
+
+**Replay-from-record, not LLM re-issue (the load-bearing distinction).** An LLM is *not* a deterministic replayer — a re-summarized PR number, reordered JSON keys, `42` vs `42.0`, or a unicode shift would drift the args, miss the hash, and **deadlock the approved work** (the call stays blocked, the grant unconsumed). So HyperIdle does not hope the LLM reproduces the call. It **seeds session 2's message history** (`SessionConfig.messages` — the existing AH3 §1.4 channel, NOT `assembleContext`, which only writes knowledge to disk and discards its return) with a **pre-filled `tool_use` block carrying the verbatim recorded `{toolId, args}`**, so the harness emits the *recorded bytes*. The agent's own session/creds still execute the resulting permitted call — HyperIdle seeds the request, never calls the tool. **Deadlock fallback:** if session 2 ends with the grant unconsumed, HyperIdle re-provisions once more, then surfaces a `failed` Outcome + holds the call — never a silent hang. Replay-from-record is the only option consistent with the rejection list (#5).
 
 ### 2. Wrapper location → **`registry.invoke` is the uniform seam (confirmed).**
 `tool-registry.ts:274 registry.invoke` is the one place all tool paths funnel — builtin (internal) AND all MCP-routed tools (SDK, CLI). The wrapper's **capture** (block-time) and **grant enforcement** (approve-time, session 2) live here as the uniform mechanism. The per-adapter native gates are **dressing on top**: SDK `canUseTool(tool,input)` / `permissionMode`; Codex `execCommandApproval`/`applyPatchApproval` JSON-RPC; opencode `permission.asked` SSE. Rationale: the native gates differ per harness and some don't exist yet in our adapters; `registry.invoke` is already present, already covers the MCP-routed path for SDK/CLI, and is the only seam guaranteed for every adapter. Native gates are an optimization/UX layer (block at the harness edge before the call reaches MCP), not the source of truth for capture + one-shot enforcement.
 
 ### 3. One-shot exact-call enforcement → **wrapper-owned, hash-match + atomic consume.**
 No harness expresses "allow this exact call once" — native allow-lists gate by name/pattern. So the wrapper owns it:
-- At approve-time, mint a **one-shot grant** = `{ proposedCallId, identityHash, sessionScope: <session-2-id>, consumed: false }`.
-- In session 2, at `registry.invoke`, the wrapper computes the identity hash of the incoming call and looks for an **unconsumed** grant matching `(sessionScope, identityHash)`.
-- On match: **atomically** flip `consumed` (conditional update `WHERE consumed = false`, like the existing first-verdict-wins `WHERE resolvedAt IS NULL` pattern) → if the flip wins, permit the call exactly once; if it loses (already consumed / re-delivery), block. The call is permitted; the agent's tool runs; the real return is recorded as the Outcome.
+- At approve-time, mint a **one-shot grant** = `{ proposedCallId, identityHash, taskScope, agentScope, consumed: false }`. *(Scope is task id + agent id, NOT a session-2 id — session 2's id does not exist at approve time; the unique re-provision is the same agent resuming the same task.)*
+- In session 2, at `registry.invoke`, the wrapper computes the identity hash of the incoming call and resolves an **unconsumed** grant matching `(taskScope, agentScope, identityHash)`.
+- The find-and-claim is a **single SQL statement** — a conditional `UPDATE one_shot_grants SET consumed = true … WHERE … AND consumed = false RETURNING *` (mirroring the first-verdict-wins `WHERE resolvedAt IS NULL` idiom in `threads.ts`, no read-then-write). If the statement returns a row, permit the call exactly once; if it returns zero rows (no grant / already consumed / re-delivery), block. The call is permitted; the agent's tool runs; the real return is recorded as the Outcome.
 - Any call in session 2 with **no matching unconsumed grant** is blocked by the normal gate. This guarantees executed == reviewed, once.
 
 ### 4. Reversible auto-flow + work-continues → **locked.**
-Reversible calls → **allowed at the gate, no review** (Hard Rule 4). Irreversible calls → **capture → review → reinit-allow**. The **work-continues-after-review** loop (formerly a separate WP) IS the session-2 resume: session 2 is re-provisioned through the existing `task-dispatcher` rail (`session_ended` / `task_state_changed` → `provisionSession` → `strategy.assembleContext`), executes the granted call, and **keeps working** in the same session. AL7 is **done only when** a real tool call executes LIVE through the agent's own tools AND the agent continues working afterward — no fixture/stub proof (Hard Rule 6).
+Reversible calls → **allowed at the gate, no review** (Hard Rule 4). Irreversible calls → **capture → review → reinit-allow**. The **work-continues-after-review** loop (formerly a separate WP) IS the session-2 resume: on approve the verdict path emits a **`proposed_call_granted`** event and the task-dispatcher's dedicated subscription re-provisions session 2 (the same-owner resume is **not** triggered by the owner-change `session_ended` path — that guard is false for AL7), which executes the granted call and **keeps working** in the same session. AL7 is **done only when** a real, MCP-routed tool call (the `commit_file` live-proof tool, or the `github_merge_pr` exemplar) executes LIVE through the agent's own tools AND the agent continues working afterward — no fixture/stub proof (Hard Rule 6).
 
 ---
 
