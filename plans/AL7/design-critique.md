@@ -80,3 +80,40 @@ point. No CRITICAL. Three WARNINGs are all token/format/truncation fidelity issu
 *surfacing* quality the brief makes the spine of the design — fixable in the build task, none require
 a redesign. Build-ready **once findings 1–3 are folded into the build task**; finding #3 (verbatim
 error must not truncate) is the one a careless build will ship wrong.
+
+---
+
+# Round 2 addendum (revised design @ d599ccda)
+
+Verified against the actual TSX (`packages/web/src/pages/review/ReviewActionOperation.tsx`), not the
+prose.
+
+- **#1 (success fill) — RESOLVED.** `OutcomeBand` OK background is now `var(--accent-primary-dim)`
+  (line 306), border `--accent-primary`. The warning fill `--accent-secondary-dim` is confined to the
+  amount block + IrreversibleBadge (147, 376). A succeeded op no longer reads in the money/danger
+  family. `approved.md` documents the token decision.
+- **#2 (executedAt humanization) — RESOLVED.** `executedAt` is contracted as a pre-humanized display
+  string the component renders as-is (88-96, 346); the reviews loader humanizes the stored ISO at the
+  response boundary (architecture §7, matching `producedAgo`). No raw ISO reaches the band.
+- **#3 (verbatim error must not truncate) — RESOLVED.** The failed branch renders the error with
+  `whitespace-pre-wrap break-words` (line 360), preserving the tool's own newlines and wrapping long
+  tokens. The OK `receipt` stays single-line `truncate` (351) — exactly the asymmetric split this
+  finding asked for. This was the one a careless build would have shipped wrong; it is now explicit in
+  both the TSX and `approved.md`.
+- **#4 (held == pending) — RESOLVED.** `approved.md` states `held` renders identically to `pending`
+  (no band) by design and the builder must not invent a band; consistent with the architecture never
+  storing a `held` column value.
+- **#5 (failure story long error) — RESOLVED.** `ReviewActionOperationOutcome.stories.tsx` exists;
+  `approved.md` mandates the `Failed` export carry a realistic multi-line error so the DOM-snapshot
+  net captures the wrapping (a one-word error would let the truncation bug ship green).
+
+**Open build item (NIT, not a design defect):** the inline `type StagedOperationStatus` union is
+still present at TSX line 82. Architecture §7a/N2 correctly defers replacing it with the
+shared-tuple-derived type to the builder so the canvas and dispatcher cannot drift — verify this
+landed during build, not in design.
+
+## Score (round 2): 9 / 10
+All three WARNINGs and both NITs are genuinely folded into the TSX + `approved.md`, verified against
+the rendered code. The spine of the design — verbatim, un-truncated, impossible-to-miss failure
+surfacing — is correct. No CRITICAL, no remaining WARNING. **Build-ready.** Only carry-forward is the
+shared-status-tuple swap (an architecture build task, not a design change).

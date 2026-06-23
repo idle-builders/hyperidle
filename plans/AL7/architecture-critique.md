@@ -255,3 +255,128 @@ in exactly the places the headline ACs depend on.
 atomicity/lost-dispatch, C3 optional-dep + swallowed failure) are correctness defects that would
 ship green against the planned tests. Re-anchor dispatch to the resolved review message, make the
 claim durable-and-non-optional, and define capability validation + the reviews loader before code.
+
+---
+
+# Round 2 addendum (revised plan @ d599ccda)
+
+Re-verified every prior finding against the real code, not the plan's word. Ground truth read:
+`threads.ts:1204-1224` (`resolvesMessageRow` derived from `input.payload.resolvesMessageId`),
+`threads.ts:1288-1311` (verdict tx + re-open), `threads.ts:1249-1250/1303-1307` (re-open clears
+`threads.resolvedAt` only), `reviews.ts` (still a `FIXTURE_REVIEW`, `createReviewRoutes()` zero-arg,
+one caller `app.ts:406`), `app.ts:412` (`createThreadRoutes` 3-arg), and the existing
+delete/FK-restrict tests (`foreign-keys.integration.test.ts`, `session-provisioning.test.ts:1112`).
+
+## CRITICAL — round 2
+
+### C1 — RESOLVED.
+Dispatch is now keyed on `reviewMessageId` (FK to `messages.id`), and the verdict path invokes
+`resolveStagedOperations(dispatchDeps, resolvesMessageRow.id)` (architecture §5). Verified against
+code: `resolvesMessageRow.id` (threads.ts:1212, set from `input.payload.resolvesMessageId`) is
+**exactly** the message whose `messages.resolvedAt` the tx sets `WHERE id=? AND resolvedAt IS NULL`
+(1288-1298). So the dispatch key IS the message the verdict resolves — not the thread. The
+`WHERE reviewMessageId=? AND status='pending'` filter (§4) means an approve on review B (resolving
+message B) selects only ops staged against B; review A's op (staged against message A) is never in
+the result set. There is **no remaining path where approving review B touches review A's op.** The
+mandated isolation test (§8 row "C1 — multi-review-per-thread isolation," architecture.md:440)
+genuinely exercises two ops on one bet host thread with only B approved and asserts op-A stays
+`pending` / `executeCapability` NOT called for A. This is the test whose absence let r0 ship green.
+Resolved.
+
+### C2 — RESOLVED (with one honesty caveat, acceptable).
+Dispatch is now `await`ed inside the approve handler (§5, architecture.md:320, 350), not
+fire-and-forget. Every claimed op reaches a terminal surfaced Outcome: success → `executed` + `ok`
+Outcome; tool throw → `failed` + verbatim-error Outcome (§4 b/c); **unknown capability** → throws
+into the same catch → `failed` (W2 folded). The crash window (claim committed, process dies before
+the Outcome write) is now **closed, not narrowed**: `sweepStrandedOperations` runs on boot, finds
+`status='executing'` rows with no `operation_outcomes` row, and converts each to `failed` with an
+explicit "interrupted — may or may not have run; re-stage to retry" message (§4). This honestly
+declines to re-execute (cannot know if the side-effect landed) — the right call, surfacing over
+silent retry. The concept invariant "every claimed op reaches a terminal surfaced Outcome" now holds
+with no `executing`-forever invisible state. Caveat (NIT, not blocking): the sweep is "on boot" but
+the plan doesn't name the boot hook that calls it — the build task must wire `sweepStrandedOperations`
+into the actual server-start path (alongside the app construction) and the §8 crash-recovery test
+covers the function, not the boot call. Minor; covered by the C3-style "prod wires it" discipline.
+
+### C3 — RESOLVED.
+`dispatchDeps` is explicitly NOT optional-into-a-no-op (§5, architecture.md:297-308). The build task
+mandates changing `app.ts:412` from the current 3-arg `createThreadRoutes(options.db, eventBus,
+options.assistantTurnDeps)` to pass `dispatchDeps`, with a test asserting the production app
+(`createApp`) builds the threads route WITH dispatch and an approve through the real app executes
+(not a no-op) — §8 row "Live server boot wires dispatch (C3)," task 5. Verified the seam: one prod
+caller at app.ts:412, clean to extend. The top-level swallowing `.catch()` is gone: tool failures
+become `failed` Outcomes (never thrown into the response), but an error that ESCAPES
+`resolveStagedOperations` (e.g. a DB error on the claim) now propagates to the route error handler —
+visible, not vanished (§5, architecture.md:322-327). No silent at-most-zero path remains. Resolved.
+
+## WARNING — round 2
+
+- **W1 — RESOLVED.** §2 now states plainly the `WHERE status='pending'` claim is the **sole**
+  at-most-once-*execution* guard and the UNIQUE-on-idempotencyKey index is an **anti-fork** guard
+  (prevents a second row for the same key), not co-equal. And the dispatcher forwards
+  `idempotencyKey` into `executeCapability(toSpec(op))` so the external tool dedupes on its side
+  (§2/§4/§6). The trigger-not-executor boundary is honored.
+- **W2 — RESOLVED.** Stage-time capability validation added (§3 step 2): `(capability.tool,
+  operation)` resolves against the harness capability descriptor for the staging agent (the same
+  surface `buildToolRegistry` reads); stage rejected if the agent was never provisioned it. Vocab
+  stays OPEN (no hardcoded map). The unknown-capability-at-dispatch case is defined as a surfaced
+  `failed` Outcome, never a silent skip (§4 c). Both halves tested (§8 "Capability validated…").
+- **W3 — RESOLVED.** §7 now states the reality (zero-arg fixture route, no `db`, 404s non-`rev-1`)
+  and the real task: thread `db` into `createReviewRoutes(db)` + update `app.ts:406`, define the
+  `reviewMessageId → staged_operations LEFT JOIN operation_outcomes` query, humanize `executedAt` at
+  the boundary, add `stagedOperation` to the response, and a loader integration test that returns the
+  Outcome for a resolved Subject (not a prop-render). Verified: `createReviewRoutes` has exactly one
+  caller and no test constructs it — clean single-callsite change, no hidden fan-out. No fictional
+  seam remains.
+- **W4 — DOWNGRADED to WARNING (mis-explained, but correctness-SAFE).** The per-message key (C1)
+  makes re-open double-execution **impossible in every branch** — confirmed by tracing the real code,
+  so the headline AC holds. BUT the plan's stated *mechanism* (architecture.md:340: "re-open clears
+  `messages.resolvedAt` for that message and the next verdict re-resolves it") is **factually wrong**:
+  re-open (threads.ts:1303-1307) clears `threads.resolvedAt` ONLY and never touches
+  `messages.resolvedAt`. Consequence — a verdict that tries to re-resolve the **same** message M hits
+  the `WHERE resolvedAt IS NULL` guard (1293) → 0 rows → `VerdictRaceConflict` → **409**, so "re-approve
+  the same M" cannot re-enter at all; it is rejected. A real re-open posts a **new** review message R;
+  a later verdict resolves R (a different id) → `resolveStagedOperations(R)` finds no op staged
+  against M → the original op never re-fires. Either way single-execution holds, but NOT for the
+  reason the plan gives. The §8 re-open test as written ("approve again resolving the **same** M")
+  will get a 409 on the second verdict, not prove the pending-claim returns 0 — so the test must be
+  rewritten to the **actual** re-open shape (re-open posts R, re-approve resolves R, assert the op
+  staged against M executed exactly once and is not re-fired; and if the product expects a re-staged
+  op to commit post-re-open, it must be staged against R). The plan's own ⚠️ build-confirm note
+  (architecture.md:345-349) anticipates this, which is why this is a WARNING not a CRITICAL — but the
+  prose and the test both encode the wrong model and must be corrected before the test is written, or
+  the re-open AC ships against a 409 it mistakes for proof.
+- **W5 — OPEN (correctly carried as a build gate, low risk).** `onDelete: "restrict"` on
+  `reviewMessageId`/`subjectThreadId`/`artifactId`/`stagedByAgentId`. Confirmed live concern: existing
+  tests delete `users` (session-provisioning.test.ts:1112) and assert FK-restrict throws
+  (foreign-keys.integration.test.ts:128/162/185/200). A lingering staged op would make those teardown
+  paths throw. The plan flags this as a mandatory build verification (§2, architecture.md:154-159) —
+  the right disposition. Remains an open verification item, not resolved-in-plan; acceptable to carry
+  into build as a gated task.
+
+## NIT — round 2
+- **N1 (live-proof) / N2 (shared status tuple) / N3 (event payload) — all RESOLVED** in §6 (live
+  GitHub merge is a non-optional local proof lane, honestly downgraded+flagged if no credential),
+  §2/§7a (canvas status type derived from the shared tuple), and §4 (the `operation_executed` payload
+  is now fully defined: `{ type, streamId, stagedOperationId, reviewMessageId, status }`, registered
+  in the shared union).
+- **New NIT (C2 boot hook):** name the server-start hook that invokes `sweepStrandedOperations` and
+  assert it runs at boot in the prod-app test (mirror the C3 "prod wires it" discipline). Otherwise
+  the sweep is a tested function nobody calls.
+
+## Score: 8 / 10
+All three CRITICALs are genuinely resolved against the real seam (verified, not taken on the plan's
+word): per-message dispatch key = the exact resolved message (C1), awaited dispatch + boot sweep
+closing the crash window with every claimed op reaching a terminal surfaced Outcome (C2), non-optional
+boot wiring + no top-level swallow (C3). W1/W2/W3 are resolved with real tasks. The remaining defect
+is **W4**: the plan reaches the correct *outcome* (single-execution is structurally guaranteed by the
+per-message key) but explains it with a **factually wrong re-open mechanism**, and the re-open
+integration test as written would assert against a 409 it mistakes for proof. That is a plan-prose +
+test-shape correction, not a schema or dispatch redesign — it does not gate the build the way the r0
+CRITICALs did. W5 is a carried build gate.
+
+**Verdict: build-ready (score ≥7, no CRITICAL).** Proceed to build with two mandatory corrections
+folded into the build tasks: (1) fix the W4 re-open prose + rewrite the re-open test to the real
+shape (re-open posts a NEW review message; re-resolving the same message is a 409, not re-entry);
+(2) wire `sweepStrandedOperations` into the actual boot path with a prod-app assertion. W5
+delete-path verification stays a gated task. None require another critique round.
