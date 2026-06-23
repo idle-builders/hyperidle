@@ -108,26 +108,6 @@ vi.mock("../src/log-rotation.js", () => ({
 	})),
 }));
 
-vi.mock("../src/window-state.js", () => ({
-	loadWindowState: vi.fn(() => ({
-		x: undefined,
-		y: undefined,
-		width: 1280,
-		height: 800,
-		isMaximized: false,
-		isFullScreen: false,
-	})),
-	saveWindowState: vi.fn(),
-	DEFAULT_WINDOW_STATE: {
-		x: undefined,
-		y: undefined,
-		width: 1280,
-		height: 800,
-		isMaximized: false,
-		isFullScreen: false,
-	},
-}));
-
 vi.mock("../src/app-menu.js", () => ({
 	buildAppMenuTemplate: vi.fn(() => ({})),
 }));

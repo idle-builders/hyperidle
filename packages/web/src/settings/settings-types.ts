@@ -59,58 +59,6 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "worker", label: "Worker" },
 ];
 
-// --- Settings data types ---
-
-export interface ProfileSettings {
-	name: string;
-	email: string;
-	avatarUrl: string;
-}
-
-/** @lore U1: Renamed from ProductSetting. */
-export interface TeamSetting {
-	id: string;
-	name: string;
-	active: boolean;
-}
-
-export type AutonomyLevel = "manual" | "supervised" | "autonomous";
-
-export interface UserSetting {
-	id: string;
-	name: string;
-	autonomyLevel: AutonomyLevel;
-	paused: boolean;
-}
-
-export interface NotificationSettings {
-	reviewAlerts: boolean;
-	costAlerts: boolean;
-	blockerAlerts: boolean;
-	/** @lore R8: defaults to false — quiet hours only take effect when this is true. */
-	quietHoursEnabled: boolean;
-	quietHoursStart: string;
-	quietHoursEnd: string;
-	/** @lore U1: renamed from mutedProducts. */
-	mutedTeams: string[];
-}
-
-export type Theme = "light" | "dark" | "system";
-
-export interface AppearanceSettings {
-	theme: Theme;
-}
-
-export interface SettingsData {
-	profile: ProfileSettings;
-	/** @lore U1: renamed from `products`. */
-	teams: TeamSetting[];
-	/** @lore P2: renamed from `agents`. Contains AI users only. */
-	users: UserSetting[];
-	notifications: NotificationSettings;
-	appearance: AppearanceSettings;
-}
-
 /** X3: Agent configuration as returned by GET /api/agents. */
 export interface AgentConfig {
 	id: string;

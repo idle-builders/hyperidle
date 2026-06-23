@@ -142,17 +142,3 @@ export async function revokeLoginSession(db: HyperIdleDb, sessionId: string): Pr
 		.set({ revokedAt: new Date().toISOString() })
 		.where(and(eq(loginSessions.id, sessionId), isNull(loginSessions.revokedAt)));
 }
-
-/**
- * Revoke all active (non-revoked) LoginSessions for a user.
- * Returns the number of sessions revoked.
- */
-export async function revokeAllUserSessions(db: HyperIdleDb, userId: string): Promise<number> {
-	const now = new Date().toISOString();
-	const result = await db
-		.update(loginSessions)
-		.set({ revokedAt: now })
-		.where(and(eq(loginSessions.userId, userId), isNull(loginSessions.revokedAt)))
-		.returning();
-	return result.length;
-}
