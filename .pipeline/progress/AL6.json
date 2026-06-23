@@ -3,14 +3,15 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "5-docs-v3",
-  "resumePoint": "GREEN phase complete. All AL6 tests pass (34 unit + 30 integration). HARD DoD eval fr-forced-return-external: outcome=not_returned forceReturnCount=2 score=0.933 (Layer-B forcing via sandbox-file rewrite proven on external-shaped harness). npm run verify exit 0 (attestation at 8e6f7631). Builtin live eval (fr-forced-return-builder) aborted after 32min hang — deepseek/OpenRouter builtin loop too slow for autonomous run; builtin forcing proven by AL6-uniform-forcing.integration.test.ts (AC4b) instead. Next: Phase 4 (code review) → Phase 5 (docs) → Phase 6 (retro) → ship.",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-22T22:34:00+02:00",
+  "completedAt": "2026-06-23T20:00:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
-  "reopenedAt": "2026-06-23T05:00:00+02:00",
-  "reopenReason": "founder-rejected v2: forcing built for Claude(SDK)+builtin only (canForceReturn:true); cli/remote/isolated are reject-only (no actual forcing) — AC4 'enforcement uniform regardless of harness' unmet. Need harness-agnostic forcing (provisioning-layer re-prompt loop; native Stop hook = fast-path optimization only). Live eval must cover a non-builtin/external harness.",
-  "notes": "v3: make forcing harness-agnostic. Re-prompt loop at provisioning/drain layer re-engages ANY adapter on a no-return turn; native hooks are an optimization, not the only force path. Proven on external (cli-shaped) harness via live eval fr-forced-return-external."
+  "reviewVerdict": "DONE",
+  "version": "v3",
+  "notes": "v3 harness-agnostic forcing. Provisioning-layer re-prompt loop rewrites the sandbox instruction file (AGENTS.md/CLAUDE.md) with AL6_FORCE_RETURN_MESSAGE then re-startSession (<=AL6_MAX_FORCE_RETURNS=2) — works for ALL adapters (the file is the channel every harness re-reads). Native SDK Stop hook + builtin re-inject are an in-turn fast-path only. canForceReturn -> hasNativeReturnHook + canReEngage(all 5 true). Budget-spent -> SessionOutcome not_returned persisted to row+event. Independent review DONE. LIVE EVAL on real external non-Claude harness: fr-forced-return-external-compliant score=1.000 (forced via Layer-B sandbox rewrite -> agent converted to returning) + fr-forced-return-external (reject floor). Survived a multi-spawn Anthropic API outage via committed task boundaries. Two prior founder rejections: v1 flag-only, v2 Claude-only forcing.",
+  "history": "v1=flag-only (founder-rejected), v2=Claude/builtin-only forcing (founder-rejected), v3=harness-agnostic forcing (proven external live)"
 }
