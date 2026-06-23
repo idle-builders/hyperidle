@@ -91,29 +91,24 @@ function TrustTag({ tier }: { tier: TrustTier }): JSX.Element {
 	return <Tag label="Community" />;
 }
 
-/** Containment note for mcp-oauth rows (security signal). Token note is in group description. */
-function containmentNote(s: ConnectionAuthSource): string | null {
-	if (s === "mcp-oauth") return "Auth held by the service";
-	return null; // harness: HyperIdle stores nothing; token: note is in group description
-}
-
 /**
- * Display via text for a row. For token rows, strip "held in vault" part from via
- * since the group description already carries that security signal once.
- * This keeps "held in vault" appearing ONCE in the DOM (group description) — not once
- * per row — so getByText finds exactly one element.
+ * Per-row containment note (the trust signal that never implies agent visibility).
  *
- * @lore AN1: The via field from the API is "API key · held in vault"; for the row
- * display we show just "API key" for token rows to avoid duplicating the containment
- * signal. The group description carries it once.
+ * approved.md §Row-anatomy line 29:
+ *   token → "Held in vault · server-side only"
+ *   mcp-oauth → "Auth held by the service"
+ *   harness → none (HyperIdle stores nothing)
+ *
+ * @lore AN1 WARN-2 (Phase-4 review fix): the containment note for token rows was
+ * previously stripped to avoid duplicate "held in vault" text in the DOM (so a
+ * getByText query would match exactly one element). That was tests-driving-production
+ * behavior — forbidden. The approved design requires the per-row note. The test was
+ * fixed to use getAllByText instead.
  */
-function displayVia(via: string, authSource: ConnectionAuthSource): string {
-	if (authSource === "token") {
-		// Show just the first part ("API key" from "API key · held in vault")
-		const dotPart = via.split("·")[0];
-		return dotPart !== undefined ? dotPart.trim() : via;
-	}
-	return via;
+function containmentNote(s: ConnectionAuthSource): string | null {
+	if (s === "token") return "Held in vault · server-side only";
+	if (s === "mcp-oauth") return "Auth held by the service";
+	return null; // harness: HyperIdle stores nothing
 }
 
 /** Health-sort within a group: needs-attention + expired float to the top. */
@@ -261,15 +256,32 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 
 interface ConnectionRowProps {
 	connection: ServiceConnectionView;
-	onRemove: (id: string) => void;
+	onRemove: (id: string) => Promise<void>;
 }
 
 function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Element {
 	const [menuOpen, setMenuOpen] = useState(false);
+	/**
+	 * @lore AN1 WARN-4 (Phase-4 review fix): approved.md §Row-overflow line 45 mandates
+	 * "Revoke requires a confirm step before it fires." The Menu Remove sets confirming=true;
+	 * only the second click (Confirm? button) fires onRemove. Mirrors the SettingsAgents
+	 * two-click pattern.
+	 */
+	const [confirming, setConfirming] = useState(false);
 	const note = containmentNote(c.authSource);
 
 	const menuItems: MenuItem[] = c.removable
-		? [{ id: "remove", label: "Remove", onSelect: () => onRemove(c.id), destructive: true }]
+		? [
+				{
+					id: "remove",
+					label: "Remove",
+					onSelect: () => {
+						setMenuOpen(false);
+						setConfirming(true);
+					},
+					destructive: true,
+				},
+			]
 		: [];
 
 	// @lore AN1: For harness rows with health="usable", suppress the StatusChip
@@ -289,7 +301,7 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 			}
 			subtitle={
 				<span className="flex items-center gap-[6px]">
-					{displayVia(c.via, c.authSource)}
+					{c.via}
 					{note ? <span className="text-[var(--text-tertiary)]">· {note}</span> : null}
 				</span>
 			}
@@ -311,22 +323,46 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 						<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
 					) : null}
 					{c.removable ? (
-						<div className="relative">
-							<Button
-								variant="ghost"
-								size="sm"
-								aria-label={`Actions for ${c.service}`}
-								onClick={() => setMenuOpen((o) => !o)}
-							>
-								⋯
-							</Button>
-							<Menu
-								open={menuOpen}
-								onClose={() => setMenuOpen(false)}
-								items={menuItems}
-								label={`Actions for ${c.service}`}
-							/>
-						</div>
+						confirming ? (
+							<span className="flex items-center gap-[6px]">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="text-[var(--status-error)]"
+									onClick={() => {
+										void onRemove(c.id).then(() => setConfirming(false));
+									}}
+									aria-label={`Confirm remove ${c.service}`}
+								>
+									Confirm?
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setConfirming(false)}
+									aria-label="Cancel remove"
+								>
+									Cancel
+								</Button>
+							</span>
+						) : (
+							<div className="relative">
+								<Button
+									variant="ghost"
+									size="sm"
+									aria-label={`Actions for ${c.service}`}
+									onClick={() => setMenuOpen((o) => !o)}
+								>
+									⋯
+								</Button>
+								<Menu
+									open={menuOpen}
+									onClose={() => setMenuOpen(false)}
+									items={menuItems}
+									label={`Actions for ${c.service}`}
+								/>
+							</div>
+						)
 					) : null}
 				</span>
 			}
@@ -343,7 +379,7 @@ interface SourceGroupProps {
 	help: string;
 	connections: ServiceConnectionView[];
 	autoDetected?: boolean;
-	onRemove: (id: string) => void;
+	onRemove: (id: string) => Promise<void>;
 }
 
 function SourceGroup({
@@ -387,6 +423,11 @@ export function SettingsConnections(): JSX.Element {
 	const [connections, setConnections] = useState<ServiceConnectionView[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	/**
+	 * @lore AN1 WARN-4 (Phase-4 review fix): approved design requires destructive actions
+	 * that fail to acknowledge on-screen. removeError surfaces a failed DELETE to the user.
+	 */
+	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 
 	const loadConnections = useCallback(async () => {
@@ -414,14 +455,18 @@ export function SettingsConnections(): JSX.Element {
 	}, [loadConnections]);
 
 	const handleRemove = useCallback(
-		async (id: string) => {
+		async (id: string): Promise<void> => {
+			setRemoveError(null);
 			try {
 				const res = await apiFetch(`/api/connections/${id}`, { method: "DELETE" });
 				if (res.ok) {
 					void loadConnections();
+				} else {
+					// Surface the failure — the row stays listed so the user knows it failed.
+					setRemoveError("Couldn't remove connection — please try again.");
 				}
 			} catch {
-				// swallow — connection stays listed until next reload
+				setRemoveError("Couldn't remove connection — please try again.");
 			}
 		},
 		[loadConnections],
@@ -486,6 +531,12 @@ export function SettingsConnections(): JSX.Element {
 					/>
 				</>
 			)}
+
+			{removeError ? (
+				<p className="text-[13px] text-[var(--status-error)]" role="alert">
+					{removeError}
+				</p>
+			) : null}
 
 			<AddConnectionDialog
 				open={dialogOpen}

@@ -22,6 +22,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsConnections } from "../SettingsConnections.js";
 
@@ -278,8 +279,11 @@ describe("AN1 SettingsConnections — containment note on token rows", () => {
 	it("token row subtitle includes the containment note ('held in vault' / 'server-side')", async () => {
 		render(<SettingsConnections />);
 		await waitFor(() => {
-			// The containment note for token rows: "Held in vault · server-side only"
-			expect(screen.getByText(/held in vault/i)).toBeInTheDocument();
+			// The approved design (approved.md §Row-anatomy line 29) requires per-row containment
+			// note "Held in vault · server-side only" on token rows, PLUS the group help text also
+			// contains "Held in vault". Multiple matches are expected — use getAllByText.
+			const matches = screen.getAllByText(/held in vault/i);
+			expect(matches.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -375,6 +379,117 @@ describe("AN1 SettingsConnections — error state", () => {
 		});
 
 		vi.restoreAllMocks();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Confirm step before DELETE fires (WARN-4 — approved.md §Row-overflow line 45)
+// ---------------------------------------------------------------------------
+
+describe("AN1 SettingsConnections — revoke confirm step (WARN-4)", () => {
+	beforeEach(() => {
+		mockFetch();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("clicking ⋯ overflow for a removable row then Remove shows a Confirm? button before DELETE fires", async () => {
+		const user = userEvent.setup();
+		render(<SettingsConnections />);
+
+		// Wait for connections to load (Stripe is a removable token connection).
+		await waitFor(() => {
+			expect(screen.getByText("Stripe")).toBeInTheDocument();
+		});
+
+		// Open the overflow menu for Stripe.
+		const overflowBtn = screen.getByRole("button", { name: /actions for stripe/i });
+		await user.click(overflowBtn);
+
+		// The "Remove" menu item should be visible.
+		await waitFor(() => {
+			expect(screen.getByText(/remove/i)).toBeInTheDocument();
+		});
+
+		// Click Remove — this must NOT fire DELETE yet; it should show Confirm?.
+		const removeItem = screen.getByText(/remove/i);
+		await user.click(removeItem);
+
+		// Confirm? button must appear.
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /confirm remove stripe/i })).toBeInTheDocument();
+		});
+
+		// Cancel should dismiss the confirm state.
+		const cancelBtn = screen.getByRole("button", { name: /cancel remove/i });
+		await user.click(cancelBtn);
+
+		// After cancel, Confirm? button should be gone.
+		expect(screen.queryByRole("button", { name: /confirm remove stripe/i })).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Remove failure is surfaced on-screen (WARN-4)
+// ---------------------------------------------------------------------------
+
+describe("AN1 SettingsConnections — remove failure surface (WARN-4)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("when DELETE fails, an error message is shown on screen", async () => {
+		const user = userEvent.setup();
+
+		// GET succeeds, DELETE fails.
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+				if (typeof url === "string" && url.includes("/api/connections")) {
+					const method = ((init?.method ?? "GET") as string).toUpperCase();
+					if (method === "GET") {
+						return Promise.resolve({ ok: true, status: 200, json: async () => TOKEN_CONNECTIONS });
+					}
+					if (method === "DELETE") {
+						return Promise.resolve({
+							ok: false,
+							status: 500,
+							json: async () => ({ error: "Internal server error" }),
+						});
+					}
+				}
+				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+			}),
+		);
+
+		render(<SettingsConnections />);
+
+		// Wait for Stripe to load.
+		await waitFor(() => {
+			expect(screen.getByText("Stripe")).toBeInTheDocument();
+		});
+
+		// Open overflow menu for Stripe.
+		const overflowBtn = screen.getByRole("button", { name: /actions for stripe/i });
+		await user.click(overflowBtn);
+
+		// Click Remove.
+		await waitFor(() => expect(screen.getByText(/remove/i)).toBeInTheDocument());
+		await user.click(screen.getByText(/remove/i));
+
+		// Confirm? appears — click it.
+		await waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: /confirm remove stripe/i }),
+			).toBeInTheDocument(),
+		);
+		await user.click(screen.getByRole("button", { name: /confirm remove stripe/i }));
+
+		// An error message must appear on screen (the DELETE failed).
+		await waitFor(() => {
+			expect(screen.getByText(/couldn't remove/i)).toBeInTheDocument();
+		});
 	});
 });
 
