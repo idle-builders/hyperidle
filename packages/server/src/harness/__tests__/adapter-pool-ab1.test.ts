@@ -87,7 +87,8 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			hasNativeReturnHook: false, canReEngage: true,
+			hasNativeReturnHook: false,
+			canReEngage: true,
 		};
 		pool.register("local-claude-code", makeAdapter(caps), {
 			...BASE_META,

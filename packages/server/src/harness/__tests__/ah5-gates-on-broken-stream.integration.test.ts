@@ -67,7 +67,8 @@ function makeBrokenStreamAdapter(): HarnessAdapter {
 		subAgents: false,
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		mcpSupport: false,
-		hasNativeReturnHook: false, canReEngage: true,
+		hasNativeReturnHook: false,
+		canReEngage: true,
 	};
 
 	return {

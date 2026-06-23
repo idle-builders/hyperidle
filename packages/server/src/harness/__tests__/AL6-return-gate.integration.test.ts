@@ -535,7 +535,12 @@ describe("AL6 v2 — return-gate integration", () => {
 			},
 			{
 				name: "remote-shaped-tier2",
-				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: false, subAgents: false },
+				caps: {
+					hasNativeReturnHook: false,
+					canReEngage: true,
+					mcpSupport: false,
+					subAgents: false,
+				},
 				tier: "tier2-reject",
 			},
 			{

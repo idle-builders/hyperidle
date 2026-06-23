@@ -397,7 +397,10 @@ describe("AL6 v3 — hasNativeReturnHook / canReEngage capability shape (T1/T3 r
 
 	it("HarnessCapabilities NO LONGER has canForceReturn (v2 field removed in T1)", () => {
 		// If canForceReturn still exists on any adapter, the field has not been renamed yet.
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
+			string,
+			unknown
+		>;
 		// FAILS red until T1/T3 renames the field — currently canForceReturn=true exists
 		expect("canForceReturn" in caps).toBe(false);
 	});

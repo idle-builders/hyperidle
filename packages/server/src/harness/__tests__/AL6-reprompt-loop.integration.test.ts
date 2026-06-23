@@ -27,6 +27,8 @@
  *   - T7: v2 "Tier-2 reject immediately" branch deleted from provisioning
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { fabricStrategy } from "@hyperidle/fabric";
 import type {
@@ -37,10 +39,8 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import * as sharedAll from "@hyperidle/shared";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
@@ -468,7 +468,9 @@ describe("AL6 v3 — re-prompt loop integration", () => {
 
 				// forceReturnCount = number of Layer-B re-engages = AL6_MAX_FORCE_RETURNS.
 				// FAILS red until T6 adds forceReturnCount.
-				expect((result as unknown as Record<string, unknown>).forceReturnCount).toBe(AL6_MAX_FORCE_RETURNS);
+				expect((result as unknown as Record<string, unknown>).forceReturnCount).toBe(
+					AL6_MAX_FORCE_RETURNS,
+				);
 
 				// session_not_returned must still be emitted.
 				expect(emittedEventTypes).toContain("session_not_returned");

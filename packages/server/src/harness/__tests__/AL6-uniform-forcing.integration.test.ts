@@ -28,6 +28,8 @@
  *   - T6: re-prompt loop + unified forceReturnCount on ProvisionSessionResult
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { fabricStrategy } from "@hyperidle/fabric";
 import type {
@@ -38,10 +40,8 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import * as sharedAll from "@hyperidle/shared";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
@@ -168,7 +168,11 @@ function makeSandboxCarrierMock(): HarnessAdapter & {
 		},
 
 		async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-			return { outcome: "completed", cost: { minor: 100, currency: "USD" }, tokenUsage: { byTier: {} } };
+			return {
+				outcome: "completed",
+				cost: { minor: 100, currency: "USD" },
+				tokenUsage: { byTier: {} },
+			};
 		},
 
 		getCapabilities(): HarnessCapabilities {
@@ -241,7 +245,11 @@ function makeLayerAMock(): HarnessAdapter & {
 		},
 
 		async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-			return { outcome: "completed", cost: { minor: 100, currency: "USD" }, tokenUsage: { byTier: {} } };
+			return {
+				outcome: "completed",
+				cost: { minor: 100, currency: "USD" },
+				tokenUsage: { byTier: {} },
+			};
 		},
 
 		getCapabilities(): HarnessCapabilities {
@@ -652,7 +660,9 @@ describe("AL6 v3 — uniform forcing (AC4)", () => {
 			}
 		});
 
-		test("Layer-A mock forceReturnCount = native count (Layer-A), loop count = 0", async ({ db }) => {
+		test("Layer-A mock forceReturnCount = native count (Layer-A), loop count = 0", async ({
+			db,
+		}) => {
 			const taskId = "al6v3-unified-native-1";
 			await seedDb(db, taskId);
 

@@ -542,7 +542,8 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				modelProviders: ["anthropic"],
 				mcpSupport: true,
 				// AL6 v2: SDK adapter is Tier-1 (has Stop hook → canForceReturn=true).
-				hasNativeReturnHook: true, canReEngage: true,
+				hasNativeReturnHook: true,
+				canReEngage: true,
 			});
 		});
 	});

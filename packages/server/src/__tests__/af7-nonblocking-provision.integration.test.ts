@@ -100,7 +100,8 @@ class SlowHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
-			hasNativeReturnHook: false, canReEngage: true,
+			hasNativeReturnHook: false,
+			canReEngage: true,
 		};
 	}
 }
@@ -133,7 +134,8 @@ class BuiltinLikeAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
-			hasNativeReturnHook: false, canReEngage: true,
+			hasNativeReturnHook: false,
+			canReEngage: true,
 		};
 	}
 }

@@ -42,12 +42,8 @@ import type {
 	TriggerContext,
 	TriggerResult,
 } from "../types.js";
-// AL6 v3: runEvalSession extended with harnessKind param (T10 red).
-// Cast to any-extended type so the scenario compiles now; T10 must add the param.
-type RunEvalSessionFn = typeof runEvalSession extends (...args: infer A) => infer R
-	? (deps: A[0], params: A[1] & { harnessKind?: "builtin" | "external" }) => R
-	: never;
-const runEvalSessionV3 = runEvalSession as unknown as RunEvalSessionFn;
+
+// AL6 v3 T10: runEvalSession now accepts harnessKind directly — no cast needed.
 
 // ---------------------------------------------------------------------------
 // fr-forced-return-builder
@@ -331,12 +327,11 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 	},
 
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		// T10 red: harnessKind:"external" routes to the external-shaped adapter
-		// (real CLI if present, else external-shaped real-model adapter per §5.2).
-		// If T10 is not shipped, runEvalSession ignores the unknown param and falls
-		// back to builtin — but the judge will see loopForceCount=0 and the
-		// force_return_injected judge will return score:0 (expected failure in red phase).
-		return await runEvalSessionV3(
+		// AL6 v3 T10: harnessKind:"external" routes to the external-shaped adapter.
+		// If claude CLI is present: uses CliHarnessAdapter (real subprocess + sandbox-file carrier).
+		// Else: uses ExternalShapedAdapter (direct LLM call, reads AGENTS.md from sandbox).
+		// Both prove Layer-B forcing via the provisioning re-prompt loop.
+		return await runEvalSession(
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
@@ -348,8 +343,6 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 				taskId: ctx.seedResult.taskId,
 				agentId: ctx.seedResult.agentId,
 				teamId: ctx.seedResult.teamId,
-				// AL6 v3 T10 red: this param is not yet consumed by runEvalSession.
-				// The green phase (T10) must add the external harness registration branch.
 				harnessKind: "external",
 			},
 		);
@@ -397,8 +390,7 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 					if (outcome === "completed") {
 						return {
 							score: 1.0,
-							note:
-								"Session completed — external agent was forced to return via Layer-B and did so correctly",
+							note: "Session completed — external agent was forced to return via Layer-B and did so correctly",
 						};
 					}
 
@@ -422,7 +414,8 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 			// Judge 3: v1 regression guard — outcome≠completed when returnVerdict=not_returned.
 			{
 				id: "not_silently_completed",
-				label: "Turn NOT silently completed (v1 regression guard: outcome≠completed when returnVerdict=not_returned)",
+				label:
+					"Turn NOT silently completed (v1 regression guard: outcome≠completed when returnVerdict=not_returned)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const returnVerdict = ctx.triggerResult.returnVerdict;

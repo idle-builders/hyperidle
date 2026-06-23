@@ -67,7 +67,8 @@ function makeScriptedAdapter(events: HarnessEvent[] = DEFAULT_STUB_EVENTS): Harn
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
-				hasNativeReturnHook: false, canReEngage: true,
+				hasNativeReturnHook: false,
+				canReEngage: true,
 			};
 		},
 	};
