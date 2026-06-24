@@ -352,3 +352,243 @@ The three candidate patterns from the v1/v2 retro are CONFIRMED by v3. Additiona
 
 ---
 
+
+## v4 — The Mock-Validation Trap and Real-Harness Testing Convergence
+
+### What v4 Did (and Why It Failed at First)
+
+| Aspect | v3 | v4 |
+|---|---|---|
+| **Mechanism** | Re-prompt loop + sandbox-file rewrite (Layer B) | **Per-harness native hooks** (Claude Stop hook + Codex hooks.json) + process-reengage (OpenCode) + in-process loop (builtin) provisioned by HyperIdle at session startup |
+| **Adjudication** | Sandbox-file rewrite as universal carrier | Per-session HTTP bridge with MCP-routed `/return-status` adjudicator; shared singleton `enforcementRegistry` for all harnesses |
+| **Harness scope** | All (but via single Layer-B re-prompt mechanism) | All, each using its native enforcement: Stop hooks (Claude, Codex), process re-engage (OpenCode), in-process loop (builtin) |
+| **Provisioning** | Monolithic `session-provisioning.ts` | Per-harness at `provision-return-hook.ts` + `cli-harness-adapter.ts` + shared adjudication registry |
+| **Live eval** | External non-Claude (deepseek, 0.933/1.0) | Same external path (testing the hardest path for each harness) |
+| **Lines of code** | ~450 | ~800 (provisioning + re-engage + adjudication + multi-harness bridge) |
+| **Gates passed** | Architecture-critique 8/9 → 9/9; code-review DONE | Code-review rounds 1–4: three NOT DONE → final DONE |
+
+### The Four Rounds and The Mock-Validation Trap
+
+#### Round 1: The Dead Endpoint (Hook Routes to 404)
+
+**Review verdict: NOT DONE (5 CRITs)**
+
+The implementation wired hooks and a bridge but the link was severed:
+- Claude/Codex Stop hooks POSTed to `/api/mcp/<token>/return-status`
+- The router only matched `/api/mcp/<token>` (exact) → the `/return-status` segment 404ed
+- No route existed; `hyperidle_return_status` was only an MCP tool, not an HTTP endpoint
+
+**The trap:** The "FULL BINARY PROOF" tests (`AL6-real-harness-return-enforcement.integration.test.ts`) spawned the *real* claude/codex binaries (not stubs), but:
+- They provisioned a mock HTTP server (`startBridgeServer()`) with an invented `POST /return-status` protocol
+- The real hook curled the mock, got a `callCount>=1` assertion
+- This proved "the binary fires a Stop hook that can curl *some* server"
+- It did NOT prove the hook reaches HyperIdle's adjudicator (it didn't; it got 404 in production)
+
+**Core failure:** The test passed against a **mock that matches a protocol the test itself invented**, not the real server. A test that invents the server and the protocol, then validates the implementation against that, is a tautology — it proves implementation-matches-test, not implementation-matches-reality.
+
+**Discriminator:** If the test had pointed the hook at the real server (`app` fixture) with no mock, it would have failed (404). Instead, the mock stood in, and both the test and the implementation were satisfied with an invented contract.
+
+#### Round 2: The Mock Is Deleted But Still Present (Proof Without Loop)
+
+**Review verdict: NOT DONE (CRIT-1/2/3 unproven, CRIT-4 fixed)**
+
+Fixes: Added the real `/return-status` route; removed the mock server setup.
+
+**New trap — same class:** The real route now existed and was wired. The tests were deleted and retaken against `startRealServer()` which mounted the real route. But the binary-proof tests STILL used `startBridgeServer` (now a different mock implementation). Oh wait, actually they still did not use the real app. The tests asserted `bridge.callCount>=1` where `bridge = startBridgeServer()` — a locally-instantiated HTTP mock listening on a different port.
+
+Wait, let me re-read round 2. It says the mock was NOT deleted in round 2, it remained. Round 2 verdict is: loop wired but proven only vs mock.
+
+**The decisive issue:** The production route was wired in code but the binary-proof tests never exercised it. The fake `startBridgeServer` mock sat between the real binary and the real server. This is the "tunnel of lies" — the test validates a path that bypasses production.
+
+#### Round 3: Opening the Tunnel — Three Harnesses Fixed, One Remains Broken
+
+**Review verdict: NOT DONE (opencode re-engage malformed, test masks via fabricated config)**
+
+Fixes: Deleted the mock; real-harness tests now use `startRealServer()` mounting the real route. claude/codex FULL BINARY PROOFS assert against the real `enforcementRegistry` (not a mock `callCount`). The route now goes to the real HyperIdle server.
+
+**New trap — this one specific to opencode:** The opencode re-engage loop is now real code (`:513-599` in the adapter), but the test drives a **fabricated config**:
+- Production config: `["--dir", "{{sandbox}}"]` (from `CLI_TOOL_CONFIGS.opencode` at `adapter-pool.ts:376`)
+- Test config: `["run", "--format", "json"]` (from `makeProcessReEngageConfig()` at test line 44)
+
+The production path builds: `["--dir", ""].filter(length>0)` (empty string dropped, `--dir` becomes a standalone stray arg, forcing message appended as positional) — **malformed, no `run` subcommand.**
+
+The test re-engage path builds: `["run", forceMsg, "--format", "json"]` — **correct, matches real opencode invocation.**
+
+A real opencode re-engage in production would either crash (no `run` subcommand) or deliver the forcing message incorrectly. The test never exercised the production path; it used a working but different shape. **Same root failure as round 1:** test validates against a shape that isn't what ships.
+
+**Sanity-break evidence:** Reviewer reverted the real fix (removed the `run` construction) → 2 out of 6 unit tests FAILED with `AssertionError: expected "--dir" to be "run"`. The test DID discriminate, but only when pointed at the real path. Round 3 had left it pointed at a fabricated path, passing vacuously.
+
+#### Round 4: Closing All Tunnels (DONE)
+
+**Review verdict: DONE**
+
+Fixes:
+1. Fixed opencode re-engage invocation: production now builds `["run", forceMsg, "--format", "json", "--pure", "--model", model]` — the correct shape, every arg present
+2. Updated the unit test to import and use the REAL `CLI_TOOL_CONFIGS.opencode` (the `["--dir", "{{sandbox}}"]` shape), not a fabricated shape
+3. Updated the integration test to spawn the real binary with the production-shaped args
+
+**Sanity-break (final):** Reverted the fix to the old broken code → exactly 2/6 unit tests FAILED; verified the test discriminates the real defect. Restored; all 6 pass.
+
+**Per-harness proof status (final):**
+- **claude:** Real binary → real Stop hook → real `/return-status` route → real `enforcementRegistry` → `forceCount>=1` from hook fire, NO mock. Fails if route 404s.
+- **codex:** Real binary + per-session `CODEX_HOME` → real hooks.json Stop hook → same real route + registry. Fails if hook call path breaks.
+- **opencode:** Real binary (spawned) → real re-engage invocation (`run` subcommand present) → real registry increment in adapter loop (unit test with injected spawn, real config) + real binary acceptance of the full invocation (integration test spawn). Unit test fails if invocation malformed; integration fails if binary rejects it.
+- **builtin:** In-process (not spawnable) → real in-process forcing loop → real registry → `forceCount>=1` from loop fire (no drain fallback). Fails if loop is decorative.
+
+No mock. No fabricated config. All four harnesses proven end-to-end.
+
+---
+
+### Why This Matters: The Mock-Validation Trap (New Pattern, High Frequency)
+
+**Pattern:** A test suite passes because it validates implementation against a mock/stub that matches a **contract the test itself invented**, not the real contract the system enforces.
+
+Symptoms:
+- Test invents or provides a `startMockServer()` that speaks a protocol
+- Implementation talks to the mock and gets expected responses
+- Test asserts "contract fulfilled" — e.g., `callCount>=1`
+- Real system's contract (the one shipped code relies on) differs or is missing entirely
+- Real production code would fail, but the test doesn't touch it
+
+**Root cause:** Separation of concerns is inverted. The test should prove "implementation + real system work together"; instead it proves "implementation matches test's idea of the system."
+
+**Discriminator:** If you remove the real server (or the real link to it), do all the tests still pass?
+- **v4 round 1/2:** Yes — the mock server still runs, tests still pass, real 404 endpoint never touched.
+- **v4 round 3 opencode:** Yes — test used a fabricated config that isn't what ships; the real (broken) config never tested.
+- **v4 round 4:** No (after fix) — revert the production fix → tests FAIL. The test now discriminates reality.
+
+**The sanity-break:** The reviewer performed a decisive check in round 3 and round 4: nullify a key production link (disable the real route registry read in round 3; revert the opencode fix in round 4) → tests that claimed success went red. That's the proof the test is real.
+
+**Candidate `/compound` process improvement:**
+For any AC that reads "X calls Y and Y adjudicates," require:
+1. The test exercises the REAL Y (shipped implementation, not mock)
+2. The test includes a sanity-break: remove/nullify the real Y → test FAILS
+3. Real and test use the SAME configuration/contract (no fabricated shape that "works in test")
+4. The test is flagged as "NOT DONE" until sanity-break is verified
+
+---
+
+### What Went RIGHT: The Convergence (For Replication)
+
+**1. Independent review across four rounds with escalating rigor.**
+- Round 1: "The route is dead." Reviewer checked the router code against the hook POST target; 404 found.
+- Round 2: "The loop is wired but proven only vs mock." Reviewer questioned why the real binary test used a mock server; traced the proof and found it didn't touch the real route.
+- Round 3: "The opencode test masks the production defect." Reviewer compared the test config shape against the shipped config shape and found divergence; sanity-break confirmed the production invocation was broken.
+- Round 4: "All harnesses proven end-to-end." Reviewer verified that reverts of each fix caused the corresponding test to fail — the test was real.
+
+The escalation across four rounds was not a process failure — it was the process WORKING CORRECTLY. Each round was necessary because the failure mode changed: round 1 was a missing route; round 2 was a mock proxy; round 3 was a fabricated config. A single review gate (one-and-done) would have missed the evolving gap.
+
+**2. Sanity-break discipline became the gate.**
+The founder's feedback: "do proper testing; don't assume." This translated into: "break something real, show that tests go red." By round 4, every fix was verified by a targeted revert. This is the TEST-IS-REAL discriminator.
+
+**3. Real-harness binary tests (not stubs, not scripted).**
+v4 spawned real `claude`/`codex`/`opencode` binaries headless (process isolation: `buildCleanEnv` stripped `CLAUDECODE`, `spawnDetached` in its own process group) and validated against a REAL live LLM (internal API for claude/codex; external for opencode). The "lives only in Claude Code" framing was wrong; the issue was "we never tested the shipped invocation." Once the real paths were tested, the defects surfaced.
+
+**4. The drain-gate floor as the un-bypassable backstop.**
+At every layer, if the native mechanism (hook, re-engage, loop) failed or was silent, the gate persisted `not_returned` and emitted the event. This meant:
+- Round 1: Even with a dead route, the outcome was never silently `completed`
+- Round 2: The gate still held if the hook didn't fire
+- Round 3: The gate still held if opencode invocation was broken
+- Round 4: The gate is the catchall, but now the native mechanism is proven to fire first
+
+The backup was genuine. This is what prevented the "looks enforced but isn't" pattern from leaking to production.
+
+---
+
+### The Cost (5 Versions, 4 Rejections, 4 Review Rounds)
+
+- **v1:** 3.5h (full pipeline, under-delivery, rejected post-merge)
+- **v2:** 4h (re-architecture, rejected post-merge)
+- **v3:** 5.5h (two-round critique + approval, shipped)
+- **v4:** 6h (architecture critique approved, code review round 4: 3 NOT DONE → DONE, shipped)
+- **Total:** ~19h + two post-merge rejections + one external live eval (0.933/1.0) + four code review cycles
+
+**Earliest breakpoint (hypothetical):**
+- If round 1 review had required "real server, sanity-break verified": DONE in round 1. Cost: ~2h additional to fix the dead route. Total: ~5.5h, no post-merge risk.
+- If mock-validation trap was a known pattern enforced at gate entry (v1): "A test must not invent the adjudicator protocol; the real system defines it." Cost: ~1h design revision in v1. Total: ~2h for all of v1, no v2 needed.
+
+**What made v4 finally work:**
+1. Independent review + escalating rigor (four rounds, different angles each time)
+2. Sanity-break discipline (each fix verified by a targeted revert)
+3. Real binary spawning + real adjudication flow (not stubs, not mocks)
+4. The gate as the un-bypassable floor (nothing slips to `completed`)
+
+---
+
+### Mapped to `/compound` Candidates (Merged with v1/v2/v3)
+
+The five-version, four-rejection arc shows **three distinct gate gaps and one shared root:**
+
+#### 1a. Strongest-AC-Reading Audit in Critique (CONFIRMED in v4)
+
+**v4 signal:** AC4 says "enforce uniformly across all harnesses." v4 round 1 wired one harness (Claude) with a dead route, one harness (Codex) with no integration test, one harness (OpenCode) with a fabricated test config, one harness (Builtin) correctly. The critique gate (architecture) did not enumerate the set and check each. If it had, the non-uniform coverage would have triggered a revision.
+
+**Frequency:** Every enforcement/integration WP. AL6 alone is three instances (v1: builtin-only; v2: Claude+builtin; v3/v4: all-harnesses claim but each needs checking).
+
+#### 2. Mock-Validation Trap (NEW, high-value)
+
+**Pattern:** A test invents the adjudicator protocol/shape, validates against it, and claims success — but the real system defines a different protocol.
+
+**Signals:**
+- v4 round 1: Test setup includes `startBridgeServer()` (invented protocol) that isn't what the real route implements
+- v4 round 3: Test config shape (`["run", "json"]`) differs from shipped config (`["--dir", ""]`)
+
+**Root cause:** Integration tests for "X calls Y and Y adjudicates" often use a test double for Y. If Y is the test's own stub, the contract is invented by the test. If Y is shipped code, the contract is real.
+
+**Discriminator:** Sanity-break — remove/nullify the real Y, tests should fail. If they don't, Y was mocked/fabricated.
+
+**Candidate fix:** For enforcement WPs, require:
+- Every integration test that validates "X → Y" must use the REAL Y shipped code (not a mock, not a test stub)
+- Each test must include a sanity-break: nullify Y or revert the fix → test FAILS
+- The sanity-break must be VERIFIED in the review (not just claimed)
+
+**Frequency:** ~5+/year (any "X adjudicates / X enforces / X routes" AC).
+
+**Evidence base:** AL6 v4 is the proof. Round 1 mock, round 3 config fabrication, round 4 fix verified by sanity-break — three instances in one WP.
+
+#### 3. Real-Harness Testing (Operational Dependency, Not a Critique Gap)
+
+**Pattern:** The implementation is correct but is never tested against the real dependencies (real binaries, real adjudication servers, real config shapes). Tests pass in isolation but fail in production.
+
+**v4 signal:**
+- Round 1/2: Real binary (claude) spawned, but mock server stood in for adjudication
+- Round 3: Real binary (opencode), but test config differed from shipped config
+- Round 4: Real binary + real server + real config + sanity-break verified
+
+**Candidate fix:** When a WP integrates with external tools (CLI binaries, APIs, routes), require:
+- At least one integration lane must spawn the REAL tool (not a stub, not a mock server standing in)
+- The lane must use the SHIPPED config/args (not a test-fabricated shape)
+- The lane must be gated for CI (skip if tool not installed/authenticated)
+- The lane must include proof that it exercises the real path (e.g., sanity-break)
+
+**Frequency:** ~5+/year (any integration with external tools).
+
+#### 4. AC Quantification Enumeration (CONFIRMED in v4, distinct from v3)
+
+**Pattern (from v3, confirmed in v4):** When AC says "all X" or "uniform Y," gates do not verify the mechanism for EACH member of the set.
+
+**v4 signal:** AC4 "enforce uniformly across all harnesses" → gates never asked "is enforcement uniform for claude? codex? opencode? builtin?" Instead they asked "is enforcement wired?" When the clause "wired in code" was confused with "wired for each harness," the set-wide verification got skipped. Round-1 critique should have enumerated the four harnesses, checked each, and found three had 404s or fabricated tests.
+
+**Frequency:** ~3–5/year (any "all," "uniform," "regardless" AC).
+
+**Candidate fix:** When `/architecture-critique` encounters quantification language, explicitly enumerate the set (e.g., "all harnesses: claude, codex, opencode, builtin") and ask for EACH member: "Does this design satisfy AC for this member, or degrade?" Require a per-member verdict.
+
+---
+
+### Summary for `/compound`
+
+**New candidate (high-value, root cause of ALL four cycles):** Mock-Validation Trap — tests that invent and validate against a contract not enforced by the real system.
+
+**Confirmed candidates (present in v1/v2/v3, amplified in v4):**
+1. **Strongest-AC-reading audit:** Critique did not challenge whether "enforced uniformly" meant "for each harness" (it should have).
+2. **AC quantification enumeration:** When AC names a set, gates must check per-member, not just happy-path.
+3. **Real-harness testing discipline:** Integration proofs must use real dependencies, real config, sanity-breaks verified.
+
+**Cost of enforcing one pattern at gate entry:**
+- Mock-validation trap detected at review round 1: "Your test invents `startBridgeServer` but production doesn't implement it. Point to the real route or add the route." → 1h fix, no round 2–4 needed. Savings: ~5h.
+- AC quantification at architecture-critique round 1: "For 'enforce uniformly across all harnesses,' check codex/opencode/builtin, not just claude." → 0.5h enumeration, catches the gaps early. Savings: ~3h (fewer discovery cycles).
+
+**The winning gate combination (v4 proved):** Code-read verification + sanity-break discipline + independent review escalation. No single gate prevents all trap shapes; the combo converged v4.
+
+---
+
