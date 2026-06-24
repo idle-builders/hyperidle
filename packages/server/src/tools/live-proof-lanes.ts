@@ -87,9 +87,9 @@ export async function probeLiveProofHarnessAvailability(
 		case "claude-code":
 			if (!isClaudeCodeAvailable()) {
 				throw new Error(
-					"claude-code harness is absent: @anthropic-ai/claude-agent-sdk is not installed " +
-						"or the `claude` binary is not in PATH. " +
-						"A green-now harness whose real binary/SDK is absent makes the lane FAIL (AC14b).",
+					"claude-code harness is absent: `claude` binary is not in PATH. " +
+						"Install the Claude Code CLI (`npm install -g @anthropic-ai/claude-code`). " +
+						"A green-now harness whose real binary is absent makes the lane FAIL (AC14b).",
 				);
 			}
 			return;
