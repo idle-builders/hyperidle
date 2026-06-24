@@ -111,3 +111,65 @@ The tests are genuine *binary spawns* (not script-exec proxies for claude/codex 
 5. (WARN-3/WARN-2) Make `CLI_TOOL_CONFIGS` declare `returnEnforcementChannel` explicitly; derive CODEX_HOME/trust from the channel, not the binary string.
 
 Phase-5 docs (architecture.md codex section) are noted but are NOT the reason for NOT DONE.
+
+---
+
+## round 2 — re-review of the v4 FIX cycle (reviewer, skeptical re-verify against source)
+
+**Reviewed:** `ea195117 AL6 v4 FIX` + follow-up merge/attestation commits on `feat/AL6-review-return-hooks`. Builder claimed all four CRITs wired + verify green + "ready for merge." Verified each against SOURCE, not the report.
+
+### Verdict: NOT DONE
+
+Two of four CRITs genuinely fixed (CRIT-4 fully; CRIT-3 production code real). Two remain blocking — **for the same root reason as round 1**: the hook→HyperIdle-route→registry loop is now *wired in production* but is *still proven only against the bespoke `startBridgeServer` mock*. No test exercises the real `/return-status` route, and the SDK path still adjudicates off local state. This WP's bar (founder, after 4 rejections; MEMORY: live-proof lanes must execute the real path before DONE) is not met.
+
+### Per-CRIT verification
+
+| CRIT | Claim | Source verdict | Evidence |
+|---|---|---|---|
+| CRIT-1 | real `/return-status` route + tests hit it | **PARTIAL — loop unproven** | Route exists + correct (`mcp-route.ts:55-113`), mounted with the **real singleton** registry (`server-factory.ts:386-391`), and the production hook curls the matching path (`provision-return-hook.ts:295,322` → `/api/mcp/<token>/return-status`). Production link is genuinely wired. BUT the binary-proof tests STILL provision the hook with `mcpUrl = bridge.url` (`AL6-real-harness…:632,632`) where `bridge` = `startBridgeServer` (`:192-247`), a hand-rolled HTTP server speaking the invented protocol, and assert `bridge.callCount>=1` (`:689,968,1171`). **ZERO tests POST to the real route via the fixture `app`** (grep: 0 hits). The end-to-end loop (real binary → real route → real registry → block) is unproven; nothing fails if the route 404s, mis-resolves the token, or the registry is unwired. |
+| CRIT-2 | returnHook threaded + single adjudication source | **PARTIAL** | `returnHookConfig` is built (`session-provisioning.ts:775-782`) and threaded into `sessionStartConfig.returnHook` (`:795`). The session IS registered in the shared singleton (`:760`), and the SDK Stop hook now calls `enforcementRegistry.incrementForce(hookSessionId)` (`claude-agent-sdk-adapter.ts:215`). BUT the SDK hook STILL **adjudicates off local `al6` state** — `shouldForceReturn({returned: al6.returnSeen}, al6.stopHookCount)` (`:210`), not the registry's `gate`/`forceCount`. The registry is write-only on the SDK path; it is never READ to decide. And `config.returnHook` is threaded but **read by no adapter** (grep: the field has zero readers — same as round 1). The "single adjudication source both paths use" contract is still not implemented; the registry mirrors the SDK count but does not drive it. |
+| CRIT-3 | opencode re-engage in the production adapter | **CODE REAL, PROOF ABSENT** | `CliHarnessAdapter.streamEvents` now has a genuine turn-end re-engage loop (`cli-harness-adapter.ts:513-599`): on `session.done`, for `process-reengage` channel, reads the registry, `shouldForceReturn`, `incrementForce`, re-spawns via `spawnFn`, bounded by `reEngageCount < AL6_MAX_FORCE_RETURNS`. This is real production code, not a stub. BUT no test drives it: the opencode "FULL BINARY PROOF" (`AL6-real-harness…:1213-1265`) spawns opencode ONCE with a hardcoded prompt and greps stdout for `step_finish` — it never calls `provisionSession` or `streamEvents`, never re-engages on a real no-return turn. The `@lore` at `:1198-1201` still asserts *"implemented in the test itself (not yet in CliHarnessAdapter)"* — now factually wrong, and the proof it points to does not exercise the adapter. The adapter loop could be deleted and every opencode test would still pass. |
+| CRIT-4 | discriminator real (drain sentinel gone) | **FIXED** | `computeForceReturnCount()` returns `registryForceCount + adapterForceCount` only (`session-provisioning.ts:961-966`) — the `not_returned`→+1 sentinel is removed. AC3 (`AL6-reprompt-loop…:320-367`) now uses the **real** `BuiltinHarnessAdapter` (`:341`) with a mocked-never-returning `callLlm` (`:58,327`); the real in-process loop fires and increments `session.forceCount` (`builtin-harness-adapter.ts:746-748`), surfaced via `getForceReturnCount`. A decorative/no-op adapter would yield `forceCount=0` and FAIL `expect(forceCount).toBeGreaterThanOrEqual(1)`. The discriminator is real for the builtin anchor. Stale comment at `:945-948` still describes the removed fallback — clean it (NIT). |
+
+### The decisive question — answered explicitly
+
+**Do the real-harness tests prove the full loop per spawnable harness — real binary → real provisioned hook → real HyperIdle route → real registry → real block → forceCount from a real fire, with no mock standing in, failing if any link breaks?**
+
+**No — for claude, codex, and opencode.**
+
+- **builtin:** YES (in-process, not a spawnable binary). Real adapter + fake LLM → real loop → real increment, no fallback, no mock. Would fail if the loop were decorative. This is the one genuinely-proven harness.
+- **claude:** NO. Real binary spawns and the Stop hook fires, but it POSTs to the `startBridgeServer` **mock**, not the real `/return-status` route. The proven assertion is "binary fires a Stop hook that can curl *some* server" — identical to round 1. The real route + registry are wired in production but never in the proven path.
+- **codex:** NO. Same as claude — real CODEX_HOME hook fires against the mock bridge.
+- **opencode:** NO. The production re-engage code is now real, but the test spawns the binary once and greps stdout; it never drives `CliHarnessAdapter.streamEvents`. The forcing loop is unexercised by any test.
+
+The real route + registry are reachable in production, but **no automated proof** covers: Hono matching `/return-status` before the catch-all; token→session→entry resolution; the hook's parse of a real `forceMessage` body (claude exit-2+stderr / codex decision:block); the opencode adapter re-spawn round-trip. Given the founder's "looks enforced but isn't" rejection history, unproven == not done.
+
+### Adversarial: `completed`-without-return escape
+
+No new escape. The drain-gate floor (`evaluateReturn` → `not_returned`, persisted + `session_not_returned` bus event) remains un-bypassable (`session-provisioning.ts:1015-1031`) and is exercised by passing tests. But with CRIT-1/2/3 unproven, on claude/codex/opencode the floor is STILL the only link actually proven to run — the native hook / re-engage that is supposed to do the primary work is unproven against the real adjudicator. That is the precise shape the founder rejected: gate quietly does the work, hook decorative-until-proven.
+
+### Residual findings
+
+- **CRIT-1 (blocking)** `AL6-real-harness…:625,632,903,1114` — binary-proof tests assert against the `startBridgeServer` mock (`:192-247`), not the real route. Add a test that POSTs to `/api/mcp/:token/return-status` via the fixture `app` with a registered session, asserting forceMessage body + `incrementForce`; and point at least one binary-proof test at the real server (fixture `app` on a real port) so callCount lands on the real registry. Must fail if the route is removed.
+- **CRIT-2 (blocking)** `claude-agent-sdk-adapter.ts:210` — SDK Stop hook adjudicates off local `al6`, not the registry it increments; `config.returnHook` has zero readers (`session-provisioning.ts:795` threaded, never consumed). Make the registry the read source (or delete `returnHook` from `SessionConfig` if the singleton-import is the intended single source — then the "threaded" claim is just dead config).
+- **CRIT-3 (blocking)** `cli-harness-adapter.ts:513-599` real but untested — drive the re-engage loop through `streamEvents` with an injected `spawnFn` (deterministic, no binary) asserting: second spawn occurs, args carry `forceMsg`, registry `incrementForce` called, bounded at budget. Fix the false `@lore` at `AL6-real-harness…:1198-1201`.
+- **NIT** `session-provisioning.ts:945-948` — stale comment describes the removed drain fallback; delete to match `:952-960`.
+- **WARN (carried from round 1, unaddressed):** `CLI_TOOL_CONFIGS` still derives codex/opencode channel + CODEX_HOME/trust from the binary string, not an explicit `returnEnforcementChannel` (`cli-harness-adapter.ts:209-213,283`). One rename silently disables enforcement.
+- **Phase-5 (note only, NOT a blocker):** `plans/AL6/architecture.md` §0.3/§3 still describe codex as project-local `.codex/hooks.json` (pre-CODEX_HOME).
+
+### What is now genuinely proven end-to-end vs still mock/floor
+
+- **Genuinely proven:** builtin in-process forcing (real adapter + fake LLM, real increment, no fallback — CRIT-4); the drain-gate floor (`not_returned` persisted + emitted); the registry-backed adjudication *logic* in isolation (`returnStatusTool.handler` unit tests); production *wiring* of the route + singleton registry (by inspection, `check` green).
+- **Still mock / unproven:** the hook→real-route→registry HTTP round-trip (claude, codex); the opencode adapter re-engage loop; the SDK path reading the registry. These are wired but rest on a mock (`startBridgeServer`) or a test that bypasses the adapter — exactly the round-1 gap, narrowed but not closed.
+
+### AC table (round 2)
+
+| AC | Criterion | Verdict | Evidence |
+|---|---|---|---|
+| AC1 | Turn ends only after a return; no-return never silently `completed` | PASS (floor) | Drain floor un-bypassable + proven (`session-provisioning.ts:1015-1031`). |
+| AC2 | Closed valid-ending set enumerated | PASS | `RETURN_ACTION_NAMES` + `isReturnAction`; closure test green. |
+| AC3 | No-return detected + surfaced | PASS | `session_not_returned` + `endSession(…, "not_returned")`; AC3 builtin test green with real loop. |
+| AC4 | Enforcement uniform — native hook PROVEN per harness | **FAIL** | builtin proven; claude/codex hook→adjudicator proven only vs mock (CRIT-1); SDK reads local not registry (CRIT-2); opencode re-engage untested (CRIT-3). |
+| AC5 | Mid-turn non-terminal tools unaffected | PASS | Gate observes only return-action tool_calls; uniform-forcing AC5 green. |
+
+**Bottom line:** CRIT-4 fixed; CRIT-3 production code now real; CRIT-1/CRIT-2 narrowed to a proof + single-source gap but still block. The full hook→adjudicator loop is wired but not proven against the real server for any spawnable binary harness. NOT DONE.
