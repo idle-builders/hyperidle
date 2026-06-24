@@ -45,7 +45,7 @@
  * RELATIVE path ("al7-live-output.txt") so the tool resolves it inside whichever
  * session sandbox provisionSession creates. The PC stores verbatim args (relative path).
  * Session 2's approvedCall.args uses the same relative path. The file is written to
- * session2SandboxPath/al7-live-output.txt; we read sessions.sandboxSnapshot to find it.
+ * session2SandboxPath/al7-live-output.txt; we read the Outcome receipt from operationOutcomes to find it.
  *
  * @lore AL7 AC11: "work continues" is proven by the agent emitting `read_inbox`
  * (a reversible tool, reversibility:"reversible" explicit annotation) AFTER the approved

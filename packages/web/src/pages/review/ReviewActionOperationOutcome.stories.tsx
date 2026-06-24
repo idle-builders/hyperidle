@@ -1,6 +1,6 @@
 // AL7 — Review execution loop · the outcome band design variant.
 // Extends the AL2 action-operation canvas with the post-commit Operation Outcome
-// (concept: plans/AL7/concept.md; brief: plans/AL7/brief.md). Renders ONLY the
+// (spec: docs/process-layer/staged-operation.md). Renders ONLY the
 // populated terminal states the reviewer must read — executed (ok) and failed —
 // plus the unchanged pending canvas for continuity. No skeleton/loading states
 // (those are build concerns). DESIGN-CLASS: routine.
