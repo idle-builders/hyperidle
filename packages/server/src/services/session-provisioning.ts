@@ -942,22 +942,10 @@ export async function runSession(
 	// getForceReturnCount() supplements for adapters that maintain their own counter
 	// (builtin: session.forceCount; SDK: stopHookCount). We add both to be safe.
 	//
-	// Drain fallback: if the session ended not_returned but the registry shows forceCount=0
-	// (no in-turn enforcement hook was called, e.g. a stub adapter that doesn't model
-	// the forcing loop), we increment the registry once to record "drain enforcement fired".
-	// This ensures ProvisionSessionResult.forceReturnCount >= 1 for all not_returned sessions.
-	// @lore AL6 v4-final: helper to compute forceReturnCount for this session.
-	// Called at each exit path. Drain fallback: if not_returned and count=0,
-	// add 1 to record "drain enforcement detected" (the drain gate IS enforcement).
-	// AL6 CRIT-4: removed drain fallback (not_returned → +1 sentinel).
-	// Previously: if forNotReturned && total===0, return 1 to "record drain enforcement".
-	// Problem: this made forceCount>=1 always true for any not_returned turn, defeating
-	// the discriminator that proves "hook actually fired" vs "gate floor caught it".
-	// Now: forceCount reflects ONLY real hook fires / adapter re-engage increments.
-	// The drain-gate floor is still the backstop (not_returned outcome is still recorded)
-	// but forceCount=0 on not_returned means "the hook was not fired (or was stripped/dead)".
-	// @lore AL6 CRIT-4: If you see forceCount=0 + outcome=not_returned, the hook
-	// did NOT fire for this session — inspect the hook provisioning + endpoint wiring.
+	// @lore AL6 CRIT-4: No drain fallback. forceCount reflects ONLY real hook fires and
+	// adapter re-engage increments. forceCount=0 on not_returned means the hook did NOT
+	// fire — inspect hook provisioning + endpoint wiring. The drain-gate floor is still
+	// the backstop (not_returned outcome is recorded), but forceCount=0 is an honest signal.
 	function computeForceReturnCount(): number {
 		const registryEntry = enforcementRegistry.get(sessionId);
 		const registryForceCount = registryEntry?.forceCount ?? 0;

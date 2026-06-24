@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../../services/model-gateway.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+import { enforcementRegistry } from "../return-enforcement-registry.js";
 
 // X4: model-tier-map.ts deleted. Gateway model IDs are tested in X4-model-gateway.test.ts.
 // KNOWN_MODELS derived from BUILT_IN_GATEWAY_CONFIG — single source of truth.
@@ -664,6 +665,29 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 		const dummySignal = new AbortController().signal;
 
+		// AL6 CRIT-2: The Stop hook now reads from the shared enforcement registry.
+		// Tests must pre-register the session (mirrors session-provisioning.ts:760).
+		// TEST_CONFIG.sessionId = "test-session" — the registry key.
+		//
+		// We use a plain mutable gate object (not createReturnGate's getter-based one)
+		// so individual tests can set gate.returned=true to simulate "return seen".
+		// In production, session-provisioning.ts calls returnGate.observe(event) for
+		// each streamed event — here we simulate that by direct mutation.
+		let testGate: { returned: boolean };
+
+		beforeEach(() => {
+			testGate = { returned: false };
+			enforcementRegistry.register(TEST_CONFIG.sessionId, {
+				gate: testGate,
+				forceCount: 0,
+				exempt: false,
+			});
+		});
+
+		afterEach(() => {
+			enforcementRegistry.unregister(TEST_CONFIG.sessionId);
+		});
+
 		it("returns decision:'block' + AL6_FORCE_RETURN_MESSAGE when no return was seen (first call)", async () => {
 			const mockQuery = createMockQuery([]);
 			const queryFn = vi.fn(() => mockQuery);
@@ -719,8 +743,13 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 		});
 
 		it("allows stop immediately when a return action was observed in the stream", async () => {
-			// Simulate: adapter processes a submit_review tool_use → returnSeen=true
+			// Simulate: adapter processes a submit_review tool_use → gate.returned=true
 			// Then hook fires and should approve the stop.
+			//
+			// AL6 CRIT-2: In production, session-provisioning.ts calls returnGate.observe(event)
+			// for each event yielded by harness.streamEvents(). That call sets gate.returned=true
+			// when a tool_call:submit_review event is seen. Here we simulate that by directly
+			// setting testGate.returned=true after draining the stream — the same logical effect.
 			const returnActionMessage: SDKMessage = {
 				type: "assistant",
 				message: {
@@ -737,16 +766,21 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 			const handle = await adapter.startSession(TEST_CONFIG);
 
-			// Drain the stream so translateMessage processes the submit_review block
-			// biome-ignore lint/suspicious/noEmptyBlockStatements: draining stream intentionally to set returnSeen
+			// Drain the stream (mirrors session-provisioning.ts drain loop observing events).
 			for await (const _ of adapter.streamEvents(handle)) {
+				// drain only — gate observation happens below
 			}
+
+			// Simulate session-provisioning.ts calling returnGate.observe() → gate.returned=true.
+			// In production the gate is a ReturnGate whose returned getter returns true once
+			// observe({ type: "tool_call", toolName: "submit_review" }) is called.
+			testGate.returned = true;
 
 			// Extract the hook from the same session's closure
 			const hook = extractStopHook(queryFn);
 			expect(hook).toBeDefined();
 
-			// submit_review was observed → returnSeen=true → approve immediately
+			// gate.returned=true → hook approves immediately (no force needed)
 			const result = await hook!({}, undefined, { signal: dummySignal });
 			expect(result.decision).toBe("approve");
 		});

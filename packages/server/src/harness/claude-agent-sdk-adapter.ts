@@ -195,11 +195,21 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		// or similar. Returning { decision: "block", reason: "..." } injects the reason
 		// as a user message and continues the turn. The hook is async per SDK contract
 		// but we do no async work here.
-		// AL6 CRIT-2: capture sessionId so the Stop hook can increment the
-		// SHARED enforcement registry (not just the local al6.stopHookCount).
-		// Both al6.stopHookCount (via getForceReturnCount) and
-		// enforcementRegistry.forceCount are updated on each block so the
-		// registry is the single source of truth.
+		//
+		// AL6 CRIT-2: The Stop hook ADJUDICATES from the shared enforcement registry
+		// (single source of truth). It reads the registry entry for this session and
+		// calls shouldForceReturn against the registry's gate + forceCount. On block
+		// it increments the registry so the CLI/tool paths see the same counter.
+		// The local al6 object is retained ONLY for translateMessage's returnSeen flag
+		// (the SDK path must mark returnSeen to suppress false-positive re-injection
+		// when the LLM emits a return tool call). stopHookCount is no longer the
+		// adjudication counter — registry.forceCount is.
+		//
+		// @lore AL6 CRIT-2: Using the registry as the single adjudicator means the
+		// hyperidle_return_status tool (file-hook path) and the SDK in-process hook
+		// both read/write the SAME counter. Previously the SDK adjudicated from
+		// al6.stopHookCount (local, invisible to the registry), making the two paths
+		// diverge. Now: any fire from either path is counted once in the registry.
 		const hookSessionId = config.sessionId;
 
 		// biome-ignore lint/suspicious/useAwait: SDK hook interface requires Promise return; no async work needed
@@ -207,19 +217,23 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			_input: unknown,
 			_toolUseId: string | undefined,
 		): Promise<SyncHookJSONOutput> => {
-			const forceMsg = shouldForceReturn({ returned: al6.returnSeen }, al6.stopHookCount);
+			// AL6 CRIT-2: read from the shared registry — single adjudication source.
+			// Falls back to allow-stop if the session was never registered (exempt/internal).
+			const entry = enforcementRegistry.get(hookSessionId);
+			const forceMsg =
+				entry && !entry.exempt ? shouldForceReturn(entry.gate, entry.forceCount) : null;
 			if (forceMsg !== null) {
-				al6.stopHookCount++;
-				// AL6 CRIT-2: also increment the registry so the registry forceCount
-				// reflects in-process SDK hook fires (single adjudication source).
+				// Increment in the registry (not al6.stopHookCount — that is now a secondary
+				// counter maintained only for getForceReturnCount compatibility).
 				enforcementRegistry.incrementForce(hookSessionId);
+				al6.stopHookCount++;
 				sdkLogger.debug(
 					`AL6: Stop hook blocking stop (attempt ${al6.stopHookCount}/${AL6_MAX_FORCE_RETURNS}) — ` +
-						"return not yet seen, re-injecting force message",
+						"return not yet seen, re-injecting force message (registry-adjudicated)",
 				);
 				return { decision: "block", reason: forceMsg };
 			}
-			// Budget exhausted or return was seen — allow stop.
+			// Budget exhausted, return already seen, or session exempt — allow stop.
 			return { decision: "approve" };
 		};
 

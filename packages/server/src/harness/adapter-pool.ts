@@ -358,6 +358,10 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		costField: "total_cost_usd",
+		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
+		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
+		// deriveCliChannel("codex") → "settings-codex" is a fallback; explicit is authoritative.
+		returnEnforcementChannel: "settings-codex",
 		// AL6 WARN-F2: Per-session seed prompt carrier for Codex.
 		// "positional" means the {{prompt}} template arg in args[] carries the message.
 		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
@@ -375,6 +379,10 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		},
 		eventFormat: "text",
 		envAllowlist: ["PATH", "HOME", "LANG"],
+		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
+		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
+		// deriveCliChannel("opencode") → "process-reengage" is a fallback; explicit is authoritative.
+		returnEnforcementChannel: "process-reengage",
 		// AL6 WARN-F3: Per-session re-engage carrier for OpenCode (process-reengage channel).
 		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
 		// @lore AL6 WARN-F3: Without this, re-engage re-invocations would not carry

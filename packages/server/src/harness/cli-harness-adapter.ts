@@ -513,9 +513,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					if (isReEngage && !session.returnSeen && session.reEngageCount < AL6_MAX_FORCE_RETURNS) {
 						const registryEntry = enforcementRegistry.get(session.configSessionId);
 						if (registryEntry) {
+							// AL6 CRIT-3: adjudicate from the registry's forceCount (single source).
+							// Previously used session.reEngageCount which could diverge from the registry
+							// if other paths also incremented forceCount. The registry is authoritative.
 							const forceMsg = registryEntry.exempt
 								? null
-								: shouldForceReturn(registryEntry.gate, session.reEngageCount);
+								: shouldForceReturn(registryEntry.gate, registryEntry.forceCount);
 
 							if (forceMsg !== null) {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
