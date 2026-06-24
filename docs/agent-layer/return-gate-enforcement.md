@@ -1,6 +1,6 @@
 # Return-Gate Enforcement
 
-Every agent turn that completes normally must invoke one of three return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — the enforcement is harness-agnostic and the outcome guarantee is uniform across all five in-tree harness adapters.
+Every agent turn that completes normally must invoke one of three return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
 ---
 
@@ -14,7 +14,7 @@ Three tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `
 | `handoff_to` | Delegate the task to another agent or human |
 | `send_message` | Send a result or update to a thread |
 
-The set is **closed**: membership is enumerated in a `readonly` tuple; an `isReturnAction(toolName)` O(1) lookup is the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no "open" fallback.
+The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName)` is an O(1) lookup and the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 
 ---
 
@@ -26,86 +26,144 @@ The set is **closed**: membership is enumerated in a `readonly` tuple; an `isRet
 
 ---
 
-## 3. Harness-Agnostic Forcing Model
+## 3. Per-Harness Native Enforcement
 
-Forcing is universal. Every harness adapter can be forced to re-engage; the mechanism is a provisioning-layer re-prompt loop (Layer B) that is independent of harness type. A second, adapter-specific in-turn fast-path (Layer A) exists as an optimization on two adapters — it does NOT gate whether forcing happens.
+### Overview
 
-### Layer B — Provisioning Re-Prompt Loop (universal, all adapters)
+v4 replaces the v3 outer re-prompt loop with per-harness enforcement provisioned once at sandbox setup. `provisionReturnHook` (`packages/server/src/harness/provision-return-hook.ts`) is called at Phase 8b in `session-provisioning.ts`, just after `.mcp.json` is written and **before** `startSession`. It dispatches on `HarnessCapabilities.returnEnforcement` — a non-optional `ReturnEnforcementChannel` that every adapter must declare.
 
-The provisioning loop in `runSession` (`packages/server/src/services/session-provisioning.ts`) owns the forcing budget. After a turn ends without a return action:
+The channel type is defined in `packages/shared/src/harness/harness-adapter.ts` as:
 
-1. Check `loopForceCount < AL6_MAX_FORCE_RETURNS` (= 2). If spent, skip to settlement.
-2. Check `harness.getCapabilities().canReEngage`. All five in-tree adapters return `true`.
-3. Call `rewriteSandboxForcing(sandboxPath, assembledPrompt)` (`packages/server/src/harness/re-engage.ts`), which appends `AL6_FORCE_RETURN_MESSAGE` to the assembled prompt and re-writes both `AGENTS.md` and `CLAUDE.md` in the sandbox directory via `writeSandboxAgentsMd`.
-4. Increment `loopForceCount` and loop back to Phase 9 (`harness.startSession`).
+```
+"sdk-inprocess" | "settings-claude" | "settings-codex" |
+"builtin-loop" | "process-reengage" | "soft-continue" | "none"
+```
 
-**Why the sandbox file is the carrier:** every adapter spawns `cwd: config.sandboxPath`. The cli, isolated, and remote adapters launch subprocesses that read `AGENTS.md`/`CLAUDE.md` at startup. The SDK and builtin adapters also read from the sandbox path on each `startSession`. Writing the forcing message to the sandbox file is the ONE channel that verifiably reaches all five adapters — `config.messages` is consumed only by the builtin adapter's chat path and would not reach external harnesses.
+Because the field is non-optional, `npm run check` fails any adapter that doesn't declare a channel — the "uniform across harnesses" guarantee is enforced at the type level.
 
-**One gate, one session, one event:** a single `ReturnGate` spans the entire loop. The adapter pool slot is held across all runs and released once via `try/finally` after the loop. Exactly one `session_ended` event is emitted. Cost events from all runs accumulate into the same `totalCostCents`.
+### Adjudication: `POST /api/mcp/:token/return-status`
 
-### Layer A — Native In-Turn Fast-Path (SDK + builtin only)
+All file-provisioned hooks (claude-code, codex) reach HyperIdle via a plain-HTTP route defined in `packages/server/src/routes/mcp-route.ts`:
 
-Two adapters intercept a stop BEFORE the session ends and re-inject the forcing message without a new `startSession`. This is an optimization — it avoids the latency of a full re-spawn:
+```
+POST /api/mcp/:token/return-status
+Authorization: Bearer <token>
+Body: {} (ignored)
 
-- **SDK adapter** (`ClaudeAgentSdkAdapter`): Wires a `Stop` hook in the Claude Agent SDK `query` options. When Claude tries to stop (`end_turn`), the hook calls `shouldForceReturn({ returned }, stopHookCount)`. If the budget is not spent, the hook returns `{ decision: "block", reason: AL6_FORCE_RETURN_MESSAGE }` — the SDK re-injects the reason as a user message and continues the turn without breaking.
+Response 200 — empty body       → allow stop
+Response 200 — non-empty body   → forceMessage; hook must block
+Response 401                    → token not found (allow stop)
+```
 
-- **Builtin adapter** (`BuiltinHarnessAdapter`): Owns its own loop. At two intercept points — (a) the `end_turn` / `stop` branch of `runExecuteTurn`, and (b) the end-of-loop break in `runChatTurn` — the adapter calls `shouldForceReturn({ returned: session.returnSeen }, session.forceCount)`. If the result is non-null, it pushes the forcing message as a user message and continues the loop without setting `session.done = true`. A registry exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have would cause a hard error.
+The route resolves the bearer token to a `sessionId` via `McpBridgeRegistry.lookup`, then reads the per-session `EnforcementEntry` from the `EnforcementRegistry`. It calls `shouldForceReturn(entry.gate, entry.forceCount)` and, if a force message is returned, increments `entry.forceCount` and returns the message as the response body.
 
-Layer-A adapters never reach the Layer-B re-prompt loop on a turn where Layer A resolves the forcing. The two layers are mutually exclusive per turn.
+### The Per-Session Enforcement Registry
 
-### Capability Fields
+`packages/server/src/harness/return-enforcement-registry.ts` provides a `Map<sessionId, EnforcementEntry>` keyed by session UUID. Each entry holds:
 
-`HarnessCapabilities` carries two AL6 fields (in `packages/shared/src/harness/harness-adapter.ts`):
+- `gate: { returned: boolean }` — live reference to the drain `ReturnGate`; mutated by the event-stream observer.
+- `forceCount: number` — how many times the hook has fired for this session.
+- `exempt: boolean` — true for internal-extraction drains.
 
-| Field | Type | Meaning |
-|---|---|---|
-| `hasNativeReturnHook` | `boolean` | `true` = adapter has a Layer-A in-turn fast-path (SDK, builtin). Optimization hint only — does NOT gate whether forcing happens. |
-| `canReEngage` | `boolean` | `true` = adapter can run a second `startSession` with augmented context (Layer-B loop). ALL five in-tree adapters: `true`. |
-
-`canReEngage` replaced v2's `canForceReturn`. The rename reflects the architecture change: in v2 forcing was binary (either in-turn or reject-only); in v3 forcing is universal via Layer B, and `canReEngage` is always `true` for in-tree adapters. `hasNativeReturnHook` is the new flag that distinguishes adapters with a Layer-A fast-path.
-
-**In-tree values:**
-
-| Adapter | `hasNativeReturnHook` | `canReEngage` |
-|---|---|---|
-| SDK (`ClaudeAgentSdkAdapter`) | `true` | `true` |
-| Builtin (`BuiltinHarnessAdapter`) | `true` | `true` |
-| CLI (`CliHarnessAdapter`) | `false` | `true` |
-| Remote (`RemoteHarnessAdapter`) | `false` | `true` |
-| Isolated (`IsolatedHarnessAdapter`) | `false` | `true` |
-
-### Forcing Budget
-
-`AL6_MAX_FORCE_RETURNS = 2`. For Layer-B: `loopForceCount` counts re-engages; the loop exits when `loopForceCount >= 2`. For Layer-A adapters: `shouldForceReturn(gate, forceCount)` returns `null` when `forceCount >= 2`, and the adapter allows the stop — the turn then proceeds to Layer-B evaluation in the provisioning drain (but because Layer A has already tried twice, the budget is spent and the loop exits to settlement).
+The registry is the single source of truth for force budget tracking. It is registered before `startSession` and unregistered at session teardown.
 
 ---
 
-## 4. Uniform Outcome Guarantee
+## 4. Per-Harness Mechanism
+
+### `claude-code` — `settings-claude`
+
+`provisionReturnHook` writes two files into the sandbox:
+
+1. **`.claude/return-check.sh`** — a shell script that `curl`s the bridge (`POST /api/mcp/:token/return-status`). If the response body is non-empty (forceMessage), it writes to stderr and exits 2. If empty, it exits 0 (allow stop).
+2. **`.claude/settings.json`** — contains `enableAllProjectMcpServers: true` (workspace trust marker — without this Claude Code silently ignores project-level hooks) and a `hooks.Stop` entry whose `command` is `.claude/return-check.sh`.
+
+**Blocking protocol:** exit-2 + stderr. Claude Code re-prompts with the stderr content as a blocking user message.
+
+**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "FULL BINARY PROOF (claude)" spawns the real `claude` binary (`buildCleanEnv` zeroes `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT`/etc. so nested-session detection is bypassed; keychain auth still works via `HOME`/`PATH`). Turn completes → Stop hook fires → bridge receives `POST` → `callCount >= 1` asserted.
+
+### `codex` — `settings-codex` (CODEX_HOME strategy)
+
+Codex reads hooks **only** from `CODEX_HOME/hooks.json` (default `~/.codex/hooks.json`). A project-local `.codex/hooks.json` is silently ignored. v4 provisions a **per-session CODEX_HOME** at `<sandboxPath>/.codex-home/`:
+
+1. Copies **only `auth.json` and `config.toml`** from `~/.codex`. SQLite database files (`.sqlite`, `.sqlite-wal`, `.sqlite-shm`) are intentionally excluded — copying them triggers a file lock that causes codex to exit before making an LLM call. When `auth.json`/`config.toml` are absent, codex falls back to env-based auth (`OPENAI_API_KEY`).
+2. Writes `hooks.json` into `.codex-home/` with the nested format codex v0.141.0 requires:
+   ```json
+   { "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "..." }] }] } }
+   ```
+   The flat format `{ "Stop": { "command": "..." } }` is silently ignored by codex — the nested format is the only working shape.
+3. Writes `return-check.sh` into `.codex-home/`.
+
+`CliHarnessAdapter.startSession` detects the `.codex-home/` directory in the sandbox and injects `CODEX_HOME=<sandboxPath>/.codex-home` into the spawn env plus `--dangerously-bypass-hook-trust` on the command line to bypass the hook hash-check.
+
+**Blocking protocol:** `{"decision":"block","reason":"..."}` on stdout (not exit-2 + stderr like Claude Code). Exit 0 with this JSON output blocks the stop and re-prompts with the reason. Exit 0 with no JSON (or `{"decision":"approve"}`) allows the stop.
+
+**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "FULL BINARY PROOF (CODEX_HOME)" proves end-to-end: real `codex exec` binary, per-session CODEX_HOME, Stop hook fires, bridge POST received, `callCount >= 1` asserted.
+
+### `opencode` — `process-reengage`
+
+OpenCode has no native blocking Stop hook. Enforcement is via **process wrapper re-invocation**: `CliHarnessAdapter` owns the `opencode run` spawn, parses `step_finish` events in the stdout stream at turn-end, then re-invokes `opencode run <forceMessage>` with the forcing message as a positional argument (`run-arg` carrier).
+
+`provisionReturnHook` writes `.opencode/plugins/return-signal.ts` (a plugin that listens on `session.idle`), but plugin auto-load from a project-local `.opencode/` directory is not supported by the current opencode release. The operative enforcement path is the process wrapper.
+
+Re-engage is bounded by `AL6_MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` counter tracks re-spawns; when the budget is spent, the session ends and the drain-gate floor settles the verdict.
+
+**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "opencode process-reengage PROVEN" spawns the real opencode binary, detects `step_finish` on first turn, fires the re-engage spawn with the forcing message, confirms both turns complete.
+
+### `builtin` — `builtin-loop`
+
+`provisionReturnHook` is a no-op for `builtin-loop`. The builtin harness (`BuiltinHarnessAdapter`) owns its own loop. At two intercept points — `end_turn`/`stop` in `runExecuteTurn` and end-of-loop break in `runChatTurn` — the adapter calls `shouldForceReturn({ returned: session.returnSeen }, session.forceCount)`. If non-null, it pushes the forcing message as a user message and continues the loop without setting `session.done = true`.
+
+A registry exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
+
+### `isolated` — `sdk-inprocess`
+
+`IsolatedHarnessAdapter` forks a child process that runs `ClaudeAgentSdkAdapter`. The SDK Stop closure (wired in `startSession`) consults the enforcement registry via the `ReturnHookConfig.bridgeToken`/`mcpUrl` threaded in `SessionConfig.returnHook`. The closure reads the registry entry and calls `shouldForceReturn`; if a force message is returned, it returns `{ decision: "block", reason: forceMessage }` to the SDK. The child worker's event stream is a relay loop (`// AL6-relay`) — no gate wired there; the gate lives in the parent's drain in `session-provisioning.ts`.
+
+### `cursor-agent` — `soft-continue` (inert)
+
+Cursor Agent is not spawnable today (`cursor-agent` binary unavailable; no documented headless CLI surface). `provisionReturnHook` is a no-op for `soft-continue`. No sessions are started, so nothing to enforce. The drain-gate floor handles any future surface.
+
+---
+
+## 5. Forcing Budget
+
+`AL6_MAX_FORCE_RETURNS = 2` (`packages/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
+
+- Returns the `AL6_FORCE_RETURN_MESSAGE` string when `!gate.returned && forceCount < AL6_MAX_FORCE_RETURNS`.
+- Returns `null` when budget is exhausted or the agent already returned.
+
+Each hook invocation that returns a force message increments `entry.forceCount` in the enforcement registry (via the `/return-status` route or the in-process registry call). When `forceCount >= 2`, `shouldForceReturn` returns `null` and the hook allows the stop — the session proceeds to drain-gate evaluation.
+
+---
+
+## 6. Uniform Outcome Guarantee
 
 On **every** harness, a no-return turn is **never recorded `completed`**:
 
-1. `evaluateReturn(gate, endReason)` returns `"not_returned"`.
+1. `evaluateReturn(gate, endReason)` (`packages/server/src/harness/return-gate.ts`) returns `"not_returned"`.
 2. `runSession` emits `session_not_returned` on the event bus.
-3. `endSession` is called with `terminalOutcome: "not_returned"` — this writes `"not_returned"` to the `sessions.outcome` DB column **and** to the `session_ended` bus event's `outcome` field.
-4. `provisionSession` / `runSession` returns `{ outcome: "not_returned", returnVerdict: "not_returned" }` to the caller.
+3. `endSession` is called with `terminalOutcome: "not_returned"` — writes `"not_returned"` to `sessions.outcome` in the DB **and** to the `session_ended` bus event's `outcome` field.
+4. `provisionSession`/`runSession` returns `{ outcome: "not_returned", returnVerdict: "not_returned" }` to the caller.
 
 `SessionOutcome` (`packages/shared/src/events.ts`) is `"completed" | "crashed" | "stopped" | "not_returned"`. Every `switch(outcome)` consumer must handle all four members.
 
-The mechanism is the same for all harnesses — the difference is only whether Layer A fires first:
+### The Backstop
 
-| Adapter | Layer-A fast-path | Layer-B loop | Outcome on no-return (budget spent) |
-|---|---|---|---|
-| SDK adapter | Stop hook blocks + re-injects (up to 2×) | skipped (Layer A resolves in-turn) | `not_returned` |
-| Builtin adapter | Loop intercepted + re-injects (up to 2×) | skipped (Layer A resolves in-turn) | `not_returned` |
-| CLI adapter | — | sandbox-file rewrite + re-startSession (up to 2×) | `not_returned` |
-| Remote adapter | — | sandbox-file rewrite + re-startSession (up to 2×) | `not_returned` |
-| Isolated adapter | — | sandbox-file rewrite + re-startSession (up to 2×) | `not_returned` |
+The drain-end `ReturnGate` is the un-bypassable backstop. Even if an agent strips its own hook config file, the drain still evaluates `evaluateReturn(gate, endReason)` at stream-exhaust. An agent can prevent the hook from firing; it cannot prevent the drain-gate verdict from recording `not_returned`.
 
-In all cases: no `completed` outcome without a return action.
+| Adapter | Native enforcement | Backstop |
+|---|---|---|
+| `sdk-inprocess` (ClaudeAgentSdkAdapter) | SDK Stop closure blocks + re-injects | drain-gate floor |
+| `builtin-loop` (BuiltinHarnessAdapter) | In-process loop intercept + re-injects | drain-gate floor |
+| `settings-claude` (claude-code CLI) | Stop hook exit-2+stderr blocks | drain-gate floor |
+| `settings-codex` (codex CLI) | Stop hook decision:block JSON blocks | drain-gate floor |
+| `process-reengage` (opencode CLI) | Process wrapper re-invokes with forcing message | drain-gate floor |
+| `soft-continue` (cursor-agent) | Inert today | drain-gate floor |
 
 ---
 
-## 5. The `ReturnGate` Observer
+## 7. The `ReturnGate` Observer
 
 `packages/server/src/harness/return-gate.ts` defines a lightweight, allocation-free, harness-agnostic observer:
 
@@ -116,28 +174,27 @@ interface ReturnGate {
 }
 ```
 
-One gate is created per turn-span (`createReturnGate()`) and spans all Layer-B loop runs. Every consumed `HarnessEvent` is passed to `gate.observe(event)` — when a `tool_call` event names a return action (`isReturnAction(event.toolName)`), `returned` flips to `true`. `evaluateReturn(gate, endReason)` is called at stream-exhaust to produce the `ReturnVerdict`.
+One gate is created per session (`createReturnGate()`). Every consumed `HarnessEvent` is passed to `gate.observe(event)` — when a `tool_call` event names a return action (`isReturnAction(event.toolName)`), `returned` flips to `true`. `evaluateReturn(gate, endReason)` is called at stream-exhaust to produce the `ReturnVerdict`.
 
-For Layer-A adapters the same `isReturnAction` check runs **inside the adapter** (before the event is yielded) to update the adapter's own `returnSeen` flag, which the Stop hook / loop interceptor reads. Both paths use the same single `isReturnAction` function from `@hyperidle/shared` — no per-adapter copy.
+The gate reference is stored in the enforcement registry entry so the `/return-status` route can read `entry.gate.returned` without threading state through the hook callback.
 
 ---
 
-## 6. `forceReturnCount` on `ProvisionSessionResult`
+## 8. `forceReturnCount` on `ProvisionSessionResult`
+
+`forceReturnCount` is read from the enforcement registry at session teardown:
 
 ```ts
-forceReturnCount = loopForceCount + (harness.getForceReturnCount?.(sessionId) ?? 0)
+enforcementRegistry.get(sessionId)?.forceCount ?? 0
 ```
 
-- `loopForceCount`: Layer-B re-engages in the provisioning loop (external adapters).
-- `harness.getForceReturnCount?(sessionId)`: Layer-A in-turn re-injections (SDK, builtin).
+Zero when no forcing was needed (agent returned on the first run without any hook firing).
 
-The layers are mutually exclusive per turn, so summing covers both without double-counting. Zero when the agent returned on the first run without any forcing.
-
-`getForceReturnCount` is an optional method on `HarnessAdapter` — only SDK and builtin implement it. External adapters leave it undefined; the `?? 0` fallback applies.
+`getForceReturnCount` (optional method on `HarnessAdapter`) is available for adapters that track forcing in-process (builtin); external adapters use the registry directly via the bridge.
 
 ---
 
-## 7. Static Guard: `no-ungated-stream-drain`
+## 9. Static Guard: `no-ungated-stream-drain`
 
 The ESLint rule `design/no-ungated-stream-drain` (`packages/eslint-plugin-design/src/rules/no-ungated-stream-drain.ts`) classifies every `for await … of <streamEvents-iterable>` loop as one of:
 
@@ -145,31 +202,51 @@ The ESLint rule `design/no-ungated-stream-drain` (`packages/eslint-plugin-design
 - **RELAY** — loop body passes events through; annotated `// AL6-relay`. Must NOT call `observe`.
 - **EXEMPT** — exempt internal-extraction drain; annotated `// AL6-exempt: internal-extraction drain`. Must NOT call `observe`.
 
-A violation (missing `observe`, or wrong classification) is a build error. This ensures future drain sites cannot silently skip the gate.
+A violation is a build error. Future drain sites cannot silently skip the gate.
 
 ---
 
-## 8. Live Eval: `force-return` Feature
+## 10. Live Evals: `force-return` Feature
 
-`packages/eval/src/scenarios/force-return.ts` is the behavioral proof. Four scenarios (local-only, never CI):
+`packages/eval/src/scenarios/force-return.ts` — behavioral proof, local-only, never CI:
 
 ```
 cd packages/eval && node dist/cli.js --feature force_return
 ```
 
-- **`fr-compliant-return-builder`** — agent instructed to call `submit_review`. Judges verify: outcome `completed`, `submit_review` called, `forceReturnCount = 0` (no forcing needed).
+Four scenarios:
 
-- **`fr-forced-return-builder`** — agent system prompt explicitly instructs it NOT to call return tools. Judges verify: (1) `forceReturnCount >= 1` (Layer-A forcing fired), (2) outcome is `completed` or `not_returned` — never `completed` with `returnVerdict="not_returned"`, (3) the v1 regression (`completed` + `not_returned` verdict simultaneously) did not occur.
+- **`fr-compliant-return-builder`** — agent instructed to call `submit_review`. Judges verify: outcome `completed`, `submit_review` called, `forceReturnCount = 0`.
 
-- **`fr-forced-return-external-compliant`** — agent on an external-shaped harness (`hasNativeReturnHook: false`), given a plausible-first-run-ambiguity task. Run 1: agent ends turn without return (natural analysis response). Layer-B loop fires: sandbox `AGENTS.md`/`CLAUDE.md` rewritten with `AL6_FORCE_RETURN_MESSAGE`. Run 2: compliant agent reads the updated file and calls `submit_review`. Judges verify: `forceReturnCount >= 1` AND `outcome = completed` AND `returnVerdict = returned`. **Scored 1.000** — proves forcing converts a real external non-Claude agent into returning.
+- **`fr-forced-return-builder`** — agent instructed NOT to call return tools (SDK adapter; in-process enforcement). Judges verify: `forceReturnCount >= 1`, outcome is `completed` or `not_returned`, and the v1 regression (`completed` + `returnVerdict="not_returned"` simultaneously) did not occur.
 
-- **`fr-forced-return-external`** — same external-shaped harness, agent instructed NOT to call return tools. Both re-prompt budget rounds spent. Judges verify: `forceReturnCount >= 1`, `outcome = not_returned` (reject floor). Proves forcing via Layer-B correctly settles `not_returned` when the agent won't comply.
+- **`fr-forced-return-external-compliant`** — agent on a `process-reengage`-shaped harness; first run ends without a return action (natural analysis response). Re-engage fires: second spawn with forcing message. Agent reads forcing message and calls `submit_review`. Judges verify: `forceReturnCount >= 1`, `outcome = completed`, `returnVerdict = returned`. **Scored 1.000** — proves re-engage converts a real external non-Claude agent into returning.
 
-Together `fr-forced-return-external-compliant` (convert success) and `fr-forced-return-external` (reject floor) form complete Layer-B coverage: forcing works on a non-Claude external harness, end-to-end.
+- **`fr-forced-return-external`** — same shape, agent instructed NOT to return. Both re-engage budget rounds spent. Judges verify: `forceReturnCount >= 1`, `outcome = not_returned`. Proves the reject floor holds when the agent won't comply.
+
+Together the two external scenarios form complete process-reengage coverage: forcing works and the floor holds.
 
 ---
 
-## 9. Key Constants and Exports (`@hyperidle/shared`)
+## 11. Real-Harness Integration Tests
+
+`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement.integration.test.ts`
+
+Spawns each real binary headless. Binary/auth gating follows the AM2 pattern: `binaryPresent()` + auth-check + `ctx.skip()`. The `builtin` block has no binary dependency and runs in CI unconditionally.
+
+| Harness | Test | Proof |
+|---|---|---|
+| `claude-code` | "FULL BINARY PROOF (claude)" | `buildCleanEnv` zeroes CC env vars; Stop hook fires; bridge `callCount >= 1` |
+| `codex` | "FULL BINARY PROOF (CODEX_HOME)" | Per-session `.codex-home/`; `CODEX_HOME` injected; Stop hook fires; bridge `callCount >= 1` |
+| `opencode` | "opencode process-reengage PROVEN" | `step_finish` detected; re-engage spawn fires; both turns complete |
+| `builtin` | deterministic CI anchor | `forceCount >= 1` on no-return stub; `outcome = completed` on returning stub |
+| `cursor-agent` | asserted inert | not spawnable; assertion that no session starts |
+
+Local-only tests (require binary + auth). The builtin block is the CI anchor.
+
+---
+
+## 12. Key Constants and Exports (`@hyperidle/shared`)
 
 | Symbol | Location | Value / purpose |
 |---|---|---|
@@ -177,15 +254,22 @@ Together `fr-forced-return-external-compliant` (convert success) and `fr-forced-
 | `isReturnAction(name)` | `harness/return-actions.ts` | O(1) membership check |
 | `isInternalExtractionDrain(config)` | `harness/return-actions.ts` | Exemption check (`tools.length === 0`) |
 | `AL6_FORCE_RETURN_MESSAGE` | `harness/return-actions.ts` | The forcing message text |
-| `AL6_MAX_FORCE_RETURNS` | `harness/return-actions.ts` | `2` — budget per turn |
-| `shouldForceReturn(gate, count)` | `harness/return-actions.ts` | Pure: returns message or `null` (Layer-A adapters) |
+| `AL6_MAX_FORCE_RETURNS` | `harness/return-actions.ts` | `2` — budget per session |
+| `shouldForceReturn(gate, count)` | `harness/return-actions.ts` | Pure: returns message or `null` |
+| `ReturnEnforcementChannel` | `harness/harness-adapter.ts` | Union of 7 channel strings (non-optional on `HarnessCapabilities`) |
+| `ReturnHookConfig` | `harness/harness-adapter.ts` | Per-session bridge token + mcpUrl + forceBudget (threaded in `SessionConfig`) |
 | `SessionOutcome` | `events.ts` | `"completed" \| "crashed" \| "stopped" \| "not_returned"` |
 | `SessionNotReturnedEvent` | `events.ts` | Bus event emitted on no-return turns |
 
-### Re-engage helpers (`packages/server/src/harness/`)
+### Server-side enforcement modules (`packages/server/src/harness/`)
 
-| Symbol | Location | Purpose |
-|---|---|---|
-| `rewriteSandboxForcing(sandboxPath, basePrompt)` | `re-engage.ts` | Layer-B carrier: appends `AL6_FORCE_RETURN_MESSAGE` and rewrites `AGENTS.md` + `CLAUDE.md` |
-| `createReturnGate()` | `return-gate.ts` | Creates the per-turn-span observer |
-| `evaluateReturn(gate, endReason)` | `return-gate.ts` | Produces `ReturnVerdict` at stream-exhaust |
+| Module | Purpose |
+|---|---|
+| `provision-return-hook.ts` | `provisionReturnHook` — writes hook artifact for the declared channel |
+| `return-enforcement-registry.ts` | `EnforcementRegistry` — per-session `{ gate, forceCount, exempt }` store |
+| `return-gate.ts` | `createReturnGate()` / `evaluateReturn()` — drain-end observer |
+| `re-engage.ts` | Intentionally empty stub — `rewriteSandboxForcing` deleted in v4 |
+
+### Adjudication route (`packages/server/src/routes/mcp-route.ts`)
+
+`POST /api/mcp/:token/return-status` — mounted before the MCP catch-all. Resolves token → session → enforcement registry → force decision. Returns empty body (allow) or `forceMessage` (block).
