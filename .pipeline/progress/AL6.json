@@ -4,7 +4,7 @@
   "track": "AL",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "3-build-v4",
+  "currentStep": "3-build-v4-real-harness-proof",
   "startedAt": "2026-06-22T22:34:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
