@@ -1175,7 +1175,9 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 					const realServer = await startRealServer(bridgeToken, testSessionId);
 
 					try {
-						const mcpUrl = realServer.url;
+						// mcpUrl points at the REAL server's /api/mcp/:token path.
+						// The hook script appends /return-status → full URL: /api/mcp/:token/return-status.
+						const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
 
 						// provisionCodexHome writes:
 						//   sandboxPath/.codex/hooks.json (compat)
