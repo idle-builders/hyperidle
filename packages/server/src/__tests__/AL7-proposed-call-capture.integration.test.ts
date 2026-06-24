@@ -27,8 +27,8 @@ import {
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
-	tasks,
 	tailoredGrants,
+	tasks,
 	teamMembers,
 	teams,
 	threads,
@@ -38,8 +38,8 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import { buildToolRegistry } from "../tools/tool-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
+import { buildToolRegistry } from "../tools/tool-registry.js";
 
 const NOW = new Date().toISOString();
 
@@ -180,8 +180,8 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 		});
 
 		// The router returns AWAITING_REVIEW, not the tool result
-		expect(result.ok).toBe(false);
-		expect((result as { ok: false; error: { code: string } }).error.code).toBe("AWAITING_REVIEW");
+		expect(result.success).toBe(false);
+		expect((result as { success: false; code: string }).code).toBe("AWAITING_REVIEW");
 
 		// A proposed_calls row must exist with status:captured + verbatim toolId + args
 		const rows = await db
@@ -329,14 +329,11 @@ describe("AC2: reversible call flows with no capture", () => {
 		});
 
 		// A reversible tool — must flow without routing to review
-		// (send_message is reversible per its definition)
-		const result = await registry.invoke("send_message", {
-			threadId,
-			content: "status update",
-		});
+		// (read_inbox is reversible per its definition: read-only, no side effects)
+		const result = await registry.invoke("read_inbox", {});
 
 		// The handler result is returned (not an AWAITING_REVIEW error)
-		expect(result.ok).toBe(true);
+		expect(result.success).toBe(true);
 
 		// Zero proposed_calls rows for this session
 		const rows = await db
@@ -403,13 +400,12 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 		expect(res.status).toBeLessThan(500);
 
 		// No proposed_calls row and no tailored_grants row (capture only fires for action_operation)
-		const pcRows = await db.select().from(proposedCalls).where(
-			eq(proposedCalls.reviewMessageId, descReviewMsgId),
-		);
+		const pcRows = await db
+			.select()
+			.from(proposedCalls)
+			.where(eq(proposedCalls.reviewMessageId, descReviewMsgId));
 		const tgRows = await db.select().from(tailoredGrants);
 		expect(pcRows).toHaveLength(0);
-		// No tailored grant for a descriptive artifact
-		const tgForDesc = tgRows.filter(() => false); // grant table exists; zero rows for this review
 		// AC9: approve on a code review does not compose a tailored grant
 		expect(tgRows.filter((g) => g.taskScope === taskId)).toHaveLength(0);
 	});

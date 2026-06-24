@@ -405,25 +405,35 @@ export interface WorkDecomposeRequestedEvent {
 }
 
 /**
- * AL7: Emitted by the dispatcher after a staged operation executes (ok or failed).
- * streamId = stagedOperationId so per-op streams receive the event.
+ * AL7 trust-first: Emitted after an approved call executes (ok or failed) in session 2.
+ * Renamed from operation_executed → proposed_call_executed.
  *
- * @lore AL7: status is "ok" | "failed" matching OperationOutcomeStatus from
- * @hyperidle/shared/staged-operation. Carries both reviewMessageId and
- * stagedOperationId so subscribers can correlate back to the review.
- */
-/**
  * @lore AL7 W4: streamId = subjectThreadId (the bet host thread).
  * The UI subscribes per thread to refresh the Outcome band on the review canvas.
- * Aligning here so the follow-on AL8 live-refresh wiring subscribes to the
- * correct stream. Using opId as streamId would require re-wiring every subscriber.
  */
-export interface OperationExecutedEvent {
-	type: "operation_executed";
+export interface ProposedCallExecutedEvent {
+	type: "proposed_call_executed";
 	streamId: string; // = subjectThreadId (the bet host thread)
-	stagedOperationId: string;
+	proposedCallId: string;
 	reviewMessageId: string;
 	status: "ok" | "failed";
+	timestamp: number;
+}
+
+/**
+ * AL7 trust-first: Emitted after an approve verdict composes a tailored grant and
+ * transitions the Proposed Call to 'granted'. Triggers session-2 re-engagement
+ * via task-dispatcher's handleProposedCallGranted subscription.
+ *
+ * @lore AL7 R1: explicit event + dedicated subscription (not the owner-change
+ * handleSessionEnded path) — avoids double-dispatch and collision with session reuse.
+ */
+export interface ProposedCallGrantedEvent {
+	type: "proposed_call_granted";
+	streamId: string; // = subjectThreadId for per-thread subscriptions
+	proposedCallId: string;
+	taskId: string;
+	agentId: string;
 	timestamp: number;
 }
 
@@ -465,8 +475,10 @@ export type KernelEvent =
 	| WorkSelectionRequestedEvent
 	// AK8: decomposition occasion event
 	| WorkDecomposeRequestedEvent
-	// AL7: staged operation executed
-	| OperationExecutedEvent;
+	// AL7 trust-first: proposed call executed (renamed from operation_executed)
+	| ProposedCallExecutedEvent
+	// AL7 trust-first: proposed call granted → triggers session-2 re-engagement
+	| ProposedCallGrantedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =

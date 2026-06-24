@@ -112,9 +112,11 @@ export type {
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,
 	NotificationEvent,
-	OperationExecutedEvent,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
+	// AL7 trust-first: renamed from OperationExecutedEvent
+	ProposedCallExecutedEvent,
+	ProposedCallGrantedEvent,
 	RoutineFiredEvent,
 	SessionEndedEvent,
 	SessionNotReturnedEvent,
@@ -191,6 +193,8 @@ export type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
+	// AL7: session workflow for route-to-review gate
+	SessionWorkflow,
 	TokenUsageEvent,
 	ToolCallEvent,
 	WorkerErrorMessage,
@@ -291,6 +295,13 @@ export {
 	PART_KINDS,
 	TOOL_KINDS,
 } from "./part.js";
+// ── AL7: Proposed Call constants + types (trust-first redo) ──
+export type {
+	ProposedCall,
+	ProposedCallStatus,
+	Reversibility,
+} from "./proposed-call.js";
+export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,
@@ -331,13 +342,6 @@ export type {
 	ReasoningData,
 	ToolCallData,
 } from "./session-activity.js";
-// ── AL7: Staged operation constants + types ──
-export type {
-	OperationOutcomeStatus,
-	StagedOperationSpec,
-	StagedOperationStatus,
-} from "./staged-operation.js";
-export { OPERATION_OUTCOME_STATUSES, STAGED_OPERATION_STATUSES } from "./staged-operation.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──

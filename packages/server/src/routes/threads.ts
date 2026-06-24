@@ -12,12 +12,14 @@
  */
 
 import {
+	artifacts,
 	bets,
 	type Message as DbMessage,
 	type Thread as DbThread,
 	type HyperIdleDb,
 	knowledgeItems,
 	messages,
+	proposedCalls,
 	sessions,
 	tasks,
 	threads,
@@ -31,6 +33,7 @@ import type {
 	Message,
 	MessageType,
 	PlainPayload,
+	ProposedCallGrantedEvent,
 	RedactedPayload,
 	Thread,
 	ThreadCreatedEvent,
@@ -48,16 +51,14 @@ import {
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
+import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import type { AssistantTurnDeps } from "../services/assistant-turn.js";
 import { persistTurnFailure, runAssistantTurn } from "../services/assistant-turn.js";
 import { escapeLikePattern } from "../services/like-escape.js";
-import {
-	resolveStagedOperations,
-	type StagedOperationDispatchDeps,
-} from "../services/staged-operation-dispatcher.js";
+import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -622,7 +623,6 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	assistantTurnDeps?: AssistantTurnDeps,
-	dispatchDeps?: StagedOperationDispatchDeps,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -1368,17 +1368,10 @@ export function createThreadRoutes(
 				};
 				eventBus.emit(resolvedEvent);
 
-				// AL7: execute staged operations on approve verdict.
-				// @lore AL7 C1: keyed on resolvesMessageRow.id (NOT threadId) — one
-				// review message → only its ops fire. Thread-keyed would fire ALL
-				// reviews' ops on the same thread.
-				// @lore AL7: awaited inline — the 201 response waits for execution to
-				// complete so callers (tests + UI) observe final status synchronously.
-				// Execution failure surfaces as a failed Outcome row, never a 500.
 				const decision = input.payload.decision;
-				if (dispatchDeps && (decision === "approve" || decision === "approve-with-comments")) {
-					await resolveStagedOperations(dispatchDeps, resolvesMessageRow.id);
-				}
+				// AL7 trust-first: approve verdict handled by proposed-call workflow (Task 8).
+				// Tailored grant composed + proposed_call_granted emitted there.
+				void decision; // will be used by Task 8 implementation
 			}
 			if (willReopen) {
 				const reopenedEvent: ThreadReopenedEvent = {
@@ -1408,6 +1401,97 @@ export function createThreadRoutes(
 				},
 				201,
 			);
+		},
+	);
+
+	// --- POST /api/threads/:threadId/messages/:messageId/verdict ---------
+	// AL7 Task 8: verdict → tailored grant + proposed_call_granted event.
+	// On approve: compose tailored grant (captured → granted) + emit event.
+	// On non-approve: transition PC to held (never executed).
+	//
+	// @lore AL7 Task 8: SEPARATE from POST …/messages. This endpoint processes
+	// the human decision on a review message that backs a Proposed Call —
+	// it does NOT append a message itself.
+	const verdictInputSchema = zod.object({
+		decision: zod.enum(["approve", "request-changes", "reject"]),
+		rationale: zod.string().optional(),
+	});
+	router.post(
+		"/:threadId/messages/:messageId/verdict",
+		requireBoundary({ kind: "enforced" }),
+		async (c) => {
+			const threadId = c.req.param("threadId");
+			const messageId = c.req.param("messageId");
+			let body: unknown;
+			try {
+				body = await c.req.json();
+			} catch {
+				return c.json({ error: "Invalid JSON", code: "invalid_json" }, 400);
+			}
+			const parsed = verdictInputSchema.safeParse(body);
+			if (!parsed.success) {
+				return c.json({ error: "Validation error", code: "validation_error" }, 400);
+			}
+			const { decision } = parsed.data;
+
+			// Find the Proposed Call anchored to this review message
+			const [pc] = await db
+				.select()
+				.from(proposedCalls)
+				.where(eq(proposedCalls.reviewMessageId, messageId))
+				.limit(1);
+
+			if (!pc) {
+				// No PC anchored to this review message — verdict accepted but nothing to do
+				return c.json({ ok: true }, 200);
+			}
+
+			if (decision === "approve") {
+				// Resolve task + agent scope via the artifact → task chain
+				const [art] = await db
+					.select({ producingTaskId: artifacts.producingTaskId })
+					.from(artifacts)
+					.where(eq(artifacts.id, pc.artifactId))
+					.limit(1);
+				const taskId = art?.producingTaskId;
+				if (!taskId) {
+					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
+				}
+
+				const [task] = await db
+					.select({ ownerAgentId: tasks.ownerAgentId })
+					.from(tasks)
+					.where(eq(tasks.id, taskId))
+					.limit(1);
+				const agentId = task?.ownerAgentId;
+				if (!agentId) {
+					return c.json({ error: "Task not found", code: "not_found" }, 404);
+				}
+
+				await composeTailoredGrant(db, {
+					proposedCallId: pc.id,
+					taskScope: taskId,
+					agentScope: agentId,
+					approvedToolId: pc.toolId,
+					approvedArgs: pc.args,
+					identityHash: pc.identityHash ?? undefined,
+				});
+
+				const event: ProposedCallGrantedEvent = {
+					type: "proposed_call_granted",
+					streamId: threadId,
+					proposedCallId: pc.id,
+					taskId,
+					agentId,
+					timestamp: Date.now(),
+				};
+				eventBus.emit(event);
+			} else {
+				// Non-approve: hold the Proposed Call (never executed)
+				await db.update(proposedCalls).set({ status: "held" }).where(eq(proposedCalls.id, pc.id));
+			}
+
+			return c.json({ ok: true }, 200);
 		},
 	);
 

@@ -1,8 +1,17 @@
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, IngestionHandle, UserRole } from "@hyperidle/shared";
+import * as crypto from "node:crypto";
+import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
+import type {
+	EventBus,
+	IngestionHandle,
+	Reversibility,
+	SessionWorkflow,
+	UserRole,
+} from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
 import z from "zod";
 import { addAgentTool } from "./add-agent.js";
 import type { AssistantToolShape } from "./assistant-tool-result.js";
+import { commitFileTool } from "./commit-file.js";
 import { createArtifactTool } from "./create-artifact.js";
 import { createBetTool } from "./create-bet.js";
 import { createConflictReviewTool } from "./create-conflict-review.js";
@@ -19,7 +28,6 @@ import { readInboxTool } from "./read-inbox.js";
 import { routeItemTool } from "./route-item.js";
 import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
-import { stageOperationTool } from "./stage-operation.js";
 import { submitReviewTool } from "./submit-review.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 import { updateRoutineTool } from "./update-routine.js";
@@ -53,6 +61,17 @@ export interface ToolContext {
 	 * handoff path (which calls endSession/crashSession that dispose it).
 	 */
 	readonly ingestion: IngestionHandle;
+	/**
+	 * AL7 Task 5: When provided, the workflow router calls this after the
+	 * first capture (session 1 ends — sessions aren't pausable). Injected
+	 * by provisionSession via the sessionRunRegistry.abort closure.
+	 * Optional — absent for sessions without a workflow (e.g. test fixtures).
+	 *
+	 * @lore AL7: abort fires after the FIRST distinct irreversible capture.
+	 * A second identical call hits the UNIQUE-dedup (no-op). A second distinct
+	 * call still captures (WARNING-5.1) before the process dies.
+	 */
+	readonly onAbortSession?: (sessionId: string) => void;
 }
 
 /**
@@ -69,6 +88,13 @@ export interface ToolDefinition<Input = unknown> {
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: (args: Input, ctx: ToolContext) => Promise<ToolResult>;
 	readonly roles?: readonly UserRole[];
+	/** AL7: optional reversibility annotation; see RegisteredTool.reversibility. */
+	readonly reversibility?: Reversibility;
+	/** AL7: optional MCP annotations; see RegisteredTool.annotations. */
+	readonly annotations?: {
+		readonly destructiveHint?: boolean;
+		readonly idempotentHint?: boolean;
+	};
 }
 
 /**
@@ -88,6 +114,23 @@ export interface RegisteredTool {
 	readonly inputSchema: z.ZodType;
 	readonly handler: (args: unknown, ctx: ToolContext) => Promise<ToolResult>;
 	readonly roles?: readonly UserRole[];
+	/**
+	 * AL7 Task 4: explicit reversibility annotation for `classifyReversibility`.
+	 * When absent, the classifier is fail-closed: the tool is treated as `irreversible`
+	 * (routed to review out of *care*, not suspicion). When present, overrides MCP hints.
+	 *
+	 * @lore AL7 D1: fail-closed means no missed consequential calls. Care, not suspicion.
+	 */
+	readonly reversibility?: Reversibility;
+	/**
+	 * AL7 Task 4: MCP tool annotations for reversibility classification.
+	 * The classifier reads `destructiveHint`/`idempotentHint` when no explicit
+	 * `reversibility` annotation is present.
+	 */
+	readonly annotations?: {
+		readonly destructiveHint?: boolean;
+		readonly idempotentHint?: boolean;
+	};
 }
 
 /**
@@ -103,6 +146,8 @@ export function toRegistered<Input>(def: ToolDefinition<Input>): RegisteredTool 
 		inputSchema: def.inputSchema,
 		handler: (args, ctx) => def.handler(args as Input, ctx),
 		...(def.roles ? { roles: def.roles } : {}),
+		...(def.reversibility !== undefined ? { reversibility: def.reversibility } : {}),
+		...(def.annotations !== undefined ? { annotations: def.annotations } : {}),
 	};
 }
 
@@ -149,6 +194,119 @@ export interface ToolRegistry {
 	readonly definitions: readonly RegisteredTool[];
 	readonly invoke: (name: string, rawArgs: unknown) => Promise<ToolResult>;
 	readonly toClaudeToolSpecs: () => readonly ClaudeToolSpec[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AL7 Task 4: Classifier + composer + identity hash
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Classify a tool call's reversibility.
+ *
+ * Resolution order:
+ * 1. Tool definition's explicit `reversibility` field.
+ * 2. MCP `destructiveHint` annotation → `irreversible`.
+ * 3. MCP `idempotentHint` annotation (without destructive) → `reversible`.
+ * 4. **No signal → `irreversible`** (fail-closed out of *care*, not suspicion).
+ *    A consequential-looking call is surfaced to the human rather than silently executed.
+ *
+ * @lore AL7 D1: the fail-closed default is collaboration care, not agent-distrust.
+ * The human might see a boring call — that is acceptable. Silently executing an
+ * irreversible op is not.
+ */
+export function classifyReversibility(
+	_toolId: string,
+	def: object & {
+		reversibility?: Reversibility;
+		annotations?: { destructiveHint?: boolean; idempotentHint?: boolean };
+	},
+): Reversibility {
+	// 1. Explicit annotation wins
+	if (def.reversibility !== undefined) return def.reversibility;
+	// 2. MCP hints
+	if (def.annotations?.destructiveHint === true) return "irreversible";
+	if (def.annotations?.idempotentHint === true) return "reversible";
+	// 3. Fail-closed: no signal → irreversible
+	return "irreversible";
+}
+
+/**
+ * Produce a canonical JSON string for `{toolId, args}` with keys sorted
+ * deterministically. Used by `identityHash` to ensure the hash is stable
+ * regardless of key-insertion order in `args`.
+ *
+ * @lore AL7 D3: the canonical form is NOT a security boundary — it is
+ * convenience metadata for the optional arg-pin. A hash mismatch NEVER
+ * blocks the approved work.
+ */
+export function canonicalJson(toolId: string, args: Record<string, unknown>): string {
+	function sortKeys(obj: unknown): unknown {
+		if (obj === null || typeof obj !== "object") return obj;
+		if (Array.isArray(obj)) return obj.map(sortKeys);
+		const sorted: Record<string, unknown> = {};
+		for (const k of Object.keys(obj as Record<string, unknown>).sort()) {
+			sorted[k] = sortKeys((obj as Record<string, unknown>)[k]);
+		}
+		return sorted;
+	}
+	return JSON.stringify({ toolId, args: sortKeys(args) });
+}
+
+/**
+ * SHA-256 over the canonical JSON of `{toolId, args}`.
+ *
+ * Returns a hex string prefixed with `sha256-`. Used as optional metadata for
+ * the arg-pin convenience (AC5b). NOT a security guard — nothing gates on this
+ * hash; a hash mismatch never blocks the approved work.
+ *
+ * @lore AL7 D3: no-deadlock by design. The name-scoped allow always permits
+ * the approved tool; the hash is only the convenience layer.
+ */
+export function identityHash(toolId: string, args: Record<string, unknown>): string {
+	const digest = crypto.createHash("sha256").update(canonicalJson(toolId, args)).digest("hex");
+	return `sha256-${digest}`;
+}
+
+/**
+ * Determine which tools to allow and which to route to review, given a
+ * `SessionWorkflow` and the full list of tools visible in the session.
+ *
+ * session-1 (open-work):
+ *   - `routeToReview` = all irreversible tools
+ *   - `allow` = reversible tools
+ *
+ * session-2 (grant-bearing):
+ *   - `routeToReview` = irreversible tools EXCEPT the approvedCall.toolId
+ *   - `allow` = reversible tools + approvedCall.toolId
+ *
+ * @lore AL7 D1: used by per-harness native carriers (Claude `allowedTools`/
+ * `disallowedTools`). The router in `invoke` is the uniform record/consume
+ * point; this helper surfaces the same partitioning to harness-specific adapters.
+ */
+export function composeWorkflowAllowDeny(
+	wf: SessionWorkflow,
+	allTools: ReadonlyArray<Pick<RegisteredTool, "name" | "reversibility" | "annotations">>,
+): { allow: string[]; routeToReview: string[] } {
+	const allow: string[] = [];
+	const routeToReview: string[] = [];
+
+	for (const tool of allTools) {
+		const rev = classifyReversibility(tool.name, tool);
+		const isIrreversible = wf.routeToReview.includes(rev as Reversibility);
+
+		if (isIrreversible) {
+			// Session 2: approved tool moves to allow
+			if (wf.sessionRole === "grant-bearing" && wf.approvedCall?.toolId === tool.name) {
+				allow.push(tool.name);
+			} else {
+				routeToReview.push(tool.name);
+			}
+		} else {
+			allow.push(tool.name);
+		}
+	}
+
+	return { allow, routeToReview };
 }
 
 /**
@@ -206,9 +364,6 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
 	toRegistered(submitReviewTool),
 	// R6: create_artifact is available to all agent roles — no `roles` filter.
 	toRegistered(createArtifactTool),
-	// AL7: stage_operation is the agent-facing verb for parking ops behind the human gate.
-	// The dispatcher (execute verb) is Kernel-held — NOT registered here.
-	toRegistered(stageOperationTool),
 	// G1 facilitator tools — restricted to facilitator roles.
 	toRegistered(routeItemTool),
 	toRegistered(scoreAttentionTool),
@@ -226,6 +381,10 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
 	wrapForRegistry(editBetTool, ["assistant"]),
 	toRegistered(createRoutineTool),
 	toRegistered(updateRoutineTool),
+	// AL7 Task 4: live-proof tool — MCP-exposed, reversibility:"irreversible".
+	// Wired BEFORE Tasks 5-11 (topological order per architecture Task 4).
+	// Proves the trust-first loop mechanics without external credentials (AC12).
+	toRegistered(commitFileTool),
 ];
 
 /**
@@ -235,6 +394,32 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
  */
 export function toolsForRole(role: UserRole): readonly RegisteredTool[] {
 	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
+}
+
+/**
+ * AL7 Task 5: Session-workflow extension for `BuildToolRegistryOptions`.
+ *
+ * Extends `SessionWorkflow` (from `@hyperidle/shared`) with the server-side
+ * capture fields (`reviewMessageId`, `subjectThreadId`, `artifactId`) that are
+ * derived server-side and never authored by the agent.
+ *
+ * These fields are in `BuildToolRegistryOptions` (not in `SessionWorkflow`) because:
+ * - `SessionWorkflow` travels in `SessionConfig` (the shared harness interface);
+ *   it must not carry fields that belong to a specific server capture context.
+ * - The router in `invoke` reads them to anchor the Proposed Call to the right
+ *   review message + thread + artifact.
+ *
+ * @lore AL7 concept rejection #8: `reviewMessageId`/`subjectThreadId`/`artifactId`
+ * are derived server-side, never agent-authored. They belong in the provisioning
+ * context, not in the shared `SessionWorkflow` type.
+ */
+export interface RegistrySessionWorkflow extends SessionWorkflow {
+	/** The review message this session is anchored to (derived server-side). */
+	readonly reviewMessageId: string;
+	/** The subject thread for the review (anchor for the loader). */
+	readonly subjectThreadId: string;
+	/** The action_operation artifact id this proposed call nests on. */
+	readonly artifactId: string;
 }
 
 /**
@@ -251,14 +436,113 @@ export function toolsForRole(role: UserRole): readonly RegisteredTool[] {
  * time. Extra tools are appended AFTER role-filtered tools and bypass the
  * role filter (the caller controls injection; the tool itself encodes its
  * authorization via context or closed-over registry).
+ *
+ * @lore AL7 Task 5: `sessionWorkflow` (optional) carries the route-to-review
+ * workflow + capture anchors. When present, `invoke` classifies reversibility
+ * and routes irreversible calls to review (session 1) or permits the approved
+ * op (session 2). Absent for sessions that don't participate in the workflow.
  */
 export interface BuildToolRegistryOptions {
 	readonly role: UserRole;
 	readonly extraTools?: readonly RegisteredTool[];
+	readonly sessionWorkflow?: RegistrySessionWorkflow;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AL7 Task 5: internal workflow-router helpers (capture, record outcome)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function nowIso(): string {
+	return new Date().toISOString();
+}
+
+/**
+ * Insert a Proposed Call row idempotently using ON CONFLICT DO NOTHING semantics.
+ * Returns `{ firstCapture: true }` if the row was newly inserted (zero prior rows
+ * for this `(originSessionId, identityHash)` pair) or `{ firstCapture: false }` if
+ * it was a duplicate.
+ *
+ * @lore AL7 WARNING-5.2: the `(origin_session_id, identity_hash)` constraint MUST
+ * be a UNIQUE constraint (not a plain index) so the INSERT ON CONFLICT DO NOTHING
+ * truly deduplicates. A plain index does NOT block duplicates in PostgreSQL.
+ */
+async function captureProposedCall(
+	db: HyperIdleDb,
+	opts: {
+		originSessionId: string;
+		taskId: string;
+		agentId: string;
+		toolId: string;
+		args: Record<string, unknown>;
+		hash: string;
+		reviewMessageId: string;
+		subjectThreadId: string;
+		artifactId: string;
+	},
+): Promise<{ firstCapture: boolean }> {
+	const id = `pc-${crypto.randomUUID()}`;
+	const rows = await db
+		.insert(proposedCalls)
+		.values({
+			id,
+			reviewMessageId: opts.reviewMessageId,
+			subjectThreadId: opts.subjectThreadId,
+			artifactId: opts.artifactId,
+			originSessionId: opts.originSessionId,
+			toolId: opts.toolId,
+			args: JSON.stringify(opts.args),
+			identityHash: opts.hash,
+			reversibility: "irreversible",
+			status: "captured",
+			stagedByAgentId: opts.agentId,
+			createdAt: nowIso(),
+		})
+		.onConflictDoNothing()
+		.returning();
+	return { firstCapture: rows.length > 0 };
+}
+
+/**
+ * Record the terminal outcome of an executed Proposed Call.
+ * One row per `proposedCallId` (PK enforces immutability).
+ */
+async function recordOutcome(
+	db: HyperIdleDb,
+	proposedCallId: string,
+	result: ToolResult,
+): Promise<void> {
+	const executedAt = nowIso();
+	if (result.success) {
+		const receipt = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
+		await db.insert(operationOutcomes).values({
+			proposedCallId,
+			status: "ok",
+			receipt,
+			executedAt,
+		});
+	} else {
+		await db.insert(operationOutcomes).values({
+			proposedCallId,
+			status: "failed",
+			error: result.error,
+			executedAt,
+		});
+	}
+	// Transition the Proposed Call status
+	const newStatus = result.success ? "executed" : "failed";
+	await db
+		.update(proposedCalls)
+		.set({ status: newStatus })
+		.where(eq(proposedCalls.id, proposedCallId));
 }
 
 /**
  * Build a fresh registry bound to the given context, filtered to the agent's role.
+ *
+ * When `options.sessionWorkflow` is provided, `invoke` becomes the **workflow
+ * router**: classify reversibility → route irreversible to review (capture +
+ * record) or permit the approved op (CAS-consume grant → run handler → record
+ * Outcome). This is HyperIdle's participation point in the agent's brokered call.
  *
  * @lore I2 review W3: when the requested tool exists in the global tool
  * catalogue but is filtered out for this role, `invoke()` returns
@@ -267,6 +551,10 @@ export interface BuildToolRegistryOptions {
  * can distinguish a typo (NOT_FOUND) from a role-boundary breach
  * (FORBIDDEN). The harness still applies its own per-session allowlist
  * (`session-provisioning.ts:303`); this is the inner gate.
+ *
+ * @lore AL7 Task 5: the workflow router. One change, all harnesses, because
+ * every brokered/MCP-routed call passes through this closure. The router is
+ * collaboration plumbing, not a security floor (ETHOS §4).
  */
 export function buildToolRegistry(
 	ctx: ToolContext,
@@ -280,19 +568,118 @@ export function buildToolRegistry(
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 	const allByName = new Map(ALL_TOOL_DEFINITIONS.map((d) => [d.name, d]));
 
-	// biome-ignore lint/suspicious/useAwait: ToolRegistry.invoke returns Promise for interface consistency
+	const wf = options.sessionWorkflow;
+
 	async function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
 		const def = byName.get(name);
 		if (!def) {
+			// For unregistered tools: if the name appears in allByName, it's a role boundary
+			// breach; otherwise it's truly unknown. The workflow router still fires for
+			// unregistered tools that are irreversible (fail-closed treats unknowns as
+			// irreversible and routes them to review rather than revealing the NOT_FOUND).
+			if (wf) {
+				// Unknown tool in a workflow session: fail-closed → route to review
+				const hash = identityHash(name, (rawArgs as Record<string, unknown> | null) ?? {});
+				const captured = await captureProposedCall(ctx.db, {
+					originSessionId: ctx.sessionId,
+					taskId: ctx.taskId,
+					agentId: ctx.agentId,
+					toolId: name,
+					args: (rawArgs as Record<string, unknown> | null) ?? {},
+					hash,
+					reviewMessageId: wf.reviewMessageId,
+					subjectThreadId: wf.subjectThreadId,
+					artifactId: wf.artifactId,
+				});
+				if (captured.firstCapture) {
+					ctx.onAbortSession?.(ctx.sessionId);
+				}
+				return err("AWAITING_REVIEW", `Call to ${name} routed to human review.`);
+			}
 			if (allByName.has(name)) {
 				return err("FORBIDDEN", `Tool not available to this role: ${name}`);
 			}
 			return err("NOT_FOUND", `Unknown tool: ${name}`);
 		}
+
 		const parsed = def.inputSchema.safeParse(rawArgs ?? {});
 		if (!parsed.success) {
 			return err("INVALID_INPUT", parsed.error.message);
 		}
+
+		// ── Workflow router ────────────────────────────────────────────────────
+		if (wf) {
+			const reversibility = classifyReversibility(name, def);
+			const isIrreversible = wf.routeToReview.includes(reversibility);
+
+			// Session 2 (grant-bearing): check if this is the approved op
+			if (wf.sessionRole === "grant-bearing" && wf.approvedCall?.toolId === name) {
+				// Arg-pin check: if pinned, identity must match
+				const isArgPinned = wf.approvedCall.argPinned;
+				const argsMatch =
+					!isArgPinned ||
+					identityHash(name, parsed.data as Record<string, unknown>) ===
+						wf.approvedCall.identityHash;
+
+				if (argsMatch) {
+					// CAS-consume the tailored grant (single-statement atomic consume)
+					const [claimed] = await ctx.db
+						.update(tailoredGrants)
+						.set({ consumed: true, consumedAt: nowIso() })
+						.where(
+							and(
+								eq(tailoredGrants.taskScope, ctx.taskId),
+								eq(tailoredGrants.agentScope, ctx.agentId),
+								eq(tailoredGrants.approvedToolId, name),
+								eq(tailoredGrants.consumed, false),
+							),
+						)
+						.returning();
+
+					if (claimed) {
+						// Grant consumed: run the agent's own handler
+						try {
+							const result = await def.handler(parsed.data, ctx);
+							await recordOutcome(ctx.db, claimed.proposedCallId, result);
+							return result;
+						} catch (e) {
+							const failResult = err(
+								"EXECUTION_FAILED",
+								`Approved call ${name} threw: ${String(e)}`,
+							);
+							await recordOutcome(ctx.db, claimed.proposedCallId, failResult);
+							return failResult;
+						}
+					}
+					// Grant already consumed → fall through to route-to-review
+					// (no double-execute; surfaced as a fresh decision)
+				}
+				// Arg-pinned mismatch → fall through to route-to-review
+			}
+
+			// Route irreversible (or unknown) calls to review
+			if (isIrreversible) {
+				const hash = identityHash(name, parsed.data as Record<string, unknown>);
+				const captured = await captureProposedCall(ctx.db, {
+					originSessionId: ctx.sessionId,
+					taskId: ctx.taskId,
+					agentId: ctx.agentId,
+					toolId: name,
+					args: parsed.data as Record<string, unknown>,
+					hash,
+					reviewMessageId: wf.reviewMessageId,
+					subjectThreadId: wf.subjectThreadId,
+					artifactId: wf.artifactId,
+				});
+				if (captured.firstCapture) {
+					// Session 1 ends after first capture (sessions aren't pausable)
+					ctx.onAbortSession?.(ctx.sessionId);
+				}
+				return err("AWAITING_REVIEW", `Call to ${name} routed to human review.`);
+			}
+		}
+		// ── End workflow router ────────────────────────────────────────────────
+
 		return def.handler(parsed.data, ctx);
 	}
 

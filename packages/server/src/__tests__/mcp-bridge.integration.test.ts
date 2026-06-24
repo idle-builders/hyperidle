@@ -169,11 +169,11 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
-	it("registers exactly 22 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 stage_operation)", () => {
+	it("registers exactly 22 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 commit_file)", () => {
 		// The McpServer's internal _registeredTools is private; we verify via
 		// the registry definitions count. AC1 acceptance: all definitions from
 		// the registry are registered.
-		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) + 1 (AL7 stage_operation) = 22
+		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) + 1 (AL7 commit_file) = 22
 		expect(registry.definitions).toHaveLength(22);
 		// The bridge was created with this registry, so it must have 20 tools.
 		// We'll verify via a tools/list MCP request in the integration test;
@@ -217,8 +217,8 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 			"update_routine",
 			// AK4: bet draft/edit tool for assistant conversational drafting
 			"edit_bet",
-			// AL7: stage_operation — agent-facing verb to park ops behind the human gate
-			"stage_operation",
+			// AL7: commit_file — live-proof tool; reversibility:"irreversible"
+			"commit_file",
 		].sort();
 
 		const actualNames = registry.definitions.map((d) => d.name).sort();
@@ -262,8 +262,8 @@ describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () =
 
 		const bridge = await createMcpBridge({ sessionId: "session-ac4-b", registry });
 
-		// Builder gets 15 - 4 facilitator tools + 1 AL7 stage_operation = 12 tools
-		// (stage_operation has no role restriction — available to all)
+		// Builder gets 15 - 4 facilitator tools + 1 AL7 commit_file = 12 tools
+		// (commit_file has no role restriction — available to all)
 		expect(registry.definitions).toHaveLength(12);
 
 		const names = registry.definitions.map((d) => d.name);

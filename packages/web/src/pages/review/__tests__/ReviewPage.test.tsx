@@ -196,11 +196,11 @@ describe("ReviewPage route", () => {
 //
 // This test exercises the real loader → ComposedReviewSubject → ReviewComposition
 // → ReviewActionOperation → Outcome band chain. It proves that the loader shape
-// (artifact.stagedOperation.stagedOperationId + outcome.receipt) actually reaches
-// the rendered canvas — NOT just the raw JSON boundary.
+// (artifact.proposedCall.{proposedCallId, toolId, args, status, outcome}) actually
+// reaches the rendered canvas — NOT just the raw JSON boundary.
 //
 // The "result visible against the review" AC requires this chain, not just the
-// route-level assertion in AL7-reviews-loader.integration.test.ts.
+// route-level assertion in AL7-reviews-loader-redo.integration.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders", () => {
@@ -219,17 +219,19 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 		return loader;
 	}
 
-	it("renders 'Executed' outcome band when loader returns artifact with stagedOperation.outcome.status=ok", async () => {
-		// Build a subject where the action_operation artifact has a staged op with ok outcome.
-		// This is the shape the fixed loader emits (artifact.stagedOperation, not top-level).
+	it("renders 'Executed' outcome band when loader returns artifact with proposedCall.outcome.status=ok", async () => {
+		// Build a subject where the action_operation artifact has a proposedCall with ok outcome.
+		// This is the shape the trust-first loader emits (artifact.proposedCall, not top-level).
 		const subjectWithOutcome: typeof REVIEW_COMPOSITION_SUBJECT = {
 			...REVIEW_COMPOSITION_SUBJECT,
 			artifacts: REVIEW_COMPOSITION_SUBJECT.artifacts.map((a) => {
 				if (a.kind !== "action_operation") return a;
 				return {
 					...a,
-					stagedOperation: {
-						stagedOperationId: "op-e2e-test",
+					proposedCall: {
+						proposedCallId: "pc-e2e-test",
+						toolId: "commit_file",
+						args: { path: "/workspace/out.txt", content: "done" },
 						status: "executed" as const,
 						outcome: {
 							status: "ok" as const,
@@ -257,7 +259,7 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 		expect(screen.getByText("abc1234e2etestreceipt")).toBeInTheDocument();
 	});
 
-	it("renders 'Execution failed' outcome band when loader returns artifact with stagedOperation.outcome.status=failed", async () => {
+	it("renders 'Execution failed' outcome band when loader returns artifact with proposedCall.outcome.status=failed", async () => {
 		const verbatimError =
 			"GitHub merge-pr failed HTTP 409 Pull Request is not mergeable e2efailtest";
 		const subjectWithFailure: typeof REVIEW_COMPOSITION_SUBJECT = {
@@ -266,8 +268,10 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 				if (a.kind !== "action_operation") return a;
 				return {
 					...a,
-					stagedOperation: {
-						stagedOperationId: "op-e2e-fail",
+					proposedCall: {
+						proposedCallId: "pc-e2e-fail",
+						toolId: "commit_file",
+						args: { path: "/workspace/out.txt" },
 						status: "failed" as const,
 						outcome: {
 							status: "failed" as const,

@@ -25,7 +25,6 @@ import {
 	messages,
 	operationOutcomes,
 	proposedCalls,
-	sessions,
 	tailoredGrants,
 	tasks,
 	teamMembers,
@@ -37,8 +36,8 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import { buildToolRegistry, type BuildToolRegistryOptions } from "../tools/tool-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
+import { type BuildToolRegistryOptions, buildToolRegistry } from "../tools/tool-registry.js";
 
 const NOW = new Date().toISOString();
 
@@ -212,7 +211,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 		});
 
 		// The approved op SUCCEEDS (not AWAITING_REVIEW)
-		expect(result.ok).toBe(true);
+		expect(result.success).toBe(true);
 
 		// AC4: the real file must exist on disk (not a stub)
 		expect(fs.existsSync(outputFile)).toBe(true);
@@ -235,10 +234,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 		expect(outcomes[0]?.status).toBe("ok");
 
 		// Proposed Call → executed
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, pcId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, pcId));
 		expect(pcs[0]?.status).toBe("executed");
 	});
 });
@@ -308,9 +304,9 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 		const result = await registry.invoke("github_merge_pr", { pr: 99, repo: "hyperidle/core" });
 
 		// Must be routed to review (not executed)
-		expect(result.ok).toBe(false);
-		const errResult = result as { ok: false; error: { code: string } };
-		expect(errResult.error.code).toBe("AWAITING_REVIEW");
+		expect(result.success).toBe(false);
+		const errResult = result as { success: false; code: string };
+		expect(errResult.code).toBe("AWAITING_REVIEW");
 
 		// A NEW Proposed Call is created for the different irreversible op
 		const newPcs = await db
@@ -371,7 +367,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			approvedToolId: "commit_file",
 			approvedArgs: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			argPinned: false,
-			consumed: false,    // NOT consumed — session ended before the approved op ran
+			consumed: false, // NOT consumed — session ended before the approved op ran
 			retryCount: 0,
 			mintedAt: NOW,
 		});
@@ -382,7 +378,9 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			sessionId: sessionId2,
 			taskId,
 			agentId,
-			onReenqueue: (t: string, a: string) => { reenqueueRequests.push({ taskId: t, agentId: a }); },
+			onReenqueue: (t: string, a: string) => {
+				reenqueueRequests.push({ taskId: t, agentId: a });
+			},
 		});
 
 		// retryCount→1 (one re-provision allowed)
@@ -432,7 +430,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			approvedArgs: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			argPinned: false,
 			consumed: false,
-			retryCount: 1,    // already retried once
+			retryCount: 1, // already retried once
 			mintedAt: NOW,
 		});
 
@@ -441,17 +439,16 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			sessionId: sessionId2,
 			taskId,
 			agentId,
-			onReenqueue: (t: string, a: string) => { reenqueueRequests.push({ taskId: t, agentId: a }); },
+			onReenqueue: (t: string, a: string) => {
+				reenqueueRequests.push({ taskId: t, agentId: a });
+			},
 		});
 
 		// NO further re-provision
 		expect(reenqueueRequests).toHaveLength(0);
 
 		// PC → held
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, pcId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, pcId));
 		expect(pcs[0]?.status).toBe("held");
 
 		// A failed Outcome is written (never silent)

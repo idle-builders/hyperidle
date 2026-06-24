@@ -669,14 +669,14 @@ function ExaminePane({
 
 			<div className="min-h-0 flex-1 overflow-auto">
 				<div className="flex flex-col gap-[18px] p-[18px]">
-					{/* AL7: action_operation canvases receive status+outcome from the loader via
-					    ComposedReviewArtifact.stagedOperation. All other canvases receive only
-					    the artifact (ReviewCanvasProps contract unchanged). */}
+					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
+					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
+					    Fallback to stagedOperation for backward compat during migration. */}
 					{artifact.kind === "action_operation" ? (
 						<ReviewActionOperation
 							artifact={artifact}
-							status={artifact.stagedOperation?.status}
-							outcome={artifact.stagedOperation?.outcome}
+							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
+							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
 						/>
 					) : (
 						<Canvas artifact={artifact} />

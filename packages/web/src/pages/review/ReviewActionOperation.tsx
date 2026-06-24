@@ -16,12 +16,12 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
-import type { StagedOperationStatus } from "@hyperidle/shared";
+import type { ProposedCallStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
-import type { StagedOperationOutcomeView } from "./review-composition";
+import type { ProposedCallOutcomeView } from "./review-composition";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -75,31 +75,31 @@ const REFUND: RefundOperation = {
 
 // ── canvas ──────────────────────────────────────────────────────────────────
 
-// ── AL7: the staged-operation execution outcome ──────────────────────────────
-// The terminal result of an executed staged operation, surfaced on the same
+// ── AL7 trust-first: the Proposed Call execution outcome ──────────────────────
+// The terminal result of an executed Proposed Call, surfaced on the same
 // canvas that rendered the pre-commit receipt. Hard rule #8: a failure is an
 // Outcome with status="failed" + a surfaced error — NEVER a missing/silent
 // outcome, never a toast. The band is a persistent part of the card so a
 // re-opened review shows the terminal state instead of re-prompting.
 //
-// @lore AL7 N2: StagedOperationStatus is imported from @hyperidle/shared (the
-// shared STAGED_OPERATION_STATUSES const tuple), NOT defined inline here.
-// This ensures the canvas cannot drift from the dispatcher's status values.
-// StagedOperationOutcomeView is imported from review-composition — the loader
+// @lore AL7 N2: ProposedCallStatus is imported from @hyperidle/shared (the
+// shared PROPOSED_CALL_STATUSES const tuple), NOT defined inline here.
+// This ensures the canvas cannot drift from the router's status values.
+// ProposedCallOutcomeView is imported from review-composition — the loader
 // uses the same shape, so canvas and loader cannot drift either.
 
 export interface ReviewActionOperationProps {
 	readonly operation?: RefundOperation;
-	/** AL7: drives the outcome band. `pending` renders the AL2 canvas unchanged. */
-	readonly status?: StagedOperationStatus;
-	readonly outcome?: StagedOperationOutcomeView;
+	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
+	readonly status?: ProposedCallStatus;
+	readonly outcome?: ProposedCallOutcomeView;
 	readonly onApprove?: () => void;
 	readonly onReject?: () => void;
 }
 
 function ReviewActionOperationView({
 	operation = REFUND,
-	status = "pending",
+	status = "captured",
 	outcome,
 	onApprove,
 	onReject,
@@ -186,11 +186,10 @@ function ReviewActionOperationView({
 				))}
 			</dl>
 
-			{/* ── AL7 · the execution outcome band (executing | success | failure) ── */}
-			{/* @lore AL7: `executing` is transient — the boot sweep (sweepStrandedOperations)
-			    converts any crash-stranded `executing` op to `failed`, so a reviewer never
-			    sits on a permanent spinner. The spinner is for the brief in-flight window. */}
-			{status === "executing" ? <ExecutingBand /> : null}
+			{/* ── AL7 trust-first · the execution outcome band (granted | executed | failed) ── */}
+			{/* @lore AL7: `granted` is transient — the agent is provisioned for session 2.
+			    `executed` = ok outcome, `failed` = outcome with error. */}
+			{status === "granted" ? <ExecutingBand /> : null}
 			{status === "executed" && outcome ? <OutcomeBand outcome={outcome} ok /> : null}
 			{status === "failed" && outcome ? <OutcomeBand outcome={outcome} /> : null}
 
@@ -314,7 +313,7 @@ function OutcomeBand({
 	outcome,
 	ok = false,
 }: {
-	readonly outcome: StagedOperationOutcomeView;
+	readonly outcome: ProposedCallOutcomeView;
 	readonly ok?: boolean;
 }): JSX.Element {
 	return (

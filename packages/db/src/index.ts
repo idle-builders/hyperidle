@@ -68,13 +68,14 @@ export {
 	type NewOperationOutcome,
 	type NewOrgEdge,
 	type NewPropagationLogRow,
+	type NewProposedCall,
 	type NewRoutine,
 	type NewRoutineRun,
 	type NewServerConfigRow,
 	type NewServerCredential,
 	type NewServiceConnectionRow,
 	type NewSession,
-	type NewStagedOperation,
+	type NewTailoredGrant,
 	type NewTask,
 	type NewTaskStrategyFabricRow,
 	// @lore U1: NewTeam (formerly NewProduct) is the domain entity insert type.
@@ -91,7 +92,9 @@ export {
 	operationOutcomes,
 	orgEdges,
 	type PropagationLogRow,
+	type ProposedCall,
 	propagationLog,
+	proposedCalls,
 	type Routine,
 	type RoutineRun,
 	routineRuns,
@@ -100,13 +103,11 @@ export {
 	type ServerCredential,
 	type ServiceConnectionRow,
 	type Session,
-	// AL7: staged operations + operation outcomes
-	type StagedOperation,
 	serverConfig,
 	serverCredentials,
 	serviceConnections,
 	sessions,
-	stagedOperations,
+	type TailoredGrant,
 	type Task,
 	type TaskStrategyFabricRow,
 	// @lore U1: Team (formerly Product) is the domain entity select type.
@@ -114,6 +115,7 @@ export {
 	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
 	type TeamMember,
 	type Thread,
+	tailoredGrants,
 	taskStrategyFabric,
 	tasks,
 	// @lore U1: teamMembers table (formerly teams agent-membership table).

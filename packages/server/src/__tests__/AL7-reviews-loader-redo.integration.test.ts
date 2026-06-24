@@ -33,7 +33,10 @@ const NOW = new Date().toISOString();
 
 async function seedReviewWithProposedCall(
 	db: HyperIdleDb,
-	opts: { status: string; withOutcome?: { status: "ok" | "failed"; receipt?: string; error?: string } },
+	opts: {
+		status: string;
+		withOutcome?: { status: "ok" | "failed"; receipt?: string; error?: string };
+	},
 ): Promise<{
 	reviewMessageId: string;
 	artifactId: string;
@@ -192,10 +195,7 @@ describe("AC10b: loader returns verbatim proposedCall.args (not a summary string
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC10: outcome is visible against the review; failure surfaces verbatim", () => {
-	test("executed proposedCall returns outcome with status:ok and receipt", async ({
-		db,
-		app,
-	}) => {
+	test("executed proposedCall returns outcome with status:ok and receipt", async ({ db, app }) => {
 		const { reviewMessageId, artifactId } = await seedReviewWithProposedCall(db, {
 			status: "executed",
 			withOutcome: {

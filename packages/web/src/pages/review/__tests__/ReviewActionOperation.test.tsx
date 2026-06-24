@@ -91,15 +91,15 @@ describe("ReviewActionOperation — AL7 execution outcome band", () => {
 		expect(errorEl.textContent).toBe(verbatimError);
 	});
 
-	it("renders the executing transient band (spinner label)", () => {
-		render(<ReviewActionOperation artifact={artifact} status="executing" />);
+	it("renders the executing transient band (spinner label) when status is granted", () => {
+		render(<ReviewActionOperation artifact={artifact} status="granted" />);
 
 		expect(screen.getByLabelText("executing")).toBeInTheDocument();
 		expect(screen.getByText(/Executing…/i)).toBeInTheDocument();
 	});
 
-	it("does not render outcome band when status is pending", () => {
-		render(<ReviewActionOperation artifact={artifact} status="pending" />);
+	it("does not render outcome band when status is captured", () => {
+		render(<ReviewActionOperation artifact={artifact} status="captured" />);
 
 		expect(screen.queryByText(/Executed/i)).not.toBeInTheDocument();
 		expect(screen.queryByText(/Execution failed/i)).not.toBeInTheDocument();

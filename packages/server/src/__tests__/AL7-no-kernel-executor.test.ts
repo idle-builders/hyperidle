@@ -35,9 +35,11 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 	it("resolveStagedOperations is not exported from any server service", async () => {
 		// The staged-operation-dispatcher.ts must not exist or not export this symbol.
 		// We test by attempting to import and checking the export is absent.
+		// @ts-expect-error — the file is intentionally deleted (AC12); dynamic import fails at runtime.
+		const importFn = async () => import("../services/staged-operation-dispatcher.js");
 		let exportFound = false;
 		try {
-			const dispatcher = await import("../services/staged-operation-dispatcher.js");
+			const dispatcher = await importFn();
 			exportFound = "resolveStagedOperations" in dispatcher;
 		} catch {
 			// File deleted — this is the correct state (green phase target).
@@ -47,9 +49,11 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 	});
 
 	it("sweepStrandedOperations is not exported from any server service", async () => {
+		// @ts-expect-error — the file is intentionally deleted (AC12); dynamic import fails at runtime.
+		const importFn = async () => import("../services/staged-operation-dispatcher.js");
 		let exportFound = false;
 		try {
-			const dispatcher = await import("../services/staged-operation-dispatcher.js");
+			const dispatcher = await importFn();
 			exportFound = "sweepStrandedOperations" in dispatcher;
 		} catch {
 			exportFound = false;

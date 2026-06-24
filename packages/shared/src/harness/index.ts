@@ -8,6 +8,7 @@ export type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
+	SessionWorkflow,
 } from "./harness-adapter.js";
 export type {
 	HarnessAccessMode,

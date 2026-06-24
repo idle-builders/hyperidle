@@ -13,8 +13,6 @@
  *         AC7 (non-approve → no grant, held), AC8 (never-approved → never executed).
  */
 
-import * as os from "node:os";
-import * as path from "node:path";
 import {
 	artifacts,
 	bets,
@@ -29,15 +27,13 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus, ProposedCallGrantedEvent } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
-async function seedCapturedCall(
-	db: HyperIdleDb,
-): Promise<{
+async function seedCapturedCall(db: HyperIdleDb): Promise<{
 	agentId: string;
 	taskId: string;
 	threadId: string;
@@ -142,20 +138,16 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 		app,
 		eventBus,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, proposedCallId } =
-			await seedCapturedCall(db);
+		const { taskId, threadId, reviewMessageId, proposedCallId } = await seedCapturedCall(db);
 
 		const received: ProposedCallGrantedEvent[] = [];
 		(eventBus as EventBus).on("proposed_call_granted", (e) => received.push(e));
 
-		const res = await app.request(
-			`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
-			},
-		);
+		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
+		});
 		expect(res.status).toBeLessThan(300);
 
 		// tailored_grants row must exist (scoped to taskId + agentId, consumed:false)
@@ -172,10 +164,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 		expect(approvedArgs.path).toBe("/workspace/out.txt");
 
 		// Proposed Call transitioned captured → granted
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, proposedCallId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, proposedCallId));
 		expect(pcs[0]?.status).toBe("granted");
 
 		// proposed_call_granted event emitted
@@ -195,14 +184,11 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 		const received: ProposedCallGrantedEvent[] = [];
 		(eventBus as EventBus).on("proposed_call_granted", (e) => received.push(e));
 
-		const res = await app.request(
-			`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ decision: "request-changes", rationale: "not ready" }),
-			},
-		);
+		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ decision: "request-changes", rationale: "not ready" }),
+		});
 		expect(res.status).toBeLessThan(300);
 
 		// No tailored grant
@@ -213,10 +199,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 		expect(grants).toHaveLength(0);
 
 		// Proposed Call → held (never granted, never executed)
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, proposedCallId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, proposedCallId));
 		expect(pcs[0]?.status).toBe("held");
 
 		// No proposed_call_granted event emitted
@@ -232,15 +215,18 @@ describe("AC6: tailored_grant consume is a single-statement CAS (at-most-once)",
 	test("two concurrent CAS claims on the same grant: exactly one claims it, one is denied", async ({
 		db,
 	}) => {
-		// Directly test the CAS mechanic by inserting a grant + running two concurrent updates
+		// Directly test the CAS mechanic by inserting a grant + running two concurrent updates.
+		// Use seedCapturedCall to satisfy the proposed_calls FK constraint.
 		const { composeTailoredGrant, consumeTailoredGrant } = await import(
 			"../services/proposed-call-workflow.js"
 		);
 
+		const { taskId, agentId, proposedCallId } = await seedCapturedCall(db);
+
 		const grantProps = {
-			proposedCallId: `pc-cas-${crypto.randomUUID()}`,
-			taskScope: `task-cas-${crypto.randomUUID()}`,
-			agentScope: `agent-cas-${crypto.randomUUID()}`,
+			proposedCallId,
+			taskScope: taskId,
+			agentScope: agentId,
 			approvedToolId: "commit_file",
 			approvedArgs: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			argPinned: false,
@@ -293,10 +279,7 @@ describe("AC7/AC8: held Proposed Call never executes", () => {
 			body: JSON.stringify({ decision: "reject", rationale: "not needed" }),
 		});
 
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, proposedCallId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, proposedCallId));
 		expect(pcs[0]?.status).toBe("held");
 
 		// No tailored grant minted
@@ -313,10 +296,7 @@ describe("AC7/AC8: held Proposed Call never executes", () => {
 		const { proposedCallId } = await seedCapturedCall(db);
 
 		// No verdict posted — PC stays captured
-		const pcs = await db
-			.select()
-			.from(proposedCalls)
-			.where(eq(proposedCalls.id, proposedCallId));
+		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, proposedCallId));
 		expect(pcs[0]?.status).toBe("captured");
 
 		const grants = await db

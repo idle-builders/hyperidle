@@ -13,6 +13,7 @@
  *         Task 4 (classifier + composer + live-proof tool registration).
  */
 
+import type { SessionWorkflow } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import {
 	ALL_TOOL_DEFINITIONS,
@@ -20,7 +21,6 @@ import {
 	composeWorkflowAllowDeny,
 	identityHash,
 } from "../tools/tool-registry.js";
-import type { SessionWorkflow } from "@hyperidle/shared";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — classifyReversibility: fail-closed (no signal → irreversible)
@@ -179,14 +179,14 @@ describe("T4: commit_file live-proof tool in ALL_TOOL_DEFINITIONS (Task 4)", () 
 		const def = ALL_TOOL_DEFINITIONS.find((d) => d.name === "commit_file");
 		expect(def).toBeDefined();
 		// The reversibility annotation must be present (used by classifyReversibility)
-		expect((def as Record<string, unknown>).reversibility).toBe("irreversible");
+		expect(def?.reversibility).toBe("irreversible");
 	});
 
 	it("NO kernel-executor tools in ALL_TOOL_DEFINITIONS (AC12 — no executor dispatch)", () => {
 		// The v1 model's executor dispatch must be gone
 		const names = ALL_TOOL_DEFINITIONS.map((d) => d.name);
 		const forbidden = [
-			"stage_operation",        // v1 tool — retired
+			"stage_operation", // v1 tool — retired
 			"execute_operation",
 			"dispatch_operation",
 			"resolve_staged_operations",

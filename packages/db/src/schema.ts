@@ -979,34 +979,30 @@ export const inviteCodes = pgTable(
 	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
 );
 
-// --- AL7: Staged operations + operation outcomes ---
+// --- AL7 trust-first: Proposed Calls + Tailored Grants + Operation Outcomes ---
 
 /**
- * Staged operations — irreversible commits parked behind the human gate.
+ * Proposed Calls — irreversible tool calls captured during session 1, routed to
+ * human review. The agent proposes; the human approves; the agent's own session
+ * executes in session 2. HyperIdle executes nothing of its own (AC12).
  *
- * @lore AL7 C1: `reviewMessageId` is the DISPATCH KEY — the approve verdict
- * resolves a specific review message, so dispatch is keyed on this FK, not the
- * thread. One bet thread accumulates many reviews; keying on the thread would
- * fire unrelated reviews' ops.
+ * @lore AL7 trust-first: replaces staged_operations. Key differences:
+ *   - toolId + args (verbatim captured call, not capabilityTool/operation/params)
+ *   - originSessionId + identityHash UNIQUE — capture idempotency (WARNING-5.2)
+ *   - status: captured | granted | executed | failed | held (not pending/executing)
+ *   - No idempotencyKey (replaced by origin_session_id + identity_hash UNIQUE)
  *
- * @lore AL7 W1: `idempotencyKey` UNIQUE is an ANTI-FORK guard only. The actual
- * at-most-once-*execution* guarantee is solely the `WHERE status='pending'` claim
- * in the dispatcher. An agent issuing a fresh key gets a fresh row by design
- * (retry = new op, new key). The UNIQUE prevents two live commits forked from
- * one staging call.
- *
- * @lore AL7 W5: `onDelete: restrict` on all FKs. A deletion of a message/thread/
- * artifact/user with a live staged op throws a constraint error. The sweeper
- * converts stranded `executing` ops to `failed` on boot, so only `pending` or
- * terminal ops remain at rest. Verify no existing deletion path deletes these
- * parent rows while an op is live.
+ * @lore AL7 WARNING-5.2: UNIQUE constraint on (origin_session_id, identity_hash)
+ * is a CONSTRAINT, not a plain index. The capture insert uses
+ * ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *;
+ * firstCapture = rows.length > 0. Only a UNIQUE enforces the dedup — a plain
+ * index does not prevent duplicate rows.
  */
-export const stagedOperations = pgTable(
-	"staged_operations",
+export const proposedCalls = pgTable(
+	"proposed_calls",
 	{
 		id: text("id").primaryKey(),
-		// C1: THE dispatch key. The verdict resolves THIS message; resolveStagedOperations
-		// filters on it. Never dispatch by subjectThreadId.
+		// C1: THE review dispatch key.
 		reviewMessageId: text("review_message_id")
 			.notNull()
 			.references(() => messages.id, { onDelete: "restrict" }),
@@ -1017,43 +1013,74 @@ export const stagedOperations = pgTable(
 		artifactId: text("artifact_id")
 			.notNull()
 			.references(() => artifacts.id, { onDelete: "restrict" }),
-		consequenceId: text("consequence_id").notNull(),
-		capabilityTool: text("capability_tool").notNull(),
-		capabilityHarnessType: text("capability_harness_type"),
-		operation: text("operation").notNull(),
-		params: text("params").notNull(),
-		// W1: anti-fork guard ONLY (see @lore above). NOT the at-most-once-execution guard.
-		idempotencyKey: text("idempotency_key").notNull(),
-		reversibility: text("reversibility").notNull(),
-		// pending | executing | executed | failed  (no 'held' value stored — see concept)
-		status: text("status").notNull().default("pending"),
+		originSessionId: text("origin_session_id").notNull(),
+		toolId: text("tool_id").notNull(),
+		args: text("args").notNull(), // verbatim JSON captured args
+		identityHash: text("identity_hash").notNull(), // SHA-256 over canonical {toolId, args}; arg-pin convenience metadata
+		reversibility: text("reversibility").notNull(), // "irreversible" | "reversible"
+		// captured | granted | executed | failed | held
+		status: text("status").notNull().default("captured"),
 		stagedByAgentId: text("staged_by_agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
-		index("staged_ops_review_msg_idx").on(table.reviewMessageId, table.status),
-		index("staged_ops_subject_idx").on(table.subjectThreadId),
-		index("staged_ops_artifact_idx").on(table.artifactId),
-		uniqueIndex("staged_ops_idempotency_uq").on(table.idempotencyKey),
+		index("proposed_calls_review_msg_idx").on(table.reviewMessageId, table.status),
+		index("proposed_calls_subject_idx").on(table.subjectThreadId),
+		index("proposed_calls_artifact_idx").on(table.artifactId),
+		// WARNING-5.2: MUST be a UNIQUE constraint, not a plain index.
+		// ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *
+		uniqueIndex("proposed_calls_capture_uq").on(table.originSessionId, table.identityHash),
 	],
 );
 
 /**
- * Operation outcomes — immutable terminal result of one executed staged op.
+ * Tailored Grants — scoped permission composed on approve, consumed once by
+ * session 2 via a single-statement CAS.
  *
- * @lore AL7: stagedOperationId IS the PK — enforces 0..1 per op and immutability
- * structurally. A second write throws on PK conflict rather than overwriting.
- * A retry produces a new staged op with its own outcome row.
+ * @lore AL7 D2: separate table so the grant has its own lifecycle (compose at
+ * approve, consume in session 2, re-mint on re-open). CAS consume:
+ *   UPDATE tailored_grants SET consumed=true WHERE ... AND consumed=false RETURNING *
+ * One non-null return = claimed; null = already consumed (no double-execute).
+ *
+ * @lore AL7 D3: retryCount is a liveness-net counter only (AC11b). It is NOT
+ * a guard — the liveness net fires on crash/no-show, never on re-derivation.
+ */
+export const tailoredGrants = pgTable(
+	"tailored_grants",
+	{
+		proposedCallId: text("proposed_call_id")
+			.primaryKey()
+			.references(() => proposedCalls.id, { onDelete: "restrict" }),
+		taskScope: text("task_scope").notNull(), // tasks.id
+		agentScope: text("agent_scope").notNull(), // agents.id — the same owner resuming
+		approvedToolId: text("approved_tool_id").notNull(),
+		approvedArgs: text("approved_args").notNull(), // JSON; recorded approved args (arg-pin uses these)
+		argPinned: boolean("arg_pinned").notNull().default(false),
+		identityHash: text("identity_hash"), // optional, for the arg-pin convenience
+		consumed: boolean("consumed").notNull().default(false),
+		retryCount: integer("retry_count").notNull().default(0), // liveness net (AC11b), not a guard
+		mintedAt: text("minted_at").notNull(),
+		consumedAt: text("consumed_at"),
+	},
+	(t) => [index("grant_match_idx").on(t.taskScope, t.agentScope, t.approvedToolId, t.consumed)],
+);
+
+/**
+ * Operation Outcomes — immutable terminal result of one executed Proposed Call.
+ *
+ * @lore AL7 trust-first: proposedCallId IS the PK — enforces 0..1 per call
+ * and immutability structurally. FK renamed from staged_operation_id.
+ * receipt replaces payload (holds the tool's return identity string or JSON).
  */
 export const operationOutcomes = pgTable("operation_outcomes", {
-	// 0..1 per staged op — PK enforces immutability.
-	stagedOperationId: text("staged_operation_id")
+	// 0..1 per Proposed Call — PK enforces immutability.
+	proposedCallId: text("proposed_call_id")
 		.primaryKey()
-		.references(() => stagedOperations.id, { onDelete: "restrict" }),
+		.references(() => proposedCalls.id, { onDelete: "restrict" }),
 	status: text("status").notNull(), // "ok" | "failed"
-	payload: text("payload"), // JSON tool return on ok
+	receipt: text("receipt"), // tool return on ok (serialized)
 	error: text("error"), // surfaced verbatim on failed — never null+failed
 	executedAt: text("executed_at").notNull(),
 });
@@ -1146,8 +1173,11 @@ export type NewLoginSession = typeof loginSessions.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 
-export type StagedOperation = typeof stagedOperations.$inferSelect;
-export type NewStagedOperation = typeof stagedOperations.$inferInsert;
+export type ProposedCall = typeof proposedCalls.$inferSelect;
+export type NewProposedCall = typeof proposedCalls.$inferInsert;
+
+export type TailoredGrant = typeof tailoredGrants.$inferSelect;
+export type NewTailoredGrant = typeof tailoredGrants.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 export type NewOperationOutcome = typeof operationOutcomes.$inferInsert;

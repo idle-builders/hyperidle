@@ -3,7 +3,7 @@ import {
 	type HyperIdleDb,
 	messages,
 	operationOutcomes,
-	stagedOperations,
+	proposedCalls,
 } from "@hyperidle/db";
 import { relativeLong } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -11,28 +11,25 @@ import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
- * AL7 — Reviews route: GET /api/reviews/:reviewMessageId
+ * AL7 trust-first — Reviews route: GET /api/reviews/:reviewMessageId
  *
- * Returns a ComposedReviewSubject-shaped response with any staged operation
- * nested inside the matching artifact (action_operation kind) in the artifacts
- * array. The loader:
- * - Queries staged_operations LEFT JOIN operation_outcomes by reviewMessageId
+ * Returns a ComposedReviewSubject-shaped response with any proposed call
+ * nested inside the matching artifact (action_operation kind) in the artifacts array.
+ *
+ * The loader:
+ * - Queries proposed_calls LEFT JOIN operation_outcomes by reviewMessageId
+ * - Nests proposedCall (with verbatim args) on the matching action_operation artifact (AC10b)
  * - Humanizes executedAt at the response boundary (never raw ISO)
- * - Nests stagedOperation on the matching artifact (not at the top level)
- * - Field names match StagedOperationView: stagedOperationId (not id), receipt (not payload)
  * - Returns 404 if the review message doesn't exist
  * - Returns the stub fixture for "rev-1" (design/demo route)
  *
- * @lore AL7: The reviewed message ID is used as the dispatch key (C1 fix).
- * @lore AL7 CRITICAL-2: stagedOperation must be nested on the artifact the canvas
- * renders (artifact.stagedOperation), NOT at the top level of the response.
- * ReviewComposition.tsx:675 reads artifact.stagedOperation for action_operation kinds.
- * Field names must match StagedOperationView from review-composition.ts:
- *   stagedOperationId (string) — NOT id
- *   outcome.receipt (string?) — NOT outcome.payload (the tool return identity)
- * @lore AL7 CRITICAL-2b: FIXTURE_REVIEW is preserved (plan §7: "keep the stub data
- * until the broader reviews-loader wiring lands"). AL7 only adds the staged-op/outcome
- * branch to the response — it does not rewrite the whole fixture.
+ * @lore AL7 WARNING-2: args are returned verbatim (not a summary string) so the
+ * human sees the real call before approving. This is User Sovereignty (ETHOS §3),
+ * not exact-match enforcement.
+ *
+ * @lore AL7 Task 10: renamed from staged-operation loader. proposedCall replaces
+ * stagedOperation on the artifact shape; proposed_call_executed replaces
+ * operation_executed in the event subscriber.
  */
 
 const FIXTURE_REVIEW = {
@@ -84,46 +81,6 @@ const FIXTURE_REVIEW = {
 	conversation: [],
 };
 
-/**
- * Derive the `receipt` string from the raw tool payload for the outcome band.
- * For `ok` outcomes, the receipt is the tool's return identity — a short string
- * like "re_3Qs… · refunded" that proves the action happened.
- *
- * For GitHub merge-pr: sha + "merged" gives the identity.
- * For fixture:staged-op: the echoed payload is shown as JSON.
- * For other tools: JSON.stringify the payload as a fallback.
- *
- * @lore AL7 CRITICAL-2: StagedOperationOutcomeView.receipt is a string
- * (ReviewActionOperation.tsx:371 renders it as text). The raw DB payload is JSON —
- * the loader must extract a human-readable receipt string here, not forward the
- * raw object. The component never JSON-parses — it displays the string as-is.
- */
-function extractReceipt(rawPayload: unknown): string | undefined {
-	if (rawPayload === null || rawPayload === undefined) return undefined;
-	if (typeof rawPayload === "string") {
-		try {
-			const parsed = JSON.parse(rawPayload) as unknown;
-			return extractReceipt(parsed);
-		} catch {
-			return rawPayload;
-		}
-	}
-	if (typeof rawPayload === "object") {
-		const p = rawPayload as Record<string, unknown>;
-		// GitHub merge-pr: { sha, merged, message }
-		if (typeof p.sha === "string" && p.merged === true) {
-			return `${p.sha.slice(0, 8)}… · merged`;
-		}
-		// fixture:staged-op: { echoed: ... }
-		if (p.echoed !== undefined) {
-			return `echo · ${JSON.stringify(p.echoed)}`;
-		}
-		// Generic fallback
-		return JSON.stringify(p);
-	}
-	return String(rawPayload);
-}
-
 export function createReviewRoutes(db: HyperIdleDb): Hono {
 	const app = new Hono();
 
@@ -146,75 +103,73 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			return c.json({ error: "review_not_found" }, 404);
 		}
 
-		// Load staged op + outcome (if any) anchored to this review message.
+		// AL7 trust-first: load proposed call + outcome (if any) anchored to this review message.
+		// WARNING-2: args are returned verbatim (not a summary) so the human approves the real call.
 		const [opRow] = await db
 			.select({
-				// staged op fields
-				opId: stagedOperations.id,
-				opStatus: stagedOperations.status,
-				capabilityTool: stagedOperations.capabilityTool,
-				operation: stagedOperations.operation,
-				reversibility: stagedOperations.reversibility,
-				artifactId: stagedOperations.artifactId,
+				// proposed call fields
+				pcId: proposedCalls.id,
+				pcStatus: proposedCalls.status,
+				toolId: proposedCalls.toolId,
+				args: proposedCalls.args,
+				artifactId: proposedCalls.artifactId,
 				// outcome fields (null when no outcome yet)
 				outcomeStatus: operationOutcomes.status,
-				outcomePayload: operationOutcomes.payload,
+				outcomeReceipt: operationOutcomes.receipt,
 				outcomeError: operationOutcomes.error,
 				outcomeExecutedAt: operationOutcomes.executedAt,
 			})
-			.from(stagedOperations)
-			.leftJoin(operationOutcomes, eq(operationOutcomes.stagedOperationId, stagedOperations.id))
-			.where(eq(stagedOperations.reviewMessageId, reviewMessageId))
+			.from(proposedCalls)
+			.leftJoin(operationOutcomes, eq(operationOutcomes.proposedCallId, proposedCalls.id))
+			.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
 			.limit(1);
 
 		// Build the response payload from the review message.
 		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
 
 		if (!opRow) {
-			// No staged op — descriptive review (no action_operation outcome to show).
-			// Return the review payload as-is (no artifacts array mutation needed).
+			// No proposed call — descriptive review (no action_operation outcome to show).
 			return c.json({ ...reviewPayload });
 		}
 
-		// Build the StagedOperationView to nest on the artifact.
-		// CRITICAL-2: field names must match StagedOperationView from review-composition.ts.
-		//   stagedOperationId (not id), outcome.receipt (not outcome.payload).
+		// Build the ProposedCallView to nest on the artifact.
+		// AC10b (WARNING-2): args are the verbatim captured object, not a summary string.
+		// The human sees the real call before approving.
 		const outcome =
 			opRow.outcomeStatus !== null && opRow.outcomeExecutedAt !== null
 				? {
 						status: opRow.outcomeStatus,
-						// receipt: extracted tool-identity string (not the raw payload object)
-						receipt: extractReceipt(opRow.outcomePayload),
+						receipt: opRow.outcomeReceipt ?? undefined,
 						error: opRow.outcomeError ?? undefined,
 						// @lore AL7: executedAt is humanized here (never raw ISO in the response).
 						executedAt: relativeLong(opRow.outcomeExecutedAt),
 					}
 				: undefined;
 
-		const stagedOperationView = {
-			stagedOperationId: opRow.opId, // CRITICAL-2: stagedOperationId, not id
-			status: opRow.opStatus,
+		const proposedCallView = {
+			proposedCallId: opRow.pcId,
+			toolId: opRow.toolId,
+			// WARNING-2: verbatim captured args (deep-equal to what the agent called)
+			args: JSON.parse(opRow.args) as Record<string, unknown>,
+			status: opRow.pcStatus,
 			...(outcome !== undefined ? { outcome } : {}),
 		};
 
-		// Load the artifact to embed stagedOperation on it.
-		// The artifact shapes vary by kind — we spread the existing artifact row
-		// (which has id, kind, tool, etc.) and add the stagedOperation field.
+		// Load the artifact to embed proposedCall on it.
 		const [artifactRow] = await db
 			.select()
 			.from(artifacts)
 			.where(eq(artifacts.id, opRow.artifactId))
 			.limit(1);
 
-		// Build the artifacts array: one artifact with the stagedOperation attached.
-		// Other artifacts from reviewPayload.artifacts (if any) are preserved.
+		// Build the artifacts array: one artifact with proposedCall attached.
 		const existingArtifacts = Array.isArray(reviewPayload.artifacts)
 			? (reviewPayload.artifacts as Array<Record<string, unknown>>)
 			: [];
 
 		const artifactsWithOp = existingArtifacts.map((a) => {
 			if (a.id === opRow.artifactId) {
-				return { ...a, stagedOperation: stagedOperationView };
+				return { ...a, proposedCall: proposedCallView };
 			}
 			return a;
 		});
@@ -224,12 +179,12 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			artifactsWithOp.push({
 				id: opRow.artifactId,
 				kind: artifactRow?.kind ?? "action_operation",
-				tool: opRow.capabilityTool,
-				app: opRow.capabilityTool,
+				tool: opRow.toolId,
+				app: opRow.toolId,
 				sourceHref: "",
-				title: opRow.operation,
+				title: opRow.toolId,
 				payload: {},
-				stagedOperation: stagedOperationView,
+				proposedCall: proposedCallView,
 			});
 		}
 

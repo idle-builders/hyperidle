@@ -33,8 +33,8 @@ const EXPECTED_TOOL_NAMES = [
 	"update_routine",
 	// AK4: bet draft/edit tool for assistant conversational drafting
 	"edit_bet",
-	// AL7: stage_operation — agent-facing verb to park ops behind the human gate
-	"stage_operation",
+	// AL7: commit_file — live-proof tool; declared reversibility:"irreversible" for the checkpoint
+	"commit_file",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {
