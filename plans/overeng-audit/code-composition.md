@@ -96,12 +96,22 @@ LOC of every git-tracked file, classified and grouped. *Generated* = lockfiles, 
 
 > Real component source ≈ 7.4k. The bulk is the visual-regression snapshot machinery + the `/human-design-review` annotation tool.
 
-### `fabric` (24.9k)
+### `fabric` (24.9k) — only ~39% is actually "knowledge fabric"
+By directory:
 | sub | prod | test |
 |---|--:|--:|
-| `services` (schedulers, listeners) | 10,277 | 510 |
+| `services` (incl. nested `notifications/`) | 10,277 | 510 |
 | `__tests__` | 0 | 8,813 |
 | `src/*` (scoring/relevance/attention engines) | 5,205 | 0 |
+
+By **function** (the more revealing cut — see audit Part 5):
+| group | prod | share |
+|---|--:|--:|
+| Knowledge-fabric proper (context assembly 995, knowledge store 1,176, scoring 1,622, promotion 946, strategy+glue 1,311) | 6,050 | 39% |
+| Background services not related to knowledge (lifecycle-propagation, builtin-routines, practice-meeting, routine-scheduler, cost-cap, git-export×3, task-dispatcher, …) | 7,103 | 46% |
+| Notifications subsystem (`services/notifications/`: dispatcher 893, config 556, adapters, mute, digest) | 2,329 | 15% |
+
+> `fabric` is large because it absorbed every in-process background job — not because the knowledge engine is bloated. The headline context-assembly logic is <1k LOC.
 
 ### `shared` (18.3k)
 | sub | prod | test |

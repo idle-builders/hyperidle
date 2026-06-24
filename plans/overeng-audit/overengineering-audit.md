@@ -126,6 +126,24 @@ The adversarial pass turned up real issues while *defending* findings:
 
 ---
 
+## Part 5 — Package cohesion: `fabric` is a background-job dumping ground
+
+Not a per-line overengineering finding — a **packaging/cohesion** one, surfaced while explaining why `fabric` is 15.5k prod LOC.
+
+CLAUDE.md defines `fabric` as "knowledge fabric / context assembly." **Only ~39% of it is that.** The package has become the home for every in-process background job in the system:
+
+| group | LOC | % of fabric prod |
+|---|--:|--:|
+| Knowledge-fabric proper (context assembly, knowledge store, scoring, promotion, strategy port) | 6,050 | 39% |
+| Background services unrelated to knowledge (schedulers, dispatchers, cost-cap, git-export, practice-meeting, lifecycle-propagation, sandbox/routine reapers) | 7,103 | 46% |
+| A full notifications subsystem (`services/notifications/`: dispatcher 893, config 556, smtp/ntfy/console adapters, mute, digest, redact) | 2,329 | 15% |
+
+**Misplaced (candidates to move to their own packages / `server`):** `git-export*` (1,310), `practice-meeting` (675), `routine-scheduler` (645) + routine reapers, `cost-cap`/`cost-sentinel` (783), `task-dispatcher`/`assistant-dispatcher` (700), `lifecycle-propagation` (785), and the entire `services/notifications/` tree (2,329).
+
+- [ ] **P5 · Split background jobs out of `fabric`.** Keep only context-assembly + knowledge store + scoring + promotion + strategy port in `fabric`. Move the schedulers/dispatchers/cost/git-export to a `services` (or `jobs`) package and notifications to its own. This is also why `fabric`'s test ratio is the lowest of any core package (38%) — the timer/event services are harder to unit-test than the pure scoring functions, dragging the number down. Severity: medium (architectural cohesion; no behavior change, but large mechanical move — scope carefully). *Note: this is a refactor recommendation, not a deletion; sequence it after the cheap Theme A/B cuts.*
+
+---
+
 ## Appendix — How to read this
 
 Verdicts came from a two-pass process: an auditor proposes, an independent verifier (told to *find the justification*) confirms/rejects. 69% of findings were rejected — the survivors are the ones that held up. Severity is mostly "low" individually; the *value* is the pattern (Theme A) and the dead-weight in the hot scoring path (Theme B), not any single line.
