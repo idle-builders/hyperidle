@@ -1,7 +1,8 @@
 {
   "id": "AL7",
-  "status": "done",
-  "currentStep": "shipped",
+  "status": "in_progress",
+  "currentStep": "2-critique-revision",
+  "reopenedReason": "Founder rejected shipped impl (2026-06-24): the Kernel-held staged-operation executor (hardcoded fixture+github capability map) is a separate integration layer — wrong. Execution after approve must run through the agent's OWN tools (arbitrary tools it can see), HyperIdle gating timing not the call. AL10 (work-continues-after-review) folds into AL7. AL7 done = real tool call executes LIVE + work continues. Back to /concept + /architecture grounded in deep harness research. PR #351 NOT merged.",
   "track": "AL",
   "complexity": "L",
   "dependsOn": [],
