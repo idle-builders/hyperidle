@@ -598,18 +598,17 @@ describe("AL7 CRITICAL-2 — genuine builtin live-session two-session loop", () 
 			await expect(probeLiveProofHarnessAvailability("builtin")).resolves.toBeUndefined();
 		});
 
-		test("claude-code: absent-fail if SDK not installed, green-now if SDK present", async () => {
+		test("claude-code: green-now (real claude CLI binary installed on this machine)", async () => {
 			const { getLiveProofLaneState } = await import("../tools/live-proof-lanes.js");
-			// vitest's module context may resolve @anthropic-ai/claude-agent-sdk via workspace
-			// node_modules even when bare `node -e require.resolve(...)` fails. Both outcomes
-			// are valid; the honest matrix documents which is true at runtime.
-			// @lore AL7 CRITICAL-2: do NOT hard-assert "absent-fail" here — vitest's require
-			// resolves the SDK through the workspace tree, yielding "green-now" even when the
-			// CLI tool itself is not installed. The per-harness matrix in live-proof-lanes.ts
-			// correctly classifies based on resolution success, and the matrix doc captures the
-			// distinction between "SDK resolvable in vitest context" vs "CLI available on PATH".
+			// The probe now keys on the CLI binary (`which claude`), not the SDK package.
+			// The real `claude` binary IS installed at /opt/homebrew/bin/claude on this machine.
+			// assert green-now definitively — no weakened toContain fudge.
+			//
+			// @lore AL7 probe-fix: previous code checked SDK resolution (which could succeed
+			// in vitest via workspace node_modules even when CLI is absent). The binary IS
+			// the authoritative check — the real-harness test spawns the binary directly.
 			const state = getLiveProofLaneState("claude-code");
-			expect(["absent-fail", "green-now"]).toContain(state);
+			expect(state).toBe("green-now");
 		});
 
 		test("codex: wiring-needed (Task 7c not yet landed)", async () => {

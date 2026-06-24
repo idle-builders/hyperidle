@@ -3,21 +3,28 @@
  *
  * Terminal state per harness (DONE matrix, verified June 2026):
  * - builtin:      green-now (in-process, no external binary needed)
- * - claude-code:  green-now (SDK wiring smallest; absent if real SDK not in env)
- * - codex:        wiring-needed (Task 7c — extend AL6's .codex/hooks.json)
- * - opencode:     wiring-needed (Task 7b — opencode serve /event+POST)
+ * - claude-code:  green-now (real `claude` CLI binary installed at /opt/homebrew/bin/claude)
+ * - codex:        wiring-needed (MCP URL slot not wired in CLI_TOOL_CONFIGS for AL7 checkpoint)
+ * - opencode:     wiring-needed (MCP URL slot not wired in CLI_TOOL_CONFIGS for AL7 checkpoint)
  * - cursor-agent: skipped (unavailable per harness-capability-descriptors)
  *
- * AC14b: absence-is-failure. A green-now harness whose real binary/SDK is absent
+ * AC14b: absence-is-failure. A green-now harness whose real CLI binary is absent
  * in the run environment makes `probeLiveProofHarnessAvailability` REJECT — it does
  * NOT return null, false, or "skip". The probe is the enforcement gate.
  *
+ * @lore AL7 probe-fix: The probe MUST detect the installed CLI binary (`which claude`),
+ * NOT `require.resolve('@anthropic-ai/claude-agent-sdk')`. The claude-code real-harness
+ * test spawns the real `claude` binary directly (like AL6). The @anthropic-ai/claude-agent-sdk
+ * package is for the SDK adapter path (ClaudeAgentSdkAdapter), which is a different harness
+ * lane. A binary-absent env where the SDK is resolvable via workspace node_modules would
+ * produce a false green-now claim. Binary presence is the authoritative check.
+ *
  * @lore AL7: the DONE matrix is NOT derived from a missing-binary pass. Each state
  * is declared here and enforced by the probe. "wiring-needed" is the honest state
- * for Codex/opencode until their Task 7b/7c wiring lands.
+ * for Codex/opencode until the MCP URL slot is wired into CLI_TOOL_CONFIGS.
  */
 
-// (no node:child_process import needed — binary probe removed, SDK-only check)
+import { execFileSync } from "node:child_process";
 
 /** Known harness identifiers for the live-proof DONE matrix. */
 export type LiveProofHarness = "builtin" | "claude-code" | "codex" | "opencode" | "cursor-agent";
@@ -117,29 +124,29 @@ export async function probeLiveProofHarnessAvailability(
 }
 
 /**
- * Check whether the Claude Agent SDK is installed in this environment.
+ * Check whether the real `claude` CLI binary is installed in this environment.
  *
- * The SDK package (`@anthropic-ai/claude-agent-sdk`) is required by
- * ClaudeAgentSdkAdapter. The `claude` CLI binary being present in PATH is
- * NOT sufficient — the SDK must be resolvable as a module.
+ * The AL7 real-harness proof spawns the **real `claude` binary** directly (same
+ * pattern as AL6-real-harness-return-enforcement). The binary, not the SDK package,
+ * is the authoritative probe for the claude-code real-harness lane.
  *
- * @lore AL7 CRITICAL-2: Previously this function fell back to checking the
- * `claude` binary (which IS installed at /opt/homebrew/bin/claude) and returned
- * `true`. But the SDK (`@anthropic-ai/claude-agent-sdk`) is NOT installed, so
- * the ClaudeAgentSdkAdapter cannot be constructed. A "binary present → green"
- * claim is a mock-as-green trap. We check SDK presence only.
+ * @lore AL7 probe-fix: Previously this checked `require.resolve('@anthropic-ai/claude-agent-sdk')`.
+ * That was wrong: the SDK is resolvable in vitest via workspace node_modules even
+ * when the binary is absent, yielding a false green-now claim. And more critically,
+ * the real-harness test spawns the CLI binary — not the SDK adapter — so the binary
+ * IS the availability check. `which claude` is the same pattern used by AM2's
+ * binaryPresent() helper and all other harness discovery probes.
  *
- * The live-proof lane for claude-code requires both the SDK AND an API key.
- * If either is absent, the lane FAILS (AC14b — absence is never a pass).
+ * A green-now harness whose real CLI binary is absent makes the lane FAIL (AC14b —
+ * absence is never a pass).
  */
 function isClaudeCodeAvailable(): boolean {
-	// Only check SDK presence — the binary alone is not sufficient for the adapter.
+	// Probe the real `claude` CLI binary — same pattern as AM2's binaryPresent().
 	try {
-		// biome-ignore lint/security/noGlobalEval: intentional dynamic resolution check
-		new Function("require", "return require.resolve('@anthropic-ai/claude-agent-sdk')")(require);
+		execFileSync("which", ["claude"], { stdio: "ignore" });
 		return true;
 	} catch {
-		// SDK not installed — the lane is not runnable, even if the binary is present.
+		// `claude` binary not on PATH — the real-harness lane is not runnable.
 		return false;
 	}
 }

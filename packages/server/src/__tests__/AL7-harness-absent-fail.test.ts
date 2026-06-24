@@ -30,11 +30,16 @@ describe("AC14b: live-proof lane states are declared per the DONE matrix", () =>
 		expect(state).toBe("green-now");
 	});
 
-	it("claude-code lane state is green-now (SDK available in env) OR fails if absent", () => {
-		// Claude lane is green-now per the DONE matrix (smallest wiring).
-		// The test asserts the state is one of the valid terminal states (not undefined).
+	it("claude-code lane state is green-now (real claude CLI binary installed at /opt/homebrew/bin/claude)", () => {
+		// Claude lane is green-now: the real `claude` binary is installed on this machine.
+		// The probe keys on the CLI binary (`which claude`), not the SDK package.
+		// If the binary were absent, the state would be absent-fail and this test would FAIL
+		// (AC14b: absence is never a pass — a green-now harness with absent binary FAILS).
+		//
+		// @lore AL7 probe-fix: the weakened toContain(["green-now","absent-fail"]) fudge
+		// is removed. The probe is the CLI binary; the binary IS installed; assert green-now.
 		const state = getLiveProofLaneState("claude-code");
-		expect(["green-now", "absent-fail"]).toContain(state);
+		expect(state).toBe("green-now");
 	});
 
 	it("codex lane state is wiring-needed (Task 7c not yet landed)", () => {
