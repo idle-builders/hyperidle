@@ -3,14 +3,15 @@
   "title": "Harness review-return hooks",
   "track": "AL",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "6-pre-ship-test-lane-split",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-22T22:34:00+02:00",
+  "completedAt": "2026-06-24T18:00:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
   "branch": "feat/AL6-review-return-hooks",
-  "reopenedAt": "2026-06-23T20:30:00+02:00",
-  "reopenReason": "founder-rejected v3: hooks were the RIGHT mechanism but v3 abandoned them for a re-prompt-loop + sandbox-instruction-file-rewrite workaround (soft, expensive, not actually a hook). Correct design: provision a real turn-end/stop hook into EACH harness's NATIVE hook system as part of harness-adapter / sandbox setup — the same provisioning pattern as skills/MCP/AGENTS.md. All modern harnesses (Claude Code, Codex, Gemini CLI, etc.) support hooks. The harness itself enforces the return natively + uniformly; HyperIdle provisions the hook per-adapter. Not Claude-specific, not a re-prompt loop.",
-  "notes": "v4: hook provisioning as first-class sandbox/harness-adapter setup. Replace v3 re-prompt loop + sandbox-file carrier. Keep closed return set + not_returned outcome semantics. Prove on an external non-Claude harness via its native hook.",
-  "history": "v1=flag-only (rejected), v2=Claude-only SDK hook (rejected), v3=harness-agnostic re-prompt loop / instruction-file rewrite (rejected: not a real hook), v4=native hook provisioned per-harness at sandbox setup"
+  "reviewVerdict": "DONE",
+  "version": "v4",
+  "notes": "v4: per-harness NATIVE hook provisioned at sandbox setup, adjudicated by HyperIdle via real route POST /api/mcp/:token/return-status + per-session return-enforcement-registry (single source). claude=.claude/settings.json Stop hook; codex=per-session CODEX_HOME (auth+config+hooks.json, no SQLite)+--dangerously-bypass-hook-trust; opencode=process-reengage (parse step_finish stdout, re-invoke opencode run with forcing msg); builtin=in-process loop; isolated=inner SDK closure; cursor-agent inert (not spawnable). Drain-end ReturnGate = un-bypassable backstop; budget-spent -> not_returned (row+event), never silent completed. PROVEN END-TO-END per spawnable harness via real-binary headless tests (local-only .real-harness lane) + deterministic route/registry/reengage/builtin discriminators in test:all (sanity-break-verified). Real-harness testing found+fixed real bugs: codex global hooks->CODEX_HOME, codex hooks.json format, opencode malformed re-engage. Review caught mock-validation trap across 3 rounds. v1=flag-only, v2=Claude-only, v3=re-prompt-loop all founder-rejected.",
+  "history": "v1=flag-only(rejected), v2=Claude-SDK-only(rejected), v3=re-prompt-loop+instruction-file-rewrite(rejected), v4=per-harness native hooks provisioned+real adjudication loop, proven end-to-end on all 4 spawnable harnesses"
 }
