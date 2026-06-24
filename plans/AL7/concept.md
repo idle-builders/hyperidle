@@ -1,68 +1,63 @@
-# AL7 Concept — Review-Gated Tool Execution (redo)
+# AL7 Concept — Review-Gated Tool Execution (trust-first redo)
 
-**Status:** Locked. Supersedes three earlier models: (a) the first AL7 — HyperIdle's Kernel re-executing the op via a curated `executeCapability` map, rejected as "yet another integration layer"; (b) the byte-faithful-replay redo, which made an exact-hash-match-to-permit the load-bearing gate (deadlocks on LLM arg drift); (c) the tailored-native-allow/deny reshape, which made **per-harness native allow/deny the safety floor** — infeasible on Codex (no per-op grammar) and bypassed on opencode headless. This version makes **HyperIdle's own broker/registry chokepoint (`registry.invoke`) the uniform safety floor across every harness**; harness-native allow/deny demotes to per-harness defense-in-depth tightening.
+**Status:** Locked. Trust-first redo (2026-06-24), re-anchored on **`ETHOS.md` §4 "Trust Agents"** + `docs/agent-layer/principles.md` §5 ("Trust agents; humans own the consequential"). It supersedes four earlier models, the last three of which the founder cut off for **spiralling into paranoia**:
 
-Per-workpackage concept under Track AL (Review Experience). Reshapes one load-bearing noun (`Staged Operation` → `Proposed Call`) and introduces three satellites (`broker-gate floor`, `tailored broker policy`, two-session resume). The Track AL frame — review *experience* over the existing thread/verdict/artifact system, verdict grammar unchanged — is a fixed input.
+- **v1 — Kernel executor.** HyperIdle re-ran the agent's op via a curated `executeCapability` map. Rejected as "yet another integration layer that re-executes."
+- **v2 — Byte-faithful replay.** Made an exact-hash-match-to-permit the load-bearing gate. Deadlocks on LLM arg drift.
+- **v3 — Per-harness native allow/deny as the safety floor.** Bet the guarantee on each harness's native grammar; infeasible on Codex, unreliable on opencode headless.
+- **v4 — Broker-floor-as-fortress.** Made HyperIdle's own `registry.invoke` chokepoint a **containment fortress** ("the broker is the *only* path"), with a load-bearing **AN credential-containment dependency** ("no live-op credential in the sandbox"), a **native-tool-bypass threat model**, and a guarantee framed as *defending against a rogue agent*. **This is the paranoia the founder cut off.** ETHOS §4: "When you catch yourself designing against a hypothetical rogue agent, stop."
+
+**This version re-anchors on trust.** We trust agents. The agent holds its own credentials, runs its own tools, does real work — like a real employee with broad self-permission. The review gate is **not a cage around a suspect — it is a collaboration checkpoint on the consequential and irreversible, and it fades as trust is earned.** We use the harness's **native permission mechanism (ask / allow / deny) as a WORKFLOW that routes consequential actions to a human** — not as a security boundary policing the agent.
+
+Per-workpackage concept under Track AL (Review Experience). Reshapes one load-bearing noun (`Staged Operation` → `Proposed Call`) and introduces two satellites (`review checkpoint`, two-session resume). The Track AL frame — review *experience* over the existing thread/verdict/artifact system, verdict grammar unchanged — is a fixed input.
 
 ---
 
-## The reframe (read this first)
+## The reframe (read this first) — trust, not containment
 
-The shipped AL7 made **HyperIdle's kernel re-execute** the agent's operation: an agent called `stage_operation`; on approve a hardcoded `executeCapability` map ran the call from HyperIdle's own process. **Discarded whole.**
+The shipped AL7 made **HyperIdle's kernel re-execute** the agent's operation. **Discarded whole** (v1). Two further redos (v2 byte-faithful, v3 native-floor) failed on fragility / feasibility. The fourth (v4) fixed feasibility but **re-framed the gate as a containment fortress** — and that is what the founder cut off.
 
-The first redo correctly inverted ownership (the agent's own session/tools/creds execute, HyperIdle gates) but located the guarantee in the **wrong place**: it made session 2 re-run the captured call *byte-faithfully* — a SHA-256 hash match permitting exactly-those-bytes — and a hash mismatch (LLM arg drift) **deadlocked** the approved work.
+**The trust-first model is much simpler, and that simplicity is the point.**
 
-The second redo dissolved that deadlock (good) but then bet the entire safety guarantee on **each harness's native allow/deny grammar expressing the floor at init**. That claim is **false on Codex** (only global sandbox modes + a global/category approval policy; no per-op allowlist; no external-readable approval event in non-interactive `codex exec`) and **unreliable on opencode** (per-tool allow/ask/deny exists in `opencode.json`/frontmatter, but the docs say non-interactive `run` *auto-approves all permissions*). A floor that holds on 2 of 4 harnesses is not a floor.
-
-**The locked model: the floor is HyperIdle's own broker chokepoint; native allow/deny is a bonus layer.**
-
-Irreversible LIVE operations are **HyperIdle-brokered**. The live credential is **HyperIdle-held and never present in the agent's sandbox** (the capability split + AN sandbox provisioning). So an irreversible live op can *only* happen through the brokered tool — and every brokered / MCP-routed tool call funnels through the **same per-session `registry.invoke` chokepoint** (`tool-registry.ts:274`; builtin internal `:741`, provisioning loop `:844`, MCP bridge `mcp-bridge.ts:132` — all on the one per-session registry instance, `session-provisioning.ts:582`). Therefore a gate placed at `registry.invoke` covers irreversible ops **uniformly on EVERY harness — including Codex — regardless of the harness's native permission grammar.** That is the floor that holds everywhere.
-
-**This is NOT the rejected v1 kernel executor.** There is no hardcoded capability map and HyperIdle re-implements no tool. The agent's OWN brokered call runs (with the HyperIdle-held credential attached at the broker boundary — the AN credential-injection model); HyperIdle gates allow/deny and captures the call — it does not author or re-execute the tool. "HyperIdle executes nothing of its own" stays intact: the broker attaches a credential and decides allow/deny/capture; the agent's harness emitted the call and the tool's own handler runs it. (See rejection list #1.)
+- **Creds are present in the sandbox, and that is correct.** The agent's tools and MCP servers need credentials to authenticate; a tool that can't auth is useless. We do **not** withhold credentials. We do **not** build "the broker is the only path." We are **not defending against the agent.**
+- **The review gate is a collaboration checkpoint, not a guard.** It routes the *consequential / irreversible* to a human for judgment — the same role a senior teammate plays when a junior is about to do something with a big blast radius. Everything reversible flows. As the agent's verdict track record builds, more flows without review. **More autonomy is the goal.**
+- **The mechanism is the harness's native permission system used as a workflow.** Every supported harness (builtin, Claude, Codex, opencode) ships an ask/allow/deny permission mechanism. HyperIdle composes a *workflow policy* — "route the irreversible to review, let the reversible flow" — and the harness's own permission mechanism carries it. We **build on what the harness natively provides; we don't re-implement it as a HyperIdle fortress.**
 
 ```
-SESSION 1 — irreversible call DENIED at the broker floor (registry.invoke)
-  agent's brokered/MCP-routed call reaches registry.invoke
-  → classified irreversible → denied + recorded (the deny-with-record capture)
-  → captures the exact attempted call (tool + args) as the review subject (Proposed Call)
-  → session 1 ENDED via the abort rail (so the denied call cannot loop/retry-with-drift)
+SESSION 1 — the agent works (trusted; full tools + its own creds)
+  agent does real work; reversible calls flow freely
+  → an IRREVERSIBLE call is routed to review (the harness's native ask/deny carries the workflow)
+  → the attempted call (tool + args) is captured as the review subject (Proposed Call)
+  → session 1 ENDS (sessions aren't pausable)
         │
-     REVIEW — human approves (or holds with a non-approving verdict)
+     REVIEW — the human gives a verdict on the consequential action
         │
-SESSION 2 — re-provisioned via an EXPLICIT proposed_call_granted trigger on the task-dispatcher
-  the broker floor carries a TAILORED policy: allow the approved op + reversible work;
-  deny every other irreversible op. Applied once at registry.invoke, then consumed.
-  → the agent re-attempts; the broker permits only the approved scope
-  → agent's own brokered tool (HyperIdle-held cred) runs it → continues working → Outcome recorded
-
-  PER-HARNESS TIGHTENING (defense-in-depth, where the grammar expresses it):
-    builtin   → the registry.invoke gate IS the floor (HyperIdle owns the loop)
-    Claude SDK→ allowedTools/disallowedTools + canUseTool (arg-level) on top of the floor
-    opencode  → opencode.json/frontmatter permission allow/ask/deny on top of the floor
-    Codex     → coarse global --sandbox backstop only (no per-op native grammar)
+SESSION 2 — async re-provision on approve (proposed_call_granted trigger)
+  → the agent simply does the approved work with its own tools — the harness permits it
+  → re-attempting / re-deriving the call is FINE (we trust it intends the approved thing)
+  → no exact-match enforcement; byte-fidelity is at most a minor convenience, not a guard
+  → Outcome recorded → the agent CONTINUES working (closes the story / updates docs / proceeds)
 ```
 
-**The floor is uniform; the tightening is not.** The floor (`registry.invoke` deny-with-record + consume-once) is identical on all four harnesses because the irreversible brokered call must pass through it. The native allow/deny is a **bonus defense-in-depth layer** added where each harness's grammar supports it — it is NOT the safety mechanism and AL7 does not depend on it for the floor.
+**The gate fades as trust grows.** The verdict-history trust signal (`packages/fabric/src/services/policy-engine.ts`, AD4) graduates autonomy off the review track record — a trusted agent's reversible work already flows, and over time more flows without review. AL7 ships the gated arm for the irreversible; wiring the trust signal so *reversible* calls auto-flow (and the autonomy widening) is AL8.
 
-**Byte-faithful execution is an OPTIMIZATION, not the gate** (unchanged from the prior redo). Where a layer expresses *arg-level* scope (builtin's in-process arg check at `registry.invoke`; a Claude `canUseTool` arg-pin), HyperIdle MAY additionally tighten "the approved tool" to "the approved tool with exactly these args." That is optional per-harness work, not load-bearing, and there is **no exact-hash-match-to-permit**, so **no deadlock**.
-
-The **safety floor** is therefore: *session 2 cannot execute any irreversible operation other than the approved one — enforced at `registry.invoke`, the broker chokepoint, uniformly on every harness.* The **optimization frontier** is: tighten "the approved tool" to "the approved tool with exactly these args" wherever arg-level scope exists. (See the residual, Phase 2.)
+**Byte-fidelity is not a guard.** We trust the agent intends the approved op. If the harness can't perfectly scope a permission to *exactly* one op, that is **acceptable** — we are not defending against the agent. The agent re-attempting / re-deriving the call in session 2 is fine. Byte-fidelity (pinning exact args) is at most a minor convenience where a harness expresses arg-level scope; it is **not** load-bearing and there is **no deadlock machinery**.
 
 ---
 
 ## Required reading (for `/architecture` and `/pipeline`)
 
 - This file — the locked concept.
-- `docs/process-layer/staged-operation.md` — ground-truth (file path kept stable; noun is `Proposed Call`; model = uniform broker-floor at `registry.invoke` + per-harness native tightening).
-- `packages/server/src/tools/tool-registry.ts:264-294` — the `invoke` chokepoint (`:274`): **the uniform broker floor + the universal in-process capture/record point + one-shot consume of the tailored policy**. The single seam every brokered/MCP-routed irreversible call passes through.
-- `packages/server/src/services/session-provisioning.ts:582` — the **same per-session registry instance** is wired to builtin internal calls (`:844` loop), MCP bridge, and the SDK adapter; this is why the floor is uniform.
-- `packages/server/src/mcp/mcp-bridge.ts:96-135` — MCP-routed tools (every CLI/SDK MCP call) funnel through `registry.invoke` (`:132`). This is how a Codex/opencode/Claude agent's call reaches the floor.
-- `packages/server/src/harness/builtin-harness-adapter.ts` — builtin loop; `registry.invoke` (`:741`) is the floor + capture; `executeToolCalls` honors `aborted` (`:717`); `mcpSupport:false` (`:336`) — builtin hits `registry.invoke` *directly*, not via an MCP client.
-- `packages/server/src/harness/claude-agent-sdk-adapter.ts:154-162` — `queryOptions` sets `permissionMode`; AL7 adds `allowedTools`/`disallowedTools` + an optional `canUseTool` arg-pin as **native tightening** (not the floor). SDK `PermissionResult` shape verified.
-- `packages/server/src/harness/cli-harness-adapter.ts` + `packages/server/src/harness/adapter-pool.ts:324-353` — the CLI adapter. **Present reality (verified June 2026):** `CLI_TOOL_CONFIGS` registers `aider`, `goose`, `opencode` only — **no `codex` registration exists**; the opencode registration is `args:["--dir","{{workspace}}"]`, `eventFormat:"text"`, no permission surface, and **does not consume `{{mcpUrl}}`**. The MCP route to the floor is net-new wiring for the CLI harnesses.
-- `packages/server/src/harness/harness-capability-descriptors.ts:11` — `KNOWN_HARNESS_FAMILIES = ["codex","claude-code","cursor-agent","opencode"]` (+ builtin). cursor-agent is `unavailable`; AL7 covers the other four, at the feasibility stated in the matrix below.
-- `packages/fabric/src/services/task-dispatcher.ts:500-514` — `handleSessionEnded` re-dispatches only on owner *change* → AL7 needs an EXPLICIT `proposed_call_granted` trigger.
-- `packages/server/src/services/session-run-registry.ts` — the abort rail (session-1 termination).
+- `ETHOS.md` §4 "Trust Agents" + `docs/agent-layer/principles.md` §5 — the trust frame this concept obeys.
+- `docs/process-layer/staged-operation.md` — ground-truth (file path kept stable; noun is `Proposed Call`; model = review checkpoint via the harness's native permission, fading with trust).
+- `packages/server/src/tools/tool-registry.ts:264-294` — the `invoke` closure (`:274`): where HyperIdle classifies a brokered call's reversibility, **routes the irreversible to review** (capture + record), and on approve permits the approved work. The convenient place HyperIdle already participates in the agent's call — used as a *workflow router*, not a fortress.
+- `packages/server/src/harness/claude-agent-sdk-adapter.ts:154-162` — Claude's native `canUseTool` (allow / **ask** / deny, with `updatedInput`) + `allowedTools`/`disallowedTools` — the native permission mechanism this workflow rides on Claude. *(verified: code.claude.com/docs/en/agent-sdk/permissions, June 2026.)*
+- `packages/server/src/harness/builtin-harness-adapter.ts` — builtin loop; `registry.invoke` (`:741`) is where HyperIdle routes the call; `mcpSupport:false` (`:336`).
+- `packages/server/src/harness/cli-harness-adapter.ts` + `packages/server/src/harness/adapter-pool.ts:324-353` — the CLI adapter. Codex's native `--ask-for-approval` (untrusted/on-request) + `--sandbox`; opencode's native `permission` allow/ask/deny in `opencode.json`/frontmatter. **Present reality (verified June 2026):** `CLI_TOOL_CONFIGS` registers `aider`, `goose`, `opencode` only (no `codex`); the opencode registration does not consume `{{mcpUrl}}`. Routing the CLI harnesses' calls into the review workflow is net-new wiring.
+- `packages/server/src/harness/harness-capability-descriptors.ts:11` — `KNOWN_HARNESS_FAMILIES = ["codex","claude-code","cursor-agent","opencode"]` (+ builtin). cursor-agent is `unavailable`; AL7 covers the other four.
+- `packages/fabric/src/services/task-dispatcher.ts:500-514` — `handleSessionEnded` re-dispatches only on owner *change* → AL7 needs an EXPLICIT `proposed_call_granted` trigger to re-engage the agent on approve.
+- `packages/fabric/src/services/policy-engine.ts` — the verdict-history trust signal (AD4) the gate fades on; AL7 ships the gated arm, AL8 wires auto-flow.
+- `packages/server/src/services/session-run-registry.ts` — the abort rail (session-1 termination, since sessions aren't pausable).
 - `packages/server/src/routes/threads.ts:1254-1392` — verdict resolution (first-verdict-wins).
 - `packages/server/src/routes/reviews.ts` — review composition / loader.
 - `packages/db/src/schema.ts:1004-1059` — `staged_operations` / `operation_outcomes` (reshaped to a Proposed-Call record).
@@ -73,15 +68,14 @@ The **safety floor** is therefore: *session 2 cannot execute any irreversible op
 
 | Noun | Class | One-line working definition |
 |---|---|---|
-| **Proposed Call** | **Reshaped** (was `Staged Operation`) | The exact, fully-bound tool call (tool id + args) an agent attempted and the broker floor denied, captured verbatim as the subject a human reviews. |
-| **Broker-gate floor** | **New** | HyperIdle's own per-session chokepoint at `registry.invoke` — the *uniform* allow/deny/capture point every brokered/MCP-routed irreversible call passes through, on every harness. The safety mechanism. |
-| **Native tightening** | **New** | The harness's *own* allow/deny grammar (Claude `allowedTools`/`disallowedTools`+`canUseTool`; opencode `opencode.json` permission; builtin = the floor itself) added *on top of* the broker floor where it exists — defense-in-depth, not the floor. |
-| **Tailored broker policy** | **New** (replaces "one-shot grant" as the *mechanism*) | The session-2 policy consumed at the broker floor: allow the approved op + reversible work, deny every other irreversible op; applied once, consumed once. |
+| **Proposed Call** | **Reshaped** (was `Staged Operation`) | The exact tool call (tool id + args) an agent attempted, captured verbatim as the subject a human reviews when it is consequential/irreversible. |
+| **Review checkpoint** | **New** (replaces "broker-gate floor — the safety mechanism") | The collaboration moment where HyperIdle routes a consequential/irreversible call to a human — carried by the harness's native permission mechanism (ask/allow/deny) as a *workflow*, not a security boundary. It fades as trust grows. |
+| **Tailored grant** | **New** (replaces "tailored broker policy" as the *mechanism* framing) | The session-2 permission the agent works under after approve: do the approved op + reversible work; route any *other* irreversible op to review. A workflow scope, not a cage. |
 | **Outcome** | **Stable** (kept from shipped AL7) | The immutable terminal record of what session 2's executed call returned (ok + receipt / failed + error). |
-| **Verdict** | **Stable** (Track AL) | The binding human decision on a review subject. Grammar unchanged; approve gains a consequence (compose policy + re-provision), not a new action. |
+| **Verdict** | **Stable** (Track AL) | The binding human decision on a review subject. Grammar unchanged; approve gains a consequence (compose grant + re-engage), not a new action. |
 | **Session** | **Stable** | A detached one-shot harness run. Not pausable. `active \| done \| crashed`. |
 
-Stable nouns are inputs. The concept work below covers **Proposed Call**, **broker-gate floor**, **native tightening**, **tailored broker policy**.
+Stable nouns are inputs. The concept work below covers **Proposed Call**, **review checkpoint**, **tailored grant**.
 
 **Human design review forecast:** No. No novel UI; rides the existing action-operation review canvas (`reviews.ts` / `ReviewComposition.tsx`). `/design` skipped per the workpackage brief.
 
@@ -91,9 +85,9 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **brok
 
 ### Proposed Call
 
-1. **Identity.** A *captured intent to act* — a snapshot of one tool invocation (tool id + fully-bound args) frozen at the moment the broker floor denied it. Not a queued job, not a command HyperIdle will run. It is the **subject of a review**, until a human approves and the *agent's own brokered call* runs it under a tailored broker policy.
+1. **Identity.** A *captured intent to act* — a snapshot of one tool invocation (tool id + bound args) frozen at the moment HyperIdle routed it to review. Not a queued job, not a command HyperIdle will run. It is the **subject of a review**, until a human approves and the *agent's own session* runs the work.
 
-2. **Essential properties.** The **tool identity** (the harness/MCP tool name); the **bound arguments** verbatim; the **blocked session** it came from + the **task/thread** it anchors to; the **review message** that gates it; a **reversibility** classification (irreversible — why it was captured at all). It carries NO HyperIdle-side executor reference, NO capability-allowlist membership. *(An identity hash over (tool id, normalized args) is OPTIONAL metadata used only by the arg-pin optimization; it is NOT the gate.)*
+2. **Essential properties.** The **tool identity** (the harness/MCP tool name); the **bound arguments** verbatim; the **origin session** + the **task/thread** it anchors to; the **review message** that gates it; a **reversibility** classification (irreversible — why it was routed to review at all). It carries NO HyperIdle-side executor reference, NO capability-allowlist membership. *(An identity hash over (tool id, normalized args) is OPTIONAL metadata for the arg-pin convenience; it is NOT a guard.)*
 
 3. **Rejection list.** See Phase 2.
 
@@ -101,76 +95,63 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **brok
 
 5. **Lifecycle.**
    ```
-   captured  ── agent's brokered/MCP-routed call denied at the broker floor in session 1; capture
+   captured  ── the agent's irreversible call is routed to review in session 1; the call is captured
       │
-      ├─ (approve verdict) → granted ── session 2 re-provisioned with a TAILORED broker policy
-      │                          │       (allow the approved op + reversible work; deny other irreversible)
-      │                    agent re-attempts; broker floor permits the approved scope; policy consumed once
+      ├─ (approve verdict) → granted ── session 2 re-provisioned with a TAILORED GRANT
+      │                          │       (do the approved op + reversible work; route other irreversible to review)
+      │                    the agent re-attempts; the harness permits the approved work; grant consumed once
       │                          │
       │                    ┌─────┴─────┐
       │                 executed     failed   (Outcome written; terminal)
       │
       └─ (non-approve: request-changes / reject / edit) → held (never executed)
    ```
-   `captured → granted → executed|failed` and `captured → held`. No `executing` *kernel* state — HyperIdle never holds an in-flight execution; the agent's brokered call does.
+   `captured → granted → executed|failed` and `captured → held`. No `executing` *kernel* state — HyperIdle never holds an in-flight execution; the agent's own session does.
 
-6. **Authority.** The **agent produces** the Proposed Call by attempting the call (the broker floor denies + records it; no `stage_operation` tool). The **human authorizes** via the verdict. The **agent's session executes** in session 2 through its own brokered call under the tailored policy. HyperIdle **owns the capture record + the tailored policy + the Outcome record + the credential attached at the broker** — the *bookkeeping and brokering of the gate*, never authoring or re-executing the tool. Source of truth for "did it happen" is the **Outcome**, from the real tool return inside session 2.
+6. **Authority.** The **agent produces** the Proposed Call by attempting the call (HyperIdle captures it when routing it to review; no `stage_operation` tool). The **human authorizes** via the verdict. The **agent's own session executes** in session 2 with its own tools + creds under the tailored grant. HyperIdle **owns the capture record + the tailored grant + the Outcome record** — the *bookkeeping of the checkpoint*, never authoring or re-executing the tool. Source of truth for "did it happen" is the **Outcome**, from the real tool return inside session 2.
 
 7. **Vocabulary collision.** `Staged Operation` collides with the rejected kernel-exec model — retired. `Proposed Call` is new and unambiguous. Does not collide with `Task`, `Session`, `Verdict`, or `Block`.
 
-### Broker-gate floor (the safety mechanism)
+### Review checkpoint (the collaboration moment — NOT a guard)
 
-1. **Identity.** HyperIdle's own per-session chokepoint at `registry.invoke`. Every brokered / MCP-routed tool call — including every irreversible live op, because its credential is HyperIdle-held and brokered — passes through this one seam on every harness. The gate that allows/denies/captures lives here.
-2. **Essential properties.** One per session (`session-provisioning.ts:582`); wired to builtin internal calls (`:741`), the provisioning loop (`:844`), and the MCP bridge (`mcp-bridge.ts:132`). At the floor: classify reversibility (fail-closed); allow reversible; deny + record irreversible (session 1) or deny-other-irreversible while consuming the tailored policy for the approved op (session 2). Harness-grammar-independent — it is HyperIdle's code, not the harness's.
-3. **Why it covers irreversible ops on every harness, incl. Codex.** The live credential is never in the agent's sandbox; the only path to an irreversible live op is the brokered tool; the brokered tool routes through `registry.invoke`. So even a harness with *no* per-op native grammar (Codex) cannot reach an unapproved irreversible op around the floor — there is no credential in the sandbox to do it with.
-4. **Authority.** HyperIdle owns and enforces the floor in its own process; no harness cooperation required.
+1. **Identity.** The moment a consequential/irreversible call is routed to a human for judgment. It is a **collaboration checkpoint** — like a senior teammate stepping in on a high-blast-radius action — not a security boundary policing a suspect. It rides the harness's **native permission mechanism** (ask/allow/deny) as a *workflow*.
+2. **Essential properties.** Classify reversibility (fail-closed: unknown ⇒ treat as irreversible, i.e. route to review — out of *care*, not suspicion); reversible flows freely; irreversible is routed to review + captured. It uses whatever native ask/deny the harness provides to carry the workflow. **It fades as trust is earned** — the verdict-history trust signal widens the lane over time (AD4; auto-flow is AL8).
+3. **Why creds-present is correct.** The agent holds its own credentials and runs its own tools — that is the product. We do not withhold creds and we do not claim "the checkpoint is the only path." The agent *could* do the irreversible thing with its own creds; **we trust it not to route around the collaboration checkpoint**, exactly as we trust a real employee not to route around a teammate's sign-off. The checkpoint is where a human *chooses* to weigh in, not a wall the agent is tested against.
+4. **Authority.** HyperIdle composes the workflow (route irreversible → review; let reversible flow); the harness's native permission mechanism carries it; the human owns the verdict.
 
-### Native tightening (defense-in-depth, per harness)
+### Tailored grant
 
-1. **Identity.** The harness's *own* allow/deny grammar, configured at session init, added *on top of* the broker floor where the grammar exists. Not the floor.
-2. **Per-harness surface.** builtin: the `registry.invoke` floor *is* the gate (no separate native layer needed). Claude (SDK): `allowedTools`/`disallowedTools` + `canUseTool` (arg-level) — verified. opencode: `opencode.json`/agent-frontmatter `permission` allow/ask/deny — last-match-wins (note: docs say non-interactive `run` may auto-approve, so this is a bonus, not relied upon). Codex: only coarse global `--sandbox` (`read-only`/`workspace-write`/`danger-full-access`) — a backstop, not per-op.
-3. **Authority.** HyperIdle composes the native config from the same `SessionPermissionPolicy` and the adapter applies it at init; the harness enforces it as a *second* layer. AL7's correctness does not depend on it.
-
-### Tailored broker policy
-
-1. **Identity.** The session-2 policy consumed at the broker floor, narrowed so the agent can execute **the approved operation + reversible work** and **nothing else irreversible**. Applied once at `registry.invoke`, consumed once, so a later re-attempt of a *different* irreversible op is denied + re-captured.
-2. **Essential properties.** Scoped to the session-2 re-provision of one task by one agent; allows the approved op (tightened to exact args where a layer expresses arg-level scope — optimization); denies all other irreversible ops; single-use per approved Proposed Call (a re-open mints a fresh policy).
-3. **Authority.** Composed by HyperIdle at approve-time from the approved Proposed Call; consumed at the broker floor; (optionally) also translated to native allow/deny by each adapter as tightening.
+1. **Identity.** The session-2 permission the agent works under after approve, narrowed so the agent does **the approved operation + reversible work** and any *other* irreversible op is routed back to review. A **workflow scope**, not a cage. Applied once, consumed once; a re-attempt of a *different* irreversible op is routed to review again (not blocked-as-attack — surfaced for a fresh human decision).
+2. **Essential properties.** Scoped to the session-2 re-provision of one task by one agent; permits the approved op (optionally tightened to exact args where a harness expresses arg-level scope — a minor convenience); routes other irreversible ops to review; single-use per approved Proposed Call (a re-open mints a fresh grant).
+3. **Authority.** Composed by HyperIdle at approve-time from the approved Proposed Call; carried by the harness's native permission mechanism in session 2; the human's approve is what mints it.
 
 ---
 
-## Phase 2 — Rejection list (load-bearing)
+## Phase 2 — Rejection list (load-bearing) — explicitly rejecting the paranoid framings
 
 **A Proposed Call / this whole loop is NOT:**
 
-1. **NOT a Kernel-executed operation, and the broker floor is NOT the v1 executor.** HyperIdle does not author or re-run the tool. *The distinction:* the v1 executor had a hardcoded `executeCapability` capability map and ran the call *from HyperIdle's own process as a HyperIdle action*. The broker floor has **no capability map**, re-implements **no tool**, and runs **nothing of its own** — it sits on the path the agent's *own* brokered call already takes, attaches the HyperIdle-held credential (the AN injection model), and decides allow/deny/capture. The executor is still the agent's harness emitting the call; the tool's own handler runs it. *Why this matters:* the founder rejected v1 as "yet another integration layer that re-executes." Gating the agent's own call at a chokepoint is not re-execution — it is the gate-and-bookkeeper role HyperIdle already plays at `registry.invoke`.
+1. **NOT a containment fortress, and the checkpoint is NOT "the only path."** *(Rejects the v4 paranoia — cited ETHOS §4.)* We do **not** build "the broker is the only path to an irreversible live op." We do **not** model a rogue agent routing around the checkpoint via native shell / raw HTTP / ambient creds. ETHOS §4: "When you catch yourself designing against a hypothetical rogue agent, stop. That is paranoia, and it is not the product." The checkpoint is where a human *chooses* to weigh in; it is not a wall the agent is adversarially tested against.
 
-2. **NOT a curated capability allowlist.** No `KERNEL_DISPATCHABLE_CAPABILITIES`. *Why:* the floor is generic (allow/deny by reversibility), the capture is generic (any tool + any args), the tailored policy is generic (allow the approved tool/op). HyperIdle never needs to know what `github/merge_pr` *means*.
+2. **NOT credential-withholding / capability-split-as-security.** *(Rejects the AN credential-containment dependency.)* Creds are present in the sandbox **and that is correct** — tools and MCP servers need creds to authenticate; a tool that can't auth is useless (ETHOS §4: "Don't withhold credentials an agent's tools need to function"). AL7 has **no dependency on a Track-AN "no live-op credential in the sandbox" guarantee.** There is no native-tool-bypass threat model and no credential-containment fortress. The agent has its creds; we trust it.
 
-3. **NOT a live session pause / native held "ask."** Approve does not un-pause a suspended turn. *Why:* HyperIdle sessions are detached one-shots; on end the sandbox + history are destroyed; only abort exists. The review spans **two sessions** with context reassembly. **Enforcement is the broker floor (synchronous deny+record at session init/run time), not a held call-time ask** — so AL7 needs NONE of the net-new async-approval transports (Codex app-server JSON-RPC, opencode SSE).
+3. **NOT byte-faithful replay / exact-hash-match-to-permit as a guard.** *(Rejects v2 + the v4 "executed==reviewed hash-match-to-permit" guard.)* Session 2 is NOT permitted by matching a SHA-256 of the captured bytes. We trust the agent intends the approved op; **re-attempting / re-deriving the call is fine.** Byte-fidelity is at most a minor convenience (pin exact args where a harness expresses arg-level scope), **never a guard**, and there is **no deadlock machinery**. If the harness can't perfectly scope a permission to exactly one op, that is acceptable — we are not defending against the agent.
 
-4. **NOT an agent-authored spec.** No `stage_operation` tool. *Why:* an agent-authored spec can lie or drift; the *real attempted call* captured at the broker floor is the only faithful subject. (Discards `tools/stage-operation.ts`.)
+4. **NOT a Kernel-executed operation.** *(Rejects v1.)* HyperIdle does not author or re-run the tool — no `executeCapability` capability map, no re-implementation, nothing run from its own process as a HyperIdle action. The agent's own session runs the approved work with its own tools + creds. HyperIdle captures the call, surfaces it, and on approve re-engages the agent — the bookkeeper of the checkpoint, not the executor.
 
-5. **NOT a byte-faithful replay gate / exact-hash-match-to-permit.** Session 2 is NOT permitted by matching a SHA-256 of the captured bytes. *Why:* a hash-match gate deadlocks the approved work on any LLM arg drift; it is fragile and harness-specific. The gate is the **tailored broker policy at `registry.invoke`**, which forbids *other* irreversible ops regardless of arg drift. Byte-fidelity survives only as an **optional arg-pin optimization** where a layer expresses arg-level scope.
+5. **NOT a curated capability allowlist.** No `KERNEL_DISPATCHABLE_CAPABILITIES`. The classification (reversible vs irreversible) and the capture are generic — any tool + any args. HyperIdle never needs to know what `github/merge_pr` *means*.
 
-6. **NOT a floor that depends on harness-native allow/deny.** *Why (the prior reshape's fatal flaw):* Codex has no per-op native grammar and no external-readable approval event in `codex exec`; opencode's native permission may be auto-approved in headless `run`. A floor that rides native grammar holds on 2 of 4 harnesses. The broker floor at `registry.invoke` does not depend on any harness's grammar — it is HyperIdle's own code on the one path the brokered irreversible call must take. Native allow/deny is **defense-in-depth tightening**, never the floor.
+6. **NOT a re-implementation of the harness's permission system.** *(Honors the harness rules.)* We **build on the harness's native ask/allow/deny** as the workflow carrier; we do not invent a HyperIdle mechanism that duplicates it. Where a harness lacks a usable native ask in non-interactive mode (Codex `exec`, opencode headless), HyperIdle's participation point in the agent's brokered call (`registry.invoke`) carries the same *workflow* — route-to-review — but as a **workflow router we already own**, framed as collaboration plumbing, not a security floor.
 
-7. **NOT a transactional multi-step rollback engine.** One Proposed Call = one tool call. Compensating/undo logic beyond the call's own semantics is out of scope (Track AL out-of-scope, unchanged).
+7. **NOT a live session pause / native held "ask."** Approve does not un-pause a suspended turn. HyperIdle sessions are detached one-shots; on end the sandbox + history are destroyed; only abort exists. The review spans **two sessions** with context reassembly. (Kept from prior models — sessions aren't pausable.)
 
-8. **NOT a verdict-grammar change.** Approve stays approve. It gains a consequence (compose the policy + re-provision), not a new button.
+8. **NOT an agent-authored spec.** No `stage_operation` tool. The *real attempted call* captured when routing to review is the only faithful subject. (Discards `tools/stage-operation.ts`.)
 
-9. **NOT Claude-only, and NOT silently all-four.** The broker floor is built + live-proven on the harnesses whose adapter exists and can route the brokered call to `registry.invoke` (builtin + Claude now). Codex and opencode are **named net-new build tasks** (Codex: no adapter registered at all; opencode: no MCP-URL wiring, no permission surface) — supported-pending-adapter, not silently dropped and not falsely claimed green. See the DONE matrix in Phase 4.
+9. **NOT a transactional multi-step rollback engine.** One Proposed Call = one tool call. Compensating/undo logic beyond the call's own semantics is out of scope (Track AL out-of-scope, unchanged).
 
----
+10. **NOT a verdict-grammar change.** Approve stays approve. It gains a consequence (compose the grant + re-engage), not a new button.
 
-## The residual — the optimization frontier (stated plainly, per founder direction)
-
-The safety floor is *"no **other** irreversible operation executes in session 2."* Where the allow check scopes only by tool **name** (not exact args), session 2 could permit the **same approved tool with different args** — e.g. approve "refund $10 on charge X", a drifted "refund $50 on charge X" would also pass a name-scoped allow.
-
-This is the **optimization frontier**, not a hole in the floor:
-- **The floor still holds:** no *other* irreversible op runs; the agent re-derived the *same* approved op; an *unrelated* irreversible op is denied + re-captured at the broker floor.
-- **Tighten it** where arg-level scope exists: builtin checks the args in-process at `registry.invoke`; Claude pins/checks args in a `canUseTool` hook.
-- **This is acceptable per founder direction** — stated openly, not hidden.
+11. **NOT a permanent brake.** The checkpoint **fades as trust is earned** (verdict-history trust signal, AD4). It is not held down by default; more autonomy is the goal. AL7 ships the gated arm; AL8 widens the lane.
 
 ---
 
@@ -178,89 +159,107 @@ This is the **optimization frontier**, not a hole in the floor:
 
 | Term | Definition | Aliases not to use |
 |---|---|---|
-| **Proposed Call** | The exact captured tool call (id + bound args) the broker floor denied, reviewed as a subject. | staged operation, staged op, operation spec, `StagedOperationSpec`, dispatchable capability |
-| **Broker-gate floor** | HyperIdle's own uniform chokepoint at `registry.invoke` — allow/deny/capture/consume for every brokered + MCP-routed irreversible call, on every harness. | kernel executor, dispatcher, capability map, native permission gate (the native gate is *tightening*, not the floor) |
-| **Native tightening** | The harness's own allow/deny grammar added on top of the broker floor where it exists; defense-in-depth, not the safety mechanism. | the gate, the floor, the safety mechanism (it is none of these) |
-| **Tailored broker policy** | Session-2 policy consumed at the broker floor: allow the approved op + reversible, deny other irreversible; consume-once. | one-shot grant (retired as mechanism), replay grant, exact-hash grant |
-| **Arg-pin (optimization)** | Optional tightening of the allow from "the approved tool" to "the approved tool with these exact args". | byte-faithful replay, deterministic registry replay (techniques for the optimization, not the gate) |
+| **Proposed Call** | The exact captured tool call (id + bound args) routed to review, reviewed as a subject. | staged operation, staged op, operation spec, `StagedOperationSpec`, dispatchable capability |
+| **Review checkpoint** | The collaboration moment routing a consequential/irreversible call to a human, carried by the harness's native permission mechanism as a workflow; fades as trust grows. | broker-gate floor, the safety mechanism, the safety floor, containment fortress, the only path, security boundary |
+| **Tailored grant** | Session-2 workflow scope: do the approved op + reversible, route other irreversible to review; consume-once. | tailored broker policy, one-shot grant, replay grant, exact-hash grant, the cage |
+| **Arg-pin (convenience)** | Optional pinning of the allow to the approved tool *with these exact args*, where a harness expresses arg-level scope. A minor convenience, never a guard. | byte-faithful replay, exact-hash-match-to-permit, deterministic registry replay |
 | **Outcome** | Immutable terminal record of what the executed call returned. | result, receipt (receipt is a *field* of Outcome) |
-| **Two-session resume** | Deny in session 1 → review → re-provision session 2 with the tailored broker policy. | pause/resume, suspend, live continuation |
+| **Two-session resume** | Route to review in session 1 → review → re-provision session 2 with the tailored grant. | pause/resume, suspend, live continuation |
+| **Trust signal** | The agent's verdict-history approval rate; the checkpoint fades on it (AD4). | per-skill autonomy level (removed — AD4), per-tool risk table |
 
 `capability` as a *noun for what HyperIdle dispatches* is retired. (The AM2 `HarnessCapabilityDescriptor` keeps its name — different meaning.)
+
+**Explicitly retired vocabulary (the v4 paranoia):** "broker-gate floor", "the safety mechanism/floor", "containment fortress", "the only path", "credential-containment", "native-tool bypass", "AN dependency", "designing against a rogue agent", "exact-hash-match-to-permit as the gate". None of these appear in the trust-first model.
 
 ---
 
 ## Phase 4 — Contracts
 
-- **Cardinality.** A Proposed Call → exactly one review message (gate) and one subject thread (anchor). A Proposed Call → 0..1 Outcome. A tailored policy → exactly one approved Proposed Call, valid in exactly one session-2 re-provision.
-- **Closure.** The tool/args vocabulary is **open** — any tool the agent can call can be captured; HyperIdle enumerates nothing. Reversibility classification is **closed** (`irreversible | reversible`) and drives deny-vs-allow at the floor.
+- **Cardinality.** A Proposed Call → exactly one review message (gate) and one subject thread (anchor). A Proposed Call → 0..1 Outcome. A tailored grant → exactly one approved Proposed Call, valid in exactly one session-2 re-provision.
+- **Closure.** The tool/args vocabulary is **open** — any tool the agent can call can be captured; HyperIdle enumerates nothing. Reversibility classification is **closed** (`irreversible | reversible`) and drives route-to-review vs flow.
 - **Mutability.** The captured tool id + args are **immutable** once captured (what the human reviewed). The Outcome is **immutable** (PK = proposed-call id enforces 0..1 + no overwrite). A retry produces a **new** Proposed Call with its own Outcome.
-- **Identity.** A Proposed Call's id is opaque + stable. The (tool id, normalized args) hash is **optional metadata** for the arg-pin optimization — NOT the safety gate.
+- **Identity.** A Proposed Call's id is opaque + stable. The (tool id, normalized args) hash is **optional metadata** for the arg-pin convenience — NOT a guard.
 - **Hard rules:**
-  1. **HyperIdle executes nothing of its own.** The agent's own session/tools/brokered-credentials run the call. HyperIdle gates + captures + brokers the credential + records the outcome at `registry.invoke` — it never authors a tool, never re-implements one, never runs one from its own process as a HyperIdle action. (The broker floor is distinct from the v1 executor — rejection #1.)
-  2. **The safety floor is the broker chokepoint, uniform on every harness.** `registry.invoke` denies every irreversible op except the approved one, because the irreversible call's credential is HyperIdle-held and the brokered call must pass through this seam — independent of any harness's native permission grammar.
-  3. **Native allow/deny is defense-in-depth tightening, not the floor.** Added where the grammar expresses it (Claude, opencode, builtin); never the safety mechanism; AL7 does not depend on it for correctness.
-  4. **Session 2 cannot execute any irreversible op other than the approved one.** Enforced at the broker floor. (Arg-level exactness is the optimization frontier — see the residual.)
-  5. **Two-session async resume, not live pause.** Deny ends session 1; approve re-provisions session 2 via the task-dispatcher rail with the tailored policy.
-  6. **Reversible auto-flows; irreversible gates.** Reversible calls pass the floor with no review. Only irreversible calls are captured → reviewed.
-  7. **A non-approving verdict never executes.** Held Proposed Calls are never granted a tailored policy.
-  8. **DONE is per-harness honest, not all-four-or-loop-forever.** AL7 is DONE when the uniform broker floor is proven LIVE (real irreversible brokered call, real return, agent continues) on every harness whose adapter exists and routes to the floor (builtin + Claude). Codex + opencode are named net-new build tasks with explicit terminal states (see the DONE matrix below); they are `net-new-adapter-pending`, not silently dropped and not falsely green. No fixture/stub proof.
-  9. **Broker floor, not async hold.** Enforcement is synchronous deny+record at `registry.invoke`; no net-new async-approval transport (Codex app-server, opencode SSE) is required.
+  1. **We trust the agent.** AL7 does not design against a rogue agent, does not withhold credentials, and builds no "only path" containment. The checkpoint is a collaboration moment, not a guard. (ETHOS §4.)
+  2. **HyperIdle executes nothing of its own.** The agent's own session/tools/creds run the call. HyperIdle captures + records + re-engages — it never authors a tool, re-implements one, or runs one from its own process. (Rejects v1.)
+  3. **The checkpoint routes the consequential to a human, via the harness's native permission as a workflow.** Reversible flows; irreversible is routed to review. We build on the harness's native ask/allow/deny, not a re-implementation.
+  4. **The agent re-attempting the approved op in session 2 is fine.** No exact-match-to-permit; byte-fidelity is at most a convenience; no deadlock machinery. If a harness can't scope a permission to exactly one op, that is acceptable.
+  5. **Two-session async resume, not live pause.** Route-to-review ends session 1; approve re-provisions session 2 via the task-dispatcher rail with the tailored grant.
+  6. **Reversible auto-flows; irreversible routes to review.** Only irreversible calls are captured → reviewed.
+  7. **A non-approving verdict never executes.** Held Proposed Calls are never granted.
+  8. **The work continues after the result.** On approve the agent re-engages, runs the approved op, and **keeps working** (closes the story / updates docs / proceeds) — the operation-finish event re-engages the agent (folded in; was AL10).
+  9. **The gate fades as trust grows.** It rides the verdict-history trust signal (AD4); more autonomy is the goal. AL7 ships the gated arm; AL8 widens the lane.
+  10. **DONE is proven LIVE on the real installed harnesses.** The trust-first loop (agent proposes irreversible op → review → approve → agent executes with its own tools → continues) is integration-tested against the real installed harness per supported harness — never a stub. builtin + Claude go green now; Codex + opencode are named net-new adapter tasks (see the matrix), live-proven once their adapter routes the call into the workflow.
 
-### Per-harness feasibility + DONE matrix
+### Per-harness native-permission routing + DONE matrix
 
-| Harness | Broker floor feasible? | Adapter exists + routes to floor? | Native tightening | DONE state |
-|---|---|---|---|---|
-| **builtin** | **YES** — `registry.invoke` IS the floor; HyperIdle owns the loop (`:741`). | YES (direct; `mcpSupport:false`, calls `registry.invoke` directly). | n/a — the floor *is* the gate. | **green** — full live proof now. |
-| **Claude (Agent SDK)** | **YES** — MCP-routed brokered call funnels through `registry.invoke` (`mcp-bridge.ts:132`). | YES (SDK adapter wired; small net-new MCP-route assertion). | `allowedTools`/`disallowedTools` + `canUseTool` arg-pin (verified). | **green** — full live proof now. |
-| **Codex** | **YES** — covered by the broker floor; the live credential is never in the Codex sandbox, so the only irreversible-op path is the brokered MCP call through `registry.invoke`. Codex's *native* grammar cannot express the floor (global `--sandbox`/approval only, no per-op allow, no external-readable approval event in `codex exec`) — but it does not need to. | **NO — net-new.** No `codex` registration in `CLI_TOOL_CONFIGS` (`adapter-pool.ts:324-353`). Building the Codex adapter + wiring `{{mcpUrl}}` so the brokered call reaches the floor is an explicit task. | Coarse global `--sandbox` backstop only (no per-op native tightening). | **net-new-adapter-pending** — supported once the adapter exists; live-proven then. NOT silently dropped. |
-| **opencode** | **YES** — same as Codex: broker floor via the MCP-routed brokered call. | **NO — net-new.** Registered adapter is `--dir`-only text-mode, no permission surface, **no `{{mcpUrl}}`** (`adapter-pool.ts:344-352`). Net-new: wire `{{mcpUrl}}` + `opencode run -f json` so the brokered call reaches + records at the floor. | `opencode.json`/frontmatter `permission` allow/ask/deny (last-match-wins) — **bonus only**; docs indicate non-interactive `run` may auto-approve, so not relied upon. | **net-new-adapter-pending** — supported once the adapter routes to the floor; live-proven then. |
-| **cursor-agent** | — | — | — | **skipped** (`unavailable`, `harness-capability-descriptors.ts:11`). |
+| Harness | Native permission mechanism (the workflow carrier) | Adapter routes the call into the workflow? | DONE state |
+|---|---|---|---|
+| **builtin** | HyperIdle owns the loop; `registry.invoke` (`:741`) is where the workflow routes the call — HyperIdle's own participation point. | YES (direct; `mcpSupport:false`). | **green** — live proof now. |
+| **Claude (Agent SDK)** | `canUseTool` (allow / **ask** / deny, with `updatedInput`) + `allowedTools`/`disallowedTools` — a full native ask/allow/deny used as the workflow router. *(verified June 2026.)* | YES (SDK wired; small net-new MCP-route assertion). | **green** — live proof now. |
+| **Codex** | `--ask-for-approval` (untrusted/on-request) + `--sandbox` — a native approval workflow; in non-interactive `codex exec` the ask has no external answer channel, so the route-to-review workflow is carried at HyperIdle's own brokered participation point instead. | **NO — net-new.** No `codex` registration in `CLI_TOOL_CONFIGS`; building it + wiring `{{mcpUrl}}` is an explicit task. | **net-new-adapter-pending** — live-proven once the adapter lands. |
+| **opencode** | `permission` allow/ask/deny in `opencode.json`/frontmatter (last-match-wins); headless `run` may auto-approve an ask, so the route-to-review workflow is carried at HyperIdle's brokered participation point. *(verified June 2026.)* | **NO — net-new.** Registered adapter is `--dir`-only text-mode, no `{{mcpUrl}}`; net-new wiring. | **net-new-adapter-pending** — live-proven once the adapter routes into the workflow. |
+| **cursor-agent** | — | — | **skipped** (`unavailable`, `harness-capability-descriptors.ts:11`). |
 
 A pipeline pointed at this plan terminates: builtin + Claude must go green; Codex + opencode each terminate at `net-new-adapter-pending` until their adapter/MCP-routing task lands, at which point their live-proof lane runs. No lane loops forever trying to green a harness whose adapter does not yet exist.
+
+> **On the non-interactive-ask limitation (stated plainly, NOT as a security claim).** Claude's `canUseTool` ask is externally answerable; Codex `exec` and opencode headless `run` do not expose an externally-answerable native ask. So for those, the *same collaboration workflow* — route the irreversible call to review — is carried at the point where HyperIdle already participates in the agent's brokered call (`registry.invoke`). This is **workflow plumbing for a missing native channel, not a security floor.** It is not "the only path", and it does not depend on credential containment. It is simply where HyperIdle hangs the "ask a human" step when the harness has no headless ask to hang it on.
+
+---
+
+## The minor convenience frontier (stated plainly, no longer a "residual hole")
+
+In the trust-first model there is **no security residual to confess** — because there is no fortress whose cracks need flagging. Two things are simply stated as design facts:
+
+- **Arg-level scope is a convenience, not a guarantee.** Where the permission scopes only by tool *name*, session 2 could permit the *same approved tool with different args*. We trust the agent intends the approved thing, so this is **fine**; where a harness expresses arg-level scope (builtin in-process check; Claude `canUseTool` `updatedInput`), HyperIdle MAY pin exact args as a convenience. Not a guard, no deadlock.
+- **The agent can act with its own creds — by design.** The agent holds credentials and runs its own tools; it *could* perform an irreversible op outside the checkpoint. **We trust it not to**, exactly as we trust an employee. There is no native-tool-bypass threat model, no AN credential-containment dependency, and no "only path" claim. (ETHOS §4.)
 
 ---
 
 ## The open details — RESOLVED
 
-### 1. The floor: the broker chokepoint at `registry.invoke`, uniform across harnesses → **locked.**
-The safety mechanism is HyperIdle's own per-session `registry.invoke` gate. Every brokered/MCP-routed irreversible call passes through it (the credential is HyperIdle-held, never in the sandbox), so the floor holds on every harness regardless of native grammar — including Codex. Session 1: deny+record irreversible. Session 2: consume the tailored policy for the approved op, deny other irreversible. There is no exact-hash-match-to-permit, so no deadlock.
+### 1. The checkpoint: route the consequential to a human via the harness's native permission as a workflow → **locked.**
+Not a containment fortress, not "the only path", no credential-containment dependency. Reversible flows; irreversible is routed to review + captured. Built on the harness's native ask/allow/deny (Claude `canUseTool` ask; Codex `--ask-for-approval`; opencode `permission`); where a harness has no externally-answerable headless ask, the same workflow is carried at HyperIdle's own brokered participation point — plumbing, not a floor.
 
-### 2. Capture location → **the broker floor at `registry.invoke`; native deny hooks are bonus records (confirmed).**
-Capture is **synchronous deny+record at `registry.invoke`** — the uniform record point for HyperIdle-registered + MCP-routed tools, identical on every harness. The builtin loop hits it directly (`:741`); Claude/Codex/opencode reach it via the MCP bridge (`:132`) once their MCP route is wired. A harness's *own* deny hook (Claude `canUseTool`; opencode permission event) is an **optional second record**, not the capture mechanism. (The Codex native approval signal is NOT relied upon — `codex exec` exposes no external-readable approval event.)
+### 2. Session 2 → **the agent re-does the approved work with its own tools under a tailored grant.**
+On approve HyperIdle composes a tailored grant (do the approved op + reversible; route other irreversible to review), re-provisions session 2, and the agent re-attempts. **Re-deriving the call is fine — we trust it.** No exact-hash-match, no deadlock. Byte-fidelity is an optional arg-pin convenience.
 
-### 3. Tailored-policy enforcement → **consumed at the broker floor (consume-once); native allow/deny is optional tightening.**
-At approve-time HyperIdle composes a `SessionPermissionPolicy` (session role + the approved op) and threads it through `SessionConfig` → `provisionSession`. The **floor** consumes it via a single-statement atomic CAS at `registry.invoke` (allow the approved op once, deny other irreversible). Each adapter MAY *additionally* translate it to native allow/deny at init as defense-in-depth: builtin (the floor itself), Claude (`allowedTools`/`disallowedTools`+`canUseTool`), opencode (`opencode.json` permission). Codex gets only a coarse `--sandbox` backstop. The native layer is never the consume point — the broker floor is.
+### 3. Work continues after the result → **locked (folded in; was AL10).**
+On approve the verdict path emits **`proposed_call_granted`** and the task-dispatcher's dedicated subscription re-engages the agent (NOT the owner-change `session_ended` path); the operation-finish event re-engages the agent so it **keeps working** — closes the story, updates docs, proceeds.
 
-### 4. Reversible auto-flow + work-continues → **locked.**
-Reversible calls → **allowed at the floor, no review**. Irreversible calls → **capture → review → reinit session 2 with the tailored broker policy**. The work-continues loop IS the session-2 resume: on approve the verdict path emits **`proposed_call_granted`** and the task-dispatcher's dedicated subscription re-provisions session 2 (NOT the owner-change `session_ended` path), the agent re-attempts within the narrowed scope and **keeps working**. AL7 is **done** per the per-harness DONE matrix (Phase 4): live-proven on builtin + Claude now; Codex + opencode are named net-new adapter tasks.
+### 4. The gate fades with trust → **locked (AL7 ships the gated arm; AL8 widens it).**
+Reversible auto-flow + autonomy widening ride the verdict-history trust signal (AD4, `policy-engine.ts`). AL7 ships only the gated arm (every irreversible Proposed Call waits for explicit approve); AL8 wires the auto-flow.
 
 ---
 
 ## Keep / discard delta
 
-**DISCARD** (the rejected kernel-executor model):
+**DISCARD** (the rejected kernel-executor model, v1):
 - `packages/server/src/tools/stage-operation.ts` (whole) + registry registration.
 - `packages/server/src/services/staged-operation-dispatcher.ts` (whole: `resolveStagedOperations`, `executeOne`, `githubMergePr`, `buildExecuteCapability`, `sweepStrandedOperations`, `KERNEL_DISPATCHABLE_CAPABILITIES`, `isKernelDispatchableCapability`).
 - `routes/threads.ts` approve-path dispatch wiring + `dispatchDeps` thread-through; `app.ts` boot wiring + boot sweep.
 - `packages/shared/src/staged-operation.ts` `StagedOperationSpec`.
 - The AL7-* tests for the above.
 
+**DISCARD** (the v4 paranoia framing — purge the vocabulary, not new code, since v4 was never built):
+- All "broker-gate floor / safety mechanism / safety floor / containment fortress / the only path / credential-containment / native-tool-bypass / AN dependency / exact-hash-match-to-permit-as-gate" framing. The trust-first model replaces it.
+
 **KEEP / REUSE:**
-- Review surface + verdict resolution (`threads.ts` first-verdict-wins, re-open, 409) — approve now composes + re-provisions with a tailored policy instead of dispatching.
+- Review surface + verdict resolution (`threads.ts` first-verdict-wins, re-open, 409) — approve now composes the grant + re-engages.
 - Review composition / loader (`routes/reviews.ts`) — canvas renders a Proposed Call + its Outcome.
-- The Outcome-recording **pattern** — kept; written from session 2's real tool return.
-- The re-engagement rail (`task-dispatcher.ts`) — drives the session-2 resume.
-- The abort rail (`session-run-registry.ts`) — session-1 termination.
-- **The broker chokepoint (`registry.invoke`) — the uniform floor + universal in-process record point + one-shot consume of the tailored policy.** The single most load-bearing reuse.
-- The init surface (`SessionConfig` + `harness.startSession`) — extended with the permission policy (consumed at the floor; optionally applied as native tightening).
-- The Claude `permissionMode` knob (native tightening); the CLI spawn-arg + `{{mcpUrl}}` template surface (for routing CLI brokered calls to the floor); the AM2 capability descriptor.
-- The `staged_operations` / `operation_outcomes` tables, **reshaped** to a Proposed-Call record (captured call + tailored policy + outcome) — NOT a kernel execution queue. Column reshape is `/architecture`'s job.
+- The Outcome-recording **pattern** — written from session 2's real tool return.
+- The re-engagement rail (`task-dispatcher.ts`) — drives the session-2 resume + work-continues.
+- The abort rail (`session-run-registry.ts`) — session-1 termination (sessions aren't pausable).
+- HyperIdle's participation point in the agent's brokered call (`registry.invoke`) — used as a **workflow router** (classify → route irreversible to review → on approve permit approved work), not a fortress.
+- The harness-native permission surfaces — Claude `canUseTool`/`allowedTools`; Codex `--ask-for-approval`/`--sandbox`; opencode `permission` — built on as the workflow carrier.
+- The verdict-history trust signal (`policy-engine.ts`, AD4) — the gate fades on it.
+- The init surface (`SessionConfig` + `harness.startSession`) — extended with the session permission/workflow.
+- The `staged_operations` / `operation_outcomes` tables, **reshaped** to a Proposed-Call record (captured call + tailored grant + outcome). Column reshape is `/architecture`'s job.
 
 ---
 
 ## Rationale
 
-The founder rejected the first AL7 because it made HyperIdle a tool-execution engine with a curated capability map. The byte-faithful redo correctly inverted ownership but bet the guarantee on deterministic replay — a hash-match gate that deadlocks on LLM arg drift. The tailored-native-allow/deny reshape dissolved the deadlock but bet the guarantee on each harness's native grammar — false on Codex, unreliable on opencode headless.
+The founder rejected v1 (kernel re-executes), v2 (byte-faithful deadlock), and v3 (native-floor infeasible). Then v4 **spiralled into paranoia**: it made HyperIdle's own chokepoint a *containment fortress* ("the only path"), leaned on an unbuilt AN *credential-containment* guarantee, modelled a *rogue-agent native-tool bypass*, and used an *exact-hash-match* as a guard. The founder cut that off and locked **ETHOS §4: Trust Agents.**
 
-The locked model puts the guarantee where HyperIdle already controls it on **every** harness: **its own broker chokepoint at `registry.invoke`.** Because irreversible live ops are brokered (the credential is HyperIdle-held, never in the sandbox), the only path to such an op is the brokered call, which funnels through the one per-session `registry.invoke` seam — so the floor holds uniformly, including on Codex, with zero dependence on the harness's permission grammar. Native allow/deny becomes a *bonus* defense-in-depth layer where the grammar supports it. This is **not** the v1 executor: there is no capability map, HyperIdle re-implements no tool, and the executor is still the agent's own brokered call — HyperIdle only gates, captures, brokers the credential, and records. The deadlock is gone (no exact-match-to-permit); byte-fidelity stays an honest optional arg-pin; and DONE is per-harness honest — live-proven on builtin + Claude now, Codex + opencode named as net-new adapter tasks rather than hand-waved as green.
+The trust-first model re-anchors on that. **We trust agents.** They hold their own creds (correct — tools need them to auth), run their own tools, and do real work like a real employee with broad self-permission. The review gate is a **collaboration checkpoint on the consequential/irreversible**, carried by the harness's **native permission mechanism (ask/allow/deny) as a workflow** — never as a security boundary policing the agent. The agent re-attempting the approved op in session 2 is fine; byte-fidelity is at most a convenience; there is no deadlock machinery and no "only path." The gate **fades as trust grows** (verdict-history signal, AD4) — more autonomy is the goal. This is **much simpler** than v4, and that simplicity is the point. DONE is proven LIVE on the real installed harnesses (builtin + Claude green now; Codex + opencode named net-new adapter tasks), never a stub.

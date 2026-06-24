@@ -137,6 +137,87 @@ This is **not** a "tighten the wording" revision — the per-harness feasibility
 ---
 ---
 
+# Round 4 (FINAL) — the uniform broker-floor model (commit r4)
+
+Reviewer: final pass against the reshaped plan that moves the floor from per-harness native allow/deny to **HyperIdle's own broker chokepoint at `registry.invoke`**, with native allow/deny demoted to tightening and an honest per-harness DONE matrix. The three round-3 CRITICALs were aimed at the *native-grammar floor*; this model retires that floor wholesale. I re-verified the new load-bearing claim against the actual code and the unbuilt-dependency state — not the plan's word.
+
+**Headline:** The model is correct and the round-3 CRITICALs are genuinely resolved. But the entire floor now rests on ONE physical assumption — *the live-op credential is never in the agent's sandbox* — and **that assumption is an UNSTATED DEPENDENCY on unbuilt Track-AN sandbox provisioning, not a property that exists in code today.** The plan asserts it as present-tense fact ("the live credential is HyperIdle-held and never in the sandbox", "credential never present") and even claims the broker attaches a HyperIdle-held credential at `registry.invoke` — but `ToolContext` has no credential field, no credential resolver, and no injection seam (`tool-registry.ts:41-56`); the only credential flow into a sandbox today is the CLI adapter forwarding `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` into the subprocess (`adapter-pool.ts:328-352`). The floor's universality is sound *for the AL7 live-proof tool* (`commit_file` needs no external credential, so nothing can bypass it) but is **not yet sound for the production exemplar** (`github_merge_pr`) — that requires AN's credential-containment, which AL7 neither builds nor declares a contract against.
+
+This is not the round-3 failure shape (false native claim). It is a narrower, honest-able gap: the floor is real for what AL7 actually proves, but its stated *general* guarantee silently borrows an unbuilt guarantee from AN.
+
+---
+
+## The crux: "an irreversible live op can ONLY reach `registry.invoke` because the credential is never in the sandbox"
+
+Verified against code, not prose:
+
+- **No credential in `ToolContext` today.** `tool-registry.ts:41-56` — `ToolContext` carries `db, eventBus, agentId, sessionId, taskId, teamId?, sandboxPath, ingestion`. **No credential, no resolver, no secret.** The floor pseudocode (arch §broker floor, `:185`) runs `def.handler(parsed.data, ctx)` — the handler executes with this credential-free `ctx`. So the plan's repeated "the broker attaches the HyperIdle-held credential at `registry.invoke`" (one-line §, line 9, line 114, line 185 comment, security §) describes a seam that **does not exist** and is not on AL7's task list. It is AN work.
+- **The only credential-into-sandbox path today LEAKS by the plan's own standard.** `adapter-pool.ts:328-352`: the registered CLI adapters (`aider`, `goose`, `opencode`) forward `ANTHROPIC_API_KEY` (aider also `OPENAI_API_KEY`) into the subprocess env. That is a live credential in the agent's sandbox. It is a *model* credential, not a live-*op* credential — but it proves the sandbox is not credential-clean by construction; "no secret is ever in a sandbox" is a *future* AN guarantee (`TRACK-AN.md` Sandbox WP: "credential-containment ... has to be enforced at the sandbox boundary, **not assumed**"; "**What exists today.** Session provisioning materializes a workspace with an allowed-env-only policy (no secrets injected)" — true only because no brokered external tool exists yet to inject).
+- **Track AN is unbuilt and downstream of AL7.** `TRACK-AN.md`: outbound brokering "**Depends on** ... AL7"; the Sandbox-provisioning WP ("no secret is ever in a sandbox") is a separate, later, out-of-scope-for-now WP whose "what exists today" is explicitly *nothing assembling internal + external tools, no per-session isolation of external tools.* So the property AL7's floor rests on is **built by a WP that depends on AL7** — a forward dependency the plan does not name.
+- **Therefore the floor's coverage is conditional, two regimes:**
+  1. **For `commit_file` (what AL7 live-proves):** SOUND with no AN dependency. `commit_file` writes into `sandboxPath` using `ctx` — it needs **no external credential**. There is no ambient credential that lets a native bash/`curl` reproduce its *gated* effect, because its effect is just a local file write that the floor doesn't actually need to gate for safety. The live proof is real and the floor genuinely sits on the only path *for this tool*. ✅
+  2. **For the production exemplar `github_merge_pr` (named, not built):** the floor is the only path **iff** the GitHub credential is not in the sandbox. Today nothing guarantees that — and the plain bypass the brief asks about is real: a Codex/opencode agent with `gh` on PATH and an ambient `GH_TOKEN` (or a mounted `~/.config/gh`, or `git push` over an ambient credential helper) performs the irreversible live op **via its own native shell, never touching `registry.invoke`.** The floor does not see it. This is exactly the "native-tool bypass" the brief flags, and it is unbounded/unflagged in the plan.
+
+**Crux verdict: UNSTATED DEPENDENCY (leaning leak for the general claim).** The floor is sound and self-contained for AL7's actual live-proof (`commit_file`). The plan's *stated* guarantee — "irreversible live ops can only reach the floor, on every harness, because the credential is never in the sandbox" — is **not enforced by any code AL7 ships or that exists today**; it is borrowed from unbuilt AN sandbox provisioning. For any real brokered op (the `github_merge_pr` exemplar) on a CLI harness that can hold an ambient credential, the floor leaks via native tools. The plan must (a) state the AN dependency as an explicit contract + assumption flag, and (b) scope AL7's guarantee to *brokered ops routed through `registry.invoke`* and flag the native-tool / ambient-credential bypass as out-of-floor-until-AN.
+
+This does not break AL7's buildable scope (which lives entirely on `commit_file`), but it is a CRITICAL honesty defect in the architecture's central claim, and a present-tense leak the moment a real credential exists pre-AN.
+
+---
+
+## Round-4 findings
+
+### CRITICAL-R4-1 — the floor's universality is an unstated forward-dependency on AN sandbox provisioning; the plan asserts it as present fact and the credential-attach seam does not exist. *(the crux)*
+
+Resolution required before build:
+1. **State the dependency + assumption flag.** Add to the plan, as an explicit contract: *"AL7's broker floor is the **only** path to an irreversible live op IFF no live-op credential is present in the agent's sandbox. That containment is **not built by AL7** — it is the AN Sandbox-provisioning guarantee (unbuilt; AN depends on AL7). Until AN lands, AL7's floor is proven only for credential-free brokered tools (`commit_file`); for any tool requiring an external credential, a harness holding an ambient credential (env/mounted config/credential-helper) can perform the live op via native shell/HTTP and bypass `registry.invoke`."*
+2. **Scope AL7's guarantee honestly:** the floor covers **brokered ops routed through `registry.invoke`**. It does **not** cover native-tool ops on a credential-bearing sandbox. Flag this as the bounded residual (alongside the arg-drift residual), not silent.
+3. **Delete or correct the "broker attaches the HyperIdle-held credential at `registry.invoke`" claim** (one-line §, lines 9/70/114/185-comment/338) — there is no credential in `ToolContext` and no attach seam in AL7. Either describe it as AN-future, or drop it. As written it is a false present-tense capability claim of the same family round-3 flagged for Codex native flags.
+4. **Acknowledge the present credential-into-sandbox reality:** `adapter-pool.ts` forwards `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` into CLI sandboxes today; the "no secret in sandbox" premise is aspirational. The Phase-1 reconciliation row "credential never in sandbox … Capability split + AN sandbox provisioning hold the live credential HyperIdle-side; the brokered tool is the only path" (line 70) states an unbuilt mechanism as if it reconciles against current reality — reconciliation is supposed to catch exactly this. Mark it `UNBUILT (AN)`.
+
+### WARNING-R4-2 — `commit_file` live-proof does not exercise the credential-containment the floor's general claim depends on. *(proof-vehicle gap)*
+
+`commit_file` is a credential-free local write. It is a fine vehicle for proving *capture → review → tailored-policy → consume-once → outcome → continue* (the mechanism) and AL7 should keep it. But it **cannot** prove "the floor is the only path to an irreversible live op," because there is no alternate path to a local file write worth gating. The plan presents the `commit_file` lanes as proving the floor's *safety* property; they prove the *mechanism*, not the *containment*. State that distinction: the containment property is deferred to AN and is the production exemplar's (`github_merge_pr`) gate, untested here. (This keeps the live-proof honest per MEMORY: live-proof-before-ship — AL7 proves what it can, and names what it cannot.)
+
+---
+
+## Confirm-items from the brief
+
+**C-1 (Codex via broker floor; adapter net-new) — RESOLVED.** The round-3 CRITICAL-1 (Codex floor infeasible because native grammar can't express it) is correctly dissolved: the floor is no longer native grammar, it is `registry.invoke`, and Codex's lack of per-op grammar is now explicitly *not relied upon* (D1-B reject, R6, per-harness table). The Codex adapter is honestly stated net-new (Task 7c) with terminal state `net-new-adapter-pending` — no false "spawn-arg allow flag" claim survives (the round-3 false claim is gone). **Caveat:** "Codex is covered because the credential is never in its sandbox" inherits CRITICAL-R4-1 — for a real credentialed op, Codex with an ambient token + sandbox shell is precisely the bypass. Resolved *as a floor-mechanism claim*; conditional on the AN containment it doesn't build.
+
+**C-2 (opencode mechanism corrected to config/`-f json`; net-new MCP routing) — RESOLVED.** Round-3 CRITICAL-2 (opencode mechanism mis-located as spawn-args; MCP unwired) is fixed: the plan now correctly states permissions are `opencode.json`/frontmatter (not spawn flags), demotes them to bonus tightening, and scopes the real net-new work as wiring `{{mcpUrl}}` + `opencode run -f json` so the brokered call reaches the floor (Task 7b), integration-tested against the installed binary. Matches `adapter-pool.ts:344-352` reality (`--dir`-only, `text`, no `{{mcpUrl}}`). Resolved.
+
+**C-3 (honest per-harness DONE matrix; terminal states; no infinite loop) — RESOLVED.** Round-3 CRITICAL-3 (all-four-green gate unmeetable, no terminal state, pipeline loops forever) is fixed cleanly: explicit matrix with `green` (builtin, Claude) / `net-new-adapter-pending` (Codex, opencode) / `skipped` (cursor-agent) terminal states; "DONE = builtin + Claude live now; Codex/opencode terminate at pending until their named task lands; no lane loops" (Phase 2, AC14, hard rule 8). Terminates. Resolved.
+
+**Item 2 (floor stays distinct from v1 kernel executor; "attach credential + decide allow/deny" doesn't edge back to HyperIdle-executes).** Mostly clean: no capability map, no tool re-implementation, the agent's own handler runs (`def.handler(parsed.data, ctx)`), HyperIdle gates/captures/records. The line is genuinely distinct from v1 *as far as AL7 builds it*. **But** the repeated "attaches the HyperIdle-held credential at the broker boundary" is the one phrase that edges back — credential injection at the chokepoint is an AN mechanism, and if/when built it does make HyperIdle a credential-broker in the call path (which is fine and intended) but the plan should not claim it *now* as a property of `registry.invoke`. Tie this to CRITICAL-R4-1 fix #3. With that corrected, the distinction holds.
+
+**Item 3 (carried-forward pieces survive without regression) — CONFIRMED.** Abort-on-capture (`sessionRunRegistry.abort → stopSession`, builtin `aborted` at `:717`), explicit `proposed_call_granted` re-dispatch (not the owner-change `handleSessionEnded` path, `:500-514`), byte-fidelity-as-optional-arg-pin (no exact-hash-to-permit, no deadlock), CAS consume-once (`UPDATE … WHERE consumed=false RETURNING *`), fail-closed classifier, `(taskScope, agentScope)` policy scope, server-derived `reviewMessageId`/`subjectThreadId` — all intact, no regression vs. round-3 WARNING-8/9. The liveness net (AC11b / `handleUnconsumedPolicyOnSessionEnd` as a separate subscription) is sound and correctly marked non-load-bearing.
+
+**Item 4 (alignment with new rules; R8 opencode flag handled honestly) — CONFIRMED.** All-harnesses (matrix), native-features-as-tightening, real-installed-harness integration tests (AC4/AC14 "not a fixture/stub"), web-research-grounding (Codex/opencode docs cited with June-2026 dates) all present. R8 `⚠️ UNVERIFIED OPENCODE_PERMISSION` is handled honestly — flagged, scoped to Task 7b binary verification, and explicitly non-load-bearing because it's bonus tightening, not the floor. Good.
+
+---
+
+## What round 4 confirms is right
+
+- All three round-3 CRITICALs are genuinely resolved by relocating the floor to `registry.invoke`; none is papered over.
+- The `commit_file` mechanism proof is real, self-contained, and AN-independent — builtin + Claude can go green now.
+- The deadlock stays dissolved; the bookkeeping/security half stays tight; carried-forward pieces survive.
+- The DONE matrix terminates a pipeline honestly.
+
+## What must change before build (single most important)
+
+**State the AN sandbox-provisioning dependency as an explicit contract + assumption flag, scope AL7's floor guarantee to brokered ops routed through `registry.invoke`, flag the native-tool/ambient-credential bypass as the bounded out-of-floor residual until AN, and remove the present-tense "broker attaches the HyperIdle-held credential" claim.** This is a documentation/scoping fix — it does not change AL7's buildable code (which lives on `commit_file`), but it is required to stop the plan from claiming a safety guarantee it borrows from an unbuilt, downstream WP.
+
+## Score: 7 / 10 — REVISION NEEDED (scope/contract fix only; no code blocker)
+
+1 CRITICAL (R4-1, the unstated AN dependency / general-claim leak — honesty/scoping defect, not a code-architecture defect), 1 WARNING (R4-2, proof-vehicle proves mechanism not containment). The three round-3 CRITICALs are resolved (this is a +3 jump from 4/10). The model is correct and the buildable scope is sound; the remaining CRITICAL is that the architecture *states a guarantee it does not build* and *does not flag the native-tool bypass*. Because the fix is a contract/scope declaration (not a redesign and not a code rework), this is a fast revision — but it is a true CRITICAL: shipping the floor while silently assuming AN's credential containment is the kind of unstated load-bearing assumption that bites a later WP.
+
+## One-line build-ready judgment
+
+**NOT build-ready as written; one scoping fix from it.** The broker-floor model is correct and the round-3 CRITICALs are resolved, but the floor's universal guarantee rests on an **unstated forward-dependency on unbuilt AN sandbox provisioning** (no live credential in the sandbox), the credential-attach seam it claims at `registry.invoke` does not exist today, and the native-tool/ambient-credential bypass is unflagged — declare the AN contract + assumption flag, scope the guarantee to brokered-ops-through-`registry.invoke`, flag the bypass residual, and drop the present-tense credential-attach claim; then it is build-ready (the `commit_file` scope needs no AN and proves the mechanism cleanly).
+
+---
+---
+
 # SUPERSEDED — rounds 1–3 below scored the byte-faithful-replay model (now discarded by the reshape). Retained for history only.
 
 <details>
