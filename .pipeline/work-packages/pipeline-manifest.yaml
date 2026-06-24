@@ -1281,24 +1281,24 @@ stories:
     depends: []
     complexity: M
 
-  # Track AO: Codebase Development Substrate
+  # Track AO: Code Substrate & Landing
   - id: AO1
-    title: Repository as a per-team primitive
+    title: "Code substrate: a per-unit-of-work git working copy"
     track: AO
     depends: []
     complexity: L
   - id: AO2
-    title: Working-tree materialization into the agent sandbox
+    title: Materialize the code substrate into the session sandbox
     track: AO
     depends: [AO1]
     complexity: L
   - id: AO3
-    title: Agent code output becomes a review-ready branch
+    title: Code diff as a descriptive review artifact, Landing as an operative one
     track: AO
     depends: [AO2, AL7]
     complexity: L
   - id: AO4
-    title: Concurrent multi-project isolation
+    title: Per-team knowledge-export target
     track: AO
-    depends: [AO1, AO2]
+    depends: []
     complexity: M
