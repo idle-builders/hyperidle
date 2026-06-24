@@ -4,7 +4,7 @@
   "track": "AL",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "3-build-v4-headless-integration-tests",
+  "currentStep": "3-build-v4-codex-opencode-real-paths",
   "startedAt": "2026-06-22T22:34:00+02:00",
   "runMode": "autonomous",
   "pr": 350,
