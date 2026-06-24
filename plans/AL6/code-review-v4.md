@@ -173,3 +173,81 @@ No new escape. The drain-gate floor (`evaluateReturn` → `not_returned`, persis
 | AC5 | Mid-turn non-terminal tools unaffected | PASS | Gate observes only return-action tool_calls; uniform-forcing AC5 green. |
 
 **Bottom line:** CRIT-4 fixed; CRIT-3 production code now real; CRIT-1/CRIT-2 narrowed to a proof + single-source gap but still block. The full hook→adjudicator loop is wired but not proven against the real server for any spawnable binary harness. NOT DONE.
+
+---
+
+## round 3
+
+**Reviewed:** round-2 fix (commits `31273abe`, `cb0c5478`) vs round-2 findings. Verified every claim against source; ran the AL6 suites; performed two decisive sanity-breaks (nullify route registry read; disable adapter re-engage loop).
+
+### Verdict: NOT DONE
+
+CRIT-1, CRIT-2, CRIT-4 are genuinely closed. CRIT-3 is **half-closed**: the *abstract* adapter re-engage loop is now real and test-driven, but it is proven against a **fabricated config shape that is not what production ships**. The production opencode re-engage spawns a malformed command. This is the same "tests validate a shape that isn't what ships" failure mode that got prior AL6 rounds rejected.
+
+### What round 2 genuinely fixed (verified at source + by sanity-break)
+
+- **CRIT-1 — mock deleted, real route proven.** `startBridgeServer` no longer exists (grep: only in comments). `startRealServer` (`AL6-real-harness-...integration.test.ts:222`) mounts the REAL `createMcpRoute(bridgeRegistry, enforcementReg)` via `@hono/node-server`. The claude FULL BINARY PROOF (`:726-740`) and codex CODEX_HOME proof (`:1223-1235`) assert the REAL `enforcementReg.get(sessionId).forceCount >= 1` — not a mock callCount. `AL6-return-status-route.test.ts` (8 tests) drives the real route via `app.request()`. **Sanity-break performed:** replacing `const entry = enforcementRegistry.get(sessionId)` with `undefined` in `mcp-route.ts:82` drops exactly 2/8 (forceMessage-body + forceCount-increment); the other 6 are allow-stop paths that correctly stay green. Not vacuous. Production wiring confirmed: `server-factory.ts:389` passes the real `enforcementRegistry` to `createMcpRoute`.
+- **CRIT-2 — SDK closure reads the registry.** `claude-agent-sdk-adapter.ts:222-237`: the Stop hook adjudicates from `enforcementRegistry.get(hookSessionId)` via `shouldForceReturn(entry.gate, entry.forceCount)`; it does NOT read `al6.returnSeen`/`al6.stopHookCount` for the decision (`al6.stopHookCount++` at `:229` is a secondary counter for `getForceReturnCount`). `al6.returnSeen` is set at `:379` but never read by the hook — dead for the decision (builder's flag is correct). SDK T7 tests register a real registry entry and assert block/approve transitions + a `testGate.returned=true` approve path — binding to the registry's gate, not local state. The registry is the single source consulted by both the curl-hook (route) and the SDK closure.
+- **CRIT-4 — no drain-floor sentinel.** `computeForceReturnCount()` (`session-provisioning.ts:949-954`) is pure `registryForceCount + adapterForceCount`; no `+1`. The builtin CI anchor uses the real `BuiltinHarnessAdapter` + mocked `callLlm`; the no-return test asserts `forceCount>=1` from a real in-process fire. A decorative/no-op hook yields 0 and FAILS. Genuinely fixed.
+
+### CRIT-3 — production opencode re-engage is malformed; test masks it (BLOCKER)
+
+The adapter re-engage loop (`cli-harness-adapter.ts:513-599`) is real and registry-driven. **Sanity-break performed:** disabling it (`if (forceMsg !== null && false)`) drops 4/6 `AL6-cli-reengage-adapter.test.ts` tests — it exercises production code, not test-local logic. Good.
+
+**But the test config is not the production config:**
+- `AL6-cli-reengage-adapter.test.ts:44-55` builds `makeProcessReEngageConfig()` with `args: ["run", "--format", "json"]`.
+- Production opencode (`adapter-pool.ts:372-391`) ships `args: ["--dir", "{{sandbox}}"]` — **no `run` subcommand.**
+
+The re-engage path (`cli-harness-adapter.ts:545-551`) template-strips the base args and appends the forcing message:
+```
+resolvedBaseArgs = ["--dir", "{{sandbox}}"].map(a => a.replace(/\{\{[a-z]+\}\}/g, ""))  // → ["--dir", ""]
+finalReEngageArgs = ["--dir", "", "<forceMsg>"]
+```
+So production re-engage spawns `opencode --dir "" "<forceMsg>"`:
+- `--dir ""` — empty working directory (the sandbox path is lost; the comment at `:546-548` admits "we can't re-resolve here … use empty fallbacks").
+- No `run` subcommand — the forcing message is a stray positional to bare `opencode`, NOT the `opencode run <msg>` prompt the code's own comments (`:529,533,543`) and lore (`:388`) assume.
+
+The forcing message is **not delivered as a prompt** to a re-engaged opencode turn in production. The whole `reEngageCarrier:"run-arg"` mechanism is built for `opencode run <msg>`, but the shipped config never invokes `run`. The integration "process-reengage PROOF" (`:1438-1522`) doesn't catch this either: it spawns `opencode run <msg>` directly via test-local `spawnDetached` and stdout-greps for `step_finish` — it never routes through `CliHarnessAdapter.streamEvents`, the route, or the registry.
+
+**Net:** opencode is the one spawnable harness whose production enforcement path is NOT proven end-to-end and is in fact broken. Per MEMORY (`feedback_tests_must_not_drive_behavior`, `feedback_agent_behavior_needs_live_eval_and_forcing`): a test that substitutes a working config for the shipped-but-broken one is not proof.
+
+### Per-harness end-to-end proof status (the decisive question)
+
+| Harness | real binary | real provisioned hook | real route | real registry | force from real fire | Status |
+|---|---|---|---|---|---|---|
+| claude-code | yes (`claude -p`, 16.3s) | yes (settings Stop hook) | yes (`/api/mcp/:token/return-status`) | yes | `forceCount>=1` (`:740`) | **PROVEN** |
+| codex | yes (`codex exec`+CODEX_HOME, 11.5s) | yes (hooks.json Stop) | yes | yes | `forceCount>=1` (`:1235`) | **PROVEN** |
+| builtin | n/a (in-process) | n/a (in-process loop) | n/a | yes | `forceCount>=1` real loop, no floor | **PROVEN** |
+| opencode | spawned, but NOT via adapter re-engage | re-engage spawn is malformed (`--dir ""`, no `run`) | not touched | adapter test uses **fabricated** config | greenwashed | **NOT PROVEN — broken in prod** |
+| cursor-agent | honestly inert | — | — | — | — | n/a (declared inert) |
+
+### Adversarial / NOTICED items adjudicated
+
+- **No `completed`-without-return escape:** confirmed. `session-provisioning.ts:1003-1019` emits `session_not_returned` and persists `outcome="not_returned"` (never `"completed"`). Gate stays the backstop, not the only proven link for claude/codex/builtin.
+- **Re-engage arg template-stripping (`cli-harness-adapter.ts:545-550`):** **REAL issue**, and it is the heart of CRIT-3. `["--dir","{{sandbox}}"]` → `["--dir",""]` — empty sandbox dir + no `run` subcommand. Not harmless.
+- **Dead `session.al6.returnSeen` (`claude-agent-sdk-adapter.ts:379`):** **harmless** to the decision (hook reads the registry, not `returnSeen`). NIT — remove or document; not a blocker.
+- **Stale comment `session-provisioning.ts:1022`** ("forNotReturned=true: drain fallback adds 1") — false; `notReturnedForceCount` just calls the same fallback-free `computeForceReturnCount()`. **NIT** (carries the round-2 NIT family; the `:945-948` comment was fixed, this sibling at `:1022` was missed).
+
+### Suite status
+
+- `AL6-return-status-route.test.ts` (8) + `AL6-cli-reengage-adapter.test.ts` (6) + `claude-agent-sdk-adapter.test.ts` (34) = **48 pass**.
+- `AL6-real-harness-...integration.test.ts` = **15 pass** (binaries present + authed on this host; claude/codex/opencode tests RAN, not skipped — verified via `--reporter=verbose`).
+
+### Residual findings
+
+- **CRITICAL** `cli-harness-adapter.ts:545-551` + `adapter-pool.ts:376` — production opencode re-engage produces `opencode --dir "" "<forceMsg>"`: empty working dir + no `run` subcommand → forcing message not delivered. The `AL6-cli-reengage-adapter.test.ts` config (`["run","--format","json"]`) diverges from the shipped config (`["--dir","{{sandbox}}"]`), so the defect is unproven/masked. Fix: re-resolve `{{sandbox}}` against the live session in the re-engage path (the session already holds `sandboxPath`/`spawnEnv`), and construct the actual production invocation (verify whether opencode prompts via `run <msg>`, stdin, or `--prompt`); then drive `streamEvents` with the **real** `CLI_TOOL_CONFIGS.opencode` config in the test.
+- **NIT** `session-provisioning.ts:1022` — stale "drain fallback adds 1" comment; no fallback exists.
+- **NIT** `claude-agent-sdk-adapter.ts:379` — `al6.returnSeen` write is dead for adjudication; remove or annotate.
+- **Phase-5 (note only):** `architecture.md` codex CODEX_HOME doc drift — not a code blocker.
+
+### AC table (round 3)
+
+| AC | Criterion | Verdict | Evidence |
+|---|---|---|---|
+| AC1 | No-return never silently `completed` | PASS | `session-provisioning.ts:1003-1019` persists+emits `not_returned`. |
+| AC2 | Closed valid-ending set | PASS | `isReturnAction` + closure test green. |
+| AC3 | No-return detected + surfaced | PASS | `session_not_returned` emit; builtin AC3 green w/ real loop. |
+| AC4 | Native hook PROVEN per spawnable harness | **FAIL** | claude/codex/builtin proven end-to-end vs real route+registry; **opencode production re-engage malformed + proven only against a fabricated config** (CRIT-3 residual). |
+| AC5 | Mid-turn non-terminal tools unaffected | PASS | Gate observes only return-action tool_calls. |
+
+**Bottom line:** Three of four spawnable harnesses (claude, codex, builtin) now prove the full hook→adjudicator→registry→real-fire loop against the shipped server — a real, verified improvement over rounds 1–2. One harness (opencode) ships a broken re-engage invocation that its test masks by substituting a different arg shape. AC4 ("enforcement uniform across every spawnable harness") is not met. NOT DONE.
