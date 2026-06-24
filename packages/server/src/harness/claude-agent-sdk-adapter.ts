@@ -21,6 +21,7 @@ import {
 } from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
+import { enforcementRegistry } from "./return-enforcement-registry.js";
 
 /**
  * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
@@ -194,6 +195,13 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		// or similar. Returning { decision: "block", reason: "..." } injects the reason
 		// as a user message and continues the turn. The hook is async per SDK contract
 		// but we do no async work here.
+		// AL6 CRIT-2: capture sessionId so the Stop hook can increment the
+		// SHARED enforcement registry (not just the local al6.stopHookCount).
+		// Both al6.stopHookCount (via getForceReturnCount) and
+		// enforcementRegistry.forceCount are updated on each block so the
+		// registry is the single source of truth.
+		const hookSessionId = config.sessionId;
+
 		// biome-ignore lint/suspicious/useAwait: SDK hook interface requires Promise return; no async work needed
 		const stopHook = async (
 			_input: unknown,
@@ -202,6 +210,9 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			const forceMsg = shouldForceReturn({ returned: al6.returnSeen }, al6.stopHookCount);
 			if (forceMsg !== null) {
 				al6.stopHookCount++;
+				// AL6 CRIT-2: also increment the registry so the registry forceCount
+				// reflects in-process SDK hook fires (single adjudication source).
+				enforcementRegistry.incrementForce(hookSessionId);
 				sdkLogger.debug(
 					`AL6: Stop hook blocking stop (attempt ${al6.stopHookCount}/${AL6_MAX_FORCE_RETURNS}) — ` +
 						"return not yet seen, re-injecting force message",

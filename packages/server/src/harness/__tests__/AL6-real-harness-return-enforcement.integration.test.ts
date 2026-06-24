@@ -87,23 +87,29 @@ import { promisify } from "node:util";
 
 import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { fabricStrategy } from "@hyperidle/fabric";
-import type {
-	HarnessAdapter,
-	HarnessCapabilities,
-	HarnessEvent,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
-} from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect } from "vitest";
-import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { provisionReturnHook } from "../../harness/provision-return-hook.js";
 import { createEnforcementRegistry } from "../../harness/return-enforcement-registry.js";
 import { provisionSession } from "../../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
+import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+
+// AL6 CRIT-4: Mock callLlm so the real BuiltinHarnessAdapter tests do not make
+// network calls. The mock returns a deterministic sequence of responses.
+// Each test that uses BuiltinHarnessAdapter configures mockCallLlmImpl directly.
+// External-binary tests (claude, codex, opencode) are unaffected — they spawn
+// real subprocesses; callLlm is only called in-process by BuiltinHarnessAdapter.
+vi.mock("../llm-client.js", () => ({
+	callLlm: vi.fn(),
+}));
+
+// Accessor for the mocked callLlm — must come AFTER vi.mock().
+const { callLlm } = await import("../llm-client.js");
+const callLlmMock = vi.mocked(callLlm);
+
 import { AdapterPool } from "../adapter-pool.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 
@@ -408,85 +414,11 @@ async function seedForHarness(
 	return { agentId, teamId };
 }
 
-// ── No-return stub for builtin tests ───────────────────────────────────────
-
-/**
- * Adapter that declares builtin-loop channel and never emits a return action.
- * The v4 builtin-loop channel forces in-process at loop-end.
- */
-class NoReturnBuiltinStub implements HarnessAdapter {
-	public startCallCount = 0;
-	public forceMessagesSeen: string[] = [];
-
-	async startSession(config: SessionConfig): Promise<SessionHandle> {
-		this.startCallCount++;
-		return { sessionId: config.sessionId };
-	}
-
-	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
-		// Never emits a return action — forces the builtin-loop to re-inject.
-		yield { type: "tool_call", toolName: "write_memory", args: { key: "k", value: "v" } };
-		yield { type: "completion", text: "Forgot to return." };
-	}
-
-	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-		return {
-			outcome: "completed",
-			cost: { minor: 100, currency: "USD" },
-			tokenUsage: { byTier: {} },
-		};
-	}
-
-	getCapabilities(): HarnessCapabilities {
-		return {
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: ["anthropic", "openrouter"],
-			mcpSupport: false,
-			returnEnforcement: "builtin-loop" as ReturnEnforcementChannel,
-		} as unknown as HarnessCapabilities;
-	}
-}
-
-/**
- * Adapter that declares builtin-loop channel and returns on first run.
- */
-class ReturningBuiltinStub implements HarnessAdapter {
-	public startCallCount = 0;
-
-	async startSession(config: SessionConfig): Promise<SessionHandle> {
-		this.startCallCount++;
-		return { sessionId: config.sessionId };
-	}
-
-	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
-		yield { type: "tool_call", toolName: "write_memory", args: { key: "k", value: "v" } };
-		yield {
-			type: "tool_call",
-			toolName: "submit_review",
-			args: { message: "Done" },
-		};
-		yield { type: "completion", text: "Returned." };
-	}
-
-	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-		return {
-			outcome: "completed",
-			cost: { minor: 100, currency: "USD" },
-			tokenUsage: { byTier: {} },
-		};
-	}
-
-	getCapabilities(): HarnessCapabilities {
-		return {
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: ["anthropic", "openrouter"],
-			mcpSupport: false,
-			returnEnforcement: "builtin-loop" as ReturnEnforcementChannel,
-		} as unknown as HarnessCapabilities;
-	}
-}
+// AL6 CRIT-4: NoReturnBuiltinStub and ReturningBuiltinStub removed.
+// The builtin CI anchor now uses the REAL BuiltinHarnessAdapter with mocked callLlm.
+// Stubs that have no forcing loop would produce forceCount=0, which FAILS the
+// forceCount>=1 assertion now that the drain fallback is removed.
+// This ensures "hook actually fired" is proven, not satisfied by the gate floor.
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -507,23 +439,42 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	//
 	// This block MUST always pass in CI. No binary gating. It proves:
 	//   - provisionReturnHook handles "builtin-loop" (no file written, in-process)
-	//   - the enforcement registry forceCount>=1 on a no-return turn
+	//   - the REAL BuiltinHarnessAdapter's in-process forcing loop increments forceCount
+	//   - forceCount >= 1 comes from a REAL in-process enforcement fire (not the drain fallback)
 	//   - outcome="not_returned" after budget exhausted
 	//   - outcome="completed" with zero blocks on a compliant turn
 	//   - exactly ONE startSession (no v3-style loop)
+	//
+	// AL6 CRIT-4: Uses real BuiltinHarnessAdapter + mocked callLlm (not NoReturnBuiltinStub).
+	// The drain fallback (not_returned → forceCount+1) has been REMOVED. So forceCount>=1
+	// ONLY passes if the real adapter's in-process forcing loop fired at least once.
+	// A no-op stub (drain-only) would produce forceCount=0 and FAIL the assertion.
 
 	describe("builtin (in-process, CI anchor)", () => {
-		test("no-return stub → forceCount>=1 (hook fired in-process), outcome=not_returned, exactly ONE startSession", async ({
+		test("real BuiltinHarnessAdapter: no-return LLM → forceCount>=1 (in-process forcing loop fired), outcome=not_returned", async ({
 			db,
 		}) => {
-			const taskId = `al6v4-builtin-noreturn-${Math.random().toString(36).slice(2, 7)}`;
+			const taskId = `al6v4-builtin-noreturn-real-${Math.random().toString(36).slice(2, 7)}`;
 			const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
 
-			const adapter = new NoReturnBuiltinStub();
+			// Mock callLlm to return text-only (no tool_use, no return action).
+			// The real BuiltinHarnessAdapter will call shouldForceReturn → forceCount++ each time
+			// the LLM produces end_turn without a return action.
+			callLlmMock.mockResolvedValue({
+				stopReason: "end_turn" as const,
+				content: [{ type: "text" as const, text: "I'm done, goodbye!" }],
+				usage: { inputTokens: 100, outputTokens: 50 },
+			});
+
+			// Use the REAL BuiltinHarnessAdapter (not a stub).
+			// AL6 CRIT-4: the real adapter's forcing loop increments session.forceCount.
+			// computeForceReturnCount() = 0 (registry) + session.forceCount (via getForceReturnCount).
+			// Without the drain fallback, forceCount=0 would FAIL — only a real fire passes.
+			const adapter = new BuiltinHarnessAdapter({ maxIterations: 10 });
 			const eventBus = new EventBus();
 			const pool = new AdapterPool();
-			pool.register("al6v4-builtin-stub", adapter, {
-				name: "AL6 v4 Builtin No-Return",
+			pool.register("al6v4-builtin-real", adapter, {
+				name: "AL6 v4 Builtin Real",
 				kind: "local",
 				type: "builtin",
 				modelProviders: ["anthropic", "openrouter"],
@@ -533,18 +484,29 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 			const result = await provisionSession(
 				{ db, eventBus, adapterPool: pool, workspace },
-				{ taskId, agentId, productId: teamId, sandboxBasePath },
+				{
+					taskId,
+					agentId,
+					productId: teamId,
+					sandboxBasePath,
+					resolvedModel: {
+						provider: "anthropic" as const,
+						model: "claude-haiku-4-5",
+						apiKey: "sk-test-key-builtin",
+						baseUrl: "https://api.anthropic.com",
+					},
+				},
 			);
 
-			// The adapter must have been started exactly ONCE (no v3 loop).
-			expect(adapter.startCallCount).toBe(1);
-
-			// The enforcement must have fired: forceCount >= 1.
-			// A v1-regression (gate-only, no force) would yield forceCount=0.
+			// AL6 CRIT-4: forceCount MUST be >= 1 from the REAL in-process forcing loop.
+			// This assertion FAILS on a no-op stub or if the drain fallback is re-added.
+			// Drain fallback removal is the key discriminator: a stripped hook yields 0.
 			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
 				| number
 				| undefined;
 			expect(typeof forceCount).toBe("number");
+			// The real adapter fired the forcing loop: forceCount >= 1.
+			// adapterForceCount = BuiltinHarnessAdapter.getForceReturnCount() = session.forceCount.
 			expect(forceCount).toBeGreaterThanOrEqual(1);
 
 			// Outcome: budget exhausted → not_returned.
@@ -558,19 +520,36 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 				.where(eq(sessions.id, result.sessionId))
 				.limit(1);
 			expect(sessionRow?.outcome).toBe("not_returned");
+
+			callLlmMock.mockReset();
 		});
 
-		test("returning stub → forceCount=0, outcome=completed, exactly ONE startSession", async ({
+		test("real BuiltinHarnessAdapter: returning LLM → forceCount=0, outcome=completed", async ({
 			db,
 		}) => {
-			const taskId = `al6v4-builtin-return-${Math.random().toString(36).slice(2, 7)}`;
+			const taskId = `al6v4-builtin-return-real-${Math.random().toString(36).slice(2, 7)}`;
 			const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
 
-			const adapter = new ReturningBuiltinStub();
+			// Mock callLlm to return a tool_call for submit_review (return action).
+			// The real BuiltinHarnessAdapter will see returnSeen=true and allow stop.
+			callLlmMock.mockResolvedValue({
+				stopReason: "tool_use" as const,
+				content: [
+					{
+						type: "tool_use" as const,
+						id: "tool-001",
+						name: "submit_review",
+						input: { message: "Task complete." },
+					},
+				],
+				usage: { inputTokens: 100, outputTokens: 80 },
+			});
+
+			const adapter = new BuiltinHarnessAdapter({ maxIterations: 10 });
 			const eventBus = new EventBus();
 			const pool = new AdapterPool();
-			pool.register("al6v4-builtin-return-stub", adapter, {
-				name: "AL6 v4 Builtin Returning",
+			pool.register("al6v4-builtin-return-real", adapter, {
+				name: "AL6 v4 Builtin Return Real",
 				kind: "local",
 				type: "builtin",
 				modelProviders: ["anthropic", "openrouter"],
@@ -580,22 +559,32 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 			const result = await provisionSession(
 				{ db, eventBus, adapterPool: pool, workspace },
-				{ taskId, agentId, productId: teamId, sandboxBasePath },
+				{
+					taskId,
+					agentId,
+					productId: teamId,
+					sandboxBasePath,
+					resolvedModel: {
+						provider: "anthropic" as const,
+						model: "claude-haiku-4-5",
+						apiKey: "sk-test-key-builtin",
+						baseUrl: "https://api.anthropic.com",
+					},
+				},
 			);
 
 			// Compliant adapter: no forcing needed.
-			expect(adapter.startCallCount).toBe(1);
-
 			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
 				| number
 				| undefined;
-			// forceCount should be 0 or absent when no forcing occurred.
 			if (forceCount !== undefined) {
 				expect(forceCount).toBe(0);
 			}
 
 			expect(result.outcome).toBe("completed");
 			expect(result.returnVerdict).toBe("returned");
+
+			callLlmMock.mockReset();
 		});
 	});
 

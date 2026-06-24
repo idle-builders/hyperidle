@@ -768,6 +768,18 @@ export async function runSession(
 
 	// Shared session config fields across runs.
 	const allowedToolNames = toolsForRole(agentRole).map((d) => d.name);
+	// AL6 CRIT-2: thread returnHook into sessionStartConfig so SDK/builtin closures
+	// and the process wrapper can reach the bridge URL + token. The enforcementRegistry
+	// is the process singleton, accessible without threading — only the URL/token/budget
+	// need to be threaded via SessionConfig.
+	const returnHookConfig =
+		mcpBridgeToken && mcpBaseUrl
+			? {
+					bridgeToken: mcpBridgeToken,
+					mcpUrl: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`,
+					forceBudget: AL6_MAX_FORCE_RETURNS,
+				}
+			: undefined;
 	const sessionStartConfig = {
 		sessionId,
 		sandboxPath,
@@ -780,6 +792,7 @@ export async function runSession(
 		mcpConnectionInfo: mcpBridgeToken
 			? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
 			: undefined,
+		returnHook: returnHookConfig,
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.
@@ -936,17 +949,20 @@ export async function runSession(
 	// @lore AL6 v4-final: helper to compute forceReturnCount for this session.
 	// Called at each exit path. Drain fallback: if not_returned and count=0,
 	// add 1 to record "drain enforcement detected" (the drain gate IS enforcement).
-	function computeForceReturnCount(forNotReturned = false): number {
+	// AL6 CRIT-4: removed drain fallback (not_returned → +1 sentinel).
+	// Previously: if forNotReturned && total===0, return 1 to "record drain enforcement".
+	// Problem: this made forceCount>=1 always true for any not_returned turn, defeating
+	// the discriminator that proves "hook actually fired" vs "gate floor caught it".
+	// Now: forceCount reflects ONLY real hook fires / adapter re-engage increments.
+	// The drain-gate floor is still the backstop (not_returned outcome is still recorded)
+	// but forceCount=0 on not_returned means "the hook was not fired (or was stripped/dead)".
+	// @lore AL6 CRIT-4: If you see forceCount=0 + outcome=not_returned, the hook
+	// did NOT fire for this session — inspect the hook provisioning + endpoint wiring.
+	function computeForceReturnCount(): number {
 		const registryEntry = enforcementRegistry.get(sessionId);
 		const registryForceCount = registryEntry?.forceCount ?? 0;
 		const adapterForceCount = harness.getForceReturnCount?.(sessionId) ?? 0;
-		const total = registryForceCount + adapterForceCount;
-		// Drain fallback: at not_returned, if count=0 (no in-turn hook called),
-		// return 1 to reflect "drain enforcement fired" — the drain IS enforcement.
-		if (forNotReturned && total === 0 && !exempt) {
-			return 1;
-		}
-		return total;
+		return registryForceCount + adapterForceCount;
 	}
 
 	if (crashed) {
@@ -962,7 +978,7 @@ export async function runSession(
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
-			forceReturnCount: computeForceReturnCount(false),
+			forceReturnCount: computeForceReturnCount(),
 		};
 	}
 
@@ -982,7 +998,7 @@ export async function runSession(
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
-			forceReturnCount: computeForceReturnCount(false),
+			forceReturnCount: computeForceReturnCount(),
 		};
 	}
 
@@ -1016,7 +1032,7 @@ export async function runSession(
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
 		// forNotReturned=true: drain fallback adds 1 if no in-turn enforcement happened.
-		const notReturnedForceCount = computeForceReturnCount(true);
+		const notReturnedForceCount = computeForceReturnCount();
 		enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
@@ -1042,7 +1058,7 @@ export async function runSession(
 		totalCostCents,
 		taskId: params.taskId,
 		returnVerdict,
-		forceReturnCount: computeForceReturnCount(false),
+		forceReturnCount: computeForceReturnCount(),
 	};
 }
 

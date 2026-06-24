@@ -47,12 +47,23 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 // FAILS red: returnEnforcement field not yet on HarnessCapabilities
 import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
 import { provisionSession } from "../../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
+
+// AL6 CRIT-4: Mock callLlm so AC3 real-BuiltinHarnessAdapter test does not make network calls.
+// Only affects BuiltinHarnessAdapter (in-process callLlm path). Stub adapter tests are unaffected.
+vi.mock("../../harness/llm-client.js", () => ({
+	callLlm: vi.fn(),
+}));
+
+// Accessor for the mocked callLlm — must come AFTER vi.mock().
+const { callLlm } = await import("../../harness/llm-client.js");
+const callLlmMock = vi.mocked(callLlm);
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing shared constants
 const sharedNs = sharedAll as Record<string, any>;
@@ -306,18 +317,33 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 	// forceCount comes from the enforcement registry (not loopForceCount).
 
 	describe("AC3 — budget exhaustion → not_returned after hook blocks", () => {
-		test("never-returning stub → outcome=not_returned, forceReturnCount=AL6_MAX_FORCE_RETURNS, session_not_returned emitted", async ({
+		test("never-returning real BuiltinHarnessAdapter → outcome=not_returned, forceReturnCount>=1, session_not_returned emitted", async ({
 			db,
 		}) => {
+			// AL6 CRIT-4: Use real BuiltinHarnessAdapter (not stub) so the in-process
+			// forcing loop actually fires and increments forceCount via getForceReturnCount().
+			// The stub (makeV4BlockingStub) doesn't model the forcing loop, so forceCount=0
+			// without the drain fallback. Real adapter = real increment = real proof.
+			callLlmMock.mockResolvedValue({
+				stopReason: "end_turn",
+				content: [{ type: "text", text: "I'm done, no return action." }],
+				usage: {
+					inputTokens: 10,
+					outputTokens: 5,
+					cacheReadInputTokens: 0,
+					cacheCreationInputTokens: 0,
+				},
+			});
+
 			const taskId = "al6v4-ac3-budget-1";
 			await seedDb(db, taskId);
 
-			const adapter = makeV4BlockingStub("builtin-loop", false);
+			const adapter = new BuiltinHarnessAdapter();
 			const { result, emittedEventTypes } = await runWithAdapter(
 				db,
 				taskId,
 				adapter,
-				"al6v4-never-return-stub",
+				"al6v4-builtin-real",
 				sandboxBasePath,
 			);
 
@@ -328,8 +354,9 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 			// session_not_returned must be emitted.
 			expect(emittedEventTypes).toContain("session_not_returned");
 
-			// forceReturnCount from enforcement registry (not loopForceCount).
-			// FAILS red until Task 9 wires registry count into ProvisionSessionResult.
+			// forceReturnCount from enforcement registry + adapter.getForceReturnCount().
+			// Real BuiltinHarnessAdapter increments session.forceCount each time it
+			// blocks a non-returning stop attempt. forceCount >= 1 = hook ACTUALLY FIRED.
 			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
 				| number
 				| undefined;

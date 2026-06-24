@@ -27,7 +27,14 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { normalizeHarnessEvent } from "@hyperidle/shared";
+import {
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
+	isReturnAction,
+	normalizeHarnessEvent,
+	shouldForceReturn,
+} from "@hyperidle/shared";
+import { enforcementRegistry } from "./return-enforcement-registry.js";
 
 /**
  * Template variable names used in args and envMap.
@@ -145,8 +152,15 @@ export interface CliAvailabilityDeps {
 }
 
 interface CliSession {
-	readonly child: ChildProcess;
+	/** The active child process. Replaced on process-reengage re-spawns. */
+	child: ChildProcess;
 	readonly sessionId: string;
+	/**
+	 * AL6 CRIT-3: The real session UUID from SessionConfig.sessionId (not the
+	 * internal cli-session-N id). Used to look up the enforcement registry for
+	 * process-reengage re-spawn decisions.
+	 */
+	readonly configSessionId: string;
 	done: boolean;
 	exitCode: number | null;
 	exitSignal: string | null;
@@ -165,6 +179,32 @@ interface CliSession {
 	totalCostUsd?: number;
 	/** True once the terminal cost_update has been yielded (prevents double-emit). */
 	costEmitted: boolean;
+	/**
+	 * AL6 CRIT-3: True once a return action (submit_review, handoff_to, send_message)
+	 * has been observed in the event stream. Used to skip re-engage when the agent
+	 * already returned voluntarily.
+	 */
+	returnSeen: boolean;
+	/**
+	 * AL6 CRIT-3: Number of process-reengage re-spawns for this session.
+	 * Bounded by AL6_MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
+	 */
+	reEngageCount: number;
+	/**
+	 * AL6 CRIT-3: The sandbox path for re-spawn (needed to spawn additional
+	 * processes in the same workspace).
+	 */
+	readonly sandboxPath: string;
+	/**
+	 * AL6 CRIT-3: The reEngageCarrier config from the adapter, threaded here
+	 * so streamEvents can spawn additional processes without accessing this.config.
+	 */
+	readonly reEngageCarrier?: "run-arg" | "stdin";
+	/**
+	 * AL6 CRIT-3: The resolved env for the process (includes CODEX_HOME, etc).
+	 * Reused for re-engage spawns.
+	 */
+	readonly spawnEnv: Record<string, string>;
 }
 
 /** Replace all template variables in a string. */
@@ -305,6 +345,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const session: CliSession = {
 			child,
 			sessionId,
+			// AL6 CRIT-3: store real config sessionId for registry lookup
+			configSessionId: config.sessionId,
 			done: false,
 			exitCode: null,
 			exitSignal: null,
@@ -314,6 +356,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolveStop: null,
 			killTimer: null,
 			costEmitted: false,
+			returnSeen: false,
+			reEngageCount: 0,
+			sandboxPath: config.sandboxPath,
+			reEngageCarrier: this.config.reEngageCarrier,
+			spawnEnv: sandboxedEnv,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -387,6 +434,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;
 
+			// AL6 CRIT-3: determine if this adapter uses process-reengage channel.
+			const channel =
+				adapter.config.returnEnforcementChannel ?? deriveCliChannel(adapter.config.binary);
+			const isReEngage = channel === "process-reengage";
+
 			let stdoutCursor = 0;
 			let stderrCursor = 0;
 
@@ -441,7 +493,112 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					yield costEvent;
 				}
 
-				if (session.done) break;
+				if (session.done) {
+					// AL6 CRIT-3: process-reengage — after first (or subsequent) process exits,
+					// check if we need to re-engage the session with a forcing message.
+					//
+					// Decision logic:
+					//   1. Only for process-reengage channel (opencode / remote).
+					//   2. Only if returnSeen=false (agent did NOT call a return action).
+					//   3. Ask the enforcement registry: if forceMessage is non-null, re-spawn.
+					//   4. Bounded by reEngageCount < AL6_MAX_FORCE_RETURNS (guards infinite loops).
+					//   5. reEngageCarrier="run-arg": append forceMessage as positional arg.
+					//
+					// @lore AL6 CRIT-3: The re-engage spawns a NEW child process in the same
+					// sandbox. The new process's stdout/stderr lines are appended to the same
+					// session.stdoutLines / session.stderrLines arrays (via wireStdout/wireStderr
+					// called on the new child). session.done is reset to false so the drain loop
+					// continues. This gives the outer provisioner a single continuous event stream
+					// with no visible seam between the initial run and re-engage runs.
+					if (isReEngage && !session.returnSeen && session.reEngageCount < AL6_MAX_FORCE_RETURNS) {
+						const registryEntry = enforcementRegistry.get(session.configSessionId);
+						if (registryEntry) {
+							const forceMsg = registryEntry.exempt
+								? null
+								: shouldForceReturn(registryEntry.gate, session.reEngageCount);
+
+							if (forceMsg !== null) {
+								// Increment the registry BEFORE spawning so drain-gate sees the force.
+								enforcementRegistry.incrementForce(session.configSessionId);
+								session.reEngageCount++;
+
+								// Build re-engage args: run-arg appends forceMessage as positional.
+								// For opencode: `opencode run <forceMsg> --format json [...]`
+								const reEngageArgs: string[] = [];
+								if (session.reEngageCarrier === "run-arg") {
+									// Re-engage carrier: forceMessage is the first positional arg.
+									// opencode run <msg> [--format json] [--model ...]
+									reEngageArgs.push(forceMsg);
+								} else {
+									// No carrier configured — use the AL6 forcing message constant.
+									// This path also handles "stdin" conceptually (no stdin pipe needed
+									// because the message is baked into the re-engage args).
+									reEngageArgs.push(AL6_FORCE_RETURN_MESSAGE);
+								}
+
+								// Combine with original resolved args minus the initial prompt.
+								// For opencode the args are typically ["run", "--format", "json", ...].
+								// We insert the re-engage message after the "run" subcommand.
+								const resolvedBaseArgs = adapter.config.args.map((arg) => {
+									// Template variables are already resolved on the original session;
+									// we can't re-resolve here (no config), so use empty fallbacks.
+									// For re-engage we only need the structural args (subcommand, flags).
+									return arg.replace(/\{\{[a-z]+\}\}/g, "");
+								});
+								const finalReEngageArgs = [...resolvedBaseArgs, ...reEngageArgs];
+
+								// Spawn the re-engage child process.
+								const reEngageChild = adapter.spawnFn(adapter.config.binary, finalReEngageArgs, {
+									cwd: session.sandboxPath,
+									env: session.spawnEnv,
+									stdio: ["pipe", "pipe", "pipe"],
+								});
+
+								// Reset session for the new child.
+								// @lore AL6 CRIT-3: We mutate the CliSession object to point at the
+								// new child while keeping the same stdoutLines/stderrLines arrays.
+								// This is safe because the old child has exited (session.done was true).
+								session.child.removeAllListeners();
+								session.child = reEngageChild;
+								session.done = false;
+								session.exitCode = null;
+								session.exitSignal = null;
+								session.costEmitted = false;
+
+								// Wire the new child's stdout/stderr into the same arrays.
+								adapter.wireStdout(session);
+								adapter.wireStderr(session);
+
+								// Wire exit for the new child.
+								reEngageChild.on("exit", (code, signal) => {
+									for (const bufferedLine of session.stdoutLines.slice(stdoutCursor)) {
+										adapter.parseStdoutLine(bufferedLine, session);
+									}
+									session.exitCode = code;
+									session.exitSignal = signal;
+									session.done = true;
+									if (session.killTimer) {
+										clearTimeout(session.killTimer);
+										session.killTimer = null;
+									}
+									session.notifyStream?.();
+									const result = adapter.buildResult(code, signal, session.totalCostUsd);
+									session.resolveStop?.(result);
+								});
+
+								reEngageChild.on("error", () => {
+									session.done = true;
+									session.notifyStream?.();
+								});
+
+								// Continue the drain loop for the re-engage child.
+								continue;
+							}
+						}
+					}
+					// No re-engage needed (or channel is not process-reengage).
+					break;
+				}
 
 				await waitForMore();
 			}
@@ -532,7 +689,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				return normalizeHarnessEvent(parsed);
+				const event = normalizeHarnessEvent(parsed);
+
+				// AL6 CRIT-3: track return actions for process-reengage decisions.
+				// When the agent calls a return action, mark returnSeen so we skip
+				// re-engage on process exit.
+				if (session && event.type === "tool_call" && isReturnAction(event.toolName)) {
+					session.returnSeen = true;
+				}
+
+				return event;
 			}
 		} catch {
 			// Fall through to completion event
