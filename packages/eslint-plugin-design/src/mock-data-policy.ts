@@ -55,17 +55,6 @@ export const DEFAULT_PREFIX_DATA_PATHS: readonly string[] = [
  */
 export const DEFAULT_SUFFIX_TRIGGERS: readonly string[] = ["_DATA", "_SETTINGS", "_ID"];
 
-/** Closed set of file-path globs where mock data is legal. */
-export const PERMITTED_MOCK_SURFACE_GLOBS: readonly string[] = [
-	"**/__fixtures__/**",
-	"**/__tests__/**",
-	"**/*.test.{ts,tsx}",
-	"**/*.spec.{ts,tsx}",
-	"**/*.stories.tsx",
-	"**/e2e/**",
-	"**/seed*.{ts,js}",
-];
-
 /**
  * Path fragments used for runtime detection (non-glob, for string matching).
  * A file whose path contains any of these is on the permitted surface.

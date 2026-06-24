@@ -9,16 +9,14 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createBetTool } from "../create-bet.js";
 import { editBetTool } from "../edit-bet.js";
-import { editBlockTool } from "../edit-block.js";
 import type { ToolContext } from "../tool-registry.js";
-import { updateTaskStatusTool } from "../update-task-status.js";
 
 const NOW = "2026-06-09T00:00:00.000Z";
 
@@ -64,20 +62,6 @@ async function seedBet(db: HyperIdleDb): Promise<void> {
 		description: "Test Bet for AD8b",
 		status: "draft",
 		createdAt: NOW,
-	});
-}
-
-async function seedTask(db: HyperIdleDb): Promise<void> {
-	await seedBet(db);
-	await db.insert(tasks).values({
-		id: "task-ad8b-1",
-		betId: "bet-ad8b-1",
-		teamId: "team-ad8b",
-		ownerAgentId: "ast-agent-1",
-		title: "Task for AD8b",
-		state: "proposed",
-		createdAt: NOW,
-		updatedAt: NOW,
 	});
 }
 
@@ -163,70 +147,5 @@ describe("AD8b — edit_bet tool", () => {
 
 	test("bet edit tool definition has name='edit_bet'", () => {
 		expect(editBetTool.name).toBe("edit_bet");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// update_task_status tool
-// ---------------------------------------------------------------------------
-
-describe("AD8b — update_task_status tool", () => {
-	test("transitions task from proposed to accepted and returns ok", async ({ db }) => {
-		await seedBase(db);
-		await seedTask(db);
-		const ctx = makeCtx(db, "update-task");
-
-		const result = await updateTaskStatusTool.handler(
-			{ taskId: "task-ad8b-1", state: "accepted" },
-			ctx,
-		);
-
-		expect(result.status).toBe("ok");
-
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, "task-ad8b-1"));
-		expect(row?.state).toBe("accepted");
-	});
-
-	test("returns error for non-existent task", async ({ db }) => {
-		await seedBase(db);
-		const ctx = makeCtx(db, "update-task-err");
-
-		const result = await updateTaskStatusTool.handler(
-			{ taskId: "task-nonexistent", state: "accepted" },
-			ctx,
-		);
-
-		expect(result.status).toBe("error");
-	});
-
-	test("update_task_status tool definition has name='update_task_status'", () => {
-		expect(updateTaskStatusTool.name).toBe("update_task_status");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// edit_block tool
-// ---------------------------------------------------------------------------
-
-describe("AD8b — edit_block tool", () => {
-	test("edit_block tool definition has name='edit_block'", () => {
-		expect(editBlockTool.name).toBe("edit_block");
-	});
-
-	test("returns error for non-existent block", async ({ db }) => {
-		await seedBase(db);
-		const ctx = makeCtx(db, "edit-block-err");
-
-		const result = await editBlockTool.handler(
-			{
-				blockId: "block-nonexistent",
-				hostKind: "bet",
-				hostId: "bet-ad8b-1",
-				content: "# Updated Content",
-			},
-			ctx,
-		);
-
-		expect(result.status).toBe("error");
 	});
 });

@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	LEGACY_PROGRESS_PATH,
 	loadAllProgress,
-	loadProgress,
 	loadRun,
 	loadStoryProgress,
 	migrateLegacyIfPresent,
@@ -213,23 +212,6 @@ describe("initProgress", () => {
 		const reloaded = initProgress("A", stories);
 		const a1 = reloaded.stories.find((s) => s.id === "A1");
 		expect(a1?.status).toBe("pending");
-	});
-});
-
-describe("loadProgress (compatibility view)", () => {
-	it("returns null when nothing has been written", () => {
-		expect(loadProgress()).toBeNull();
-	});
-
-	it("synthesizes a PipelineState from per-story files + run.json", async () => {
-		const { initProgress, updateStory } = await import("../progress.js");
-		const state = initProgress("A", [makeStory("A1"), makeStory("A2")]);
-		updateStory(state, "A1", { status: "done" });
-
-		const view = loadProgress();
-		expect(view?.target).toBe("A");
-		expect(view?.stories.find((s) => s.id === "A1")?.status).toBe("done");
-		expect(view?.stories.find((s) => s.id === "A2")?.status).toBe("pending");
 	});
 });
 

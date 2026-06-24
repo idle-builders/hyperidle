@@ -36,7 +36,6 @@ export type {
 	TokenUsageEvent,
 	ToolCallEvent,
 } from "./harness-events.js";
-export { normalizeNativeHarnessEvent } from "./harness-native-normalization.js";
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
 export type { ReturnActionName } from "./return-actions.js";
 // ── AL6: Closed accepted-return set + v2 forcing helpers ──
