@@ -335,7 +335,6 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 describe("AC11b: liveness net — crash between consume and execute is surfaced", () => {
 	test("session 2 ends without consuming the grant → re-provision once (retryCount→1)", async ({
 		db,
-		eventBus,
 	}) => {
 		const { handleUnconsumedGrantOnSessionEnd } = await import(
 			"../services/proposed-call-workflow.js"
@@ -374,7 +373,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 
 		// Fire the session-ended event with unconsumed grant (first occurrence)
 		const reenqueueRequests: { taskId: string; agentId: string }[] = [];
-		await handleUnconsumedGrantOnSessionEnd(db, eventBus, {
+		await handleUnconsumedGrantOnSessionEnd(db, {
 			sessionId: sessionId2,
 			taskId,
 			agentId,
@@ -397,7 +396,6 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 
 	test("second session-ended with retryCount>=1 → PC held + failed Outcome (not a silent hang)", async ({
 		db,
-		eventBus,
 	}) => {
 		const { handleUnconsumedGrantOnSessionEnd } = await import(
 			"../services/proposed-call-workflow.js"
@@ -435,7 +433,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		});
 
 		const reenqueueRequests: { taskId: string; agentId: string }[] = [];
-		await handleUnconsumedGrantOnSessionEnd(db, eventBus, {
+		await handleUnconsumedGrantOnSessionEnd(db, {
 			sessionId: sessionId2,
 			taskId,
 			agentId,

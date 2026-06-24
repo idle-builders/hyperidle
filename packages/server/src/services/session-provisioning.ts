@@ -837,6 +837,11 @@ export async function runSession(
 			? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
 			: undefined,
 		returnHook: returnHookConfig,
+		// AL7 CRITICAL-1: pass sessionWorkflow through to the harness adapter so
+		// external observers (tests, external harnesses) can see which workflow mode
+		// this session was provisioned with. The builtin adapter also has the workflow
+		// embedded in the tool registry, but SessionConfig is the canonical observable.
+		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.

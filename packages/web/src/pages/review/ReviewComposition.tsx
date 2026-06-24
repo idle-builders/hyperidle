@@ -677,6 +677,7 @@ function ExaminePane({
 							artifact={artifact}
 							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
 							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
+							proposedCall={artifact.proposedCall}
 						/>
 					) : (
 						<Canvas artifact={artifact} />

@@ -4,7 +4,7 @@ import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
 import { ReviewActionOperation } from "../ReviewActionOperation";
 import type { ActionOperationPayload, ReviewArtifact } from "../review-artifact";
-import type { StagedOperationOutcomeView } from "../review-composition";
+import type { ProposedCallView, StagedOperationOutcomeView } from "../review-composition";
 
 const artifact = MOCK_REVIEW_SUBJECT.artifacts.find(
 	(a) => a.kind === "action_operation",
@@ -104,5 +104,67 @@ describe("ReviewActionOperation — AL7 execution outcome band", () => {
 		expect(screen.queryByText(/Executed/i)).not.toBeInTheDocument();
 		expect(screen.queryByText(/Execution failed/i)).not.toBeInTheDocument();
 		expect(screen.queryByLabelText("executing")).not.toBeInTheDocument();
+	});
+});
+
+// AC10b (WARNING-2) — the review surface renders the REAL captured args, not fabricated data.
+// The human approving must see the actual toolId + args the agent called (ETHOS §3 / AC10b).
+describe("ReviewActionOperation — AC10b concrete captured args (not hardcoded REFUND data)", () => {
+	it("renders the real toolId from proposedCall, not a hardcoded fixture value", () => {
+		const proposedCall: ProposedCallView = {
+			proposedCallId: "pc-test-123",
+			toolId: "github_merge_pr",
+			args: { pr: 42, repo: "hyperidle/core", merge_method: "squash" },
+			status: "captured",
+		};
+
+		render(
+			<ReviewActionOperation artifact={artifact} status="captured" proposedCall={proposedCall} />,
+		);
+
+		// The real tool id appears in the DOM
+		expect(screen.getByTestId("proposed-call-tool-id")).toHaveTextContent("github_merge_pr");
+	});
+
+	it("renders each captured arg key-value pair in the DOM (verbatim, not a summary)", () => {
+		const proposedCall: ProposedCallView = {
+			proposedCallId: "pc-test-456",
+			toolId: "commit_file",
+			args: { path: "/workspace/proof.txt", content: "hello world" },
+			status: "captured",
+		};
+
+		render(
+			<ReviewActionOperation artifact={artifact} status="captured" proposedCall={proposedCall} />,
+		);
+
+		// Both arg keys and verbatim values must appear
+		expect(screen.getByTestId("proposed-call-arg-path")).toHaveTextContent("/workspace/proof.txt");
+		expect(screen.getByTestId("proposed-call-arg-content")).toHaveTextContent("hello world");
+	});
+
+	it("does NOT render the ProposedCallArgsPanel when proposedCall is absent (backward compat)", () => {
+		// No proposedCall passed — the canvas renders as before (story fixture data)
+		render(<ReviewActionOperation artifact={artifact} status="captured" />);
+
+		expect(screen.queryByLabelText("Proposed call details")).not.toBeInTheDocument();
+	});
+
+	it("renders the REFUND hardcoded amount even with proposedCall present (no regression on standard canvas)", () => {
+		const proposedCall: ProposedCallView = {
+			proposedCallId: "pc-test-789",
+			toolId: "stripe_refund",
+			args: { charge_id: "ch_real_123", amount: 9999 },
+			status: "captured",
+		};
+
+		render(
+			<ReviewActionOperation artifact={artifact} status="captured" proposedCall={proposedCall} />,
+		);
+
+		// The standard operation card still renders (backward compat for artifact.payload)
+		expect(screen.getAllByText(/Irreversible/i).length).toBeGreaterThan(0);
+		// The real arg value also appears
+		expect(screen.getByTestId("proposed-call-arg-charge_id")).toHaveTextContent("ch_real_123");
 	});
 });

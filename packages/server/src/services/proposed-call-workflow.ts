@@ -15,7 +15,6 @@
  */
 
 import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 
 function nowIso(): string {
@@ -38,7 +37,6 @@ function nowIso(): string {
  */
 export async function handleUnconsumedGrantOnSessionEnd(
 	db: HyperIdleDb,
-	_eventBus: EventBus,
 	opts: {
 		sessionId: string;
 		taskId: string;

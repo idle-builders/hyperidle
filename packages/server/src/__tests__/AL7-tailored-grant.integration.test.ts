@@ -62,8 +62,10 @@ setProvisionSessionFn(provisionSession);
 // ─────────────────────────────────────────────────────────────────────────────
 class CapturingAdapter implements HarnessAdapter {
 	public sessionCount = 0;
-	async startSession(_config: SessionConfig): Promise<SessionHandle> {
+	public lastConfig: SessionConfig | undefined;
+	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		this.sessionCount++;
+		this.lastConfig = config;
 		return { sessionId: `al7-captured-${this.sessionCount}` };
 	}
 	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
@@ -391,7 +393,7 @@ describe("AC3 (enqueue): proposed_call_granted causes dispatcher to enqueue sess
 		}
 	});
 
-	test("proposed_call_granted event causes the dispatcher to provision session 2", async ({
+	test("proposed_call_granted event causes the dispatcher to provision session 2 with grant-bearing workflow", async ({
 		db,
 		eventBus,
 	}) => {
@@ -417,11 +419,17 @@ describe("AC3 (enqueue): proposed_call_granted causes dispatcher to enqueue sess
 		// Seed a task in in_progress state (as if session 1 just ended)
 		const { agentId, taskId, teamId } = await seedDispatcherTask(db);
 
+		// AL7 CRITICAL-1: also seed the proposed call + tailored grant so the
+		// dispatcher can derive the grant-bearing sessionWorkflow for session 2.
+		// Without these rows the workflow is null and session 2 has no approvedCall.
+		const { reviewMessageId, proposedCallId, artifactId, threadId } =
+			await seedDispatcherProposedCall(db, { taskId, agentId });
+
 		// Emit the proposed_call_granted event (simulates the verdict path)
 		eventBus.emit({
 			type: "proposed_call_granted",
-			streamId: `thread-${taskId}`,
-			proposedCallId: `pc-${taskId}`,
+			streamId: threadId,
+			proposedCallId,
 			taskId,
 			agentId,
 			timestamp: Date.now(),
@@ -441,7 +449,17 @@ describe("AC3 (enqueue): proposed_call_granted causes dispatcher to enqueue sess
 		expect(sessionRows[0]?.agentId).toBe(agentId);
 		expect(["active", "done"]).toContain(sessionRows[0]?.state);
 		expect(adapter.sessionCount).toBeGreaterThanOrEqual(1);
+
+		// CRITICAL-1 load-bearing assertion: session 2 carries the grant-bearing workflow
+		// with approvedCall. This proves the dispatcher derived the workflow from the DB
+		// and passed it to provisionSession → the registry will permit the approved op.
+		expect(adapter.lastConfig?.sessionWorkflow).toBeDefined();
+		expect(adapter.lastConfig?.sessionWorkflow?.sessionRole).toBe("grant-bearing");
+		expect(adapter.lastConfig?.sessionWorkflow?.approvedCall?.toolId).toBe("commit_file");
+
 		void teamId; // used only in seedDispatcherTask
+		void reviewMessageId; // seeded for FK constraint
+		void artifactId; // seeded for FK constraint
 	});
 });
 
@@ -504,4 +522,98 @@ async function seedDispatcherTask(
 	});
 
 	return { agentId, taskId, teamId };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: seed proposed call + tailored grant for the dispatcher CRITICAL-1 test.
+// The dispatcher looks up these rows by proposedCallId to derive the
+// grant-bearing sessionWorkflow for session 2.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedDispatcherProposedCall(
+	db: HyperIdleDb,
+	opts: { taskId: string; agentId: string },
+): Promise<{
+	proposedCallId: string;
+	reviewMessageId: string;
+	artifactId: string;
+	threadId: string;
+}> {
+	const suffix = `al7d-pc-${crypto.randomUUID().slice(0, 8)}`;
+	const proposedCallId = `al7d-pc-${suffix}`;
+	const artifactId = `al7d-art-${suffix}`;
+	const threadId = `al7d-pcthread-${suffix}`;
+	const reviewMessageId = `al7d-msg-${suffix}`;
+	const betId = `al7d-pcbet-${suffix}`;
+
+	// Need a bet to anchor artifacts (via producingTaskId → tasks.betId)
+	// The task already exists from seedDispatcherTask; we look up its betId.
+	const [task] = await db
+		.select({ betId: tasks.betId })
+		.from(tasks)
+		.where(eq(tasks.id, opts.taskId))
+		.limit(1);
+	const resolvedBetId = task?.betId ?? betId;
+
+	await db.insert(artifacts).values({
+		id: artifactId,
+		producingTaskId: opts.taskId,
+		kind: "action_operation",
+		createdAt: NOW,
+	});
+
+	// Thread anchors the review message (hostKind=bet, not task, to avoid FK issues)
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "bet",
+		hostId: resolvedBetId,
+		initiatorId: opts.agentId,
+		participants: JSON.stringify([opts.agentId]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+
+	await db.insert(messages).values({
+		id: reviewMessageId,
+		senderId: opts.agentId,
+		threadId,
+		type: "review",
+		payload: JSON.stringify({
+			title: "AL7D Dispatch Review",
+			reasoning: ["reason"],
+			artifactRef: { id: artifactId, kind: "action_operation" },
+		}),
+		clientKey: reviewMessageId,
+		createdAt: NOW,
+	});
+
+	const approvedArgs = { path: "/sandbox/dispatch-proof.txt", content: "dispatched" };
+	await db.insert(proposedCalls).values({
+		id: proposedCallId,
+		reviewMessageId,
+		subjectThreadId: threadId,
+		artifactId,
+		originSessionId: `sess-s1-${proposedCallId}`,
+		toolId: "commit_file",
+		args: JSON.stringify(approvedArgs),
+		identityHash: "sha256-dispatch",
+		reversibility: "irreversible",
+		status: "granted",
+		stagedByAgentId: opts.agentId,
+		createdAt: NOW,
+	});
+
+	await db.insert(tailoredGrants).values({
+		proposedCallId,
+		taskScope: opts.taskId,
+		agentScope: opts.agentId,
+		approvedToolId: "commit_file",
+		approvedArgs: JSON.stringify(approvedArgs),
+		argPinned: false,
+		identityHash: "sha256-dispatch",
+		consumed: false,
+		retryCount: 0,
+		mintedAt: NOW,
+	});
+
+	return { proposedCallId, reviewMessageId, artifactId, threadId };
 }

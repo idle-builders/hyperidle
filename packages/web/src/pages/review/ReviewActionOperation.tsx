@@ -21,7 +21,7 @@ import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
-import type { ProposedCallOutcomeView } from "./review-composition";
+import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -465,11 +465,73 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 	};
 }
 
+/**
+ * AC10b (WARNING-2, ETHOS §3): When a Proposed Call is present, render the
+ * concrete captured toolId + args BEFORE the standard operation card.
+ * The human approves what they actually see — no summary, no fabricated data.
+ *
+ * @lore AL7 CRITICAL-3: Previously only `status`+`outcome` were passed and the
+ * component defaulted to the hardcoded REFUND fixture. The approver saw fake
+ * Stripe ids/amount, not the agent's real call. This section renders the verbatim
+ * captured args so gross divergence is visible to human judgment.
+ */
+function ProposedCallArgsPanel({
+	proposedCall,
+}: {
+	readonly proposedCall: ProposedCallView;
+}): JSX.Element {
+	const argEntries = Object.entries(proposedCall.args);
+	return (
+		<section
+			className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			style={{ borderRadius: "var(--r-subtle)" }}
+			aria-label="Proposed call details"
+		>
+			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[9px]">
+				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+					Tool
+				</span>
+				<span
+					className="font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
+					data-testid="proposed-call-tool-id"
+				>
+					{proposedCall.toolId}
+				</span>
+			</div>
+			{argEntries.length > 0 ? (
+				<dl className="px-[12px]">
+					{argEntries.map(([key, value], i) => (
+						<div
+							key={key}
+							className="flex items-start justify-between gap-[12px] py-[9px]"
+							style={{
+								borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
+							}}
+						>
+							<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">{key}</dt>
+							<dd
+								className="min-w-0 text-right font-[var(--font-mono)] text-[13px] text-[var(--text-primary)] break-all"
+								data-testid={`proposed-call-arg-${key}`}
+							>
+								{typeof value === "string" ? value : JSON.stringify(value)}
+							</dd>
+						</div>
+					))}
+				</dl>
+			) : null}
+		</section>
+	);
+}
+
 export function ReviewActionOperation({
 	artifact,
 	status,
 	outcome,
-}: ReviewCanvasProps & Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
+	proposedCall,
+}: ReviewCanvasProps &
+	Pick<ReviewActionOperationProps, "status" | "outcome"> & {
+		readonly proposedCall?: ProposedCallView;
+	}): JSX.Element {
 	const operation = isActionOperationPayload(artifact.payload)
 		? mapActionPayload(artifact.payload)
 		: REFUND;
@@ -481,6 +543,9 @@ export function ReviewActionOperation({
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
+			{/* AC10b WARNING-2: render the concrete captured args (verbatim, not a summary)
+			    so the human approves what the agent actually called. */}
+			{proposedCall ? <ProposedCallArgsPanel proposedCall={proposedCall} /> : null}
 			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
 		</div>
 	);

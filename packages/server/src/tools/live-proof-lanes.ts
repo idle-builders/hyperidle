@@ -17,7 +17,7 @@
  * for Codex/opencode until their Task 7b/7c wiring lands.
  */
 
-import { execSync } from "node:child_process";
+// (no node:child_process import needed — binary probe removed, SDK-only check)
 
 /** Known harness identifiers for the live-proof DONE matrix. */
 export type LiveProofHarness = "builtin" | "claude-code" | "codex" | "opencode" | "cursor-agent";
@@ -117,23 +117,29 @@ export async function probeLiveProofHarnessAvailability(
 }
 
 /**
- * Check whether the Claude Code SDK / binary is available in this environment.
- * Returns true if `@anthropic-ai/claude-agent-sdk` resolves or `claude` binary
- * is in PATH.
+ * Check whether the Claude Agent SDK is installed in this environment.
+ *
+ * The SDK package (`@anthropic-ai/claude-agent-sdk`) is required by
+ * ClaudeAgentSdkAdapter. The `claude` CLI binary being present in PATH is
+ * NOT sufficient — the SDK must be resolvable as a module.
+ *
+ * @lore AL7 CRITICAL-2: Previously this function fell back to checking the
+ * `claude` binary (which IS installed at /opt/homebrew/bin/claude) and returned
+ * `true`. But the SDK (`@anthropic-ai/claude-agent-sdk`) is NOT installed, so
+ * the ClaudeAgentSdkAdapter cannot be constructed. A "binary present → green"
+ * claim is a mock-as-green trap. We check SDK presence only.
+ *
+ * The live-proof lane for claude-code requires both the SDK AND an API key.
+ * If either is absent, the lane FAILS (AC14b — absence is never a pass).
  */
 function isClaudeCodeAvailable(): boolean {
-	// Prefer SDK presence check via require.resolve
+	// Only check SDK presence — the binary alone is not sufficient for the adapter.
 	try {
 		// biome-ignore lint/security/noGlobalEval: intentional dynamic resolution check
 		new Function("require", "return require.resolve('@anthropic-ai/claude-agent-sdk')")(require);
 		return true;
 	} catch {
-		// Fallback: check if `claude` binary is in PATH
-		try {
-			execSync("claude --version", { stdio: "ignore", timeout: 3000 });
-			return true;
-		} catch {
-			return false;
-		}
+		// SDK not installed — the lane is not runnable, even if the binary is present.
+		return false;
 	}
 }

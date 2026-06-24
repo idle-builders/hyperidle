@@ -35,7 +35,27 @@ async function handler(args: CommitFileInput, ctx: ToolContext): Promise<ToolRes
 	const { path: filePath, content } = args;
 
 	// Resolve relative paths against the session sandbox
-	const resolved = path.isAbsolute(filePath) ? filePath : path.join(ctx.sandboxPath, filePath);
+	const resolved = path.resolve(
+		path.isAbsolute(filePath) ? filePath : path.join(ctx.sandboxPath, filePath),
+	);
+
+	// WARNING-A containment: reject paths that escape the sandbox.
+	// ETHOS §4 trusts the agent — this is NOT a security boundary defending against
+	// a rogue agent. It is bookkeeping hygiene: the proof-vehicle tool should not
+	// perform unbounded arbitrary host-file writes (a sandbox containment property,
+	// not a guard against the agent's intent).
+	//
+	// @lore AL7 WARNING-A: path.resolve normalises `../` traversal; the startsWith
+	// check rejects the resolved path if it falls outside ctx.sandboxPath. Absolute
+	// paths that land inside the sandbox are permitted (the agent may pass them).
+	const sandboxResolved = path.resolve(ctx.sandboxPath);
+	if (!resolved.startsWith(sandboxResolved + path.sep) && resolved !== sandboxResolved) {
+		return err(
+			"OUTSIDE_SANDBOX",
+			`commit_file: resolved path ${resolved} falls outside sandbox ${sandboxResolved}. ` +
+				"Use a relative path or a path inside the sandbox directory.",
+		);
+	}
 
 	const dir = path.dirname(resolved);
 	try {

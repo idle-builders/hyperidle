@@ -27,7 +27,7 @@
  * This is an accepted v1 limitation — see architecture-critique Finding 3.
  */
 
-import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, proposedCalls, sessions, tailoredGrants, tasks } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
@@ -109,6 +109,16 @@ export interface DispatchQueueEntry {
 	readonly agentId: string;
 	readonly teamId: string;
 	readonly enqueuedAt: number; // Date.now()
+	/**
+	 * AL7 CRITICAL-1: When set, this entry was enqueued by handleProposedCallGranted
+	 * (session 2 re-provision). drainQueue looks up the tailored grant + proposed call
+	 * and derives the grant-bearing sessionWorkflow to pass to provisionSession.
+	 *
+	 * @lore AL7 Task 6: sessionWorkflow is derived at drain time (not at enqueue time)
+	 * because the DB import is already available in drainQueue and the RegistrySessionWorkflow
+	 * type is server-side — fabric passes it through opaquely via provisionSession params.
+	 */
+	readonly proposedCallId?: string;
 }
 
 /** Snapshot of the current dispatch queue state. */
@@ -293,6 +303,66 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 					}
 				}
 
+				// AL7 CRITICAL-1: derive the grant-bearing sessionWorkflow for session 2.
+				// When the entry carries a proposedCallId (set by handleProposedCallGranted),
+				// look up the tailored grant + proposed call and build the workflow so the
+				// registry invoke router permits the approved op (CAS-consume) in session 2.
+				// biome-ignore lint/suspicious/noExplicitAny: RegistrySessionWorkflow type lives in server — pass opaquely
+				let sessionWorkflow: any;
+				if (entry.proposedCallId) {
+					try {
+						const [pcRow] = await deps.db
+							.select({
+								toolId: proposedCalls.toolId,
+								args: proposedCalls.args,
+								identityHash: proposedCalls.identityHash,
+								reviewMessageId: proposedCalls.reviewMessageId,
+								subjectThreadId: proposedCalls.subjectThreadId,
+								artifactId: proposedCalls.artifactId,
+							})
+							.from(proposedCalls)
+							.where(eq(proposedCalls.id, entry.proposedCallId))
+							.limit(1);
+						const [grantRow] = await deps.db
+							.select({
+								approvedToolId: tailoredGrants.approvedToolId,
+								approvedArgs: tailoredGrants.approvedArgs,
+								argPinned: tailoredGrants.argPinned,
+								identityHash: tailoredGrants.identityHash,
+							})
+							.from(tailoredGrants)
+							.where(eq(tailoredGrants.proposedCallId, entry.proposedCallId))
+							.limit(1);
+						if (pcRow && grantRow) {
+							// biome-ignore lint/suspicious/noExplicitAny: opaque pass-through to server's RegistrySessionWorkflow
+							const approvedArgs: Record<string, any> = JSON.parse(grantRow.approvedArgs) as Record<
+								string,
+								unknown
+							>;
+							sessionWorkflow = {
+								routeToReview: ["irreversible"],
+								sessionRole: "grant-bearing",
+								reviewMessageId: pcRow.reviewMessageId,
+								subjectThreadId: pcRow.subjectThreadId,
+								artifactId: pcRow.artifactId,
+								approvedCall: {
+									toolId: grantRow.approvedToolId,
+									args: approvedArgs,
+									argPinned: grantRow.argPinned,
+									identityHash: grantRow.identityHash ?? undefined,
+								},
+							};
+						}
+					} catch (wfErr) {
+						logger.error("failed to derive grant-bearing sessionWorkflow for session 2", {
+							proposedCallId: entry.proposedCallId,
+							error: wfErr instanceof Error ? wfErr.message : String(wfErr),
+						});
+						// Fall through: provision without workflow (the grant will be un-consumed,
+						// the liveness net (AC11b) will surface this as a failed Outcome).
+					}
+				}
+
 				await provisionSession(
 					{
 						db: deps.db,
@@ -308,6 +378,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 						productId: entry.teamId,
 						sandboxBasePath: deps.sandboxBasePath,
 						resolvedModel,
+						...(sessionWorkflow ? { sessionWorkflow } : {}),
 					},
 				);
 
@@ -545,11 +616,14 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 			// Only re-engage if the task is still in-flight.
 			if (!task || task.state !== "in_progress") return;
 
+			// AL7 CRITICAL-1: carry proposedCallId so drainQueue can derive
+			// the grant-bearing sessionWorkflow for session 2.
 			await enqueue(db, {
 				taskId,
 				agentId,
 				teamId: task.teamId ?? taskId,
 				enqueuedAt: Date.now(),
+				proposedCallId: event.proposedCallId,
 			});
 
 			scheduleDrain();
