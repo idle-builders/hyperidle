@@ -49,3 +49,93 @@ LOC of every git-tracked file, classified and grouped. *Generated* = lockfiles, 
 - **`web` and `server` are ~90% of hand-written prod code** (69k of 138k). That's where complexity-reduction effort pays off most.
 
 *Method: `git ls-files` → per-file line count → classify by path/extension. Excludes untracked and gitignored files.*
+
+---
+
+## Subgroups of the big packages (>10k LOC)
+
+### `server` (134k) — prod ~33k, the rest is tests
+| sub | prod | test |
+|---|--:|--:|
+| `__tests__` | 0 | 56,670 |
+| `routes` | 13,235 | 22,621 |
+| `harness` | 6,557 | 13,006 |
+| `services` | 7,256 | 1,653 |
+| `tools` | 2,987 | 5,559 |
+| middleware / schemas / auth / mcp | ~1,768 | ~1,499 |
+
+### `web` (116k) — UI code is `pages` + `components`/`shell`/`hooks`/`settings`
+| sub | prod | test |
+|---|--:|--:|
+| `__tests__` | 0 | 29,739 |
+| `pages` | 17,021 | 9,225 |
+| `e2e` (+cassettes) | 207 | 23,655 (+1,559 cfg) |
+| `settings` | 3,516 | 5,721 |
+| `components` | 5,025 | 3,231 |
+| `shell` | 3,113 | 3,066 |
+| `hooks` | 3,294 | 2,571 |
+
+### `db` (79k) — 84% is generated Drizzle journal
+| sub | hand-written | generated |
+|---|--:|--:|
+| `drizzle/meta` (active, Postgres) | 0 | 53,892 |
+| **`drizzle-sqlite-archive/`** (dead, pre-PGLite) | 0 | 13,642 |
+| `src/*` (schema, connection, seed) | 2,762 | 0 |
+| `__tests__` | 6,985 (test) | 0 |
+
+> The `drizzle-sqlite-archive/` 13.6k is **dead cruft** from the SQLite→PGLite migration (#139) — see audit finding **A5**. Real hand-written db code is ~2.8k.
+
+### `design-system` (44.7k) — mostly machinery, not components
+| sub | prod | test | generated/other |
+|---|--:|--:|--:|
+| `__tests__` (snapshot net) | 0 | 8,200 | 9,671 (`.snap`) |
+| `src/*` stories + components | 7,443 | 5,261 | 686 |
+| `viewer/annotations` (design-review overlay) | 1,566 | 2,010 | 0 |
+| `research/` (md) | 0 | 0 | 3,422 |
+| `viewer/` + scripts + kinds + body-editor + block | ~3,529 | ~1,221 | ~1,722 |
+
+> Real component source ≈ 7.4k. The bulk is the visual-regression snapshot machinery + the `/human-design-review` annotation tool.
+
+### `fabric` (24.9k)
+| sub | prod | test |
+|---|--:|--:|
+| `services` (schedulers, listeners) | 10,277 | 510 |
+| `__tests__` | 0 | 8,813 |
+| `src/*` (scoring/relevance/attention engines) | 5,205 | 0 |
+
+### `shared` (18.3k)
+| sub | prod | test |
+|---|--:|--:|
+| `__tests__` | 0 | 9,535 |
+| `src/*` root | 5,224 | 0 |
+| `harness` | 871 | 357 |
+| `blocks` | 1,034 | 0 |
+| kinds / format / types / net / observability | ~1,218 | 0 |
+
+### `eval` (15.3k) — 70% is scenario data
+| sub | prod |
+|---|--:|
+| `scenarios` | 10,796 |
+| `src/*` (runner, judges, scoring, cli) | 3,137 |
+| `smoke` | 435 (+886 test) |
+
+> `src/judges.ts` (~550 LOC of the 3.1k) is the dead-22-factories finding (A1).
+
+---
+
+## DB schema — 29 tables, 411 fields (avg 14.2/table)
+
+| domain | tables (fields) | Σ fields |
+|---|---|--:|
+| **Work / process** | routines (47), bets (45), tasks (25), sessions (22), routine_runs (13) | 152 |
+| **Identity / org** | users (38), team_members (14), teams (13), user_skills (7), invite_codes (7), login_sessions (6), org_edges (5), hint_progress (3) | 93 |
+| **Knowledge** | items (16), knowledge_items (13), knowledge_conflicts (12), knowledge_strategy_fabric (11), knowledge_edit_log (9), knowledge_access_log (5), task_strategy_fabric (4) | 70 |
+| **Notifications** | notification_queue (25) | 25 |
+| **Conversation** | threads (13), messages (13) | 26 |
+| **Infra / config** | service_connections (13), propagation_log (12), artifacts (7), server_credentials (7), factory_settings (3), server_config (3) | 45 |
+
+Notes:
+- **Fattest tables: routines (47), bets (45), users (38)** — overlap with the cost-column sprawl (audit finding #30). Best targets for a schema-slimming pass.
+- `items` (human-interface contract) is a separate table from `knowledge_items`.
+- The kernel/strategy split shows up as the `*_strategy_fabric` extension tables (audit finding #39).
+- Scoring "knobs" are **rows** in `factory_settings` (3 cols), not columns — so the tunable-weights findings don't bloat the schema.
