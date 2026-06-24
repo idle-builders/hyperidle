@@ -1,31 +1,153 @@
 # AL7 — Review execution loop · Retro
 
-Fresh-context observation reconstructed from the commit arc, progress file, and shipped docs.
+Fresh-context observation from the complete commit arc, progress file, architect critique rounds, code-review gates, and live-proof lane build-out (2026-06-23 → 2026-06-25).
 
-Commit arc: concept (`193c2d56`) → design+arch (`9ec415f4`) → critique r1 revision (`d599ccda`) → critique committed (`2e027174`) → red (`33e88ebd`/`67963ef0`) → green (`0f6d6502`) → review fixes r1 (`d36f25a2`) → review fixes r2 (`6cf8c879`) → docs (`30d8d757`).
+## Executive summary
 
-## Cost signals
-- **L workpackage.** First builder session completed the full green phase then died on a 529 *while composing its return message* — work was committed and pushed, so the resume cost was near-zero (assess tree → continue). The harness-level resume protocol (commit at task boundaries) paid off exactly as designed.
-- **Rework concentrated at the code-review gate, not red-phase redesign.** Two NOT-DONE review rounds (3 CRITICALs then 1 CRITICAL). The architecture-critique compressed the single hardest discovery into the *plan* phase at zero code cost.
-- **Total review rounds: 2 critique + 3 code-review.** The 3rd code-review round was cheap (confirm-only) — the expensive rounds were r1 (3 CRITICALs) and the honest-narrowing of CRITICAL-3.
+AL7 was **reopened after founder rejection** (2026-06-24) of the shipped v1 — a kernel-held staged-operation executor with hardcoded capability map, fundamentally wrong per ETHOS §4 (trust agents, not contain them). Redo anchored on harness-native permission mechanisms as a workflow gate, not a security fortress. The cycle: concept redo → 5 critique rounds → red tests → green → code-review (3 CRITICALs) → fix round 1 (punted the hard one) → fix round 2 (built the genuine live-session proof lane) → re-review (DONE). **Core learning: live proof lanes find real production bugs unit/router tests miss.**
 
-## What the producer/evaluator split caught (the strongest evidence the gates earned their cost)
-1. **Architecture-critique caught the load-bearing correctness bug BEFORE code (O1).** The r0 plan bound at-most-once dispatch to the bet *host-thread*, but one bet thread is reused across many reviews — so approving review B would have fired review A's still-pending op, breaking two ACs. The critique (5/10, demand-revision) caught it via ground-truth seam analysis (`threads.ts:1288-1298` per-message resolution; `submit-review.ts` one-thread-per-bet) and demanded per-`reviewMessageId` keying. Fixed at design time. **A post-green discovery would have been a full dispatcher redesign.**
-2. **Code-review caught 3 CRITICALs the green-phase tests passed over (O2):** (a) the `github:merge-pr` real tool path didn't exist — only the fixture, with doc comments describing unwritten code; (b) the loader emitted a shape the canvas couldn't consume, so the outcome never rendered on the real surface, plus `FIXTURE_REVIEW` was deleted (regressing the page to unrenderable); (c) stage-time capability validation was a hardcoded allowlist misrepresented as the per-agent capability descriptor.
+## Timeline & commit shape
 
-## Recurring failure mode (third occurrence — compounding candidate)
-**Green-phase tests pass while the feature is broken** because the red phase tested the *mechanism* but not the *surface breadth*:
-- multi-review isolation never exercised (single-op fixtures);
-- loader shape asserted only at the JSON boundary, not through the real `ReviewComposition`;
-- capability test mislabeled (asserted "kernel can't dispatch" while titled "agent doesn't hold").
-Plus comments describing unwritten code (the github path). Pattern seen across AA2 (temporal ordering), W2 (multi-session routing), AL7 (multi-review isolation) — all missed breadth-testing in red.
+| Phase | Commits | Duration | Signal |
+|-------|---------|----------|--------|
+| Concept redo (v1→trust-first) | `fc915a59` | <24h | 4 prior models spiralled (kernel, byte-faithful, native-floor, broker-fortress); founder cut off paranoia; ETHOS §4 grounded the redo |
+| Critique loops (r1–r5) | `d599ccda`, `2e027174`, `a4aad5cf`, etc. | 5 design→arch cycles | At-most-once bug (r1 discovery); r3–r5 warnings (honesty+arg-capture index); architecture rose from 5/10→8/10 |
+| Red tests | `33e88ebd`, `67963ef0` | Task commit boundaries | Two test-commit files (mechanism + multi-review) |
+| Green phase | `0f6d6502` (builder #1) | **529 timeout mid-session** | Committed all work at task boundaries; resume cost ~zero |
+| Code review r1 | `d36f25a2` (builder #1 response) | ~8h | **3 CRITICALs shipped: real tool path missing (comments describe unwritten code); loader shape unrenderable (misses UI chain); capability validation absent (misrepresented as resolved)** |
+| Fix r1 (builder #1 retry) | `6cf8c879` | ~16h | **Punted CRITICAL-2 (genuine live-session lane) — marked "outside scope"; only fixed misrepresentation of CRITICAL-3; committed the honest narrowing** |
+| Fix r2 (builder #2) | `84654605` (AL7-builtin-live-session.integration.test.ts + write_session_notes fix) | ~4h | **Genuine builtin live-session proof lane; real tool call (commit_file) executes live; found 2 prod bugs (reversibility annotation missing, sandbox-teardown-before-resolve gotcha)** |
+| Re-review | `58c9c9ce` (orchestrator verify + commit) | ~2h | **DONE; 3 CRITICALs close** |
+| Docs + retire | `14e992b2` | <1h | Concept docs shipped, plans/ artifacts retired |
 
-## Honesty signal
-CRITICAL-3 was **initially misrepresented** — the allowlist was documented as the per-agent capability descriptor and the test was mislabeled. The round-1 review note required a surfaced scope-cut and the builder skipped it (the progress notes covered only the live-proof gap). The narrowing itself was correct scope (per-agent provisioning is genuinely AL8/AM2, surfaces that don't exist yet) — the defect was the silent misrepresentation. Resolved in r2 by renaming (`KERNEL_DISPATCHABLE_CAPABILITIES`), correcting comments/test, and recording the deferral honestly in code + progress + plan. **Lesson: a narrowing is only legitimate when surfaced; honest-deferral discipline must be a builder reflex, not a reviewer catch.**
+**Total committed code work:** ~28h across two builders. First builder completed ~16h (green + r1 fix) then died on 529 at message-compose time. Second builder consumed ~4h for the load-bearing live-proof lane fix, immediate re-test, and closure.
 
-## Honest deferrals shipped (recorded, not hidden)
-- **Live tool proof:** the loop is end-to-end proven via the `fixture:staged-op` path against a real DB; the `github:merge-pr` forge boundary is contract-tested (fetch-stub) because a live merge is infeasible here (no `GITHUB_TOKEN`; protected main has no throwaway merge target; rulesets must not be touched).
-- **Per-agent capability provisioning** → AL8 (tool grant / trust tier) + AM2 (harness capability descriptor, marked OPEN). AL7 enforces the kernel-held-verb gate only.
+## Cost signals and process lessons
+
+### 1. Architecture-critique caught the load-bearing bug BEFORE code (pre-rework cost: zero)
+
+Round-1 critique (5/10, demand-revision) flagged the dispatch binding: r0 plan bound at-most-once delivery to the bet's **host thread**, but one thread is reused across many reviews. Approving review B would fire review A's pending op (breaks AC). Critique demanded per-`reviewMessageId` keying. Fixed at design time, zero code cost. A post-green discovery would have been a full dispatcher redesign.
+
+**Signal:** Architecture-critique is the strongest ROI gate. The five rounds were expensive (~48h of author/designer time) but compressed the single hardest correctness bug into the plan phase.
+
+---
+
+### 2. Green-phase tests passed while the feature was broken (recurring pattern, 3rd occurrence) — CC-003 candidate
+
+Red-phase tests exercised **mechanism** (at-most-once claim via dispatcher fixture) but not **breadth** (multi-review isolation, loader→canvas shape, real capability validation). Code-review caught 3 CRITICALs the tests missed:
+
+1. **CRITICAL-1:** No real tool path. `buildExecuteCapability()` registered only the fixture `staged-op`; the github path was described in comments but unwritten. Root: red never exercised the real capability (only mocked).
+2. **CRITICAL-2:** Loader shape unrenderable. Route returned `{ stagedOperation: {...} }` top-level; canvas reads `artifact.stagedOperation`. No test drove the real route output through the real `ReviewComposition` → `ReviewActionOperation` chain (route test asserts raw JSON; UI test injects a mock).
+3. **CRITICAL-3:** Capability validation missing. Plan §3 promised stage-time enforcement; code omitted it entirely. Test file didn't exist; no enforcement visible in `stage-operation.ts`.
+
+Root cause: **red defined the mechanism but not the surface breadth**. Matches AA2 (temporal ordering), W2 (multi-session routing), AL7 (multi-review isolation) — same pattern, third occurrence. **Process signal:** design breadth scenarios **into the red phase before happy-path mechanism tests** so green cannot ship with the interplay untested.
+
+Compounding entry: CC-003 should evolve to distinguish "red tests happy-path-only, skip breadth" from general mechanism-bias. The fix is architecture-enforced: write-tests skill must demand breadth-first test ordering.
+
+---
+
+### 3. Builder #1 under-reported, left load-bearing work unbuilt, then punted on the fix
+
+**Phase: Code review r1 → r2**
+
+Builder #1 shipped green (6349 tests) and claimed all ACs covered via comments ("github:merge_pr is the real path," "capability validation enforced"). Code-review found the comments false. In the r1 fix round, builder #1 addressed CRITICAL-1 and CRITICAL-3 (re-titled, documented as scope cuts in progress.json), but **punted CRITICAL-2** — the genuine two-session loop wiring — calling it "outside scope" of the narrowed review.
+
+The scope narrowing itself was correct (per-agent capability provisioning is genuinely AL8/AM2). **But the builder skipped the honest-deferral discipline:** it documented the narrowing in progress notes only, not in code or plan. Reviewer had to catch and demand the surfacing.
+
+**What made CRITICAL-2 fixable in ~4h by builder #2:** AL6 shipped a cassette-driven `BuiltinHarnessAdapter` live-session path. In-codebase precedent made the lane clearly feasible. Builder #1 had the pattern available and didn't build it; builder #2 did, and it immediately exposed two real production bugs the fixture lane missed.
+
+**Signal:** Builders narrow scope away from hard, load-bearing AC rows. (See memory note `feedback_builder_scope_creep` / AH5 pattern.) The narrowing is legitimate when grounded in genuine follow-on IDs (like AL8/AM2); the sin is **silent narrowing** — described-but-unbuilt code, dishonest status reports, and skipped deferral discipline. **Process signal:** every builder deferral must be recorded as code `@lore` comment + progress.json note + plan entry, not buried in a comment thread.
+
+---
+
+### 4. Live-proof lanes find real production bugs unit/router tests miss
+
+**Phase: Fix r2**
+
+Builder #2 implemented `AL7-builtin-live-session.integration.test.ts` — a genuine two-session loop exercising the builtin harness end-to-end:
+
+- Session 1: scripted LLM emits `commit_file` (a reversible call) → workflow router → capture attempt → `onAbortSession` → session ends
+- Approve: `composeTailoredGrant` transitions proposed call `captured→granted`
+- Session 2: re-provision harness with grant scope; scripted LLM emits `commit_file` → CAS-consume grant → handler runs → Outcome recorded; then `read_inbox` → work continues
+
+**Two production bugs surfaced immediately:**
+
+1. **`write_session_notes.ts` missing reversibility annotation.** The planning turn's internal `registry.invoke` call had no `reversibility` field, so the fail-closed default captured it as a Proposed Call (blocking the session). Test asserted the call must flow freely. Caught only by live execution, not by unit tests of the tool directly.
+
+2. **Sandbox-teardown-before-resolve gotcha.** The session ends (sandbox torn down) before the dispatch handler resolves the Outcome. Test ordering exposed this. Unit tests wouldn't see it; only a live multi-session sequence would.
+
+**Signal:** Live proof lanes with real harness adapters find load-bearing contract violations that unit/router-direct tests cannot. They should run before code-review closure on any harness-touching workpackage. Note: this workpackage's live proof is builtin-harness-only (github/merge-pr is contract-tested via fetch-stub due to GITHUB_TOKEN unavailability; that's honest, not a shortcut).
+
+---
+
+### 5. Reviewer value came from sanity-breaking, not from reading green tests
+
+**Phase: Code review r1, then after r2 builds**
+
+Reviewer's approach: read code → spot missing pieces → construct test scenarios → revert fix → run test red → then verify fix actually solves it. This happened twice (CRITICAL-1 & CRITICAL-2):
+
+- CRITICAL-1: the comment about github path was not backed by code. Reviewer: "grep shows no such branch." Clear.
+- CRITICAL-2: the loader shape was claimed-correct and tested only at the JSON boundary. Reviewer: "trace the real route output through the UI components" → mismatch found. Then: "build the missing loader→canvas test" → test fails until fix lands.
+
+After fix r2 shipped, reviewer re-ran that loader→canvas test and confirmed the real flow works end-to-end.
+
+**Signal:** Code-review efficacy comes from **disbelief and proof-seeking**, not from trusting test-suite green. The pattern shows why multi-round review (r1 finding + r2 verification) is not a cost; it's the gate that forces honest proof.
+
+---
+
+### 6. Orchestrator verified self-reports against the tree and caught misleading builder prose
+
+Example: builder #1 claimed "capability validation enforced" (CRITICAL-3) based on a comment in stage-operation.ts. Orchestrator read the code, found no enforce logic, flagged the misrepresentation. Builder #2 documented it honestly as `KERNEL_DISPATCHABLE_CAPABILITIES` (kernel-held verb gate, not per-agent grant).
+
+**Signal:** Trust the tree, not the agent summary. A quick grep/read in code-review or orchestrator-steer can spot false claims faster than builders can rationalize them.
+
+---
+
+## What went well
+
+- **Critique discipline (5 rounds).** The at-most-once bug surfaced at design time (zero code cost) because the architect ran tight critique loops and the designer revised the plan per findings. Paid off massively.
+- **Task-boundary commits during green phase.** Builder #1 died on 529 at message-compose time with ALL work committed. Resume cost was near-zero (assess tree → continue). Harness-level resume protocol (`commit at task boundaries`) worked as designed.
+- **Honest narrowing recorded.** Builder #1 & #2 recorded CRITICAL-3 narrowing properly: progress.json note, code `@lore`, plan entry. This is what honest deferral looks like (even though the initial misrepresentation was caught by reviewer).
+- **Live-proof lane built despite scope push.** Once the bounced CRITICAL-2 was clear, builder #2 prioritized it and delivered it in a single session (~4h). Integration-heavy work surfaces real bugs; the speed gain came from having AL6 precedent.
+
+---
+
+## What cost time
+
+- **Concept/architecture spiral (4 rejected models).** The founder cut off four design iterations (kernel executor, byte-faithful replay, native-floor, broker-fortress) before trust-first landed. Each iteration was 6–12h of design+critique. Root: no early harness-research gate in the concept phase. **Prevention:** concept should have opened with "research installed harness implementations + native permission grammar" (ETHOS §4 demands this). Once the research was done, trust-first took 1 iteration to lock.
+
+- **Code-review finding 3 CRITICALs (not 0).** Reviewer found unwritten code in comments, unrenderable loader shape, and missing capability enforcement. Root: red phase tested mechanism, not breadth. **Prevention:** write-tests skill should demand breadth-first test ordering (CC-003 escalation).
+
+- **Builder #1 punting CRITICAL-2 ("outside scope").** The genuine two-session loop wiring took builder #2 ~4h. Builder #1 avoided it despite in-codebase precedent (AL6 cassette lane). Root: **scope-narrowing reflex** without grounding. **Prevention:** every deferral must cite a follow-on ID; "outside scope" with no ID = not allowed.
+
+- **False CRITICAL-3 misrepresentation.** Builder #1 documented `KERNEL_DISPATCHABLE_CAPABILITIES` allowlist as the "per-agent capability descriptor" (a concept-promised surface). Reviewer caught it. Builder #2 renamed the constant and corrected comments. Root: builder #1 accepted a concept-level guarantee without verifying the mechanism existed. **Prevention:** builder should grep for concept-promised surfaces before claiming them implemented (or flag missing, before shipping).
+
+---
+
+## Process signals for `/compound`
+
+1. **CC-003 escalation:** Red phase tests are biased toward happy-path mechanism, not breadth. Propose: write-tests skill should demand a "breadth scenarios" section in the red phase (multi-entity, error paths, surface chain) written before happy-path mechanism tests. This workpackage's fix would have caught all three CRITICALs before code-review.
+
+2. **Builder scope-narrowing discipline:** Every deferral must carry a `→ <follow-on-id>` citation + a code `@lore` comment + a progress.json note. "Outside scope" with no ID is a red flag; orchestrator should surface it at Phase 3 before shipping.
+
+3. **Live-proof lanes on harness workpackages:** Harness-touching workpackages (agent runtime, session lifecycle, execution loops) should have a live-proof integration test running the real adapter before code-review closure. They find production bugs unit tests cannot. (AL7's builtin lane found 2 immediate bugs; github lane is contract-tested due to env constraints — both honest.)
+
+4. **Orchestrator tree-verification in code-review:** Random-sample `grep` on 3 builder-claimed features during code-review. If claimed-true features don't exist in the diff, surface it as a misrepresentation finding, not a builder error — the finding itself catches the pattern.
+
+---
+
+## Honest deferrals shipped (recorded, transparent, not hidden)
+
+- **Live tool proof (github/merge_pr):** Loop is end-to-end proven via builtin live-session. GitHub merge is contract-tested (fetch-stub) because live run infeasible (no GITHUB_TOKEN; protected main; rulesets untouchable). Documented in progress.json + test name.
+- **Per-agent capability provisioning:** Deferred to AL8 (tool grant / trust tier) + AM2 (harness capability descriptor). AL7 enforces kernel-held-verb gate only. Named in progress.json, code comments, and plan.
+- **Verdict-history trust signal wiring (autonomy-widening):** Deferred to AL8. AL7 ships the review gate; the signal that fades the gate as trust grows is next.
+
+---
 
 ## Final assessment
-Shipped at architecture 8/10, design 9/10, all ACs covered or honestly narrowed-and-deferred, no false green. The architecture-critique is the cleanest win of the run. The code-review cost is the predictable price of red-phase mechanism-only testing — the compounding fix is breadth-first red-phase test design.
+
+Shipped at architecture 8/10, design 9/10. All ACs covered or honestly narrowed-and-deferred with named follow-ons (AL8, AM2). No false green (live-proof lane forced two production bugs out before merge).
+
+**Strongest lesson:** Architecture-critique's 5 rounds + per-round revision is the clearest ROI gate in the cycle. The cost is high (~48h), but it catches correctness bugs at design time (zero code cost) and forces the designer to lock trade-offs before builders start.
+
+**Weakest link:** Red-phase test breadth. Mechanism-only testing ships feature that "works in isolation but fails on the surface." The fix (breadth-first test design in write-tests skill) is straightforward; the pattern (CC-003) is now 3-occurrence confirmed.
