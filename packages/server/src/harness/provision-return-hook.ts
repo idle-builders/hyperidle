@@ -146,13 +146,23 @@ async function provisionClaudeSettings(
 /**
  * settings-codex: Write .codex/hooks.json with a Stop hook.
  *
- * WARN-F1 (trust): We write a `trusted` sentinel file in the .codex/ directory
- * to establish project trust. Codex loads project-local hooks only when the
- * project layer is trusted; without this the hook is silently skipped.
+ * WARN-F1 (trust): Codex loads project-local hooks only when the hook is trusted.
+ * Trust is granted per-invocation via `--dangerously-bypass-hook-trust` (used when
+ * HyperIdle spawns codex in its own sandbox) OR via pre-trust in ~/.codex/config.toml.
+ * There is NO sentinel file mechanism — trust is a per-invocation flag or user config.
  *
- * @lore AL6 WARN-F1: Same script-file pattern as settings-claude — write the
- * shell script to `.codex/return-check.sh` and reference only the script path
- * in hooks.json so the JSON config has no shell-expansion characters.
+ * @lore AL6 WARN-F1 (real codex v0.141.0): The hooks.json format is:
+ * ```json
+ * { "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "..." }] }] } }
+ * ```
+ * NOT a top-level "Stop" key. Verified against /opt/homebrew/.codex/hooks.json
+ * (installed by Homebrew codex formula). The old flat format `{ "Stop": { "command": "..." } }`
+ * is WRONG and silently ignored by codex.
+ *
+ * @lore AL6 WARN-F1 (codex decision:block): Codex Stop hooks use JSON stdout semantics:
+ * stdout `{"decision":"block","reason":"..."}` blocks the stop and re-prompts with the reason.
+ * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
+ * This is DIFFERENT from Claude Code which uses exit 2 + stderr for blocking.
  *
  * @lore AL6 WARN-F2: The Codex CLI hardcodes `args:["exec","proceed","--json"]`
  * in CLI_TOOL_CONFIGS; each session needs a per-session prompt carrier. The
@@ -166,37 +176,46 @@ async function provisionCodexHooks(
 	const codexDir = path.join(sandboxPath, ".codex");
 	fs.mkdirSync(codexDir, { recursive: true });
 
-	// WARN-F1 trust: write a `trusted` sentinel file so Codex loads project hooks.
-	fs.writeFileSync(path.join(codexDir, "trusted"), "", "utf-8");
-
-	// Write the shell script separately so hooks.json has no shell-expansion chars.
+	// Write the codex-specific return-check script (uses decision:block JSON on stdout,
+	// not exit 2 + stderr like Claude Code).
 	const scriptPath = path.join(codexDir, "return-check.sh");
-	const scriptContent = buildReturnCheckScript(bridgeToken, mcpUrl);
+	const scriptContent = buildCodexReturnCheckScript(bridgeToken, mcpUrl);
 	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// The command references only the script path (no shell chars in JSON).
-	// We embed bridgeUrl as a metadata field for observability/audit.
-	const hooks = {
-		Stop: {
-			command: ".codex/return-check.sh",
-			bridgeUrl: mcpUrl,
+	// @lore AL6 WARN-F1: Codex hooks.json format verified against real installed binary
+	// (codex-cli v0.141.0). Must use the nested { "hooks": { "Stop": [...] } } structure.
+	// Top-level "Stop" key is silently ignored by codex.
+	// Trust: caller passes --dangerously-bypass-hook-trust when spawning codex in sandbox.
+	const hooksConfig = {
+		hooks: {
+			Stop: [
+				{
+					hooks: [
+						{
+							type: "command",
+							command: ".codex/return-check.sh",
+							timeout: 10,
+						},
+					],
+				},
+			],
 		},
 	};
 
-	fs.writeFileSync(path.join(codexDir, "hooks.json"), JSON.stringify(hooks, null, 2), "utf-8");
+	fs.writeFileSync(
+		path.join(codexDir, "hooks.json"),
+		JSON.stringify(hooksConfig, null, 2),
+		"utf-8",
+	);
 }
 
 /**
- * Build the shell script content for a return-enforcement Stop hook.
+ * Build the shell script content for a Claude Code return-enforcement Stop hook.
  *
- * The script is written to a file (`.claude/return-check.sh` or
- * `.codex/return-check.sh`) and the hook config references only the path.
- * This keeps the JSON hook config free of shell-expansion characters.
- *
- * Protocol: POST to the HyperIdle bridge /return-status endpoint.
- *   - Bridge returns empty body → agent stopped cleanly → exit 0 (allow stop).
- *   - Bridge returns a forceMessage → exit 2 with message on stderr (block stop,
- *     Claude Code re-prompts with the stderr content).
+ * Protocol (Claude Code — exit 2 + stderr):
+ *   - Bridge returns empty body → exit 0 (allow stop).
+ *   - Bridge returns a forceMessage → write to stderr + exit 2 (block stop;
+ *     Claude Code re-prompts with the stderr content as a blocking message).
  *
  * @lore AL6 WARN-F1: The script uses single-quoted shell strings for the URL and
  * token to prevent shell variable expansion. Both values are server-minted
@@ -205,7 +224,7 @@ async function provisionCodexHooks(
 function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 	return [
 		"#!/bin/sh",
-		"# HyperIdle return-enforcement hook — auto-generated, do not edit.",
+		"# HyperIdle return-enforcement hook (Claude Code) — auto-generated, do not edit.",
 		`response=$(curl -s -X POST '${mcpUrl}/return-status' \\`,
 		`  -H 'Authorization: Bearer ${bridgeToken}' \\`,
 		`  -H 'Content-Type: application/json' -d '{}' 2>&1)`,
@@ -213,6 +232,34 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
 		'  printf "%s\\n" "$response" >&2',
 		"  exit 2",
 		"fi",
+	].join("\n");
+}
+
+/**
+ * Build the shell script content for a Codex return-enforcement Stop hook.
+ *
+ * Protocol (Codex — decision:block JSON on stdout):
+ *   - Bridge returns empty body → print {"decision":"approve"} and exit 0 (allow stop).
+ *   - Bridge returns a forceMessage → print {"decision":"block","reason":"..."} on stdout
+ *     and exit 0 (Codex re-prompts with the reason).
+ *
+ * @lore AL6 WARN-F1 (real codex v0.141.0): Codex Stop hooks use JSON stdout semantics,
+ * NOT exit 2 + stderr like Claude Code. Verified by running codex with a blocking
+ * Stop hook that returns {"decision":"block","reason":"..."} — codex correctly
+ * re-prompted with the reason text.
+ */
+function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
+	return [
+		"#!/bin/sh",
+		"# HyperIdle return-enforcement hook (Codex) — auto-generated, do not edit.",
+		`response=$(curl -s -X POST '${mcpUrl}/return-status' \\`,
+		`  -H 'Authorization: Bearer ${bridgeToken}' \\`,
+		`  -H 'Content-Type: application/json' -d '{}' 2>&1)`,
+		'if [ -n "$response" ]; then',
+		'  printf \'{"decision":"block","reason":"%s"}\' "$response"',
+		"  exit 0",
+		"fi",
+		'printf \'{"decision":"approve"}\'',
 	].join("\n");
 }
 
