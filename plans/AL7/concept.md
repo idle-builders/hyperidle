@@ -187,7 +187,7 @@ Stable nouns are inputs. The concept work below covers **Proposed Call**, **revi
   5. **Two-session async resume, not live pause.** Route-to-review ends session 1; approve re-provisions session 2 via the task-dispatcher rail with the tailored grant.
   6. **Reversible auto-flows; irreversible routes to review.** Only irreversible calls are captured → reviewed.
   7. **A non-approving verdict never executes.** Held Proposed Calls are never granted.
-  8. **The work continues after the result.** On approve the agent re-engages, runs the approved op, and **keeps working** (closes the story / updates docs / proceeds) — the operation-finish event re-engages the agent (folded in; was AL10).
+  8. **The work continues after the result.** On approve the agent re-engages, runs the approved op, and **keeps working** (closes the story / updates docs / proceeds). **This is the *same* session-2 run proceeding after the approved tool returns — not a third event.** There is exactly one re-engagement event (`proposed_call_granted` → session 2); after the Outcome the agent simply continues in that same run. (NIT-3 — "the operation-finish event re-engages the agent" was a phantom event; there is no second/third re-dispatch in the happy path. The only *re*-provision is the AC11b liveness net on crash/no-show.) Folded in; was AL10.
   9. **The gate fades as trust grows.** It rides the verdict-history trust signal (AD4); more autonomy is the goal. AL7 ships the gated arm; AL8 widens the lane.
   10. **DONE is proven LIVE on the real installed harnesses.** The trust-first loop (agent proposes irreversible op → review → approve → agent executes with its own tools → continues) is integration-tested against the real installed harness per supported harness — never a stub. builtin + Claude go green now; Codex + opencode are named net-new adapter tasks (see the matrix), live-proven once their adapter routes the call into the workflow.
 
@@ -225,7 +225,7 @@ Not a containment fortress, not "the only path", no credential-containment depen
 On approve HyperIdle composes a tailored grant (do the approved op + reversible; route other irreversible to review), re-provisions session 2, and the agent re-attempts. **Re-deriving the call is fine — we trust it.** No exact-hash-match, no deadlock. Byte-fidelity is an optional arg-pin convenience.
 
 ### 3. Work continues after the result → **locked (folded in; was AL10).**
-On approve the verdict path emits **`proposed_call_granted`** and the task-dispatcher's dedicated subscription re-engages the agent (NOT the owner-change `session_ended` path); the operation-finish event re-engages the agent so it **keeps working** — closes the story, updates docs, proceeds.
+On approve the verdict path emits **`proposed_call_granted`** and the task-dispatcher's dedicated subscription re-engages the agent (NOT the owner-change `session_ended` path). After the approved op returns its Outcome, the agent **keeps working *within that same session-2 run*** — closes the story, updates docs, proceeds. There is **no second "operation-finish" event** (NIT-3): one re-engagement (`proposed_call_granted`), then the same run continues.
 
 ### 4. The gate fades with trust → **locked (AL7 ships the gated arm; AL8 widens it).**
 Reversible auto-flow + autonomy widening ride the verdict-history trust signal (AD4, `policy-engine.ts`). AL7 ships only the gated arm (every irreversible Proposed Call waits for explicit approve); AL8 wires the auto-flow.

@@ -124,7 +124,7 @@ Grammar unchanged — five decisions, `approve` stays `approve`. An `approve` / 
 5. **Two-session async resume, not live pause.** Route-to-review ends session 1; approve re-provisions session 2 with the tailored grant.
 6. **Reversible flows; irreversible routes to review.** (Reversible auto-flow per trust is AL8.) Only irreversible calls are captured → reviewed.
 7. **A non-approving verdict never executes.** Held Proposed Calls are never granted.
-8. **The work continues after the result.** On approve the agent re-engages, runs the approved op, and **keeps working** (closes the story / updates docs / proceeds) — the operation-finish event re-engages the agent (folded in; was AL10).
+8. **The work continues after the result.** On approve the agent re-engages (`proposed_call_granted` → session 2), runs the approved op, and **keeps working** (closes the story / updates docs / proceeds) — this is the *same* session-2 run proceeding after the tool returns, **not a second event**. There is exactly one re-engagement event; the only other re-provision is the liveness net on crash/no-show. (Folded in; was AL10.)
 9. **Failure surfaces** as a `failed` Outcome — never silently swallowed.
 10. **The gate fades as trust grows** (verdict-history signal, AD4); more autonomy is the goal.
 11. **DONE is proven LIVE on the real installed harnesses.** The trust-first loop (agent proposes irreversible op → review → approve → agent executes with its own tools → continues) is integration-tested against the real installed harness per supported harness — never a stub. builtin + Claude green now; Codex + opencode are named net-new adapter tasks.

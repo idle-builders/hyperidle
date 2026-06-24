@@ -1,4 +1,103 @@
-# AL7 Architecture Critique — Tailored-Native-Allow/Deny model (reshape)
+# AL7 Architecture Critique — ROUND 5: Trust-first redo (ETHOS §4)
+
+Reviewer: cold re-evaluation of the **trust-first redo** (commit `fc915a59`) against `plans/AL7/concept.md` + `architecture.md` + `docs/process-layer/staged-operation.md`, governed by `ETHOS.md` §4 "Trust Agents". Load-bearing claims re-verified against the live adapters (`packages/server/src/harness/`, `tool-registry.ts`, `schema.ts`, `task-dispatcher.ts`, `policy-engine.ts`) and the **current (June 2026)** Claude Agent SDK / Codex / opencode permission docs via web fetch — not the plan's word, not training data.
+
+> **ALL PRIOR SECTIONS BELOW THIS ONE ARE SUPERSEDED.** Rounds 1–4 (byte-faithful-replay, native-allow/deny-floor, broker-floor-as-fortress) critiqued models the founder cut off for *spiralling into paranoia*. Round 4's CRITICAL-1 ("Codex cannot express the tailored floor; the safety guarantee is infeasible") is **resolved by deletion, not by fix**: the trust-first model has no safety floor for Codex to fail to express. Read this round only.
+
+---
+
+## Headline
+
+**The redo sheds the paranoia honestly without going hollow.** The deleted constructs (no-creds-in-sandbox, broker-as-fortress, native-tool-bypass threat model, exact-hash-match-to-permit, AN credential dependency) are gone from concept + arch + doc — not just renamed, *deleted with their rationale*. What remains still delivers a real checkpoint: an irreversible call genuinely reaches a human before it happens, enforced at the one place every brokered call passes through (`registry.invoke`), and the session-1-ends / approve / session-2-re-provision loop is wired end-to-end with explicit triggers and live-proof lanes. The simplification did **not** leave the checkpoint hand-waved — it is the best-wired version of AL7 in five rounds.
+
+Round 4's crux infeasibility is genuinely dissolved: the model no longer claims Codex's native gate *enforces* anything. The route-to-review step rides Claude's externally-answerable `canUseTool` where it exists, and hangs at HyperIdle's own `registry.invoke` participation point where it doesn't (Codex `exec`, opencode headless) — framed as plumbing for a missing channel, not a security floor. **I verified all three load-bearing harness claims against the live June-2026 docs and they hold** (see Web-verification below).
+
+The remaining findings are about checkpoint *deliverability* on the headless harnesses, one genuine cheap-to-close trust-honest gap (the review must show what was approved), and accuracy/honesty nits — not paranoia to re-smuggle.
+
+## Web-verification (live, June 2026 — not training data)
+
+| Plan claim | Live-doc verdict | Source |
+|---|---|---|
+| Claude `canUseTool` is externally answerable in headless `query()`; `PermissionResult` = allow(+`updatedInput`)/deny(+message)/ask; `allowedTools`/`disallowedTools` work | **TRUE.** `default` mode routes unmatched tools to the `canUseTool` callback at runtime; deny/allow/updatedInput all documented; `dontAsk` denies without prompting. Plan's carrier design is accurate. | code.claude.com/docs/en/agent-sdk/permissions + /user-input |
+| Codex `exec` has no externally-answerable headless ask | **TRUE.** "No externally-answerable approval channel for `codex exec`"; approvals must be pre-configured, not answered at runtime. | developers.openai.com/codex/noninteractive |
+| opencode headless `run` may auto-approve an ask | **UNDOCUMENTED** — the docs do not specify headless `run` ask behavior at all. Plan flags this as ⚠️ UNVERIFIED (R8) and defers to installed-binary test in Task 7b. Honest. | opencode.ai/docs/permissions |
+
+The plan's accuracy here is the inverse of round 4's failure: where round 4 *asserted* native surfaces that didn't exist, this round *correctly states* where the native ask is absent and routes around it without claiming a guarantee.
+
+---
+
+## Findings (Round 5)
+
+### WARNING-1 — "Carried at HyperIdle's participation point" is a real checkpoint on the CLI harnesses ONLY IF the brokered call actually reaches `registry.invoke` — and on Codex/opencode that is the *entire* net-new adapter, not a small assertion.
+
+The checkpoint's deliverability on Codex/opencode rests on one premise: the agent's irreversible call is **MCP-routed through HyperIdle's bridge** → `registry.invoke` (`mcp-bridge.ts:132`). Verified true today: builtin hits `registry.invoke` directly (`mcpSupport:false`); a registered MCP tool reaches it via the bridge. **But on Codex/opencode there is no MCP wiring at all** — `CLI_TOOL_CONFIGS` has no `codex` entry, and the `opencode` entry is `--dir`-only text-mode with no `{{mcpUrl}}` (verified `adapter-pool.ts:324-353`). So for those harnesses *the checkpoint does not exist until the net-new adapter routes the call through HyperIdle's MCP server*. The plan is honest that this is net-new (Tasks 7b/7c, `net-new-adapter-pending`), and the DONE matrix correctly does NOT mark them green.
+
+The flag is calibration, not a defect: the plan in two places (concept §"how it works"; arch D1-A) describes the headless-harness checkpoint as already-real ("HyperIdle's existing participation point already carries the workflow for headless harnesses") while the task list correctly scopes it as unbuilt. **A reader could conclude the Codex/opencode checkpoint is delivered today; it is not — it depends on the agent choosing to use the MCP-exposed tool over its own native shell/HTTP.** That last clause is *fine under ETHOS §4* (we trust the agent to use the brokered tool, exactly as we don't model a bypass) — but the plan should state plainly, once, that **on a headless CLI harness the checkpoint is delivered for MCP-routed tools and the agent is trusted to route through them** rather than implying the participation point intercepts everything. *Fix: one sentence in the per-harness matrix — "checkpoint covers the agent's MCP-routed calls; trusted not to route the irreversible op around the bridge (ETHOS §4)."* Do NOT add bypass-proofing.
+
+### WARNING-2 — "Session 2 re-derives the call, trust it" is honest, but the *review surface must show what was approved* — and the plan under-specifies that the human reviews a concrete call, not an abstraction.
+
+Under ETHOS §4 minor arg drift is acceptable (AC5b states the frontier correctly; name-scoped permits drifted args; no deadlock — all correct, no paranoia to add). The one trust-honest gap a *trusting* design should still close cheaply: **the human approves a specific captured `{toolId, args}`; session 2 then re-derives.** If the review canvas shows only `toolId` + a vague summary, "human approved X, agent does materially-different Y" becomes invisible — not because the agent is hostile, but because re-derivation can legitimately differ and the human had no concrete picture of what they authorized. The reviews loader (Task 10) nests `proposedCall: { toolId, argsSummary, status }` — **`argsSummary` is the load-bearing word and it is undefined.** AC10 asserts the nesting exists but not that the *approved args are legibly shown to the reviewer*.
+
+This is the cheap close the brief asks for: the review should *show what was approved* so gross divergence is visible to the human, without rebuilding the hash-fortress. *Fix: AC10 (or a new AC) must assert the review surface renders the captured args concretely (not just the tool name), so the human's approve is grounded in the real call. The optional arg-pin (AC5b) covers exactness where a harness supports it; the review-legibility covers the rest. Neither is a guard — both are "the human sees what they signed."* This is squarely User Sovereignty (ETHOS §3), not paranoia.
+
+### WARNING-3 — Per-harness DONE matrix is honest and terminal, with one loophole to close: the live-proof lane must FAIL (not skip) if a "green-now" harness's real binary is absent.
+
+The matrix is the strongest part of the plan: builtin + Claude `green` (live proof now), Codex/opencode `net-new-adapter-pending` (not green, not silently skipped, not looped), cursor-agent `skipped`. AC14 + Task 11 require live proof against the **real installed harness** (real SDK / installed CLI binary), no stub. This is the honest terminal state the brief demands and it directly answers the "no infinite loop, no stub-as-proof" bar.
+
+The loophole: the plan says builtin + Claude "must be green now," but does not state what happens if the Claude SDK / `claude` binary is **not installed in the run environment**. A live-proof lane that silently `skip`s on a missing binary is stub-as-proof by another name. *Fix: state that a `green-now` harness whose real binary is unavailable makes the lane **fail** (DONE not reached), never skip — the same honesty the `net-new-adapter-pending` state enforces for the CLI pair. Do not let "harness not installed" masquerade as green.* (MEMORY: live-proof lanes run before ship; AH5 shipped 3x mocked.)
+
+### WARNING-4 — `commit_file` as the universal live-proof tool: is a sandbox file-write genuinely *irreversible*, and does it actually exercise "the agent's own creds"?
+
+`commit_file` writes a real file into the session sandbox, classified `irreversible`, needing "no special credential." Two honesty checks:
+1. **A sandbox file-write is trivially reversible** (delete the file). The plan classifies it `irreversible` by explicit `reversibility:"irreversible"` field — i.e. *declared*, not *intrinsic*. That's fine as a **proof vehicle** (it exercises the classify→route→capture→grant→execute→record loop deterministically without a real external side-effect), and the plan is honest that it's "just a concrete irreversible op to prove the loop." But it means the live proof does **not** exercise the "agent runs with its own credentials" path (the whole ETHOS-§4 point) — `commit_file` is a HyperIdle-registered tool with a HyperIdle handler, run in-process. *Flag, not block:* the loop is proven; the *creds-present-and-used* property is asserted in prose (AC12) but not exercised by any lane. Acceptable for AL7 (proving the checkpoint mechanics is the AC), but state explicitly that `commit_file`'s handler is HyperIdle's own and the "own-creds" property rides on it being the agent's *session* that emits the call, not on the handler authenticating anything. Otherwise AC12's "the tool runs because the agent's own session emitted it" is true but thin.
+
+### WARNING-5 — The `tailored_grants` CAS + the abort-on-capture race deserve one explicit ordering statement.
+
+The router (arch Type-sigs) does: capture (idempotent) → `if (captured.firstCapture) abort(sessionId)` → return `AWAITING_REVIEW`. And the consume path is a single-statement CAS `UPDATE … WHERE consumed=false RETURNING *` (AC6, good — no pre-read, concurrency-safe). The plan flags the crash window (consume-then-execute strands a `granted` call with no Outcome → liveness net AC11b catches it). Two residual ordering questions the plan should answer in one line each:
+1. **Capture-then-abort is not atomic.** If `abort` fires but the harness emits a *second* irreversible call before the subprocess dies, the idempotency key `(origin_session_id, identity_hash)` dedups an *identical* call but a *different* second irreversible call writes a second Proposed Call from a session that's supposed to be ending. Is that intended (two captures, two reviews) or should the first capture short-circuit further captures in that session? Not a security issue (we trust the agent) — a bookkeeping-cleanliness question. *State the intent.*
+2. **AC6 "twice concurrently" is the consume CAS; AC1 "second identical routed call writes no duplicate" is the capture idempotency.** Both are sound. Just confirm the capture idempotency index `(origin_session_id, identity_hash)` is UNIQUE (the schema reshape says INDEX, not UNIQUE — `schema.ts` reshape bullet lists it under "INDEX"). A non-unique index does not enforce no-duplicate; the dedup must be a UNIQUE constraint or a CAS-style insert. *Fix: make `(origin_session_id, identity_hash)` UNIQUE, or state the insert is conditional.*
+
+### NIT-1 — Two harness DONE matrices (concept §"Per-harness …" + arch Phase 2) are duplicated verbatim-ish; they will drift. Keep one canonical (doc or concept) and reference it.
+
+### NIT-2 — `operation_executed` → `proposed_call_executed` rename touches 3 enumerated subscribers (observability dispatcher, `review-composition.ts`, `ReviewComposition.tsx`). Good. Confirm the web `ReviewComposition.tsx:672-679` field rename (`stagedOperation` → `proposedCall`) re-blesses the DOM-snapshot net (per `.claude/rules/visual-regression.md`) — the plan lists the subscribers but not the snapshot re-bless. *One-line task addendum.*
+
+### NIT-3 — Concept hard-rule #8 and the lifecycle both say "the operation-finish event re-engages the agent" for work-continues, but Task 9/§verdict-path wire `proposed_call_granted` as the re-engage trigger. The "operation-finish event" (post-Outcome continue) is a *distinct* second re-engagement and isn't in the task list as its own event. Either the agent continues *within* session 2 after the Outcome (no second event — most likely, since session 2 is one run) or a third event is needed. *Clarify: is "continues working" the same session-2 run proceeding after the tool returns (no new event), or a separate re-dispatch?* AC11 ("session 2's stream produces ≥1 further agent action") implies same-run — if so, drop "the operation-finish event re-engages" from rule #8 as a phantom event.
+
+---
+
+## Dimension scores
+
+| Dimension | Score | Note |
+|---|---|---|
+| Concept fidelity (ETHOS §4 embodied) | 9.5 | Paranoia genuinely shed; trust frame is load-bearing, not decorative. |
+| Layer integrity / reuse | 9 | One router seam, native carrier per harness, reuses verdict/dispatch/abort rails. |
+| Checkpoint actually delivered | 8 | Real on builtin+Claude now; real on CLI *after* net-new MCP routing (honestly scoped). WARNING-1. |
+| Trust-honest review legibility | 7 | The "show what was approved" surface is under-specified. WARNING-2. |
+| Per-harness DONE honesty + terminality | 9 | Best-in-five-rounds; one missing-binary loophole. WARNING-3. |
+| Native-features-not-reinvention | 9.5 | Rides `canUseTool`/`allowedTools`; participation point only fills the no-headless-ask gap. No reinvention. |
+| Data model / migration | 8.5 | Clean reshape; unique-index nit (WARNING-5.2). |
+| Concurrency / liveness | 8.5 | CAS + liveness-net solid; two ordering statements owed (WARNING-5). |
+| Live-proof rigor | 8 | Real-binary integration tests required; `commit_file` proves mechanics not creds (WARNING-4). |
+
+## Score: **8.6 / 10**
+
+## Finding counts
+- CRITICAL: **0**
+- WARNING: **5** (WARNING-1 CLI checkpoint-deliverability framing; WARNING-2 review must show approved args; WARNING-3 missing-binary must fail not skip; WARNING-4 `commit_file` proves mechanics not creds; WARNING-5 capture-idempotency UNIQUE + abort ordering)
+- NIT: **3**
+
+## Verdicts
+
+**ETHOS §4 (trust, not paranoia) while still delivering a real checkpoint:** YES — embodied honestly. The deleted fortress constructs are gone with their rationale, not renamed; the trust frame is load-bearing (creds-present-is-correct, re-derivation-is-fine, gate-fades-on-AD4, no bypass model). And the simplification did **not** hollow out the checkpoint: an irreversible call genuinely reaches a human at `registry.invoke` before execution, with explicit capture / abort / grant / consume / re-engage / outcome wiring. The one trust-honest gap (WARNING-2: the human must *see the concrete approved call*) is User Sovereignty, not paranoia, and is cheap to close without the rejected hash-fortress.
+
+**Per-harness DONE honesty:** HONEST and TERMINAL. builtin + Claude green-now (live proof against the real SDK/loop); Codex + opencode `net-new-adapter-pending` (named adapter tasks 7b/7c, not green, not skipped, not looped); cursor-agent skipped. The Codex/opencode "route-to-review hangs at HyperIdle's participation point" is **deliverable once the net-new MCP routing lands** — it is not a deeper blocker (the bridge → `registry.invoke` path is proven on Claude today), but it does NOT exist until Tasks 7b/7c wire `{{mcpUrl}}`, and the plan is correctly honest about that. Close WARNING-3 so a missing green-now binary fails rather than masquerades as green.
+
+**Build-ready judgment:** **BUILD-READY for the green-now arm (builtin + Claude) as-is; address WARNING-2 (review shows approved args) and WARNING-5 (UNIQUE capture index) before code, and WARNING-3/1/4 as honesty statements in the plan — none require redesign.** Codex/opencode proceed as the explicitly-scoped net-new adapter tasks they already are.
+
+---
+---
+
+# AL7 Architecture Critique — Tailored-Native-Allow/Deny model (reshape) [SUPERSEDED — Round 4]
 
 Reviewer: cold re-evaluation against the **reshaped** plan (commit-current `concept.md` + `architecture.md` + `docs/process-layer/staged-operation.md`). The prior critique (rounds 1–3 below the line) scored the **byte-faithful-replay** model and is **SUPERSEDED** — that model is discarded by this reshape. This critique is fresh against the new model: *HyperIdle executes nothing; it rides each harness's native permission gate; session 2 is re-provisioned with the native allow/deny tailored to "the approved op + reversible, deny all other irreversible"; byte-fidelity demoted to an optional arg-pin.* Every load-bearing claim re-verified against the adapters in `packages/server/src/harness/` and the **current** (June 2026) Codex/opencode permission docs — not the plan's word, not training data.
 
