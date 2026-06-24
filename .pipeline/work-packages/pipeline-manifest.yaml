@@ -1280,3 +1280,25 @@ stories:
     track: AP
     depends: []
     complexity: M
+
+  # Track AO: Codebase Development Substrate
+  - id: AO1
+    title: Repository as a per-team primitive
+    track: AO
+    depends: []
+    complexity: L
+  - id: AO2
+    title: Working-tree materialization into the agent sandbox
+    track: AO
+    depends: [AO1]
+    complexity: L
+  - id: AO3
+    title: Agent code output becomes a review-ready branch
+    track: AO
+    depends: [AO2, AL7]
+    complexity: L
+  - id: AO4
+    title: Concurrent multi-project isolation
+    track: AO
+    depends: [AO1, AO2]
+    complexity: M
