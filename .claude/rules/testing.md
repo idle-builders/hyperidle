@@ -58,6 +58,10 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 - Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
 - Design system: every UI component must have a `.stories.tsx` file.
 
+## Harness & agent features
+
+Features that touch a harness or agent are integration-tested against the **actual installed harness** — the real CLI/SDK on the machine — never a stub or mock, and across **every supported harness**, not just one. A stubbed-harness test is a false green: it proves the wrapper, not that the feature works on the harness. This is a local-only lane (like e2e — never a GitHub Actions job). If a supported harness is not present in the env, the feature is not proven done on it — surface that, don't substitute a stub.
+
 ## Fixture pattern (integration tests)
 
 ```typescript

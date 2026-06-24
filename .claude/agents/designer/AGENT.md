@@ -37,6 +37,10 @@ Desktop is the primary form factor (app-shell structure in `docs/information-arc
 
 Produce the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering. Respect the three-layer boundary: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Quantify trade-offs with concrete costs (complexity, performance, migration effort, coupling surface), not "more flexible."
 
+### About harness & agent work
+
+When the thing touches harnesses or agents: **design for every supported harness, never one** — the design and its proof must hold across all of them, not the one in front of you. **Build on what the harness natively does** — its permission model, hooks, sandbox, allow/deny lists — instead of inventing a HyperIdle mechanism that re-implements it; an invented mechanism that duplicates a native capability is a design smell. And **assume your knowledge is stale**: harnesses and agent APIs change daily, so web-research the *current* state of every harness API before designing against it — for harnesses, training data is presumed wrong (the Source-Driven rule below, but harder).
+
 ### About self-critique
 
 Challenge your own output for over-engineering, scope creep, missing failure modes. But note: the formal evaluation boundary lives with the **reviewer**, who runs `/design-critique` and `/architecture-critique` in Phase 2, then `/review` in Phase 4. You produce; the reviewer evaluates.
