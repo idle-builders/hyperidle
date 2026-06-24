@@ -42,7 +42,12 @@ import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.j
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
-import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
+import {
+	buildToolRegistry,
+	type RegistrySessionWorkflow,
+	type ToolContext,
+	toolsForRole,
+} from "../tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
@@ -217,6 +222,23 @@ export interface ProvisionSessionParams {
 	 * the sessions.taskId NOT NULL FK.
 	 */
 	readonly routineId?: string;
+	/**
+	 * AL7 Task 6: When set, the registry invoke router participates in the
+	 * trust-first review workflow for this session.
+	 *
+	 * - Session 1 (open-work): route irreversible calls to review + capture.
+	 * - Session 2 (grant-bearing): permit the approved op (CAS-consume grant)
+	 *   and route other irreversible calls to a fresh review.
+	 *
+	 * Absent for sessions that don't participate in the workflow (normal sessions,
+	 * routine sessions, assistant turns, extraction drains).
+	 *
+	 * @lore AL7 Task 6: the workflow is injected here (server-side) rather than
+	 * in SessionConfig (shared) because `reviewMessageId`/`subjectThreadId`/
+	 * `artifactId` are server-side capture anchors that don't belong in the shared
+	 * harness interface (concept rejection #8).
+	 */
+	readonly sessionWorkflow?: RegistrySessionWorkflow;
 }
 
 export interface ProvisionSessionResult {
@@ -599,6 +621,12 @@ export async function runSession(
 	// @lore AK2 §5a: toolContext no longer carries a `watcher` field — the IngestionHandle
 	// is not a ToolContext concern. Tools that previously used watcher.stop() go through
 	// the session teardown paths (endSession/crashSession) which hold sessionContext.
+	//
+	// @lore AL7 Task 6: `onAbortSession` wires the workflow router's abort trigger
+	// to `sessionRunRegistry.abort` so that when session 1 routes an irreversible call
+	// to review, it terminates the harness (sessions aren't pausable). The abort is
+	// async but we fire-and-forget here — the harness receives a stop signal; the
+	// provisioning drain's `aborted` flag is the secondary cooperative break.
 	const toolContext: ToolContext = {
 		db,
 		eventBus,
@@ -608,12 +636,28 @@ export async function runSession(
 		teamId,
 		sandboxPath,
 		ingestion,
+		// AL7 Task 6: inject abort callback so the workflow router can end session 1
+		// after capturing the first irreversible call. Fire-and-forget is intentional:
+		// the abort is best-effort (sessions aren't pausable); the router already
+		// returned AWAITING_REVIEW before calling this.
+		onAbortSession: params.sessionWorkflow
+			? (abortedSessionId) => {
+					void sessionRunRegistry.abort(abortedSessionId).catch(() => {
+						// Non-fatal: the harness may have already exited.
+					});
+				}
+			: undefined,
 	};
 	const registry = buildToolRegistry(toolContext, {
 		role: agentRole,
 		// AL6 v4-final: inject hyperidle_return_status as a per-session tool.
 		// The tool reads ctx.sessionId → enforcementRegistry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
 		extraTools: [returnStatusTool.forRegistry(enforcementRegistry)],
+		// AL7 Task 6: thread the session workflow into the registry so the invoke
+		// router classifies reversibility, routes irreversible calls to review, and
+		// permits the approved op (CAS-consume grant) on the grant-bearing session.
+		// Absent for sessions without a workflow (normal sessions, routines, drains).
+		sessionWorkflow: params.sessionWorkflow,
 	});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.

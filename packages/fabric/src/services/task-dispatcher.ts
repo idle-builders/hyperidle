@@ -32,6 +32,7 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	type ProposedCallGrantedEvent,
 	type SessionEndedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
@@ -519,9 +520,46 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 		})();
 	};
 
+	// ── Event handler: proposed_call_granted — re-engage session 2
+	//
+	// @lore AL7 R1: This is a SEPARATE subscription — NOT inside handleSessionEnded.
+	// `handleSessionEnded` guards on owner change (AD2 handoff path); this handler
+	// fires on the explicit grant approval event and enqueues directly.
+	// Sharing the guard with handleSessionEnded would risk double-dispatch.
+	//
+	// @lore AL7 Task 9: `hasActiveSession` guard prevents double-dispatch in the
+	// race where session 1 is still tearing down when the approve verdict fires.
+	const handleProposedCallGranted = (event: ProposedCallGrantedEvent): void => {
+		void (async () => {
+			const { taskId, agentId } = event;
+
+			// Idempotency: skip if session 2 is already running (e.g. double-approve).
+			if (await hasActiveSession(db, taskId)) return;
+
+			const [task] = await db
+				.select({ teamId: tasks.teamId, state: tasks.state })
+				.from(tasks)
+				.where(eq(tasks.id, taskId))
+				.limit(1);
+
+			// Only re-engage if the task is still in-flight.
+			if (!task || task.state !== "in_progress") return;
+
+			await enqueue(db, {
+				taskId,
+				agentId,
+				teamId: task.teamId ?? taskId,
+				enqueuedAt: Date.now(),
+			});
+
+			scheduleDrain();
+		})();
+	};
+
 	// Subscribe to events
 	const unsubTaskStateChanged = eventBus.on("task_state_changed", handleTaskStateChanged);
 	const unsubSessionEnded = eventBus.on("session_ended", handleSessionEnded);
+	const unsubProposedCallGranted = eventBus.on("proposed_call_granted", handleProposedCallGranted);
 
 	// Perform startup sweep (async, fire-and-forget drain after sweep).
 	// Pass myGeneration so the sweep can bail out if it becomes stale
@@ -542,6 +580,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 	return (): void => {
 		unsubTaskStateChanged();
 		unsubSessionEnded();
+		unsubProposedCallGranted();
 		// Bump generation to invalidate any in-flight drains from this registration.
 		// In-flight drains check `generation !== currentGeneration` and become no-ops.
 		// The next registerTaskDispatcher will bump again, creating a new valid generation.

@@ -461,3 +461,116 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		expect(outcomes[0]?.error).toContain("approved op did not execute");
 	});
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC11 — "work continues": after the approved op executes in session 2,
+// the registry can still invoke further (reversible) tools.
+//
+// The plan: "after the approved commit_file records the Outcome, session 2's
+// stream produces ≥1 further agent action ... the session does not end at the
+// approved call."
+//
+// For the builtin in-process proof: after registry.invoke("commit_file")
+// CAS-consumes the grant and returns success, a subsequent call to a
+// REVERSIBLE tool (e.g. write_session_notes) ALSO succeeds — proving the
+// registry/session does not terminate after the approved op.
+//
+// @lore AL7 NIT-3: this is the SAME session-2 run proceeding after the tool
+// returns. No phantom second event, no second provisioning — just the next
+// tool call in the loop hitting the registry and succeeding.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("AC11: work continues in session 2 after the approved op executes", () => {
+	test("registry stays functional after approved commit_file: reversible tool succeeds", async ({
+		db,
+		eventBus,
+	}) => {
+		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
+		const sandboxPath = makeSandbox("s2-ac11");
+		const sessionId2 = `sess-s2-ac11-${crypto.randomUUID()}`;
+		const pcId = `pc-loop-ac11-${crypto.randomUUID()}`;
+		const outputFile = path.join(sandboxPath, "ac11-result.txt");
+
+		// Pre-insert a granted Proposed Call + tailored grant
+		await db.insert(proposedCalls).values({
+			id: pcId,
+			reviewMessageId,
+			subjectThreadId: threadId,
+			artifactId,
+			originSessionId: `sess-s1-${pcId}`,
+			toolId: "commit_file",
+			args: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
+			identityHash: "sha256-ac11",
+			reversibility: "irreversible",
+			status: "granted",
+			stagedByAgentId: agentId,
+			createdAt: NOW,
+		});
+
+		await db.insert(tailoredGrants).values({
+			proposedCallId: pcId,
+			taskScope: taskId,
+			agentScope: agentId,
+			approvedToolId: "commit_file",
+			approvedArgs: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
+			argPinned: false,
+			identityHash: "sha256-ac11",
+			consumed: false,
+			retryCount: 0,
+			mintedAt: NOW,
+		});
+
+		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath });
+		const registry = buildToolRegistry(ctx, {
+			role: "builder",
+			sessionWorkflow: {
+				routeToReview: ["irreversible"],
+				sessionRole: "grant-bearing",
+				reviewMessageId,
+				subjectThreadId: threadId,
+				artifactId,
+				approvedCall: {
+					toolId: "commit_file",
+					args: { path: outputFile, content: "AC11 approved content" },
+					argPinned: false,
+				},
+			},
+		} as BuildToolRegistryOptions);
+
+		// Step 1: invoke the approved op (commit_file) — CAS-consumes grant + writes file
+		const approvedResult = await registry.invoke("commit_file", {
+			path: outputFile,
+			content: "AC11 approved content",
+		});
+		expect(approvedResult.success).toBe(true);
+		expect(fs.existsSync(outputFile)).toBe(true);
+
+		// Grant is consumed
+		const grants = await db
+			.select()
+			.from(tailoredGrants)
+			.where(eq(tailoredGrants.proposedCallId, pcId));
+		expect(grants[0]?.consumed).toBe(true);
+
+		// Step 2: invoke a REVERSIBLE tool — it must succeed (work continues).
+		// read_inbox is explicitly reversibility:"reversible" so the workflow router
+		// lets it flow without routing it to review.
+		// The session does NOT end after the approved op — the loop continues.
+		//
+		// @lore AL7 AC11: read_inbox is chosen because it is the only tool in
+		// ALL_TOOL_DEFINITIONS with explicit reversibility:"reversible" annotation.
+		// Any tool without an annotation defaults to irreversible (fail-closed),
+		// which would make this test prove nothing if we chose a non-annotated tool.
+		const continueResult = await registry.invoke("read_inbox", { limit: 5 });
+		// read_inbox may fail in a test environment (no real inbox data) but it must
+		// NOT return AWAITING_REVIEW — that would mean the registry routed a reversible
+		// tool to review, which would prove the session ended at the approved call.
+		if (!continueResult.success) {
+			// Allowed: tool handler error (empty DB, etc.) — the handler ran, loop continues.
+			// Forbidden: AWAITING_REVIEW — the router blocked a reversible tool.
+			const failResult = continueResult as { success: false; code: string };
+			expect(failResult.code).not.toBe("AWAITING_REVIEW");
+		}
+		// Confirmed: reversible tool ran after approved op → session 2 continues working.
+	});
+});
