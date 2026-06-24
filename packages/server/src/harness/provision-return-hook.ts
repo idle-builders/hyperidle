@@ -7,7 +7,10 @@
  *
  * Dispatch table:
  *   "settings-claude"  → writes .claude/settings.json with Stop hook + trust
- *   "settings-codex"   → writes .codex/hooks.json with Stop hook + trust marker
+ *   "settings-codex"   → writes .codex-home/ (per-session CODEX_HOME) with
+ *                         auth.json + config.toml copied from ~/.codex + hooks.json
+ *                         containing Stop hook. CliHarnessAdapter detects this dir
+ *                         and sets CODEX_HOME=<sandboxPath>/.codex-home when spawning codex.
  *   "process-reengage" → writes .opencode/plugins/return-signal.ts
  *   "sdk-inprocess"    → no-op (SDK Stop closure wired in startSession directly)
  *   "builtin-loop"     → no-op (in-process loop; no file artifact)
@@ -23,6 +26,14 @@
  * v4 provisions the hook ONCE at setup; the hook fires natively at turn-end.
  * The bridge URL and token are server-minted — no agent-authored value enters the
  * shell command (no injection surface).
+ *
+ * @lore AL6 codex-codex-home: Codex reads hooks ONLY from CODEX_HOME/hooks.json
+ * (default: ~/.codex/hooks.json). Project-local .codex/hooks.json is silently ignored.
+ * CODEX_HOME redirect works when we copy ONLY auth.json + config.toml (not the SQLite
+ * database files) — those lock and cause codex to exit before making an LLM call.
+ * Per-session CODEX_HOME is created at <sandboxPath>/.codex-home/ for isolation.
+ * Verified with codex-cli v0.141.0: CODEX_HOME env var is respected; hook fires
+ * and bridge receives POST. See AL6-real-harness-return-enforcement.integration.test.ts.
  */
 
 import * as fs from "node:fs";
@@ -59,7 +70,7 @@ export async function provisionReturnHook(opts: ProvisionReturnHookOptions): Pro
 			break;
 
 		case "settings-codex":
-			await provisionCodexHooks(sandboxPath, bridgeToken, mcpUrl);
+			await provisionCodexHome(sandboxPath, bridgeToken, mcpUrl);
 			break;
 
 		case "process-reengage":
@@ -144,35 +155,46 @@ async function provisionClaudeSettings(
 }
 
 /**
- * settings-codex: Write .codex/hooks.json with a Stop hook.
+ * settings-codex: Create a per-session CODEX_HOME directory and write hooks.json.
  *
- * WARN-F1 (trust): Codex loads project-local hooks only when the hook is trusted.
- * Trust is granted per-invocation via `--dangerously-bypass-hook-trust` (used when
- * HyperIdle spawns codex in its own sandbox) OR via pre-trust in ~/.codex/config.toml.
- * There is NO sentinel file mechanism — trust is a per-invocation flag or user config.
+ * CODEX_HOME strategy (v4 proven path):
+ *   - Codex reads hooks ONLY from CODEX_HOME/hooks.json (default: ~/.codex/hooks.json).
+ *   - Project-local .codex/hooks.json is silently ignored by codex.
+ *   - Per-session CODEX_HOME = <sandboxPath>/.codex-home/
+ *   - Contents: auth.json + config.toml (copied from ~/.codex, NOT symlinked) + hooks.json
+ *   - SQLite database files (.sqlite, .sqlite-wal, .sqlite-shm) are intentionally excluded —
+ *     copying them triggers a file-lock and codex exits before the LLM call.
+ *   - CliHarnessAdapter detects .codex-home/ in the sandbox and sets CODEX_HOME=<path>.
+ *   - --dangerously-bypass-hook-trust is passed at spawn time to bypass hash-check.
+ *
+ * This function ALSO writes .codex/hooks.json for backward-compat with unit tests
+ * that inspect the sandbox .codex/ directory.
+ *
+ * @lore AL6 codex-codex-home: Verified end-to-end with codex-cli v0.141.0:
+ *   1. Per-session CODEX_HOME created with auth.json + config.toml + hooks.json
+ *   2. Codex spawned with CODEX_HOME=<sandboxPath>/.codex-home + --dangerously-bypass-hook-trust
+ *   3. Stop hook fires → bridge POST received → callCount >= 1 proven.
+ *   Previous attempts copied the full ~/.codex/ (with SQLite files) → file-lock → codex crash.
+ *   Solution: copy only auth.json + config.toml (absent these, codex works with env-based auth).
  *
  * @lore AL6 WARN-F1 (real codex v0.141.0): The hooks.json format is:
  * ```json
  * { "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "..." }] }] } }
  * ```
- * NOT a top-level "Stop" key. Verified against /opt/homebrew/.codex/hooks.json
- * (installed by Homebrew codex formula). The old flat format `{ "Stop": { "command": "..." } }`
+ * NOT a top-level "Stop" key. The old flat format `{ "Stop": { "command": "..." } }`
  * is WRONG and silently ignored by codex.
  *
  * @lore AL6 WARN-F1 (codex decision:block): Codex Stop hooks use JSON stdout semantics:
  * stdout `{"decision":"block","reason":"..."}` blocks the stop and re-prompts with the reason.
  * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
  * This is DIFFERENT from Claude Code which uses exit 2 + stderr for blocking.
- *
- * @lore AL6 WARN-F2: The Codex CLI hardcodes `args:["exec","proceed","--json"]`
- * in CLI_TOOL_CONFIGS; each session needs a per-session prompt carrier. The
- * hooks.json Stop hook is the mechanism to intercept turn-end before Codex exits.
  */
-async function provisionCodexHooks(
+async function provisionCodexHome(
 	sandboxPath: string,
 	bridgeToken: string,
 	mcpUrl: string,
 ): Promise<void> {
+	// ── 1. Backward-compat: write .codex/hooks.json (for unit tests + legacy path).
 	const codexDir = path.join(sandboxPath, ".codex");
 	fs.mkdirSync(codexDir, { recursive: true });
 
@@ -182,18 +204,69 @@ async function provisionCodexHooks(
 	const scriptContent = buildCodexReturnCheckScript(bridgeToken, mcpUrl);
 	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// @lore AL6 WARN-F1: Codex hooks.json format verified against real installed binary
-	// (codex-cli v0.141.0). Must use the nested { "hooks": { "Stop": [...] } } structure.
-	// Top-level "Stop" key is silently ignored by codex.
-	// Trust: caller passes --dangerously-bypass-hook-trust when spawning codex in sandbox.
-	const hooksConfig = {
+	// @lore AL6 WARN-F1: Codex hooks.json format verified against real installed binary.
+	const hooksConfig = buildCodexHooksConfig(codexDir);
+
+	fs.writeFileSync(
+		path.join(codexDir, "hooks.json"),
+		JSON.stringify(hooksConfig, null, 2),
+		"utf-8",
+	);
+
+	// ── 2. Per-session CODEX_HOME: create .codex-home/ with auth + config + hooks.
+	//
+	// @lore AL6 codex-codex-home: This is the REAL enforcement path that makes the
+	// Stop hook fire when codex is spawned by CliHarnessAdapter. The .codex/ dir above
+	// is the legacy/compat path for unit tests. CliHarnessAdapter sets CODEX_HOME to
+	// this directory when it detects it exists.
+	const codexHomeDir = path.join(sandboxPath, ".codex-home");
+	fs.mkdirSync(codexHomeDir, { recursive: true });
+
+	// Copy ONLY auth.json and config.toml from ~/.codex — NOT the SQLite database files.
+	// @lore AL6 codex-codex-home: SQLite files (.sqlite, .sqlite-wal, .sqlite-shm) get
+	// locked when a second codex process tries to open them → codex exits immediately.
+	// Absent auth.json/config.toml: codex falls back to env-based auth (OPENAI_API_KEY)
+	// which still works. Copy them when present to preserve user's model config.
+	const userCodexDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? "/root", ".codex");
+	for (const file of ["auth.json", "config.toml"]) {
+		const src = path.join(userCodexDir, file);
+		const dst = path.join(codexHomeDir, file);
+		try {
+			fs.copyFileSync(src, dst);
+		} catch {
+			// File absent — fine; codex will use env-based auth.
+		}
+	}
+
+	// Write per-session hooks.json in CODEX_HOME — this is what codex actually reads.
+	const homeScriptPath = path.join(codexHomeDir, "return-check.sh");
+	fs.writeFileSync(homeScriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
+
+	// The hook command uses an absolute path (the CODEX_HOME script) so it works
+	// regardless of codex's working directory.
+	const homeHooksConfig = buildCodexHooksConfig(codexHomeDir);
+	fs.writeFileSync(
+		path.join(codexHomeDir, "hooks.json"),
+		JSON.stringify(homeHooksConfig, null, 2),
+		"utf-8",
+	);
+}
+
+/**
+ * Build the codex hooks.json config structure referencing a return-check.sh in the given dir.
+ *
+ * @lore AL6 WARN-F1: Uses absolute path to the script so codex can find it regardless of
+ * the working directory it was spawned in.
+ */
+function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
+	return {
 		hooks: {
 			Stop: [
 				{
 					hooks: [
 						{
 							type: "command",
-							command: ".codex/return-check.sh",
+							command: path.join(scriptDir, "return-check.sh"),
 							timeout: 10,
 						},
 					],
@@ -201,12 +274,6 @@ async function provisionCodexHooks(
 			],
 		},
 	};
-
-	fs.writeFileSync(
-		path.join(codexDir, "hooks.json"),
-		JSON.stringify(hooksConfig, null, 2),
-		"utf-8",
-	);
 }
 
 /**

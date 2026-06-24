@@ -32,8 +32,15 @@ import { normalizeHarnessEvent } from "@hyperidle/shared";
 /**
  * Template variable names used in args and envMap.
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
+ * @lore AL6 WARN-F2: {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
-type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{apiKey}}" | "{{baseUrl}}" | "{{mcpUrl}}";
+type TemplateVar =
+	| "{{sandbox}}"
+	| "{{model}}"
+	| "{{apiKey}}"
+	| "{{baseUrl}}"
+	| "{{mcpUrl}}"
+	| "{{prompt}}";
 
 function isExecutableFile(filePath: string): boolean {
 	try {
@@ -234,12 +241,20 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
+		// @lore AL6 WARN-F2: {{prompt}} resolves to the assembled prompt (first 200 chars
+		// as a seed summary) or "proceed" as a safe default. Codex exec uses this as the
+		// initial user message in the session; AGENTS.md in sandboxPath provides the full
+		// system context. Full prompt is written to AGENTS.md by session-provisioning.
+		const promptSeed = config.assembledPrompt
+			? config.assembledPrompt.slice(0, 200).replace(/\n/g, " ").trim() || "proceed"
+			: "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
 			"{{model}}": config.resolvedModel?.model ?? "",
 			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
 			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
+			"{{prompt}}": promptSeed,
 		};
 
 		// Resolve args
@@ -251,12 +266,35 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
 
+		// ── AL6 codex-codex-home: Per-session CODEX_HOME injection.
+		//
+		// If the sandbox contains a .codex-home/ directory (written by provisionCodexHome),
+		// set CODEX_HOME to point at it. This makes codex load hooks.json from the
+		// per-session dir instead of ~/.codex/hooks.json.
+		//
+		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
+		// so codex runs the hook without prompting for user confirmation.
+		//
+		// @lore AL6 codex-codex-home: CODEX_HOME must NOT be in envAllowlist (it is
+		// injected here, not forwarded from process.env). The per-session .codex-home/
+		// dir contains only auth.json + config.toml (no SQLite) + hooks.json.
+		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
+		let extraArgs: string[] = [];
+		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
+			resolvedEnvMap["CODEX_HOME"] = codexHomeDir;
+			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
+			// requiring the user to have pre-approved the hook command.
+			extraArgs = ["--dangerously-bypass-hook-trust"];
+		}
+
+		const finalArgs = [...resolvedArgs, ...extraArgs];
+
 		// Build sandboxed environment
 		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, resolvedEnvMap);
 
 		// Spawn the child process
 		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
-		const child = this.spawnFn(this.config.binary, resolvedArgs, {
+		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: config.sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],

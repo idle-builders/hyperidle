@@ -342,9 +342,16 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
 		// JSONL event lines including turn.completed with usage fields. stdin is not
-		// needed (no interactive prompt). The task prompt is injected via the system
-		// prompt / AGENTS.md written to sandboxPath before startSession is called.
-		args: ["exec", "proceed", "--json"],
+		// needed (no interactive prompt). The task prompt is injected via AGENTS.md
+		// written to sandboxPath before startSession is called.
+		//
+		// @lore AL6 WARN-F2: "proceed" was a placeholder that caused codex to wait
+		// on stdin for the actual prompt (stdin-wait hang). Replaced with {{prompt}}
+		// template var, resolved to the seed prompt at startSession time. When no
+		// seed prompt is provided, "proceed" is used as the default so codex runs with
+		// the system prompt context from AGENTS.md. The CODEX_HOME injection (see
+		// CliHarnessAdapter.startSession) also appends --dangerously-bypass-hook-trust.
+		args: ["exec", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
@@ -352,11 +359,11 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		costField: "total_cost_usd",
 		// AL6 WARN-F2: Per-session seed prompt carrier for Codex.
-		// Codex `exec proceed --json` uses a hardcoded "proceed" prompt.
-		// "stdin" delivers the per-session kickoff message via stdin on re-engage.
+		// "positional" means the {{prompt}} template arg in args[] carries the message.
+		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
 		// @lore AL6 WARN-F2: Without this field, re-engage runs would use the
 		// same generic "proceed" prompt regardless of the forcing message.
-		seedPrompt: "stdin",
+		seedPrompt: "positional",
 	},
 	opencode: {
 		binary: "opencode",
