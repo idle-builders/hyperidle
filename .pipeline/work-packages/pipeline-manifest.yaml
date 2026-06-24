@@ -1150,6 +1150,11 @@ stories:
     track: AK
     depends: [AK7, AK3]
     complexity: L
+  - id: AK9
+    title: Kernel package extraction (the deferred AK2b) — Kernel infra leaves the Strategy package
+    track: AK
+    depends: [AK2]
+    complexity: L
 
   # Track AL: Review Experience
   - id: AL1
