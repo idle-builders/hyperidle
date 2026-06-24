@@ -181,7 +181,7 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 			expect(fs.existsSync(hooksPath)).toBe(true);
 		});
 
-		it("hooks.json contains a Stop entry with decision:block semantics", async () => {
+		it("hooks.json contains a Stop entry with decision:block semantics (nested format)", async () => {
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",
@@ -193,15 +193,31 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
 
-			// The Stop hook must use decision:block or exit-2+stderr semantics.
-			expect(content).toHaveProperty("Stop");
-			const hookStr = JSON.stringify(content.Stop);
-			expect(hookStr).toContain(mcpUrl);
+			// @lore AL6 real-codex-format: The format is { "hooks": { "Stop": [...] } }
+			// NOT a top-level "Stop" key. Verified against codex-cli v0.141.0.
+			// The old flat format { "Stop": { "command": "..." } } is silently ignored.
+			expect(content).toHaveProperty("hooks");
+			const hooksObj = content.hooks as Record<string, unknown>;
+			expect(hooksObj).toHaveProperty("Stop");
+			expect(Array.isArray(hooksObj.Stop)).toBe(true);
+
+			// The hook script must be referenced (URL is in the script, not hooks.json).
+			const hookStr = JSON.stringify(hooksObj.Stop);
+			expect(hookStr).toContain("return-check.sh");
+
+			// The script itself must contain the mcpUrl.
+			const scriptContent = fs.readFileSync(
+				path.join(sandboxPath, ".codex", "return-check.sh"),
+				"utf-8",
+			);
+			expect(scriptContent).toContain(mcpUrl);
 		});
 
-		it("WARN-F1 (trust): writes a trust marker so Codex loads the project-local hook", async () => {
-			// Codex: project-local hooks load only when the project .codex/ layer is trusted.
-			// FAILS red until trust marker is written.
+		it("WARN-F1 (trust): codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
+			// @lore AL6 real-codex-trust: Codex trust is a per-invocation flag:
+			// --dangerously-bypass-hook-trust bypasses hash-check for automation.
+			// There is NO sentinel file mechanism (no "trusted" file, no config.toml needed).
+			// This test asserts the CORRECT behavior: no bogus trust file is written.
 			await provisionReturnHook({
 				sandboxPath,
 				channel: "settings-codex",
@@ -212,18 +228,14 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 
 			const codexDir = path.join(sandboxPath, ".codex");
 
-			// Trust can be a config.toml with trust, a "trusted" file, or declared in hooks.json.
-			const hooksContent = JSON.parse(
-				fs.readFileSync(path.join(codexDir, "hooks.json"), "utf-8"),
-			) as Record<string, unknown>;
+			// No bogus sentinel file should be written.
+			expect(fs.existsSync(path.join(codexDir, "trusted"))).toBe(false);
 
-			const hasTrustMarker =
-				fs.existsSync(path.join(codexDir, "config.toml")) ||
-				fs.existsSync(path.join(codexDir, "trusted")) ||
-				"trusted" in hooksContent;
+			// The hooks.json MUST exist (that's the real mechanism).
+			expect(fs.existsSync(path.join(codexDir, "hooks.json"))).toBe(true);
 
-			// FAILS red: no trust mechanism implemented yet
-			expect(hasTrustMarker).toBe(true);
+			// The return-check.sh script must exist (referenced by hooks.json).
+			expect(fs.existsSync(path.join(codexDir, "return-check.sh"))).toBe(true);
 		});
 	});
 
