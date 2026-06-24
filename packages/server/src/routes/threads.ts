@@ -1434,6 +1434,35 @@ export function createThreadRoutes(
 			}
 			const { decision } = parsed.data;
 
+			// Authz: load thread to validate the caller has write access.
+			// @lore AL7 Task 8: authorizeWrite guards the verdict action — only
+			// thread participants (team members on the host) can approve/reject.
+			const [threadRow] = await db
+				.select({
+					hostKind: threads.hostKind,
+					hostId: threads.hostId,
+					participants: threads.participants,
+				})
+				.from(threads)
+				.where(eq(threads.id, threadId))
+				.limit(1);
+			if (!threadRow) {
+				return c.json({ error: "Thread not found", code: "not_found" }, 404);
+			}
+			const participants = (() => {
+				try {
+					return JSON.parse(threadRow.participants) as string[];
+				} catch {
+					return [];
+				}
+			})();
+			const writeDenial = authorizeWrite(c, {
+				hostKind: threadRow.hostKind as HostKind,
+				hostId: threadRow.hostId,
+				participants,
+			});
+			if (writeDenial) return writeDenial;
+
 			// Find the Proposed Call anchored to this review message
 			const [pc] = await db
 				.select()

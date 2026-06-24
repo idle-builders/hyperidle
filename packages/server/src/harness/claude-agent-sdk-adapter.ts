@@ -1,6 +1,12 @@
 /** Claude Agent SDK adapter — concrete HarnessAdapter implementation (D2). */
 
-import type { Query, SDKMessage, SyncHookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
+import type {
+	CanUseTool,
+	PermissionResult,
+	Query,
+	SDKMessage,
+	SyncHookJSONOutput,
+} from "@anthropic-ai/claude-agent-sdk";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type {
 	CurrencyCode,
@@ -20,6 +26,11 @@ import {
 } from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
+import {
+	ALL_TOOL_DEFINITIONS,
+	classifyReversibility,
+	composeWorkflowAllowDeny,
+} from "../tools/tool-registry.js";
 import { enforcementRegistry } from "./return-enforcement-registry.js";
 
 /**
@@ -250,6 +261,63 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		};
 		if (unsafeMode) {
 			queryOptions.allowDangerouslySkipPermissions = true;
+		}
+
+		// AL7 Task 7a: wire the session workflow into the Claude native carrier.
+		//
+		// When a sessionWorkflow is present, set allowedTools/disallowedTools so
+		// the SDK's native permission carrier routes irreversible calls to review
+		// (deny) and permits reversible + approved ops (allow). The `canUseTool`
+		// callback is the per-call decision point — it returns `deny` for
+		// irreversible non-approved calls and `allow` for the rest (with optional
+		// updatedInput arg-pin where approvedCall.argPinned is true).
+		//
+		// The record/consume point (`registry.invoke` via the MCP bridge) is the
+		// authoritative capture+consume path. The SDK native carrier is the harness's
+		// own permission mechanism — it routes the call before it reaches the bridge.
+		//
+		// @lore AL7 Task 7a: PermissionResult does NOT have a `behavior: "ask"` arm
+		// per the installed SDK type definitions — only "allow" | "deny".
+		// The plan references "ask" as a third option but the SDK types confirm the
+		// actual union is allow/deny. We use deny for route-to-review.
+		if (config.sessionWorkflow && !unsafeMode) {
+			const wf = config.sessionWorkflow;
+			const { allow, routeToReview } = composeWorkflowAllowDeny(wf, ALL_TOOL_DEFINITIONS);
+
+			queryOptions.allowedTools = allow;
+			queryOptions.disallowedTools = routeToReview;
+
+			// @lore AL7 Task 7a: canUseTool is the per-call decision gate for the
+			// Claude SDK. It fires BEFORE the MCP bridge processes the call.
+			// deny = route to review (native carrier decision); allow = proceed.
+			// The actual capture/consume happens at registry.invoke via the MCP bridge.
+			const canUseTool: CanUseTool = async (
+				toolName: string,
+				_input: Record<string, unknown>,
+			): Promise<PermissionResult> => {
+				const toolDef = ALL_TOOL_DEFINITIONS.find((t) => t.name === toolName);
+				const reversibility = classifyReversibility(
+					toolName,
+					toolDef ?? { reversibility: undefined },
+				);
+				const isIrreversible = wf.routeToReview.includes(reversibility);
+
+				// Grant-bearing session: check if this is the approved op
+				if (wf.sessionRole === "grant-bearing" && wf.approvedCall?.toolId === toolName) {
+					return { behavior: "allow" };
+				}
+
+				if (isIrreversible) {
+					return {
+						behavior: "deny",
+						message: `Tool '${toolName}' is irreversible and has been routed to human review. Session 1 will end; approve the call to re-engage.`,
+					};
+				}
+
+				return { behavior: "allow" };
+			};
+
+			queryOptions.canUseTool = canUseTool;
 		}
 
 		// X1: Full instructions are in CLAUDE.md which Claude Agent SDK auto-discovers

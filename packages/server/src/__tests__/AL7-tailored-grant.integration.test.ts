@@ -13,12 +13,16 @@
  *         AC7 (non-approve → no grant, held), AC8 (never-approved → never executed).
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
+	sessions,
 	tailoredGrants,
 	tasks,
 	teamMembers,
@@ -26,10 +30,63 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { EventBus, ProposedCallGrantedEvent } from "@hyperidle/shared";
+import {
+	fabricStrategy,
+	registerTaskDispatcher,
+	setProvisionSessionFn,
+	type TaskDispatcherDeps,
+} from "@hyperidle/fabric";
+import type {
+	EventBus,
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	ProposedCallGrantedEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import { provisionSession } from "../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+
+// Wire provisionSession into the fabric registry to avoid circular import.
+setProvisionSessionFn(provisionSession);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Minimal capturing harness for dispatcher enqueue test
+// ─────────────────────────────────────────────────────────────────────────────
+class CapturingAdapter implements HarnessAdapter {
+	public sessionCount = 0;
+	async startSession(_config: SessionConfig): Promise<SessionHandle> {
+		this.sessionCount++;
+		return { sessionId: `al7-captured-${this.sessionCount}` };
+	}
+	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
+		yield { type: "tool_call", toolName: "submit_review", args: { message: "AL7 stub done" } };
+		yield { type: "completion", text: "stub done" };
+	}
+	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
+		return {
+			outcome: "completed",
+			cost: { minor: 0, currency: "USD" },
+			tokenUsage: { byTier: {} },
+		};
+	}
+	getCapabilities(): HarnessCapabilities {
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			modelProviders: ["anthropic"],
+			mcpSupport: false,
+			returnEnforcement: "none",
+		};
+	}
+}
 
 const NOW = new Date().toISOString();
 
@@ -306,3 +363,145 @@ describe("AC7/AC8: held Proposed Call never executes", () => {
 		expect(grants).toHaveLength(0);
 	});
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC3 (enqueue) — task-dispatcher: handleProposedCallGranted enqueues session 2
+//
+// When the task dispatcher receives `proposed_call_granted`, it must enqueue
+// the task for the grant's agentId so session 2 is dispatched.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("AC3 (enqueue): proposed_call_granted causes dispatcher to enqueue session 2", () => {
+	let dispose: (() => void) | undefined;
+	let sandboxBasePath: string;
+
+	beforeEach(() => {
+		setActiveStrategy(fabricStrategy);
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "al7-dispatch-"));
+	});
+
+	afterEach(() => {
+		clearActiveStrategy();
+		dispose?.();
+		dispose = undefined;
+		try {
+			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		} catch {
+			// Non-fatal
+		}
+	});
+
+	test("proposed_call_granted event causes the dispatcher to provision session 2", async ({
+		db,
+		eventBus,
+	}) => {
+		const adapter = new CapturingAdapter();
+		const adapterPool = new AdapterPool();
+		adapterPool.register("builtin-local", adapter, {
+			name: "builtin-local",
+			kind: "local",
+			type: "builtin",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
+		});
+
+		const deps: TaskDispatcherDeps = {
+			db,
+			eventBus,
+			adapterPool,
+			workspace: new LocalSandboxAdapter(),
+			sandboxBasePath,
+		};
+		dispose = registerTaskDispatcher(deps);
+
+		// Seed a task in in_progress state (as if session 1 just ended)
+		const { agentId, taskId, teamId } = await seedDispatcherTask(db);
+
+		// Emit the proposed_call_granted event (simulates the verdict path)
+		eventBus.emit({
+			type: "proposed_call_granted",
+			streamId: `thread-${taskId}`,
+			proposedCallId: `pc-${taskId}`,
+			taskId,
+			agentId,
+			timestamp: Date.now(),
+		});
+
+		// Wait for the dispatcher to enqueue + provision session 2
+		await vi.waitFor(
+			async () => {
+				const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+				expect(sessionRows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 10_000 },
+		);
+
+		// Confirm session 2 was provisioned for the correct agent
+		const sessionRows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+		expect(sessionRows[0]?.agentId).toBe(agentId);
+		expect(["active", "done"]).toContain(sessionRows[0]?.state);
+		expect(adapter.sessionCount).toBeGreaterThanOrEqual(1);
+		void teamId; // used only in seedDispatcherTask
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: seed a minimal domain entry for the dispatcher enqueue test
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedDispatcherTask(
+	db: HyperIdleDb,
+): Promise<{ agentId: string; taskId: string; teamId: string }> {
+	const suffix = `al7d-${crypto.randomUUID().slice(0, 8)}`;
+	const agentId = `al7d-agent-${suffix}`;
+	const teamId = `al7d-team-${suffix}`;
+	const tmId = `al7d-tm-${suffix}`;
+	const betId = `al7d-bet-${suffix}`;
+	const taskId = `al7d-task-${suffix}`;
+	const threadId = `al7d-thread-${suffix}`;
+
+	await db.insert(teams).values({ id: teamId, name: `AL7D Team`, phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+	await db.insert(users).values({
+		id: agentId,
+		kind: "ai",
+		name: "AL7D Agent",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 4,
+		teamId: tmId,
+		harnessType: "builtin",
+		createdAt: NOW,
+	});
+	await db.insert(bets).values({
+		id: betId,
+		teamId,
+		description: "AL7D bet",
+		status: "active",
+		createdAt: NOW,
+	});
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: taskId,
+		initiatorId: agentId,
+		participants: JSON.stringify([agentId]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	// Task is in_progress (session 1 just ended; proposed_call_granted re-engages)
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		teamId,
+		title: "AL7D Task",
+		state: "in_progress",
+		ownerAgentId: agentId,
+		threadId,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	return { agentId, taskId, teamId };
+}
