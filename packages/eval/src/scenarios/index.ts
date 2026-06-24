@@ -13,15 +13,15 @@ export { default as pocSessionNotes } from "./poc-session-notes.js";
 // X8 scenario arrays — ordered by feature complexity (LOW → MEDIUM → HIGH → non-session)
 
 export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
-// Non-session (interactions 20-24)
 export { builtinRoutinesScenarios } from "./builtin-routines.js";
 export { composedPromptScenarios } from "./composed-prompt.js";
 export { createArtifactScenarios } from "./create-artifact.js";
 export { createConflictReviewScenarios } from "./create-conflict-review.js";
-// HIGH complexity
 export { createItemScenarios } from "./create-item.js";
 export { createTaskScenarios } from "./create-task.js";
 export { delegationScenarios } from "./delegation.js";
+// AL6 v2: live eval scaffold for force-return enforcement
+export { forceReturnScenarios } from "./force-return.js";
 export { handoffToScenarios } from "./handoff-to.js";
 export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";
 export { logTaskScenarios } from "./log-task.js";
@@ -36,7 +36,5 @@ export { sessionScenarios } from "./session.js";
 export { skillAutonomyScenarios } from "./skill-autonomy.js";
 export { submitReviewScenarios } from "./submit-review.js";
 export { toolAuthorizationScenarios } from "./tool-authorization.js";
-// MEDIUM complexity
 export { writeMemoryScenarios } from "./write-memory.js";
-// LOW complexity
 export { writeSessionNotesScenarios } from "./write-session-notes.js";

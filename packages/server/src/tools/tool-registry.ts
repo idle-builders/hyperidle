@@ -245,9 +245,16 @@ export function toolsForRole(role: UserRole): readonly RegisteredTool[] {
  * @lore I2 B1/B2: previously `buildToolRegistry(ctx)` returned every tool
  * to every caller. Defence-in-depth: the registry now filters by role at
  * the constructor boundary, mirroring the harness allowed-tool list.
+ *
+ * @lore AL6 v4-final: `extraTools` allows per-session tools (e.g.
+ * hyperidle_return_status) to be injected into the registry at construction
+ * time. Extra tools are appended AFTER role-filtered tools and bypass the
+ * role filter (the caller controls injection; the tool itself encodes its
+ * authorization via context or closed-over registry).
  */
 export interface BuildToolRegistryOptions {
 	readonly role: UserRole;
+	readonly extraTools?: readonly RegisteredTool[];
 }
 
 /**
@@ -265,7 +272,10 @@ export function buildToolRegistry(
 	ctx: ToolContext,
 	options: BuildToolRegistryOptions,
 ): ToolRegistry {
-	const definitions = toolsForRole(options.role);
+	const roleFiltered = toolsForRole(options.role);
+	const definitions: readonly RegisteredTool[] = options.extraTools?.length
+		? [...roleFiltered, ...options.extraTools]
+		: roleFiltered;
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 	const allByName = new Map(ALL_TOOL_DEFINITIONS.map((d) => [d.name, d]));

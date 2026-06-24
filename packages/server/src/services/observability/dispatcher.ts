@@ -492,6 +492,8 @@ export function registerObservabilityDispatcher(
 			case "work_decompose_requested":
 			// AL7: staged op execution — audit-only, not an observability event.
 			case "operation_executed":
+			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
+			case "session_not_returned":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

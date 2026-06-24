@@ -60,6 +60,14 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── AN1: External Connections (open per-(user×service) set) ──
+export type {
+	ConnectionAuthSource,
+	ConnectionHealth,
+	ServiceConnectionView,
+	TrustTier,
+} from "./connection.js";
+export { CONNECTION_AUTH_SOURCES, CONNECTION_HEALTH, TRUST_TIERS } from "./connection.js";
 // ── Credential catalog (P3) ──
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
@@ -109,6 +117,7 @@ export type {
 	PropagationFailedEvent,
 	RoutineFiredEvent,
 	SessionEndedEvent,
+	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
 	StrategyEvent,
@@ -170,6 +179,11 @@ export type {
 	HarnessRuntimeCapabilities,
 	McpConnectionInfo,
 	PreCompactionEvent,
+	// AL6: return action name type
+	ReturnActionName,
+	// AL6 v4-final: per-harness enforcement channel + hook config
+	ReturnEnforcementChannel,
+	ReturnHookConfig,
 	ServerDispatchMessage,
 	ServerRegisteredMessage,
 	ServerStopMessage,
@@ -188,10 +202,18 @@ export type {
 	WorkerToServerMessage,
 } from "./harness/index.js";
 export {
+	// AL6 v2: forcing constants + helper
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
 	HARNESS_OPTION_CONTROL_KINDS,
 	isHarnessEvent,
+	isInternalExtractionDrain,
+	isReturnAction,
 	MockHarnessAdapter,
 	normalizeHarnessEvent,
+	// AL6: closed accepted-return set
+	RETURN_ACTION_NAMES,
+	shouldForceReturn,
 } from "./harness/index.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";

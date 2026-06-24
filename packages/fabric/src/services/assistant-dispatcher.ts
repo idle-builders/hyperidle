@@ -45,20 +45,6 @@ export function isAssistantThread(thread: ThreadLike): boolean {
 	return thread.hostKind === "user";
 }
 
-export interface DispatchCheckInput {
-	readonly senderKind: string;
-	readonly thread: ThreadLike;
-}
-
-/**
- * Returns true if the assistant should be dispatched for this message:
- *   - sender must be human (not an AI agent)
- *   - thread must be an assistant thread (hostKind="user")
- */
-export function shouldDispatchForAssistant(input: DispatchCheckInput): boolean {
-	return input.senderKind === "human" && isAssistantThread(input.thread);
-}
-
 // ---------------------------------------------------------------------------
 // Dispatcher registration
 // ---------------------------------------------------------------------------

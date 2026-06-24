@@ -55,17 +55,8 @@
   },
   {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
-    "line": 82,
+    "line": 72,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 1,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/fixtures/knowledge-data.ts",
-    "line": 290,
-    "symbol": "MOCK_CURATION_SUGGESTIONS",
     "kind": "symbol",
     "shape": "array",
     "importerCount": 1,

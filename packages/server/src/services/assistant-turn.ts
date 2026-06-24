@@ -48,6 +48,7 @@ import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
 // Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
 import { CassetteMissError } from "../harness/llm-cassette.js";
+import { createReturnGate } from "../harness/return-gate.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
@@ -474,9 +475,13 @@ async function runTurnInternal(
 		const rawResult = await selected.adapter.startSession(sessionConfig);
 		sessionHandle = rawResult;
 
+		// AL6: one gate per assistant turn — compliant-by-construction (concept §4.4,
+		// always persists a reply), but observed for uniformity (AC4).
+		const assistantReturnGate = createReturnGate();
+
 		// Drain stream events under the timeout
 		const drainRace = await Promise.race([
-			drainStreamEvents(selected.adapter, rawResult),
+			drainStreamEvents(selected.adapter, rawResult, assistantReturnGate),
 			timeoutPromise(timeoutMs),
 		]);
 
@@ -654,15 +659,34 @@ type DrainResult =
  * (populated by runChatTurn's bounded loop). Maps them to payload.toolCalls on the
  * persisted reply. No change for task-session completions (toolCalls is undefined there).
  */
+/**
+ * AL6: drainStreamEvents threads a ReturnGate so site B is uniformly observed.
+ *
+ * @lore AL6: The assistant path is compliant-by-construction (concept §4.4) —
+ * it ALWAYS persists a reply to a human-attended thread via the NEVER-silent
+ * invariant. The gate is wired here for uniformity (AC4) and future-proofing:
+ * a future assistant tool that suppressed the reply would be caught. We do NOT
+ * emit session_not_returned on the assistant path because the structural return
+ * (persisted reply) already satisfies the concept's intent.
+ */
 async function drainStreamEvents(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
+	gate: ReturnType<typeof createReturnGate>,
 ): Promise<DrainResult> {
 	const stream = adapter.streamEvents(handle);
 	let completionText = "";
 
 	try {
+		// AL6-observe-only: assistant turn compliant-by-construction; verdict deferred to caller (concept §4.4).
+		// The assistant path ALWAYS persists a reply (NEVER-silent invariant) so no session_not_returned
+		// verdict is ever emitted here. gate.observe() is wired for harness-uniform enforcement and
+		// future-proofing — a future assistant tool that suppressed the reply would be caught.
+		// evaluateReturn() is intentionally absent: the caller (runChatTurn) owns the verdict.
 		for await (const event of stream) {
+			// AL6: Observe every event — gate is read-only, never blocks events.
+			gate.observe(event);
+
 			if (event.type === "completion") {
 				completionText = event.text;
 				return {

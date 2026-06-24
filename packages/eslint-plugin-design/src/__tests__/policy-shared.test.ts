@@ -23,7 +23,6 @@ import {
 	FORBIDDEN_IMPORT_FRAGMENTS,
 	FORBIDDEN_PREFIXES,
 	LITERAL_ID_STRINGS,
-	PERMITTED_MOCK_SURFACE_GLOBS,
 	PERMITTED_SURFACE_PATH_FRAGMENTS,
 	PERMITTED_SURFACE_SUFFIXES,
 	POLICY_DOC_URL,
@@ -65,29 +64,6 @@ describe("mock-data-policy: single source of truth", () => {
 		expect(LITERAL_ID_STRINGS).toContain("u-founder");
 		expect(LITERAL_ID_STRINGS).toContain("agent-unassigned");
 		expect(LITERAL_ID_STRINGS).toContain("founder@hyperidle.com");
-	});
-
-	it("exports PERMITTED_MOCK_SURFACE_GLOBS as a non-empty readonly array", () => {
-		expect(Array.isArray(PERMITTED_MOCK_SURFACE_GLOBS)).toBe(true);
-		expect(PERMITTED_MOCK_SURFACE_GLOBS.length).toBeGreaterThan(0);
-	});
-
-	it("PERMITTED_MOCK_SURFACE_GLOBS includes all canonical permitted surface patterns", () => {
-		const expected = [
-			"**/__fixtures__/**",
-			"**/__tests__/**",
-			"**/*.test.{ts,tsx}",
-			"**/*.spec.{ts,tsx}",
-			"**/*.stories.tsx",
-			"**/e2e/**",
-			"**/seed*.{ts,js}",
-		];
-		for (const glob of expected) {
-			expect(
-				PERMITTED_MOCK_SURFACE_GLOBS,
-				`expected glob ${glob} in PERMITTED_MOCK_SURFACE_GLOBS`,
-			).toContain(glob);
-		}
 	});
 
 	it("exports DEFAULT_PREFIX_DATA_PATHS for DEFAULT_* disambiguation", () => {

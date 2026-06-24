@@ -50,17 +50,34 @@ export interface TriggerContext {
  * Result of trigger execution.
  *
  * @lore X7: outcome narrows SessionOutcome ("completed" | "crashed" | "stopped")
- * to just "completed" | "crashed" because eval sessions cannot be manually stopped.
- * If provisionSession returns "stopped" unexpectedly, runEvalSession maps it to
- * "crashed" so callers always receive this narrowed union.
+ * to just "completed" | "crashed" | "not_returned". "stopped" maps to "crashed"
+ * (eval sessions cannot be manually stopped). "not_returned" is a first-class
+ * outcome for AL6 v2 forcing scenarios.
+ *
+ * @lore AL6 v2 WARNING-B: TriggerResult is widened to carry `outcome: "not_returned"`,
+ * `returnVerdict`, and `forceReturnCount` so AL6 eval judges can assert the exact
+ * v1 regression (outcome=completed with returnVerdict=not_returned is the bug) and
+ * verify the forcing message actually fired. Without this widening, the three AL6
+ * judges cannot distinguish a v1-bug run from a correct run.
  */
 export interface TriggerResult {
 	readonly sessionId: string;
-	readonly outcome: "completed" | "crashed";
+	readonly outcome: "completed" | "crashed" | "not_returned";
 	readonly totalCostCents: number;
 	readonly taskId: string;
 	/** Wall-clock duration in milliseconds. */
 	readonly durationMs: number;
+	/**
+	 * AL6 v2: Return verdict from the provisioning drain ("returned" | "not_returned").
+	 * Absent for sessions that crashed before the gate was evaluated.
+	 */
+	readonly returnVerdict?: "returned" | "not_returned";
+	/**
+	 * AL6 v2: Number of force-continue re-injections applied by the builtin
+	 * Tier-1 harness this session. Zero on non-builtin harnesses or if no forcing
+	 * was needed. Absent on crashed sessions.
+	 */
+	readonly forceReturnCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +166,7 @@ export interface ScenarioReport {
 	readonly description: string;
 	readonly model: string;
 	readonly durationMs: number;
-	readonly outcome: "completed" | "crashed";
+	readonly outcome: "completed" | "crashed" | "not_returned";
 	readonly costCents: number;
 	readonly dimensions: readonly DimensionReport[];
 	/** Aggregate score: arithmetic mean of dimension scores. */

@@ -23,7 +23,7 @@ import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-d
 export interface AdapterMeta {
 	readonly name: string;
 	readonly kind: "local" | "remote";
-	/** X3: Harness type for agent preference matching (e.g. "claude-code", "aider"). */
+	/** X3: Harness type for agent preference matching (e.g. "claude-code", "opencode"). */
 	readonly type?: string;
 	readonly modelProviders: readonly string[];
 	readonly maxConcurrent: number;
@@ -315,40 +315,79 @@ export class AdapterPool {
 /**
  * Well-known CLI tool configurations.
  * Each tool registers with its own harnessType (binary name) so agents can
- * express a preference: harnessType: "aider" routes to the Aider adapter.
+ * express a preference: harnessType: "opencode" routes to the OpenCode adapter.
  *
  * @lore X5: CLI tool flags are provisional — they reflect the best-known
  * invocation at the time of writing. Validate during X7 (E2E evals) or
  * manual testing. Prefer --no-interactive / headless flags where supported.
+ *
+ * @lore X5: codex session-spawn invocation is `codex exec <prompt> --json`
+ * (proven by probeCodexSession in harness-session-probe.ts and the committed
+ * fixture packages/server/src/harness/__tests__/fixtures/codex-exec.jsonl).
+ * {{sandbox}} is the working directory; codex is invoked from cwd:sandboxPath
+ * so no explicit --dir flag is needed — codex picks up the cwd automatically.
+ * Event format is "ndjson" because codex emits JSONL turn.completed lines
+ * normalised by normalizeNativeHarnessEvent("codex", ...).
  */
-const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
-	aider: {
-		binary: "aider",
-		args: ["--no-auto-commits", "--no-git", "{{workspace}}"],
+/**
+ * AL6 WARN-F2: Exported so integration tests can verify the per-session prompt-carrier
+ * mechanism is wired (the codex args template must include a seed-prompt carrier slot).
+ *
+ * @lore AL6 v4-final: CLI_TOOL_CONFIGS is exported (was unexported) so the real-harness
+ * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
+ * a per-session prompt carrier codex sessions get a generic system prompt only.
+ */
+export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+	codex: {
+		binary: "codex",
+		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
+		// JSONL event lines including turn.completed with usage fields. stdin is not
+		// needed (no interactive prompt). The task prompt is injected via AGENTS.md
+		// written to sandboxPath before startSession is called.
+		//
+		// @lore AL6 WARN-F2: "proceed" was a placeholder that caused codex to wait
+		// on stdin for the actual prompt (stdin-wait hang). Replaced with {{prompt}}
+		// template var, resolved to the seed prompt at startSession time. When no
+		// seed prompt is provided, "proceed" is used as the default so codex runs with
+		// the system prompt context from AGENTS.md. The CODEX_HOME injection (see
+		// CliHarnessAdapter.startSession) also appends --dangerously-bypass-hook-trust.
+		args: ["exec", "{{prompt}}", "--json"],
 		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
-		eventFormat: "text",
+		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
-	},
-	goose: {
-		binary: "goose",
-		args: ["session", "--workspace", "{{workspace}}"],
-		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
-		},
-		eventFormat: "text",
-		envAllowlist: ["PATH", "HOME", "LANG"],
+		costField: "total_cost_usd",
+		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
+		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
+		// deriveCliChannel("codex") → "settings-codex" is a fallback; explicit is authoritative.
+		returnEnforcementChannel: "settings-codex",
+		// AL6 WARN-F2: Per-session seed prompt carrier for Codex.
+		// "positional" means the {{prompt}} template arg in args[] carries the message.
+		// CliHarnessAdapter resolves {{prompt}} to the seed prompt before spawning.
+		// @lore AL6 WARN-F2: Without this field, re-engage runs would use the
+		// same generic "proceed" prompt regardless of the forcing message.
+		seedPrompt: "positional",
 	},
 	opencode: {
 		binary: "opencode",
-		args: ["--dir", "{{workspace}}"],
+		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
+		// opencode uses --dir to set the working directory for the session.
+		args: ["--dir", "{{sandbox}}"],
 		envMap: {
 			ANTHROPIC_API_KEY: "{{apiKey}}",
 		},
 		eventFormat: "text",
 		envAllowlist: ["PATH", "HOME", "LANG"],
+		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
+		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
+		// deriveCliChannel("opencode") → "process-reengage" is a fallback; explicit is authoritative.
+		returnEnforcementChannel: "process-reengage",
+		// AL6 WARN-F3: Per-session re-engage carrier for OpenCode (process-reengage channel).
+		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
+		// @lore AL6 WARN-F3: Without this, re-engage re-invocations would not carry
+		// the forcing message and the agent would not know it needs to return.
+		reEngageCarrier: "run-arg",
 	},
 };
 
@@ -357,7 +396,7 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
  * Silently skips tools whose binary is not found — no error thrown.
  *
  * @lore X5: Each CLI tool gets its own harnessType (the binary name) so an
- * agent's harnessType: "aider" selection is unambiguous. A generic "cli" type
+ * agent's harnessType: "opencode" selection is unambiguous. A generic "cli" type
  * was considered but rejected — the founder chose a specific tool for a reason.
  */
 async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> {
@@ -384,7 +423,7 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * Create an AdapterPool pre-loaded with all available local adapters:
  * 1. claude-code (ClaudeAgentSdkAdapter) — always registered
  * 2. builtin (BuiltinHarnessAdapter stub) — always registered (X6 fills in)
- * 3. aider / goose / opencode — registered if their binary is on PATH
+ * 3. codex / opencode — registered if their binary is on PATH
  *
  * @lore S2 AC4: this factory keeps server-factory.ts clean — it just calls
  * createLocalAdapterPool() instead of knowing about adapter internals.

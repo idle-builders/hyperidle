@@ -659,6 +659,7 @@ describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sove
 					subAgents: false,
 					modelProviders: ["anthropic"],
 					mcpSupport: false,
+					returnEnforcement: "none",
 				};
 			},
 		};

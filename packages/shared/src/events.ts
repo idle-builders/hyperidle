@@ -39,7 +39,13 @@ export interface SessionStartedEvent {
 	timestamp: number;
 }
 
-export type SessionOutcome = "completed" | "crashed" | "stopped";
+/**
+ * AL6 v2: "not_returned" added as a non-completed outcome for a turn that
+ * exhausted its stream without a return action (after force budget spent, or
+ * on a Tier-2 harness). Every switch(outcome) consumer MUST handle this member
+ * — see the exhaustiveness guard in session-lifecycle.ts.
+ */
+export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";
 
 export interface SessionEndedEvent {
 	type: "session_ended";
@@ -50,6 +56,26 @@ export interface SessionEndedEvent {
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
+}
+
+/**
+ * AL6: Emitted by `runSession` (site A) when a task-session turn exhausts its
+ * event stream without having invoked any member of the accepted-return set
+ * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
+ *
+ * @lore AL6: "flag" policy (concept §3.4): the turn still settles via endSession;
+ * this event makes the escape visible and attributable. "redirect" (forced re-prompt)
+ * is a clean additive follow-up where the harness supports it. streamId = sessionId
+ * for per-session stream routing (consistent with session_started / session_ended).
+ */
+export interface SessionNotReturnedEvent {
+	readonly type: "session_not_returned";
+	/** streamId = sessionId for per-session routing (event-bus stream key convention). */
+	readonly streamId: string;
+	readonly sessionId: string;
+	readonly agentId: string;
+	readonly taskId: string;
+	readonly timestamp: number;
 }
 
 export interface CostCapWarningEvent {
@@ -417,6 +443,8 @@ export type KernelEvent =
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
+	// AL6: return-gate escape surface
+	| SessionNotReturnedEvent
 	| ThreadCreatedEvent
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent

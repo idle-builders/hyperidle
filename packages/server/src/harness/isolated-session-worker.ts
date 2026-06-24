@@ -51,6 +51,10 @@ function runWorker(): void {
 		const handle = await adapter.startSession(config);
 
 		let result = null;
+		// AL6-relay: forwarding relay — re-emits events verbatim to the parent process
+		// via process.send. This loop does NOT terminate a turn and must NOT wire a
+		// ReturnGate. The turn it carries is gated once, at the parent's enforced drain
+		// (session-provisioning.ts site A), after events arrive via IsolatedHarnessAdapter.
 		for await (const event of adapter.streamEvents(handle)) {
 			process.send?.({ type: "event", event });
 			if (stop) break;

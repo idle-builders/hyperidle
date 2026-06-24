@@ -122,9 +122,20 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 		// @lore X6: vi.spyOn is used instead of vi.mock so the spy is applied to
 		// the live module namespace on every beforeEach, ensuring isolation even
 		// when isolate:false causes other tests to share the module cache.
+		// AL6 v2: default response is submit_review tool_use so the return gate
+		// sees a return action and the session completes with outcome="completed".
+		// Test 2 overrides the first 3 calls with mockResolvedValueOnce; subsequent
+		// calls fall back to this default (submit_review) which satisfies the gate.
 		callLlmMock = vi.spyOn(llmClientModule, "callLlm").mockResolvedValue({
-			stopReason: "end_turn" as const,
-			content: [{ type: "text" as const, text: "Task plan: I will complete this task now." }],
+			stopReason: "tool_use" as const,
+			content: [
+				{
+					type: "tool_use" as const,
+					id: "sr-default",
+					name: "submit_review",
+					input: { title: "X6 stub review", reasoning: ["Stub task complete."] },
+				},
+			],
 			usage: { inputTokens: 100, outputTokens: 50 },
 		});
 		// AK2 §4a: register Strategy so provisionSession routes through the Strategy Port.
@@ -201,14 +212,16 @@ describe("X6 AC-15: builtin harness — no double tool execution on provisioning
 		const { agentId, taskId } = await seedDomain(db);
 
 		// Return a tool call response first, then a text response to end the loop
+		// AL6 v2: use submit_review (a return action) so returnSeen=true and the
+		// return gate is satisfied before the end_turn stop attempt.
 		const toolCallResponse = {
 			stopReason: "tool_use" as const,
 			content: [
 				{
 					type: "tool_use" as const,
 					id: "tool-abc123",
-					name: "write_session_notes",
-					input: { notes: "test note" },
+					name: "submit_review",
+					input: { title: "X6 test review", reasoning: ["Stub task complete."] },
 				},
 			],
 			usage: { inputTokens: 200, outputTokens: 80 },

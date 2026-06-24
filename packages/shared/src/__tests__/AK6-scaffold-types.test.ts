@@ -258,6 +258,9 @@ describe("T2: switch(event.type) over KernelEvent compiles exhaustively for new 
 				// AL7: staged operation executed
 				case "operation_executed":
 					return "operation_executed";
+				// AL6: return-gate escape surface
+				case "session_not_returned":
+					return "session_not_returned";
 			}
 		}
 

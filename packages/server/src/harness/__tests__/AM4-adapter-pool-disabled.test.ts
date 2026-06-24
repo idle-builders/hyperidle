@@ -62,6 +62,7 @@ function makeAdapter(): HarnessAdapter {
 				subAgents: false,
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
+				returnEnforcement: "none",
 			};
 		},
 	};

@@ -1151,3 +1151,58 @@ export type NewStagedOperation = typeof stagedOperations.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 export type NewOperationOutcome = typeof operationOutcomes.$inferInsert;
+
+// --- AN1: open per-(user × service) external connections ---
+
+/**
+ * Per-(user × service) external connection record.
+ * DISTINCT from the closed serverCredentials catalog — that table is a singleton-
+ * per-name keyed by CredentialName. This table is per-user, per-service, open.
+ *
+ * @lore AN1: Two resolvers, one encryption primitive. The serverCredentials table
+ * stays closed (4-entry catalog, no userId column). serviceConnections is the open
+ * set: user-owned, service-named, with its own resolver (ServiceConnectionResolver).
+ * Both tables use the same AES-256-GCM encryptCredentialValue primitive.
+ *
+ * @lore AN1: harness/env rows (authSource="harness") are NEVER stored here.
+ * They are derived live from the harness capability descriptor and projected
+ * into ServiceConnectionView at list time. Only "token" and "mcp-oauth" rows
+ * have real rows in this table.
+ */
+export const serviceConnections = pgTable(
+	"service_connections",
+	{
+		id: text("id").primaryKey(), // sc-<uuid>
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		service: text("service").notNull(), // "GitHub", "Stripe"
+		authSource: text("auth_source").notNull(), // "token" | "mcp-oauth"  (harness is NEVER stored)
+		/**
+		 * AES-256-GCM ciphertext of the user-supplied token. NULL for mcp-oauth
+		 * (the SERVICE holds the token; we hold only a reference). NEVER for harness.
+		 * Format: base64(iv + ciphertext + authTag) — identical to serverCredentials.
+		 */
+		encryptedToken: text("encrypted_token"),
+		/** For mcp-oauth: the remote MCP server URL (the provider). NULL for token. */
+		serverUrl: text("server_url"),
+		trustTier: text("trust_tier").notNull().default("community"),
+		/** "usable" | "needs-attention" | "expired" — never silent (AC). */
+		health: text("health").notNull().default("needs-attention"),
+		lastValidatedAt: text("last_validated_at"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		// Per-user isolation + dedupe: one connection per (user × service × source).
+		uniqueIndex("service_connections_user_service_source_idx").on(
+			table.userId,
+			table.service,
+			table.authSource,
+		),
+		index("service_connections_user_idx").on(table.userId),
+	],
+);
+
+export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
+export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
