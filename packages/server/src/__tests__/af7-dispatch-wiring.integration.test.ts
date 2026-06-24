@@ -99,8 +99,7 @@ class StubHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
-			hasNativeReturnHook: false,
-			canReEngage: true,
+			returnEnforcement: "none",
 		};
 	}
 }

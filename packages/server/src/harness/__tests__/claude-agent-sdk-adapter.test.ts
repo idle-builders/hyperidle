@@ -542,8 +542,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				modelProviders: ["anthropic"],
 				mcpSupport: true,
 				// AL6 v2: SDK adapter is Tier-1 (has Stop hook → canForceReturn=true).
-				hasNativeReturnHook: true,
-				canReEngage: true,
+				returnEnforcement: "sdk-inprocess",
 			});
 		});
 	});
@@ -752,10 +751,9 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			expect(result.decision).toBe("approve");
 		});
 
-		it("hasNativeReturnHook capability is true for ClaudeAgentSdkAdapter (Layer-A fast-path)", () => {
+		it("returnEnforcement capability is 'sdk-inprocess' for ClaudeAgentSdkAdapter (v4 native-block)", () => {
 			const adapter = new ClaudeAgentSdkAdapter();
-			expect(adapter.getCapabilities().hasNativeReturnHook).toBe(true);
-			expect(adapter.getCapabilities().canReEngage).toBe(true);
+			expect(adapter.getCapabilities().returnEnforcement).toBe("sdk-inprocess");
 		});
 	});
 

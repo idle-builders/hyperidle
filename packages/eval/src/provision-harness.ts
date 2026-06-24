@@ -223,8 +223,7 @@ function makeExternalShapedAdapter(resolvedModel: ResolvedModel): HarnessAdapter
 				// @lore AL6 v3: External-shaped: no in-turn hook (Layer-B only).
 				// canReEngage:true — the provisioner's re-prompt loop rewrites AGENTS.md
 				// and re-calls startSession; the new run reads the updated file.
-				hasNativeReturnHook: false,
-				canReEngage: true,
+				returnEnforcement: "none",
 			};
 		},
 	};

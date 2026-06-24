@@ -48,12 +48,11 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
+// FAILS red: returnEnforcement field not yet on HarnessCapabilities
+import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
 import { provisionSession } from "../../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
-
-// FAILS red: returnEnforcement field not yet on HarnessCapabilities
-import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing shared constants
 const sharedNs = sharedAll as Record<string, any>;
@@ -130,7 +129,10 @@ const FAKE_RESOLVED_MODEL = {
 // In v4, startCallCount is ALWAYS 1 for blocking adapters (sdk-inprocess, builtin-loop,
 // settings-claude, settings-codex) — the hook re-runs the SAME turn, not a new startSession.
 
-function makeV4BlockingStub(channel: ReturnEnforcementChannel, returnsOnRun1 = false): HarnessAdapter & { startCallCount: number } {
+function makeV4BlockingStub(
+	channel: ReturnEnforcementChannel,
+	returnsOnRun1 = false,
+): HarnessAdapter & { startCallCount: number } {
 	const adapter = {
 		startCallCount: 0,
 
@@ -254,50 +256,48 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 	// FAILS red until the v3 while(true) loop is deleted from session-provisioning.ts.
 
 	describe("AC4: exactly ONE startSession for blocking adapters (v3 loop deleted)", () => {
-		test(
-			"builtin-loop adapter: no-return → enforcement fires in-process, startCallCount=1 (no loop re-start)",
-			async ({ db }) => {
-				const taskId = "al6v4-loop-ac4-builtin-1";
-				await seedDb(db, taskId);
+		test("builtin-loop adapter: no-return → enforcement fires in-process, startCallCount=1 (no loop re-start)", async ({
+			db,
+		}) => {
+			const taskId = "al6v4-loop-ac4-builtin-1";
+			await seedDb(db, taskId);
 
-				const adapter = makeV4BlockingStub("builtin-loop", false);
-				const { result } = await runWithAdapter(
-					db,
-					taskId,
-					adapter,
-					"al6v4-builtin-stub",
-					sandboxBasePath,
-				);
+			const adapter = makeV4BlockingStub("builtin-loop", false);
+			const { result } = await runWithAdapter(
+				db,
+				taskId,
+				adapter,
+				"al6v4-builtin-stub",
+				sandboxBasePath,
+			);
 
-				// v4: exactly ONE startSession. If startCallCount > 1, the v3 loop is still alive.
-				// FAILS red until Task 9 deletes the loop.
-				expect(adapter.startCallCount).toBe(1);
+			// v4: exactly ONE startSession. If startCallCount > 1, the v3 loop is still alive.
+			// FAILS red until Task 9 deletes the loop.
+			expect(adapter.startCallCount).toBe(1);
 
-				// Budget exhausted → not_returned.
-				expect(result.outcome).toBe("not_returned");
-			},
-		);
+			// Budget exhausted → not_returned.
+			expect(result.outcome).toBe("not_returned");
+		});
 
-		test(
-			"builtin-loop adapter: returns voluntarily → outcome=completed, startCallCount=1, zero force",
-			async ({ db }) => {
-				const taskId = "al6v4-loop-ac4-builtin-return-1";
-				await seedDb(db, taskId);
+		test("builtin-loop adapter: returns voluntarily → outcome=completed, startCallCount=1, zero force", async ({
+			db,
+		}) => {
+			const taskId = "al6v4-loop-ac4-builtin-return-1";
+			await seedDb(db, taskId);
 
-				const adapter = makeV4BlockingStub("builtin-loop", true);
-				const { result } = await runWithAdapter(
-					db,
-					taskId,
-					adapter,
-					"al6v4-builtin-return-stub",
-					sandboxBasePath,
-				);
+			const adapter = makeV4BlockingStub("builtin-loop", true);
+			const { result } = await runWithAdapter(
+				db,
+				taskId,
+				adapter,
+				"al6v4-builtin-return-stub",
+				sandboxBasePath,
+			);
 
-				expect(adapter.startCallCount).toBe(1);
-				expect(result.outcome).toBe("completed");
-				expect(result.returnVerdict).toBe("returned");
-			},
-		);
+			expect(adapter.startCallCount).toBe(1);
+			expect(result.outcome).toBe("completed");
+			expect(result.returnVerdict).toBe("returned");
+		});
 	});
 
 	// ── AC3: budget exhaustion → not_returned ────────────────────────────
@@ -306,39 +306,38 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 	// forceCount comes from the enforcement registry (not loopForceCount).
 
 	describe("AC3 — budget exhaustion → not_returned after hook blocks", () => {
-		test(
-			"never-returning stub → outcome=not_returned, forceReturnCount=AL6_MAX_FORCE_RETURNS, session_not_returned emitted",
-			async ({ db }) => {
-				const taskId = "al6v4-ac3-budget-1";
-				await seedDb(db, taskId);
+		test("never-returning stub → outcome=not_returned, forceReturnCount=AL6_MAX_FORCE_RETURNS, session_not_returned emitted", async ({
+			db,
+		}) => {
+			const taskId = "al6v4-ac3-budget-1";
+			await seedDb(db, taskId);
 
-				const adapter = makeV4BlockingStub("builtin-loop", false);
-				const { result, emittedEventTypes } = await runWithAdapter(
-					db,
-					taskId,
-					adapter,
-					"al6v4-never-return-stub",
-					sandboxBasePath,
-				);
+			const adapter = makeV4BlockingStub("builtin-loop", false);
+			const { result, emittedEventTypes } = await runWithAdapter(
+				db,
+				taskId,
+				adapter,
+				"al6v4-never-return-stub",
+				sandboxBasePath,
+			);
 
-				// Outcome must be not_returned.
-				expect(result.outcome).toBe("not_returned");
-				expect(result.returnVerdict).toBe("not_returned");
+			// Outcome must be not_returned.
+			expect(result.outcome).toBe("not_returned");
+			expect(result.returnVerdict).toBe("not_returned");
 
-				// session_not_returned must be emitted.
-				expect(emittedEventTypes).toContain("session_not_returned");
+			// session_not_returned must be emitted.
+			expect(emittedEventTypes).toContain("session_not_returned");
 
-				// forceReturnCount from enforcement registry (not loopForceCount).
-				// FAILS red until Task 9 wires registry count into ProvisionSessionResult.
-				const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
-					| number
-					| undefined;
-				if (forceCount !== undefined) {
-					expect(forceCount).toBeGreaterThanOrEqual(1);
-					expect(forceCount).toBeLessThanOrEqual(AL6_MAX_FORCE_RETURNS);
-				}
-			},
-		);
+			// forceReturnCount from enforcement registry (not loopForceCount).
+			// FAILS red until Task 9 wires registry count into ProvisionSessionResult.
+			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
+				| number
+				| undefined;
+			if (forceCount !== undefined) {
+				expect(forceCount).toBeGreaterThanOrEqual(1);
+				expect(forceCount).toBeLessThanOrEqual(AL6_MAX_FORCE_RETURNS);
+			}
+		});
 
 		test("WARNING-A: PERSISTED sessions.outcome row is 'not_returned' after budget exhaustion", async ({
 			db,

@@ -3,6 +3,8 @@ export type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	McpConnectionInfo,
+	ReturnEnforcementChannel,
+	ReturnHookConfig,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,

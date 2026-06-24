@@ -329,7 +329,15 @@ export class AdapterPool {
  * Event format is "ndjson" because codex emits JSONL turn.completed lines
  * normalised by normalizeNativeHarnessEvent("codex", ...).
  */
-const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+/**
+ * AL6 WARN-F2: Exported so integration tests can verify the per-session prompt-carrier
+ * mechanism is wired (the codex args template must include a seed-prompt carrier slot).
+ *
+ * @lore AL6 v4-final: CLI_TOOL_CONFIGS is exported (was unexported) so the real-harness
+ * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
+ * a per-session prompt carrier codex sessions get a generic system prompt only.
+ */
+export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 	codex: {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
@@ -343,6 +351,12 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		costField: "total_cost_usd",
+		// AL6 WARN-F2: Per-session seed prompt carrier for Codex.
+		// Codex `exec proceed --json` uses a hardcoded "proceed" prompt.
+		// "stdin" delivers the per-session kickoff message via stdin on re-engage.
+		// @lore AL6 WARN-F2: Without this field, re-engage runs would use the
+		// same generic "proceed" prompt regardless of the forcing message.
+		seedPrompt: "stdin",
 	},
 	opencode: {
 		binary: "opencode",
@@ -354,6 +368,11 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		},
 		eventFormat: "text",
 		envAllowlist: ["PATH", "HOME", "LANG"],
+		// AL6 WARN-F3: Per-session re-engage carrier for OpenCode (process-reengage channel).
+		// "run-arg" passes the forcing message as a positional arg to `opencode run <msg>`.
+		// @lore AL6 WARN-F3: Without this, re-engage re-invocations would not carry
+		// the forcing message and the agent would not know it needs to return.
+		reEngageCarrier: "run-arg",
 	},
 };
 

@@ -43,13 +43,12 @@ import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
-import { provisionSession } from "../../services/session-provisioning.js";
-import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
-import { test } from "../../test-fixtures.js";
-
 // FAILS red: module does not exist yet
 import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
 import { provisionReturnHook } from "../../harness/provision-return-hook.js";
+import { provisionSession } from "../../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -228,7 +227,7 @@ describe("AL6 v4-final — uniform enforcement (re-authored from v3)", () => {
 
 			// This must compile with a channel override.
 			// The green phase chooses the exact API (constructor arg, withChannel(), etc.)
-			let adapter: MockHarnessAdapter;
+			let adapter: HarnessAdapter;
 			try {
 				// Try constructor override first
 				adapter = new MockHarnessAdapter({ returnEnforcement: "settings-claude" });
@@ -236,7 +235,9 @@ describe("AL6 v4-final — uniform enforcement (re-authored from v3)", () => {
 				// If constructor doesn't support it, check for a withChannel method
 				adapter = new MockHarnessAdapter();
 				if ("withReturnEnforcement" in adapter) {
-					(adapter as unknown as { withReturnEnforcement: (c: string) => void }).withReturnEnforcement("settings-claude");
+					(
+						adapter as unknown as { withReturnEnforcement: (c: string) => void }
+					).withReturnEnforcement("settings-claude");
 				}
 			}
 
@@ -259,10 +260,18 @@ describe("AL6 v4-final — uniform enforcement (re-authored from v3)", () => {
 	// ── AC4: per-adapter returnEnforcement channel + provisionReturnHook dispatch ──
 
 	describe("AC4: provisionReturnHook dispatches correctly per channel", () => {
-		const testCases: Array<{ channel: ReturnEnforcementChannel; expectsFile: boolean; filePath?: string }> = [
+		const testCases: Array<{
+			channel: ReturnEnforcementChannel;
+			expectsFile: boolean;
+			filePath?: string;
+		}> = [
 			{ channel: "settings-claude", expectsFile: true, filePath: ".claude/settings.json" },
 			{ channel: "settings-codex", expectsFile: true, filePath: ".codex/hooks.json" },
-			{ channel: "process-reengage", expectsFile: true, filePath: ".opencode/plugins/return-signal.ts" },
+			{
+				channel: "process-reengage",
+				expectsFile: true,
+				filePath: ".opencode/plugins/return-signal.ts",
+			},
 			{ channel: "sdk-inprocess", expectsFile: false },
 			{ channel: "builtin-loop", expectsFile: false },
 			{ channel: "none", expectsFile: false },

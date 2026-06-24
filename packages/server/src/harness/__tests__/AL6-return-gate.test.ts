@@ -24,7 +24,6 @@ import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
-import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { IsolatedHarnessAdapter } from "../isolated-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
@@ -332,13 +331,19 @@ describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 
 	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────
 
 	it("HarnessCapabilities NO LONGER has hasNativeReturnHook (v3 removed in Task 1)", () => {
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
+			string,
+			unknown
+		>;
 		// FAILS red until Task 1/6 removes hasNativeReturnHook
 		expect("hasNativeReturnHook" in caps).toBe(false);
 	});
 
 	it("HarnessCapabilities NO LONGER has canReEngage (v3 removed in Task 1)", () => {
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<string, unknown>;
+		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
+			string,
+			unknown
+		>;
 		// FAILS red until Task 1/6 removes canReEngage
 		expect("canReEngage" in caps).toBe(false);
 	});

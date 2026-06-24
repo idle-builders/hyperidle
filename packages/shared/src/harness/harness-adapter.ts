@@ -89,6 +89,14 @@ export interface SessionConfig {
 	 * responds to PLANNING_PROMPT, never the user's actual question.
 	 */
 	readonly messages?: readonly ConversationMessage[];
+	/**
+	 * AL6 v4-final: Per-session return-hook configuration.
+	 * SDK/builtin closures + process wrapper read this to reach the enforcement
+	 * registry and bridge callback. settings-* adapters use bridgeToken/mcpUrl
+	 * when writing their hook config files (handled by provisionReturnHook, not startSession).
+	 * Optional for backward compatibility; omitted for non-task sessions.
+	 */
+	readonly returnHook?: ReturnHookConfig;
 }
 
 export interface SessionHandle {
@@ -110,6 +118,45 @@ export interface SessionResult {
 	readonly tokenUsage: TokenUsage;
 }
 
+/**
+ * AL6 v4-final: The per-harness return-enforcement provisioning channel.
+ * Declares HOW HyperIdle provisions return enforcement for this adapter.
+ * Non-optional — TypeScript strict forces every adapter to declare a channel,
+ * making "uniform across harnesses" un-skippable.
+ *
+ * Channels:
+ *   "sdk-inprocess"   — BLOCKING Stop closure wired in startSession (claude-agent-sdk, isolated)
+ *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
+ *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
+ *   "builtin-loop"    — in-process loop owns turn-end (BLOCKING)
+ *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
+ *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
+ *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
+ *
+ * @lore AL6 v4-final: Replaces v3's hasNativeReturnHook + canReEngage (both removed).
+ * The non-optional field is the forcing function: npm run check fails any adapter that
+ * doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop on ALL.
+ */
+export type ReturnEnforcementChannel =
+	| "sdk-inprocess"
+	| "settings-claude"
+	| "settings-codex"
+	| "builtin-loop"
+	| "process-reengage"
+	| "soft-continue"
+	| "none";
+
+/**
+ * AL6 v4-final: Per-session return-hook configuration.
+ * Passed in SessionConfig so SDK/builtin closures + process wrapper can reach
+ * the enforcement registry and bridge callback.
+ */
+export interface ReturnHookConfig {
+	readonly bridgeToken: string; // bridge callback credential
+	readonly mcpUrl: string; // ${mcpBaseUrl}/api/mcp/${token}
+	readonly forceBudget: number; // AL6_MAX_FORCE_RETURNS
+}
+
 export interface HarnessCapabilities {
 	readonly preCompactionTrigger: boolean;
 	readonly subAgents: boolean;
@@ -127,28 +174,15 @@ export interface HarnessCapabilities {
 	 */
 	readonly mcpSupport: boolean;
 	/**
-	 * AL6 v3: TRUE iff this adapter has a native in-turn fast-path that catches a
-	 * stop BEFORE the session ends and re-injects the forcing message without a new
-	 * startSession (SDK Stop hook; builtin loop). OPTIMIZATION HINT ONLY — does NOT
-	 * gate whether forcing happens. Forcing is universal via the provisioning
-	 * re-prompt loop (sandbox-file rewrite). Replaces v2's `canForceReturn`.
+	 * AL6 v4-final: Per-harness return-enforcement provisioning channel.
+	 * Replaces v3's hasNativeReturnHook + canReEngage (both removed).
+	 * Non-optional — every adapter must declare its channel.
+	 * provisionReturnHook dispatches on this to install the right enforcement.
 	 *
-	 * @lore AL6 v3: SDK adapter = true (Stop hook), builtin = true (owns the loop).
-	 * CLI/remote/isolated = false (no in-turn hook — forced via Layer-B sandbox rewrite).
+	 * @lore AL6 v4-final: The non-optional field is the "uniform across harnesses"
+	 * forcing function. npm run check fails any adapter that doesn't declare this.
 	 */
-	readonly hasNativeReturnHook: boolean;
-	/**
-	 * AL6 v3: TRUE iff this adapter can run a second turn with augmented context
-	 * (sandbox-file rewrite re-engage, or Mode-2 continueSession). The re-prompt
-	 * loop only re-engages adapters where this is true; a `false` adapter is a
-	 * genuine reject-only floor. ALL in-tree adapters: true (static guarantee).
-	 *
-	 * @lore AL6 v3: All five in-tree adapters set this true — enforced by the
-	 * non-optional field (npm run check fails any omission). A future adapter MAY
-	 * set false for a provably context-unreachable worker; that is a deliberate,
-	 * reviewed edit, not a silent regression.
-	 */
-	readonly canReEngage: boolean;
+	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
 	readonly accessMode?: HarnessAccessMode;
 	readonly authAction?: HarnessAuthActionDescriptor;
@@ -164,25 +198,19 @@ export interface HarnessAdapter {
 	getCapabilities(): HarnessCapabilities;
 
 	/**
-	 * AL6 v3 (optional): Return the count of in-turn force re-injections applied
-	 * by this adapter's native Layer-A hook (SDK Stop hook; builtin loop) during a
-	 * given session. Used to unify the turn-level `forceReturnCount` on
-	 * `ProvisionSessionResult` as: loopForceCount + (harness.getForceReturnCount?.(sessionId) ?? 0).
+	 * AL6 v4-final (optional): Return the count of enforcement-registry blocks applied
+	 * by this adapter's native hook or in-process enforcement during a given session.
+	 * Used to compute `forceReturnCount` on `ProvisionSessionResult`.
 	 *
-	 * Only builtin and SDK adapters implement this. External adapters (cli/isolated/remote)
-	 * do not have a native hook and return 0 (or leave this undefined).
+	 * Returns the enforcement-registry block count (incremented when the provisioned
+	 * hook/wrapper got forceMessage!==null), not a loop counter. Only adapters with
+	 * in-process enforcement implement this; file-provisioned adapters use the
+	 * enforcement registry directly via the bridge.
+	 *
+	 * @lore AL6 v4-final: Replaces v3's "loopForceCount + nativeCount" formula.
+	 * The v3 loop is deleted; forceReturnCount now comes entirely from the enforcement
+	 * registry (read here for in-process adapters, read from registry.get(sessionId).forceCount
+	 * for all others).
 	 */
 	getForceReturnCount?(sessionId: string): number;
-
-	/**
-	 * AL6 v3 (optional — Mode-2, SDK-only optimization): re-engage a LIVE
-	 * in-process handle (SDK's open query) with a follow-up message. Mode-1
-	 * (sandbox-rewrite + new startSession) adapters DO NOT implement this; the
-	 * provisioner falls back to Mode-1 when absent.
-	 *
-	 * @lore AL6 v3: unverified feasibility (live-query follow-up injection via
-	 * Options.resume/input streaming). If infeasible, omit — the SDK Stop hook
-	 * (Layer A) already forces in-turn; Mode-1 sandbox rewrite is the backstop.
-	 */
-	continueSession?(handle: SessionHandle, message: string): Promise<SessionHandle>;
 }

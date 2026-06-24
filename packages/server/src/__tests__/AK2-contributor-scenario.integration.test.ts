@@ -182,8 +182,7 @@ class EchoHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
-			hasNativeReturnHook: false,
-			canReEngage: true,
+			returnEnforcement: "none",
 		};
 	}
 }

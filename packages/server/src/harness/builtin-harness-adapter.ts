@@ -350,11 +350,9 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
-			// AL6 v3: builtin owns the loop — re-injects the forcing message in-turn
-			// (Layer-A fast-path). hasNativeReturnHook=true (optimization hint only).
-			hasNativeReturnHook: true,
-			// AL6 v3: builtin can re-engage (Layer A handles it in-turn; Layer B is the backstop).
-			canReEngage: true,
+			// AL6 v4-final: builtin owns the in-process loop — forces return inside the
+			// turn boundary without any external hook. Channel = "builtin-loop".
+			returnEnforcement: "builtin-loop",
 		};
 	}
 

@@ -22,11 +22,7 @@
 import { describe, expect, it } from "vitest";
 
 // FAILS red: module does not exist yet (green phase Task 2)
-import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-	type EnforcementEntry,
-} from "../../harness/return-enforcement-registry.js";
+import { createEnforcementRegistry } from "../../harness/return-enforcement-registry.js";
 
 describe("AL6 v4-final — return-enforcement-registry", () => {
 	// ── Lifecycle: register / get / unregister ────────────────────────────

@@ -22,6 +22,7 @@ import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
+	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
@@ -84,6 +85,41 @@ export interface CliAdapterConfig {
 	 * anything else is treated as missing (no cost_update emitted).
 	 */
 	readonly costField?: string;
+	/**
+	 * AL6 v4-final: The return-enforcement channel for this CLI adapter.
+	 * Overrides the binary-derived default when set.
+	 * Default derivation: "codex" → "settings-codex", "opencode" → "process-reengage", else "none".
+	 *
+	 * @lore AL6 WARN-F2/WARN-F3: Per-binary channel is declared here so
+	 * provisionReturnHook can dispatch correctly without coupling to binary names.
+	 */
+	readonly returnEnforcementChannel?: ReturnEnforcementChannel;
+	/**
+	 * AL6 WARN-F2: Per-session seed prompt mechanism for Codex.
+	 * Codex `exec proceed --json` uses a hardcoded "proceed" prompt. When a session
+	 * needs a per-session kickoff message (e.g. the forcing message on re-engage),
+	 * this field declares the delivery mechanism:
+	 *
+	 * "stdin" — piped to the subprocess via stdin.
+	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
+	 * Absent → no per-session prompt carrier (hardcoded only).
+	 *
+	 * @lore AL6 WARN-F2: Without this field, re-engage runs use the same generic
+	 * "proceed" prompt regardless of the forcing message — the agent never sees the
+	 * "you must return" instruction on re-engage.
+	 */
+	readonly seedPrompt?: "stdin" | "positional";
+	/**
+	 * AL6 WARN-F3: Per-session re-engage carrier for OpenCode.
+	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
+	 * (process-reengage channel), this field declares how the forcing message is
+	 * delivered to the re-invoked process.
+	 *
+	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
+	 * "stdin" — pipe to stdin.
+	 * Absent → re-engage uses the sandbox instruction file only.
+	 */
+	readonly reEngageCarrier?: "run-arg" | "stdin";
 }
 
 /** Injected dependencies (for testing). */
@@ -152,6 +188,22 @@ function buildSandboxedEnv(
 }
 
 let nextId = 1;
+
+/**
+ * AL6 v4-final: Derive the return-enforcement channel from the CLI binary name.
+ * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
+ * opencode → process-reengage (.opencode/plugins/return-signal.ts + re-spawn wrapper)
+ * unknown → none (drain-gate floor backstop only)
+ *
+ * @lore AL6 WARN-F2: Codex has a hooks.json mechanism (Stop hook). Without a trust
+ * marker the hook is silently skipped (WARN-F1). Per-session prompt carrier is a
+ * separate concern (tracked in CLI_TOOL_CONFIGS.codex.args — the {{prompt}} slot).
+ */
+function deriveCliChannel(binary: string): ReturnEnforcementChannel {
+	if (binary === "codex") return "settings-codex";
+	if (binary === "opencode") return "process-reengage";
+	return "none";
+}
 
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
@@ -401,12 +453,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
 			// for HyperIdle tool calling.
 			mcpSupport: true,
-			// AL6 v3: CLI has no native in-turn hook (Layer-A). Forced via Layer-B
-			// sandbox-file rewrite + re-spawn (the only instruction channel CLI reads).
-			hasNativeReturnHook: false,
-			// AL6 v3: CLI can re-engage — the re-spawned subprocess reads the rewritten
-			// AGENTS.md/CLAUDE.md from cwd:sandboxPath on each startSession.
-			canReEngage: true,
+			// AL6 v4-final: channel is explicit in config, or derived from binary name.
+			// codex → settings-codex (writes .codex/hooks.json Stop hook)
+			// opencode → process-reengage (opencode plugin + re-spawn wrapper)
+			// unknown → none (drain-gate floor backstop only)
+			returnEnforcement:
+				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
 		};
 	}
 

@@ -30,12 +30,11 @@
  * The builtin is the deterministic CI anchor that always runs.
  */
 
+import { execFile, execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { execFile } from "node:child_process";
 
 import { bets, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { fabricStrategy } from "@hyperidle/fabric";
@@ -50,21 +49,16 @@ import type {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { AdapterPool } from "../adapter-pool.js";
-import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import { provisionSession } from "../../services/session-provisioning.js";
-import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
-import { test } from "../../test-fixtures.js";
-
 // FAILS: provisionReturnHook does not exist yet (v4 green phase)
 import type { ReturnEnforcementChannel } from "../../harness/provision-return-hook.js";
 import { provisionReturnHook } from "../../harness/provision-return-hook.js";
-
 // FAILS: return-enforcement-registry does not exist yet
-import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-} from "../../harness/return-enforcement-registry.js";
+import { createEnforcementRegistry } from "../../harness/return-enforcement-registry.js";
+import { provisionSession } from "../../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -282,97 +276,95 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	//   - exactly ONE startSession (no v3-style loop)
 
 	describe("builtin (in-process, CI anchor)", () => {
-		test(
-			"no-return stub → forceCount>=1 (hook fired in-process), outcome=not_returned, exactly ONE startSession",
-			async ({ db }) => {
-				const taskId = `al6v4-builtin-noreturn-${Math.random().toString(36).slice(2, 7)}`;
-				const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
+		test("no-return stub → forceCount>=1 (hook fired in-process), outcome=not_returned, exactly ONE startSession", async ({
+			db,
+		}) => {
+			const taskId = `al6v4-builtin-noreturn-${Math.random().toString(36).slice(2, 7)}`;
+			const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
 
-				const adapter = new NoReturnBuiltinStub();
-				const eventBus = new EventBus();
-				const pool = new AdapterPool();
-				pool.register("al6v4-builtin-stub", adapter, {
-					name: "AL6 v4 Builtin No-Return",
-					kind: "local",
-					type: "builtin",
-					modelProviders: ["anthropic", "openrouter"],
-					maxConcurrent: 5,
-				});
-				const workspace = new LocalSandboxAdapter();
+			const adapter = new NoReturnBuiltinStub();
+			const eventBus = new EventBus();
+			const pool = new AdapterPool();
+			pool.register("al6v4-builtin-stub", adapter, {
+				name: "AL6 v4 Builtin No-Return",
+				kind: "local",
+				type: "builtin",
+				modelProviders: ["anthropic", "openrouter"],
+				maxConcurrent: 5,
+			});
+			const workspace = new LocalSandboxAdapter();
 
-				const result = await provisionSession(
-					{ db, eventBus, adapterPool: pool, workspace },
-					{ taskId, agentId, productId: teamId, sandboxBasePath },
-				);
+			const result = await provisionSession(
+				{ db, eventBus, adapterPool: pool, workspace },
+				{ taskId, agentId, productId: teamId, sandboxBasePath },
+			);
 
-				// FAILS red: v4 green phase must implement provisionReturnHook + registry
-				// and the builtin loop must consult the enforcement registry.
+			// FAILS red: v4 green phase must implement provisionReturnHook + registry
+			// and the builtin loop must consult the enforcement registry.
 
-				// The adapter must have been started exactly ONCE (no v3 loop).
-				// FAILS red until the v3 while(true) loop is deleted.
-				expect(adapter.startCallCount).toBe(1);
+			// The adapter must have been started exactly ONCE (no v3 loop).
+			// FAILS red until the v3 while(true) loop is deleted.
+			expect(adapter.startCallCount).toBe(1);
 
-				// The enforcement must have fired: forceCount >= 1.
-				// FAILS red until provisionReturnHook wires the builtin loop to the registry.
-				// A v1-regression (gate-only, no force) would yield forceCount=0.
-				const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
-					| number
-					| undefined;
-				expect(typeof forceCount).toBe("number");
-				expect(forceCount).toBeGreaterThanOrEqual(1);
+			// The enforcement must have fired: forceCount >= 1.
+			// FAILS red until provisionReturnHook wires the builtin loop to the registry.
+			// A v1-regression (gate-only, no force) would yield forceCount=0.
+			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
+				| number
+				| undefined;
+			expect(typeof forceCount).toBe("number");
+			expect(forceCount).toBeGreaterThanOrEqual(1);
 
-				// Outcome: budget exhausted → not_returned.
-				expect(result.outcome).toBe("not_returned");
-				expect(result.returnVerdict).toBe("not_returned");
+			// Outcome: budget exhausted → not_returned.
+			expect(result.outcome).toBe("not_returned");
+			expect(result.returnVerdict).toBe("not_returned");
 
-				// DB row must also be not_returned.
-				const [sessionRow] = await db
-					.select({ outcome: sessions.outcome })
-					.from(sessions)
-					.where(eq(sessions.id, result.sessionId))
-					.limit(1);
-				expect(sessionRow?.outcome).toBe("not_returned");
-			},
-		);
+			// DB row must also be not_returned.
+			const [sessionRow] = await db
+				.select({ outcome: sessions.outcome })
+				.from(sessions)
+				.where(eq(sessions.id, result.sessionId))
+				.limit(1);
+			expect(sessionRow?.outcome).toBe("not_returned");
+		});
 
-		test(
-			"returning stub → forceCount=0, outcome=completed, exactly ONE startSession",
-			async ({ db }) => {
-				const taskId = `al6v4-builtin-return-${Math.random().toString(36).slice(2, 7)}`;
-				const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
+		test("returning stub → forceCount=0, outcome=completed, exactly ONE startSession", async ({
+			db,
+		}) => {
+			const taskId = `al6v4-builtin-return-${Math.random().toString(36).slice(2, 7)}`;
+			const { agentId, teamId } = await seedForHarness(db, taskId, "builtin");
 
-				const adapter = new ReturningBuiltinStub();
-				const eventBus = new EventBus();
-				const pool = new AdapterPool();
-				pool.register("al6v4-builtin-return-stub", adapter, {
-					name: "AL6 v4 Builtin Returning",
-					kind: "local",
-					type: "builtin",
-					modelProviders: ["anthropic", "openrouter"],
-					maxConcurrent: 5,
-				});
-				const workspace = new LocalSandboxAdapter();
+			const adapter = new ReturningBuiltinStub();
+			const eventBus = new EventBus();
+			const pool = new AdapterPool();
+			pool.register("al6v4-builtin-return-stub", adapter, {
+				name: "AL6 v4 Builtin Returning",
+				kind: "local",
+				type: "builtin",
+				modelProviders: ["anthropic", "openrouter"],
+				maxConcurrent: 5,
+			});
+			const workspace = new LocalSandboxAdapter();
 
-				const result = await provisionSession(
-					{ db, eventBus, adapterPool: pool, workspace },
-					{ taskId, agentId, productId: teamId, sandboxBasePath },
-				);
+			const result = await provisionSession(
+				{ db, eventBus, adapterPool: pool, workspace },
+				{ taskId, agentId, productId: teamId, sandboxBasePath },
+			);
 
-				// Compliant adapter: no forcing needed.
-				expect(adapter.startCallCount).toBe(1);
+			// Compliant adapter: no forcing needed.
+			expect(adapter.startCallCount).toBe(1);
 
-				const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
-					| number
-					| undefined;
-				// forceCount should be 0 or absent when no forcing occurred.
-				if (forceCount !== undefined) {
-					expect(forceCount).toBe(0);
-				}
+			const forceCount = (result as unknown as Record<string, unknown>).forceReturnCount as
+				| number
+				| undefined;
+			// forceCount should be 0 or absent when no forcing occurred.
+			if (forceCount !== undefined) {
+				expect(forceCount).toBe(0);
+			}
 
-				expect(result.outcome).toBe("completed");
-				expect(result.returnVerdict).toBe("returned");
-			},
-		);
+			expect(result.outcome).toBe("completed");
+			expect(result.returnVerdict).toBe("returned");
+		});
 	});
 
 	// ── CLAUDE-CODE CLI (binary+auth gated) ────────────────────────────────
@@ -385,10 +377,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	describe("claude-code CLI (settings-claude channel)", () => {
 		test.skipIf(!claudeInstalled)(
 			"provision .claude/settings.json Stop hook → real claude binary → hook fires (forceCount>=1) OR not_returned at budget, exactly ONE startSession",
-			async (ctx) => {
+			async ({ skip }) => {
 				const authed = await claudeAuthed();
 				if (!authed) {
-					ctx.skip();
+					skip();
 					return;
 				}
 
@@ -398,8 +390,8 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 				try {
 					// FAILS red: provisionReturnHook does not exist yet.
 					const registry = createEnforcementRegistry();
-					const bridgeToken = "test-bridge-token-" + Math.random().toString(36).slice(2);
-					const mcpUrl = "http://localhost:3001/api/mcp/" + bridgeToken;
+					const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
+					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -416,13 +408,12 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 					const trustMarkerExists =
 						fs.existsSync(path.join(sandboxPath, ".claude", "settings.json")) &&
 						// The settings.json must contain a hooks section (proof it's not empty).
-						JSON.parse(
-							fs.readFileSync(path.join(sandboxPath, ".claude", "settings.json"), "utf-8"),
-						).hooks !== undefined;
+						JSON.parse(fs.readFileSync(path.join(sandboxPath, ".claude", "settings.json"), "utf-8"))
+							.hooks !== undefined;
 					expect(trustMarkerExists).toBe(true);
 
 					// WARN-F2: Register a session with a no-return seed so the hook has something to fire on.
-					const sessionId = "al6v4-claude-test-" + Math.random().toString(36).slice(2);
+					const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
 					const gate = { returned: false };
 					registry.register(sessionId, { gate, forceCount: 0, exempt: false });
 
@@ -474,10 +465,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	describe("codex CLI (settings-codex channel)", () => {
 		test.skipIf(!codexInstalled)(
 			"provision .codex/hooks.json Stop hook → hook file written with trust marker + prompt carrier",
-			async (ctx) => {
+			async ({ skip }) => {
 				const authed = await codexAuthed();
 				if (!authed) {
-					ctx.skip();
+					skip();
 					return;
 				}
 
@@ -486,8 +477,8 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 				try {
 					// FAILS red: provisionReturnHook does not exist yet.
 					const registry = createEnforcementRegistry();
-					const bridgeToken = "codex-test-token-" + Math.random().toString(36).slice(2);
-					const mcpUrl = "http://localhost:3001/api/mcp/" + bridgeToken;
+					const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
+					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -507,9 +498,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 					const hooksPath = path.join(codexDir, "hooks.json");
 					expect(fs.existsSync(hooksPath)).toBe(true);
 
-					const hooksContent = JSON.parse(
-						fs.readFileSync(hooksPath, "utf-8"),
-					) as Record<string, unknown>;
+					const hooksContent = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<
+						string,
+						unknown
+					>;
 
 					expect(hooksContent).toHaveProperty("Stop");
 
@@ -535,7 +527,7 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 					// Test that provisionReturnHook captures the forcing message so it CAN be
 					// injected at spawn time (not just at hook-fire time).
 					// FAILS red until prompt-carrier template is added.
-					const sessionId = "al6v4-codex-test-" + Math.random().toString(36).slice(2);
+					const sessionId = `al6v4-codex-test-${Math.random().toString(36).slice(2)}`;
 					const gate = { returned: false };
 					registry.register(sessionId, { gate, forceCount: 0, exempt: false });
 
@@ -556,10 +548,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 		test.skipIf(!codexInstalled)(
 			"WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')",
-			async (ctx) => {
+			async ({ skip }) => {
 				const authed = await codexAuthed();
 				if (!authed) {
-					ctx.skip();
+					skip();
 					return;
 				}
 
@@ -601,10 +593,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	describe("opencode CLI (process-reengage channel)", () => {
 		test.skipIf(!opencodeInstalled)(
 			"provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed",
-			async (ctx) => {
+			async ({ skip }) => {
 				const authed = await opencodeAuthed();
 				if (!authed) {
-					ctx.skip();
+					skip();
 					return;
 				}
 
@@ -612,8 +604,8 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 				try {
 					// FAILS red: provisionReturnHook does not exist yet.
-					const bridgeToken = "opencode-test-token-" + Math.random().toString(36).slice(2);
-					const mcpUrl = "http://localhost:3001/api/mcp/" + bridgeToken;
+					const bridgeToken = `opencode-test-token-${Math.random().toString(36).slice(2)}`;
+					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -647,10 +639,10 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 		test.skipIf(!opencodeInstalled)(
 			"WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)",
-			async (ctx) => {
+			async ({ skip }) => {
 				const authed = await opencodeAuthed();
 				if (!authed) {
-					ctx.skip();
+					skip();
 					return;
 				}
 
@@ -698,7 +690,7 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 
 			try {
 				const bridgeToken = "cursor-test-token";
-				const mcpUrl = "http://localhost:3001/api/mcp/" + bridgeToken;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
 				// Must not throw even for an inert channel.
 				await expect(

@@ -1194,8 +1194,7 @@ function makeMockAdapter(): HarnessAdapter {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: false,
-				hasNativeReturnHook: false,
-				canReEngage: true,
+				returnEnforcement: "none",
 			};
 		},
 	};

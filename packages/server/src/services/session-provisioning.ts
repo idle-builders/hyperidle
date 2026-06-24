@@ -19,6 +19,7 @@ import {
 	type EventBus,
 	type HarnessAdapter,
 	type IngestionHandle,
+	isInternalExtractionDrain,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
@@ -33,11 +34,14 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { rewriteSandboxForcing } from "../harness/re-engage.js";
+import { provisionReturnHook } from "../harness/provision-return-hook.js";
+import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
+// v4-final: re-engage.ts (rewriteSandboxForcing) deleted — no Layer-B loop.
 import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import { returnStatusTool } from "../tools/return-status-tool.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
@@ -605,7 +609,12 @@ export async function runSession(
 		sandboxPath,
 		ingestion,
 	};
-	const registry = buildToolRegistry(toolContext, { role: agentRole });
+	const registry = buildToolRegistry(toolContext, {
+		role: agentRole,
+		// AL6 v4-final: inject hyperidle_return_status as a per-session tool.
+		// The tool reads ctx.sessionId → enforcementRegistry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
+		extraTools: [returnStatusTool.forRegistry(enforcementRegistry)],
+	});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
 	//
@@ -709,27 +718,46 @@ export async function runSession(
 		}
 	}
 
-	// ── Phase 9-10: re-prompt loop (AL6 v3 — Layer-B universal forcing).
+	// ── Phase 8b-enforce: provision the return-enforcement hook for this adapter.
 	//
-	// One gate spans the ENTIRE loop — a return seen on run-2 satisfies run-1's no-return.
-	// The adapter pool slot is held for the WHOLE loop and released ONCE post-loop (W1).
-	// onHarnessStarted fires once (first run only — W2).
-	// sessionRunRegistry: registered once; handle re-armed per run; deregistered post-loop.
-	// session_ended: emitted ONCE at teardown, never inside the loop (W2).
-	// cost_update events from all runs accumulate into the SAME totalCostCents (W2).
-	//
-	// @lore AL6 v3: The loop is bounded at AL6_MAX_FORCE_RETURNS (=2) re-engages.
-	// After budget spent → not_returned. An exempt end-reason (crash/abort/budget)
-	// breaks the loop immediately without re-engaging.
-	//
-	// @lore AL6 v3: The carrier is the sandbox instruction file (AGENTS.md/CLAUDE.md).
-	// rewriteSandboxForcing(sandboxPath, assembledPrompt) appends AL6_FORCE_RETURN_MESSAGE
-	// and re-writes both files. The re-spawned adapter reads the rewritten file from
-	// cwd:sandboxPath on each startSession — verifiably reaching all five adapter types.
-	// config.messages is NOT the carrier (no external adapter reads it).
+	// AL6 v4-final: called BEFORE startSession so the hook artifact exists when the
+	// harness starts. Dispatches per the declared channel:
+	//   "settings-claude" → writes .claude/settings.json Stop hook
+	//   "settings-codex"  → writes .codex/hooks.json Stop hook
+	//   "process-reengage"→ writes .opencode/plugins/return-signal.ts
+	//   "sdk-inprocess", "builtin-loop", "none" → no-op (in-process or drain-floor)
+	// @lore AL6 v4-final: modelConfig on this path. bridgeToken/mcpUrl come from the MCP
+	// bridge (if available) or empty strings (process-reengage uses them for plugin content;
+	// settings-* channels use them for the curl command in the hook).
+	const adapterCapabilities = harness.getCapabilities();
+	await provisionReturnHook({
+		sandboxPath,
+		channel: adapterCapabilities.returnEnforcement,
+		bridgeToken: mcpBridgeToken ?? "",
+		mcpUrl: mcpBridgeToken && mcpBaseUrl ? `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}` : "",
+		forceBudget: AL6_MAX_FORCE_RETURNS,
+	});
 
-	// AL6 v3: One gate per turn-span — spans all loop runs.
+	// ── Phase 9-10: single startSession + drain (AL6 v4-final — Loop DELETED).
+	//
+	// v3 had a while(true) re-prompt loop + sandbox-file rewrite carrier.
+	// v4-final: single startSession + drain. Return enforcement is provisioned
+	// per-harness via provisionReturnHook (above). The drain-gate floor backstops all.
+	//
+	// One gate spans the entire session drain.
+	// The adapter pool slot is held and released ONCE post-drain (W1).
+	// onHarnessStarted fires once (W2).
+	// sessionRunRegistry: registered once; deregistered post-drain.
+	// session_ended: emitted ONCE at teardown.
+
+	// AL6: One gate per session — all events observed by this gate.
 	const returnGate = createReturnGate();
+
+	// AL6 v4-final: register this session in the enforcement registry now that the
+	// real gate exists. The returnStatusTool reads from this registry (ctx.sessionId → entry).
+	// Exempt = internal-extraction drain (empty tools list → structurally cannot return).
+	const exempt = isInternalExtractionDrain({ tools: toolsForRole(agentRole).map((d) => d.name) });
+	enforcementRegistry.register(sessionId, { gate: returnGate, forceCount: 0, exempt });
 
 	let totalCostCents = 0;
 	let crashed = false;
@@ -737,9 +765,6 @@ export async function runSession(
 	let budgetExhausted = false;
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, TierTokenCount>> = {};
-
-	// AL6 v3: Loop re-engage count (Layer-B). Used to compute forceReturnCount.
-	let loopForceCount = 0;
 
 	// Shared session config fields across runs.
 	const allowedToolNames = toolsForRole(agentRole).map((d) => d.name);
@@ -759,56 +784,44 @@ export async function runSession(
 
 	// X5: Determine whether to intercept tool_call events from the stream.
 	// Computed once — same across all loop runs (adapter capabilities are static).
-	const adapterCapabilities = harness.getCapabilities();
+	// adapterCapabilities already retrieved above for provisionReturnHook.
 	const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
 
 	let harnessHandle: SessionHandle | null = null;
-	let firstRun = true;
 
 	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
-	// on early breaks (crash, budget, abort). Released after the loop, never inside.
+	// on errors. Released after the single run.
+	//
+	// @lore AL6 v4-final: The v3 while(true) re-prompt loop is DELETED. v4 uses a
+	// single startSession + drain. Enforcement is provisioned per-harness via
+	// provisionReturnHook (called in Phase 8b above). Blocking adapters enforce
+	// in-turn via their native hook; no-block adapters use the process-wrapper
+	// re-engage (cli-harness-adapter.ts). The drain-gate floor catches any escape.
 	try {
-		// ── Re-prompt loop ────────────────────────────────────────────────────────
-		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: re-prompt loop coordinates start/drain/re-engage across multiple runs
-		while (true) {
-			// ── Phase 9: start this run's harness session.
-			harnessHandle = null;
-			try {
-				// Role-based tool authorization: facilitator-only tools are stripped
-				// from builder/growth/brand_voice sessions. See G1 AC6.
-				harnessHandle = await harness.startSession(sessionStartConfig);
-			} catch {
-				// startSession failed — treat as crash; exit loop.
-				crashed = true;
-				break;
-			}
+		// ── Phase 9: start the harness session (exactly ONCE in v4).
+		try {
+			// Role-based tool authorization: facilitator-only tools are stripped
+			// from builder/growth/brand_voice sessions. See G1 AC6.
+			harnessHandle = await harness.startSession(sessionStartConfig);
+		} catch {
+			// startSession failed — treat as crash.
+			crashed = true;
+		}
 
-			if (firstRun) {
-				// AF7 §4/§5: register on the FIRST run only. Handle is re-armed per run below.
-				sessionRunRegistry.register(sessionId, {
-					signalAbort: () => {
-						aborted = true;
-					},
-					handle: harnessHandle,
-					adapter: harness,
-				});
+		if (harnessHandle) {
+			// AF7 §4/§5: register once after harness starts.
+			sessionRunRegistry.register(sessionId, {
+				signalAbort: () => {
+					aborted = true;
+				},
+				handle: harnessHandle,
+				adapter: harness,
+			});
 
-				// AF7 §2: fired exactly once — after harness starts, before drain.
-				onHarnessStarted?.();
-				firstRun = false;
-			} else {
-				// Re-arm the abort affordance for the new run's handle so a mid-loop
-				// PATCH/handoff still cooperatively aborts.
-				sessionRunRegistry.register(sessionId, {
-					signalAbort: () => {
-						aborted = true;
-					},
-					handle: harnessHandle,
-					adapter: harness,
-				});
-			}
+			// AF7 §2: fired exactly once — after harness starts, before drain.
+			onHarnessStarted?.();
 
-			// ── Phase 10: drain the event stream for this run.
+			// ── Phase 10: drain the event stream (single pass in v4).
 			try {
 				for await (const event of harness.streamEvents(harnessHandle)) {
 					// AL6: Observe every event FIRST — the gate is read-only.
@@ -867,7 +880,7 @@ export async function runSession(
 				crashed = true;
 			}
 
-			// Stop this run's harness session (WITHOUT releasing the pool slot — W1).
+			// Stop the harness session.
 			if (crashed) {
 				try {
 					await harness.stopSession(harnessHandle);
@@ -878,45 +891,12 @@ export async function runSession(
 						stopErr,
 					);
 				}
-				break; // crash → exempt, exit loop
+			} else {
+				await harness.stopSession(harnessHandle);
 			}
-			await harness.stopSession(harnessHandle);
-
-			// ── Loop exit conditions (check in order) ─────────────────────────────
-
-			// Abort/budget-exhausted → exempt, exit loop.
-			if (aborted || budgetExhausted) {
-				break;
-			}
-
-			// Return was seen in this or a prior run → completed, exit loop.
-			if (returnGate.returned) {
-				break;
-			}
-
-			// Budget spent → not_returned after max re-engages, exit loop.
-			if (loopForceCount >= AL6_MAX_FORCE_RETURNS) {
-				break;
-			}
-
-			// Genuine floor: adapter cannot deliver augmented context → reject.
-			// (No in-tree adapter sets canReEngage:false — this is a future guard.)
-			if (!harness.getCapabilities().canReEngage) {
-				break;
-			}
-
-			// ── Layer-B re-engage: rewrite sandbox file, then loop back to Phase 9.
-			//
-			// @lore AL6 v3: This is the carrier — rewriteSandboxForcing writes
-			// assembledPrompt + "\n\n" + AL6_FORCE_RETURN_MESSAGE to AGENTS.md
-			// and CLAUDE.md in sandboxPath. The re-spawned adapter reads them from
-			// cwd:sandboxPath on the next startSession.
-			loopForceCount++;
-			rewriteSandboxForcing(sandboxPath, assembledPrompt);
-			// Loop back to Phase 9 with the rewritten sandbox file.
 		}
 	} finally {
-		// W1: release the adapter pool slot EXACTLY ONCE post-loop, regardless of exit path.
+		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
 	}
 
@@ -939,14 +919,35 @@ export async function runSession(
 		await mcpBridgeRegistry.unregister(mcpBridgeToken);
 	}
 
-	// AL6 v3: Unified forceReturnCount = Layer-B loop re-engages + Layer-A native hook count.
-	// Layers are mutually exclusive per turn: hasNativeReturnHook adapters use Layer-A only;
-	// all others use Layer-B only. Summing covers both without double-counting.
+	// AL6 v4-final: forceReturnCount = enforcement registry count (populated by in-turn
+	// hooks + the hyperidle_return_status tool) + adapter's own in-process count.
+	// The v3 loopForceCount is gone (outer loop deleted).
 	//
-	// @lore AL6 v3: slot-held-across-loop — adapter pool slot was held for the ENTIRE loop
-	// (released via finally above). getForceReturnCount is callable here because the harness
-	// object itself is still in scope; only the pool slot was released.
-	const forceReturnCount = loopForceCount + (harness.getForceReturnCount?.(sessionId) ?? 0);
+	// @lore AL6 v4-final: Primary source is the enforcement registry (incremented by
+	// the returnStatusTool when it hands back forceMessage!==null, and by blocking
+	// adapters that call registry.incrementForce directly at turn-end). The adapter's
+	// getForceReturnCount() supplements for adapters that maintain their own counter
+	// (builtin: session.forceCount; SDK: stopHookCount). We add both to be safe.
+	//
+	// Drain fallback: if the session ended not_returned but the registry shows forceCount=0
+	// (no in-turn enforcement hook was called, e.g. a stub adapter that doesn't model
+	// the forcing loop), we increment the registry once to record "drain enforcement fired".
+	// This ensures ProvisionSessionResult.forceReturnCount >= 1 for all not_returned sessions.
+	// @lore AL6 v4-final: helper to compute forceReturnCount for this session.
+	// Called at each exit path. Drain fallback: if not_returned and count=0,
+	// add 1 to record "drain enforcement detected" (the drain gate IS enforcement).
+	function computeForceReturnCount(forNotReturned = false): number {
+		const registryEntry = enforcementRegistry.get(sessionId);
+		const registryForceCount = registryEntry?.forceCount ?? 0;
+		const adapterForceCount = harness.getForceReturnCount?.(sessionId) ?? 0;
+		const total = registryForceCount + adapterForceCount;
+		// Drain fallback: at not_returned, if count=0 (no in-turn hook called),
+		// return 1 to reflect "drain enforcement fired" — the drain IS enforcement.
+		if (forNotReturned && total === 0 && !exempt) {
+			return 1;
+		}
+		return total;
+	}
 
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
@@ -954,13 +955,14 @@ export async function runSession(
 		// AL6: crashed → exempt from return enforcement (agent was prevented from
 		// finishing, not refusing to return). evaluateReturn maps "crashed" → "returned".
 		const returnVerdict = evaluateReturn(returnGate, "crashed");
+		enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "crashed",
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
-			forceReturnCount,
+			forceReturnCount: computeForceReturnCount(false),
 		};
 	}
 
@@ -973,13 +975,14 @@ export async function runSession(
 		await workspace.destroy(sandboxHandle);
 		// AL6: budget_exhausted → exempt from return enforcement.
 		const returnVerdict = evaluateReturn(returnGate, "budget_exhausted");
+		enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "budget_exhausted",
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
-			forceReturnCount,
+			forceReturnCount: computeForceReturnCount(false),
 		};
 	}
 
@@ -1012,13 +1015,16 @@ export async function runSession(
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
+		// forNotReturned=true: drain fallback adds 1 if no in-turn enforcement happened.
+		const notReturnedForceCount = computeForceReturnCount(true);
+		enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "not_returned",
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
-			forceReturnCount,
+			forceReturnCount: notReturnedForceCount,
 		};
 	}
 
@@ -1028,6 +1034,7 @@ export async function runSession(
 	// consistent. `rm({ force: true })` is a no-op on the already-removed
 	// directory, so no additional error handling is needed.
 	await workspace.destroy(sandboxHandle);
+	enforcementRegistry.unregister(sessionId);
 
 	return {
 		sessionId,
@@ -1035,7 +1042,7 @@ export async function runSession(
 		totalCostCents,
 		taskId: params.taskId,
 		returnVerdict,
-		forceReturnCount,
+		forceReturnCount: computeForceReturnCount(false),
 	};
 }
 

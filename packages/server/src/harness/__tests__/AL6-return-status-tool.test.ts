@@ -19,14 +19,11 @@
  *   - buildToolRegistry gains extraTools option (Task 3 wiring)
  */
 
-import { describe, expect, it } from "vitest";
 import * as sharedAll from "@hyperidle/shared";
-
+import { describe, expect, it } from "vitest";
+import { createEnforcementRegistry } from "../../harness/return-enforcement-registry.js";
 // FAILS red: module does not exist yet (green phase Task 3)
 import { returnStatusTool } from "../../tools/return-status-tool.js";
-import {
-	createEnforcementRegistry,
-} from "../../harness/return-enforcement-registry.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing shared constants in red phase
 const sharedNs = sharedAll as Record<string, any>;

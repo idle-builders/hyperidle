@@ -21,8 +21,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // FAILS red: module does not exist yet
 import {
-	type ReturnEnforcementChannel,
 	provisionReturnHook,
+	type ReturnEnforcementChannel,
 } from "../../harness/provision-return-hook.js";
 
 describe("AL6 v4-final — provisionReturnHook", () => {
@@ -37,7 +37,7 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 	});
 
 	const bridgeToken = "test-bridge-token-abc123def456";
-	const mcpUrl = "http://localhost:3001/api/mcp/" + bridgeToken;
+	const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 	const forceBudget = 2;
 
 	// ── settings-claude channel ────────────────────────────────────────────
@@ -45,7 +45,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 	describe("settings-claude: writes .claude/settings.json with Stop hook", () => {
 		it("creates .claude/settings.json in the sandbox", async () => {
 			// FAILS red: provisionReturnHook does not exist
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			// FAILS red: file is not written because the module does not exist
@@ -53,7 +59,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("settings.json contains a hooks.Stop entry", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			const content = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
@@ -64,7 +76,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("Stop hook command contains the bridge mcpUrl", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			const content = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
@@ -74,7 +92,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("Stop hook command contains the bridge token", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			const content = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
@@ -87,7 +111,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 			// The bridge token and URL are server-minted. No agent-authored value enters the shell.
 			// This test guards against the injection class: no backticks, $(), <, >, |, ;, &
 			// UNLESS they are part of the deliberately written command structure.
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			const raw = fs.readFileSync(settingsPath, "utf-8");
@@ -104,7 +134,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 			// Claude Code silently skips hooks in untrusted workspaces.
 			// The provisioning MUST establish trust or the hook is decorative.
 			// FAILS red until trust provisioning is implemented.
-			await provisionReturnHook({ sandboxPath, channel: "settings-claude", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-claude",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			// Trust can be established via:
 			// (a) a .claude/settings.local.json with trust:true, OR
@@ -133,14 +169,26 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 
 	describe("settings-codex: writes .codex/hooks.json with Stop hook", () => {
 		it("creates .codex/hooks.json in the sandbox", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "settings-codex", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-codex",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			expect(fs.existsSync(hooksPath)).toBe(true);
 		});
 
 		it("hooks.json contains a Stop entry with decision:block semantics", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "settings-codex", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-codex",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
@@ -154,7 +202,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		it("WARN-F1 (trust): writes a trust marker so Codex loads the project-local hook", async () => {
 			// Codex: project-local hooks load only when the project .codex/ layer is trusted.
 			// FAILS red until trust marker is written.
-			await provisionReturnHook({ sandboxPath, channel: "settings-codex", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "settings-codex",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const codexDir = path.join(sandboxPath, ".codex");
 
@@ -177,14 +231,26 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 
 	describe("process-reengage: writes .opencode/plugins/return-signal.ts", () => {
 		it("creates .opencode/plugins/return-signal.ts", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "process-reengage", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "process-reengage",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const pluginPath = path.join(sandboxPath, ".opencode", "plugins", "return-signal.ts");
 			expect(fs.existsSync(pluginPath)).toBe(true);
 		});
 
 		it("plugin exports a session.idle listener", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "process-reengage", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "process-reengage",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const pluginPath = path.join(sandboxPath, ".opencode", "plugins", "return-signal.ts");
 			const content = fs.readFileSync(pluginPath, "utf-8");
@@ -193,7 +259,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("plugin references the bridge callback URL", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "process-reengage", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "process-reengage",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			const pluginPath = path.join(sandboxPath, ".opencode", "plugins", "return-signal.ts");
 			const content = fs.readFileSync(pluginPath, "utf-8");
@@ -206,7 +278,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 
 	describe("sdk-inprocess, builtin-loop, none: no file written", () => {
 		it("sdk-inprocess: does not write any config file", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "sdk-inprocess", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "sdk-inprocess",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			// No .claude/settings.json, no .codex/hooks.json, no .opencode plugin.
 			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
@@ -215,7 +293,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("builtin-loop: does not write any config file", async () => {
-			await provisionReturnHook({ sandboxPath, channel: "builtin-loop", bridgeToken, mcpUrl, forceBudget });
+			await provisionReturnHook({
+				sandboxPath,
+				channel: "builtin-loop",
+				bridgeToken,
+				mcpUrl,
+				forceBudget,
+			});
 
 			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
 			expect(fs.existsSync(path.join(sandboxPath, ".codex"))).toBe(false);
@@ -237,7 +321,13 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		it("soft-continue does not throw for an inert channel", async () => {
 			// Cursor is not spawnable today — soft-continue must be a safe no-op.
 			await expect(
-				provisionReturnHook({ sandboxPath, channel: "soft-continue", bridgeToken, mcpUrl, forceBudget }),
+				provisionReturnHook({
+					sandboxPath,
+					channel: "soft-continue",
+					bridgeToken,
+					mcpUrl,
+					forceBudget,
+				}),
 			).resolves.not.toThrow();
 		});
 	});
@@ -257,10 +347,18 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 
 		for (const channel of allChannels) {
 			it(`handles channel="${channel}" without throwing`, async () => {
-				const channelSandbox = fs.mkdtempSync(path.join(os.tmpdir(), `al6v4-ch-${channel.replace(/-/g, "")}-`));
+				const channelSandbox = fs.mkdtempSync(
+					path.join(os.tmpdir(), `al6v4-ch-${channel.replace(/-/g, "")}-`),
+				);
 				try {
 					await expect(
-						provisionReturnHook({ sandboxPath: channelSandbox, channel, bridgeToken, mcpUrl, forceBudget }),
+						provisionReturnHook({
+							sandboxPath: channelSandbox,
+							channel,
+							bridgeToken,
+							mcpUrl,
+							forceBudget,
+						}),
 					).resolves.not.toThrow();
 				} finally {
 					fs.rmSync(channelSandbox, { recursive: true, force: true });

@@ -310,9 +310,8 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			mcpSupport: true,
 			// AL6 v3: SDK Stop hook (decision:block + reason) catches the stop in-turn
 			// and re-injects — the Layer-A fast-path. hasNativeReturnHook=true (optimization only).
-			hasNativeReturnHook: true,
+			returnEnforcement: "sdk-inprocess",
 			// AL6 v3: SDK can re-engage via Mode-1 sandbox rewrite + new startSession backstop.
-			canReEngage: true,
 		};
 	}
 

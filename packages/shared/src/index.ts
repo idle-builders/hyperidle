@@ -172,6 +172,9 @@ export type {
 	PreCompactionEvent,
 	// AL6: return action name type
 	ReturnActionName,
+	// AL6 v4-final: per-harness enforcement channel + hook config
+	ReturnEnforcementChannel,
+	ReturnHookConfig,
 	ServerDispatchMessage,
 	ServerRegisteredMessage,
 	ServerStopMessage,

@@ -143,8 +143,7 @@ function makeStubAdapter(
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		mcpSupport: false,
 		// v3: defaults — no in-turn hook (external shape); re-engage via Layer-B.
-		hasNativeReturnHook: false,
-		canReEngage: true,
+		returnEnforcement: "none",
 		...caps,
 	};
 
@@ -519,25 +518,24 @@ describe("AL6 v2 — return-gate integration", () => {
 			// Tier-1 (force): canForceReturn:true — SDK + builtin
 			{
 				name: "builtin-shaped-tier1",
-				caps: { hasNativeReturnHook: true, canReEngage: true, mcpSupport: false },
+				caps: { returnEnforcement: "sdk-inprocess", mcpSupport: false },
 				tier: "tier1-force",
 			},
 			{
 				name: "sdk-shaped-tier1",
-				caps: { hasNativeReturnHook: true, canReEngage: true, mcpSupport: true, subAgents: true },
+				caps: { returnEnforcement: "sdk-inprocess", mcpSupport: true, subAgents: true },
 				tier: "tier1-force",
 			},
 			// Tier-2 (reject): canForceReturn:false — cli/remote/isolated
 			{
 				name: "cli-shaped-tier2",
-				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: false },
+				caps: { returnEnforcement: "none", mcpSupport: false },
 				tier: "tier2-reject",
 			},
 			{
 				name: "remote-shaped-tier2",
 				caps: {
-					hasNativeReturnHook: false,
-					canReEngage: true,
+					returnEnforcement: "none",
 					mcpSupport: false,
 					subAgents: false,
 				},
@@ -545,7 +543,7 @@ describe("AL6 v2 — return-gate integration", () => {
 			},
 			{
 				name: "isolated-shaped-tier2",
-				caps: { hasNativeReturnHook: false, canReEngage: true, mcpSupport: true },
+				caps: { returnEnforcement: "none", mcpSupport: true },
 				tier: "tier2-reject",
 			},
 		];
@@ -617,44 +615,43 @@ describe("AL6 v2 — return-gate integration", () => {
 		});
 	});
 
-	// ── AC4: per-adapter hasNativeReturnHook / canReEngage table (v3 renamed) ──────
-	// Assert each real adapter class reports the expected v3 capability shape.
-	// Layer-A fast-path (hasNativeReturnHook:true): SDK + builtin
-	// Layer-B only (hasNativeReturnHook:false): CLI + remote + isolated
-	// canReEngage:true for ALL in-tree adapters (universal forcing guarantee).
+	// ── AC4: per-adapter returnEnforcement table (v4-final) ──────────────────────
+	// Assert each real adapter class reports the expected v4 returnEnforcement channel.
+	// Hard-block: SDK ("sdk-inprocess"), builtin ("builtin-loop").
+	// File-provisioned block: CLI ("settings-codex"/"settings-claude").
+	// Process re-engage: remote ("process-reengage").
+	// Inherited SDK: isolated ("sdk-inprocess").
 
-	describe("AC4 v3 — hasNativeReturnHook / canReEngage capability table for real adapters", () => {
-		test("BuiltinHarnessAdapter: hasNativeReturnHook=true, canReEngage=true (Layer-A fast-path)", async () => {
+	describe("AC4 v4 — returnEnforcement channel table for real adapters", () => {
+		test("BuiltinHarnessAdapter: returnEnforcement='builtin-loop' (owns loop)", async () => {
 			const { BuiltinHarnessAdapter } = await import("../../harness/builtin-harness-adapter.js");
 			const adapter = new BuiltinHarnessAdapter();
 			const caps = adapter.getCapabilities();
-			expect(caps.hasNativeReturnHook).toBe(true);
-			expect(caps.canReEngage).toBe(true);
+			expect(caps.returnEnforcement).toBe("builtin-loop");
 		});
 
-		test("ClaudeAgentSdkAdapter: hasNativeReturnHook=true, canReEngage=true (SDK Stop hook)", async () => {
+		test("ClaudeAgentSdkAdapter: returnEnforcement='sdk-inprocess' (SDK Stop closure)", async () => {
 			const { ClaudeAgentSdkAdapter } = await import("../../harness/claude-agent-sdk-adapter.js");
 			const adapter = new ClaudeAgentSdkAdapter();
 			const caps = adapter.getCapabilities();
-			expect(caps.hasNativeReturnHook).toBe(true);
-			expect(caps.canReEngage).toBe(true);
+			expect(caps.returnEnforcement).toBe("sdk-inprocess");
 		});
 
-		test("CliHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via sandbox rewrite)", async () => {
+		test("CliHarnessAdapter (codex): returnEnforcement='settings-codex' (file-provisioned Stop hook)", async () => {
 			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
 			const adapter = new CliHarnessAdapter({
-				binary: "claude",
+				binary: "codex",
 				args: [],
 				envMap: {},
 				envAllowlist: [],
 				eventFormat: "ndjson" as const,
-			});
+				returnEnforcementChannel: "settings-codex",
+			} as unknown as ConstructorParameters<typeof CliHarnessAdapter>[0]);
 			const caps = adapter.getCapabilities();
-			expect(caps.hasNativeReturnHook).toBe(false);
-			expect(caps.canReEngage).toBe(true);
+			expect(caps.returnEnforcement).toBe("settings-codex");
 		});
 
-		test("RemoteHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via re-dispatch)", async () => {
+		test("RemoteHarnessAdapter: returnEnforcement='process-reengage' (wrapper re-engage)", async () => {
 			const { RemoteHarnessAdapter } = await import("../../harness/remote-harness-adapter.js");
 			const fakeWs = {
 				send: () => undefined,
@@ -674,11 +671,10 @@ describe("AL6 v2 — return-gate integration", () => {
 				fakeRegistration as unknown as ConstructorParameters<typeof RemoteHarnessAdapter>[1],
 			);
 			const caps = adapter.getCapabilities();
-			expect(caps.hasNativeReturnHook).toBe(false);
-			expect(caps.canReEngage).toBe(true);
+			expect(caps.returnEnforcement).toBe("process-reengage");
 		});
 
-		test("IsolatedHarnessAdapter: hasNativeReturnHook=false, canReEngage=true (Layer-B via sandbox rewrite)", async () => {
+		test("IsolatedHarnessAdapter: returnEnforcement='sdk-inprocess' (inherits inner SDK hook)", async () => {
 			const { IsolatedHarnessAdapter } = await import("../../harness/isolated-harness-adapter.js");
 			const fakeResolver = { resolve: async (_key: string) => null };
 			const fakeConfig = {
@@ -691,8 +687,7 @@ describe("AL6 v2 — return-gate integration", () => {
 				fakeConfig,
 			);
 			const caps = adapter.getCapabilities();
-			expect(caps.hasNativeReturnHook).toBe(false);
-			expect(caps.canReEngage).toBe(true);
+			expect(caps.returnEnforcement).toBe("sdk-inprocess");
 		});
 	});
 
