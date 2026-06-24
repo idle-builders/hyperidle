@@ -99,79 +99,96 @@ Float in range [0, 1]. A scalar quality signal for a session's output, supplied 
 
 Implementation story: **AC1** — Structured Outcome Fields (`plans/work-packages/TRACK-AC.md`).
 
-### StagedOperation shape (AL7)
+### Proposed Call shape (AL7)
 
-**Staged Operation primitive — full spec at `docs/process-layer/staged-operation.md`.**
+**Proposed Call primitive — full spec at `docs/process-layer/staged-operation.md`** (file path kept stable for cross-refs; the noun is **Proposed Call**).
 
-The irreversible commit verb, frozen and parked un-executed behind a binding `approve` verdict — the one consequence that needs a human, while the agent iterates freely in a reversible draft space (branch / test key / in-app proposal).
+The exact tool call (tool id + verbatim args) an agent **attempted** and HyperIdle **routed to review** when it was irreversible — captured verbatim as the subject a human reviews. **HyperIdle executes nothing of its own**: the agent holds its own credentials and runs its own tools (like a real employee with broad self-permission); on approve HyperIdle re-engages the **agent's own session** so it does the approved work and continues. The review gate is a **collaboration checkpoint on the consequential/irreversible** — carried by the harness's native permission mechanism (ask/allow/deny) as a workflow, not a security boundary — and it **fades as trust grows** (ETHOS §4).
 
-**Shipped schema** (`packages/db/src/schema.ts` — `staged_operations` + `operation_outcomes`):
+**Schema** (`packages/db/src/schema.ts` — `proposed_calls` + `tailored_grants` + `operation_outcomes`):
 
 ```
-// staged_operations table
-type StagedOperation = {
+// proposed_calls table — the captured tool call routed to review
+type ProposedCall = {
   id: string                       // opaque, stable
-  reviewMessageId: string          // FK → messages.id — THE dispatch key (C1).
-                                   // The verdict resolves this specific message;
-                                   // dispatch filters on it. Never dispatch by subjectThreadId.
-  subjectThreadId: string          // FK → threads.id — loader/index anchor ONLY
-  artifactId: string               // FK → artifacts.id
-  consequenceId: string            // the consequence it commits, within a Subject
-  capabilityTool: string           // e.g. "stripe", "github", registered tool name
-  capabilityHarnessType?: string   // null = built-in registry
-  operation: string                // the verb/call, e.g. "merge_pr"
-  params: string                   // JSON; fully-bound, IMMUTABLE once staged
-                                   // (dispatcher JSON.parse()s before calling executeCapability)
-  idempotencyKey: string           // UNIQUE (anti-fork guard — prevents two rows for the same key)
-                                   // NOT the at-most-once execution guard (that is
-                                   // WHERE status='pending' conditional UPDATE in the dispatcher)
-  reversibility: string            // undo path, or "irreversible"
-  status: string                   // "pending" | "executing" | "executed" | "failed"
-                                   // No "held" value stored — non-approving verdict leaves
-                                   // the op in "pending". "held" is the conceptual label only.
-  stagedByAgentId: string          // FK → users.id
+  reviewMessageId: string          // FK → messages.id — the gate (verdict resolves it)
+  subjectThreadId: string          // FK → threads.id — loader/index anchor
+  artifactId: string               // FK → artifacts.id (action_operation canvas)
+  originSessionId: string          // FK → sessions.id — session 1, where the call was attempted
+  toolId: string                   // verbatim harness/MCP tool name the agent called
+  args: string                     // JSON; verbatim bound args, IMMUTABLE once captured
+  identityHash: string             // hash over (toolId, normalized args)
+                                   // optional metadata for the arg-pin CONVENIENCE; NOT a guard
+  reversibility: string            // "irreversible" | "reversible" (only irreversible captured)
+  status: string                   // "captured" | "granted" | "executed" | "failed" | "held"
+  stagedByAgentId: string          // FK → the agent that attempted the call
   createdAt: string
+  // UNIQUE (originSessionId, identityHash) — capture idempotency (no duplicate Proposed Call)
 }
 
-// operation_outcomes table
-// PK = stagedOperationId — enforces 0..1 per staged op and immutability.
-// A second write throws on PK conflict rather than overwriting.
+// tailored_grants table — the session-2 workflow scope minted on approve
+// Scope = task id + agent id (session 2's id does not exist at compose time).
+type TailoredGrant = {
+  proposedCallId: string           // PK/FK → proposed_calls.id
+  taskScope: string                // tasks.id
+  agentScope: string               // agents.id — the same owner resuming
+  approvedToolId: string           // the approved op the agent works under
+  approvedArgs: string             // JSON; recorded approved args (arg-pin uses these)
+  argPinned: boolean               // pin to exact args only where a harness expresses arg-level scope
+  identityHash: string | null      // optional, for the arg-pin convenience
+  consumed: boolean                // consume-once: single-statement CAS WHERE consumed=false
+  retryCount: number               // liveness net (re-provision once on crash/no-show), not a guard
+  mintedAt: string
+  consumedAt: string | null
+}
+
+// operation_outcomes table — written from session 2's real tool return
+// PK = proposedCallId — enforces 0..1 per Proposed Call and immutability.
 type OperationOutcome = {
-  stagedOperationId: string        // PK — 0..1 per staged op, immutable once written
+  proposedCallId: string           // PK — 0..1 per Proposed Call, immutable once written
   status: string                   // "ok" | "failed"
-  payload: string | null           // JSON tool return on ok (dispatcher stringifies)
+  receipt: string | null           // JSON/identity tool return on ok
   error: string | null             // verbatim error on failed — never null+failed
   executedAt: string               // ISO 8601; humanized by the reviews loader before response
 }
 ```
 
-**Shared types** (`packages/shared/src/staged-operation.ts`):
+**Shared types** (`packages/shared/src/proposed-call.ts`):
 
 ```ts
-const STAGED_OPERATION_STATUSES = ["pending", "executing", "executed", "failed"] as const;
-type StagedOperationStatus = (typeof STAGED_OPERATION_STATUSES)[number];
+const PROPOSED_CALL_STATUSES = ["captured", "granted", "executed", "failed", "held"] as const;
+type ProposedCallStatus = (typeof PROPOSED_CALL_STATUSES)[number];
+
+const REVERSIBILITY = ["irreversible", "reversible"] as const;
+type Reversibility = (typeof REVERSIBILITY)[number];
 
 const OPERATION_OUTCOME_STATUSES = ["ok", "failed"] as const;
 type OperationOutcomeStatus = (typeof OPERATION_OUTCOME_STATUSES)[number];
 
-// Passed to executeCapability — params is already Record<string,unknown> (JSON-parsed by dispatcher)
-interface StagedOperationSpec {
+interface ProposedCall {
   id: string;
-  capabilityTool: string;
-  operation: string;
-  params: Record<string, unknown>;
-  idempotencyKey: string;  // forwarded to external tool so it dedupes on its side (W1)
-  reversibility: string;
+  reviewMessageId: string;   // the gate
+  subjectThreadId: string;   // anchor
+  artifactId: string;        // action_operation artifact it nests on
+  originSessionId: string;   // session 1
+  toolId: string;            // verbatim tool name the agent called
+  args: Record<string, unknown>; // verbatim input
+  identityHash: string;      // optional metadata for the arg-pin convenience; NOT a guard
+  reversibility: Reversibility;
+  status: ProposedCallStatus;
 }
 ```
 
-**Reviews loader response shape** (`StagedOperationView`, nested on the artifact):
+**Reviews loader response shape** (nested on the artifact):
 
 ```ts
-// Nested as artifact.stagedOperation for action_operation kind artifacts
-type StagedOperationView = {
-  stagedOperationId: string
-  status: StagedOperationStatus
+// Nested as artifact.proposedCall for action_operation kind artifacts
+type ProposedCallView = {
+  proposedCallId: string
+  status: ProposedCallStatus
+  toolId: string
+  args: Record<string, unknown>   // verbatim captured args — rendered as readable key→value
+                                  // (the human's approve is grounded in the real call, ETHOS §3)
   outcome?: {
     status: 'ok' | 'failed'
     receipt?: string    // ok: extracted tool-identity string (e.g. "abc1234… · merged")
@@ -181,13 +198,14 @@ type StagedOperationView = {
 }
 ```
 
-- **Every approve fires ≥1 consequence** (internal state move or external tool call) — a review that changes nothing should not exist. A **Staged Operation** is the *irreversible* subset that a human must clear.
-- The gate keys on **reversibility, not familiarity** (ETHOS §3) — reversible consequences flow per the agent's earned trust signal (verdict-history approval rate); unknown-but-reversible is not gated.
-- **Capability split:** the agent never holds the live commit verb / credential — it is Kernel-held, provisioned to the agent only in draft form. Enforced by provisioning + sandbox + interception, not agent self-policing.
-- The trust signal is the agent's **verdict-history approval rate**, evaluated by the policy engine (`packages/fabric/src/services/policy-engine.ts`) against global thresholds with cold-start protection — NOT a per-tool allowlist/risk-table matrix, and NOT the per-skill autonomy ladder (removed by AD4; vestige removed by AL9). Irreversible consequences stay gated regardless of trust. AL7 ships only the gated arm; reversible auto-flow is AL8.
-- At-most-once is enforced by a persisted conditional transition on `status` (mirroring first-verdict-wins `WHERE resolvedAt IS NULL` in `threads.ts`), **independent of the at-least-once event bus**.
-- `idempotencyKey UNIQUE` is an **anti-fork guard** (prevents two rows for the same key), NOT the at-most-once execution guarantee (that is the `WHERE status='pending'` conditional UPDATE claim).
-- The `approve` verdict fires **all** of its Subject's consequences (verdict resolves the whole Subject); grammar unchanged. HyperIdle triggers; the connected tool/MCP executes (trigger-not-executor).
-- **Per-agent capability provisioning is deferred to AL8/AM2** — `KERNEL_DISPATCHABLE_CAPABILITIES` is the current kernel-held-verb gate (validates capability at stage time); per-agent grants and the OPEN-vocab harness descriptor lookup land in those follow-on workpackages.
+- **Every approve fires ≥1 consequence** (internal state move or external tool call) — a review that changes nothing should not exist. A **Proposed Call** is the *irreversible* subset routed to a human.
+- The gate keys on **reversibility, not familiarity** (ETHOS §3) — reversible consequences flow per the agent's earned trust signal (verdict-history approval rate); unknown-but-reversible is not gated. A no-signal tool is classified irreversible **out of care** (surface a consequential-looking call rather than miss one), not out of suspicion of the agent.
+- **We trust the agent (ETHOS §4).** Creds are present in the sandbox **and that is correct** — tools and MCP servers need credentials to authenticate. We do **not** withhold credentials, do **not** build "the broker is the only path", and do **not** design against a hypothetical rogue agent. The agent *could* perform an irreversible op with its own creds — we trust it not to route around the collaboration checkpoint, exactly as we trust an employee not to route around a teammate's sign-off.
+- **HyperIdle executes nothing of its own.** The agent's own session/tools/creds run the call. HyperIdle classifies, routes-to-review, and records — never authoring, re-implementing, or running a tool from its own process. There is no kernel executor, no `executeCapability` map, and no `executing` state HyperIdle holds.
+- **The checkpoint rides the harness's native permission as a workflow.** HyperIdle composes one workflow — route irreversible → review; let reversible flow — and each harness carries it on its own native permission feature (Claude `canUseTool`; Codex native PreToolUse hooks; opencode native `permission` + `serve` `/event`+POST; builtin `registry.invoke` as the uniform record/consume point). All four feasible headlessly (verified June 2026). Not a re-implementation of the harness's permission system, not "the only path."
+- **Re-attempting the approved op in session 2 is fine** — we trust the agent intends the approved thing. There is **no exact-hash-match-to-permit and no deadlock machinery**; byte-fidelity survives only as an optional arg-pin convenience where a harness expresses arg-level scope. The `identityHash` is optional metadata for that convenience; nothing gates on it.
+- The trust signal is the agent's **verdict-history approval rate**, evaluated by the policy engine (`packages/fabric/src/services/policy-engine.ts`) against global thresholds with cold-start protection — NOT a per-tool allowlist/risk-table matrix, and NOT the per-skill autonomy ladder (removed by AD4; vestige removed by AL9). **The gate fades as trust grows** — more autonomy is the goal. AL7 ships only the gated arm; reversible auto-flow is AL8.
+- **Capture idempotency** is the `(originSessionId, identityHash)` UNIQUE constraint (a duplicate routed call mints no second Proposed Call). **At-most-once execution** is the single-statement CAS on the tailored grant (`UPDATE … SET consumed=true … WHERE … AND consumed=false RETURNING *`) — independent of the at-least-once event bus.
+- The `approve` verdict composes a **tailored grant** for the Subject's Proposed Call(s) and emits `proposed_call_granted`, re-engaging the agent's session; grammar unchanged. After the approved op returns its Outcome, the agent **continues working** (closes the story / updates docs / proceeds) within that same session-2 run (folded-in AL10).
 
 Implementation story: **AL7** — Review execution loop (`.pipeline/work-packages/TRACK-AL.md`).

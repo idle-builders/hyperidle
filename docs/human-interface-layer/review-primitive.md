@@ -47,26 +47,25 @@ Every canvas carries its source tool via `ToolLogo` and a jump-off link via `Can
 
 ## Execution on approve (AL7)
 
-Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the **commit trigger** for the Subject's [Proposed Calls](../process-layer/staged-operation.md) — the *irreversible* commit verbs (a refund, a merge/landing, a send) the agent attempted and the gate blocked. HyperIdle **executes nothing**: approve mints a **one-shot grant** and re-provisions the agent's session with that one call permitted, once, exactly as reviewed; the agent's own tools run it and the result returns to the review (executed == reviewed, once). Reversible calls flow at the gate without review (the auto-flow-per-trust wiring is AL8); the gate is reserved for the irreversible. Non-approving verdicts hold the Proposed Call un-executed. HyperIdle is the gate and bookkeeper; the agent's own session executes (trigger-not-executor). The verdict grammar is unchanged — approve gains a consequence, not a new action. Full spec: [Review-gated execution / Proposed Call](../process-layer/staged-operation.md).
+Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the **collaboration checkpoint** on the Subject's [Proposed Calls](../process-layer/staged-operation.md) — the *irreversible* calls (a refund, a merge/landing, a send) the **trusted** agent attempted and the gate routed to a human for judgment. **HyperIdle executes nothing of its own**: we trust the agent, which holds its own credentials and runs its own tools (like a real employee with broad self-permission). Approve lets that trusted agent's irreversible action **actually happen, through the agent's own tools** — HyperIdle composes a **tailored grant** (do the approved op + reversible work; route any *other* irreversible op back to review), re-engages the agent's session, and the agent **re-does the approved work itself** (re-deriving the call is fine — we trust the intent). The result returns to the review, and the agent **continues working** — closes the story, updates docs, proceeds. The review shows the **concrete proposed call** — tool id + verbatim args — so the human's judgment is grounded in the real action. Reversible calls flow at the gate without review (the auto-flow-per-trust wiring is AL8); the gate is reserved for the irreversible and **fades as trust grows**. Non-approving verdicts hold the Proposed Call un-executed. The verdict grammar is unchanged — approve gains a consequence, not a new action. The checkpoint rides the harness's **native permission mechanism** (ask/allow/deny) as a workflow, not a security boundary policing the agent. Full spec: [Review-gated execution / Proposed Call](../process-layer/staged-operation.md).
 
 ### OutcomeBand — what the reviewer sees after approving
 
-The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **OutcomeBand** once execution completes. The band replaces nothing — it appears below the receipt on the same card.
+The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **OutcomeBand** once the agent's own session runs the approved call and the Outcome is recorded. The band replaces nothing — it appears below the receipt on the same card.
 
 **States:**
 
 | Band | When | Visual |
 |---|---|---|
-| *(none)* | `status = "pending"` — op not yet approved | Canvas shows the pre-commit receipt unchanged |
-| **Executing…** (spinner) | `status = "executing"` — dispatch in flight | Neutral border/surface, spinning indicator |
+| *(none)* | `status = "captured"` — routed to review, not yet approved | Canvas shows the captured call (tool id + args) and the pre-commit receipt unchanged |
 | **Executed** (green) | `status = "executed"`, `outcome.status = "ok"` | `--accent-primary` / `--accent-primary-dim` fill; tick icon; short `receipt` identity (e.g. `abc1234… · merged`) + humanized `executedAt` |
 | **Execution failed** (red) | `status = "failed"`, `outcome.status = "failed"` | `--status-error` / `--status-error-dim` fill; ✕ icon; **verbatim, un-truncated** error text (`whitespace-pre-wrap break-words`) + humanized `executedAt` |
 
 **Design rules:**
 - The success band uses `--accent-primary-dim` (forest green), **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family.
-- The failure error is **never truncated** (hard rule #8 — a reviewer cannot be forced to miss the exact tool error). `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
+- The failure error is **never truncated** (hard rule #9 — a reviewer cannot be forced to miss the exact tool error). `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
 - `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it; the component never parses time.
-- The `executing` state is transient. The boot sweep (`sweepStrandedOperations`) converts any crash-stranded `executing` op to `failed` at next server start, so a reviewer never sits on a permanent spinner after a crash.
+- There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. If session 2 ends without the approved op executing (crash/no-show), the liveness net re-provisions once, then surfaces a `failed` Outcome — a reviewer never sits on a permanent spinner.
 - The band is **persistent** — a re-opened review shows the terminal Outcome state instead of re-prompting for a verdict on an already-executed op.
 
 ## Where it lives
