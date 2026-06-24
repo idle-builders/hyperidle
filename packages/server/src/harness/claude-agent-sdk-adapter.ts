@@ -15,7 +15,6 @@ import type {
 import {
 	AL6_MAX_FORCE_RETURNS,
 	createLogger,
-	isReturnAction,
 	MissingCredentialError,
 	shouldForceReturn,
 } from "@hyperidle/shared";
@@ -373,11 +372,11 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 				if (Array.isArray(content)) {
 					for (const block of content) {
 						if (block.type === "tool_use") {
-							// AL6 v2 (T5): track return-action tool calls so the Stop hook
-							// knows not to block a stop after a return has been called.
-							if (isReturnAction(block.name)) {
-								session.al6.returnSeen = true;
-							}
+							// @lore AL6 v4-fix: al6.returnSeen was written here but never read.
+							// The stop hook adjudicates from the enforcement registry (entry.gate.returned),
+							// NOT from al6.returnSeen. The registry gate is set by the hyperidle_return_status
+							// MCP tool call (session-provisioning.ts). al6.returnSeen write removed as dead code.
+							// al6.stopHookCount is still read at getForceReturnCount (line ~349) — kept.
 							yield {
 								type: "tool_call",
 								toolName: block.name,

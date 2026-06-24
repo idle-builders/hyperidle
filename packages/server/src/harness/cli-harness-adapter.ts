@@ -205,6 +205,16 @@ interface CliSession {
 	 * Reused for re-engage spawns.
 	 */
 	readonly spawnEnv: Record<string, string>;
+	/**
+	 * AL6 v4-fix: The resolved model string (e.g. "openrouter/~anthropic/claude-haiku-latest")
+	 * stored at session start so re-engage spawns can pass --model correctly.
+	 * Required for opencode "run-arg" carrier: `opencode run <msg> --format json --model <model>`.
+	 *
+	 * @lore AL6 opencode-reengage-model: The re-engage spawn cannot re-resolve templates
+	 * (no config object available in streamEvents). Storing the resolved model here avoids
+	 * the need to thread SessionConfig through streamEvents.
+	 */
+	readonly reEngageResolvedModel?: string;
 }
 
 /** Replace all template variables in a string. */
@@ -361,6 +371,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			sandboxPath: config.sandboxPath,
 			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
+			// AL6 v4-fix: store resolved model for re-engage spawn (opencode --model flag).
+			reEngageResolvedModel: config.resolvedModel?.model,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -525,30 +537,37 @@ export class CliHarnessAdapter implements HarnessAdapter {
 								enforcementRegistry.incrementForce(session.configSessionId);
 								session.reEngageCount++;
 
-								// Build re-engage args: run-arg appends forceMessage as positional.
-								// For opencode: `opencode run <forceMsg> --format json [...]`
-								const reEngageArgs: string[] = [];
+								// Build re-engage args.
+								//
+								// @lore AL6 v4-fix: The previous approach stripped template vars with
+								// `arg.replace(/\{\{[a-z]+\}\}/g, "")` and appended the forcing message.
+								// For opencode (config.args = ["--dir", "{{sandbox}}"]) this produced
+								// ["--dir", "", forceMsg] — broken: no "run" subcommand, empty --dir, and
+								// the forcing message was a stray positional. We now build the correct
+								// opencode headless invocation from scratch for "run-arg" carrier.
+								//
+								// Proven real invocation (AL6-real-harness-return-enforcement.integration.test.ts):
+								//   opencode run <forceMsg> --format json --pure --model <model>
+								let finalReEngageArgs: string[];
 								if (session.reEngageCarrier === "run-arg") {
-									// Re-engage carrier: forceMessage is the first positional arg.
-									// opencode run <msg> [--format json] [--model ...]
-									reEngageArgs.push(forceMsg);
+									// "run-arg": opencode headless re-invoke with forcing message as first arg.
+									// Build the canonical headless invocation: `opencode run <msg> --format json --pure [--model <model>]`
+									// cwd is session.sandboxPath so --dir is not needed for re-engage.
+									const runArgs: string[] = ["run", forceMsg, "--format", "json", "--pure"];
+									if (session.reEngageResolvedModel) {
+										runArgs.push("--model", session.reEngageResolvedModel);
+									}
+									finalReEngageArgs = runArgs;
 								} else {
 									// No carrier configured — use the AL6 forcing message constant.
-									// This path also handles "stdin" conceptually (no stdin pipe needed
-									// because the message is baked into the re-engage args).
-									reEngageArgs.push(AL6_FORCE_RETURN_MESSAGE);
+									// Fall back to base args (stripped of unresolved template vars via exclusion
+									// of any arg still containing "{{"). Empty-string args from stripping
+									// are excluded to avoid passing spurious flags.
+									const baseArgs = adapter.config.args
+										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
+										.filter((arg) => arg.length > 0);
+									finalReEngageArgs = [...baseArgs, AL6_FORCE_RETURN_MESSAGE];
 								}
-
-								// Combine with original resolved args minus the initial prompt.
-								// For opencode the args are typically ["run", "--format", "json", ...].
-								// We insert the re-engage message after the "run" subcommand.
-								const resolvedBaseArgs = adapter.config.args.map((arg) => {
-									// Template variables are already resolved on the original session;
-									// we can't re-resolve here (no config), so use empty fallbacks.
-									// For re-engage we only need the structural args (subcommand, flags).
-									return arg.replace(/\{\{[a-z]+\}\}/g, "");
-								});
-								const finalReEngageArgs = [...resolvedBaseArgs, ...reEngageArgs];
 
 								// Spawn the re-engage child process.
 								const reEngageChild = adapter.spawnFn(adapter.config.binary, finalReEngageArgs, {

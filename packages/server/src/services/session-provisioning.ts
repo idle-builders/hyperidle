@@ -1019,7 +1019,6 @@ export async function runSession(
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
-		// forNotReturned=true: drain fallback adds 1 if no in-turn enforcement happened.
 		const notReturnedForceCount = computeForceReturnCount();
 		enforcementRegistry.unregister(sessionId);
 		return {

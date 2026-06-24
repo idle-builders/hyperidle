@@ -28,6 +28,12 @@
  * @lore AL6 CRIT-3 budget-termination: AL6_MAX_FORCE_RETURNS=2, so we need to provide
  * enough fake children to exhaust the budget OR set gate.returned=true to stop re-engaging.
  * Setting gate.returned=true after N re-engages mimics the agent finally returning.
+ *
+ * @lore AL6 v4-fix test-drives-real-config: This test uses CLI_TOOL_CONFIGS.opencode
+ * (the REAL shipped config, args: ["--dir", "{{sandbox}}"]) NOT a fabricated config.
+ * The previous fabricated config (args: ["run", "--format", "json"]) masked the production
+ * bug where re-engage produced ["--dir", "", forceMsg] — broken invocation. Now any
+ * regression in the re-engage args building will cause this test to fail with the real config.
  */
 
 import type { ChildProcess, spawn } from "node:child_process";
@@ -35,21 +41,34 @@ import { EventEmitter } from "node:events";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLI_TOOL_CONFIGS } from "../../harness/adapter-pool.js";
 import type { CliAdapterConfig } from "../../harness/cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 import { enforcementRegistry } from "../../harness/return-enforcement-registry.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Returns the REAL shipped opencode config from CLI_TOOL_CONFIGS.opencode.
+ * args: ["--dir", "{{sandbox}}"] — NOT a fabricated ["run", "--format", "json"].
+ * This is the discriminating config: if the re-engage invocation reverts to the
+ * broken template-strip approach, the test fails because re-engage args will be
+ * ["--dir", "", forceMsg] (no "run" subcommand, empty --dir, stray positional).
+ *
+ * @lore AL6 v4-fix: Using CLI_TOOL_CONFIGS.opencode ensures the test exercises the
+ * production code path, not a fabricated config that hid the real bug.
+ */
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
+	// Access the real shipped opencode config — Record<string, CliAdapterConfig> index signature
+	// makes it technically `CliAdapterConfig | undefined`, but "opencode" is a known key.
+	// biome-ignore lint/style/noNonNullAssertion: "opencode" is a known key in CLI_TOOL_CONFIGS
+	const opencodeConfig = CLI_TOOL_CONFIGS.opencode!;
 	return {
-		binary: "opencode",
-		args: ["run", "--format", "json"],
-		envMap: {},
+		...opencodeConfig,
+		// eventFormat override: the real config uses "text" (opencode streams text events);
+		// the test uses "ndjson" to allow JSON-line parsing of fake child stdout.
+		// This override does not affect the re-engage args path (the broken path under test).
 		eventFormat: "ndjson",
-		envAllowlist: ["PATH"],
-		returnEnforcementChannel: "process-reengage",
-		reEngageCarrier: "run-arg",
 		...overrides,
 	};
 }
@@ -176,9 +195,19 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		// After first re-engage: 2 spawn calls (initial + 1 re-engage).
 		expect(spawnCalls.length).toBeGreaterThanOrEqual(2);
 
-		// Re-engage args must contain the forcing message (run-arg carrier).
+		// Re-engage args must be the CORRECT opencode headless invocation:
+		//   ["run", forceMsg, "--format", "json", "--pure", "--model", <model>]
+		// NOT the broken ["--dir", "", forceMsg] that the template-strip produced.
 		const reEngageArgs = spawnCalls[1]?.args ?? [];
+		// Must start with "run" subcommand — not "--dir" (the raw config arg).
+		expect(reEngageArgs[0]).toBe("run");
+		// Must carry the forcing message as the first positional after "run".
 		expect(reEngageArgs).toContain(AL6_FORCE_RETURN_MESSAGE);
+		// Must NOT contain empty strings (broken template-strip would leave "").
+		expect(reEngageArgs).not.toContain("");
+		// Must include --format json (JSON output flag for opencode).
+		expect(reEngageArgs).toContain("--format");
+		expect(reEngageArgs).toContain("json");
 
 		// Registry forceCount must be >= 1 (real incrementForce fired).
 		expect(enforcementRegistry.get(testSessionId)?.forceCount).toBeGreaterThanOrEqual(1);
@@ -287,9 +316,13 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 
 		// The second spawn (first re-engage) must carry the forcing message.
 		const reEngageArgs = spawnCalls[1]?.args ?? [];
+		// Must start with "run" subcommand — the correct headless opencode invocation.
+		expect(reEngageArgs[0]).toBe("run");
 		expect(reEngageArgs).toContain(AL6_FORCE_RETURN_MESSAGE);
 		// Not a silent/generic re-run — must not ONLY contain base args without message.
 		expect(reEngageArgs.join(" ")).toContain("return");
+		// Must NOT contain empty strings (broken template-strip artifact).
+		expect(reEngageArgs).not.toContain("");
 
 		// Exhaust remaining budget.
 		for (let i = 1; i < children.length; i++) {
