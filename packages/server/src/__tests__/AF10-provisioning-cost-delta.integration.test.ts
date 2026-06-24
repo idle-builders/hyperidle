@@ -76,6 +76,7 @@ class ScriptedHarness implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			returnEnforcement: "none",
 		};
 	}
 }
@@ -180,6 +181,16 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			{ type: "cost_update", deltaCost: 0.1, totalCost: 0.1, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.15, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.2, currency: "USD" },
+			// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+			// ScriptedHarness has canReEngage:true; without a return action the
+			// re-prompt loop runs AL6_MAX_FORCE_RETURNS+1=3 times → 60 cents.
+			// This also validates the AL6 T2 delta fix: deltaMinor (10+5+5=20) is
+			// now passed to recordCostAndCheck, not totalCostCents (10+15+20=45).
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10 done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
@@ -202,7 +213,7 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			.where(eq(users.id, "agent-af10"))
 			.limit(1);
 
-		// FAILS until T2: currently shows 45 (quadratic inflation)
+		// Fixed by AL6 v3 T2 (deltaMinor) + submit_review exits loop after run-1.
 		expect(agent?.costActual).toBe(20);
 	});
 
@@ -220,6 +231,12 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			{ type: "cost_update", deltaCost: 0.1, totalCost: 0.1, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.15, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.2, currency: "USD" },
+			// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10-b done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
@@ -242,7 +259,7 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			.where(eq(bets.id, "bet-af10-b"))
 			.limit(1);
 
-		// FAILS until T2: currently shows 45 (quadratic inflation)
+		// Fixed by AL6 v3 T2 (deltaMinor) + submit_review exits loop after run-1.
 		expect(bet?.costActualMinor).toBe(20);
 	});
 
@@ -265,6 +282,12 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			{ type: "cost_update", deltaCost: 0.1, totalCost: 0.1, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.15, currency: "USD" },
 			{ type: "cost_update", deltaCost: 0.05, totalCost: 0.2, currency: "USD" },
+			// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+			{
+				type: "tool_call",
+				toolName: "submit_review",
+				args: { title: "AF10-c done", reasoning: ["done"] },
+			},
 		];
 
 		const harness = new ScriptedHarness(costEvents);
@@ -287,7 +310,7 @@ describe("AF10 AC1: provisionSession cost delta vs running total (Z8-002)", () =
 			.where(eq(teamMembers.id, "t1-c"))
 			.limit(1);
 
-		// FAILS until T2: currently shows 45
+		// Fixed by AL6 v3 T2 (deltaMinor) + submit_review exits loop after run-1.
 		expect(member?.costActual).toBe(20);
 	});
 });

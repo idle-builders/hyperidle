@@ -12,11 +12,15 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeStrategyFabric } from "@hyperidle/db";
-import {
-	clearBuiltinCostSentinelCache,
-	provisionTeamRoutines,
-	runBuiltinRoutine,
-} from "@hyperidle/fabric";
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/fabric";
+
+// @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/fabric (AD8c).
+// The sentinel cache is now cleared internally; eval scenarios no longer need to call it.
+// Retain a no-op stub so the call sites below don't need mass surgery.
+function clearBuiltinCostSentinelCache(): void {
+	// intentional no-op: removed from fabric, sentinel cleared internally
+}
+
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";

@@ -1,6 +1,6 @@
 /** Claude Agent SDK adapter — concrete HarnessAdapter implementation (D2). */
 
-import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Query, SDKMessage, SyncHookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type {
 	CurrencyCode,
@@ -12,9 +12,15 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { createLogger, MissingCredentialError } from "@hyperidle/shared";
+import {
+	AL6_MAX_FORCE_RETURNS,
+	createLogger,
+	MissingCredentialError,
+	shouldForceReturn,
+} from "@hyperidle/shared";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../services/model-gateway.js";
+import { enforcementRegistry } from "./return-enforcement-registry.js";
 
 /**
  * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
@@ -44,6 +50,22 @@ const sdkLogger = createLogger({ pkg: "harness.claude-sdk" });
 
 let unsafeModeWarningEmitted = false;
 
+/**
+ * AL6 v2 (T5): Mutable state for force-return tracking in the SDK adapter.
+ * Shared between the Stop hook closure and translateMessage so they both
+ * read/write the same live object.
+ *
+ * @lore AL6 T5: ActiveSession.al6 is the shared mutable ref because
+ * `returnSeen` and `stopHookCount` are primitive booleans/numbers — JS doesn't
+ * allow field aliasing. The hook closure and translateMessage both receive the
+ * same ActiveSession reference, so mutating session.al6.returnSeen is visible
+ * to the hook even though the hook was created before this.sessions.set().
+ */
+interface AL6ForceState {
+	returnSeen: boolean;
+	stopHookCount: number;
+}
+
 interface ActiveSession {
 	query: Query;
 	abortController: AbortController;
@@ -52,6 +74,11 @@ interface ActiveSession {
 	totalCost: number;
 	/** L17: the model tier from SessionConfig — used to tag token_usage events. */
 	modelTier: string;
+	/**
+	 * AL6 v2 (T5): Shared mutable state for force-return tracking.
+	 * Read/written by both the Stop hook closure and translateMessage.
+	 */
+	al6: AL6ForceState;
 }
 
 interface AdapterOptions {
@@ -151,6 +178,64 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			unsafeModeWarningEmitted = true;
 		}
 
+		// AL6 v2 (T5): Shared mutable state for force-return tracking.
+		// Created before the query so the Stop hook closure captures a live reference.
+		// @lore AL6 T5: al6 is shared between the hook closure and translateMessage
+		// via the ActiveSession object. Both receive the same al6 reference, so
+		// translateMessage can set al6.returnSeen=true and the hook sees it immediately.
+		const al6: AL6ForceState = { returnSeen: false, stopHookCount: 0 };
+
+		// AL6 v2 (T5): Wire the Stop hook for Tier-1 force-return.
+		// When Claude tries to stop without calling a return action, block it and
+		// re-inject AL6_FORCE_RETURN_MESSAGE. Budget: AL6_MAX_FORCE_RETURNS attempts.
+		// After budget exhausted, let the stop proceed (Tier-2 drain handles rejection).
+		//
+		// @lore AL6 T5: The Stop hook fires when Claude emits stop_reason: "end_turn"
+		// or similar. Returning { decision: "block", reason: "..." } injects the reason
+		// as a user message and continues the turn. The hook is async per SDK contract
+		// but we do no async work here.
+		//
+		// AL6 CRIT-2: The Stop hook ADJUDICATES from the shared enforcement registry
+		// (single source of truth). It reads the registry entry for this session and
+		// calls shouldForceReturn against the registry's gate + forceCount. On block
+		// it increments the registry so the CLI/tool paths see the same counter.
+		// The local al6 object is retained ONLY for translateMessage's returnSeen flag
+		// (the SDK path must mark returnSeen to suppress false-positive re-injection
+		// when the LLM emits a return tool call). stopHookCount is no longer the
+		// adjudication counter — registry.forceCount is.
+		//
+		// @lore AL6 CRIT-2: Using the registry as the single adjudicator means the
+		// hyperidle_return_status tool (file-hook path) and the SDK in-process hook
+		// both read/write the SAME counter. Previously the SDK adjudicated from
+		// al6.stopHookCount (local, invisible to the registry), making the two paths
+		// diverge. Now: any fire from either path is counted once in the registry.
+		const hookSessionId = config.sessionId;
+
+		// biome-ignore lint/suspicious/useAwait: SDK hook interface requires Promise return; no async work needed
+		const stopHook = async (
+			_input: unknown,
+			_toolUseId: string | undefined,
+		): Promise<SyncHookJSONOutput> => {
+			// AL6 CRIT-2: read from the shared registry — single adjudication source.
+			// Falls back to allow-stop if the session was never registered (exempt/internal).
+			const entry = enforcementRegistry.get(hookSessionId);
+			const forceMsg =
+				entry && !entry.exempt ? shouldForceReturn(entry.gate, entry.forceCount) : null;
+			if (forceMsg !== null) {
+				// Increment in the registry (not al6.stopHookCount — that is now a secondary
+				// counter maintained only for getForceReturnCount compatibility).
+				enforcementRegistry.incrementForce(hookSessionId);
+				al6.stopHookCount++;
+				sdkLogger.debug(
+					`AL6: Stop hook blocking stop (attempt ${al6.stopHookCount}/${AL6_MAX_FORCE_RETURNS}) — ` +
+						"return not yet seen, re-injecting force message (registry-adjudicated)",
+				);
+				return { decision: "block", reason: forceMsg };
+			}
+			// Budget exhausted, return already seen, or session exempt — allow stop.
+			return { decision: "approve" };
+		};
+
 		const queryOptions: Record<string, unknown> = {
 			model,
 			cwd: config.sandboxPath,
@@ -159,6 +244,9 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			permissionMode: unsafeMode ? "bypassPermissions" : "default",
 			persistSession: false,
 			env: sandboxedEnv,
+			hooks: {
+				Stop: [{ hooks: [stopHook] }],
+			},
 		};
 		if (unsafeMode) {
 			queryOptions.allowDangerouslySkipPermissions = true;
@@ -182,6 +270,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			totalOutputTokens: 0,
 			totalCost: 0,
 			modelTier: config.modelTier,
+			al6,
 		});
 
 		return { sessionId };
@@ -243,7 +332,20 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
+			// AL6 v3: SDK Stop hook (decision:block + reason) catches the stop in-turn
+			// and re-injects — the Layer-A fast-path. hasNativeReturnHook=true (optimization only).
+			returnEnforcement: "sdk-inprocess",
+			// AL6 v3: SDK can re-engage via Mode-1 sandbox rewrite + new startSession backstop.
 		};
+	}
+
+	/**
+	 * AL6 v3 (T4): Implements HarnessAdapter.getForceReturnCount (optional interface method).
+	 * Returns the count of in-turn Stop-hook re-injections (Layer-A) for a session.
+	 * Used by the provisioning loop to unify forceReturnCount across layers.
+	 */
+	getForceReturnCount(sessionId: string): number {
+		return this.sessions.get(sessionId)?.al6.stopHookCount ?? 0;
 	}
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SDK message translation requires branching on message type/subtype
@@ -270,6 +372,11 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 				if (Array.isArray(content)) {
 					for (const block of content) {
 						if (block.type === "tool_use") {
+							// @lore AL6 v4-fix: al6.returnSeen was written here but never read.
+							// The stop hook adjudicates from the enforcement registry (entry.gate.returned),
+							// NOT from al6.returnSeen. The registry gate is set by the hyperidle_return_status
+							// MCP tool call (session-provisioning.ts). al6.returnSeen write removed as dead code.
+							// al6.stopHookCount is still read at getForceReturnCount (line ~349) — kept.
 							yield {
 								type: "tool_call",
 								toolName: block.name,

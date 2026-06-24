@@ -144,6 +144,8 @@ class EchoHarnessAdapter implements HarnessAdapter {
 	}
 
 	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
+		// AL6 v2: emit submit_review so the return gate sees a return action.
+		yield { type: "tool_call", toolName: "submit_review", args: { message: "AK2 stub done" } };
 		yield { type: "completion", text: "Parity echo: done." };
 	}
 
@@ -161,6 +163,7 @@ class EchoHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			returnEnforcement: "none",
 		};
 	}
 }

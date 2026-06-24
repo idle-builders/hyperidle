@@ -4,7 +4,7 @@
  *
  * Supports any tool that can be invoked as a subprocess. Each CLI tool is
  * registered as its own adapter instance in the pool with its own harnessType
- * (e.g. "aider", "goose", "opencode").
+ * (e.g. "codex", "opencode").
  *
  * @lore X5 W1: spawn() is called with the args ARRAY form, never a shell string.
  * This is the critical security boundary: array form prevents shell injection
@@ -22,17 +22,32 @@ import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
+	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { normalizeHarnessEvent } from "@hyperidle/shared";
+import {
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
+	isReturnAction,
+	normalizeHarnessEvent,
+	shouldForceReturn,
+} from "@hyperidle/shared";
+import { enforcementRegistry } from "./return-enforcement-registry.js";
 
 /**
  * Template variable names used in args and envMap.
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
+ * @lore AL6 WARN-F2: {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
-type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{apiKey}}" | "{{baseUrl}}" | "{{mcpUrl}}";
+type TemplateVar =
+	| "{{sandbox}}"
+	| "{{model}}"
+	| "{{apiKey}}"
+	| "{{baseUrl}}"
+	| "{{mcpUrl}}"
+	| "{{prompt}}";
 
 function isExecutableFile(filePath: string): boolean {
 	try {
@@ -84,6 +99,41 @@ export interface CliAdapterConfig {
 	 * anything else is treated as missing (no cost_update emitted).
 	 */
 	readonly costField?: string;
+	/**
+	 * AL6 v4-final: The return-enforcement channel for this CLI adapter.
+	 * Overrides the binary-derived default when set.
+	 * Default derivation: "codex" → "settings-codex", "opencode" → "process-reengage", else "none".
+	 *
+	 * @lore AL6 WARN-F2/WARN-F3: Per-binary channel is declared here so
+	 * provisionReturnHook can dispatch correctly without coupling to binary names.
+	 */
+	readonly returnEnforcementChannel?: ReturnEnforcementChannel;
+	/**
+	 * AL6 WARN-F2: Per-session seed prompt mechanism for Codex.
+	 * Codex `exec proceed --json` uses a hardcoded "proceed" prompt. When a session
+	 * needs a per-session kickoff message (e.g. the forcing message on re-engage),
+	 * this field declares the delivery mechanism:
+	 *
+	 * "stdin" — piped to the subprocess via stdin.
+	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
+	 * Absent → no per-session prompt carrier (hardcoded only).
+	 *
+	 * @lore AL6 WARN-F2: Without this field, re-engage runs use the same generic
+	 * "proceed" prompt regardless of the forcing message — the agent never sees the
+	 * "you must return" instruction on re-engage.
+	 */
+	readonly seedPrompt?: "stdin" | "positional";
+	/**
+	 * AL6 WARN-F3: Per-session re-engage carrier for OpenCode.
+	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
+	 * (process-reengage channel), this field declares how the forcing message is
+	 * delivered to the re-invoked process.
+	 *
+	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
+	 * "stdin" — pipe to stdin.
+	 * Absent → re-engage uses the sandbox instruction file only.
+	 */
+	readonly reEngageCarrier?: "run-arg" | "stdin";
 }
 
 /** Injected dependencies (for testing). */
@@ -102,8 +152,15 @@ export interface CliAvailabilityDeps {
 }
 
 interface CliSession {
-	readonly child: ChildProcess;
+	/** The active child process. Replaced on process-reengage re-spawns. */
+	child: ChildProcess;
 	readonly sessionId: string;
+	/**
+	 * AL6 CRIT-3: The real session UUID from SessionConfig.sessionId (not the
+	 * internal cli-session-N id). Used to look up the enforcement registry for
+	 * process-reengage re-spawn decisions.
+	 */
+	readonly configSessionId: string;
 	done: boolean;
 	exitCode: number | null;
 	exitSignal: string | null;
@@ -122,6 +179,42 @@ interface CliSession {
 	totalCostUsd?: number;
 	/** True once the terminal cost_update has been yielded (prevents double-emit). */
 	costEmitted: boolean;
+	/**
+	 * AL6 CRIT-3: True once a return action (submit_review, handoff_to, send_message)
+	 * has been observed in the event stream. Used to skip re-engage when the agent
+	 * already returned voluntarily.
+	 */
+	returnSeen: boolean;
+	/**
+	 * AL6 CRIT-3: Number of process-reengage re-spawns for this session.
+	 * Bounded by AL6_MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
+	 */
+	reEngageCount: number;
+	/**
+	 * AL6 CRIT-3: The sandbox path for re-spawn (needed to spawn additional
+	 * processes in the same workspace).
+	 */
+	readonly sandboxPath: string;
+	/**
+	 * AL6 CRIT-3: The reEngageCarrier config from the adapter, threaded here
+	 * so streamEvents can spawn additional processes without accessing this.config.
+	 */
+	readonly reEngageCarrier?: "run-arg" | "stdin";
+	/**
+	 * AL6 CRIT-3: The resolved env for the process (includes CODEX_HOME, etc).
+	 * Reused for re-engage spawns.
+	 */
+	readonly spawnEnv: Record<string, string>;
+	/**
+	 * AL6 v4-fix: The resolved model string (e.g. "openrouter/~anthropic/claude-haiku-latest")
+	 * stored at session start so re-engage spawns can pass --model correctly.
+	 * Required for opencode "run-arg" carrier: `opencode run <msg> --format json --model <model>`.
+	 *
+	 * @lore AL6 opencode-reengage-model: The re-engage spawn cannot re-resolve templates
+	 * (no config object available in streamEvents). Storing the resolved model here avoids
+	 * the need to thread SessionConfig through streamEvents.
+	 */
+	readonly reEngageResolvedModel?: string;
 }
 
 /** Replace all template variables in a string. */
@@ -153,6 +246,22 @@ function buildSandboxedEnv(
 
 let nextId = 1;
 
+/**
+ * AL6 v4-final: Derive the return-enforcement channel from the CLI binary name.
+ * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
+ * opencode → process-reengage (.opencode/plugins/return-signal.ts + re-spawn wrapper)
+ * unknown → none (drain-gate floor backstop only)
+ *
+ * @lore AL6 WARN-F2: Codex has a hooks.json mechanism (Stop hook). Without a trust
+ * marker the hook is silently skipped (WARN-F1). Per-session prompt carrier is a
+ * separate concern (tracked in CLI_TOOL_CONFIGS.codex.args — the {{prompt}} slot).
+ */
+function deriveCliChannel(binary: string): ReturnEnforcementChannel {
+	if (binary === "codex") return "settings-codex";
+	if (binary === "opencode") return "process-reengage";
+	return "none";
+}
+
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
@@ -182,12 +291,20 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
+		// @lore AL6 WARN-F2: {{prompt}} resolves to the assembled prompt (first 200 chars
+		// as a seed summary) or "proceed" as a safe default. Codex exec uses this as the
+		// initial user message in the session; AGENTS.md in sandboxPath provides the full
+		// system context. Full prompt is written to AGENTS.md by session-provisioning.
+		const promptSeed = config.assembledPrompt
+			? config.assembledPrompt.slice(0, 200).replace(/\n/g, " ").trim() || "proceed"
+			: "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
 			"{{model}}": config.resolvedModel?.model ?? "",
 			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
 			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
+			"{{prompt}}": promptSeed,
 		};
 
 		// Resolve args
@@ -199,12 +316,35 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
 
+		// ── AL6 codex-codex-home: Per-session CODEX_HOME injection.
+		//
+		// If the sandbox contains a .codex-home/ directory (written by provisionCodexHome),
+		// set CODEX_HOME to point at it. This makes codex load hooks.json from the
+		// per-session dir instead of ~/.codex/hooks.json.
+		//
+		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
+		// so codex runs the hook without prompting for user confirmation.
+		//
+		// @lore AL6 codex-codex-home: CODEX_HOME must NOT be in envAllowlist (it is
+		// injected here, not forwarded from process.env). The per-session .codex-home/
+		// dir contains only auth.json + config.toml (no SQLite) + hooks.json.
+		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
+		let extraArgs: string[] = [];
+		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
+			resolvedEnvMap["CODEX_HOME"] = codexHomeDir;
+			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
+			// requiring the user to have pre-approved the hook command.
+			extraArgs = ["--dangerously-bypass-hook-trust"];
+		}
+
+		const finalArgs = [...resolvedArgs, ...extraArgs];
+
 		// Build sandboxed environment
 		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, resolvedEnvMap);
 
 		// Spawn the child process
 		// @lore X5 W1: args ARRAY form is the security boundary — no shell: true
-		const child = this.spawnFn(this.config.binary, resolvedArgs, {
+		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: config.sandboxPath,
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
@@ -215,6 +355,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const session: CliSession = {
 			child,
 			sessionId,
+			// AL6 CRIT-3: store real config sessionId for registry lookup
+			configSessionId: config.sessionId,
 			done: false,
 			exitCode: null,
 			exitSignal: null,
@@ -224,6 +366,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolveStop: null,
 			killTimer: null,
 			costEmitted: false,
+			returnSeen: false,
+			reEngageCount: 0,
+			sandboxPath: config.sandboxPath,
+			reEngageCarrier: this.config.reEngageCarrier,
+			spawnEnv: sandboxedEnv,
+			// AL6 v4-fix: store resolved model for re-engage spawn (opencode --model flag).
+			reEngageResolvedModel: config.resolvedModel?.model,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -297,6 +446,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;
 
+			// AL6 CRIT-3: determine if this adapter uses process-reengage channel.
+			const channel =
+				adapter.config.returnEnforcementChannel ?? deriveCliChannel(adapter.config.binary);
+			const isReEngage = channel === "process-reengage";
+
 			let stdoutCursor = 0;
 			let stderrCursor = 0;
 
@@ -351,7 +505,122 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					yield costEvent;
 				}
 
-				if (session.done) break;
+				if (session.done) {
+					// AL6 CRIT-3: process-reengage — after first (or subsequent) process exits,
+					// check if we need to re-engage the session with a forcing message.
+					//
+					// Decision logic:
+					//   1. Only for process-reengage channel (opencode / remote).
+					//   2. Only if returnSeen=false (agent did NOT call a return action).
+					//   3. Ask the enforcement registry: if forceMessage is non-null, re-spawn.
+					//   4. Bounded by reEngageCount < AL6_MAX_FORCE_RETURNS (guards infinite loops).
+					//   5. reEngageCarrier="run-arg": append forceMessage as positional arg.
+					//
+					// @lore AL6 CRIT-3: The re-engage spawns a NEW child process in the same
+					// sandbox. The new process's stdout/stderr lines are appended to the same
+					// session.stdoutLines / session.stderrLines arrays (via wireStdout/wireStderr
+					// called on the new child). session.done is reset to false so the drain loop
+					// continues. This gives the outer provisioner a single continuous event stream
+					// with no visible seam between the initial run and re-engage runs.
+					if (isReEngage && !session.returnSeen && session.reEngageCount < AL6_MAX_FORCE_RETURNS) {
+						const registryEntry = enforcementRegistry.get(session.configSessionId);
+						if (registryEntry) {
+							// AL6 CRIT-3: adjudicate from the registry's forceCount (single source).
+							// Previously used session.reEngageCount which could diverge from the registry
+							// if other paths also incremented forceCount. The registry is authoritative.
+							const forceMsg = registryEntry.exempt
+								? null
+								: shouldForceReturn(registryEntry.gate, registryEntry.forceCount);
+
+							if (forceMsg !== null) {
+								// Increment the registry BEFORE spawning so drain-gate sees the force.
+								enforcementRegistry.incrementForce(session.configSessionId);
+								session.reEngageCount++;
+
+								// Build re-engage args.
+								//
+								// @lore AL6 v4-fix: The previous approach stripped template vars with
+								// `arg.replace(/\{\{[a-z]+\}\}/g, "")` and appended the forcing message.
+								// For opencode (config.args = ["--dir", "{{sandbox}}"]) this produced
+								// ["--dir", "", forceMsg] — broken: no "run" subcommand, empty --dir, and
+								// the forcing message was a stray positional. We now build the correct
+								// opencode headless invocation from scratch for "run-arg" carrier.
+								//
+								// Proven real invocation (AL6-real-harness-return-enforcement.integration.test.ts):
+								//   opencode run <forceMsg> --format json --pure --model <model>
+								let finalReEngageArgs: string[];
+								if (session.reEngageCarrier === "run-arg") {
+									// "run-arg": opencode headless re-invoke with forcing message as first arg.
+									// Build the canonical headless invocation: `opencode run <msg> --format json --pure [--model <model>]`
+									// cwd is session.sandboxPath so --dir is not needed for re-engage.
+									const runArgs: string[] = ["run", forceMsg, "--format", "json", "--pure"];
+									if (session.reEngageResolvedModel) {
+										runArgs.push("--model", session.reEngageResolvedModel);
+									}
+									finalReEngageArgs = runArgs;
+								} else {
+									// No carrier configured — use the AL6 forcing message constant.
+									// Fall back to base args (stripped of unresolved template vars via exclusion
+									// of any arg still containing "{{"). Empty-string args from stripping
+									// are excluded to avoid passing spurious flags.
+									const baseArgs = adapter.config.args
+										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
+										.filter((arg) => arg.length > 0);
+									finalReEngageArgs = [...baseArgs, AL6_FORCE_RETURN_MESSAGE];
+								}
+
+								// Spawn the re-engage child process.
+								const reEngageChild = adapter.spawnFn(adapter.config.binary, finalReEngageArgs, {
+									cwd: session.sandboxPath,
+									env: session.spawnEnv,
+									stdio: ["pipe", "pipe", "pipe"],
+								});
+
+								// Reset session for the new child.
+								// @lore AL6 CRIT-3: We mutate the CliSession object to point at the
+								// new child while keeping the same stdoutLines/stderrLines arrays.
+								// This is safe because the old child has exited (session.done was true).
+								session.child.removeAllListeners();
+								session.child = reEngageChild;
+								session.done = false;
+								session.exitCode = null;
+								session.exitSignal = null;
+								session.costEmitted = false;
+
+								// Wire the new child's stdout/stderr into the same arrays.
+								adapter.wireStdout(session);
+								adapter.wireStderr(session);
+
+								// Wire exit for the new child.
+								reEngageChild.on("exit", (code, signal) => {
+									for (const bufferedLine of session.stdoutLines.slice(stdoutCursor)) {
+										adapter.parseStdoutLine(bufferedLine, session);
+									}
+									session.exitCode = code;
+									session.exitSignal = signal;
+									session.done = true;
+									if (session.killTimer) {
+										clearTimeout(session.killTimer);
+										session.killTimer = null;
+									}
+									session.notifyStream?.();
+									const result = adapter.buildResult(code, signal, session.totalCostUsd);
+									session.resolveStop?.(result);
+								});
+
+								reEngageChild.on("error", () => {
+									session.done = true;
+									session.notifyStream?.();
+								});
+
+								// Continue the drain loop for the re-engage child.
+								continue;
+							}
+						}
+					}
+					// No re-engage needed (or channel is not process-reengage).
+					break;
+				}
 
 				await waitForMore();
 			}
@@ -401,6 +670,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
 			// for HyperIdle tool calling.
 			mcpSupport: true,
+			// AL6 v4-final: channel is explicit in config, or derived from binary name.
+			// codex → settings-codex (writes .codex/hooks.json Stop hook)
+			// opencode → process-reengage (opencode plugin + re-spawn wrapper)
+			// unknown → none (drain-gate floor backstop only)
+			returnEnforcement:
+				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
 		};
 	}
 
@@ -436,7 +711,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				return normalizeHarnessEvent(parsed);
+				const event = normalizeHarnessEvent(parsed);
+
+				// AL6 CRIT-3: track return actions for process-reengage decisions.
+				// When the agent calls a return action, mark returnSeen so we skip
+				// re-engage on process exit.
+				if (session && event.type === "tool_call" && isReturnAction(event.toolName)) {
+					session.returnSeen = true;
+				}
+
+				return event;
 			}
 		} catch {
 			// Fall through to completion event

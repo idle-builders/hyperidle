@@ -17,7 +17,8 @@
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/server/src/middleware/response-validator.ts",
-		"packages/server/src/services/service-connection-resolver.ts"
+		"packages/server/src/services/service-connection-resolver.ts",
+		"packages/server/src/harness/re-engage.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],

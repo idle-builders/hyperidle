@@ -28,12 +28,15 @@ import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawSettingsTextarea } from "./rules/no-raw-settings-textarea.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { noUndefinedFontHeading } from "./rules/no-undefined-font-heading.js";
+import { noUngatedStreamDrain } from "./rules/no-ungated-stream-drain.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
+	// AL6: classifying stream-drain lint guard (AC4 static)
+	"no-ungated-stream-drain": noUngatedStreamDrain,
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
 	"no-handrolled-page-header": noHandrolledPageHeader,

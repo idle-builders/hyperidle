@@ -25,6 +25,7 @@ import type {
 	TokenUsage,
 	WireMoney,
 } from "@hyperidle/shared";
+import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hyperidle/shared";
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
@@ -81,6 +82,17 @@ interface BuiltinSession {
 	events: HarnessEvent[];
 	notifyStream: (() => void) | null;
 	loopPromise: Promise<void> | null;
+	/**
+	 * AL6 v2 (T4): True once any tool_call event named a member of RETURN_ACTION_NAMES
+	 * is emitted during executeToolCalls. Used by the forcing layer at stop attempts.
+	 */
+	returnSeen: boolean;
+	/**
+	 * AL6 v2 (T4): Number of force-continue re-injections applied this session.
+	 * The forcing layer uses this to bound force at AL6_MAX_FORCE_RETURNS.
+	 * Exposed on stopSession for the eval harness (forceReturnCount).
+	 */
+	forceCount: number;
 }
 
 // AH6 CRITICAL-2: estimateCostUsd moved to llm-cost-estimate.ts (single rate source).
@@ -178,6 +190,8 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				events: [],
 				notifyStream: null,
 				loopPromise: null,
+				returnSeen: false,
+				forceCount: 0,
 			});
 		}
 	}
@@ -232,6 +246,8 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				events: [],
 				notifyStream: null,
 				loopPromise: null,
+				returnSeen: false,
+				forceCount: 0,
 			};
 		}
 
@@ -334,7 +350,32 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
+			// AL6 v4-final: builtin owns the in-process loop — forces return inside the
+			// turn boundary without any external hook. Channel = "builtin-loop".
+			returnEnforcement: "builtin-loop",
 		};
+	}
+
+	/**
+	 * AL6 v3 (T4): Implements the optional HarnessAdapter.getForceReturnCount interface.
+	 * Returns the number of in-turn force-continue re-injections (Layer-A) applied by the
+	 * builtin loop during a session. Used by the provisioning loop to unify the
+	 * turn-level forceReturnCount: loopForceCount + (harness.getForceReturnCount?.() ?? 0).
+	 *
+	 * @lore AL6 v3: Renamed from getSessionForceCount (v2 concrete-only method) to
+	 * getForceReturnCount (v3 HarnessAdapter optional interface method). The underlying
+	 * sessions.get(sessionId)?.forceCount data is unchanged.
+	 */
+	getForceReturnCount(sessionId: string): number {
+		return this.sessions.get(sessionId)?.forceCount ?? 0;
+	}
+
+	/**
+	 * @deprecated Use getForceReturnCount instead (AL6 v3 rename).
+	 * Kept for backward compat with eval code that calls it by the old name.
+	 */
+	getSessionForceCount(sessionId: string): number {
+		return this.getForceReturnCount(sessionId);
 	}
 
 	// ── Internal loop ─────────────────────────────────────────────────────────
@@ -516,6 +557,44 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// Term 2b gate to mis-fire: a degenerate empty-content cassette response
 			// persisted CAP_FALLBACK text instead of "", so the S1 predicate was true
 			// instead of false. CAP_FALLBACK now only fires on tool-call overflow.
+			// AL6 v2 (T4): Tier-1 force at the chat-turn end-of-loop break point.
+			// Before emitting completion and breaking, check whether the agent has
+			// returned. If not, and budget remains, re-inject the forcing message
+			// and continue the loop instead of breaking.
+			//
+			// @lore AL6 v2: shouldForceReturn is pure — it does NOT mutate session.
+			// We increment forceCount BEFORE the continue so the next check sees the
+			// updated budget. The forcing message is injected as a user message so
+			// the model sees it as a direct instruction.
+			//
+			// @lore AL6 v2 AK4: Force-return is EXEMPT for conversational (task-free)
+			// turns where no return actions are in the tool registry. The assistant chat
+			// path (AK4) uses a 2-tool registry (create_bet + edit_bet) without submit_review,
+			// handoff_to, or send_message. Forcing an agent to call a tool it doesn't have
+			// would cause a hard tool-not-found error. The exemption is: if none of the
+			// session's toolDefs are return actions, skip the force check entirely.
+			const hasReturnActionInRegistry = session.toolDefs.some((td) => isReturnAction(td.name));
+			const forceMsg = hasReturnActionInRegistry
+				? shouldForceReturn({ returned: session.returnSeen }, session.forceCount)
+				: null;
+			if (forceMsg !== null) {
+				session.forceCount++;
+				session.messages.push({
+					role: "user",
+					content: forceMsg,
+				});
+				// Emit the forcing message text as a completion so stream observers
+				// can surface it (e.g. the eval judge reads the stream).
+				this.emitEvent(session, {
+					type: "completion",
+					text: AL6_FORCE_RETURN_MESSAGE,
+				});
+				// Re-seed the loop iteration state
+				lastText = "";
+				toolIterations = Math.min(toolIterations, MAX_TOOL_ITERATIONS - 1);
+				continue;
+			}
+
 			const finalText = lastText || (capturedToolCalls.length > 0 ? CAP_FALLBACK : "");
 			const emitText = finalText;
 
@@ -659,12 +738,32 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				content: results,
 			});
 		} else if (response.stopReason === "end_turn" || response.stopReason === "stop") {
-			// Text-only response — loop done
-			const text = extractTextFromContent(response.content);
-			if (text) {
-				this.emitEvent(session, { type: "completion", text });
+			// Text-only response — agent wants to stop.
+			// AL6 v2 (T4): Intercept the stop attempt. If no return was seen and
+			// budget remains, re-inject the forcing message and do NOT set done=true
+			// (the run loop will call runExecuteTurn again). If budget spent or a
+			// return was already seen, allow the stop.
+			const forceMsg = shouldForceReturn({ returned: session.returnSeen }, session.forceCount);
+			if (forceMsg !== null) {
+				session.forceCount++;
+				// Re-inject: a user message with the forcing text, so the model
+				// sees it as a direct instruction on the next execute turn.
+				session.messages.push({
+					role: "user",
+					content: forceMsg,
+				});
+				// Emit the forcing message as a completion event so stream observers
+				// (e.g. the provisioning drain, eval judges) can see it fired.
+				this.emitEvent(session, { type: "completion", text: AL6_FORCE_RETURN_MESSAGE });
+				// Do NOT set session.done = true — loop continues.
+			} else {
+				// Budget spent or return seen — allow the stop.
+				const text = extractTextFromContent(response.content);
+				if (text) {
+					this.emitEvent(session, { type: "completion", text });
+				}
+				session.done = true;
 			}
-			session.done = true;
 		}
 		// max_tokens hit: continue loop (LLM ran out of output space, not done)
 	}
@@ -724,6 +823,13 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				toolName: toolCall.name,
 				args: toolCall.input,
 			});
+
+			// AL6 v2 (T4): Track whether a return action was seen this turn.
+			// isReturnAction uses the same closed set as the provisioning drain's
+			// ReturnGate — single source of truth, no per-adapter copy.
+			if (isReturnAction(toolCall.name)) {
+				session.returnSeen = true;
+			}
 
 			session.toolCallCount++;
 

@@ -244,6 +244,16 @@ export async function createSession(
  * @param routineRunOutcome - AA3: Optional override for the routine_run outcome.
  *   When "budget_exhausted", the routine_run is recorded with that outcome directly
  *   (avoids write-then-overwrite race window; critique Warning 1).
+ * @param terminalOutcome - AL6 v2 WARNING-A: Optional terminal session outcome override.
+ *   When provided, overrides the hardcoded "completed" outcome in BOTH the persisted
+ *   sessions row AND the session_ended bus event. Used to persist "not_returned" outcome
+ *   so the DB row and bus event are consistent with ProvisionSessionResult.outcome.
+ *   Defaults to "completed" for backwards compat (all existing call sites are unaffected).
+ *
+ * @lore AL6 v2: The previous signature had routineRunOutcome typed as "budget_exhausted"
+ * and only touched the routine_run row — not the sessions row or session_ended event.
+ * Adding terminalOutcome as a separate parameter keeps existing callers unchanged and
+ * lets the not_returned path thread the outcome through all three write sites.
  */
 export async function endSession(
 	db: HyperIdleDb,
@@ -252,6 +262,7 @@ export async function endSession(
 	costInCents: number,
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
+	terminalOutcome: "completed" | "not_returned" = "completed",
 ): Promise<void> {
 	// 1. Dispose ingestion handle (final flush).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
@@ -269,11 +280,17 @@ export async function endSession(
 	// a duplicate teardown — or a teardown for a session a different writer already
 	// finalized (e.g. a handoff that set state='done') — affects ZERO rows and is a
 	// no-op. The runtime is the SOLE terminal-state writer for a session it runs.
+	//
+	// AL6 v2 WARNING-A: `terminalOutcome` overrides the previously hardcoded "completed"
+	// in BOTH the row write and the event emit. This ensures a not_returned turn is
+	// persisted correctly in the DB and carried on the bus — not just in the in-memory
+	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
+	// teeth at the persistence layer.
 	const updated = await db
 		.update(sessions)
 		.set({
 			state: "done",
-			outcome: "completed",
+			outcome: terminalOutcome,
 			endedAt: now,
 		})
 		.where(and(eq(sessions.id, context.sessionId), eq(sessions.state, "active")))
@@ -292,7 +309,9 @@ export async function endSession(
 			agentId: context.agentId,
 			taskId: context.taskId,
 			timestamp: Date.now(),
-			outcome: "completed",
+			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
+			// turns surface correctly on the bus.
+			outcome: terminalOutcome,
 		});
 	}
 

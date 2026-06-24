@@ -20,7 +20,10 @@
 		"./harness/sandbox-adapter": "./src/harness/sandbox-adapter.ts",
 		"./services/credential-encryption": "./src/services/credential-encryption.ts",
 		"./services/server-config": "./src/services/server-config.ts",
-		"./services/strategy-registry": "./src/services/strategy-registry.ts"
+		"./services/strategy-registry": "./src/services/strategy-registry.ts",
+		"./harness/llm-client": "./src/harness/llm-client.ts",
+		"./harness/cli-harness-adapter": "./src/harness/cli-harness-adapter.ts",
+		"./harness/llm-types": "./src/harness/llm-types.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

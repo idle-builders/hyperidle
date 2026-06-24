@@ -1,10 +1,15 @@
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/shared";
-import { MissingCredentialError } from "@hyperidle/shared";
+import {
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
+	MissingCredentialError,
+} from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG } from "../../services/model-gateway.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+import { enforcementRegistry } from "../return-enforcement-registry.js";
 
 // X4: model-tier-map.ts deleted. Gateway model IDs are tested in X4-model-gateway.test.ts.
 // KNOWN_MODELS derived from BUILT_IN_GATEWAY_CONFIG — single source of truth.
@@ -537,6 +542,8 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				subAgents: true,
 				modelProviders: ["anthropic"],
 				mcpSupport: true,
+				// AL6 v2: SDK adapter is Tier-1 (has Stop hook → canForceReturn=true).
+				returnEnforcement: "sdk-inprocess",
 			});
 		});
 	});
@@ -621,6 +628,166 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 					}),
 				}),
 			);
+		});
+	});
+
+	// ── T7 (AL6 v2): SDK Stop hook behavioral tests ──────────────────────────────
+	//
+	// Verifies the in-process Stop hook closure honors `decision:block` semantics:
+	//   (a) Hook blocks the stop and returns AL6_FORCE_RETURN_MESSAGE when no return seen.
+	//   (b) Hook allows stop when a return action was observed (returnSeen=true).
+	//   (c) Hook allows stop after budget is exhausted (AL6_MAX_FORCE_RETURNS invocations).
+	//   (d) returnSeen is set by translateMessage when submit_review is seen in the stream.
+	//
+	// The hook is extracted from the options captured by the queryFn spy — it fires
+	// in-process, not via subprocess. This is a pure behavioral unit test.
+
+	describe("AL6 v2 T7 — SDK Stop hook (canForceReturn=true, decision:block)", () => {
+		// Type alias for the Stop hook function extracted from captured options.
+		type StopHookFn = (
+			input: unknown,
+			toolUseId: string | undefined,
+			options: { signal: AbortSignal },
+		) => Promise<{ decision?: string; reason?: string }>;
+
+		// Type-safe wrapper around the mock call args for hook extraction.
+		type HookCallArg = {
+			options?: { hooks?: { Stop?: Array<{ hooks: StopHookFn[] }> } };
+		};
+
+		/** Extract the Stop hook from a queryFn spy after startSession is called. */
+		function extractStopHook(queryFn: ReturnType<typeof vi.fn>): StopHookFn | undefined {
+			const calls = queryFn.mock.calls as unknown as Array<[HookCallArg, ...unknown[]]>;
+			const firstCall = calls[0];
+			if (!firstCall) return undefined;
+			return firstCall[0]?.options?.hooks?.Stop?.[0]?.hooks?.[0];
+		}
+
+		const dummySignal = new AbortController().signal;
+
+		// AL6 CRIT-2: The Stop hook now reads from the shared enforcement registry.
+		// Tests must pre-register the session (mirrors session-provisioning.ts:760).
+		// TEST_CONFIG.sessionId = "test-session" — the registry key.
+		//
+		// We use a plain mutable gate object (not createReturnGate's getter-based one)
+		// so individual tests can set gate.returned=true to simulate "return seen".
+		// In production, session-provisioning.ts calls returnGate.observe(event) for
+		// each streamed event — here we simulate that by direct mutation.
+		let testGate: { returned: boolean };
+
+		beforeEach(() => {
+			testGate = { returned: false };
+			enforcementRegistry.register(TEST_CONFIG.sessionId, {
+				gate: testGate,
+				forceCount: 0,
+				exempt: false,
+			});
+		});
+
+		afterEach(() => {
+			enforcementRegistry.unregister(TEST_CONFIG.sessionId);
+		});
+
+		it("returns decision:'block' + AL6_FORCE_RETURN_MESSAGE when no return was seen (first call)", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// No return action observed, forceCount=0 → should block
+			const result = await hook!({}, undefined, { signal: dummySignal });
+			expect(result.decision).toBe("block");
+			expect(result.reason).toBe(AL6_FORCE_RETURN_MESSAGE);
+		});
+
+		it("blocks a second time when forceCount=1 and budget not exhausted", async () => {
+			// AL6_MAX_FORCE_RETURNS = 2, so forceCount=1 < 2 → still block
+			// Simulate by calling hook twice on same session's hook closure.
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// First call: forceCount goes 0→1, budget=2 → still block
+			const first = await hook!({}, undefined, { signal: dummySignal });
+			expect(first.decision).toBe("block");
+
+			// Second call: forceCount goes 1→2 (1 < 2) → still block
+			const second = await hook!({}, undefined, { signal: dummySignal });
+			expect(second.decision).toBe("block");
+		});
+
+		it("allows stop after AL6_MAX_FORCE_RETURNS budget is exhausted", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// Exhaust the budget: call AL6_MAX_FORCE_RETURNS times
+			for (let i = 0; i < AL6_MAX_FORCE_RETURNS; i++) {
+				await hook!({}, undefined, { signal: dummySignal });
+			}
+
+			// Budget spent → allow stop
+			const afterBudget = await hook!({}, undefined, { signal: dummySignal });
+			expect(afterBudget.decision).toBe("approve");
+		});
+
+		it("allows stop immediately when a return action was observed in the stream", async () => {
+			// Simulate: adapter processes a submit_review tool_use → gate.returned=true
+			// Then hook fires and should approve the stop.
+			//
+			// AL6 CRIT-2: In production, session-provisioning.ts calls returnGate.observe(event)
+			// for each event yielded by harness.streamEvents(). That call sets gate.returned=true
+			// when a tool_call:submit_review event is seen. Here we simulate that by directly
+			// setting testGate.returned=true after draining the stream — the same logical effect.
+			const returnActionMessage: SDKMessage = {
+				type: "assistant",
+				message: {
+					usage: { input_tokens: 10, output_tokens: 5 },
+					content: [{ type: "tool_use", name: "submit_review", input: {}, id: "t1" }],
+				},
+				parent_tool_use_id: null,
+				uuid: "msg-2",
+				session_id: "sess-2",
+			} as unknown as SDKMessage;
+
+			const mockQuery = createMockQuery([returnActionMessage]);
+			const queryFn = vi.fn(() => mockQuery);
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			// Drain the stream (mirrors session-provisioning.ts drain loop observing events).
+			for await (const _ of adapter.streamEvents(handle)) {
+				// drain only — gate observation happens below
+			}
+
+			// Simulate session-provisioning.ts calling returnGate.observe() → gate.returned=true.
+			// In production the gate is a ReturnGate whose returned getter returns true once
+			// observe({ type: "tool_call", toolName: "submit_review" }) is called.
+			testGate.returned = true;
+
+			// Extract the hook from the same session's closure
+			const hook = extractStopHook(queryFn);
+			expect(hook).toBeDefined();
+
+			// gate.returned=true → hook approves immediately (no force needed)
+			const result = await hook!({}, undefined, { signal: dummySignal });
+			expect(result.decision).toBe("approve");
+		});
+
+		it("returnEnforcement capability is 'sdk-inprocess' for ClaudeAgentSdkAdapter (v4 native-block)", () => {
+			const adapter = new ClaudeAgentSdkAdapter();
+			expect(adapter.getCapabilities().returnEnforcement).toBe("sdk-inprocess");
 		});
 	});
 

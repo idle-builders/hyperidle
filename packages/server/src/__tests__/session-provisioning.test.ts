@@ -171,6 +171,7 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: false,
+			returnEnforcement: "none",
 		};
 	}
 }
@@ -335,6 +336,12 @@ describe("Session Provisioning (D5)", () => {
 				events: [
 					{ type: "token_usage", inputTokens: 50, outputTokens: 20 },
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC1 review", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "Done." },
 				],
 				fileWrites: [{ relativePath, content }],
@@ -540,6 +547,14 @@ describe("Session Provisioning (D5)", () => {
 				return new ScriptedHarnessAdapter({
 					events: [
 						{ type: "cost_update", totalCost: 0.001, deltaCost: 0.001 },
+						// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+						// Without it, the re-prompt loop runs AL6_MAX_FORCE_RETURNS+1 times
+						// → afterFileWrites fires 3x → 3 knowledge_items rows per session.
+						{
+							type: "tool_call",
+							toolName: "submit_review",
+							args: { title: "AC5 marker done", reasoning: ["done"] },
+						},
 						{ type: "completion", text: "ok" },
 					],
 					fileWrites: [{ relativePath, content: `marker:${marker}` }],
@@ -698,6 +713,12 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
 					{ type: "cost_update", totalCost: 0.03, deltaCost: 0.02 },
 					{ type: "cost_update", totalCost: 0.06, deltaCost: 0.03 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC7 review", reasoning: ["done"] },
+					},
 				],
 				stopResult: {
 					outcome: "completed",
@@ -773,6 +794,12 @@ describe("Session Provisioning (D5)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.05, deltaCost: 0.05 },
+					// AL6 v2: emit submit_review so the return gate sees a return action.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC8 review", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "done" },
 				],
 				stopResult: {
@@ -851,6 +878,16 @@ describe("Session Provisioning (D5)", () => {
 						args: { path: "/workspace/foo.ts" },
 					},
 					{ type: "cost_update", totalCost: 0, deltaCost: 0 },
+					// AL6 v3: registry.invoke returns err("NOT_FOUND") for unknown tools
+					// instead of throwing — session does NOT crash, loop continues.
+					// Emit submit_review so the ReturnGate exits after run-1, otherwise
+					// the re-prompt loop runs 3 total times and fires 3 tool_call_recorded
+					// events (one NonExistentTool per run).
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "AC8 review", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "done" },
 				],
 				stopResult: {
@@ -865,15 +902,15 @@ describe("Session Provisioning (D5)", () => {
 				adapterPool: makePool(harness),
 				workspace,
 			};
-			// Invoking a non-existent tool throws inside registry.invoke →
-			// orchestrator marks crashed; the tool_call_recorded emit
-			// happens BEFORE the invoke, so the event is still fired.
 			await provisionSession(deps, baseParams(tmpDir));
-			expect(received).toHaveLength(1);
-			expect(received[0]!.toolName).toBe("NonExistentTool");
+			// Two tool_call_recorded events: NonExistentTool + submit_review.
+			// The NonExistentTool event is the one we care about for H3 AC4.
+			expect(received).toHaveLength(2);
+			const nonExistent = received.find((e) => e.toolName === "NonExistentTool");
+			expect(nonExistent).toBeDefined();
 			// argsSummary is scrubbed + truncated, and contains the arg.
-			expect(received[0]!.argsSummary).toContain("/workspace/foo.ts");
-			expect(received[0]!.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+			expect(nonExistent!.argsSummary).toContain("/workspace/foo.ts");
+			expect(nonExistent!.sessionId).toMatch(/^[0-9a-f-]{36}$/);
 		});
 
 		it("registerSessionReviewCreator creates a review item for a medium-risk task", async () => {
@@ -1140,6 +1177,13 @@ describe("Session Provisioning (D5)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+					// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+					// Without it, the re-prompt loop runs 3 times total.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "facilitator done", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "ok" },
 				],
 				stopResult: {
@@ -1178,6 +1222,13 @@ describe("Session Provisioning (D5)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+					// AL6 v3: emit submit_review so the ReturnGate exits after run-1.
+					// Without it, the re-prompt loop runs 3 times total.
+					{
+						type: "tool_call",
+						toolName: "submit_review",
+						args: { title: "builder done", reasoning: ["done"] },
+					},
 					{ type: "completion", text: "ok" },
 				],
 				stopResult: {

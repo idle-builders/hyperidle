@@ -45,6 +45,7 @@ function makeStubAdapter(mcpSupport = false): HarnessAdapter {
 				subAgents: false,
 				modelProviders: [],
 				mcpSupport,
+				returnEnforcement: "none",
 			};
 		},
 	};
@@ -167,10 +168,11 @@ describe("AC7 — new adapters can be added via register() only", () => {
 		const spawnSpy = vi.fn();
 		const pool = new AdapterPool();
 
+		// Using opencode as the representative CLI harness (one of the two supported CLI tools)
 		const cliAdapter = new CliHarnessAdapter(
 			{
-				binary: "aider",
-				args: ["--dir", "{{workspace}}"],
+				binary: "opencode",
+				args: ["--dir", "{{sandbox}}"],
 				envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
 				eventFormat: "text",
 				envAllowlist: ["PATH", "HOME"],
@@ -178,18 +180,18 @@ describe("AC7 — new adapters can be added via register() only", () => {
 			{ spawnFn: spawnSpy },
 		);
 
-		pool.register("local-cli-aider", cliAdapter, {
-			name: "CLI: aider",
+		pool.register("local-cli-opencode", cliAdapter, {
+			name: "CLI: opencode",
 			kind: "local",
-			type: "aider",
+			type: "opencode",
 			modelProviders: [],
 			maxConcurrent: 2,
 		});
 
-		const entry = pool.select({ harnessType: "aider" });
+		const entry = pool.select({ harnessType: "opencode" });
 		expect(entry).not.toBeNull();
-		expect(entry?.id).toBe("local-cli-aider");
-		expect(entry?.meta.type).toBe("aider");
+		expect(entry?.id).toBe("local-cli-opencode");
+		expect(entry?.meta.type).toBe("opencode");
 	});
 
 	it("a BuiltinHarnessAdapter can be registered and selected", () => {

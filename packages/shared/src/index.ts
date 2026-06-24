@@ -116,6 +116,7 @@ export type {
 	PropagationFailedEvent,
 	RoutineFiredEvent,
 	SessionEndedEvent,
+	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
 	StrategyEvent,
@@ -177,6 +178,11 @@ export type {
 	HarnessRuntimeCapabilities,
 	McpConnectionInfo,
 	PreCompactionEvent,
+	// AL6: return action name type
+	ReturnActionName,
+	// AL6 v4-final: per-harness enforcement channel + hook config
+	ReturnEnforcementChannel,
+	ReturnHookConfig,
 	ServerDispatchMessage,
 	ServerRegisteredMessage,
 	ServerStopMessage,
@@ -195,10 +201,18 @@ export type {
 	WorkerToServerMessage,
 } from "./harness/index.js";
 export {
+	// AL6 v2: forcing constants + helper
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
 	HARNESS_OPTION_CONTROL_KINDS,
 	isHarnessEvent,
+	isInternalExtractionDrain,
+	isReturnAction,
 	MockHarnessAdapter,
 	normalizeHarnessEvent,
+	// AL6: closed accepted-return set
+	RETURN_ACTION_NAMES,
+	shouldForceReturn,
 } from "./harness/index.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";

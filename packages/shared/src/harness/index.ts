@@ -3,11 +3,12 @@ export type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	McpConnectionInfo,
+	ReturnEnforcementChannel,
+	ReturnHookConfig,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
 } from "./harness-adapter.js";
-
 export type {
 	HarnessAccessMode,
 	HarnessAuthActionDescriptor,
@@ -36,6 +37,16 @@ export type {
 	ToolCallEvent,
 } from "./harness-events.js";
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
+export type { ReturnActionName } from "./return-actions.js";
+// ── AL6: Closed accepted-return set + v2 forcing helpers ──
+export {
+	AL6_FORCE_RETURN_MESSAGE,
+	AL6_MAX_FORCE_RETURNS,
+	isInternalExtractionDrain,
+	isReturnAction,
+	RETURN_ACTION_NAMES,
+	shouldForceReturn,
+} from "./return-actions.js";
 
 export type {
 	ServerDispatchMessage,

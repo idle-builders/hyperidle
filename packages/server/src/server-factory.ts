@@ -16,6 +16,7 @@ import { createApp, disposeApp } from "./app.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
+import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
@@ -383,7 +384,9 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		 * authenticate via the 64-char hex session token in the URL, not X-API-Key.
 		 */
 		registerMcpRoute: (apiRouter) => {
-			const mcpRouter = createMcpRoute(mcpBridgeRegistry);
+			// AL6 CRIT-1: pass enforcementRegistry so the /return-status sub-path
+			// resolves token → sessionId → entry → forceMessage (the real adjudicator).
+			const mcpRouter = createMcpRoute(mcpBridgeRegistry, enforcementRegistry);
 			apiRouter.route("/", mcpRouter);
 		},
 	});
