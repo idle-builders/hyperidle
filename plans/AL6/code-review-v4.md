@@ -251,3 +251,67 @@ The forcing message is **not delivered as a prompt** to a re-engaged opencode tu
 | AC5 | Mid-turn non-terminal tools unaffected | PASS | Gate observes only return-action tool_calls. |
 
 **Bottom line:** Three of four spawnable harnesses (claude, codex, builtin) now prove the full hook→adjudicator→registry→real-fire loop against the shipped server — a real, verified improvement over rounds 1–2. One harness (opencode) ships a broken re-engage invocation that its test masks by substituting a different arg shape. AC4 ("enforcement uniform across every spawnable harness") is not met. NOT DONE.
+
+---
+
+## round 4 (final)
+
+**Reviewed:** `2d6e9c74 fix(AL6): fix opencode re-engage invocation` vs the round-3 CRIT-3 residual. Verified every claim against SOURCE and by running (incl. a revert-the-fix sanity-break + the full integration suite with real binaries).
+
+### Verdict: DONE
+
+The round-3 blocker is genuinely closed. opencode production re-engage now builds the REAL headless invocation; the test drives the REAL shipped config and FAILS on the old broken shape; the integration proof spawns the real binary with the exact production-shaped args. No regression to the proven three (claude, codex, builtin). All four spawnable harnesses are proven end-to-end. Nothing silently completes.
+
+### CRIT-3 — closed (verified at source + by sanity-break)
+
+**1. Production re-engage is correct.** `cli-harness-adapter.ts:551-560`: for `reEngageCarrier:"run-arg"` the adapter builds `["run", forceMsg, "--format", "json", "--pure", (+ "--model", reEngageResolvedModel)]` from scratch — `run` subcommand present, forcing message carried as the run-arg, model from the LIVE session (`CliSession.reEngageResolvedModel`, stored at `startSession` from `config.resolvedModel.model`, `:374`). The malformed strip-`{{sandbox}}`→`""` logic is GONE from the run-arg path; cwd is `session.sandboxPath` so `--dir` is unnecessary on re-engage. No empty-string args. The template-strip survives ONLY on the non-run-arg `else` fallback (`:566-569`), now correctly `.filter((arg) => arg.length > 0)` to drop empty strings. Correct.
+
+**2. The test drives the REAL shipped config.** `AL6-cli-reengage-adapter.test.ts:65` imports `CLI_TOOL_CONFIGS.opencode` (verified `["--dir", "{{sandbox}}"]` at `adapter-pool.ts:376`) — NOT a fabricated `["run","--format","json"]`. Asserts `reEngageArgs[0]==="run"`, `.toContain(AL6_FORCE_RETURN_MESSAGE)`, `.not.toContain("")`, `--format`+`json` present. **DECISIVE CHECK — performed:** reverted the production fix to the old template-strip (`[...resolvedBaseArgs, forceMsg]`) → exactly **2/6 tests FAIL** with `AssertionError: expected '--dir' to be 'run'` (lines 203, 320). Restored; 6/6 pass. The test genuinely discriminates the broken invocation against the real config — not a greenwash.
+
+**3. Real-binary opencode proof.** `AL6-real-harness-...integration.test.ts:1438-1522` ("LIVE process-reengage PROOF") spawns the REAL opencode binary twice via `spawnDetached` + `buildCleanEnv` (not stub, not stdout-grep-only): first `opencode run <noReturnPrompt> --format json --pure --model <model>` → asserts `step_finish`; re-engage `opencode run <FORCING_MESSAGE> --format json --pure --model <model>` → asserts `step_finish` + both `exitCode===0`. The re-engage args are the SAME shape production builds — the round-3 divergence (prod `--dir ""` vs test `run`) is closed; the two halves connect on one arg shape. Skip-gated for CI (`skipIf(!opencodeInstalled)` + `opencodeAuthed()` → `skip()`). Ran here (real binary, 7.7s, not skipped).
+
+Honest split (acceptable, same model as builtin): the adapter-loop + registry round-trip is proven by the unit test (real config, injected spawnFn, registry increment, budget bound); the real-binary acceptance of that exact invocation is proven by the integration test. Both now agree on the invocation shape — neither masks the other.
+
+### No regression to the proven three (verified)
+
+- **CRIT-2 intact.** SDK Stop hook (`claude-agent-sdk-adapter.ts:221-223`) still reads `enforcementRegistry.get(hookSessionId)` and adjudicates via `shouldForceReturn(entry.gate, entry.forceCount)` — registry is the single decision source. The removed dead `al6.returnSeen=true` write (`:375`, was in the `tool_use` loop) is NOT on this path; `al6.stopHookCount++` retained as the secondary counter for `getForceReturnCount`. `isReturnAction` import dropped from the SDK adapter only — still imported+used in `cli-harness-adapter.ts:33,719`. `npm run check` PASS (13/13 packages) — the import/field removal compiles clean.
+- **CRIT-4 intact.** `computeForceReturnCount()` (`session-provisioning.ts:949-954`) = `registryForceCount + adapterForceCount`, no `+1` drain sentinel.
+- builtin/claude/codex integration tests all green with real binaries.
+
+### NITs — both resolved
+
+- `session-provisioning.ts:1022` stale "drain fallback adds 1" comment — REMOVED (confirmed; line is now `const notReturnedForceCount = computeForceReturnCount();` with no stale comment).
+- `claude-agent-sdk-adapter.ts` dead `al6.returnSeen=true` write — REMOVED, replaced with an accurate `@lore` explaining the registry is the adjudicator. Clean.
+
+### Suite status
+
+- Unit: `AL6-cli-reengage-adapter.test.ts` (6) + `AL6-return-status-route.test.ts` (8) + `claude-agent-sdk-adapter.test.ts` (34) = **48 pass**.
+- Integration: `AL6-real-harness-...integration.test.ts` = **15 pass** — claude (22.5s), codex CODEX_HOME (27.4s), opencode FULL BINARY (3.9s) + LIVE re-engage PROOF (7.7s), builtin anchors, cursor inert — all RAN on this host, none skipped (`--reporter=verbose` confirmed). No flake observed this run (builder-flagged claude binary-proof flake under parallel load did not reproduce; it is a real-LLM/timing flake, not a logic defect — note for ship-time retry, not a blocker).
+- `npm run check`: PASS, 13/13 packages.
+
+### `completed`-without-return escape
+
+No escape. `session-provisioning.ts:1019` persists `outcome="not_returned"` (never `"completed"`) + emits `session_not_returned`; the drain-gate floor remains the un-bypassable backstop. With CRIT-1/2/3/4 all closed, the floor is no longer the ONLY proven link for any harness — the native hook / re-engage is proven primary for all four.
+
+### The decisive question — answered per harness
+
+Is the FULL loop proven end-to-end for ALL FOUR spawnable harnesses — real binary → real hook/re-engage → real route/registry → real block/force, NO mock, NO fabricated config, failing if any link breaks?
+
+**Yes.** cursor-agent honestly inert (n/a).
+
+### Per-harness AC4 proof table (round 4 — final)
+
+| Harness | real binary | real hook / re-engage | real route / registry | force from real fire | proof fails if link breaks | Status |
+|---|---|---|---|---|---|---|
+| claude-code | yes (`claude -p`, 22.5s) | yes (settings.json Stop hook) | yes (`/api/mcp/:token/return-status` → singleton registry) | `enforcementReg.forceCount>=1` (`:740`) | yes (nullify registry read → 2/8 route tests fail, verified round 3) | **PROVEN** |
+| codex | yes (`codex exec`+per-session CODEX_HOME, 27.4s) | yes (hooks.json Stop) | yes | `forceCount>=1` (`:1235`) | yes | **PROVEN** |
+| builtin | n/a (in-process) | n/a (real in-process forcing loop) | yes (registry) | `forceCount>=1` real loop, no drain floor | yes (no-op adapter → forceCount=0 fails) | **PROVEN** |
+| opencode | yes (`opencode run <msg>` headless, real spawn) | yes (run-arg re-engage, production-shaped args) | yes (registry incrementForce in adapter loop; route n/a for process-reengage channel) | `forceCount>=1` (unit, real config) + real binary completes forced turn (integration) | **yes (revert fix → 2/6 unit tests fail `--dir`≠`run`, verified this round)** | **PROVEN** |
+| cursor-agent | honestly inert | — | — | — | — | n/a (declared inert) |
+
+### Residual (non-blocking)
+
+- **Phase-5 doc drift (note only):** `plans/AL6/architecture.md` codex CODEX_HOME section — not a code blocker.
+- **Real-LLM flake (ship-time note):** the claude FULL BINARY PROOF is a live-LLM/timing test; may flake under parallel load. It is e2e/live-local-lane (MEMORY: e2e is local-only), skip-gated for CI. Re-run on a transient red; not a logic defect.
+
+**Bottom line:** All four spawnable harnesses (claude, codex, opencode, builtin) now prove the full real-binary → real-hook/re-engage → real-registry → real-force loop, with no mock and no fabricated config, each failing if any link breaks. The round-3 opencode malformed-invocation blocker is fixed at source and the masking test is replaced with one that discriminates the defect. Nothing silently completes. **DONE.**
