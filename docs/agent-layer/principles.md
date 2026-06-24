@@ -8,6 +8,6 @@
 
 4. **Hire and fire freely.** Agents spin up and down. A new product hires a team. A sunset dissolves it. A spike in demand temporarily borrows an agent from another team. But agents only leave a team when their work is done (see `PROCESS_LAYER.md` §4.3).
 
-5. **Humans validate, agents execute.** Agents can do everything. But risk-based validation means founders stay in control without being bottlenecks. The trust dial (L1–L4 autonomy per skill) moves gradually, not in a single leap.
+5. **Trust agents; humans own the consequential.** Agents can do everything — they hold their own credentials, run their own tools, and are trusted to work like real employees with broad self-permission. We design to give agents *more* power, not less; we do not design for paranoia or against a hypothetical rogue agent (`ETHOS.md` §4). Humans step in only at the consequential and irreversible moments, via review — a collaboration checkpoint, not a cage. That gate **fades as trust is earned**: autonomy graduates off the review track record (the verdict-history trust signal in `packages/fabric/src/services/policy-engine.ts`, per AD4 — not a manually-set per-skill dial).
 
 ---
