@@ -2,20 +2,23 @@
 
 **Workpackage:** AL7 (Review execution loop) — delta only. The trust-first two-session loop is **locked** (`concept.md`, the CONTEXT in the task prompt). This plan adds **two more harness lanes** to the existing proof so the loop is proven LIVE against **all three real installed CLIs** (claude already proven; codex + opencode are this delta). `builtin` is in-process and already green; `cursor-agent` is NOT supported — ignored.
 
-**Scope of this delta:** transport wiring + two real-harness test lanes + probe truthing + docs. **No reshaping** of the router, the two-session loop, the registry, the bridge, or the verdict grammar. One transport-agnostic registry; no per-backend branching in the router.
+**Scope of this delta:** **production-bridge stateful upgrade (R1 closure)** + transport wiring + real-harness lanes re-pointed at the PRODUCTION bridge + probe truthing + docs. **No reshaping** of the router, the two-session loop, the registry shape, or the verdict grammar. One transport-agnostic registry; no per-backend branching in the router.
+
+> **R1 closure is in scope (REVISED).** The prior revision scoped the stateless-bridge gap OUT as "pre-existing, shared with claude." That was wrong for the founder standard ("real path, no stubs"): codex and opencode have **no SDK adapter** — the HTTP MCP bridge is their ONLY production transport — and the production bridge is stateless, which the MCP SDK source proves throws on a real CLI client's SECOND request. A test stand-in going green while production is broken is a false-green. **This revision makes the production bridge session-capable (stateful) and re-points all three real-harness lanes at the PRODUCTION bridge** (`createMcpBridge` + real `createMcpRoute`), deleting the test-only stateful stand-in. See R1-closure section below for the source-verified SDK API.
 
 ---
 
 ## Required reading (engineer reads before implementing)
 
-- `packages/server/src/harness/__tests__/AL7-two-session-trust-first.real-harness.test.ts` — THE TEMPLATE. The codex/opencode lanes mirror this verbatim (capturing router, stateful test MCP server, session-1-capture → approve → session-2-grant-bearing → real file written). The existing `per-harness matrix` block (codex/opencode `wiring-needed` assertions) is **replaced** by this delta.
+- `packages/server/src/harness/__tests__/AL7-two-session-trust-first.real-harness.test.ts` — THE TEMPLATE. The codex/opencode lanes mirror the claude lane (capturing router, session-1-capture → approve → session-2-grant-bearing → real file written). **REVISED:** the template lane's test-only stateful server (`buildStatefulMcpServer`, lines 266–311) + the route override (`app.all("/mcp/:token")`, lines 372–378) are **DELETED** and replaced by the PRODUCTION bridge (`createMcpBridge` + real `createMcpRoute` catch-all at `/api/mcp/:token`) once the production bridge is stateful (T0). All three lanes then exercise the real production transport. The existing `per-harness matrix` block (codex/opencode `wiring-needed` assertions) is also **replaced** by this delta.
 - `packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement.real-harness.test.ts` — verbatim proven spawn recipes: codex `CODEX_HOME`+`codex exec <prompt> --json`+`--dangerously-bypass-hook-trust`, git-init'd sandbox; opencode `opencode run <msg> --format json --pure --model <m>`; `buildCleanEnv()` + `spawnDetached()` + auth probes (`codexAuthed`, `opencodeAuthed`).
 - `packages/server/src/harness/cli-harness-adapter.ts` (lines 292–351) — `startSession` template substitution. `{{mcpUrl}}` **already exists** in the `TemplateVar` union (line 49) and resolves from `config.mcpConnectionInfo?.url` (line 306). The CODEX_HOME injection block (319–340) is where the per-session codex config is pointed at.
 - `packages/server/src/harness/adapter-pool.ts` (lines 340–392) — `CLI_TOOL_CONFIGS.codex` / `.opencode`. The hole: neither has a `{{mcpUrl}}` slot nor a config-file mechanism.
 - `packages/server/src/services/session-provisioning.ts` (lines 726–838) — Phase 8b writes `.mcp.json` for claude auto-discovery (745–753) and threads `mcpConnectionInfo` to the adapter (836–838). This is the exact flow the codex/opencode analog mirrors.
 - `packages/server/src/tools/live-proof-lanes.ts` — `getLiveProofLaneState` + `probeLiveProofHarnessAvailability`. codex/opencode are hardcoded `wiring-needed`; this delta flips them to real `which` probes.
-- `packages/server/src/mcp/mcp-bridge.ts` (lines 83–110) — production bridge transport is **stateless** (`sessionIdGenerator: undefined`); the test lanes use a **stateful** test server (see Risk R1).
-- `packages/server/src/routes/mcp-route.ts` (lines 55–118) — `ALL /mcp/:token` JSON-RPC bridge + `POST /mcp/:token/return-status`.
+- `packages/server/src/mcp/mcp-bridge.ts` (lines 102–142) — production bridge factory `createMcpBridge`; transport is currently **stateless** (`sessionIdGenerator: undefined`, line 110). **T0 makes this stateful** (R1 closure). The bridge is already one long-lived `McpBridgeInstance` per session token — exactly the shape stateful mode needs; the ONLY change is the constructor option.
+- `packages/server/src/mcp/mcp-bridge-registry.ts` — `handleRequest(token, request)` looks up the per-token instance and delegates to `instance.transport.handleRequest(request)`. **No change needed** — the registry already keeps the transport instance alive across requests (it is a `Map<token, instance>`), which is precisely what stateful mode requires. Confirmed against source.
+- `packages/server/src/routes/mcp-route.ts` (lines 116–120) — `ALL /mcp/:token` JSON-RPC bridge delegates to `bridgeRegistry.handleRequest`. EVERY CLI (claude `.mcp.json`, codex toml, opencode json) points at `${base}/api/mcp/${token}` → this route → the bridge transport. So a stateful bridge fixes claude's HTTP path too (see R1 closure). No route change.
 
 ---
 
@@ -101,6 +104,63 @@ message="server unavailable" key=hyperidle type=remote status=failed   # config 
 
 ---
 
+## R1 closure — production bridge becomes session-capable (stateful)
+
+**The gap (founder-standard violation):** Production points every CLI at `${mcpBaseUrl}/api/mcp/${token}` → `createMcpRoute` `ALL /mcp/:token` → `bridgeRegistry.handleRequest` → `instance.transport.handleRequest`. The transport is built **stateless** (`createMcpBridge`, `sessionIdGenerator: undefined`). A real CLI MCP client issues **separate HTTP requests** for `initialize` → `tools/list` → `tools/call`. The stateless transport throws on the SECOND request. codex/opencode have **no SDK adapter** — this HTTP path is their ONLY production transport — so as previously scoped they would be "wired" but **broken in production** while a stateful test stand-in went green. False-green. This revision closes it.
+
+> Note on the prior "claude uses the SDK in-process, so claude is unaffected" framing: irrelevant to the bridge. claude's `.mcp.json` (`session-provisioning.ts:744–753`) points claude at the SAME `/api/mcp/${token}` HTTP bridge. claude-over-HTTP hits the same stateless transport and would also break. The stateful upgrade fixes all three uniformly. (The claude SDK adapter may also talk MCP some other in-process way, but the provisioned `.mcp.json` HTTP path is real and must work.)
+
+### Verified SDK API (read from installed source — NOT assumed)
+
+Installed: `@modelcontextprotocol/sdk@1.29.0` (`node_modules/@modelcontextprotocol/sdk/package.json`). Production transport class: `WebStandardStreamableHTTPServerTransport` (`dist/esm/server/webStandardStreamableHttp.{d.ts,js}`). Evidence, line-cited:
+
+- **Stateless reuse-throw is stateless-ONLY.** `webStandardStreamableHttp.js:137–141`:
+  ```js
+  // In stateless mode (no sessionIdGenerator), each request must use a fresh transport.
+  if (!this.sessionIdGenerator && this._hasHandledRequest) {
+      throw new Error('Stateless transport cannot be reused across requests. Create a new transport per request.');
+  }
+  this._hasHandledRequest = true;
+  ```
+  → With a `sessionIdGenerator` set, the guard is bypassed; one transport instance serves unlimited requests. (Confirms: stateful mode is exactly the fix, and a single long-lived per-session transport is the intended stateful shape.)
+
+- **Stateful enable = pass a `sessionIdGenerator`.** Option declared at `webStandardStreamableHttp.d.ts:41–48` (`sessionIdGenerator?: () => string` — "If not provided, session management is disabled (stateless mode)"). Constructor reads it at `.js:63`. The class docstring example (`.d.ts:126–135`) is the canonical pattern:
+  ```ts
+  new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });  // stateful
+  ```
+
+- **Init assigns the session id; the SDK echoes it in the `mcp-session-id` response header.** `.js:421–438`: on an `initialize` request, `this.sessionId = this.sessionIdGenerator?.(); this._initialized = true;` (+ optional `onsessioninitialized` callback). The header is set on responses at `.js:233–234`, `:281–282`, `:511–512`, `:727–728` (`headers['mcp-session-id'] = this.sessionId`).
+
+- **Subsequent (list/call) requests are validated against that header.** `.js:585–601` `validateSession`: stateless (`sessionIdGenerator === undefined`) → skip; else require `_initialized` (else 400 "Server not initialized"), require `mcp-session-id` header (else 400), require it `=== this.sessionId` (else 404 "Session not found"). The client carries the header automatically (MCP Streamable-HTTP spec); we do nothing on the server beyond keeping the instance alive — which the registry already does.
+
+- **Re-init is rejected.** `.js:425–427`: an `initialize` arriving when already initialized → 400 "Server already initialized". Harmless for us (one CLI session = one transport instance = one init).
+
+- **Response mode.** `enableJsonResponse` defaults `false` → SSE streaming (`.js:61,64`). The existing template stateful server does NOT set it and a REAL claude client completed a full turn against it, so the default SSE mode is proven-compatible with real CLI MCP clients. **Leave it default.** (`McpServer.connect(transport)` drives the SSE stream; the catch-all route returns the transport's `Response` verbatim, which already carries the SSE body — confirmed by the working template lane.)
+
+### The change (one line + lore)
+
+`createMcpBridge` (`mcp-bridge.ts:109–111`):
+```ts
+// BEFORE (stateless — breaks real CLI clients on the 2nd request):
+const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+// AFTER (stateful — one session id per per-session transport; registry keeps it alive):
+const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
+```
+- Update the `@lore X2 D1` block (and `McpBridgeInstance` D3 lore at `:42`) from "stateless mode; our token replaces MCP session management" to: "**stateful** mode — the bridge holds one transport per session token; the URL-path token is still the bridge-registry routing key (token → instance), and the SDK's `mcp-session-id` is the per-session MCP-protocol session managed transparently by the transport. Both coexist: path-token routes the request to the right instance; `mcp-session-id` is the MCP handshake the CLI client carries on requests 2+."
+- **No registry change.** `mcp-bridge-registry.ts` already stores `Map<token, McpBridgeInstance>` and delegates to the live `instance.transport` — the transport persists across requests for the session's lifetime, which is exactly stateful mode's requirement. Verified: `handleRequest` does not reconstruct the transport.
+- **No route change.** `createMcpRoute` `ALL /mcp/:token` already forwards the raw `Request` (carrying `mcp-session-id` on requests 2+) and returns the transport's `Response` (carrying the header). The header is request/response transparent to our code.
+
+### Does stateful break the claude SDK-adapter assumption?
+
+No. The claude SDK adapter (`ClaudeAgentSdkAdapter`) drives the SDK in-process and does not depend on the HTTP transport's session mode; and where claude DOES use the HTTP bridge (its provisioned `.mcp.json`), stateful is strictly more correct than stateless (stateless was already broken for multi-request HTTP MCP). No call site reads `transport.sessionId` or assumes "no session header." The existing X2 bridge integration tests (`packages/server/src/__tests__/mcp-bridge.integration.test.ts`) exercise the bridge over HTTP; T0 must keep them green (they may need a multi-request handshake update — see T0b).
+
+### Proof obligations for the closure (no stub)
+
+1. **T0b integration (in `test:all`, no binary):** drive `createMcpBridge` (production factory) through `createMcpRoute` over a real HTTP listener with a **multi-request handshake**: POST `initialize` → capture the `mcp-session-id` response header → POST `tools/list` with that header → POST `tools/call` with that header. Assert: init returns a session id header; list returns the registered tool; call routes to `registry.invoke` and returns its result. Sanity-break: omit the header on request 2 → 400/404 (proves the session gate is real, not vacuous). This is the deterministic, CI-gating proof that the PRODUCTION bridge is session-capable.
+2. **Real-harness lanes re-pointed (local-only):** all three (claude, codex, opencode) hit `createMcpBridge` + real `createMcpRoute` (delete `buildStatefulMcpServer` + the route override). The end-to-end assertion (`captured>=1` → grant → real file written) now runs through the PRODUCTION transport for every CLI.
+
+---
+
 ## Plan reconciliation (spec ⇆ reality)
 
 | Spec / CONTEXT assumption | Reality | Plan handling |
@@ -108,7 +168,7 @@ message="server unavailable" key=hyperidle type=remote status=failed   # config 
 | "`{{mcpUrl}}` slot missing for codex/opencode is the hole" | True for `args[]`; but the `{{mcpUrl}}` TemplateVar + `mcpConnectionInfo.url` resolution **already exist** end-to-end (cli-harness-adapter.ts:49,306; session-provisioning.ts:836). | The hole is narrower than "wire {{mcpUrl}} through": it's (a) per-session config-file writer + (b) pointing the binary at it. `{{mcpUrl}}` is reused only where a CLI flag wants the URL inline; codex/opencode consume it via the config file, not an arg. |
 | "claude writes a JSON MCP config" | session-provisioning.ts:744–753 already writes `.mcp.json` into the sandbox. | Add the codex/opencode analog **in the same Phase 8b block** (write `config.toml` mcp block into `.codex-home/`; write `opencode.json` into the sandbox). |
 | "codex via CODEX_HOME" | AL6 already injects `CODEX_HOME=<sandbox>/.codex-home` + writes `auth.json`+`config.toml`+`hooks.json` there. | Append `[mcp_servers.hyperidle]` to that **existing** `config.toml` (don't create a second config root). |
-| "the production bridge is the transport claude uses" | Production bridge is **stateless**; real CLI clients need **stateful** (multiple HTTP requests/session). The claude real-harness lane uses a stateful test server, NOT the production bridge. | The codex/opencode lanes reuse the **same stateful test MCP server** from the claude lane (Risk R1). The production wiring is exercised by an integration test that asserts the config file is written correctly (deterministic, in `test:all`), not by re-routing through stateless prod. |
+| "the production bridge is the transport claude uses" | Production bridge was **stateless**; real CLI clients need **stateful** (multiple HTTP requests/session). The claude lane used a stateful TEST server, NOT production. | **REVISED — R1 closed:** T0 makes the production `createMcpBridge` stateful (verified SDK API above). All three real-harness lanes are re-pointed at the PRODUCTION bridge (`createMcpBridge` + real `createMcpRoute`); the test-only `buildStatefulMcpServer` + route override are deleted. A deterministic in-CI integration test (T0b) drives the production bridge through init→list→call. No test stand-in remains. |
 | "`plans/AL7/concept.md` exists" | Not present in this worktree (only `retro.md`). | Plan anchors on the locked CONTEXT vocabulary in the task prompt (`Proposed Call`, `tailored_grant`, consume-once CAS, `proposed_call_granted`, transport-agnostic registry). No re-litigation. |
 | live-proof-lanes codex/opencode = `wiring-needed` | Hardcoded strings. | Flip to real `which codex` / `which opencode` probes; remove `wiring-needed` for both; absent binary → lane FAILS (AC14b parity with claude). |
 
@@ -146,9 +206,9 @@ codex: {
 },
 opencode: {
   binary: "opencode",
-  args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--pure"],  // ← AL7 delta: real headless invocation (was ["--dir","{{sandbox}}"], which never ran a turn)
+  args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--pure", "--model", "{{model}}"],  // ← AL7 delta: real headless invocation + explicit model (was ["--dir","{{sandbox}}"], which never ran a turn)
   envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
-  eventFormat: "ndjson",                        // ← AL7 delta: was "text"; opencode --format json emits JSONL (step_finish, etc.)
+  eventFormat: "ndjson",                        // ← AL7 delta: was "text"; opencode --format json emits JSONL
   envAllowlist: ["PATH", "HOME", "LANG"],
   returnEnforcementChannel: "process-reengage",
   reEngageCarrier: "run-arg",
@@ -156,7 +216,9 @@ opencode: {
 },
 ```
 
-> NOTE on the opencode `args` change: the current `["--dir","{{sandbox}}"]` launches the **interactive TUI**, never completing a headless turn. AL6's real-harness proof used `["run", <msg>, "--format","json","--pure","--model",<m>]`. This delta aligns the production args with the proven recipe. `{{prompt}}` carries the seed message (already resolved by `startSession`); `--model` is appended at spawn time from `config.resolvedModel` (the opencode model is provider-prefixed, e.g. `openrouter/~anthropic/claude-haiku-latest`; see Risk R4). Flag this as a behavior change in review — it touches a `protectedTest` adjacency (AL6 WARN-F3 asserts `reEngageCarrier`, which is preserved).
+> NOTE on the opencode `args` change: the current `["--dir","{{sandbox}}"]` launches the **interactive TUI**, never completing a headless turn. AL6's real-harness proof used `["run", <msg>, "--format","json","--pure","--model",<m>]`. This delta aligns the production args with the proven recipe.
+>
+> **W4 closure — `--model` has a real code home (verified).** `{{model}}` is an existing `TemplateVar` resolved by `startSession` from `config.resolvedModel?.model` (`cli-harness-adapter.ts:303`). The prior plan said "`--model` appended at spawn time" but the opencode `args` had NO `{{model}}` slot, so production opencode would spawn with no `--model` and fail (opencode `run` requires a provider-prefixed model id, e.g. `openrouter/~anthropic/claude-haiku-latest`). **Fix: add `"--model","{{model}}"` to the args** (above) so the template engine fills it. Builder MUST verify (T6) that `params.resolvedModel.model` is already provider-prefixed for an opencode-selected agent; if it is a bare id (e.g. `claude-haiku-latest`), the model resolution for opencode harness must produce the provider-prefixed form (small adapter-side or model-resolution fix, in-scope for making the production lane real). The re-engage path already pushes `--model session.reEngageResolvedModel` (`:557-558`), consistent. Flag the args/eventFormat change in review — it touches a `protectedTest` adjacency (AL6 WARN-F3 asserts `reEngageCarrier`, preserved).
 
 ### 1b. Per-session config writer (`session-provisioning.ts` Phase 8b)
 
@@ -197,51 +259,69 @@ The registry/bridge/router are untouched. `createMcpBridge({ sessionId, registry
 
 ## §2 — Two new real-harness test lanes
 
-**Decision:** EXTEND the existing `AL7-two-session-trust-first.real-harness.test.ts` rather than new files — it already owns the capturing router, the stateful test MCP server (`startAl7TestServer`/`buildStatefulMcpServer`/`rebuildBridge`), `buildCleanEnv`, `spawnDetached`. Add two `describe` blocks mirroring `claude-code CLI`. **Replace** the existing `per-harness matrix: codex + opencode wiring verification` block (the two `hasMcpUrlSlot === false` assertions) — those assert the hole still exists and will be FALSE after this delta.
+**Decision:** EXTEND the existing `AL7-two-session-trust-first.real-harness.test.ts` rather than new files — it already owns the capturing router, `startAl7TestServer`/`rebuildBridge`, `buildCleanEnv`, `spawnDetached`. Add two `describe` blocks mirroring `claude-code CLI`. **Replace** the existing `per-harness matrix: codex + opencode wiring verification` block (the two `hasMcpUrlSlot === false` assertions) — those assert the hole still exists and will be FALSE after this delta.
 
-> Rationale for extend-not-split: the stateful test server + capturing router are ~250 lines of shared scaffolding. Duplicating them into two new files triples maintenance and risks the two servers drifting. One file, three `describe`s (claude/codex/opencode), shared helpers. (Design-it-twice considered: separate files give cleaner per-harness `skipIf` isolation but at 3× scaffold cost — rejected.)
+> Rationale for extend-not-split: the server scaffolding + capturing router are ~250 lines of shared setup. Duplicating into two new files triples maintenance. One file, three `describe`s (claude/codex/opencode), shared helpers.
+
+### 2a-prereq. Re-point the test server at the PRODUCTION bridge (R1 closure, T0)
+
+**DELETE** `buildStatefulMcpServer` (lines 266–311) and the `app.all("/mcp/:token")` route override (lines 372–378). **REPLACE** with the production path inside `startAl7TestServer`/`rebuildBridge`:
+- build the bridge via the production factory: `const bridge = await createMcpBridge({ sessionId: testSessionId, registry: capturingRouter.registry })` (import from `../../mcp/mcp-bridge.js`);
+- `bridgeRegistry.register(bridge)` (already done) — the existing `createMcpRoute(bridgeRegistry, enforcementReg)` catch-all `ALL /mcp/:token` (mounted under `/api`) now serves the bridge over the PRODUCTION transport. **Do not** add a route override.
+- `rebuildBridge(newRouter)`: `await bridgeRegistry.unregister(oldToken)` then `const b = await createMcpBridge({ sessionId, registry: newRouter.registry }); bridgeRegistry.register(b)`; expose `b.token`.
+- The MCP URL the CLIs hit becomes `${server.url}/api/mcp/${token}` (production path), NOT `/mcp/:token`.
+
+This makes ALL THREE lanes (claude included — re-pointing the claude lane IS feasible and cheap, since the only test-only constructs were `buildStatefulMcpServer` + the override) exercise the production transport. The claude lane's existing assertions are unchanged (protected); only its plumbing swaps to production. (Why re-pointing claude is cheap: the lane already builds `createMcpBridgeRegistry` + `createMcpRoute` from real production modules; the stateful stand-in was the ONLY divergence, and once production is stateful the stand-in is redundant.)
 
 ### 2a. Shared adjustment — config writer in the test
 
-The test currently writes claude's `.mcp.json` via `writeMcpConfig`. Add the codex/opencode analogs **using the production `writeCliMcpConfig`** (so the test proves the real writer, not a test-local fork) pointed at the test server's **stateful** `/mcp/:token` URL (NOT `/api/mcp/:token` — see Risk R1). The capturing router, mode switch, and `rebuildBridge` are reused unchanged.
+The test currently writes claude's `.mcp.json` via `writeMcpConfig`. Add the codex/opencode analogs **using the production `writeCliMcpConfig`** (so the test proves the real writer, not a test-local fork) pointed at the PRODUCTION `${server.url}/api/mcp/${token}` URL. The capturing router, mode switch, and `rebuildBridge` are reused (the latter now calls `createMcpBridge`).
 
 ### 2b. codex lane (`describe("codex CLI (real binary, MCP-routed two-session loop)")`)
 
 Spawn recipe (from AL6, verbatim):
 - Sandbox: `mkdtempSync`; `git init` + empty commit (codex requires a git repo) — reuse AL6's git-init block.
-- Provision a per-session `.codex-home/` with `auth.json` + `config.toml` copied from `~/.codex` (AL6 `provisionCodexHome` recipe — copy ONLY auth.json + config.toml, NO SQLite). Then call `writeCliMcpConfig({ dialect:"codex-toml", sandboxPath, mcpUrl: <stateful>/mcp/<token>, token })` to append `[mcp_servers.hyperidle]`.
+- Provision a per-session `.codex-home/` with `auth.json` + `config.toml` copied from `~/.codex` (AL6 `provisionCodexHome` recipe — copy ONLY auth.json + config.toml, NO SQLite). Then call `writeCliMcpConfig({ dialect:"codex-toml", sandboxPath, mcpUrl: ${server.url}/api/mcp/${token}, token })` to append `[mcp_servers.hyperidle]`.
 - Env: `buildCleanEnv()` + `CODEX_HOME=<sandbox>/.codex-home` + `HYPERIDLE_MCP_TOKEN=<token>`.
 - Spawn: `codex` `["exec", <prompt>, "--json", "--dangerously-bypass-hook-trust"]`, `cwd: sandbox`, `detached`, 60s timeout.
 - Prompt: "Use the commit_file MCP tool to write 'al7-proof' to proof.txt. You MUST use the commit_file tool." (mirror claude prompt; codex exposes the MCP tool as `hyperidle__commit_file` / `commit_file`).
 - Auth gate: `test.skipIf(!codexInstalled)` + in-body `codexAuthed()` skip (mirror AL6).
 
 Assertions (mirror claude):
-- **session-1:** after spawn, `testServer.capturingRouter.captured.length >= 1` and `captured[0].toolId === "commit_file"`. (REAL codex called the tool via MCP → router captured it.)
-- **session-2:** approve in-process (`approvedCall = captured[0]`; `setMode("grant-bearing")`; `rebuildBridge`), re-spawn codex, assert `fs.existsSync(<sandbox>/proof.txt)` and content `=== "al7-proof"` (REAL codex executed the approved op via its own MCP tool → real file written), and `exitCode !== null` + stdout contains `turn.completed` (work continued).
+- **session-1 (capture):** after spawn, `testServer.capturingRouter.captured.length >= 1` and `captured[0].toolId === "commit_file"`. (REAL codex called the tool via MCP → router captured it. Routed through the PRODUCTION stateful bridge.)
+- **AC8 control — non-approval-holds (NAMED assertion, not parenthetical):** with mode STILL `capture` (no approval, no `setMode("grant-bearing")`), assert `fs.existsSync(<sandbox>/proof.txt) === false` after session-1. Proves a captured-but-unapproved Proposed Call does NOT execute — half the trust-first contract. This is its own `expect`, separate from the session-1 capture assertion.
+- **session-2 (grant):** approve in-process (`approvedCall = captured[0]`; `setMode("grant-bearing")`; `rebuildBridge` — now via `createMcpBridge`), re-spawn codex, assert `fs.existsSync(<sandbox>/proof.txt)` and content `=== "al7-proof"` (REAL codex executed the approved op via its own MCP tool, through the PRODUCTION transport → real file written), and `exitCode !== null` + stdout contains `turn.completed` (work continued).
 
 ### 2c. opencode lane (`describe("opencode CLI (real binary, MCP-routed two-session loop)")`)
 
 Spawn recipe (from AL6, verbatim):
 - Sandbox: `mkdtempSync` (no git required).
-- `writeCliMcpConfig({ dialect:"opencode-json", sandboxPath, mcpUrl: <stateful>/mcp/<token>, token })` → writes `<sandbox>/opencode.json`.
+- `writeCliMcpConfig({ dialect:"opencode-json", sandboxPath, mcpUrl: ${server.url}/api/mcp/${token}, token })` → writes `<sandbox>/opencode.json`.
 - Env: `buildCleanEnv()`.
 - Spawn: `opencode` `["run", <prompt>, "--format","json","--pure","--dir", sandbox, "--model","openrouter/~anthropic/claude-haiku-latest"]`, `cwd: sandbox`, `detached`, 60s timeout. (cwd === --dir so config resolution finds `opencode.json` either way; pass both to match prod args.)
 - Prompt: same commit_file instruction.
 - Auth gate: `test.skipIf(!opencodeInstalled)` + `opencodeAuthed()`.
 
-Assertions: identical to codex (session-1 `captured>=1`; session-2 real `proof.txt` written; stdout contains `step_finish`).
+Assertions: identical to codex, including the **AC8 control (NAMED): capture-mode spawn → `fs.existsSync(proof.txt) === false`**. session-1 `captured>=1`; session-2 real `proof.txt` written; stdout contains `step_finish`. All routed through the PRODUCTION stateful bridge.
 
 ### 2d. Sanity-break note (in test comment, mirror claude's)
 
-For each lane, document: changing the config-file token to a wrong value → bridge lookup fails (401/unknown) → binary gets a tool error → `captured` stays 0 → assertion fails. Confirms the test is not vacuous. (The reviewer runs this break under the mock-validation-trap rule.)
+For each lane, document: changing the config-file token to a wrong value → PRODUCTION bridge registry lookup fails (401 from `mcp-bridge-registry.handleRequest`) → binary gets a tool error → `captured` stays 0 → assertion fails. Confirms the lane is not vacuous. (The reviewer runs this break under the mock-validation-trap rule; the production bridge's 401 path is the same one exercised.)
 
-### 2e. Deterministic CI anchor (no binary)
+### 2e. Deterministic CI anchors (no binary) — TWO tests
 
-Add `packages/server/src/harness/__tests__/cli-mcp-config.integration.test.ts` (runs in `test:all`, no binary): import `writeCliMcpConfig`, call both dialects against a temp dir, read back and assert:
+**(i) Config-shape — `cli-mcp-config.integration.test.ts`** (runs in `test:all`): import `writeCliMcpConfig`, call both dialects against a temp dir, read back and assert:
 - codex: `.codex-home/config.toml` contains `[mcp_servers.hyperidle]` + `url = "<mcpUrl>"` + `bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"`; return value has `tokenEnv.HYPERIDLE_MCP_TOKEN === token`.
 - opencode: `opencode.json` parses to `mcp.hyperidle.url === mcpUrl`, `type === "remote"`, `headers.Authorization === "Bearer <token>"`, `enabled === true`.
 
-This is the in-CI proof the wiring is correct on Linux; the real-binary lanes are the local-only end-to-end proof.
+**(ii) Production-bridge session-capability — `mcp-bridge-stateful.integration.test.ts`** (runs in `test:all`, NO binary — THE R1-closure CI gate): start a real HTTP listener (`@hono/node-server serve`, port 0) mounting `createMcpRoute(bridgeRegistry, enforcementReg)`; register a bridge built by the PRODUCTION `createMcpBridge({ sessionId, registry })` (registry = a minimal real `buildToolRegistry` or the capturing router exposing one tool). Drive a multi-request MCP handshake with raw `fetch`:
+1. POST `/api/mcp/:token` with an `initialize` JSON-RPC body + `Accept: application/json, text/event-stream` → assert 200 and capture the `mcp-session-id` response header (non-empty). *(Proves stateful init.)*
+2. POST `tools/list` with `mcp-session-id: <captured>` → assert the registered tool name is present. *(Proves request 2 succeeds — the exact request stateless threw on.)*
+3. POST `tools/call` (the tool) with the same header → assert it routed to `registry.invoke` and returned its result. *(Proves request 3 / the full turn.)*
+- **Sanity-break (anti-vacuous):** repeat step 2 WITHOUT the `mcp-session-id` header → assert 400/404 (the SDK's "Mcp-Session-Id header is required" / "Session not found"). Confirms the session gate is real, not a no-op.
+- ⚠️ NOTE for builder: the transport defaults to SSE (`enableJsonResponse=false`); responses may be `text/event-stream`. Parse the SSE `data:` frame for the JSON-RPC result (the MCP `StreamableHTTPClientTransport` does this; a hand-rolled fetch test must read the stream and extract the `data:` line). If SSE parsing is fiddly, the builder MAY use the SDK's `Client` + `StreamableHTTPClientTransport` pointed at the listener URL instead of raw fetch — that is still the PRODUCTION server transport (only the client is the SDK helper), which keeps the proof real. Do NOT set `enableJsonResponse=true` on the production bridge just to simplify the test (would change production behavior to satisfy a test — forbidden).
+
+This (ii) is the deterministic in-CI proof the PRODUCTION bridge is session-capable on Linux. The real-binary lanes are the local-only end-to-end proof (also now through the production bridge).
 
 ---
 
@@ -268,30 +348,41 @@ This is the in-CI proof the wiring is correct on Linux; the real-binary lanes ar
 | AC5 | Production session writes the correct per-session MCP config per binary | `cli-mcp-config.integration.test.ts` asserts the toml/json shape + token placement (in `test:all`). |
 | AC6 | The router/registry stays transport-agnostic (no per-backend branch) | `npm run check` + code review: `tool-registry.ts` `invoke` unchanged; no `binary === "codex"` branch in the router. (Static property — review + type, not a runtime test.) |
 | AC7 | codex/opencode absent → lane FAILS (never silently passes) | `live-proof-lanes` unit test: stub `which` failure → `probeLiveProofHarnessAvailability("codex")` rejects; `getLiveProofLaneState("codex") === "absent-fail"`. (Mirror existing claude probe tests.) |
-| AC8 | At-most-once / non-approval-holds / no-double-run | Inherited from the locked loop (capturing router `grant-bearing` + consume-once). The codex/opencode lanes prove session-2 runs **only** after `approvedCall` is set + mode switched; re-show without re-grant does not write the file (assert in lane: a control spawn with mode still `capture` writes no file). |
+| AC8 | Non-approval-holds (captured-but-unapproved Proposed Call does NOT execute) | **NAMED assertion in BOTH lanes (not parenthetical):** with mode still `capture` (no `setMode("grant-bearing")`), `fs.existsSync(<sandbox>/proof.txt) === false` after session-1. Its own `expect`. (At-most-once / consume-once is inherited from the locked loop's CAS; this delta proves the absence-of-approval half on the real binaries.) |
+| AC9 | **R1: production MCP bridge is session-capable (stateful)** | `mcp-bridge-stateful.integration.test.ts` (T0b, in `test:all`): production `createMcpBridge` + `createMcpRoute` over a real listener completes init→list→call via `mcp-session-id`; sanity-break (omit header) → 400/404. |
+| AC10 | **R1: real CLIs prove against the PRODUCTION bridge, not a stand-in** | All three real-harness lanes hit `createMcpBridge` + real `createMcpRoute` (test-only stateful server DELETED). `captured>=1` → grant → real file written runs through the production transport. (Local-only.) |
 
 ---
 
 ## §4 — Ordered task list (write-tests first, TDD)
 
-1. **T1 (red, integration):** `cli-mcp-config.integration.test.ts` — assert `writeCliMcpConfig` output for both dialects (AC5). Fails: function doesn't exist. *(in `test:all`)*
-2. **T2 (red, unit):** extend `live-proof-lanes` unit tests — `getLiveProofLaneState("codex"|"opencode")` returns `green-now` when `which` resolves, `absent-fail` when it throws; `probeLiveProofHarnessAvailability` rejects on absence (AC7). Fails: still `wiring-needed`. *(in `test:all`)*
-3. **T3 (red→green coupled, real-harness, local-only):** extend `AL7-two-session-trust-first.real-harness.test.ts` with the codex + opencode `describe` blocks (AC1–AC4, AC8); DELETE the `per-harness matrix` `wiring-needed` block. These are local-only (`npm run test:real-harness`); they go red without the wiring, green after T5/T6.
-4. **T4 (green):** add `mcpConfig` field to `CliAdapterConfig`; add `writeCliMcpConfig` (`cli-mcp-config.ts`). → T1 green.
-5. **T5 (green):** wire `CLI_TOOL_CONFIGS.codex` + `.opencode` (`mcpConfig`, opencode `args`/`eventFormat` fix); add `mcpTokenEnv` threading in `SessionConfig` + `startSession` (codex `HYPERIDLE_MCP_TOKEN` injection, mirror CODEX_HOME).
-6. **T6 (green):** call `writeCliMcpConfig` in `session-provisioning.ts` Phase 8b for the selected CLI adapter; thread `tokenEnv` into the session config. → T3 codex/opencode lanes green (run locally).
-7. **T7 (green):** flip `live-proof-lanes.ts` codex/opencode to real `which` probes; add `isCodexAvailable`/`isOpencodeAvailable`; update header matrix. → T2 green.
-8. **T8 (docs):** update the per-harness matrix in `docs/process-layer/staged-operation.md` and `docs/agent-layer/` harness docs (§5).
-9. **T9 (local proof):** run `npm run test:real-harness` on this machine (codex + opencode authed) — capture real green for both lanes. This is the DoD artifact (AC1–AC4 proven live).
-10. **T10 (gate):** `npm run check` + `npm run lint` + `npm run test` (deterministic lanes green). Builder runs verify; designer does NOT.
+**R1-closure tasks lead (T0/T0b) — the production bridge must be session-capable BEFORE the lanes can prove against it.**
 
-Dependencies: T1,T2,T3 (red) before T4–T7 (green). T4 → T5/T6. T7 independent of T4–T6. T9 after T5+T6.
+1. **T0b (red, integration, R1 gate):** `mcp-bridge-stateful.integration.test.ts` — drive production `createMcpBridge` + `createMcpRoute` through init→list→call via `mcp-session-id`; sanity-break omits the header → 400/404 (AC9). Fails RED against the current stateless bridge: request 2 throws `Stateless transport cannot be reused across requests`. *(in `test:all` — this is the CI-gating R1 proof.)*
+2. **T0 (green, R1 closure):** flip `createMcpBridge` to `sessionIdGenerator: () => crypto.randomUUID()`; update the X2 D1 + D3 `@lore` blocks (stateless→stateful framing). Confirm the existing `mcp-bridge.integration.test.ts` still green (update to a multi-request handshake if it relied on single-request stateless behavior — read its diff, do not blind-bless). → T0b green.
+3. **T1 (red, integration):** `cli-mcp-config.integration.test.ts` — assert `writeCliMcpConfig` output for both dialects (AC5). Fails: function doesn't exist. *(in `test:all`)*
+4. **T2 (red, unit):** extend `live-proof-lanes` unit tests — `getLiveProofLaneState("codex"|"opencode")` returns `green-now` when `which` resolves, `absent-fail` when it throws; `probeLiveProofHarnessAvailability` rejects on absence (AC7). Fails: still `wiring-needed`. *(in `test:all`)*
+5. **T3 (red→green coupled, real-harness, local-only):** in `AL7-two-session-trust-first.real-harness.test.ts`: (a) **DELETE** `buildStatefulMcpServer` + the `app.all("/mcp/:token")` override; re-point `startAl7TestServer`/`rebuildBridge` at production `createMcpBridge` + real `createMcpRoute` (AC10) — re-points the **claude** lane too (cheap; claude assertions unchanged/protected); (b) ADD codex + opencode `describe` blocks (AC1–AC4) each with the **NAMED AC8 control-spawn** assertion; (c) DELETE the `per-harness matrix` `wiring-needed` block. Local-only (`npm run test:real-harness`); red without the wiring, green after T0+T5+T6.
+6. **T4 (green):** add `mcpConfig` field to `CliAdapterConfig`; add `writeCliMcpConfig` (`cli-mcp-config.ts`). → T1 green.
+7. **T5 (green):** wire `CLI_TOOL_CONFIGS.codex` + `.opencode` (`mcpConfig`; opencode `args` incl. `"--model","{{model}}"` + `eventFormat: "ndjson"`); add `mcpTokenEnv` threading in `SessionConfig` + `startSession` (codex `HYPERIDLE_MCP_TOKEN` injection, mirror CODEX_HOME — inject OUTSIDE allowlist, non-optional).
+8. **T6 (green):** call `writeCliMcpConfig` in `session-provisioning.ts` Phase 8b for the selected CLI adapter; thread `tokenEnv` into the session config. **W3 sub-assertion:** run a real `opencode run --format json` spawn through the adapter and assert ≥1 event normalizes to a structured type (not `unknown`) via `normalizeHarnessEvent`; if `unknown`, add the opencode pre-map. **W4 sub-assertion:** confirm `resolvedModel.model` is provider-prefixed for an opencode agent; if bare, fix model resolution. → T3 codex/opencode lanes green (local).
+9. **T7 (green):** flip `live-proof-lanes.ts` codex/opencode to real `which` probes; add `isCodexAvailable`/`isOpencodeAvailable` (use `execFileSync("which", ...)` like `isClaudeCodeAvailable`); update header matrix. → T2 green.
+10. **T8 (docs):** update the per-harness matrix in `docs/process-layer/staged-operation.md` and `docs/agent-layer/` harness docs (§5) — include the bridge-is-now-stateful note.
+11. **T9 (local proof):** run `npm run test:real-harness` (codex + opencode + claude authed) — capture real green for all three lanes through the PRODUCTION bridge. DoD artifact (AC1–AC4, AC10 proven live).
+12. **T10 (gate):** `npm run check` + `npm run lint` + `npm run test` (deterministic lanes incl. T0b + T1 + T2 green). Builder runs verify; designer does NOT.
+
+Dependencies: **T0b (red) → T0 (green) FIRST** — the stateful bridge gates everything downstream (the lanes point at it). T1,T2,T3 (red) before T4–T7 (green). T4 → T5/T6. T3 re-point depends on T0. T7 independent of T0/T4–T6. T9 after T0+T5+T6.
 
 ---
 
 ## Type signatures / contracts
 
 ```ts
+// mcp-bridge.ts — createMcpBridge (R1 closure: the ONLY signature-level change to the bridge)
+// BEFORE: new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+// AFTER:  new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() })
+// McpBridgeInstance / CreateMcpBridgeOptions / the registry interface all UNCHANGED.
+
 // cli-harness-adapter.ts (CliAdapterConfig)
 readonly mcpConfig?:
   | { readonly dialect: "codex-toml" }
@@ -331,21 +422,24 @@ getLiveProofLaneState("opencode"): "green-now" | "absent-fail"
 - **Input-trust boundary (agent-authored fields):** the captured `commit_file` args are agent-authored and flow to the human checkpoint verbatim (the locked loop's purpose) — unchanged by this delta. **N/A for the delta.**
 - **Rate-limit:** no new POST/PATCH route (bridge route pre-exists). **N/A.**
 - **Config injection (toml/json):** `mcpUrl`/`token` are server-generated hex/URLs — no toml/json metacharacter injection from agent input. Builder MUST serialize via `JSON.stringify` (opencode) and a literal template with the known-safe hex token (codex toml). **Addressed.**
+- **Stateful bridge — no new auth surface (R1).** The bridge auth boundary is UNCHANGED: the 64-char URL-path token is still the only credential and routing key (`bridgeRegistry.handleRequest` 401s unknown tokens). The SDK's `mcp-session-id` (now generated in stateful mode) is an MCP-protocol session id scoped to one already-authenticated bridge instance — it is NOT an auth credential and grants nothing on its own (a request with a valid `mcp-session-id` but unknown path token still 401s at the registry before reaching the transport). DNS-rebinding protection (`enableDnsRebindingProtection`) stays default-off, same as before, listener is loopback in tests and server-internal in prod. **No new secret, no widened surface.**
 
 ---
 
 ## Protected tests
 
 `protectedTests`:
-- `packages/server/src/harness/__tests__/AL7-two-session-trust-first.real-harness.test.ts` — the **claude** lane assertions (session-1 capture, session-2 file write) MUST NOT change; only ADD codex/opencode `describe`s and REMOVE the `per-harness matrix wiring-needed` block.
+- `packages/server/src/harness/__tests__/AL7-two-session-trust-first.real-harness.test.ts` — the **claude** lane ASSERTIONS (session-1 capture, session-2 file write) MUST NOT change. The lane's PLUMBING does change (re-pointed from the test-only stateful server to the production `createMcpBridge`); this is the R1 closure, allowed and required. Net: same claude assertions, production transport underneath; ADD codex/opencode `describe`s; REMOVE `buildStatefulMcpServer` + route override + the `per-harness matrix wiring-needed` block.
+- `packages/server/src/__tests__/mcp-bridge.integration.test.ts` — existing X2 bridge tests. T0 (stateful) must keep them green; if any relied on single-request stateless reuse-throw behavior, update to the multi-request handshake (read the diff, do not blind-bless).
 - `packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement.real-harness.test.ts` — AL6 enforcement assertions unchanged (the opencode `args`/`eventFormat` change must not break AL6's `reEngageCarrier` WARN-F3 assertion, which reads `CLI_TOOL_CONFIGS.opencode.reEngageCarrier` — preserved).
 
 ---
 
 ## Migrations (renamed/removed symbols)
 
-- **Removed:** the `per-harness matrix: codex + opencode wiring verification` `describe` block in the AL7 real-harness test (two `hasMcpUrlSlot === false` tests) — they assert the hole still exists; they become false. Delete (don't invert) — replaced by the real codex/opencode lanes.
-- **Changed:** `CLI_TOOL_CONFIGS.opencode.args` (`["--dir","{{sandbox}}"]` → headless `run` form) and `.eventFormat` (`"text"` → `"ndjson"`). Grep call sites: only `adapter-pool.ts` (definition) + the AL6/AL7 real-harness tests read it. The AL6 WARN-F3 test reads `reEngageCarrier` (preserved); no other consumer asserts opencode `args`/`eventFormat`.
+- **Removed:** the `per-harness matrix: codex + opencode wiring verification` `describe` block (two `hasMcpUrlSlot === false` tests) — become false; delete (don't invert). **Also removed:** the test-only `buildStatefulMcpServer` helper + the `app.all("/mcp/:token")` route override in the AL7 real-harness test (replaced by production `createMcpBridge` + `createMcpRoute`).
+- **Changed (production behavior — R1):** `createMcpBridge` transport `sessionIdGenerator: undefined` → `() => crypto.randomUUID()` (stateless→stateful). One line + lore. No symbol rename; the `McpBridgeInstance.transport` type is unchanged (same class).
+- **Changed:** `CLI_TOOL_CONFIGS.opencode.args` (`["--dir","{{sandbox}}"]` → headless `run` form incl. `--model {{model}}`) and `.eventFormat` (`"text"` → `"ndjson"`). Grep call sites: only `adapter-pool.ts` (definition) + the AL6/AL7 real-harness tests read it. The AL6 WARN-F3 test reads `reEngageCarrier` (preserved); no other consumer asserts opencode `args`/`eventFormat`.
 - No DB / route / column / testid renames.
 
 ---
@@ -353,6 +447,7 @@ getLiveProofLaneState("opencode"): "green-now" | "absent-fail"
 ## Shared files
 
 `sharedFiles`:
+- `packages/server/src/mcp/mcp-bridge.ts` (`createMcpBridge` — R1 stateful flip) ← AL7 delta-revised
 - `packages/server/src/harness/adapter-pool.ts` (`CLI_TOOL_CONFIGS`)
 - `packages/server/src/harness/cli-harness-adapter.ts` (`CliAdapterConfig`, `SessionConfig`, `startSession`)
 - `packages/server/src/services/session-provisioning.ts` (Phase 8b)
@@ -364,9 +459,9 @@ getLiveProofLaneState("opencode"): "green-now" | "absent-fail"
 
 ## §5 — Risks (honest callouts)
 
-- **R1 — Production bridge is stateless; real CLI clients need stateful.** `mcp-bridge.ts` uses `sessionIdGenerator: undefined`. The claude real-harness lane already worked around this with a **stateful** test MCP server (`buildStatefulMcpServer` + `/mcp/:token` root handler, NOT the stateless `/api/mcp/:token` bridge). codex and opencode are real CLI MCP clients with the **same** multi-request-per-session behavior, so their lanes MUST point at the stateful test server's `/mcp/:token` URL — verified-by-analogy with claude, but the delta carries the same constraint. **This means the real-harness lanes do NOT exercise the production stateless bridge end-to-end** — neither does claude's. The production path is covered deterministically by `cli-mcp-config.integration.test.ts` (config shape) + the existing X2 bridge integration tests. If the founder wants the *production stateless* bridge proven against a real CLI, that's a separate finding (stateless transport may need a stateful mode for HTTP-MCP CLI clients generally) — **flagging now**, but it is pre-existing (claude has the same gap) and out of this delta's scope.
-- **R2 — opencode model id is provider-specific.** `opencode run` needs `--model provider/model` (e.g. `openrouter/~anthropic/claude-haiku-latest`); a bare model id fails. Production `config.resolvedModel.model` must already be provider-prefixed for opencode, or the adapter must format it. Verify during T6; the real-harness lane hardcodes a known-good id (matches AL6).
-- **R3 — codex `--json` event stream vs `eventFormat`.** codex `exec --json` emits JSONL including `turn.completed`; opencode `--format json` emits `step_finish`. Both set `eventFormat: "ndjson"`. The existing `normalizeNativeHarnessEvent` handles codex; opencode JSONL normalization must be confirmed (AL6 read `step_finish` from opencode JSON, so the parser sees it). Verify in T6; if opencode JSONL isn't normalized, that's adapter work (small) inside this delta.
+- **R1 — CLOSED (was: production bridge stateless; real CLIs need stateful).** This revision makes `createMcpBridge` stateful (`sessionIdGenerator: () => crypto.randomUUID()`, source-verified API in the R1-closure section). codex/opencode have NO SDK fallback — the HTTP bridge is their only production transport — so a stateless bridge would leave them BROKEN in production while a stateful stand-in went green (false-green; rejected per founder standard). The test-only `buildStatefulMcpServer` + route override are DELETED; all three real-harness lanes (claude included) now hit the PRODUCTION `createMcpBridge` + `createMcpRoute`. A deterministic in-CI integration test (T0b, `mcp-bridge-stateful.integration.test.ts`) drives the production bridge through init→list→call with the `mcp-session-id` header + a sanity-break. No remaining stub. The registry/route need no change (the registry already holds one long-lived transport per token — exactly stateful's requirement; verified). claude SDK adapter unaffected (it does not depend on the HTTP transport's session mode; where claude uses the HTTP bridge via `.mcp.json`, stateful is strictly more correct).
+- **R2 / W4 closure — opencode model id is provider-specific (now wired via `{{model}}`).** `opencode run` needs `--model provider/model`; a bare id fails. The args now carry `"--model","{{model}}"` (§1a), filled from `config.resolvedModel?.model` (`:303`). Builder verifies (T6) `resolvedModel.model` is provider-prefixed for an opencode agent; if bare, fix the opencode model resolution to emit the prefixed form. The real-harness lane hardcodes a known-good id (matches AL6).
+- **R3 / W3 closure — opencode JSONL normalization is UNVERIFIED and likely incomplete (verified against source).** The normalizer is `normalizeHarnessEvent` (`packages/shared/src/harness/harness-event-normalization.ts`, imported `cli-harness-adapter.ts:34`, called `:714`) — NOT `normalizeNativeHarnessEvent` (that name does not exist; prior plan was wrong). It switches on a FIXED canonical `input.type` set: `completion | tool_call | error | cost_update | token_usage | pre_compaction` (`:67`); **anything else → `unknown`** (`:59-63`). opencode `--format json` JSONL emits raw types like `step_start`/`step_finish`/`tool` which are NOT in that set, so they normalize to `unknown` unless a per-harness pre-mapping translates them first. There is no evidence the parser currently recognizes opencode's structured events. **Builder MUST (T6) run a real `opencode run --format json` spawn through the adapter and assert ≥1 event normalizes to a structured type (e.g. `tool_call` for the `commit_file` invocation), NOT `unknown`.** If it normalizes to `unknown`, add the opencode-specific pre-map (raw `step_finish`/`tool` → canonical `completion`/`tool_call`) in the adapter — in-scope for this delta (without it the eventFormat change is cosmetic and opencode tool-calls are invisible to the loop). The real-harness lane's session-1 assertion (`captured>=1` via the MCP router) does NOT depend on this normalization — the router captures the MCP tool call directly — but the loop's event handling (return-detection, cost) does. codex `exec --json` is AL6-proven through `normalizeHarnessEvent`.
 - **R4 — Auth-gated local-only proof.** The two lanes only run where `codex login status` / `opencode providers list` show creds. Per the rule "if a supported harness is not present/authed, the feature is not proven done on it." T9 must run on a machine where both are authed; if a lane can't run, surface it — do NOT substitute a stub (mock-validation-trap rule). Both binaries are installed + the recipes are AL6-proven, so this is expected to pass.
 - **R5 — codex requires a git repo.** `codex exec` refuses outside a git repo (AL6 lore). The real-harness lane git-inits the sandbox; production sandboxes are git-backed (Track AL git-host boundary). If a production sandbox is ever non-git, codex needs `--skip-git-repo-check` — note for the builder, add to codex `extraArgs` if needed.
 
@@ -374,6 +469,7 @@ getLiveProofLaneState("opencode"): "green-now" | "absent-fail"
 
 ## Self-critique
 
-- **Over-engineering?** No new abstraction beyond one `writeCliMcpConfig` helper + one config field. The `{{mcpUrl}}` plumbing is reused, not rebuilt. Could inline the writer into Phase 8b, but extracting it lets the deterministic CI test prove it without a binary — worth the one file.
-- **Scope creep?** The opencode `args`/`eventFormat` fix is arguably AL6 territory, but the current value never completes a headless turn, so codex/opencode could not be proven without it — in-scope.
-- **Missing failure mode?** R1 (stateless prod bridge not proven against a real CLI) is the honest gap the founder must see — surfaced, scoped out (pre-existing, shared with claude), with a deterministic compensating test for the config wiring.
+- **Over-engineering?** No. The R1 closure is a ONE-LINE production change (`sessionIdGenerator`) + lore + a deterministic handshake test + deleting test-only scaffolding (net code REDUCTION in the lane). Plus one `writeCliMcpConfig` helper + one config field. The `{{mcpUrl}}`/`{{model}}` plumbing is reused, not rebuilt. No new abstraction, no new layer.
+- **Scope creep?** The R1 stateful flip is in-scope by founder mandate ("real path, no stubs"): codex/opencode have no SDK fallback, so their production transport MUST work, not just a stand-in. The opencode `args`/`eventFormat`/`--model` fixes and the opencode-event pre-map are the minimum to make the production opencode lane real — without them opencode could not complete a turn or surface tool-calls. In-scope.
+- **Missing failure mode?** The W3 opencode-normalization gap is now surfaced as a builder must-verify (T6) with a concrete fallback, not assumed-fine. The only remaining honest constraint: the real-binary lanes are local-only (auth-gated) — but the PRODUCTION bridge's session-capability is now proven deterministically IN CI (T0b), so the R1 false-green is genuinely closed, not deferred.
+- **Did I keep what was good?** Yes — ONE transport-agnostic registry (no per-backend branch), TDD-first ordering, real `which` probes (absent→FAIL), docs updates. None of that changed; the revision only closes R1 and the W2/W3/W4 minors.
