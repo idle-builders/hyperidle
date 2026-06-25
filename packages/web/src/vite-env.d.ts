@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="react/jsx-runtime" />
 
 interface ImportMetaEnv {
 	readonly VITE_HYPERIDLE_API_KEY: string | undefined;

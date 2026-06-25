@@ -2,7 +2,7 @@ import { Composer } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { getReviewCanvas } from "./canvas-registry.js";
-import { ReviewActionOperation } from "./ReviewActionOperation.js";
+import { ReviewActionOperation, type ActionOperationCanvasProps } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,
@@ -671,10 +671,13 @@ function ExaminePane({
 				<div className="flex flex-col gap-[18px] p-[18px]">
 					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
 					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
-					    Fallback to stagedOperation for backward compat during migration. */}
+					    Fallback to stagedOperation for backward compat during migration.
+					    @lore AL5 WARN-1: artifact is cast to ActionOperationCanvasProps["artifact"]
+					    because ReviewActionOperation now carries the typed payload for surfaces;
+					    the guard isActionOperationPayload() handles unknown payloads at runtime. */}
 					{artifact.kind === "action_operation" ? (
 						<ReviewActionOperation
-							artifact={artifact}
+							artifact={artifact as ActionOperationCanvasProps["artifact"]}
 							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
 							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
 							proposedCall={artifact.proposedCall}
