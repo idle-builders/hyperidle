@@ -11,7 +11,8 @@ import type { SurfaceManifest } from "@hyperidle/shared";
 export const stripeRefundReviewManifest: SurfaceManifest = {
 	id: "stripe-refund-review",
 	title: "Stripe Refund Review",
-	description: "Specializes the action_operation canvas for Stripe refunds with a refund-specific lead summary and routing note.",
+	description:
+		"Specializes the action_operation canvas for Stripe refunds with a refund-specific lead summary and routing note.",
 	author: "HyperIdle <hi@hyperidle.com>",
 	version: "1.0.0",
 	baseCanvas: "action_operation",

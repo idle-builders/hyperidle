@@ -2,7 +2,7 @@ import { Composer } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { getReviewCanvas } from "./canvas-registry.js";
-import { ReviewActionOperation, type ActionOperationCanvasProps } from "./ReviewActionOperation.js";
+import { type ActionOperationCanvasProps, ReviewActionOperation } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,

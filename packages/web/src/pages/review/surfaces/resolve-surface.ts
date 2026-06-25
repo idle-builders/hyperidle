@@ -61,9 +61,7 @@ export function resolveSurface(
 	// Version pin check — informational at AL5 (single in-repo version per surface).
 	// Record mismatch but still render the entry (not degraded to base at AL5).
 	const degraded =
-		entry.manifest.version !== adoption.pinnedVersion
-			? ("version-mismatch" as const)
-			: undefined;
+		entry.manifest.version !== adoption.pinnedVersion ? ("version-mismatch" as const) : undefined;
 
 	// Return the adopted surface. The component type here is ReviewCanvasComponent
 	// for the registry's discriminated union. The render site (ReviewComposition.tsx §4.3)

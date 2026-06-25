@@ -20,7 +20,7 @@
  * class component in the AL5 surface system.
  */
 
-import { Component, type ReactNode, type JSX } from "react";
+import { Component, type JSX, type ReactNode } from "react";
 
 interface SurfaceBoundaryProps {
 	/** The resolved surface element to render (children). On throw, fallback renders instead. */

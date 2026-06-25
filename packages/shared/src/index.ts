@@ -302,17 +302,6 @@ export type {
 	Reversibility,
 } from "./proposed-call.js";
 export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
-// ── AL5: Review Surface registry types ──
-export type {
-	AdoptionView,
-	CommunityRegistryIndex,
-	LayeringMode,
-	ReviewCanvasKind,
-	SurfaceManifest,
-	SurfaceProvenance,
-	SurfaceSituation,
-} from "./review-surface.js";
-export { LAYERING_MODES, REVIEW_CANVAS_KINDS, SURFACE_PROVENANCE } from "./review-surface.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,
@@ -331,6 +320,17 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── AL5: Review Surface registry types ──
+export type {
+	AdoptionView,
+	CommunityRegistryIndex,
+	LayeringMode,
+	ReviewCanvasKind,
+	SurfaceManifest,
+	SurfaceProvenance,
+	SurfaceSituation,
+} from "./review-surface.js";
+export { LAYERING_MODES, REVIEW_CANVAS_KINDS, SURFACE_PROVENANCE } from "./review-surface.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
 	RoutineBudget,

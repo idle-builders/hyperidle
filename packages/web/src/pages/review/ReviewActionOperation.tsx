@@ -22,7 +22,7 @@ import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewArtifact } from "./review-artifact.js";
 import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
-import { slot, type CanvasSlots } from "./surface-slots.js";
+import { type CanvasSlots, slot } from "./surface-slots.js";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.

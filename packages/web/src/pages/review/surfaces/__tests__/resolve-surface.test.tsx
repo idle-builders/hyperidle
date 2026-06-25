@@ -14,9 +14,9 @@
  * RED PHASE: imports from modules that do not exist yet.
  */
 
+import type { AdoptionView, SurfaceSituation } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import type { ReviewCanvasComponent } from "../../review-artifact.js";
-import type { AdoptionView, SurfaceSituation } from "@hyperidle/shared";
 import { resolveSurface } from "../resolve-surface.js";
 import { getSurfaceEntry, listSurfaces } from "../surface-registry.js";
 

@@ -1,8 +1,9 @@
-import type { ComponentType } from "react";
 // AL5 A3: ReviewCanvasKind moved to @hyperidle/shared so shared can reference
 // it without importing from web. Re-exported here for backward compat — all
 // existing web-internal imports remain valid.
 import type { ReviewCanvasKind } from "@hyperidle/shared";
+import type { ComponentType } from "react";
+
 export type { ReviewCanvasKind } from "@hyperidle/shared";
 export { REVIEW_CANVAS_KINDS } from "@hyperidle/shared";
 

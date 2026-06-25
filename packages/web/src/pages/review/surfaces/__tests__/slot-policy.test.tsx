@@ -12,11 +12,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	SLOT_POLICY,
-	UNLISTED_SLOT_DEFAULT,
-	slotPermission,
-} from "../../slot-policy.js";
+import { SLOT_POLICY, slotPermission, UNLISTED_SLOT_DEFAULT } from "../../slot-policy.js";
 import type { SlotName, SlotPermission } from "../../surface-slots.js";
 import { slot } from "../../surface-slots.js";
 

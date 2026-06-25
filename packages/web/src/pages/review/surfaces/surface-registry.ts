@@ -16,10 +16,10 @@
  * the registry only provides the component, the DB unique index enforces the limit.
  */
 
-import type { ComponentType } from "react";
 import type { SurfaceManifest } from "@hyperidle/shared";
-import type { ReviewCanvasComponent } from "../review-artifact.js";
+import type { ComponentType } from "react";
 import type { ActionOperationCanvasProps } from "../ReviewActionOperation.js";
+import type { ReviewCanvasComponent } from "../review-artifact.js";
 import { stripeRefundReviewManifest } from "./stripe-refund-review/manifest.js";
 import { StripeRefundReview } from "./stripe-refund-review/StripeRefundReview.js";
 
@@ -49,7 +49,9 @@ export type SurfaceRegistryEntry =
 // SurfaceRegistryEntry array would trigger the generic branch (ReviewCanvasComponent)
 // which is structurally incompatible with ActionOperationCanvasProps.
 const stripeRefundEntry: SurfaceRegistryEntry = {
-	manifest: stripeRefundReviewManifest as SurfaceManifest & { readonly baseCanvas: "action_operation" },
+	manifest: stripeRefundReviewManifest as SurfaceManifest & {
+		readonly baseCanvas: "action_operation";
+	},
 	component: StripeRefundReview,
 };
 
@@ -58,9 +60,7 @@ const FIRST_PARTY: ReadonlyArray<SurfaceRegistryEntry> = [stripeRefundEntry];
 // ── Registry Map ─────────────────────────────────────────────────────────────
 
 /** id → entry. Community URL-registries layer on top (§3.2). */
-const REGISTRY = new Map<string, SurfaceRegistryEntry>(
-	FIRST_PARTY.map((e) => [e.manifest.id, e]),
-);
+const REGISTRY = new Map<string, SurfaceRegistryEntry>(FIRST_PARTY.map((e) => [e.manifest.id, e]));
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

@@ -12,13 +12,13 @@
  * RED PHASE: StripeRefundReview does not exist yet. All tests fail at import.
  */
 
+import type { ProposedCallStatus } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { StripeRefundReview } from "../stripe-refund-review/StripeRefundReview.js";
-import { SurfaceBoundary } from "../SurfaceBoundary.js";
 import type { ActionOperationPayload, ReviewArtifact } from "../../review-artifact.js";
 import type { ProposedCallOutcomeView, ProposedCallView } from "../../review-composition.js";
-import type { ProposedCallStatus } from "@hyperidle/shared";
+import { SurfaceBoundary } from "../SurfaceBoundary.js";
+import { StripeRefundReview } from "../stripe-refund-review/StripeRefundReview.js";
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
@@ -163,7 +163,11 @@ describe("AL5 StripeRefundReview — WARN-1: degrade path also preserves AL7 Out
 				/>
 			);
 
-			render(<SurfaceBoundary fallback={fallbackEl}><ThrowingVariant /></SurfaceBoundary>);
+			render(
+				<SurfaceBoundary fallback={fallbackEl}>
+					<ThrowingVariant />
+				</SurfaceBoundary>,
+			);
 
 			// The base canvas's OutcomeBand must render in the degrade path.
 			expect(screen.getAllByText(/executed/i).length).toBeGreaterThan(0);
@@ -190,12 +194,7 @@ describe("AL5 StripeRefundReview — renders Stripe-specific presentation", () =
 
 	it("renders without crashing when no proposedCall is provided", () => {
 		// The proposedCall prop is optional — the surface should not break without it.
-		render(
-			<StripeRefundReview
-				artifact={STRIPE_ARTIFACT}
-				status="captured"
-			/>,
-		);
+		render(<StripeRefundReview artifact={STRIPE_ARTIFACT} status="captured" />);
 		expect(screen.getByText(STRIPE_ARTIFACT.title)).toBeInTheDocument();
 	});
 });

@@ -13,18 +13,18 @@
  */
 
 import { describe, expect, it } from "vitest";
+// TrustTier is reused from AN — imported from connection.ts (not redefined in review-surface)
+import { TRUST_TIERS, type TrustTier } from "../connection.js";
 import {
+	type AdoptionView,
 	LAYERING_MODES,
+	type LayeringMode,
 	REVIEW_CANVAS_KINDS,
 	SURFACE_PROVENANCE,
-	type AdoptionView,
-	type LayeringMode,
 	type SurfaceManifest,
 	type SurfaceProvenance,
 	type SurfaceSituation,
 } from "../review-surface.js";
-// TrustTier is reused from AN — imported from connection.ts (not redefined in review-surface)
-import { TRUST_TIERS, type TrustTier } from "../connection.js";
 
 describe("AL5 — LAYERING_MODES closed set", () => {
 	it("contains exactly wrap and eject", () => {

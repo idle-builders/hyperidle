@@ -12,7 +12,10 @@
  */
 
 import type { JSX } from "react";
-import { ReviewActionOperation, type ActionOperationCanvasProps } from "../../ReviewActionOperation.js";
+import {
+	type ActionOperationCanvasProps,
+	ReviewActionOperation,
+} from "../../ReviewActionOperation.js";
 
 // ── Stripe-specific slot overrides ──────────────────────────────────────────
 
@@ -108,8 +111,8 @@ export function StripeRefundReview(props: ActionOperationCanvasProps): JSX.Eleme
 	return (
 		<ReviewActionOperation
 			artifact={artifact}
-			status={status}        // ← forwarded — OutcomeBand must render in the wrap
-			outcome={outcome}      // ← forwarded
+			status={status} // ← forwarded — OutcomeBand must render in the wrap
+			outcome={outcome} // ← forwarded
 			proposedCall={proposedCall} // ← forwarded — verbatim args panel
 			slots={{
 				lead: <RefundLead payload={artifact.payload} />,
