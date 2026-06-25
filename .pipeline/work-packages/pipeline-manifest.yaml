@@ -1234,20 +1234,23 @@ stories:
     track: AN
     depends: []
     complexity: L
-  - id: AN2
-    title: Outbound tool brokering (hybrid)
-    track: AN
-    depends: [AN1, AL7]
-    complexity: L
+  # AN2 (Outbound tool brokering — hybrid broker-gate) — WON'T DO (2026-06-25).
+  # Killed: the reversible/irreversible broker-gate is preemptive security the ethos rejects.
+  # Value rebuilt trust-first (no gate) in AN3 + AN5. Retained spec lives in TRACK-AN.md.
   - id: AN3
-    title: Sandbox tool provisioning
+    title: Use the tools you've connected, from inside an agent session
     track: AN
-    depends: [AN2]
+    depends: [AN1]
     complexity: L
-  - id: AN4
-    title: Ecosystem integration registry
+  - id: AN5
+    title: See the tools your agents inherit from your environment
     track: AN
-    depends: [AN2, AL5]
+    depends: [AN1, AM2]
+    complexity: M
+  - id: AN4
+    title: Ecosystem integration registry — deferred
+    track: AN
+    depends: [AN3, AL5]
     complexity: L
   # Track AP: Overengineering Audit Cleanup (19 adversarially-confirmed findings)
   - id: AP1

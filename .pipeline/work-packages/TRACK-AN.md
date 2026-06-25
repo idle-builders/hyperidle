@@ -54,7 +54,9 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 ---
 
-### AN2 — Outbound tool brokering (hybrid)
+### AN2 — Outbound tool brokering (hybrid) — ⛔ WON'T DO
+
+> **STATUS — WON'T DO (2026-06-25).** Killed. AN2's distinctive half was a **reversible/irreversible broker-GATE** that classified every external call and routed the "irreversible" ones through a wall before they could run. That is the preemptive-security pattern the ethos now explicitly rejects (`ETHOS.md` §2 — *security is never preemptive; "irreversible" is not, by itself, a reason to gate; friction is earned from learnings, not built first*). It also presumed danger, leaned on AL7 rather than adding its own value, and was poorly structured. The *valuable* half — agents actually reaching and using connected tools — is rebuilt trust-first, with **no gate**, in the reshaped **AN3** (use connected tools in a session) and **AN5** (see inherited tools). Where an action genuinely warrants review, it rides **AL7**'s existing loop only when a human chose it or a learning earned it. The original PR (#360) was closed and its branch deleted. The spec below is retained for history only.
 
 **Workpackage.** As an agent doing real work, I want to use an external service's tools — reading freely and proposing irreversible actions for review — so that I can actually get work done in GitHub/Stripe/Figma while the dangerous verbs stay behind the human gate. Reversible operations run directly for speed; irreversible ones are staged for review and only happen on approval, with HyperIdle (never the agent) attaching the credential at the moment of execution.
 
@@ -96,49 +98,56 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 ---
 
-### AN3 — Sandbox tool provisioning
+### AN3 — Use the tools you've connected, from inside an agent session
 
-**Workpackage.** As the system running an agent session, I want the agent's sandbox to receive exactly the tools that session is allowed — internal skill-tools plus the user's permitted external ones — through a single endpoint that never carries a secret, so that agents can use tools without any credential entering the sandbox and without one session reaching another's tools. This is the "deploy into the sandbox" mechanics that make brokering real, per session, safely.
+> **Reshaped trust-first (2026-06-25).** Was "Sandbox tool provisioning" — a broker-delivery mechanism gated on the killed AN2 and built around a "zero secrets in the sandbox" containment guarantee. Now reframed: agents simply *use* the tools the user connected, directly, with **no preemptive gate** and no credential-withholding dogma (`ETHOS.md` §2). Dependency moved from AN2 → AN1.
 
-**Why this matters.** Brokering (AN2) needs a clean, safe delivery into each agent's runtime, and the system's credential-containment and isolation guarantees have to be enforced at the sandbox boundary, not assumed. The system and every user benefit from the guarantee that no secret is ever in a sandbox and no session can reach another's tools. The cost of not building it: ad-hoc, leak-prone provisioning that quietly breaks the capability split.
+**Workpackage.** As an agent doing real work in a session, I want to actually call the external tools my user has connected — read a repo, query records, open a branch, create an issue, post a message — directly, the same way I'd use any tool, so that I can get real work done in the user's GitHub/Stripe/Figma/Gmail without a wall in front of every action. The tools a user has connected become available in the session and the agent calls them freely; nothing is pre-classified as "too dangerous to run."
 
-**What exists today.** Session provisioning materializes a workspace with an allowed-env-only policy (no secrets injected); the inbound MCP bridge already gives each session a token-scoped endpoint. AN2 supplies the brokered external tools. There is no unified *tool grant* assembling internal + permitted-external tools for a session, and no per-session isolation of external tools.
+**Why this matters.** This is the actual bridge from "agent" to "external effect" — the thing that makes Connections (AN1) worth anything. Today an agent can reach zero external tools: a user can connect GitHub but their agent still can't touch it. The fast-moving solo founder benefits directly — they connect their stack once and their agents work across it at full speed. The cost of not building it: Connections are a dead-end settings screen and "agents that do real work in your tools" never ships.
 
-**What's genuinely missing.** Assembling a session's permitted tool set (internal + the user's active Connections) onto the session's endpoint, with no secret injected and strict per-session/per-user isolation.
+**What exists today.** AN1 (#353) shipped the per-(user×service) Connection record + manage UI and the credential vault (token source live; harness-native source is a UI placeholder). AL7 (#351) owns the review→act execution loop for the narrow cases where a human chose to review an action — the *earned* gate, not a precondition for tool use. The inbound MCP bridge (`packages/server/src/mcp/mcp-bridge.ts`) already gives each session a token-scoped localhost endpoint exposing HyperIdle's internal tools. The original AN2 (outbound broker + reversible/irreversible gate) was killed — its broker-gate is the preemptive-security pattern the ethos rejects.
 
-**Depends on.** AN2 — there must be brokered external tools to provision before a grant can expose them.
+**What's genuinely missing.** Nothing connects a session's agent to a connected service's tools. There is no path that takes a user's active Connections and makes those tools callable inside the agent's session, and no per-session assembly of "internal tools + this user's connected tools."
+
+**Depends on.**
+- AN1 (`done`) — a session resolves the user's Connections; it cannot expose connected tools before the Connection store exists.
 
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** Not required — consumes the **Tool grant** noun locked in `plans/AN/concept.md`.
-- **Design:** Not required — sandbox/runtime provisioning, no rendered surface.
+- **Concept:** Not required — consumes **Connection** and **Tool grant**, locked in `plans/AN/concept.md`. (Founder note: the AN concept doc still contains the now-dead **Brokered/Direct call** nouns and the reversible/irreversible "hybrid path"; a `/concept AN` cleanup to strip the gate framing is recommended upstream but does not block this WP, which consumes only the surviving nouns.)
+- **Design:** Not required — runtime/session provisioning, no rendered surface.
 
-**Human design review.** No — infrastructure mechanism; no user-facing component.
+**Human design review.** No — backend/runtime mechanism; no user-facing component.
 
 **Acceptance criteria.**
-- When a session starts, the agent can discover and call exactly the tools that session is permitted — internal skill-tools plus the external tools its user has connected — and no others.
-- No credential, token, or live key is present anywhere in the sandbox — not in environment, configuration, or files.
-- One session cannot reach another session's or another user's external tools.
-- A user connecting or disconnecting a service changes which external tools subsequent sessions receive.
-- Removing all external connections leaves the session with its internal tools still fully working.
+- When a session starts, the agent can discover and call exactly the external tools its user has connected, alongside the internal tools — and call them directly, with no reversibility classifier gating the call.
+- An agent can perform a real external operation against at least one real connected service end-to-end (e.g. read a repository or create a record) and receive the result.
+- The mechanism works for more than one service — proven against at least one real external MCP server, with a second reachable by configuration rather than new per-service code.
+- A user connecting or disconnecting a service changes which external tools subsequent sessions receive; after disconnect, the tool is absent.
+- One user's connected tools are never reachable from another user's session.
+- Where an action does pass through review, it does so via AL7's existing loop — this WP adds no new gate, classifier, or policy engine of its own.
 
 **Validation scenarios.**
-- Given a user with two connected services, when their session starts, then the agent sees exactly those two services' tools plus the internal tools, and nothing from any other user.
-- Given any running session, when the sandbox environment and files are inspected, then no secret is present.
-- Given a user disconnects a service, when a new session starts, then that service's tools are absent from the grant.
+- Given a user with a connected service, when their agent's session starts, then the agent sees that service's tools plus the internal tools and can call them directly.
+- Given a connected service, when an agent reads data from it, then the read succeeds with no human gate.
+- Given a user disconnects a service, when a new session starts, then that service's tools are absent from the session.
+- Given two users, when each connects the same service, then neither user's session can act through the other's connection.
 
-**Plan calls.** Skip `/design`. Standard architecture pass — the tool-grant assembly, its exposure on the session endpoint, and per-session isolation; prove the no-secret-in-sandbox property.
+**Plan calls.** Skip `/design`. Standard architecture pass — assembling a session's tool set (internal + the user's active Connections) onto the session endpoint, the outbound reach to a connected MCP server, and per-session/per-user isolation. This is a live-proof workpackage: it must call one real external MCP service end-to-end before it is `done` (an in-repo standard MCP server spawned over a real transport is an acceptable real service; a stub of our own client is not).
 
-**Contracts / constraints.** Zero secrets in the sandbox. Per-session and per-user isolation of external tools. Internal tools are unaffected when there are no external connections. The grant is the intersection of (role-permitted tools) × (the user's active Connections).
+**Contracts / constraints.** No preemptive gate — reversible and irreversible external calls alike run directly; the agent is trusted to act. Where review is wanted it rides AL7 unchanged (a human chose it, or a learning earned it) — never a reversible/irreversible classifier built into this WP. Per-session and per-user isolation: one user's Connection is never usable from another user's session. Ride the MCP standard — a tool source is a standard MCP server, no per-service side-effect reimplementation. **No "zero secrets in the sandbox" dogma** — agents may hold the credentials their tools need to authenticate (ETHOS §2); credentials are still resolved per the AN1 credential model and never logged or shown in an agent-facing *settings* surface, but a tool that can't authenticate is useless and credential-withholding is not a goal.
 
-**Out of scope.** The connect surface (AN1). The broker itself (AN2). The registry (AN4).
+**Out of scope.** The connect/credential surface (AN1). Harness-native tool *visibility* in the UI (AN5). The community connector registry / trust tiers (AN4, deferred). Any new review-gating mechanism (that is AL7's, and only where earned).
 
 **Effort.** L (~4d)
 
 ---
 
-### AN4 — Ecosystem integration registry
+### AN4 — Ecosystem integration registry — ⏸ DEFERRED
+
+> **STATUS — DEFERRED (2026-06-25).** The community registry + vetted/community **trust tiers** are *earned-later* ecosystem work, not part of the core access loop (AN1 → AN3 → AN5). Two reasons to hold: (1) under the current ethos, **trust tier is not a policy engine** and security is earned from learnings, not built as a preemptive registry gate up front; (2) HyperIdle authoring its own first-party connected-tool use (AN3) must be real, and community contribution an actual demand, before a registry earns its complexity. Revisit only then. Its dependency on the killed AN2 is replaced by AN3. Spec below retained as the future direction.
 
 **Workpackage.** As HyperIdle and its ecosystem, I want a third party to contribute a tool integration as a standard MCP server plus a small manifest — its authorization method, its trust tier, and an optional review canvas — discoverable and installable with clear trust consent, so that the long tail of tools is covered by the community instead of HyperIdle hand-building every connector. The family review canvas (AL2) remains the floor; a contributed connector may ship its own canvas on top.
 
@@ -148,7 +157,7 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 **What's genuinely missing.** A Connector manifest (authorization method, trust tier, optional `ui://` review canvas), a two-tier (vetted/community) registry with discovery and validation, and a trust-consent step before a community connector may act.
 
-**Depends on.** AN2 — a registered connector is consumed by the broker; there is nothing to register until brokering exists. AL5 — a connector that ships its own review canvas does so through the `ui://` canvas mechanism AL5 builds.
+**Depends on.** AN3 — a registered connector is consumed by the session's connected-tool use; there is nothing to register until agents can use connected tools (replaces the dependency on the killed AN2). AL5 — a connector that ships its own review canvas does so through the `ui://` canvas mechanism AL5 builds.
 
 **Complexity.** L
 
@@ -177,3 +186,46 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 **Out of scope.** Building specific connectors. AL5's canvas mechanism itself. The connect surface (AN1).
 
 **Effort.** L (~6d)
+
+---
+
+### AN5 — See the tools your agents inherit from your environment
+
+**Workpackage.** As a user, I want to see, in the same place I manage my Connections, the tools my agents already inherit from my environment — the MCP servers and logged-in CLIs my harness is already configured with — so that I know exactly what my agents can reach without connecting anything, and the "Inherited from your environment" group reflects my real setup instead of being an empty placeholder.
+
+**Why this matters.** AN1 shipped the "Inherited from your environment" group as a placeholder but never populated it — so a user can't tell what their agents already inherit (the whole reason HyperIdle rides harnesses: the connectors and logins already live there). The fast-moving user benefits from transparency: they see their real reachable toolset at a glance and connect only what's genuinely missing. The cost of not building it: the inherited group stays empty and misleading, and users re-connect tools they already have.
+
+**What exists today.** AN1 (#353) shipped the Connections manage UI including the empty "Inherited from your environment" group (a projection seam with no live data). AM2 (#339) shipped the harness capability descriptor, proven against real harness binaries (Claude Code, Codex, OpenCode) — it already declares per-harness capability and is where a harness's configured MCP servers/tools are known. AN1's own scope note deferred live harness-source enumeration to the (now-dead) outbound-client work.
+
+**What's genuinely missing.** Nothing reads the user's harness/environment configuration and projects the actually-present MCP servers / inherited tools into AN1's "Inherited from your environment" group. The group renders empty regardless of what the user's harness is configured with.
+
+**Depends on.**
+- AN1 (`done`) — populates AN1's existing inherited-tools group; that surface must exist first.
+- AM2 (`done`) — the harness capability descriptor is where a harness's configured tools/MCP servers are declared; enumeration reads from it.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — consumes **Connection** (harness-native source) and the harness capability descriptor, both already locked.
+- **Design:** Light — extends AN1's existing "Inherited from your environment" group with real data; single-variant `/design` to place the populated state, no human-review park.
+
+**Human design review.** No — extends an existing, already-approved component group with live data; introduces no new primitive.
+
+**Acceptance criteria.**
+- A user with MCP servers / logged-in tools configured in their harness sees those reflected in the "Inherited from your environment" group, identified by service, without having connected anything.
+- A user whose harness has no extra tools configured sees an honest none-state for the inherited group, not a misleading placeholder.
+- The inherited list reflects the user's real environment — changing the harness's configured tools changes what the group shows on a refresh.
+- No secret or token value from an inherited tool is shown in the surface — only the fact that the tool is available.
+
+**Validation scenarios.**
+- Given a user whose harness is configured with two MCP servers, when they open their Connections, then both appear in the "Inherited from your environment" group identified by service.
+- Given a user whose harness has no extra tools, when they open their Connections, then the inherited group shows an honest none-state.
+- Given an inherited tool, when the surface renders it, then no credential or token value is present in the rendered output.
+
+**Plan calls.** Single-variant `/design` to place the populated inherited group (extends AN1's surface). Then a standard architecture pass — read the harness capability descriptor (AM2) and project the user's configured MCP servers / inherited tools into the AN1 group.
+
+**Contracts / constraints.** Renders from the harness capability descriptor — no per-harness branching baked into the UI. The inherited group is read-only (you don't "connect" what you already inherit; you only see it). No secret values surfaced. Consistent with AN1's existing Connection vocabulary and group layout.
+
+**Out of scope.** Using inherited tools in a session (AN3 / native harness use). Connecting new services (AN1). The community registry (AN4).
+
+**Effort.** M (~6h)
