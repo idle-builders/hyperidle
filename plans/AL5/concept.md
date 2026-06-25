@@ -1,25 +1,24 @@
-# AL5 — Concept: Review templates (domain/tool/task-specific review surfaces)
+# AL5 — Concept: Review surfaces (code, registry-distributed, deliberately adopted)
 
 **Workpackage:** AL5 (Track AL). Per-WP concept act. **Level:** per-workpackage — inherits the AL1 track concept (`plans/AL1/concept.md`) and the AN track concept (`plans/AN/concept.md`) as **fixed inputs**.
 **Date:** 2026-06-25
-**Status:** LOCKED (founder redirect 2026-06-25 — see Rationale). Reshapes the first draft of this concept (which centred on an MCP-Apps `ui://` override resolver) into a **review-template** model. Downstream `/architecture` + `/pipeline` explore *inside* this concept; they do not reshape it.
+**Status:** LOCKED (founder redirect #2, 2026-06-25 — see Rationale). Supersedes two earlier drafts: (1) MCP-Apps `ui://` supplier UIs, and (2) declarative-config "templates" with runtime auto-apply. Both rejected. This draft is **code-first, registry-distributed, deliberately-adopted** — the model every healthy OSS component ecosystem actually uses.
 
-> **The founder redirect (2026-06-25).** *"Skip the supplier-shipped MCP UI for now — that's a long stretch. Allow the community (and us — we'll build templates too) to contribute review surfaces for specific apps/tools/tasks in a template style. This review experience is a key of the future of agentic business: properly structured review surfaces that are domain- or tool-specific. Templates are the easier start. The question is how do we make it easy to **build** templates and easy for users to **employ** them. Focus on app/tool/task-specific templates, not community-only."* This concept answers **what a review template IS** for the two humans it serves — the **end user who employs one** and the **contributor (HyperIdle or community) who builds one** — and reconciles the overlap with AN4. Syntax, schema, selection-precedence, and safety *mechanism* are deliberately deferred to `/architecture`.
+> **The founder redirect (2026-06-25).** Two corrections that reshape the noun: **(a) it's CODE, not config** — "our review canvas is just a bit of React; in an age where code is cheap and AI-written, why force declarative configuration?" A contributed review surface *is* a React component specializing a base canvas. **(b) NO runtime auto-apply** — "imagine thousands of surfaces for the same tool/task; auto-picking one at render is mad." Selection is a **deliberate, owned, adopt-time choice**, never a runtime competition. The frame is still the **two humans**: the **contributor** who writes a surface and the **team** who adopts one.
 
-> **Research base (codebase + web, 2026-06-25; full notes in the agent transcripts).** Codebase: the nine AL2 family canvases are typed, composable React components selected by a fallback-safe registry (`getReviewCanvas`); HyperIdle already uses declarative "definition + registry" patterns (`kinds/registry.ts` KindDefinition, `tool-registry.ts` ToolDefinition) and the AN trust-tier vocab. Web: across Grafana dashboards, Backstage software templates, Adaptive Cards / Block Kit, dbt/LookML, Notion/Zapier galleries — and the **Home Assistant / HACS** cautionary tale (custom *code* cards → real CVEs, abandonware) — the load-bearing lessons are: **declarative-data templates interpreted by a trusted host engine** (an unsafe one is *inert*, not dangerous); **author owns content, host owns look/feel/safety**; **author by example with live sample-data preview, or fork-an-existing-one**; **one catalog, two sources, distinguished only by provenance**; **"verified" certifies identity, not correctness**; **versioned + graceful fallback to the base family**; and the **universal review-slot skeleton** every domain review surface shares.
+> **Research base (codebase + web, 2026-06-25, mechanism-level; transcript has full cites).** How OSS templating *actually* works as code — shadcn/ui registry, Docusaurus swizzling, Radix/MUI slots, Grafana/Backstage/VS-Code code-plugins, Tailwind `@layer`. The load-bearing findings: **(1)** the contribution unit is **code + a small manifest**, distributed via a **registry anyone can host** (shadcn `registry-item.json`; adopt by URL/namespace, deps resolved transitively); **(2)** you **adopt exactly one, at build/setup time, and own it** (shadcn copies source *into your repo*; npm install; swizzle) — the registry is a *catalog of availables*, the running app reflects *deliberate adoptions* — **no ecosystem does runtime auto-match among competitors**; **(3)** layering has two declared modes — **WRAP** (compose over the base via slots: upgrade-safe) vs **EJECT** (fork the base source: total control, you own upgrades) — Docusaurus's per-component **Safe/Unsafe/Forbidden** taxonomy; **(4)** "declarative is safer" is an argument about *untrusted runtime plugins in end-user installs* (Grafana signing, VS-Code verification), **NOT** about an OSS repo of reviewable component code adopted at build time — our threat model is code review + ownership, not a runtime sandbox. So: pay no DSL-ceiling tax to solve a sandbox problem we don't have.
 
 ---
 
-## Required reading (downstream `/architecture`, `/pipeline` must read these)
+## Required reading (downstream `/design`, `/architecture`, `/pipeline` must read these)
 
-- `.pipeline/work-packages/TRACK-AL.md` — AL5 spec (acceptance criteria updated 2026-06-25 to the template model).
-- `.pipeline/work-packages/TRACK-AN.md` — **AN4** (Ecosystem integration registry) — the boundary peer; reconciled here (a connector *references* a review template, it no longer ships a `ui://` UI).
-- `plans/AL1/concept.md` — the track concept (Subject, Review, the §1.5 parts, the examine-vs-converse tension). Fixed input.
-- `plans/AL1/design/tool-ecosystem-and-canvases.md` — the proof-family taxonomy + the minimal manifest sketch + mini-logo identity. (NB: §3's MCP-Apps `ui://` tier is now *deferred* — see Rationale.)
-- `plans/AL1/design/review-system.md` §2 — the per-tool-template-over-family-floor idea this formalises.
-- `plans/AN/concept.md` — locks **Trust tier** `{vetted, community}` and **Connector** as fixed inputs. AL5 *reuses* the trust tier; does not redefine it.
+- `.pipeline/work-packages/TRACK-AL.md` — AL5 spec (reshaped 2026-06-25 to the code/registry/adoption model).
+- `.pipeline/work-packages/TRACK-AN.md` — **AN4** — boundary peer; a Connector may *reference* a review surface registry item.
+- `plans/AL1/concept.md` — the track concept (Subject, Review, the §1.5 parts). Fixed input.
+- `plans/AL1/design/tool-ecosystem-and-canvases.md`, `plans/AL1/design/review-system.md` §2 — the per-tool-surface-over-floor idea this formalises as code.
+- `plans/AN/concept.md` — locks **Trust tier** `{vetted, community}` + **Connector**. Reused, not redefined.
 - `docs/human-interface-layer/review-primitive.md` — the ground truth this act extends.
-- Code seam: `packages/web/src/pages/review/` (the nine family canvases, `canvas-registry.ts`, `ReviewComposition.tsx`, `review-artifact.ts`), `packages/shared/src/kinds/registry.ts` (the definition+registry pattern to echo), `packages/shared/src/connection.ts` (`TrustTier`).
+- Code seam: `packages/web/src/pages/review/` — the **base canvases** (the nine AL2 React components + `canvas-registry.ts` + `ReviewComposition.tsx`) a surface specializes; `packages/shared/src/kinds/registry.ts` — the existing definition+registry pattern to echo; `packages/shared/src/connection.ts` — `TrustTier`.
 
 ---
 
@@ -27,78 +26,84 @@
 
 | Noun | Classification | One-line working definition |
 |---|---|---|
-| **Review template** | **New** (central) | A **declarative, named specialization of a generic review family**, scoped to a recognizable situation (an app/tool, a task/domain, an artifact kind), that fills the review surface's slots with domain-specific content; authored by HyperIdle *or* a contributor through **one** mechanism; degrades to its base family. |
-| **Family floor** | **Stable** (input, AL2) | The nine generic per-proof-family review surfaces. A template's **base** (what it specializes) and the **always-present fallback**. AL5 does not touch its content. |
-| **Binding** | **New** (satellite) | What ties a template to the situation it specializes — the recognizable `(app/tool · task/domain · artifact kind)` it applies to. A template is **inert until bound**; the binding is also where a user/agent sees *which lens is active* and can swap it. |
-| **Provenance** | **New** (satellite) | Who authored a template — **first-party (HyperIdle)** vs **community** — surfaced as a precisely-scoped signal. Certifies *identity*, never *correctness*. |
-| **Trust tier** | **Stable** (input, AN) | `vetted \| community` — locked in `plans/AN/concept.md` (CLOSED). Reused as the consent/risk axis for a template; not redefined. |
+| **Review surface** | **New** (central) | A **React component** that specializes a base review canvas for a specific app/tool/task (a "Stripe refund review", a "campaign review"). The contribution unit — **code**, plus a small manifest descriptor — authored by HyperIdle *or* the community. |
+| **Base canvas** | **Stable** (input, AL2) | One of the nine generic per-proof-family review components. The **floor** a surface specializes (via slots) and the **always-present fallback**. Exposes the review's universal slots; AL5 makes its extension points explicit. |
+| **Registry** | **New** (satellite) | The **catalog of available review surfaces** (HyperIdle-published + community-published), shadcn-style: anyone can host/publish; a surface is fetched by URL/namespace with its deps. A catalog of *availables*, not a set of *actives*. |
+| **Adoption** | **New** (satellite) | The **deliberate, owned, committed choice** to use a surface for a review situation — a reviewable mapping `(situation → adopted surface)` the team authors. **Build/setup-time, never runtime auto-match.** |
+| **Wrap / Eject** | **New** (satellite, the layering axis) | The two ways a surface layers over a base canvas: **wrap** (compose over it through slots — upgrade-safe) or **eject** (fork its source — total control, you own upgrades). Per Docusaurus swizzle. |
+| **Trust tier / Provenance** | **Stable** (input, AN) + reshaped | `vetted \| community` (AN, reused) + who authored (first-party vs community). The adopt-time review/consent signal — **not** a runtime sandbox. |
 
-Only **Review template** (central), **Binding**, and **Provenance** get concept work below. Family floor and Trust tier are inputs.
+Concept work below covers **Review surface** (central) and its satellites **Registry**, **Adoption**, **Wrap/Eject**. Base canvas and Trust tier are inputs.
 
-**Dropped from the first draft (founder redirect):** the **tool-shipped `ui://` canvas** tier (MCP Apps) and the **Canvas sandbox / iframe substrate** are **out of AL5 scope** — deferred as a possible *future* tier (see Rationale). Because a review template is **declarative data interpreted by HyperIdle's own renderer**, AL5 introduces no untrusted-code execution surface and therefore no sandbox.
+**Dropped:** declarative-config templates + the resolver that "auto-applies" among them (redirect #2); the MCP `ui://` sandboxed supplier UI (redirect #1, deferred). A review surface is **reviewable source the team adopts and builds** — so there is **no untrusted-runtime-code problem to sandbox**, and no DSL.
 
-**Human design review forecast (advisory).** **Two surfaces, two answers.** The **employment** surface (how a user/agent sees the active lens, previews/swaps a template, sees its provenance) and the **authoring** surface (build-by-example with live sample-data preview, fork-an-existing-one) are **new user-facing experiences** central to the WP's value → forecast **Yes**. The selection/binding *internals* are runtime → No. `/design`'s `DESIGN-CLASS` stays authoritative.
+**Human design review forecast (advisory).** **Yes.** Two new user-facing experiences are central: the **registry/adoption** surface (browse, preview, adopt-for-a-situation, see provenance/trust) and the **base-canvas slot model** the contributor authors against. `/design`'s `DESIGN-CLASS` stays authoritative.
 
 ---
 
-## Phase 1 — Essence (framed around the two humans)
+## Phase 1 — Essence (the two humans)
 
-### Review template — the central noun
+### Review surface — the central noun (it is code)
 
-**Identity.** A review template is **a declarative specification of how to review a recognizable kind of work** — "a Stripe refund review", "a marketing-campaign review", "a data-migration review" — that **specializes one of the nine generic family floors** with domain-specific content, ordering, labels, the inline policy/standard, and the right decision framing. It is **data, not code**: HyperIdle's own trusted renderer interprets it. It is the *lens*, never the *work* and never the *decision*.
+**Identity.** A review surface is **a React component (plus a small manifest) that specializes a base canvas** for a recognizable kind of work. It is **code**, because a review surface is open-ended UI — arbitrary layout, logic, interaction — and any declarative schema hits a ceiling the moment a contributor wants what it didn't anticipate. The base canvases are already React; a specialization is just more React. AI writes one cheaply; a maintainer (or AI) reads, diffs, and audits it like any PR. The contribution unit mirrors a **shadcn registry item**: the component file(s) + a descriptor naming its base canvas (`registryDependencies`), its npm `dependencies`, and its provenance/trust.
 
-**Essential properties (every review template has):**
-- **A base family it extends** — it is a specialization of one floor (e.g. the action/operation receipt), inheriting that family's interactions, safety, and graceful fallback. Not a freeform surface.
-- **A binding** — the situation it applies to (`app/tool · task/domain · artifact kind`); inert until bound.
-- **Filled slots** — it populates the *universal review skeleton* every good domain review surface shares (research, Part B): **{artifact · rationale · blast-radius/impact · judging-context · what-needs-me · policy/standard-inline · decision-options · coordination-state}**. The generic surface owns the slots; the template fills them per domain.
-- **Provenance + trust tier** — who made it, and `vetted|community`.
-- **A version** — it is a versioned artifact; an instance can pin it; a change surfaces as a diff.
-- **Sample/fixture data** — it ships with example data so it *renders the instant it is authored* (build-by-example).
+**Essential properties.**
+- **It specializes exactly one base canvas** — it builds *on* a floor (the action-receipt, the field-change-set, …), inheriting that family's structure and its graceful fallback. Not a freeform from-scratch screen.
+- **It is distributed through the registry** — published by HyperIdle or the community through the **same** mechanism; addressable, versioned, fetchable with its deps.
+- **It is adopted, owned, and committed** to be active — a surface in a registry is *available*, not *running*. A running surface is one a team deliberately adopted.
+- **It layers by wrap or eject** — declared, so upgrade-safety is explicit.
+- **It carries provenance + a trust tier** — the adopt-time review signal.
 
-**For the contributor (who BUILDS one).** The authoring ergonomic *defines who can contribute*, so it is concept-load-bearing. A template is **authored by example** — you fill in a concrete instance and see it render live against sample data — or by **forking an existing template**. The author owns **content** (what to surface about this kind of review and how to interpret the change-set); HyperIdle owns **look, feel, interaction, safety, and lifecycle**. HyperIdle's *own* templates are authored through the *same* mechanism — a first-party template is just a maintainer-authored community template.
+**For the contributor (who WRITES one).** You write a React component that fills a base canvas's slots for your tool/task — or **fork an existing surface** as the starting point (shadcn "copy the source, it's yours" / Docusaurus eject). You **publish it to a registry** (HyperIdle's, your own, or a community one) with a descriptor. HyperIdle's *own* surfaces are authored and published through the **identical** path — a first-party surface is just a maintainer-authored community surface. It's code, reviewable as code; AI-authoring it is expected and cheap.
 
-**For the end user (who EMPLOYS one).** A template is **inert until bound** to *this* agent/tool/task. HyperIdle **auto-suggests/auto-applies the lens** when it confidently recognizes the situation — safely, because the template only changes *presentation* (reversible, low-stakes); the **active lens is always visible and swappable**, and the user can **preview before committing** and **fork/override** after. The high-stakes gate is the **action under review**, never the choice of lens.
+**For the team (who ADOPTS one).** You **browse the registry**, preview a surface against sample data, and **adopt** the one you want for a situation — a **deliberate, owned, committed mapping** `(this tool / this task → this surface)`, reviewable like any change. HyperIdle ships a sensible default adoption (the base canvases, plus first-party surfaces for marquee tools); you change it explicitly. The system then renders the **adopted** surface — by that explicit mapping, **never** by scoring thousands of candidates at render time. If a situation has no adoption, you get the base canvas.
 
-### Binding — the inert-until-bound tie
+### Registry — catalog of availables
 
-**Identity.** The relationship `template ⇄ situation`. A template declares the situation it specializes — some combination of **app/tool** (Stripe), **task/domain** (a refund, a campaign), and **artifact kind** (the proof family). Whether one axis dominates, how specificity is scored, and the match syntax are **`/architecture`**. Concept fixes only: a template is **selected by recognizing the situation, not chosen blindly by the reviewer**, and the selection is **transparent and overridable**.
+**Identity.** The distribution catalog. Like shadcn: **anyone can host one**; a surface is published with a manifest and fetched by URL or namespace (`@team/stripe-refund-review`), its `registryDependencies` (base canvas + siblings) resolved transitively. First-party and community publish to the **same** kind of registry. The registry holds *hundreds of availables*; a deployment runs only its *adoptions*. (Exactly the shadcn/npm split: catalog ≠ active set.)
 
-### Provenance — identity, not correctness
+### Adoption — the owned, deliberate choice (what replaces auto-apply)
 
-**Identity.** The author signal (`first-party | community`, plus identity/adoption/recency signals at the point of choice). Locked lesson: a "verified/vetted" mark certifies **who made it**, not **that the review is right** — so for a surface that gates real agent actions, the template is **inspectable** (preview + visible content) before employ; the badge never substitutes for that.
+**Identity.** The committed decision that a given review situation uses a given surface. It is **configuration the humans own** — a reviewable mapping, pinned to a surface version — **not** a runtime competition the system arbitrates. This is the direct answer to "thousands of surfaces for the same tool": they **coexist passively in registries**; a team **adopts one**, on purpose, and can audit/change it. Selection is human + build/setup-time, deterministic and accountable: you can always answer "which surface rendered this review, and who chose it."
+
+### Wrap / Eject — the layering axis
+
+**Identity.** How a surface sits on its base canvas (Docusaurus's swizzle taxonomy):
+- **Wrap** — render the base canvas and compose *around/into* it through its **slots** (Radix `asChild` / MUI `slots` / children). Smaller to maintain, **upgrade-safe** (you never copied the base's internals). The default; right when the specialization is *additive*.
+- **Eject** — copy the base canvas's source and own it fully. Total control; **you own upgrades** (a base change must be hand-migrated). Right when the specialization is *structural* and slots can't express it.
+A base canvas declares, per extension point, **wrap = supported / eject = allowed-you-own-it / forbidden** — so upgrade-safety is a property the floor states, not a surprise.
 
 ### Lifecycle
 
 ```
-authored (by example, with sample data) or forked  →  registered with provenance + trust tier + version
-  →  discoverable in one catalog (first-party + community, filtered by provenance)
-  →  bound to a situation (auto-recognized, or chosen) — inert until bound
-  →  EMPLOYED: lens auto-applies on confident match, visible + previewable + swappable
-       → fills the review's slots with domain content over its base family
-  →  stale / abandoned / removed / malformed  →  DEGRADES to its base family floor (never breaks)
-  →  upstream improves  →  re-offered as a diff; local overrides preserved (the open opportunity)
+contributor writes a React surface (or forks one) → publishes to a registry (descriptor: base canvas, deps, provenance, trust)
+  → it is AVAILABLE in the catalog (one of many, possibly competing)
+  → a team browses + previews + ADOPTS it for a situation  (committed, owned, version-pinned mapping)
+  → a review of that situation renders the ADOPTED surface, layered over its base canvas (wrap | eject)
+  → no adoption, or surface fails to load → the BASE CANVAS renders (the floor always works)
+  → upstream surface/base improves → surfaced as a diff; wrap rides along, eject is hand-migrated (shadcn `diff`)
 ```
 
-No new *review* lifecycle — the template is a presentation layer under AL1's `open → … → resolved` and AL7's execution-on-approve. The template never mutates the Subject, the verdict, the staged action, or the gate.
+No new *review* lifecycle — a surface is presentation under AL1's `open → … → resolved` and AL7's execution-on-approve. It never mutates the Subject, the verdict, the staged action, or the gate.
 
 ### Authority
 
-- **The template author** (HyperIdle or community) owns the template's **content**.
-- **HyperIdle (host)** owns **rendering, look/feel, interaction, safety, the catalog, selection, and the always-present floor** — and is the trusted interpreter of the declarative spec.
-- **The end user** owns **which lens is active** for their review (visible, previewable, swappable) — but **never** has the lens change the decision or the action.
+- **The contributor** owns the surface's **code**.
+- **The team/deployment** owns **which surface is adopted** for each situation (committed, reviewable, version-pinned) and **owns the adopted copy** if ejected.
+- **HyperIdle (host/core)** owns the **base canvases** (the floor + slot contracts), the registry mechanism, the default adoptions, and the deterministic layering. It is not a runtime arbiter of competing surfaces.
 
 ---
 
-## Phase 2 — Rejection list (what a review template is NOT)
+## Phase 2 — Rejection list (what a review surface is NOT)
 
-- **…shipped code / a plugin.** It is declarative data interpreted by HyperIdle's trusted renderer. *Reason: the HACS lesson — custom-code review surfaces inherit real CVEs and abandonware; a declarative template that's malformed/abandoned is **inert** (degrades to the floor), not dangerous. This is why we can defer the `ui://` supplier-UI path and start with templates.*
-- **…a freeform new surface.** It **specializes a generic family** and degrades to it. *Reason: inheriting a base family gives every template the family's interactions, safety, and a graceful fallback; freeform surfaces fragment and can't fall back.*
-- **…the work, the verdict, the action, or the gate.** It changes *presentation only*. *Reason: "auto-apply the lens, never the approval" — the lens is reversible/low-stakes; the action under review is the high-stakes human gate (AL7). Conflating them would let a presentation choice move a real decision.*
-- **…a per-tool thing HyperIdle must exhaustively author.** First-party + community contribute through one mechanism; an **unrecognized** situation simply gets the floor. *Reason: "review for anything" must hold for tools/tasks nobody templated — the floor is the universal guarantee (AL1 review-system §2).* 
-- **…a correctness guarantee because it's "vetted".** Provenance certifies *identity*, not that the review is right. *Reason: the VS Code verified-badge lesson — users conflate identity with safety; for action-gating surfaces, inspectability (preview + visible content) is the real trust primitive.*
-- **…two systems (first-party vs community).** One mechanism, one shape, distinguished only by provenance. *Reason: every healthy ecosystem (Backstage `kind: Template`, Grafana library, Notion gallery) uses one catalog — HyperIdle's own templates ride the identical path.*
-- **…a hidden auto-magic the user can't see or change.** The active lens is always visible, previewable, swappable. *Reason: a generic-surface mismatch breeds "subtle distrust"; transparency + easy override is what removes the "almost what we need" adoption tax.*
-- **…a Connector (AN boundary).** A connector **integrates a tool** (MCP server + auth); a template **specializes a review surface**. *Reason: distinct nouns with distinct lifecycles — a "Stripe refund review" template is contributable by someone who does not own the Stripe connector; a connector may merely *reference* a preferred template.*
+- **…declarative config / a DSL.** It is a React component. *Reason: review surfaces are open-ended UI; a schema ceilings out; contributors are devs and AI writes components cheaply; the base canvases are already React. Declarative DSLs exist for cross-host portability and untrusted-runtime sandboxing — neither is our problem.*
+- **…runtime-auto-selected among candidates.** It is **adopted** — a deliberate, owned, committed choice. *Reason: no OSS ecosystem auto-matches among thousands at render; doing so means unreviewed third-party code decides the UI per request (the exact untrusted-runtime problem build-time adoption avoids) and makes "which surface ran?" unaccountable.*
+- **…an untrusted sandboxed plugin.** It is reviewable source adopted at build/setup time and built into the app. *Reason: the trust boundary is code review + ownership + supply chain at adopt time, not a runtime iframe/sandbox. (The Grafana/VS-Code signing model addresses a different threat: code executing in end-user installs.)*
+- **…an opaque dependency you can't change.** You **own the adopted surface** (fork/eject = your code; even a wrap is your composition). *Reason: the shadcn lesson — owning editable source beats a version-pinned black box for UI you must tailor.*
+- **…a freeform from-scratch screen.** It **specializes one base canvas** and degrades to it. *Reason: inheriting the floor gives structure, the universal slots, and a guaranteed fallback; freeform surfaces fragment and can't fall back.*
+- **…the work, the verdict, the action, or the gate.** It changes *presentation only*. *Reason: a surface is the lens; the decision and the AL7 gate are untouched — adopting/ejecting a surface never moves a real approval.*
+- **…HyperIdle-only or community-only.** One registry mechanism; provenance + trust tier distinguish. *Reason: HyperIdle ships surfaces through the same path it invites the community to use — one ecosystem, not two.*
+- **…a Connector (AN boundary).** A connector **integrates a tool** (MCP server + auth); a surface **specializes a review**. *Reason: distinct nouns — a "Stripe refund review" surface is publishable by someone who doesn't own the Stripe connector; a connector may merely *reference* a preferred surface.*
 
 ---
 
@@ -106,55 +111,54 @@ No new *review* lifecycle — the template is a presentation layer under AL1's `
 
 | Term | Definition | Aliases not to use |
 |---|---|---|
-| **Review template** | A declarative, versioned specialization of a generic review family, bound to an app/tool/task, that fills the review surface's slots with domain content; authored first-party or community through one mechanism; degrades to its base family. | canvas override, plugin, widget, custom canvas, skin, theme |
-| **Family floor** | The nine AL2 generic per-proof-family review surfaces; a template's base and the always-present fallback. | default canvas, generic canvas *(descriptive ok, not a name)* |
-| **Binding** | The tie between a template and the situation it specializes (`app/tool · task/domain · kind`); inert until bound. | match rule, selector *(those are `/architecture` mechanism, not the noun)* |
-| **Provenance** | Who authored a template (first-party vs community) + identity/adoption signals; certifies identity, not correctness. | verification, trust *(reserve "trust tier" for the AN axis)* |
-| **Trust tier** | *(reuse AN — do not redefine)* `vetted \| community` consent/risk axis. | trust level, security tier |
+| **Review surface** | A React component (+ manifest) specializing a base canvas for an app/tool/task; the contribution unit; code, registry-distributed, adopted. | template *(if "template" is used, it means a review surface — never "a config blob")*, plugin, widget, canvas override |
+| **Base canvas** | One of the nine AL2 generic review components; the floor a surface specializes (via slots) and the always-present fallback. | family canvas *(ok descriptively)*, default canvas |
+| **Registry** | The catalog of available review surfaces (first-party + community); anyone can host; fetch by URL/namespace. | store, marketplace *(ok loosely; not the noun)* |
+| **Adoption** | The deliberate, owned, committed, version-pinned mapping `(situation → surface)`. Build/setup-time, never runtime auto-match. | selection, resolution, routing *(those imply runtime arbitration — rejected)* |
+| **Wrap / Eject** | Compose-over-the-base (upgrade-safe) vs fork-the-base (own it). | extend/override *(ok loosely); "swizzle" (Docusaurus term, don't leak it into product vocab)* |
+| **Trust tier** | *(reuse AN)* `vetted \| community` adopt-time review/consent signal. | sandbox tier, security tier |
 
-Collision checks (grep-verified, Phase 6): "template" already means **system-prompt template** and **Strategy reference template** in the codebase — **"review template" is a new, non-colliding compound** (no review-surface usage exists). `Trust tier`/`Connector` reused verbatim from AN. `Family floor`/`canvas` extend the AL2 review vocabulary.
+Collision checks: "template" already means system-prompt/Strategy template — so the locked product noun is **review surface** (not "review template"). `Trust tier`/`Connector` reused from AN. `Base canvas` extends the AL2 review vocab.
 
 ---
 
-## Phase 4 — Contracts (concept-level; syntax/schema deferred to `/architecture`)
+## Phase 4 — Contracts (concept-level; schema/precedence-mechanics deferred to `/architecture`)
 
-- **Cardinality.** A review renders through **exactly one surface**: the most-specific **bound** template if one applies, else the **family floor** (so cardinality is always ≥1 — the floor guarantees it). A template **extends exactly one base family**, carries **one provenance + one trust tier + one version**. A situation may have **0..N** candidate templates; **one** is active, and it is **visible + swappable**.
-- **Closure.** Base families = the AL2 **closed** set (nine). The set of **templates is OPEN** (any first-party/community author contributes; echoes the open artifact-kind + open Connector vocab). **Trust tier CLOSED** `{vetted, community}` (AN). **Provenance CLOSED** `{first-party, community}`. The **universal slot skeleton a template fills is a fixed vocabulary** (the ~8 slots), so templates stay "expressive-enough, not a UI framework."
-- **Mutability.** Templates are **versioned**; an instance may **pin** a version; a change surfaces as a **diff**. The active lens is **freely swappable** (presentation is reversible). A template **never mutates** the Subject, the verdict, the staged action, or the gate.
-- **Authority/identity.** Author owns content; host owns rendering/safety/lifecycle/catalog/floor. A template's identity = its id + version + provenance. Selection is host-owned and transparent.
+- **Cardinality.** A review renders through **exactly one surface**: the **adopted** surface for the situation if one is adopted, else the **base canvas** (≥1 always — the floor guarantees it). A surface **specializes exactly one base canvas**, carries **one provenance + trust tier + version**. A situation may have **0..N available** surfaces in registries but **0..1 adopted**. A base canvas exposes **N declared slots**.
+- **Closure.** Base canvases = the AL2 **closed** set (nine). Available surfaces are an **OPEN** set (anyone publishes). Adopted surfaces are a **deliberately-bounded** set (what a deployment committed). **Trust tier CLOSED** `{vetted, community}` (AN). Layering modes **CLOSED** `{wrap, eject}`; per-slot permission **CLOSED** `{wrap, eject, forbidden}`.
+- **Mutability.** Surfaces are **versioned**; adoptions **pin** a version; an upstream change surfaces as a **diff** (wrap rides along; eject is hand-migrated). Adoption is **freely changeable** by the owning team (reviewable). A surface **never mutates** the Subject, verdict, staged action, or gate.
+- **Authority/identity.** Contributor owns surface code; team owns adoption (+ ejected copies); host owns base canvases, slot contracts, registry, default adoptions, layering. A surface's identity = registry item id + version + provenance.
 - **Hard rules.**
-  1. **Declarative + inert-on-failure.** A template is declarative data interpreted by HyperIdle's trusted renderer. A malformed / abandoned / removed / untrusted template is **inert — it degrades to its base family floor**, never dangerous and never breaks the review. *(The HACS-avoidance + graceful-degradation rule; the reason `ui://` shipped-UIs can be deferred.)*
-  2. **The family floor is the base and the always-present fallback.** Every template is additive; "review for anything" holds for any unrecognized situation.
-  3. **Auto-apply the lens, never the approval.** A template changes presentation only; the active lens is always **visible + previewable + swappable**; it never changes the verdict, the staged action, or the gate (AL7).
-  4. **One mechanism, one shape — provenance is the only difference.** First-party and community templates are the same noun; HyperIdle's own templates are authored and registered through the identical path.
-  5. **Provenance certifies identity, not correctness.** For an action-gating surface, the template is **inspectable** (preview + visible content) before employ; a vetted/verified mark never substitutes for that.
-  6. **Trust tier is the AN-locked `{vetted, community}`** — reused, never redefined; a `community` template's consent step rides AN's consent model.
-  7. **Boundary (AL5 ⟂ AN4).** AL5 owns the **Review template** noun — authoring, the catalog, employment, and the floor fallback. AN4 owns the **Connector** (tool integration) registry. A connector **may reference** a preferred review template; a template is **independently contributable** without owning the connector. Shared, AN-owned vocabulary: **trust tier**. There is **no `ui://` shipped UI** in either track's current scope.
+  1. **A review surface is code that specializes a base canvas — never declarative config, never an untrusted runtime plugin.** Trust comes from **adopt-time code review + ownership + supply chain**, not a runtime sandbox.
+  2. **No runtime auto-apply.** A surface runs only where a team **deliberately adopted** it (a committed, owned, version-pinned mapping). The registry is a catalog of availables; the running app reflects adoptions. "Which surface rendered this, and who chose it" is always answerable.
+  3. **The base canvas is the floor and the always-present fallback.** Every surface specializes one; no adoption, or a failed surface, degrades to the base canvas. "Review for anything" holds for anything nobody surfaced.
+  4. **Two declared layering modes — wrap (upgrade-safe) and eject (you own it).** Each base canvas declares per-slot `wrap | eject | forbidden`. Default contributors to wrapping.
+  5. **A surface is the lens, never the decision.** It changes presentation only; it never moves the verdict, the staged action, or the AL7 gate.
+  6. **One registry mechanism for first-party + community**, distinguished by **provenance + trust tier** (AN-locked, reused). Provenance certifies identity, not correctness; a surface is reviewable/previewable before adoption.
+  7. **Boundary (AL5 ⟂ AN4).** AL5 owns the **Review surface** (the code unit, the slot contracts, the registry, adoption, the floor fallback). AN4 owns the **Connector** (tool integration) registry. A connector **may reference** a preferred surface; a surface is independently publishable. Shared: trust tier. No `ui://` shipped UI in scope.
 
 ---
 
 ## Phase 5 — Ground-truth updates
 
-- `plans/AL5/concept.md` — this file (per-WP concept lock; reshaped to the template model).
-- `docs/human-interface-layer/review-primitive.md` — **reframed** "Canvas resolution and overrides" section to **"Review templates"**: declarative specialization of a family floor, the two-human framing, inert-on-failure degradation, provenance-not-correctness, and the AL5/AN4 boundary. No `ui://`/sandbox content.
-- **AN reconciliation (the "relevant parts of `/concept AN4`" the founder asked for):**
-  - `plans/AN/concept.md` — the Connector manifest's `ui://canvas` field reframed to an **optional review-template reference** (a connector points at a preferred declarative template, it does not ship a sandboxed UI); AN4 row + ride-the-standard rule updated to match.
-  - `.pipeline/work-packages/TRACK-AN.md` AN4 — "ships its own `ui://` review canvas" reframed to "references a review template".
-  - `.pipeline/work-packages/TRACK-AL.md` AL5 — title + acceptance criteria reshaped to the template model; `ui://` supplier-UI tier marked deferred.
+- `plans/AL5/concept.md` — this file (reshaped to code/registry/adoption).
+- `docs/human-interface-layer/review-primitive.md` — the AL5 section rewritten to **"Review surfaces"**: code specializing a base canvas, registry-distributed, **adopted not auto-applied**, wrap/eject layering, inert-fallback to the floor.
+- **AN reconciliation:** `plans/AN/concept.md` + `.pipeline/work-packages/TRACK-AN.md` AN4 — a Connector's optional field references a **review surface** (registry item), not a `ui://` UI or a config template.
+- `.pipeline/work-packages/TRACK-AL.md` AL5 — title + ACs reshaped to the code/registry/adoption model.
 
 ---
 
 ## Phase 6 — Self-critique (1 round)
 
-- **Right altitude?** Yes — the noun + the two humans (contributor authoring-by-example; end user employing/previewing/swapping). Syntax, match-precedence, schema, and the safety *mechanism* are explicitly pushed to `/architecture`. (This was the founder correction on the first draft.)
-- **Research-grounded?** Yes — each essential property and hard rule traces to a cited lesson (HACS → declarative-inert; Adaptive Cards → author-owns-content/host-owns-look; Backstage/Grafana/Notion → one-catalog-two-sources; VS Code → identity≠correctness; dbt/LookML → versioned+pinnable; the BPM/RPA/code-review/moderation convergence → the universal slot skeleton).
-- **Rejection list real & distinct?** Yes — eight rejections name distinct traps (code, freeform, the-action, exhaustive-authoring, correctness-badge, two-systems, hidden-magic, connector), each with a reason.
-- **AN4 boundary sharp & reconciled?** Yes — distinct nouns (template specializes a review surface; connector integrates a tool); connector *references* a template; `ui://` shipped-UI removed from both tracks' scope; trust tier stays AN-owned. The reconciliation edits are listed in Phase 5.
-- **Vocabulary collisions?** "review template" is new (no review-surface "template" usage today). Trust tier/Connector reused from AN.
-- **Deferred correctly to `/architecture`?** The template schema, the binding/selection match + specificity scoring, the authoring/preview tooling, versioning/pinning/diff mechanics, the catalog storage, and *if/when* the `ui://` future tier returns.
+- **Right altitude + the founder's two corrections honoured?** Yes — **(a)** the noun is **code** (a React component specializing a base canvas), not config; **(b)** **adoption** (deliberate, owned, build/setup-time) replaces runtime auto-apply, with the registry as catalog-of-availables. Schema, slot API, precedence mechanics, registry transport, and the diff/migration tooling are `/architecture`.
+- **Research-grounded this time (the real mechanics)?** Yes — every essential property traces to a cited mechanism: shadcn registry-item + own-the-source; Docusaurus wrap/eject + Safe/Unsafe/Forbidden; Radix/MUI slots; the catalog-≠-active-set adoption model; the declarative-is-for-untrusted-runtime distinction; Tailwind layered precedence.
+- **Rejection list distinct?** Yes — eight rejections (config, auto-select, sandbox-plugin, opaque-dependency, freeform, the-decision, one-sided, connector), each with a reason.
+- **AN4 boundary reconciled?** Yes — distinct nouns; connector references a surface; `ui://` removed; trust tier AN-owned.
+- **Vocabulary collision?** "template" is taken → the locked noun is **review surface**.
+- **Deferred to `/architecture`?** The manifest/registry-item schema, the base-canvas slot API, the adoption store + default adoptions, version-pinning/diff/migration, and how layering precedence resolves.
 
-**Concept LOCKED.** `/architecture` and `/pipeline` explore inside it.
+**Concept LOCKED.** `/design` (registry/adoption + slot-authoring surfaces) then `/architecture` explore inside it.
 
-## Rationale (why this shape, and why the redirect)
+## Rationale (why this shape, and why two redirects)
 
-The first draft of this concept led with the MCP-Apps `ui://` override resolver — a tool's own MCP server shipping a sandboxed review UI. The founder redirected (2026-06-25): supplier-shipped UIs are a long stretch, and the durable, near-term value is **structured, domain/tool/task-specific review surfaces contributed in a template style — by the community *and* by HyperIdle**. The research makes the redirect not just expedient but *correct*: the single biggest determinant of an ecosystem's health is **declarative-data vs shipped-code** contribution. Declarative templates interpreted by a trusted host renderer turn the HACS/VS-Code **security-and-abandonware** problem into a far cheaper **quality-and-discovery** problem — an unsafe template is *inert*, degrading to the family floor, never dangerous. That single choice is why the `ui://` sandboxed-UI path can be safely deferred (and, if it ever returns, it returns as one more declarative-ish tier behind the same floor, with the iframe+CSP+consent machinery the MCP-Apps standard already specifies). The two expensive-to-change decisions locked here — **a review template is a declarative specialization of a family floor that degrades gracefully**, and **first-party + community contribute through one provenance-tagged mechanism** — ripple through AL5's architecture and AN4's registry, and are locked now so neither track builds shipped-code review surfaces or two parallel catalogs. The deeper bet, in the founder's words: *properly structured, domain-specific review surfaces are a key of the future of agentic business* — the generic floor makes "review for anything" true; templates make it **good** for the work that matters.
+Draft 1 led with tool-shipped `ui://` UIs (a sandboxed-runtime bet — deferred). Draft 2 over-corrected into declarative-config "templates" with a runtime resolver that *auto-applied* one — wrong twice over: it paid a DSL-ceiling tax to dodge a sandbox threat we don't have, and it invented runtime auto-selection no OSS ecosystem uses. The founder cut through both: our review canvas is **already React**, code is cheap and AI-written, so a contributed review surface should simply **be a component**; and with thousands of surfaces per tool, the system must **never auto-pick** — a team **adopts** the one it wants, on purpose. The mechanism-level research shows this is exactly how the healthy ecosystems work: **code + a manifest, published to a registry anyone can host (shadcn); adopted and owned at build/setup time (you copy the source, it's yours); layered by wrap (extend, upgrade-safe) or eject (fork, you own it) (Docusaurus); with the floor always beneath** so "review for anything" never breaks. The "declarative is safer" instinct is real but **mis-scoped** — it guards *untrusted runtime plugins in end-user installs*, not an OSS repo of reviewable component code a team adopts and builds; our safety is code review + ownership at adopt time. The two expensive-to-change locks: **a review surface is owned, registry-distributed code that specializes a base canvas**, and **it runs only by deliberate adoption, never runtime auto-match**. Get these right and the long tail of domain-specific review — the thing the founder calls a key to agentic business — is covered by HyperIdle and the community through one honest, code-native, accountable mechanism.

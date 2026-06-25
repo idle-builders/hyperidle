@@ -163,42 +163,42 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 ---
 
-### AL5 — Review templates (domain/tool/task-specific review surfaces)
+### AL5 — Review surfaces (community/first-party React surfaces, registry-distributed, adopted)
 
-> **Reshaped 2026-06-25 (founder redirect).** Was "Tool-tailored review canvases" centred on tool-shipped MCP-Apps `ui://` UIs + a community canvas registry. Now: a **review-template** model — HyperIdle *and* the community contribute **declarative** review surfaces for specific apps/tools/tasks, layered over the family floor. The supplier-shipped `ui://` UI tier is **deferred** (a long stretch; needs a sandbox/CSP/consent surface). Concept: `plans/AL5/concept.md`.
+> **Reshaped 2026-06-25 (two founder redirects).** Was "Tool-tailored review canvases" via MCP-Apps `ui://` UIs (#1, deferred), then briefly declarative-config "templates" with runtime auto-apply (#2, rejected). Now: a **review-surface** model — a contributed review surface **is a React component** specializing a base canvas, **distributed through a registry** (shadcn-style, anyone can host) and **deliberately adopted** by a team (owned, version-pinned, reviewable — **never runtime auto-applied**). Concept: `plans/AL5/concept.md`.
 
-**Workpackage.** As HyperIdle and as a community contributor, I want to build a **review template** — a declarative, structured review surface tailored to a specific app/tool/task (a Stripe refund, a marketing campaign, a data migration) that specializes the generic family canvas — and as a reviewer I want the right template to apply automatically, visibly, and swappably — so reviewing domain work is purpose-built without HyperIdle hand-building every surface, and "review for anything" becomes "review *well* for the work that matters."
+**Workpackage.** As a community contributor or as HyperIdle, I want to **write a review surface** — a React component that specializes one of the base review canvases for a specific app/tool/task (a Stripe refund, a marketing campaign, a data migration) — and **publish it to a registry**; and as a team I want to **browse, preview, and adopt** the surface I want for a given review situation, owned and version-pinned — so reviewing domain work is purpose-built without HyperIdle hand-building every surface, and "review for anything" becomes "review *well* for the work that matters."
 
-**Why this matters.** Properly structured, domain-specific review surfaces are a key of the future of agentic business. "Review for anything" cannot be *good* if every tool gets only the generic canvas, and it cannot *scale* if HyperIdle authors every specialized surface. Templates let HyperIdle and the community cover the long tail through one mechanism; declarative templates keep it safe (an unsafe/abandoned template is inert, degrading to the floor — the HACS lesson).
+**Why this matters.** Properly structured, domain-specific review surfaces are a key of the future of agentic business. "Review for anything" cannot be *good* if every tool gets only the generic canvas, and cannot *scale* if HyperIdle authors every specialized surface. The review canvas is already React; a surface is just more React, cheap to write (often AI-written) and reviewable as code. A registry lets HyperIdle and the community cover the long tail through one mechanism.
 
-**What exists today.** The nine built-in family canvases + the kind→family selection (AL2/AL3); the declarative definition+registry pattern (`kinds/registry.ts`); the AN trust-tier vocab. No notion of a review template, no authoring/preview path, no catalog, no provenance/employment model.
+**What exists today.** The nine built-in base canvases (React) + the kind→family registry (AL2/AL3); the definition+registry pattern (`kinds/registry.ts`); the AN trust-tier vocab. No review-surface unit, no registry/distribution, no adoption mechanism, no slot/extension contracts on the base canvases.
 
-**What's genuinely missing.** The **review-template** noun and its lifecycle: a declarative specialization of a family floor (filling the universal review slots), authored by HyperIdle or the community **through one mechanism** (build-by-example with sample-data preview, or fork-an-existing-one), discoverable in one provenance-tagged catalog, **bound** to a recognizable (app/tool · task/domain · kind), **employed** by auto-applying the lens (visible · previewable · swappable — never auto-approving the action), and **degrading to its base family** when absent/stale/malformed.
+**What's genuinely missing.** The **review-surface** noun and its lifecycle: a React component specializing a base canvas (via declared slots), **published to a registry** (HyperIdle's, community ones — anyone can host) with a manifest (base canvas, deps, provenance, trust), and **deliberately adopted** by a team for a situation (`tool/task → surface`, owned + version-pinned + reviewable). Plus the two layering modes — **wrap** (compose over the base via slots, upgrade-safe) vs **eject** (fork the base source, you own it) — and the base-canvas fallback.
 
-**Depends on.** AL3 — there must be a review surface (and the family floor) to specialize; cannot start until the composition exists.
+**Depends on.** AL3 — there must be a review composition (and the base canvases) to specialize; cannot start until it exists.
 
 **Complexity.** L
 
-**Human design review.** Yes — the **employment** surface (active-lens visibility, preview/swap, provenance) and the **authoring** surface (build-by-example, live sample-data preview, fork) are new user-facing experiences central to the WP's value. (`/design`'s DESIGN-CLASS is authoritative.)
+**Human design review.** Yes — the **registry + adoption** surface (browse, preview, adopt-for-a-situation, provenance/trust) and the **base-canvas slot model** a contributor authors against are new user-facing experiences central to the WP's value. (`/design`'s DESIGN-CLASS is authoritative.)
 
 **Acceptance criteria.**
-- A contributor (HyperIdle or community) can author a review template **declaratively** for a specific app/tool/task and see it render against sample data before publishing — or fork an existing template as the starting point.
-- When a review template matches an artifact's situation (app/tool · task/domain · kind), the review **auto-applies** it over the generic family canvas; the active lens is **visible, previewable, and swappable**, and applying a template never changes the verdict, the staged action, or the gate.
-- When no template matches — or a matched template is malformed, abandoned, or removed — the review **falls back to the family canvas** (the floor always works); a bad template is **inert**, never breaks the host review.
-- First-party and community templates use **one mechanism**, distinguished only by **provenance** (first-party vs community) and an AN **trust tier**; a community template is consent-gated and **inspectable** (preview + visible content) before employ.
-- A template is a **versioned** artifact (pinnable; a change surfaces as a diff).
+- A contributor (HyperIdle or community) can **write a review surface as a React component** that specializes a base canvas, preview it against sample data, and **publish it to a registry** with a manifest — or **fork** an existing surface as the starting point.
+- A team can **browse a registry, preview a surface, and adopt** it for a review situation (`tool/task → surface`); the adoption is **owned, committed, and version-pinned** — and the system renders the **adopted** surface by that explicit mapping, **never** by auto-selecting among candidates at render time.
+- When no surface is adopted for a situation — or an adopted surface fails to load — the review renders the **base canvas** (the floor always works); a broken surface never breaks the host review.
+- A surface specializes its base canvas by **wrap** (compose over it via slots — upgrade-safe) or **eject** (fork its source — owned); the base canvas declares per-slot which is allowed.
+- First-party and community surfaces use **one registry mechanism**, distinguished by **provenance** + an AN **trust tier**; a community surface is reviewable/previewable before adoption. Trust is adopt-time code review + ownership, not a runtime sandbox.
 
 **Validation scenarios.**
-- Given a published "Stripe refund review" template, when a matching artifact is reviewed, then that template renders over the family floor, visibly active and swappable back to the floor.
-- Given no matching template (a never-seen tool/task), when its artifact is reviewed, then the generic family canvas renders.
-- Given a malformed/untrusted template, when it is employed, then it is inert and the review degrades to the base family canvas — the host review is unaffected.
-- Given a contributor authoring a template, when they edit it, then it renders live against sample data before publishing.
+- Given a published "Stripe refund review" surface a team has adopted for Stripe refunds, when such an artifact is reviewed, then that surface renders over its base canvas; swapping the adoption back to the base canvas is a deliberate, owned change.
+- Given a situation with no adopted surface, when its artifact is reviewed, then the base canvas renders.
+- Given an adopted surface that fails to load, when its artifact is reviewed, then the review degrades to the base canvas — the host review is unaffected.
+- Given a contributor writing a surface, when they edit it, then it renders live against sample data before publishing.
 
-**Plan calls.** Concept locked (`plans/AL5/concept.md`). Run `/design` (the authoring + employment surfaces — `Human design review: Yes`). Then architecture; likely splits (the template schema + declarative renderer + binding/selection vs the catalog + authoring/preview + versioning/provenance).
+**Plan calls.** Concept locked (`plans/AL5/concept.md`). Run `/design` (the registry/adoption surface + the slot-authoring model — `Human design review: Yes`). Then architecture; likely splits (the base-canvas slot contracts + wrap/eject layering + the surface component model vs the registry/distribution + adoption store + versioning/provenance).
 
-**Contracts / constraints.** A template is **declarative data interpreted by HyperIdle's trusted renderer** (no shipped code, no `ui://` UI in scope). The family floor is always the base + fallback (every template additive; malformed/abandoned/removed ⇒ inert ⇒ degrades to floor). Auto-apply the lens, never the approval (always visible + swappable; never mutates verdict/action/gate). One mechanism for first-party + community, distinguished by provenance; trust tier ∈ {vetted, community} (AN, reused). Provenance certifies identity, not correctness.
+**Contracts / constraints.** A review surface is **code (a React component) specializing a base canvas — not declarative config, not an untrusted runtime plugin**; trust is adopt-time code review + ownership, not a sandbox. **No runtime auto-apply** — a surface runs only where a team deliberately adopted it (owned, version-pinned, reviewable); the registry is a catalog of availables, the app reflects adoptions. The base canvas is always the floor + fallback (no adoption / failed surface ⇒ base canvas). Two layering modes: wrap (upgrade-safe) | eject (owned); per-slot `wrap|eject|forbidden`. A surface is the lens, never the decision (never mutates verdict/action/gate). One registry mechanism for first-party + community; trust tier ∈ {vetted, community} (AN, reused); provenance certifies identity, not correctness.
 
-**Out of scope.** The built-in family canvases (AL2). Building per-tool connectors (AN). Any specific template's content. The supplier-shipped `ui://` UI tier (deferred). The connector registry (AN4 — a connector may *reference* an AL5 template).
+**Out of scope.** The built-in base canvases (AL2). Building per-tool connectors (AN). Any specific surface's content. The supplier-shipped `ui://` UI tier (deferred). The connector registry (AN4 — a connector may *reference* an AL5 surface).
 
 **Effort.** L (~6d)
 
