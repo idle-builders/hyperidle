@@ -18,10 +18,10 @@
  * agent input. The agent cannot inject a target URL.
  */
 
+import type { ConnectorSpec, ConnectorToolDescriptor } from "@hyperidle/shared";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { ConnectorSpec, ConnectorToolDescriptor } from "@hyperidle/shared";
 
 /** The result of a tool call from an external MCP server. */
 export interface CallToolResult {
@@ -60,7 +60,9 @@ export async function connectOutbound(
 
 	if (spec.transport === "http") {
 		if (!spec.url) {
-			throw new Error(`ConnectorSpec for service "${spec.service}" is missing url for http transport`);
+			throw new Error(
+				`ConnectorSpec for service "${spec.service}" is missing url for http transport`,
+			);
 		}
 
 		// Build requestInit with optional Authorization header
@@ -102,10 +104,7 @@ export async function connectOutbound(
 		// @lore AN2 security: redact authToken from error messages to prevent
 		// credential leakage in logs. Replace any occurrence with "[REDACTED]".
 		const raw = e instanceof Error ? e.message : String(e);
-		const safe =
-			authToken && authToken.length > 0
-				? raw.replaceAll(authToken, "[REDACTED]")
-				: raw;
+		const safe = authToken && authToken.length > 0 ? raw.replaceAll(authToken, "[REDACTED]") : raw;
 		throw new Error(`connectOutbound failed for service "${spec.service}": ${safe}`);
 	}
 
@@ -149,9 +148,7 @@ export async function connectOutbound(
 				const raw = e instanceof Error ? e.message : String(e);
 				// Redact auth token from call errors too
 				const safe =
-					authToken && authToken.length > 0
-						? raw.replaceAll(authToken, "[REDACTED]")
-						: raw;
+					authToken && authToken.length > 0 ? raw.replaceAll(authToken, "[REDACTED]") : raw;
 				throw new Error(`callTool "${name}" on service "${spec.service}" failed: ${safe}`);
 			}
 		},

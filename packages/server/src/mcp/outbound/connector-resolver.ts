@@ -62,10 +62,7 @@ export async function resolveConnectorTools(
 		.select()
 		.from(serviceConnections)
 		.where(
-			and(
-				eq(serviceConnections.userId, ownerUserId),
-				eq(serviceConnections.authSource, "token"),
-			),
+			and(eq(serviceConnections.userId, ownerUserId), eq(serviceConnections.authSource, "token")),
 		);
 
 	const tools: RegisteredTool[] = [];

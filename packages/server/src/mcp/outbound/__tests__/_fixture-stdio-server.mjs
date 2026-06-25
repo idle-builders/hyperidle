@@ -31,7 +31,9 @@ server.tool(
 	"List items (idempotent)",
 	{ filter: z.string().optional() },
 	async (args) => ({
-		content: [{ type: "text", text: JSON.stringify({ items: ["a", "b", "c"], filter: args.filter }) }],
+		content: [
+			{ type: "text", text: JSON.stringify({ items: ["a", "b", "c"], filter: args.filter }) },
+		],
 	}),
 	{ idempotentHint: true },
 );

@@ -12,9 +12,18 @@
  *                  so AC3a can assert credential-attach)
  *  - mystery      (no annotations → fail-safe irreversible)
  *
- * @lore AN2: The fixture uses StreamableHTTPServerTransport (Node.js http wrapper)
- * over a real TCP port so the outbound SDK Client can use StreamableHTTPClientTransport.
- * Stateless (sessionIdGenerator: undefined) for test isolation.
+ * @lore AN2: Per-session McpServer instances are required. The SDK's stateful
+ * StreamableHTTPServerTransport maintains session state per McpServer instance.
+ * A second client's `initialize` clashes with an already-initialized McpServer.
+ * Fix: maintain sessions Map<sessionId, StreamableHTTPServerTransport> and create
+ * a FRESH McpServer + transport per new initialize request (no mcp-session-id
+ * header). Subsequent requests route to existing transport via the map. This mirrors
+ * the SDK's `simpleStreamableHttp.js` example (stateful multi-session pattern).
+ *
+ * @lore AN2: Test isolation: each test creates a fresh fixture via beforeEach.
+ * Stateless mode (sessionIdGenerator: undefined) would forbid transport reuse
+ * across the multiple POSTs one MCP client session requires (initialize →
+ * notifications/initialized → listTools → callTool).
  *
  * @lore AN2: Uses `registerTool` (not `tool()`) to avoid the zod-brand cross-version
  * issue (the SDK dedupes to zod 3.25.76; our server uses zod 4.4.3). Pattern mirrors
@@ -26,6 +35,7 @@
  * (credential attached in the Authorization header by the broker).
  */
 
+import * as crypto from "node:crypto";
 import * as http from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -48,17 +58,18 @@ export interface FixtureMcpServer {
 }
 
 /**
- * Start a real MCP server on an ephemeral 127.0.0.1 port.
- * Returns once the server is listening.
+ * Register the four AN2 fixture tools on a McpServer instance.
+ * Called once per session (each new McpServer per session gets fresh registrations).
  *
- * The caller must call `.close()` in afterEach to free the port.
+ * @param mcpServer - Fresh McpServer for this session.
+ * @param capturedAuthHeaders - Shared array across sessions (fine: each test creates a new fixture).
+ * @param writeCountRef - Mutable ref to the per-fixture write counter.
  */
-export async function startFixtureMcpServer(): Promise<FixtureMcpServer> {
-	const capturedAuthHeaders: string[] = [];
-	let writeCallCount = 0;
-
-	const mcpServer = new McpServer({ name: "AN2-fixture", version: "1.0.0" });
-
+function registerFixtureTools(
+	mcpServer: McpServer,
+	capturedAuthHeaders: string[],
+	writeCountRef: { value: number },
+): void {
 	// read_value — idempotentHint:true → reversible for vetted source
 	mcpServer.registerTool(
 		"read_value",
@@ -82,15 +93,15 @@ export async function startFixtureMcpServer(): Promise<FixtureMcpServer> {
 			annotations: { destructiveHint: true },
 		},
 		async (args: unknown) => {
-			writeCallCount++;
+			writeCountRef.value++;
 			const { key, value } = args as { key: string; value: string };
 			return { content: [{ type: "text" as const, text: `written:${key}=${value}` }] };
 		},
 	);
 
-	// whoami — idempotentHint:true; the tool reads the last captured Authorization header.
+	// whoami — idempotentHint:true; reads last captured Authorization header.
 	// Authorization is captured at the HTTP layer (before transport.handleRequest) so the
-	// tool handler can access it from the capturedAuthHeaders array.
+	// tool handler can access it from the shared capturedAuthHeaders array.
 	//
 	// @lore AN2: McpServer tool handlers don't receive raw HTTP headers. We capture the
 	// Authorization header in the Node.js http.createServer handler before passing the
@@ -121,23 +132,65 @@ export async function startFixtureMcpServer(): Promise<FixtureMcpServer> {
 			return { content: [{ type: "text" as const, text: `mystery:${x}` }] };
 		},
 	);
+}
 
-	// Stateless transport (no session ID) — simplest for test isolation
-	const transport = new StreamableHTTPServerTransport({
-		sessionIdGenerator: undefined,
-	});
+/**
+ * Start a real MCP server on an ephemeral 127.0.0.1 port.
+ * Returns once the server is listening.
+ *
+ * The caller must call `.close()` in afterEach to free the port.
+ *
+ * Per-session McpServer: each new MCP initialize request (no mcp-session-id header)
+ * creates a fresh McpServer + StreamableHTTPServerTransport pair stored in a map.
+ * Subsequent requests from the same session route to the existing transport.
+ */
+export async function startFixtureMcpServer(): Promise<FixtureMcpServer> {
+	const capturedAuthHeaders: string[] = [];
+	// Mutable ref shared across sessions (safe: each test gets a fresh fixture).
+	const writeCountRef = { value: 0 };
 
-	await mcpServer.connect(transport);
+	// Per-session transport map: session ID → transport.
+	// @lore AN2: The SDK generates a session ID during initialize response and sets
+	// the `mcp-session-id` response header. All subsequent requests from that client
+	// include this header, so routing is an O(1) map lookup.
+	const sessions = new Map<string, StreamableHTTPServerTransport>();
 
-	// Create a Node.js http server to wrap the transport
 	const httpServer = http.createServer(async (req, res) => {
-		// Capture Authorization header BEFORE passing to MCP transport
-		// so the whoami tool can read it. Only capture non-empty headers.
+		// Capture Authorization header BEFORE passing to MCP transport.
 		const authHeader = req.headers["authorization"] ?? "";
 		if (authHeader) {
 			capturedAuthHeaders.push(authHeader);
 		}
-		await transport.handleRequest(req, res);
+
+		// Route by existing session ID if present.
+		const sessionId = req.headers["mcp-session-id"] as string | undefined;
+		if (sessionId) {
+			const existingTransport = sessions.get(sessionId);
+			if (existingTransport) {
+				await existingTransport.handleRequest(req, res);
+				return;
+			}
+			res.writeHead(404).end("Unknown session");
+			return;
+		}
+
+		// No session ID → new initialize request.
+		// Create a fresh McpServer + transport for this session.
+		const sessionMcpServer = new McpServer({ name: "AN2-fixture", version: "1.0.0" });
+		registerFixtureTools(sessionMcpServer, capturedAuthHeaders, writeCountRef);
+
+		const sessionTransport = new StreamableHTTPServerTransport({
+			sessionIdGenerator: () => crypto.randomUUID(),
+			onsessioninitialized: (id) => {
+				sessions.set(id, sessionTransport);
+			},
+			onsessionclosed: (id) => {
+				sessions.delete(id);
+			},
+		});
+
+		await sessionMcpServer.connect(sessionTransport);
+		await sessionTransport.handleRequest(req, res);
 	});
 
 	// Listen on an ephemeral port (0 = OS picks)
@@ -152,7 +205,7 @@ export async function startFixtureMcpServer(): Promise<FixtureMcpServer> {
 	return {
 		url,
 		capturedAuthHeaders,
-		writeCallCount: () => writeCallCount,
+		writeCallCount: () => writeCountRef.value,
 		close: async () => {
 			await new Promise<void>((resolve, reject) => {
 				httpServer.close((err) => (err ? reject(err) : resolve()));

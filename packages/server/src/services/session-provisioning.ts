@@ -41,23 +41,23 @@ import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
 import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
+import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import {
 	defaultResolveConnectorSpec,
 	resolveConnectorTools,
 } from "../mcp/outbound/connector-resolver.js";
-import { resolveOwnerUserId } from "./owner-user.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
-import { ServiceConnectionResolver } from "./service-connection-resolver.js";
-import { getServerSecret } from "./credential-encryption.js";
 import {
 	buildToolRegistry,
 	type RegistrySessionWorkflow,
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
+import { getServerSecret } from "./credential-encryption.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
+import { resolveOwnerUserId } from "./owner-user.js";
 import { readServerConfig } from "./server-config.js";
+import { ServiceConnectionResolver } from "./service-connection-resolver.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import { getActiveStrategy } from "./strategy-registry.js";

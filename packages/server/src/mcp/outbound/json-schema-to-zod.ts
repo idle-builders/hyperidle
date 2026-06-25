@@ -29,11 +29,23 @@ function convertProperty(prop: Record<string, unknown>): z.ZodType {
 		if (vals.every((v) => typeof v === "string")) {
 			return z.enum(vals as [string, ...string[]]);
 		}
-		// Mixed or non-string enum: union of literals
-		const literalTypes = (vals as [unknown, unknown, ...unknown[]]).map(
-			(v) => z.literal(v as string | number | boolean | null),
-		) as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
-		return z.union(literalTypes);
+		// Mixed or non-string enum: build a union of literals.
+		// z.union() requires ≥ 2 options. We already know vals.length > 0 (checked above).
+		// Guard the < 2 case to return a safe fallback.
+		if (vals.length < 2) {
+			return z.unknown();
+		}
+		// Build the union as z.ZodType to avoid fighting the 2-tuple constraint.
+		// @lore AN2: z.union's type parameter requires a 2-tuple literal type which
+		// can't be inferred from a .map() call. Constructing the result directly via
+		// reduce avoids any cast — each step produces a valid z.ZodType.
+		const literals = vals.map((v) => z.literal(v as string | number | boolean | null));
+		return literals
+			.slice(1)
+			.reduce<z.ZodType>(
+				(acc, lit) => z.union([acc as z.ZodTypeAny, lit]),
+				literals[0] as z.ZodTypeAny,
+			);
 	}
 
 	switch (prop.type) {
@@ -59,7 +71,8 @@ function convertProperty(prop: Record<string, unknown>): z.ZodType {
 
 /** Convert an object-typed JSON Schema to a Zod object. */
 function convertObjectSchema(schema: Record<string, unknown>): z.ZodType {
-	const properties = (schema.properties as Record<string, Record<string, unknown>> | undefined) ?? {};
+	const properties =
+		(schema.properties as Record<string, Record<string, unknown>> | undefined) ?? {};
 	const required = (schema.required as string[] | undefined) ?? [];
 	const requiredSet = new Set(required);
 

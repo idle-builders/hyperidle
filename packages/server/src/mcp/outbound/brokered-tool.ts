@@ -27,9 +27,9 @@
 
 import type { ConnectorSpec, ConnectorToolDescriptor } from "@hyperidle/shared";
 import { CONNECTOR_TOOL_PREFIX } from "@hyperidle/shared";
+import type { ServiceConnectionResolver } from "../../services/service-connection-resolver.js";
 import type { RegisteredTool } from "../../tools/tool-registry.js";
 import { err, ok } from "../../tools/tool-result.js";
-import type { ServiceConnectionResolver } from "../../services/service-connection-resolver.js";
 import { jsonSchemaToZod } from "./json-schema-to-zod.js";
 import { connectOutbound } from "./outbound-mcp-client.js";
 
@@ -85,9 +85,7 @@ export function wrapBrokeredTool(args: WrapBrokeredToolArgs): RegisteredTool {
 		name,
 		description: descriptor.description ?? `External tool: ${descriptor.name}`,
 		inputSchema,
-		...(annotations !== undefined && Object.keys(annotations).length > 0
-			? { annotations }
-			: {}),
+		...(annotations !== undefined && Object.keys(annotations).length > 0 ? { annotations } : {}),
 		handler: async (handlerArgs, _ctx) => {
 			// 1. Resolve credential server-side (never in args, never in session)
 			const token = await resolver.resolve(ownerUserId, connectionId);
