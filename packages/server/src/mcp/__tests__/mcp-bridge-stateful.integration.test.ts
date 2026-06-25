@@ -39,13 +39,13 @@ import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
 } from "../../harness/return-enforcement-registry.js";
-import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
 import { commitFileTool } from "../../tools/commit-file.js";
 import type { RegisteredTool, ToolRegistry } from "../../tools/tool-registry.js";
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
 import { err } from "../../tools/tool-result.js";
+import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
+import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp-bridge-registry.js";
 
 // ── Minimal one-tool registry for the proof vehicle ──────────────────────────
 // Avoids a full buildToolRegistry (which needs a DB). commit_file is a pure
@@ -149,145 +149,134 @@ describe("T0b — production MCP bridge stateful session-capability (AC9)", () =
 		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	test(
-		"multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id (AC9)",
-		async () => {
-			// Use the SDK Client + StreamableHTTPClientTransport pointed at the
-			// PRODUCTION server. This avoids the mcp-protocol-version foot-gun (N11)
-			// and naturally carries the mcp-session-id header on requests 2+.
-			//
-			// RED reason: the production bridge is stateless — the SDK transport
-			// issues initialize (req 1) then immediately makes a follow-up request
-			// (req 2). The stateless bridge throws on req 2:
-			//   "Stateless transport cannot be reused across requests."
-			//
-			// GREEN (after T0): stateful bridge assigns a session id and routes all
-			// subsequent requests via the mcp-session-id header.
+	test("multi-request session: initialize → list_tools → call_tool succeeds via mcp-session-id (AC9)", async () => {
+		// Use the SDK Client + StreamableHTTPClientTransport pointed at the
+		// PRODUCTION server. This avoids the mcp-protocol-version foot-gun (N11)
+		// and naturally carries the mcp-session-id header on requests 2+.
+		//
+		// RED reason: the production bridge is stateless — the SDK transport
+		// issues initialize (req 1) then immediately makes a follow-up request
+		// (req 2). The stateless bridge throws on req 2:
+		//   "Stateless transport cannot be reused across requests."
+		//
+		// GREEN (after T0): stateful bridge assigns a session id and routes all
+		// subsequent requests via the mcp-session-id header.
 
-			const mcpUrl = `${testServer.url}/api/mcp/${testServer.bridge.token}`;
+		const mcpUrl = `${testServer.url}/api/mcp/${testServer.bridge.token}`;
 
-			const transport = new StreamableHTTPClientTransport(new URL(mcpUrl));
-			const client = new Client(
-				{ name: "t0b-test-client", version: "1.0" },
-				{ capabilities: {} },
-			);
+		const transport = new StreamableHTTPClientTransport(new URL(mcpUrl));
+		const client = new Client({ name: "t0b-test-client", version: "1.0" }, { capabilities: {} });
 
-			// connect() drives the initialize handshake (request 1 + server response).
-			// On a stateless bridge, any subsequent client call that issues a request
-			// will hit the stateless guard and throw.
-			await client.connect(transport);
+		// connect() drives the initialize handshake (request 1 + server response).
+		// On a stateless bridge, any subsequent client call that issues a request
+		// will hit the stateless guard and throw.
+		await client.connect(transport);
 
-			try {
-				// listTools() issues a tools/list request (request 2).
-				// RED: stateless bridge throws "Stateless transport cannot be reused across requests."
-				// GREEN: stateful bridge returns the registered tools list.
-				const toolsList = await client.listTools();
+		try {
+			// listTools() issues a tools/list request (request 2).
+			// RED: stateless bridge throws "Stateless transport cannot be reused across requests."
+			// GREEN: stateful bridge returns the registered tools list.
+			const toolsList = await client.listTools();
 
-				// Assert: the production bridge is session-capable and returned the tool list.
-				expect(toolsList.tools).toBeDefined();
-				const toolNames = toolsList.tools.map((t) => t.name);
+			// Assert: the production bridge is session-capable and returned the tool list.
+			expect(toolsList.tools).toBeDefined();
+			const toolNames = toolsList.tools.map((t) => t.name);
 
-				// The minimal registry exposes commit_file.
-				expect(toolNames).toContain("commit_file");
+			// The minimal registry exposes commit_file.
+			expect(toolNames).toContain("commit_file");
 
-				// callTool() issues a tools/call request (request 3).
-				// RED: would also fail on stateless bridge.
-				// GREEN: stateful bridge routes to registry.invoke.
-				const callResult = await client.callTool({
-					name: "commit_file",
-					arguments: { path: "t0b-proof.txt", content: "t0b-stateful-proof" },
-				});
-
-				// Assert: registry.invoke was called and returned a result.
-				// The tool writes to sandboxPath/t0b-proof.txt.
-				expect(callResult).toBeDefined();
-				expect(callResult.content).toBeDefined();
-
-				// Verify the file was written (proves the full call routed to registry.invoke).
-				const proofFile = path.join(sandboxPath, "t0b-proof.txt");
-				expect(fs.existsSync(proofFile)).toBe(true);
-				expect(fs.readFileSync(proofFile, "utf-8")).toBe("t0b-stateful-proof");
-			} finally {
-				await client.close();
-			}
-		},
-		30_000,
-	);
-
-	test(
-		"sanity-break: POST without mcp-session-id after initialize → 400 or 404 (AC9 anti-vacuous)",
-		async () => {
-			// This sanity-break proves the session gate is real, not a no-op.
-			//
-			// Protocol:
-			//   1. Initialize via SDK Client → server returns mcp-session-id header.
-			//   2. Issue a raw tools/list request WITHOUT the mcp-session-id header.
-			//   3. The SDK's validateSession() must return 400 "Mcp-Session-Id header is required"
-			//      or 404 "Session not found".
-			//
-			// This proves the session gate enforces the mcp-session-id contract.
-			// Without this check, the test could vacuously green against a no-op transport.
-			//
-			// NOTE: This sanity-break only applies AFTER T0 (stateful bridge).
-			// Against the current stateless bridge (RED phase), the initialize itself
-			// may succeed but the second request throws for a different reason.
-			// We assert the response is NOT 200 (either 400 or 404).
-
-			const mcpUrl = `${testServer.url}/api/mcp/${testServer.bridge.token}`;
-
-			// Step 1: Initialize to get a valid session id.
-			const initResponse = await fetch(mcpUrl, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
-					Accept: "application/json, text/event-stream",
-				},
-				body: JSON.stringify({
-					jsonrpc: "2.0",
-					id: 1,
-					method: "initialize",
-					params: {
-						protocolVersion: "2024-11-05",
-						capabilities: {},
-						clientInfo: { name: "t0b-sanity-break", version: "1.0" },
-					},
-				}),
+			// callTool() issues a tools/call request (request 3).
+			// RED: would also fail on stateless bridge.
+			// GREEN: stateful bridge routes to registry.invoke.
+			const callResult = await client.callTool({
+				name: "commit_file",
+				arguments: { path: "t0b-proof.txt", content: "t0b-stateful-proof" },
 			});
 
-			// The initialize request may or may not succeed on the stateless bridge.
-			// We don't assert on this — the RED assertion is on request 2.
+			// Assert: registry.invoke was called and returned a result.
+			// The tool writes to sandboxPath/t0b-proof.txt.
+			expect(callResult).toBeDefined();
+			expect(callResult.content).toBeDefined();
 
-			// Step 2: Issue a tools/list WITHOUT the mcp-session-id header.
-			// On a stateful bridge (GREEN): SDK validates session → 400 "Mcp-Session-Id header is required".
-			// On a stateless bridge (RED): the first request may have been fine, but
-			//   this is NOT mcp-session-id-gated, meaning the session gate is absent.
-			// We assert the response is NOT 200 to prove the gate is real.
-			const listWithoutSessionId = await fetch(mcpUrl, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
-					Accept: "application/json, text/event-stream",
-					// Intentionally NO mcp-session-id header.
+			// Verify the file was written (proves the full call routed to registry.invoke).
+			const proofFile = path.join(sandboxPath, "t0b-proof.txt");
+			expect(fs.existsSync(proofFile)).toBe(true);
+			expect(fs.readFileSync(proofFile, "utf-8")).toBe("t0b-stateful-proof");
+		} finally {
+			await client.close();
+		}
+	}, 30_000);
+
+	test("sanity-break: POST without mcp-session-id after initialize → 400 or 404 (AC9 anti-vacuous)", async () => {
+		// This sanity-break proves the session gate is real, not a no-op.
+		//
+		// Protocol:
+		//   1. Initialize via SDK Client → server returns mcp-session-id header.
+		//   2. Issue a raw tools/list request WITHOUT the mcp-session-id header.
+		//   3. The SDK's validateSession() must return 400 "Mcp-Session-Id header is required"
+		//      or 404 "Session not found".
+		//
+		// This proves the session gate enforces the mcp-session-id contract.
+		// Without this check, the test could vacuously green against a no-op transport.
+		//
+		// NOTE: This sanity-break only applies AFTER T0 (stateful bridge).
+		// Against the current stateless bridge (RED phase), the initialize itself
+		// may succeed but the second request throws for a different reason.
+		// We assert the response is NOT 200 (either 400 or 404).
+
+		const mcpUrl = `${testServer.url}/api/mcp/${testServer.bridge.token}`;
+
+		// Step 1: Initialize to get a valid session id.
+		const initResponse = await fetch(mcpUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+				Accept: "application/json, text/event-stream",
+			},
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "initialize",
+				params: {
+					protocolVersion: "2024-11-05",
+					capabilities: {},
+					clientInfo: { name: "t0b-sanity-break", version: "1.0" },
 				},
-				body: JSON.stringify({
-					jsonrpc: "2.0",
-					id: 2,
-					method: "tools/list",
-					params: {},
-				}),
-			});
+			}),
+		});
 
-			// The session gate must reject this request.
-			// 400 = "Server not initialized" or "Mcp-Session-Id header is required"
-			// 404 = "Session not found"
-			// 200 = NOT acceptable (means the gate is absent — vacuous green)
-			expect([400, 404]).toContain(listWithoutSessionId.status);
+		// The initialize request may or may not succeed on the stateless bridge.
+		// We don't assert on this — the RED assertion is on request 2.
 
-			// Consume the init response body to avoid resource leaks.
-			await initResponse.body?.cancel();
-		},
-		30_000,
-	);
+		// Step 2: Issue a tools/list WITHOUT the mcp-session-id header.
+		// On a stateful bridge (GREEN): SDK validates session → 400 "Mcp-Session-Id header is required".
+		// On a stateless bridge (RED): the first request may have been fine, but
+		//   this is NOT mcp-session-id-gated, meaning the session gate is absent.
+		// We assert the response is NOT 200 to prove the gate is real.
+		const listWithoutSessionId = await fetch(mcpUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+				Accept: "application/json, text/event-stream",
+				// Intentionally NO mcp-session-id header.
+			},
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 2,
+				method: "tools/list",
+				params: {},
+			}),
+		});
+
+		// The session gate must reject this request.
+		// 400 = "Server not initialized" or "Mcp-Session-Id header is required"
+		// 404 = "Session not found"
+		// 200 = NOT acceptable (means the gate is absent — vacuous green)
+		expect([400, 404]).toContain(listWithoutSessionId.status);
+
+		// Consume the init response body to avoid resource leaks.
+		await initResponse.body?.cancel();
+	}, 30_000);
 });

@@ -34,12 +34,12 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
 import { provisionReturnHook } from "../harness/provision-return-hook.js";
 import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
 // v4-final: re-engage.ts (rewriteSandboxForcing) deleted — no Layer-B loop.
 import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
-import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";

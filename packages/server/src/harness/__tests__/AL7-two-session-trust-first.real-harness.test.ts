@@ -38,13 +38,12 @@
  * --strict-mcp-config to prevent the binary from reading other project .mcp.json
  * files that might conflict.
  *
- * @lore AL7 real-harness codex-opencode (REVISED — AL7 delta): Codex and opencode
- * lanes are added in this file as the AL7 delta. They mirror the claude lane structure:
- * session-1 (capture) → approve → session-2 (grant-bearing) → real file written.
- * All three lanes are re-pointed at the PRODUCTION `createMcpBridge` + `createMcpRoute`
- * once T0 (stateful bridge) and T4-T6 (wiring) land. The test-only `buildStatefulMcpServer`
- * and the `app.all("/mcp/:token")` route override will be deleted in T3 (green phase)
- * when the production bridge is stateful. The codex/opencode lanes are RED until T0+T5+T6.
+ * @lore AL7 real-harness codex-opencode (T3 COMPLETE — AL7 delta): Codex and opencode
+ * lanes mirror the claude lane structure: session-1 (capture) → approve → session-2
+ * (grant-bearing) → real file written. All three lanes are re-pointed at the PRODUCTION
+ * `createMcpBridge` + `createMcpRoute` at `/api/mcp/${token}`. The test-only
+ * `buildStatefulMcpServer` + `app.all("/mcp/:token")` override have been DELETED (T3).
+ * The production bridge (stateful since AL7 T0) is the only transport in use.
  *
  * @lore AL7 T3 teardown-coverage: Per the R1-closure section (architecture.md), the
  * production bridge teardown (unregister → mcpServer.close → transport.close) is
@@ -65,21 +64,19 @@
  */
 
 import { execFile, execFileSync, spawn } from "node:child_process";
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import type { AnySchema as McpAnySchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import { normalizeHarnessEvent } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
 } from "../../harness/return-enforcement-registry.js";
+import { createMcpBridge } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
 import { commitFileTool } from "../../tools/commit-file.js";
@@ -276,85 +273,29 @@ interface Al7TestServer {
 	rebuildBridge(newRouter: CapturingRouter): Promise<void>;
 }
 
-/**
- * Build a STATEFUL MCP server + transport for a given capturing router.
- *
- * Uses STATEFUL mode (`sessionIdGenerator: () => randomUUID()`) instead of the
- * production stateless mode. This is required because the claude binary makes multiple
- * HTTP requests per MCP "session" (initialize + list_tools + call_tool), and the
- * stateless transport (`_hasHandledRequest` guard) throws on the second request.
- *
- * @lore AL7 real-harness stateful-transport: `WebStandardStreamableHTTPServerTransport`
- * in stateless mode sets `_hasHandledRequest = true` on the first request and throws
- * `Stateless transport cannot be reused across requests` on any subsequent request.
- * The claude binary's MCP client makes multiple requests per session, so stateless mode
- * is incompatible with a real CLI client. Stateful mode assigns a session ID and routes
- * subsequent requests via the Mcp-Session-Id header, allowing the full initialize +
- * list_tools + call_tool sequence to work correctly.
- *
- * This is a test-only construct; the production `createMcpBridge` uses stateless mode
- * for the ClaudeAgentSdkAdapter path (which uses the SDK directly, not HTTP requests).
- */
-async function buildStatefulMcpServer(registry: ToolRegistry): Promise<{
-	mcpServer: McpServer;
-	transport: WebStandardStreamableHTTPServerTransport;
-	token: string;
-}> {
-	const token = crypto.randomBytes(32).toString("hex");
-
-	// STATEFUL mode: sessionIdGenerator lets the transport manage sessions across requests.
-	const transport = new WebStandardStreamableHTTPServerTransport({
-		sessionIdGenerator: () => crypto.randomUUID(),
-	});
-
-	const mcpServer = new McpServer(
-		{ name: "hyperidle", version: "0.0.1" },
-		{ capabilities: { tools: {} } },
-	);
-
-	// Register tools from the registry.
-	for (const def of registry.definitions) {
-		mcpServer.registerTool(
-			def.name,
-			{
-				description: def.description,
-				inputSchema: def.inputSchema as unknown as McpAnySchema,
-			},
-			async (args: unknown) => {
-				const result = await registry.invoke(def.name, args);
-				if (result.success) {
-					return { content: [{ type: "text" as const, text: JSON.stringify(result.data) }] };
-				}
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: JSON.stringify({ error: result.error, code: result.code }),
-						},
-					],
-					isError: true,
-				};
-			},
-		);
-	}
-
-	await mcpServer.connect(transport);
-	return { mcpServer, transport, token };
-}
+// buildStatefulMcpServer DELETED in T3 (AL7 review fix). The production
+// createMcpBridge (stateful since AL7 T0) is used directly in startAl7TestServer
+// and rebuildBridge — no test-only stand-in remains.
 
 /**
- * Start a local Hono server with:
- *   - STATEFUL MCP server exposing `commit_file` via the capturing router
- *     (stateful transport handles multiple requests per claude session)
- *   - REAL /api/mcp/:token/return-status route for AL6 enforcement hook
+ * Start a local Hono server with the PRODUCTION MCP bridge:
+ *   - createMcpBridge (stateful) registered in bridgeRegistry
+ *   - createMcpRoute (ALL /api/mcp/:token) as the ONLY MCP catch-all
+ *   - return-status route for AL6 enforcement hook
  *
- * Between sessions, rebuildBridge() creates a new McpServer+transport with a fresh token
- * and updates the Hono route handler to use the new transport.
+ * T3 COMPLETE: the test-only `buildStatefulMcpServer` and the `/mcp/:token`
+ * route override are gone. All three lanes (claude, codex, opencode) hit the
+ * PRODUCTION `createMcpBridge` + `createMcpRoute` at `/api/mcp/${token}`.
  *
- * @lore AL7 real-harness: Uses stateful MCP transport (test-only) vs production stateless.
- * Stateless transport is incompatible with real CLI clients that make multiple HTTP requests
- * per session (initialize + list_tools + call_tool). Stateful transport assigns a session ID
- * via Mcp-Session-Id header and routes subsequent requests correctly.
+ * @lore AL7 T3 production-bridge: The production bridge (createMcpBridge) is
+ * stateful (sessionIdGenerator: () => crypto.randomUUID(), set in AL7 T0). The
+ * bridge registry holds one transport instance per session token — the production
+ * /api/mcp/:token route delegates to bridgeRegistry.handleRequest which routes
+ * to the correct stateful transport instance. No test-only stand-in remains.
+ *
+ * @lore AL7 T3 sanity-break: Wrong token in any CLI config → bridgeRegistry.lookup
+ * returns undefined → 401 → binary gets a tool error → captured stays 0 → assertion
+ * fails. This confirms all three lanes are non-vacuous (production registry path).
  */
 async function startAl7TestServer(
 	sandboxPath: string,
@@ -370,44 +311,24 @@ async function startAl7TestServer(
 	// Build the capturing router (session 1: capture mode).
 	const capturingRouter = createCapturingRouter(sandboxPath);
 
-	// Build the stateful MCP server for session 1.
-	let currentMcpState = await buildStatefulMcpServer(capturingRouter.registry);
-
-	// Build the Hono app.
-	// The MCP endpoint is mounted as ALL /mcp/:token — we match by token.
-	// The return-status route (AL6) uses the bridge registry.
-	// Note: we add the bridge registry entry for return-status to work (even though
-	// we don't use Stop hooks in this test — belt and suspenders).
-	bridgeRegistry.register({
-		token: currentMcpState.token,
+	// Build the PRODUCTION bridge via createMcpBridge (stateful transport).
+	// The token is a 64-char hex session key; the bridgeRegistry routes /api/mcp/:token
+	// requests to this transport instance.
+	let currentBridge = await createMcpBridge({
 		sessionId: testSessionId,
-		mcpServer: currentMcpState.mcpServer,
-		transport: currentMcpState.transport,
+		registry: capturingRouter.registry,
 	});
+	bridgeRegistry.register(currentBridge);
 
 	const app = new Hono();
 
-	// Mount the return-status route using createMcpRoute's enforcement path.
+	// Mount the production MCP + enforcement routes at /api.
+	// createMcpRoute provides: ALL /api/mcp/:token (bridge) + return-status route.
+	// No /mcp/:token override — CLIs must use /api/mcp/:token (production path).
 	const api = new Hono();
-	const mcpEnforcementRouter = createMcpRoute(bridgeRegistry, enforcementReg);
-	api.route("/", mcpEnforcementRouter);
+	const mcpRouter = createMcpRoute(bridgeRegistry, enforcementReg);
+	api.route("/", mcpRouter);
 	app.route("/api", api);
-
-	// Override the catch-all MCP route to use our stateful transport directly.
-	// We re-register the tool-call handler that bypasses the bridge registry lookup
-	// and routes directly to the current stateful transport.
-	//
-	// @lore AL7 real-harness route-override: The createMcpRoute catch-all (ALL /mcp/:token)
-	// uses bridgeRegistry.handleRequest which calls transport.handleRequest. With stateless
-	// mode that would fail on request 2. Instead we mount a direct handler that calls
-	// currentMcpState.transport.handleRequest — the stateful transport handles sessions correctly.
-	app.all("/mcp/:token", async (c) => {
-		const token = c.req.param("token");
-		if (token !== currentMcpState.token) {
-			return c.text("Unauthorized", 401);
-		}
-		return currentMcpState.transport.handleRequest(c.req.raw);
-	});
 
 	let resolvePort: (port: number) => void;
 	const portPromise = new Promise<number>((resolve) => {
@@ -428,36 +349,26 @@ async function startAl7TestServer(
 		enforcementReg,
 		sessionId: testSessionId,
 		get token() {
-			return currentMcpState.token;
+			return currentBridge.token;
 		},
 		capturingRouter,
 		close: async () => {
 			enforcementReg.unregister(testSessionId);
-			try {
-				await currentMcpState.mcpServer.close();
-			} catch {
-				/* teardown swallow */
-			}
+			// Unregister closes the bridge (mcpServer.close → transport.close).
+			await bridgeRegistry.unregister(currentBridge.token);
 			await new Promise<void>((resolve, reject) => {
 				server.close((err) => (err ? reject(err) : resolve()));
 			});
 		},
 		rebuildBridge: async (newRouter: CapturingRouter) => {
-			// Close old server.
-			try {
-				await currentMcpState.mcpServer.close();
-			} catch {
-				/* swallow */
-			}
-			// Build new stateful MCP server with the updated router.
-			currentMcpState = await buildStatefulMcpServer(newRouter.registry);
-			// Update bridge registry entry with new token (for return-status route).
-			bridgeRegistry.register({
-				token: currentMcpState.token,
+			// Unregister old bridge (closes mcpServer + transport via registry).
+			await bridgeRegistry.unregister(currentBridge.token);
+			// Build a new PRODUCTION bridge with the updated router.
+			currentBridge = await createMcpBridge({
 				sessionId: testSessionId,
-				mcpServer: currentMcpState.mcpServer,
-				transport: currentMcpState.transport,
+				registry: newRouter.registry,
 			});
+			bridgeRegistry.register(currentBridge);
 		},
 	};
 }
@@ -547,18 +458,13 @@ async function spawnDetached(
  * Write the MCP config JSON file for the claude binary.
  * Uses { "mcpServers": { "hyperidle": { "type": "http", "url": "..." } } }
  *
- * The URL points to the STATEFUL MCP transport handler at /mcp/:token
- * (not /api/mcp/:token which uses the stateless bridge registry).
+ * The URL points to the PRODUCTION bridge at /api/mcp/:token (T3 complete).
  *
  * @lore AL7 real-harness mcp-config: The --mcp-config flag accepts a path to a
  * JSON file. The claude binary connects to the HTTP MCP server at the given URL.
  * Combined with --strict-mcp-config to isolate from project .mcp.json files.
  * Combined with --allowedTools mcp__hyperidle__commit_file to force the agent to
  * use our MCP tool instead of built-in Write/Bash tools.
- *
- * @lore AL7 real-harness mcp-path: The MCP URL uses /mcp/:token (root-mounted stateful
- * handler) NOT /api/mcp/:token (bridge-registry catch-all with stateless transport).
- * The stateful handler at /mcp/:token handles multiple requests per claude session.
  */
 function writeMcpConfig(configPath: string, mcpUrl: string): void {
 	const config = {
@@ -572,9 +478,13 @@ function writeMcpConfig(configPath: string, mcpUrl: string): void {
 	fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
 }
 
-/** Build the MCP URL for the claude binary (stateful handler, not bridge registry). */
+/**
+ * Build the PRODUCTION MCP URL for any CLI binary.
+ * Uses /api/mcp/:token — the createMcpRoute catch-all served by bridgeRegistry.
+ * T3: all three lanes (claude, codex, opencode) hit this path.
+ */
 function buildMcpUrl(serverUrl: string, token: string): string {
-	return `${serverUrl}/mcp/${token}`;
+	return `${serverUrl}/api/mcp/${token}`;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -911,18 +821,14 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	// ── CODEX CLI (real binary, MCP-routed two-session loop) ─────────────────
 	//
-	// @lore AL7 T3 codex: Mirrors the claude lane. Uses a git-init'd sandbox
+	// @lore AL7 T3 codex (COMPLETE): Mirrors the claude lane. Uses a git-init'd sandbox
 	// (codex requires a git repo) and provisionCodexHome to write auth.json +
 	// config.toml to .codex-home/, then writeCliMcpConfig to append
 	// [mcp_servers.hyperidle] to .codex-home/config.toml.
 	//
-	// Lane is RED until T0 (stateful bridge) + T4 (writeCliMcpConfig) + T5/T6
-	// (CLI_TOOL_CONFIGS wiring + session-provisioning config writer).
-	//
-	// @lore AL7 T3 codex production-bridge: Once T0 lands, this lane hits the
-	// PRODUCTION createMcpBridge (stateful) via createMcpRoute at
-	// ${server.url}/api/mcp/${token} — not the test-only buildStatefulMcpServer.
-	// The rebuildBridge helper will use createMcpBridge once T0 is in.
+	// Hits PRODUCTION createMcpBridge (stateful) via createMcpRoute at
+	// ${server.url}/api/mcp/${token}. buildStatefulMcpServer and the /mcp/:token
+	// override are deleted (T3). rebuildBridge uses production createMcpBridge.
 	//
 	// @lore AL7 T3 sanity-break codex: Changing the config-file token to a wrong
 	// value → PRODUCTION bridge registry lookup fails (401) → codex gets a tool
@@ -978,15 +884,11 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
 
 				try {
-					// Production bridge URL (api/mcp/:token path, not /mcp/:token test override).
-					// After T0: testServer routes through createMcpBridge + createMcpRoute.
-					// For now the test-only bridge is used and the URL is /mcp/:token.
+					// T3 COMPLETE: uses /api/mcp/:token (production bridge path).
 					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
 
-					// @lore AL7 T3 codex: Provision .codex-home/ with auth.json + config.toml
-					// (copy from ~/.codex). Then call writeCliMcpConfig to append the
-					// [mcp_servers.hyperidle] block. This is the T4/T6 production writer.
-					// Currently RED: writeCliMcpConfig does not exist yet.
+					// writeCliMcpConfig (T4/T6): appends the [mcp_servers.hyperidle] block
+					// to .codex-home/config.toml (codex-toml dialect).
 					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
 					const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
 					fs.mkdirSync(codexHomeDir, { recursive: true });
@@ -1206,17 +1108,21 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	// ── OPENCODE CLI (real binary, MCP-routed two-session loop) ──────────────
 	//
-	// @lore AL7 T3 opencode: Mirrors the codex lane. Uses a plain sandbox (no git
+	// @lore AL7 T3 opencode (COMPLETE): Mirrors the codex lane. Uses a plain sandbox (no git
 	// required). writeCliMcpConfig writes opencode.json to the sandbox cwd.
 	// The spawn recipe: opencode run <prompt> --format json --pure
 	//   --dir <sandbox> --model openrouter/~anthropic/claude-haiku-latest
 	// (W4 closure: --model is required; provider-prefixed form per plan §1a.)
 	//
-	// @lore AL7 T3 opencode W3: opencode --format json emits raw JSONL types
-	// like step_finish/tool that may normalize to `unknown` via normalizeHarnessEvent.
-	// The session-1 captured>=1 assertion is on the MCP router capture (not event
-	// normalization) — the router captures the tool call directly regardless of
-	// event normalization. The stdout `step_finish` check verifies the turn completed.
+	// Hits PRODUCTION createMcpBridge (stateful) via createMcpRoute at
+	// ${server.url}/api/mcp/${token}. buildStatefulMcpServer and /mcp/:token override deleted.
+	//
+	// @lore AL7 T3 opencode W3 (RESOLVED): opencode --format json emits raw JSONL types
+	// like step_finish/tool. normalizeHarnessEvent maps unknown types to error events.
+	// The session-2 test includes a W3 assertion: at least one line of opencode stdout
+	// parses as valid JSON and normalizes to a non-error canonical HarnessEvent (proves
+	// the event normalization path works with real opencode JSONL output). If no event
+	// normalizes, the opencode pre-map must be added to normalizeHarnessEvent.
 	//
 	// @lore AL7 T3 sanity-break opencode: Wrong token in opencode.json → 401 from
 	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
@@ -1422,13 +1328,38 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 					expect(s2Result.exitCode).not.toBeNull();
 
-					// W3: opencode emits step_finish (or turn.completed) when done.
-					// The stdout is raw JSONL — step_finish is the opencode turn-end marker.
-					// (normalizeHarnessEvent may map this to unknown today — T6 fixes that;
-					// this assertion is on the raw stdout which the MCP router doesn't depend on.)
-					const hasCompletion =
-						s2Result.stdout.includes("step_finish") || s2Result.stdout.includes("turn.completed");
-					expect(hasCompletion).toBe(true);
+					// W3 (RESOLVED): opencode --format json emits JSONL. At least one line must
+					// normalize to a non-error HarnessEvent via normalizeHarnessEvent — proving
+					// the T6 obligation: opencode events are visible to the event-handling loop.
+					// The opencode pre-map in normalizeHarnessEvent translates step_finish → completion
+					// and tool → tool_call. Without the pre-map, all events would normalize to error.
+					const s2Lines = s2Result.stdout.split("\n").filter((l) => l.trim().length > 0);
+					let nonErrorNormalizedCount = 0;
+					for (const line of s2Lines) {
+						try {
+							const parsed: unknown = JSON.parse(line);
+							const event = normalizeHarnessEvent(parsed);
+							// Count events that normalize to a canonical type (not error/unknown).
+							// Error type includes both real errors AND unknownEvent (UnknownHarnessEvent).
+							const isUnknownEvent =
+								event.type === "error" &&
+								"code" in event &&
+								(event as { code: string }).code === "UnknownHarnessEvent";
+							if (!isUnknownEvent) {
+								nonErrorNormalizedCount++;
+							}
+						} catch {
+							// Non-JSON line (e.g. debug output) — skip.
+						}
+					}
+					expect(
+						nonErrorNormalizedCount,
+						"W3 ASSERTION: at least one opencode stdout JSONL line must normalize to a " +
+							"non-unknown HarnessEvent via normalizeHarnessEvent. " +
+							`Got 0 structured events out of ${s2Lines.length} lines. ` +
+							"Check that the opencode pre-map in normalizeHarnessEvent covers the actual " +
+							`event types emitted. stdout sample: "${s2Result.stdout.slice(0, 400)}"`,
+					).toBeGreaterThanOrEqual(1);
 				} finally {
 					await testServer.close();
 				}

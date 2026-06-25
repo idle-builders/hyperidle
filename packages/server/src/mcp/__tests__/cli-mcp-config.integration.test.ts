@@ -141,7 +141,7 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 
 			// Assert: existing content is preserved.
 			const after = fs.readFileSync(configTomlPath, "utf-8");
-			expect(after).toContain("default = \"o4-mini\"");
+			expect(after).toContain('default = "o4-mini"');
 			// And the new block is also present.
 			expect(after).toContain("[mcp_servers.hyperidle]");
 		});
