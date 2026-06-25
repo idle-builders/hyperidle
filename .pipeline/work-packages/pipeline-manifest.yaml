@@ -1281,24 +1281,29 @@ stories:
     depends: []
     complexity: M
 
-  # Track AO: Code Substrate & Landing
+  # Track AO: Self-Hosting Build Loop
   - id: AO1
-    title: "Code substrate: a per-unit-of-work git working copy"
-    track: AO
-    depends: []
-    complexity: L
-  - id: AO2
-    title: Materialize the code substrate into the session sandbox
-    track: AO
-    depends: [AO1]
-    complexity: L
-  - id: AO3
-    title: Code diff as a descriptive review artifact, Landing as an operative one
-    track: AO
-    depends: [AO2, AL7]
-    complexity: L
-  - id: AO4
-    title: Per-team knowledge-export target
+    title: Agents can think out of the box, and the app self-boots
     track: AO
     depends: []
     complexity: M
+  - id: AO2
+    title: "Output substrate: where an agent's work lives"
+    track: AO
+    depends: []
+    complexity: L
+  - id: AO3
+    title: Materialize the substrate into the session sandbox
+    track: AO
+    depends: [AO1, AO2]
+    complexity: L
+  - id: AO4
+    title: Agent output becomes reviewable and landable
+    track: AO
+    depends: [AO3, AL7]
+    complexity: L
+  - id: AO5
+    title: Project as a first-class scope (multi-project)
+    track: AO
+    depends: [AO2]
+    complexity: L
