@@ -106,3 +106,136 @@ Build-time conditions (the reviewer will check these in Phase 4):
 3. **W3** — T6 includes a real opencode spawn through `normalizeNativeHarnessEvent` asserting ≥1 structured event recognized (else eventFormat change is cosmetic).
 4. **W4** — opencode `--model` mechanism specified in code (add `"--model","{{model}}"` to args + confirm provider-prefixed `resolvedModel.model`, or document the append site).
 5. **N6** — codex token injection is inject-outside-allowlist (non-optional; the allowlist route does not work for per-session tokens).
+
+---
+
+# v2 critique — RE-CRITIQUE of the revised plan (commit `38f06aa4`)
+
+**Reviewer:** single-persona reviewer (Phase 2). **Target:** revised `plans/AL7/architecture-codex-opencode.md`. **Trigger:** designer revised v1 to CLOSE R1 (was WARNING-1) by flipping the PRODUCTION bridge to stateful + re-pointing all three real-harness lanes at the production bridge + adding a CI-gating integration test (T0b). I verified every load-bearing SDK claim against the installed source — I did not trust the plan's quotes.
+
+**Verdict: score 9/10. No CRITICAL. R1 is genuinely closed. Approved for build.**
+
+---
+
+## What I verified against source (not the plan's quotes)
+
+| Claim in revised plan | Source checked | Verdict |
+|---|---|---|
+| SDK is `@modelcontextprotocol/sdk@1.29.0`, transport class `WebStandardStreamableHTTPServerTransport` | `node_modules/.../package.json` + `dist/esm/server/webStandardStreamableHttp.js` present | TRUE |
+| Reuse-throw is **stateless-only** (gated on `!sessionIdGenerator`) | `webStandardStreamableHttp.js:139-142` — `if (!this.sessionIdGenerator && this._hasHandledRequest) throw ...` | TRUE — with a generator the guard never fires; one transport serves unlimited requests |
+| Stateful = pass `sessionIdGenerator: () => crypto.randomUUID()` | Docstring `.js:18-27, 42-52` (canonical example verbatim) + constructor reads `options.sessionIdGenerator` at `.js:63` | TRUE — this is the SDK's own documented stateful pattern |
+| Init assigns the session id; SDK echoes `mcp-session-id` on responses | `.js:433-434` (`this.sessionId = this.sessionIdGenerator?.(); this._initialized = true`) + header set `.js:511-513` | TRUE |
+| Subsequent requests validated against header (400 if missing/uninit, 404 if mismatch) | `.js:584-607` `validateSession` — stateless skips; else require `_initialized` (400), require header (400), require `=== this.sessionId` (404) | TRUE — exactly as plan states; sanity-break (omit header → 400) is real |
+| Re-init rejected (400 "Server already initialized") | `.js:425-428` | TRUE — harmless (one CLI session = one transport = one init) |
+| `enableJsonResponse` defaults false → SSE | `.js:61, 64` | TRUE — plan's "leave default; T0b must parse SSE or use SDK client" note is correct |
+| Registry needs NO change — keeps one transport per token alive across requests | `mcp-bridge-registry.ts:37,43-45,73-79` — `Map<token,instance>`, `handleRequest` delegates to live `instance.transport.handleRequest`, never reconstructs | TRUE |
+| Route needs NO change — catch-all forwards raw Request + returns transport Response verbatim | `mcp-route.ts:116-120` — `ALL /mcp/:token` → `bridgeRegistry.handleRequest(token, c.req.raw)` → returns response | TRUE — `mcp-session-id` is request/response-transparent to our code |
+| The flip is literally one line in `createMcpBridge` | `mcp-bridge.ts:108-111` — `sessionIdGenerator: undefined` is the only thing to change; `McpBridgeInstance`/options/registry interface untouched | TRUE — one line + lore |
+| Test-only `buildStatefulMcpServer` + `app.all("/mcp/:token")` override exist and are deletable | `AL7-...real-harness.test.ts:266-311` + `:372-378` | TRUE — and the override mounts at `/mcp/:token` w/ a closure var, exactly the production divergence the plan deletes |
+
+Every quote in the plan's "Verified SDK API" section matches the installed source line-for-line (line numbers off by ≤4 vs the plan's citations — immaterial). The "don't assume external tool capabilities" rule is satisfied: this is read-from-source, not training-knowledge.
+
+---
+
+## R1 — is it genuinely closed? YES.
+
+**The fix is correct, minimal, and proven.** The production transport (`createMcpBridge`) was the demonstrated false-green vector in v1: codex/opencode have no SDK adapter, so the stateless HTTP bridge — which the SDK source proves throws on request 2 of a real CLI client — was their ONLY production path, papered over by a stateful test stand-in. The revision:
+- flips the ONE production line to stateful (source-verified the guard then never fires);
+- DELETES the test-only stateful server + route override, re-pointing all three lanes at `createMcpBridge` + the real `createMcpRoute` catch-all at `/api/mcp/:token`;
+- adds **T0b** (`mcp-bridge-stateful.integration.test.ts`, in `test:all`) driving the PRODUCTION bridge through init→list→call with the `mcp-session-id` header + a sanity-break (omit header → 400/404).
+
+This converts the false-green into a deterministic, CI-gating, in-process proof that the production transport is session-capable on Linux — and the local-only real-binary lanes now also run through it. The gap is not deferred; it is closed in CI. **WARNING-1 from v1 is resolved.**
+
+---
+
+## Lifecycle / leak (the question I was told to break)
+
+**No new leak. The teardown path already frees a stateful transport identically to a stateless one.** I traced it:
+- The registry's `unregister(token)` (`mcp-bridge-registry.ts:47-71`) deletes the Map entry and calls `instance.mcpServer.close()`, which (per the X2 D-lore at `:54-58`) transitively closes the transport via `Server.close() → transport.close()`. The SDK's `transport.close()` (`webStandardStreamableHttp.js:630-639`) clears `_streamMapping`/`_requestResponseMap` and fires `onclose`.
+- This path is unchanged by the flip. A stateful transport holds the SAME in-memory maps a stateless one does (per-request stream mapping); the only added per-session state is a single `sessionId` string + `_initialized` boolean — both GC'd with the instance.
+- The X2 registry lore (`:27-35`) already mandates `unregister()` on BOTH `endSession` and `crashSession` paths, "the crash-path cleanup requirement comes from the architecture critique." So orphan-on-crash is already covered. Stateful adds no new orphan surface.
+
+**Verdict:** the lifecycle concern is genuinely pre-addressed by existing code. The plan does not need to add cleanup (and correctly does not claim to). The one thing the plan *should* state (NOTE N9 below) is that this teardown coverage was confirmed, so a Phase-4 reviewer doesn't re-flag it.
+
+---
+
+## Back-compat (does flipping production break anything?)
+
+**No. Confirmed by reading every existing bridge test.**
+- `mcp-bridge.integration.test.ts` (the X2 suite): I read all 296 lines. Every test exercises either `toolResultToCallToolResult` (pure mapping — transport-independent) or `createMcpBridge`'s **return shape** (token regex, uniqueness, tool count 22/12, role filtering via `registry.invoke` called DIRECTLY). **Not one test issues an HTTP request through `transport.handleRequest`.** So none relies on single-request stateless behavior. The flip cannot break them.
+- Token uniqueness test (`:159-170`): the bridge `token` is `crypto.randomBytes(32)` at `:106` — independent of `sessionIdGenerator`. Unaffected.
+- The plan's caution at T0 ("update `mcp-bridge.integration.test.ts` to a multi-request handshake if it relied on single-request stateless behavior — read the diff, do not blind-bless") is **over-cautious but harmless**: those tests will stay green untouched. Builder should confirm (cheap) and NOT manufacture a handshake test there (T0b already owns that). Minor: the protected-tests list flags this file as possibly-needing-update; in fact it needs no change. (NOTE N10.)
+- claude SDK adapter: unaffected — it drives the SDK in-process, not the HTTP transport's session mode. Where claude uses the HTTP bridge via provisioned `.mcp.json`, stateful is strictly more correct (stateless was already broken for multi-request HTTP-MCP). No call site reads `transport.sessionId` or assumes "no session header" (grep-confirmed: the only `transport` consumers are the registry delegate + test `.close()`).
+
+---
+
+## Is the proof now real? YES.
+
+- The three lanes build the bridge via the production factory (`createMcpBridge({ sessionId, registry: capturingRouter.registry })`) and route through the real `createMcpRoute` catch-all at the PRODUCTION URL `${server.url}/api/mcp/${token}` (§2a-prereq). No test-only transport remains.
+- The claude lane re-point keeps assertions intact: the plan correctly classifies claude's session-1-capture + session-2-file-write as protected/immutable; only plumbing swaps. Feasible and cheap (the lane already builds `createMcpBridgeRegistry` + `createMcpRoute` from production modules — the stand-in was the only divergence).
+- No stand-in could now green a broken production path: the stateful stand-in is deleted, and the only transport in the lanes is `createMcpBridge`'s.
+
+**T0b adequacy as the CI-gating R1 anchor:** sufficient. It runs in `test:all` (the real-binary lanes are local-only, so T0b is the only in-CI R1 proof — correctly identified). It drives the production factory + production route over a real listener through init→list→call via the real `mcp-session-id` flow, and the sanity-break (omit header → 400/404) defeats the vacuous-green failure mode (mock-validation-trap rule). It is RED against the current stateless bridge (request 2 throws the exact SDK error) and GREEN after the flip — a genuine red→green gate. Adequate.
+
+One builder note I'm adding (NOTE N11): T0b's requests 2+ pass `validateProtocolVersion` (`webStandardStreamableHttp.js:621-628`) — a `mcp-protocol-version` header that is non-null AND not in `SUPPORTED_PROTOCOL_VERSIONS` → 400. Omitting the header is fine (defaults to the negotiated version). If the builder hand-rolls fetch and copies a stale protocol version, request 2 could 400 for the WRONG reason and mask a real regression. The plan's offered fallback (use the SDK's `Client` + `StreamableHTTPClientTransport` against the listener) sidesteps this entirely and is the safer path — recommend it.
+
+---
+
+## v1 minor WARNINGs — closure check
+
+- **W2 (AC8 control-spawn)** — CLOSED. §2b/§2c now make the capture-mode `fs.existsSync(proof.txt) === false` a NAMED, standalone `expect` in BOTH lanes (not parenthetical); AC8 row (`:351`) states "its own `expect`." Correct.
+- **W3 (opencode normalization)** — CLOSED + corrected. Plan now names the real normalizer `normalizeHarnessEvent` (`packages/shared/src/harness/harness-event-normalization.ts`), corrects the v1-wrong `normalizeNativeHarnessEvent`, identifies the fixed canonical `input.type` set (`completion|tool_call|error|cost_update|token_usage|pre_compaction`) and that opencode's `step_finish`/`tool` fall through to `unknown`, and makes T6 a must-verify with a concrete pre-map fallback. I did not independently re-read the normalizer source this round (W3 is a builder-verify obligation, not an R1 claim) — the plan's framing is internally consistent and the obligation is explicit. Acceptable.
+- **W4 (opencode `--model`)** — CLOSED. `args` now include `"--model","{{model}}"` (§1a); `{{model}}` resolves from `config.resolvedModel?.model` (`cli-harness-adapter.ts:303`); builder must confirm provider-prefixed form (T6 sub-assertion). Has a code home now.
+- **N6 (codex token inject-outside-allowlist)** — CLOSED. §1b/§6/T5 make it non-optional inject-outside-allowlist.
+
+---
+
+## Findings (v2)
+
+### CRITICAL
+None.
+
+### WARNING
+None. (v1 WARNING-1 closed by the stateful flip; v1 W2/W3/W4 closed.)
+
+### NOTE
+
+**N9 — Stateful teardown coverage is pre-existing; state it so Phase-4 doesn't re-flag.** The R1-closure section's "Does stateful break the claude SDK-adapter assumption?" para should add one line: "Per-session transport teardown is already handled — `mcpBridgeRegistry.unregister()` (called on endSession AND crashSession per X2 lore) closes `mcpServer` → transitively `transport.close()`; stateful adds only a `sessionId` string + `_initialized` flag to the instance, GC'd with it. No new leak." Closes the leak question on paper so the build-reviewer (me, Phase 4) sees it was considered. (Dim: Honesty / lifecycle.)
+
+**N10 — `mcp-bridge.integration.test.ts` needs NO change; soften the protected-test note.** The protected-tests entry and T0 both hedge that this file "may need a multi-request handshake update." I read all 296 lines: every test is transport-independent (pure mapping or `registry.invoke`-direct); none issues `transport.handleRequest`. It will stay green untouched. The builder should confirm-and-leave-alone, NOT add a handshake here (T0b owns that proof). Keep the file protected, drop the "may need update" hedge to avoid an accidental test rewrite. (Dim: Adversarial / test quality.)
+
+**N11 — T0b protocol-version header foot-gun.** Requests 2+ pass `validateProtocolVersion` (SDK `.js:621-628`): a non-null `mcp-protocol-version` NOT in `SUPPORTED_PROTOCOL_VERSIONS` → 400. A hand-rolled fetch test that hardcodes a stale version could 400 for the wrong reason and mask a regression. Builder should either omit the header (defaults) or use the SDK `Client` + `StreamableHTTPClientTransport` against the production listener (still proves the production server transport; only the client is the SDK helper). The plan already offers the SDK-client fallback — make it the recommended path for T0b. (Dim: Adversarial / proof realness.)
+
+**N12 — TDD order is correct: T0b(red)→T0(green) gates everything.** §4 leads with the R1 tasks; T0b fails RED against the stateless bridge (request 2 throws the verbatim SDK error), goes GREEN after the one-line flip; the lanes (T3) depend on T0. In-CI red phase = T0b + T1 + T2 (config-shape + probe); T3 lanes are local-only DoD artifacts. Honest and correct. (Carries forward v1 N4 — now even cleaner with T0b as the CI R1 gate.)
+
+**N13 — AC coverage is complete for the delta.** AC1–AC10 each map to a concrete verification; AC9/AC10 are the new R1 anchors (T0b in-CI; lanes local-only). AC6 (transport-agnostic, no per-backend branch) correctly stays a static `check`+review property. Docs (§5, T8) updated to include the stateful-bridge note. No orphan AC, no unmapped task.
+
+---
+
+## 9-dimension scoring (v2)
+
+| # | Dimension | v1 | v2 | Notes |
+|---|---|---|---|---|
+| 1 | Spec/AC fidelity | 8 | 9 | AC8 now a named assertion; AC9/AC10 added for R1. |
+| 2 | Architecture integrity (transport-agnostic) | 10 | 10 | Router untouched; one-line transport flip; dialect isolated to writer+config. |
+| 3 | Data/contract correctness | 7 | 9 | `--model` has a code home (W4); normalization surfaced (W3); SDK API source-verified. |
+| 4 | Proof realness (anti-tautology) | 7 | 10 | Now PRODUCTION transport end-to-end + deterministic in-CI T0b w/ sanity-break. False-green eliminated. |
+| 5 | Honesty / risk surfacing | 8 | 9 | R1 elevated from buried risk to closed-with-proof; could state teardown-coverage (N9). |
+| 6 | TDD order | 9 | 9 | T0b(red)→T0(green) gates all; CI red phase honestly = T0b+T1+T2. |
+| 7 | Simplicity / no over-engineering | 9 | 9 | Net code REDUCTION (deletes stand-in); one line + one helper + one field. |
+| 8 | Security | 9 | 9 | `mcp-session-id` correctly NOT an auth credential (path token still the only key; unknown token 401s before transport). No widened surface. |
+| 9 | Docs as-built | 8 | 8 | staged-operation matrix + harness docs + code-doc matrix scheduled incl. stateful note. |
+
+**Weighted: 9/10.** (+1 vs v1: R1 false-green closed with source-verified one-line fix + deterministic CI proof; proof-realness 7→10.)
+
+---
+
+## Decision (v2)
+
+**APPROVED FOR BUILD.** R1 is genuinely closed: the stateful flip is a source-verified one-line production change, the reuse-throw is provably stateless-only, the registry/route need no change (already hold one live transport per token), per-session teardown already frees the transport (no new leak), no existing test relies on stateless single-request behavior (back-compat clean), the claude lane re-point keeps assertions protected, and T0b is a real red→green CI gate with a sanity-break. Score 9/10, no CRITICAL, no open WARNING.
+
+Build-time NOTES the Phase-4 reviewer (me) will check:
+- **N9** — add the one-line teardown-coverage statement to the R1 section (paper trail; no code).
+- **N10** — `mcp-bridge.integration.test.ts` stays green untouched; do NOT add a handshake there (T0b owns it); drop the "may need update" hedge.
+- **N11** — T0b: omit `mcp-protocol-version` or use the SDK `Client`+`StreamableHTTPClientTransport` against the production listener; don't hardcode a stale protocol version.
+- Carry-forward from v1: **W3** T6 must run a real `opencode run --format json` spawn through `normalizeHarnessEvent` and assert ≥1 structured (non-`unknown`) event, else add the opencode pre-map; **W4** confirm `resolvedModel.model` provider-prefixed for opencode; **N6** codex token inject-outside-allowlist (non-optional).
