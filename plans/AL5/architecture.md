@@ -91,8 +91,14 @@ export const SLOT_POLICY: Readonly<Record<ReviewCanvasKind, SlotPolicy>> = {
   browser_preview: {},
 };
 
+/** A seam not listed in a canvas's policy is, by deliberate default, NOT a wrap
+ *  point — the only way to change that region is to eject. This default is
+ *  explicit (a named const), NOT a silent fallthrough, so the build of the 8
+ *  fast-follow canvases reads "eject-by-default" rather than "we forgot to list it". */
+export const UNLISTED_SLOT_DEFAULT: SlotPermission = "eject";
+
 export function slotPermission(kind: ReviewCanvasKind, name: SlotName): SlotPermission {
-  return SLOT_POLICY[kind][name] ?? "eject"; // unlisted seam: not a wrap point → eject to change it
+  return SLOT_POLICY[kind][name] ?? UNLISTED_SLOT_DEFAULT;
 }
 ```
 
@@ -104,29 +110,50 @@ export function slotPermission(kind: ReviewCanvasKind, name: SlotName): SlotPerm
 
 ## 2. The Review surface unit (component + manifest)
 
-### 2.1 The component contract
+### 2.1 The component contract — surface props are a *superset* of the base canvas's props
 
-A surface is an ordinary `ReviewCanvasComponent<TPayload>` — **same signature as a base canvas** (`{ artifact, slots? }`). This is deliberate: a surface *is* a canvas (a specialized one), so the existing render site, the `ReviewCanvasProvider` anchor context, and `ExaminePane` need no new component type. A **wrap** surface internally renders its base canvas with `slots` it supplies; an **eject** surface renders its own forked tree.
+> **Critical correction (WARN-1).** A surface is **NOT** simply `{ artifact, slots? }`. A surface threads through **whatever props its base canvas actually needs** — and for the proof vehicle that is **wider** than `ReviewCanvasProps`. `ReviewActionOperation` (the AL7 base) takes `{ artifact, status?, outcome?, proposedCall? }` (trust-first props), and `ExaminePane` (`ReviewComposition.tsx` ≈ line 675) **hard-branches `action_operation` OUTSIDE `getReviewCanvas`** and passes `status/outcome/proposedCall` *directly* into `ReviewActionOperation`. A surface that forwarded only `{ artifact, slots }` to `ReviewActionOperation` would **silently DROP the AL7 `OutcomeBand` (granted / executed / failed)** — a correctness regression, not a cosmetic one. The surface contract must carry the base canvas's real props through.
 
-The proof vehicle (`packages/web/src/pages/review/surfaces/stripe-refund-review/StripeRefundReview.tsx`):
+**The generalized contract.** A surface is a component whose props are `BaseCanvasProps<TPayload> & { slots?: CanvasSlots }` — i.e. **the base canvas's own prop shape, plus optional slots.** For the generic 8 canvases that is `{ artifact, slots? }`. For `action_operation` it is `{ artifact, status?, outcome?, proposedCall?, slots? }`. The wrap contract is *"receive what the base needs, forward it when wrapping, override only the named seams"* — wrapping a wider-prop canvas is **expressed in the type, never lost**.
+
+Concretely, the action-operation surface prop type lives next to the canvas so it can't drift:
 
 ```ts
-import { ReviewActionOperation } from "../../ReviewActionOperation.js";
-import type { ReviewCanvasProps, ActionOperationPayload } from "../../review-artifact.js";
+// packages/web/src/pages/review/ReviewActionOperation.tsx (exported)
+export interface ActionOperationCanvasProps {
+  readonly artifact: ReviewArtifact<ActionOperationPayload>;
+  readonly status?: ProposedCallStatus;     // AL7 — the granted/executed/failed signal
+  readonly outcome?: ProposedCallOutcome;    // AL7
+  readonly proposedCall?: ProposedCall;      // AL7 trust-first
+  readonly slots?: CanvasSlots;              // NEW (§1.2) — wrap seams, additive/optional
+}
+```
 
-// WRAP: render the action_operation base, overriding the `lead` seam with a
-// refund-specific summary (refund id, charge, customer, reversibility window).
-export function StripeRefundReview({ artifact }: ReviewCanvasProps<ActionOperationPayload>): JSX.Element {
+The proof vehicle (`packages/web/src/pages/review/surfaces/stripe-refund-review/StripeRefundReview.tsx`) **forwards the full AL7 prop set** and overrides only its seams:
+
+```ts
+import { ReviewActionOperation, type ActionOperationCanvasProps } from "../../ReviewActionOperation.js";
+
+// WRAP: render action_operation, overriding `lead`/`footer` seams with a
+// refund-specific summary — while FORWARDING status/outcome/proposedCall so the
+// AL7 OutcomeBand (granted/executed/failed) still renders. Dropping these = regression.
+export function StripeRefundReview(props: ActionOperationCanvasProps): JSX.Element {
+  const { artifact, status, outcome, proposedCall } = props;
   return (
     <ReviewActionOperation
       artifact={artifact}
+      status={status}                // ← forwarded, NOT dropped
+      outcome={outcome}              // ← forwarded
+      proposedCall={proposedCall}    // ← forwarded
       slots={{ lead: <RefundLead payload={artifact.payload} />, footer: <RefundRoutingNote .../> }}
     />
   );
 }
 ```
 
-It never touches the verdict, staged action, or AL7 gate — it is presentation. (Concept hard-rule #5. AC5 — actions route back through the existing connection — is satisfied structurally: the surface renders `ReviewActionOperation`, whose action affordances already route through HyperIdle's review→AL7→connection path; the surface adds *no* new execution path. See §6.4.)
+It never touches the verdict, staged action, or AL7 gate — it is presentation. (Concept hard-rule #5. AC5 — actions route back through the existing connection — is satisfied structurally: the surface renders `ReviewActionOperation`, whose action affordances + `OutcomeBand` already route through HyperIdle's review→AL7→connection path; the surface adds *no* new execution path and *forwards* the trust-first props rather than re-deriving them. See §6.4.)
+
+> **Generalizing the registry/resolver type (WARN-1 follow-through).** Because surfaces and canvases can have wider-than-`{artifact}` props, the registry entry's `component` and `resolveSurface`'s return type are **not** the narrow `ReviewCanvasComponent`. The registry is **per-base-canvas-typed**: a `stripe-refund-review` entry's component is `ComponentType<ActionOperationCanvasProps>`, and the resolver is invoked at the render site that *already holds* the right props (the `action_operation` branch, which holds `status/outcome/proposedCall`). See §4.3 for the reconciled render site — the resolver returns the wrapping component into the *existing* AL7 branch, so the branch's props flow straight through. The registry-entry `component` field is typed `ComponentType<ActionOperationCanvasProps>` for the (only) AL5 entry; the generic-canvas entries (fast-follow) use `ReviewCanvasComponent`. A small discriminated `SurfaceRegistryEntry` union keyed on `baseCanvas` keeps this honest without a god-type.
 
 ### 2.2 The manifest (`SurfaceManifest`) — echoes shadcn registry-item + `KindDefinition`
 
@@ -188,13 +215,17 @@ export interface SurfaceSituation {
 **`packages/web/src/pages/review/surfaces/surface-registry.ts`** — echoes `kinds/registry.ts` (a `Map`, not `import.meta.glob`, so it works in tests; concept-cited shadcn behavior is "fetch by id", which a Map models for first-party):
 
 ```ts
-export interface SurfaceRegistryEntry {
-  readonly manifest: SurfaceManifest;
-  readonly component: ReviewCanvasComponent;
-}
+// WARN-1: a surface's props are a SUPERSET of the base canvas's. The entry's
+// component type is keyed on the base canvas, so action_operation surfaces carry
+// the AL7 props in their type and can't be invoked with a narrower prop set.
+export type SurfaceRegistryEntry =
+  | { readonly manifest: SurfaceManifest & { baseCanvas: "action_operation" };
+      readonly component: ComponentType<ActionOperationCanvasProps>; }
+  | { readonly manifest: SurfaceManifest;          // generic 8 canvases (fast-follow)
+      readonly component: ReviewCanvasComponent; };
 
 const FIRST_PARTY: ReadonlyArray<SurfaceRegistryEntry> = [
-  { manifest: stripeRefundReviewManifest, component: StripeRefundReview },
+  { manifest: stripeRefundReviewManifest, component: StripeRefundReview }, // ActionOperationCanvasProps
 ];
 
 // id → entry. Community URL-registries layer on top (§3.2).
@@ -220,7 +251,7 @@ First-party surfaces are entries in `surface-registry.ts` (above), shipped in th
 
 A deployment may register **community registry pointers**: a URL serving a `surface-registry.json` index (an array of `SurfaceManifest` + a resolvable component module URL). AL5 ships the **data shape + the "add a registry URL" seam**, mirroring AN1's mcp-oauth "point at a server URL" — but **does not** fetch+eval remote component code at runtime (that would reintroduce the untrusted-runtime problem the concept rejects). Instead, a community surface is **adopted by copying its source into the repo** (shadcn "the source is yours") — the registry URL is the *discovery + provenance* source, the adopted code is owned/in-repo. So:
 
-- **Registry index shape** (served by anyone): `{ url, manifests: SurfaceManifest[] }`. Type in `review-surface.ts`.
+- **Registry index shape** (served by anyone): `{ url, manifests: SurfaceManifest[] }`. Type in `review-surface.ts`. **knip guard (NIT):** this `CommunityRegistryIndex` type is consumed by the browse dialog's "add a registry URL" read path (B5 displays remote manifests), so it must have a real importer in AL5 — if the browse-display of remote manifests is descoped, the type would go unreferenced and `knip` flags it. Either wire it into B5's remote-manifest display (preferred — keeps the §3.2 seam honest) **or** re-export it from `packages/shared/src/index.ts` as a published shape. Do not leave it dangling.
 - **Adopting a community surface** in AL5 = recording the adoption (id + version + provenance=community + trustTier=community) against an in-repo entry the team added to `surface-registry.ts`. The browse dialog can *display* remote manifests (read-only metadata + provenance/trust) and link to their source; the build-time copy is the team's deliberate act.
 
 > **Trade-off (quantified).** Live remote-code loading (eval a remote ESM module per render) would cost: a runtime fetch/eval path, a CSP/SRI story, a remote-failure render path, and — fatally — it puts unreviewed code in the render loop, violating concept hard-rules #1/#2. Cost of the chosen path: community surfaces require a build-time copy step (one PR) before they're active. That is exactly shadcn's model and the concept's intent (own the source). **We pay one PR; we avoid an entire runtime-sandbox subsystem.** AL5 scope = first-party registry working end-to-end + the community-pointer data shape + browse-display of remote manifests. Live remote module loading is explicitly out of scope (and arguably never wanted).
@@ -231,7 +262,7 @@ A deployment may register **community registry pointers**: a URL serving a `surf
 
 ### 4.1 The store (server/db — echoes `serviceConnections`)
 
-New table **`surfaceAdoptions`** in `packages/db/src/schema.ts`:
+New table **`surfaceAdoptions`** in `packages/db/src/schema.ts`. **`teamId` FKs to `teams` — the workspace — NOT `teamMembers`** (WARN-2: avoid the U1 team-vocabulary overload; an adoption is a workspace-owned config, not a membership row):
 
 ```ts
 export const surfaceAdoptions = pgTable(
@@ -289,31 +320,55 @@ export function resolveSurface(
 
 **Determinism = a Map lookup keyed by the explicit adoption row.** There is no candidate set, no ranking, no `situations`-matching at render. `situations` on the manifest only pre-filters the *browse dialog*. This is the literal implementation of "NO runtime auto-apply."
 
-### 4.3 Where it plugs in (the render site — NO new screen)
+### 4.3 Where it plugs in (the render site — NO new screen; AL7 branch preserved)
 
-In `ReviewComposition.tsx` `ExaminePane`, today:
-```ts
-const Canvas = getReviewCanvas(artifact.kind);     // → replaced
-```
-becomes:
-```ts
+> **Critical reconciliation (WARN-1).** `ExaminePane` does **not** today do `const Canvas = getReviewCanvas(...)` for `action_operation` — it **hard-branches** (`ReviewComposition.tsx` ≈ lines 675–684): `action_operation` is rendered by `<ReviewActionOperation artifact status outcome proposedCall/>` *outside* `getReviewCanvas`, and all other kinds fall to `<Canvas artifact/>`. `resolveSurface` must slot in **inside each branch, forwarding that branch's props** — it must NOT collapse the two branches into one `getReviewCanvas` call (that would re-introduce the AL7-prop-drop WARN-1 names).
+
+So the render site becomes **two resolver call sites that mirror the existing branch**, each forwarding its branch's props into the resolved component:
+
+```tsx
+const situation = { tool: artifact.tool, kind: artifact.kind };
+const adoption = adoptionFor(artifact.tool, artifact.kind); // from adoptions prop (loader, §5)
+
+if (artifact.kind === "action_operation") {
+  // Resolve against the AL7 base; the resolved component (surface OR base) takes the FULL AL7 props.
+  const r = resolveSurface(situation, adoption, ReviewActionOperation);
+  const Canvas = r.component;            // ComponentType<ActionOperationCanvasProps>
+  return (
+    <SurfaceBoundary
+      fallback={<ReviewActionOperation artifact={artifact} status={status} outcome={outcome} proposedCall={proposedCall}/>}
+      onCaught={() => markDegraded("threw")}
+    >
+      <Canvas artifact={artifact} status={status} outcome={outcome} proposedCall={proposedCall}/>
+    </SurfaceBoundary>
+  );
+}
+// generic branch — props are just { artifact }
 const base = getReviewCanvas(artifact.kind);
-const resolved = resolveSurface(
-  { tool: artifact.tool, kind: artifact.kind },
-  adoptionFor(artifact.tool, artifact.kind),       // from adoptions prop passed down from the loader
-  base,
+const r = resolveSurface(situation, adoption, base);
+const Canvas = r.component;
+return (
+  <SurfaceBoundary fallback={<base ... artifact={artifact}/>} onCaught={...}>
+    <Canvas artifact={artifact}/>
+  </SurfaceBoundary>
 );
-const Canvas = resolved.component;
 ```
-`adoptions` is loaded once by the review loader (one GET, §5) and threaded through `ReviewComposition` props (additive optional prop `adoptions?: AdoptionView[]`; default `[]` ⇒ everything resolves to base — every existing story/test keeps passing). The `action_operation` special-case branch in `ExaminePane` stays, but now `resolveSurface` may return a wrapping surface that *itself* renders `ReviewActionOperation` with `status/outcome/proposedCall` forwarded via its slots.
+
+The key invariant: **`status/outcome/proposedCall` are forwarded into BOTH the resolved `Canvas` and the `SurfaceBoundary` fallback** in the `action_operation` branch. Whether the floor or a surface renders, the AL7 `OutcomeBand` (granted/executed/failed) is always wired — a surface *cannot* drop it because the branch supplies it and the surface forwards it (§2.1). The fallback path (degrade) renders the *base* `ReviewActionOperation` with the same AL7 props, so degrade preserves the OutcomeBand too.
+
+`adoptions` is loaded once via the standalone `GET /api/surface-adoptions?teamId=…` (NOT the review loader — §5 NIT) and threaded through `ReviewComposition` props (additive optional prop `adoptions?: AdoptionView[]`; default `[]` ⇒ everything resolves to base — every existing story/test keeps passing). **The two-branch structure stays exactly as it is today** — AL5 only swaps each branch's single component for `resolveSurface(...).component` and wraps it in `SurfaceBoundary`.
 
 ### 4.4 Error boundary (the host-safety guarantee, AC4)
 
 Wrap the resolved canvas in **`packages/web/src/pages/review/surfaces/SurfaceBoundary.tsx`** — a React error boundary (class component, the only React way) that, on any throw during the surface's render, renders the **base canvas** instead and surfaces a `degraded` reason to the "rendered by X" line. This is the concept's floor-always-works made literal: a malformed surface **cannot break the host review** because the host catches it and renders the floor. No iframe, no sandbox — an error boundary + the floor.
 
+`SurfaceBoundary` is **prop-agnostic** — it renders `children` and, on a caught throw, renders `fallback`. It does NOT construct `<Canvas .../>` itself; the render site (§4.3) does, because only the render site knows the per-branch props (the `action_operation` branch must forward `status/outcome/proposedCall` into both `children` and `fallback` — WARN-1). Shape:
+
 ```tsx
-<SurfaceBoundary fallback={<Base artifact={artifact} />} onCaught={() => markDegraded("threw")}>
-  <Canvas artifact={artifact} slots={…} />
+// children = the resolved (surface|base) element, built with the branch's full props at §4.3
+// fallback = the base canvas element, built with the SAME props (so degrade keeps the AL7 OutcomeBand)
+<SurfaceBoundary fallback={fallbackEl} onCaught={() => markDegraded("threw")}>
+  {resolvedEl}
 </SurfaceBoundary>
 ```
 
@@ -325,7 +380,9 @@ Swap = `UPSERT` the `surfaceAdoptions` row for `(team, tool, kind)` to a new `su
 
 ## 5. Server API — adoptions (echoes `routes/connections.ts`)
 
-New **`packages/server/src/routes/surface-adoptions.ts`**, registered in `app.ts` (`api.route("/surface-adoptions", createSurfaceAdoptionRoutes(options.db))`), same `requireBoundary` + `authorizeRead/Write` + rate-limit pattern as connections, scoped by **teamId** (membership-checked, not userId-self):
+New **`packages/server/src/routes/surface-adoptions.ts`**, registered in `app.ts` (`api.route("/surface-adoptions", createSurfaceAdoptionRoutes(options.db))`), same `requireBoundary` + `authorizeRead/Write` + rate-limit pattern as connections.
+
+> **Auth correction (WARN-2).** Isolation is **NOT** done by `authorizeRead/Write`. In the trust-agents model a `hostKind:"team"` boundary resolves to a host scope where `canRead/canWrite` return `true` for any authenticated principal — that's by design, not a defect (see `connections.ts` `@lore`: "per-user isolation is enforced at the DB query level; authorizeRead/Write only clears the boundary"). Real isolation for adoptions is **the DB query's `teamId` filter** — exactly the way connections isolate by `userId` filter (`.where(eq(serviceConnections.userId, userId))` → here `.where(eq(surfaceAdoptions.teamId, teamId))`). So: `authorizeRead/Write` clears the access boundary (with `hostKind:"team"`), and **every read/write/delete is `teamId`-scoped at the query** (a cross-team `DELETE` matches 0 rows → 404, mirroring the connections cross-user pattern). "Scoped by teamId" means the query filter, not a membership check.
 
 | Method | Path | Body / result |
 |---|---|---|
@@ -334,7 +391,9 @@ New **`packages/server/src/routes/surface-adoptions.ts`**, registered in `app.ts
 | `POST` | `/api/surface-adoptions` | `{ teamId, tool, kind, surfaceId }` → upsert, pin current registry version, 201 `AdoptionView`. Validates `surfaceId` exists in registry (else 400) and is build-time available. |
 | `DELETE` | `/api/surface-adoptions/:id` | reset-to-base; cross-team → 404 (don't leak). 204. |
 
-`AdoptionView` (shared, `review-surface.ts`): `{ id, tool, kind, surfaceId, pinnedVersion, provenance, trustTier, surfaceTitle, baseCanvas }` — a flat display shape, server-joined against the registry for `surfaceTitle/baseCanvas`. The review loader (`/api/reviews/:id`) is **extended** to include the resolved adoptions for the subject's artifact situations, so the composition needs one fetch, not N.
+`AdoptionView` (shared, `review-surface.ts`): `{ id, tool, kind, surfaceId, pinnedVersion, provenance, trustTier, surfaceTitle, baseCanvas }` — a flat display shape, server-joined against the registry for `surfaceTitle/baseCanvas`.
+
+> **Loader-fetch correction (NIT — drop the speculative loader change).** Do **NOT** extend the review loader (`/api/reviews/:id`) to embed adoptions. That route still serves `FIXTURE_REVIEW` with `artifacts: []` (`reviews.ts` line 80) — embedding adoptions into a stubbed artifacts payload is speculative work against a placeholder. Instead, the composition fetches the team's adoptions **once** via the standalone `GET /api/surface-adoptions?teamId=…` (a single small list — one fetch, not N; the team's full adoption set is tiny). `ReviewPage`'s `defaultLoader` does the existing `/api/reviews/:id` fetch and, in parallel, the one `/api/surface-adoptions` fetch, passing `adoptions?: AdoptionView[]` into `ReviewComposition`. No `reviews.ts` change in AL5.
 
 > **Boundary (AL5 ⟂ AN4).** This route owns review-surface adoption only. The connector registry (AN4) is separate. A connector manifest (AN4) *may* carry a `preferredSurfaceId` referencing a `SurfaceManifest.id` — a reference, not ownership. AL5 builds none of AN4.
 
@@ -346,9 +405,10 @@ New **`packages/server/src/routes/surface-adoptions.ts`**, registered in `app.ts
 2. **Component** (`StripeRefundReview.tsx`): wraps `ReviewActionOperation`, overriding `lead` (refund id / charge / customer / reversibility window) + `footer` (a routing note: "Approving refunds via your Stripe connection"). Has a `.stories.tsx` rendering it against the sample fixture → the preview the browse dialog iframes from `:8098`.
 3. **Registry**: the entry is in `FIRST_PARTY` → `getSurfaceEntry("stripe-refund-review")` resolves it.
 4. **Adoption**: team owner opens Settings → Review surfaces → Browse → previews → **Adopt for `Stripe · action_operation`** → `POST /api/surface-adoptions` writes the row pinned at `1.0.0`.
-5. **Render**: a Stripe refund artifact (`tool:"stripe", kind:"action_operation"`) opens in `ExaminePane`; the loader supplied the adoption; `resolveSurface` returns `StripeRefundReview`; `SurfaceBoundary` renders it; the "Rendered by stripe-refund-review @1.0.0 · First-party · vetted" line shows.
+5. **Render**: a Stripe refund artifact (`tool:"stripe", kind:"action_operation"`) opens in `ExaminePane`; the composition already holds the team's adoptions (one `GET /api/surface-adoptions` at page load, §5 NIT — not from the review loader); `resolveSurface` returns `StripeRefundReview`; `SurfaceBoundary` renders it with the AL7 props forwarded; the "Rendered by stripe-refund-review @1.0.0 · First-party · vetted" line shows.
 6. **Floor proof**: a `tool:"github", kind:"action_operation"` artifact has no adoption ⇒ `resolveSurface` returns the base `ReviewActionOperation`; line shows "Base canvas (action_operation)".
 7. **Degrade proof**: force a throw inside `StripeRefundReview` (test) ⇒ `SurfaceBoundary` renders the base; line shows "Base canvas · surface unavailable". Host review intact.
+8. **AL7-preservation proof (WARN-1)**: render the *adopted* `StripeRefundReview` for a `proposedCall` in each of `granted` / `executed` / `failed` ⇒ the AL7 `OutcomeBand` for that state still renders (its testid present) **inside the wrapped surface**. Repeat in the degrade path (surface throws → base) ⇒ OutcomeBand still present. This is the regression WARN-1 guards: a surface must never swallow the trust-first outcome signal.
 
 ### 6.4 AC5 — actions route through the existing connection
 
@@ -385,12 +445,12 @@ Loading/empty/error of the *Settings surface* itself: builder-owned (design doc 
 ### Unit B — adoption store + resolution wiring + adopt UI (db + server + web)
 - **B1** `packages/db/src/schema.ts` — `surfaceAdoptions` table + types; `npm run db:generate` migration. *(db)*
 - **B2** `packages/server/src/routes/surface-adoptions.ts` + register in `app.ts`. *(server)*
-- **B3** review loader (`/api/reviews/:id` builder, server) — include resolved `adoptions` for the subject's situations. *(server)*
+- **B3** `ReviewPage.tsx` `defaultLoader` (web) — alongside the existing `/api/reviews/:id` fetch, fetch `/api/surface-adoptions?teamId=…` once, pass `adoptions?: AdoptionView[]` into `ReviewComposition`. **No change to `reviews.ts`** (NIT — don't extend the FIXTURE_REVIEW loader). *(web)*
 - **B4** `ReviewComposition.tsx` — accept `adoptions?` prop; replace `getReviewCanvas` call in `ExaminePane` with `resolveSurface` + `SurfaceBoundary`; add the "Rendered by X · swap" line (design doc Surface 2). *(web — re-bless composition snapshot)*
-- **B5** `packages/web/src/settings/SettingsReviewSurfaces.tsx` (+ `.stories.tsx`) — adopt/browse surface (design doc Surface 1), composed from `Row/ItemList/SectionLabel/StatusChip/Tag/Button/Dialog/Select/Menu`; preview iframe to `:8098`. *(web)*
+- **B5** `packages/web/src/settings/SettingsReviewSurfaces.tsx` (+ `.stories.tsx`) — adopt/browse surface (design doc Surface 1), composed from `Row/ItemList/SectionLabel/StatusChip/Tag/Button/Dialog/Select/Menu`; preview iframe to `:8098`. **`:8098` transport caveat (NIT):** `:8098` is the dev TSX viewer (`npm run ds:serve`), present in dev but **not in a packaged/production build** — the iframe preview will 404 there. The preview is therefore a **dev-only affordance**; in a packaged build the browse dialog must degrade to a static manifest summary (title / base canvas / provenance / trust / description) and omit the live iframe. Builder: gate the iframe on viewer reachability, don't hardcode `:8098` as always-present. *(web)*
 - **B6** wire `SettingsReviewSurfaces` into the settings nav. *(web)*
 
-**Dependency order:** A before B (B's resolver imports A's registry/types). Within A: A2→A3→(A1,A4)→A5→A6→A7→A8. B1→B2→B3→B4; B5→B6 parallel to B2–B4.
+**Dependency order:** A before B (B's resolver imports A's registry/types). Within A: A2→A3→(A1,A4)→A5→A6→A7→A8. B1→B2 (table before the route that queries it); B3→B4 (loader fetch before the composition that consumes `adoptions`); B3 calls B2's endpoint at runtime so B2 lands first. B5→B6 parallel to B2–B4.
 
 ---
 
@@ -401,6 +461,7 @@ Loading/empty/error of the *Settings surface* itself: builder-owned (design doc 
 | AC1/AC2 — adopted (first-party **or** community) surface renders instead of base | **runtime component test**: render `ExaminePane`/`resolveSurface` with an adoption row → asserts the surface component renders (its testid), not the base. | `surfaces/__tests__/resolve-surface.test.tsx` |
 | AC3 — no adoption ⇒ base canvas (floor) | **runtime test**: `resolveSurface(situation, undefined, base)` → `source:"base"`, base testid renders. | same |
 | AC4 — malformed/failed surface cannot break host (concept reading: error boundary + floor) | **runtime test**: a surface stub that throws → `SurfaceBoundary` renders base; host composition still renders verdict/conversation. | `surfaces/__tests__/SurfaceBoundary.test.tsx` |
+| **WARN-1 — wrapped surface preserves the AL7 OutcomeBand** | **runtime test**: render adopted `StripeRefundReview` with `status` ∈ {granted, executed, failed} → the matching AL7 `OutcomeBand` testid is present inside the wrapped surface; repeat through the degrade (throw→base) path. Forwarding `status/outcome/proposedCall` (§2.1/§4.3) is asserted, not assumed. | `surfaces/__tests__/StripeRefundReview.test.tsx` |
 | AC5 — actions route through existing connection (no re-impl) | **lint rule** (static): a module under `surfaces/**` may not import `apiFetch`/issue network calls → enforces "lens, never decision" structurally. Plus a runtime test that the surface renders the base's action affordance (which uses the existing path). | `eslint` rule + component test |
 | Scenario: version pin / degrade visibility | **runtime test**: adoption with stale `pinnedVersion` → `degraded:"version-mismatch"`; missing surfaceId → `degraded:"missing-surface"`; the line text asserts. | `resolve-surface.test.tsx` |
 | Adoption store: at-most-one per situation; swap replaces; reset deletes | **integration test** (`*.integration.test.ts`, `{db, app}`): POST twice for same situation → one row, second replaces; DELETE → absence; cross-team → 404. | `surface-adoptions.integration.test.ts` |
