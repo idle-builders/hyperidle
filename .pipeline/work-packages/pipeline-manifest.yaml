@@ -1228,27 +1228,25 @@ stories:
     track: AM
     depends: []
     complexity: L
-  # Track AN: Tool Integration
+  # Track AN: External Tools — rewritten from scratch 2026-06-25 (ETHOS reset).
+  # Old AN1 (External Connections) reverted from main; old AN2 broker-gate / AN3
+  # sandbox-containment / AN4 registry+trust-tiers dropped as preemptive-security
+  # the ethos rejects. All three below are Concept: Required (prior concept deleted).
   - id: AN1
-    title: External Connections (ride harness/MCP auth + user tokens)
+    title: Connect a service once
     track: AN
     depends: []
     complexity: L
   - id: AN2
-    title: Outbound tool brokering (hybrid)
+    title: Authenticate once; connected tools work in every sandbox
     track: AN
-    depends: [AN1, AL7]
+    depends: [AN1]
     complexity: L
   - id: AN3
-    title: Sandbox tool provisioning
+    title: See the tools your agents already inherit
     track: AN
-    depends: [AN2]
-    complexity: L
-  - id: AN4
-    title: Ecosystem integration registry
-    track: AN
-    depends: [AN2, AL5]
-    complexity: L
+    depends: [AN1, AM2]
+    complexity: M
   # Track AP: Overengineering Audit Cleanup (19 adversarially-confirmed findings)
   - id: AP1
     title: Remove dead infrastructure that has no consumers
