@@ -13,6 +13,11 @@
 import type { JSX as ReactJSX } from "react";
 
 declare global {
+	// @lore AL5: AL5 test files (SurfaceBoundary.test.tsx, StripeRefundReview.test.tsx)
+	// use `JSX.Element` return types without importing JSX. With `jsx: "react-jsx"`,
+	// TypeScript's automatic runtime does NOT put the JSX namespace in global scope.
+	// This declaration makes it globally available. The name must be `JSX` (uppercase)
+	// to match the TypeScript convention — `Jsx` (lowercase) does NOT work.
 	namespace JSX {
 		type Element = ReactJSX.Element;
 		type IntrinsicElements = ReactJSX.IntrinsicElements;

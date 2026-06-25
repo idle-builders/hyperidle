@@ -1,6 +1,114 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+
+/**
+ * @lore AL5: StripeRefundReview.test.tsx uses require("../../ReviewActionOperation.js")
+ * inside a test body for the degrade-path test. This is a dynamic CJS-style require
+ * inside a Vitest ESM test. Node's native CJS require cannot load .tsx files or
+ * resolve .js → .tsx extensions.
+ *
+ * Fix: (a) patch Module._resolveFilename to fall back .js → .tsx when .js is not found;
+ * (b) register a .tsx require extension that transpiles via sucrase.transformSync.
+ * sucrase is available (Vitest dev dependency) and does not use TextEncoder/Uint8Array
+ * (unlike esbuild which fails in jsdom because jsdom overrides those globals).
+ *
+ * This setup runs in the worker process before any test; the require() in the test
+ * body runs in the same worker at runtime so the patched Module is already in effect.
+ *
+ * Scope: only affects tests that use dynamic require() for tsx source files.
+ * All static ESM imports continue to go through Vite's transform pipeline.
+ */
+{
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const NodeRequire = createRequire(import.meta.url);
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const sucrase = NodeRequire("sucrase") as {
+		transform: (
+			code: string,
+			opts: { transforms: string[]; jsxRuntime?: string; production?: boolean },
+		) => { code: string };
+	};
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const Module = NodeRequire("node:module") as {
+		_resolveFilename: (
+			request: string,
+			parent: unknown,
+			isMain: boolean,
+			options?: unknown,
+		) => string;
+		_extensions: Record<
+			string,
+			(mod: { _compile: (code: string, filename: string) => void }, filename: string) => void
+		>;
+	};
+
+	// Register .tsx extension handler: transpile via sucrase to CJS.
+	if (!Module._extensions[".tsx"]) {
+		Module._extensions[".tsx"] = (mod, filename) => {
+			const src = readFileSync(filename, "utf8");
+			const { code } = sucrase.transform(src, {
+				transforms: ["typescript", "jsx", "imports"],
+				jsxRuntime: "automatic",
+			});
+			mod._compile(code, filename);
+		};
+	}
+
+	// Register .ts extension handler: transpile via sucrase to CJS.
+	if (!Module._extensions[".ts"]) {
+		Module._extensions[".ts"] = (mod, filename) => {
+			const src = readFileSync(filename, "utf8");
+			const { code } = sucrase.transform(src, {
+				transforms: ["typescript", "imports"],
+			});
+			mod._compile(code, filename);
+		};
+	}
+
+	// Patch _resolveFilename to remap .js → .tsx/.ts when .js file doesn't exist,
+	// and to try .tsx/.ts extensions for extensionless imports.
+	const Original = Module._resolveFilename;
+	Module._resolveFilename = function (request, parent, isMain, options) {
+		try {
+			return Original.call(this, request, parent, isMain, options);
+		} catch (err: unknown) {
+			const e = err as NodeJS.ErrnoException;
+			if (e.code !== "MODULE_NOT_FOUND" || typeof request !== "string") throw err;
+			if (request.includes("node_modules")) throw err;
+			// .js → .tsx fallback (for TypeScript ESM "import from './Foo.js'" patterns)
+			if (request.endsWith(".js")) {
+				for (const ext of [".tsx", ".ts"]) {
+					try {
+						return Original.call(this, request.replace(/\.js$/, ext), parent, isMain, options);
+					} catch {
+						// try next extension
+					}
+				}
+			}
+			// Extensionless → try .tsx and .ts (for "import from './foo'" without extension)
+			if (
+				!(
+					request.endsWith(".ts") ||
+					request.endsWith(".tsx") ||
+					request.endsWith(".js") ||
+					request.endsWith(".json")
+				)
+			) {
+				for (const ext of [".tsx", ".ts"]) {
+					try {
+						return Original.call(this, `${request}${ext}`, parent, isMain, options);
+					} catch {
+						// try next extension
+					}
+				}
+			}
+			throw err;
+		}
+	};
+}
 
 /**
  * @lore Q1: The ws-client singleton lazily connects to the WebSocket server.

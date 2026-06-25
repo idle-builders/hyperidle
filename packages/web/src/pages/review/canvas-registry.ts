@@ -23,13 +23,26 @@ import type { ReviewCanvasComponent, ReviewCanvasKind } from "./review-artifact"
  * completeness but the cast is needed because ActionOperationCanvasProps has a
  * narrower artifact type than ReviewCanvasComponent<unknown>.
  */
+
+/**
+ * @lore AL5: Single audited cast for ActionOperationCanvas → ReviewCanvasComponent.
+ * ActionOperationCanvasProps has AL7 props (status/outcome/proposedCall) absent from
+ * ReviewCanvasComponent. The ExaminePane NEVER calls getReviewCanvas for action_operation
+ * (it hard-branches), so this entry is only a type-level placeholder.
+ * Contained here so the `no-unknown-cast` rule catches any unaudited duplicates.
+ */
+function auditedActionOperationCast(
+	component: typeof ReviewActionOperation,
+): ReviewCanvasComponent {
+	// Intentional narrowing: ExaminePane hard-branches action_operation and never
+	// renders via getReviewCanvas. This cast only satisfies the registry type.
+	return component as ReviewCanvasComponent;
+}
+
 export const REVIEW_CANVAS_REGISTRY: Record<ReviewCanvasKind, ReviewCanvasComponent> = {
 	outcome_summary: ReviewOutcomeSummary,
 	field_change_set: ReviewFieldChangeSet,
-	// @lore AL5: cast needed — ReviewActionOperation takes ActionOperationCanvasProps
-	// (wider than ReviewCanvasComponent), but ExaminePane never calls getReviewCanvas
-	// for action_operation — it hard-branches with the full AL7 props (§4.3).
-	action_operation: ReviewActionOperation as unknown as ReviewCanvasComponent,
+	action_operation: auditedActionOperationCast(ReviewActionOperation),
 	rendered_in_context: ReviewRenderedInContext,
 	metrics_moved: ReviewMetricsMoved,
 	visual_diff: ReviewVisualDiff,
