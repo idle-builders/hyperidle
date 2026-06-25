@@ -135,6 +135,19 @@ export interface SessionConfig {
 	 * Optional — absent for sessions that don't participate in the review workflow.
 	 */
 	readonly sessionWorkflow?: SessionWorkflow;
+	/**
+	 * AL7 delta: Per-session MCP token env var for CLI harnesses that require the
+	 * token via an environment variable rather than inline in the config file.
+	 *
+	 * codex: { HYPERIDLE_MCP_TOKEN: "<token>" } — injected OUTSIDE the envAllowlist
+	 * (per-session-generated, not forwarded from process.env; mirrors CODEX_HOME).
+	 * opencode: undefined (token is inline in opencode.json headers.Authorization).
+	 *
+	 * @lore AL7 N6: must be inject-outside-allowlist (non-optional if set).
+	 * The allowlist forwards from process.env, but the MCP token is per-session-generated
+	 * and NOT in process.env. The codex CODEX_HOME injection pattern is the precedent.
+	 */
+	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 }
 
 export interface SessionHandle {
