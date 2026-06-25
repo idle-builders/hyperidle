@@ -45,6 +45,51 @@
     "triageHint": "straight-swap"
   },
   {
+    "path": "packages/server/src/services/owner-user.ts",
+    "line": 10,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/services/owner-user.ts",
+    "line": 28,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/services/owner-user.ts",
+    "line": 33,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/services/session-provisioning.ts",
+    "line": 640,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/services/session-provisioning.ts",
+    "line": 668,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
     "path": "packages/web/src/components/sessionContentFixtures.tsx",
     "line": 30,
     "symbol": "u-founder",
