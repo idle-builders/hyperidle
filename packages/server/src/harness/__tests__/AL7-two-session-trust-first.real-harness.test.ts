@@ -598,7 +598,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 								`stderr: "${result.stderr.slice(0, 400)}" ` +
 								`exitCode: ${result.exitCode}. ` +
 								`MCP URL (stateful): ${mcpUrl}. ` +
-								`Check: (1) stateful MCP server reachable at /mcp/:token, ` +
+								`Check: (1) production MCP bridge reachable at /api/mcp/:token, ` +
 								`(2) commit_file exposed, ` +
 								`(3) --allowedTools mcp__hyperidle__commit_file forces tool use, ` +
 								`(4) claude completed at least one turn (exitCode should be 0).`,
