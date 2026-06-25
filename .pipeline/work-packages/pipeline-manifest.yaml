@@ -1239,3 +1239,34 @@ stories:
     track: AN
     depends: [AN2, AL5]
     complexity: L
+  # Track AP: Overengineering Audit Cleanup (19 adversarially-confirmed findings)
+  - id: AP1
+    title: Remove dead infrastructure that has no consumers
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP2
+    title: Repair dead-weight in relevance scoring
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP3
+    title: Collapse single-implementation abstractions
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP4
+    title: Drop unused parameters and config slots
+    track: AP
+    depends: []
+    complexity: S
+  - id: AP5
+    title: "Web cleanup: duplication and an over-built hook"
+    track: AP
+    depends: []
+    complexity: S
+  - id: AP6
+    title: Reconcile architecture docs with shipped code
+    track: AP
+    depends: []
+    complexity: M
