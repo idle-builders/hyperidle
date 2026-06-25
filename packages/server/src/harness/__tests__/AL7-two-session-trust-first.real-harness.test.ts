@@ -491,15 +491,24 @@ function buildCleanEnv(): Record<string, string> {
 async function spawnDetached(
 	bin: string,
 	args: string[],
-	opts: { cwd: string; env: Record<string, string>; timeoutMs: number },
+	opts: { cwd: string; env: Record<string, string>; timeoutMs: number; closeStdin?: boolean },
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
 	return new Promise((resolve) => {
+		// @lore AL7 codex-stdin: codex exec reads from stdin when it is a pipe
+		// (even an empty one) and hangs when stdin is "ignore" — it emits
+		// "Reading additional input from stdin..." and blocks. The fix is to
+		// use "pipe" for stdin and immediately call child.stdin.end() (EOF).
+		// Claude code works with "ignore"; codex requires the closed-pipe pattern.
+		const stdinMode = opts.closeStdin ? "pipe" : "ignore";
 		const child = spawn(bin, args, {
 			cwd: opts.cwd,
 			env: opts.env,
 			detached: true,
-			stdio: ["ignore", "pipe", "pipe"],
+			stdio: [stdinMode, "pipe", "pipe"],
 		});
+		if (opts.closeStdin) {
+			child.stdin?.end();
+		}
 
 		let stdout = "";
 		let stderr = "";
@@ -918,6 +927,22 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 sanity-break codex: Changing the config-file token to a wrong
 	// value → PRODUCTION bridge registry lookup fails (401) → codex gets a tool
 	// error → captured stays 0 → assertion fails. Confirms the lane is not vacuous.
+	//
+	// @lore AL7 codex-mcp-approval: codex requires user approval for MCP tool calls
+	// by default (`approvals_reviewer = "user"` in config.toml). `--dangerously-bypass-hook-trust`
+	// does NOT bypass MCP tool call approval — it only bypasses hook hash-checks. Without
+	// approval bypass, codex emits `"user cancelled MCP tool call"` and the call fails.
+	// The correct flag is `--dangerously-bypass-approvals-and-sandbox` which skips all
+	// confirmation prompts (MCP tool calls + shell commands) and disables sandboxing.
+	// This is safe in the test context (isolated temp sandbox).
+	// Discovered: codex 0.141.x, 2026-06-25.
+	//
+	// @lore AL7 codex-stdin-pipe: codex exec must have stdin closed (pipe+end()) not
+	// ignored. With `stdio:["ignore"...]`, codex hangs on some invocations — the
+	// "Reading additional input from stdin..." message appears and codex blocks.
+	// Fix: use `closeStdin:true` in spawnDetached (pipe stdin then child.stdin.end()).
+	// Both pipe+close and /dev/null redirect produce "Reading additional input from stdin..."
+	// — that message is just informational, not a hang indicator.
 
 	describe("codex CLI (real binary, MCP-routed two-session loop)", () => {
 		test.skipIf(!codexInstalled)(
@@ -984,7 +1009,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					});
 
 					const cleanEnv = buildCleanEnv();
-					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					cleanEnv.CODEX_HOME = codexHomeDir;
 					// Inject the MCP token env var (codex reads from bearer_token_env_var).
 					if (tokenEnv) {
 						Object.assign(cleanEnv, tokenEnv);
@@ -997,11 +1022,12 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 					const result = await spawnDetached(
 						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
+						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
 						{
 							cwd: s1SandboxPath,
 							env: cleanEnv,
 							timeoutMs: 60_000,
+							closeStdin: true,
 						},
 					);
 
@@ -1089,7 +1115,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					});
 
 					const cleanEnv = buildCleanEnv();
-					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					cleanEnv.CODEX_HOME = codexHomeDir;
 					if (s1TokenEnv) Object.assign(cleanEnv, s1TokenEnv);
 
 					const prompt =
@@ -1099,8 +1125,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 					const s1Result = await spawnDetached(
 						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000, closeStdin: true },
 					);
 
 					if (testServer.capturingRouter.captured.length < 1) {
@@ -1127,6 +1153,19 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					await testServer.rebuildBridge(testServer.capturingRouter);
 
 					// ── Session 2 ──────────────────────────────────────────────────────
+					// @lore AL7 codex-s2-config-refresh: TOML does not allow duplicate table
+					// keys. The session-2 writeCliMcpConfig call would append a second
+					// [mcp_servers.hyperidle] block to the same config.toml, causing codex
+					// to fail with "duplicate key". Fix: recreate config.toml from scratch
+					// (copy base from ~/.codex) before writing the session-2 MCP block.
+					// In production this never happens because each session gets a fresh sandbox.
+					const s2ConfigTomlPath = path.join(codexHomeDir, "config.toml");
+					const homeCodexConfigPath = path.join(homeCodexDir, "config.toml");
+					if (fs.existsSync(homeCodexConfigPath)) {
+						fs.copyFileSync(homeCodexConfigPath, s2ConfigTomlPath);
+					} else {
+						fs.writeFileSync(s2ConfigTomlPath, "", "utf-8");
+					}
 					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
 					const { tokenEnv: s2TokenEnv } = writeCliMcpConfig({
 						dialect: "codex-toml",
@@ -1139,8 +1178,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 					const s2Result = await spawnDetached(
 						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
-						{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000 },
+						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+						{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000, closeStdin: true },
 					);
 
 					// AC3: real codex executed the approved op → file written.
@@ -1388,8 +1427,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					// (normalizeHarnessEvent may map this to unknown today — T6 fixes that;
 					// this assertion is on the raw stdout which the MCP router doesn't depend on.)
 					const hasCompletion =
-						s2Result.stdout.includes("step_finish") ||
-						s2Result.stdout.includes("turn.completed");
+						s2Result.stdout.includes("step_finish") || s2Result.stdout.includes("turn.completed");
 					expect(hasCompletion).toBe(true);
 				} finally {
 					await testServer.close();
