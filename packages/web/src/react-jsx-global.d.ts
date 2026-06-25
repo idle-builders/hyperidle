@@ -18,6 +18,7 @@ declare global {
 	// TypeScript's automatic runtime does NOT put the JSX namespace in global scope.
 	// This declaration makes it globally available. The name must be `JSX` (uppercase)
 	// to match the TypeScript convention — `Jsx` (lowercase) does NOT work.
+	// biome-ignore lint/style/useNamingConvention: TypeScript uses "JSX" (uppercase) as the standard namespace name; Biome's convention of "Jsx" does NOT work for TypeScript's type resolution.
 	namespace JSX {
 		type Element = ReactJSX.Element;
 		type IntrinsicElements = ReactJSX.IntrinsicElements;

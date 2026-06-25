@@ -244,7 +244,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 				onPostComment={user ? handlePostComment : undefined}
 				threadId={hostThread.data?.thread.id ?? ""}
 				adoptions={adoptions}
-				onSwap={() => navigate("/settings/surfaces")}
+				onSwap={() => navigate("/conversations?settings=open")}
 			/>
 		</div>
 	);
