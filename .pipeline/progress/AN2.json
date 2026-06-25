@@ -4,7 +4,7 @@
   "title": "Outbound tool brokering (hybrid)",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "3-write-code",
+  "currentStep": "4-review",
   "startedAt": "2026-06-25T17:51:00Z",
   "branch": "feat/AN2-outbound-tool-brokering",
   "runMode": "autonomous",
