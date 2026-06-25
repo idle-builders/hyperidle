@@ -210,28 +210,30 @@ type ProposedCallView = {
 
 Implementation story: **AL7** — Review execution loop (`.pipeline/work-packages/TRACK-AL.md`).
 
-## Substrate + Product shapes (Track AO)
+## Substrate shape (Track AO)
 
-**Full specs:** Substrate at `docs/process-layer/substrate-primitive.md`; Product at `docs/process-layer/teams-persistent-product-bound.md` §4.5. Concept locked in `plans/AO/concept.md`.
+**Full spec:** `docs/process-layer/substrate-primitive.md`. Concept locked in `plans/AO/concept.md`.
 
 ```
-// The durable working files an agent's output lives in, owned by a Product.
+// The durable working files an agent's output lives in, attached to an
+// agent within a team. Team-scoped. ("Product" is not modelled for now.)
 type Substrate = {
-  id: string            // opaque, stable
-  productId: string     // FK → owning Product (= teams.id). Required, exactly one.
-  kind: string          // OPEN vocab. Initial: 'code' (git repo) | 'doc_set'.
-  location: string      // for 'code': clone URL / local path + branch
-  connectionId?: string // OPTIONAL FK → Connection (AN) for forge auth. By ref only.
-  state: 'bound' | 'reachable' | 'needs_attention'
+  id: string             // opaque, stable
+  teamId: string         // FK → owning Team (teams.id). The scope. Required.
+  agentMemberId?: string // FK → agent-within-a-team (teamMembers.id) it attaches to.
+                         //      Primary attachment; null → a team-level (shared) substrate.
+  kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set'.
+  location: string       // for 'code': clone URL / local path + branch
+  connectionId?: string  // OPTIONAL FK → Connection (AN) for forge auth. By ref.
+  state: 'attached' | 'reachable' | 'needs_attention'
   createdAt: string
 }
 ```
 
-- **Product = Team, 1:1** (U1 invariant kept, founder decision 2026-06-26). One `teams.id` **is** one product — the durable build scope owning substrate, work, knowledge, connections, cost. There is **one** load-bearing product key (`teams.id`); legacy `productId` was removed by U1, `scopeId` already equals `teamId` (`scopeKind="product"`). **No fourth key.** Multi-product = multi-team.
-- **Substrate ⟂ Connection** — files vs auth; orthogonal axes that compose. **No forge credential** on the substrate record or in the sandbox; the system applies auth at checkout/push.
+- **Scope = Team; attaches to an agent within a team.** A substrate is attached to one agent-in-team (primary) or shared at team level — always team-scoped. A session the agent runs materializes its attached substrate(s). A first-class multi-instance "Product" scope is **deferred** (AO4).
+- **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); for a code substrate the bound Connection's forge auth is present so the agent's own `git`/`gh` tools push/PR. **No credential withholding, no broker-only path.** The review gate (AL7) checkpoints *irreversible landing*, never withholds access.
+- **Substrate ⟂ Connection** — files vs auth/tools; distinct axes that compose. The substrate references the Connection; the Connection supplies the auth.
 - **Local-first** — a substrate functions with no forge (a plain local git repo).
-- **Per-product isolation** — substrate, connections, cost, and knowledge promotion/context are product(team)-scoped; no cross-product leak (fixes the factory-wide `DISTINCT scopeId` count at `promotion-pipeline.ts:207`).
-- **Binding level = Product** (durable); a unit of work materializes one or more of its product's substrates into the per-session sandbox (AO2). A substrate-less unit of work degrades to today's behavior.
-- Forward-only migration; back-compat single-product default.
+- **Materialization** is driven by the agent's attachment (AO2), never a global path; a substrate-less session degrades to today's behavior. Forward-only migration.
 
-Implementation stories: **AO1** (substrate model + bind surface), **AO2** (materialization), **AO4** (product scope). Concept: `plans/AO/concept.md`.
+Implementation stories: **AO1** (substrate model + attach surface), **AO2** (materialization). Concept: `plans/AO/concept.md`.
