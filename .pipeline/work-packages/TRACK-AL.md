@@ -247,42 +247,144 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 ### AL7 — Review execution loop
 
-**Workpackage.** As a reviewer, I want approving a review to actually *cause* the agent's staged operation to be carried out through the connected tool, so that "approve" means the work happens — not just that it's marked accepted. When an agent stages an operative action (a refund, a deploy, a send, a record write) and presents it for review, the human's approval is the trigger that executes it via the tool/MCP, and the result returns to HyperIdle; a non-approving verdict holds it. Today approval records a verdict but executes nothing — the staged-action review canvas has no teeth.
+**Workpackage.** As a reviewer, I want approving a review to let the *trusted* agent's irreversible action actually happen — through the agent's own tools — so that "approve" means the work proceeds, not just that it's marked accepted. We trust the agent: it holds its own credentials and runs its own tools (like a real employee with broad self-permission). When it attempts an irreversible call (a refund, a deploy, a send, a record write), that one call is routed to a human as a **collaboration checkpoint** and captured as the subject the human reviews; everything reversible flows. On approve, the agent re-engages and does the approved work itself — then keeps working (closes the story, updates docs, proceeds). A non-approving verdict holds it. Today approval records a verdict but nothing proceeds — the review has no teeth.
 
-**Why this matters.** This is the *act* in plan→review→act, the founder's core loop. Without it, the review experience is a viewer: a human can approve, but nothing happens, and operative agent work either never runs or runs without the gate. The reviewer and the founder benefit directly — approval becomes the safe commit point for operative agent work. The cost of not building it: HyperIdle can show and judge agent work but cannot safely complete it.
+**Why this matters.** This is the *act* in plan→review→act, the founder's core loop. Without it, the review experience is a viewer: a human can approve, but nothing happens, and consequential agent work either never proceeds or proceeds without the checkpoint. The reviewer and the founder benefit directly — approve becomes the moment a human steers the consequential, while the agent does real work freely on everything reversible. The checkpoint **fades as trust grows** (ETHOS §4) — more autonomy is the goal.
 
-**What exists today.** Verdicts post, resolve, and emit events (thread/verdict system); a `submit-review` tool and tool registry exist; live session dial-in exists; the AL1 design includes an action-operation review canvas that *stages* an operation (what it will do, consequence, undo) pre-commit. But nothing dispatches the staged operation to the tool on approve — execution is the gap.
+**What exists today.** Verdicts post, resolve, and emit events (thread/verdict system); a tool registry + `registry.invoke` participation point exist; live session dial-in exists; the AL1/AL2 design includes an action-operation review canvas. The harness adapters expose native permission features (Claude `canUseTool`; Codex native PreToolUse hooks already wired by AL6; opencode native `permission` + `serve`; builtin owns its loop). **A first AL7 shipped a kernel-executor model (HyperIdle re-ran the op via a curated `executeCapability`/`KERNEL_DISPATCHABLE_CAPABILITIES` map) — that code is superseded and replaced by this trust-first loop; do not preserve its credential-withholding / capability-split / dispatcher framing.** What's missing is the trust-first loop itself.
 
-**What's genuinely missing.** The link from a binding approve-verdict to the actual execution of the staged operation through the connected tool/MCP — the verdict becoming a trigger that commits the staged action, with the result returning to HyperIdle.
+**What's genuinely missing.** The trust-first loop: route a trusted agent's irreversible call to a human checkpoint and capture it; on approve, re-engage the agent so its own session/tools run the approved work and then continue; record the real Outcome and surface it against the review. Carried by each supported harness's native permission mechanism as a workflow — never a HyperIdle-side executor.
 
-**Depends on.** None. (The review primitive and verdict system are locked/exist; the loop can be specced and proven against a staged operation in a fixture without waiting on AL6.)
+**Depends on.** None for the loop. (The review primitive and verdict system are locked/exist. The Codex lane reuses AL6's already-wired `.codex/hooks.json` PreToolUse hook.)
 
 **Complexity.** L
 
-**Human design review.** No — primarily agent-runtime + concept; the approve→execute affordance and the execution-result surface extend the existing action-operation review canvas rather than introducing a new base primitive. (`/design`'s DESIGN-CLASS is authoritative at design time.)
+**Human design review.** No — no novel UI; rides the existing action-operation review canvas (`reviews.ts` / `ReviewComposition.tsx`), surfacing the concrete captured call (tool id + verbatim args) and the Outcome. The approve→proceed affordance extends the existing canvas rather than introducing a new base primitive. (`/design`'s DESIGN-CLASS is authoritative at design time.)
 
-**Acceptance criteria.**
-- Approving a review whose subject includes a staged operative action causes that operation to be carried out through the connected tool, without the human leaving the review.
-- A non-approving verdict (request-changes / reject / edit) does not execute the staged operation; it remains pending and un-executed.
-- After execution, the result (success or failure) returns to HyperIdle and is visible against the review.
-- A given approval executes the staged operation at most once — re-opening or re-showing the review does not double-execute.
-- A staged operation that the human never approves is never executed.
-- Descriptive artifacts (a code diff, a document) do not "execute" on approve — only operative artifacts do.
+**Acceptance criteria.** *(Outcome-level — what becomes true; the concept/architecture own the mechanism.)*
+- Approving a review whose subject is the trusted agent's irreversible call lets that action actually happen — run by the **agent's own session and tools**, not re-executed by HyperIdle — without the human leaving the review.
+- An irreversible call the agent attempts is routed to a human checkpoint and captured as the reviewed subject; the human sees the concrete proposed call (tool id + verbatim args). A reversible call flows without review.
+- A non-approving verdict (request-changes / reject / edit) does not let the call happen; it stays held and un-run.
+- After the call runs, the real result (success or failure) returns to HyperIdle and is visible against the review; failure surfaces, never silently swallowed.
+- A given approval lets the call happen at most once — re-opening or re-showing the review does not double-run it.
+- A call the human never approves never happens.
+- After the approved call runs, the agent **continues working** — it does not stop at the call (closes the story / updates docs / proceeds). (Folds in the former AL10.)
+- The loop is proven **LIVE against the real installed harnesses** — for every supported harness (builtin, Claude, Codex, opencode), end-to-end, never a stub. A harness whose real binary/SDK is absent makes its lane fail, never silently pass.
 
 **Validation scenarios.**
-- Given a review with a staged refund, when the human approves, then the refund is actually performed via the tool and its result shows against the review.
-- Given the same review, when the human requests changes instead, then no refund is performed and the staged operation remains pending.
-- Given an already-approved-and-executed operation, when the review is re-opened, then the operation is not executed a second time.
+- Given a review of an agent's attempted irreversible op (e.g. a refund / a file commit), when the human approves, then the agent's own tools perform it and its real result shows against the review.
+- Given the same review, when the human requests changes instead, then nothing happens and the call stays held.
+- Given an already-approved-and-run op, when the review is re-opened, then it does not run a second time.
+- Given an approved op that has run, when the agent's session resumes, then the agent keeps working past the op (continues the story).
+- Given each supported harness with its real binary/SDK installed, when the loop runs end-to-end, then it completes live on that harness.
 
-**Plan calls.** Concept-introducing — run `/concept` first (the execution loop is parked, unbiased, in `plans/AL1/design/review-system.md` §4). The concept act defines how a verdict becomes a trigger, how the staged-operation spec is carried, the descriptive-vs-operative artifact distinction, at-most-once/idempotency, and failure handling. Then a standard architecture pass. Spans the agent-runtime/tool-dispatch domain.
+**Plan calls.** Concept locked (`plans/AL7/concept.md`, trust-first) — re-anchored on ETHOS §4 "Trust Agents": review = a collaboration checkpoint carried by the harness's native permission mechanism, not a containment gate; the noun is `Proposed Call`. Run a standard architecture pass against that concept. Spans the agent-runtime / harness-permission domain.
+
+**Contracts / constraints.** *(Outcome-level — what must hold, not the mechanism.)*
+- **Trusted collaboration, not paranoia (ETHOS §4).** We trust the agent; we do not withhold credentials a tool needs, do not build "the only path" containment, and do not design against a hypothetical rogue agent. The checkpoint is where a human chooses to weigh in on the irreversible.
+- **HyperIdle executes nothing of its own.** The agent's own session/tools/creds run the call; HyperIdle captures, routes-to-review, records, and re-engages — it never authors or re-runs a tool.
+- **The work continues after the result** — the agent keeps working past the approved call (closes the story / updates docs / proceeds).
+- **At-most-once** — a given approval lets the call happen at most once; re-show/re-open never double-runs it.
+- **Only irreversible calls gate; reversible flows.** Descriptive artifacts (a code diff, a document) do not "run" on approve.
+- **The verdict grammar is unchanged** — approve stays approve; it gains a consequence, not a new action.
+- **The gate fades as trust grows** (verdict-history trust signal); reversible auto-flow + autonomy widening is AL8. AL7 ships the gated arm.
+- **Proven LIVE on the real installed harnesses** — all four supported harnesses, end-to-end, no stub-as-proof; an absent binary fails its lane.
+
+**Out of scope.** Reversibility-driven auto-flow + autonomy widening (AL8). Multi-step transactional rollback beyond a single call's own semantics. Broad per-tool coverage beyond proving the loop live per harness with at least one real irreversible op.
+
+**Effort.** L (~5-6d — four harness lanes proven live)
+
+---
+
+### AL8 — Reversibility-driven auto-flow for staged operations
+
+**Workpackage.** As a founder who has built trust with an agent, I want that agent's *reversible* staged operations to flow without me approving each one — while *irreversible* ones still gate — so that my approval effort concentrates on what genuinely can't be undone instead of every consequence. Today every staged operation from AL7 waits for an explicit human approve regardless of reversibility or how much the agent has earned my trust. The system already auto-resolves high-trust, low-risk review *items* via the policy engine, but staged operations bypass it entirely. This wires the two together so trust actually translates into less work.
+
+**Why this matters.** This is the other half of AL7's founding principle (ETHOS §3): *never put a human in front of a reversible one.* AL7 shipped only the gated arm, so the system currently interrupts the human for reversible work too — the exact approval fatigue ETHOS warns against. The founder and every reviewer benefit directly: as an agent's approval-rate history climbs, its reversible operations stop demanding clicks. The cost of not building it: the review queue stays full of reversible no-brainers, earned trust never reduces the human's load, and HyperIdle feels like every other approval-fatigued agent tool.
+
+**What exists today.** AL7's staged-operation model — `staged_operations` (carrying a `reversibility` field), the dispatcher, at-most-once execution on approve. The policy engine (`packages/fabric/src/services/policy-engine.ts`) already decides push / queue / auto_resolve for review *items* using the agent's approval-rate trust signal (verdict history over a factory-settings window, cold-start protection) and a `riskTier` (high/low). The two are unconnected: staged operations always gate, and the policy engine never sees them. AL7's `reversibility` axis and the policy engine's `riskTier` axis are two parallel, unreconciled risk vocabularies.
+
+**What's genuinely missing.** A path where a staged operation's reversibility, crossed with the agent's trust signal, lets a *reversible* operation execute without a human verdict — plus a single reconciled risk model so "reversible" and "low riskTier" are not two conflicting axes. Irreversible operations must still always gate.
+
+**Depends on.** AL7 — this consumes the staged-operation model and its execution path; it cannot be built or verified until AL7 is `done`.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Concept:** Required — run `/concept AL8` first. It reshapes the gating classifier: reconcile AL7's `reversibility` axis with the shipped policy engine's `riskTier` + approval-rate trust signal into one model, and define when a staged operation auto-executes vs gates. A load-bearing reshape of how the gate decides — point at `docs/process-layer/staged-operation.md` and `packages/fabric/src/services/policy-engine.ts`.
+- **Design:** Light — extends existing review/outcome surfaces (an auto-executed staged op appears with its outcome, like the existing item auto_resolve path); no novel surface. Single-variant `/design` to place auto-execution provenance, no human-review park.
+
+**Human design review.** No — backend gating reconciliation; the only surface change is showing auto-execution provenance on existing review/outcome surfaces, not a new primitive.
+
+**Acceptance criteria.**
+- A reversible staged operation from a sufficiently-trusted agent executes without requiring a human verdict, and its outcome is still recorded and visible against the review.
+- An irreversible staged operation always requires a binding human approval, regardless of trust level, and never auto-executes.
+- An agent with insufficient trust history has all its staged operations gated — reversible or not — until it accumulates enough verdict history.
+- For any staged operation, a reader can tell why it gated or flowed under one coherent risk model, without reconciling two separate risk vocabularies.
+- An auto-executed operation is distinguishable from a human-approved one wherever outcomes are surfaced (its provenance is recorded).
+- At-most-once execution holds for auto-flowed operations exactly as for approved ones.
+
+**Validation scenarios.**
+- Given a high-trust agent and a reversible staged operation, when the agent stages it, then it executes without a human verdict and its outcome is recorded.
+- Given any agent and an irreversible staged operation, when the agent stages it, then nothing executes until a human approves.
+- Given a new agent with no verdict history, when it stages a reversible operation, then it is gated (cold-start protection), not auto-executed.
+- Given an auto-executed operation, when a human views the review, then it is shown as auto-executed rather than human-approved.
+
+**Plan calls.** Concept-reshaping — run `/concept AL8` first (reconcile reversibility × riskTier × approval-rate trust into one classifier). Then a standard architecture pass plus a light `/design` to place auto-execution provenance on the existing review surfaces. Spans the fabric policy-engine and the staged-operation-dispatcher domains.
 
 **Contracts / constraints.**
-- At-most-once execution per approval (idempotent).
-- Only operative artifacts execute on approve; descriptive artifacts do not.
-- The verdict grammar is unchanged — approve stays approve; it gains a consequence, not a new action.
-- Execution failure surfaces; it is never silently swallowed.
-- No bypass of the human gate where a human reviewer is required.
+- Irreversible + any trust level → always gated; never auto-executes. The ETHOS §3 floor is preserved.
+- One reconciled risk model — `reversibility` and `riskTier` are unified or one is defined in terms of the other; no two parallel conflicting axes survive.
+- Cold-start protection holds — insufficient verdict history → gated regardless of reversibility.
+- At-most-once execution is preserved for auto-flowed operations (no weaker guarantee than the gated path).
+- The trust signal stays Kernel/Strategy-owned (approval-rate from verdict history); an agent never sets its own flow eligibility.
+- Auto-execution provenance is recorded and surfaced — an auto-executed operation is never indistinguishable from a human-approved one.
 
-**Out of scope.** The harness return-enforcement (AL6). Broad per-tool dispatch coverage (the loop + at least one real tool path; wide tool coverage is follow-on). Multi-step transactional rollback beyond the single staged operation's own undo.
+**Out of scope.** The layer-3 pre-call interception backstop (deferred). Broad per-tool dispatch coverage (Track AN). Any change to the verdict grammar or the human-approval path for irreversible ops. Re-introducing per-skill autonomy levels (removed by AD4; this uses the verdict-history trust signal — see AL9).
 
 **Effort.** L (~4-5d)
+
+---
+
+### AL9 — Trust-model consolidation: remove vestigial per-skill autonomy
+
+**Workpackage.** As a developer or agent reading the codebase, I want one trust model — the verdict-history approval-rate signal AD4 introduced — with no leftover per-skill autonomy-level data, routes, or types, so that nobody mistakes the dead L1→L4 dial for the live gating mechanism. AD4 replaced per-skill autonomy in the policy engine but left the `autonomyLevel` CRUD endpoint, settings field, and types in place; they are stored and editable yet consumed by nothing for gating decisions.
+
+**Why this matters.** This dead code already caused a concrete failure: an audit (and nearly an AL7 follow-up planning pass) mistook the vestigial per-skill autonomy CRUD for the live trust model, because the data and routes still exist. Every future reader, agent, and reviewer pays that confusion tax, and AL7's gate concept cannot be explained cleanly while two trust models appear to coexist. The cost of not building it: the next person re-derives the same wrong conclusion. Removing it makes the one real model legible — a maintainability cost already being paid in misreads.
+
+**What exists today.** AD4 (merged, PR #220) rewrote `packages/fabric/src/services/policy-engine.ts` to gate on `getAgentTrustSignal` (approval-rate from verdict history) and removed `getAutonomyLevel`. But the per-skill autonomy level survives as unconsumed vestige: the `PATCH /:id/skills/:skillId` route in `packages/server/src/routes/users.ts` (still emits `autonomy_change` events), `autonomyLevel` in `packages/server/src/routes/settings.ts`, and the `AutonomyLevel` type in `packages/fabric/src/types.ts` and `packages/web/src/settings/settings-types.ts`. `packages/shared/src/agent-profile.ts` already records that the review track record "replaces per-skill autonomy level."
+
+**What's genuinely missing.** The removal of the per-skill autonomy data model, routes, types, and any residual UI surface AD4 left behind — so the verdict-history trust signal is the only trust mechanism present in the code. Whether routine `autonomyLevel` (a distinct axis for recurring routines) is the same dead path or a genuinely live one is for the architect to determine before deleting.
+
+**Depends on.** None — AD4 is `done`; this finishes its cleanup.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — consumes the already-locked AD4 trust model (verdict-history approval rate, settled in `policy-engine.ts` + `agent-profile.ts`); introduces no noun.
+- **Design:** Not required — backend/data/route removal. Any residual autonomy UI field is removed as dead UI, not a design decision; if a surface genuinely needs rework, that is flagged back, not pre-resolved here.
+
+**Human design review.** No — vestigial-code removal; no new or reshaped surface.
+
+**Acceptance criteria.**
+- The per-skill autonomy level can no longer be set or read through any API — the route that mutated it is gone.
+- No code path stores, reads, or emits events for a per-skill autonomy level.
+- The codebase contains exactly one agent trust model (the verdict-history approval-rate signal); a search for autonomy-level types/fields returns only genuinely-distinct live concepts, nothing vestigial tied to the removed per-skill dial.
+- Gating behavior is unchanged after the removal (proof the autonomy level was already unused).
+
+**Validation scenarios.**
+- Given the cleaned codebase, when a client calls the former per-skill autonomy endpoint, then it no longer exists and no other behavior regresses.
+- Given the policy engine, when it makes a gating decision, then it relies solely on the verdict-history trust signal (unchanged behavior).
+- Given a code search for the per-skill autonomy type, when run after the change, then it returns no vestigial references.
+
+**Plan calls.** Skip `/design`. Standard architecture pass — locate every reference to the per-skill autonomy level (routes, settings, types, events, any UI), confirm none feeds a live gating decision, and remove them. Distinguish the dead per-skill dial from any genuinely-live axis (e.g. routine autonomy) before deleting. Spans server routes + fabric/web types.
+
+**Contracts / constraints.**
+- Gating behavior is unchanged — removal is provably behavior-neutral (the data was unconsumed for decisions).
+- After this WP, the verdict-history approval-rate signal is the only agent trust mechanism in the code.
+- Forward-only — no migration that preserves the dead column's data; it is removed.
+- Do not touch any genuinely-distinct live axis (routine autonomy) unless proven to be the same dead path.
+
+**Out of scope.** The reversibility-driven auto-flow wiring (AL8). Any change to the verdict-history trust signal itself (AD4 owns it). Routine autonomy, if it is a separate live mechanism.
+
+**Effort.** M (~3-4h)

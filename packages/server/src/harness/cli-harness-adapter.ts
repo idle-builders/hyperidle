@@ -134,6 +134,19 @@ export interface CliAdapterConfig {
 	 * Absent → re-engage uses the sandbox instruction file only.
 	 */
 	readonly reEngageCarrier?: "run-arg" | "stdin";
+	/**
+	 * AL7 delta: Per-session MCP config file the binary reads to reach the HyperIdle bridge.
+	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
+	 *
+	 * "codex-toml"   — appends [mcp_servers.hyperidle] to .codex-home/config.toml;
+	 *                  token delivered via HYPERIDLE_MCP_TOKEN env var (outside allowlist).
+	 * "opencode-json" — writes opencode.json to sandbox cwd; token inline in headers.
+	 *
+	 * @lore AL7 mcpConfig: The dialect knowledge lives entirely in writeCliMcpConfig
+	 * (cli-mcp-config.ts). CLI_TOOL_CONFIGS declares the dialect; session-provisioning
+	 * calls writeCliMcpConfig. No per-backend branching in the router/registry.
+	 */
+	readonly mcpConfig?: { readonly dialect: "codex-toml" } | { readonly dialect: "opencode-json" };
 }
 
 /** Injected dependencies (for testing). */
@@ -335,6 +348,22 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
 			// requiring the user to have pre-approved the hook command.
 			extraArgs = ["--dangerously-bypass-hook-trust"];
+		}
+
+		// ── AL7 delta: Per-session MCP token env var injection.
+		//
+		// For codex, the MCP token is delivered via HYPERIDLE_MCP_TOKEN env var
+		// (codex's bearer_token_env_var mechanism). It is injected OUTSIDE the
+		// envAllowlist — the token is per-session-generated and NOT in process.env.
+		// This mirrors the CODEX_HOME injection pattern above.
+		//
+		// @lore AL7 N6: inject-outside-allowlist is non-optional. The allowlist
+		// forwards from process.env; the MCP token is not there. Caller-provided
+		// mcpTokenEnv overrides (and does not pollute) the allowlisted env.
+		if (config.mcpTokenEnv) {
+			for (const [key, value] of Object.entries(config.mcpTokenEnv)) {
+				resolvedEnvMap[key] = value;
+			}
 		}
 
 		const finalArgs = [...resolvedArgs, ...extraArgs];
@@ -676,6 +705,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// unknown → none (drain-gate floor backstop only)
 			returnEnforcement:
 				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
+			// AL7 delta: expose the MCP config dialect so session-provisioning can
+			// call writeCliMcpConfig with the right dialect. Absent if no mcpConfig set.
+			...(this.config.mcpConfig ? { cliMcpDialect: this.config.mcpConfig.dialect } : {}),
 		};
 	}
 

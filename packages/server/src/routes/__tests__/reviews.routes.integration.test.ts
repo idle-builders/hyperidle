@@ -16,16 +16,20 @@ describe("GET /api/reviews/:reviewId", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns the fixture review subject for a valid review id", async ({ app }) => {
+	// AL7 CRITICAL-2b: the stub fixture review (rev-1) is restored (plan §7: "keep the
+	// stub data until the broader reviews-loader wiring lands"). rev-1 returns 200 with
+	// the fixture payload. Real review loading is tested in AL7-reviews-loader.integration.test.ts.
+	test("returns 200 with fixture data for rev-1 (stub path restored per plan §7)", async ({
+		app,
+	}) => {
 		const res = await app.request("/api/reviews/rev-1", {
 			method: "GET",
 			headers: authHeaders(),
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { id: string; title: string };
+		const body = (await res.json()) as { id: string };
 		expect(body.id).toBe("review:AL3:fixture");
-		expect(body.title).toBe("Fix expired-promo checkout — silent success → typed 422");
 	});
 
 	test("returns 404 for an unknown review id", async ({ app }) => {

@@ -55,73 +55,129 @@ function unknownEvent(input: unknown): HarnessEvent {
 	};
 }
 
+/**
+ * Translate opencode JSONL raw event types to canonical HarnessEvent types
+ * before normalization.
+ *
+ * opencode `--format json` emits JSONL where `type` is opencode-specific
+ * (e.g. `step_finish`, `tool`). These don't match the canonical set, so without
+ * a pre-map they normalize to `unknown`. This pre-map translates the most common
+ * opencode event shapes to their canonical equivalents.
+ *
+ * @lore AL7 W3: This pre-map is required because opencode has no SDK adapter —
+ * the HTTP MCP bridge is its only production transport. Event normalization
+ * (return-detection, cost) must work for the loop to function correctly.
+ * Without this, all opencode events normalize to `unknown` and the loop is blind.
+ *
+ * Verified opencode 1.17.8 `--format json` event types:
+ *   step_finish — emitted when a turn ends; may include text output
+ *   tool        — emitted when a tool call is made; includes tool name + args
+ */
+function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unknown> {
+	switch (input.type) {
+		case "step_finish": {
+			// step_finish signals turn completion. Extract text from known field variants.
+			// opencode may nest the content in `properties.output`, `output`, or `text`.
+			const props = isRecord(input.properties) ? input.properties : input;
+			const text =
+				typeof props.output === "string"
+					? props.output
+					: typeof props.text === "string"
+						? props.text
+						: typeof input.output === "string"
+							? input.output
+							: "";
+			return { type: "completion", text };
+		}
+		case "tool": {
+			// tool event signals a tool call. Extract toolName + args.
+			const toolName =
+				typeof input.tool === "string"
+					? input.tool
+					: typeof input.name === "string"
+						? input.name
+						: "unknown";
+			const args = isRecord(input.input) ? input.input : isRecord(input.args) ? input.args : {};
+			return { type: "tool_call", toolName, args };
+		}
+		default:
+			return input;
+	}
+}
+
 export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 	if (!isRecord(input) || typeof input.type !== "string") {
 		return unknownEvent(input);
 	}
 
-	if (!(EVENT_TYPES as readonly string[]).includes(input.type)) {
+	// Pre-map opencode raw event types to canonical types before the main switch.
+	const mapped = preMapOpencodeEvent(input);
+
+	if (!(EVENT_TYPES as readonly string[]).includes(mapped.type as string)) {
 		return unknownEvent(input);
 	}
 
-	switch (input.type) {
+	// Use the pre-mapped event for normalization (opencode raw types translated to canonical).
+	const n = mapped;
+
+	switch (n.type) {
 		case "completion": {
-			if (typeof input.text !== "string") return unknownEvent(input);
-			if (Array.isArray(input.toolCalls)) {
-				const toolCalls = input.toolCalls.filter(isCapturedToolCall);
+			if (typeof n.text !== "string") return unknownEvent(input);
+			if (Array.isArray(n.toolCalls)) {
+				const toolCalls = n.toolCalls.filter(isCapturedToolCall);
 				return toolCalls.length > 0
-					? { type: "completion", text: input.text, toolCalls }
-					: { type: "completion", text: input.text };
+					? { type: "completion", text: n.text, toolCalls }
+					: { type: "completion", text: n.text };
 			}
-			return { type: "completion", text: input.text };
+			return { type: "completion", text: n.text };
 		}
 		case "tool_call": {
-			if (typeof input.toolName !== "string") return unknownEvent(input);
-			const args = isRecord(input.args) ? input.args : {};
-			return { type: "tool_call", toolName: input.toolName, args };
+			if (typeof n.toolName !== "string") return unknownEvent(input);
+			const args = isRecord(n.args) ? n.args : {};
+			return { type: "tool_call", toolName: n.toolName, args };
 		}
 		case "error": {
-			if (typeof input.message !== "string" || typeof input.code !== "string") {
+			if (typeof n.message !== "string" || typeof n.code !== "string") {
 				return unknownEvent(input);
 			}
-			return { type: "error", message: input.message, code: input.code };
+			return { type: "error", message: n.message, code: n.code };
 		}
 		case "cost_update": {
-			if (!(isFiniteNumber(input.totalCost) && isFiniteNumber(input.deltaCost))) {
+			if (!(isFiniteNumber(n.totalCost) && isFiniteNumber(n.deltaCost))) {
 				return unknownEvent(input);
 			}
 			const event: CostUpdateEvent = {
 				type: "cost_update",
-				totalCost: input.totalCost,
-				deltaCost: input.deltaCost,
+				totalCost: n.totalCost as number,
+				deltaCost: n.deltaCost as number,
 			};
-			if (isCurrencyCode(input.currency)) {
-				return { ...event, currency: input.currency };
+			if (isCurrencyCode(n.currency)) {
+				return { ...event, currency: n.currency };
 			}
 			return event;
 		}
 		case "token_usage": {
-			if (!(isFiniteNumber(input.inputTokens) && isFiniteNumber(input.outputTokens))) {
+			if (!(isFiniteNumber(n.inputTokens) && isFiniteNumber(n.outputTokens))) {
 				return unknownEvent(input);
 			}
 			const event: TokenUsageEvent = {
 				type: "token_usage",
-				inputTokens: input.inputTokens,
-				outputTokens: input.outputTokens,
+				inputTokens: n.inputTokens as number,
+				outputTokens: n.outputTokens as number,
 			};
-			if (isModelTier(input.tier)) {
-				return { ...event, tier: input.tier };
+			if (isModelTier(n.tier)) {
+				return { ...event, tier: n.tier };
 			}
 			return event;
 		}
 		case "pre_compaction": {
-			if (!(isFiniteNumber(input.contextTokens) && isFiniteNumber(input.maxTokens))) {
+			if (!(isFiniteNumber(n.contextTokens) && isFiniteNumber(n.maxTokens))) {
 				return unknownEvent(input);
 			}
 			return {
 				type: "pre_compaction",
-				contextTokens: input.contextTokens,
-				maxTokens: input.maxTokens,
+				contextTokens: n.contextTokens as number,
+				maxTokens: n.maxTokens as number,
 			};
 		}
 	}

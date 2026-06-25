@@ -19,7 +19,7 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 | Git hosting (repos, commits, protocol) | **RIDE** | code lives in a **local git repo, forge-optional**; we read diffs, route landing — never host repos |
 | Code review (PR/MR, approvals, comments) | **REPLACE** | Subject + 5-verdict + proof canvases + anchored comments; agents are first-class |
 | CI/CD (Actions, runners, pipelines) | **INTEGRATE** | trigger/observe via API/MCP; never host runners |
-| Deploy / registries / environments | **INTEGRATE** | a deploy is a Staged Operation dispatched through the tool; registries integrated |
+| Deploy / registries / environments | **INTEGRATE** | a deploy is a Proposed Call the agent runs with its own tools once approved; registries integrated |
 | Project management (Issues, Projects, Epics) | **REPLACE** | bets/tasks supersede tickets |
 | Knowledge (wikis, gists, Pages) | **REPLACE** | the knowledge fabric supersedes wikis |
 | Code intelligence (search, scanning, AI) | **INTEGRATE** scanning · **REPLACE** AI review | scanning is a rules-DB investment; AI review is our differentiator |
@@ -30,7 +30,7 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 
 - **The system needs no git.** Most agent work — a refund, an email, a metric, a doc — touches no git. Git is **one connected system**, not a foundation.
 - **Code work uses a local git repo, forge-optional.** The agent edits a working copy that is a plain git repo (history + real diffs). A solo founder needs **no GitHub**. Connect a forge and we push / PR / merge through its API/MCP. Git is our working ground, never a product we host. The code artifact is **derived** from the repo, never our store of record.
-- **Landing sits behind a review.** The code diff is **descriptive** (approve = "this change is good"); **merge / push / deploy is an operative artifact** carrying a Staged Operation that approve triggers through the forge/CI tool, with the result returning. HyperIdle is the **trigger + gate**; the connected system is the **executor**. → see [AL7 review execution loop](../../plans/AL7/concept.md).
+- **Landing sits behind a review.** The code diff is **descriptive** (approve = "this change is good"); **merge / push / deploy is an operative artifact** carrying a Proposed Call — the irreversible call the trusted agent attempted, routed to a human as a collaboration checkpoint. Approve lets the agent's own session run it through the forge/CI tool with its own creds, with the result returning. HyperIdle is the **gate + bookkeeper**; the agent's own tools are the **executor** (HyperIdle executes nothing of its own). The checkpoint fades as trust grows. → see [Review-gated execution: the Proposed Call](../process-layer/staged-operation.md).
 
 ## Hard rules
 

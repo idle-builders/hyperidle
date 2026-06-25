@@ -397,6 +397,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
+
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
@@ -404,7 +405,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
-		api.route("/reviews", createReviewRoutes());
+		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
