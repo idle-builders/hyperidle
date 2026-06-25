@@ -68,6 +68,9 @@ export type {
 	TrustTier,
 } from "./connection.js";
 export { CONNECTION_AUTH_SOURCES, CONNECTION_HEALTH, TRUST_TIERS } from "./connection.js";
+// ── AN2: Outbound connector types ──
+export type { ConnectorSpec, ConnectorToolDescriptor, ConnectorTransport } from "./connector.js";
+export { CONNECTOR_TOOL_PREFIX, CONNECTOR_TRANSPORTS } from "./connector.js";
 // ── Credential catalog (P3) ──
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
