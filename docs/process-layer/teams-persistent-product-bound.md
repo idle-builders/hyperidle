@@ -39,4 +39,22 @@ What teams don't do is dissolve at ship. A shipped bet means the team is *betwee
 
 Only when the product dissolves. Killing a product is a deliberate founder decision (made through the assistant's thread, ratified through Conversations), and dissolving the team is part of the kill ritual. The team's accumulated knowledge is archived into the Practice layer (so the practice keeps the lessons even when the product is gone) and then the team is dissolved.
 
+### 4.5 Product = Team, 1:1 — the durable build scope (Track AO)
+
+<!-- @source packages/db/src/schema.ts:14-16 (U1 invariant) -->
+
+A **Product** is the durable thing being built; a **Team** is the people-and-agents roster that builds it. They are **the same record, 1:1** — the `teams` table *is* the product (its `briefPath` / `architecturePath` / `brandPath` / `principlesPath` are product attributes), established by the U1 migration that renamed `products`→`teams`. "Product" is the build-scope facet of that record; "Team" is its roster facet. Concept locked in `plans/AO/concept.md`; founder decision 2026-06-26.
+
+As the build scope, a Product **owns**:
+- **`0..N` substrates** — the working files its agents operate on (a git repo for code, a doc set for non-code). See [Substrate primitive](./substrate-primitive.md).
+- its **bets / tasks / sessions / routines** (the `teamId`-scoped spine);
+- its **knowledge** — product-scoped promotion and context (no cross-product validation or injection);
+- its **connections** (Track AN) and its **cost budget**.
+
+**One load-bearing product identifier — `teams.id`.** The legacy `productId` was removed by U1; `scopeId` already equals `teamId` (`scopeKind="product"`). No new key is introduced. **Multi-product = multi-team** — an instance hosting several apps runs several teams, each its own product; an agent belongs to exactly one team and helps another only via temporary borrow (§4.3). The N:1 "one roster builds many products" model was considered and **not** chosen — multi-team keeps the migration small and the mental model clean.
+
+> **Why "product," not "project."** Projects are time-bound and *end*; a product is **durable**. This is why the noun is product, and why the team persists for the product's life rather than dissolving at any single ship (§4.3, §4.4).
+
+Implementation: **Track AO** — AO1 (substrate model), AO2 (materialization), AO4 (product scope: per-product isolation of substrate/work/knowledge/connections/cost + a product switcher in the shell, fixing the factory-wide promotion leak).
+
 ---

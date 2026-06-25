@@ -209,3 +209,29 @@ type ProposedCallView = {
 - The `approve` verdict composes a **tailored grant** for the Subject's Proposed Call(s) and emits `proposed_call_granted`, re-engaging the agent's session; grammar unchanged. After the approved op returns its Outcome, the agent **continues working** (closes the story / updates docs / proceeds) within that same session-2 run (folded-in AL10).
 
 Implementation story: **AL7** — Review execution loop (`.pipeline/work-packages/TRACK-AL.md`).
+
+## Substrate + Product shapes (Track AO)
+
+**Full specs:** Substrate at `docs/process-layer/substrate-primitive.md`; Product at `docs/process-layer/teams-persistent-product-bound.md` §4.5. Concept locked in `plans/AO/concept.md`.
+
+```
+// The durable working files an agent's output lives in, owned by a Product.
+type Substrate = {
+  id: string            // opaque, stable
+  productId: string     // FK → owning Product (= teams.id). Required, exactly one.
+  kind: string          // OPEN vocab. Initial: 'code' (git repo) | 'doc_set'.
+  location: string      // for 'code': clone URL / local path + branch
+  connectionId?: string // OPTIONAL FK → Connection (AN) for forge auth. By ref only.
+  state: 'bound' | 'reachable' | 'needs_attention'
+  createdAt: string
+}
+```
+
+- **Product = Team, 1:1** (U1 invariant kept, founder decision 2026-06-26). One `teams.id` **is** one product — the durable build scope owning substrate, work, knowledge, connections, cost. There is **one** load-bearing product key (`teams.id`); legacy `productId` was removed by U1, `scopeId` already equals `teamId` (`scopeKind="product"`). **No fourth key.** Multi-product = multi-team.
+- **Substrate ⟂ Connection** — files vs auth; orthogonal axes that compose. **No forge credential** on the substrate record or in the sandbox; the system applies auth at checkout/push.
+- **Local-first** — a substrate functions with no forge (a plain local git repo).
+- **Per-product isolation** — substrate, connections, cost, and knowledge promotion/context are product(team)-scoped; no cross-product leak (fixes the factory-wide `DISTINCT scopeId` count at `promotion-pipeline.ts:207`).
+- **Binding level = Product** (durable); a unit of work materializes one or more of its product's substrates into the per-session sandbox (AO2). A substrate-less unit of work degrades to today's behavior.
+- Forward-only migration; back-compat single-product default.
+
+Implementation stories: **AO1** (substrate model + bind surface), **AO2** (materialization), **AO4** (product scope). Concept: `plans/AO/concept.md`.
