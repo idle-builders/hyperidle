@@ -37,7 +37,7 @@ Concept work below covers **Review surface** (central) and its satellites **Regi
 
 **Dropped:** declarative-config templates + the resolver that "auto-applies" among them (redirect #2); the MCP `ui://` sandboxed supplier UI (redirect #1, deferred). A review surface is **reviewable source the team adopts and builds** — so there is **no untrusted-runtime-code problem to sandbox**, and no DSL.
 
-**Human design review forecast (advisory).** **Yes.** Two new user-facing experiences are central: the **registry/adoption** surface (browse, preview, adopt-for-a-situation, see provenance/trust) and the **base-canvas slot model** the contributor authors against. `/design`'s `DESIGN-CLASS` stays authoritative.
+**Human design review forecast (advisory).** **No — `/design` skippable.** The review-*rendering* side introduces **no new screen**: a surface fills the **exact slot the base canvas already occupies** in the existing `ReviewComposition` (defining those slot/wrap points is an architecture concern — a component slot API — not a design one), and a surface's own visuals are owned by its author, not designed here. The only genuinely-new pixels are the **adopt/browse control** (see available surfaces for a situation, preview, adopt) — a **routine** management surface that follows the AN1 Connections-list pattern (list + provenance + trust tier + pick) and reuses the existing `:8098` TSX viewer for preview. No new primitive or interaction model → no multi-variant `/design`, no human-design-review. `/design`'s `DESIGN-CLASS` stays authoritative; if it ever classifies the adopt surface `novel`, that gate fires regardless.
 
 ---
 

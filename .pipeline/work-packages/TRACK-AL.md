@@ -179,7 +179,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 **Complexity.** L
 
-**Human design review.** Yes — the **registry + adoption** surface (browse, preview, adopt-for-a-situation, provenance/trust) and the **base-canvas slot model** a contributor authors against are new user-facing experiences central to the WP's value. (`/design`'s DESIGN-CLASS is authoritative.)
+**Human design review.** No — the review-rendering side is the **existing slot** in `ReviewComposition` (a surface fills the same pane the base canvas does; defining slot/wrap points is architecture, and a surface's own visuals are author-owned). The only new pixels are the **adopt/browse control**, a routine management surface following the AN1 Connections-list pattern + the existing `:8098` preview. No new primitive/interaction. (`/design`'s DESIGN-CLASS is authoritative.)
 
 **Acceptance criteria.**
 - A contributor (HyperIdle or community) can **write a review surface as a React component** that specializes a base canvas, preview it against sample data, and **publish it to a registry** with a manifest — or **fork** an existing surface as the starting point.
@@ -194,7 +194,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Given an adopted surface that fails to load, when its artifact is reviewed, then the review degrades to the base canvas — the host review is unaffected.
 - Given a contributor writing a surface, when they edit it, then it renders live against sample data before publishing.
 
-**Plan calls.** Concept locked (`plans/AL5/concept.md`). Run `/design` (the registry/adoption surface + the slot-authoring model — `Human design review: Yes`). Then architecture; likely splits (the base-canvas slot contracts + wrap/eject layering + the surface component model vs the registry/distribution + adoption store + versioning/provenance).
+**Plan calls.** Concept locked (`plans/AL5/concept.md`). **Skip `/design`** — the review-rendering side is the existing slot; the only new surface (adopt/browse) is routine and follows existing patterns (the builder designs it inline against the AN1 Connections list + `:8098` viewer). Standard architecture pass; likely splits (the base-canvas slot contracts + wrap/eject layering + the surface component model vs the registry/distribution + adoption store + versioning/provenance).
 
 **Contracts / constraints.** A review surface is **code (a React component) specializing a base canvas — not declarative config, not an untrusted runtime plugin**; trust is adopt-time code review + ownership, not a sandbox. **No runtime auto-apply** — a surface runs only where a team deliberately adopted it (owned, version-pinned, reviewable); the registry is a catalog of availables, the app reflects adoptions. The base canvas is always the floor + fallback (no adoption / failed surface ⇒ base canvas). Two layering modes: wrap (upgrade-safe) | eject (owned); per-slot `wrap|eject|forbidden`. A surface is the lens, never the decision (never mutates verdict/action/gate). One registry mechanism for first-party + community; trust tier ∈ {vetted, community} (AN, reused); provenance certifies identity, not correctness.
 
