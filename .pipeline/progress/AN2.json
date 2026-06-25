@@ -1,0 +1,15 @@
+{
+  "id": "AN2",
+  "track": "AN",
+  "title": "Outbound tool brokering (hybrid)",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "3-write-tests",
+  "startedAt": "2026-06-25T17:51:00Z",
+  "branch": "feat/AN2-outbound-tool-brokering",
+  "runMode": "autonomous",
+  "designClass": "none-backend",
+  "depends": ["AN1", "AL7"],
+  "phasesComplete": ["1-architecture", "2-architecture-critique", "2-critique-revision"],
+  "notes": "Backend brokering mechanism. Skip /concept (nouns locked in plans/AN/concept.md + AL7). Skip /design (no UI surface). Live-proof WP: must execute one real external service end-to-end before done."
+}
