@@ -60,4 +60,16 @@ AN1 adds a second, parallel store for the **open per-(user × service) Connectio
 
 The "one store, one resolver" contract is preserved for the infra-secret path. The Connection set sits alongside it — same encryption primitive, no pollution of the closed catalog. See `docs/agent-layer/tool-integration.md` for the full model.
 
+## Outbound brokering — credential-at-execution (AN2)
+
+AN2 connects HyperIdle **out** to external MCP servers to broker their tools into agent sessions. The credential containment contract from §Hard rules applies in full to this outbound path:
+
+- `ServiceConnectionResolver.resolve(ownerUserId, connectionId)` is called **inside the brokered tool's handler at execution time**, not at wrap time or provisioning time.
+- The resolved plaintext token is used only to construct the outbound MCP request (HTTP `Authorization` header or stdio env var) and is then discarded.
+- The token never appears in: the `RegisteredTool` definition, `proposedCalls.args`, `ToolContext`, `inputSchema`, `ToolResult`, or error messages (redacted via `replaceAll(token, "[REDACTED]")` in `connectOutbound`).
+- For **irreversible** brokered ops (the default; all ops from community/unvetted sources), the handler only executes when a grant-bearing session-2 re-attempts — the `proposedCalls` row captured during session-1 never holds the token because the handler did not run.
+- For **reversible** brokered ops (only possible from vetted sources; deferred to AN4), the handler runs immediately in session-1; the same containment properties hold.
+
+HyperIdle never writes a credential into the agent sandbox, a `.mcp.json`, or any agent-visible surface to reach an external MCP server. The outbound client (`outbound-mcp-client.ts`) is server-process-only.
+
 See also: `authorization-model.md` (Secrets, Hard Rule 4), `agent-layer/harness-error-taxonomy.md` (`MissingCredentialError`).

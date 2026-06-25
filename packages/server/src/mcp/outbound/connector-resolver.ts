@@ -20,6 +20,15 @@
  * @lore AN2: Health filter is deferred. An expired-health token simply fails at the
  * external service call, surfaced as a normal tool error. Filtering on health="usable"
  * is a one-line tightening AN4 can add with trust-tier.
+ *
+ * @lore AN2: Tools are enumerated eagerly at session provisioning (listTools at
+ * resolve time, not on demand). This means: (a) the agent's tool list is fixed at
+ * session start — no mid-session registry mutation; (b) connections unreachable at
+ * provision time contribute zero tools for the session even if they recover later;
+ * (c) each enumeration briefly connects and disconnects (no persistent connection).
+ * Lazy / on-demand enumeration would require the registry to accept new tools after
+ * the session start, which the current `buildToolRegistry` design does not support.
+ * AN4 can revisit if mid-session tool discovery becomes a requirement.
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";

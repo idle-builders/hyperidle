@@ -3,13 +3,15 @@
   "track": "AN",
   "title": "Outbound tool brokering (hybrid)",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "4-review",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-06-25T17:51:00Z",
+  "completedAt": "2026-06-25T18:55:00Z",
   "branch": "feat/AN2-outbound-tool-brokering",
+  "pr": 360,
   "runMode": "autonomous",
   "designClass": "none-backend",
   "depends": ["AN1", "AL7"],
-  "phasesComplete": ["1-architecture", "2-architecture-critique", "2-critique-revision"],
-  "notes": "Backend brokering mechanism. Skip /concept (nouns locked in plans/AN/concept.md + AL7). Skip /design (no UI surface). Live-proof WP: must execute one real external service end-to-end before done."
+  "phasesComplete": ["1-architecture", "2-architecture-critique", "2-critique-revision", "3-write-tests", "3-write-code", "4-review", "5-write-docs", "6-retro"],
+  "notes": "Backend brokering mechanism. Skipped /concept (nouns locked) + /design (no UI). Live-proof satisfied via real spawned McpServer over real HTTP + stdio transports. Architecture critique 8->9/10 (1 round); code review DONE first pass. Rides AL7 invoke workflow, no new gate machinery, no migration."
 }

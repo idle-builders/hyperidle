@@ -2,7 +2,7 @@
 
 An agent reaches an external service through a **Connection** the user has made available. The Connection tells HyperIdle which tool source to use; the agent never holds the credential.
 
-This document covers the AN1 foundation: the Connection primitive, the three auth sources, credential containment, and the `ServiceConnectionResolver` seam. Brokered call routing (AN2), sandbox tool provisioning (AN3), and the Connector manifest / ecosystem registry (AN4) are downstream work that builds on this foundation.
+This document covers the AN1 foundation and the AN2 outbound brokering path: the Connection primitive, the three auth sources, credential containment, the `ServiceConnectionResolver` seam, the outbound MCP client, the brokered-tool wrapper, and the trust-tier reversibility gate. Sandbox tool provisioning (AN3) and the Connector manifest / ecosystem registry (AN4) are downstream work that builds on this foundation.
 
 ---
 
@@ -94,15 +94,70 @@ An expired or invalid token surfaces as `expired` or `needs-attention` — never
 
 ---
 
-## What AN2 / AN3 / AN4 add
+## Outbound brokering (AN2 — as-built)
 
-This doc describes what AN1 ships. The downstream work:
+AN2 added a server-side outbound MCP client that turns a user's token-source Connections into `RegisteredTool`s the agent calls like any internal tool — with every AL7 guarantee (gate, at-most-once, outcome surfacing) applied automatically.
+
+### How a brokered tool reaches an agent session
+
+At session provisioning (`session-provisioning.ts`):
+
+1. `resolveOwnerUserId(db)` resolves the owning human user via `users WHERE kind='human' LIMIT 1` (same lookup as `auth.ts`; resolved internally so `routines-routes.ts`, which has no HTTP user context, works unchanged).
+2. `resolveConnectorTools(deps, ownerUserId)` enumerates `serviceConnections WHERE userId=ownerUserId AND authSource="token"`, connects out to each reachable MCP server, lists its tools, and wraps each as a `RegisteredTool` namespaced `conn__<service>__<toolName>`.
+3. The wrapped tools are injected into the per-session registry via the `extraTools` seam.
+
+The agent sees `conn__Acme__read_value`, calls it, and the existing AL7 workflow router handles it identically to any internal tool — classify reversibility, capture if irreversible, CAS-consume grant, execute, record outcome. No new gate, no new dispatcher.
+
+### Credential containment in the outbound path
+
+The credential is resolved **inside the tool handler at execution time** — not at wrap time, not stored in the returned `RegisteredTool`, and never visible to the agent. Concretely:
+
+- For a **reversible** brokered tool (only possible from a vetted source; see trust tier below): handler runs immediately. `ServiceConnectionResolver.resolve(ownerUserId, connectionId)` is called inside the handler; the token is attached to the outbound MCP request (`Authorization: Bearer …` for http, env var for stdio) and then discarded.
+- For an **irreversible** brokered tool (all AN2 ops; any unvetted op regardless of tier): the handler only runs when the approved, grant-bearing session-2 re-attempts the call. The `proposedCalls` row and any agent-visible surface never contain the token.
+
+`connectOutbound` (`outbound-mcp-client.ts`) redacts the auth token from both connect-time and call-time error messages. The token never appears in `proposedCalls.args`, `registry.definitions`, `inputSchema`, or `ToolContext`.
+
+### Trust-tier reversibility gate
+
+An external MCP server can self-declare `annotations.idempotentHint:true` on its tools, which would normally cause `classifyReversibility` to return `"reversible"` → direct execution, no gate. That hint is **third-party-owned, not Kernel-owned** — a malicious or buggy server could declare it on a destructive operation.
+
+AN2 closes this gate-bypass risk with a trust-tier check in `wrapBrokeredTool`:
+
+- **`trustTier="community"` (default for all AN2 connections):** `descriptor.annotations` are **dropped** before building the `RegisteredTool`. `classifyReversibility` sees no signal → fail-closed → irreversible → every op is gated. A forged `idempotentHint:true` cannot reach the direct path.
+- **`trustTier="vetted"` (AN4, not yet reachable in AN2):** annotations pass through. Only a vetted source's `idempotentHint` may downgrade an op to direct/ungated execution.
+
+`trustTier` is read from the stored `serviceConnections` row server-side; the agent cannot influence it. The schema default is `"community"`, so every AN2 brokered operation is gated today.
+
+### ConnectorSpec config seam
+
+`defaultResolveConnectorSpec(service)` in `connector-resolver.ts` is the AN4 substitution point — it currently returns `null` for all services (empty stub). Tests inject a real `resolveSpec` via `ResolveConnectorsDeps`. AN4 replaces this with the Connector manifest/registry without touching the broker or wrapper.
+
+### Outbound transports
+
+Two transports are supported, configured per ConnectorSpec:
+
+| `spec.transport` | `spec.auth` | Credential attach |
+|---|---|---|
+| `http` | `bearer-header` | `StreamableHTTPClientTransport` `requestInit.headers { Authorization: Bearer … }` |
+| `stdio` | `env` | `StdioClientTransport` `env { [spec.envVar]: authToken }` |
+| either | `none` | No credential attached |
+
+Connections are per-call: opened, used, and closed inside the handler. No persistent connection state; `dispose()` is a no-op in AN2 (AN4 may introduce persistent connections).
+
+### Fail-quiet / degrade behavior
+
+- Unknown `resolveSpec(service)` → zero tools (service not yet registered in the seam).
+- `resolve(ownerUserId, connectionId)` returns `null` → `err("NO_CREDENTIAL")` returned to agent; external server never contacted.
+- Outbound server unreachable during provisioning → connection skipped silently; others still enumerated.
+- `listTools()` failure during provisioning → connection skipped; `close()` always called.
+- Health filter is deferred: an `expired`-health token fails at the external service and surfaces as a tool error. AN4 adds health-filter tightening.
+
+### What AN3 / AN4 add
 
 | WP | Adds |
 |----|------|
-| **AN2** | Outbound MCP client; resolves a Connector; surfaces its tools into the per-session bridge; routes direct vs brokered calls by reversibility; enriches the harness descriptor with real server data; writes health back on 401. |
-| **AN3** | The Tool grant: the localhost MCP endpoint exposing internal + permitted external tools to the sandbox. Per-session isolation. No secrets injected into the sandbox. |
-| **AN4** | Connector manifest + two-tier registry (vetted / community); discovery, validation, trust-tier consent; builds on `ui://` canvases so a contributed Connector can ship its review canvas. |
+| **AN3** | The Tool grant: localhost MCP endpoint exposing internal + permitted external tools to the sandbox. Per-session isolation. No secrets injected into the sandbox. |
+| **AN4** | Connector manifest + two-tier registry (vetted / community); discovery, validation, trust-tier consent; replaces `defaultResolveConnectorSpec`; enables the vetted direct-execution path. |
 
 ---
 
