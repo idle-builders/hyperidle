@@ -41,8 +41,15 @@ import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
 import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
+import {
+	defaultResolveConnectorSpec,
+	resolveConnectorTools,
+} from "../mcp/outbound/connector-resolver.js";
+import { resolveOwnerUserId } from "./owner-user.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
+import { ServiceConnectionResolver } from "./service-connection-resolver.js";
+import { getServerSecret } from "./credential-encryption.js";
 import {
 	buildToolRegistry,
 	type RegistrySessionWorkflow,
@@ -628,6 +635,26 @@ export async function runSession(
 	// to review, it terminates the harness (sessions aren't pausable). The abort is
 	// async but we fire-and-forget here — the harness receives a stop signal; the
 	// provisioning drain's `aborted` flag is the secondary cooperative break.
+
+	// AN2: Resolve the owning human user for connector tool brokering.
+	// Uses the same lookup as auth.ts:234-235 (kind="human" LIMIT 1, fallback "u-founder").
+	// Resolution is INTERNAL to provisionSession — ProvisionSessionParams is untouched
+	// so routines-routes.ts (no HTTP userId) works unchanged.
+	const ownerUserId = await resolveOwnerUserId(db);
+
+	// AN2: Resolve brokered external tools for this session.
+	// Fail-quiet: if the server secret is absent or a service spec is unknown, those
+	// connections contribute zero tools. Never throws.
+	const connectorResolver = new ServiceConnectionResolver(db, getServerSecret());
+	const { tools: connectorTools, dispose: disposeConnectorTools } = await resolveConnectorTools(
+		{
+			db,
+			resolver: connectorResolver,
+			resolveSpec: defaultResolveConnectorSpec,
+		},
+		ownerUserId,
+	);
+
 	const toolContext: ToolContext = {
 		db,
 		eventBus,
@@ -637,6 +664,9 @@ export async function runSession(
 		teamId,
 		sandboxPath,
 		ingestion,
+		// AN2: thread ownerUserId so brokered tool handlers can resolve credentials
+		// per-user. Absent for sessions without an owner (fallback is "u-founder").
+		ownerUserId,
 		// AL7 Task 6: inject abort callback so the workflow router can end session 1
 		// after capturing the first irreversible call. Fire-and-forget is intentional:
 		// the abort is best-effort (sessions aren't pausable); the router already
@@ -652,8 +682,8 @@ export async function runSession(
 	const registry = buildToolRegistry(toolContext, {
 		role: agentRole,
 		// AL6 v4-final: inject hyperidle_return_status as a per-session tool.
-		// The tool reads ctx.sessionId → enforcementRegistry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
-		extraTools: [returnStatusTool.forRegistry(enforcementRegistry)],
+		// AN2: also inject brokered external tools for this session.
+		extraTools: [returnStatusTool.forRegistry(enforcementRegistry), ...connectorTools],
 		// AL7 Task 6: thread the session workflow into the registry so the invoke
 		// router classifies reversibility, routes irreversible calls to review, and
 		// permits the approved op (CAS-consume grant) on the grant-bearing session.
@@ -1014,6 +1044,9 @@ export async function runSession(
 		// unregister() swallows close() errors internally — this call never throws.
 		await mcpBridgeRegistry.unregister(mcpBridgeToken);
 	}
+
+	// AN2: dispose connector tools (no-op in AN2; AN4 may close persistent connections).
+	await disposeConnectorTools();
 
 	// AL6 v4-final: forceReturnCount = enforcement registry count (populated by in-turn
 	// hooks + the hyperidle_return_status tool) + adapter's own in-process count.

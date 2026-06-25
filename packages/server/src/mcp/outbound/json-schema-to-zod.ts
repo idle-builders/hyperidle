@@ -30,13 +30,10 @@ function convertProperty(prop: Record<string, unknown>): z.ZodType {
 			return z.enum(vals as [string, ...string[]]);
 		}
 		// Mixed or non-string enum: union of literals
-		return z.union(
-			(vals as [unknown, unknown, ...unknown[]]).map((v) => z.literal(v as string | number | boolean | null)) as [
-				z.ZodTypeAny,
-				z.ZodTypeAny,
-				...z.ZodTypeAny[],
-			],
-		);
+		const literalTypes = (vals as [unknown, unknown, ...unknown[]]).map(
+			(v) => z.literal(v as string | number | boolean | null),
+		) as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
+		return z.union(literalTypes);
 	}
 
 	switch (prop.type) {
