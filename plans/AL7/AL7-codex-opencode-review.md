@@ -105,3 +105,60 @@ AC1–AC4 are technically green but their *transport contract* (AC10) is violate
 ## Summary
 
 Production R1 closure is excellent and genuinely proven (T0b RED→GREEN sanity-break passed under my own revert). The wiring, config writer, probe truthing, security, and transport-agnostic invariant are all correct. But the headline deliverable — proving all three real CLIs against the PRODUCTION transport — was not executed: T3 never deleted the stand-in, and all three lanes route through `buildStatefulMcpServer` + `/mcp/:token`. The 7 green lanes prove the loop against a faithful double, which is the exact false-green the founder rejected for codex/opencode (no SDK fallback). **NOT DONE** until CRITICAL-1 is fixed and the lanes re-run green through `createMcpBridge` + `/api/mcp/:token`.
+
+---
+
+# ROUND 2 — re-review of the T3 + W3 delta (fix commit d87ab89f)
+
+## VERDICT: DONE
+
+Both prior blockers are genuinely closed against the tree (verified by reading the code, the fix diff, deterministic sanity, and a live real-harness run). Verdict flips to **DONE**.
+
+## CRITICAL-1 (T3 — re-point lanes at production bridge) — CLOSED
+
+Verified each prior sub-claim against `AL7-two-session-trust-first.real-harness.test.ts` + the fix diff (`git diff d87ab89f^ d87ab89f`):
+
+1. **`buildStatefulMcpServer` DELETED** — function body gone (was 266–311); only a one-line tombstone comment (`:276–278`) + descriptive lore remain. `grep buildStatefulMcpServer` over `packages/` finds zero live code — only comments documenting the deletion. The hand-rolled `McpServer` + `WebStandardStreamableHTTPServerTransport` imports were removed (diff drops `@modelcontextprotocol/sdk/server/*` + `node:crypto` imports). No test-only transport stand-in remains anywhere.
+2. **`app.all("/mcp/:token")` override DELETED** — gone from the diff; `grep 'app.all("/mcp'` finds zero (only a comment string at `:45`). The lanes now mount only `createMcpRoute(bridgeRegistry, enforcementReg)` at `/api`.
+3. **Production wiring** — `startAl7TestServer` (`:317`) and `rebuildBridge` (`:367`) both construct via `createMcpBridge` from `../../mcp/mcp-bridge.js` (`:79`), `bridgeRegistry.register(...)`, and the request path is the production `router.all("/mcp/:token")` → `bridgeRegistry.handleRequest(token, raw)` (`mcp-route.ts:116–119`) → registry `lookup` → **401 on unknown token** (`mcp-bridge-registry.ts:75–76`). The documented wrong-token sanity-break now fires against the **production registry**, not the override's own check. `buildMcpUrl` → `${serverUrl}/api/mcp/${token}` (`:487`) for all three lanes.
+4. **Assertions unchanged/real** — the fix diff touches only the stand-in helper + comments + the W3 block. The claude lane assertion bodies (`captured.length >= 1`, `toBe("commit_file")`, `fs.existsSync(proof.txt)`, content `=== "al7-proof"`, `exitCode !== null`) are byte-identical (zero `expect(...)` lines for the claude lanes appear in the diff). codex/opencode session-1 capture, AC8 NAMED control (`expect(...).toBe(false)` in capture mode, `:957/1047/1207/1283`), and session-2 real-file-write assertions are all intact. No `expect` was weakened to make the production-route move pass.
+
+**Live confirmation:** `npm run test:real-harness` → **19/19 passed (126s)**; the 7 AL7 lanes (claude s1/s2/wiring, codex s1/s2, opencode s1/s2) all green THROUGH `createMcpBridge` + `/api/mcp/:token`. Real binary spawns, real file writes, production stateful transport. AC1–AC4 + AC10 now proven against production transport.
+
+## WARNING-B (W3 — opencode normalization) — CLOSED
+
+- `preMapOpencodeEvent` (`harness-event-normalization.ts:76`) maps `step_finish → completion` and `tool → tool_call`, and runs **inside** production `normalizeHarnessEvent` (`:114`) before the canonical-type gate. `normalizeHarnessEvent` is consumed by production loop code (`cli-harness-adapter.ts`, `adapter-pool.ts`) — load-bearing, not test-only.
+- The opencode session-2 lane (`:1336–1362`) replaced the prior raw-stdout `includes("step_finish")` sidestep with a real assertion: parse each JSONL line → `normalizeHarnessEvent` → count results that are NOT `error/UnknownHarnessEvent` → assert `>= 1`. It asserts on the **canonical normalized type**, not raw stdout. Passed **live** against real opencode JSONL output.
+- **Anti-vacuous (deterministic):** ran the built `normalizeHarnessEvent` against real shapes — `step_finish → completion`, `tool → tool_call` (both structured), unmapped type → `error/UnknownHarnessEvent`. Revert the pre-map and `step_finish`/`tool` fall through to `UnknownHarnessEvent` → W3 assertion goes red. The assertion genuinely gates on the pre-map's existence.
+
+## Gates
+
+- `npm run check` — PASS (13/13 packages). The new `as number`/`as string` casts in `normalizeHarnessEvent` are post-guard narrowing casts (after `isFiniteNumber`/`EVENT_TYPES` checks) forced by `mapped` being typed `Record<string, unknown>`; type-safe in practice. Acceptable.
+- `npm run lint` — PASS (warnings only, at main baseline; zero errors).
+- T0b (`mcp-bridge-stateful.integration.test.ts`) — **2/2 pass** in the integration lane (still in `test:all`); confirmed still present and anti-vacuous (sanity-broken last round).
+- mcp + routes integration regression — **738/738 pass**.
+
+## Updated AC completeness table
+
+| AC | Requirement | Proving test | Status |
+|---|---|---|---|
+| AC1 | codex tool call routes via MCP → registry.invoke (s1 capture) | codex lane `:947` `captured>=1`, `toBe("commit_file")` — via PRODUCTION bridge | **MET** |
+| AC2 | opencode s1 capture | opencode lane `:1199` — via PRODUCTION bridge | **MET** |
+| AC3 | codex s2 executes approved op → real file | codex lane `:1095–1100` (file + `"al7-proof"` + `turn.completed`) — PRODUCTION bridge | **MET** |
+| AC4 | opencode s2 → real file | opencode lane `:1326–1327` (file + content) — PRODUCTION bridge | **MET** |
+| AC5 | per-binary MCP config shape | `cli-mcp-config.integration.test.ts` | **MET** |
+| AC6 | router transport-agnostic, no per-backend branch | `npm run check` + review (dialect only in writer/config) | **MET** |
+| AC7 | absent codex/opencode → lane FAILS | `live-proof-lanes` probe; `AL7-harness-absent-fail.test.ts` | **MET** |
+| AC8 | captured-but-unapproved does NOT execute | NAMED `expect(...).toBe(false)` both lanes `:957/1047/1207/1283` | **MET** |
+| AC9 | production bridge session-capable (stateful) | T0b `mcp-bridge-stateful.integration.test.ts` (2/2, RED→GREEN sanity-break R1) | **MET** |
+| AC10 | **real CLIs prove against PRODUCTION bridge, not a stand-in** | All 3 lanes construct `createMcpBridge` + hit `/api/mcp/:token` via `bridgeRegistry.handleRequest`; stand-in DELETED; **19/19 real-harness green live** | **MET** |
+| W3 | opencode events normalize to structured canonical type | opencode s2 `:1355` (`nonErrorNormalizedCount>=1` via prod `normalizeHarnessEvent`) + deterministic anti-vacuous check | **MET** |
+
+## Residual NITs (non-blocking — do not gate DONE)
+
+- **NIT-2 — one stale error-message string.** `:601` failure-path message still says `stateful MCP server reachable at /mcp/:token` (should be `/api/mcp/:token`). Cosmetic, only printed when the assertion already fails; all functional paths use `/api/mcp/:token`. Worth a one-line cleanup in a later touch, not a blocker.
+- **NIT-3 — `preMapOpencodeEvent` has no CI unit test.** It's a deterministic pure function in production code (used by `cli-harness-adapter.ts`/`adapter-pool.ts`) but its only coverage is the local-only real-harness lane (not in `test:all`/CI). Per the project's validation principle, a runtime-behavior unit should have a CI-runnable test. The W3 obligation as written was real-harness-scoped and is met; deterministic anti-vacuousness is confirmed manually. A small `harness-event-normalization.test.ts` asserting `step_finish→completion` / `tool→tool_call` / unmapped→`UnknownHarnessEvent` would lock the pre-map in CI. Recommended follow-up, not a gate.
+
+## Summary
+
+T3 was executed correctly and W3 is genuinely closed. The stand-in (`buildStatefulMcpServer` + `/mcp/:token` override) is fully deleted; all three real CLIs now prove the trust-first two-session loop against the PRODUCTION `createMcpBridge` + `createMcpRoute` registry path (`/api/mcp/:token` → `bridgeRegistry.handleRequest` → 401-on-unknown). Verified live: 19/19 real-harness lanes green. The opencode pre-map is real, production-wired, and the W3 assertion is anti-vacuous. claude assertions are byte-identical; no `expect` was weakened. check/lint/T0b/regression all green. The false-green the founder rejected is gone. **DONE.**
