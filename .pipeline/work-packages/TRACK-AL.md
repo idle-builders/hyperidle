@@ -163,39 +163,42 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 ---
 
-### AL5 — Tool-tailored review canvases (override the family floor)
+### AL5 — Review templates (domain/tool/task-specific review surfaces)
 
-**Workpackage.** As HyperIdle and its ecosystem, I want a tool or a third party to supply a **tailored review canvas** for a specific tool's output that replaces the generic family canvas — either shipped by the tool itself (its MCP server returns the review UI) or contributed via a registered template — so reviewing, say, a Stripe refund or a Figma design is purpose-built without HyperIdle hand-building every tool's canvas. This opens the canvas slot to tool-shipped and community-contributed overrides, with the family canvas as the always-present floor.
+> **Reshaped 2026-06-25 (founder redirect).** Was "Tool-tailored review canvases" centred on tool-shipped MCP-Apps `ui://` UIs + a community canvas registry. Now: a **review-template** model — HyperIdle *and* the community contribute **declarative** review surfaces for specific apps/tools/tasks, layered over the family floor. The supplier-shipped `ui://` UI tier is **deferred** (a long stretch; needs a sandbox/CSP/consent surface). Concept: `plans/AL5/concept.md`.
 
-**Why this matters.** "Review for anything across every tool" cannot scale if HyperIdle builds every tool's canvas. The override tiers let the long tail be covered by the tool vendor (MCP Apps) or the community (a template/registry). The founder and the ecosystem benefit; without it, every non-family-generic tool gets only the generic canvas.
+**Workpackage.** As HyperIdle and as a community contributor, I want to build a **review template** — a declarative, structured review surface tailored to a specific app/tool/task (a Stripe refund, a marketing campaign, a data migration) that specializes the generic family canvas — and as a reviewer I want the right template to apply automatically, visibly, and swappably — so reviewing domain work is purpose-built without HyperIdle hand-building every surface, and "review for anything" becomes "review *well* for the work that matters."
 
-**What exists today.** HyperIdle speaks MCP (the harness). The built-in family canvases + the kind→family selection (AL2/AL3). No mechanism for a tool's MCP server to return an embeddable review canvas, and no community template/registry for a per-tool canvas.
+**Why this matters.** Properly structured, domain-specific review surfaces are a key of the future of agentic business. "Review for anything" cannot be *good* if every tool gets only the generic canvas, and it cannot *scale* if HyperIdle authors every specialized surface. Templates let HyperIdle and the community cover the long tail through one mechanism; declarative templates keep it safe (an unsafe/abandoned template is inert, degrading to the floor — the HACS lesson).
 
-**What's genuinely missing.** The resolution layer above the family floor: render a tool-shipped canvas (a sandboxed UI returned by the tool's MCP server) when present, and/or a community-registered per-tool template, selected by (tool, kind) ahead of the generic family canvas — safely (sandboxed, trust-tiered).
+**What exists today.** The nine built-in family canvases + the kind→family selection (AL2/AL3); the declarative definition+registry pattern (`kinds/registry.ts`); the AN trust-tier vocab. No notion of a review template, no authoring/preview path, no catalog, no provenance/employment model.
 
-**Depends on.** AL3 — there must be a review surface with a canvas slot (and the family floor) to override; cannot start until the composition exists.
+**What's genuinely missing.** The **review-template** noun and its lifecycle: a declarative specialization of a family floor (filling the universal review slots), authored by HyperIdle or the community **through one mechanism** (build-by-example with sample-data preview, or fork-an-existing-one), discoverable in one provenance-tagged catalog, **bound** to a recognizable (app/tool · task/domain · kind), **employed** by auto-applying the lens (visible · previewable · swappable — never auto-approving the action), and **degrading to its base family** when absent/stale/malformed.
+
+**Depends on.** AL3 — there must be a review surface (and the family floor) to specialize; cannot start until the composition exists.
 
 **Complexity.** L
 
-**Human design review.** No — primarily an integration + resolution mechanism (the canvas is supplied by the tool/community); any host chrome extends the existing canvas slot. (`/design`'s DESIGN-CLASS is authoritative.)
+**Human design review.** Yes — the **employment** surface (active-lens visibility, preview/swap, provenance) and the **authoring** surface (build-by-example, live sample-data preview, fork) are new user-facing experiences central to the WP's value. (`/design`'s DESIGN-CLASS is authoritative.)
 
 **Acceptance criteria.**
-- When a tool supplies its own review canvas for an artifact, the review renders that canvas (sandboxed) instead of the generic family canvas.
-- When a community-registered template matches an artifact's (tool, kind), the review renders that template instead of the generic family canvas.
-- When neither is present, the review falls back to the family canvas (the floor always works).
-- A tool-supplied/community canvas renders safely — sandboxed, with a trust tier — and cannot compromise the host.
-- An action taken in a tool-supplied canvas routes back through HyperIdle's existing connection to that tool, not a re-implemented integration.
+- A contributor (HyperIdle or community) can author a review template **declaratively** for a specific app/tool/task and see it render against sample data before publishing — or fork an existing template as the starting point.
+- When a review template matches an artifact's situation (app/tool · task/domain · kind), the review **auto-applies** it over the generic family canvas; the active lens is **visible, previewable, and swappable**, and applying a template never changes the verdict, the staged action, or the gate.
+- When no template matches — or a matched template is malformed, abandoned, or removed — the review **falls back to the family canvas** (the floor always works); a bad template is **inert**, never breaks the host review.
+- First-party and community templates use **one mechanism**, distinguished only by **provenance** (first-party vs community) and an AN **trust tier**; a community template is consent-gated and **inspectable** (preview + visible content) before employ.
+- A template is a **versioned** artifact (pinnable; a change surfaces as a diff).
 
 **Validation scenarios.**
-- Given a tool that ships a review canvas, when its artifact is reviewed, then the tool's canvas renders sandboxed; given a tool that doesn't, then the family canvas renders.
-- Given a community-registered template for a (tool, kind), when a matching artifact is reviewed, then the template renders.
-- Given a malformed/untrusted contributed canvas, when rendered, then it is sandboxed and cannot break the host review.
+- Given a published "Stripe refund review" template, when a matching artifact is reviewed, then that template renders over the family floor, visibly active and swappable back to the floor.
+- Given no matching template (a never-seen tool/task), when its artifact is reviewed, then the generic family canvas renders.
+- Given a malformed/untrusted template, when it is employed, then it is inert and the review degrades to the base family canvas — the host review is unaffected.
+- Given a contributor authoring a template, when they edit it, then it renders live against sample data before publishing.
 
-**Plan calls.** Concept-introducing — run `/concept` first (the override-resolution model, the MCP-Apps `ui://` integration, the community manifest + trust/registry tiers — building on `plans/AL1/design/tool-ecosystem-and-canvases.md` §3). Then architecture; likely splits (MCP-Apps integration vs the community manifest/registry).
+**Plan calls.** Concept locked (`plans/AL5/concept.md`). Run `/design` (the authoring + employment surfaces — `Human design review: Yes`). Then architecture; likely splits (the template schema + declarative renderer + binding/selection vs the catalog + authoring/preview + versioning/provenance).
 
-**Contracts / constraints.** The family canvas is always the floor (any override is additive; a missing/failed override degrades to it). Contributed/tool canvases are sandboxed with a trust tier. Selection order is deterministic (tool-shipped > community template > family floor).
+**Contracts / constraints.** A template is **declarative data interpreted by HyperIdle's trusted renderer** (no shipped code, no `ui://` UI in scope). The family floor is always the base + fallback (every template additive; malformed/abandoned/removed ⇒ inert ⇒ degrades to floor). Auto-apply the lens, never the approval (always visible + swappable; never mutates verdict/action/gate). One mechanism for first-party + community, distinguished by provenance; trust tier ∈ {vetted, community} (AN, reused). Provenance certifies identity, not correctness.
 
-**Out of scope.** The built-in family canvases (AL2). Building per-tool MCP connectors. Any specific tool's canvas content.
+**Out of scope.** The built-in family canvases (AL2). Building per-tool connectors (AN). Any specific template's content. The supplier-shipped `ui://` UI tier (deferred). The connector registry (AN4 — a connector may *reference* an AL5 template).
 
 **Effort.** L (~6d)
 

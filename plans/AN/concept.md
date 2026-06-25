@@ -22,7 +22,8 @@ An agent reaches an external service through a **Connector** (a standard MCP ser
 - `docs/agent-layer/harness-capability-descriptor.md` — Kernel-owned declaration of what a harness can run (incl. `mcpSupport`); a Connector's tools are resolved alongside, not from a hardcoded map.
 - `packages/server/src/mcp/mcp-bridge.ts` — the **inbound** bridge (HyperIdle → harness). AN1 extends it to also surface **brokered external** tools on the same per-session localhost endpoint.
 - `packages/server/src/tools/tool-registry.ts` — how internal tools are assembled per role; external tools join the same per-session assembly.
-- `plans/AL1/design/tool-ecosystem-and-canvases.md` §3 — the MCP-Apps `ui://` + HACS-style two-tier registry sketch AN4 builds on.
+- `plans/AL1/design/tool-ecosystem-and-canvases.md` §3 — the HACS-style two-tier registry sketch AN4 builds on. (NB: the MCP-Apps `ui://` supplier-UI tier is **deferred** per the AL5 redirect 2026-06-25 — AN4's optional canvas is now a **referenced review template**, see AL5 concept.)
+- `plans/AL5/concept.md` — the **Review template** noun a Connector may optionally reference.
 
 ---
 
@@ -30,7 +31,7 @@ An agent reaches an external service through a **Connector** (a standard MCP ser
 
 | Noun | Classification | One-line working definition |
 |---|---|---|
-| **Connector** | **New primitive** (central) | A standard **MCP server + manifest** that exposes one external service's tools (and optional `ui://` review canvas) to HyperIdle. The unit the ecosystem contributes. |
+| **Connector** | **New primitive** (central) | A standard **MCP server + manifest** that exposes one external service's tools (and an optional **referenced review template**, AL5) to HyperIdle. The unit the ecosystem contributes. |
 | **Connection** | **New primitive** (central) | A reference to a tool source the user has **made available** — its auth lives in one of three places (the user's harness/MCP config, a user-supplied token HyperIdle stores, or the MCP server's own OAuth). Per (user × service). **HyperIdle is never the OAuth provider and registers no per-service OAuth app** — it consumes auth, it does not issue it. |
 | **Brokered call** | **New** (the gate seam) | An irreversible/credentialed external tool call routed **through** HyperIdle — the Kernel attaches the Connection's credential and makes the call; the agent never sees it. The point where AL7's gate applies. |
 | **Direct call** | **New** | A reversible / draft-space external tool call the agent makes from the sandbox without the gate (read a repo, build in a branch, query). Speed path. |
@@ -50,7 +51,7 @@ Only **Connector, Connection, Brokered/Direct call, Tool grant, Trust tier** are
 
 ### Connector (how a tool exists in HyperIdle)
 
-A Connector is **not HyperIdle code per service** — it is a pointer to a standard **MCP server** plus a **manifest** (`{ service, auth: oauth|apiKey|none, trustTier, tools?, ui://canvas? }`). HyperIdle ships an **outbound MCP client** that connects to it. Because MCP is the open standard, *anyone who ships an MCP server is already 90% of a Connector* — the manifest is the thin HyperIdle-specific glue (auth method + trust + optional review canvas). This is the **ride-the-standard** decision: no proprietary plugin/adapter format.
+A Connector is **not HyperIdle code per service** — it is a pointer to a standard **MCP server** plus a **manifest** (`{ service, auth: oauth|apiKey|none, trustTier, tools?, reviewTemplate? }`). HyperIdle ships an **outbound MCP client** that connects to it. Because MCP is the open standard, *anyone who ships an MCP server is already 90% of a Connector* — the manifest is the thin HyperIdle-specific glue (auth method + trust + an optional reference to a preferred **review template**, AL5; declarative, not a shipped UI). This is the **ride-the-standard** decision: no proprietary plugin/adapter format.
 
 ### Connection (how authority exists) — HyperIdle is never an OAuth provider
 
@@ -109,7 +110,7 @@ A session's sandbox gets **one localhost MCP endpoint** (the extended bridge) ex
 - **Gate inheritance (hard).** A brokered call is an AL7 staged operation — at-most-once, idempotent, failure-surfacing, human-gated where required. AN1 adds the credential attachment; it does not weaken the gate.
 - **Direct safety (hard).** Only a tool classified reversible may be a direct call. A Connector's manifest declares per-tool reversibility; an unclassified/ambiguous tool defaults to **brokered** (fail safe).
 - **Isolation (hard).** A session's Tool grant exposes only that session's user's Connections; no cross-session/cross-user credential or tool leakage.
-- **Ride-the-standard (hard).** No HyperIdle-proprietary integration format — a Connector is a standard MCP server; the manifest carries only HyperIdle glue (auth, trust, ui://).
+- **Ride-the-standard (hard).** No HyperIdle-proprietary integration format — a Connector is a standard MCP server; the manifest carries only HyperIdle glue (auth, trust, optional review-template reference).
 - **No-OAuth-provider (hard).** HyperIdle registers **no per-service OAuth app** and is **never** an OAuth provider/authorization server. Service auth resolves from (1) the user's harness/environment, (2) a user-supplied token HyperIdle stores as a consumer, or (3) the MCP server's own OAuth (service is the provider; client self-registers via DCR/CIMD). A hosted branded multi-tenant "Connect" flow, if ever built, is additive and optional — never required for the agent to use a tool.
 
 ---
@@ -123,7 +124,7 @@ Four buildable WPs, all reading this concept + the boundary doc:
 | **AN1 — External Connections (ride harness/MCP auth + user tokens)** | The per-(user×service) Connection store + the *Connect a service* / manage-connections surface. Default source: the user's harness/environment + their MCP config (HyperIdle stores nothing). Fallback: a user-supplied token in the vault (resolver extended from the closed LLM-key catalog). **No OAuth app, no OAuth provider.** The foundation everything brokers against. | credential-model |
 | **AN2 — Outbound tool brokering (hybrid)** | The outbound **MCP client**; resolve a Connector; surface its tools into the per-session bridge; classify direct vs brokered by reversibility; route brokered calls through the Kernel (credential attach) as AL7 staged ops. | AN1, AL7 |
 | **AN3 — Sandbox tool provisioning** | The Tool grant: the localhost MCP endpoint exposing internal + permitted external tools to the sandbox; per-session isolation; **no secrets injected**. The "deploy into the sandbox" mechanics. | AN2 |
-| **AN4 — Ecosystem integration registry** | The Connector manifest + two-tier (vetted/community) registry; discovery, validation, trust-tier consent; builds on AL5's `ui://` canvases so a contributed Connector can ship its review canvas. | AN2, AL5 |
+| **AN4 — Ecosystem integration registry** | The Connector manifest + two-tier (vetted/community) registry; discovery, validation, trust-tier consent; a contributed Connector may **reference an AL5 review template** as its preferred review surface. | AN2, AL5 |
 
 Each gets its own `/concept` only if it reshapes a noun; otherwise this concept is its fixed input.
 
@@ -132,7 +133,7 @@ Each gets its own `/concept` only if it reshapes a noun; otherwise this concept 
 ## Founder decisions (2026-06-23)
 
 1. **Hybrid integration path** — irreversible/credentialed calls are brokered through HyperIdle (credential never in the sandbox, AL7 gate applies); reversible draft-space work goes direct for speed.
-2. **Ride the MCP standard** — a contributed integration is a standard MCP server + a small manifest (auth, trust tier, optional `ui://` canvas). No proprietary plugin format.
+2. **Ride the MCP standard** — a contributed integration is a standard MCP server + a small manifest (auth, trust tier, optional review-template reference). No proprietary plugin format.
 3. **Split into four WPs** (AN1–AN4 above).
 4. **Never an OAuth provider / no per-service OAuth apps (2026-06-23).** Auth rides the user's harness/environment, a user-supplied token, or the MCP server's own OAuth (service is the provider; client self-registers via DCR/CIMD). This is why we built on harnesses — the connectors and auth already exist there. Grounded in t3code (wraps the user's CLI logins, ships zero OAuth apps), Claude Code/OpenCode/"claws" (ride local CLIs + user-configured MCP), and the MCP auth spec (server owns upstream auth; client uses DCR/CIMD). The enterprise "verified company + branded Connect button" path is deliberately rejected as the floor; it can return later as an optional hosted-product add-on.
 

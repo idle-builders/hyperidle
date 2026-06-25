@@ -18,23 +18,15 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 | `batch` | `ReviewBatch` | Per-item rollup with flagged items surfaced first. |
 | `browser_preview` | `ReviewBrowserPreview` | Basic browser view of a deployed or preview URL. |
 
-## Canvas resolution and overrides (AL5)
+## Review templates (AL5)
 
-The canvas slot is **resolved**, not a fixed kind lookup. For each artifact, resolution walks three tiers in fixed order and renders the **first available** canvas:
+The nine family floors above are the *generic* review surfaces — they work for any tool, well for none in particular. A **review template** specializes one of them for a recognizable situation: "a Stripe refund review", "a marketing-campaign review", "a data-migration review". A template is **declarative data interpreted by HyperIdle's own renderer** (not shipped code), authored by **HyperIdle or the community through one mechanism**, and it **fills the universal review slots** — artifact · rationale · blast-radius · judging-context · what-needs-me · policy-inline · decision-options · coordination-state — with domain-specific content over its base family.
 
-1. **Tool-shipped canvas** — the tool's own MCP server returns a `ui://` review resource (MCP Apps). The tool that reported the data brings its own review UI.
-2. **Community canvas template** — a registered manifest binding `(tool, kind)` → a render spec (declarative JSON preferred; `ui://` if it ships code).
-3. **Family floor** — the AL2 built-in `getReviewCanvas(kind)` canvas. **Always present; the terminal fallback.**
-
-`getReviewCanvas(kind)` is the degenerate one-tier (floor-only) case; AL5 widens it. Resolution keys on `(artifact.tool, artifact.kind)`, is recomputed every render (an override's availability is volatile — a tool connects/disconnects, a template is registered/unregistered), and is side-effect-free (picking a canvas never executes an action).
-
-**The floor always wins as fallback (hard rule).** Every override is *additive*. A missing, failed-to-load, malformed, untrusted, or sandbox-erroring override **degrades to the family canvas** — no override can remove or block the floor. This is the "review for anything" guarantee: a never-seen tool renders at the floor the moment its producing agent declares the artifact's `kind`.
-
-**One sandbox substrate.** Both override kinds render only inside a single **Canvas sandbox** — a sandboxed iframe + a JSON-RPC-over-postMessage bridge (the MCP-Apps standard). An override cannot read a credential, reach the host DOM/state, compromise the host, or affect sibling canvases. Each override carries a **trust tier** (`vetted | community`, reused from [`Connection`](../agent-layer/tool-integration.md) / `packages/shared/src/connection.ts`); a `community` override is sandboxed at-your-own-risk, and its consent step is owned by the connector registry (AN4).
-
-**Actions route through the host, not the canvas.** When an override requests an action, HyperIdle routes it through the **existing connection** to that tool (the AN2 broker / the user's connected capabilities) — never a re-implemented integration, never a credential handed to the canvas. An irreversible action becomes an AL7 [Proposed Call](../process-layer/staged-operation.md) routed to the gate; unknown reversibility fails safe to gated.
-
-**Boundary with AN4.** AL5 owns canvas **resolution + the sandbox substrate + canvas-template registration**. The [connector ecosystem registry](../agent-layer/tool-integration.md) (AN4) owns discovery, validation, and trust-tier consent for whole connectors; a connector's optional `ui://` canvas reaches the review surface **through AL5's resolution path** — there is one canvas resolution path, no duplicate registry.
+- **Declarative + inert-on-failure.** Because a template is data the trusted host renders, a malformed / abandoned / removed / untrusted template is **inert — it degrades to its base family floor**, never dangerous, never breaks the review. (This is why HyperIdle starts with templates rather than supplier-shipped UIs.)
+- **The floor is the base and the always-present fallback.** Every template is additive; "review for anything" holds for any situation nobody templated — the producing agent's declared `kind` always renders at the floor.
+- **Auto-apply the lens, never the approval.** A template changes *presentation only*; HyperIdle auto-applies it when it confidently recognizes the situation, the active lens is always **visible · previewable · swappable**, and it never changes the verdict, the staged action, or the [gate](../process-layer/staged-operation.md). The high-stakes human gate is the action under review, never the choice of lens.
+- **One mechanism, provenance is the only difference.** First-party and community templates are the same noun, distinguished by **provenance** (`first-party | community`) and an AN **trust tier** (`vetted | community`, reused from [`Connection`](../agent-layer/tool-integration.md)). Provenance certifies *who made it*, not *that the review is right* — so an action-gating template is **inspectable** (preview + visible content) before it is employed. Templates are **versioned + pinnable**, and a stale upstream degrades to its base family.
+- **Boundary with AN4.** AL5 owns the **review template** (authoring, the catalog, employment, the floor fallback). The [connector registry](../agent-layer/tool-integration.md) (AN4) owns the **Connector** (tool integration). A connector may *reference* a preferred template; a template is independently contributable. There is no `ui://` shipped review UI in scope — it is deferred as a possible future tier behind the same floor.
 
 ## Composition surface (AL3)
 

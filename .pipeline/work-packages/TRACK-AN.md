@@ -140,15 +140,15 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 ### AN4 — Ecosystem integration registry
 
-**Workpackage.** As HyperIdle and its ecosystem, I want a third party to contribute a tool integration as a standard MCP server plus a small manifest — its authorization method, its trust tier, and an optional review canvas — discoverable and installable with clear trust consent, so that the long tail of tools is covered by the community instead of HyperIdle hand-building every connector. The family review canvas (AL2) remains the floor; a contributed connector may ship its own canvas on top.
+**Workpackage.** As HyperIdle and its ecosystem, I want a third party to contribute a tool integration as a standard MCP server plus a small manifest — its authorization method, its trust tier, and an optional **referenced review template** (AL5) — discoverable and installable with clear trust consent, so that the long tail of tools is covered by the community instead of HyperIdle hand-building every connector. The family review canvas (AL2) remains the floor; a contributed connector may **reference an AL5 review template** as its preferred review surface.
 
 **Why this matters.** "Integrate any tool" cannot scale if HyperIdle authors every connector. The ecosystem and the founder benefit: the catalog of usable tools grows without HyperIdle engineering each one, while users keep a clear vetted-vs-community trust signal. The cost of not building it: only first-party services ever get connected, and the integration surface stays as wide as HyperIdle's own build capacity.
 
-**What exists today.** HyperIdle speaks MCP (the inbound bridge); AN2 supplies outbound brokering and AN1 supplies Connections; AL5 builds tool-shipped `ui://` review canvases. There is no manifest format, no registry, no vetted/community trust tier, and no discovery or validation of contributed integrations.
+**What exists today.** HyperIdle speaks MCP (the inbound bridge); AN2 supplies outbound brokering and AN1 supplies Connections; AL5 builds the **review-template** mechanism (declarative, first-party + community). There is no manifest format, no registry, no vetted/community trust tier, and no discovery or validation of contributed integrations.
 
-**What's genuinely missing.** A Connector manifest (authorization method, trust tier, optional `ui://` review canvas), a two-tier (vetted/community) registry with discovery and validation, and a trust-consent step before a community connector may act.
+**What's genuinely missing.** A Connector manifest (authorization method, trust tier, optional **referenced review template**), a two-tier (vetted/community) registry with discovery and validation, and a trust-consent step before a community connector may act.
 
-**Depends on.** AN2 — a registered connector is consumed by the broker; there is nothing to register until brokering exists. AL5 — a connector that ships its own review canvas does so through the `ui://` canvas mechanism AL5 builds.
+**Depends on.** AN2 — a registered connector is consumed by the broker; there is nothing to register until brokering exists. AL5 — a connector that names a preferred review surface does so by **referencing a review template** AL5 defines (declarative; no shipped `ui://` UI).
 
 **Complexity.** L
 
@@ -162,7 +162,7 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 - A third party can describe an integration as a standard MCP server plus a manifest, and HyperIdle can install it without HyperIdle-authored per-service code.
 - A registered integration declares its trust tier; a community (unvetted) integration requires explicit user consent before it can act, and a vetted one is visibly distinguished from it.
 - A malformed or untrusted manifest or connector is rejected or sandboxed and cannot compromise the host or other connectors.
-- When a connector ships its own review canvas, reviewing its operations uses that canvas; otherwise the generic family canvas (AL2) still renders.
+- When a connector references a review template, reviewing its operations uses that template; otherwise the generic family canvas (AL2) still renders.
 - A user can discover available integrations and see each one's provenance (vetted vs community) before connecting.
 
 **Validation scenarios.**
@@ -172,8 +172,8 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 **Plan calls.** Concept nouns already locked (`plans/AN/concept.md`) — skip `/concept`. Skip `/design` (mechanism). Standard architecture pass; likely splits into the MCP-manifest install path and the registry/trust-tier path.
 
-**Contracts / constraints.** Ride the MCP standard — a connector is a standard MCP server plus a manifest, never a HyperIdle-proprietary plugin format. Trust tier ∈ {vetted, community}; community connectors are sandboxed and consent-gated. The family canvas (AL2) is always the floor; a connector canvas is additive, with deterministic precedence (connector canvas over family floor) consistent with AL5.
+**Contracts / constraints.** Ride the MCP standard — a connector is a standard MCP server plus a manifest, never a HyperIdle-proprietary plugin format. Trust tier ∈ {vetted, community}; community connectors are sandboxed and consent-gated. The family canvas (AL2) is always the floor; a referenced review template is additive and degrades to the floor, consistent with AL5.
 
-**Out of scope.** Building specific connectors. AL5's canvas mechanism itself. The connect surface (AN1).
+**Out of scope.** Building specific connectors. AL5's review-template mechanism itself. The connect surface (AN1).
 
 **Effort.** L (~6d)
