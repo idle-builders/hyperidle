@@ -705,6 +705,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// unknown → none (drain-gate floor backstop only)
 			returnEnforcement:
 				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
+			// AL7 delta: expose the MCP config dialect so session-provisioning can
+			// call writeCliMcpConfig with the right dialect. Absent if no mcpConfig set.
+			...(this.config.mcpConfig ? { cliMcpDialect: this.config.mcpConfig.dialect } : {}),
 		};
 	}
 

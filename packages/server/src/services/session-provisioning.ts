@@ -39,6 +39,7 @@ import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
 // v4-final: re-engage.ts (rewriteSandboxForcing) deleted — no Layer-B loop.
 import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
+import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
@@ -723,6 +724,10 @@ export async function runSession(
 
 	writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
+	// Retrieve adapter capabilities once — used in Phase 8b (cliMcpDialect) and
+	// Phase 8b-enforce (returnEnforcement) and later (interceptToolCalls).
+	const adapterCapabilities = harness.getCapabilities();
+
 	// ── Phase 8b: create MCP bridge (if registry is configured).
 	//
 	// @lore X2: Bridge creation is wrapped in a try/catch for graceful degradation.
@@ -735,22 +740,48 @@ export async function runSession(
 	// The bridge is created BEFORE harness.startSession() so the token is written
 	// to .mcp.json before the harness reads it at startup.
 	let mcpBridgeToken: string | undefined;
+	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
+	let mcpTokenEnv: Record<string, string> | undefined;
 	if (mcpBridgeRegistry && mcpBaseUrl) {
 		try {
 			const bridge = await createMcpBridge({ sessionId, registry });
 			mcpBridgeRegistry.register(bridge);
 			mcpBridgeToken = bridge.token;
-			// Write .mcp.json to sandbox for harness auto-discovery.
+			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
+
+			// Write .mcp.json to sandbox for claude auto-discovery.
 			const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
-			const mcpConfig = {
+			const mcpJsonConfig = {
 				mcpServers: {
 					hyperidle: {
 						type: "http",
-						url: `${mcpBaseUrl}/api/mcp/${bridge.token}`,
+						url: mcpUrl,
 					},
 				},
 			};
-			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
+			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
+
+			// ── AL7 delta: write per-binary MCP config for codex + opencode.
+			//
+			// The selected harness's cliMcpDialect (from HarnessCapabilities) declares
+			// which config file format the binary reads. writeCliMcpConfig handles the
+			// dialect-specific writing. The dialect knowledge lives ONLY here — no
+			// per-backend branching in the router or registry.
+			//
+			// @lore AL7 Phase 8b: Mirrors claude's .mcp.json in the same Phase 8b block.
+			// The codex tokenEnv (HYPERIDLE_MCP_TOKEN) is threaded into sessionStartConfig
+			// so startSession can inject it outside the envAllowlist (N6).
+			if (adapterCapabilities.cliMcpDialect) {
+				const result = writeCliMcpConfig({
+					dialect: adapterCapabilities.cliMcpDialect,
+					sandboxPath,
+					mcpUrl,
+					token: bridge.token,
+				});
+				if (result.tokenEnv && Object.keys(result.tokenEnv).length > 0) {
+					mcpTokenEnv = result.tokenEnv;
+				}
+			}
 		} catch (bridgeErr) {
 			// Bridge creation failed — continue in event-stream fallback mode.
 			// mcpBridgeToken remains undefined; teardown will be a no-op.
@@ -773,7 +804,7 @@ export async function runSession(
 	// @lore AL6 v4-final: modelConfig on this path. bridgeToken/mcpUrl come from the MCP
 	// bridge (if available) or empty strings (process-reengage uses them for plugin content;
 	// settings-* channels use them for the curl command in the hook).
-	const adapterCapabilities = harness.getCapabilities();
+	// adapterCapabilities is declared above Phase 8b (moved up for AL7 cliMcpDialect usage).
 	await provisionReturnHook({
 		sandboxPath,
 		channel: adapterCapabilities.returnEnforcement,
@@ -842,6 +873,9 @@ export async function runSession(
 		// this session was provisioned with. The builtin adapter also has the workflow
 		// embedded in the tool registry, but SessionConfig is the canonical observable.
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
+		// AL7 delta: thread per-session MCP token env var (codex: HYPERIDLE_MCP_TOKEN)
+		// into SessionConfig so startSession can inject it outside the envAllowlist (N6).
+		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.

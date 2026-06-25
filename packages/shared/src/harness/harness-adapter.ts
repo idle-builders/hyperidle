@@ -240,6 +240,15 @@ export interface HarnessCapabilities {
 	readonly discovery?: HarnessDiscoveryStatus;
 	readonly fileEditing?: boolean;
 	readonly toolUse?: boolean;
+	/**
+	 * AL7 delta: Per-session MCP config dialect for CLI harnesses that need a
+	 * config file written into the sandbox for the binary to discover the bridge.
+	 * Absent for non-CLI harnesses (builtin, SDK adapters).
+	 *
+	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
+	 * "opencode-json" — writes opencode.json to sandbox cwd.
+	 */
+	readonly cliMcpDialect?: "codex-toml" | "opencode-json";
 }
 
 export interface HarnessAdapter {
