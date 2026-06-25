@@ -72,6 +72,17 @@ export interface ToolContext {
 	 * call still captures (WARNING-5.1) before the process dies.
 	 */
 	readonly onAbortSession?: (sessionId: string) => void;
+	/**
+	 * AN2: the owning human user whose Connections this session may broker against.
+	 * Resolved INSIDE `provisionSession` (single-human-user model today). Absent ⇒ no
+	 * external tools resolved (safe default). Per-user isolation is enforced here.
+	 *
+	 * @lore AN2: resolved via resolveOwnerUserId(db) inside provisionSession, using the
+	 * same lookup as auth.ts:234-235 (db.select().from(users).where(kind="human").limit(1)).
+	 * ProvisionSessionParams does NOT gain this field — resolution is internal to
+	 * provisioning so routines-routes.ts (no HTTP userId) works unchanged.
+	 */
+	readonly ownerUserId?: string;
 }
 
 /**
