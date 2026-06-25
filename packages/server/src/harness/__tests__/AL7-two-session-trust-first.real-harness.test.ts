@@ -38,12 +38,19 @@
  * --strict-mcp-config to prevent the binary from reading other project .mcp.json
  * files that might conflict.
  *
- * @lore AL7 real-harness codex-opencode: Codex and opencode are wiring-needed for the
- * MCP-routed checkpoint. CLI_TOOL_CONFIGS for codex and opencode have no {{mcpUrl}}
- * slot — the MCP bridge URL is not injected into their spawn env. The MCP connection
- * would require adding `--mcp-config` (codex) or `--mcp` (opencode) args plus the URL
- * template slot. That wiring is net-new (AL8 scope). Codex/opencode are marked
- * wiring-needed in the DONE matrix and NOT proven in this test.
+ * @lore AL7 real-harness codex-opencode (REVISED — AL7 delta): Codex and opencode
+ * lanes are added in this file as the AL7 delta. They mirror the claude lane structure:
+ * session-1 (capture) → approve → session-2 (grant-bearing) → real file written.
+ * All three lanes are re-pointed at the PRODUCTION `createMcpBridge` + `createMcpRoute`
+ * once T0 (stateful bridge) and T4-T6 (wiring) land. The test-only `buildStatefulMcpServer`
+ * and the `app.all("/mcp/:token")` route override will be deleted in T3 (green phase)
+ * when the production bridge is stateful. The codex/opencode lanes are RED until T0+T5+T6.
+ *
+ * @lore AL7 T3 teardown-coverage: Per the R1-closure section (architecture.md), the
+ * production bridge teardown (unregister → mcpServer.close → transport.close) is
+ * pre-addressed by mcp-bridge-registry.ts. The stateful bridge adds only a sessionId
+ * string + _initialized boolean to the transport instance — both GC'd with the instance.
+ * No new teardown code is needed here.
  *
  * @lore AL7 real-claude-full-binary: Uses same env isolation recipe as AL6:
  *   CLAUDECODE="" CLAUDE_CODE_ENTRYPOINT="" CLAUDE_CODE_EXECPATH=""
@@ -95,12 +102,37 @@ function binaryPresent(name: string): boolean {
 }
 
 const claudeInstalled = binaryPresent("claude");
+const codexInstalled = binaryPresent("codex");
+const opencodeInstalled = binaryPresent("opencode");
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
 		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
 		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
 		return parsed.loggedIn === true;
+	} catch {
+		return false;
+	}
+}
+
+async function codexAuthed(): Promise<boolean> {
+	try {
+		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
+			timeout: 10_000,
+		});
+		const out = (stdout + stderr).trim();
+		return out.startsWith("Logged in");
+	} catch {
+		return false;
+	}
+}
+
+async function opencodeAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("opencode", ["providers", "list"], {
+			timeout: 10_000,
+		});
+		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
 	} catch {
 		return false;
 	}
@@ -868,55 +900,502 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 		);
 	});
 
-	// ── PER-HARNESS MATRIX: honest as-built state ─────────────────────────────
+	// ── CODEX CLI (real binary, MCP-routed two-session loop) ─────────────────
 	//
-	// @lore AL7 codex-opencode-wiring-needed: Codex and opencode do not have
-	// an {{mcpUrl}} template slot in CLI_TOOL_CONFIGS. The MCP bridge URL is not
-	// injected at spawn time. Adding --mcp-config (codex) or --mcp (opencode) args
-	// plus the URL template slot is net-new wiring — out of AL7 scope (AL8).
+	// @lore AL7 T3 codex: Mirrors the claude lane. Uses a git-init'd sandbox
+	// (codex requires a git repo) and provisionCodexHome to write auth.json +
+	// config.toml to .codex-home/, then writeCliMcpConfig to append
+	// [mcp_servers.hyperidle] to .codex-home/config.toml.
 	//
-	// Codex result: wiring-needed (MCP URL slot missing in CLI_TOOL_CONFIGS)
-	// OpenCode result: wiring-needed (MCP URL slot missing in CLI_TOOL_CONFIGS)
+	// Lane is RED until T0 (stateful bridge) + T4 (writeCliMcpConfig) + T5/T6
+	// (CLI_TOOL_CONFIGS wiring + session-provisioning config writer).
 	//
-	// These are not failures — they are HONEST declarations of the as-built state.
-	// The real proof for codex/opencode requires adding the MCP URL template arg,
-	// the `--mcp-config` flag, and re-running the two-session loop. That is AL8.
+	// @lore AL7 T3 codex production-bridge: Once T0 lands, this lane hits the
+	// PRODUCTION createMcpBridge (stateful) via createMcpRoute at
+	// ${server.url}/api/mcp/${token} — not the test-only buildStatefulMcpServer.
+	// The rebuildBridge helper will use createMcpBridge once T0 is in.
+	//
+	// @lore AL7 T3 sanity-break codex: Changing the config-file token to a wrong
+	// value → PRODUCTION bridge registry lookup fails (401) → codex gets a tool
+	// error → captured stays 0 → assertion fails. Confirms the lane is not vacuous.
 
-	describe("per-harness matrix: codex + opencode wiring verification", () => {
-		test("codex: verify MCP URL slot absent in CLI_TOOL_CONFIGS (wiring-needed confirmed)", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+	describe("codex CLI (real binary, MCP-routed two-session loop)", () => {
+		test.skipIf(!codexInstalled)(
+			"FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)",
+			async ({ skip }) => {
+				const authed = await codexAuthed();
+				if (!authed) {
+					skip();
+					return;
+				}
 
-			const codexConfig = CLI_TOOL_CONFIGS.codex;
-			expect(codexConfig).toBeDefined();
+				// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
+				// do not exist yet (T4). This test will fail at the import/call site
+				// until T4+T5+T6 land.
 
-			// Confirm: no {{mcpUrl}} template arg in codex args.
-			// If this were present, codex could be wired for the MCP-routed checkpoint.
-			const hasMcpUrlSlot =
-				codexConfig?.args?.some((a) => a.includes("{{mcpUrl}}")) ||
-				codexConfig?.envMap?.MCP_URL !== undefined ||
-				codexConfig?.envMap?.CODEX_MCP_CONFIG !== undefined;
+				const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s1-"));
+				const testSessionId = `al7-rh-codex-s1-${Math.random().toString(36).slice(2, 10)}`;
 
-			// @lore AL7 codex-wiring-needed: hasMcpUrlSlot MUST be false here.
-			// If it were true, the wiring would already exist and codex could be proven.
-			// The test FAILS if someone accidentally adds the slot without the full proof.
-			// When AL8 lands the codex wiring, this test will need to be updated.
-			expect(hasMcpUrlSlot).toBe(false);
-		});
+				// Codex requires a git repo.
+				execFileSync("git", ["init"], { cwd: s1SandboxPath, stdio: "ignore" });
+				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+					cwd: s1SandboxPath,
+					stdio: "ignore",
+					env: {
+						...process.env,
+						GIT_AUTHOR_NAME: "test",
+						GIT_AUTHOR_EMAIL: "test@test.com",
+						GIT_COMMITTER_NAME: "test",
+						GIT_COMMITTER_EMAIL: "test@test.com",
+					},
+				});
 
-		test("opencode: verify MCP URL slot absent in CLI_TOOL_CONFIGS (wiring-needed confirmed)", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
 
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			expect(opencodeConfig).toBeDefined();
+				try {
+					// Production bridge URL (api/mcp/:token path, not /mcp/:token test override).
+					// After T0: testServer routes through createMcpBridge + createMcpRoute.
+					// For now the test-only bridge is used and the URL is /mcp/:token.
+					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
 
-			// Confirm: no {{mcpUrl}} template arg in opencode args.
-			const hasMcpUrlSlot =
-				opencodeConfig?.args?.some((a) => a.includes("{{mcpUrl}}")) ||
-				opencodeConfig?.envMap?.MCP_URL !== undefined ||
-				opencodeConfig?.envMap?.OPENCODE_MCP_CONFIG !== undefined;
+					// @lore AL7 T3 codex: Provision .codex-home/ with auth.json + config.toml
+					// (copy from ~/.codex). Then call writeCliMcpConfig to append the
+					// [mcp_servers.hyperidle] block. This is the T4/T6 production writer.
+					// Currently RED: writeCliMcpConfig does not exist yet.
+					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+					const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
+					fs.mkdirSync(codexHomeDir, { recursive: true });
 
-			// @lore AL7 opencode-wiring-needed: same as codex — MCP URL slot absent.
-			expect(hasMcpUrlSlot).toBe(false);
-		});
+					// Copy auth.json + config.toml from ~/.codex (AL6 recipe).
+					const homeCodexDir = path.join(os.homedir(), ".codex");
+					for (const fname of ["auth.json", "config.toml"]) {
+						const src = path.join(homeCodexDir, fname);
+						if (fs.existsSync(src)) {
+							fs.copyFileSync(src, path.join(codexHomeDir, fname));
+						}
+					}
+
+					// Append the MCP block (this is what writeCliMcpConfig does for codex-toml).
+					const { tokenEnv } = writeCliMcpConfig({
+						dialect: "codex-toml",
+						sandboxPath: s1SandboxPath,
+						mcpUrl,
+						token: testServer.token,
+					});
+
+					const cleanEnv = buildCleanEnv();
+					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					// Inject the MCP token env var (codex reads from bearer_token_env_var).
+					if (tokenEnv) {
+						Object.assign(cleanEnv, tokenEnv);
+					}
+
+					const prompt =
+						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+						"You MUST use the commit_file tool — no other tools are available. " +
+						"After calling the tool, report what the tool returned.";
+
+					const result = await spawnDetached(
+						"codex",
+						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
+						{
+							cwd: s1SandboxPath,
+							env: cleanEnv,
+							timeoutMs: 60_000,
+						},
+					);
+
+					// AC1: real codex called commit_file via MCP → router captured it.
+					if (testServer.capturingRouter.captured.length < 1) {
+						throw new Error(
+							`AL7 FULL BINARY PROOF FAILED (codex session 1): real codex binary did NOT call commit_file via MCP. ` +
+								`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
+								`stdout: "${result.stdout.slice(0, 500)}" ` +
+								`stderr: "${result.stderr.slice(0, 400)}" ` +
+								`exitCode: ${result.exitCode}. ` +
+								`MCP URL: ${mcpUrl}.`,
+						);
+					}
+					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+
+					const firstCapture = testServer.capturingRouter.captured[0];
+					expect(firstCapture?.toolId).toBe("commit_file");
+
+					// AC8 control — NAMED assertion: capture-mode → NO file written.
+					// The mode is still "capture" — no setMode("grant-bearing"), no approval.
+					// Proves: a captured-but-unapproved Proposed Call does NOT execute.
+					const proofFile = path.join(s1SandboxPath, "proof.txt");
+					expect(
+						fs.existsSync(proofFile),
+						"AC8 NAMED CONTROL: proof.txt must NOT exist in capture-mode (no approval granted). " +
+							"A captured call must be held — not executed — until explicitly approved.",
+					).toBe(false);
+
+					expect(result.exitCode).not.toBeNull();
+				} finally {
+					await testServer.close();
+				}
+			},
+			90_000,
+		);
+
+		test.skipIf(!codexInstalled)(
+			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)",
+			async ({ skip }) => {
+				const authed = await codexAuthed();
+				if (!authed) {
+					skip();
+					return;
+				}
+
+				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s2loop-"));
+				const testSessionId = `al7-rh-codex-s2-${Math.random().toString(36).slice(2, 10)}`;
+
+				// Codex requires a git repo.
+				execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
+				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+					cwd: sandboxPath,
+					stdio: "ignore",
+					env: {
+						...process.env,
+						GIT_AUTHOR_NAME: "test",
+						GIT_AUTHOR_EMAIL: "test@test.com",
+						GIT_COMMITTER_NAME: "test",
+						GIT_COMMITTER_EMAIL: "test@test.com",
+					},
+				});
+
+				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+				try {
+					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+
+					// ── Session 1 ──────────────────────────────────────────────────────
+					const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
+					const codexHomeDir = path.join(sandboxPath, ".codex-home");
+					fs.mkdirSync(codexHomeDir, { recursive: true });
+					const homeCodexDir = path.join(os.homedir(), ".codex");
+					for (const fname of ["auth.json", "config.toml"]) {
+						const src = path.join(homeCodexDir, fname);
+						if (fs.existsSync(src)) {
+							fs.copyFileSync(src, path.join(codexHomeDir, fname));
+						}
+					}
+					const { tokenEnv: s1TokenEnv } = writeCliMcpConfig({
+						dialect: "codex-toml",
+						sandboxPath,
+						mcpUrl: s1McpUrl,
+						token: testServer.token,
+					});
+
+					const cleanEnv = buildCleanEnv();
+					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					if (s1TokenEnv) Object.assign(cleanEnv, s1TokenEnv);
+
+					const prompt =
+						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+						"You MUST use the commit_file tool — no other tools are available. " +
+						"After calling the tool, report what the tool returned.";
+
+					const s1Result = await spawnDetached(
+						"codex",
+						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
+						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+					);
+
+					if (testServer.capturingRouter.captured.length < 1) {
+						throw new Error(
+							`AL7 codex two-session loop FAILED at session 1: commit_file not captured. ` +
+								`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
+						);
+					}
+					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+					const capturedCall = testServer.capturingRouter.captured[0]!;
+					expect(capturedCall.toolId).toBe("commit_file");
+
+					// AC8 NAMED CONTROL: capture-mode → file NOT written.
+					const proofFile = path.join(sandboxPath, "proof.txt");
+					expect(
+						fs.existsSync(proofFile),
+						"AC8 NAMED CONTROL (codex session 1): proof.txt must NOT exist in capture-mode. " +
+							"Unapproved Proposed Call must be held, not executed.",
+					).toBe(false);
+
+					// ── Approve (in-process) ────────────────────────────────────────────
+					testServer.capturingRouter.approvedCall = capturedCall;
+					testServer.capturingRouter.setMode("grant-bearing");
+					await testServer.rebuildBridge(testServer.capturingRouter);
+
+					// ── Session 2 ──────────────────────────────────────────────────────
+					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
+					const { tokenEnv: s2TokenEnv } = writeCliMcpConfig({
+						dialect: "codex-toml",
+						sandboxPath,
+						mcpUrl: s2McpUrl,
+						token: testServer.token,
+					});
+					const s2Env = { ...cleanEnv };
+					if (s2TokenEnv) Object.assign(s2Env, s2TokenEnv);
+
+					const s2Result = await spawnDetached(
+						"codex",
+						["exec", prompt, "--json", "--dangerously-bypass-hook-trust"],
+						{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000 },
+					);
+
+					// AC3: real codex executed the approved op → file written.
+					if (!fs.existsSync(proofFile)) {
+						throw new Error(
+							`AL7 codex two-session loop FAILED at session 2: proof.txt not written. ` +
+								`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
+								`exitCode: ${s2Result.exitCode}`,
+						);
+					}
+					expect(fs.existsSync(proofFile)).toBe(true);
+					expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
+
+					expect(s2Result.exitCode).not.toBeNull();
+					// codex --json emits turn.completed when done.
+					expect(s2Result.stdout).toContain("turn.completed");
+				} finally {
+					await testServer.close();
+				}
+			},
+			180_000,
+		);
+	});
+
+	// ── OPENCODE CLI (real binary, MCP-routed two-session loop) ──────────────
+	//
+	// @lore AL7 T3 opencode: Mirrors the codex lane. Uses a plain sandbox (no git
+	// required). writeCliMcpConfig writes opencode.json to the sandbox cwd.
+	// The spawn recipe: opencode run <prompt> --format json --pure
+	//   --dir <sandbox> --model openrouter/~anthropic/claude-haiku-latest
+	// (W4 closure: --model is required; provider-prefixed form per plan §1a.)
+	//
+	// @lore AL7 T3 opencode W3: opencode --format json emits raw JSONL types
+	// like step_finish/tool that may normalize to `unknown` via normalizeHarnessEvent.
+	// The session-1 captured>=1 assertion is on the MCP router capture (not event
+	// normalization) — the router captures the tool call directly regardless of
+	// event normalization. The stdout `step_finish` check verifies the turn completed.
+	//
+	// @lore AL7 T3 sanity-break opencode: Wrong token in opencode.json → 401 from
+	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
+
+	describe("opencode CLI (real binary, MCP-routed two-session loop)", () => {
+		test.skipIf(!opencodeInstalled)(
+			"FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)",
+			async ({ skip }) => {
+				const authed = await opencodeAuthed();
+				if (!authed) {
+					skip();
+					return;
+				}
+
+				const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
+				const testSessionId = `al7-rh-oc-s1-${Math.random().toString(36).slice(2, 10)}`;
+
+				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
+
+				try {
+					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+
+					// @lore AL7 T3 opencode: writeCliMcpConfig writes opencode.json to sandboxPath.
+					// Currently RED: writeCliMcpConfig does not exist yet (T4).
+					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+					writeCliMcpConfig({
+						dialect: "opencode-json",
+						sandboxPath: s1SandboxPath,
+						mcpUrl,
+						token: testServer.token,
+					});
+
+					const cleanEnv = buildCleanEnv();
+
+					// W4: --model must be provider-prefixed (openrouter/~anthropic/claude-haiku-latest).
+					// This is the real-harness hardcoded known-good model id (AL6 recipe).
+					const prompt =
+						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+						"You MUST use the commit_file tool — no other tools are available. " +
+						"After calling the tool, report what the tool returned.";
+
+					const result = await spawnDetached(
+						"opencode",
+						[
+							"run",
+							prompt,
+							"--format",
+							"json",
+							"--pure",
+							"--dir",
+							s1SandboxPath,
+							"--model",
+							"openrouter/~anthropic/claude-haiku-latest",
+						],
+						{
+							cwd: s1SandboxPath,
+							env: cleanEnv,
+							timeoutMs: 60_000,
+						},
+					);
+
+					// AC2: real opencode called commit_file via MCP → router captured it.
+					if (testServer.capturingRouter.captured.length < 1) {
+						throw new Error(
+							`AL7 FULL BINARY PROOF FAILED (opencode session 1): real opencode binary did NOT call commit_file via MCP. ` +
+								`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
+								`stdout: "${result.stdout.slice(0, 500)}" ` +
+								`stderr: "${result.stderr.slice(0, 400)}" ` +
+								`exitCode: ${result.exitCode}. ` +
+								`MCP URL: ${mcpUrl}. ` +
+								`opencode.json must be loaded from spawn cwd (config resolution).`,
+						);
+					}
+					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+
+					const firstCapture = testServer.capturingRouter.captured[0];
+					expect(firstCapture?.toolId).toBe("commit_file");
+
+					// AC8 NAMED CONTROL: capture-mode → NO file written.
+					// Mode is still "capture"; no approval granted.
+					const proofFile = path.join(s1SandboxPath, "proof.txt");
+					expect(
+						fs.existsSync(proofFile),
+						"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
+							"Unapproved Proposed Call must be held, not executed.",
+					).toBe(false);
+
+					expect(result.exitCode).not.toBeNull();
+				} finally {
+					await testServer.close();
+				}
+			},
+			90_000,
+		);
+
+		test.skipIf(!opencodeInstalled)(
+			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)",
+			async ({ skip }) => {
+				const authed = await opencodeAuthed();
+				if (!authed) {
+					skip();
+					return;
+				}
+
+				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s2loop-"));
+				const testSessionId = `al7-rh-oc-s2-${Math.random().toString(36).slice(2, 10)}`;
+
+				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+				try {
+					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+
+					// ── Session 1 ──────────────────────────────────────────────────────
+					const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
+					writeCliMcpConfig({
+						dialect: "opencode-json",
+						sandboxPath,
+						mcpUrl: s1McpUrl,
+						token: testServer.token,
+					});
+
+					const cleanEnv = buildCleanEnv();
+
+					const prompt =
+						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+						"You MUST use the commit_file tool — no other tools are available. " +
+						"After calling the tool, report what the tool returned.";
+
+					const s1Result = await spawnDetached(
+						"opencode",
+						[
+							"run",
+							prompt,
+							"--format",
+							"json",
+							"--pure",
+							"--dir",
+							sandboxPath,
+							"--model",
+							"openrouter/~anthropic/claude-haiku-latest",
+						],
+						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+					);
+
+					if (testServer.capturingRouter.captured.length < 1) {
+						throw new Error(
+							`AL7 opencode two-session loop FAILED at session 1: commit_file not captured. ` +
+								`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
+						);
+					}
+					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+					const capturedCall = testServer.capturingRouter.captured[0]!;
+					expect(capturedCall.toolId).toBe("commit_file");
+
+					// AC8 NAMED CONTROL: capture-mode → file NOT written.
+					const proofFile = path.join(sandboxPath, "proof.txt");
+					expect(
+						fs.existsSync(proofFile),
+						"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
+							"Unapproved Proposed Call must be held, not executed.",
+					).toBe(false);
+
+					// ── Approve (in-process) ────────────────────────────────────────────
+					testServer.capturingRouter.approvedCall = capturedCall;
+					testServer.capturingRouter.setMode("grant-bearing");
+					await testServer.rebuildBridge(testServer.capturingRouter);
+
+					// ── Session 2 ──────────────────────────────────────────────────────
+					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
+					writeCliMcpConfig({
+						dialect: "opencode-json",
+						sandboxPath,
+						mcpUrl: s2McpUrl,
+						token: testServer.token,
+					});
+
+					const s2Result = await spawnDetached(
+						"opencode",
+						[
+							"run",
+							prompt,
+							"--format",
+							"json",
+							"--pure",
+							"--dir",
+							sandboxPath,
+							"--model",
+							"openrouter/~anthropic/claude-haiku-latest",
+						],
+						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+					);
+
+					// AC4: real opencode executed the approved op → file written.
+					if (!fs.existsSync(proofFile)) {
+						throw new Error(
+							`AL7 opencode two-session loop FAILED at session 2: proof.txt not written. ` +
+								`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
+								`exitCode: ${s2Result.exitCode}`,
+						);
+					}
+					expect(fs.existsSync(proofFile)).toBe(true);
+					expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
+
+					expect(s2Result.exitCode).not.toBeNull();
+
+					// W3: opencode emits step_finish (or turn.completed) when done.
+					// The stdout is raw JSONL — step_finish is the opencode turn-end marker.
+					// (normalizeHarnessEvent may map this to unknown today — T6 fixes that;
+					// this assertion is on the raw stdout which the MCP router doesn't depend on.)
+					const hasCompletion =
+						s2Result.stdout.includes("step_finish") ||
+						s2Result.stdout.includes("turn.completed");
+					expect(hasCompletion).toBe(true);
+				} finally {
+					await testServer.close();
+				}
+			},
+			180_000,
+		);
 	});
 });
