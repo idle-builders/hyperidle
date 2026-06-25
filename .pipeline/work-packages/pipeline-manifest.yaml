@@ -1280,3 +1280,25 @@ stories:
     track: AP
     depends: []
     complexity: M
+
+  # Track AO: Self-Hosting Build Loop
+  - id: AO1
+    title: "A product's output substrate: where an agent's work lives"
+    track: AO
+    depends: []
+    complexity: L
+  - id: AO2
+    title: Materialize the substrate into the session sandbox
+    track: AO
+    depends: [AO1]
+    complexity: L
+  - id: AO3
+    title: Agent output becomes reviewable and landable (NEEDS RESEARCH post-AL7)
+    track: AO
+    depends: [AO2, AL7]
+    complexity: L
+  - id: AO4
+    title: Product as a first-class scope (multi-product)
+    track: AO
+    depends: [AO1]
+    complexity: L

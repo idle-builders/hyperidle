@@ -1,5 +1,30 @@
 {
   "domain": "product",
-  "updated_at": null,
-  "features": {}
+  "updated_at": "2026-06-25",
+  "focus": "Can a flat team use HyperIdle to build HyperIdle + other similar-stack apps? (self-host + multi-project)",
+  "head_commit": "d93b63fa4898c6e9700c1ebff27ae9ff8c310988",
+  "verdict": "self-host: NO (loop never closes) · multi-project: NO (single-global at every layer that matters)",
+  "report": ".pipeline/audits/product/DEEP-REVIEW-2026-06-25.md",
+  "method": "11 Explore lanes (full prod code + 205 docs + live app) -> 3 reviewer agents -> consolidated. 120 findings (15 blocker / 41 major / 64 minor).",
+  "consolidated_blockers_dep_ordered": [
+    "1. Wire thinking backend + zero-config boot (credential prompt + auto-migrate). Root cause; cheapest, largest radius.",
+    "2. Live-prove plan->execute closes once credentialed (decomposition->task->dispatch->session).",
+    "3. Build the code/output substrate (project->repo binding, clone into sandbox, code-artifact record, local-git tool, writeback). Generalize beyond code.",
+    "4. Real review generation + merge AL7 (reviews table + POST + task/artifact/bet factories; review OUTPUTS not diffs; verdict surface already real).",
+    "5. Make 'project' first-class: reconcile 3 disjoint scope keys (teamId/productId/scopeId), team-scope promotion, per-project cost/sandbox/git/connections, project picker.",
+    "6. Outbound connectivity AN2/AN3 (outbound MCP client + broker; scope connections per project)."
+  ],
+  "lanes": {
+    "boot-onboard":      { "verdict": "partial", "key_gap": "no auto-migrate on boot; zero credentials out-of-box; SetupFlow never asks for a key", "reviewed_at": "2026-06-25" },
+    "plan-teams-bets-tasks": { "verdict": "partial", "key_gap": "auto-decomposition fails at runtime (live bet blocked, 0 tasks) — downstream of credential gap", "reviewed_at": "2026-06-25" },
+    "equip-strategy":    { "verdict": "partial", "key_gap": "Strategy injects only systemPrompt; no dynamic skill/tool injection (AgentScaffoldSpec has no skills field; tools role-filtered at registration)", "reviewed_at": "2026-06-25" },
+    "substrate-files":   { "verdict": "partial", "key_gap": "STRUCTURAL: no code/output substrate — sandbox is knowledge-only; no repo clone, no code-artifact columns; 'code substrate' is unimplemented prose", "reviewed_at": "2026-06-25" },
+    "execute-harness":   { "verdict": "partial", "key_gap": "real harness/sandbox but empty (no code in sandbox); per-agent not per-project", "reviewed_at": "2026-06-25" },
+    "connect-mcp":       { "verdict": "partial", "key_gap": "AN2 outbound MCP client/broker entirely unbuilt; ServiceConnectionResolver dead code; connections userId-only", "reviewed_at": "2026-06-25" },
+    "review-land":       { "verdict": "partial", "key_gap": "GET /api/reviews is a fixture; no reviews table/POST/factory; AL7 unmerged. Verdict/thread surface IS real.", "reviewed_at": "2026-06-25" },
+    "converse-observe":  { "verdict": "partial", "key_gap": "assistant inert without credential; real threads/verdicts/mentions work; session-activity view real", "reviewed_at": "2026-06-25" },
+    "compound-knowledge":{ "verdict": "partial", "key_gap": "promotion routine not seeded; promotion counts scopes factory-wide with no team filter -> cross-project knowledge leak", "reviewed_at": "2026-06-25" },
+    "surface-visual":    { "verdict": "partial", "key_gap": "no per-project IA/picker; global /api/teams; shell otherwise on-brand and usable", "reviewed_at": "2026-06-25" },
+    "docs-drift-deadcode": { "verdict": "partial", "key_gap": "boundary-concept code-substrate unimplemented; docs claim a Kernel pkg that doesn't exist; Nimmly persists in LOCAL pre-AF17 DB only (source guarded clean)", "reviewed_at": "2026-06-25" }
+  }
 }
