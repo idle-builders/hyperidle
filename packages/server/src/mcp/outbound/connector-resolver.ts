@@ -23,7 +23,7 @@
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
-import type { ConnectorSpec } from "@hyperidle/shared";
+import type { ConnectorSpec, ConnectorToolDescriptor } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { ServiceConnectionResolver } from "../../services/service-connection-resolver.js";
 import type { RegisteredTool } from "../../tools/tool-registry.js";
@@ -87,16 +87,20 @@ export async function resolveConnectorTools(
 		}
 
 		// Connect out and list tools
-		let toolDescriptors: import("@hyperidle/shared").ConnectorToolDescriptor[];
-		let outbound: Awaited<ReturnType<typeof connectOutbound>>;
-		try {
-			outbound = await connectOutbound(spec, token);
-			toolDescriptors = await outbound.listTools();
-			await outbound.close();
-		} catch {
+		let toolDescriptors: ConnectorToolDescriptor[];
+		const outbound = await connectOutbound(spec, token).catch(() => null);
+		if (outbound === null) {
 			// Fail-quiet: external server unreachable or protocol error → no tools
 			continue;
 		}
+		try {
+			toolDescriptors = await outbound.listTools();
+		} catch {
+			// Fail-quiet: listTools failed — close the connection to avoid leaks, then skip
+			await outbound.close();
+			continue;
+		}
+		await outbound.close();
 
 		// Determine trust tier (from the stored row)
 		const trustTier = (row.trustTier === "vetted" ? "vetted" : "community") as

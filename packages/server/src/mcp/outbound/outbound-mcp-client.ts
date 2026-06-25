@@ -103,6 +103,13 @@ export async function connectOutbound(
 	} catch (e) {
 		// @lore AN2 security: redact authToken from error messages to prevent
 		// credential leakage in logs. Replace any occurrence with "[REDACTED]".
+		// @lore AN2 redaction fragility: this is SUBSTRING-based (String.replaceAll).
+		// It catches verbatim token embedding in error text (e.g. SDK echoing the Bearer
+		// header). It does NOT catch: base64/percent-encoded variants, tokens split across
+		// multiple fields, or error objects that stringify differently than `.message`.
+		// If the SDK ever encodes the header before echoing it, the raw token won't appear
+		// and replaceAll is a no-op — the redaction silently stops working. Next agent: if
+		// you see token fragments in logs, check the SDK error serialization path first.
 		const raw = e instanceof Error ? e.message : String(e);
 		const safe = authToken && authToken.length > 0 ? raw.replaceAll(authToken, "[REDACTED]") : raw;
 		throw new Error(`connectOutbound failed for service "${spec.service}": ${safe}`);
