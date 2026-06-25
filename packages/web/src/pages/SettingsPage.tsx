@@ -18,7 +18,6 @@ import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
-import { SettingsConnections } from "../settings/SettingsConnections.js";
 import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
@@ -82,15 +81,6 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Models</SectionTitle>
 						<SettingsModels />
-					</section>
-
-					{/* AN1: Connections section — after Models */}
-					<section
-						id="settings-section-connections"
-						data-testid="settings-section-connections"
-						className="flex flex-col gap-[18px]"
-					>
-						<SettingsConnections />
 					</section>
 
 					{/* AF15 AC-1: Agents section — after Models, before Assistant (design spec) */}

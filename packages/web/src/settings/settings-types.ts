@@ -21,7 +21,6 @@ export type SettingsSectionId =
 	| "appearance"
 	| "models"
 	| "agents"
-	| "connections"
 	| "backend"
 	| "worker"; // X3/AF15: worker and agent configuration sections
 
@@ -49,7 +48,6 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
 	{ id: "orgchart", label: "Org chart" },
 	{ id: "models", label: "Models" },
-	{ id: "connections", label: "Connections" },
 	{ id: "agents", label: "Agents" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
