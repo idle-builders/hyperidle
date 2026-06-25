@@ -1,0 +1,18 @@
+{
+  "id": "AL5",
+  "status": "in_progress",
+  "currentStep": "1-design",
+  "branch": "concept/AL5-tool-tailored-canvases",
+  "pr": 361,
+  "note": "Pipeline builds ON the AL5 concept branch (PR #361) — concept + reshaped spec are committed here, not yet on origin/main (cannot auto-merge). Branch is based off origin/main; no stacking. PR #361 grows into the full AL5 delivery.",
+  "phases": {
+    "1-design": "in_progress",
+    "2-critique": "pending",
+    "3-build": "pending",
+    "4-review": "pending",
+    "5-docs": "pending",
+    "6-retro": "pending",
+    "ship": "pending"
+  },
+  "startedAt": "2026-06-25"
+}
