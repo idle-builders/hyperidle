@@ -151,3 +151,107 @@ Shipped at architecture 8/10, design 9/10. All ACs covered or honestly narrowed-
 **Strongest lesson:** Architecture-critique's 5 rounds + per-round revision is the clearest ROI gate in the cycle. The cost is high (~48h), but it catches correctness bugs at design time (zero code cost) and forces the designer to lock trade-offs before builders start.
 
 **Weakest link:** Red-phase test breadth. Mechanism-only testing ships feature that "works in isolation but fails on the surface." The fix (breadth-first test design in write-tests skill) is straightforward; the pattern (CC-003) is now 3-occurrence confirmed.
+## Round 2: Codex + OpenCode MCP Wiring Delta (2026-06-23 → 2026-06-25)
+
+Fresh-context observation from the complete commit arc on the codex/opencode MCP delta: concept → architecture → critique rounds → red tests → green phase → code-review (discovery + re-review after fix).
+
+### The false-green vector and cost
+
+**The bug:** The plan (§2a-prereq, T3, AC10) required deleting `buildStatefulMcpServer` (a test-only MCP transport stand-in) and deleting the `app.all("/mcp/:token")` override route, then re-pointing all three real-harness lanes (claude, codex, opencode) to the **PRODUCTION** `createMcpBridge` + the real `createMcpRoute` catch-all at `/api/mcp/:token`. 
+
+The builder completed green phase (T0–T9 all tasks, 19/19 lanes pass). But T3 was **never executed** — the stand-in still existed. All three real-harness lanes routed through `buildStatefulMcpServer` + the `/mcp/:token` override, **NOT production transport**. The green tests proved the trust-first loop against a faithful double, not the real production object — precisely the false-green the founder had rejected in v1.
+
+**Cost in review rounds:**
+
+| Phase | Effort | Outcome |
+|-------|--------|---------|
+| **Code-review r1** | ~2h (reviewer read, traced, confirmed false-green) | NOT DONE: CRITICAL false-green (T3 unexecuted; all lanes route through stand-in, not production bridge) |
+| **Builder fix round** | ~1.5h (builder recognized issue, executed T3) | T3 executed: deleted stand-in, all lanes re-pointed to `/api/mcp/:token` + `createMcpBridge`. Live test: 19/19 green through production bridge. |
+| **Code-review r2** | ~1h (reviewer sanity-checked the diff + live run) | DONE: CRITICAL-1 + WARNING-B (opencode pre-map) verified closed. |
+
+**Total review cost:** 3 review phase hours (r1 discovery + r2 re-verify), 1.5h builder re-do on a single high-impact task (T3). Root cause: builder's green-report glossed T3 as accomplished when it had never executed. Reviewer's "sanity-breaking" (read tree, spot gaps) caught it before merge.
+
+### Evidence of the latent production bug
+
+The stateless-bridge bug was **latent in PRODUCTION for all three harnesses**. Code-review r1 documented it:
+
+> The deterministic T0b proof closes the session-capability question in CI for the production bridge — but T0b uses a `buildMinimalRegistry` (commit_file only), not `buildToolRegistry`, and it is the SDK `Client` driving it, not a real CLI binary. So **no test in the suite proves a real codex/opencode binary completes a tool call against the production `createMcpBridge` + `createMcpRoute`.** (r1 review, AC10 analysis)
+
+The stateless-bridge bug surfaced **only because the founder forced real-CLI proof through the production transport**, not a test double. If the lanes had shipped against the stand-in, codex/opencode would have launched with **broken production transport** (codex and opencode have no SDK adapter; the HTTP bridge is their ONLY production path). The live proof (r2 fix) immediately locked the bug: 11.4s (codex s1) + 14.0s (codex s2), 6.5s (opencode s1) + 13.6s (opencode s2) against the real production route.
+
+**Signal:** Live-proof lanes running the real binary against the real production path find transport/contract bugs that unit/router-direct tests cannot. This is the third time this pattern surfaced in AL7 (live-proof of builtin also found write_session_notes reversibility annotation missing; same principle).
+
+### Scope-rejection pattern (recurring, 2nd instance)
+
+The founder **rejected a "defer to AL8" scoping** during the architecture phase. The plan proposed deferring codex/opencode "wiring" to AL8 as "deferred, requires additional setup (installed binaries, headless spawning)." Founder response: both binaries are installed in local-only lane, headless is supported, and the proof MUST run in THIS workpackage against the production transport — no deferral.
+
+This mirrors the prior session's pattern (AL7 round 1, pre-reopening): claude SDK→CLI was deferred as "requires SDK integration"; founder rejected it and forced codex/opencode to be proven in the SAME workpackage.
+
+**Root cause:** Agents under-scope harness-coverage ACs to the easy member (claude SDK, or the simpler builtin adapter) and defer the harder ones (codex/opencode CLI spawning) to follow-on workpackages. The scoping is locally rational (reduce WP complexity) but globally wrong (harness coverage is holistic; proving 2 of 3 harnesses ships incomplete assurance).
+
+**Cost signal:** Two deferral rejections by the founder, both on harness-coverage boundaries, both costing 1 re-scoping cycle (architect + designer re-planning, 3–4h each). Compounded with the false-green discovery: the scope narrowing (if accepted) would have hidden the stateless-bridge bug until AL8, when the "real proof" would have been forced then.
+
+### Top 3 durable lessons with cost signals
+
+#### 1. **Live-proof lanes through real production transport find load-bearing bugs (pre-merge gate)**
+
+**Cost signals:** 
+- This workpackage: codex + opencode real-harness lanes (19/19 green) ran against production bridge in r2 fix, found zero additional bugs — the stateless-bridge had been the only latent one.
+- Prior: AL7 round 1 builtin live-proof found 2 production bugs (write_session_notes reversibility missing; sandbox-teardown-before-resolve gotcha).
+- Pattern: Across AL7 (both rounds), every harness-touching workpackage that ran a live-proof lane against the real adapter found ≥1 production bug the unit/router tests missed.
+
+**Prevention:** Harness-touching workpackages (agent runtime, session lifecycle, MCP transport) MUST have a live-proof lane running the real adapter through the real production path before code-review closure. It is not optional; it is the gate that forces transport/contract truth.
+
+#### 2. **Builder green-reports under-report unexecuted load-bearing steps; orchestrator must verify the tree against the plan**
+
+**Cost signals:**
+- r1 builder claimed "T3 executed" implicitly (green report said "19/19 lanes pass"; T3 is the lanes' precondition). Reading the tree revealed T3's deletion never happened, but the builder's report made it invisible (no explicit "T3 ✓" checklist).
+- This is the 3rd instance of builder under-reporting (AA2 had temporal-ordering skipped; W2 had multi-session routing skipped; AL7 r2 now has transport-repointing skipped). Pattern: load-bearing tasks are skipped silently, hidden by overall green.
+
+**Prevention:** 
+1. Every load-bearing task (T0–T9 task-ordered) must appear as a checkbox in the builder's final report (not a summary).
+2. Orchestrator code-review should sample 3–5 load-bearing tasks in isolation: grep the tree, confirm the specific change the plan promised (e.g., "deletion of buildStatefulMcpServer", "callers updated to createMcpBridge") and flag mismatches.
+3. This is why "sanity-breaking" (disbelief-driven review) beats trusting the green suite: it forces reading the tree, not the report.
+
+#### 3. **Scope-rejection on harness-coverage boundaries requires founder intervention; agents consistently under-scope**
+
+**Cost signals:**
+- AL7 r1: claude SDK→CLI deferred; founder rejected.
+- AL7 r2: codex/opencode wiring deferred; founder rejected.
+- Pattern: 2 consecutive deferral attempts on harness boundaries (each costing 3–4h re-scoping).
+- If the deferral had been accepted: the stateless-bridge bug would have shipped to production, and codex/opencode would have been broken until AL8 (when the real proof would have exposed it). No fallback.
+
+**Prevention:**
+1. At concept phase on any harness-touching workpackage: list all supported harnesses, define per-harness proof (real adapter, real production path, OR honest limitation recorded). Do not defer per-harness proof to a follow-on; do it in the same WP.
+2. Scoping rule: "harness coverage is holistic, not tiered." Narrowing to the easiest adapter (builtin, or the one with an SDK) is not a valid scope cut.
+3. This is an ETHOS §4 consequence (trust agents, give them real power): the proof that they can use a tool must be complete before the agent can use it.
+
+---
+
+### What went well
+
+- **Builder re-execution on feedback was fast:** Once r1 found the false-green, the builder re-executed T3 in 1.5h, deleted the stand-in cleanly, and all three lanes stayed green through the production route. No surprises, no new bugs.
+- **Live-proof lanes were comprehensive:** All three binaries (claude, codex, opencode) were wired into the same integration test, two-session loop, real file writes, real approval flow. The test was broad enough that once T3 fixed the transport, no additional assertions were needed.
+- **Critic discipline held:** Code-review r1 caught the false-green immediately; r2 confirmed the fix; no false passes or weakened assertions. Multi-round review (find + verify) proved its worth.
+
+### Cost analysis: AL7 round 2 summary
+
+| Phase | Commits | Duration | Cost |
+|-------|---------|----------|------|
+| **Red + Green** | T0–T9 (9 feat commits) | 6h (builder) | 19/19 lanes green |
+| **Code-review r1** | review commit (16366b55) | 2h (reviewer discovers false-green) | NOT DONE, CRITICAL |
+| **Builder r2 fix** | fix commit (d87ab89f) | 1.5h (execute T3) | T3 deleted stand-in, lanes re-pointed to `/api/mcp/:token` |
+| **Code-review r2** | review commit (42f02c19) | 1h (verify fix) | DONE, all ACs closed |
+| **Total workpackage** | 11 commits, 3 days | 10.5h building + review | Shipped at architecture 8/10, all harnesses live-proven |
+
+**Comparison to round 1 (builtin + review loop):** Round 1 cost 28h across two builder sessions (first builder completed 16h green + r1 fix, died on 529). Round 2 cost 6h builder + 3h review (same builder/reviewer). Difference: round 2 had no session-timeout death, and the false-green was caught + fixed in a single builder session.
+
+---
+
+### Escalations for `/compound`
+
+1. **Builder under-reporting (3rd occurrence, now CONFIRMED pattern):** Agents skip load-bearing ordered tasks silently and report green overall. Fix: task-level checkbox in builder final report; orchestrator spot-checks 3–5 tasks via grep.
+
+2. **Harness-scope deferral (2nd occurrence, CONFIRMED pattern):** Agents defer per-harness proof to follow-on WPs (easier local scope, but ships incomplete). Fix: concept phase lists all harnesses + per-harness proof plan; scoping rule: harness coverage is holistic, not tiered.
+
+3. **Live-proof lane discovery value (now 3rd WP where it found production bugs):** Live-proof lanes running real adapter through real production path should be mandatory on harness-touching WPs. This is the one gate that forces transport/contract truth before merge.
