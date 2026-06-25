@@ -27,8 +27,8 @@
  * Per-harness honest matrix (DONE matrix, verified June 2026):
  *   - builtin:      GREEN-NOW (this test IS the live proof — in-process, always available)
  *   - claude-code:  PENDING (absent-fail in this env — @anthropic-ai/claude-agent-sdk not installed)
- *   - codex:        wiring-needed (Task 7c not yet landed)
- *   - opencode:     wiring-needed (Task 7b not yet landed)
+ *   - codex:        green-now (AL7 delta: MCP wired; absent binary → absent-fail)
+ *   - opencode:     green-now (AL7 delta: MCP wired; absent binary → absent-fail)
  *   - cursor-agent: skipped (unavailable per harness-capability-descriptors)
  *
  * @lore AL7 CRITICAL-2: This test MUST drive the real BuiltinHarnessAdapter.startSession
@@ -611,14 +611,20 @@ describe("AL7 CRITICAL-2 — genuine builtin live-session two-session loop", () 
 			expect(state).toBe("green-now");
 		});
 
-		test("codex: wiring-needed (Task 7c not yet landed)", async () => {
+		test("codex: green-now or absent-fail (AL7 delta: MCP wired, real which probe)", async () => {
+			// AL7 delta: codex is now a real `which codex` probe (was wiring-needed).
+			// Returns green-now (binary present) or absent-fail (binary absent).
 			const { getLiveProofLaneState } = await import("../tools/live-proof-lanes.js");
-			expect(getLiveProofLaneState("codex")).toBe("wiring-needed");
+			const state = getLiveProofLaneState("codex");
+			expect(["green-now", "absent-fail"]).toContain(state);
 		});
 
-		test("opencode: wiring-needed (Task 7b not yet landed)", async () => {
+		test("opencode: green-now or absent-fail (AL7 delta: MCP wired, real which probe)", async () => {
+			// AL7 delta: opencode is now a real `which opencode` probe (was wiring-needed).
+			// Returns green-now (binary present) or absent-fail (binary absent).
 			const { getLiveProofLaneState } = await import("../tools/live-proof-lanes.js");
-			expect(getLiveProofLaneState("opencode")).toBe("wiring-needed");
+			const state = getLiveProofLaneState("opencode");
+			expect(["green-now", "absent-fail"]).toContain(state);
 		});
 
 		test("cursor-agent: skipped (unavailable)", async () => {
