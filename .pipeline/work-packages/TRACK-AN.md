@@ -18,7 +18,11 @@
 
 **Why this matters.** Agents reach zero external services today, and every other workpackage in this track has nothing to build on until "I connected GitHub" is a real, stored fact. The fast-moving founder benefits — set your stack up once. Riding the auth you already have (a token you generate, your harness's existing logins, or a service's own OAuth) is *why* HyperIdle is built on harnesses: it avoids HyperIdle ever registering a per-service OAuth app or becoming a "verified company." The cost of not building it: nothing downstream can exist.
 
-**What exists today.** Nothing on main — this WP's predecessor was reverted. The credential model (`docs/architecture/credential-model.md`, `packages/shared/src/credential.ts`) exists as a closed catalog of infra/LLM-provider keys with one encryption primitive and one resolver, per-user, AES-GCM at rest. The harness capability descriptor (AM2) knows what a harness is configured with. There is no per-(user×service) record of "this service is available to me," and no surface to manage it.
+**What exists today.** Nothing on main — this WP's predecessor was reverted. But the prior implementation is **recoverable in git history at PR #353 / commit `16c3fe62`**, and two parts of it are worth reusing rather than re-deriving (informational — the architect/designer decides how):
+- **A founder-approved design.** The old AN1 went through `/design` + human-design-review and the founder approved the `VariantAInheritedDefault` layout — connections grouped by auth source, with the "Inherited from your environment" group first — in `packages/web/src/settings/SettingsConnections.tsx` + `.stories.tsx` (the `Populated` / "Inherited-default" story). That approved shape is the design starting point. **Strip from it:** the `vetted`/`community` trust-tier badge and any "secret unreadable by the agent" framing (both killed by the ethos).
+- **Working plumbing.** A proven `ServiceConnectionResolver`, `/api/connections` routes, and a `service_connections` schema (minus the `trustTier` column) — recoverable from the same commit.
+
+Also: the credential model (`docs/architecture/credential-model.md`, `packages/shared/src/credential.ts`) is a closed catalog of infra/LLM-provider keys with one encryption primitive and one resolver, per-user, AES-GCM at rest. The harness capability descriptor (AM2) knows what a harness is configured with.
 
 **What's genuinely missing.** A per-(user × service) record of a connected service — whose auth is a token the user gives us (stored encrypted), the user's harness/environment, or the service's own MCP OAuth — plus the surface where a user connects, sees, and removes services.
 
@@ -28,9 +32,9 @@
 
 **Pre-build gates.**
 - **Concept:** Required — run `/concept AN1` first. Introduces/relocks **Connection** (the connected-service record). The prior concept doc was deleted; lock it fresh, ETHOS-aligned (no trust tier, no "secret unreadable by the agent" framing).
-- **Design:** Required — a connect / manage-services surface is genuinely open in form. `/design` multi-variant; novel → human review. The direction forks (how you point at an MCP server vs paste a token vs see harness-inherited tools, and how removal is presented) are decided by rendered variants, not prose.
+- **Design:** Light — the connect/manage surface's shape was already explored and **founder-approved** in #353 (the `VariantAInheritedDefault` grouped-by-source layout). Don't re-run a novel multi-variant pass. Single-variant `/design`: recover the approved design (see "What exists today"), strip the trust-tier badge, place it. The direction forks (MCP-server vs token vs inherited) were already decided by that rendered, reviewed variant.
 
-**Human design review.** Yes — a new user-facing connect/manage surface; its shape is what's being decided.
+**Human design review.** No — the connect/manage shape was approved by the founder in #353; adapting it (subtract the trust badge) does not re-open the decision. Re-trigger human review ONLY if the adaptation meaningfully changes the approved shape (a subtraction does not). This deliberately reuses the prior approval instead of re-deriving it.
 
 **Acceptance criteria.**
 - A user can make a service available — by pasting a token, pointing at an MCP server, or relying on their harness/environment's existing auth — and afterward see it listed among their connected services.
@@ -46,7 +50,7 @@
 - Given a connection whose token has expired, when the user views their connections, then it shows as needing attention.
 - Given two users connect the same service, then neither can act through the other's connection.
 
-**Plan calls.** Run `/concept AN1` (lock **Connection** fresh), then `/design` the connect/manage surface (novel → human review), then a standard architecture pass extending the credential store from the closed infra catalog to an open per-(user×service) connection set. **No trust-tier column. No "secret unreadable by the agent" containment. No hosted OAuth-app flow.**
+**Plan calls.** Run `/concept AN1` (lock **Connection** fresh, ETHOS-aligned). Then a single-variant `/design` that **recovers the founder-approved design from #353** (`SettingsConnections` `VariantAInheritedDefault`) and adapts it (strip the trust-tier badge) — not a fresh novel exploration. Then a standard architecture pass extending the credential store from the closed infra catalog to an open per-(user×service) connection set; the prior `ServiceConnectionResolver` / routes / schema (minus `trustTier`) at #353 are a recoverable reference. **No trust-tier column. No "secret unreadable by the agent" containment. No hosted OAuth-app flow.**
 
 **Contracts / constraints.** A stored secret is resolved server-side and not shown in the management UI or logs — but it IS available to the agent's tools (a tool that can't authenticate is useless; ETHOS §2). Per-user isolation holds. The open connection set is distinct from the closed infra-secret catalog; the infra catalog stays closed. HyperIdle registers no per-service OAuth app and is never an OAuth provider — auth rides a user-supplied token, the user's harness/environment, or the service's own MCP OAuth.
 
