@@ -1,6 +1,6 @@
 ---
 name: design
-description: "Explore one to three UX/UI variants (gated by routine vs novel), score them in-session against the 9-dimension rubric, settle on one. Runs BEFORE /architecture when a story has any UI surface — a new page, primitive, component shape, interaction flow, or redesign of an existing surface."
+description: "Decide what the user sees and does. First prove whether the answer already exists in the app and must be EXTRACTED (consolidation/standardization), or is genuinely NEW (then explore variants). Runs BEFORE /architecture when a story has any UI surface — a new page, primitive, component shape, interaction flow, or redesign/consolidation of existing surfaces."
 argument-hint: "[story-id-or-feature-name]"
 user-invocable: true
 min_tool_calls: 25
@@ -45,7 +45,41 @@ For deeper reference material on specific critique dimensions (read on demand wh
 
 Without these, the Phase 2 critique becomes vibes-grading. Read the relevant reference before assigning a score on its dimension.
 
-## Phase 0a — Classify: routine vs novel
+## Phase 0·0 — Search Before Building (HARD GATE — runs before any classification or variant)
+
+**ETHOS principle, enforced here: do not invent what the app has already solved.** Many workpackages — every "standardize / unify / consolidate / extract / one X across surfaces / reached the same way / dedupe the parallel implementations" task — are NOT asking for a new design. The solved design already ships in the running app, scattered across surfaces. For these, generating fresh variants is not just wasted effort — it actively *discards a battle-tested, shipped solution in favour of an inferior invented one.* That is a failure, not a thoroughness.
+
+**Before classifying or drawing anything, answer in `brief.md`: does the answer already exist in the system?**
+
+Read the concept's "What exists today" / "What's genuinely missing", then **survey the real app** — the live catalog at `:8098`, `packages/web/src/{shell,components,pages}/`, and `packages/design-system/src/`. Find every existing surface that already renders or routes the thing this workpackage touches.
+
+Decide the **task type**:
+
+- **`extract`** — the system already contains the solved pattern (often in *several* places); the job is to find the canonical one, standardize it, and extend it across the target surfaces. Signals: the spec says consolidate/unify/standardize/extract/"same view, same way"; the "What exists today" section lists ≥2 existing surfaces already doing this; the open questions are about *which existing pattern wins*, not *what a new shape looks like*. → **Skip the novel-variant machinery entirely. Go to Phase 0a-EXTRACT.**
+- **`build`** — the thing genuinely does not exist yet (no surface renders it; no extractable pattern). → continue to Phase 0a (routine vs novel) and generate variants as before.
+- **`mixed`** — most of the surface is `extract`, but a *bounded* sub-shape is a true gap with no existing pattern. → extract the bulk (Phase 0a-EXTRACT), and run the novel-variant machinery ONLY on the named gap, scoped to it — never on the whole surface.
+
+**If you cannot name the existing pattern(s) you surveyed, you have not done this gate.** "I'll just design it" when an implementation already ships is the exact anti-pattern this gate exists to stop. When in doubt between `extract` and `build`, it is `extract` — the cost of wrongly inventing is far higher than the cost of a careful survey.
+
+## Phase 0a-EXTRACT — Canonicalize the existing solution (for `extract` / the extract part of `mixed`)
+
+No novel variants. The output is an **extraction proposal**, not a design shotgun.
+
+1. **Inventory the existing implementations.** In `brief.md`, table every surface that already renders/routes the thing: file path, the live-catalog story (if any), what it does well, where it diverges from its siblings. Link the rendered stories/surfaces — these EXISTING renders are the review artifacts, not new ones you author.
+2. **Pick the canonical pattern.** Name the single existing pattern that should become the standard, with evidence (most complete states, best a11y/motion already tuned, widest current reuse, closest to the concept's contracts). If two existing patterns genuinely compete, that — and only that — is a real decision: surface it as ONE focused choice between the *existing* surfaces (point at their live stories), never as 3 invented mockups.
+3. **Write the extraction proposal** at `plans/<workpackage-id>/design/extraction-proposal.md`: the canonical pattern; what it absorbs from each sibling (the good parts that merge in); what each divergent surface drops to conform; how it extends to every target surface; and the explicit list of what is NOT changing. Carry the concept's contracts/rejection list through unchanged.
+4. **Embodiment = the existing render + a thin consolidation note**, not three new `.stories.tsx`. If the canonical pattern needs ONE new story it is the *standardized* component rendered once (the single shared view the surfaces will reuse), not competing alternatives. A genuine gap (the `mixed` case) gets variants scoped to the gap only.
+5. The extraction proposal flows into Phase 3/4 as the chosen direction. `comparison.md`/`synthesis.md` collapse to "canonical vs siblings" reasoning; `approved.md` is written from the proposal.
+
+Output the machine-greppable line (note `extract`):
+
+```
+DESIGN-CLASS: extract  canonical=<existing-component/surface>  absorbs=<siblings>  gap=<none|named-gap>
+```
+
+A `novel` human-design-review is still triggered only if a real gap (`mixed`) introduces a genuinely new shape; a pure `extract` (standardizing an existing, already-reviewed pattern) is `routine`-class for the gate unless the founder asks to review the consolidation.
+
+## Phase 0a — Classify: routine vs novel (for `build`, and the gap of `mixed` only)
 
 Before interrogation, classify the story along two axes:
 
@@ -53,6 +87,8 @@ Before interrogation, classify the story along two axes:
 2. **Pattern match** — does a similar embodied pattern exist in the live catalog at `:8098` or in the `packages/design-system/src/*.stories.tsx` files?
 
 Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confidence flag (see below).
+
+> If both axes are "yes" *and the spec is a consolidation*, you are likely in `extract`, not `routine` — re-check Phase 0·0. `routine` still produces one *new* variant; `extract` produces none.
 
 | Class | Variants in Phase 1 | Phase 2 critique |
 |---|---|---|
@@ -62,7 +98,7 @@ Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confid
 
 **Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but the live catalog has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
 
-**Hard rule for new design-system primitives.** L1 (Thread), L2 (Block), L3 (Artifact) and any future named primitive in TRACK-L are **always `novel`** regardless of axis match. The shape itself is what's being decided.
+**Hard rule for new design-system primitives.** L1 (Thread), L2 (Block), L3 (Artifact) and any future named primitive in TRACK-L are **always `novel`** regardless of axis match — UNLESS Phase 0·0 classified the work as `extract` (standardizing an already-shipped primitive surface is extraction, not a fresh shape decision).
 
 Output one machine-greppable line at the top of `brief.md`:
 
@@ -91,6 +127,8 @@ Sample probes (adapt):
 Stop when the brief is clear. 3-7 branches typical.
 
 ## Phase 1 — Generate variants in parallel (count from Phase 0a)
+
+**Skip this phase entirely for `extract`** — the extraction proposal (Phase 0a-EXTRACT) is the design output; there are no variants to generate. For `mixed`, run this phase ONLY on the named gap. For `build`, proceed by class:
 
 For `routine`: produce **one** variant honoring the named existing component / pattern, plus an explicit `rejected.md` block listing the X / Y / Z directions you considered and rejected (one line each). Do NOT regenerate the rejected directions.
 
@@ -214,6 +252,7 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 ## Anti-patterns
 
+- **Inventing new variants when the app already ships the solved pattern.** The worst failure mode: a consolidation/standardization workpackage gets three novel mockups, throwing away a battle-tested existing design for an inferior invented one. Phase 0·0 exists to catch this — if you skipped the survey, you are about to commit it.
 - Three flavors of one thing. Variants must differ on shape, not accent.
 - Specs without concrete values. Use named tokens, not "clean, modern".
 - Mockups that describe instead of embody.
