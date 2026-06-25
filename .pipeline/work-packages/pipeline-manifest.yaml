@@ -1150,6 +1150,11 @@ stories:
     track: AK
     depends: [AK7, AK3]
     complexity: L
+  - id: AK9
+    title: Kernel package extraction (the deferred AK2b) — Kernel infra leaves the Strategy package
+    track: AK
+    depends: [AK2]
+    complexity: L
 
   # Track AL: Review Experience
   - id: AL1
@@ -1243,4 +1248,57 @@ stories:
     title: Ecosystem integration registry
     track: AN
     depends: [AN2, AL5]
+    complexity: L
+  # Track AP: Overengineering Audit Cleanup (19 adversarially-confirmed findings)
+  - id: AP1
+    title: Remove dead infrastructure that has no consumers
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP2
+    title: Repair dead-weight in relevance scoring
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP3
+    title: Collapse single-implementation abstractions
+    track: AP
+    depends: []
+    complexity: M
+  - id: AP4
+    title: Drop unused parameters and config slots
+    track: AP
+    depends: []
+    complexity: S
+  - id: AP5
+    title: "Web cleanup: duplication and an over-built hook"
+    track: AP
+    depends: []
+    complexity: S
+  - id: AP6
+    title: Reconcile architecture docs with shipped code
+    track: AP
+    depends: []
+    complexity: M
+
+  # Track AO: Self-Hosting Build Loop
+  - id: AO1
+    title: "A product's output substrate: where an agent's work lives"
+    track: AO
+    depends: []
+    complexity: L
+  - id: AO2
+    title: Materialize the substrate into the session sandbox
+    track: AO
+    depends: [AO1]
+    complexity: L
+  - id: AO3
+    title: Agent output becomes reviewable and landable (NEEDS RESEARCH post-AL7)
+    track: AO
+    depends: [AO2, AL7]
+    complexity: L
+  - id: AO4
+    title: Product as a first-class scope (multi-product)
+    track: AO
+    depends: [AO1]
     complexity: L

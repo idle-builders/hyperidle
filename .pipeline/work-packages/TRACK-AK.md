@@ -333,3 +333,49 @@ AK1 rename ─┬─► AK2 split ─┬─► AK3 commit→work ─────
 **Out of scope.** The unified human-attention gate (separate concept). Cross-team decomposition. Decomposition quality (an eval concern, not an AC).
 
 **Effort.** L (~3–5d)
+
+---
+
+### AK9 — Kernel package extraction (the deferred AK2b): Kernel infra leaves the Strategy package
+
+**Workpackage.** As a maintainer and a future third-party Strategy contributor, I want every Kernel-governance and infrastructure service — cost enforcement, task/assistant dispatch, sandbox-lifecycle cleanup, notification delivery, session-review creation, attention/silence routing — to live outside the Strategy package, so the Kernel builds and runs a task end-to-end against the minimal reference Strategy with **zero dependency on the Fabric package**. Today these Kernel concerns are physically housed in `packages/fabric` and imported directly by the Kernel, so the kernel-first / swappable-Strategy promise is only runtime-deep (AK2) and not true at the package level — the Kernel cannot be built, shipped, or reasoned about without the Fabric.
+
+**Why this matters.** AK2 made the Strategy port runtime-swappable but explicitly deferred the physical packaging ("What AK2 does NOT move (deferred to AK2b)" in `docs/architecture/kernel-strategy-split.md`). An audit of `packages/fabric` found it is ~15.5k prod LOC but only ~39% is knowledge/Strategy work — ~46% is Kernel-governance services and ~15% is an entire notifications subsystem, none of which is knowledge management. Until they move: the Kernel can never be built or tested independently of the Fabric (the central USP stays hollow at the package boundary), the Fabric package stays incohesive (lowest test ratio of any core package, ~38%, because timer/event services are harder to unit-test than the pure scoring functions and drag the number down), and a contributor inspecting "the Strategy" wades through thousands of lines of Kernel plumbing unrelated to knowledge. The person who benefits: the maintainer (a Kernel that can be honed in isolation, which the founder explicitly wants) and any third-party Strategy author (a Strategy package that contains only Strategy concerns). Cost of not building: the kernel-first architecture remains aspirational and the Strategy package keeps accreting unrelated services.
+
+**What exists today.** The Strategy port (`packages/shared/src/strategy-port.ts`), the registry (`packages/server/src/services/strategy-registry.ts`), the Fabric adapter (`packages/fabric/src/fabric-strategy.ts`), and the minimal reference Strategy (`packages/strategy-minimal`) all exist and are wired end-to-end as of AK2/AK6/AK7/AK8. An ESLint `no-restricted-imports` guard already bans the Kernel from importing concrete Strategy symbols behind the port. The deferral is documented: `kernel-strategy-split.md` §"What AK2 does NOT move" names `cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`. The audit found the real mislocated Kernel set is larger — including `services/{cost-cap, cost-sentinel, task-dispatcher, assistant-dispatcher, sandbox-reaper, session-review-creator, silence-policy, org-routing}`, the whole `services/notifications/` subtree, and `fts.ts`. The knowledge/Strategy core (context assembly, relevance/attention scoring, ingestion/writeback, knowledge store) also lives in `packages/fabric` and stays there.
+
+**What's genuinely missing.** The physical relocation of Kernel-concern services out of `packages/fabric` (into `packages/server` or a new `packages/kernel`), the removal of `@hyperidle/server`'s package dependency on `@hyperidle/fabric`, and a mechanically-enforced guarantee that the Kernel package never depends on the Fabric package.
+
+**Depends on.** AK2 — the port, registry, Fabric adapter, and minimal Strategy must exist; AK9 relocates implementations around the already-shipped seam, it does not create the seam. (Not blocked on the Strategy-contract concept flag below: the services AK9 moves are Kernel under every resolution of "what is a Strategy".)
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Concept:** Not required — the Kernel/Strategy boundary is locked in `docs/architecture/kernel-strategy-split.md`; this WP only relocates services already classified Kernel (cost is a hard-rule Kernel concern). The Strategy *content* reorganization (responsibility-3 services) is concept-blocked and explicitly out of scope — see the separate concept flag.
+- **Design:** Not required — backend/packaging only, no rendered surface; `/architecture` then build.
+
+**Human design review.** No — backend packaging change, no UI surface.
+
+**Acceptance criteria.**
+- A task dispatches and runs end-to-end to session completion with the minimal reference Strategy active while the Kernel package has **no dependency on the Fabric package** (`@hyperidle/server` does not depend on `@hyperidle/fabric`).
+- Kernel-governance and infrastructure behaviour — cost enforcement, task and assistant dispatch, sandbox-lifecycle cleanup, notification delivery, session-review creation, and attention/silence routing — runs from the Kernel without importing the Fabric package.
+- With the Fabric selected as the active Strategy, knowledge is assembled and compounded exactly as today — no behaviour regression.
+- The "Kernel package does not depend on the Strategy/Fabric package" invariant is enforced mechanically — a check fails if a Kernel module imports the Fabric package.
+- Knowledge/Strategy concerns (context assembly, relevance/attention scoring, ingestion/writeback, the knowledge store) remain in the Strategy layer; the extraction removes only Kernel concerns.
+
+**Validation scenarios.**
+- Given the minimal Strategy is active and the Fabric package is absent from the Kernel's dependency graph, when a task is dispatched, then a session runs to completion (cost metered, dispatched, sandbox reaped) with no Fabric import observable.
+- Given the Fabric Strategy is active, when the same task runs, then knowledge is assembled and compounded exactly as before — no regression in the knowledge path.
+- Given a Kernel module attempts to import the Fabric package, when the build/lint check runs, then it fails.
+
+**Plan calls.** Backend/packaging only — skip `/design`. Standard `/architecture` pass to decide the destination (relocate into `packages/server` vs. stand up a new `packages/kernel`) and to resolve exact service membership against the locked boundary doc; expect a large mechanical move plus test relocation and dependency-graph rewiring. The responsibility-3 Strategy services (routines, schedulers, promotion-pipeline, practice-meeting, git-export, builtin-routines) are NOT in scope and stay in place pending the Strategy-contract concept.
+
+**Contracts / constraints.**
+- The boundary is exactly `docs/architecture/kernel-strategy-split.md`; cost enforcement stays Kernel-side; one Strategy active at a time (unchanged).
+- Pure relocation — no new behaviour, no schema change, no API change, no knowledge-management semantics change.
+- No behaviour change when the Fabric is the selected Strategy — verified against current behaviour.
+- After this WP the Kernel package must not depend on the Fabric package; the invariant is guarded, not just documented.
+
+**Out of scope.** Reorganizing the Strategy's own content — the responsibility-3 "autonomous background knowledge work" services (routines, schedulers, promotion-pipeline, practice-meeting, git-export, builtin-routines) — which is blocked on the Strategy-contract `/concept` (flagged separately). Redefining the Strategy port surface. The notifications feature itself (only its physical location moves).
+
+**Effort.** L (~3–5d)
