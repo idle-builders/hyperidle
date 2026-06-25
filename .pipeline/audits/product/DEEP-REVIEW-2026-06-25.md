@@ -51,6 +51,12 @@ Steps 1–4 close the **single-project self-host** loop. Steps 5–6 unlock **mu
 
 ---
 
+## Correction (founder review, 2026-06-25 — post-publication)
+
+The **"Equip / credentials" blocker was over-claimed.** `SetupFlow.tsx:105,202-208` (AH1 §5) **does** prompt for and write the model key; AM4 shipped harness detection/config (`SettingsHarnesses.tsx`); AN shipped external connections. The live "all credentials absent / decomposition blocked" was an artifact of testing an **un-onboarded dev DB** (built via `npm run setup`, never through SetupFlow) — **not** a missing capability. Net: onboarding/thinking-backend exists; boot-migration is a bugfix (not a WP); the decomposition failure is a *verify-once-onboarded* item. Roadmap step 1 is therefore **not** a build WP — Track AO leads with the **substrate**; onboarding-journey polish (if any) belongs to AM, not AO.
+
+---
+
 ## Adversarial corrections (honesty — what's *not* as bad as it reads)
 
 - **Don't double-count:** the credential gap and the decomposition failure are one root cause (no model resolution).

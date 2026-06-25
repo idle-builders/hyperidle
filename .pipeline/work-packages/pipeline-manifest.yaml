@@ -1283,27 +1283,22 @@ stories:
 
   # Track AO: Self-Hosting Build Loop
   - id: AO1
-    title: Agents can think out of the box, and the app self-boots
-    track: AO
-    depends: []
-    complexity: M
-  - id: AO2
-    title: "Output substrate: where an agent's work lives"
+    title: "A product's output substrate: where an agent's work lives"
     track: AO
     depends: []
     complexity: L
-  - id: AO3
+  - id: AO2
     title: Materialize the substrate into the session sandbox
     track: AO
-    depends: [AO1, AO2]
+    depends: [AO1]
+    complexity: L
+  - id: AO3
+    title: Agent output becomes reviewable and landable (NEEDS RESEARCH post-AL7)
+    track: AO
+    depends: [AO2, AL7]
     complexity: L
   - id: AO4
-    title: Agent output becomes reviewable and landable
+    title: Product as a first-class scope (multi-product)
     track: AO
-    depends: [AO3, AL7]
-    complexity: L
-  - id: AO5
-    title: Project as a first-class scope (multi-project)
-    track: AO
-    depends: [AO2]
+    depends: [AO1]
     complexity: L
