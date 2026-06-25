@@ -1,27 +1,27 @@
 /**
  * AL7 Task 11 — Live-proof lane declarations and harness availability probe.
  *
- * Terminal state per harness (DONE matrix, verified June 2026):
+ * Terminal state per harness (DONE matrix, verified June 2026, updated AL7 delta):
  * - builtin:      green-now (in-process, no external binary needed)
  * - claude-code:  green-now (real `claude` CLI binary installed at /opt/homebrew/bin/claude)
- * - codex:        wiring-needed (MCP URL slot not wired in CLI_TOOL_CONFIGS for AL7 checkpoint)
- * - opencode:     wiring-needed (MCP URL slot not wired in CLI_TOOL_CONFIGS for AL7 checkpoint)
+ * - codex:        green-now (real `codex` binary; absent → absent-fail) [AL7 delta: was wiring-needed]
+ * - opencode:     green-now (real `opencode` binary; absent → absent-fail) [AL7 delta: was wiring-needed]
  * - cursor-agent: skipped (unavailable per harness-capability-descriptors)
  *
  * AC14b: absence-is-failure. A green-now harness whose real CLI binary is absent
  * in the run environment makes `probeLiveProofHarnessAvailability` REJECT — it does
  * NOT return null, false, or "skip". The probe is the enforcement gate.
  *
- * @lore AL7 probe-fix: The probe MUST detect the installed CLI binary (`which claude`),
+ * @lore AL7 probe-fix: The probe MUST detect the installed CLI binary (`which claude/codex/opencode`),
  * NOT `require.resolve('@anthropic-ai/claude-agent-sdk')`. The claude-code real-harness
  * test spawns the real `claude` binary directly (like AL6). The @anthropic-ai/claude-agent-sdk
  * package is for the SDK adapter path (ClaudeAgentSdkAdapter), which is a different harness
  * lane. A binary-absent env where the SDK is resolvable via workspace node_modules would
  * produce a false green-now claim. Binary presence is the authoritative check.
  *
- * @lore AL7: the DONE matrix is NOT derived from a missing-binary pass. Each state
- * is declared here and enforced by the probe. "wiring-needed" is the honest state
- * for Codex/opencode until the MCP URL slot is wired into CLI_TOOL_CONFIGS.
+ * @lore AL7 delta: codex and opencode now use real `which` probes (green-now / absent-fail)
+ * after MCP URL slot is wired into CLI_TOOL_CONFIGS (T5) + per-session config writer lands (T4/T6).
+ * "wiring-needed" is retained in the union type for future harnesses; codex/opencode no longer return it.
  */
 
 import { execFileSync } from "node:child_process";
@@ -56,10 +56,16 @@ export function getLiveProofLaneState(harness: LiveProofHarness | string): LiveP
 			const available = isClaudeCodeAvailable();
 			return available ? "green-now" : "absent-fail";
 		}
-		case "codex":
-			return "wiring-needed";
-		case "opencode":
-			return "wiring-needed";
+		case "codex": {
+			// AL7 delta: real `which codex` probe (was wiring-needed).
+			const codexAvailable = isCodexAvailable();
+			return codexAvailable ? "green-now" : "absent-fail";
+		}
+		case "opencode": {
+			// AL7 delta: real `which opencode` probe (was wiring-needed).
+			const opencodeAvailable = isOpencodeAvailable();
+			return opencodeAvailable ? "green-now" : "absent-fail";
+		}
 		case "cursor-agent":
 			return "skipped";
 		default:
@@ -95,19 +101,27 @@ export async function probeLiveProofHarnessAvailability(
 			return;
 
 		case "codex":
-			// wiring-needed — the probe does not fail for wiring-needed harnesses;
-			// they are not green-now yet. The test must use getLiveProofLaneState to
-			// assert "wiring-needed", not try to probe.
-			throw new Error(
-				"codex harness is wiring-needed (Task 7c not yet landed). " +
-					"Probing a wiring-needed harness is not valid — check getLiveProofLaneState instead.",
-			);
+			// AL7 delta: real `which codex` probe (was wiring-needed throw).
+			// Absent binary → reject with absence error (never "wiring-needed").
+			if (!isCodexAvailable()) {
+				throw new Error(
+					"codex binary is absent: `codex` is not in PATH. " +
+						"Install codex-cli and authenticate. " +
+						"A green-now harness whose real binary is absent makes the lane FAIL (AC14b).",
+				);
+			}
+			return;
 
 		case "opencode":
-			throw new Error(
-				"opencode harness is wiring-needed (Task 7b not yet landed). " +
-					"Probing a wiring-needed harness is not valid — check getLiveProofLaneState instead.",
-			);
+			// AL7 delta: real `which opencode` probe (was wiring-needed throw).
+			if (!isOpencodeAvailable()) {
+				throw new Error(
+					"opencode binary is absent: `opencode` is not in PATH. " +
+						"Install opencode and authenticate. " +
+						"A green-now harness whose real binary is absent makes the lane FAIL (AC14b).",
+				);
+			}
+			return;
 
 		case "cursor-agent":
 			throw new Error(
@@ -147,6 +161,38 @@ function isClaudeCodeAvailable(): boolean {
 		return true;
 	} catch {
 		// `claude` binary not on PATH — the real-harness lane is not runnable.
+		return false;
+	}
+}
+
+/**
+ * Check whether the real `codex` CLI binary is installed in this environment.
+ *
+ * AL7 delta: mirrors isClaudeCodeAvailable. Codex is MCP-wired (T5/T6); its
+ * real-harness lane proves tool calls route through the production bridge.
+ * A green-now harness whose real binary is absent makes the lane FAIL (AC14b).
+ */
+function isCodexAvailable(): boolean {
+	try {
+		execFileSync("which", ["codex"], { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Check whether the real `opencode` CLI binary is installed in this environment.
+ *
+ * AL7 delta: mirrors isClaudeCodeAvailable. opencode is MCP-wired (T5/T6); its
+ * real-harness lane proves tool calls route through the production bridge.
+ * A green-now harness whose real binary is absent makes the lane FAIL (AC14b).
+ */
+function isOpencodeAvailable(): boolean {
+	try {
+		execFileSync("which", ["opencode"], { stdio: "ignore" });
+		return true;
+	} catch {
 		return false;
 	}
 }

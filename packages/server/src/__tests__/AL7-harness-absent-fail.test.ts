@@ -43,45 +43,26 @@ describe("AC14b: live-proof lane states are declared per the DONE matrix", () =>
 		expect(state).toBe("green-now");
 	});
 
-	it("codex lane state is wiring-needed (Task 7c not yet landed)", () => {
-		// Codex is wiring-needed until Task 7c extends AL6's .codex/hooks.json PreToolUse hook.
-		const state = getLiveProofLaneState("codex");
-		expect(state).toBe("wiring-needed");
-	});
-
-	it("opencode lane state is wiring-needed (Task 7b not yet landed)", () => {
-		// opencode is wiring-needed until Task 7b wires opencode serve /event+POST.
-		const state = getLiveProofLaneState("opencode");
-		expect(state).toBe("wiring-needed");
-	});
-
-	// ── T2 additions: codex + opencode probe truthing (AL7 delta, AC7) ──────────
+	// ── T2: codex + opencode probe truthing (AL7 delta, AC7) ───────────────────
 	//
-	// After the AL7 delta (T7), these must pass with "green-now" or "absent-fail".
-	// They are RED today because getLiveProofLaneState("codex"|"opencode") returns
-	// "wiring-needed", not "green-now"|"absent-fail".
+	// After the AL7 delta (T7), codex + opencode use real `which` probes.
+	// They must return "green-now" or "absent-fail" — never "wiring-needed".
+	// "wiring-needed" is the OLD pre-T7 value; it is replaced by the real probe.
 	//
-	// @lore AL7 T2: These tests fail for the RIGHT reason — the function returns
-	// "wiring-needed" and not the expected value. After T7 (probe truthing),
-	// getLiveProofLaneState will return "green-now" (binary present) or "absent-fail".
+	// @lore AL7 T2: The old "wiring-needed" tests are removed because the delta
+	// changes the behavior. The new tests assert the post-T7 contract.
 
-	it("T2-RED: codex lane state is green-now or absent-fail after wiring (never wiring-needed)", () => {
+	it("codex lane state is green-now or absent-fail after wiring (AC7, never wiring-needed)", () => {
 		// After the AL7 delta, codex is a real `which codex` probe.
 		// It must return either green-now (binary present) or absent-fail (binary absent).
 		// "wiring-needed" is no longer valid for codex after this delta.
-		//
-		// RED TODAY: getLiveProofLaneState("codex") === "wiring-needed"
-		// GREEN AFTER T7: returns "green-now" or "absent-fail"
 		const state = getLiveProofLaneState("codex");
 		expect(["green-now", "absent-fail"]).toContain(state);
 	});
 
-	it("T2-RED: opencode lane state is green-now or absent-fail after wiring (never wiring-needed)", () => {
+	it("opencode lane state is green-now or absent-fail after wiring (AC7, never wiring-needed)", () => {
 		// After the AL7 delta, opencode is a real `which opencode` probe.
 		// Same contract as codex.
-		//
-		// RED TODAY: getLiveProofLaneState("opencode") === "wiring-needed"
-		// GREEN AFTER T7: returns "green-now" or "absent-fail"
 		const state = getLiveProofLaneState("opencode");
 		expect(["green-now", "absent-fail"]).toContain(state);
 	});
