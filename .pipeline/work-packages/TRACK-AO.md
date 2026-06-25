@@ -10,7 +10,7 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 **What's actually missing (this track):** the build-loop middle — a substrate for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, the output→review→land wiring (pending AL7), and **product** as a first-class scope so one instance can build several things.
 
 **Gating concept — `/concept AO` (product + substrate, entangled).** Two load-bearing nouns must be settled together before AO1/AO4 are architected:
-- **Product** = the durable thing being built. It is **not the team** (people) and **not 1:1** with a team — a team may build several products. ("Project" is rejected — projects are time-bound and end; a product is durable.) Knowledge already half-references a `productId`; git-export a `scopeId`; work a `teamId` — three disjoint keys to reconcile onto **product** as the build scope.
+- **Product** = the durable thing being built (distinct from the **team**, the people). ("Project" is rejected — projects are time-bound and end; a product is durable.) **The product↔team coupling is an open exploration for `/concept AO`** — 1:1, a team building many products, or a product spanning teams are all on the table; the concept pass decides. Knowledge already half-references a `productId`; git-export a `scopeId`; work a `teamId` — three disjoint keys to reconcile onto **product** as the build scope.
 - **Substrate** = the working files an agent's output lives in and accrues history on. A **git repository is one kind** (for code); generalized to other kinds (a document/knowledge set for non-code work — a marketing agent's Obsidian/GDrive-style files). A product owns its substrate(s). Connectors (tools/MCP — Track AN) and substrate (files) are the two axes; they compose.
 
 **Adjacent, not owned here (deps/cross-track):** AL7 = review→act execution loop (built, **unmerged**; AO3 is gated on it and may be largely subsumed by it — see AO3). AN2/AN3 = outbound MCP client + broker (Track AN; required for apps that touch external services + forge-based landing). Strategy **dynamic skill/tool injection** (agents get only `systemPrompt` + role-filtered tools; `AgentScaffoldSpec` has no skills field) = a real **major** extensibility gap belonging to the AK/Strategy family.
@@ -145,9 +145,9 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 ### AO4 — Product as a first-class scope (multi-product)
 
-**Workpackage.** As a founder running HyperIdle and a couple of other apps on one instance, I want a **product** to be a first-class scope — the durable thing being built, distinct from the team building it — that isolates each product's substrate, work, knowledge, connections, and cost, so that building one product can't leak into or collide with another. Today there is no such scope: work scopes by `teamId`, knowledge by a separate `productId` (never wired), git-export by `scopeId`, and connections by `userId`; knowledge promotion leaks across teams.
+**Workpackage.** As a founder running HyperIdle and a couple of other apps on one instance, I want a **product** to be a first-class scope — the durable thing being built — that isolates each product's substrate, work, knowledge, connections, and cost, so that building one product can't leak into or collide with another. Today there is no such scope: work scopes by `teamId`, knowledge by a separate `productId` (never wired), git-export by `scopeId`, and connections by `userId`; knowledge promotion leaks across teams.
 
-**Founder framing (2026-06-25).** "Project" is rejected — projects are time-bound and end. The scope is **product**: durable, the thing being built, **not 1:1 with a team** (a team may build several products; a product may outlive a given team composition). This is a concept question — `/concept AO` defines product vs team and reconciles the three disjoint scope keys onto product.
+**Founder framing (2026-06-25) — kept deliberately loose.** "Project" is rejected — projects are time-bound and end. The scope is **product**: durable, the thing being built. **How a product couples to a team is an open question to explore in `/concept AO`, not a decision to pre-resolve here** — it may be 1:1, a team may build several products, or a product may span teams; the right coupling is exactly what the concept pass must work out (alongside reconciling the three disjoint scope keys onto product). Treat the cardinality below as illustrative, not fixed.
 
 **Why this matters.** This is the entire "AND a set of other apps" half of the core task. Today concurrent products contaminate each other: promotion auto-validates one team's principles for all (promotion-pipeline.ts:207, no team filter), and there is no per-product budget, credential, repo, or UI context — so a team must run a separate instance per product. Cost of not building it: multi-product is a trap that appears to work until two builds interfere.
 
@@ -160,7 +160,7 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** `Required — /concept AO (shared with AO1): define the Product scope (durable, not team, not 1:1) and reconcile teamId / productId / git-export scopeId onto it; decide product↔team cardinality.`
+- **Concept:** `Required — /concept AO (shared with AO1): define the Product scope (durable, not the time-bound 'project') and EXPLORE which product↔team coupling we actually need (1:1? a team builds many products? a product spans teams?) — this is an open exploration, not a settled cardinality. Reconcile teamId / productId / git-export scopeId onto product.`
 - **Design:** `Required — a product context/switcher in the app shell and per-product surfaces; /design multi-variant + human review.`
 
 **Human design review.** Yes — introduces a top-level product context/switcher in the shell; a load-bearing IA change.
@@ -170,14 +170,14 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 - Knowledge promotion and context for one product do not validate or inject into another's (no cross-product leak).
 - A connection and a cost budget can be scoped to a product, so one product's spend or credentials are not another's.
 - Concurrent work across two products operates on disjoint substrates/sandboxes and neither can read the other's.
-- The product↔team relationship is explicit (a team can build more than one product).
+- The product↔team coupling decided in `/concept AO` is implemented and made explicit (whatever cardinality that exploration settles on).
 
 **Validation scenarios.**
 - Given two products, when each runs work, then each product's substrate/work/sessions are isolated and a founder can switch context between them.
 - Given two products, when one accumulates a repeated knowledge finding, then it is promoted only within that product (the other is unaffected).
 - Given per-product cost budgets, when one product hits its cap, then the other is unaffected.
 
-**Plan calls.** `/concept AO` (product + substrate; reconcile the three scope keys; product↔team cardinality). `/design` the product context/switcher + per-product surfaces (novel → human review). Standard `/architecture` to thread the product scope through substrate, work, knowledge promotion/context, connections, cost, and the API namespace. Purge any vestigial demo data from local DBs as part of this.
+**Plan calls.** `/concept AO` (product + substrate; reconcile the three scope keys; **explore the product↔team coupling**). `/design` the product context/switcher + per-product surfaces (novel → human review). Standard `/architecture` to thread the product scope through substrate, work, knowledge promotion/context, connections, cost, and the API namespace. Purge any vestigial demo data from local DBs as part of this.
 
 **Contracts / constraints.** One load-bearing **product** identifier; the three legacy scope keys reconcile onto it (no new fourth key). "Product" is durable (not the time-bound "project"). Promotion + knowledge context are product-scoped — no cross-product validation/injection. Per-product isolation of substrate, connections, and cost. Forward-only migration; back-compatible single-product default.
 
