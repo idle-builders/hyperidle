@@ -98,48 +98,49 @@ Source: the founder boundary act of 2026-06-23 (`plans/AN/boundary-concept.md`, 
 
 ---
 
-### AN3 — Use the tools you've connected, from inside an agent session
+### AN3 — Authenticate once; connected tools work in every sandbox
 
-> **Reshaped trust-first (2026-06-25).** Was "Sandbox tool provisioning" — a broker-delivery mechanism gated on the killed AN2 and built around a "zero secrets in the sandbox" containment guarantee. Now reframed: agents simply *use* the tools the user connected, directly, with **no preemptive gate** and no credential-withholding dogma (`ETHOS.md` §2). Dependency moved from AN2 → AN1.
+> **Reshaped trust-first (2026-06-25).** Was "Sandbox tool provisioning" — a broker-delivery mechanism gated on the killed AN2 and built around a "zero secrets in the sandbox" containment guarantee. Now reframed around the real pattern: a user authenticates a service **once**, and every sandbox that spawns afterward already has those tools wired up and authenticated. No per-session re-auth, **no per-call gate**, no credential-withholding dogma (`ETHOS.md` §2). Dependency moved from AN2 → AN1.
 
-**Workpackage.** As an agent doing real work in a session, I want to actually call the external tools my user has connected — read a repo, query records, open a branch, create an issue, post a message — directly, the same way I'd use any tool, so that I can get real work done in the user's GitHub/Stripe/Figma/Gmail without a wall in front of every action. The tools a user has connected become available in the session and the agent calls them freely; nothing is pre-classified as "too dangerous to run."
+**Workpackage.** As a user, I authenticate a service **once** — either inside my harness (I ran `gh auth login`, I configured an MCP server) or by handing HyperIdle a token — and from then on, **every time a sandbox spawns** for one of my agents, those tools are already present and authenticated, so the agent just uses them. The connection is the durable thing; the sandbox is disposable; spawning one re-applies my connections so it works immediately. The agent reads my repo, queries my records, opens a branch — directly, the same way it uses any tool. There is no wall in front of each action.
 
-**Why this matters.** This is the actual bridge from "agent" to "external effect" — the thing that makes Connections (AN1) worth anything. Today an agent can reach zero external tools: a user can connect GitHub but their agent still can't touch it. The fast-moving solo founder benefits directly — they connect their stack once and their agents work across it at full speed. The cost of not building it: Connections are a dead-end settings screen and "agents that do real work in your tools" never ships.
+**Why this matters.** This is what turns a Connection (AN1) from a settings bookmark into real capability. Today an agent reaches zero external tools: you can connect GitHub, but a freshly-spawned sandbox doesn't have it, so nothing happens. The fast-moving founder benefits directly — connect your stack once, and every agent in every session works across it at full speed with no re-login friction. The cost of not building it: Connections are a dead-end screen and "agents that do real work in your tools" never ships.
 
-**What exists today.** AN1 (#353) shipped the per-(user×service) Connection record + manage UI and the credential vault (token source live; harness-native source is a UI placeholder). AL7 (#351) owns the review→act execution loop for the narrow cases where a human chose to review an action — the *earned* gate, not a precondition for tool use. The inbound MCP bridge (`packages/server/src/mcp/mcp-bridge.ts`) already gives each session a token-scoped localhost endpoint exposing HyperIdle's internal tools. The original AN2 (outbound broker + reversible/irreversible gate) was killed — its broker-gate is the preemptive-security pattern the ethos rejects.
+**What exists today.** AN1 (#353) shipped the durable Connection record — auth source is your harness/environment, a token you gave us (stored encrypted in the vault, live today), or the MCP server's own OAuth — plus the manage UI. Session provisioning already spawns a sandbox per session, and the inbound MCP bridge already hands that sandbox a localhost endpoint with HyperIdle's internal tools. AL7 (#351) owns the review→act loop for the rare action a human *chose* to review — the earned gate, not a precondition for using a tool. The killed AN2 tried to broker every call through a reversible/irreversible gate; that is gone.
 
-**What's genuinely missing.** Nothing connects a session's agent to a connected service's tools. There is no path that takes a user's active Connections and makes those tools callable inside the agent's session, and no per-session assembly of "internal tools + this user's connected tools."
+**What's genuinely missing.** Nothing re-applies a user's Connections to a sandbox when it spawns. There is no step that, on session start, makes the user's connected tools present and authenticated inside the sandbox so the agent can call them — and no notion of "this disposable sandbox inherits this user's durable connections."
 
 **Depends on.**
-- AN1 (`done`) — a session resolves the user's Connections; it cannot expose connected tools before the Connection store exists.
+- AN1 (`done`) — the durable Connection record is the thing that gets re-applied on every spawn; it must exist first.
 
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** Not required — consumes **Connection** and **Tool grant**, locked in `plans/AN/concept.md`. (Founder note: the AN concept doc still contains the now-dead **Brokered/Direct call** nouns and the reversible/irreversible "hybrid path"; a `/concept AN` cleanup to strip the gate framing is recommended upstream but does not block this WP, which consumes only the surviving nouns.)
-- **Design:** Not required — runtime/session provisioning, no rendered surface.
+- **Concept:** Not required — consumes **Connection** and **Tool grant**, locked in `plans/AN/concept.md`. (Founder note: that concept doc still carries the now-dead **Brokered/Direct call** nouns and a "credential never in the sandbox" contract that *contradicts* the current ethos — a `/concept AN` cleanup is recommended upstream, see the AN track-review notes; it does not block this WP, which consumes only the surviving nouns.)
+- **Design:** Not required — runtime/provisioning mechanism, no rendered surface.
 
 **Human design review.** No — backend/runtime mechanism; no user-facing component.
 
 **Acceptance criteria.**
-- When a session starts, the agent can discover and call exactly the external tools its user has connected, alongside the internal tools — and call them directly, with no reversibility classifier gating the call.
-- An agent can perform a real external operation against at least one real connected service end-to-end (e.g. read a repository or create a record) and receive the result.
-- The mechanism works for more than one service — proven against at least one real external MCP server, with a second reachable by configuration rather than new per-service code.
-- A user connecting or disconnecting a service changes which external tools subsequent sessions receive; after disconnect, the tool is absent.
-- One user's connected tools are never reachable from another user's session.
-- Where an action does pass through review, it does so via AL7's existing loop — this WP adds no new gate, classifier, or policy engine of its own.
+- After a user authenticates a service once, every subsequently-spawned sandbox for their agents has that service's tools present and authenticated — the user never re-authenticates per session.
+- An agent in a spawned sandbox can perform a real operation against at least one real connected service end-to-end (e.g. read a repo or create a record) and get the result, calling the tool directly with no gate.
+- It survives respawns: tear a sandbox down, spawn a fresh one, and the same connected tools work again with no user action.
+- It works for more than one service — proven against at least one real external MCP server, with a second reachable by configuration, not new per-service code.
+- Connecting or disconnecting a service changes which tools the next spawned sandbox gets; after disconnect, the tool is gone.
+- One user's connected tools are never present in another user's sandbox.
 
 **Validation scenarios.**
-- Given a user with a connected service, when their agent's session starts, then the agent sees that service's tools plus the internal tools and can call them directly.
-- Given a connected service, when an agent reads data from it, then the read succeeds with no human gate.
-- Given a user disconnects a service, when a new session starts, then that service's tools are absent from the session.
-- Given two users, when each connects the same service, then neither user's session can act through the other's connection.
+- Given a user who authenticated a service once, when a sandbox spawns, then the service's tools are present and authenticated without the user doing anything.
+- Given that sandbox is destroyed and a fresh one spawns, when the agent runs, then the same tools work again with no re-authentication.
+- Given a connected service, when the agent reads data from it, then the read succeeds directly, with no human gate.
+- Given a user disconnects a service, when the next sandbox spawns, then that service's tools are absent.
+- Given two users connected to the same service, then neither user's sandbox can act through the other's connection.
 
-**Plan calls.** Skip `/design`. Standard architecture pass — assembling a session's tool set (internal + the user's active Connections) onto the session endpoint, the outbound reach to a connected MCP server, and per-session/per-user isolation. This is a live-proof workpackage: it must call one real external MCP service end-to-end before it is `done` (an in-repo standard MCP server spawned over a real transport is an acceptable real service; a stub of our own client is not).
+**Plan calls.** Skip `/design`. Standard architecture pass — re-applying a user's active Connections into a session's sandbox on spawn (durable auth → disposable sandbox), the outbound reach to a connected MCP server, and per-user isolation. Account for **both deployment shapes**: a *local* sandbox can inherit the user's existing machine logins (harness-native ≈ free), while a *remote* sandbox must carry the durable auth in on every spawn — the model is the same ("re-apply on spawn"), only the materialization differs. This is a live-proof workpackage: it must call one real external MCP service end-to-end before it is `done` (an in-repo standard MCP server spawned over a real transport is acceptable; a stub of our own client is not).
 
-**Contracts / constraints.** No preemptive gate — reversible and irreversible external calls alike run directly; the agent is trusted to act. Where review is wanted it rides AL7 unchanged (a human chose it, or a learning earned it) — never a reversible/irreversible classifier built into this WP. Per-session and per-user isolation: one user's Connection is never usable from another user's session. Ride the MCP standard — a tool source is a standard MCP server, no per-service side-effect reimplementation. **No "zero secrets in the sandbox" dogma** — agents may hold the credentials their tools need to authenticate (ETHOS §2); credentials are still resolved per the AN1 credential model and never logged or shown in an agent-facing *settings* surface, but a tool that can't authenticate is useless and credential-withholding is not a goal.
+**Contracts / constraints.** No preemptive gate — connected tools run directly; the agent is trusted to act. Where review is wanted it rides AL7 unchanged (a human chose it, or a learning earned it) — never a reversible/irreversible classifier built into this WP. The credential **may** be present in the sandbox the agent controls (ETHOS §2 — a tool that can't authenticate is useless; credential-withholding is not a goal); it is still resolved from the durable store, never logged, and never shown in an agent-facing *settings* surface. Per-user isolation: one user's Connection never materializes into another user's sandbox. Ride the MCP standard — a tool source is a standard MCP server, no per-service side-effect reimplementation.
 
-**Out of scope.** The connect/credential surface (AN1). Harness-native tool *visibility* in the UI (AN5). The community connector registry / trust tiers (AN4, deferred). Any new review-gating mechanism (that is AL7's, and only where earned).
+**Out of scope.** The connect/credential surface (AN1). Showing inherited tools in the UI (AN5). The community connector registry / trust tiers (AN4, deferred). Any new review-gating mechanism (AL7's job, only where earned).
 
 **Effort.** L (~4d)
 

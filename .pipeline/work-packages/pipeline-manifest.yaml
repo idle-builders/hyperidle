@@ -1238,7 +1238,7 @@ stories:
   # Killed: the reversible/irreversible broker-gate is preemptive security the ethos rejects.
   # Value rebuilt trust-first (no gate) in AN3 + AN5. Retained spec lives in TRACK-AN.md.
   - id: AN3
-    title: Use the tools you've connected, from inside an agent session
+    title: Authenticate once; connected tools work in every sandbox
     track: AN
     depends: [AN1]
     complexity: L
