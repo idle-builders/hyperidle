@@ -1,8 +1,14 @@
 import { Composer } from "@hyperidle/design-system";
-import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type AdoptionView,
+	type AnchorRef,
+	type VerdictDecision,
+	verdictDecisionLabel,
+} from "@hyperidle/shared";
+import React, { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { getReviewCanvas } from "./canvas-registry.js";
 import { type ActionOperationCanvasProps, ReviewActionOperation } from "./ReviewActionOperation.js";
+import type { ReviewCanvasComponent } from "./review-artifact.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,
@@ -11,6 +17,8 @@ import type {
 	ReviewKpi,
 	ReviewNeed,
 } from "./review-composition.js";
+import { resolveSurface } from "./surfaces/resolve-surface.js";
+import { SurfaceBoundary } from "./surfaces/SurfaceBoundary.js";
 import { type ToolId, ToolLogo } from "./ToolLogo.js";
 
 // ── small presentational atoms ─────────────────────────────────────────────────────
@@ -632,14 +640,72 @@ function ConversationSection({
 
 // ── RIGHT PANE ──────────────────────────────────────────────────────────────────
 
+/** "Rendered by X · swap" attribution line (design doc Surface 2). */
+function RenderedByLine({
+	surfaceId,
+	source,
+	degraded,
+	onSwap,
+}: {
+	readonly surfaceId?: string;
+	readonly source: "adopted" | "base";
+	readonly degraded?: "missing-surface" | "version-mismatch";
+	readonly onSwap: () => void;
+}): JSX.Element {
+	if (source === "base") {
+		return (
+			<div className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
+				<span>Base canvas</span>
+				{degraded === "missing-surface" ? (
+					<span className="rounded-[4px] bg-[var(--status-warning-dim)] px-[5px] py-[1px] text-[10px] font-[500] text-[var(--status-warning)]">
+						surface unavailable
+					</span>
+				) : degraded === "version-mismatch" ? (
+					<span className="rounded-[4px] bg-[var(--surface-container)] px-[5px] py-[1px] text-[10px] font-[500] text-[var(--text-tertiary)]">
+						version mismatch
+					</span>
+				) : null}
+			</div>
+		);
+	}
+	return (
+		<div className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
+			<span>Rendered by</span>
+			<span className="font-mono text-[var(--text-secondary)]">{surfaceId}</span>
+			{degraded === "version-mismatch" ? (
+				<span className="rounded-[4px] bg-[var(--surface-container)] px-[5px] py-[1px] text-[10px] font-[500] text-[var(--text-tertiary)]">
+					version mismatch
+				</span>
+			) : null}
+			<button
+				type="button"
+				onClick={onSwap}
+				className="ml-[2px] text-[11px] font-[500] text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] hover:brightness-95"
+			>
+				swap
+			</button>
+		</div>
+	);
+}
+
 function ExaminePane({
 	artifact,
+	adoptions,
 	onClose,
+	onSwap,
 }: {
 	readonly artifact: ComposedReviewSubject["artifacts"][number];
+	readonly adoptions: ReadonlyArray<AdoptionView>;
 	readonly onClose: () => void;
+	readonly onSwap?: () => void;
 }): JSX.Element {
-	const Canvas = getReviewCanvas(artifact.kind);
+	const situation = { tool: artifact.tool, kind: artifact.kind };
+	const adoption = adoptions.find((a) => a.tool === artifact.tool && a.kind === artifact.kind);
+	// @lore AL5: handleSwap is a stable no-op when onSwap is not provided (tests render
+	// ReviewComposition without a Router, so useNavigate cannot be called here).
+	// Navigation is lifted to ReviewPage which is always within a Router context.
+	const handleSwap = useCallback(() => onSwap?.(), [onSwap]);
+
 	return (
 		<aside className="flex h-full w-[620px] shrink-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
@@ -669,22 +735,81 @@ function ExaminePane({
 
 			<div className="min-h-0 flex-1 overflow-auto">
 				<div className="flex flex-col gap-[18px] p-[18px]">
-					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
-					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
-					    Fallback to stagedOperation for backward compat during migration.
+					{/* AL5 §4.3: resolveSurface slots into the EXISTING two-branch structure.
+					    The action_operation branch retains the full AL7 props forwarded into BOTH
+					    the resolved Canvas and the SurfaceBoundary fallback (WARN-1 — must not drop).
+					    The generic branch resolves from getReviewCanvas(kind), then wraps in the boundary.
 					    @lore AL5 WARN-1: artifact is cast to ActionOperationCanvasProps["artifact"]
 					    because ReviewActionOperation now carries the typed payload for surfaces;
 					    the guard isActionOperationPayload() handles unknown payloads at runtime. */}
-					{artifact.kind === "action_operation" ? (
-						<ReviewActionOperation
-							artifact={artifact as ActionOperationCanvasProps["artifact"]}
-							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
-							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
-							proposedCall={artifact.proposedCall}
-						/>
-					) : (
-						<Canvas artifact={artifact} />
-					)}
+					{artifact.kind === "action_operation"
+						? (() => {
+								// @lore AL5 §4.3 + WARN-1: the action_operation branch resolves with the
+								// AL7 base (ReviewActionOperation). resolveSurface returns ReviewCanvasComponent
+								// typed, but the resolved component is actually ComponentType<ActionOperationCanvasProps>
+								// because the registry discriminated union guarantees this for action_operation entries.
+								// The cast here is the single audited upcast for this branch; it is safe because:
+								// 1. The only action_operation surface in FIRST_PARTY is StripeRefundReview
+								//    (typed ComponentType<ActionOperationCanvasProps>).
+								// 2. If no adoption / missing surface, r.component IS ReviewActionOperation — same type.
+								// 3. status/outcome/proposedCall are forwarded through BOTH Canvas and fallback,
+								//    preserving the AL7 OutcomeBand (WARN-1 invariant).
+								const r = resolveSurface(
+									situation,
+									adoption,
+									ReviewActionOperation as ReviewCanvasComponent,
+								);
+								const Canvas = r.component as React.ComponentType<ActionOperationCanvasProps>;
+								const typedArtifact = artifact as ActionOperationCanvasProps["artifact"];
+								const status = artifact.proposedCall?.status ?? artifact.stagedOperation?.status;
+								const outcome = artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome;
+								const proposedCall = artifact.proposedCall;
+								return (
+									<>
+										<RenderedByLine
+											surfaceId={r.manifest?.id}
+											source={r.source}
+											degraded={r.degraded}
+											onSwap={handleSwap}
+										/>
+										<SurfaceBoundary
+											fallback={
+												<ReviewActionOperation
+													artifact={typedArtifact}
+													status={status}
+													outcome={outcome}
+													proposedCall={proposedCall}
+												/>
+											}
+										>
+											<Canvas
+												artifact={typedArtifact}
+												status={status}
+												outcome={outcome}
+												proposedCall={proposedCall}
+											/>
+										</SurfaceBoundary>
+									</>
+								);
+							})()
+						: (() => {
+								const base = getReviewCanvas(artifact.kind);
+								const r = resolveSurface(situation, adoption, base);
+								const Canvas = r.component;
+								return (
+									<>
+										<RenderedByLine
+											surfaceId={r.manifest?.id}
+											source={r.source}
+											degraded={r.degraded}
+											onSwap={handleSwap}
+										/>
+										<SurfaceBoundary fallback={<Canvas artifact={artifact} />}>
+											<Canvas artifact={artifact} />
+										</SurfaceBoundary>
+									</>
+								);
+							})()}
 				</div>
 			</div>
 		</aside>
@@ -700,6 +825,8 @@ export function ReviewComposition({
 	threadId,
 	initialOpenArtifactId = null,
 	resolved: resolvedProp,
+	adoptions = [],
+	onSwap,
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -770,7 +897,12 @@ export function ReviewComposition({
 				</div>
 
 				{activeArtifact ? (
-					<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />
+					<ExaminePane
+						artifact={activeArtifact}
+						adoptions={adoptions}
+						onClose={() => setActiveId(null)}
+						onSwap={onSwap}
+					/>
 				) : null}
 			</div>
 		</ReviewCanvasProvider>

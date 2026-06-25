@@ -1,4 +1,5 @@
 import type {
+	AdoptionView,
 	AnchorRef,
 	BlockId,
 	HostKind,
@@ -9,7 +10,7 @@ import type {
 import { isRedactedPayload, relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
 import { useHostThread } from "../../hooks/useHostThread.js";
@@ -23,25 +24,56 @@ import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
+export interface ReviewLoaderResult {
+	readonly subject: ComposedReviewSubject;
+	readonly adoptions: AdoptionView[];
+}
+
 export type ReviewLoader = (params: {
 	readonly betId: string;
 	readonly reviewId: string;
-}) => Promise<ComposedReviewSubject>;
+}) => Promise<ReviewLoaderResult>;
 
 interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
 }
 
+/**
+ * @lore AL5 §5 NIT: adoptions are fetched here once per page load (not in the
+ * review loader /api/reviews/:id) so we don't embed team-level config into the
+ * per-review response. The team's adoption list is tiny (one row per situation) —
+ * a single parallel fetch, not N-per-artifact.
+ *
+ * teamId is read from the current user's teamId field. If unavailable, adoptions
+ * default to [] (everything resolves to base canvas — safe fallback).
+ */
 async function defaultLoader({
 	reviewId,
 }: {
 	readonly reviewId: string;
-}): Promise<ComposedReviewSubject> {
-	const res = await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`);
-	if (!res.ok) {
-		throw new Error(`Could not load review: ${res.status}`);
+}): Promise<ReviewLoaderResult> {
+	// Parallel: fetch review + adoptions. If adoptions fail, degrade to empty (base canvas).
+	const [reviewRes, adoptionsRes] = await Promise.all([
+		apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`),
+		apiFetch("/api/surface-adoptions").catch(() => null),
+	]);
+
+	if (!reviewRes.ok) {
+		throw new Error(`Could not load review: ${reviewRes.status}`);
 	}
-	return (await res.json()) as ComposedReviewSubject;
+
+	const subject = (await reviewRes.json()) as ComposedReviewSubject;
+
+	let adoptions: AdoptionView[] = [];
+	if (adoptionsRes?.ok) {
+		try {
+			adoptions = (await adoptionsRes.json()) as AdoptionView[];
+		} catch {
+			// degrade to empty — base canvas used for all artifacts
+		}
+	}
+
+	return { subject, adoptions };
 }
 
 function isArtifactEntityRef(ref: {
@@ -110,7 +142,9 @@ function hostMessagesToReviewComments(
  */
 export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JSX.Element {
 	const { betId = "", reviewId = "" } = useParams<{ betId: string; reviewId: string }>();
+	const navigate = useNavigate();
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
+	const [adoptions, setAdoptions] = useState<AdoptionView[]>([]);
 	const [error, setError] = useState<Error | null>(null);
 	const { user } = useCurrentUser();
 
@@ -131,8 +165,11 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	useEffect(() => {
 		let cancelled = false;
 		loader({ betId, reviewId })
-			.then((s) => {
-				if (!cancelled) setSubject(s);
+			.then(({ subject: s, adoptions: a }) => {
+				if (!cancelled) {
+					setSubject(s);
+					setAdoptions(a);
+				}
 			})
 			.catch((e: unknown) => {
 				if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
@@ -150,7 +187,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
 			await postPlainHostMessage(activeThreadId, text, crypto.randomUUID(), undefined, anchor);
 			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId });
 			setSubject(refreshed);
 		},
 		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
@@ -176,7 +213,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 			// one — which is also how the user sees a race/authz failure surface.
 			await postVerdictHostMessage(threadId, decision, reviewMessageId, crypto.randomUUID());
 			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId });
 			setSubject(refreshed);
 		},
 		[betId, hostThread, loader, reviewId, user],
@@ -206,6 +243,8 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 				onSubmitVerdict={handleSubmitVerdict}
 				onPostComment={user ? handlePostComment : undefined}
 				threadId={hostThread.data?.thread.id ?? ""}
+				adoptions={adoptions}
+				onSwap={() => navigate("/settings/surfaces")}
 			/>
 		</div>
 	);

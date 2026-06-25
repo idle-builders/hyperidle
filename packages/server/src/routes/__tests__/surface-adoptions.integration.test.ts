@@ -224,9 +224,7 @@ describe("AL5 surface-adoptions — invariant #2: at-most-one per (team, tool, k
 			headers: authHeaders(),
 		});
 		const body = (await listRes.json()) as Array<Record<string, unknown>>;
-		const stripeRows = body.filter(
-			(r) => r.tool === "stripe" && r.kind === "action_operation",
-		);
+		const stripeRows = body.filter((r) => r.tool === "stripe" && r.kind === "action_operation");
 		expect(stripeRows).toHaveLength(1);
 	});
 });

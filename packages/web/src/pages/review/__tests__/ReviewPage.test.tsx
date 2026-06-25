@@ -2,8 +2,11 @@ import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ReviewPage } from "../ReviewPage.js";
+import { type ReviewLoaderResult, ReviewPage } from "../ReviewPage.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
+
+// AL5 §5: loader now returns { subject, adoptions } — wrap fixtures for mocks.
+const LOADER_RESULT: ReviewLoaderResult = { subject: REVIEW_COMPOSITION_SUBJECT, adoptions: [] };
 
 const anchoredMessage: Message = {
 	id: "host-msg-1",
@@ -97,7 +100,7 @@ afterEach(() => {
 	refreshSpy.mockClear();
 });
 describe("ReviewPage route", () => {
-	function renderRoute(loader?: () => Promise<typeof REVIEW_COMPOSITION_SUBJECT>) {
+	function renderRoute(loader?: () => Promise<ReviewLoaderResult>) {
 		const router = createMemoryRouter(
 			[
 				{
@@ -111,7 +114,7 @@ describe("ReviewPage route", () => {
 	}
 
 	it("loads the review subject and renders the composition", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
@@ -121,7 +124,7 @@ describe("ReviewPage route", () => {
 	});
 
 	it("maps host-thread messages into the review conversation with anchors", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
@@ -135,7 +138,7 @@ describe("ReviewPage route", () => {
 		// review" routes here. This confirms the relocated verdict DECISION UI
 		// (Approve / Request changes + the overflow reject/edit menu) is present
 		// and reachable on the review page.
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
@@ -146,7 +149,7 @@ describe("ReviewPage route", () => {
 	});
 
 	it("submitting Approve POSTs a verdict resolving the review message, then refreshes", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		const approve = await screen.findByRole("button", { name: /^approve$/i });
@@ -205,7 +208,7 @@ describe("ReviewPage route", () => {
 
 describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders", () => {
 	function renderReview(subject: typeof REVIEW_COMPOSITION_SUBJECT) {
-		const loader = vi.fn().mockResolvedValue(subject);
+		const loader = vi.fn().mockResolvedValue({ subject, adoptions: [] });
 		const router = createMemoryRouter(
 			[
 				{
