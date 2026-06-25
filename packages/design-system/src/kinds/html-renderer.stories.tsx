@@ -28,7 +28,3 @@ export function NoTitle() {
 		/>
 	);
 }
-
-export function NoPreview() {
-	return <HtmlRenderer preview={null} kind="html" />;
-}

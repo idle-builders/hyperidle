@@ -43,7 +43,3 @@ export function NoStatus() {
 		/>
 	);
 }
-
-export function NoPreview() {
-	return <UrlRenderer preview={null} kind="url" />;
-}

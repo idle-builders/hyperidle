@@ -28,13 +28,3 @@ export function WithDiff() {
 		/>
 	);
 }
-
-export function EmptyHunks() {
-	return (
-		<CodeRenderer preview={{ kind: "code", file: "src/unchanged.ts", hunks: [] }} kind="code" />
-	);
-}
-
-export function NoPreview() {
-	return <CodeRenderer preview={null} kind="code" />;
-}

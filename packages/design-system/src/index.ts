@@ -34,6 +34,27 @@ export type {
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
 export type { BlockHandleProps } from "./BlockHandle.js";
 export { BlockHandle } from "./BlockHandle.js";
+// ── AM5: base-primitive content foundations (the block-payload layer, promoted
+// to first-class DS foundations so each is individually reviewable). The diff is
+// NOT in here (K0) — it lives in the Review composition. ──
+export type { CodePayloadProps } from "./block/CodePayload.js";
+export { CodePayload } from "./block/CodePayload.js";
+export { DividerPayload } from "./block/DividerPayload.js";
+export type { HeadingPayloadProps } from "./block/HeadingPayload.js";
+export { HeadingPayload } from "./block/HeadingPayload.js";
+export type { HtmlPayloadProps } from "./block/HtmlPayload.js";
+export { HtmlPayload } from "./block/HtmlPayload.js";
+export type { ImagePayloadProps } from "./block/ImagePayload.js";
+export { ImagePayload } from "./block/ImagePayload.js";
+export type { ListPayloadProps } from "./block/ListPayload.js";
+export { ListPayload } from "./block/ListPayload.js";
+export type { ParagraphPayloadProps } from "./block/ParagraphPayload.js";
+export { ParagraphPayload } from "./block/ParagraphPayload.js";
+export type { QuotePayloadProps } from "./block/QuotePayload.js";
+export { QuotePayload } from "./block/QuotePayload.js";
+export type { TablePayloadProps } from "./block/TablePayload.js";
+export { TablePayload } from "./block/TablePayload.js";
+export { renderInline } from "./block/inline.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";
@@ -134,6 +155,8 @@ export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
 export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";
 export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
+export type { FoldMode, SplitViewProps } from "./SplitView.js";
+export { SplitView } from "./SplitView.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";

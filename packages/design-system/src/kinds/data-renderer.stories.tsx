@@ -51,11 +51,3 @@ export function WithRows() {
 		/>
 	);
 }
-
-export function Empty() {
-	return <DataRenderer preview={{ kind: "data", headlines: [] }} kind="data" />;
-}
-
-export function NoPreview() {
-	return <DataRenderer preview={null} kind="data" />;
-}

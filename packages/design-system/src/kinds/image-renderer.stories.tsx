@@ -32,7 +32,3 @@ export function NoAlt() {
 		/>
 	);
 }
-
-export function NoPreview() {
-	return <ImageRenderer preview={null} kind="image" />;
-}

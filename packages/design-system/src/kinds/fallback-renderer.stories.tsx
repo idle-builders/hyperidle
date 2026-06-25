@@ -30,7 +30,3 @@ export function NestedData() {
 		/>
 	);
 }
-
-export function NoPreview() {
-	return <FallbackRenderer preview={null} kind="blog_post" />;
-}

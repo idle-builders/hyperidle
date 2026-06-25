@@ -29,7 +29,3 @@ export function WithMarkdown() {
 		/>
 	);
 }
-
-export function NoPreview() {
-	return <TextRenderer preview={null} kind="text" />;
-}
