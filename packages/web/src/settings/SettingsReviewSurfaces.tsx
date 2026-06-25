@@ -39,6 +39,7 @@ import type {
 	TrustTier,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { slotPermission } from "../pages/review/slot-policy.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------
@@ -189,7 +190,16 @@ function AvailableRow({ manifest: m, onAdopt }: AvailableRowProps): JSX.Element 
 					{situations ? ` · ${situations}` : ""}
 				</span>
 			}
-			cells={[{ content: `wraps ${m.baseCanvas}`, tone: "neutral" as const, width: 140 }]}
+			cells={[
+				{
+					// slotPermission: show whether the lead slot is wrappable or ejected on this canvas.
+					// @lore AL5: slotPermission is the runtime API for surfaces to discover their base
+					// canvas's slot policy (§1.4); the browse dialog is the natural production consumer.
+					content: `${m.layering} · lead:${slotPermission(m.baseCanvas, "lead")}`,
+					tone: "neutral" as const,
+					width: 180,
+				},
+			]}
 			actions={
 				<Button
 					variant="secondary"
