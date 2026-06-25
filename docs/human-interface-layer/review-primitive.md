@@ -18,6 +18,24 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 | `batch` | `ReviewBatch` | Per-item rollup with flagged items surfaced first. |
 | `browser_preview` | `ReviewBrowserPreview` | Basic browser view of a deployed or preview URL. |
 
+## Canvas resolution and overrides (AL5)
+
+The canvas slot is **resolved**, not a fixed kind lookup. For each artifact, resolution walks three tiers in fixed order and renders the **first available** canvas:
+
+1. **Tool-shipped canvas** — the tool's own MCP server returns a `ui://` review resource (MCP Apps). The tool that reported the data brings its own review UI.
+2. **Community canvas template** — a registered manifest binding `(tool, kind)` → a render spec (declarative JSON preferred; `ui://` if it ships code).
+3. **Family floor** — the AL2 built-in `getReviewCanvas(kind)` canvas. **Always present; the terminal fallback.**
+
+`getReviewCanvas(kind)` is the degenerate one-tier (floor-only) case; AL5 widens it. Resolution keys on `(artifact.tool, artifact.kind)`, is recomputed every render (an override's availability is volatile — a tool connects/disconnects, a template is registered/unregistered), and is side-effect-free (picking a canvas never executes an action).
+
+**The floor always wins as fallback (hard rule).** Every override is *additive*. A missing, failed-to-load, malformed, untrusted, or sandbox-erroring override **degrades to the family canvas** — no override can remove or block the floor. This is the "review for anything" guarantee: a never-seen tool renders at the floor the moment its producing agent declares the artifact's `kind`.
+
+**One sandbox substrate.** Both override kinds render only inside a single **Canvas sandbox** — a sandboxed iframe + a JSON-RPC-over-postMessage bridge (the MCP-Apps standard). An override cannot read a credential, reach the host DOM/state, compromise the host, or affect sibling canvases. Each override carries a **trust tier** (`vetted | community`, reused from [`Connection`](../agent-layer/tool-integration.md) / `packages/shared/src/connection.ts`); a `community` override is sandboxed at-your-own-risk, and its consent step is owned by the connector registry (AN4).
+
+**Actions route through the host, not the canvas.** When an override requests an action, HyperIdle routes it through the **existing connection** to that tool (the AN2 broker / the user's connected capabilities) — never a re-implemented integration, never a credential handed to the canvas. An irreversible action becomes an AL7 [Proposed Call](../process-layer/staged-operation.md) routed to the gate; unknown reversibility fails safe to gated.
+
+**Boundary with AN4.** AL5 owns canvas **resolution + the sandbox substrate + canvas-template registration**. The [connector ecosystem registry](../agent-layer/tool-integration.md) (AN4) owns discovery, validation, and trust-tier consent for whole connectors; a connector's optional `ui://` canvas reaches the review surface **through AL5's resolution path** — there is one canvas resolution path, no duplicate registry.
+
 ## Composition surface (AL3)
 
 The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` wraps the canvas families into a coherent review page:
