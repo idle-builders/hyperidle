@@ -38,7 +38,7 @@ Three layers of knowledge exist for any implementation decision:
 
 AI recommends, humans decide. This is not a limitation — it's the product.
 
-HyperIdle exists to give humans leverage over AI agent teams. The system's value comes from human judgment applied at the right moments, not from autonomous AI execution. When agents run without human oversight, they optimize for metrics they can measure — not for outcomes humans care about.
+HyperIdle exists to give humans leverage over AI agent teams. The value is human judgment applied at **the moments that matter** — the consequential and irreversible — not human oversight of everything. This is **not distrust of agents** (see Principle 4): agents are trusted to do the work; humans own only the decisions a human would actually want to own.
 
 **In practice:**
 - Never make irreversible decisions without human approval.
@@ -47,3 +47,15 @@ HyperIdle exists to give humans leverage over AI agent teams. The system's value
 - Present options with trade-offs, not recommendations with justifications. Let the human weigh the trade-offs.
 
 **Applied to development:** The same principle applies to us building HyperIdle. When `/implement` encounters an ambiguous requirement, it stops and asks. When `/review` finds an issue, the human decides whether it's worth fixing. When the adversary says STOP, the human decides whether to override.
+
+---
+
+## 4. Trust Agents
+
+We trust agents. HyperIdle is built for people who want to give agents **more** power — not for people who fear them. Someone who distrusts agents will never use this product; they are not our user. Our user loves agents and wants to delegate the way they would to a real employee — one with **far broader self-permission** than how most people use agents today.
+
+Agents hold their own credentials, run their own tools, and do real work. The review gate is **not a cage around a suspect** — it is a collaboration checkpoint on the *consequential and irreversible*, and it **fades as trust is earned** (the review track record graduates autonomy). Design the gate as the lightest touch that lets a human steer the moments that matter — never as a containment fortress.
+
+**When you catch yourself designing against a hypothetical rogue agent, stop.** That is paranoia, and it is not the product. Don't withhold credentials an agent's tools need to function (an MCP or CLI that can't authenticate is useless). Don't build bypass-proof containment. Surface the irreversible for human judgment, let everything else flow, and let trust widen the lane over time.
+
+**Applied:** Reach for the harness's native permission / allow-deny as a *workflow* that routes consequential actions to review — never as a security boundary policing the agent. More autonomy is the goal; review is how trust is built toward it, not a brake held down by default. This principle scopes Principle 3: humans own the consequential; agents are trusted with the rest.

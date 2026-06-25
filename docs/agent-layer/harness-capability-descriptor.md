@@ -70,6 +70,8 @@ Reports `ready` when any credential is present, with the matched credential name
 
 **Event normalization proven:** `normalizeNativeHarnessEvent("codex", line)` in `harness-native-normalization.ts` maps `turn.completed.usage.{input_tokens, output_tokens}` → `token_usage { inputTokens, outputTokens }`. Three-way equivalence with `claude-code` and `builtin` asserted in `harness-event-normalization.test.ts`.
 
+**MCP delivery (AL7):** per-session `writeCliMcpConfig({ dialect: "codex-toml" })` appends `[mcp_servers.hyperidle]` to `$CODEX_HOME/config.toml` in the sandbox. The token is delivered via `HYPERIDLE_MCP_TOKEN` env var (not inline in the TOML — `bearer_token_env_var` field points codex at the env var). AL6 already injects `CODEX_HOME=<sandbox>/.codex-home`; AL7 appends the MCP block to that same config file. **Headless invocation:** `codex exec <prompt> --json --dangerously-bypass-approvals-and-sandbox`. Proven live against the PRODUCTION `createMcpBridge` + `createMcpRoute` at `/api/mcp/:token` (June 2026).
+
 **Runtime caps:** `fileEditing` and `toolUse` are gated on `sessionProbe.ok === true` by `runtimeFromDiscovery`. In production today, `createLocalAdapterPool` does not run the session probe (cost/latency tradeoff), so these caps stay `false` until AM3 wires the probe.
 
 ---
@@ -106,7 +108,13 @@ Reports `ready` when any credential is present, with the matched credential name
 
 **Session probe:** `probeOpenCodeSession` runs `opencode run "say OK" --format json`. The probe captured a `step_start` event (first parsable JSON line) — not a usage-bearing line. Committed fixture: `packages/server/src/harness/__tests__/fixtures/opencode-run.json`.
 
-**Event normalization: `unknown`.** `normalizeNativeHarnessEvent("opencode", line)` has no recognized shapes and falls through to `normalizeHarnessEvent` → `UnknownHarnessEvent`. The descriptor reports `runtime.fileEditing: false`, `runtime.toolUse: false`. This is the honest conservative state — no guessed normalization claim.
+**Event normalization: pre-mapped (AL7).** opencode `--format json` emits raw JSONL types (`step_finish`, `tool`) that do not match the canonical `HarnessEventType` set. `preMapOpencodeEvent` in `packages/shared/src/harness/harness-event-normalization.ts` translates these before `normalizeHarnessEvent` runs:
+- `step_finish` → `completion` (text extracted from `properties.output`, `output`, or `text`)
+- `tool` → `tool_call` (toolName from `tool` or `name`; args from `input` or `args`)
+
+This pre-map is required for the MCP-routed two-session loop to see opencode tool calls and turn completions. Proven live: opencode session-2 lane asserts `normalizeHarnessEvent` produces ≥1 non-error event (`AL7-two-session-trust-first.real-harness.test.ts`, June 2026). Locked in CI by `packages/shared/src/harness/__tests__/harness-event-normalization.test.ts`.
+
+**MCP delivery (AL7):** per-session `writeCliMcpConfig({ dialect: "opencode-json" })` writes `opencode.json` into the sandbox cwd. opencode reads it at spawn, registering `mcp.hyperidle` as a remote MCP server. Token is inline in `headers.Authorization`. **Headless invocation:** `opencode run <prompt> --format json --pure --dir <sandbox> --model <provider/model>`. Proven live against the PRODUCTION `createMcpBridge` + `createMcpRoute` at `/api/mcp/:token` (June 2026).
 
 ---
 
@@ -136,6 +144,27 @@ If any link is missing for a claimed-ready family, the descriptor must report `u
 
 ---
 
+## Production MCP Bridge (AL7 — stateful)
+
+CLI harnesses (claude-code, codex, opencode) that have no in-process SDK adapter reach HyperIdle's tool registry via the production MCP bridge at `/api/mcp/:token`:
+
+```
+CLI binary → [HTTP POST /api/mcp/:token] → createMcpRoute → bridgeRegistry.handleRequest → createMcpBridge instance → registry.invoke
+```
+
+**Bridge is stateful (AL7).** `createMcpBridge` (`packages/server/src/mcp/mcp-bridge.ts`) constructs one `WebStandardStreamableHTTPServerTransport` per session token with `sessionIdGenerator: () => crypto.randomUUID()`. Stateful mode is required because real CLI MCP clients issue separate HTTP requests for `initialize` → `tools/list` → `tools/call`; the stateless transport throws on the second request (`Stateless transport cannot be reused across requests`). The SDK issues a `mcp-session-id` response header on `initialize`; subsequent requests carry it. The bridge registry (`mcp-bridge-registry.ts`) stores one transport per session token in a `Map<token, McpBridgeInstance>` — the transport persists across requests and is freed on `unregister()` → `mcpServer.close()` → `transport.close()`.
+
+**Two routing keys coexist.** The URL-path token (`/api/mcp/:token`) is HyperIdle's routing key (bridge registry lookup; 401 on unknown). The SDK's `mcp-session-id` header is the MCP-protocol session managed transparently by the transport. Both are independent; a request with a valid `mcp-session-id` but unknown path token still 401s at the registry.
+
+**Session-capability proven in CI.** `mcp-bridge-stateful.integration.test.ts` drives the production factory+route through init→list→call via the SDK `Client` + `StreamableHTTPClientTransport`; sanity-break: POST without `mcp-session-id` → 400/404.
+
+**How each CLI receives the MCP server URL:**
+- **claude-code:** `.mcp.json` in the sandbox (`session-provisioning.ts` Phase 8b) — `{ mcpServers: { hyperidle: { url: "${mcpBaseUrl}/api/mcp/${token}", type: "streamable-http" } } }`.
+- **codex:** `[mcp_servers.hyperidle]` block appended to `$CODEX_HOME/config.toml` by `writeCliMcpConfig({ dialect: "codex-toml" })`; token delivered via `HYPERIDLE_MCP_TOKEN` env var (`bearer_token_env_var` field).
+- **opencode:** `opencode.json` written to sandbox cwd by `writeCliMcpConfig({ dialect: "opencode-json" })`; token inline in `headers.Authorization`.
+
+---
+
 ## Event Normalization Architecture
 
 Two code paths converge on the `HarnessEvent` union — consumers cannot tell which path produced an event:
@@ -145,10 +174,10 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 **Path 2: CLI families** — `normalizeNativeHarnessEvent(family, nativeLine)` (`packages/shared/src/harness/harness-native-normalization.ts`) maps native shapes to union events:
 - Codex `turn.completed.usage` → `token_usage`
 - Claude `result.usage` → `token_usage`; `result.total_cost_usd` → `cost_update` (with `extractCost: true`)
-- OpenCode: no recognized shapes → falls through to `normalizeHarnessEvent` → `UnknownHarnessEvent`
-- Unrecognized types for any family → `normalizeHarnessEvent` → `UnknownHarnessEvent` (graceful degradation)
+- OpenCode: `preMapOpencodeEvent` translates raw JSONL types before normalization: `step_finish`→`completion`, `tool`→`tool_call`. All other types fall through to `UnknownHarnessEvent` (graceful degradation).
+- Unrecognized types for any family → `normalizeHarnessEvent` → `UnknownHarnessEvent`
 
-Three-way field equivalence (codex ≡ claude-code ≡ builtin) is asserted in `harness-event-normalization.test.ts`: all produce `{ type: "token_usage", inputTokens: number, outputTokens: number }` — no native snake_case leaks downstream.
+Three-way field equivalence (codex ≡ claude-code ≡ builtin) is asserted in `harness-event-normalization.test.ts`: all produce `{ type: "token_usage", inputTokens: number, outputTokens: number }` — no native snake_case leaks downstream. The opencode pre-map (`step_finish`→`completion`, `tool`→`tool_call`, unmapped→`UnknownHarnessEvent`) is also asserted in `harness-event-normalization.test.ts` (AL7 NIT-3, locked in CI).
 
 **Note for AM3:** `normalizeNativeHarnessEvent` is exported from `packages/shared/src/harness/` but has no production caller yet. The session probe (`probeHarnessSession`) also has no production caller — `createLocalAdapterPool` intentionally omits the probe for latency reasons. AM3 should wire both into the dial-in session-routing pipeline.
 

@@ -38,8 +38,11 @@ function asMcpInputSchema(schema: unknown): McpAnySchema {
  * The token is the authentication credential — requests with unknown tokens
  * receive 401 from the bridge registry.
  *
- * @lore X2 D3: One McpServer + transport per session (not shared). The session
- * token in the URL replaces MCP's internal session management (stateless mode).
+ * @lore X2 D3: One McpServer + transport per session (not shared). The 64-char hex
+ * URL-path token is the bridge-registry routing key (path-token → instance). The SDK's
+ * mcp-session-id (stateful mode, AL7 delta) is the per-session MCP-protocol session managed
+ * transparently by the transport. Both coexist: path-token = auth + routing; mcp-session-id
+ * = MCP protocol handshake carried by the CLI client on requests 2+.
  */
 export interface McpBridgeInstance {
 	readonly token: string;
@@ -80,11 +83,20 @@ export function toolResultToCallToolResult(result: ToolResult): CallToolResult {
 
 /**
  * Create an McpServer with all tools from the registry registered, and a
- * stateless WebStandardStreamableHTTPServerTransport.
+ * stateful WebStandardStreamableHTTPServerTransport.
  *
- * @lore X2 D1: The transport runs in stateless mode (no sessionIdGenerator).
- * Our session token in the URL IS the session management — the bridge registry
- * maps tokens to transport instances.
+ * @lore X2 D1: The transport runs in STATEFUL mode (sessionIdGenerator: () => crypto.randomUUID()).
+ * Real CLI clients (codex, opencode, claude via .mcp.json) issue separate HTTP requests for
+ * initialize → tools/list → tools/call. The stateless transport throws on the second request
+ * ("Stateless transport cannot be reused across requests"). Stateful mode assigns one
+ * mcp-session-id per per-session transport; the SDK echoes it on responses and validates it on
+ * requests 2+. Our 64-char URL-path token remains the bridge-registry routing key (path-token
+ * routes the request to the right instance; mcp-session-id is the MCP-protocol handshake the
+ * CLI client carries on requests 2+). Both coexist: path-token = auth/routing; mcp-session-id
+ * = MCP protocol session managed transparently by the transport.
+ * Per-session teardown: unregister() → mcpServer.close() → transport.close() (WebStandardStreamableHTTPServerTransport.close()
+ * clears _streamMapping + _requestResponseMap; both endSession and crashSession paths call
+ * unregister per the X2 registry lore, so no per-session orphan leak on crash).
  *
  * @lore X2 D6: We pass the full z.ZodType schema to registerTool. The MCP
  * SDK's AnySchema type accepts z4.$ZodType (our schemas are Zod 4). The SDK's
@@ -105,9 +117,12 @@ export async function createMcpBridge(options: CreateMcpBridgeOptions): Promise<
 	// D2: 64-char hex token = 256 bits of entropy. Brute-force infeasible.
 	const token = crypto.randomBytes(32).toString("hex");
 
-	// D1: stateless mode — no sessionIdGenerator. Our token replaces MCP session management.
+	// D1 (AL7 delta — STATEFUL): sessionIdGenerator assigns one mcp-session-id per
+	// per-session transport. Real CLI clients (codex, opencode, claude via .mcp.json) issue
+	// separate HTTP requests per session; stateless mode would throw on request 2.
+	// See R1-closure section in plans/AL7/architecture-codex-opencode.md.
 	const transport = new WebStandardStreamableHTTPServerTransport({
-		sessionIdGenerator: undefined,
+		sessionIdGenerator: () => crypto.randomUUID(),
 	});
 
 	const mcpServer = new McpServer(

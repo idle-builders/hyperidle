@@ -1187,6 +1187,16 @@ stories:
     track: AL
     depends: []
     complexity: L
+  - id: AL8
+    title: Reversibility-driven auto-flow for staged operations
+    track: AL
+    depends: [AL7]
+    complexity: L
+  - id: AL9
+    title: "Trust-model consolidation: remove vestigial per-skill autonomy"
+    track: AL
+    depends: []
+    complexity: M
   # Track AM: Conversation Experience
   - id: AM1
     title: Conversation experience

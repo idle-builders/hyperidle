@@ -490,6 +490,9 @@ export function registerObservabilityDispatcher(
 			case "work_selection_requested":
 			// AK8: decomposition occasion event — audit-only, not an observability event.
 			case "work_decompose_requested":
+			// AL7 trust-first: proposed call executed/granted — audit-only, not an observability event.
+			case "proposed_call_executed":
+			case "proposed_call_granted":
 			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
 			case "session_not_returned":
 				return false;

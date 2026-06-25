@@ -16,10 +16,12 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
+import type { ProposedCallStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
+import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -73,14 +75,32 @@ const REFUND: RefundOperation = {
 
 // ── canvas ──────────────────────────────────────────────────────────────────
 
+// ── AL7 trust-first: the Proposed Call execution outcome ──────────────────────
+// The terminal result of an executed Proposed Call, surfaced on the same
+// canvas that rendered the pre-commit receipt. Hard rule #8: a failure is an
+// Outcome with status="failed" + a surfaced error — NEVER a missing/silent
+// outcome, never a toast. The band is a persistent part of the card so a
+// re-opened review shows the terminal state instead of re-prompting.
+//
+// @lore AL7 N2: ProposedCallStatus is imported from @hyperidle/shared (the
+// shared PROPOSED_CALL_STATUSES const tuple), NOT defined inline here.
+// This ensures the canvas cannot drift from the router's status values.
+// ProposedCallOutcomeView is imported from review-composition — the loader
+// uses the same shape, so canvas and loader cannot drift either.
+
 export interface ReviewActionOperationProps {
 	readonly operation?: RefundOperation;
+	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
+	readonly status?: ProposedCallStatus;
+	readonly outcome?: ProposedCallOutcomeView;
 	readonly onApprove?: () => void;
 	readonly onReject?: () => void;
 }
 
 function ReviewActionOperationView({
 	operation = REFUND,
+	status = "captured",
+	outcome,
 	onApprove,
 	onReject,
 }: ReviewActionOperationProps): JSX.Element {
@@ -165,6 +185,13 @@ function ReviewActionOperationView({
 					</div>
 				))}
 			</dl>
+
+			{/* ── AL7 trust-first · the execution outcome band (granted | executed | failed) ── */}
+			{/* @lore AL7: `granted` is transient — the agent is provisioned for session 2.
+			    `executed` = ok outcome, `failed` = outcome with error. */}
+			{status === "granted" ? <ExecutingBand /> : null}
+			{status === "executed" && outcome ? <OutcomeBand outcome={outcome} ok /> : null}
+			{status === "failed" && outcome ? <OutcomeBand outcome={outcome} /> : null}
 
 			{/* ── L3 toggle ── */}
 			<button
@@ -252,6 +279,112 @@ function ReviewActionOperationView({
 
 // ── small parts ───────────────────────────────────────────────────────────
 
+// AL7: the executing band — transient in-flight state. Shown while dispatch is
+// running; converted to failed by the boot sweep if a crash strands the op.
+function ExecutingBand(): JSX.Element {
+	return (
+		<section
+			className="mx-[18px] mt-[12px] flex items-center gap-[9px] border px-[12px] py-[9px]"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				borderColor: "var(--border-default)",
+				background: "var(--surface-container)",
+			}}
+		>
+			<span
+				aria-label="executing"
+				className="h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent"
+				style={{ animation: "spin 0.75s linear infinite" }}
+			/>
+			<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				Executing…
+			</span>
+		</section>
+	);
+}
+
+// AL7: the outcome band. Success is calm (forest-green success family — a done
+// refund is now history); failure is loud (status-error). Success uses the
+// success/primary fill (`--accent-primary-dim`), NOT the warning fill the amount
+// block + IrreversibleBadge use (`--accent-secondary-dim`) — a succeeded op must
+// not read in the danger/money color family. The surfaced error renders verbatim
+// AND un-truncated (rule #8: failure must be impossible to miss — never clipped).
+function OutcomeBand({
+	outcome,
+	ok = false,
+}: {
+	readonly outcome: ProposedCallOutcomeView;
+	readonly ok?: boolean;
+}): JSX.Element {
+	return (
+		<section
+			className="mx-[18px] mt-[12px] flex gap-[9px] border px-[12px] py-[9px]"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				borderColor: ok ? "var(--accent-primary)" : "var(--status-error)",
+				background: ok ? "var(--accent-primary-dim)" : "var(--status-error-dim)",
+			}}
+		>
+			<span
+				aria-hidden="true"
+				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
+				style={{ background: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+			>
+				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+					<title>{ok ? "executed" : "failed"}</title>
+					{ok ? (
+						<path
+							d="M2.5 6.5 5 9l4.5-5"
+							stroke="var(--text-on-accent)"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					) : (
+						<path
+							d="M3 3l6 6M9 3l-6 6"
+							stroke="var(--text-on-accent)"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+						/>
+					)}
+				</svg>
+			</span>
+			<div className="min-w-0 flex-1">
+				<div className="flex items-baseline justify-between gap-[9px]">
+					<span
+						className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+						style={{ color: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+					>
+						{ok ? "Executed" : "Execution failed"}
+					</span>
+					<span
+						className="shrink-0 text-[12px] text-[var(--text-tertiary)]"
+						style={{ fontVariantNumeric: "tabular-nums" }}
+					>
+						{outcome.executedAt}
+					</span>
+				</div>
+				{ok ? (
+					// the receipt is a short identity (e.g. `re_3Qs… · refunded`) — one line is fine.
+					<p className="mt-[3px] truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+						{outcome.receipt}
+					</p>
+				) : (
+					// rule #8: the failure error renders verbatim and un-clipped. A real tool
+					// error (Stripe `card_declined` body, GitHub merge-conflict, API stack) wraps
+					// across lines — NEVER `truncate`, which would clip the thing the reviewer
+					// most needs to read. `whitespace-pre-wrap` preserves the tool's own newlines;
+					// `break-words` keeps long unbroken tokens inside the band.
+					<p className="mt-[3px] whitespace-pre-wrap break-words font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+						{outcome.error}
+					</p>
+				)}
+			</div>
+		</section>
+	);
+}
+
 function IrreversibleBadge(): JSX.Element {
 	return (
 		<span
@@ -332,7 +465,73 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 	};
 }
 
-export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Element {
+/**
+ * AC10b (WARNING-2, ETHOS §3): When a Proposed Call is present, render the
+ * concrete captured toolId + args BEFORE the standard operation card.
+ * The human approves what they actually see — no summary, no fabricated data.
+ *
+ * @lore AL7 CRITICAL-3: Previously only `status`+`outcome` were passed and the
+ * component defaulted to the hardcoded REFUND fixture. The approver saw fake
+ * Stripe ids/amount, not the agent's real call. This section renders the verbatim
+ * captured args so gross divergence is visible to human judgment.
+ */
+function ProposedCallArgsPanel({
+	proposedCall,
+}: {
+	readonly proposedCall: ProposedCallView;
+}): JSX.Element {
+	const argEntries = Object.entries(proposedCall.args);
+	return (
+		<section
+			className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			style={{ borderRadius: "var(--r-subtle)" }}
+			aria-label="Proposed call details"
+		>
+			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[9px]">
+				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+					Tool
+				</span>
+				<span
+					className="font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
+					data-testid="proposed-call-tool-id"
+				>
+					{proposedCall.toolId}
+				</span>
+			</div>
+			{argEntries.length > 0 ? (
+				<dl className="px-[12px]">
+					{argEntries.map(([key, value], i) => (
+						<div
+							key={key}
+							className="flex items-start justify-between gap-[12px] py-[9px]"
+							style={{
+								borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
+							}}
+						>
+							<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">{key}</dt>
+							<dd
+								className="min-w-0 text-right font-[var(--font-mono)] text-[13px] text-[var(--text-primary)] break-all"
+								data-testid={`proposed-call-arg-${key}`}
+							>
+								{typeof value === "string" ? value : JSON.stringify(value)}
+							</dd>
+						</div>
+					))}
+				</dl>
+			) : null}
+		</section>
+	);
+}
+
+export function ReviewActionOperation({
+	artifact,
+	status,
+	outcome,
+	proposedCall,
+}: ReviewCanvasProps &
+	Pick<ReviewActionOperationProps, "status" | "outcome"> & {
+		readonly proposedCall?: ProposedCallView;
+	}): JSX.Element {
 	const operation = isActionOperationPayload(artifact.payload)
 		? mapActionPayload(artifact.payload)
 		: REFUND;
@@ -344,7 +543,10 @@ export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Elem
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewActionOperationView operation={operation} />
+			{/* AC10b WARNING-2: render the concrete captured args (verbatim, not a summary)
+			    so the human approves what the agent actually called. */}
+			{proposedCall ? <ProposedCallArgsPanel proposedCall={proposedCall} /> : null}
+			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
 		</div>
 	);
 }

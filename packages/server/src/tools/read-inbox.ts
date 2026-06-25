@@ -45,9 +45,13 @@ async function handler(args: ReadInboxInput, ctx: ToolContext): Promise<ToolResu
 	return ok({ messages: filtered });
 }
 
-export const readInboxTool: ToolDefinition<ReadInboxInput> = {
+export const readInboxTool: ToolDefinition<ReadInboxInput> & {
+	readonly reversibility: "reversible";
+} = {
 	name: "read_inbox",
 	description: "Read messages from the current agent's inbox, ordered newest first.",
 	inputSchema: readInboxInputSchema,
 	handler,
+	/** AL7: read-only operation — never writes; explicitly reversible so workflow router doesn't gate it. */
+	reversibility: "reversible",
 };

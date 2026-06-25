@@ -40,10 +40,24 @@ async function handler(args: WriteSessionNotesInput, ctx: ToolContext): Promise<
 	return ok({ sessionId: ctx.sessionId, bytesWritten });
 }
 
-export const writeSessionNotesTool: ToolDefinition<WriteSessionNotesInput> = {
+export const writeSessionNotesTool: ToolDefinition<WriteSessionNotesInput> & {
+	readonly reversibility: "reversible";
+} = {
 	name: "write_session_notes",
 	description:
 		"Persist session reflections to work/session-notes.md in the agent's workspace. Set append=true to concatenate onto existing notes; default overwrites.",
 	inputSchema: writeSessionNotesInputSchema,
 	handler,
+	/**
+	 * AL7: write_session_notes is reversible — it is idempotent session metadata
+	 * (sandbox-internal notes file + sessions.notes DB column). Marking it explicitly
+	 * reversible prevents the fail-closed default from routing it to review when the
+	 * workflow router is active (session 1/2). Session notes are not external state changes.
+	 *
+	 * @lore AL7 CRITICAL-2: without this annotation, the builtin harness planning turn's
+	 * internal `registry.invoke("write_session_notes", ...)` call was incorrectly routed
+	 * to review (irreversible default) in workflow sessions, capturing write_session_notes
+	 * as a Proposed Call instead of commit_file. This annotation fixes the classification.
+	 */
+	reversibility: "reversible",
 };

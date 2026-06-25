@@ -1,6 +1,7 @@
 /** Harness adapter interface — the boundary between meta-layer and agent runtime (D1). */
 
 import type { ResolvedModel } from "../model-gateway.js";
+import type { Reversibility } from "../proposed-call.js";
 import type { TokenUsage, WireMoney } from "../types/money.js";
 import type { ModelTier } from "../types.js";
 import type {
@@ -10,6 +11,36 @@ import type {
 	HarnessModelDescriptor,
 } from "./harness-capability-descriptor.js";
 import type { HarnessEvent } from "./harness-events.js";
+
+/**
+ * AL7 trust-first — Session workflow for the route-to-review gate.
+ *
+ * Injected into `SessionConfig` at provision time. The workflow router in
+ * `buildToolRegistry.invoke` reads this to classify reversibility and decide
+ * whether to route an irreversible call to review or permit the approved op.
+ *
+ * session-1 (open-work): routeToReview=["irreversible"], sessionRole="open-work"
+ * session-2 (grant-bearing): routeToReview=["irreversible"], sessionRole="grant-bearing",
+ *   approvedCall carries the approved op for the CAS-consume.
+ *
+ * @lore AL7 D1: the workflow is collaboration plumbing, not a security floor.
+ * ConversationMessage is NOT widened — no message-seed path.
+ */
+export interface SessionWorkflow {
+	/** Reversibility classes routed to review at init (session 1: ["irreversible"]). */
+	readonly routeToReview: readonly Reversibility[];
+	readonly sessionRole: "open-work" | "grant-bearing";
+	/**
+	 * When grant-bearing, the approved op the agent works under (and may be arg-pinned
+	 * where a harness expresses arg-level scope).
+	 */
+	readonly approvedCall?: {
+		readonly toolId: string;
+		readonly args: Record<string, unknown>; // recorded approved args (used by the optional arg-pin)
+		readonly argPinned: boolean; // true ⇒ pin to these exact args where arg-level scope exists
+		readonly identityHash?: string; // optional metadata for the arg-pin; NOT a guard
+	};
+}
 
 /** X5: MCP bridge connection coordinates for a session. */
 export interface McpConnectionInfo {
@@ -97,6 +128,26 @@ export interface SessionConfig {
 	 * Optional for backward compatibility; omitted for non-task sessions.
 	 */
 	readonly returnHook?: ReturnHookConfig;
+	/**
+	 * AL7 trust-first: Session workflow for the route-to-review gate.
+	 * When present, `buildToolRegistry.invoke` classifies reversibility and routes
+	 * irreversible calls to review (session-1) or permits the approved op (session-2).
+	 * Optional — absent for sessions that don't participate in the review workflow.
+	 */
+	readonly sessionWorkflow?: SessionWorkflow;
+	/**
+	 * AL7 delta: Per-session MCP token env var for CLI harnesses that require the
+	 * token via an environment variable rather than inline in the config file.
+	 *
+	 * codex: { HYPERIDLE_MCP_TOKEN: "<token>" } — injected OUTSIDE the envAllowlist
+	 * (per-session-generated, not forwarded from process.env; mirrors CODEX_HOME).
+	 * opencode: undefined (token is inline in opencode.json headers.Authorization).
+	 *
+	 * @lore AL7 N6: must be inject-outside-allowlist (non-optional if set).
+	 * The allowlist forwards from process.env, but the MCP token is per-session-generated
+	 * and NOT in process.env. The codex CODEX_HOME injection pattern is the precedent.
+	 */
+	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 }
 
 export interface SessionHandle {
@@ -189,6 +240,15 @@ export interface HarnessCapabilities {
 	readonly discovery?: HarnessDiscoveryStatus;
 	readonly fileEditing?: boolean;
 	readonly toolUse?: boolean;
+	/**
+	 * AL7 delta: Per-session MCP config dialect for CLI harnesses that need a
+	 * config file written into the sandbox for the binary to discover the bridge.
+	 * Absent for non-CLI harnesses (builtin, SDK adapters).
+	 *
+	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
+	 * "opencode-json" — writes opencode.json to sandbox cwd.
+	 */
+	readonly cliMcpDialect?: "codex-toml" | "opencode-json";
 }
 
 export interface HarnessAdapter {

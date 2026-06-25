@@ -368,16 +368,42 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// @lore AL6 WARN-F2: Without this field, re-engage runs would use the
 		// same generic "proceed" prompt regardless of the forcing message.
 		seedPrompt: "positional",
+		// AL7 delta: codex reads MCP server from .codex-home/config.toml;
+		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
+		mcpConfig: { dialect: "codex-toml" },
 	},
 	opencode: {
 		binary: "opencode",
+		// AL7 delta: opencode headless `run` form (was ["--dir","{{sandbox}}"] which
+		// launches the interactive TUI, never completing a headless turn).
+		// - `run <prompt>` delivers the seed prompt.
+		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
+		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
+		// - `--pure` disables TUI / interactive fallback.
+		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
+		// @lore AL7 W4: {{model}} resolves from config.resolvedModel?.model (cli-harness-adapter.ts:303).
+		// opencode run requires a provider-prefixed model id; a bare id fails. The model resolution
+		// for opencode agents must produce the provider-prefixed form.
 		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
-		// opencode uses --dir to set the working directory for the session.
-		args: ["--dir", "{{sandbox}}"],
+		args: [
+			"run",
+			"{{prompt}}",
+			"--dir",
+			"{{sandbox}}",
+			"--format",
+			"json",
+			"--pure",
+			"--model",
+			"{{model}}",
+		],
 		envMap: {
 			ANTHROPIC_API_KEY: "{{apiKey}}",
 		},
-		eventFormat: "text",
+		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
+		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
+		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
+		// (captured>=1) is on the MCP router path and does NOT depend on event normalization.
+		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
 		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
 		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
@@ -388,6 +414,9 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// @lore AL6 WARN-F3: Without this, re-engage re-invocations would not carry
 		// the forcing message and the agent would not know it needs to return.
 		reEngageCarrier: "run-arg",
+		// AL7 delta: opencode reads MCP server from opencode.json in the sandbox cwd;
+		// the token is inline in headers.Authorization (no tokenEnv needed).
+		mcpConfig: { dialect: "opencode-json" },
 	},
 };
 

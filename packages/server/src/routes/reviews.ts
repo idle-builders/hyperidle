@@ -1,5 +1,36 @@
+import {
+	artifacts,
+	type HyperIdleDb,
+	messages,
+	operationOutcomes,
+	proposedCalls,
+} from "@hyperidle/db";
+import { relativeLong } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+
+/**
+ * AL7 trust-first — Reviews route: GET /api/reviews/:reviewMessageId
+ *
+ * Returns a ComposedReviewSubject-shaped response with any proposed call
+ * nested inside the matching artifact (action_operation kind) in the artifacts array.
+ *
+ * The loader:
+ * - Queries proposed_calls LEFT JOIN operation_outcomes by reviewMessageId
+ * - Nests proposedCall (with verbatim args) on the matching action_operation artifact (AC10b)
+ * - Humanizes executedAt at the response boundary (never raw ISO)
+ * - Returns 404 if the review message doesn't exist
+ * - Returns the stub fixture for "rev-1" (design/demo route)
+ *
+ * @lore AL7 WARNING-2: args are returned verbatim (not a summary string) so the
+ * human sees the real call before approving. This is User Sovereignty (ETHOS §3),
+ * not exact-match enforcement.
+ *
+ * @lore AL7 Task 10: renamed from staged-operation loader. proposedCall replaces
+ * stagedOperation on the artifact shape; proposed_call_executed replaces
+ * operation_executed in the event subscriber.
+ */
 
 const FIXTURE_REVIEW = {
 	id: "review:AL3:fixture",
@@ -46,19 +77,121 @@ const FIXTURE_REVIEW = {
 			artifactId: "artifact:code:1",
 		},
 	],
-	artifacts: [],
+	artifacts: [] as unknown[],
 	conversation: [],
 };
 
-export function createReviewRoutes(): Hono {
+export function createReviewRoutes(db: HyperIdleDb): Hono {
 	const app = new Hono();
 
-	app.get("/:reviewId", requireBoundary({ kind: "public-data" }), (c) => {
-		const reviewId = c.req.param("reviewId");
-		if (!reviewId || reviewId !== "rev-1") {
+	app.get("/:reviewMessageId", requireBoundary({ kind: "public-data" }), async (c) => {
+		const reviewMessageId = c.req.param("reviewMessageId");
+
+		// Stub fixture path for design/demo (plan §7: keep the stub data).
+		if (reviewMessageId === "rev-1") {
+			return c.json(FIXTURE_REVIEW);
+		}
+
+		// Load the review message to confirm it exists.
+		const [reviewMsg] = await db
+			.select()
+			.from(messages)
+			.where(eq(messages.id, reviewMessageId))
+			.limit(1);
+
+		if (!reviewMsg) {
 			return c.json({ error: "review_not_found" }, 404);
 		}
-		return c.json(FIXTURE_REVIEW);
+
+		// AL7 trust-first: load proposed call + outcome (if any) anchored to this review message.
+		// WARNING-2: args are returned verbatim (not a summary) so the human approves the real call.
+		const [opRow] = await db
+			.select({
+				// proposed call fields
+				pcId: proposedCalls.id,
+				pcStatus: proposedCalls.status,
+				toolId: proposedCalls.toolId,
+				args: proposedCalls.args,
+				artifactId: proposedCalls.artifactId,
+				// outcome fields (null when no outcome yet)
+				outcomeStatus: operationOutcomes.status,
+				outcomeReceipt: operationOutcomes.receipt,
+				outcomeError: operationOutcomes.error,
+				outcomeExecutedAt: operationOutcomes.executedAt,
+			})
+			.from(proposedCalls)
+			.leftJoin(operationOutcomes, eq(operationOutcomes.proposedCallId, proposedCalls.id))
+			.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
+			.limit(1);
+
+		// Build the response payload from the review message.
+		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
+
+		if (!opRow) {
+			// No proposed call — descriptive review (no action_operation outcome to show).
+			return c.json({ ...reviewPayload });
+		}
+
+		// Build the ProposedCallView to nest on the artifact.
+		// AC10b (WARNING-2): args are the verbatim captured object, not a summary string.
+		// The human sees the real call before approving.
+		const outcome =
+			opRow.outcomeStatus !== null && opRow.outcomeExecutedAt !== null
+				? {
+						status: opRow.outcomeStatus,
+						receipt: opRow.outcomeReceipt ?? undefined,
+						error: opRow.outcomeError ?? undefined,
+						// @lore AL7: executedAt is humanized here (never raw ISO in the response).
+						executedAt: relativeLong(opRow.outcomeExecutedAt),
+					}
+				: undefined;
+
+		const proposedCallView = {
+			proposedCallId: opRow.pcId,
+			toolId: opRow.toolId,
+			// WARNING-2: verbatim captured args (deep-equal to what the agent called)
+			args: JSON.parse(opRow.args) as Record<string, unknown>,
+			status: opRow.pcStatus,
+			...(outcome !== undefined ? { outcome } : {}),
+		};
+
+		// Load the artifact to embed proposedCall on it.
+		const [artifactRow] = await db
+			.select()
+			.from(artifacts)
+			.where(eq(artifacts.id, opRow.artifactId))
+			.limit(1);
+
+		// Build the artifacts array: one artifact with proposedCall attached.
+		const existingArtifacts = Array.isArray(reviewPayload.artifacts)
+			? (reviewPayload.artifacts as Array<Record<string, unknown>>)
+			: [];
+
+		const artifactsWithOp = existingArtifacts.map((a) => {
+			if (a.id === opRow.artifactId) {
+				return { ...a, proposedCall: proposedCallView };
+			}
+			return a;
+		});
+
+		// If the artifact wasn't in the existing list, append it.
+		if (!existingArtifacts.some((a) => a.id === opRow.artifactId)) {
+			artifactsWithOp.push({
+				id: opRow.artifactId,
+				kind: artifactRow?.kind ?? "action_operation",
+				tool: opRow.toolId,
+				app: opRow.toolId,
+				sourceHref: "",
+				title: opRow.toolId,
+				payload: {},
+				proposedCall: proposedCallView,
+			});
+		}
+
+		return c.json({
+			...reviewPayload,
+			artifacts: artifactsWithOp,
+		});
 	});
 
 	return app;
