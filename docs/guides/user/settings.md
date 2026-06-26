@@ -7,7 +7,6 @@ Click the **Settings** button in the Sidebar to open Settings. Sections stack ve
 | **Profile** | Your name, email, avatar |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
-| **Connections** | External services agents can reach — paste a token, point at an MCP server, or see tools your harness already has |
 | **Agents** | Per-agent model and harness, autonomy levels, pause/resume, system prompt |
 | **Assistant** | Your personal AI assistant system prompt and settings |
 | **Appearance** | Theme (light / dark / system) |
@@ -102,46 +101,3 @@ The **Backend** section shows which backend mode HyperIdle is running in:
 
 The **Worker** section is only shown when using the desktop app in **Shared** backend mode. It lets you register this device as a worker node that runs agent sessions on behalf of the team.
 
----
-
-### Connections
-
-**Settings → Connections** is where you make external services available to your agents — GitHub, Stripe, Figma, and anything else that has an API key or an MCP server.
-
-Connections are organized into three groups:
-
-**Inherited from your environment**
-Tools your harness (Claude Code, Codex, OpenCode) is already logged into. HyperIdle stores nothing — auth lives where you set it up. These rows appear automatically; there is no add button for this group. You manage them in the harness, not here.
-
-**Connected with a token**
-Services you connected by pasting an API key or personal access token. The token is encrypted and held on the server — your agents never receive it. They use it through HyperIdle's brokered call path.
-
-**Connected via an MCP server**
-Remote MCP servers that own their own sign-in flow. HyperIdle registers no OAuth app and never appears on a consent screen. The service handles auth; HyperIdle records the server URL.
-
-#### Adding a connection
-
-Click **+ Add connection** (top-right of the Connections section). A dialog opens with a source picker:
-
-- **Paste a token (API key / PAT)** — enter the service name and paste your token. The token is encrypted immediately and held server-side. Your agents use it without ever seeing it.
-- **Point at an MCP server** — enter the `https://` URL of the MCP server. The server handles its own sign-in when your agents first use it.
-
-There is no "Connect with GitHub" or similar branded OAuth button. HyperIdle does not register per-service OAuth apps.
-
-#### Health status
-
-Each connection row shows a health chip:
-
-| Status | Meaning |
-|--------|---------|
-| **Usable** (green) | Connection has been validated and is ready. |
-| **Needs attention** (amber) | Connection was just added and has not been validated yet, or a recent call returned a warning. |
-| **Expired** (red) | Token or session has expired. Remove it and re-add a fresh one. |
-
-Needs-attention and expired rows float to the top of their group so they are visible immediately.
-
-#### Removing a connection
-
-Click the overflow menu (three dots) on any row, then **Remove**. A confirmation step appears before the connection is deleted. After removal, agents can no longer act on that service through this connection.
-
-Harness-inherited rows do not have a Remove option — they are managed in the harness, not here.

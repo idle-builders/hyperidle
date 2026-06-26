@@ -4,7 +4,7 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 **Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `.pipeline/work-packages/` (per-track files).
 
-**Builder philosophy:** Read `ETHOS.md` — four principles (Boil the Lake, Search Before Building, User Sovereignty, **Trust Agents**) that guide all agent behavior. We trust agents and design to give them *more* power (like real employees with broad self-permission); review gates the consequential/irreversible and fades as trust is earned — never design for paranoia or against a hypothetical rogue agent.
+**Builder philosophy:** Read `ETHOS.md` — four principles (**Build for the Fast, Not the Enterprise**, **Trust Agents and Humans**, Boil the Lake, Search Before Building) that guide all agent behavior. We build for fast-moving small teams (never enterprise features); we trust agents and humans and live by self-reliance. **Security is never preemptive — it is earned from real learnings, never a wall built first.** "Irreversible" alone is not a reason to gate; review rides AL7 only where a human chose it or a learning earned it. Never design for paranoia, a rogue agent, or a gate-by-default classifier.
 
 ---
 
