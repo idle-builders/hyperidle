@@ -82,7 +82,11 @@ function DestinationHeader({
 function TextArtifact(): JSX.Element {
 	return (
 		<div className="flex h-full flex-col">
-			<DestinationHeader kind="Artifact · text" title="auth/passkey.ts — migration plan" meta="§2" />
+			<DestinationHeader
+				kind="Artifact · text"
+				title="auth/passkey.ts — migration plan"
+				meta="§2"
+			/>
 			<div className="flex-1 overflow-auto px-[18px] py-[12px]">
 				<Block
 					id={BLOCK_ID}
@@ -182,22 +186,26 @@ function TrendRow({ label, values }: { label: string; values: number[] }): JSX.E
 function DataArtifact(): JSX.Element {
 	return (
 		<div className="flex h-full flex-col">
-			<DestinationHeader kind="Artifact · data" title="Checkout reliability — result" meta="9 min" />
+			<DestinationHeader
+				kind="Artifact · data"
+				title="Checkout reliability — result"
+				meta="9 min"
+			/>
 			<div className="flex flex-1 flex-col gap-[18px] overflow-auto px-[18px] py-[12px]">
 				<MetricFigures />
 				<div className="flex flex-col gap-[6px]">
 					<TrendRow label="Silent failures" values={[31, 28, 22, 19, 12, 8, 4, 2, 1, 0]} />
-					<TrendRow label="Checkout p95" values={[140, 132, 138, 120, 118, 110, 115, 108, 104, 99]} />
+					<TrendRow
+						label="Checkout p95"
+						values={[140, 132, 138, 120, 118, 110, 115, 108, 104, 99]}
+					/>
 				</div>
 				<Block
 					id={BLOCK_ID}
 					payload={{
 						kind: "table",
 						align: ["left", "right"],
-						header: [
-							[{ type: "text", value: "Path" }],
-							[{ type: "text", value: "Status" }],
-						],
+						header: [[{ type: "text", value: "Path" }], [{ type: "text", value: "Status" }]],
 						rows: [
 							[
 								[{ type: "text", value: "Expired promo → 422" }],
@@ -315,8 +323,8 @@ function ReviewOrigin(): JSX.Element {
 			</div>
 			<div className="flex flex-1 flex-col gap-[18px] overflow-auto px-[18px] py-[12px]">
 				<p className="text-[13px] leading-[var(--leading-body)] text-[var(--text-primary)]">
-					Root cause: an unhandled <code className="font-mono text-[12px]">PromoExpiredError</code> was
-					swallowed by a catch-all. Checkout now returns a typed 422; the deploy is staged.
+					Root cause: an unhandled <code className="font-mono text-[12px]">PromoExpiredError</code>{" "}
+					was swallowed by a catch-all. Checkout now returns a typed 422; the deploy is staged.
 				</p>
 				<div className="flex flex-col gap-[6px]">
 					<span className="font-mono text-[10px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
@@ -381,7 +389,12 @@ function KnowledgeOrigin(): JSX.Element {
 					}}
 				/>
 				<div className="my-[9px]">
-					<ReferenceChip kind="artifact" label="auth/passkey.ts — migration plan" meta="§2" mode="posted" />
+					<ReferenceChip
+						kind="artifact"
+						label="auth/passkey.ts — migration plan"
+						meta="§2"
+						mode="posted"
+					/>
 				</div>
 				<Fold label="Worked for 1m 12s" cta="Show session" />
 			</div>

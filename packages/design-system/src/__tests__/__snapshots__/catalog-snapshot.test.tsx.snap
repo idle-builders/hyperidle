@@ -2515,7 +2515,7 @@ exports[`Code > NoLang 1`] = `
 "<div class="flex flex-col gap-[6px]">
   <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
     <code style="tab-size: 2;">
-      "npm run dev # server 3001 + web 5173"
+      "npm run dev\\\\n# server 3001 + web 5173"
     </code>
   </pre>
 </div>

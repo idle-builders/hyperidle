@@ -107,10 +107,7 @@ export function CodeDeltaRenderer({
 							const ref: DiffLineRef = { hunkIndex, lineIndex, kind: line.kind, text: line.text };
 							return (
 								<div key={`${hunkIndex}-${lineIndex}-${line.kind}`}>
-									<div
-										data-diff-type={line.kind}
-										className={`relative flex ${LINE_BG[line.kind]}`}
-									>
+									<div data-diff-type={line.kind} className={`relative flex ${LINE_BG[line.kind]}`}>
 										{renderLineGutter?.(ref)}
 										{renderLineAffordance?.(ref)}
 										<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">

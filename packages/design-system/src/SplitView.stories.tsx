@@ -57,7 +57,9 @@ function Pane({ label, tone }: { label: string; tone: "origin" | "dest" }): JSX.
 	return (
 		<div className="flex h-full flex-col gap-[6px] p-[18px]">
 			<div className="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				{tone === "origin" ? "origin surface (stays live)" : "destination — the resolved composition"}
+				{tone === "origin"
+					? "origin surface (stays live)"
+					: "destination — the resolved composition"}
 			</div>
 			<div className="flex flex-1 items-center justify-center rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] text-center text-[13px] text-[var(--text-secondary)]">
 				{label}

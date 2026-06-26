@@ -28,9 +28,7 @@ describe("KpiStat (base primitive)", () => {
 
 	it("has NO empty/error/loading branch (K0 purity — never returns null or empty for valid metrics)", () => {
 		// A base primitive is pure — it renders all metrics; no state-branch escapes
-		const { container } = render(
-			<KpiStat metrics={[{ label: "Conversion", value: "3.7%" }]} />,
-		);
+		const { container } = render(<KpiStat metrics={[{ label: "Conversion", value: "3.7%" }]} />);
 		const section = container.querySelector('[aria-label="Key metrics"]');
 		expect(section).toBeTruthy();
 		// Rendered text is present
@@ -41,9 +39,7 @@ describe("KpiStat (base primitive)", () => {
 
 describe("Sparkline (base primitive)", () => {
 	it("renders an SVG polyline with the provided series", () => {
-		const { container } = render(
-			<Sparkline values={[10, 20, 15, 30]} label="Signups" />,
-		);
+		const { container } = render(<Sparkline values={[10, 20, 15, 30]} label="Signups" />);
 		const svg = container.querySelector("svg");
 		expect(svg).toBeTruthy();
 		// aria-label includes the label

@@ -71,8 +71,18 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 				}}
 			/>,
 		);
-		expect(refs[1]).toMatchObject({ hunkIndex: 0, lineIndex: 1, kind: "del", text: "const y = 2;" });
-		expect(refs[2]).toMatchObject({ hunkIndex: 0, lineIndex: 2, kind: "add", text: "const y = 3;" });
+		expect(refs[1]).toMatchObject({
+			hunkIndex: 0,
+			lineIndex: 1,
+			kind: "del",
+			text: "const y = 2;",
+		});
+		expect(refs[2]).toMatchObject({
+			hunkIndex: 0,
+			lineIndex: 2,
+			kind: "add",
+			text: "const y = 3;",
+		});
 	});
 
 	it("renders slot content below a line when renderLineBelow is provided", () => {
@@ -80,9 +90,7 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 			<CodeDeltaRenderer
 				delta={FIXTURE_DELTA}
 				renderLineBelow={(ref) =>
-					ref.kind === "add" ? (
-						<div data-testid={`below-line-${ref.lineIndex}`}>below</div>
-					) : null
+					ref.kind === "add" ? <div data-testid={`below-line-${ref.lineIndex}`}>below</div> : null
 				}
 			/>,
 		);
@@ -92,9 +100,7 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 
 	it("has NO empty/no-changes/error state branch (K0 purity — pure content renderer)", () => {
 		// Empty hunks renders without crash (the composition handles empty, not the primitive)
-		const { container } = render(
-			<CodeDeltaRenderer delta={{ file: "test.ts", hunks: [] }} />,
-		);
+		const { container } = render(<CodeDeltaRenderer delta={{ file: "test.ts", hunks: [] }} />);
 		// Section is present with no crash
 		expect(container.querySelector("pre")).toBeTruthy();
 	});
@@ -105,9 +111,7 @@ describe("getDiffRenderer (DS diff selector)", () => {
 		const DiffRenderer = getDiffRenderer("code");
 		expect(DiffRenderer).toBeDefined();
 		// Render it to confirm it works
-		const { container } = render(
-			<DiffRenderer delta={FIXTURE_DELTA} kind="code" />,
-		);
+		const { container } = render(<DiffRenderer delta={FIXTURE_DELTA} kind="code" />);
 		expect(container.querySelector("pre")).toBeTruthy();
 	});
 

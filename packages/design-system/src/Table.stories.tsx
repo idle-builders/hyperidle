@@ -46,10 +46,7 @@ export const WithInline = (): JSX.Element => (
 					[{ type: "strong", children: [{ type: "text", value: "Approval rate" }] }],
 					[{ type: "text", value: "0.94" }],
 				],
-				[
-					[{ type: "inlineCode", value: "p95_latency" }],
-					[{ type: "text", value: "120ms" }],
-				],
+				[[{ type: "inlineCode", value: "p95_latency" }], [{ type: "text", value: "120ms" }]],
 			]}
 		/>
 	</div>

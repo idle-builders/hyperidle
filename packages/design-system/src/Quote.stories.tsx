@@ -12,14 +12,14 @@ const para = (text: string): BlockPayload => ({
 });
 
 export const Single = (): JSX.Element => (
-	<QuotePayload children={[para("Humans validate, agents execute.")]} />
+	<QuotePayload>{[para("Humans validate, agents execute.")]}</QuotePayload>
 );
 
 export const MultiLine = (): JSX.Element => (
-	<QuotePayload
-		children={[
+	<QuotePayload>
+		{[
 			para("Density over whitespace. Whitespace is earned, not given."),
 			para("One interaction grammar, built once and reused everywhere."),
 		]}
-	/>
+	</QuotePayload>
 );

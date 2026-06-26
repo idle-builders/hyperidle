@@ -27,7 +27,14 @@
  * shows a "Dial In" button; clicking it opens the companion split: the
  * ConversationSurface on the left, SessionActivityPanel on the right.
  */
-import { Button, EmptyState, ErrorState, PageHeader, SkeletonList, SplitView } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	PageHeader,
+	SkeletonList,
+	SplitView,
+} from "@hyperidle/design-system";
 import type { PartAuthor } from "@hyperidle/shared";
 import { derivePartsFromMessages } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -40,11 +47,11 @@ import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useHint } from "../hooks/useHints";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
+import { useUiPreference } from "../hooks/useUiPreference.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";

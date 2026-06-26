@@ -14,9 +14,7 @@ const passthrough = (raw: string): string => raw;
 export const Rendered = (): JSX.Element => (
 	<div className="w-[480px]">
 		<HtmlPayload
-			raw={
-				'<p>Embedded HTML rendered through the host sanitiser. Supports <strong>emphasis</strong> and <a href="/docs">links</a>.</p>'
-			}
+			raw='<p>Embedded HTML rendered through the host sanitiser. Supports <strong>emphasis</strong> and <a href="/docs">links</a>.</p>'
 			sanitizeHtml={passthrough}
 		/>
 	</div>
@@ -25,7 +23,7 @@ export const Rendered = (): JSX.Element => (
 export const ListMarkup = (): JSX.Element => (
 	<div className="w-[480px]">
 		<HtmlPayload
-			raw={"<ul><li>First import</li><li>Second import</li><li>Third import</li></ul>"}
+			raw="<ul><li>First import</li><li>Second import</li><li>Third import</li></ul>"
 			sanitizeHtml={passthrough}
 		/>
 	</div>

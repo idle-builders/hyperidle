@@ -304,7 +304,12 @@ describe("summarize delegation via getKindDefinition", () => {
 	it("summarizes a code kind preview", () => {
 		const def = getKindDefinition("code");
 		// AM5 K4b: code schema purified to {path,lang,text}
-		const summary = def?.summarize({ kind: "code", path: "src/index.ts", lang: null, text: "const x = 1;" });
+		const summary = def?.summarize({
+			kind: "code",
+			path: "src/index.ts",
+			lang: null,
+			text: "const x = 1;",
+		});
 		expect(typeof summary).toBe("string");
 	});
 
@@ -363,7 +368,12 @@ describe("displayTitle delegation via getKindDefinition", () => {
 	it("returns the path as title for code kind preview", () => {
 		const def = getKindDefinition("code");
 		// AM5 K4b: code schema purified to {path,lang,text}
-		const title = def?.displayTitle({ kind: "code", path: "src/index.ts", lang: null, text: "const x = 1;" });
+		const title = def?.displayTitle({
+			kind: "code",
+			path: "src/index.ts",
+			lang: null,
+			text: "const x = 1;",
+		});
 		expect(title).toBe("src/index.ts");
 	});
 

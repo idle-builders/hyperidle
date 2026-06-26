@@ -14,6 +14,10 @@ export const Captioned = (): JSX.Element => (
 
 export const WithTitle = (): JSX.Element => (
 	<div className="w-[420px]">
-		<ImagePayload alt="Architecture diagram" url="https://placehold.co/600x300" title="Three-layer system" />
+		<ImagePayload
+			alt="Architecture diagram"
+			url="https://placehold.co/600x300"
+			title="Three-layer system"
+		/>
 	</div>
 );

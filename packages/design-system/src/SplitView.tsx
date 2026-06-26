@@ -50,7 +50,17 @@ export interface SplitViewProps {
 function ExpandIcon(): JSX.Element {
 	// expand-to-full: arrows pushing outward
 	return (
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+		<svg
+			width="15"
+			height="15"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
 			<path d="M15 3h6v6" />
 			<path d="M9 21H3v-6" />
 			<path d="M21 3l-7 7" />
@@ -62,7 +72,17 @@ function ExpandIcon(): JSX.Element {
 function CollapseIcon(): JSX.Element {
 	// collapse full → split: arrows pulling inward
 	return (
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+		<svg
+			width="15"
+			height="15"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
 			<path d="M4 14h6v6" />
 			<path d="M20 10h-6V4" />
 			<path d="M14 10l7-7" />
@@ -74,7 +94,17 @@ function CollapseIcon(): JSX.Element {
 function CloseIcon(): JSX.Element {
 	// fold-back: dismiss the destination half
 	return (
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+		<svg
+			width="15"
+			height="15"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
 			<path d="M18 6 6 18" />
 			<path d="m6 6 12 12" />
 		</svg>

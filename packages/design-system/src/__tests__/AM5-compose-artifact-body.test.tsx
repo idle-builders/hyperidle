@@ -2,9 +2,9 @@
 // Also tests the negative existence of getRenderer/kind renderers (AC-COLLAPSE).
 // RED phase — these fail until composeArtifactBody is created and kind layer removed.
 
+import * as DesignSystem from "@hyperidle/design-system";
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
-import * as DesignSystem from "@hyperidle/design-system";
 import { afterEach, describe, expect, it } from "vitest";
 
 // This import will fail until composeArtifactBody is created
@@ -14,7 +14,12 @@ afterEach(cleanup);
 
 describe("composeArtifactBody (Artifact composition)", () => {
 	it("'code' kind → renders CodePayload (lang + text visible)", () => {
-		const preview = { kind: "code", path: "src/hello.ts", lang: "typescript", text: "const x = 1;" };
+		const preview = {
+			kind: "code",
+			path: "src/hello.ts",
+			lang: "typescript",
+			text: "const x = 1;",
+		};
 		const { container } = render(<>{composeArtifactBody("code", preview)}</>);
 		// CodePayload renders a pre block with the code text
 		expect(container.querySelector("pre")).toBeTruthy();

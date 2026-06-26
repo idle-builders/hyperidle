@@ -34,6 +34,14 @@ export type {
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
 export type { BlockHandleProps } from "./BlockHandle.js";
 export { BlockHandle } from "./BlockHandle.js";
+// ── T1: BodyEditor — TipTap WYSIWYG editor ──
+export type { BodyEditorProps } from "./BodyEditor.js";
+export { BodyEditor } from "./BodyEditor.js";
+// ── AG4: Breadcrumb — Tier 1 DS nav orientation strip ──
+export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
+export { Breadcrumb } from "./Breadcrumb.js";
+export type { ButtonProps } from "./Button.js";
+export { Button } from "./Button.js";
 // ── AM5: base-primitive content foundations (the block-payload layer, promoted
 // to first-class DS foundations so each is individually reviewable). The diff is
 // NOT in here (K0) — it lives in the Review composition. ──
@@ -46,26 +54,18 @@ export type { HtmlPayloadProps } from "./block/HtmlPayload.js";
 export { HtmlPayload } from "./block/HtmlPayload.js";
 export type { ImagePayloadProps } from "./block/ImagePayload.js";
 export { ImagePayload } from "./block/ImagePayload.js";
+export { renderInline } from "./block/inline.js";
 export type { ListPayloadProps } from "./block/ListPayload.js";
 export { ListPayload } from "./block/ListPayload.js";
 export type { ParagraphPayloadProps } from "./block/ParagraphPayload.js";
 export { ParagraphPayload } from "./block/ParagraphPayload.js";
 export type { QuotePayloadProps } from "./block/QuotePayload.js";
 export { QuotePayload } from "./block/QuotePayload.js";
-export type { TablePayloadProps } from "./block/TablePayload.js";
-export { TablePayload } from "./block/TablePayload.js";
-export { renderInline } from "./block/inline.js";
-// ── T1: BodyEditor — TipTap WYSIWYG editor ──
-export type { BodyEditorProps } from "./BodyEditor.js";
-export { BodyEditor } from "./BodyEditor.js";
-// ── AG4: Breadcrumb — Tier 1 DS nav orientation strip ──
-export type { BreadcrumbProps, BreadcrumbSegment } from "./Breadcrumb.js";
-export { Breadcrumb } from "./Breadcrumb.js";
-export type { ButtonProps } from "./Button.js";
-export { Button } from "./Button.js";
 // T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import
 // from a sub-path because the design-system package.json only exports ".").
 export { renderPayload } from "./block/render-payload.js";
+export type { TablePayloadProps } from "./block/TablePayload.js";
+export { TablePayload } from "./block/TablePayload.js";
 export type { CheckboxProps } from "./Checkbox.js";
 export { Checkbox } from "./Checkbox.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
@@ -78,6 +78,11 @@ export { clickableProps } from "./clickable.js";
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
 export { DialogPortalRoot } from "./DialogPortalRoot.js";
+// ── AM5: DS diff core — (code,diff) structural renderer + selector (K2b) ──
+export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
+export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
+export type { DiffRendererComponent, DiffRendererProps } from "./diff/select-diff.js";
+export { getDiffRenderer } from "./diff/select-diff.js";
 // ── DOM markers (K2) ──
 export type { DsAttrs, DsShellAttrs, DsSource, DsTier } from "./ds-attrs.js";
 export { dsProps, dsShellProps } from "./ds-attrs.js";
@@ -101,13 +106,6 @@ export { KnowledgeRow } from "./KnowledgeRow.js";
 // ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
 export type { KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
-export type { SparklineProps } from "./Sparkline.js";
-export { Sparkline } from "./Sparkline.js";
-// ── AM5: DS diff core — (code,diff) structural renderer + selector (K2b) ──
-export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
-export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
-export type { DiffRendererComponent, DiffRendererProps } from "./diff/select-diff.js";
-export { getDiffRenderer } from "./diff/select-diff.js";
 // ── AM5: composeArtifactBody — the single-home Artifact composition (REPLACES getRenderer) ──
 // K5: CodeRenderer/DataRenderer/FallbackRenderer/HtmlRenderer/ImageRenderer/TextRenderer/UrlRenderer
 // + getRenderer + RendererComponent/RendererProps are REMOVED from this barrel (kind layer collapsed).
@@ -152,6 +150,8 @@ export type { SelectProps } from "./Select.js";
 export { Select } from "./Select.js";
 export type { SkeletonCardProps, SkeletonListProps, SkeletonProps } from "./Skeleton.js";
 export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton.js";
+export type { SparklineProps } from "./Sparkline.js";
+export { Sparkline } from "./Sparkline.js";
 export type { FoldMode, SplitViewProps } from "./SplitView.js";
 export { SplitView } from "./SplitView.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";

@@ -12,9 +12,9 @@
 // 2. The barrel no longer exports getRenderer / *Renderer (AC-COLLAPSE negative-existence).
 // 3. The gate (ArtifactPreviewSurface) returns NoPreviewText for null preview (K0b).
 
+import * as DesignSystem from "@hyperidle/design-system";
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
-import * as DesignSystem from "@hyperidle/design-system";
 import { afterEach, describe, expect, it } from "vitest";
 
 afterEach(cleanup);
@@ -25,7 +25,12 @@ const { composeArtifactBody, ArtifactPreviewSurface } = DesignSystem;
 
 describe("composeArtifactBody dispatch (AC1/AC4)", () => {
 	it("'code' kind → renders CodePayload (pre block with code text)", () => {
-		const preview = { kind: "code", path: "src/hello.ts", lang: "typescript", text: "const x = 1;" };
+		const preview = {
+			kind: "code",
+			path: "src/hello.ts",
+			lang: "typescript",
+			text: "const x = 1;",
+		};
 		const { container } = render(<>{composeArtifactBody("code", preview)}</>);
 		expect(container.querySelector("pre")).toBeTruthy();
 		expect(container.textContent).toContain("const x = 1;");

@@ -222,6 +222,9 @@ function ConversationHeader({
 // every compose action, each labeled + single-purpose. No duplicate icon strip.
 // AM1 §12.6: the menu items are VISIBLE AFFORDANCES — picking one closes the
 // menu but does NOT yet mutate the draft (rich-compose wiring is deferred).
+// @lore AM5 T9 DEFER: InsertMenu open contract wiring (clicking an item → open
+// the referenced artifact/block) is OUT OF SCOPE for AM5. This is a draft-mutation/
+// rich-compose concern. Affordance stays visible; a later composer WP wires it.
 // ───────────────────────────────────────────────────────────────────
 function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	const items = [

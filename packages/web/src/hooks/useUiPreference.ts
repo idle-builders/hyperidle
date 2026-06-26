@@ -36,9 +36,7 @@ export function useUiPreference(
 	surfaceKey: string,
 	defaultRatio: number,
 ): [number, (v: number) => void] {
-	const [ratio, setRatioState] = useState<number>(() =>
-		readStored(surfaceKey, defaultRatio),
-	);
+	const [ratio, setRatioState] = useState<number>(() => readStored(surfaceKey, defaultRatio));
 
 	const setRatio = useCallback(
 		(v: number): void => {

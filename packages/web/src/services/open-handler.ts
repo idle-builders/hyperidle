@@ -63,11 +63,7 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				if (path === null) return;
 				// @lore AM5 T8: append #block-<encodeURIComponent(blockId)> for block-anchored open (AC2).
 				// No selector concat — the fragment is matched by value at the scroll site (KnowledgeDetail).
-				navigate(
-					target.blockId
-						? `${path}#block-${encodeURIComponent(target.blockId)}`
-						: path,
-				);
+				navigate(target.blockId ? `${path}#block-${encodeURIComponent(target.blockId)}` : path);
 				return;
 			}
 			case "artifact":

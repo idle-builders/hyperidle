@@ -505,6 +505,7 @@ function KnowledgeDetailView({
 	// HostThreadSection.tsx, WorkBet.tsx). React 18: schedule via rAF so the KnowledgeBody
 	// render is complete (https://react.dev/reference/react/useEffect).
 	const { hash } = useLocation();
+	// biome-ignore lint/correctness/useExhaustiveDependencies: savedContent triggers re-scroll after content changes (blocks re-render with new data-block-id attrs)
 	useEffect(() => {
 		if (!hash.startsWith("#block-")) return;
 		const decoded = decodeURIComponent(hash.slice("#block-".length));
@@ -938,6 +939,11 @@ function KnowledgeDetailView({
 								/>
 							</div>
 						) : (
+							// @lore AM5 T9: onOpenBlockActions is wired (L18 added this; it opens BlockActionsPopover
+							// with Discuss/Share. AM5 adds the block-anchor navigate contract (H2/AC2) as a
+							// COMPLEMENT: external links into knowledge now land at #block-<id> via
+							// open-handler + resolveHostRoute, while the local popover stays for in-page
+							// actions. No change needed here — the two paths are orthogonal.
 							<KnowledgeBody
 								body={savedContent}
 								hostId={item.id}

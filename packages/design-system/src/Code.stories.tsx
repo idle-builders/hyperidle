@@ -14,7 +14,7 @@ export const WithLang = (): JSX.Element => (
 );
 
 export const NoLang = (): JSX.Element => (
-	<CodePayload lang={null} text={"npm run dev\n# server 3001 + web 5173"} />
+	<CodePayload lang={null} text="npm run dev\n# server 3001 + web 5173" />
 );
 
 export const Collapsible = (): JSX.Element => (

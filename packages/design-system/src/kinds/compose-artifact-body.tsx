@@ -21,15 +21,15 @@
 // block-payload layer already owns. The block-payload layer is canonical (K2);
 // this is Artifact composing it standalone (one instance, pure of states).
 
-import { deriveBlocks } from "@hyperidle/shared";
 import type { Block as BlockData } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Block } from "../Block.js";
 import { CodePayload } from "../block/CodePayload.js";
 import { HtmlPayload } from "../block/HtmlPayload.js";
 import { ImagePayload } from "../block/ImagePayload.js";
-import { UnknownPayload } from "../block/UnknownPayload.js";
 import { renderInline } from "../block/inline.js";
+import { UnknownPayload } from "../block/UnknownPayload.js";
 import { KpiStat } from "../KpiStat.js";
 import { Sparkline } from "../Sparkline.js";
 
@@ -77,12 +77,7 @@ export function composeArtifactBody(
 	sanitizeHtml?: (raw: string) => string,
 ): JSX.Element {
 	if (!preview || typeof preview !== "object") {
-		return (
-			<UnknownPayload
-				raw={JSON.stringify(preview)}
-				reason="parser-unrecognised"
-			/>
-		);
+		return <UnknownPayload raw={JSON.stringify(preview)} reason="parser-unrecognised" />;
 	}
 	const p = preview as Record<string, unknown>;
 
@@ -97,7 +92,12 @@ export function composeArtifactBody(
 			return (
 				<div className="flex flex-col gap-[9px]">
 					{blocks.map((block: BlockData) => (
-						<Block key={block.id} id={block.id} payload={block.payload} sanitizeHtml={sanitizeHtml} />
+						<Block
+							key={block.id}
+							id={block.id}
+							payload={block.payload}
+							sanitizeHtml={sanitizeHtml}
+						/>
 					))}
 				</div>
 			);
@@ -120,8 +120,7 @@ export function composeArtifactBody(
 			// Dimensional fallback preserves the Z8-028 contract: non-empty alt
 			const width = typeof p.width === "number" ? p.width : null;
 			const height = typeof p.height === "number" ? p.height : null;
-			const dimensionFallback =
-				width !== null && height !== null ? `${width}×${height}` : "image";
+			const dimensionFallback = width !== null && height !== null ? `${width}×${height}` : "image";
 			const alt = typeof p.alt === "string" && p.alt.length > 0 ? p.alt : dimensionFallback;
 			// image schema has no title field — always null
 			return <ImagePayload url={url} alt={alt} title={null} />;
@@ -158,9 +157,7 @@ export function composeArtifactBody(
 			const headlines = Array.isArray(p.headlines)
 				? (p.headlines as Array<{ label: string; value: string }>)
 				: [];
-			const rows = Array.isArray(p.rows)
-				? (p.rows as Record<string, string>[])
-				: [];
+			const rows = Array.isArray(p.rows) ? (p.rows as Record<string, string>[]) : [];
 			const charts = Array.isArray(p.charts)
 				? (p.charts as Array<{ label: string; values: number[] }>)
 				: [];
@@ -187,12 +184,7 @@ export function composeArtifactBody(
 
 		default: {
 			// K1: unknown content → generic fallback (label + raw content), never crash
-			return (
-				<UnknownPayload
-					raw={JSON.stringify(preview, null, 2)}
-					reason="parser-unrecognised"
-				/>
-			);
+			return <UnknownPayload raw={JSON.stringify(preview, null, 2)} reason="parser-unrecognised" />;
 		}
 	}
 }

@@ -12,7 +12,12 @@ const FIXTURE: Artifact = {
 	producingTaskTitle: "Implement auth flow",
 	kind: "code",
 	label: null,
-	preview: { kind: "code", path: "src/auth/jwt-middleware.ts", lang: "typescript", text: "// jwt-middleware" },
+	preview: {
+		kind: "code",
+		path: "src/auth/jwt-middleware.ts",
+		lang: "typescript",
+		text: "// jwt-middleware",
+	},
 	cost: {
 		money: { minor: 42, currency: "USD" },
 		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },

@@ -33,6 +33,7 @@ vi.mock("../../services/api-fetch.js", () => ({
 }));
 
 import { useAssistantThread } from "../../hooks/useAssistantThread.js";
+import { MemoryRouter } from "react-router-dom";
 import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
 
 const NOW_ISO = new Date().toISOString();
@@ -80,13 +81,17 @@ function makeData(messages: ReadonlyArray<Record<string, unknown>>): AssistantTh
 }
 
 function renderOverlay() {
+	// AM5 T9: AssistantOverlayInner now calls useNavigate() for block-ref-embed
+	// open-contract wiring. Wrap in MemoryRouter to satisfy the Router context requirement.
 	return render(
-		<AssistantOverlay
-			open={true}
-			onClose={vi.fn()}
-			contextRefs={[]}
-			onRemoveContextRef={vi.fn()}
-		/>,
+		<MemoryRouter>
+			<AssistantOverlay
+				open={true}
+				onClose={vi.fn()}
+				contextRefs={[]}
+				onRemoveContextRef={vi.fn()}
+			/>
+		</MemoryRouter>,
 	);
 }
 
