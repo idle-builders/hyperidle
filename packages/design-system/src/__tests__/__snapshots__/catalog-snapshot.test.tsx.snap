@@ -640,6 +640,118 @@ exports[`ArtifactKindBadge > FundamentalKinds 1`] = `
 "
 `;
 
+exports[`ArtifactPreview > ErrorState 1`] = `
+"<div class="w-[960px]">
+  <div class="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]" data-ds-component="ArtifactPreview" data-ds-source="design-system" data-ds-tier="2">
+    <div class="[grid-column:1/-1] flex flex-col gap-[8px]">
+      <div class="flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-[var(--tracking-caps-sm)] flex-wrap">
+        <span class="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase whitespace-nowrap" data-ds-component="ArtifactKindBadge" data-ds-source="design-system" data-ds-tier="1">
+          "TEXT"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "/"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "decision"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span>
+          "Pick auth library"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span class="inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]" data-ds-component="ArtifactCostChip" data-ds-source="design-system" data-ds-tier="1">
+          <span>
+            "$0.42"
+          </span>
+          <span class="text-[var(--text-tertiary)]">
+            "·"
+          </span>
+          <span>
+            "12.4k"
+          </span>
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span class="font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]" data-ds-component="ArtifactTimestamp" data-ds-source="design-system" data-ds-tier="1" title="__ts__">
+          "12m ago"
+        </span>
+        <span class="ml-auto text-[var(--text-tertiary)] normal-case">
+          "art_01HM"
+        </span>
+      </div>
+      <div class="text-[20px] font-semibold text-[var(--text-primary)] leading-[1.2] normal-case">
+        "Pick auth library"
+      </div>
+    </div>
+    <div class="bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex items-center justify-center text-[var(--text-tertiary)] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase min-h-[240px] items-start" data-ds-component="ArtifactPreviewSurface" data-ds-source="design-system" data-ds-tier="1">
+      "No preview available"
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`ArtifactPreview > Loading 1`] = `
+"<div class="w-[960px]">
+  <div class="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]" data-ds-component="ArtifactPreview" data-ds-source="design-system" data-ds-tier="2">
+    <div class="[grid-column:1/-1] flex flex-col gap-[8px]">
+      <div class="flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-[var(--tracking-caps-sm)] flex-wrap">
+        <span class="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase whitespace-nowrap" data-ds-component="ArtifactKindBadge" data-ds-source="design-system" data-ds-tier="1">
+          "TEXT"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "/"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "decision"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span>
+          "Pick auth library"
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span class="inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]" data-ds-component="ArtifactCostChip" data-ds-source="design-system" data-ds-tier="1">
+          <span>
+            "$0.42"
+          </span>
+          <span class="text-[var(--text-tertiary)]">
+            "·"
+          </span>
+          <span>
+            "12.4k"
+          </span>
+        </span>
+        <span class="text-[var(--text-tertiary)]">
+          "·"
+        </span>
+        <span class="font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]" data-ds-component="ArtifactTimestamp" data-ds-source="design-system" data-ds-tier="1" title="__ts__">
+          "12m ago"
+        </span>
+        <span class="ml-auto text-[var(--text-tertiary)] normal-case">
+          "art_01HM"
+        </span>
+      </div>
+      <div class="text-[20px] font-semibold text-[var(--text-primary)] leading-[1.2] normal-case">
+        "Pick auth library"
+      </div>
+    </div>
+    <div class="bg-[var(--surface-container)] rounded-[var(--r-subtle)] p-[12px] flex items-center justify-center text-[var(--text-tertiary)] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase min-h-[240px] items-start" data-ds-component="ArtifactPreviewSurface" data-ds-source="design-system" data-ds-tier="1">
+      "No preview available"
+    </div>
+  </div>
+</div>
+"
+`;
+
 exports[`ArtifactPreview > NoPreview 1`] = `
 "<div class="w-[960px]">
   <div class="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[24px] grid grid-cols-1 [@media(min-width:1024px)]:grid-cols-[1fr_320px] gap-[24px]" data-ds-component="ArtifactPreview" data-ds-source="design-system" data-ds-tier="2">
@@ -2397,6 +2509,48 @@ exports[`Checkbox > Default 1`] = `
 "
 `;
 
+exports[`Code > Collapsible 1`] = `
+"<div class="flex flex-col gap-[6px]">
+  <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+    "json"
+  </div>
+  <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+    <code style="tab-size: 2;">
+      "\\"line_1\\": 1, \\"line_2\\": 2, \\"line_3\\": 3, \\"line_4\\": 4, \\"line_5\\": 5, \\"line_6\\": 6, \\"line_7\\": 7, \\"line_8\\": 8, \\"line_9\\": 9, \\"line_10\\": 10, \\"line_11\\": 11, \\"line_12\\": 12, \\"line_13\\": 13, \\"line_14\\": 14, \\"line_15\\": 15, \\"line_16\\": 16, \\"line_17\\": 17, \\"line_18\\": 18, \\"line_19\\": 19, \\"line_20\\": 20,"
+    </code>
+  </pre>
+  <button class="self-start text-[12px] text-[var(--text-secondary)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:2px] rounded-[var(--r-subtle)]" aria-expanded="false" type="button">
+    "Expand 8 more lines"
+  </button>
+</div>
+"
+`;
+
+exports[`Code > NoLang 1`] = `
+"<div class="flex flex-col gap-[6px]">
+  <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+    <code style="tab-size: 2;">
+      "npm run dev # server 3001 + web 5173"
+    </code>
+  </pre>
+</div>
+"
+`;
+
+exports[`Code > WithLang 1`] = `
+"<div class="flex flex-col gap-[6px]">
+  <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+    "ts"
+  </div>
+  <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+    <code style="tab-size: 2;">
+      "export function deriveBlocks(body: string): Block[] { return parse(body).map(toBlock); }"
+    </code>
+  </pre>
+</div>
+"
+`;
+
 exports[`CommentRow > AgentMessage 1`] = `
 "<li class="flex gap-[12px] py-[6px] px-[12px]" data-ds-component="CommentRow" data-ds-source="design-system" data-ds-tier="2">
   <span class="inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0">
@@ -2598,6 +2752,19 @@ exports[`Composer > WithUnresolvedReviewLink 1`] = `
       "Send"
     </button>
   </div>
+</div>
+"
+`;
+
+exports[`Divider > Rule 1`] = `
+"<div class="flex flex-col">
+  <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+    "Content above the divider."
+  </p>
+  <hr class="my-[12px] border-0 border-t border-[var(--border-subtle)]" />
+  <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+    "Content below the divider."
+  </p>
 </div>
 "
 `;
@@ -2946,6 +3113,114 @@ exports[`Fold > WorkFold 1`] = `
     "Show"
   </span>
 </button>
+"
+`;
+
+exports[`Heading > Levels 1`] = `
+"<div class="flex flex-col gap-[12px]">
+  <h1 class="text-[24px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level one"
+  </h1>
+  <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level two"
+  </h2>
+  <h3 class="text-[18px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level three"
+  </h3>
+  <h4 class="text-[16px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level four"
+  </h4>
+  <h5 class="text-[15px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level five"
+  </h5>
+  <h6 class="text-[13px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+    "Heading level six"
+  </h6>
+</div>
+"
+`;
+
+exports[`Heading > WithInline 1`] = `
+"<h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+  "Quarterly review"
+  <em class="italic">
+    "(draft)"
+  </em>
+</h2>
+"
+`;
+
+exports[`Html > ListMarkup 1`] = `
+"<div class="w-[480px]">
+  <div class="bg-[var(--surface-container)] p-[12px] rounded-[var(--r-default)]">
+    <ul>
+      <li>
+        "First import"
+      </li>
+      <li>
+        "Second import"
+      </li>
+      <li>
+        "Third import"
+      </li>
+    </ul>
+  </div>
+</div>
+"
+`;
+
+exports[`Html > Rendered 1`] = `
+"<div class="w-[480px]">
+  <div class="bg-[var(--surface-container)] p-[12px] rounded-[var(--r-default)]">
+    <p>
+      "Embedded HTML rendered through the host sanitiser. Supports"
+      <strong>
+        "emphasis"
+      </strong>
+      "and"
+      <a href="/docs">
+        "links"
+      </a>
+      "."
+    </p>
+  </div>
+</div>
+"
+`;
+
+exports[`Image > Captioned 1`] = `
+"<div class="w-[420px]">
+  <figure class="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden">
+    <img class="block max-w-full h-auto" src="https://placehold.co/600x240" />
+    <button class="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px]" aria-label="Zoom image" type="button">
+      <svg aria-hidden="true">
+        <circle />
+        <path />
+      </svg>
+    </button>
+    <figcaption class="text-[12px] text-[var(--text-tertiary)] px-[12px] py-[6px]">
+      "A placeholder figure"
+    </figcaption>
+  </figure>
+</div>
+"
+`;
+
+exports[`Image > WithTitle 1`] = `
+"<div class="w-[420px]">
+  <figure class="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden">
+    <img class="block max-w-full h-auto" title="Three-layer system" src="https://placehold.co/600x300" />
+    <button class="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px]" aria-label="Zoom image" type="button">
+      <svg aria-hidden="true">
+        <circle />
+        <path />
+      </svg>
+    </button>
+    <figcaption class="text-[12px] text-[var(--text-tertiary)] px-[12px] py-[6px]">
+      "Architecture diagram"
+    </figcaption>
+  </figure>
+</div>
 "
 `;
 
@@ -3299,22 +3574,6 @@ exports[`KeyValue > StackedLayout 1`] = `
 "
 `;
 
-exports[`Kinds/CodeRenderer > EmptyHunks 1`] = `
-"<section aria-label="Code diff">
-  <p class="text-sm text-[var(--text-tertiary)] italic">
-    "No diff available."
-  </p>
-</section>
-"
-`;
-
-exports[`Kinds/CodeRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "No diff available."
-</p>
-"
-`;
-
 exports[`Kinds/CodeRenderer > WithDiff 1`] = `
 "<section aria-label="Code diff">
   <p class="text-xs font-mono text-[var(--text-secondary)] mb-2">
@@ -3377,21 +3636,178 @@ exports[`Kinds/CodeRenderer > WithDiff 1`] = `
 "
 `;
 
-exports[`Kinds/DataRenderer > Empty 1`] = `
-"<section aria-label="Data metrics">
-  <p class="text-sm text-[var(--text-tertiary)] italic">
-    "No metrics available."
-  </p>
-</section>
+exports[`Kinds/CodeSingleRenderer > PlainFile 1`] = `
+"<div class="max-w-[640px]">
+  <section aria-label="Code file">
+    <div class="flex items-center gap-[6px] mb-[6px]">
+      <span class="font-mono text-[11px] text-[var(--text-secondary)]">
+        "packages/design-system/src/kinds/renderer-registry.ts"
+      </span>
+      <span class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "typescript"
+      </span>
+    </div>
+    <pre class="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[12px] overflow-x-auto text-xs font-mono leading-[1.5] m-0 text-[var(--text-primary)]">
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "1"
+        </span>
+        <code class="whitespace-pre">
+          "export function getRenderer("
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "2"
+        </span>
+        <code class="whitespace-pre">
+          "kind: string,"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "3"
+        </span>
+        <code class="whitespace-pre">
+          "representation: Representation,"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "4"
+        </span>
+        <code class="whitespace-pre">
+          "): RendererComponent {"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "5"
+        </span>
+        <code class="whitespace-pre">
+          "const cell = RENDERER_MAP.get(\`\${kind}:\${representation}\`);"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "6"
+        </span>
+        <code class="whitespace-pre">
+          "return cell ?? fallbackFor(representation);"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "7"
+        </span>
+        <code class="whitespace-pre">
+          "}"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "8"
+        </span>
+        <code class="whitespace-pre">
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "9"
+        </span>
+        <code class="whitespace-pre">
+          "// (code, single) renders a file AS A FILE — no diff,"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "10"
+        </span>
+        <code class="whitespace-pre">
+          "// no add/del gutters, just the source with line numbers."
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "11"
+        </span>
+        <code class="whitespace-pre">
+          "const ARTIFACT_KINDS = ["
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "12"
+        </span>
+        <code class="whitespace-pre">
+          "\\"text\\", \\"code\\", \\"image\\", \\"data\\", \\"html\\", \\"url\\","
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 2ch;">
+          "13"
+        </span>
+        <code class="whitespace-pre">
+          "] as const;"
+        </code>
+      </div>
+    </pre>
+  </section>
+</div>
 "
 `;
 
-exports[`Kinds/DataRenderer > NoPreview 1`] = `
-"<section aria-label="Data metrics">
-  <p class="text-sm text-[var(--text-tertiary)] italic">
-    "No metrics available."
-  </p>
-</section>
+exports[`Kinds/CodeSingleRenderer > ShortFile 1`] = `
+"<div class="max-w-[640px]">
+  <section aria-label="Code file">
+    <div class="flex items-center gap-[6px] mb-[6px]">
+      <span class="font-mono text-[11px] text-[var(--text-secondary)]">
+        "vite.config.ts"
+      </span>
+    </div>
+    <pre class="bg-[var(--surface-container)] rounded-[var(--r-default)] p-[12px] overflow-x-auto text-xs font-mono leading-[1.5] m-0 text-[var(--text-primary)]">
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 1ch;">
+          "1"
+        </span>
+        <code class="whitespace-pre">
+          "import { defineConfig } from \\"vite\\";"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 1ch;">
+          "2"
+        </span>
+        <code class="whitespace-pre">
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 1ch;">
+          "3"
+        </span>
+        <code class="whitespace-pre">
+          "export default defineConfig({"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 1ch;">
+          "4"
+        </span>
+        <code class="whitespace-pre">
+          "server: { port: 8098 },"
+        </code>
+      </div>
+      <div class="flex">
+        <span class="select-none text-[var(--text-tertiary)] text-right mr-[12px] shrink-0" style="width: 1ch;">
+          "5"
+        </span>
+        <code class="whitespace-pre">
+          "});"
+        </code>
+      </div>
+    </pre>
+  </section>
+</div>
 "
 `;
 
@@ -3535,14 +3951,6 @@ exports[`Kinds/FallbackRenderer > NestedData 1`] = `
 "
 `;
 
-exports[`Kinds/FallbackRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "blog_post"
-  "— no preview available."
-</p>
-"
-`;
-
 exports[`Kinds/FallbackRenderer > WithFields 1`] = `
 "<section class="flex flex-col gap-1" aria-label="presentation preview">
   <div class="flex gap-3 text-sm">
@@ -3581,13 +3989,6 @@ exports[`Kinds/FallbackRenderer > WithFields 1`] = `
 "
 `;
 
-exports[`Kinds/HtmlRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "HTML preview pending."
-</p>
-"
-`;
-
 exports[`Kinds/HtmlRenderer > NoTitle 1`] = `
 "<section aria-label="HTML preview">
   <iframe class="w-full rounded-[var(--r-default)] border border-[var(--border-subtle)]" style="min-height: 300px;" title="HTML artifact preview" />
@@ -3619,13 +4020,6 @@ exports[`Kinds/ImageRenderer > NoAlt 1`] = `
 "
 `;
 
-exports[`Kinds/ImageRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "Image pending."
-</p>
-"
-`;
-
 exports[`Kinds/ImageRenderer > WithImage 1`] = `
 "<section aria-label="Image preview">
   <figure class="rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden m-0">
@@ -3640,10 +4034,250 @@ exports[`Kinds/ImageRenderer > WithImage 1`] = `
 "
 `;
 
-exports[`Kinds/TextRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "No content preview available."
-</p>
+exports[`Kinds/TextBlocksRenderer > RichDocument 1`] = `
+"<section class="flex flex-col" aria-label="Text content">
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <h1 class="text-[24px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+        "Authentication strategy"
+      </h1>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "This document records the decision to use"
+        <strong class="text-[var(--text-primary)] font-semibold">
+          "JWT-based"
+        </strong>
+        "authentication with refresh-token rotation, and the rationale behind it."
+      </p>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+        "Token lifetimes"
+      </h2>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Two token types, two lifetimes:"
+      </p>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="list" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <ul class="pl-[20px] m-0 flex flex-col gap-[2px]">
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Access tokens expire in 15 minutes."
+            </p>
+          </span>
+        </li>
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Refresh tokens last 7 days and rotate automatically."
+            </p>
+          </span>
+        </li>
+      </ul>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <h3 class="text-[18px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+        "Rollout steps"
+      </h3>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="list" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <ol class="pl-[20px] m-0 flex flex-col gap-[2px]">
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Ship the issuer behind a flag."
+            </p>
+          </span>
+        </li>
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Migrate existing sessions on next login."
+            </p>
+          </span>
+        </li>
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Remove the legacy cookie path."
+            </p>
+          </span>
+        </li>
+      </ol>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="quote" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <blockquote class="border-l-2 border-[var(--border-strong)] pl-[12px] text-[var(--text-secondary)] m-0 flex flex-col gap-[9px]">
+        <span>
+          <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+            "All tokens live in httpOnly cookies — never localStorage."
+          </p>
+        </span>
+      </blockquote>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+        "Reference"
+      </h2>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "The verification snippet teams paste into their service:"
+      </p>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="code" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <div class="flex flex-col gap-[6px]">
+        <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+          "ts"
+        </div>
+        <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+          <code style="tab-size: 2;">
+            "const claims = verify(token, publicKey); if (claims.exp < Date.now() / 1000) throw new TokenExpired();"
+          </code>
+        </pre>
+      </div>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Token matrix:"
+      </p>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="table" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <div class="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
+        <table class="w-full border-collapse text-[13px]">
+          <thead class="sticky top-0 bg-[var(--surface-container)]">
+            <tr>
+              <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+                "Token"
+              </th>
+              <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+                "Lifetime"
+              </th>
+              <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+                "Storage"
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "Access"
+              </td>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "15 min"
+              </td>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "httpOnly cookie"
+              </td>
+            </tr>
+            <tr>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "Refresh"
+              </td>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "7 days"
+              </td>
+              <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                "httpOnly cookie"
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </article>
+</section>
+"
+`;
+
+exports[`Kinds/TextBlocksRenderer > ShortNote 1`] = `
+"<section class="flex flex-col" aria-label="Text content">
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+        "Rate limiting"
+      </h2>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Rate limiting runs at 100 requests/minute per API key using a sliding window. Over-limit requests return"
+        <code class="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]">
+          "429"
+        </code>
+        "with a"
+        <code class="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]">
+          "Retry-After"
+        </code>
+        "header."
+      </p>
+    </div>
+  </article>
+  <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="list" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+    <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+    <div class="flex flex-col gap-[9px] min-w-0">
+      <ul class="pl-[20px] m-0 flex flex-col gap-[2px]">
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Internal service accounts are exempt."
+            </p>
+          </span>
+        </li>
+        <li class="text-[var(--text-primary)] leading-[1.6]">
+          <span>
+            <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+              "Limits reset on a rolling 60-second window."
+            </p>
+          </span>
+        </li>
+      </ul>
+    </div>
+  </article>
+</section>
 "
 `;
 
@@ -3692,13 +4326,6 @@ exports[`Kinds/UrlRenderer > Healthy 1`] = `
     "Healthy"
   </span>
 </section>
-"
-`;
-
-exports[`Kinds/UrlRenderer > NoPreview 1`] = `
-"<p class="text-sm text-[var(--text-tertiary)] italic">
-  "No URL available."
-</p>
 "
 `;
 
@@ -4124,6 +4751,155 @@ exports[`KnowledgeRow > WithSignals 1`] = `
     </span>
   </div>
 </div>
+"
+`;
+
+exports[`KpiStat > MetricRow 1`] = `
+"<section aria-label="Key metrics">
+  <div class="flex flex-wrap gap-3">
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "MRR"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "$42,180"
+      </span>
+    </div>
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "Active users"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "1,284"
+      </span>
+    </div>
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "Conversion"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "3.7%"
+      </span>
+    </div>
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "Churn"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "1.9%"
+      </span>
+    </div>
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "Avg ticket"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "4h 12m"
+      </span>
+    </div>
+  </div>
+</section>
+"
+`;
+
+exports[`KpiStat > SingleMetric 1`] = `
+"<section aria-label="Key metrics">
+  <div class="flex flex-wrap gap-3">
+    <div class="flex flex-col">
+      <span class="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+        "MRR"
+      </span>
+      <span class="text-base font-semibold text-[var(--text-primary)] tabular-nums">
+        "$42,180"
+      </span>
+    </div>
+  </div>
+</section>
+"
+`;
+
+exports[`Link > InProse 1`] = `
+"<p class="text-[var(--text-primary)] leading-[1.6] m-0">
+  "Open the"
+  <a class="text-[var(--accent-primary)] underline underline-offset-2" href="/artifacts/a1">
+    "draft artifact"
+  </a>
+  "or jump to the"
+  <a class="text-[var(--accent-primary)] underline underline-offset-2" href="/knowledge/k9">
+    "knowledge entry"
+  </a>
+  "for context."
+</p>
+"
+`;
+
+exports[`Link > Standalone 1`] = `
+"<p class="text-[var(--text-primary)] leading-[1.6] m-0">
+  <a class="text-[var(--accent-primary)] underline underline-offset-2" href="/work/bet/q3-onboarding">
+    "Q3 onboarding bet"
+  </a>
+</p>
+"
+`;
+
+exports[`List > Ordered 1`] = `
+"<ol class="pl-[20px] m-0 flex flex-col gap-[2px]">
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Extract the acceptance criteria"
+      </p>
+    </span>
+  </li>
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Define the verification method"
+      </p>
+    </span>
+  </li>
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Write the failing tests"
+      </p>
+    </span>
+  </li>
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Implement against the target"
+      </p>
+    </span>
+  </li>
+</ol>
+"
+`;
+
+exports[`List > Unordered 1`] = `
+"<ul class="pl-[20px] m-0 flex flex-col gap-[2px]">
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Plan the bet"
+      </p>
+    </span>
+  </li>
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Interact through the conversation"
+      </p>
+    </span>
+  </li>
+  <li class="text-[var(--text-primary)] leading-[1.6]">
+    <span>
+      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+        "Review the result"
+      </p>
+    </span>
+  </li>
+</ul>
 "
 `;
 
@@ -5840,6 +6616,32 @@ exports[`Palette Comparison > NewPaletteBothModes 1`] = `
 "
 `;
 
+exports[`Paragraph > Plain 1`] = `
+"<p class="text-[var(--text-primary)] leading-[1.6] m-0">
+  "A paragraph of body text rendered on the Hearth content scale — the base unit of prose across artifacts, blocks and knowledge."
+</p>
+"
+`;
+
+exports[`Paragraph > RichInline 1`] = `
+"<p class="text-[var(--text-primary)] leading-[1.6] m-0">
+  "Ship via"
+  <strong class="text-[var(--text-primary)] font-semibold">
+    "the open contract"
+  </strong>
+  "and reuse"
+  <code class="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]">
+    "deriveBlocks(body)"
+  </code>
+  "— see the"
+  <a class="text-[var(--accent-primary)] underline underline-offset-2" href="/docs/blocks">
+    "block spec"
+  </a>
+  "."
+</p>
+"
+`;
+
 exports[`Progress > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]" style="width: 320px;">
   <div class="flex flex-col gap-[6px]" data-ds-component="Progress" data-ds-source="design-system" data-ds-tier="0">
@@ -5931,6 +6733,33 @@ exports[`Progress > WithLabels 1`] = `
     </div>
   </div>
 </div>
+"
+`;
+
+exports[`Quote > MultiLine 1`] = `
+"<blockquote class="border-l-2 border-[var(--border-strong)] pl-[12px] text-[var(--text-secondary)] m-0 flex flex-col gap-[9px]">
+  <span>
+    <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+      "Density over whitespace. Whitespace is earned, not given."
+    </p>
+  </span>
+  <span>
+    <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+      "One interaction grammar, built once and reused everywhere."
+    </p>
+  </span>
+</blockquote>
+"
+`;
+
+exports[`Quote > Single 1`] = `
+"<blockquote class="border-l-2 border-[var(--border-strong)] pl-[12px] text-[var(--text-secondary)] m-0 flex flex-col gap-[9px]">
+  <span>
+    <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+      "Humans validate, agents execute."
+    </p>
+  </span>
+</blockquote>
 "
 `;
 
@@ -7472,6 +8301,139 @@ exports[`Skeleton > SingleBarNarrow 1`] = `
 "
 `;
 
+exports[`Sparkline > Flat 1`] = `
+"<div class="flex items-center gap-2">
+  <span class="w-32 shrink-0 font-mono text-xs uppercase text-[var(--text-tertiary)]">
+    "Uptime %"
+  </span>
+  <svg class="inline-block" role="img" aria-label="Uptime % sparkline">
+    <polyline />
+  </svg>
+</div>
+"
+`;
+
+exports[`Sparkline > Trend 1`] = `
+"<div class="flex items-center gap-2">
+  <span class="w-32 shrink-0 font-mono text-xs uppercase text-[var(--text-tertiary)]">
+    "Signups"
+  </span>
+  <svg class="inline-block" role="img" aria-label="Signups sparkline">
+    <polyline />
+  </svg>
+</div>
+"
+`;
+
+exports[`Sparkline > Volatile 1`] = `
+"<div class="flex items-center gap-2">
+  <span class="w-32 shrink-0 font-mono text-xs uppercase text-[var(--text-tertiary)]">
+    "Latency ms"
+  </span>
+  <svg class="inline-block" role="img" aria-label="Latency ms sparkline">
+    <polyline />
+  </svg>
+</div>
+"
+`;
+
+exports[`SplitView > FoldBack 1`] = `
+"<div class="h-[420px] w-[760px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 100%;">
+      <div class="flex h-full flex-col gap-[6px] p-[18px]">
+        <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+          "origin surface (stays live)"
+        </div>
+        <div class="flex flex-1 items-center justify-center rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] text-center text-[13px] text-[var(--text-secondary)]">
+          "origin surface — nothing open"
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`SplitView > Full 1`] = `
+"<div class="h-[420px] w-[760px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 100%;">
+      <div class="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Collapse to split" type="button" title="Collapse to split">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+            <path />
+            <path />
+          </svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <div class="flex h-full flex-col gap-[6px] p-[18px]">
+          <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+            "destination — the resolved composition"
+          </div>
+          <div class="flex flex-1 items-center justify-center rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] text-center text-[13px] text-[var(--text-secondary)]">
+            "full-page open = fully folded-forward"
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`SplitView > Split 1`] = `
+"<div class="h-[420px] w-[760px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 0; flex-basis: 50%;">
+      <div class="flex h-full flex-col gap-[6px] p-[18px]">
+        <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+          "origin surface (stays live)"
+        </div>
+        <div class="flex flex-1 items-center justify-center rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] text-center text-[13px] text-[var(--text-secondary)]">
+          "conversation / review / knowledge"
+        </div>
+      </div>
+    </div>
+    <button class="group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]" aria-label="Resize panels" type="button">
+      <span class="pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]" />
+    </button>
+    <div class="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 50%;">
+      <div class="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Expand to full" type="button" title="Expand to full">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+            <path />
+            <path />
+          </svg>
+        </button>
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Fold back" type="button" title="Fold back">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+          </svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <div class="flex h-full flex-col gap-[6px] p-[18px]">
+          <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+            "destination — the resolved composition"
+          </div>
+          <div class="flex flex-1 items-center justify-center rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] bg-[var(--surface-container)] text-center text-[13px] text-[var(--text-secondary)]">
+            "artifact (single) · review (diff) · body (mixed)"
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
 exports[`StatusChip > AllStatusVariants 1`] = `
 "<div class="flex flex-wrap gap-2">
   <span class="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] text-[var(--status-success)]" data-ds-component="StatusChip" data-ds-source="design-system" data-ds-tier="1" title="healthy">
@@ -7682,6 +8644,106 @@ exports[`TabBar > UnderlineVariant 1`] = `
     <button class="pb-[6px] px-[9px] text-[13px] border-b-[2px] -mb-[1px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] text-[var(--text-tertiary)] font-medium border-transparent hover:text-[var(--text-secondary)]" role="tab" aria-selected="false" type="button">
       "Settings"
     </button>
+  </div>
+</div>
+"
+`;
+
+exports[`Table > Populated 1`] = `
+"<div class="w-[480px]">
+  <div class="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
+    <table class="w-full border-collapse text-[13px]">
+      <thead class="sticky top-0 bg-[var(--surface-container)]">
+        <tr>
+          <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+            "Agent"
+          </th>
+          <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+            "Role"
+          </th>
+          <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: right;">
+            "Bets"
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Atlas"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Builder"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+            "12"
+          </td>
+        </tr>
+        <tr>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Vega"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Reviewer"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+            "7"
+          </td>
+        </tr>
+        <tr>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Nova"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            "Designer"
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+            "21"
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+"
+`;
+
+exports[`Table > WithInline 1`] = `
+"<div class="w-[480px]">
+  <div class="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
+    <table class="w-full border-collapse text-[13px]">
+      <thead class="sticky top-0 bg-[var(--surface-container)]">
+        <tr>
+          <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+            "Metric"
+          </th>
+          <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: right;">
+            "Value"
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            <strong class="text-[var(--text-primary)] font-semibold">
+              "Approval rate"
+            </strong>
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+            "0.94"
+          </td>
+        </tr>
+        <tr>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+            <code class="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]">
+              "p95_latency"
+            </code>
+          </td>
+          <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+            "120ms"
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>
 "
@@ -9665,6 +10727,565 @@ exports[`Tokens > TypeScale 1`] = `
     <span style="font-weight: 700; font-size: 15px;">
       "fw-bold"
     </span>
+  </div>
+</div>
+"
+`;
+
+exports[`UnifiedSplitView > ConversationToArtifact 1`] = `
+"<div class="h-[480px] w-[920px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 0; flex-basis: 50%;">
+      <div class="flex h-full flex-col">
+        <div class="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+          <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+            "Conversation"
+          </span>
+          <span class="text-[14px] font-semibold text-[var(--text-primary)]">
+            "Passkey login"
+          </span>
+        </div>
+        <div class="flex flex-1 flex-col overflow-auto py-[6px]">
+          <div class="flex gap-[9px] px-[18px] py-[9px]">
+            <div class="inline-flex items-center justify-center rounded-full border-[1.5px] font-semibold shrink-0 h-[28px] w-[28px] text-[10px] bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)] " data-ds-component="Avatar" data-ds-source="design-system" data-ds-tier="0">
+              "AF"
+            </div>
+            <div class="flex min-w-0 flex-col gap-[3px]">
+              <div class="flex items-baseline gap-[6px]">
+                <span class="text-[13px] font-semibold text-[var(--text-primary)]">
+                  "A. Founder"
+                </span>
+                <span class="font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                  "9:02"
+                </span>
+              </div>
+              <p class="text-[13px] leading-[var(--leading-body)] text-[var(--text-primary)]">
+                "Can you wire passkey login and show me the diff before we deploy?"
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-[9px] px-[18px] py-[9px]">
+            <div class="inline-flex items-center justify-center rounded-full border-[1.5px] font-semibold shrink-0 h-[28px] w-[28px] text-[10px] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)] " data-ds-component="Avatar" data-ds-source="design-system" data-ds-tier="0">
+              "AT"
+            </div>
+            <div class="flex min-w-0 flex-col gap-[3px]">
+              <div class="flex items-baseline gap-[6px]">
+                <span class="text-[13px] font-semibold text-[var(--text-primary)]">
+                  "Atlas"
+                </span>
+                <span class="font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                  "9:11"
+                </span>
+              </div>
+              <p class="text-[13px] leading-[var(--leading-body)] text-[var(--text-primary)]">
+                "Added WebAuthn registration and the dual-auth window. Password fallback preserved."
+              </p>
+              <div class="mt-[3px] flex flex-wrap gap-[6px]">
+                <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open auth/passkey.ts" type="button" title="Open auth/passkey.ts">
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+                    <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                  <span class="truncate font-[500] text-[var(--text-primary)]">
+                    "auth/passkey.ts"
+                  </span>
+                  <span class="shrink-0 tabular-nums text-[var(--text-tertiary)]">
+                    "+2 −1"
+                  </span>
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+                    <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                </button>
+                <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="knowledge" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open WebAuthn L3 spec" type="button" title="Open WebAuthn L3 spec">
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+                    <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                  <span class="truncate font-[500] text-[var(--text-primary)]">
+                    "WebAuthn L3 spec"
+                  </span>
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+                    <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-[9px] px-[18px] py-[9px]">
+            <div class="inline-flex items-center justify-center rounded-full border-[1.5px] font-semibold shrink-0 h-[28px] w-[28px] text-[10px] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)] " data-ds-component="Avatar" data-ds-source="design-system" data-ds-tier="0">
+              "AT"
+            </div>
+            <div class="flex min-w-0 flex-col gap-[3px]">
+              <div class="flex items-baseline gap-[6px]">
+                <span class="text-[13px] font-semibold text-[var(--text-primary)]">
+                  "Atlas"
+                </span>
+                <span class="font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                  "9:12"
+                </span>
+              </div>
+              <p class="text-[13px] leading-[var(--leading-body)] text-[var(--text-primary)]">
+                "Context for the dual-auth window:"
+              </p>
+              <div class="mt-[3px]">
+                <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="block" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open Auth migration plan · §2" type="button" title="Open Auth migration plan · §2">
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+                    <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                  <span class="truncate font-[500] text-[var(--text-primary)]">
+                    "Auth migration plan · §2"
+                  </span>
+                  <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+                    <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+                      <path />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]" aria-label="Resize panels" type="button">
+      <span class="pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]" />
+    </button>
+    <div class="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 50%;">
+      <div class="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Expand to full" type="button" title="Expand to full">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+            <path />
+            <path />
+          </svg>
+        </button>
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Fold back" type="button" title="Fold back">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+          </svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <div class="flex h-full flex-col">
+          <div class="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+            <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+              "Artifact · text"
+            </span>
+            <span class="truncate text-[14px] font-semibold text-[var(--text-primary)]">
+              "auth/passkey.ts — migration plan"
+            </span>
+            <span class="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+              "§2"
+            </span>
+          </div>
+          <div class="flex-1 overflow-auto px-[18px] py-[12px]">
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+                  "Dual-auth window"
+                </h2>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                  "Existing password sessions stay valid through phase 2. WebAuthn registration runs alongside the legacy flow so enterprise tenants who can't yet enroll passkeys keep a working login."
+                </p>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="list" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <ol class="pl-[20px] m-0 flex flex-col gap-[2px]">
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Register the WebAuthn credential on first sign-in"
+                      </p>
+                    </span>
+                  </li>
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Keep the password fallback enabled through phase 2"
+                      </p>
+                    </span>
+                  </li>
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Drop the fallback once tenant enrollment clears 95%"
+                      </p>
+                    </span>
+                  </li>
+                </ol>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="code" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <div class="flex flex-col gap-[6px]">
+                  <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                    "ts"
+                  </div>
+                  <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+                    <code style="tab-size: 2;">
+                      "if (await hasPasskey(user)) return verifyPasskey(req) return verifyPassword(req) // phase-2 fallback"
+                    </code>
+                  </pre>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`UnifiedSplitView > KnowledgeToArtifact 1`] = `
+"<div class="h-[480px] w-[920px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 100%;">
+      <div class="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Collapse to split" type="button" title="Collapse to split">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+            <path />
+            <path />
+          </svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <div class="flex h-full flex-col">
+          <div class="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+            <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+              "Artifact · text"
+            </span>
+            <span class="truncate text-[14px] font-semibold text-[var(--text-primary)]">
+              "auth/passkey.ts — migration plan"
+            </span>
+            <span class="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+              "§2"
+            </span>
+          </div>
+          <div class="flex-1 overflow-auto px-[18px] py-[12px]">
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="heading" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <h2 class="text-[20px] text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold">
+                  "Dual-auth window"
+                </h2>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="paragraph" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                  "Existing password sessions stay valid through phase 2. WebAuthn registration runs alongside the legacy flow so enterprise tenants who can't yet enroll passkeys keep a working login."
+                </p>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="list" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <ol class="pl-[20px] m-0 flex flex-col gap-[2px]">
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Register the WebAuthn credential on first sign-in"
+                      </p>
+                    </span>
+                  </li>
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Keep the password fallback enabled through phase 2"
+                      </p>
+                    </span>
+                  </li>
+                  <li class="text-[var(--text-primary)] leading-[1.6]">
+                    <span>
+                      <p class="text-[var(--text-primary)] leading-[1.6] m-0">
+                        "Drop the fallback once tenant enrollment clears 95%"
+                      </p>
+                    </span>
+                  </li>
+                </ol>
+              </div>
+            </article>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="code" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <div class="flex flex-col gap-[6px]">
+                  <div class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                    "ts"
+                  </div>
+                  <pre class="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-primary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0">
+                    <code style="tab-size: 2;">
+                      "if (await hasPasskey(user)) return verifyPasskey(req) return verifyPassword(req) // phase-2 fallback"
+                    </code>
+                  </pre>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+"
+`;
+
+exports[`UnifiedSplitView > ReviewToArtifact 1`] = `
+"<div class="h-[480px] w-[920px]">
+  <div class="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]" data-ds-component="split-view" data-ds-source="design-system" data-ds-tier="2">
+    <div class="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 0; flex-basis: 50%;">
+      <div class="flex h-full flex-col">
+        <div class="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+          <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+            "Review"
+          </span>
+          <span class="truncate text-[14px] font-semibold text-[var(--text-primary)]">
+            "Fix expired-promo checkout"
+          </span>
+          <span class="ml-auto shrink-0">
+            <span class="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]" data-ds-component="StatusChip" data-ds-source="design-system" data-ds-tier="1" title="blocked">
+              <span class="h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]" />
+              "BLOCKED"
+            </span>
+          </span>
+        </div>
+        <div class="flex flex-1 flex-col gap-[18px] overflow-auto px-[18px] py-[12px]">
+          <p class="text-[13px] leading-[var(--leading-body)] text-[var(--text-primary)]">
+            "Root cause: an unhandled"
+            <code class="font-mono text-[12px]">
+              "PromoExpiredError"
+            </code>
+            "was swallowed by a catch-all. Checkout now returns a typed 422; the deploy is staged."
+          </p>
+          <div class="flex flex-col gap-[6px]">
+            <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+              "Intent"
+            </span>
+            <div class="flex items-center gap-[9px]">
+              <span class="flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] bg-[var(--accent-primary)] text-[var(--surface-page)]" aria-hidden="true">
+                "✓"
+              </span>
+              <span class="text-[13px] text-[var(--text-primary)]">
+                "Expired codes show the user an error"
+              </span>
+            </div>
+            <div class="flex items-center gap-[9px]">
+              <span class="flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] bg-[var(--accent-primary)] text-[var(--surface-page)]" aria-hidden="true">
+                "✓"
+              </span>
+              <span class="text-[13px] text-[var(--text-primary)]">
+                "API returns a typed 422 (not silent 200)"
+              </span>
+            </div>
+            <div class="flex items-center gap-[9px]">
+              <span class="flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] bg-[var(--accent-primary)] text-[var(--surface-page)]" aria-hidden="true">
+                "✓"
+              </span>
+              <span class="text-[13px] text-[var(--text-primary)]">
+                "Regression test covers the expired path"
+              </span>
+            </div>
+            <div class="flex items-center gap-[9px]">
+              <span class="flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] border border-[var(--border-default)] text-[var(--text-tertiary)]" aria-hidden="true" />
+              <span class="text-[13px] text-[var(--text-primary)]">
+                "Deployed to production"
+              </span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-[6px]">
+            <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+              "Changes"
+            </span>
+            <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open OrderService.ts" type="button" title="Open OrderService.ts">
+              <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+                <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+                  <path />
+                </svg>
+              </span>
+              <span class="truncate font-[500] text-[var(--text-primary)]">
+                "OrderService.ts"
+              </span>
+              <span class="shrink-0 tabular-nums text-[var(--text-tertiary)]">
+                "+18 −4"
+              </span>
+              <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+                <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+                  <path />
+                </svg>
+              </span>
+            </button>
+            <button class="group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)] pr-[9px] text-left" data-ds-component="ReferenceChip" data-ds-kind="artifact" data-ds-mode="posted" data-ds-source="design-system" data-ds-tier="1" aria-label="Open PromoField.tsx" type="button" title="Open PromoField.tsx">
+              <span class="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+                <svg class="shrink-0" style="width: 13px; height: 13px;" aria-hidden="true">
+                  <path />
+                </svg>
+              </span>
+              <span class="truncate font-[500] text-[var(--text-primary)]">
+                "PromoField.tsx"
+              </span>
+              <span class="shrink-0 tabular-nums text-[var(--text-tertiary)]">
+                "+6 −1"
+              </span>
+              <span class="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-primary)]">
+                <svg class="shrink-0" style="width: 11px; height: 11px;" aria-hidden="true">
+                  <path />
+                </svg>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]" aria-label="Resize panels" type="button">
+      <span class="pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]" />
+    </button>
+    <div class="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]" style="flex-grow: 1; flex-basis: 50%;">
+      <div class="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Expand to full" type="button" title="Expand to full">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+            <path />
+            <path />
+          </svg>
+        </button>
+        <button class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]" aria-label="Fold back" type="button" title="Fold back">
+          <svg aria-hidden="true">
+            <path />
+            <path />
+          </svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <div class="flex h-full flex-col">
+          <div class="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+            <span class="font-mono text-[10px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+              "Artifact · data"
+            </span>
+            <span class="truncate text-[14px] font-semibold text-[var(--text-primary)]">
+              "Checkout reliability — result"
+            </span>
+            <span class="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
+              "9 min"
+            </span>
+          </div>
+          <div class="flex flex-1 flex-col gap-[18px] overflow-auto px-[18px] py-[12px]">
+            <div class="flex flex-wrap gap-[12px]">
+              <div class="flex flex-col">
+                <span class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                  "Silent failures"
+                </span>
+                <span class="text-[16px] font-semibold tabular-nums text-[var(--text-primary)]">
+                  "0"
+                </span>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                  "Tests"
+                </span>
+                <span class="text-[16px] font-semibold tabular-nums text-[var(--text-primary)]">
+                  "47 / 47"
+                </span>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                  "Coverage"
+                </span>
+                <span class="text-[16px] font-semibold tabular-nums text-[var(--text-primary)]">
+                  "+0.4%"
+                </span>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+                  "Error path"
+                </span>
+                <span class="text-[16px] font-semibold tabular-nums text-[var(--text-primary)]">
+                  "covered"
+                </span>
+              </div>
+            </div>
+            <div class="flex flex-col gap-[6px]">
+              <div class="flex items-center gap-[9px]">
+                <span class="w-[120px] shrink-0 font-mono text-[11px] uppercase text-[var(--text-tertiary)]">
+                  "Silent failures"
+                </span>
+                <svg class="inline-block" role="img" aria-label="Silent failures sparkline">
+                  <polyline />
+                </svg>
+              </div>
+              <div class="flex items-center gap-[9px]">
+                <span class="w-[120px] shrink-0 font-mono text-[11px] uppercase text-[var(--text-tertiary)]">
+                  "Checkout p95"
+                </span>
+                <svg class="inline-block" role="img" aria-label="Checkout p95 sparkline">
+                  <polyline />
+                </svg>
+              </div>
+            </div>
+            <article class="group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] " data-ds-component="block" data-ds-kind="table" data-ds-source="design-system" data-ds-tier="2" tabindex="0">
+              <div class="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40" />
+              <div class="flex flex-col gap-[9px] min-w-0">
+                <div class="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
+                  <table class="w-full border-collapse text-[13px]">
+                    <thead class="sticky top-0 bg-[var(--surface-container)]">
+                      <tr>
+                        <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: left;">
+                          "Path"
+                        </th>
+                        <th class="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]" style="text-align: right;">
+                          "Status"
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                          "Expired promo → 422"
+                        </td>
+                        <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+                          "now covered"
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: left;">
+                          "Silent 200 success"
+                        </td>
+                        <td class="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums" style="text-align: right;">
+                          "removed"
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 "

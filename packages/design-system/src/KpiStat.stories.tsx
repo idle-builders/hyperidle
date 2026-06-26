@@ -20,32 +20,9 @@
 // flex-wrap row of metrics), which is why KPI is its own primitive.
 
 import type { JSX } from "react";
+import { KpiStat } from "./KpiStat.js";
 
 export default { title: "KpiStat", group: "Primitives" as const };
-
-type Metric = { label: string; value: string };
-
-// The KPI/Stat base primitive — a flex-wrap row of headline metric figures.
-// Lifted verbatim from `data-renderer.tsx` headlines (the figure tokens are
-// reproduced exactly: 11px mono caps label, base semibold tabular-nums value).
-function KpiStat({ metrics }: { metrics: Metric[] }): JSX.Element {
-	return (
-		<section aria-label="Key metrics">
-			<div className="flex flex-wrap gap-3">
-				{metrics.map((m) => (
-					<div key={m.label} className="flex flex-col">
-						<span className="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-							{m.label}
-						</span>
-						<span className="text-base font-semibold text-[var(--text-primary)] tabular-nums">
-							{m.value}
-						</span>
-					</div>
-				))}
-			</div>
-		</section>
-	);
-}
 
 // SingleMetric — one headline figure (the primitive's atomic unit).
 export const SingleMetric = (): JSX.Element => (

@@ -20,41 +20,9 @@
 // noted, not scoped for AM5.
 
 import type { JSX } from "react";
+import { Sparkline } from "./Sparkline.js";
 
 export default { title: "Sparkline", group: "Primitives" as const };
-
-// The Graph/Sparkline base primitive — the buried `Sparkline()` SVG, auto-scaled.
-// Lifted verbatim from `data-renderer.tsx`: 80×24 viewBox, polyline normalised
-// to the series' own min/max, 1.5px `--accent-primary` stroke.
-function Sparkline({ values, label }: { values: number[]; label: string }): JSX.Element {
-	const max = Math.max(...values);
-	const min = Math.min(...values);
-	const range = max - min || 1;
-	const width = 80;
-	const height = 24;
-	const step = width / Math.max(values.length - 1, 1);
-
-	const points = values
-		.map((v, i) => {
-			const x = i * step;
-			const y = height - ((v - min) / range) * height;
-			return `${x},${y}`;
-		})
-		.join(" ");
-
-	return (
-		<svg
-			role="img"
-			aria-label={`${label} sparkline`}
-			width={width}
-			height={height}
-			viewBox={`0 0 ${width} ${height}`}
-			className="inline-block"
-		>
-			<polyline fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" points={points} />
-		</svg>
-	);
-}
 
 // A labelled trend row — the exact shape a `data` artifact composes
 // (`data-renderer.tsx` charts: mono caps label left, sparkline right).

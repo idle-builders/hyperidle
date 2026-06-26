@@ -98,6 +98,11 @@ export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
 export type { KnowledgeRowProps } from "./KnowledgeRow.js";
 export { KnowledgeRow } from "./KnowledgeRow.js";
+// ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
+export type { KpiStatProps } from "./KpiStat.js";
+export { KpiStat } from "./KpiStat.js";
+export type { SparklineProps } from "./Sparkline.js";
+export { Sparkline } from "./Sparkline.js";
 export type { CodeRendererProps } from "./kinds/code-renderer.js";
 export { CodeRenderer } from "./kinds/code-renderer.js";
 export type { DataRendererProps } from "./kinds/data-renderer.js";
