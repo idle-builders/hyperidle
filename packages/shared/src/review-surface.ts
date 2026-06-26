@@ -103,3 +103,30 @@ export interface AdoptionView {
 	readonly surfaceTitle: string;
 	readonly baseCanvas: ReviewCanvasKind;
 }
+
+/**
+ * First-party surface manifests — single source of truth shared by the web
+ * surface-registry and the server surface-adoptions validator.
+ *
+ * @lore AL5 FIX-2: Previously the server inlined a duplicate copy of these
+ * manifests in surface-adoptions.ts. Moving here eliminates drift between the
+ * web manifest.ts files and the server validator. Neither side imports from the
+ * other; both import from shared (web → shared and server → shared are both
+ * safe directions). NO component references here — shared has no React.
+ */
+export const FIRST_PARTY_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
+	{
+		id: "stripe-refund-review",
+		title: "Stripe Refund Review",
+		description:
+			"Specializes the action_operation canvas for Stripe refunds with a refund-specific lead summary and routing note.",
+		author: "HyperIdle <hi@hyperidle.com>",
+		version: "1.0.0",
+		baseCanvas: "action_operation",
+		layering: "wrap",
+		provenance: "first-party",
+		trustTier: "vetted",
+		situations: [{ tool: "stripe", kind: "action_operation" }],
+		sampleFixture: "stripe-refund",
+	},
+];

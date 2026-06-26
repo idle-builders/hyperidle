@@ -32,6 +32,11 @@ export interface ReviewLoaderResult {
 export type ReviewLoader = (params: {
 	readonly betId: string;
 	readonly reviewId: string;
+	/** The current user's teamId — threaded from useCurrentUser so the loader
+	 * can include ?teamId= in the /api/surface-adoptions request. When absent
+	 * (user not yet loaded or has no team), adoptions degrade to [] which causes
+	 * resolveSurface to return the base canvas for every artifact. */
+	readonly teamId?: string;
 }) => Promise<ReviewLoaderResult>;
 
 interface ReviewPageProps {
@@ -44,18 +49,32 @@ interface ReviewPageProps {
  * per-review response. The team's adoption list is tiny (one row per situation) —
  * a single parallel fetch, not N-per-artifact.
  *
- * teamId is read from the current user's teamId field. If unavailable, adoptions
- * default to [] (everything resolves to base canvas — safe fallback).
+ * teamId is threaded from the component's useCurrentUser hook. If unavailable
+ * (user not yet loaded or has no team), adoptions degrade to [] — everything
+ * resolves to base canvas (safe fallback, no broken page).
+ *
+ * @lore AL5 FIX-1: Previously called /api/surface-adoptions without ?teamId=
+ * which always returned 400, silently degrading to base canvas on the live page.
+ * The server requires teamId to scope the query to the correct team's rows.
  */
-async function defaultLoader({
+/** @internal Exported for unit-testing the teamId URL threading. */
+export async function defaultLoader({
 	reviewId,
+	teamId,
+	// betId is not used by the default loader (review is fetched by reviewId directly),
+	// but it is part of ReviewLoader params so we accept it here for type compatibility.
 }: {
+	readonly betId: string;
 	readonly reviewId: string;
+	readonly teamId?: string;
 }): Promise<ReviewLoaderResult> {
 	// Parallel: fetch review + adoptions. If adoptions fail, degrade to empty (base canvas).
+	const adoptionsUrl = teamId
+		? `/api/surface-adoptions?teamId=${encodeURIComponent(teamId)}`
+		: null;
 	const [reviewRes, adoptionsRes] = await Promise.all([
 		apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`),
-		apiFetch("/api/surface-adoptions").catch(() => null),
+		adoptionsUrl ? apiFetch(adoptionsUrl).catch(() => null) : Promise.resolve(null),
 	]);
 
 	if (!reviewRes.ok) {
@@ -162,9 +181,12 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		return { ...subject, conversation: threadComments };
 	}, [subject, hostThread.data]);
 
+	// Capture teamId from user for the loader. Re-run if user loads after page mount.
+	const teamId = user?.teamId;
+
 	useEffect(() => {
 		let cancelled = false;
-		loader({ betId, reviewId })
+		loader({ betId, reviewId, teamId })
 			.then(({ subject: s, adoptions: a }) => {
 				if (!cancelled) {
 					setSubject(s);
@@ -177,7 +199,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		return () => {
 			cancelled = true;
 		};
-	}, [betId, reviewId, loader]);
+	}, [betId, reviewId, loader, teamId]);
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
@@ -187,10 +209,10 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
 			await postPlainHostMessage(activeThreadId, text, crypto.randomUUID(), undefined, anchor);
 			hostThread.refresh();
-			const { subject: refreshed } = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId, teamId });
 			setSubject(refreshed);
 		},
-		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
+		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, teamId, user],
 	);
 
 	const handleSubmitVerdict = useCallback(
@@ -213,10 +235,10 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 			// one — which is also how the user sees a race/authz failure surface.
 			await postVerdictHostMessage(threadId, decision, reviewMessageId, crypto.randomUUID());
 			hostThread.refresh();
-			const { subject: refreshed } = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId, teamId });
 			setSubject(refreshed);
 		},
-		[betId, hostThread, loader, reviewId, user],
+		[betId, hostThread, loader, reviewId, teamId, user],
 	);
 
 	if (error) {

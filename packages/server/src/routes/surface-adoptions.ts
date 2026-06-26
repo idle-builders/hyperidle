@@ -31,45 +31,32 @@ import { createRateLimiter } from "../middleware/rate-limit.js";
 const readLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
 const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
-// ── Registry (server-side, shared-module-free) ─────────────────────────────
-// The server does NOT import from packages/web (no component references).
-// It inlines the manifest data for the surface-registry endpoint.
-// @lore AL5: The server validates surfaceId at POST time against this inline
-// list. In a future with community surfaces, this list would grow via a
-// registry configuration; at AL5 it mirrors the web surface-registry.ts.
+// ── Registry (shared-module canonical source) ──────────────────────────────
+// @lore AL5 FIX-2: Manifest data previously duplicated here has been moved to
+// @hyperidle/shared (FIRST_PARTY_SURFACE_MANIFESTS). The server imports from
+// shared so server and web share exactly one copy. No component references —
+// shared has no React; manifests are plain JSON-serializable records.
+// @lore AL5: The server validates surfaceId at POST time against this registry.
+// In a future with community surfaces, this list grows via registry config;
+// at AL5 it is the shared first-party catalog.
 
 import type { SurfaceManifest } from "@hyperidle/shared";
+import { FIRST_PARTY_SURFACE_MANIFESTS } from "@hyperidle/shared";
 
 interface ServerSurfaceEntry {
 	readonly manifest: SurfaceManifest;
 }
 
-const SERVER_FIRST_PARTY: readonly ServerSurfaceEntry[] = [
-	{
-		manifest: {
-			id: "stripe-refund-review",
-			title: "Stripe Refund Review",
-			description:
-				"Specializes the action_operation canvas for Stripe refunds with a refund-specific lead summary and routing note.",
-			author: "HyperIdle <hi@hyperidle.com>",
-			version: "1.0.0",
-			baseCanvas: "action_operation",
-			layering: "wrap",
-			provenance: "first-party",
-			trustTier: "vetted",
-			situations: [{ tool: "stripe", kind: "action_operation" }],
-			sampleFixture: "stripe-refund",
-		},
-	},
-];
-
 const SERVER_REGISTRY = new Map<string, ServerSurfaceEntry>(
-	SERVER_FIRST_PARTY.map((e) => [e.manifest.id, e]),
+	FIRST_PARTY_SURFACE_MANIFESTS.map((m) => [m.id, { manifest: m }]),
 );
 
 function getServerSurfaceEntry(id: string): ServerSurfaceEntry | undefined {
 	return SERVER_REGISTRY.get(id);
 }
+
+// Re-export for the registry endpoint (returns the array, not the map).
+const SERVER_FIRST_PARTY: readonly ServerSurfaceEntry[] = Array.from(SERVER_REGISTRY.values());
 
 // ── Zod schemas ──────────────────────────────────────────────────────────────
 

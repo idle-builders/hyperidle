@@ -1,4 +1,4 @@
-import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
+import type { AdoptionView, Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -120,7 +120,8 @@ describe("ReviewPage route", () => {
 		await waitFor(() => {
 			expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		});
-		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123" });
+		// teamId is undefined in this test because the mock user has no teamId.
+		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123", teamId: undefined });
 	});
 
 	it("maps host-thread messages into the review conversation with anchors", async () => {
@@ -296,5 +297,63 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 		});
 		// Error text must appear verbatim
 		expect(screen.getByText(verbatimError)).toBeInTheDocument();
+	});
+});
+
+// ── FIX-1 (component test): adopted surface renders via loader result ─────────
+//
+// Proves that when the loader returns adoptions, the adopted surface
+// (StripeRefundReview) renders through the full chain:
+//   ReviewPage (loader result) → ReviewComposition → resolveSurface → StripeRefundReview
+// NOT via direct prop injection — the adoptions come from the loader result.
+//
+// The companion test for the loader's URL threading (defaultLoader calls
+// /api/surface-adoptions?teamId=) lives in ReviewPage.loader.test.ts to avoid
+// a module-level vi.mock("api-fetch") polluting this file's other tests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("FIX-1 component: loader-supplied adoptions reach the rendered surface", () => {
+	it("renders StripeRefundReview surface when loader returns adoption for stripe/action_operation", async () => {
+		const adoption: AdoptionView = {
+			id: "sa-test-1",
+			tool: "stripe",
+			kind: "action_operation",
+			surfaceId: "stripe-refund-review",
+			pinnedVersion: "1.0.0",
+			provenance: "first-party",
+			trustTier: "vetted",
+			surfaceTitle: "Stripe Refund Review",
+			baseCanvas: "action_operation",
+		};
+
+		const loader = vi.fn().mockResolvedValue({
+			subject: REVIEW_COMPOSITION_SUBJECT,
+			adoptions: [adoption],
+		} satisfies ReviewLoaderResult);
+
+		// Render the full ReviewPage with this loader (adoptions from loader, NOT prop injection)
+		const router = createMemoryRouter(
+			[
+				{
+					path: "/work/bet/:betId/review/:reviewId",
+					element: <ReviewPage loader={loader} />,
+				},
+			],
+			{ initialEntries: ["/work/bet/bet-123/review/rev-1"] },
+		);
+		render(<RouterProvider router={router} />);
+
+		// Open the action_operation artifact (stripe refund)
+		const artifactRow = await screen.findByText(/Refund payment/);
+		fireEvent.click(artifactRow);
+
+		// StripeRefundReview renders a "Stripe Refund" header in RefundLead and a
+		// routing note in RefundRoutingNote — absent from the base ReviewActionOperation.
+		await waitFor(() => {
+			expect(screen.getByText("Stripe Refund")).toBeInTheDocument();
+		});
+		expect(
+			screen.getByText(/Approving sends the refund via your Stripe connection/),
+		).toBeInTheDocument();
 	});
 });
