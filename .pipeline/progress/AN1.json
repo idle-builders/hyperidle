@@ -3,8 +3,9 @@
   "title": "Connect a service once",
   "track": "AN",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "1-designer",
+  "status": "done",
+  "currentStep": "shipped",
   "gate": "ci-required",
-  "startedAt": "2026-06-25T23:08:41Z"
+  "startedAt": "2026-06-25T23:08:41Z",
+  "completedAt": "2026-06-26T02:21:54Z"
 }
