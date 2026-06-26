@@ -1266,8 +1266,6 @@ export const surfaceAdoptions = pgTable(
 		pinnedVersion: text("pinned_version").notNull(),
 		/** "first-party" | "community" */
 		provenance: text("provenance").notNull(),
-		/** "vetted" | "community" */
-		trustTier: text("trust_tier").notNull(),
 		/** Who adopted it. */
 		adoptedBy: text("adopted_by")
 			.notNull()

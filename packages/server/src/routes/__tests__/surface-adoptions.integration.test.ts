@@ -458,8 +458,6 @@ describe("AL5 surface-adoptions — DB unique index (structural invariant #2)", 
 			surfaceId: "stripe-refund-review",
 			pinnedVersion: "1.0.0",
 			provenance: "first-party",
-			// trustTier is still a notNull DB column; derived from provenance (internal detail, not exposed in AdoptionView).
-			trustTier: "vetted",
 			adoptedBy: "user-db-unique",
 			createdAt: now,
 			updatedAt: now,

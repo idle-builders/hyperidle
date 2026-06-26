@@ -6,7 +6,6 @@ CREATE TABLE "surface_adoptions" (
 	"surface_id" text NOT NULL,
 	"pinned_version" text NOT NULL,
 	"provenance" text NOT NULL,
-	"trust_tier" text NOT NULL,
 	"adopted_by" text NOT NULL,
 	"created_at" text NOT NULL,
 	"updated_at" text NOT NULL
