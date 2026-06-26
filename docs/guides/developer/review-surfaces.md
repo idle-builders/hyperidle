@@ -62,7 +62,6 @@ In `packages/shared/src/review-surface.ts`, the `SurfaceManifest` shape is defin
   baseCanvas: "action_operation",      // the floor this surface specializes
   layering: "wrap",                    // "wrap" | "eject"
   provenance: "first-party",           // "first-party" | "community"
-  trustTier: "vetted",                 // "vetted" | "community"
   situations: [{ tool: "stripe", kind: "action_operation" }], // discovery hint, NOT auto-apply
   sampleFixture: "stripe-refund",      // fixture id for the .stories.tsx preview
 }
@@ -175,7 +174,6 @@ export const SLOT_POLICY: Readonly<Record<ReviewCanvasKind, SlotPolicy>> = {
 |---|---|
 | Surfaces render from props only — no `apiFetch`, no `/services/` imports | `design/no-surface-network-import` ESLint rule |
 | Closed `LayeringMode`: `"wrap"` or `"eject"` | TypeScript union |
-| Closed `TrustTier`: `"vetted"` or `"community"` | TypeScript union (from `@hyperidle/shared/connection`) |
 | Closed `SurfaceProvenance`: `"first-party"` or `"community"` | TypeScript union |
 | At-most-one adoption per `(teamId, tool, kind)` | DB unique index `surface_adoptions_team_situation_idx` |
 | Base canvas always renders on surface failure | `SurfaceBoundary` React error boundary wrapping every resolved surface |

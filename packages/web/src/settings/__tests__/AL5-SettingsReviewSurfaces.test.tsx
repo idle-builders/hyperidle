@@ -46,7 +46,6 @@ const MOCK_ADOPTION: AdoptionView = {
 	surfaceId: "stripe-refund-review",
 	pinnedVersion: "1.0.0",
 	provenance: "first-party",
-	trustTier: "vetted",
 	surfaceTitle: "Stripe Refund Review",
 	baseCanvas: "action_operation",
 };
@@ -59,7 +58,6 @@ const MOCK_MANIFEST: SurfaceManifest = {
 	baseCanvas: "action_operation",
 	layering: "wrap",
 	provenance: "first-party",
-	trustTier: "vetted",
 	author: "HyperIdle <hi@hyperidle.com>",
 	sampleFixture: "stripe-refund",
 	situations: [{ tool: "stripe", kind: "action_operation" }],

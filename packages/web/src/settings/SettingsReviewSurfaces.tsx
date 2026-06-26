@@ -11,8 +11,8 @@
  * Per no-skeleton-in-initial-designs MEMORY: populated real state only.
  * Loading/empty/error handled with inline fallbacks.
  *
- * @lore AL5 NIT-4: ServiceMark, TrustTag, SituationMark are inline single-use
- * shapes (identical lore to AN1 NIT-4 — not promoted to design system).
+ * @lore AL5 NIT-4: SituationMark is an inline single-use shape
+ * (identical lore to AN1 NIT-4 — not promoted to design system).
  *
  * @lore AL5: CommunityRegistryIndex is imported here (the B5 browse dialog "add
  * a registry URL" read path) to satisfy the knip guard — the type must have a
@@ -30,14 +30,8 @@ import {
 	SectionLabel,
 	SkeletonList,
 	StatusChip,
-	Tag,
 } from "@hyperidle/design-system";
-import type {
-	AdoptionView,
-	CommunityRegistryIndex,
-	SurfaceManifest,
-	TrustTier,
-} from "@hyperidle/shared";
+import type { AdoptionView, CommunityRegistryIndex, SurfaceManifest } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { slotPermission } from "../pages/review/slot-policy.js";
@@ -46,23 +40,6 @@ import { apiFetch } from "../services/api-fetch.js";
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
-
-function trustLabel(t: TrustTier): string {
-	return t === "vetted" ? "Vetted" : "Community";
-}
-
-/** @lore AL5 NIT-4: inline single-use shape, not promoted to design system. */
-function TrustTag({ tier }: { tier: TrustTier }): JSX.Element {
-	if (tier === "vetted") {
-		return (
-			<span className="inline-flex items-center gap-[4px] text-[12px] text-[var(--accent-primary)]">
-				<span className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]" />
-				Vetted
-			</span>
-		);
-	}
-	return <Tag label="Community" />;
-}
 
 /** 2-char monogram mark for situations without a ToolLogo match. */
 function SituationMark({ tool }: { tool: string }): JSX.Element {
@@ -101,12 +78,7 @@ function AdoptedRow({ adoption: a, onReset }: AdoptedRowProps): JSX.Element {
 	return (
 		<Row
 			lead={<SituationMark tool={a.tool} />}
-			title={
-				<span className="flex items-center gap-[9px]">
-					{a.tool} · {a.kind}
-					<TrustTag tier={a.trustTier} />
-				</span>
-			}
+			title={`${a.tool} · ${a.kind}`}
 			subtitle={
 				<span className="text-[var(--text-tertiary)]">
 					{a.surfaceTitle} @{a.pinnedVersion} · {a.provenance}
@@ -179,12 +151,7 @@ function AvailableRow({ manifest: m, onAdopt }: AvailableRowProps): JSX.Element 
 					{m.id.slice(0, 2)}
 				</span>
 			}
-			title={
-				<span className="flex items-center gap-[9px]">
-					{m.title}
-					<TrustTag tier={m.trustTier} />
-				</span>
-			}
+			title={m.title}
 			subtitle={
 				<span className="text-[var(--text-tertiary)]">
 					wraps {m.baseCanvas} · {m.provenance} @{m.version}
@@ -343,22 +310,19 @@ function BrowseDialog({
 									</span>
 								}
 								title={
-									<span className="flex items-center gap-[9px]">
-										<span
-											className={
-												selected?.id === m.id
-													? "font-[600] text-[var(--text-primary)]"
-													: "text-[var(--text-primary)]"
-											}
-										>
-											{m.title}
-										</span>
-										<TrustTag tier={m.trustTier} />
+									<span
+										className={
+											selected?.id === m.id
+												? "font-[600] text-[var(--text-primary)]"
+												: "text-[var(--text-primary)]"
+										}
+									>
+										{m.title}
 									</span>
 								}
 								subtitle={
 									<span className="text-[var(--text-tertiary)]">
-										wraps {m.baseCanvas} · {trustLabel(m.trustTier)}
+										wraps {m.baseCanvas} · {m.provenance}
 									</span>
 								}
 								onClick={() => setSelected(m)}
@@ -385,10 +349,6 @@ function BrowseDialog({
 								<div className="flex justify-between text-[12px]">
 									<span className="text-[var(--text-tertiary)]">Provenance</span>
 									<span className="text-[var(--text-secondary)]">{selected.provenance}</span>
-								</div>
-								<div className="flex justify-between text-[12px]">
-									<span className="text-[var(--text-tertiary)]">Trust</span>
-									<TrustTag tier={selected.trustTier} />
 								</div>
 								<div className="flex justify-between text-[12px]">
 									<span className="text-[var(--text-tertiary)]">Base canvas</span>

@@ -2,18 +2,16 @@
  * AL5 — Manifest shape + closed-set vocabulary tests.
  *
  * These tests verify:
- *   - SurfaceManifest has the required fields (provenance, trustTier, situations, etc.)
+ *   - SurfaceManifest has the required fields (provenance, situations, etc.)
  *   - LAYERING_MODES and SURFACE_PROVENANCE are closed sets
- *   - TrustTier is reused from AN (not redefined)
  *   - REVIEW_CANVAS_KINDS const is present and matches the 9 kinds from AL2
  *   - AdoptionView carries the correct display fields
  *
- * RED PHASE: these imports DO NOT EXIST yet. All tests will fail at import time.
- * That is expected and correct for the red phase.
+ * Note: TrustTier/TRUST_TIERS removed per ETHOS (no preemptive trust tiers).
+ * Provenance ("first-party" | "community") is the identity signal that remains.
  */
 
 import { describe, expect, it } from "vitest";
-// TrustTier is defined in review-surface.ts (was previously in AN1's connection.ts, now AN1 reverted)
 import {
 	type AdoptionView,
 	LAYERING_MODES,
@@ -23,8 +21,6 @@ import {
 	type SurfaceManifest,
 	type SurfaceProvenance,
 	type SurfaceSituation,
-	TRUST_TIERS,
-	type TrustTier,
 } from "../review-surface.js";
 
 describe("AL5 — LAYERING_MODES closed set", () => {
@@ -66,22 +62,6 @@ describe("AL5 — SURFACE_PROVENANCE closed set", () => {
 	});
 });
 
-describe("AL5 — TrustTier reused from AN (not redefined)", () => {
-	it("TRUST_TIERS from connection.ts is vetted|community", () => {
-		// Architecture §2.2: trustTier reused from AN, not redefined.
-		expect(TRUST_TIERS).toContain("vetted");
-		expect(TRUST_TIERS).toContain("community");
-		expect(TRUST_TIERS).toHaveLength(2);
-	});
-
-	it("type-checks: TrustTier from connection.ts", () => {
-		const vetted: TrustTier = "vetted";
-		const community: TrustTier = "community";
-		expect(vetted).toBe("vetted");
-		expect(community).toBe("community");
-	});
-});
-
 describe("AL5 — REVIEW_CANVAS_KINDS const (moved to shared)", () => {
 	it("contains all 9 base canvas kinds from AL2", () => {
 		// Architecture §2.2: ReviewCanvasKind moved to shared as REVIEW_CANVAS_KINDS const
@@ -117,7 +97,6 @@ describe("AL5 — SurfaceManifest shape", () => {
 			baseCanvas: "action_operation",
 			layering: "wrap",
 			provenance: "first-party",
-			trustTier: "vetted",
 			situations: [situation],
 			sampleFixture: "stripe-refund",
 		};
@@ -125,7 +104,6 @@ describe("AL5 — SurfaceManifest shape", () => {
 		expect(manifest.baseCanvas).toBe("action_operation");
 		expect(manifest.layering).toBe("wrap");
 		expect(manifest.provenance).toBe("first-party");
-		expect(manifest.trustTier).toBe("vetted");
 		expect(manifest.situations).toHaveLength(1);
 		expect(manifest.situations[0]).toEqual({ tool: "stripe", kind: "action_operation" });
 	});
@@ -140,7 +118,6 @@ describe("AL5 — SurfaceManifest shape", () => {
 			baseCanvas: "field_change_set",
 			layering: "eject",
 			provenance: "community",
-			trustTier: "community",
 			situations: [{ tool: "salesforce", kind: "field_change_set" }],
 			sampleFixture: "salesforce-fixture",
 		};
@@ -148,8 +125,8 @@ describe("AL5 — SurfaceManifest shape", () => {
 		expect(manifest.dependencies).toBeUndefined();
 	});
 
-	it("manifest.trustTier is a TrustTier (reused from AN, not a new type)", () => {
-		const validTiers: TrustTier[] = ["vetted", "community"];
+	it("manifest.provenance is a SurfaceProvenance (identity signal, not a gate)", () => {
+		const validProvenances: SurfaceProvenance[] = ["first-party", "community"];
 		const manifest: SurfaceManifest = {
 			id: "t",
 			title: "T",
@@ -159,11 +136,10 @@ describe("AL5 — SurfaceManifest shape", () => {
 			baseCanvas: "batch",
 			layering: "wrap",
 			provenance: "first-party",
-			trustTier: "vetted",
 			situations: [],
 			sampleFixture: "t",
 		};
-		expect(validTiers).toContain(manifest.trustTier);
+		expect(validProvenances).toContain(manifest.provenance);
 	});
 });
 
@@ -177,7 +153,6 @@ describe("AL5 — AdoptionView flat display shape", () => {
 			surfaceId: "stripe-refund-review",
 			pinnedVersion: "1.0.0",
 			provenance: "first-party",
-			trustTier: "vetted",
 			surfaceTitle: "Stripe Refund Review",
 			baseCanvas: "action_operation",
 		};

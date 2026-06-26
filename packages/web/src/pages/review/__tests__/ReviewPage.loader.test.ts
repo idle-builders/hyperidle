@@ -106,7 +106,6 @@ describe("defaultLoader — teamId URL threading (FIX-1)", () => {
 			surfaceId: "stripe-refund-review",
 			pinnedVersion: "1.0.0",
 			provenance: "first-party",
-			trustTier: "vetted",
 			surfaceTitle: "Stripe Refund Review",
 			baseCanvas: "action_operation",
 		};

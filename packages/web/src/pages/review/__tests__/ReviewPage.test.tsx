@@ -321,7 +321,6 @@ describe("FIX-1 component: loader-supplied adoptions reach the rendered surface"
 			surfaceId: "stripe-refund-review",
 			pinnedVersion: "1.0.0",
 			provenance: "first-party",
-			trustTier: "vetted",
 			surfaceTitle: "Stripe Refund Review",
 			baseCanvas: "action_operation",
 		};

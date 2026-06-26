@@ -10,18 +10,6 @@
  */
 
 /**
- * Trust tier for review surfaces and manifests. "vetted" = first-party or reviewed.
- * "community" = unreviewed external. Defined here (not in AN1) because review-surface
- * is the primary consumer; AN1 is reverted.
- *
- * @lore AL5: TrustTier was previously imported from the AN1 ./connection.js module.
- * AN1 was reverted from main (#364). Defining the type directly here avoids re-coupling
- * to a module that no longer exists. The value set (vetted | community) is unchanged.
- */
-export const TRUST_TIERS = ["vetted", "community"] as const;
-export type TrustTier = (typeof TRUST_TIERS)[number];
-
-/**
  * The 9 review canvas kinds from AL2. Moved here so shared can reference the
  * union without importing from web (web → shared direction is safe; shared ↛ web).
  *
@@ -52,7 +40,7 @@ export interface SurfaceSituation {
 export const LAYERING_MODES = ["wrap", "eject"] as const;
 export type LayeringMode = (typeof LAYERING_MODES)[number];
 
-/** Who authored it. CLOSED. Distinct from TrustTier (vetted|community). */
+/** Who authored it. CLOSED. */
 export const SURFACE_PROVENANCE = ["first-party", "community"] as const;
 export type SurfaceProvenance = (typeof SURFACE_PROVENANCE)[number];
 
@@ -86,7 +74,6 @@ export interface SurfaceManifest {
 	readonly baseCanvas: ReviewCanvasKind;
 	readonly layering: LayeringMode;
 	readonly provenance: SurfaceProvenance;
-	readonly trustTier: TrustTier; // {vetted, community} — reused from AN, not redefined
 	/** npm runtime deps, shadcn-style "pkg@1.2.3". Informational at AL5 (in-repo build). */
 	readonly dependencies?: readonly string[];
 	/** The (tool, kind) situations this surface is BUILT for — discovery hint, NOT auto-apply.
@@ -109,7 +96,6 @@ export interface AdoptionView {
 	readonly surfaceId: string;
 	readonly pinnedVersion: string;
 	readonly provenance: SurfaceProvenance;
-	readonly trustTier: TrustTier;
 	readonly surfaceTitle: string;
 	readonly baseCanvas: ReviewCanvasKind;
 }
@@ -135,7 +121,6 @@ export const FIRST_PARTY_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
 		baseCanvas: "action_operation",
 		layering: "wrap",
 		provenance: "first-party",
-		trustTier: "vetted",
 		situations: [{ tool: "stripe", kind: "action_operation" }],
 		sampleFixture: "stripe-refund",
 	},

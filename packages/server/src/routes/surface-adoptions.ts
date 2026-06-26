@@ -77,7 +77,6 @@ function rowToAdoptionView(
 		surfaceId: string;
 		pinnedVersion: string;
 		provenance: string;
-		trustTier: string;
 	},
 	entry: ServerSurfaceEntry,
 ): AdoptionView {
@@ -88,7 +87,6 @@ function rowToAdoptionView(
 		surfaceId: row.surfaceId,
 		pinnedVersion: row.pinnedVersion,
 		provenance: row.provenance as AdoptionView["provenance"],
-		trustTier: row.trustTier as AdoptionView["trustTier"],
 		surfaceTitle: entry.manifest.title,
 		baseCanvas: entry.manifest.baseCanvas,
 	};
@@ -199,7 +197,10 @@ export function createSurfaceAdoptionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv>
 		const id = `sa-${crypto.randomUUID()}`;
 		const pinnedVersion = entry.manifest.version;
 		const provenance = entry.manifest.provenance;
-		const trustTier = entry.manifest.trustTier;
+		// @lore AL5 ETHOS: trustTier removed from SurfaceManifest/AdoptionView (no preemptive
+		// trust gates). The DB column is retained (notNull constraint) and derived from
+		// provenance as an internal implementation detail — not exposed in AdoptionView.
+		const trustTier = provenance === "first-party" ? "vetted" : "community";
 
 		// UPSERT: ON CONFLICT (teamId, tool, kind) → update surfaceId + pinnedVersion.
 		// The unique index surface_adoptions_team_situation_idx enforces at-most-one.

@@ -321,14 +321,12 @@ export type {
 	SurfaceManifest,
 	SurfaceProvenance,
 	SurfaceSituation,
-	TrustTier,
 } from "./review-surface.js";
 export {
 	FIRST_PARTY_SURFACE_MANIFESTS,
 	LAYERING_MODES,
 	REVIEW_CANVAS_KINDS,
 	SURFACE_PROVENANCE,
-	TRUST_TIERS,
 } from "./review-surface.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {

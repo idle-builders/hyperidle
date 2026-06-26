@@ -29,7 +29,7 @@ The nine family canvases above are the *generic* review surfaces — they work f
 3. **Base canvas is the floor and the always-present fallback.** No adoption, or a failed/missing surface, degrades to the base canvas. "Review for anything" holds for anything nobody surfaced.
 4. **Two layering modes: wrap or eject.** Wrap = compose over the base via declared slots (upgrade-safe). Eject = copy the base source and own it (total control, you own upgrades). Each base canvas declares per-slot `wrap | eject | forbidden` via `SLOT_POLICY` (`slot-policy.ts`).
 5. **A surface is the lens, never the decision.** Presentation only — it never moves the verdict, the staged action, or the AL7 gate.
-6. **One registry mechanism; provenance + AN trust tier the only distinction.** First-party and community surfaces use the same path: `SurfaceManifest` + component, registered in `surface-registry.ts`. Distinguished by `provenance: "first-party" | "community"` and `trustTier: "vetted" | "community"` (reused from AN — not redefined). Trust = adopt-time code review + ownership, not a runtime sandbox.
+6. **One registry mechanism; provenance the only distinction.** First-party and community surfaces use the same path: `SurfaceManifest` + component, registered in `surface-registry.ts`. Distinguished by `provenance: "first-party" | "community"` — identity, not a gate. Adoption = deliberate team choice; security is from code review at adopt time, not a runtime sandbox or preemptive trust tier.
 7. **AL5 ⟂ AN4.** AL5 owns the review surface (code unit, slot contracts, registry, adoption, floor fallback). AN4 (Connectors) owns tool integration. A connector may *reference* a preferred `surfaceId`; a surface is independently publishable.
 
 ### AS-BUILT module map

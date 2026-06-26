@@ -8,7 +8,7 @@
  *   Scenario: missing surfaceId → "missing-surface" degrade
  *   Invariant #2: at-most-one adoption is structural (unique constraint — tested at integration level)
  *   Invariant #5: surface is lens, never decision (resolveSurface never mutates artifact or adoption)
- *   Invariant #7: provenance + TrustTier on the manifest
+ *   Invariant #7: provenance on the manifest
  *   Invariant #6: adoption isolation by teamId (tested at integration level)
  *
  * RED PHASE: imports from modules that do not exist yet.
@@ -39,7 +39,6 @@ function makeAdoption(overrides?: Partial<AdoptionView>): AdoptionView {
 		surfaceId: "stripe-refund-review",
 		pinnedVersion: "1.0.0",
 		provenance: "first-party",
-		trustTier: "vetted",
 		surfaceTitle: "Stripe Refund Review",
 		baseCanvas: "action_operation",
 		...overrides,
@@ -81,12 +80,11 @@ describe("AL5 resolveSurface — AC1/AC2: adopted surface wins over base", () =>
 		expect(result.manifest?.id).toBe("stripe-refund-review");
 	});
 
-	it("returns the manifest with correct provenance and trustTier (invariant #7)", () => {
-		// Invariant #7: provenance + TrustTier on the surface manifest.
+	it("returns the manifest with correct provenance (invariant #7)", () => {
+		// Invariant #7: provenance on the surface manifest (identity signal, not a gate).
 		const adoption = makeAdoption();
 		const result = resolveSurface(SITUATION, adoption, BaseCanvasStub);
 		expect(result.manifest?.provenance).toBe("first-party");
-		expect(result.manifest?.trustTier).toBe("vetted");
 	});
 
 	it("deterministic lookup: given two calls with same adoption, same component returned (invariant #1 — pure lookup)", () => {
@@ -159,7 +157,6 @@ describe("AL5 surface-registry — getSurfaceEntry", () => {
 		expect(entry?.manifest.id).toBe("stripe-refund-review");
 		expect(entry?.manifest.baseCanvas).toBe("action_operation");
 		expect(entry?.manifest.provenance).toBe("first-party");
-		expect(entry?.manifest.trustTier).toBe("vetted");
 	});
 
 	it("returns undefined for an unknown id", () => {
@@ -177,13 +174,12 @@ describe("AL5 surface-registry — listSurfaces", () => {
 		expect(stripeEntry).toBeDefined();
 	});
 
-	it("every entry has a manifest with id, baseCanvas, provenance, trustTier", () => {
+	it("every entry has a manifest with id, baseCanvas, provenance", () => {
 		const entries = listSurfaces();
 		for (const entry of entries) {
 			expect(entry.manifest.id).toBeTruthy();
 			expect(entry.manifest.baseCanvas).toBeTruthy();
 			expect(entry.manifest.provenance).toBeTruthy();
-			expect(entry.manifest.trustTier).toBeTruthy();
 		}
 	});
 });

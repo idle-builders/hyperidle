@@ -19,9 +19,8 @@ import {
 	Row,
 	SectionLabel,
 	StatusChip,
-	Tag,
 } from "@hyperidle/design-system";
-import type { AdoptionView, SurfaceManifest, TrustTier } from "@hyperidle/shared";
+import type { AdoptionView, SurfaceManifest } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 
 export default {
@@ -41,7 +40,6 @@ const ADOPTIONS: AdoptionView[] = [
 		surfaceId: "stripe-refund-review",
 		pinnedVersion: "1.0.0",
 		provenance: "first-party",
-		trustTier: "vetted",
 		surfaceTitle: "Stripe Refund Review",
 		baseCanvas: "action_operation",
 	},
@@ -58,7 +56,6 @@ const MANIFESTS: SurfaceManifest[] = [
 		baseCanvas: "action_operation",
 		layering: "wrap",
 		provenance: "first-party",
-		trustTier: "vetted",
 		situations: [{ tool: "stripe", kind: "action_operation" }],
 		sampleFixture: "StripeRefundReview--Default",
 	},
@@ -71,7 +68,6 @@ const MANIFESTS: SurfaceManifest[] = [
 		baseCanvas: "action_operation",
 		layering: "wrap",
 		provenance: "first-party",
-		trustTier: "vetted",
 		situations: [{ tool: "github", kind: "action_operation" }],
 		sampleFixture: "GitHubPRMergeReview--Default",
 	},
@@ -85,18 +81,6 @@ const AVAILABLE_MANIFESTS = MANIFESTS.filter((m) => !ADOPTED_IDS.has(m.id));
 // Inline helpers (mirrors SettingsReviewSurfaces.tsx — not imported since
 // stories must be self-contained and not depend on prod api-fetch calls).
 // ---------------------------------------------------------------------------
-
-function TrustTag({ tier }: { tier: TrustTier }): JSX.Element {
-	if (tier === "vetted") {
-		return (
-			<span className="inline-flex items-center gap-[4px] text-[12px] text-[var(--accent-primary)]">
-				<span className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]" />
-				Vetted
-			</span>
-		);
-	}
-	return <Tag label="Community" />;
-}
 
 function SituationMark({ tool }: { tool: string }): JSX.Element {
 	return (
@@ -124,12 +108,7 @@ function AdoptedRowStory({ adoption: a }: { adoption: AdoptionView }): JSX.Eleme
 	return (
 		<Row
 			lead={<SituationMark tool={a.tool} />}
-			title={
-				<span className="flex items-center gap-[9px]">
-					{a.tool} · {a.kind}
-					<TrustTag tier={a.trustTier} />
-				</span>
-			}
+			title={`${a.tool} · ${a.kind}`}
 			subtitle={
 				<span className="text-[var(--text-tertiary)]">
 					{a.surfaceTitle} @{a.pinnedVersion} · {a.provenance}
@@ -192,12 +171,7 @@ function AvailableRowStory({
 					{m.id.slice(0, 2)}
 				</span>
 			}
-			title={
-				<span className="flex items-center gap-[9px]">
-					{m.title}
-					<TrustTag tier={m.trustTier} />
-				</span>
-			}
+			title={m.title}
 			subtitle={
 				<span className="text-[var(--text-tertiary)]">
 					wraps {m.baseCanvas} · {m.provenance} @{m.version}
@@ -260,22 +234,19 @@ function BrowseDialogStory({
 									</span>
 								}
 								title={
-									<span className="flex items-center gap-[9px]">
-										<span
-											className={
-												selected?.id === m.id
-													? "font-[600] text-[var(--text-primary)]"
-													: "text-[var(--text-primary)]"
-											}
-										>
-											{m.title}
-										</span>
-										<TrustTag tier={m.trustTier} />
+									<span
+										className={
+											selected?.id === m.id
+												? "font-[600] text-[var(--text-primary)]"
+												: "text-[var(--text-primary)]"
+										}
+									>
+										{m.title}
 									</span>
 								}
 								subtitle={
 									<span className="text-[var(--text-tertiary)]">
-										wraps {m.baseCanvas} · {m.trustTier}
+										wraps {m.baseCanvas} · {m.provenance}
 									</span>
 								}
 								onClick={() => onSelect(m)}
@@ -301,10 +272,6 @@ function BrowseDialogStory({
 								<div className="flex justify-between text-[12px]">
 									<span className="text-[var(--text-tertiary)]">Provenance</span>
 									<span className="text-[var(--text-secondary)]">{selected.provenance}</span>
-								</div>
-								<div className="flex justify-between text-[12px]">
-									<span className="text-[var(--text-tertiary)]">Trust</span>
-									<TrustTag tier={selected.trustTier} />
 								</div>
 								<div className="flex justify-between text-[12px]">
 									<span className="text-[var(--text-tertiary)]">Base canvas</span>

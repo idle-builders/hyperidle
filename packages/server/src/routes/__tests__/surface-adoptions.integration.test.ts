@@ -142,7 +142,6 @@ describe("AL5 surface-adoptions — GET and POST happy path", () => {
 		expect(body.surfaceId).toBe("stripe-refund-review");
 		expect(body.pinnedVersion).toBeTruthy(); // pinned to current registry version
 		expect(body.provenance).toBe("first-party"); // from the registry manifest
-		expect(body.trustTier).toBe("vetted"); // from the registry manifest
 		expect(body.surfaceTitle).toBeTruthy();
 		expect(body.baseCanvas).toBe("action_operation");
 	});
@@ -415,7 +414,6 @@ describe("AL5 surface-registry route", () => {
 		expect(stripe).toBeDefined();
 		expect(stripe?.baseCanvas).toBe("action_operation");
 		expect(stripe?.provenance).toBe("first-party");
-		expect(stripe?.trustTier).toBe("vetted");
 	});
 
 	test("GET /api/surface-registry returns 401 without auth", async ({ app }) => {
@@ -460,6 +458,7 @@ describe("AL5 surface-adoptions — DB unique index (structural invariant #2)", 
 			surfaceId: "stripe-refund-review",
 			pinnedVersion: "1.0.0",
 			provenance: "first-party",
+			// trustTier is still a notNull DB column; derived from provenance (internal detail, not exposed in AdoptionView).
 			trustTier: "vetted",
 			adoptedBy: "user-db-unique",
 			createdAt: now,

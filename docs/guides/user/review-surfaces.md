@@ -17,7 +17,7 @@ A surface only renders for your team if you **deliberately adopted** it. Adoptio
    - **Adopted** — your team's active mappings (situation → surface), each showing the surface name, version, and provenance.
    - **Available** — surfaces in your registries not yet assigned to any situation.
 3. Click **Browse registry** (or **Adopt…** on any Available row) to open the browse dialog.
-4. In the dialog, select a surface from the list. The right panel shows its description, base canvas, provenance, and trust tier — and a live preview in dev mode.
+4. In the dialog, select a surface from the list. The right panel shows its description, base canvas, and provenance — and a live preview in dev mode.
 5. Click **Adopt for `<situation>`** to commit. The Adopted group refreshes immediately.
 
 ## Swapping a surface
@@ -26,16 +26,15 @@ To replace an adopted surface with a different one: on the Adopted row, click **
 
 To return to the generic base canvas: click **⋯ → Reset to base canvas** and confirm (two-click). The mapping is deleted; the situation now renders with the base canvas.
 
-## What provenance and trust tier mean
+## What provenance means
 
-Each surface carries two trust signals shown on every row and in the browse dialog:
+Each surface shows its provenance in every row and in the browse dialog:
 
 | Signal | Values | What it means |
 |---|---|---|
 | **Provenance** | `first-party` / `community` | Who authored it — HyperIdle maintainers or a community contributor. |
-| **Trust tier** | `vetted` / `community` | How it was reviewed before being published. `vetted` surfaces have been reviewed by HyperIdle; `community` surfaces are reviewed at adopt time by your team. |
 
-Trust is about **adopt-time code review and ownership**, not a runtime sandbox. Before adopting a community surface, review its source — it runs in your app.
+Provenance is identity, not a gate. Before adopting a community surface, review its source — it runs in your app. Adoption itself is the trust signal: a deliberate team choice, version-pinned.
 
 ## What always works
 
@@ -52,7 +51,7 @@ You never see a blank screen or a crash because of a surface.
 Inside a review, the examine pane shows a quiet status line:
 
 ```
-Rendered by  stripe-refund-review @1.0.0  ·  First-party · vetted       [ Swap ▸ ]
+Rendered by  stripe-refund-review @1.0.0  ·  first-party       [ Swap ▸ ]
 ```
 
 When the base canvas is rendering (no adoption, or the surface failed), it shows:
