@@ -30,10 +30,7 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import {
-	encryptCredentialValue,
-	requireServerSecret,
-} from "../services/credential-encryption.js";
+import { encryptCredentialValue, requireServerSecret } from "../services/credential-encryption.js";
 import { projectInheritedConnections } from "../services/service-connection-projection.js";
 
 // ---------------------------------------------------------------------------
@@ -93,10 +90,7 @@ const createConnectionSchema = z.discriminatedUnion("authSource", [
  *   token → "API key · stored encrypted"
  *   mcp   → "<host>" (hostname of the MCP server URL)
  */
-function buildVia(
-	authSource: string,
-	serverUrl: string | null | undefined,
-): string {
+function buildVia(authSource: string, serverUrl: string | null | undefined): string {
 	if (authSource === "token") return "API key · stored encrypted";
 	if (authSource === "mcp" && serverUrl) {
 		try {
@@ -170,7 +164,10 @@ function deriveServiceFromUrl(serverUrl: string): string {
  * @param db — Drizzle DB handle
  * @param adapterPool — used to read cached harness descriptors for inherited projection
  */
-export function createConnectionRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): Hono<HyperIdleEnv> {
+export function createConnectionRoutes(
+	db: HyperIdleDb,
+	adapterPool?: AdapterPool,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// Per-router-instance rate limiters (one bucket per identity, reset per app lifecycle).
@@ -241,7 +238,10 @@ export function createConnectionRoutes(db: HyperIdleDb, adapterPool?: AdapterPoo
 			try {
 				serverSecret = requireServerSecret();
 			} catch {
-				return c.json({ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" }, 500);
+				return c.json(
+					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
+					500,
+				);
 			}
 
 			const encryptedToken = encryptCredentialValue(body.token, serverSecret);
@@ -262,10 +262,7 @@ export function createConnectionRoutes(db: HyperIdleDb, adapterPool?: AdapterPoo
 			} catch (err) {
 				// Unique constraint violation → 409
 				if (isUniqueViolation(err)) {
-					return c.json(
-						{ error: "Connection already exists", code: "DUPLICATE_CONNECTION" },
-						409,
-					);
+					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
 				}
 				throw err;
 			}
@@ -288,10 +285,7 @@ export function createConnectionRoutes(db: HyperIdleDb, adapterPool?: AdapterPoo
 				});
 			} catch (err) {
 				if (isUniqueViolation(err)) {
-					return c.json(
-						{ error: "Connection already exists", code: "DUPLICATE_CONNECTION" },
-						409,
-					);
+					return c.json({ error: "Connection already exists", code: "DUPLICATE_CONNECTION" }, 409);
 				}
 				throw err;
 			}
@@ -362,57 +356,62 @@ export function createConnectionRoutes(db: HyperIdleDb, adapterPool?: AdapterPoo
 	 * without any network call. This eliminates the SSRF surface for AN1.
 	 * AN2 adds the live MCP reachability probe with full SSRF protection.
 	 */
-	router.post("/:id/validate", requireBoundary({ kind: "principal-self" }), validateLimiter, async (c) => {
-		const userId = c.get("userId");
-		const id = c.req.param("id");
+	router.post(
+		"/:id/validate",
+		requireBoundary({ kind: "principal-self" }),
+		validateLimiter,
+		async (c) => {
+			const userId = c.get("userId");
+			const id = c.req.param("id");
 
-		const [row] = await db
-			.select()
-			.from(serviceConnections)
-			.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)))
-			.limit(1);
+			const [row] = await db
+				.select()
+				.from(serviceConnections)
+				.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)))
+				.limit(1);
 
-		if (!row) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
+			if (!row) {
+				return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			}
 
-		let health: ConnectionHealth;
+			let health: ConnectionHealth;
 
-		if (row.authSource === "token") {
-			// token: check presence + decrypt-OK
-			if (!row.encryptedToken) {
-				health = "needs-attention";
-			} else {
-				let serverSecret: string | null;
-				try {
-					serverSecret = requireServerSecret();
-				} catch {
-					serverSecret = null;
-				}
-				if (!serverSecret) {
+			if (row.authSource === "token") {
+				// token: check presence + decrypt-OK
+				if (!row.encryptedToken) {
 					health = "needs-attention";
 				} else {
-					const { decryptCredentialValue } = await import("../services/credential-encryption.js");
-					const plaintext = decryptCredentialValue(row.encryptedToken, serverSecret);
-					health = plaintext ? "working" : "needs-attention";
+					let serverSecret: string | null;
+					try {
+						serverSecret = requireServerSecret();
+					} catch {
+						serverSecret = null;
+					}
+					if (!serverSecret) {
+						health = "needs-attention";
+					} else {
+						const { decryptCredentialValue } = await import("../services/credential-encryption.js");
+						const plaintext = decryptCredentialValue(row.encryptedToken, serverSecret);
+						health = plaintext ? "working" : "needs-attention";
+					}
 				}
+			} else {
+				// mcp: AN1 does not probe the live MCP endpoint (AN2 seam)
+				// Report existing health or needs-attention for unvalidated
+				health = toHealth(row.health);
+				// If it was previously needs-attention and we can't probe, keep it
+				// If it was working, a successful prior validation stands
 			}
-		} else {
-			// mcp: AN1 does not probe the live MCP endpoint (AN2 seam)
-			// Report existing health or needs-attention for unvalidated
-			health = toHealth(row.health);
-			// If it was previously needs-attention and we can't probe, keep it
-			// If it was working, a successful prior validation stands
-		}
 
-		const now = new Date().toISOString();
-		await db
-			.update(serviceConnections)
-			.set({ health, lastValidatedAt: now, updatedAt: now })
-			.where(eq(serviceConnections.id, id));
+			const now = new Date().toISOString();
+			await db
+				.update(serviceConnections)
+				.set({ health, lastValidatedAt: now, updatedAt: now })
+				.where(eq(serviceConnections.id, id));
 
-		return c.json({ health });
-	});
+			return c.json({ health });
+		},
+	);
 
 	return router;
 }

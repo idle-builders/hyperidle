@@ -5,6 +5,7 @@ import type {
 	HarnessModelDescriptor,
 	HarnessReadinessState,
 	HarnessRuntimeCapabilities,
+	InheritedToolDescriptor,
 } from "@hyperidle/shared";
 
 const execFileAsync = promisify(execFile);
@@ -49,6 +50,12 @@ export interface HarnessDiscoveryInput {
 	 * alone proves login, NOT launchability. Absent ⇒ no session probe ran ⇒ caps stay false.
 	 */
 	readonly sessionProbe?: HarnessSessionProbeResult;
+	/**
+	 * AN1: identity-only enumeration of tools this harness/environment is already
+	 * configured with. Names and liveness only — no token values, no env, no command.
+	 * Absent ⇒ empty (default []).
+	 */
+	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }
 
 export interface HarnessDiscoveryResult {
@@ -388,6 +395,184 @@ function probeBuiltinGateway(d?: HarnessProbeDeps): HarnessDiscoveryInput {
 	};
 }
 
+/** Per-probe timeout for MCP list / CLI auth-status probes (AN1). */
+const INHERITED_PROBE_TIMEOUT_MS = 5_000;
+
+/**
+ * AN1: Probe Claude Code's configured MCP servers (identity only, no token values).
+ *
+ * Runs `claude mcp list` and parses each output line:
+ *   "<name>: <command|url> - <status>"
+ * Status token mapping: "✓ Connected" → working; anything else → needs-attention.
+ * On non-zero exit, timeout, or empty output → [] (omit, don't fabricate).
+ *
+ * @lore AN1 hard-rule 4: `claude mcp list` output contains only MCP server names
+ * and liveness status — env vars / tokens are never in the list output.
+ * We parse names only; the status suffix determines health.
+ */
+async function probeClaudeCodeMcpList(
+	d?: HarnessProbeDeps,
+): Promise<readonly InheritedToolDescriptor[]> {
+	try {
+		const result = await Promise.race([
+			runCommand(["claude", "mcp", "list"], d),
+			new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) =>
+				setTimeout(
+					() => resolve({ stdout: "", stderr: "", exitCode: 1 }),
+					INHERITED_PROBE_TIMEOUT_MS,
+				),
+			),
+		]);
+		if (result.exitCode !== 0 || !result.stdout.trim()) return [];
+
+		const tools: InheritedToolDescriptor[] = [];
+		for (const line of result.stdout.split("\n")) {
+			const trimmed = stripAnsi(line).trim();
+			if (!trimmed) continue;
+			// Format: "<name>: <rest> - <status>"
+			const colonIdx = trimmed.indexOf(":");
+			if (colonIdx <= 0) continue;
+			const name = trimmed.slice(0, colonIdx).trim();
+			if (!name) continue;
+			const rest = trimmed.slice(colonIdx + 1);
+			// Determine health from status token
+			let health: InheritedToolDescriptor["health"] = "unknown";
+			if (rest.includes("✓") || rest.toLowerCase().includes("connected")) {
+				health = "working";
+			} else if (
+				rest.includes("✗") ||
+				rest.includes("⏸") ||
+				rest.toLowerCase().includes("failed") ||
+				rest.toLowerCase().includes("rejected") ||
+				rest.toLowerCase().includes("pending")
+			) {
+				health = "needs-attention";
+			}
+			tools.push({ name, kind: "mcp-server", harness: "claude-code", health });
+		}
+		return tools;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * AN1: Probe Codex's configured MCP servers (identity only).
+ *
+ * Tries `codex mcp list`; on failure, parses `~/.codex/config.toml` for
+ * `[mcp_servers.<name>]` table keys. Health is always "unknown" (list shows
+ * config, not live status).
+ *
+ * @lore AN1: Never reads env/command values from config.toml — names only.
+ */
+async function probeCodexMcpList(
+	d?: HarnessProbeDeps,
+): Promise<readonly InheritedToolDescriptor[]> {
+	try {
+		const result = await Promise.race([
+			runCommand(["codex", "mcp", "list"], d),
+			new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) =>
+				setTimeout(
+					() => resolve({ stdout: "", stderr: "", exitCode: 1 }),
+					INHERITED_PROBE_TIMEOUT_MS,
+				),
+			),
+		]);
+		if (result.exitCode === 0 && result.stdout.trim()) {
+			// Parse lines: each is a server name or "name: url"
+			const tools: InheritedToolDescriptor[] = [];
+			for (const line of result.stdout.split("\n")) {
+				const name = stripAnsi(line).trim().split(":")[0]?.trim();
+				if (name && name.length > 0 && !name.startsWith("#")) {
+					tools.push({ name, kind: "mcp-server", harness: "codex", health: "unknown" });
+				}
+			}
+			if (tools.length > 0) return tools;
+		}
+	} catch {
+		// fall through to config.toml parse
+	}
+
+	// Fallback: read ~/.codex/config.toml, extract [mcp_servers.<name>] keys
+	// Names only — never env/command values.
+	try {
+		const { readFile } = await import("node:fs/promises");
+		const { join } = await import("node:path");
+		const homedir = (await import("node:os")).homedir();
+		const toml = await readFile(join(homedir, ".codex", "config.toml"), "utf-8");
+		const tools: InheritedToolDescriptor[] = [];
+		// Match [mcp_servers.NAME] table headers
+		const serverNameRe = /^\[mcp_servers\.([^\]]+)\]/gm;
+		let match: RegExpExecArray | null;
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard RegExp iteration pattern
+		while ((match = serverNameRe.exec(toml)) !== null) {
+			const name = match[1]?.trim();
+			if (name) {
+				tools.push({ name, kind: "mcp-server", harness: "codex", health: "unknown" });
+			}
+		}
+		return tools;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * AN1: Probe the PATH-level environment for logged-in CLIs.
+ *
+ * Currently checks `gh auth status --json hosts` (GitHub CLI).
+ * gh always exits 0; the JSON hosts list shows which accounts are logged in.
+ * Never passes --show-token (hard-rule 4).
+ *
+ * Returns health:"working" when an account is found for a host.
+ * Extensible to other CLIs (stripe, vercel, etc.) by the same evidence-first shape.
+ *
+ * @lore AN1 hard-rule 4: `gh auth status --json hosts` never returns token values —
+ * only host names and account metadata.
+ */
+async function probeEnvironmentClis(
+	d?: HarnessProbeDeps,
+): Promise<readonly InheritedToolDescriptor[]> {
+	const tools: InheritedToolDescriptor[] = [];
+
+	// GitHub CLI
+	try {
+		const result = await Promise.race([
+			runCommand(["gh", "auth", "status", "--json", "hosts"], d),
+			new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) =>
+				setTimeout(
+					() => resolve({ stdout: "", stderr: "", exitCode: 0 }),
+					INHERITED_PROBE_TIMEOUT_MS,
+				),
+			),
+		]);
+		// `gh auth status --json hosts` always exits 0 and outputs JSON
+		if (result.stdout.trim()) {
+			try {
+				const parsed = JSON.parse(result.stdout) as unknown;
+				// Shape: { "github.com": { ... account ... } }
+				if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+					const hosts = Object.keys(parsed as Record<string, unknown>);
+					if (hosts.length > 0) {
+						tools.push({
+							name: "github",
+							kind: "cli",
+							harness: "environment",
+							health: "working",
+						});
+					}
+				}
+			} catch {
+				// non-JSON output → gh not available or different format → omit
+			}
+		}
+	} catch {
+		// gh not installed → omit
+	}
+
+	return tools;
+}
+
 /**
  * Probe the local environment for the first-class harness families AM2 cares about.
  *
@@ -399,18 +584,35 @@ export async function discoverLocalHarnesses(
 	d?: HarnessProbeDeps,
 ): Promise<HarnessDiscoveryResult> {
 	// Run probes concurrently — they are independent filesystem probes.
-	const [builtin, codex, claudeCode, opencode, cursorAgent] = await Promise.all([
+	const [
+		builtin,
+		codex,
+		claudeCode,
+		opencode,
+		cursorAgent,
+		claudeMcpTools,
+		codexMcpTools,
+		envTools,
+	] = await Promise.all([
 		probeBuiltinGateway(d),
 		probeCodexCli(d),
 		probeClaudeCodeCli(d),
 		probeOpenCodeCli(d),
 		probeCursorAgentCli(d),
+		probeClaudeCodeMcpList(d),
+		probeCodexMcpList(d),
+		probeEnvironmentClis(d),
 	]);
 
+	// Merge inherited tool probes into each harness's discovery input.
+	// @lore AN1: inheritedTools are attached here (post-probe merge) so that
+	// `describeRegisteredHarness` can read them from `discoveries?.[type]?.inheritedTools`.
+	// Environment-level CLIs (gh, stripe, etc.) attach to "builtin" since they are
+	// available regardless of which CLI harness is active.
 	return {
-		builtin,
-		codex,
-		"claude-code": claudeCode,
+		builtin: { ...builtin, inheritedTools: envTools },
+		codex: { ...codex, inheritedTools: codexMcpTools },
+		"claude-code": { ...claudeCode, inheritedTools: claudeMcpTools },
 		opencode,
 		"cursor-agent": cursorAgent,
 	};

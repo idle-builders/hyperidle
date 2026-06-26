@@ -124,8 +124,8 @@ describe("AN1 — HarnessCapabilityDescriptor.inheritedTools", () => {
 				],
 			};
 
-			expect(descriptor.inheritedTools).toHaveLength(2);
-			expect(descriptor.inheritedTools[0]?.name).toBe("github");
+			expect(descriptor.inheritedTools ?? []).toHaveLength(2);
+			expect((descriptor.inheritedTools ?? [])[0]?.name).toBe("github");
 		});
 
 		it("inheritedTools defaults to [] (additive, non-breaking)", () => {
@@ -176,7 +176,7 @@ describe("AN1 — HarnessCapabilityDescriptor.inheritedTools", () => {
 				],
 			};
 
-			for (const tool of descriptor.inheritedTools) {
+			for (const tool of descriptor.inheritedTools ?? []) {
 				expect(tool).not.toHaveProperty("secret");
 				expect(tool).not.toHaveProperty("token");
 				expect(tool).not.toHaveProperty("env");

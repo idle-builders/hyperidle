@@ -43,9 +43,7 @@ export class ServiceConnectionResolver {
 			const [row] = await this.db
 				.select()
 				.from(serviceConnections)
-				.where(
-					and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)),
-				)
+				.where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
 				.limit(1);
 
 			if (!row) return null;

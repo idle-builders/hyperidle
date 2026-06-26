@@ -13,8 +13,7 @@
  * shown only when the probe returned it explicitly.
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
-import type { ServiceConnectionView } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor, ServiceConnectionView } from "@hyperidle/shared";
 
 /**
  * Project inherited connections from the given harness descriptors.
@@ -38,7 +37,7 @@ export function projectInheritedConnections(
 	const result: ServiceConnectionView[] = [];
 
 	for (const descriptor of descriptors) {
-		for (const tool of descriptor.inheritedTools) {
+		for (const tool of descriptor.inheritedTools ?? []) {
 			// First-wins dedup across harnesses (architecture §7)
 			if (seen.has(tool.name)) continue;
 			seen.add(tool.name);

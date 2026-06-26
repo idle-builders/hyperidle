@@ -119,5 +119,5 @@ export interface HarnessCapabilityDescriptor {
 	 * Nesting under runtime would bloat HarnessRuntimeCapabilities consumers.
 	 * connection.ts imports nothing from harness/ — no within-package cycle.
 	 */
-	readonly inheritedTools: readonly InheritedToolDescriptor[];
+	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }
