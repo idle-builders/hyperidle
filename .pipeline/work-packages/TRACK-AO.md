@@ -41,9 +41,9 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 **Pre-build gates.**
 - **Concept:** `DONE — /concept AO0 locked (plans/AO/concept.md + research-filesystem-vs-tool.md). Filesystem = authored corpora only (code + doc_set); attached to an agent-within-a-team; connected via a Connection + resource selection; SoRs are AN tools.`
-- **Design:** `Required — a surface to attach/inspect/select an agent's filesystem (a repo, a doc-set folder), via its Connection + resource; /design multi-variant + human review.`
+- **Design:** `DONE (routine EXTRACT) — Filesystems is the next Settings section, extracted from the established Settings-section pattern (sibling to Harnesses/Models/Agents; reuses KeyValue/StatusChip/Tag/Button). Single design (plans/AO1/design/design.md), NOT multi-variant. No SettingsConnections on this branch (AN reverted) — extracted from SettingsHarnesses.`
 
-**Human design review.** Yes — introduces a new user-facing way to attach a filesystem to an agent within a team; its shape and placement are what's being decided.
+**Human design review.** No — reclassified at design time. The planning forecast said Yes, but this is a **routine extraction** of an already-solved Settings pattern (no novel decision, no placement fork — Settings is where Connections/Harnesses/Models/Agents already live). Founder corrected an initial 3-variant pass as a failure to reuse what exists; the extract gate governs.
 
 **Acceptance criteria.**
 - An agent within a team can be attached to a filesystem, and afterward that attachment (its kind, resource, write-back capability, state) is visible.
