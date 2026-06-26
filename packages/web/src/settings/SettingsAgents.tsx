@@ -39,7 +39,7 @@ import { AGENT_ROLE_CATALOG, MODEL_CATALOG } from "@hyperidle/shared";
 import { Fragment, type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
-import type { AgentConfig } from "./settings-types.js";
+import type { AgentConfig, InjectableFilesystem } from "./settings-types.js";
 
 // ---------------------------------------------------------------------------
 // Harness registry type
@@ -71,6 +71,8 @@ interface EditFormValues {
 	harnessType: string;
 	modelId: string;
 	maxConcurrentSessions: number;
+	/** AO1: registered-filesystem ids injected into this bot (per-bot injection). */
+	filesystemIds: string[];
 }
 
 function agentToEditValues(agent: AgentConfig): EditFormValues {
@@ -81,7 +83,107 @@ function agentToEditValues(agent: AgentConfig): EditFormValues {
 		harnessType: agent.harnessType ?? "",
 		modelId: agent.modelId ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
+		filesystemIds: agent.filesystemIds ?? [],
 	};
+}
+
+/** AO1: human label for a filesystem source — the easy-to-detect mark text. */
+function fsSourceLabel(source: string): string {
+	if (source === "github") return "GitHub";
+	if (source === "gdrive") return "Google Drive";
+	if (source === "obsidian") return "Obsidian";
+	if (source === "local") return "Local";
+	return source;
+}
+
+// ---------------------------------------------------------------------------
+// AO1: per-bot Filesystems injection control.
+//
+// Mirrors how Harness/Model are configured (a labeled control drawn from a
+// registry), but injection is many-valued, so it is an add-remove list: the
+// currently-injected filesystems render as removable rows — each led by its
+// `source` Tag (the same easy-to-detect mark the registry uses) — and a Select
+// adds the next un-injected filesystem from the team registry. Reuses Select +
+// Tag + Button; no bespoke multiselect shape.
+// ---------------------------------------------------------------------------
+
+function FilesystemInjectionControl({
+	registry,
+	selectedIds,
+	onChange,
+	idPrefix,
+}: {
+	registry: InjectableFilesystem[];
+	selectedIds: string[];
+	onChange: (next: string[]) => void;
+	idPrefix: string;
+}): JSX.Element {
+	const selected = selectedIds
+		.map((id) => registry.find((fs) => fs.id === id))
+		.filter((fs): fs is InjectableFilesystem => fs != null);
+	const available = registry.filter((fs) => !selectedIds.includes(fs.id));
+
+	return (
+		<div className="flex flex-col gap-[6px]">
+			<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				Filesystems
+			</span>
+			<p className="text-[12px] text-[var(--text-tertiary)]">
+				Registered filesystems injected into this bot's sandbox. Register new ones in Settings →
+				Filesystems.
+			</p>
+			{selected.length > 0 ? (
+				<div className="flex flex-col overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)]">
+					{selected.map((fs, index) => (
+						<div key={fs.id}>
+							{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}
+							<div className="flex items-center gap-[9px] px-[9px] py-[6px]">
+								<div className="shrink-0">
+									<Tag label={fsSourceLabel(fs.source)} />
+								</div>
+								<span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[12px] text-[var(--text-primary)]">
+									{fs.resource}
+								</span>
+								<Tag label={fs.kind} />
+								<Button
+									variant="ghost"
+									size="sm"
+									aria-label={`Remove ${fs.resource} from this bot`}
+									onClick={() => onChange(selectedIds.filter((id) => id !== fs.id))}
+								>
+									Remove
+								</Button>
+							</div>
+						</div>
+					))}
+				</div>
+			) : (
+				<p className="text-[12px] text-[var(--text-tertiary)]">No filesystems injected yet.</p>
+			)}
+			{available.length > 0 ? (
+				<div className="max-w-[280px]">
+					<Select
+						id={`${idPrefix}-add-filesystem`}
+						label="Inject a filesystem"
+						size="sm"
+						value=""
+						onChange={(e) => {
+							const id = e.target.value;
+							if (id) onChange([...selectedIds, id]);
+						}}
+						aria-label="Inject a filesystem"
+						options={[
+							{ value: "", label: "Add from registry…" },
+							...available.map((fs) => ({
+								value: fs.id,
+								label: `${fsSourceLabel(fs.source)} · ${fs.resource}`,
+							})),
+						]}
+					/>
+				</div>
+			) : null}
+		</div>
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +216,8 @@ export function SettingsAgents(): JSX.Element {
 	const { showToast } = useToast();
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessEntry[]>([]);
+	// AO1: the team's registered filesystems — the pool the per-bot injection draws from.
+	const [filesystems, setFilesystems] = useState<InjectableFilesystem[]>([]);
 	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
 	const [orgTeamsStatus, setOrgTeamsStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -129,6 +233,7 @@ export function SettingsAgents(): JSX.Element {
 		harnessType: "",
 		modelId: "",
 		maxConcurrentSessions: 1,
+		filesystemIds: [],
 	});
 	// AH4: selected teamId for the add form (teamMembers.id from GET /api/org)
 	const [addTeamId, setAddTeamId] = useState<string | null>(null);
@@ -141,10 +246,11 @@ export function SettingsAgents(): JSX.Element {
 	const loadAgents = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const [agentsRes, harnessesRes, orgRes] = await Promise.all([
+			const [agentsRes, harnessesRes, orgRes, filesystemsRes] = await Promise.all([
 				apiFetch("/api/agents"),
 				apiFetch("/api/harnesses"),
 				apiFetch("/api/org"),
+				apiFetch("/api/filesystems"),
 			]);
 			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
@@ -154,6 +260,13 @@ export function SettingsAgents(): JSX.Element {
 				// AH2: Guard against non-array response (e.g. error body or test catch-all)
 				if (Array.isArray(harnessesJson)) {
 					setHarnesses(harnessesJson);
+				}
+			}
+			// AO1: load the team filesystem registry — the per-bot injection pool.
+			if (filesystemsRes.ok) {
+				const filesystemsJson = (await filesystemsRes.json()) as InjectableFilesystem[];
+				if (Array.isArray(filesystemsJson)) {
+					setFilesystems(filesystemsJson);
 				}
 			}
 			// AH4: load teams from GET /api/org; default addTeamId to first team's id
@@ -246,6 +359,7 @@ export function SettingsAgents(): JSX.Element {
 					harnessType: editValues.harnessType || null,
 					modelId: editValues.modelId || null,
 					maxConcurrentSessions: editValues.maxConcurrentSessions,
+					filesystemIds: editValues.filesystemIds,
 				}),
 			});
 
@@ -286,6 +400,7 @@ export function SettingsAgents(): JSX.Element {
 					harnessType: addValues.harnessType || null,
 					modelId: addValues.modelId || null,
 					maxConcurrentSessions: addValues.maxConcurrentSessions,
+					filesystemIds: addValues.filesystemIds,
 					// AH4: include selected teamId (teamMembers.id); null = explicit unassigned
 					teamId: addTeamId,
 				}),
@@ -312,6 +427,7 @@ export function SettingsAgents(): JSX.Element {
 				harnessType: "",
 				modelId: "",
 				maxConcurrentSessions: 1,
+				filesystemIds: [],
 			});
 			showToast("Agent created");
 		} catch {
@@ -501,6 +617,14 @@ export function SettingsAgents(): JSX.Element {
 						}))
 					}
 					placeholder="System prompt text (optional). Leave empty for no persona."
+				/>
+
+				{/* AO1: per-bot Filesystems injection — which registered filesystems this bot gets. */}
+				<FilesystemInjectionControl
+					registry={filesystems}
+					selectedIds={values.filesystemIds}
+					onChange={(next) => setValues((prev) => ({ ...prev, filesystemIds: next }))}
+					idPrefix={`edit-${agentId}`}
 				/>
 
 				{/* AH2 DESIGN-1: Inline 422 error above Save/Cancel */}
@@ -759,6 +883,14 @@ export function SettingsAgents(): JSX.Element {
 						placeholder="System prompt text (optional). Changes with role selection."
 					/>
 
+					{/* AO1: per-bot Filesystems injection on the add form. */}
+					<FilesystemInjectionControl
+						registry={filesystems}
+						selectedIds={addValues.filesystemIds}
+						onChange={(next) => setAddValues((prev) => ({ ...prev, filesystemIds: next }))}
+						idPrefix="add-agent"
+					/>
+
 					{/* AH2 DESIGN-1: Inline 422 error for add form */}
 					{addError && (
 						<p className="text-[12px] text-[var(--status-error)]" role="alert">
@@ -780,6 +912,7 @@ export function SettingsAgents(): JSX.Element {
 									harnessType: "",
 									modelId: "",
 									maxConcurrentSessions: 1,
+									filesystemIds: [],
 								});
 								setAddTeamId(orgTeams.length > 0 ? (orgTeams[0]?.id ?? null) : null);
 							}}

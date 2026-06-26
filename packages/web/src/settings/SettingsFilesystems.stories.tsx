@@ -1,37 +1,44 @@
 /**
- * AO1 — SettingsFilesystems: the single design.
+ * AO1 (reworked to the corrected IA) — SettingsFilesystems: the TEAM REGISTRY.
  *
- * DESIGN-CLASS = routine (extract). This is NOT a novel surface — it is the
- * next Settings section, extracted verbatim from the established Settings-section
- * grammar (SettingsHarnesses / SettingsModels / SettingsAgents). "List / attach /
- * inspect a thing in Settings" is already solved; Filesystems reuses that chrome.
+ * DESIGN-CLASS = routine (extract). NOT a novel surface — it is the next Settings
+ * section, extracted verbatim from the established Settings-section grammar
+ * (SettingsHarnesses / SettingsModels / SettingsAgents). "List / register / inspect
+ * a thing in Settings" is already solved; Filesystems reuses that chrome.
+ *
+ * Corrected model (docs/process-layer/canonical-shapes.md § Filesystem):
+ *   - A filesystem is REGISTERED ONCE, team-scoped, with a first-class `source`
+ *     (local / github / gdrive / obsidian …) — parallel to a connector.
+ *   - It is NOT owned by a single agent. This registry is a FLAT list of the
+ *     team's registered filesystems (NOT grouped by bot).
+ *   - Per-bot INJECTION lives on the bot's config (SettingsAgents), not here.
  *
  * Grammar extracted from SettingsHarnesses.tsx (the closest dense-list sibling):
  *   - outer wrapper `flex flex-col gap-[12px]`;
- *   - a per-group uppercase section-label header (tracking-caps-sm, text-tertiary)
- *     with a trailing ghost `+ Attach` Button — same shape as the "PROVIDERS" /
- *     Refresh header;
- *   - ONE `--surface-elevated` bordered container per group with `h-px` hairline
- *     row dividers (`overflow-hidden`) — the AM4 "Agent backends" container rule
- *     (docs/ui-design/settings-consistency.md § Agent backends);
- *   - `StatusChip` for state (incl. needs_attention → behind/amber);
- *   - `Tag` for the kind label (as SettingsAgents tags role);
- *   - inline expand row for inspect (as SettingsAgents/SettingsModels expand for
- *     edit), revealing a `KeyValue` grid.
+ *   - ONE uppercase section-label header (tracking-caps-sm, text-tertiary) with a
+ *     trailing ghost `+ Add filesystem` Button — same shape as "PROVIDERS" / Refresh;
+ *   - ONE `--surface-elevated` bordered container with `h-px` hairline row dividers
+ *     (`overflow-hidden`) — the AM4 "Agent backends" container rule;
+ *   - inline Inspect-expand below a row (as SettingsAgents/SettingsModels expand).
  *
- * Inspect uses the design-system `KeyValue` primitive (Kind / Resource / Branch /
- * Write-back / Connection / State). The Connection/auth fields are visually
- * grouped apart from the files fields by a hairline + cluster label, so
- * Filesystem ⟂ Connection stays structurally legible.
+ * Reused DS primitives (zero new shapes):
+ *   - `Tag` for the `source` mark — the existing easy-to-detect type/source chip
+ *     the agent surfaces use to mark type (role in SettingsAgents; kind here). It
+ *     leads each row, prominent. NO hand-rolled logo/provider component exists in
+ *     the DS — `Tag` IS the catalogued mark, so we reuse it.
+ *   - `Tag` (neutral) for the `kind` label;
+ *   - `StatusChip` for state (incl. needs_attention → behind/amber);
+ *   - `KeyValue` for the inspect grid (source / resource / branch / kind / write-back
+ *     / connection / state), split into a files cluster and an auth cluster by a
+ *     hairline so Filesystem ⟂ Connection stays structurally legible.
  *
  * @lore AO1: KeyValue renders its value at 15px SANS (KeyValue.tsx:23), so the
  * mono resource/branch identifiers in the inspect grid read sans, not mono.
- * Accepted — reusing the catalogued Settings primitive beats a bespoke mono
- * field; the row title still carries the mono resource for identity.
+ * Accepted — reusing the catalogued Settings primitive beats a bespoke mono field;
+ * the row title still carries the mono resource for identity.
  *
- * Renders only the populated real state + a needs_attention row (AC). No
- * skeleton / empty / error here — those reuse Settings conventions at build
- * (SkeletonList / EmptyState compact / ErrorState compact).
+ * Renders only the populated real state + a needs_attention row (AC). No skeleton /
+ * empty / error here — those reuse Settings conventions at build.
  */
 
 // hearth-internal-padding
@@ -40,19 +47,21 @@ import { Button, KeyValue, type Status, StatusChip, Tag } from "@hyperidle/desig
 import { type JSX, useState } from "react";
 
 // ---------------------------------------------------------------------------
-// Fixture shape — the Filesystem as the UI sees it (mirrors the canonical shape
-// in docs/process-layer/filesystem-primitive.md). No credential is ever in this
-// shape — only the resource selection + the FACT of reachability.
+// Fixture shape — the registered Filesystem as the UI sees it (mirrors the
+// canonical shape in docs/process-layer/canonical-shapes.md § Filesystem).
+// No credential is ever in this shape — only the resource selection, the source
+// type, and the FACT of reachability.
 // ---------------------------------------------------------------------------
 
+type FsSource = "local" | "github" | "gdrive" | "obsidian";
 type FilesystemKind = "code" | "doc_set";
 type WriteBack = "git" | "file" | "none";
 type FsState = "attached" | "reachable" | "needs_attention";
 
 interface FilesystemView {
 	id: string;
-	agentName: string;
-	role: string;
+	/** The SOURCE TYPE — leads each row as the prominent, easy-to-detect mark. */
+	source: FsSource;
 	/** repo "owner/name" (code) or folder path (doc_set) — the resource selection. */
 	resource: string;
 	/** code: branch; doc_set: undefined. */
@@ -62,43 +71,67 @@ interface FilesystemView {
 	state: FsState;
 	/** Connection display name (the auth axis) or null for bare-local. */
 	connection: string | null;
+	/** How many bots this registered filesystem is injected into (registry stat). */
+	injectedInto: number;
 	/** Why it needs attention — only set when state === needs_attention. */
 	attentionReason?: string;
 }
 
+// The TEAM's registry — a flat list, NOT grouped by bot. One filesystem is
+// registered once and injected into 0..N bots (the injectedInto count).
 const FILESYSTEMS: FilesystemView[] = [
 	{
-		id: "fs-acme-app",
-		agentName: "Builder Bot",
-		role: "builder",
+		id: "fs-storefront",
+		source: "github",
 		resource: "acme/storefront",
 		branch: "main",
 		kind: "code",
 		writeback: "git",
 		state: "reachable",
-		connection: "GitHub",
-	},
-	{
-		id: "fs-acme-notes",
-		agentName: "Builder Bot",
-		role: "builder",
-		resource: "~/vaults/product-notes",
-		kind: "doc_set",
-		writeback: "file",
-		state: "reachable",
-		connection: null,
+		connection: "GitHub · acme-bot",
+		injectedInto: 3,
 	},
 	{
 		id: "fs-marketing-site",
-		agentName: "Acme PM",
-		role: "product_manager",
+		source: "github",
 		resource: "acme/marketing-site",
 		branch: "release",
 		kind: "code",
 		writeback: "git",
 		state: "needs_attention",
-		connection: "GitHub",
-		attentionReason: "GitHub connection not found — reconnect to author here",
+		connection: "GitHub · acme-bot",
+		injectedInto: 1,
+		attentionReason: "Connection expired — reconnect to author here",
+	},
+	{
+		id: "fs-product-notes",
+		source: "obsidian",
+		resource: "~/vaults/product-notes",
+		kind: "doc_set",
+		writeback: "file",
+		state: "reachable",
+		connection: null,
+		injectedInto: 2,
+	},
+	{
+		id: "fs-brand-docs",
+		source: "gdrive",
+		resource: "Marketing / Brand",
+		kind: "doc_set",
+		writeback: "file",
+		state: "reachable",
+		connection: "Google Drive · acme.com",
+		injectedInto: 1,
+	},
+	{
+		id: "fs-scratch",
+		source: "local",
+		resource: "~/work/scratch",
+		kind: "doc_set",
+		writeback: "none",
+		state: "attached",
+		connection: null,
+		injectedInto: 0,
 	},
 ];
 
@@ -118,6 +151,13 @@ function stateLabel(s: FsState): string {
 	return "Attached";
 }
 
+function sourceLabel(s: FsSource): string {
+	if (s === "github") return "GitHub";
+	if (s === "gdrive") return "Google Drive";
+	if (s === "obsidian") return "Obsidian";
+	return "Local";
+}
+
 function kindLabel(k: FilesystemKind): string {
 	return k === "code" ? "code" : "doc_set";
 }
@@ -129,16 +169,22 @@ function writebackValue(w: WriteBack): string {
 	return "none · read-only";
 }
 
-/** Needs-attention floats to the top within a group. */
+function injectionLabel(n: number): string {
+	if (n === 0) return "Injected into no bots yet";
+	if (n === 1) return "Injected into 1 bot";
+	return `Injected into ${n} bots`;
+}
+
+/** Needs-attention floats to the top of the registry. */
 function bySeverity(a: FilesystemView, b: FilesystemView): number {
 	const rank = (s: FsState): number => (s === "needs_attention" ? 0 : 1);
 	return rank(a.state) - rank(b.state) || a.resource.localeCompare(b.resource);
 }
 
 // ---------------------------------------------------------------------------
-// Inline inspect — design-system KeyValue grid (Kind / Resource / Branch /
-// Write-back / Connection / State). Two clusters split by a hairline so the
-// Connection/auth axis sits visibly apart from the files axis (Filesystem ⟂
+// Inline inspect — design-system KeyValue grid (Source / Resource / Branch /
+// Kind / Write-back / Connection / State). Two clusters split by a hairline so
+// the Connection/auth axis sits visibly apart from the files axis (Filesystem ⟂
 // Connection). Maps to GET /api/filesystems/:id.
 // ---------------------------------------------------------------------------
 
@@ -149,9 +195,10 @@ function FilesystemInspect({ fs }: { fs: FilesystemView }): JSX.Element {
 				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 					Resource &amp; files
 				</span>
-				<KeyValue label="Kind" value={kindLabel(fs.kind)} />
+				<KeyValue label="Source" value={sourceLabel(fs.source)} />
 				<KeyValue label="Resource" value={fs.resource} />
 				<KeyValue label="Branch" value={fs.branch ?? "—"} />
+				<KeyValue label="Kind" value={kindLabel(fs.kind)} />
 				<KeyValue label="Write-back" value={writebackValue(fs.writeback)} />
 			</div>
 			{/* Auth axis — apart from the resource cluster (Filesystem ⟂ Connection). */}
@@ -167,8 +214,9 @@ function FilesystemInspect({ fs }: { fs: FilesystemView }): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Filesystem row — flat display row inside the group container, with an inline
-// Inspect expand. Mirrors the SettingsHarnesses row + SettingsAgents expand.
+// Filesystem row — flat display row inside the ONE registry container, with an
+// inline Inspect expand. The `source` Tag leads the row as the prominent mark.
+// Mirrors the SettingsHarnesses row + SettingsAgents expand.
 // ---------------------------------------------------------------------------
 
 function FilesystemRow({
@@ -183,6 +231,10 @@ function FilesystemRow({
 	return (
 		<div>
 			<div className="flex items-center gap-[12px] px-[12px] py-[12px]">
+				{/* Source mark — the prominent, easy-to-detect type chip leads the row. */}
+				<div className="shrink-0">
+					<Tag label={sourceLabel(fs.source)} />
+				</div>
 				<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 					<div className="flex items-center gap-[9px]">
 						<span className="truncate font-[family-name:var(--font-mono)] text-[13px] text-[var(--text-primary)]">
@@ -196,7 +248,7 @@ function FilesystemRow({
 						<Tag label={kindLabel(fs.kind)} />
 					</div>
 					<span className="text-[12px] text-[var(--text-tertiary)]">
-						{fs.connection ? `Auth via ${fs.connection} connection` : "Local · no connection"}
+						{injectionLabel(fs.injectedInto)}
 						{fs.attentionReason ? ` · ${fs.attentionReason}` : null}
 					</span>
 				</div>
@@ -211,8 +263,8 @@ function FilesystemRow({
 					>
 						{expanded ? "Hide" : "Inspect"}
 					</Button>
-					<Button variant="ghost" size="sm" aria-label={`Detach ${fs.resource}`}>
-						Detach
+					<Button variant="ghost" size="sm" aria-label={`Remove ${fs.resource}`}>
+						Remove
 					</Button>
 				</div>
 			</div>
@@ -221,51 +273,6 @@ function FilesystemRow({
 					<FilesystemInspect fs={fs} />
 				</div>
 			) : null}
-		</div>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// Agent group — one section header + one bordered container of rows.
-// Extracted from SettingsHarnesses' header + container shape.
-// ---------------------------------------------------------------------------
-
-function AgentGroup({
-	agentName,
-	role,
-	filesystems,
-	expandedId,
-}: {
-	agentName: string;
-	role: string;
-	filesystems: FilesystemView[];
-	/** Row to render expanded on first paint. */
-	expandedId?: string;
-}): JSX.Element {
-	const sorted = [...filesystems].sort(bySeverity);
-	return (
-		<div className="flex flex-col gap-[12px]">
-			{/* Section header — same shape as SettingsHarnesses' "PROVIDERS" / Refresh. */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-[9px]">
-					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						{agentName}
-					</span>
-					<Tag label={role} />
-				</div>
-				<Button variant="ghost" size="sm" aria-label={`Attach a filesystem to ${agentName}`}>
-					+ Attach
-				</Button>
-			</div>
-			{/* ONE bordered container with hairline-divided rows. */}
-			<div className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
-				{sorted.map((fs, index) => (
-					<div key={fs.id}>
-						{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}
-						<FilesystemRow fs={fs} defaultExpanded={fs.id === expandedId} />
-					</div>
-				))}
-			</div>
 		</div>
 	);
 }
@@ -280,23 +287,36 @@ export default {
 };
 
 export const Populated = (): JSX.Element => {
-	const builder = FILESYSTEMS.filter((f) => f.agentName === "Builder Bot");
-	const pm = FILESYSTEMS.filter((f) => f.agentName === "Acme PM");
+	const sorted = [...FILESYSTEMS].sort(bySeverity);
 	return (
 		<div className="flex flex-col gap-[24px] bg-[var(--surface-page)] p-[24px]">
 			{/* Section intro — same flat lede the other Settings sections use. */}
 			<p className="max-w-[560px] text-[12px] text-[var(--text-tertiary)]">
-				Where each agent's work lives and accrues history — a code repository or a document set.
-				Auth comes from a connection; the filesystem is the resource it attaches.
+				Filesystems your team has registered — a code repository or a document set where work
+				lives and accrues history. Registered once here; inject into a bot from its config under
+				Agents. Auth comes from a connection; the filesystem is the resource it points at.
 			</p>
-			<AgentGroup
-				agentName="Builder Bot"
-				role="builder"
-				filesystems={builder}
-				expandedId="fs-acme-app"
-			/>
-			<AgentGroup agentName="Acme PM" role="product_manager" filesystems={pm} />
+			<div className="flex flex-col gap-[12px]">
+				{/* Section header — same shape as SettingsHarnesses' "PROVIDERS" / Refresh. */}
+				<div className="flex items-center justify-between">
+					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						Registered filesystems
+					</span>
+					<Button variant="ghost" size="sm" aria-label="Add a filesystem to the team registry">
+						+ Add filesystem
+					</Button>
+				</div>
+				{/* ONE bordered container with hairline-divided rows — the whole registry. */}
+				<div className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
+					{sorted.map((fs, index) => (
+						<div key={fs.id}>
+							{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}
+							<FilesystemRow fs={fs} defaultExpanded={fs.id === "fs-marketing-site"} />
+						</div>
+					))}
+				</div>
+			</div>
 		</div>
 	);
 };
-Populated.storyName = "Filesystems — by agent (Settings section)";
+Populated.storyName = "Filesystems registry (Settings section)";

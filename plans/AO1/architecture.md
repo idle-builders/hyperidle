@@ -4,7 +4,9 @@
 **Producer:** designer. A separate reviewer runs `/architecture-critique`.
 **Concept (LOCKED, fixed input):** `plans/AO/concept.md` + `plans/AO/research-filesystem-vs-tool.md`. Canonical shape `docs/process-layer/filesystem-primitive.md` + `docs/process-layer/canonical-shapes.md §Filesystem`.
 
-This plan models the **Filesystem record + attachment + resource selection + reachability**, the **Connection seam** (how a `code` filesystem references a Connection and how its auth reaches the sandbox), and the **AO2 materialization seam** (the interface AO2 implements). It writes **no production code** — types, schema, routes, and ordered tasks only. The attach/inspect **UI** is deferred to `/design`; this plan specifies the API/data contract that surface binds to.
+This plan models the **Filesystem registry record** (team-scoped, with a first-class **`source`**), the **per-bot `FilesystemInjection` mapping** (which registered filesystems are injected into a given bot), **resource selection + reachability**, the **Connection seam** (how a `code` filesystem references a Connection and how its auth reaches the sandbox), and the **AO2 materialization seam** (the interface AO2 implements — a session for bot X materializes the filesystems **injected to X**). It writes **no production code** — types, schema, routes, and ordered tasks only. The registry/injection **UI** is deferred to `/design`; this plan specifies the API/data contract those surfaces bind to.
+
+> **Model correction (founder, 2026-06-26).** A filesystem is a **registered, team-scoped file source**, **not** owned by a single agent. The old `agent_user_id` column on `filesystems` is **removed**; per-bot wiring lives in a separate **`filesystem_injections`** mapping (`{ agent_user_id → users.id, filesystem_id → filesystems.id }`, UNIQUE), parallel to connector/tool injection. A first-class **`source`** column (`local` / `github` / `gdrive` / …, derived from the Connection) is **added**. Two Settings surfaces: **Filesystems registry** + **per-bot injection** (Settings → Agents). This supersedes the prior single-FK ownership model below; `users.id` is now the **injection FK**, not a column on the filesystem.
 
 ---
 
@@ -13,7 +15,7 @@ This plan models the **Filesystem record + attachment + resource selection + rea
 - `plans/AO/concept.md` — the locked concept (decision rule, hard rules, vocabulary lock).
 - `plans/AO/research-filesystem-vs-tool.md` — filesystem↔tool↔knowledge decision rule + citations.
 - `docs/process-layer/filesystem-primitive.md` — canonical shape + lifecycle + contracts.
-- `docs/process-layer/canonical-shapes.md §Filesystem shape (Track AO)` (lines 213-241) — the type the schema must mirror.
+- `docs/process-layer/canonical-shapes.md §Filesystem shape (Track AO)` — the **source-of-truth** the schema must mirror: `Filesystem` (team-scoped, `source`, no `agentUserId`) + `FilesystemInjection` (`{ agentUserId, filesystemId }`, UNIQUE).
 - `docs/architecture/system-boundary.md` — RIDE git / code is git-derived (hard rule 4).
 - `.pipeline/work-packages/TRACK-AO.md` — AO1 ACs + AO2 (the consumer of this model).
 - `.pipeline/work-packages/TRACK-AN.md` — the Connection model (NOT merged; model the seam, not the internals).
@@ -26,10 +28,10 @@ This plan models the **Filesystem record + attachment + resource selection + rea
 The concept pins most decisions. The genuinely-unsettled ones, with my read + evidence. These are addressed in the plan below; the reviewer confirms or overrides.
 
 1. **What's the smallest version of AO1 that's still useful?**
-   My read: the **durable record + the four read/write/list/detach routes + the reachability check**. NOT materialization (AO2), NOT the UI (deferred to `/design`), NOT a Connection table (AN owns it; we model the seam). In-scope = `filesystems` table + `Filesystem` type + CRUD-ish API + `needs_attention` resolution. Out = checkout, auth provisioning runtime, the attach surface TSX.
+   My read: the **registry record + the per-bot injection mapping + the registry routes + the inject/eject routes + the reachability check**. NOT materialization (AO2), NOT the UI (deferred to `/design`), NOT a Connection table (AN owns it; we model the seam). In-scope = `filesystems` table (team-scoped, with `source`) + `filesystem_injections` table + `Filesystem`/`FilesystemInjection` types + registry CRUD-ish API + per-bot inject/eject API + `needs_attention` resolution. Out = checkout, auth provisioning runtime, the registry/injection surface TSX.
 
-2. **Agent-attachment FK target — `teamMembers.id` (the membership group) or `users.id` (the individual agent)? RESOLVED → `users.id`.**
-   `team_members` is the membership *group* table — **one row per team** via the U1 1:1 invariant (schema.ts:97-99 `@lore U1`), with `members` JSON + `leadAgentId` and **no per-agent identity** (schema.ts:100-117). Keying the attachment to `team_members.id` therefore carries zero per-agent information — it degenerates into a duplicate of `team_id`, and AO2 cannot bind a filesystem to one agent. The **runtime agent identity is `users.id`**: `sessions.agentId → users.id` (schema.ts:252-254), and the individual agent is a `users` row (`users.teamId → team_members.id`, schema.ts:47). AO2's per-agent materialization (§5, Phase 4.5) resolves the bound filesystem *inside a session that runs as a specific `agentId` (= `users.id`)*, so the attachment column must point at `users.id` for that join to close. **Decision: `agent_user_id → users.id` (nullable; null → team-level/shared).** This matches the canonical shape (`docs/process-layer/canonical-shapes.md §Filesystem` + `filesystem-primitive.md`, both already `agentUserId → users.id`) and the concept's two attachment levels — "attached to **one agent within a team** OR shared at the **Team** level" (cardinality `agent-in-team 1 — 0..N`). `team_id → teams.id` stays the always-present scope. The earlier candidate (`agent_member_id → team_members.id`) is dropped entirely — not shipped as a vestige. Open question Q1 records the resolution.
+2. **Per-bot wiring — a column on `filesystems` or a separate mapping table? RESOLVED → separate `filesystem_injections` mapping (founder model correction).**
+   The filesystem is a **registered, team-scoped file source — not owned by one agent**. So the per-bot wiring is **not** a column on `filesystems`; the old `agent_user_id` column is **removed**. It lives in a separate **`filesystem_injections`** mapping: `{ agent_user_id → users.id, filesystem_id → filesystems.id }`, **UNIQUE (agent_user_id, filesystem_id)** — a bot may have many injected filesystems; a filesystem may be injected to many bots (`Filesystem N — N Bot`). This is parallel to connector/tool injection ("connect once, inject per agent"). The **FK target on the injection side is `users.id`**, and the reasoning the earlier single-FK draft worked out still holds, only relocated to the mapping: `team_members` is the membership *group* table — **one row per team** via the U1 1:1 invariant (schema.ts:97-99 `@lore U1`), with `members` JSON + `leadAgentId` and **no per-agent identity** (schema.ts:100-117), so it carries zero per-agent information. The **runtime agent identity is `users.id`**: `sessions.agentId → users.id` (schema.ts:252-254). AO2's per-bot materialization (§5, Phase 4.5) resolves the **injected** filesystems *inside a session that runs as a specific `agentId` (= `users.id`)*, joining `sessions.agentId → filesystem_injections.agent_user_id → filesystems.id`. So the injection FK must be `users.id` for that join to close. **`filesystems.team_id → teams.id`** stays the always-present registry scope. The candidate `agent_member_id → team_members.id` is dropped entirely. The injection must be **team-consistent** — the bot's team (`users.teamId`-derived) must match `filesystems.team_id` (enforced at the route boundary; see §3). This matches the canonical shape (`canonical-shapes.md §Filesystem` + `FilesystemInjection`, both corrected). Q1 records the resolution.
 
 3. **`resource_ref` — structured columns or one opaque string?**
    The shape says `resourceRef: string` ("a repo+branch, a folder path"). My read: **one `resource_ref` text column holding a JSON-encoded selector** discriminated by `kind`, plus a denormalized `branch` is *not* added (keep it inside `resource_ref` to honor the single-column shape). Design-it-twice below (§Phase 3·A) picks JSON-in-text over split columns. Rationale: open `kind` vocabulary → per-kind selector shapes → a typed JSON blob (Zod-validated at the boundary, exactly as `artifacts.previewJson` does, schema.ts:858 + artifacts.ts:118) beats a column-per-kind that ossifies the vocabulary.
@@ -37,7 +39,10 @@ The concept pins most decisions. The genuinely-unsettled ones, with my read + ev
 4. **Reachability — stored column or computed on read?**
    My read: **`state` is a stored column** (`attached` | `reachable` | `needs_attention`) as the canonical shape mandates, **and** the inspect/list route runs a **cheap structural reachability check** that can *transition* `attached→reachable` or `→needs_attention` and persist it. v1 reachability is **structural, not a network round-trip**: a `code` filesystem with `writeback:'git'` + a `connection_id` is `needs_attention` iff the referenced Connection is absent/unresolvable; a bare-local filesystem (`connection_id` null) is `reachable` if its local path is the form we expect. **No live `git ls-remote`** in AO1 — that auth lives in the sandbox (AO2), and AO1 must not reach for forge creds. Open question Q2 records the v1 boundary.
 
-5. **Does the spec contradict an existing doc?** No. The canonical shape, the concept, and the track file agree — all three name the individual-agent attachment `agentUserId → users.id` (Q2 above / Q1 resolution). No remaining tension.
+5. **Does the spec contradict an existing doc?** No. The canonical shape, the concept, and `filesystem-primitive.md` agree on the corrected model — `filesystems` is team-scoped with a first-class `source` and no `agent_user_id`; per-bot wiring is the `FilesystemInjection` mapping (`{ agentUserId, filesystemId }`, UNIQUE) keyed on `users.id`. No remaining tension.
+
+6. **`source` — derived or stored? RESOLVED → stored column, derived at register-time.**
+   `source` (the source type — `local` / `github` / `gdrive` / …) is a first-class **stored `text` column** on `filesystems`, **derived from the Connection at register-time** (or `local` when `connection_id` is null). Stored rather than computed-on-read because (a) it must be queryable/displayable in the registry without resolving the (possibly-absent) Connection, and (b) AN's connection shape is unsettled (0038 revert), so we cannot rely on a live derive. Open vocabulary (like `kind`); constrained at the boundary to a known set is **not** required (a new source type must not need a migration). The register route sets it from the Connection type when present.
 
 ---
 
@@ -48,9 +53,10 @@ Every symbol the plan or spec references, verified against `main` (worktree `AO0
 | Symbol / assumption | Reality (file:line) | Plan handling |
 |---|---|---|
 | `teams` table, `id` PK | `pgTable("teams", { id: text().primaryKey(), … })` schema.ts:17-34 | `filesystems.team_id → teams.id` FK. ✅ |
-| `teamMembers` table = **one row per team** (U1 1:1) | `pgTable("team_members", { id, teamId→teams.id, members, leadAgentId, … })` schema.ts:100-117; `@lore U1` one row per team schema.ts:97-99 | **NOT** the filesystem's agent-attachment target — it's the membership *group* (no per-agent identity), so it would carry zero per-agent info. See Q1. ✅ |
-| `users` table = the individual agent; `users.teamId → teamMembers.id` | schema.ts:36-95, :47 | The individual agent is a `users` row. `filesystems.agent_user_id → users.id` (nullable). ✅ |
-| **`sessions.agentId → users.id`** — the runtime agent identity | schema.ts:252-254 | **Decisive for Q1.** AO2 materializes inside a session running as a specific `agentId` (= `users.id`); the attachment FK must be `users.id` for that join to close. ✅ |
+| `teamMembers` table = **one row per team** (U1 1:1) | `pgTable("team_members", { id, teamId→teams.id, members, leadAgentId, … })` schema.ts:100-117; `@lore U1` one row per team schema.ts:97-99 | **NOT** the injection FK target — it's the membership *group* (no per-agent identity), so it would carry zero per-agent info. The injection keys on `users.id`. See Q1. ✅ |
+| `users` table = the individual agent (bot); `users.teamId → teamMembers.id` | schema.ts:36-95, :47 | The bot is a `users` row. **`filesystem_injections.agent_user_id → users.id`** (the injection FK; `filesystems` has **no** agent column). ✅ |
+| **`sessions.agentId → users.id`** — the runtime agent identity | schema.ts:252-254 | **Decisive for Q1.** AO2 materializes inside a session running as a specific `agentId` (= `users.id`); the injection FK must be `users.id` so `sessions.agentId → filesystem_injections.agent_user_id → filesystems` closes. ✅ |
+| **`filesystem_injections`** = per-bot wiring (NEW) | NEW table this WP. `{ agent_user_id → users.id, filesystem_id → filesystems.id }`, UNIQUE. | Replaces the single-owner column. Parallel to connector/tool injection. `Filesystem N — N Bot`. ✅ |
 | `artifacts` has filesystem columns | NO — `artifacts` = `{id, producingTaskId, kind, label, previewJson, createdAt}` schema.ts:848-865. **No repoPath/filePath/commitSha.** | Spec confirmed: filesystem is a **new table**, distinct from `artifacts`. ✅ |
 | `knowledge_items` | `{id, scopeKind, scopeId, topic, title, body, format, status, …}` schema.ts:580-607 | Filesystem is **distinct** — not a knowledge item. The "squeeze non-code output into knowledge_items" workaround is what AO1 ends. ✅ |
 | `git-export` global config / target | `git-export-runner.ts` + `git-export-routes.ts` — writes knowledge markdown to a single global repo (`scopeId`). | Filesystem must **not** overwrite this. Different table, different concern (AC4). ✅ |
@@ -58,10 +64,10 @@ Every symbol the plan or spec references, verified against `main` (worktree `AO0
 | `service_connections` table / `ServiceConnectionResolver` | **ABSENT on this branch now** (grep: zero hits) — but it was **merged (migration 0036 `CREATE TABLE service_connections`) then dropped (0038 `DROP TABLE "service_connections" CASCADE`)**. Reverted, not never-merged (Track AN reset, PR #364 — broker/registry dropped per MEMORY). | Model the **Connection seam** by reference only (§4). `connection_id` is a **plain `text` column, NOT a DB FK** — the target table is genuinely absent now, and AN's *re-merged* shape isn't fixed (it already churned once), so don't assume 0036's columns. ✅ |
 | Migration numbering | drizzle dir tail = `0038_skinny_argent.sql`; `_journal.json` idx 38. | New migration **`0039_AO1_filesystems.sql`**, forward-only, `db:generate`-authored. ✅ |
 | Route construction pattern | `createXRoutes(db, eventBus?) → Hono`; mounted `api.route("/path", createXRoutes(...))` app.ts:402-461. Zod via `validateBody`/`zValidator` + `validationHook` (validate.ts). `requireBoundary({kind:"public-data"})` middleware (artifacts.ts:159). | `createFilesystemRoutes(db, eventBus)`, mounted `api.route("/filesystems", …)`. Same Zod + boundary patterns. ✅ |
-| `db/index.ts` schema re-export block | schema tables + `$inferSelect`/`$inferInsert` types re-exported alphabetically (index.ts:27-127); db exports `ArtifactRow` (NOT `Artifact`) — the precedent. | Add `filesystems`, `type FilesystemRow`, `type NewFilesystem` to this block. **No `Filesystem` type in db** (the wire `Filesystem` is in `@hyperidle/shared`). **`sharedFiles`.** ✅ |
+| `db/index.ts` schema re-export block | schema tables + `$inferSelect`/`$inferInsert` types re-exported alphabetically (index.ts:27-127); db exports `ArtifactRow` (NOT `Artifact`) — the precedent. | Add `filesystems`, `type FilesystemRow`, `type NewFilesystem`, `filesystemInjections`, `type FilesystemInjectionRow`, `type NewFilesystemInjection` to this block. **No `Filesystem` type in db** (the wire `Filesystem` is in `@hyperidle/shared`). **`sharedFiles`.** ✅ |
 | `@hyperidle/shared` type home | per-concept files re-exported from `src/index.ts` (e.g. `proposed-call.ts`, `team.ts`). | New `packages/shared/src/filesystem.ts`, re-exported from `index.ts`. ✅ |
 
-**No spec assumption disagreed in a way that blocks the plan.** The two notable reconciliations: (a) `connection_id` is a non-FK text column because AN's connection table was reverted (dropped in 0038) and its re-merged shape isn't settled; (b) `agent_user_id` targets `users.id` (the individual agent, = `sessions.agentId`), matching the canonical shape and the concept's per-agent attachment level (Q1).
+**No spec assumption disagreed in a way that blocks the plan.** The notable reconciliations: (a) `connection_id` is a non-FK text column because AN's connection table was reverted (dropped in 0038) and its re-merged shape isn't settled; (b) per-bot wiring is the **`filesystem_injections`** mapping keyed on `users.id` (= `sessions.agentId`), **not** a column on `filesystems` — the filesystem is registered team-scoped, not single-owner (Q1); (c) `filesystems` gains a first-class `source` column derived from the Connection.
 
 ---
 
@@ -71,14 +77,15 @@ Mapped from TRACK-AO.md AO1 ACs + validation scenarios. Each AC names the exact 
 
 | # | Acceptance criterion | Verification method |
 |---|---|---|
-| AC1 | An agent-in-team can be attached to a filesystem; afterward kind/resource/writeback/state are visible. | **Integration test** (`filesystems.integration.test.ts`): `POST /api/filesystems` with `{teamId, agentUserId, kind:'code', connectionId, resourceRef:{repo,branch}, writeback:'git'}` → 201 + body echoes the record. Asserts the row binds to that one agent (`agentUserId` round-trips). A second POST with `agentUserId:null` creates a team-shared filesystem. Then `GET /api/filesystems/:id` → 200 asserts `kind/resourceRef/writeback/state` present. |
-| AC2 | A `code` filesystem records its repo (Connection + repo + branch) with forge auth resolved from a **Connection** (AN), not re-modelled. | **Integration test**: create with `connectionId:"conn-x"` + `resourceRef:{repo:"owner/r",branch:"main"}`; assert the row stores `connection_id` + the JSON selector and stores **no token/secret** (assert `Object.keys(row)` has no credential column). Unit test on the resolver **seam interface** (`FilesystemAuthResolver`) — a fake resolver is called with `connectionId` and returns an auth handle (proves AO1 references, never embeds, auth). |
+| AC1 | A filesystem can be **registered** (team-scoped) with a first-class `source`; afterward source/kind/resource/writeback/state are visible. | **Integration test** (`filesystems.integration.test.ts`): `POST /api/filesystems` with `{teamId, kind:'code', connectionId, resourceRef:{repo,branch}, writeback:'git'}` → 201 + body echoes the record, including a `source` derived from the connection (e.g. `'github'`); a connection-less POST → `source:'local'`. Asserts the row is **team-scoped with no agent column** (`Object.keys(row)` has no `agent_user_id`). Then `GET /api/filesystems/:id` → 200 asserts `source/kind/resourceRef/writeback/state` present. |
+| AC1b | A registered filesystem can be **injected into** a bot and **ejected**; injection is per-bot, many-to-many. | **Integration test**: `POST /api/filesystems/:id/injections` with `{agentUserId}` → 201; `GET /api/agents/:agentUserId/filesystems` (or `GET /api/filesystems?agentUserId=`) lists it. A second bot injecting the **same** filesystem also succeeds (sharing). Re-injecting the same `(agentUserId, filesystemId)` → 409/idempotent (UNIQUE). `DELETE …/injections/:agentUserId` → 204; subsequent list omits it. Injecting into a bot whose team ≠ `filesystems.team_id` → 400 (team-consistency). |
+| AC2 | A `code` filesystem records its repo (Connection + repo + branch) with forge auth resolved from a **Connection** (AN), not re-modelled. | **Integration test**: create with `connectionId:"conn-x"` + `resourceRef:{repo:"owner/r",branch:"main"}`; assert the row stores `connection_id` + the JSON selector + a derived `source` and stores **no token/secret** (assert `Object.keys(row)` has no credential column). Unit test on the resolver **seam interface** (`FilesystemAuthResolver`) — a fake resolver is called with `connectionId` and returns an auth handle (proves AO1 references, never embeds, auth). |
 | AC3 | The model accommodates `doc_set` (a markdown/Obsidian folder); SoRs (inbox/CRM/ticket) categorically excluded. | **Integration test**: `POST` with `kind:'doc_set'`, `resourceRef:{folder:"/notes"}`, `writeback:'file'` → 201. **Negative test**: `POST` with `kind:'inbox'` (or any non-registered kind) → 400 `VALIDATION_ERROR`. (Kind set at create-time is constrained to `FILESYSTEM_KINDS`; reads accept open vocab — mirrors artifacts.ts ARTIFACT_KINDS pattern.) |
-| AC4 | A filesystem attachment is distinct from, and does not overwrite, the knowledge-export config or a knowledge item. | **Integration test**: create a filesystem; assert `knowledge_items` rowcount unchanged and `git-export` config (server_config / git-export route GET) unchanged. Plus **schema test**: `filesystems` is a separate table (migration creates it; no ALTER on `artifacts`/`knowledge_items`/`server_config`). |
+| AC4 | A registered filesystem is distinct from, and does not overwrite, the knowledge-export config or a knowledge item. | **Integration test**: register a filesystem; assert `knowledge_items` rowcount unchanged and `git-export` config (server_config / git-export route GET) unchanged. Plus **schema test**: `filesystems`/`filesystem_injections` are separate tables (migration creates them; no ALTER on `artifacts`/`knowledge_items`/`server_config`). |
 | AC5 | An unreachable/unauthenticated filesystem surfaces as **needs_attention**, never silently. | **Integration test**: create a `code`+`git` filesystem with `connectionId:"missing-conn"`; inject a fake resolver that reports the connection absent; `GET /api/filesystems/:id` → `state:"needs_attention"`. Inverse: present connection → `state:"reachable"`. |
-| AC6 | Detach removes the attachment. | **Integration test**: `DELETE /api/filesystems/:id` → 204; subsequent `GET` → 404. |
-| AC7 | Types are importable and `npm run check` is clean. | `npm run check` zero errors; `import { type FilesystemRow, filesystems } from "@hyperidle/db"` and `import { type Filesystem, type FilesystemKind, FILESYSTEM_KINDS } from "@hyperidle/shared"` resolve in server + a test (the wire `Filesystem` is in shared; db exposes `FilesystemRow`). |
-| AC8 | Forward-only migration runs cleanly. | Migration test (existing `applyMigrations` harness): `0039_AO1_filesystems.sql` applies on a fresh DB; `filesystems` table + indexes exist; re-running migrations is idempotent (no down-migration). |
+| AC6 | Removing a filesystem deletes its registration **and** cascades its injections. | **Integration test**: register a filesystem, inject into 2 bots; `DELETE /api/filesystems/:id` → 204; subsequent `GET` → 404; `filesystem_injections` for that filesystem → 0 rows (cascade). |
+| AC7 | Types are importable and `npm run check` is clean. | `npm run check` zero errors; `import { type FilesystemRow, filesystems, type FilesystemInjectionRow, filesystemInjections } from "@hyperidle/db"` and `import { type Filesystem, type FilesystemInjection, type FilesystemKind, FILESYSTEM_KINDS } from "@hyperidle/shared"` resolve in server + a test (the wire types are in shared; db exposes the `*Row` types). |
+| AC8 | Forward-only migration runs cleanly. | Migration test (existing `applyMigrations` harness): `0039_AO1_filesystems.sql` applies on a fresh DB; `filesystems` (with `source`, no `agent_user_id`) **and** `filesystem_injections` tables + indexes + the UNIQUE constraint exist; re-running migrations is idempotent (no down-migration). |
 
 ---
 
@@ -115,37 +122,54 @@ export type FilesystemKind = (typeof FILESYSTEM_KINDS)[number] | (string & {});
 export const WRITEBACK_MODES = ["git", "file", "none"] as const;
 export type WriteBack = (typeof WRITEBACK_MODES)[number];
 
-/** Reachability lifecycle. attached = freshly created; reachable = resolvable; needs_attention = unreachable/unauth. */
+/** Reachability lifecycle. attached = freshly registered; reachable = resolvable; needs_attention = unreachable/unauth. */
 export const SUBSTRATE_STATES = ["attached", "reachable", "needs_attention"] as const;
 export type FilesystemState = (typeof SUBSTRATE_STATES)[number];
+
+/** The SOURCE TYPE — open vocabulary, derived from the Connection (or `local`).
+ *  Surfaced PROMINENTLY in the registry UI. Distinct from `kind`. */
+export const FILESYSTEM_SOURCES = ["local", "github", "gdrive", "obsidian"] as const;
+export type FilesystemSource = (typeof FILESYSTEM_SOURCES)[number] | (string & {});
+//  ^ open at the type level; not constrained at the boundary (a new source must not need a migration).
 
 /** Discriminated resource selector (the `resourceRef` JSON payload), keyed by kind. */
 export type ResourceRef =
   | { kind: "code"; repo: string; branch: string }      // GitHub-style "owner/repo" or clone URL + branch
   | { kind: "doc_set"; folder: string };                // absolute folder path (local or connection-relative)
 
-/** The Filesystem wire/domain type. Mirrors docs/process-layer/canonical-shapes.md §Filesystem. */
+/** The Filesystem wire/domain type. A REGISTERED, team-scoped file source — NOT owned by one agent.
+ *  Mirrors docs/process-layer/canonical-shapes.md §Filesystem. */
 export interface Filesystem {
   id: string;                  // opaque, stable
-  teamId: string;              // FK → teams.id. The scope. Required.
-  agentUserId: string | null;  // FK → users.id (the individual agent, = sessions.agentId).
-                               //   null → team-level (shared) filesystem.
+  teamId: string;              // FK → teams.id. The REGISTRY scope. Required.
+  source: FilesystemSource;    // source type, derived from the Connection (or 'local'). Shown prominently.
   kind: FilesystemKind;         // open vocab; create constrained to FILESYSTEM_KINDS.
   connectionId: string | null; // reference to a Connection (AN). null → bare local path.
   resourceRef: ResourceRef;    // parsed selector (stored as JSON text in DB).
   writeback: WriteBack;
   state: FilesystemState;
   createdAt: string;           // ISO 8601
+  // NOTE: no `agentUserId` — per-bot wiring is the FilesystemInjection mapping below.
+}
+
+/** Per-bot INJECTION wiring. Which registered filesystems are injected into a given bot.
+ *  Mirrors docs/process-layer/canonical-shapes.md §FilesystemInjection. UNIQUE (agentUserId, filesystemId). */
+export interface FilesystemInjection {
+  agentUserId: string;         // FK → users.id (the bot/agent = sessions.agentId)
+  filesystemId: string;        // FK → filesystems.id
+  createdAt: string;           // ISO 8601
 }
 
 /** Zod schemas (route boundary). Lives here or co-located in the route file — see Task 4. */
 // resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema])
-// createFilesystemSchema = z.object({ teamId, agentUserId: z.string().nullable().optional(),
+// registerFilesystemSchema = z.object({ teamId,
 //   kind: z.enum(FILESYSTEM_KINDS), connectionId: z.string().nullable().optional(),
 //   resourceRef: resourceRefSchema, writeback: z.enum(WRITEBACK_MODES) })
+//   // `source` is NOT client-supplied — the route derives it from the Connection (or 'local').
+// injectFilesystemSchema = z.object({ agentUserId: z.string() })
 ```
 
-> Note `kind` in `resourceRef` mirrors `kind` on the row — validated equal at the boundary (the `artifacts` precedent does the same with `previewJson.kind`).
+> Note `kind` in `resourceRef` mirrors `kind` on the row — validated equal at the boundary (the `artifacts` precedent does the same with `previewJson.kind`). `source` is **route-derived from the Connection**, not part of the register body — clients never set it directly.
 
 ---
 
@@ -160,19 +184,15 @@ export const filesystems = pgTable(
   "filesystems",
   {
     id: text("id").primaryKey(),
-    // Scope. Always present. The Team that owns this filesystem.
+    // Registry scope. Always present. The Team that owns this registered filesystem.
+    // NOT single-owner — per-bot wiring is the separate filesystemInjections table below.
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "restrict" }),
-    // Primary attachment: the INDIVIDUAL agent. null → team-level (shared).
-    // @lore AO1 Q1: targets users.id (the runtime agent identity = sessions.agentId,
-    // schema.ts:252-254), NOT team_members.id. team_members is one row per team (U1 1:1,
-    // schema.ts:97-99) with no per-agent identity, so keying it would carry zero per-agent
-    // info and break AO2's per-agent materialization (it resolves the bound filesystem by
-    // the session's agentId = users.id). Matches canonical-shapes §Filesystem (agentUserId).
-    agentUserId: text("agent_user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
+    // The SOURCE TYPE — 'local' | 'github' | 'gdrive' | … OPEN vocabulary; derived from the
+    // Connection at register-time (or 'local'). Stored (queryable in the registry without
+    // resolving a possibly-absent Connection). Surfaced PROMINENTLY in the UI. (@lore AO1 Q6.)
+    source: text("source").notNull(),
     // OPEN vocabulary. 'code' | 'doc_set' initially. SoRs excluded at the app layer (Zod).
     kind: text("kind").notNull(),
     // Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
@@ -188,24 +208,48 @@ export const filesystems = pgTable(
     state: text("state").notNull().default("attached"),
     createdAt: text("created_at").notNull(),
   },
+  (table) => [index("filesystems_team_idx").on(table.teamId)],
+);
+
+// Per-bot INJECTION: which registered filesystems are injected into a given bot's sessions.
+// @lore AO1 Q1: the agent FK is users.id (the runtime agent identity = sessions.agentId,
+// schema.ts:252-254), NOT team_members.id (one row per team, U1 1:1, no per-agent identity).
+// AO2's per-bot materialization resolves sessions.agentId → filesystem_injections → filesystems.
+// Replaces the removed single-owner column. Parallel to connector/tool injection.
+export const filesystemInjections = pgTable(
+  "filesystem_injections",
+  {
+    agentUserId: text("agent_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    filesystemId: text("filesystem_id")
+      .notNull()
+      .references(() => filesystems.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
   (table) => [
-    index("filesystems_team_idx").on(table.teamId),
-    index("filesystems_agent_user_idx").on(table.agentUserId),
+    primaryKey({ columns: [table.agentUserId, table.filesystemId] }), // UNIQUE (agentUserId, filesystemId)
+    index("filesystem_injections_agent_user_idx").on(table.agentUserId),
+    index("filesystem_injections_filesystem_idx").on(table.filesystemId),
   ],
 );
 
 export type FilesystemRow = typeof filesystems.$inferSelect;    // DB row (resourceRef: string). NOT named `Filesystem`.
 export type NewFilesystem = typeof filesystems.$inferInsert;
-// The wire type `Filesystem` (resourceRef: ResourceRef, parsed) lives in @hyperidle/shared — see §1.
+export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
+export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/shared — see §1.
 ```
+
+> The composite primary key `(agent_user_id, filesystem_id)` IS the UNIQUE constraint — no second bot-double-injects the same filesystem; `primaryKey` is imported from `drizzle-orm/pg-core` (already used by other composite-key tables). Team-consistency (the bot's team must match `filesystems.team_id`) is enforced at the route boundary, NOT a DB constraint (no cross-table CHECK; the bot→team link is `users.teamId → team_members.id`, resolvable in the inject handler).
 
 > **DB-row vs wire-type seam — exactly one type named `Filesystem` ships.** `filesystems.$inferSelect.resourceRef` is `string` (JSON text); the shared `Filesystem.resourceRef` is the parsed `ResourceRef`. The route maps row→wire by `JSON.parse(row.resourceRef)` + Zod-validate (exactly the `rowToArtifact` pattern, artifacts.ts:98-129). Mirrors the real codebase precedent **verbatim** (db/index.ts:28 exports `type ArtifactRow`, shared exports `Artifact` — NOT two `Artifact`s):
 > - **`@hyperidle/shared` exports `Filesystem`** — the wire/domain type, `resourceRef: ResourceRef` (parsed). This is the *only* type named `Filesystem` anywhere.
 > - **`@hyperidle/db` exports `FilesystemRow`** (= `typeof filesystems.$inferSelect`, `resourceRef: string`) **and `NewFilesystem`** (`$inferInsert`). Neither is named `Filesystem`.
 >
-> The schema snippet's `export type Filesystem = typeof filesystems.$inferSelect` below is **wrong as written** — it must read `export type FilesystemRow = typeof filesystems.$inferSelect`. There is no `Filesystem` type in `@hyperidle/db`.
+> Same split applies to the injection mapping: `@hyperidle/db` exports `FilesystemInjectionRow`/`NewFilesystemInjection`; `@hyperidle/shared` exports the wire `FilesystemInjection`. (For the injection there is no parsed/raw divergence — the wire type just normalizes `createdAt`; keeping the two-name convention is for consistency, not a transform.)
 
-**`db/index.ts`** — add to the schema re-export block (index.ts:27-127), alphabetically: `filesystems`, `type FilesystemRow`, `type NewFilesystem`.
+**`db/index.ts`** — add to the schema re-export block (index.ts:27-127), alphabetically: `filesystemInjections`, `filesystems`, `type FilesystemInjectionRow`, `type FilesystemRow`, `type NewFilesystem`, `type NewFilesystemInjection`.
 
 **Migration — `packages/db/drizzle/0039_AO1_filesystems.sql`** (forward-only, authored via `npm run db:generate` then committed; `_journal.json` gets idx 39):
 
@@ -213,7 +257,7 @@ export type NewFilesystem = typeof filesystems.$inferInsert;
 CREATE TABLE "filesystems" (
 	"id" text PRIMARY KEY NOT NULL,
 	"team_id" text NOT NULL,
-	"agent_user_id" text,
+	"source" text NOT NULL,
 	"kind" text NOT NULL,
 	"connection_id" text,
 	"resource_ref" text NOT NULL,
@@ -222,14 +266,23 @@ CREATE TABLE "filesystems" (
 	"created_at" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "filesystem_injections" (
+	"agent_user_id" text NOT NULL,
+	"filesystem_id" text NOT NULL,
+	"created_at" text NOT NULL,
+	CONSTRAINT "filesystem_injections_agent_user_id_filesystem_id_pk" PRIMARY KEY("agent_user_id","filesystem_id")
+);
+--> statement-breakpoint
 ALTER TABLE "filesystems" ADD CONSTRAINT "filesystems_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "filesystems" ADD CONSTRAINT "filesystems_agent_user_id_users_id_fk" FOREIGN KEY ("agent_user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "filesystem_injections" ADD CONSTRAINT "filesystem_injections_agent_user_id_users_id_fk" FOREIGN KEY ("agent_user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "filesystem_injections" ADD CONSTRAINT "filesystem_injections_filesystem_id_filesystems_id_fk" FOREIGN KEY ("filesystem_id") REFERENCES "filesystems"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "filesystems_team_idx" ON "filesystems" USING btree ("team_id");--> statement-breakpoint
-CREATE INDEX "filesystems_agent_user_idx" ON "filesystems" USING btree ("agent_user_id");
+CREATE INDEX "filesystem_injections_agent_user_idx" ON "filesystem_injections" USING btree ("agent_user_id");--> statement-breakpoint
+CREATE INDEX "filesystem_injections_filesystem_idx" ON "filesystem_injections" USING btree ("filesystem_id");
 ```
 
-> **Relation to `artifacts` / `knowledge_items`:** a NEW, distinct table. No ALTER on either. No FK between them. The filesystem is the *files the agent authors*; the Artifact (L3) is the *reviewable record derived from* a session that materialized a filesystem; a knowledge item is a *promoted fabric entry*. AC4 asserts the migration touches neither table nor the export config.
-> **`onDelete`:** `team_id` RESTRICT (a team with filesystems isn't silently deletable — matches teams/teamMembers RESTRICT convention). `agent_user_id` CASCADE (deleting an individual agent removes its agent-level attachments; the team-scoped ones with `agent_user_id` null survive).
+> **Relation to `artifacts` / `knowledge_items`:** two NEW, distinct tables. No ALTER on either. No FK between them. The filesystem is the *files the agent authors*; the Artifact (L3) is the *reviewable record derived from* a session that materialized a filesystem; a knowledge item is a *promoted fabric entry*. AC4 asserts the migration touches neither table nor the export config.
+> **`onDelete`:** `filesystems.team_id` RESTRICT (a team with filesystems isn't silently deletable — matches teams/teamMembers RESTRICT convention). `filesystem_injections.filesystem_id` CASCADE (removing a registration removes its injections — AC6). `filesystem_injections.agent_user_id` CASCADE (deleting a bot removes its injections; the registration survives). The filesystem itself has **no** agent FK — registration outlives any one bot.
 
 ---
 
@@ -239,14 +292,28 @@ New file. `createFilesystemRoutes(db: HyperIdleDb, eventBus: EventBus): Hono`. M
 
 **route-checklist** (the reviewer greps the impl against this):
 
+**Registry routes** (team-scoped filesystem registration):
+
 | Method + path | Purpose | Validation | Returns |
 |---|---|---|---|
-| `POST /api/filesystems` | Attach a filesystem to one agent (or team-shared). | `createFilesystemSchema` (Zod). `resourceRef` discriminated-union must match `kind`. `kind ∈ FILESYSTEM_KINDS`. `writeback ∈ WRITEBACK_MODES`. `teamId` must exist (FK); `agentUserId` (if non-null) must exist. | `201` + `Filesystem` (state `attached`). `400` VALIDATION_ERROR on bad kind/ref. `404` if `teamId`/`agentUserId` absent. |
-| `GET /api/filesystems?teamId=&agentUserId=` | List filesystems for a team (optionally filtered to one agent). | query Zod: `teamId` required, `agentUserId` optional. | `200` + `{ filesystems: Filesystem[] }`. Each row's `state` reflects a fresh reachability check (§ below). |
-| `GET /api/filesystems/:id` | Inspect one filesystem; runs the reachability check + persists any transition. | path id. | `200` + `Filesystem` (with refreshed `state`). `404` if absent. |
-| `DELETE /api/filesystems/:id` | Detach. | path id. | `204`. `404` if absent. |
+| `POST /api/filesystems` | **Register** a filesystem (team-scoped). | `registerFilesystemSchema` (Zod). `resourceRef` union must match `kind`. `kind ∈ FILESYSTEM_KINDS`. `writeback ∈ WRITEBACK_MODES`. `teamId` must exist (FK). `source` is **NOT** client-supplied — derived from the Connection (or `'local'`). | `201` + `Filesystem` (state `attached`, `source` derived). `400` VALIDATION_ERROR on bad kind/ref. `404` if `teamId` absent. |
+| `GET /api/filesystems?teamId=` | List the team's registered filesystems. | query Zod: `teamId` required. | `200` + `{ filesystems: Filesystem[] }`. Each row's `state` reflects a fresh reachability check (§ below). |
+| `GET /api/filesystems/:id` | Inspect one filesystem; runs the reachability check + persists any transition. | path id. | `200` + `Filesystem` (refreshed `state`, `source`). `404` if absent. |
+| `DELETE /api/filesystems/:id` | Remove the registration (cascades injections). | path id. | `204`. `404` if absent. |
 
-> **No `PATCH` route in AO1.** Earlier drafts carried `PATCH /api/filesystems/:id` (edit resource/branch/writeback/connection), but **no AC mandates an update path** — AO1's ACs require only attach (POST), inspect (GET :id), list (GET), detach (DELETE), and reachability (state on read). Per the critique (WARN-2 / SUGG-1), an untested mutation route is scope-creep, so it is **cut**. Re-selecting a resource in v1 = detach + re-attach (the row is small and the resourceRef is the only mutable field anyone needs). A first-class `PATCH` lands in a later WP **with its own AC** (e.g. "PATCH branch → GET reflects new branch; PATCH cannot change `teamId`"), not bolted on here untested.
+**Per-bot injection routes** (which registered filesystems a bot receives):
+
+| Method + path | Purpose | Validation | Returns |
+|---|---|---|---|
+| `POST /api/filesystems/:id/injections` | **Inject** the filesystem into a bot. | `injectFilesystemSchema` (`{agentUserId}`). Filesystem `:id` must exist. `agentUserId` must exist (`users`). **Team-consistency:** the bot's team (via `users.teamId → team_members → teams`) must equal `filesystems.team_id`. | `201` + `FilesystemInjection`. `404` if filesystem/bot absent. `400` on team mismatch. `409` (or idempotent 200) if already injected (UNIQUE). |
+| `DELETE /api/filesystems/:id/injections/:agentUserId` | **Eject** the filesystem from a bot. | path ids. | `204`. `404` if the injection is absent. |
+| `GET /api/filesystems?agentUserId=` | List the filesystems **injected to a bot** (join `filesystem_injections → filesystems`). | query Zod: `agentUserId` required (mutually exclusive with `teamId`). | `200` + `{ filesystems: Filesystem[] }` — the bot's injected set, each with a fresh reachability `state`. |
+
+> The single `GET /api/filesystems` route accepts **either** `teamId` (registry list) **or** `agentUserId` (injected-to-a-bot list) — exactly one. This is the surface the per-bot injection UI (Settings → Agents) reads to show "filesystems injected to this bot."
+
+> **`source` derivation.** On register, the route resolves `source` from the bound Connection's type via the `FilesystemAuthResolver` seam (extended with a cheap `sourceOf(connectionId): string | null`) — or `'local'` when `connectionId` is null. With the `NoopAuthResolver` default (AN absent), a connection-backed register still gets a usable `source`: the resolver returns `null`, the route falls back to `'unknown'` — but in practice AO1's tests inject a fake resolver that returns `'github'`. (Alternatively the client may pass a `sourceHint` the route only trusts when the resolver yields nothing; keep it minimal — derive-or-`unknown` is the v1 contract.)
+
+> **No `PATCH` route in AO1.** Earlier drafts carried `PATCH /api/filesystems/:id` (edit resource/branch/writeback/connection), but **no AC mandates an update path** — AO1's ACs require register (POST), inspect (GET :id), list (GET by team or bot), remove (DELETE), inject/eject (POST/DELETE injections), and reachability (state on read). Per the critique (WARN-2 / SUGG-1), an untested mutation route is scope-creep, so it is **cut**. Re-selecting a resource in v1 = remove + re-register (the row is small and the resourceRef is the only mutable field anyone needs); re-wiring a bot = eject + inject. A first-class `PATCH` lands in a later WP **with its own AC**, not bolted on here untested.
 
 **Reachability / `needs_attention` check** (AC5) — a pure function `resolveFilesystemState(row, deps): FilesystemState`, called by `GET /:id` and `GET /` (list), persisting a transition when it changes:
 
@@ -288,6 +355,9 @@ export interface FilesystemAuth {
 export interface FilesystemAuthResolver {
   /** Cheap structural check used by the reachability path (AO1, no network). */
   canResolve(connectionId: string): boolean | Promise<boolean>;
+  /** The SOURCE TYPE of a connection ('github' | 'gdrive' | …), used by the register route
+   *  to derive `filesystems.source`. Returns null when the connection is absent/unknown. */
+  sourceOf(connectionId: string): string | null | Promise<string | null>;
   /** Full resolution used by AO2 at materialization to provision auth into the sandbox.
    *  Returns null when the connection is absent/unauthenticated. */
   resolve(connectionId: string): Promise<FilesystemAuth | null>;
@@ -295,8 +365,8 @@ export interface FilesystemAuthResolver {
 ```
 
 **Boundary contract:**
-- AO1 depends only on `FilesystemAuthResolver`. It calls `canResolve` for reachability. It **never stores, logs, or returns** a token — the filesystem row has **no credential column** (AC2). Hard rule 1 holds: no withholding *and* no AO1-held secret; the agent works with its creds in the sandbox (AO2).
-- AO1 ships `NoopAuthResolver` (always-unresolvable) as the default binding so the system runs before AN. When AN merges, it registers a real resolver (held-token / inherited / service-OAuth → `FilesystemAuth`), **without changing AO1 or the filesystem schema**.
+- AO1 depends only on `FilesystemAuthResolver`. It calls `canResolve` for reachability and `sourceOf` at register-time to derive `source`. It **never stores, logs, or returns** a token — the filesystem row has **no credential column** (AC2). Hard rule 1 holds: no withholding *and* no AO1-held secret; the agent works with its creds in the sandbox (AO2).
+- AO1 ships `NoopAuthResolver` (always-unresolvable; `sourceOf` → null) as the default binding so the system runs before AN. When AN merges, it registers a real resolver (held-token / inherited / service-OAuth → `FilesystemAuth`; `sourceOf` → the connection's provider type), **without changing AO1 or the filesystem schema**.
 - The resolver is injected into `createFilesystemRoutes` deps and into the AO2 materializer — a single shared interface, two consumers. No `connection_id` FK, no AN table import.
 
 > **Why no broker / no withholding:** the resolver hands AO2 a `provision` directive, AO2 writes the auth into the sandbox, the agent's own `git`/`gh` push/PR (concept hard rule 1; PR #364). HyperIdle never executes the side-effect (system-boundary hard rule 1) and never gates *access* — AL7 gates *irreversible landing* only.
@@ -337,7 +407,7 @@ export interface FilesystemMaterializer {
 - `writeback:'none'` → read-only reference; captureBack is a no-op.
 
 **Where it hooks into `session-provisioning.ts`:**
-- **Materialize** — between **Phase 4 (sandbox spawn, @463 `workspace.spawn`)** and **Phase 6 (context assembly, @487 `strategy.assembleContext`)**. A new **Phase 4.5**: resolve the bound filesystem(s) for the session's agent — `WHERE team_id = :sessionTeamId AND (agent_user_id = :sessionAgentId OR agent_user_id IS NULL)`, where `:sessionAgentId` is `sessions.agentId` (= `users.id`). This is exactly why the attachment FK is `users.id` (Q1): the only per-agent join AO2 has is `agentId`, and it points at `users`. Then call `materializer.materialize({ filesystem, sandboxPath, auth: await authResolver.resolve(filesystem.connectionId) })`. A **filesystem-less session skips this and degrades to today's behavior** (concept hard rule 7; AO2 AC3). The auth resolution + sandbox provisioning happen here so the working tree + creds exist before context assembly and before the harness starts (@901).
+- **Materialize** — between **Phase 4 (sandbox spawn, @463 `workspace.spawn`)** and **Phase 6 (context assembly, @487 `strategy.assembleContext`)**. A new **Phase 4.5**: resolve the filesystems **injected to** the session's bot — join `filesystem_injections.agent_user_id = :sessionAgentId → filesystems.id`, where `:sessionAgentId` is `sessions.agentId` (= `users.id`). This is exactly why the injection FK is `users.id` (Q1): the only per-bot handle AO2 has is `agentId`, and `filesystem_injections.agent_user_id` points at `users`. (No `agent_user_id IS NULL` branch any more — there is no team-shared-via-null fallback; a filesystem reaches a bot **only** through an explicit injection.) Then for each injected filesystem call `materializer.materialize({ filesystem, sandboxPath, auth: await authResolver.resolve(filesystem.connectionId) })`. A **session for a bot with no injected filesystems skips this and degrades to today's behavior** (concept hard rule 7; AO2 AC3). The auth resolution + sandbox provisioning happen here so the working tree + creds exist before context assembly and before the harness starts (@901).
 - **Capture-back** — at teardown, in the normal-completion path **after `endSession` (@1117) and before `workspace.destroy` (@1122)** so authored changes are captured before the sandbox is thrown away (AO2 AC2). The crash/budget paths capture-back too if a working tree exists.
 
 > AO1 ships **none** of this. It ships the `FilesystemMaterializer` *type* + the hook-point documentation so AO2 binds without re-litigating the seam. AO1's only runtime is the record + routes + reachability.
@@ -349,15 +419,15 @@ export interface FilesystemMaterializer {
 | # | Task | Files | Proven by | Depends |
 |---|---|---|---|---|
 | T1 | Shared types + constants + Zod + seam interfaces. | `packages/shared/src/filesystem.ts` (new); `packages/shared/src/index.ts` (re-export). | `npm run check`; an import test in shared `__tests__`. | — |
-| T2 | Schema: `filesystems` table + `FilesystemRow`/`NewFilesystem`; re-export in `db/index.ts`. | `packages/db/src/schema.ts`; `packages/db/src/index.ts`. | `npm run check`; table appears in `schema`. | T1 (types only conceptually) |
-| T3 | Forward-only migration `0039_AO1_filesystems.sql` + journal entry. | `packages/db/drizzle/0039_AO1_filesystems.sql`; `packages/db/drizzle/meta/_journal.json` (+ snapshot). Authored via `npm run db:generate`. | AC8 migration test: applies on fresh DB; table+indexes exist; no ALTER on artifacts/knowledge_items/server_config. | T2 |
-| T4 | `NoopAuthResolver` (default binding) + `resolveFilesystemState` pure fn. | `packages/server/src/services/filesystem-reachability.ts` (new); resolver in same dir or `filesystem-auth-resolver.ts`. | AC5 unit test: code+git+connectionId → `needs_attention` under Noop; bare-local → `reachable`; writeback:none → reachable. | T1 |
-| T5 | Routes: `createFilesystemRoutes` (POST / GET list / GET id / DELETE — no PATCH) + co-located Zod. | `packages/server/src/routes/filesystems.ts` (new). | AC1/AC3/AC6 integration tests (POST→GET→DELETE; doc_set ok; bad kind 400). | T2, T4 |
+| T2 | Schema: `filesystems` (team-scoped, `source`, no agent col) + `filesystem_injections` mapping + the four `*Row`/`New*` types; re-export in `db/index.ts`. | `packages/db/src/schema.ts`; `packages/db/src/index.ts`. | `npm run check`; both tables appear in `schema`. | T1 (types only conceptually) |
+| T3 | Forward-only migration `0039_AO1_filesystems.sql` + journal entry — both tables + UNIQUE(agent_user_id, filesystem_id). | `packages/db/drizzle/0039_AO1_filesystems.sql`; `packages/db/drizzle/meta/_journal.json` (+ snapshot). Authored via `npm run db:generate`. | AC8 migration test: applies on fresh DB; `filesystems` (with `source`, no `agent_user_id`) + `filesystem_injections` + indexes + composite PK exist; no ALTER on artifacts/knowledge_items/server_config. | T2 |
+| T4 | `NoopAuthResolver` (default binding; `canResolve`/`sourceOf`/`resolve`) + `resolveFilesystemState` pure fn. | `packages/server/src/services/filesystem-reachability.ts` (new); resolver in same dir or `filesystem-auth-resolver.ts`. | AC5 unit test: code+git+connectionId → `needs_attention` under Noop; bare-local → `reachable`; writeback:none → reachable. | T1 |
+| T5 | Routes: `createFilesystemRoutes` (registry: POST / GET list-by-team-or-bot / GET id / DELETE; injection: POST `/:id/injections` / DELETE `/:id/injections/:agentUserId`; no PATCH) + co-located Zod + `source` derivation + team-consistency check. | `packages/server/src/routes/filesystems.ts` (new). | AC1/AC1b/AC3/AC6 integration tests (register→GET→DELETE; doc_set ok; bad kind 400; inject/eject; team-mismatch 400; share across 2 bots; cascade on delete). | T2, T4 |
 | T6 | Mount in app. | `packages/server/src/app.ts` (`api.route("/filesystems", …)` ~line 408). | AC1 integration test reaches the route through `createApp`. | T5 |
 | T7 | `FilesystemMaterializer` type (AO2 seam) — type only, no impl. | `packages/shared/src/filesystem.ts` (extend) + re-export. | `npm run check`; importable. | T1 |
 | T8 | Distinctness assertions: filesystem ≠ knowledge-export / knowledge-item. | test in `filesystems.integration.test.ts`. | AC4: create filesystem → `knowledge_items` count + git-export config unchanged. | T5 |
 
-**Red phase (builder writes first):** AC1–AC8 tests against the contracts above before T1–T8 implementation. Integration tests use the `{ db, app, eventBus }` fixture (`*.integration.test.ts`); the resolver unit test is a fast `*.test.ts`.
+**Red phase (builder writes first):** AC1, AC1b, AC2–AC8 tests against the contracts above before T1–T8 implementation. Integration tests use the `{ db, app, eventBus }` fixture (`*.integration.test.ts`); the resolver unit test is a fast `*.test.ts`.
 
 ---
 
@@ -375,7 +445,7 @@ export interface FilesystemMaterializer {
 
 ## 8. Migrations (rename/move enumeration)
 
-This WP **adds** a table; it renames/removes **nothing**. No call sites to migrate. The only existing-symbol touch is **additive**: the `db/index.ts` re-export block and `app.ts` route mount. Forward-only; no down-migration (concept hard rule 8). No data backfill — `filesystems` starts empty (pre-implementation; no rows squeeze in from `knowledge_items` — the workaround simply stops being needed going forward).
+This WP **adds** two tables (`filesystems`, `filesystem_injections`); it renames/removes **nothing** in the existing schema. No call sites to migrate. The only existing-symbol touch is **additive**: the `db/index.ts` re-export block and `app.ts` route mount. Forward-only; no down-migration (concept hard rule 8). No data backfill — both tables start empty (pre-implementation; no rows squeeze in from `knowledge_items` — the workaround simply stops being needed going forward). (The removed `agent_user_id` column never shipped — it lived only in earlier drafts of this plan, not in any migration; there is nothing to drop.)
 
 ---
 
@@ -387,7 +457,7 @@ No existing test's assertions change. New tests only. `protectedTests: []`. (The
 
 ## 10. sharedFiles (parallel-WP overlap)
 
-- `packages/db/src/schema.ts` — append `filesystems` (additive; low conflict).
+- `packages/db/src/schema.ts` — append `filesystems` + `filesystem_injections` (additive; low conflict; needs `primaryKey` import from `drizzle-orm/pg-core` if not already in scope).
 - `packages/db/src/index.ts` — re-export block (alphabetical insert).
 - `packages/db/drizzle/meta/_journal.json` + snapshot — migration registration (conflicts if another WP also migrates concurrently; schedule AO1's migration number last among concurrent DB WPs).
 - `packages/shared/src/index.ts` — re-export `filesystem.ts`.
@@ -397,11 +467,15 @@ No existing test's assertions change. New tests only. `protectedTests: []`. (The
 
 ## 11. Risks / open questions (for the reviewer)
 
-1. **Agent-attachment FK target (Q1) — RESOLVED → `users.id`.** The filesystem's agent attachment is `agent_user_id → users.id` (nullable; null → team-shared), not `agent_member_id → team_members.id`. Rationale: `team_members` is **one row per team** under the U1 1:1 invariant (schema.ts:97-99) and carries no per-agent identity, so keying it would make the attachment a duplicate of `team_id` and leave AO2 unable to bind a filesystem to one agent. The runtime agent identity is `users.id` — `sessions.agentId → users.id` (schema.ts:252-254) — which is what AO2's Phase-4.5 materialization resolves against (`agent_user_id = :sessionAgentId OR agent_user_id IS NULL`). This matches the canonical shape and `filesystem-primitive.md` (both already corrected to `agentUserId → users.id`) and the concept's two attachment levels (one agent OR team-shared). The candidate `agent_member_id → team_members.id` is dropped entirely — no vestigial column, no second migration. **Closed; not a concept re-open** — the canonical docs already carry this shape.
+1. **Per-bot wiring (Q1) — RESOLVED → `filesystem_injections` mapping keyed on `users.id`, NOT a column on `filesystems`.** The filesystem is **registered team-scoped, not single-owner** (founder model correction); the old `agent_user_id` column is **removed**, and a first-class `source` column is added. Per-bot wiring is the separate `filesystem_injections` mapping (`{ agent_user_id → users.id, filesystem_id → filesystems.id }`, UNIQUE), parallel to connector/tool injection. The injection FK is `users.id` because `team_members` is **one row per team** under U1 (schema.ts:97-99) with no per-agent identity, and the runtime agent identity is `users.id` — `sessions.agentId → users.id` (schema.ts:252-254) — which AO2's Phase-4.5 materialization joins against (`sessions.agentId → filesystem_injections.agent_user_id → filesystems`). The candidate `agent_member_id → team_members.id` is dropped entirely. **This supersedes the prior single-FK ownership critique resolution** (which proposed `agent_user_id` directly on `filesystems`): `users.id` is now the **injection FK**, and the team-shared-via-null branch is gone (a filesystem reaches a bot only via an explicit injection). Matches `canonical-shapes.md §Filesystem` + `§FilesystemInjection` and `filesystem-primitive.md` (all corrected). **Closed; not a concept re-open.**
 
 2. **v1 reachability is structural, not a live forge round-trip.** A `code`+`git` filesystem shows `needs_attention` when its Connection doesn't resolve, **not** when the remote is genuinely unreachable/the branch is gone. Live `git ls-remote` needs the sandbox creds (AO2). Is structural reachability sufficient for AO1's AC5, or does the founder expect a live check at attach-time? My read: structural is correct for AO1 (AO1 must not hold forge creds — hard rule 1); the live check is an AO2/runtime concern.
 
-3. **`doc_set` folder source for v1.** The concept names Obsidian/markdown folders; with AN's connection table reverted (0038) there's no Drive/Obsidian *connection* yet. v1 `doc_set` is realistically a **bare local folder** (`connection_id` null, `writeback:'file'`). A connection-backed `doc_set` is modeled (the seam supports it) but unexercised until a folder-providing Connection exists. Acceptable for "prove generality without a sync engine" (AO1 AC3 / validation scenario 2)? My read: yes — the AC only requires the *kind is recorded*, which a local folder satisfies.
+3. **`doc_set` folder source for v1.** The concept names Obsidian/markdown folders; with AN's connection table reverted (0038) there's no Drive/Obsidian *connection* yet. v1 `doc_set` is realistically a **bare local folder** (`connection_id` null, `source:'local'`, `writeback:'file'`). A connection-backed `doc_set` is modeled (the seam supports it) but unexercised until a folder-providing Connection exists. Acceptable for "prove generality without a sync engine" (AO1 AC3 / validation scenario 2)? My read: yes — the AC only requires the *kind is recorded*, which a local folder satisfies.
+
+7. **`source` derivation with no real resolver (v1).** With the `NoopAuthResolver` default (`sourceOf` → null), a connection-backed register can only derive `source:'unknown'` until AN lands; bare-local registers correctly get `'local'`. AO1 tests inject a fake resolver returning `'github'` to exercise the derived-source path. Confirm `'unknown'` (vs blocking the register) is the right default — my read: surface, never block (consistent with the `needs_attention` posture).
+
+8. **Team-consistency on inject is a route check, not a DB constraint.** The inject handler resolves the bot's team (`users.teamId → team_members → teams`) and rejects a mismatch with `filesystems.team_id` (400). There's no cross-table CHECK enforcing it at the DB. Confirm a route-level guard is sufficient for AO1 (my read: yes — single-founder, anti-enterprise; a DB-level guarantee is over-engineering here).
 
 4. **`connection_id` is a non-FK text column** (AN's `service_connections` reverted in 0038; absent now, re-merged shape unsettled). When AN re-merges it can add the constraint in its own forward migration. Until then an orphan `connection_id` is possible — but that's exactly the `needs_attention` path (AC5), so the integrity gap is surfaced, not silent. Confirm this decoupling is preferred over blocking AO1 on AN.
 
