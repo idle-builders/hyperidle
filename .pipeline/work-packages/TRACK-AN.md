@@ -62,6 +62,8 @@ Also: the credential model (`docs/architecture/credential-model.md`, `packages/s
 
 ### AN2 — Authenticate once; connected tools work in every sandbox
 
+> **⛔ BLOCKED until AQ1 is `done`.** AN2 provisions a durable connection onto "a sandbox," but what a sandbox *is* — a host-process workspace with `HOME` forwarded, a real isolation boundary, or a remote box — is undefined, and that choice drives AN2's whole materialization (local-free vs remote-carry-in) and whether inherited/OAuth tools survive a spawn. `/concept AN2` is **locked** (`plans/AN2/concept.md`), but its local-vs-remote split rests on the unlocked run-unit. AQ1 (Track AQ) locks the run-unit; AN2's architecture/build must consume that decision rather than re-derive it. Do not architect or build AN2 until AQ1 lands. The AN2 concept stands; only downstream phases are gated.
+
 **Workpackage.** As a user, I authenticate a service once (AN1), and from then on **every time a sandbox spawns** for one of my agents, those tools are already present and authenticated, so the agent just uses them. The connection is the durable thing; the sandbox is disposable; spawning one re-applies my connections so it works immediately. The agent reads my repo, queries my records, opens a branch — directly, the same way it uses any tool. There is no wall in front of each action.
 
 **Why this matters.** This is what turns a connection from a settings bookmark into real capability — the actual bridge from "agent" to "external effect." Without it, a user can connect GitHub but a freshly-spawned sandbox doesn't have it, so nothing happens. The fast-moving founder benefits directly — connect once, and every agent in every session works across the stack at full speed with no re-login friction.
@@ -70,7 +72,9 @@ Also: the credential model (`docs/architecture/credential-model.md`, `packages/s
 
 **What's genuinely missing.** Nothing re-applies a user's connections to a sandbox when it spawns. There is no step that, on session start, makes the user's connected tools present and authenticated inside the sandbox so the agent can call them — and no outbound path from HyperIdle to a connected service's MCP server.
 
-**Depends on.** AN1 — the durable connection record is the thing re-applied on every spawn; it must exist first.
+**Depends on.**
+- AN1 — the durable connection record is the thing re-applied on every spawn; it must exist first.
+- **AQ1 (blocker)** — AQ1 locks the run-unit (sandbox vs workspace; isolation spectrum) that AN2 provisions into. AN2's materialization design (local-free vs remote-carry-in) and its answer to "do inherited/OAuth tools survive a spawn" both depend on AQ1's decision. AN2 cannot be architected or verified until AQ1 is `done`.
 
 **Complexity.** L
 
