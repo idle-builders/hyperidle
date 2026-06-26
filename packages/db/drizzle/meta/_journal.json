@@ -281,6 +281,13 @@
 			"when": 1784900000001,
 			"tag": "0039_classy_nocturne",
 			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1782488002874,
+			"tag": "0040_chubby_chimera",
+			"breakpoints": true
 		}
 	]
 }

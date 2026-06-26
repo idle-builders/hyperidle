@@ -150,6 +150,27 @@ export type {
 	FactorySystemAssistantSpec,
 } from "./factory-roster.js";
 export { defaultFactoryRoster, minimalFactoryRoster } from "./factory-roster.js";
+// ── AO1: Filesystem primitive ──
+export type {
+	CaptureResult,
+	Filesystem,
+	FilesystemAuth,
+	FilesystemAuthResolver,
+	FilesystemInjection,
+	FilesystemKind,
+	FilesystemMaterializer,
+	FilesystemSource,
+	FilesystemState,
+	MaterializeResult,
+	ResourceRef,
+	WriteBack,
+} from "./filesystem.js";
+export {
+	FILESYSTEM_KINDS,
+	FILESYSTEM_SOURCES,
+	SUBSTRATE_STATES,
+	WRITEBACK_MODES,
+} from "./filesystem.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";

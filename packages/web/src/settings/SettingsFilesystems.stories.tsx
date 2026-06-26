@@ -292,9 +292,9 @@ export const Populated = (): JSX.Element => {
 		<div className="flex flex-col gap-[24px] bg-[var(--surface-page)] p-[24px]">
 			{/* Section intro — same flat lede the other Settings sections use. */}
 			<p className="max-w-[560px] text-[12px] text-[var(--text-tertiary)]">
-				Filesystems your team has registered — a code repository or a document set where work
-				lives and accrues history. Registered once here; inject into a bot from its config under
-				Agents. Auth comes from a connection; the filesystem is the resource it points at.
+				Filesystems your team has registered — a code repository or a document set where work lives
+				and accrues history. Registered once here; inject into a bot from its config under Agents.
+				Auth comes from a connection; the filesystem is the resource it points at.
 			</p>
 			<div className="flex flex-col gap-[12px]">
 				{/* Section header — same shape as SettingsHarnesses' "PROVIDERS" / Refresh. */}

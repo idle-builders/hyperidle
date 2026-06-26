@@ -22,7 +22,7 @@
  * Source of truth: plans/AO1/architecture.md §Phase 2 + §3 + §8
  */
 
-import { knowledgeItems, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems, teamMembers, teams, users } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -47,19 +47,36 @@ interface SeedResult {
  * Seed a team + teamMembers (U1 1:1) + two bot users for injection tests.
  * users.teamId → teamMembers.id (schema.ts:47).
  */
-async function seedTeamAndBots(
-	db: Parameters<typeof test>[1] extends { db: infer D } ? D : never,
-	prefix: string,
-): Promise<SeedResult> {
+async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedResult> {
 	const teamId = `team-ao1-${prefix}`;
 	const teamMembersId = `tm-ao1-${prefix}`;
 	const botId = `bot-ao1-${prefix}-1`;
 	const bot2Id = `bot-ao1-${prefix}-2`;
 
-	await db.insert(teams).values({ id: teamId, name: `AO1 Team ${prefix}`, phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({ id: botId, kind: "ai", name: "Builder Bot", role: "builder", status: "active", teamId: teamMembersId, createdAt: NOW });
-	await db.insert(users).values({ id: bot2Id, kind: "ai", name: "QA Bot", role: "qa_engineer", status: "active", teamId: teamMembersId, createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: `AO1 Team ${prefix}`, phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+	await db.insert(users).values({
+		id: botId,
+		kind: "ai",
+		name: "Builder Bot",
+		role: "builder",
+		status: "active",
+		teamId: teamMembersId,
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: bot2Id,
+		kind: "ai",
+		name: "QA Bot",
+		role: "qa_engineer",
+		status: "active",
+		teamId: teamMembersId,
+		createdAt: NOW,
+	});
 
 	return { teamId, teamMembersId, botId, bot2Id };
 }
@@ -79,7 +96,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC1: Register a filesystem (team-scoped) with derived source", () => {
-		test("POST /api/filesystems with code kind returns 201 and stores source", async ({ db, app }) => {
+		test("POST /api/filesystems with code kind returns 201 and stores source", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac1a");
 
 			const res = await app.request("/api/filesystems", {
@@ -149,7 +169,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(listBody.filesystems.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/filesystems/:id returns the filesystem with all required fields", async ({ db, app }) => {
+		test("GET /api/filesystems/:id returns the filesystem with all required fields", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac1d");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -218,7 +241,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC1b: Inject / eject / share filesystems per-bot", () => {
-		test("POST /api/filesystems/:id/injections returns 201 and wires bot to filesystem", async ({ db, app }) => {
+		test("POST /api/filesystems/:id/injections returns 201 and wires bot to filesystem", async ({
+			db,
+			app,
+		}) => {
 			const { teamId, botId } = await seedTeamAndBots(db, "inj1");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -245,7 +271,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(injBody.filesystemId).toBe(fsId);
 		});
 
-		test("GET /api/filesystems?agentUserId= lists filesystems injected to that bot", async ({ db, app }) => {
+		test("GET /api/filesystems?agentUserId= lists filesystems injected to that bot", async ({
+			db,
+			app,
+		}) => {
 			const { teamId, botId } = await seedTeamAndBots(db, "inj2");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -267,7 +296,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				body: JSON.stringify({ agentUserId: botId }),
 			});
 
-			const listRes = await app.request(`/api/filesystems?agentUserId=${botId}`, { headers: auth() });
+			const listRes = await app.request(`/api/filesystems?agentUserId=${botId}`, {
+				headers: auth(),
+			});
 			expect(listRes.status).toBe(200);
 			const listBody = (await listRes.json()) as { filesystems: Array<{ id: string }> };
 			const ids = listBody.filesystems.map((f) => f.id);
@@ -305,14 +336,19 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 			// Both bots see the filesystem
 			const list1 = await app.request(`/api/filesystems?agentUserId=${botId}`, { headers: auth() });
-			const list2 = await app.request(`/api/filesystems?agentUserId=${bot2Id}`, { headers: auth() });
+			const list2 = await app.request(`/api/filesystems?agentUserId=${bot2Id}`, {
+				headers: auth(),
+			});
 			const body1 = (await list1.json()) as { filesystems: Array<{ id: string }> };
 			const body2 = (await list2.json()) as { filesystems: Array<{ id: string }> };
 			expect(body1.filesystems.map((f) => f.id)).toContain(fsId);
 			expect(body2.filesystems.map((f) => f.id)).toContain(fsId);
 		});
 
-		test("re-injecting same (agentUserId, filesystemId) → 409 (UNIQUE enforcement)", async ({ db, app }) => {
+		test("re-injecting same (agentUserId, filesystemId) → 409 (UNIQUE enforcement)", async ({
+			db,
+			app,
+		}) => {
 			const { teamId, botId } = await seedTeamAndBots(db, "inj4");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -343,7 +379,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(dupRes.status).toBe(409);
 		});
 
-		test("DELETE /api/filesystems/:id/injections/:agentUserId removes only the injection", async ({ db, app }) => {
+		test("DELETE /api/filesystems/:id/injections/:agentUserId removes only the injection", async ({
+			db,
+			app,
+		}) => {
 			const { teamId, botId } = await seedTeamAndBots(db, "inj5");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -376,18 +415,31 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(stillThere.status).toBe(200);
 
 			// Bot's injection list is now empty for this fs
-			const listRes = await app.request(`/api/filesystems?agentUserId=${botId}`, { headers: auth() });
+			const listRes = await app.request(`/api/filesystems?agentUserId=${botId}`, {
+				headers: auth(),
+			});
 			const listBody = (await listRes.json()) as { filesystems: Array<{ id: string }> };
 			expect(listBody.filesystems.map((f) => f.id)).not.toContain(fsId);
 		});
 
-		test("POST injection with mismatched team → 400 (team-consistency check)", async ({ db, app }) => {
+		test("POST injection with mismatched team → 400 (team-consistency check)", async ({
+			db,
+			app,
+		}) => {
 			// Two separate teams
 			const { teamId: teamA } = await seedTeamAndBots(db, "inj6a");
 			const { teamMembersId: tmB } = await seedTeamAndBots(db, "inj6b");
 			// A bot from team B
 			const botFromB = `bot-ao1-inj6b-alien`;
-			await db.insert(users).values({ id: botFromB, kind: "ai", name: "Alien Bot", role: "builder", status: "active", teamId: tmB, createdAt: NOW });
+			await db.insert(users).values({
+				id: botFromB,
+				kind: "ai",
+				name: "Alien Bot",
+				role: "builder",
+				status: "active",
+				teamId: tmB,
+				createdAt: NOW,
+			});
 
 			// Register filesystem under team A
 			const createRes = await app.request("/api/filesystems", {
@@ -418,7 +470,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC2: code filesystem records connection_id + resourceRef, no token", () => {
-		test("POST stores connectionId and resourceRef (JSON selector) on the row", async ({ db, app }) => {
+		test("POST stores connectionId and resourceRef (JSON selector) on the row", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac2a");
 
 			const res = await app.request("/api/filesystems", {
@@ -525,7 +580,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC4: Filesystem distinct from knowledge_items and git-export config", () => {
-		test("registering a filesystem does not change knowledge_items rowcount", async ({ db, app }) => {
+		test("registering a filesystem does not change knowledge_items rowcount", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac4a");
 
 			// Count knowledge_items before
@@ -580,7 +638,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC5: needs_attention surfaces when connection is unresolvable", () => {
-		test("code+git filesystem with connectionId → state:'needs_attention' (NoopAuthResolver)", async ({ db, app }) => {
+		test("code+git filesystem with connectionId → state:'needs_attention' (NoopAuthResolver)", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5a");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -629,7 +690,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(got.state).toBe("reachable");
 		});
 
-		test("writeback:'none' filesystem → state:'reachable' regardless of connectionId", async ({ db, app }) => {
+		test("writeback:'none' filesystem → state:'reachable' regardless of connectionId", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5c");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -658,7 +722,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC6: DELETE filesystem cascades injections", () => {
-		test("DELETE /api/filesystems/:id removes registration and cascades injections", async ({ db, app }) => {
+		test("DELETE /api/filesystems/:id removes registration and cascades injections", async ({
+			db,
+			app,
+		}) => {
 			const { teamId, botId, bot2Id } = await seedTeamAndBots(db, "ac6a");
 
 			// Register filesystem
@@ -700,7 +767,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 			// Both bots' injection lists no longer contain this filesystem
 			const list1 = await app.request(`/api/filesystems?agentUserId=${botId}`, { headers: auth() });
-			const list2 = await app.request(`/api/filesystems?agentUserId=${bot2Id}`, { headers: auth() });
+			const list2 = await app.request(`/api/filesystems?agentUserId=${bot2Id}`, {
+				headers: auth(),
+			});
 			const body1 = (await list1.json()) as { filesystems: Array<{ id: string }> };
 			const body2 = (await list2.json()) as { filesystems: Array<{ id: string }> };
 			expect(body1.filesystems.map((f) => f.id)).not.toContain(fsId);
@@ -723,7 +792,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	describe("AC8: Migration — correct tables, columns, constraints", () => {
 		test("filesystems table exists after migration", async ({ db }) => {
 			const result = await db.execute(
-				sql.raw(`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystems'`),
+				sql.raw(
+					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystems'`,
+				),
 			);
 			const rows = (result as { rows: unknown[] }).rows;
 			expect(rows.length).toBe(1);
@@ -731,7 +802,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("filesystem_injections table exists after migration", async ({ db }) => {
 			const result = await db.execute(
-				sql.raw(`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystem_injections'`),
+				sql.raw(
+					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystem_injections'`,
+				),
 			);
 			const rows = (result as { rows: unknown[] }).rows;
 			expect(rows.length).toBe(1);
@@ -739,9 +812,13 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("filesystems table has source column (not agent_user_id)", async ({ db }) => {
 			const result = await db.execute(
-				sql.raw(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystems' ORDER BY ordinal_position`),
+				sql.raw(
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystems' ORDER BY ordinal_position`,
+				),
 			);
-			const cols = (result as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name);
+			const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
+				(r) => r.column_name,
+			);
 			expect(cols).toContain("source");
 			expect(cols).toContain("team_id");
 			expect(cols).toContain("kind");
@@ -754,11 +831,17 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(cols).not.toContain("agent_user_id");
 		});
 
-		test("filesystem_injections has composite PK (agent_user_id, filesystem_id) — UNIQUE enforcement", async ({ db }) => {
+		test("filesystem_injections has composite PK (agent_user_id, filesystem_id) — UNIQUE enforcement", async ({
+			db,
+		}) => {
 			const result = await db.execute(
-				sql.raw(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystem_injections' ORDER BY ordinal_position`),
+				sql.raw(
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystem_injections' ORDER BY ordinal_position`,
+				),
 			);
-			const cols = (result as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name);
+			const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
+				(r) => r.column_name,
+			);
 			expect(cols).toContain("agent_user_id");
 			expect(cols).toContain("filesystem_id");
 			expect(cols).toContain("created_at");
@@ -766,25 +849,37 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("filesystems_team_idx index exists", async ({ db }) => {
 			const result = await db.execute(
-				sql.raw(`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='filesystems'`),
+				sql.raw(
+					`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='filesystems'`,
+				),
 			);
 			const names = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 			expect(names).toContain("filesystems_team_idx");
 		});
 
-		test("migration does not touch artifacts or knowledge_items tables (no ALTER)", async ({ db }) => {
+		test("migration does not touch artifacts or knowledge_items tables (no ALTER)", async ({
+			db,
+		}) => {
 			// Both tables must still exist and have no new filesystem-related columns
 			const artifactCols = await db.execute(
-				sql.raw(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='artifacts' ORDER BY ordinal_position`),
+				sql.raw(
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='artifacts' ORDER BY ordinal_position`,
+				),
 			);
-			const aCols = (artifactCols as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name);
+			const aCols = (artifactCols as { rows: Array<{ column_name: string }> }).rows.map(
+				(r) => r.column_name,
+			);
 			expect(aCols).not.toContain("filesystem_id");
 			expect(aCols).not.toContain("source");
 
 			const kiCols = await db.execute(
-				sql.raw(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='knowledge_items' ORDER BY ordinal_position`),
+				sql.raw(
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='knowledge_items' ORDER BY ordinal_position`,
+				),
 			);
-			const kCols = (kiCols as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name);
+			const kCols = (kiCols as { rows: Array<{ column_name: string }> }).rows.map(
+				(r) => r.column_name,
+			);
 			expect(kCols).not.toContain("filesystem_id");
 		});
 	});

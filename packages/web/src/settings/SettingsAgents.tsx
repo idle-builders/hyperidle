@@ -58,6 +58,8 @@ interface HarnessEntry {
 interface OrgTeam {
 	id: string; // teamMembers.id — correct FK for users.teamId
 	name: string;
+	/** AO1: teams.id — the registry scope key for filesystem queries (filesystems.team_id). */
+	teamActualId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,11 +248,10 @@ export function SettingsAgents(): JSX.Element {
 	const loadAgents = useCallback(async (): Promise<void> => {
 		setStatus("loading");
 		try {
-			const [agentsRes, harnessesRes, orgRes, filesystemsRes] = await Promise.all([
+			const [agentsRes, harnessesRes, orgRes] = await Promise.all([
 				apiFetch("/api/agents"),
 				apiFetch("/api/harnesses"),
 				apiFetch("/api/org"),
-				apiFetch("/api/filesystems"),
 			]);
 			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
@@ -262,13 +263,6 @@ export function SettingsAgents(): JSX.Element {
 					setHarnesses(harnessesJson);
 				}
 			}
-			// AO1: load the team filesystem registry — the per-bot injection pool.
-			if (filesystemsRes.ok) {
-				const filesystemsJson = (await filesystemsRes.json()) as InjectableFilesystem[];
-				if (Array.isArray(filesystemsJson)) {
-					setFilesystems(filesystemsJson);
-				}
-			}
 			// AH4: load teams from GET /api/org; default addTeamId to first team's id
 			if (orgRes.ok) {
 				const orgJson = (await orgRes.json()) as { teams?: OrgTeam[] };
@@ -277,6 +271,23 @@ export function SettingsAgents(): JSX.Element {
 				setOrgTeamsStatus("ready");
 				if (teamList.length > 0) {
 					setAddTeamId(teamList[0]?.id ?? null);
+				}
+				// AO1: load the team filesystem registry — the per-bot injection pool.
+				// Must use teams.id (filesystems.team_id scope), not teamMembers.id.
+				// teamActualId = teams.id added to /api/org response in AO1.
+				const firstTeamActualId = teamList[0]?.teamActualId;
+				if (firstTeamActualId) {
+					const filesystemsRes = await apiFetch(
+						`/api/filesystems?teamId=${encodeURIComponent(firstTeamActualId)}`,
+					);
+					if (filesystemsRes.ok) {
+						const fsJson = (await filesystemsRes.json()) as {
+							filesystems?: InjectableFilesystem[];
+						};
+						if (Array.isArray(fsJson.filesystems)) {
+							setFilesystems(fsJson.filesystems);
+						}
+					}
 				}
 			} else {
 				setOrgTeamsStatus("error");

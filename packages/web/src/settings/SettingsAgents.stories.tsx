@@ -15,8 +15,8 @@
  *      by its `source` Tag.
  */
 
-import { useEffect, useRef } from "react";
 import type React from "react";
+import { useEffect, useRef } from "react";
 import { ToastRegion } from "../shell/ToastRegion.js";
 import { SettingsAgents } from "./SettingsAgents.js";
 
@@ -53,7 +53,12 @@ const MOCK_HARNESSES = [
 // AO1: the team's registered filesystems — the per-bot injection pool.
 const MOCK_FILESYSTEMS = [
 	{ id: "fs-storefront", source: "github", resource: "acme/storefront", kind: "code" },
-	{ id: "fs-product-notes", source: "obsidian", resource: "~/vaults/product-notes", kind: "doc_set" },
+	{
+		id: "fs-product-notes",
+		source: "obsidian",
+		resource: "~/vaults/product-notes",
+		kind: "doc_set",
+	},
 	{ id: "fs-marketing-site", source: "github", resource: "acme/marketing-site", kind: "code" },
 	{ id: "fs-brand-docs", source: "gdrive", resource: "Marketing / Brand", kind: "doc_set" },
 ];

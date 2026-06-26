@@ -22,6 +22,7 @@ import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
+import { createFilesystemRoutes } from "./routes/filesystems.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth, health } from "./routes/health.js";
@@ -407,6 +408,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
+		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));

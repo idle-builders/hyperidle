@@ -19,15 +19,11 @@
  * Source of truth: plans/AO1/architecture.md §3 reachability block + §4 seam
  */
 
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-
 // These imports will FAIL (red) until the green-phase implementation creates these files.
 // We import via the path the architecture specifies (Task T4).
-import {
-	NoopAuthResolver,
-	resolveFilesystemState,
-} from "../services/filesystem-reachability.js";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { NoopAuthResolver, resolveFilesystemState } from "../services/filesystem-reachability.js";
 
 // ─── resolveFilesystemState ──────────────────────────────────────────────────
 
