@@ -93,7 +93,6 @@ export function SettingsPage(): JSX.Element {
 						<SettingsReviewSurfaces />
 					</section>
 
-
 					{/* AF15 AC-1: Agents section — after Models, before Assistant (design spec) */}
 					<section
 						id="settings-section-agents"

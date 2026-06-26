@@ -9,7 +9,17 @@
  * shared, renderer in web).
  */
 
-import type { TrustTier } from "./connection.js";
+/**
+ * Trust tier for review surfaces and manifests. "vetted" = first-party or reviewed.
+ * "community" = unreviewed external. Defined here (not in AN1) because review-surface
+ * is the primary consumer; AN1 is reverted.
+ *
+ * @lore AL5: TrustTier was previously imported from the AN1 ./connection.js module.
+ * AN1 was reverted from main (#364). Defining the type directly here avoids re-coupling
+ * to a module that no longer exists. The value set (vetted | community) is unchanged.
+ */
+export const TRUST_TIERS = ["vetted", "community"] as const;
+export type TrustTier = (typeof TRUST_TIERS)[number];
 
 /**
  * The 9 review canvas kinds from AL2. Moved here so shared can reference the

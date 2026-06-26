@@ -13,8 +13,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-// TrustTier is reused from AN — imported from connection.ts (not redefined in review-surface)
-import { TRUST_TIERS, type TrustTier } from "../connection.js";
+// TrustTier is defined in review-surface.ts (was previously in AN1's connection.ts, now AN1 reverted)
 import {
 	type AdoptionView,
 	LAYERING_MODES,
@@ -24,6 +23,8 @@ import {
 	type SurfaceManifest,
 	type SurfaceProvenance,
 	type SurfaceSituation,
+	TRUST_TIERS,
+	type TrustTier,
 } from "../review-surface.js";
 
 describe("AL5 — LAYERING_MODES closed set", () => {
