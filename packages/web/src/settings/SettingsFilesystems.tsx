@@ -120,7 +120,7 @@ export function SettingsFilesystems(): JSX.Element {
 	if (status === "error") {
 		return (
 			<div className="flex flex-col gap-[12px]">
-				<p className="text-[12px] text-[var(--text-error)]">Failed to load filesystems.</p>
+				<p className="text-[12px] text-[var(--status-error)]">Failed to load filesystems.</p>
 			</div>
 		);
 	}
