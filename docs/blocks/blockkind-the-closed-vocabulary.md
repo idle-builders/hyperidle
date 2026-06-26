@@ -27,4 +27,6 @@ deriveBlocks(body, host) → { blocks: Block[]; metadata: BodyMetadata }
 
 **Tabs / front-matter exposure / sanitiser policy** are designer/architect calls during the L2 design pass. The kind set is fixed.
 
+**Rendering layer (AM5 — cross-reference).** `BlockKind` stays its own closed AST vocabulary (this section). It is **not merged** into the shared content-Kind set; instead each `BlockKind` **renders through the shared content-Kind `mixture` renderers** — `table`→`data`, the prose grammar (`heading·paragraph·quote·list·divider`)→`text`/mixture, fenced `code`/`image`/`html`→the matching Kind. `mixture` is one of the three closed **Representations** (`single|diff|mixture`) of the shared Kind basis; see `docs/process-layer/artifact-primitive.md` §The three axes and `plans/AM5/concept.md`. This is a rendering-layer reconciliation only — no on-disk dialect, no per-block key, derived-not-stored; the Block hard rules are unchanged.
+
 ---

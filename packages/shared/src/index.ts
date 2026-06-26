@@ -230,6 +230,9 @@ export {
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
+// AM5 K4b: code kind schema + definition (purified to {path,lang,text})
+// CodePreview type already exported below via types/artifact.ts
+export { codeKind, codePreviewSchema } from "./kinds/code.js";
 // AE6: Kind registry exports (new)
 export type { KindDefinition } from "./kinds/kind-definition.js";
 export type { OldKindMapping } from "./kinds/old-kind-map.js";
@@ -443,7 +446,6 @@ export type {
 	CodePreview,
 	CreateArtifactInput,
 	DataPreview,
-	DiffHunk,
 	HtmlPreview,
 	ImagePreview,
 	TextPreview,

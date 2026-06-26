@@ -75,6 +75,7 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 		expect(body.kind).toBe("text");
 	});
 
+	// AM5 K4b: code schema purified from {file,hunks} to {path,lang,text}
 	test("POST accepts kind=code (new fundamental kind)", async ({ db, app }) => {
 		await seed(db);
 		const res = await app.request("/api/artifacts", {
@@ -83,7 +84,7 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 			body: JSON.stringify({
 				producingTaskId: "task-ae6",
 				kind: "code",
-				preview: { kind: "code", file: "src/index.ts", hunks: [] },
+				preview: { kind: "code", path: "src/index.ts", lang: "typescript", text: "const x = 1;" },
 				cost: null,
 			}),
 		});

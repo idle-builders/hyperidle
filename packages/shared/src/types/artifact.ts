@@ -34,12 +34,6 @@ export type ArtifactPreview =
 	| HtmlPreview
 	| UrlPreview;
 
-// DiffHunk is preserved — used by CodePreview consumers.
-export interface DiffHunk {
-	readonly header: string;
-	readonly lines: ReadonlyArray<{ kind: "add" | "del" | "ctx"; text: string }>;
-}
-
 export interface ArtifactCostFromSession {
 	readonly money: WireMoney | null;
 	readonly tokens: TokenUsage | null;

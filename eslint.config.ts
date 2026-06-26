@@ -1139,4 +1139,53 @@ export default [
 			"design/no-ungated-stream-drain": "error",
 		},
 	},
+
+	// AM5 H1 — no hand-rolled navigate to a viewer route outside the open contract.
+	//
+	// All route navigation must go through `createOpenHandler` (open-handler.ts).
+	// Hand-rolling `navigate("/artifacts/" + id)` or `navigate("/work/artifact/...")` in
+	// page/component code bypasses the unified open contract and creates a second
+	// navigation path that diverges from the open-contract seam.
+	//
+	// The rule bans string-concat navigations to the known viewer route prefixes
+	// (/artifacts/, /work/artifact/) in all web source except the open handler itself
+	// (which IS the contract) + tests + stories.
+	//
+	// AST selector: navigate() call where the first argument is a BinaryExpression
+	// whose leftmost operand is a Literal matching a known viewer route prefix.
+	// This covers the common `navigate("/artifacts/" + id)` pattern.
+	//
+	// @lore AM5 H1: purposely narrow (BinaryExpression only) — a plain literal call
+	// like `navigate("/artifacts/123")` in a component is rare and caught by code
+	// review; the common violation is concatenation. Expand to TemplateLiteral if
+	// template-concat violations appear. The open-handler.ts exemption is intentional
+	// (it IS the only allowed site). open-handler.test.ts + stories are also exempt.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/web/src/services/open-handler.ts",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.test.{ts,tsx}",
+			"packages/web/src/**/*.spec.{ts,tsx}",
+			"packages/web/src/**/*.stories.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					// navigate("/artifacts/" + id) — the most common hand-roll pattern.
+					selector:
+						"CallExpression[callee.name='navigate'] > BinaryExpression[operator='+'] > Literal[value=/^\\/(artifacts|work\\/artifact)\\//]",
+					message:
+						"AM5 H1: do not navigate to a viewer route directly. Use createOpenHandler (open-handler.ts) — the unified open contract. Direct navigate() calls to /artifacts/ or /work/artifact/ bypass the open contract seam.",
+				},
+			],
+		},
+	},
 ];

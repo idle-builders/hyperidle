@@ -38,6 +38,7 @@ import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { useAssistantThread } from "../hooks/useAssistantThread";
 import { useBet } from "../hooks/useBet.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { createOpenHandler } from "../services/open-handler.js";
 
 /**
  * AD8b B3.1: Render a single tinted tool-call row.
@@ -186,10 +187,17 @@ function renderToolCallSummaries(message: Message): ReactNode {
 
 /**
  * T4: renderRefEmbeds for AssistantOverlay — builds BlockRefEmbed cards for block refs.
+ * AM5 T9: accepts a navigate function so each embed wires the open contract (block-anchored open).
+ * @lore AM5 T9: onOpen routes through createOpenHandler → host(hostKind, hostId, blockId) →
+ * resolveHostRoute + #block-<id> fragment (H2/AC2). Cards are now interactive when in AssistantOverlay.
  */
-function renderRefEmbedsForAssistant(refs: ReadonlyArray<InlineRef>): ReactNode {
+function renderRefEmbedsForAssistant(
+	refs: ReadonlyArray<InlineRef>,
+	navigate: (path: string) => void,
+): ReactNode {
 	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
 	if (blockRefs.length === 0) return null;
+	const openHandler = createOpenHandler(navigate, {});
 	return (
 		<div className="flex flex-col gap-1 mt-1">
 			{blockRefs.map((r) => (
@@ -198,6 +206,14 @@ function renderRefEmbedsForAssistant(refs: ReadonlyArray<InlineRef>): ReactNode 
 					blockId={r.blockId}
 					hostKind={r.hostKind}
 					hostId={r.hostId}
+					onOpen={() =>
+						openHandler({
+							route: "host",
+							hostKind: r.hostKind,
+							hostId: r.hostId,
+							blockId: r.blockId,
+						})
+					}
 				/>
 			))}
 		</div>
@@ -459,6 +475,8 @@ function AssistantOverlayInner({
 }): JSX.Element {
 	// AF14 AC2: destructure `refresh` so sent messages stay visible immediately.
 	const { status, data, error, retry, refresh } = useAssistantThread();
+	// AM5 T9: navigate for block-ref-embed open-contract wiring
+	const navigate = useNavigate();
 
 	const handleAppendMessage = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
@@ -578,7 +596,7 @@ function AssistantOverlayInner({
 				identities={identities}
 				onAppendMessage={handleAppendMessage}
 				hostTitle="Assistant"
-				renderRefEmbeds={renderRefEmbedsForAssistant}
+				renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
 				renderMessageExtra={renderToolCallSummaries}
 			/>
 			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}

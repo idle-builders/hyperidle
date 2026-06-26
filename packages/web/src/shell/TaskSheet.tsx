@@ -5,11 +5,11 @@
  * Design: Variant C from plans/L15/design/approved.md (scored 79/90).
  *
  * @lore L18: The "Open thread" button is replaced by an inline
- * `<HostThreadSection hostKind="task" hostId={task.id} inline />`. The
- * legacy props `resolveThreadId`, `postRequest`, `onNavigateToThread` are
- * retained for backwards-compat (callers compiled against the old interface
- * still pass them); they are deprecated and no longer used by the sheet.
- * Remove them in the next TaskSheet refactor pass once callers are updated.
+ * `<HostThreadSection hostKind="task" hostId={task.id} inline />` for
+ * the discussion thread. The three props `resolveThreadId`, `postRequest`,
+ * `onNavigateToThread` were marked @deprecated but AM5 T9 verified they are
+ * LIVE: resolveThreadId+onNavigateToThread power the "Open thread" button
+ * (AC §621) and postRequest powers intent submission. @deprecated removed.
  *
  * @lore No `useToast` hook is used here (none exists in packages/web/src/).
  * Success and error feedback are rendered inline in the sheet via
@@ -78,21 +78,20 @@ export interface TaskSheetProps {
 	open: boolean;
 	onClose: () => void;
 	/**
-	 * @deprecated L18: thread resolution is now handled inside HostThreadSection.
-	 * Retained for backwards-compat — no-op in the current implementation.
-	 * Remove in next TaskSheet refactor pass.
+	 * @lore AM5 T9 VERIFY: marked @deprecated in L18, but verified LIVE — still
+	 * used by handleOpenThread (resolves the task thread for "Open thread" nav)
+	 * and handleSendRequest (posts intent messages). WorkBet.tsx and stories both
+	 * pass this. Not a candidate for removal without consolidating those code paths.
 	 */
 	resolveThreadId: (taskId: string) => Promise<string>;
 	/**
-	 * @deprecated L18: posting is now handled inside HostThreadSection.
-	 * Retained for backwards-compat — no-op in the current implementation.
-	 * Remove in next TaskSheet refactor pass.
+	 * @lore AM5 T9 VERIFY: marked @deprecated in L18, but verified LIVE — still
+	 * used by handleSendRequest to post intent messages on the task thread.
 	 */
 	postRequest: (threadId: string, text: string, clientKey: string) => Promise<void>;
 	/**
-	 * @deprecated L18: navigation to thread is no longer needed (thread is inline).
-	 * Retained for backwards-compat — no-op in the current implementation.
-	 * Remove in next TaskSheet refactor pass.
+	 * @lore AM5 T9 VERIFY: marked @deprecated in L18, but verified LIVE — still
+	 * used by handleOpenThread for "Open thread" navigation to /conversations/:id.
 	 */
 	onNavigateToThread: (threadId: string) => void;
 }
@@ -198,9 +197,9 @@ export function TaskSheet({
 	task,
 	open,
 	onClose,
-	// @deprecated L18: resolveThreadId and onNavigateToThread are still used by
-	// the "Open thread" affordance (AC §621). postRequest is used for the request
-	// form path.
+	// @lore AM5 T9: These three props were marked @deprecated in L18 but are
+	// LIVE — resolveThreadId+onNavigateToThread for "Open thread", postRequest
+	// for intent submission. @deprecated annotations removed (AM5 T9 verified).
 	resolveThreadId: ResolveThreadId,
 	postRequest: PostRequest,
 	onNavigateToThread,

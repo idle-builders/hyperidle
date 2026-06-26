@@ -1,0 +1,68 @@
+// AM5 T8 — Block-anchored open.
+// RED phase: proves AC2 — host with blockId navigates to #block-<id>,
+// without blockId navigates to bare path.
+// Also proves the OpenTarget type accepts blockId + inlineRefToEmbed threads it.
+
+import { describe, expect, it, vi } from "vitest";
+import { createOpenHandler } from "../services/open-handler.js";
+
+// ── 1. open-handler: host(knowledge_item, id, blockId) → /knowledge/:id#block-:blockId ───
+describe("AC2: open-handler block anchor", () => {
+	it("host with blockId → path#block-<encodeURIComponent(blockId)>", () => {
+		const nav = vi.fn();
+		const handler = createOpenHandler(nav, {});
+		handler({
+			route: "host",
+			hostKind: "knowledge_item",
+			hostId: "ki-1",
+			blockId: "block-abc",
+		});
+		expect(nav).toHaveBeenCalledWith("/knowledge/ki-1#block-block-abc");
+	});
+
+	it("host without blockId → bare path (no fragment)", () => {
+		const nav = vi.fn();
+		const handler = createOpenHandler(nav, {});
+		handler({ route: "host", hostKind: "knowledge_item", hostId: "ki-1" });
+		expect(nav).toHaveBeenCalledWith("/knowledge/ki-1");
+	});
+
+	it("blockId with special chars → encodeURIComponent applied", () => {
+		const nav = vi.fn();
+		const handler = createOpenHandler(nav, {});
+		handler({
+			route: "host",
+			hostKind: "knowledge_item",
+			hostId: "ki-2",
+			blockId: "block with spaces",
+		});
+		expect(nav).toHaveBeenCalledWith(
+			`/knowledge/ki-2#block-${encodeURIComponent("block with spaces")}`,
+		);
+	});
+
+	it("blockId on artifact host → /artifacts/:id#block-<id>", () => {
+		const nav = vi.fn();
+		const handler = createOpenHandler(nav, {});
+		handler({ route: "host", hostKind: "artifact", hostId: "art-1", blockId: "para-1" });
+		expect(nav).toHaveBeenCalledWith("/artifacts/art-1#block-para-1");
+	});
+});
+
+// ── 2. AC6: same target from two contexts → identical path ────────────────────
+describe("AC6: block-anchored target → same path from any context", () => {
+	it("host+blockId resolves identically regardless of context", () => {
+		const nav1 = vi.fn();
+		const nav2 = vi.fn();
+		const target = {
+			route: "host" as const,
+			hostKind: "knowledge_item" as const,
+			hostId: "ki-5",
+			blockId: "block-123",
+		};
+		createOpenHandler(nav1, {})(target);
+		createOpenHandler(nav2, { betId: "bet-ignored" })(target);
+		expect(nav1.mock.calls[0]![0]).toBe(nav2.mock.calls[0]![0]);
+		expect(nav1).toHaveBeenCalledWith("/knowledge/ki-5#block-block-123");
+	});
+});

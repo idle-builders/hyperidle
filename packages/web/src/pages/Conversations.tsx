@@ -27,7 +27,14 @@
  * shows a "Dial In" button; clicking it opens the companion split: the
  * ConversationSurface on the left, SessionActivityPanel on the right.
  */
-import { Button, EmptyState, ErrorState, PageHeader, SkeletonList } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	PageHeader,
+	SkeletonList,
+	SplitView,
+} from "@hyperidle/design-system";
 import type { PartAuthor } from "@hyperidle/shared";
 import { derivePartsFromMessages } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -44,6 +51,7 @@ import { useHint } from "../hooks/useHints";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
+import { useUiPreference } from "../hooks/useUiPreference.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
@@ -273,6 +281,10 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// silently — the response still commits, the toast just doesn't fire.
 	const toast = useContext(ToastContext);
 
+	// AM5 T6: SplitView ratio persistence per surface (hooks must be unconditional)
+	const [dialInRatio, setDialInRatio] = useUiPreference("conversation.dial-in", 0.6);
+	const [sessionRatio, setSessionRatio] = useUiPreference("conversation.session", 0.6);
+
 	// Q1 §4.6: dial-in state
 	const [dialInSessionId, setDialInSessionId] = useState<string | null>(null);
 
@@ -438,31 +450,41 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	};
 
 	// Q1 §4.6: companion split layout when dialed in
+	// AM5 T6: reconciled onto SplitView (surfaceKey="conversation.dial-in")
 	if (dialInSessionId) {
 		const agentId = activeSession?.agentId ?? data.thread.hostId;
 		const agentIdentity = data.identities[agentId];
 		const agentName = agentIdentity?.name ?? agentId;
 
 		return (
-			<div className="flex flex-row h-full gap-0" data-testid="conversations-page">
-				<div className="flex-[3] min-w-0 flex flex-col border-r border-[var(--border-subtle)]">
-					<ConversationSurface
-						parts={parts}
-						onOpen={openTarget}
-						header={header}
-						participants={participants}
-						onSend={onSend}
-						scroll
-					/>
-				</div>
-				<div className="flex-[2] min-w-0 flex flex-col">
-					<SessionActivityPanel
-						sessionId={dialInSessionId}
-						agentName={agentName}
-						taskTitle={data.thread.hostId}
-						onClose={() => setDialInSessionId(null)}
-					/>
-				</div>
+			<div className="h-full w-full" data-testid="conversations-page">
+				<SplitView
+					surfaceKey="conversation.dial-in"
+					mode="split"
+					dividerRatio={dialInRatio}
+					onRatioChange={setDialInRatio}
+					onModeChange={(mode) => {
+						if (mode === "fold-back") setDialInSessionId(null);
+					}}
+					origin={
+						<ConversationSurface
+							parts={parts}
+							onOpen={openTarget}
+							header={header}
+							participants={participants}
+							onSend={onSend}
+							scroll
+						/>
+					}
+					destination={
+						<SessionActivityPanel
+							sessionId={dialInSessionId}
+							agentName={agentName}
+							taskTitle={data.thread.hostId}
+							onClose={() => setDialInSessionId(null)}
+						/>
+					}
+				/>
 			</div>
 		);
 	}
@@ -471,6 +493,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// Fires when `onOpenSession(sessionId)` is called by the open-handler seam.
 	// Consistent placement with dial-in; the page owns placement, SessionView owns
 	// rendering. The open-handler `case "session"` is now wired (no longer a no-op).
+	// AM5 T6: reconciled onto SplitView (surfaceKey="conversation.session")
 	if (openedSessionId) {
 		const agentId = activeSession?.agentId ?? data.thread.hostId;
 		const agentIdentity = data.identities[agentId];
@@ -478,30 +501,41 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		const viewerName = data.identities[viewerId]?.name ?? viewerId;
 
 		return (
-			<div className="flex flex-row h-full gap-0" data-testid="conversations-page">
-				<div className="flex-[3] min-w-0 flex flex-col border-r border-[var(--border-subtle)]">
-					<ConversationSurface
-						parts={parts}
-						onOpen={openTarget}
-						header={header}
-						participants={participants}
-						onSend={onSend}
-						scroll
-					/>
-				</div>
-				<div className="flex-[2] min-w-0 flex flex-col" data-testid="session-view-panel">
-					<SessionViewPanel
-						sessionId={openedSessionId}
-						agentId={agentId}
-						agentName={agentName}
-						threadTitle={header.title}
-						hostTitle={header.hostTitle}
-						viewerId={viewerId}
-						viewerName={viewerName}
-						onClose={() => setOpenedSessionId(null)}
-						onOpen={openTarget}
-					/>
-				</div>
+			<div className="h-full w-full" data-testid="conversations-page">
+				<SplitView
+					surfaceKey="conversation.session"
+					mode="split"
+					dividerRatio={sessionRatio}
+					onRatioChange={setSessionRatio}
+					onModeChange={(mode) => {
+						if (mode === "fold-back") setOpenedSessionId(null);
+					}}
+					origin={
+						<ConversationSurface
+							parts={parts}
+							onOpen={openTarget}
+							header={header}
+							participants={participants}
+							onSend={onSend}
+							scroll
+						/>
+					}
+					destination={
+						<div data-testid="session-view-panel">
+							<SessionViewPanel
+								sessionId={openedSessionId}
+								agentId={agentId}
+								agentName={agentName}
+								threadTitle={header.title}
+								hostTitle={header.hostTitle}
+								viewerId={viewerId}
+								viewerName={viewerName}
+								onClose={() => setOpenedSessionId(null)}
+								onOpen={openTarget}
+							/>
+						</div>
+					}
+				/>
 			</div>
 		);
 	}

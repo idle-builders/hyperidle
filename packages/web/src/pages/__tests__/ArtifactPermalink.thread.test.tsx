@@ -17,7 +17,7 @@ const MOCK_ARTIFACT: Artifact = {
 	producingTaskTitle: "Build the auth service",
 	kind: "code",
 	label: null,
-	preview: { kind: "code", file: "auth-service.ts", hunks: [] },
+	preview: { kind: "code", path: "auth-service.ts", lang: "typescript", text: "// auth service" },
 	cost: { money: null, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-05-05T09:00:00Z",

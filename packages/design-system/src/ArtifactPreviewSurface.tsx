@@ -8,10 +8,14 @@
 //   and "PREVIEW PENDING" removed — those were dishonest (a render may never come).
 // @lore AE6: Replaced 12-case switch with getKindDefinition().summarize() for gallery path.
 //   Unregistered kinds get a generic "no preview" placeholder in the full path via FallbackRenderer.
+// AM5: replaced getRenderer(kind) with composeArtifactBody(kind,preview) (K2/K5).
+// The kind-renderer layer is removed; Artifact (single) composes base primitives directly.
+// @lore AM5 K5: getRenderer + renderer-registry.ts + kinds/*-renderer.tsx DELETED.
+// composeArtifactBody is the single-home Artifact composition over block payloads.
 import { getKindDefinition } from "@hyperidle/shared";
 import { Component, type JSX, type ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
-import { getRenderer } from "./kinds/renderer-registry.js";
+import { composeArtifactBody } from "./kinds/compose-artifact-body.js";
 
 export interface ArtifactPreviewSurfaceProps {
 	kind: string;
@@ -78,11 +82,9 @@ function renderBody(kind: string, preview: unknown, size: "gallery" | "full"): J
 		if (preview == null) {
 			return <NoPreviewText size="full" />;
 		}
-		const Renderer = getRenderer(kind);
 		return (
 			<RendererErrorBoundary kind={kind} size="full">
-				{/* biome-ignore lint/suspicious/noExplicitAny: renderer props accept any preview shape */}
-				<Renderer preview={preview as any} kind={kind} />
+				{composeArtifactBody(kind, preview)}
 			</RendererErrorBoundary>
 		);
 	}

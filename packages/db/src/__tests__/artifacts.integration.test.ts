@@ -54,17 +54,18 @@ describe("L3 artifacts schema", () => {
 	test("supports insert + select round-trip", async ({ db }) => {
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		const { taskId } = await seedTask(db);
+		// AM5 B1: code_diff → code (pre-alpha purge; no DB rows to honor)
 		await db.insert(artifacts).values({
 			id: "art1",
 			producingTaskId: taskId,
-			kind: "code_diff",
+			kind: "code",
 			previewJson: null,
 			createdAt: NOW,
 		});
 
 		const rows = await db.select().from(artifacts).where(eq(artifacts.id, "art1"));
 		expect(rows).toHaveLength(1);
-		expect(rows[0]?.kind).toBe("code_diff");
+		expect(rows[0]?.kind).toBe("code");
 		expect(rows[0]?.producingTaskId).toBe(taskId);
 	});
 

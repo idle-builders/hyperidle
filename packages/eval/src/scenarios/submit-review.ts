@@ -29,9 +29,10 @@ import type {
 // sr-with-artifact-builder-devops
 // ---------------------------------------------------------------------------
 
+// AM5 K4b: code_diff → code; preview shape {file,hunks} → {path,lang,text}
 const srWithArtifactBuilderDevops: EvalScenario = {
 	id: "sr-with-artifact-builder-devops",
-	description: "Builder submits structured review with artifactRef linking to seeded code_diff",
+	description: "Builder submits structured review with artifactRef linking to seeded code artifact",
 	feature: "submit_review",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -44,13 +45,13 @@ Your review reasoning should explain what was implemented and what to verify.`,
 			taskTitle: "Refactor monitoring configuration",
 			taskDescription: `Review your implementation of the monitoring configuration refactor.
 
-You have already produced a code_diff artifact for this task.
+You have already produced a code artifact for this task.
 The artifact ID is available in your task context.
 
 Submit a review using submit_review with:
 - title: "Monitoring configuration refactor ready for review"
 - reasoning: at least 2 points about what was changed and what to verify
-- artifactRef: { id: "<the artifact ID>", kind: "code_diff" }
+- artifactRef: { id: "<the artifact ID>", kind: "code" }
 
 Your reasoning should mention: what was changed and what the reviewer should check.`,
 			betDescription: "Infrastructure monitoring improvements",
@@ -60,11 +61,12 @@ Your reasoning should mention: what was changed and what the reviewer should che
 		// Pre-seed the artifact that the agent will reference
 		await seedArtifact(ctx.db, {
 			producingTaskId: world.taskId,
-			kind: "code_diff",
+			kind: "code",
 			previewJson: JSON.stringify({
-				kind: "code_diff",
-				file: "config/prometheus.yml",
-				hunks: ["- scrape_interval: 60s\n+ scrape_interval: 15s\n+ evaluation_interval: 15s"],
+				kind: "code",
+				path: "config/prometheus.yml",
+				lang: "yaml",
+				text: "scrape_interval: 15s\nevaluation_interval: 15s",
 			}),
 		});
 
@@ -471,7 +473,7 @@ No artifactRef needed for this review.`,
 const srQaGatekeeperQaDevops: EvalScenario = {
 	id: "sr-qa-gatekeeper-qa-devops",
 	description:
-		"QA engineer submits quality gatekeeper review on infrastructure migration code_diff",
+		"QA engineer submits quality gatekeeper review on infrastructure migration code artifact",
 	feature: "submit_review",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -482,8 +484,8 @@ When reviewing another agent's work, submit a thorough quality assessment using 
 Your reviews must cover: test coverage analysis, regression risk, and acceptance criteria verification.
 Include at least 3 specific reasoning points — QA reviews must be comprehensive, not superficial.
 You do NOT write production code. Your sign-off is required before deployment.`,
-			taskTitle: "QA review of infrastructure migration code_diff",
-			taskDescription: `You are the quality gatekeeper for the infrastructure migration. Review the code_diff artifact.
+			taskTitle: "QA review of infrastructure migration code artifact",
+			taskDescription: `You are the quality gatekeeper for the infrastructure migration. Review the code artifact.
 
 The infrastructure migration artifact contains these changes (artifact already exists in the system):
 File: terraform/modules/vpc/main.tf
@@ -499,7 +501,7 @@ Quality assessment criteria you must cover in your review:
 3. Acceptance criteria: Does the change meet the original infrastructure bet's requirements?
 
 Use submit_review with:
-- title: "QA review: infrastructure migration code_diff"
+- title: "QA review: infrastructure migration code artifact"
 - reasoning: at least 3 points covering test coverage, regression risk, and acceptance criteria
 - No artifactRef needed (review the changes described in your task, not an artifact reference)`,
 			betDescription: "AWS VPC infrastructure migration",
