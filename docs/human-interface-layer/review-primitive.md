@@ -22,13 +22,43 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 
 The nine family canvases above are the *generic* review surfaces — they work for any tool, well for none in particular. A **review surface** specializes one of them for a recognizable situation: "a Stripe refund review", "a marketing-campaign review", "a data-migration review". A review surface **is a React component** (the review canvas is already React) plus a small manifest — authored by **HyperIdle or the community through one registry mechanism**, distributed shadcn-style, and **deliberately adopted** by a team. It is code, not config: review surfaces are open-ended UI, contributors are devs, and AI writes a component cheaply.
 
-- **Code that specializes a base canvas.** A surface composes over one of the nine **base canvases** through that canvas's slots, inheriting its structure and its fallback. Not a freeform from-scratch screen.
-- **Registry-distributed; adopted, never auto-applied.** Surfaces live in a **registry** (a catalog of *availables* — HyperIdle's + community ones; anyone can host one). A team **adopts** the one it wants for a situation — a deliberate, owned, version-pinned, reviewable mapping `(tool/task → surface)`. The system renders the **adopted** surface by that explicit mapping; it **never** scores thousands of candidates at render time. No adoption (or a failed surface) → the **base canvas** renders. "Which surface rendered this review, and who chose it" is always answerable.
-- **Two layering modes: wrap or eject.** **Wrap** — compose over the base canvas via its slots (upgrade-safe; the default). **Eject** — fork the base canvas's source and own it (total control; you own upgrades). Each base canvas declares, per slot, `wrap | eject | forbidden`.
-- **The base canvas is the floor and the always-present fallback.** Every surface specializes one; "review for anything" holds for anything nobody surfaced.
-- **A surface is the lens, never the decision.** It changes presentation only; it never moves the verdict, the staged action, or the [gate](../process-layer/staged-operation.md).
-- **One mechanism; provenance + trust the only difference.** First-party and community surfaces use the same registry, distinguished by **provenance** (`first-party | community`) and an AN **trust tier** (`vetted | community`, reused from [`Connection`](../agent-layer/tool-integration.md)). Trust is adopt-time **code review + ownership**, not a runtime sandbox — a surface is reviewable/previewable before adoption.
-- **Boundary with AN4.** AL5 owns the **review surface** (the code unit, the base-canvas slot contracts, the registry, adoption, the floor fallback). The [connector registry](../agent-layer/tool-integration.md) (AN4) owns the **Connector** (tool integration). A connector may *reference* a preferred surface; a surface is independently publishable. There is no `ui://` shipped review UI in scope.
+### Invariants (non-negotiable)
+
+1. **Code, never config.** A surface is a React component + a `SurfaceManifest` descriptor. Not a DSL, not a template, not a declarative blob.
+2. **No runtime auto-apply.** A surface runs only where a team **deliberately adopted** it — a `surfaceAdoptions` DB row (unique per `teamId × tool × kind`). The registry is a catalog of availables; the running app reflects adoptions only. "Which surface rendered this, and who chose it" is always answerable.
+3. **Base canvas is the floor and the always-present fallback.** No adoption, or a failed/missing surface, degrades to the base canvas. "Review for anything" holds for anything nobody surfaced.
+4. **Two layering modes: wrap or eject.** Wrap = compose over the base via declared slots (upgrade-safe). Eject = copy the base source and own it (total control, you own upgrades). Each base canvas declares per-slot `wrap | eject | forbidden` via `SLOT_POLICY` (`slot-policy.ts`).
+5. **A surface is the lens, never the decision.** Presentation only — it never moves the verdict, the staged action, or the AL7 gate.
+6. **One registry mechanism; provenance + AN trust tier the only distinction.** First-party and community surfaces use the same path: `SurfaceManifest` + component, registered in `surface-registry.ts`. Distinguished by `provenance: "first-party" | "community"` and `trustTier: "vetted" | "community"` (reused from AN — not redefined). Trust = adopt-time code review + ownership, not a runtime sandbox.
+7. **AL5 ⟂ AN4.** AL5 owns the review surface (code unit, slot contracts, registry, adoption, floor fallback). AN4 (Connectors) owns tool integration. A connector may *reference* a preferred `surfaceId`; a surface is independently publishable.
+
+### AS-BUILT module map
+
+| File | What it is |
+|---|---|
+| `packages/shared/src/review-surface.ts` | `SurfaceManifest`, `SurfaceSituation`, `AdoptionView`, `LayeringMode`, `SurfaceProvenance`, `REVIEW_CANVAS_KINDS`, `FIRST_PARTY_SURFACE_MANIFESTS`, `CommunityRegistryIndex` |
+| `packages/web/src/pages/review/surface-slots.ts` | `SlotName`, `SlotPermission`, `SlotPolicy`, `CanvasSlots`, `slot()` helper |
+| `packages/web/src/pages/review/slot-policy.ts` | `SLOT_POLICY` (all 9 canvases), `UNLISTED_SLOT_DEFAULT`, `slotPermission()` |
+| `packages/web/src/pages/review/surfaces/resolve-surface.ts` | `resolveSurface()` — pure Map lookup, no scoring |
+| `packages/web/src/pages/review/surfaces/SurfaceBoundary.tsx` | React error boundary; any throw → base canvas (AC4 / host-safety) |
+| `packages/web/src/pages/review/surfaces/surface-registry.ts` | `SurfaceRegistryEntry` discriminated union, `getSurfaceEntry()`, `listSurfaces()` |
+| `packages/web/src/pages/review/surfaces/stripe-refund-review/` | Proof-vehicle surface: `manifest.ts`, `StripeRefundReview.tsx`, `StripeRefundReview.stories.tsx` |
+| `packages/db/src/schema.ts` | `surfaceAdoptions` table — `teamId × tool × kind` unique index enforces at-most-one |
+| `packages/server/src/routes/surface-adoptions.ts` | `GET /api/surface-adoptions?teamId=`, `GET /api/surface-registry`, `POST /api/surface-adoptions`, `DELETE /api/surface-adoptions/:id` |
+| `packages/web/src/settings/SettingsReviewSurfaces.tsx` | Adopt/browse UI — mirroring `SettingsConnections` (grouped `ItemList` of `Row`s, browse dialog with dev-preview iframe) |
+| `packages/eslint-plugin-design/src/rules/no-surface-network-import.ts` | `design/no-surface-network-import` — forbids `apiFetch`/`/services/` imports inside `surfaces/**` |
+
+### The `action_operation` canvas (proof vehicle)
+
+AL5 wires wrap seams (`header`, `lead`, `detail`, `footer`) only in `ReviewActionOperation` — the other 8 canvases expose `SLOT_POLICY` entries but are eject-only until a fast-follow wires their seams. The `stripe-refund-review` surface wraps `ReviewActionOperation`, overriding `lead` (refund-specific summary) and `footer` (routing note) while forwarding the full AL7 props (`status`, `outcome`, `proposedCall`) so the `OutcomeBand` (granted / executed / failed) is preserved even inside the wrapped surface.
+
+### Adoption store and API
+
+The `surfaceAdoptions` table is `teamId`-scoped (workspace-owned config, not per-user). Isolation is enforced at the DB query level — `.where(eq(surfaceAdoptions.teamId, teamId))` — not by `authorizeRead/Write` alone (which clears the boundary flag). Swap = upsert on `(teamId, tool, kind)`; the unique index makes it a replace. Reset to base = `DELETE` the row (absence ⇒ floor — no sentinel row needed).
+
+The `SurfaceBoundary` wraps the resolved component at the render site. On any throw it renders the base canvas fallback (built with the same AL7 props by the render site). The resolved component and its fallback are both built before `SurfaceBoundary` mounts — the boundary is prop-agnostic and never re-constructs them.
+
+User-facing adoption guide: [`docs/guides/user/review-surfaces.md`](../guides/user/review-surfaces.md). Developer/contributor guide: [`docs/guides/developer/review-surfaces.md`](../guides/developer/review-surfaces.md).
 
 ## Composition surface (AL3)
 
