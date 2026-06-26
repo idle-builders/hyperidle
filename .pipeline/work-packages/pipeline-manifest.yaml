@@ -1240,7 +1240,7 @@ stories:
   - id: AN2
     title: Authenticate once; connected tools work in every sandbox
     track: AN
-    depends: [AN1]
+    depends: [AN1, AQ1] # blocked: AQ1 locks the run-unit AN2 provisions into
     complexity: L
   - id: AN3
     title: See the tools your agents already inherit
@@ -1300,3 +1300,10 @@ stories:
     track: AO
     depends: [AO1]
     complexity: L
+
+  # Track AQ: The Run-Unit (Sandbox / Workspace) Model
+  - id: AQ1
+    title: "Define the run-unit: what a sandbox is, and isolation vs inherited secrets"
+    track: AQ
+    depends: []
+    complexity: M
