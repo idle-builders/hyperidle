@@ -101,16 +101,17 @@ export interface AdoptionView {
 }
 
 /**
- * First-party surface manifests — single source of truth shared by the web
- * surface-registry and the server surface-adoptions validator.
+ * Surface manifests seeded at startup (first-party) plus any community surfaces
+ * appended by `surface:add`. Used by the server's adoption validator and the web
+ * browse dialog via OFFICIAL_REGISTRY_INDEX.surfaces.
  *
- * @lore AL5 FIX-2: Previously the server inlined a duplicate copy of these
- * manifests in surface-adoptions.ts. Moving here eliminates drift between the
- * web manifest.ts files and the server validator. Neither side imports from the
- * other; both import from shared (web → shared and server → shared are both
- * safe directions). NO component references here — shared has no React.
+ * @lore AL5 FIX-2: Previously the server inlined a duplicate copy. Moving here
+ * eliminates drift. NO component references — shared has no React.
+ * @lore AL5 RENAME: Previously FIRST_PARTY_SURFACE_MANIFESTS. Renamed because
+ * `surface:add` appends community-provenance entries here after install, making
+ * "FIRST_PARTY" a misnomer. Both server and web import from @hyperidle/shared.
  */
-export const FIRST_PARTY_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
+export const REGISTERED_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
 	{
 		id: "stripe-refund-review",
 		title: "Stripe Refund Review",
@@ -124,4 +125,5 @@ export const FIRST_PARTY_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
 		situations: [{ tool: "stripe", kind: "action_operation" }],
 		sampleFixture: "stripe-refund",
 	},
+	/* surface:add inserts above */
 ];

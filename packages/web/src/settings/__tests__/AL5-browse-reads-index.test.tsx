@@ -18,10 +18,10 @@
  * - The browse component's manifest list is purely driven by the fetched registry response.
  *
  * @lore AL5 RED: The "hardcoded map" anti-pattern is that SERVER_REGISTRY is
- * built from FIRST_PARTY_SURFACE_MANIFESTS at module load time and never updated.
+ * built from REGISTERED_SURFACE_MANIFESTS at module load time and never updated.
  * The index model means: load OFFICIAL_REGISTRY_INDEX → serve its .surfaces.
  * The component test cannot differentiate these without a sentinel surface that
- * is in the index but NOT in FIRST_PARTY_SURFACE_MANIFESTS.
+ * is in the index but NOT in REGISTERED_SURFACE_MANIFESTS.
  */
 
 import type { SurfaceManifest } from "@hyperidle/shared";
@@ -43,7 +43,7 @@ vi.mock("../../hooks/useCurrentUser.js", () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-/** A sentinel surface that exists in the index but is NOT in FIRST_PARTY_SURFACE_MANIFESTS.
+/** A sentinel surface that exists in the index but is NOT in REGISTERED_SURFACE_MANIFESTS.
  * If the browse dialog is driven by the index (not the hardcoded list), this shows up.
  * If it's hardcoded, it won't show up even when the server returns it. */
 const INDEX_ONLY_MANIFEST: SurfaceManifest = {
@@ -125,7 +125,7 @@ describe("AL5 browse — surfaces come from the registry index response (AC2)", 
 
 	it("renders a surface from the index even if not in the hardcoded first-party list", async () => {
 		// Arrange: the server returns INDEX_ONLY_MANIFEST (community figma surface).
-		// If browse is hardcoded to FIRST_PARTY_SURFACE_MANIFESTS, this won't show up.
+		// If browse is hardcoded to REGISTERED_SURFACE_MANIFESTS, this won't show up.
 		// If it's index-driven (fetches /api/surface-registry), it will.
 		setupFetch([INDEX_ONLY_MANIFEST], []);
 

@@ -17,13 +17,13 @@
  *
  * These tests FAIL until:
  * - The server's createSurfaceRegistryRoutes loads from OFFICIAL_REGISTRY_INDEX
- *   (packages/shared/src/registry-index.ts) instead of FIRST_PARTY_SURFACE_MANIFESTS.
+ *   (packages/shared/src/registry-index.ts) instead of REGISTERED_SURFACE_MANIFESTS.
  * - Or the two are proven equivalent (but the test enforces index-driven path).
  *
- * @lore AL5 RED: Currently surface-adoptions.ts uses FIRST_PARTY_SURFACE_MANIFESTS
+ * @lore AL5 RED: Currently surface-adoptions.ts uses REGISTERED_SURFACE_MANIFESTS
  * (a raw array constant). The index model requires importing from OFFICIAL_REGISTRY_INDEX
  * (a RegistryIndex with name/version/surfaces). The server must use the index's
- * .surfaces array, not the separate FIRST_PARTY_SURFACE_MANIFESTS constant.
+ * .surfaces array, not the separate REGISTERED_SURFACE_MANIFESTS constant.
  * The failing test is the one that imports OFFICIAL_REGISTRY_INDEX and cross-checks.
  */
 

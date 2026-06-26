@@ -138,12 +138,27 @@ describe("AL5 registry-index — loadRegistryIndex(url)", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("can load the official index from its URL constant (mocked fetch)", async () => {
-		// The official index URL is a constant; loading it should work with a mock.
-		// This proves the loader is URL-agnostic (works for any URL, including the official one).
-		const { OFFICIAL_REGISTRY_INDEX_URL } = await import("../registry-index.js");
-		expect(typeof OFFICIAL_REGISTRY_INDEX_URL).toBe("string");
-		expect(OFFICIAL_REGISTRY_INDEX_URL.startsWith("http")).toBe(true);
+	it("can load any URL (url-agnostic: user-supplied community URL works)", async () => {
+		// The loader is URL-agnostic — it works for any user-supplied community URL.
+		// OFFICIAL_REGISTRY_INDEX_URL was removed (pointed at non-existent host, never fetched).
+		// This test proves the loader handles an arbitrary HTTPS URL correctly.
+		const communityUrl = "https://community.example.com/registry.json";
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					name: "community-url-test",
+					version: "1.0.0",
+					surfaces: [],
+				}),
+			}),
+		);
+
+		const result = await loadRegistryIndex(communityUrl);
+		expect(result.name).toBe("community-url-test");
+		vi.unstubAllGlobals();
 	});
 });
 

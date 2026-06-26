@@ -14,10 +14,10 @@
  *   Part B — resolver: resolveSurface with adoption naming the fixture → source:"adopted"
  *   Part C — server route: POST /api/surface-adoptions with fixture surfaceId → 201
  *             (requires the manifest to be in OFFICIAL_REGISTRY_INDEX, which the
- *              add CLI ensures by appending to FIRST_PARTY_SURFACE_MANIFESTS)
+ *              add CLI ensures by appending to REGISTERED_SURFACE_MANIFESTS)
  *
  * @lore AL5 INSTALL-LOOP: Parts A+B test the web-side of the loop (registerSurface
- * + resolveSurface). Part C tests the server-side (FIRST_PARTY_SURFACE_MANIFESTS
+ * + resolveSurface). Part C tests the server-side (REGISTERED_SURFACE_MANIFESTS
  * → OFFICIAL_REGISTRY_INDEX → SERVER_REGISTRY → POST 201). The server test is
  * already covered by surface-adoptions.integration.test.ts for the stripe surface;
  * here we focus on the newly installed fixture surface end-to-end.
@@ -206,24 +206,24 @@ describe("AL5 install→adopt E2E — Part B: resolver returns source:'adopted' 
 // first-party stripe surface is already proven in surface-adoptions.integration.test.ts.
 //
 // Here we verify the structural invariant that makes an installed surface adoptable:
-// OFFICIAL_REGISTRY_INDEX.surfaces includes all FIRST_PARTY_SURFACE_MANIFESTS entries,
+// OFFICIAL_REGISTRY_INDEX.surfaces includes all REGISTERED_SURFACE_MANIFESTS entries,
 // and the server builds SERVER_REGISTRY from that index.
 //
-// When surface:add appends a new manifest to FIRST_PARTY_SURFACE_MANIFESTS (step 5 in
+// When surface:add appends a new manifest to REGISTERED_SURFACE_MANIFESTS (step 5 in
 // the CLI), the rebuilt server will include it in SERVER_REGISTRY → POST 201.
 //
-// This is the contract test: "OFFICIAL_REGISTRY_INDEX is derived from FIRST_PARTY_SURFACE_MANIFESTS".
+// This is the contract test: "OFFICIAL_REGISTRY_INDEX is derived from REGISTERED_SURFACE_MANIFESTS".
 
 describe("AL5 install→adopt E2E — Part C: server index derivation invariant", () => {
-	it("OFFICIAL_REGISTRY_INDEX.surfaces contains all FIRST_PARTY_SURFACE_MANIFESTS entries", async () => {
+	it("OFFICIAL_REGISTRY_INDEX.surfaces contains all REGISTERED_SURFACE_MANIFESTS entries", async () => {
 		// The server registry is built from OFFICIAL_REGISTRY_INDEX.surfaces.
 		// This test verifies the derivation is correct — so any manifest in
-		// FIRST_PARTY_SURFACE_MANIFESTS becomes adoptable via the server route.
-		const { OFFICIAL_REGISTRY_INDEX, FIRST_PARTY_SURFACE_MANIFESTS } = await import(
+		// REGISTERED_SURFACE_MANIFESTS becomes adoptable via the server route.
+		const { OFFICIAL_REGISTRY_INDEX, REGISTERED_SURFACE_MANIFESTS } = await import(
 			"@hyperidle/shared"
 		);
 
-		for (const fpManifest of FIRST_PARTY_SURFACE_MANIFESTS) {
+		for (const fpManifest of REGISTERED_SURFACE_MANIFESTS) {
 			const inIndex = OFFICIAL_REGISTRY_INDEX.surfaces.some(
 				(s: SurfaceManifest) => s.id === fpManifest.id,
 			);
@@ -242,11 +242,11 @@ describe("AL5 install→adopt E2E — Part C: server index derivation invariant"
 		expect(stripe?.baseCanvas).toBe("action_operation");
 	});
 
-	it("OFFICIAL_REGISTRY_INDEX.surfaces length matches FIRST_PARTY_SURFACE_MANIFESTS length", async () => {
+	it("OFFICIAL_REGISTRY_INDEX.surfaces length matches REGISTERED_SURFACE_MANIFESTS length", async () => {
 		// Derivation invariant: no surfaces dropped or added during the wrapping.
-		const { OFFICIAL_REGISTRY_INDEX, FIRST_PARTY_SURFACE_MANIFESTS } = await import(
+		const { OFFICIAL_REGISTRY_INDEX, REGISTERED_SURFACE_MANIFESTS } = await import(
 			"@hyperidle/shared"
 		);
-		expect(OFFICIAL_REGISTRY_INDEX.surfaces).toHaveLength(FIRST_PARTY_SURFACE_MANIFESTS.length);
+		expect(OFFICIAL_REGISTRY_INDEX.surfaces).toHaveLength(REGISTERED_SURFACE_MANIFESTS.length);
 	});
 });

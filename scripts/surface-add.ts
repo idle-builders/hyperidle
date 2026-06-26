@@ -19,7 +19,7 @@
  *      so the surface is wired into the registry at module-load time after rebuild.
  *   3. Appends an import line to surface-registry.generated.ts so surface-registry.ts
  *      picks it up automatically.
- *   4. Appends the manifest to FIRST_PARTY_SURFACE_MANIFESTS in shared so the
+ *   4. Appends the manifest to REGISTERED_SURFACE_MANIFESTS in shared so the
  *      server registry accepts adoption POSTs for this surface (POST 201).
  *
  * The human reviews all generated/modified files, commits, and rebuilds.
@@ -32,7 +32,7 @@
  *   - Target dir = packages/web/src/pages/review/surfaces/<id>/ (app resolves from here)
  *   - Registration = generated register.ts calls registerSurface() on import
  *   - Index = surface-registry.generated.ts imports all register.ts files
- *   - Server = FIRST_PARTY_SURFACE_MANIFESTS in shared updated so POST 201s
+ *   - Server = REGISTERED_SURFACE_MANIFESTS in shared updated so POST 201s
  *
  * @lore AL5 ETHOS (code-not-config): `add` writes files to disk for a human
  * to review + commit + rebuild. It never eval()s or dynamically loads fetched code.
@@ -68,7 +68,7 @@ const DEFAULT_SURFACES_DIR = join(
 	"surfaces",
 );
 
-// Shared review-surface.ts — FIRST_PARTY_SURFACE_MANIFESTS lives here.
+// Shared review-surface.ts — REGISTERED_SURFACE_MANIFESTS lives here.
 const SHARED_REVIEW_SURFACE_PATH = join(
 	repoRoot,
 	"packages",
@@ -175,15 +175,15 @@ async function main(): Promise<void> {
 		);
 	}
 
-	// ── Step 5: Append manifest to FIRST_PARTY_SURFACE_MANIFESTS in shared ─────
+	// ── Step 5: Append manifest to REGISTERED_SURFACE_MANIFESTS in shared ─────
 	// This ensures the server registry accepts adoption POSTs for this surface.
 	// @lore AL5 INSTALL-LOOP: The server builds SERVER_REGISTRY from
-	// OFFICIAL_REGISTRY_INDEX.surfaces which derives from FIRST_PARTY_SURFACE_MANIFESTS.
+	// OFFICIAL_REGISTRY_INDEX.surfaces which derives from REGISTERED_SURFACE_MANIFESTS.
 	// Without this step, POST /api/surface-adoptions → 400 (surface not in registry).
 	try {
 		await appendManifestToShared(manifest, SHARED_REVIEW_SURFACE_PATH);
 		process.stdout.write(
-			`Appended manifest to FIRST_PARTY_SURFACE_MANIFESTS in packages/shared/src/review-surface.ts\n`,
+			`Appended manifest to REGISTERED_SURFACE_MANIFESTS in packages/shared/src/review-surface.ts\n`,
 		);
 	} catch (err) {
 		process.stderr.write(
@@ -210,11 +210,16 @@ async function main(): Promise<void> {
 }
 
 /**
- * Appends the installed surface manifest to FIRST_PARTY_SURFACE_MANIFESTS
+ * Appends the installed surface manifest to REGISTERED_SURFACE_MANIFESTS
  * in packages/shared/src/review-surface.ts so the server registry accepts it.
  *
- * Finds the closing `];` of the array literal and inserts the new manifest entry
- * before it. Idempotent: no-op if the surface id is already present.
+ * Inserts the new manifest entry immediately BEFORE the sentinel comment
+ * `/* surface:add inserts above *\/` — deterministic, not positional.
+ * Idempotent: no-op if the surface id is already present.
+ *
+ * @lore AL5 CODEGEN-FIX: Previously used `lastIndexOf("];")` which matched 7
+ * different `];` occurrences in the file and was fragile under edits. The sentinel
+ * comment is explicit and unique — it marks exactly where new entries go.
  */
 async function appendManifestToShared(
 	manifest: Record<string, unknown>,
@@ -252,18 +257,20 @@ async function appendManifestToShared(
 \t\tprovenance: "community" as import("./review-surface.js").SurfaceProvenance,
 \t\tsituations: [${situationsStr}],
 \t\tsampleFixture: ${JSON.stringify(manifest["sampleFixture"] ?? "")},
-\t},`;
+\t},\n`;
 
-	// Insert before the closing `];` of the FIRST_PARTY_SURFACE_MANIFESTS array.
-	const closingMarker = "];";
-	const idx = content.lastIndexOf(closingMarker);
+	// Insert before the sentinel marker (deterministic, unique — not positional).
+	const SENTINEL = "/* surface:add inserts above */";
+	const idx = content.indexOf(SENTINEL);
 	if (idx === -1) {
 		throw new Error(
-			`Could not find closing '${closingMarker}' in ${filePath} — cannot append manifest`,
+			`Could not find sentinel '${SENTINEL}' in ${filePath} — cannot append manifest. ` +
+				`Ensure REGISTERED_SURFACE_MANIFESTS array contains '${SENTINEL}' on a line by itself.`,
 		);
 	}
 
-	const updated = content.slice(0, idx) + entry + "\n" + content.slice(idx);
+	// Insert the entry text right before the sentinel (with a tab for indentation).
+	const updated = content.slice(0, idx) + entry + "\t" + content.slice(idx);
 	await writeFile(filePath, updated, "utf-8");
 }
 

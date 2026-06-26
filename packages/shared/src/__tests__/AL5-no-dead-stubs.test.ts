@@ -75,7 +75,7 @@ describe("AL5 no-dead-stubs — loadRegistryIndex returns CommunityRegistryIndex
 
 		// The real proof is that the web component can import the type (done in community test).
 		// Here we confirm the module is importable and exports related runtime values.
-		expect(typeof shared.FIRST_PARTY_SURFACE_MANIFESTS).toBe("object");
+		expect(typeof shared.REGISTERED_SURFACE_MANIFESTS).toBe("object");
 	});
 });
 
@@ -89,11 +89,13 @@ describe("AL5 no-dead-stubs — add-install module is connected to registry-inde
 		expect(typeof addInstall.installSurface).toBe("function");
 	});
 
-	it("registry-index module exports loadRegistryIndex (real function, not stub)", async () => {
+	it("registry-index module exports loadRegistryIndex and OFFICIAL_REGISTRY_INDEX (real, not stubs)", async () => {
 		const registryIndex = await import("../registry-index.js");
 		expect(typeof registryIndex.loadRegistryIndex).toBe("function");
 		expect(typeof registryIndex.OFFICIAL_REGISTRY_INDEX).toBe("object");
-		expect(typeof registryIndex.OFFICIAL_REGISTRY_INDEX_URL).toBe("string");
+		// OFFICIAL_REGISTRY_INDEX_URL was removed — pointed at non-existent host, never fetched.
+		// Community indexes load via user-supplied URL through loadRegistryIndex(url).
+		expect("OFFICIAL_REGISTRY_INDEX_URL" in registryIndex).toBe(false);
 	});
 });
 

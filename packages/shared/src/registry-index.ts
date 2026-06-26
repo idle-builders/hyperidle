@@ -2,22 +2,21 @@
  * AL5 — Registry index: official catalog + community URL loader.
  *
  * RegistryIndex is the wire shape for a surface catalog JSON file.
- * OFFICIAL_REGISTRY_INDEX is the curated first-party catalog (single source of truth).
+ * OFFICIAL_REGISTRY_INDEX is the curated catalog (single source of truth).
  * loadRegistryIndex(url) fetches + validates a community index from any URL.
  *
- * @lore AL5: The official index and FIRST_PARTY_SURFACE_MANIFESTS are kept in sync
+ * @lore AL5: The official index and REGISTERED_SURFACE_MANIFESTS are kept in sync
  * — the official index wraps the existing manifests with name/version metadata.
  * The server reads from OFFICIAL_REGISTRY_INDEX.surfaces (index-driven path, AC2).
  * Both server and web import from this module so there is exactly one copy.
  *
- * @lore AL5: loadRegistryIndex is URL-agnostic — it works for any URL including
- * OFFICIAL_REGISTRY_INDEX_URL (the published canonical location). At AL5 the
- * official index is embedded as a constant; the URL is reserved for future
- * remote-fetch of upgrades.
+ * @lore AL5: loadRegistryIndex is URL-agnostic — it works for any URL.
+ * The official index is embedded as a constant (OFFICIAL_REGISTRY_INDEX).
+ * Community indexes load via user-supplied URL through loadRegistryIndex(url).
  */
 
 import type { SurfaceManifest } from "./review-surface.js";
-import { FIRST_PARTY_SURFACE_MANIFESTS } from "./review-surface.js";
+import { REGISTERED_SURFACE_MANIFESTS } from "./review-surface.js";
 
 // ── RegistryIndex wire shape ──────────────────────────────────────────────────
 
@@ -34,27 +33,23 @@ export interface RegistryIndex {
 	readonly surfaces: readonly SurfaceManifest[];
 }
 
-// ── Official registry index (curated first-party catalog) ────────────────────
-
-/**
- * The canonical URL where the official index is published.
- * At AL5 the index is embedded as a constant; this URL is reserved for
- * future remote-upgrade checks.
- */
-export const OFFICIAL_REGISTRY_INDEX_URL = "https://registry.hyperidle.com/surfaces/index.json";
+// ── Official registry index (curated catalog) ─────────────────────────────────
 
 /**
  * The curated official catalog — authoritative source for the server's
  * surface-registry endpoint and the web browse dialog.
  *
  * @lore AL5 AC2: The server MUST use .surfaces from this index (not a
- * separate copy of FIRST_PARTY_SURFACE_MANIFESTS) so the two stay in sync.
+ * separate copy of REGISTERED_SURFACE_MANIFESTS) so the two stay in sync.
+ * @lore AL5 CLEANUP: OFFICIAL_REGISTRY_INDEX_URL removed — it pointed at
+ * non-existent registry.hyperidle.com and was never fetched anywhere. Community
+ * indexes load via user-supplied URL through loadRegistryIndex(url).
  */
 export const OFFICIAL_REGISTRY_INDEX: RegistryIndex = {
 	name: "HyperIdle Official Registry",
 	version: "1.0.0",
 	// Re-use the existing first-party manifests — single source of truth.
-	surfaces: FIRST_PARTY_SURFACE_MANIFESTS,
+	surfaces: REGISTERED_SURFACE_MANIFESTS,
 };
 
 // ── Community index loader ────────────────────────────────────────────────────

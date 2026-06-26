@@ -33,7 +33,7 @@ const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 // ── Registry (shared-module canonical source) ──────────────────────────────
 // @lore AL5 FIX-2: Manifest data previously duplicated here has been moved to
-// @hyperidle/shared (FIRST_PARTY_SURFACE_MANIFESTS). The server imports from
+// @hyperidle/shared (REGISTERED_SURFACE_MANIFESTS). The server imports from
 // shared so server and web share exactly one copy. No component references —
 // shared has no React; manifests are plain JSON-serializable records.
 // @lore AL5: The server validates surfaceId at POST time against this registry.
@@ -44,7 +44,7 @@ import type { SurfaceManifest } from "@hyperidle/shared";
 import { OFFICIAL_REGISTRY_INDEX } from "@hyperidle/shared";
 
 // @lore AL5 AC2: The server reads from OFFICIAL_REGISTRY_INDEX.surfaces (index-driven),
-// not a separate FIRST_PARTY_SURFACE_MANIFESTS copy. This ensures the registry endpoint
+// not a separate REGISTERED_SURFACE_MANIFESTS copy. This ensures the registry endpoint
 // and the adoption validator stay in sync with the shared catalog.
 
 interface ServerSurfaceEntry {
@@ -60,8 +60,8 @@ function getServerSurfaceEntry(id: string): ServerSurfaceEntry | undefined {
 }
 
 // @lore AL5 INSTALL-LOOP: SERVER_REGISTRY is built from OFFICIAL_REGISTRY_INDEX.surfaces
-// which derives from FIRST_PARTY_SURFACE_MANIFESTS in shared. When surface:add installs
-// a community surface it appends the manifest to FIRST_PARTY_SURFACE_MANIFESTS — after
+// which derives from REGISTERED_SURFACE_MANIFESTS in shared. When surface:add installs
+// a community surface it appends the manifest to REGISTERED_SURFACE_MANIFESTS — after
 // rebuild, OFFICIAL_REGISTRY_INDEX.surfaces includes it, and this Map will contain it.
 // The Map is rebuilt at module load; no runtime mutation needed on the server.
 

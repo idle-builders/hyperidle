@@ -2,8 +2,8 @@
 
 // ── AL5: Surface install resolver (add <source> CLI) ──
 // TYPES only — the runtime functions use node:fs/promises and cannot run in the browser.
-// CLI and server code imports them via "@hyperidle/shared/add" subpath export.
-// @lore AL5: Same pattern as "@hyperidle/shared/net" (ssrf.ts uses node:dns/net).
+// The CLI imports them directly from the source file path (not via a subpath export).
+// @lore AL5: Same isolation pattern as "@hyperidle/shared/net" (ssrf.ts uses node:dns/net).
 export type { AddSource, GenerateRegistrationFileOptions, InstallResult } from "./add-install.js";
 // ── AB1: Agent profile wire types ──
 export type {
@@ -322,7 +322,6 @@ export type { RegistryIndex } from "./registry-index.js";
 export {
 	loadRegistryIndex,
 	OFFICIAL_REGISTRY_INDEX,
-	OFFICIAL_REGISTRY_INDEX_URL,
 } from "./registry-index.js";
 // ── AL5: Review Surface registry types ──
 export type {
@@ -335,8 +334,8 @@ export type {
 	SurfaceSituation,
 } from "./review-surface.js";
 export {
-	FIRST_PARTY_SURFACE_MANIFESTS,
 	LAYERING_MODES,
+	REGISTERED_SURFACE_MANIFESTS,
 	REVIEW_CANVAS_KINDS,
 	SURFACE_PROVENANCE,
 } from "./review-surface.js";
