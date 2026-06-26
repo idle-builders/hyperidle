@@ -74,8 +74,16 @@ interface HarnessProbeDeps {
 	readonly run?: (
 		args: readonly string[],
 	) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
-	/** Environment used for built-in credential checks. */
+	/** Environment used for built-in credential checks and passed to real binary executions. */
 	readonly env?: NodeJS.ProcessEnv;
+	/**
+	 * Working directory for real binary invocations (e.g. to pick up a project .mcp.json
+	 * for `claude mcp list`). Ignored when `run` is injected. Defaults to process.cwd().
+	 *
+	 * @lore AN1: claude mcp list reads .mcp.json from the working directory (project scope).
+	 * Integration tests set this to a temp dir seeded with a known .mcp.json.
+	 */
+	readonly cwd?: string;
 }
 
 async function runCommand(
@@ -89,9 +97,13 @@ async function runCommand(
 	}
 
 	try {
+		// Use injected env/cwd if provided (allows tests to set CODEX_HOME, XDG_CONFIG_HOME,
+		// and cwd for real-binary isolation without touching the developer's actual config).
+		const env = d?.env ?? process.env;
 		const { stdout, stderr } = await execFileAsync(args[0] ?? "", args.slice(1), {
 			timeout: 15_000,
-			env: process.env,
+			env,
+			...(d?.cwd ? { cwd: d.cwd } : {}),
 		});
 		return { stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: 0 };
 	} catch (err) {
@@ -410,7 +422,7 @@ const INHERITED_PROBE_TIMEOUT_MS = 5_000;
  * and liveness status — env vars / tokens are never in the list output.
  * We parse names only; the status suffix determines health.
  */
-async function probeClaudeCodeMcpList(
+export async function probeClaudeCodeMcpList(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -465,7 +477,7 @@ async function probeClaudeCodeMcpList(
  *
  * @lore AN1: Never reads env/command values from config.toml — names only.
  */
-async function probeCodexMcpList(
+export async function probeCodexMcpList(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -479,27 +491,45 @@ async function probeCodexMcpList(
 			),
 		]);
 		if (result.exitCode === 0 && result.stdout.trim()) {
-			// Parse lines: each is a server name or "name: url"
-			const tools: InheritedToolDescriptor[] = [];
-			for (const line of result.stdout.split("\n")) {
-				const name = stripAnsi(line).trim().split(":")[0]?.trim();
-				if (name && name.length > 0 && !name.startsWith("#")) {
+			// `codex mcp list` outputs a whitespace-aligned table when servers exist:
+			//   Name           Command  Args  Env  Cwd  Status   Auth
+			//   test-mcp-tool  node     ...
+			// When no servers: "No MCP servers configured yet. Try `codex mcp add ...`"
+			// We detect the table by looking for a header row starting with "Name ";
+			// if absent, stdout is a message (no servers) → fall through to config.toml.
+			// @lore AN1: codex mcp list emits a prose message (not a table) when empty,
+			// and a space-aligned table with a "Name" header when servers exist.
+			const lines = result.stdout.split("\n");
+			const hasTableHeader = lines.some((l) => stripAnsi(l).trimStart().startsWith("Name "));
+			if (hasTableHeader) {
+				const tools: InheritedToolDescriptor[] = [];
+				for (const line of lines) {
+					const clean = stripAnsi(line).trim();
+					if (!clean) continue;
+					const name = clean.split(/\s+/)[0]?.trim();
+					// Skip table header row and comment lines
+					if (!name || name === "Name" || name.startsWith("#")) continue;
 					tools.push({ name, kind: "mcp-server", harness: "codex", health: "unknown" });
 				}
+				if (tools.length > 0) return tools;
 			}
-			if (tools.length > 0) return tools;
 		}
 	} catch {
 		// fall through to config.toml parse
 	}
 
-	// Fallback: read ~/.codex/config.toml, extract [mcp_servers.<name>] keys
+	// Fallback: read ~/.codex/config.toml (or $CODEX_HOME/config.toml), extract [mcp_servers.<name>] keys.
 	// Names only — never env/command values.
+	// @lore AN1: CODEX_HOME overrides the default ~/.codex path. We respect it here (via
+	// injected env) so integration tests can seed an isolated config.toml without touching
+	// the developer's real ~/.codex.
 	try {
 		const { readFile } = await import("node:fs/promises");
 		const { join } = await import("node:path");
-		const homedir = (await import("node:os")).homedir();
-		const toml = await readFile(join(homedir, ".codex", "config.toml"), "utf-8");
+		const os = await import("node:os");
+		const env = d?.env ?? process.env;
+		const codexHome = env["CODEX_HOME"] ?? join(os.homedir(), ".codex");
+		const toml = await readFile(join(codexHome, "config.toml"), "utf-8");
 		const tools: InheritedToolDescriptor[] = [];
 		// Match [mcp_servers.NAME] table headers
 		const serverNameRe = /^\[mcp_servers\.([^\]]+)\]/gm;
@@ -509,6 +539,64 @@ async function probeCodexMcpList(
 			const name = match[1]?.trim();
 			if (name) {
 				tools.push({ name, kind: "mcp-server", harness: "codex", health: "unknown" });
+			}
+		}
+		return tools;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * AN1: Probe OpenCode's configured MCP servers (identity only).
+ *
+ * Reads `~/.config/opencode/opencode.jsonc` (or `$XDG_CONFIG_HOME/opencode/opencode.jsonc`)
+ * and extracts the `mcp` object's top-level keys as server names.
+ *
+ * We parse the config file directly rather than running `opencode mcp list` because the
+ * list command emits box-drawing characters and ANSI sequences that are fragile to parse
+ * and require a live connection attempt (which would time out for each server).
+ *
+ * Names only — never reads url/env/token values. Health always "unknown"
+ * (no live connection attempted).
+ *
+ * @lore AN1: opencode config is JSONC at `$XDG_CONFIG_HOME/opencode/opencode.jsonc`
+ * (defaults to `~/.config/opencode/opencode.jsonc`). The `mcp` key holds a record of
+ * server-name → { type, url, ... }. We extract only the keys — never the values.
+ * We use XDG_CONFIG_HOME env var for isolation in tests.
+ */
+export async function probeOpencodeMcpList(
+	d?: HarnessProbeDeps,
+): Promise<readonly InheritedToolDescriptor[]> {
+	try {
+		const { readFile } = await import("node:fs/promises");
+		const { join } = await import("node:path");
+		const os = await import("node:os");
+		const env = d?.env ?? process.env;
+
+		// Respect XDG_CONFIG_HOME for config dir isolation (used in tests).
+		const configBase = env["XDG_CONFIG_HOME"] ?? join(os.homedir(), ".config");
+		const configPath = join(configBase, "opencode", "opencode.jsonc");
+
+		const raw = await readFile(configPath, "utf-8");
+		// Strip JSONC single-line comments: only lines whose non-whitespace content starts
+		// with `//`. We MUST NOT strip `//` inside string values (e.g. URLs like https://...).
+		// A full JSONC parser is avoided to keep zero-dependency policy; line-level stripping
+		// is safe because opencode.jsonc only uses `//` at the start of comment lines.
+		// @lore AN1: naive `replace(/\/\/[^\n]*/g, "")` breaks URLs inside string values.
+		const stripped = raw
+			.split("\n")
+			.filter((line) => !line.trimStart().startsWith("//"))
+			.join("\n");
+		const parsed = JSON.parse(stripped) as Record<string, unknown>;
+
+		const mcp = parsed["mcp"];
+		if (!mcp || typeof mcp !== "object" || Array.isArray(mcp)) return [];
+
+		const tools: InheritedToolDescriptor[] = [];
+		for (const name of Object.keys(mcp as Record<string, unknown>)) {
+			if (name) {
+				tools.push({ name, kind: "mcp-server", harness: "opencode", health: "unknown" });
 			}
 		}
 		return tools;
@@ -530,7 +618,7 @@ async function probeCodexMcpList(
  * @lore AN1 hard-rule 4: `gh auth status --json hosts` never returns token values —
  * only host names and account metadata.
  */
-async function probeEnvironmentClis(
+export async function probeEnvironmentClis(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	const tools: InheritedToolDescriptor[] = [];
@@ -592,6 +680,7 @@ export async function discoverLocalHarnesses(
 		cursorAgent,
 		claudeMcpTools,
 		codexMcpTools,
+		opencodeMcpTools,
 		envTools,
 	] = await Promise.all([
 		probeBuiltinGateway(d),
@@ -601,6 +690,7 @@ export async function discoverLocalHarnesses(
 		probeCursorAgentCli(d),
 		probeClaudeCodeMcpList(d),
 		probeCodexMcpList(d),
+		probeOpencodeMcpList(d),
 		probeEnvironmentClis(d),
 	]);
 
@@ -613,7 +703,7 @@ export async function discoverLocalHarnesses(
 		builtin: { ...builtin, inheritedTools: envTools },
 		codex: { ...codex, inheritedTools: codexMcpTools },
 		"claude-code": { ...claudeCode, inheritedTools: claudeMcpTools },
-		opencode,
+		opencode: { ...opencode, inheritedTools: opencodeMcpTools },
 		"cursor-agent": cursorAgent,
 	};
 }
