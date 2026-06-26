@@ -220,8 +220,10 @@ Implementation story: **AL7** — Review execution loop (`.pipeline/work-package
 type Substrate = {
   id: string             // opaque, stable
   teamId: string         // FK → owning Team (teams.id). The scope. Required.
-  agentMemberId?: string // FK → agent-within-a-team (teamMembers.id) it attaches to.
-                         //      Primary; null → a team-level (shared) substrate.
+  agentUserId?: string   // FK → the INDIVIDUAL agent (users.id) within the team it attaches to.
+                         //      (NOT teamMembers.id — that is the per-team membership group, one row
+                         //      per team under U1; the runtime agent identity is users.id, matching
+                         //      sessions.agentId.) Primary; null → a team-level (shared) substrate.
   kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set' (authoring folder).
                          //      Systems of record (inbox/CRM/ticket) are EXCLUDED — they are AN tools.
   connectionId?: string  // OPTIONAL FK → Connection (AN): the account+auth the resource lives in.

@@ -37,7 +37,9 @@ Connect the account once in Settings — a **Connection** (Track AN): a held tok
 Substrate {
   id              # opaque, stable
   team_id         # FK → owning Team (teams.id). The scope. Required.
-  agent_member_id # FK → agent-within-a-team (teamMembers.id) it attaches to.
+  agent_user_id   # FK → the INDIVIDUAL agent (users.id) within the team it attaches to.
+                  #      (NOT teamMembers.id — that is the per-team membership group, one row per
+                  #      team under U1; runtime agent identity is users.id = sessions.agentId.)
                   #      Primary attachment; null → a team-level (shared) substrate.
   kind            # OPEN vocabulary. Initial: `code` (git repo) | `doc_set` (authoring folder).
                   #      Systems of record are categorically EXCLUDED (they are AN tools).
