@@ -69,6 +69,78 @@ describe("composeArtifactBody (Artifact composition)", () => {
 			render(<>{composeArtifactBody("mystery", { kind: "mystery" })}</>);
 		}).not.toThrow();
 	});
+
+	// T5: text renders Block stream (not flat whitespace-pre-wrap div)
+	it("'text' kind with heading → renders Block stream (article elements, not flat div)", () => {
+		const preview = {
+			kind: "text",
+			body: "# Hello World\n\nThis is a paragraph.\n\n- item one\n- item two",
+		};
+		const { container } = render(<>{composeArtifactBody("text", preview)}</>);
+		// Block component renders <article data-ds-component="block"> per block
+		const blocks = container.querySelectorAll("[data-ds-component='block']");
+		// heading + paragraph + list = 3 blocks
+		expect(blocks.length).toBeGreaterThanOrEqual(2);
+		// text content must be present (not empty)
+		expect(container.textContent).toContain("Hello World");
+		expect(container.textContent).toContain("paragraph");
+	});
+
+	it("'text' kind renders via Block (article elements), NOT a flat div with whitespace-pre-wrap", () => {
+		const preview = { kind: "text", body: "Just a simple line." };
+		const { container } = render(<>{composeArtifactBody("text", preview)}</>);
+		// Must have at least one block (article), not a flat div with pre-wrap
+		const blocks = container.querySelectorAll("[data-ds-component='block']");
+		expect(blocks.length).toBeGreaterThanOrEqual(1);
+		// Must NOT be the old flat whitespace-pre-wrap div (the text-renderer.tsx approach)
+		const flatDiv = container.querySelector(".whitespace-pre-wrap");
+		expect(flatDiv).toBeNull();
+	});
+
+	// T5: data renders KpiStat + rows + Sparkline
+	it("'data' kind with headlines → renders KpiStat (section[aria-label])", () => {
+		const preview = {
+			kind: "data",
+			headlines: [
+				{ label: "DAU", value: "1.2k" },
+				{ label: "MRR", value: "$48k" },
+			],
+		};
+		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		// KpiStat renders section[aria-label="Key metrics"]
+		const kpiSection = container.querySelector("section[aria-label='Key metrics']");
+		expect(kpiSection).toBeTruthy();
+		expect(container.textContent).toContain("DAU");
+		expect(container.textContent).toContain("1.2k");
+	});
+
+	it("'data' kind with charts → renders Sparkline (SVG)", () => {
+		const preview = {
+			kind: "data",
+			headlines: [{ label: "MAU", value: "5k" }],
+			charts: [{ label: "trend", values: [1, 2, 3, 4, 5] }],
+		};
+		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		// Sparkline renders role="img" SVG
+		const sparkline = container.querySelector("svg[role='img']");
+		expect(sparkline).toBeTruthy();
+	});
+
+	it("'data' kind with rows → renders rows table (table element)", () => {
+		const preview = {
+			kind: "data",
+			headlines: [{ label: "Rows", value: "2" }],
+			rows: [
+				{ name: "Alice", score: "95" },
+				{ name: "Bob", score: "87" },
+			],
+		};
+		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		// DataRowsTable renders a <table>
+		const table = container.querySelector("table");
+		expect(table).toBeTruthy();
+		expect(container.textContent).toContain("Alice");
+	});
 });
 
 describe("AC-COLLAPSE: getRenderer / kind renderers removed from barrel", () => {
