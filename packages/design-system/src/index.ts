@@ -103,6 +103,11 @@ export type { KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
 export type { SparklineProps } from "./Sparkline.js";
 export { Sparkline } from "./Sparkline.js";
+// ── AM5: DS diff core — (code,diff) structural renderer + selector (K2b) ──
+export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
+export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
+export type { DiffRendererComponent, DiffRendererProps } from "./diff/select-diff.js";
+export { getDiffRenderer } from "./diff/select-diff.js";
 export type { CodeRendererProps } from "./kinds/code-renderer.js";
 export { CodeRenderer } from "./kinds/code-renderer.js";
 export type { DataRendererProps } from "./kinds/data-renderer.js";
