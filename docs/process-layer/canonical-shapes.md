@@ -215,28 +215,39 @@ Implementation story: **AL7** — Review execution loop (`.pipeline/work-package
 **Full spec:** `docs/process-layer/filesystem-primitive.md`. Concept locked in `plans/AO/concept.md`.
 
 ```
-// Durable file-like artifacts an agent AUTHORS, attached to an agent within
-// a team. Team-scoped. ("Product" not modelled for now.)
+// A REGISTERED filesystem: a file source the team has connected. Team-scoped.
+// Bots get filesystems via per-bot INJECTION (see FilesystemInjection) — NOT ownership.
 type Filesystem = {
   id: string             // opaque, stable
-  teamId: string         // FK → owning Team (teams.id). The scope. Required.
-  agentUserId?: string   // FK → the INDIVIDUAL agent (users.id) within the team it attaches to.
-                         //      (NOT teamMembers.id — that is the per-team membership group, one row
-                         //      per team under U1; the runtime agent identity is users.id, matching
-                         //      sessions.agentId.) Primary; null → a team-level (shared) filesystem.
+  teamId: string         // FK → owning Team (teams.id). The registry scope. Required.
+  source: string         // the SOURCE TYPE — 'local' | 'github' | 'gdrive' | 'obsidian' | …
+                         //   Derived from the Connection (or 'local'). OPEN vocab. Surfaced
+                         //   PROMINENTLY in the UI (an easy-to-detect badge/mark per row).
   kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set' (authoring folder).
-                         //      Systems of record (inbox/CRM/ticket) are EXCLUDED — they are AN tools.
+                         //   Systems of record (inbox/CRM/ticket) are EXCLUDED — they are AN tools.
   connectionId?: string  // OPTIONAL FK → Connection (AN): the account+auth the resource lives in.
-                         //      By ref; auth provisioned INTO the sandbox. Null → bare local path.
+                         //   By ref; auth provisioned INTO the sandbox. Null → bare local path.
   resourceRef: string    // which resource of the connection: a repo+branch, a folder path.
   writeback: 'git' | 'file' | 'none'   // how authored changes leave the sandbox
   state: 'attached' | 'reachable' | 'needs_attention'
   createdAt: string
 }
+
+// Per-bot INJECTION: which registered filesystems are injected into a given bot's
+// sessions. Parallel to connector/tool injection ("connect once, inject per agent").
+// Many bots may share a filesystem; a bot may have many. AO2 materializes the bot's
+// injected filesystems into its sandbox.
+type FilesystemInjection = {
+  agentUserId: string    // FK → users.id (the bot/agent = sessions.agentId)
+  filesystemId: string   // FK → filesystems.id
+  createdAt: string
+  // UNIQUE (agentUserId, filesystemId)
+}
 ```
 
+- **Registry + per-bot injection (two Settings surfaces).** **Settings → Filesystems** = the team's registry of connected filesystems, each row showing its **`source`** (local / GitHub / GDrive …) in an easy-to-detect badge + resource + state. **Per-bot** (the bot's config in **Settings → Agents**) = select **which filesystems to inject** into that bot. A filesystem is registered ONCE and injected to 0..N bots — it is NOT owned by a single agent (the old `agentUserId` column on the filesystem is replaced by the `FilesystemInjection` mapping).
 - **Filesystem vs Tool vs Knowledge (research-grounded, `plans/AO/research-filesystem-vs-tool.md`).** A filesystem is **only** a file-bearing corpus the agent **authors** — materialized into the sandbox, edited, written back with history. **Code repos + document authoring** materialize. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge.
-- **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (repo/folder) is the filesystem. Filesystem ⟂ Connection: files vs auth/tools, compose.
+- **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); the filesystem records **which resource** (repo/folder) of that connection it is, and its **`source`** derives from the connection type. Filesystem ⟂ Connection: files vs auth/tools, compose.
 - **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); the bound Connection's forge auth is present so the agent's own `git`/`gh` push/PR. **No withholding, no broker-only path.** AL7 checkpoints irreversible *landing*, never access.
 - **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.** Local-first; forward-only migration.
 
