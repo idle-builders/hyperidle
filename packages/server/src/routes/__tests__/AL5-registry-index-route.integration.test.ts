@@ -64,18 +64,8 @@ describe("AL5 registry-route — GET /api/surface-registry is index-driven (AC2)
 			createdAt: new Date().toISOString(),
 		});
 
-		// Import the OFFICIAL_REGISTRY_INDEX — this will FAIL until registry-index.ts is created
-		// and exported from @hyperidle/shared index. This is the RED reason.
-		// @lore AL5 RED: `registry-index` must be exported from @hyperidle/shared's index.ts.
-		// Until then this dynamic import will fail with ERR_MODULE_NOT_FOUND.
-		const shared = await import("@hyperidle/shared");
-		// OFFICIAL_REGISTRY_INDEX is not yet exported — this will throw.
-		const OFFICIAL_REGISTRY_INDEX = (shared as unknown as Record<string, unknown>)["OFFICIAL_REGISTRY_INDEX"];
-		if (!OFFICIAL_REGISTRY_INDEX) {
-			throw new Error(
-				"OFFICIAL_REGISTRY_INDEX not exported from @hyperidle/shared — RED phase: not implemented",
-			);
-		}
+		// Import the OFFICIAL_REGISTRY_INDEX — now implemented in registry-index.ts.
+		const { OFFICIAL_REGISTRY_INDEX } = await import("@hyperidle/shared");
 
 		const res = await app.request("/api/surface-registry", {
 			method: "GET",
@@ -139,14 +129,8 @@ describe("AL5 registry-route — GET /api/surface-registry is index-driven (AC2)
 			createdAt: new Date().toISOString(),
 		});
 
-		// OFFICIAL_REGISTRY_INDEX not yet exported — throws until implemented.
-		const shared2 = await import("@hyperidle/shared");
-		const OFFICIAL_REGISTRY_INDEX = (shared2 as unknown as Record<string, unknown>)["OFFICIAL_REGISTRY_INDEX"];
-		if (!OFFICIAL_REGISTRY_INDEX) {
-			throw new Error(
-				"OFFICIAL_REGISTRY_INDEX not exported from @hyperidle/shared — RED phase",
-			);
-		}
+		// OFFICIAL_REGISTRY_INDEX is now exported from @hyperidle/shared.
+		const { OFFICIAL_REGISTRY_INDEX } = await import("@hyperidle/shared");
 
 		const res = await app.request("/api/surface-registry", {
 			method: "GET",
@@ -156,9 +140,7 @@ describe("AL5 registry-route — GET /api/surface-registry is index-driven (AC2)
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
 		const apiIds = new Set(body.map((s) => s.id as string));
-		const indexIds = new Set(
-			OFFICIAL_REGISTRY_INDEX.surfaces.map((s: { id: string }) => s.id),
-		);
+		const indexIds = new Set(OFFICIAL_REGISTRY_INDEX.surfaces.map((s) => s.id));
 
 		// Every id in the API response must be in the official index.
 		for (const apiId of apiIds) {

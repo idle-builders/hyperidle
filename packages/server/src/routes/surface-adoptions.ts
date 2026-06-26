@@ -41,14 +41,18 @@ const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 // at AL5 it is the shared first-party catalog.
 
 import type { SurfaceManifest } from "@hyperidle/shared";
-import { FIRST_PARTY_SURFACE_MANIFESTS } from "@hyperidle/shared";
+import { OFFICIAL_REGISTRY_INDEX } from "@hyperidle/shared";
+
+// @lore AL5 AC2: The server reads from OFFICIAL_REGISTRY_INDEX.surfaces (index-driven),
+// not a separate FIRST_PARTY_SURFACE_MANIFESTS copy. This ensures the registry endpoint
+// and the adoption validator stay in sync with the shared catalog.
 
 interface ServerSurfaceEntry {
 	readonly manifest: SurfaceManifest;
 }
 
 const SERVER_REGISTRY = new Map<string, ServerSurfaceEntry>(
-	FIRST_PARTY_SURFACE_MANIFESTS.map((m) => [m.id, { manifest: m }]),
+	OFFICIAL_REGISTRY_INDEX.surfaces.map((m) => [m.id, { manifest: m }]),
 );
 
 function getServerSurfaceEntry(id: string): ServerSurfaceEntry | undefined {
