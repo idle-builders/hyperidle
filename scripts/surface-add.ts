@@ -48,6 +48,8 @@ import {
 	parseAddSource,
 	updateRegistryGeneratedIndex,
 } from "../packages/shared/src/add-install.js";
+// @lore AL5: CLI imports directly from the source file (not @hyperidle/shared/add)
+// because this script runs via tsx (no build) and workspace imports resolve at build time.
 
 // Repo root = dirname of this script's parent.
 const __filename = fileURLToPath(import.meta.url);

@@ -683,7 +683,7 @@ export function SettingsReviewSurfaces(): JSX.Element {
 								onKeyDown={(e) => {
 									if (e.key === "Enter") void handleAddRegistry();
 								}}
-								className="min-w-0 flex-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-forest)]"
+								className="min-w-0 flex-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
 								disabled={registryUrlLoading}
 								aria-label="Add registry URL"
 							/>

@@ -5,7 +5,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./net": "./src/net/ssrf.ts"
+		"./net": "./src/net/ssrf.ts",
+		"./add": "./src/add-install.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit"

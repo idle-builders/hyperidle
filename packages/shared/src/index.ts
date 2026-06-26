@@ -1,13 +1,10 @@
 // ── AK3: Bet decomposition types + constants ──
 
 // ── AL5: Surface install resolver (add <source> CLI) ──
+// TYPES only — the runtime functions use node:fs/promises and cannot run in the browser.
+// CLI and server code imports them via "@hyperidle/shared/add" subpath export.
+// @lore AL5: Same pattern as "@hyperidle/shared/net" (ssrf.ts uses node:dns/net).
 export type { AddSource, GenerateRegistrationFileOptions, InstallResult } from "./add-install.js";
-export {
-	generateRegistrationFile,
-	installSurface,
-	parseAddSource,
-	updateRegistryGeneratedIndex,
-} from "./add-install.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,
