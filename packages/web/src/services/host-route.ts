@@ -20,11 +20,15 @@ export function resolveHostRoute(hostKind: HostKind, hostId: string): string | n
 		case "bet":
 			return `/work/bet/${hostId}`;
 		case "task":
-			return `/work/task/${hostId}`;
+			// @lore AM5 H5/BLOCKER-1: task→null (no betId in scope for resolveHostRoute).
+			// The route /work/bet/:betId/task/:taskId requires a betId not available here.
+			// Documented no-op — will be resolved in a future WP that threads betId.
+			return null;
 		case "knowledge_item":
 			return `/knowledge/${hostId}`;
 		case "artifact":
-			return `/work/artifact/${hostId}`;
+			// @lore AM5 H5: artifact route fixed from dead /work/artifact/:id to /artifacts/:id.
+			return `/artifacts/${hostId}`;
 		case "agent":
 			return `/work/agent/${hostId}`;
 		case "team":
