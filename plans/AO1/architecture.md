@@ -482,3 +482,169 @@ No existing test's assertions change. New tests only. `protectedTests: []`. (The
 5. **Name collision `Filesystem` (wire) vs `FilesystemRow` (DB).** I split them (wire = parsed `resourceRef`, row = JSON string), mirroring `Artifact`/`ArtifactRow`. Reviewer: confirm the split is clearer than a single type with a `string` resourceRef.
 
 6. **AO2 inbound-git: extend `GitRunner` vs sibling.** I recommend **extend** (reuse the security-critical `buildGitEnv`/redaction). The catch: the current env fails-closed on auth (`GIT_ASKPASS=/bin/false`), so an authenticated inbound clone needs the `FilesystemAuth.provision` directive wired in — AO2's job, but flagging now so AO2 doesn't rebuild the runner. Not an AO1 deliverable; recorded for seam coherence.
+
+---
+---
+
+# Reachability rework (v2) — REAL system verification
+
+> **Why this section exists.** The v1 reachability path above shipped a `NoopAuthResolver` that returns `null`/`false` for **every** connection, so every connection-backed filesystem permanently reads `needs_attention` — it verifies **nothing**. The founder REJECTED it: *"a stub is worthless against an integration unless the actual integration was used to generate it; building from memory is worse than not building."* This section re-architects the verification path **grounded in the real integration**, with every claim verified against real code (file:line) or a real command (output cited). It **supersedes** §3 (reachability block + §3 `source` derivation) and §4 (seam wiring); the registry/injection model, tables (§2), routes shape (§3 route table), and AO2 seam (§5) stand AS-IS — this rework is the **verification path only**.
+
+## v2·0 — Stale-premise correction (the root cause of the bad stub)
+
+The v1 plan's load-bearing premise — *"`service_connections` was merged (0036) then reverted (0038, AN reset); absent now; therefore ship a Noop"* — is **FALSE on this branch**. Verified against the real worktree (`AO0`, 2026-06-27):
+
+| v1 claim | Real state (verified) |
+|---|---|
+| `service_connections` table absent (reverted 0038) | **PRESENT** — `serviceConnections` pgTable at `packages/db/src/schema.ts:1278-1309` (id, userId→users.id, service, authSource `"token"\|"mcp"`, encryptedToken AES-256-GCM, serverUrl, health, …). |
+| `ServiceConnectionResolver` absent | **PRESENT** — `packages/server/src/services/service-connection-resolver.ts:21-59`. Real signature `resolve(userId: string, connectionId: string): Promise<string \| null>`. |
+| no real decrypt path | **PRESENT + tested** — `AN1-service-connection-resolver.integration.test.ts` proves real PGlite decrypt: owner→exact plaintext, cross-user→null, mcp→null, absent→null, tampered→null (never throws), with documented sanity-breaks. |
+| migrations tail = 0038 | Real tail = **0040** (`drizzle/` lists through `0040_chubby_chimera.sql`; AO1's own `filesystems`+`filesystem_injections` already shipped at 0039/0040). |
+
+**Conclusion:** AN1 is real and merged on this branch. The Noop was built against a memory of a revert that did not hold here. The rework wires the **real `ServiceConnectionResolver`**.
+
+## v2·1 — Real AN-resolver signature (verified)
+
+`service-connection-resolver.ts:39-58`:
+```
+async resolve(userId: string, connectionId: string): Promise<string | null>
+```
+Returns the **decrypted plaintext token** for the **owning user only**; `null` for: missing server secret (`:40`), cross-user / non-existent row (`:46` `and(eq(id), eq(userId))` → `:49`), `authSource !== "token"` i.e. **mcp** rows (`:51`), and decryption failure (`:54` catch → never throws). Connection **kinds**: `"token"` (held, decryptable here) and `"mcp"` (no stored token → `null`). "Inherited" connections are **never DB rows** (`service-connection-projection.ts:7` `@lore` — pure in-memory projection), so they have no `connectionId` to resolve and are out of the `code`-filesystem path entirely.
+
+**Decisive consequence:** the resolver needs a **`userId`**. The filesystems route has one — the same `c.get("userId")` the connections route uses (`connections.ts:187,214,320`; set by `middleware/auth.ts:115/204/235`, founder fallback `"u-founder"`). So the AO1 register/inspect handlers obtain `userId` identically and pass it to the resolver. This is a real, available handle — **not** an invented one.
+
+## v2·2 — Real `git ls-remote` auth mechanism (verified by command)
+
+The reachability probe for a `code` + connection filesystem is a **metadata-only `git ls-remote`** (NOT a clone). Exit-code semantics, verified with `set -o pipefail`:
+
+| Command (real) | exit | meaning |
+|---|---|---|
+| `git ls-remote --heads https://github.com/octocat/Hello-World.git` | **0** | reachable |
+| `git ls-remote --heads https://github.com/octocat/this-repo-does-not-exist-zzz.git` | **128** | needs_attention (`fatal: repository not found`) |
+| same public probe under hardened env (`env -i PATH HOME GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false GIT_CONFIG_NOSYSTEM=1 GIT_OPTIONAL_LOCKS=0`) | **0** | the existing `buildGitEnv()` flags do **not** break a public probe |
+| private/auth-required URL with no creds (hardened env) | **128** | needs_attention |
+| **bad/malformed** token via header | **128** | GitHub rejects a malformed `Authorization` even on a public repo — a bad token reads `needs_attention`, correct |
+
+`git version 2.39.5`. **Rule:** `exitCode === 0 → reachable`; **any** non-zero → `needs_attention` (with the stderr tail, redacted, as the reason).
+
+**Authenticated injection — token NEVER in the URL or argv.** Reuse the codebase's existing git-auth hardening (`git-export-runner.ts:99-124 buildGitEnv` + `:67-82 redactArg`). Do **not** put the token in the clone URL (it would be logged) and do **not** put it in `-c http.extraHeader=…` (visible in `ps`/argv). Use **`GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` env injection** — the token lives only in the child env, never in argv. Verified the mechanism parses and does not break a clean probe:
+```
+env -i PATH HOME GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false \
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="user.name" GIT_CONFIG_VALUE_0="probe" \
+  git ls-remote --heads https://github.com/octocat/Hello-World.git  → exit 0
+```
+For a real GitHub token the injected config is a **host-scoped** auth header so the token is only sent to that host:
+```
+GIT_CONFIG_COUNT=1
+GIT_CONFIG_KEY_0   = "http.https://github.com/.extraHeader"
+GIT_CONFIG_VALUE_0 = "Authorization: Basic base64('x-access-token:<TOKEN>')"
+```
+⚠️ **UNVERIFIED (no real private repo + token in this env):** that a *valid* GitHub token yields exit 0 against a *private* repo. The **mechanism** (env-config parse, host-scoping, token-out-of-argv) is verified; the live valid-token→0 assertion is the **local-only lane** (v2·5). `redactArg` already scrubs `gh[pousr]_…` token shapes from any logged stderr — reuse verbatim.
+
+## v2·3 — Per-kind probe matrix (grounded)
+
+`resolveFilesystemState(row, deps)` becomes async and dispatches to a real probe per case. Two probes behind the existing seam:
+
+| Case | Condition (on the row) | Probe | reachable when | needs_attention when |
+|---|---|---|---|---|
+| read-only ref | `writeback === 'none'` | none | always | — |
+| bare local `code` / `doc_set` | `connectionId == null` **and** `resourceRef` path is local | **`LocalReachabilityProbe`** — `fs.accessSync(path, R_OK)` (real) | path exists + readable | `accessSync` throws (ENOENT/EACCES) |
+| `code` + connection | `kind==='code'`, `connectionId != null` | **`GitReachabilityProbe`** — resolve token via `ServiceConnectionResolver.resolve(userId, connectionId)` → `git lsRemote(url, token?)` | `ls-remote` exit 0 | resolver→null (no/invalid connection) **or** `ls-remote` exit ≠ 0 |
+| `code` bare repo, local path | `kind==='code'`, `connectionId==null`, `resourceRef.repo` is a local path | `LocalReachabilityProbe` (fs access on the repo dir) | dir exists + readable | missing/unreadable |
+| `doc_set` + connection (Drive/Obsidian) | `kind==='doc_set'`, `connectionId != null` | **DEFERRED — no connector exists** | — | — |
+
+> **`code` resourceRef.repo disambiguation:** `repo` may be `"owner/name"` / a clone URL (remote) **or** an absolute local path (bare local repo). The probe treats a value matching `^[a-z]+://` or `^[^/]+/[^/]+$` (owner/repo) as **remote** (→ `ls-remote`, prefixed to `https://github.com/<owner>/<repo>.git` when it's the `owner/repo` short form), and an absolute path (`^/`) as **local** (→ fs access). This is a real, testable branch — not a guess.
+
+> **Drive / Obsidian are honestly DEFERRED, not stubbed.** AN1 ships only **token** + **mcp** connections (`schema.ts:1289`); there is **no GDrive or Obsidian connector** yet — nothing to probe against. A `doc_set` + `connectionId` whose connection isn't resolvable correctly reads `needs_attention` via the same resolver-null path (it's a token connection that doesn't grant folder access), but a **first-class Drive/Obsidian reachability probe is out of scope until the connector exists**. We do **not** fabricate a GDrive probe from memory. The realistic v1 `doc_set` is a **bare local folder** (`connectionId==null` → `LocalReachabilityProbe`), which IS exercised.
+
+## v2·4 — What the rework removes / adds
+
+**REMOVE** `NoopAuthResolver` as the default binding. (`filesystem-reachability.ts:17-29`.) It may survive **only** as an explicit test double named for what it is (e.g. `UnresolvableAuthResolver` in a unit test asserting the needs_attention branch) — never as the production default.
+
+**WIRE the real `ServiceConnectionResolver`** as the default. The `FilesystemAuthResolver` seam (shared `filesystem.ts:77-86`) is retained as the boundary, but its production implementation now **adapts the real resolver**:
+
+```
+// packages/server/src/services/service-connection-auth-resolver.ts (NEW)
+class ServiceConnectionAuthResolver implements FilesystemAuthResolver {
+  constructor(private resolver: ServiceConnectionResolver, private userId: string) {}
+  // canResolve: a token resolves (non-null) → true. Cheap: one indexed userId-scoped SELECT + decrypt.
+  async canResolve(connectionId: string): Promise<boolean> {
+    return (await this.resolver.resolve(this.userId, connectionId)) != null;
+  }
+  // sourceOf: read service_connections.service for this (userId, connectionId) → map to a source token
+  //   ('GitHub'→'github', …). Returns null when absent. (Real SELECT on serviceConnections.service.)
+  // resolve(): yields FilesystemAuth.provision = { mode:'git-credential' } carrying the token to AO2.
+}
+```
+> **Note the `userId` binding.** The `FilesystemAuthResolver` interface as written (`resolve(connectionId)`) has no `userId` — but the real resolver requires one. The adapter **closes over the request `userId`** (`c.get("userId")`), so it is constructed **per-request** inside the route handler, not as a process singleton. The seam interface is unchanged (AO2 still consumes `resolve(connectionId)`); only the construction site changes. This is the minimal real wiring — no interface churn.
+
+**ADD an inbound `lsRemote` verb to `GitRunner`** (`git-export-runner.ts`), the lightweight inbound op the export-only runner lacks (`GitRunner` today is `init/add/rm/commit/push/diffCached/revParse/configSet/remoteAdd/lsFiles/statusPorcelain` — `:18-41`, **no ls-remote**):
+```
+/** Probe a remote's refs WITHOUT cloning. Reuses buildGitEnv + redaction.
+ *  Returns { reachable: boolean; reason?: string }. Never throws on a non-zero exit
+ *  (unlike runExpectOk) — a non-zero exit IS the signal, not an error. */
+lsRemote(url: string, opts?: { tokenConfig?: GitConfigInjection }): Promise<{ reachable: boolean; reason?: string }>;
+```
+- Argv: `["ls-remote", "--heads", "--", url]` (the `--` guard already used at `:210,236,258,261`).
+- Auth: when `opts.tokenConfig` present, merge `GIT_CONFIG_COUNT/KEY_n/VALUE_n` into the spawn env (extend `buildGitEnv` to accept extra config). Token **only** in env, never argv, never URL.
+- Result mapping: `exitCode === 0 → { reachable: true }`; else `{ reachable: false, reason: redactArg(stderr.trim()) }`. This is a **read** of the existing `SpawnResult`, not new spawn code.
+- Network/timeout: reuse the push timeout class (`pushMs`, 30s default — a remote round-trip), not the local 5s. `GitReachabilityProbe` lives in `filesystem-reachability.ts` and calls `createGitRunner(<scratch-cwd>).lsRemote(...)`.
+
+**KEEP** the `FilesystemAuthResolver` / reachability seam, the `resolveFilesystemState` entry point (now genuinely probing), the routes, tables, and AO2 mount seam exactly as shipped.
+
+## v2·5 — `resolveFilesystemState` v2 (the real decision)
+
+```
+resolveFilesystemState(row, { authResolver, localProbe, gitProbe, userId }):
+  if row.writeback === 'none'                     → 'reachable'
+  ref = JSON.parse(row.resourceRef)
+  if row.connectionId == null:
+     // bare local: real fs probe on the path/repo dir
+     path = ref.kind === 'doc_set' ? ref.folder : ref.repo
+     if isLocalPath(path):  return localProbe.check(path) ? 'reachable' : 'needs_attention'
+     // connectionId==null but a remote URL (public repo, no auth) → unauthenticated ls-remote
+     return (await gitProbe.check(ref.repo, /*token*/ null)).reachable ? 'reachable' : 'needs_attention'
+  // connection-backed:
+  if row.kind === 'doc_set':  return 'needs_attention'   // no Drive/Obsidian connector yet (DEFERRED, honest)
+  // code + connection: resolve the real token, then real ls-remote
+  token = await authResolver.resolveToken(row.connectionId)   // → ServiceConnectionResolver.resolve(userId, id)
+  if token == null:  return 'needs_attention'                 // no/invalid/cross-user/mcp connection
+  return (await gitProbe.check(ref.repo, token)).reachable ? 'reachable' : 'needs_attention'
+```
+Every `needs_attention` carries a reason (the stderr tail or `"connection unresolved"`), surfaced on the row — never a blanket stub. **When it runs:** at register (POST) `state` is set from a **real** probe (not hardcoded `attached`); `GET /:id` and the list route re-probe and persist transitions (the existing `checkAndPersistState` at `filesystems.ts:89-100`, now backed by real probes) — so a transient network failure recovers on the next inspect/refresh. An explicit `POST /:id/refresh` is **optional** (GET already re-probes); add it only if the UI wants a non-mutating-looking refresh button — no AC mandates it.
+
+> **Cost note (real):** `ls-remote` is a network round-trip (~100–800ms to GitHub). Running it on **every** list-route row (`filesystems.ts:200 Promise.all`) makes a team-list latency-bound on the forge. v2 keeps the live probe on **`GET /:id`** (single, intentional inspect) and on **register**, but the **list** route should use the **persisted `state`** (last probe result) and NOT re-probe every row inline — re-probe the list lazily/bounded or behind the explicit refresh. (This is a real perf constraint the Noop never surfaced because `canResolve` was a no-op.) Flag for the reviewer: confirm list = cached state, inspect = live probe.
+
+## v2·6 — MANDATORY live-proof lanes (the whole point)
+
+A test lane that exercises the **REAL** `git`/`fs` — not a mock. Split by what CI can run unattended vs what needs a real secret.
+
+**Lane A — CI-LIVE (`*.integration.test.ts`, runs in `test:all`; real `git` + real `fs`, no secret):**
+| Assertion | Real op | Expect |
+|---|---|---|
+| public repo reachable | `gitProbe.check("https://github.com/octocat/Hello-World.git", null)` | `reachable:true` (real exit 0) |
+| bogus repo needs_attention | `gitProbe.check("https://github.com/octocat/this-repo-does-not-exist-zzz.git", null)` | `reachable:false`, reason set (real exit 128) |
+| register a public-repo `code` filesystem (connectionId null, remote URL) → `POST /api/filesystems` then `GET /:id` | real route + real `git` | `state:'reachable'` |
+| register a bogus-repo filesystem → `GET /:id` | real route + real `git` | `state:'needs_attention'` |
+| real local temp folder reachable | `localProbe.check(mkdtempSync())` then register a bare-local `doc_set` → `GET /:id` | `reachable:true` → `state:'reachable'` |
+| missing path needs_attention | `localProbe.check("/no/such/path-zzz")` then register → `GET /:id` | `reachable:false` → `state:'needs_attention'` |
+
+> Lane A hits the **public internet** (github.com). Per the repo's testing rules, network-dependent live lanes run in the **local `test:all` lane**, not as a GitHub Actions job (same posture as e2e/harness lanes — MEMORY "e2e is local-only"). It is real, not mocked; mark it `@network` so it can be excluded in an offline CI but is **required green locally before ship**. ⚠️ If the reviewer wants Lane A fully hermetic, the public-repo probe can target a `file://` local git repo created in the test (`git init` a temp dir, `ls-remote file://…` → exit 0) — that removes the internet dependency while keeping the probe REAL. **Recommend the `file://` variant** for the in-test public-reachable case so Lane A is hermetic + real; keep one `github.com` smoke as a documented local-only check.
+
+**Lane B — LOCAL-ONLY live-proof (authenticated PRIVATE repo; needs a real token):**
+| Assertion | Real op | Expect |
+|---|---|---|
+| seed a real `service_connections` token row (real GitHub PAT) → register a PRIVATE-repo `code` filesystem with that `connectionId` → `GET /:id` | real `ServiceConnectionResolver.resolve` decrypt → real authed `git ls-remote` via `GIT_CONFIG_*` env | `state:'reachable'` |
+| same private repo, **revoked/garbage** token row → `GET /:id` | real resolve → real authed `ls-remote` exit 128 | `state:'needs_attention'` |
+| cross-user connection (token owned by another userId) → `GET /:id` | real resolver returns null (AN1 AC5) | `state:'needs_attention'` |
+
+> Lane B **cannot run in CI** — no real GitHub PAT + private repo in the unattended env. It is a **local-only live-proof lane** run by a human/agent with a real connection seeded (env `HYPERIDLE_AO1_LIVE_PRIVATE_REPO` + `…_TOKEN`); the test **skips with a loud message** when those are absent, and the WP is **not "done" on the private-auth path until Lane B has been run once locally and its output pasted into the PR**. We do **NOT** fake it with a mock resolver — a mock would reproduce exactly the worthless-stub failure the founder rejected. (Per MEMORY "live-proof lanes run before ship": the real authed path must actually execute before the authed-reachability AC is claimed.)
+
+**Reviewer sanity-break (required):** revert the `ls-remote` exit-code mapping (force `reachable:true`) → Lane A's bogus-repo assertion must go RED; restore → GREEN. This proves Lane A exercises the real exit code, not a constant — the exact check that would have caught the Noop.
+
+## v2·7 — Honestly deferred / unverified
+
+- **Drive / Obsidian reachability** — DEFERRED. No GDrive/Obsidian connector exists (AN1 = token+mcp only, `schema.ts:1289`). A connection-backed `doc_set` reads `needs_attention` via the resolver-null path; a dedicated folder-reachability probe waits for the connector. **Not stubbed, not faked.**
+- **Valid-token → private-repo exit 0** — ⚠️ UNVERIFIED in this env (no real PAT/private repo). The injection **mechanism** is verified (v2·2); the live valid-token assertion is **Lane B (local-only)**.
+- **List-route probe cost** — flagged real perf constraint (v2·5); reviewer to confirm cached-state-on-list vs live-probe-on-inspect.
+- **`FilesystemAuthResolver` interface vs `userId`** — the adapter closes over the request `userId` (per-request construction). If a future caller needs the resolver outside a request, the interface must carry `userId` explicitly — recorded, not solved here.
