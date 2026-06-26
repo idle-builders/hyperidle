@@ -1,5 +1,8 @@
 // ── AK3: Bet decomposition types + constants ──
 
+// ── AL5: Surface install resolver (add <source> CLI) ──
+export type { AddSource, InstallResult } from "./add-install.js";
+export { installSurface, parseAddSource } from "./add-install.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,
@@ -312,6 +315,13 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── AL5: Registry index (official catalog + community loader) ──
+export type { RegistryIndex } from "./registry-index.js";
+export {
+	loadRegistryIndex,
+	OFFICIAL_REGISTRY_INDEX,
+	OFFICIAL_REGISTRY_INDEX_URL,
+} from "./registry-index.js";
 // ── AL5: Review Surface registry types ──
 export type {
 	AdoptionView,
