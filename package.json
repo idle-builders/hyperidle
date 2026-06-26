@@ -63,7 +63,8 @@
 		"eval:quick": "npm run -w @hyperidle/eval eval -- --quick",
 		"docs:dev": "vitepress dev docs/product",
 		"docs:build": "vitepress build docs/product",
-		"smoke:ah6": "tsx --env-file-if-exists=.env scripts/ah6-smoke-local.ts"
+		"smoke:ah6": "tsx --env-file-if-exists=.env scripts/ah6-smoke-local.ts",
+		"surface:add": "npx tsx scripts/surface-add.ts"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
