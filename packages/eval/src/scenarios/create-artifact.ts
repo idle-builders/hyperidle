@@ -1,7 +1,8 @@
 /**
  * X8: Create artifact scenarios (interaction 4).
  *
- * Tests the create_artifact tool: code_diff preview, decision content, verification preview.
+ * Tests the create_artifact tool: code (pure content) preview, decision content, verification preview.
+ * @lore AM5 K4b: code_diff kind + {file,hunks} shape PURGED. Now uses kind="code" + {path,lang,text}.
  */
 
 import { artifacts } from "@hyperidle/db";
@@ -27,9 +28,10 @@ import type {
 // ca-code-diff-builder-devops
 // ---------------------------------------------------------------------------
 
+// AM5 K4b: renamed from ca-code-diff-builder-devops to ca-code-builder-devops
 const caCodeDiffBuilderDevops: EvalScenario = {
-	id: "ca-code-diff-builder-devops",
-	description: "Builder creates a code_diff artifact with structured preview for DevOps task",
+	id: "ca-code-builder-devops",
+	description: "Builder creates a code artifact with pure {path,lang,text} preview for DevOps task",
 	feature: "create_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -37,13 +39,13 @@ const caCodeDiffBuilderDevops: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure changes.
 When you complete implementation work, you MUST record the output as an artifact using create_artifact.
-For code changes, use kind="code_diff" and provide a structured preview showing the file and changes made.`,
+For code changes, use kind="code" and provide a structured preview showing the file path, language, and content.`,
 			taskTitle: "Refactor Kubernetes deployment manifest",
 			taskDescription: `Refactor the Kubernetes deployment manifest to add resource limits and health checks.
 
 After analyzing the required changes, use create_artifact with:
-- kind: "code_diff"
-- preview: { kind: "code_diff", file: "k8s/deployment.yaml", hunks: ["- replicas: 1\\n+ replicas: 3\\n+ resources:\\n+   limits:\\n+     cpu: 500m"] }
+- kind: "code"
+- preview: { kind: "code", path: "k8s/deployment.yaml", lang: "yaml", text: "replicas: 3\\nresources:\\n  limits:\\n    cpu: 500m" }
 
 Document your changes in session notes.`,
 			betDescription: "Kubernetes deployment hardening",
@@ -73,14 +75,15 @@ Document your changes in session notes.`,
 			judgeCostTracked(),
 			{
 				id: "kind_correctness",
-				label: "Artifact Kind Correct (code_diff)",
+				// AM5 K4b: kind changed from code_diff to code
+				label: "Artifact Kind Correct (code)",
 				judge: async (ctx: JudgeContext) => {
 					const [artifact] = await ctx.db
 						.select({ kind: artifacts.kind })
 						.from(artifacts)
 						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
 						.limit(1);
-					const correct = artifact?.kind === "code_diff";
+					const correct = artifact?.kind === "code";
 					return {
 						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
 						note: correct
@@ -93,7 +96,8 @@ Document your changes in session notes.`,
 			},
 			{
 				id: "preview_valid",
-				label: "Preview JSON Structure Valid",
+				// AM5 K4b: preview shape changed from {file,hunks} to {path,lang,text}
+				label: "Preview JSON Structure Valid (pure code shape)",
 				judge: async (ctx: JudgeContext) => {
 					const [artifact] = await ctx.db
 						.select({ previewJson: artifacts.previewJson })
@@ -105,14 +109,14 @@ Document your changes in session notes.`,
 					}
 					try {
 						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
-						const hasFile = typeof preview.file === "string";
-						const hasHunks = Array.isArray(preview.hunks);
-						if (hasFile && hasHunks) {
+						const hasPath = typeof preview.path === "string";
+						const hasText = typeof preview.text === "string";
+						if (hasPath && hasText) {
 							return { score: 1.0 };
 						}
 						return {
 							score: 0.5,
-							note: `Preview missing fields: file=${hasFile}, hunks=${hasHunks}`,
+							note: `Preview missing fields: path=${hasPath}, text=${hasText}`,
 						};
 					} catch {
 						return { score: 0.0, note: "Preview JSON parse error" };

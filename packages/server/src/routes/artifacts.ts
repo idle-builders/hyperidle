@@ -118,16 +118,12 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 				const parsed = artifactPreviewSchema.safeParse(raw);
 				if (parsed.success && parsed.data.kind === kind) {
 					preview = parsed.data as Artifact["preview"];
-				} else if (parsed.success && parsed.data.kind !== kind) {
-					// Stale preview kind discriminant: re-inject the current kind and try again
-					// (handles code_diff -> code: the preview data is forward-compatible).
-					const withNewKind = { ...(raw as object), kind };
-					const reparsed = artifactPreviewSchema.safeParse(withNewKind);
-					if (reparsed.success && reparsed.data.kind === kind) {
-						preview = reparsed.data as Artifact["preview"];
-					}
-					// Otherwise preview remains null (old shape incompatible with new schema)
 				}
+				// Stale discriminant or schema mismatch → preview stays null.
+				// @lore AM5 K4b: the code_diff→code re-inject branch is DELETED (pre-alpha purge).
+				// code.ts schema is now {path,lang,text}; old {file,hunks} rows yield null preview
+				// (unrenderable without a data migration). OLD_KIND_MAP still maps code_diff→code
+				// for the kind field. The preview stays null for un-migrated rows.
 			} else {
 				// Unregistered kind: accept any JSON object (open vocabulary)
 				const parsed = fallbackPreviewSchema.safeParse(raw);
