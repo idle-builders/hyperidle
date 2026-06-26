@@ -178,12 +178,17 @@ describe("AC5 — all surfaces discovered and classified correctly", () => {
 	});
 
 	// ── kinds ──────────────────────────────────────────────────────────────
-	test("Kinds/* renderers from real DS glob classify as System domain", () => {
-		const kindsModules = dsKindsModules.filter((m) => m.group?.name === "System");
-		expect(
-			kindsModules.length,
-			"No Kinds stories classified as System — kinds path matching may be broken",
-		).toBeGreaterThan(0);
+	// AM5 K5: all kinds/*-renderer.tsx + stories DELETED (collapsed onto block-payload layer).
+	// dsKindsModules is now empty — this test documents the post-K5 state.
+	test("Kinds/* renderers — zero modules after AM5 K5 kind-layer collapse", () => {
+		// The kinds path routing logic still works (it classifies any kinds/ path as System),
+		// but there are no more kinds stories to classify. Zero is the correct post-K5 state.
+		const allKindsClassifiedCorrectly = dsKindsModules.every(
+			(m) => !m.group || m.group.name === "System",
+		);
+		expect(allKindsClassifiedCorrectly).toBe(true);
+		// Document the actual count (0 after AM5 K5)
+		expect(dsKindsModules.length).toBe(0);
 	});
 
 	// ── nested pages ───────────────────────────────────────────────────────

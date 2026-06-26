@@ -127,32 +127,44 @@ describe("text kind preview schema", () => {
 	});
 });
 
+// AM5 K4b: code schema purified from {file,hunks} to {path,lang,text}
 describe("code kind preview schema", () => {
-	it("validates correct code preview data", () => {
+	it("validates correct code preview data (pure {path,lang,text} shape)", () => {
+		const result = codeKind.previewSchema.safeParse({
+			kind: "code",
+			path: "src/index.ts",
+			lang: "typescript",
+			text: "const x = 1;",
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("validates code preview with null lang", () => {
+		const result = codeKind.previewSchema.safeParse({
+			kind: "code",
+			path: "src/app.ts",
+			lang: null,
+			text: "export default function App() { return null; }",
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects code preview missing path", () => {
+		const result = codeKind.previewSchema.safeParse({ kind: "code", lang: "ts", text: "x" });
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects code preview missing text", () => {
+		const result = codeKind.previewSchema.safeParse({ kind: "code", path: "x.ts", lang: null });
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects old {file,hunks} shape (K0 violation removed)", () => {
 		const result = codeKind.previewSchema.safeParse({
 			kind: "code",
 			file: "src/index.ts",
 			hunks: [],
 		});
-		expect(result.success).toBe(true);
-	});
-
-	it("validates code preview with hunks", () => {
-		const result = codeKind.previewSchema.safeParse({
-			kind: "code",
-			file: "src/app.ts",
-			hunks: [
-				{
-					header: "@@ -1,3 +1,4 @@",
-					lines: [{ kind: "add", text: "const x = 1;" }],
-				},
-			],
-		});
-		expect(result.success).toBe(true);
-	});
-
-	it("rejects code preview missing file", () => {
-		const result = codeKind.previewSchema.safeParse({ kind: "code", hunks: [] });
 		expect(result.success).toBe(false);
 	});
 });
@@ -291,7 +303,8 @@ describe("summarize delegation via getKindDefinition", () => {
 
 	it("summarizes a code kind preview", () => {
 		const def = getKindDefinition("code");
-		const summary = def?.summarize({ kind: "code", file: "src/index.ts", hunks: [] });
+		// AM5 K4b: code schema purified to {path,lang,text}
+		const summary = def?.summarize({ kind: "code", path: "src/index.ts", lang: null, text: "const x = 1;" });
 		expect(typeof summary).toBe("string");
 	});
 
@@ -347,9 +360,10 @@ describe("displayTitle delegation via getKindDefinition", () => {
 		expect(title === null || typeof title === "string").toBe(true);
 	});
 
-	it("returns the filename as title for code kind preview", () => {
+	it("returns the path as title for code kind preview", () => {
 		const def = getKindDefinition("code");
-		const title = def?.displayTitle({ kind: "code", file: "src/index.ts", hunks: [] });
+		// AM5 K4b: code schema purified to {path,lang,text}
+		const title = def?.displayTitle({ kind: "code", path: "src/index.ts", lang: null, text: "const x = 1;" });
 		expect(title).toBe("src/index.ts");
 	});
 
@@ -422,15 +436,17 @@ describe("OLD_KIND_MAP covers all 13 old kinds", () => {
 // Read-time normalization of old preview shapes
 // -------------------------------------------------------------------
 
+// AM5 K4b: the {file,hunks} forward-compat is no longer needed — the pre-alpha purge
+// removes the old shape entirely. The test is updated to document the new rejection behavior.
 describe("read-time normalization: old preview shapes", () => {
-	it("code kind accepts code_diff-style preview with file + hunks (forward compatible)", () => {
-		// After migration, code_diff artifacts become code artifacts.
-		// The preview shape {file, hunks} matches the code schema directly.
+	it("code kind REJECTS old code_diff-style preview with file + hunks (K4b purge)", () => {
+		// After AM5 K4b, the old {file,hunks} shape is no longer accepted.
+		// Existing code_diff artifacts are migrated; the schema is the pure content shape.
 		const result = codeKind.previewSchema.safeParse({
 			kind: "code",
 			file: "src/index.ts",
 			hunks: [],
 		});
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
 	});
 });

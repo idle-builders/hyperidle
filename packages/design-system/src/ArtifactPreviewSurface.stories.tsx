@@ -37,24 +37,17 @@ export const ImageFull = (): React.JSX.Element => (
 	</div>
 );
 
-// T12: code kind + preview → code block (full)
+// T12 / AM5 K4b: code kind + preview → CodePayload (pure {path,lang,text} shape)
 export const CodeFull = (): React.JSX.Element => (
 	<div className="w-[480px]">
 		<ArtifactPreviewSurface
 			kind="code"
 			size="full"
 			preview={{
-				file: "src/index.ts",
-				hunks: [
-					{
-						header: "@@ -1,3 +1,4 @@",
-						lines: [
-							{ kind: "ctx", text: "import React from 'react';" },
-							{ kind: "add", text: "import { useState } from 'react';" },
-							{ kind: "ctx", text: "" },
-						],
-					},
-				],
+				kind: "code",
+				path: "src/index.ts",
+				lang: "typescript",
+				text: "import React from 'react';\nimport { useState } from 'react';\n\nexport default function App() {\n  return <div>Hello</div>;\n}",
 			}}
 		/>
 	</div>

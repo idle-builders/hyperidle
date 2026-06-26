@@ -236,6 +236,9 @@ export type { OldKindMapping } from "./kinds/old-kind-map.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // getKindDefinition and isRegisteredKind exported via types/artifact.ts re-export from registry
 export { getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
+// AM5 K4b: code kind schema + definition (purified to {path,lang,text})
+// CodePreview type already exported below via types/artifact.ts
+export { codeKind, codePreviewSchema } from "./kinds/code.js";
 export { createLogger, type Logger } from "./logger.js";
 // ── AE5: Mention parsing utilities ──
 export type {

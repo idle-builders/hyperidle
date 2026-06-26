@@ -68,9 +68,9 @@ expect(
 ).toBeGreaterThan(0);
 expect(
 	modules.length,
-	`Expected ≥61 DS story modules (54 root + 7 kinds), got ${modules.length}. ` +
+	`Expected ≥52 DS story modules (52 root + 0 kinds), got ${modules.length}. ` +
 		`A glob-root path or story file may have been removed without updating this guard.`,
-).toBeGreaterThanOrEqual(61);
+).toBeGreaterThanOrEqual(52);
 
 // ---------------------------------------------------------------------------
 // Serializer — custom DOM walk for deterministic, churn-proof snapshots.
@@ -219,8 +219,8 @@ export function serializeStoryDom(container: Element): string {
 // ---------------------------------------------------------------------------
 
 describe("catalog-snapshot — DS story enumeration", () => {
-	test(`enumerates ≥60 story modules (53 root + 7 kinds)`, () => {
-		expect(modules.length).toBeGreaterThanOrEqual(60);
+	test(`enumerates ≥51 story modules (51 root + 0 kinds after AM5 K5)`, () => {
+		expect(modules.length).toBeGreaterThanOrEqual(51);
 	});
 });
 

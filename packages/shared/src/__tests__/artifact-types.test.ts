@@ -197,7 +197,7 @@ describe("artifactDisplayTitle", () => {
 
 	it("uses file path as title for code kind", () => {
 		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
-			preview: { kind: "code", file: "src/index.ts", hunks: [] },
+			preview: { kind: "code", path: "src/index.ts", lang: "typescript", text: "const x = 1;" },
 			producingTaskTitle: "code review",
 		};
 		expect(artifactDisplayTitle(a)).toBe("src/index.ts");
@@ -228,7 +228,7 @@ function makeFixturePreview(kind: ArtifactKind): ArtifactPreview {
 		case "text":
 			return { kind: "text", body: "Hello world" };
 		case "code":
-			return { kind: "code", file: "src/index.ts", hunks: [] };
+			return { kind: "code", path: "src/index.ts", lang: "typescript", text: "const x = 1;" };
 		case "image":
 			return { kind: "image", url: "https://example.com/img.png", width: 800, height: 600 };
 		case "data":

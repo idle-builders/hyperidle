@@ -108,23 +108,10 @@ export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-r
 export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
 export type { DiffRendererComponent, DiffRendererProps } from "./diff/select-diff.js";
 export { getDiffRenderer } from "./diff/select-diff.js";
-export type { CodeRendererProps } from "./kinds/code-renderer.js";
-export { CodeRenderer } from "./kinds/code-renderer.js";
-export type { DataRendererProps } from "./kinds/data-renderer.js";
-export { DataRenderer } from "./kinds/data-renderer.js";
-export type { FallbackRendererProps } from "./kinds/fallback-renderer.js";
-export { FallbackRenderer } from "./kinds/fallback-renderer.js";
-export type { HtmlRendererProps } from "./kinds/html-renderer.js";
-export { HtmlRenderer } from "./kinds/html-renderer.js";
-export type { ImageRendererProps } from "./kinds/image-renderer.js";
-export { ImageRenderer } from "./kinds/image-renderer.js";
-// ── AF16 T9: Renderer registry + per-kind renderers (moved from packages/web/src/kinds/) ──
-export type { RendererComponent, RendererProps } from "./kinds/renderer-registry.js";
-export { getRenderer } from "./kinds/renderer-registry.js";
-export type { TextRendererProps } from "./kinds/text-renderer.js";
-export { TextRenderer } from "./kinds/text-renderer.js";
-export type { UrlRendererProps } from "./kinds/url-renderer.js";
-export { UrlRenderer } from "./kinds/url-renderer.js";
+// ── AM5: composeArtifactBody — the single-home Artifact composition (REPLACES getRenderer) ──
+// K5: CodeRenderer/DataRenderer/FallbackRenderer/HtmlRenderer/ImageRenderer/TextRenderer/UrlRenderer
+// + getRenderer + RendererComponent/RendererProps are REMOVED from this barrel (kind layer collapsed).
+export { composeArtifactBody } from "./kinds/compose-artifact-body.js";
 // ── AI4 Task 5: LiveDot — promoted from WorkTask/TaskSheet ──
 export { LiveDot } from "./LiveDot.js";
 export type { MenuItem, MenuProps } from "./Menu.js";

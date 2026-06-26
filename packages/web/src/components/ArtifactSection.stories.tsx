@@ -31,16 +31,9 @@ const CODE_DIFF_ARTIFACT: Artifact = {
 	label: "auth-migration" as const,
 	preview: {
 		kind: "code" as const,
-		file: "packages/web/src/auth.ts",
-		hunks: [
-			{
-				header: "@@ -1,2 +1,3 @@",
-				lines: [
-					{ kind: "ctx" as const, text: "context line" },
-					{ kind: "add" as const, text: "+ added auth check" },
-				],
-			},
-		],
+		path: "packages/web/src/auth.ts",
+		lang: "typescript",
+		text: "// auth service implementation",
 	},
 	cost: {
 		money: { minor: 4, currency: "USD" as const },
