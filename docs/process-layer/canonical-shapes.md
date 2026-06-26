@@ -210,20 +210,20 @@ type ProposedCallView = {
 
 Implementation story: **AL7** — Review execution loop (`.pipeline/work-packages/TRACK-AL.md`).
 
-## Substrate shape (Track AO)
+## Filesystem shape (Track AO)
 
-**Full spec:** `docs/process-layer/substrate-primitive.md`. Concept locked in `plans/AO/concept.md`.
+**Full spec:** `docs/process-layer/filesystem-primitive.md`. Concept locked in `plans/AO/concept.md`.
 
 ```
 // Durable file-like artifacts an agent AUTHORS, attached to an agent within
 // a team. Team-scoped. ("Product" not modelled for now.)
-type Substrate = {
+type Filesystem = {
   id: string             // opaque, stable
   teamId: string         // FK → owning Team (teams.id). The scope. Required.
   agentUserId?: string   // FK → the INDIVIDUAL agent (users.id) within the team it attaches to.
                          //      (NOT teamMembers.id — that is the per-team membership group, one row
                          //      per team under U1; the runtime agent identity is users.id, matching
-                         //      sessions.agentId.) Primary; null → a team-level (shared) substrate.
+                         //      sessions.agentId.) Primary; null → a team-level (shared) filesystem.
   kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set' (authoring folder).
                          //      Systems of record (inbox/CRM/ticket) are EXCLUDED — they are AN tools.
   connectionId?: string  // OPTIONAL FK → Connection (AN): the account+auth the resource lives in.
@@ -235,9 +235,9 @@ type Substrate = {
 }
 ```
 
-- **Substrate vs Tool vs Knowledge (research-grounded, `plans/AO/research-substrate-vs-tool.md`).** A substrate is **only** a file-bearing corpus the agent **authors** — materialized into the sandbox, edited, written back with history. **Code repos + document authoring** materialize. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → substrate; *operate a system of record* → tool; *look something up* → knowledge.
-- **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (repo/folder) is the substrate. Substrate ⟂ Connection: files vs auth/tools, compose.
+- **Filesystem vs Tool vs Knowledge (research-grounded, `plans/AO/research-filesystem-vs-tool.md`).** A filesystem is **only** a file-bearing corpus the agent **authors** — materialized into the sandbox, edited, written back with history. **Code repos + document authoring** materialize. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge.
+- **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (repo/folder) is the filesystem. Filesystem ⟂ Connection: files vs auth/tools, compose.
 - **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); the bound Connection's forge auth is present so the agent's own `git`/`gh` push/PR. **No withholding, no broker-only path.** AL7 checkpoints irreversible *landing*, never access.
 - **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.** Local-first; forward-only migration.
 
-Implementation stories: **AO1** (substrate model + attach surface), **AO2** (materialization). Concept: `plans/AO/concept.md`.
+Implementation stories: **AO1** (filesystem model + attach surface), **AO2** (materialization). Concept: `plans/AO/concept.md`.

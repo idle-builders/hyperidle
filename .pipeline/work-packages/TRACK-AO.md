@@ -7,103 +7,103 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 - **Boot-migration crash is a bugfix, not a WP** — fix it directly, don't track it here.
 - The live "decomposition `blocked/0 tasks`" is downstream of the un-onboarded DB — a *verify-once-onboarded* item, not net-new WP scope.
 
-**What's actually missing (this track):** the build-loop middle — a substrate for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, the output→review→land wiring (pending AL7), and **product** as a first-class scope so one instance can build several things.
+**What's actually missing (this track):** the build-loop middle — a filesystem for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, the output→review→land wiring (pending AL7), and **product** as a first-class scope so one instance can build several things.
 
-**Gating concept — LOCKED `/concept AO0` (2026-06-26).** Full concept: `plans/AO/concept.md` + decision-rule research `plans/AO/research-substrate-vs-tool.md`. Outcomes that bind AO1/AO2:
-- **Substrate** = the durable file-like artifacts an agent **authors** and accrues history on, materialized into its session sandbox, **attached to an agent within a team** (team-scoped). **OPEN `kind`** — initial `code` (git repo) + `doc_set` (markdown/Obsidian authoring folder).
-- **Substrate↔Tool↔Knowledge decision rule (research-grounded).** A substrate is **only** an authored, file-like, version-controlled corpus (**code + document authoring**). **Systems of record** (email inbox, ticket queue, CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → substrate; *operate a system of record* → tool; *look something up* → knowledge — not "does an API exist." So AO does **not** materialize inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox sync engine.
-- **Connected like any connector.** Account once in Settings = a **Connection** (Track AN — held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (a GitHub repo+branch, an Obsidian/Drive folder) is the substrate. Substrate ⟂ Connection = files vs auth/tools; compose.
+**Gating concept — LOCKED `/concept AO0` (2026-06-26).** Full concept: `plans/AO/concept.md` + decision-rule research `plans/AO/research-filesystem-vs-tool.md`. Outcomes that bind AO1/AO2:
+- **Filesystem** = the durable file-like artifacts an agent **authors** and accrues history on, materialized into its session sandbox, **attached to an agent within a team** (team-scoped). **OPEN `kind`** — initial `code` (git repo) + `doc_set` (markdown/Obsidian authoring folder).
+- **Filesystem↔Tool↔Knowledge decision rule (research-grounded).** A filesystem is **only** an authored, file-like, version-controlled corpus (**code + document authoring**). **Systems of record** (email inbox, ticket queue, CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge — not "does an API exist." So AO does **not** materialize inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox sync engine.
+- **Connected like any connector.** Account once in Settings = a **Connection** (Track AN — held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (a GitHub repo+branch, an Obsidian/Drive folder) is the filesystem. Filesystem ⟂ Connection = files vs auth/tools; compose.
 - **Agents work *with* their credentials in the sandbox.** The bound Connection's auth is provisioned into the sandbox so the agent's own tools push/PR. **No credential withholding, no broker-only path** (the reverted-broker model is dead — PR #364). The review gate (AL7) checkpoints irreversible *landing*, never access.
 - **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.**
 - **Product is NOT modelled (for now).** Scope is the **Team**. The earlier "product↔team coupling" exploration is set aside; multi-instance/per-product isolation is **deferred (AO4)**.
 
 **Adjacent, not owned here (deps/cross-track):** AL7 = review→act execution loop (built, **unmerged**; AO3 is gated on it and may be largely subsumed by it — see AO3). AN2/AN3 = outbound MCP client + broker (Track AN; required for apps that touch external services + forge-based landing). Strategy **dynamic skill/tool injection** (agents get only `systemPrompt` + role-filtered tools; `AgentScaffoldSpec` has no skills field) = a real **major** extensibility gap belonging to the AK/Strategy family.
 
-**Scope rules.** The build-loop middle only: substrate, its materialization, output→review→land wiring, and product scope. Out of frame: onboarding/credentials (AH1/AM4/AN — done), the review experience/surface (Track AL), the AL7 execution loop (dep), outbound connectivity (Track AN), dynamic skill injection (AK). `npm run verify` must pass after each WP merges.
+**Scope rules.** The build-loop middle only: filesystem, its materialization, output→review→land wiring, and product scope. Out of frame: onboarding/credentials (AH1/AM4/AN — done), the review experience/surface (Track AL), the AL7 execution loop (dep), outbound connectivity (Track AN), dynamic skill injection (AK). `npm run verify` must pass after each WP merges.
 
 **Reference:** `.pipeline/audits/product/DEEP-REVIEW-2026-06-25.md`, `plans/AN/boundary-concept.md`. Code seams: `packages/server/src/services/session-provisioning.ts`, `packages/fabric/src/context-assembly.ts`, `packages/server/src/routes/{reviews,artifacts}.ts`, `packages/fabric/src/services/{git-export,promotion-pipeline}.ts`.
 
 ---
 
-### AO1 — A product's output substrate: where an agent's work lives
+### AO1 — A product's output filesystem: where an agent's work lives
 
-**Workpackage.** As an agent doing real work, I want a substrate — the files my work lives in and accrues history on, owned by the product I'm building — generalized across kinds (a git **code repository** for a coding task; a document/knowledge set for a writing or marketing task), so that my output has a real home instead of evaporating or being forced into a knowledge-item shape. Today there is no such substrate: code has no home at all, and non-code outputs are squeezed into `knowledge_items`.
+**Workpackage.** As an agent doing real work, I want a filesystem — the files my work lives in and accrues history on, owned by the product I'm building — generalized across kinds (a git **code repository** for a coding task; a document/knowledge set for a writing or marketing task), so that my output has a real home instead of evaporating or being forced into a knowledge-item shape. Today there is no such filesystem: code has no home at all, and non-code outputs are squeezed into `knowledge_items`.
 
-**Why this matters.** This is the structural keystone of the whole track: without a substrate an agent can research and plan but cannot produce durable, reviewable output — code least of all (the sandbox has no `src/`). Generalizing beyond code is what lets HyperIdle build *similar-stack apps* and serve non-engineering work with one model. Cost of not building it: agents stay doc-only; "build software here" is impossible.
+**Why this matters.** This is the structural keystone of the whole track: without a filesystem an agent can research and plan but cannot produce durable, reviewable output — code least of all (the sandbox has no `src/`). Generalizing beyond code is what lets HyperIdle build *similar-stack apps* and serve non-engineering work with one model. Cost of not building it: agents stay doc-only; "build software here" is impossible.
 
-**What exists today.** `knowledge_items` is the only durable output store; `artifacts` exist but carry **no substrate columns** (no repoPath/filePath/commitSha — verified) and `artifacts.cost` is always NULL. `git-export` writes knowledge markdown to a single global repo; it is not a per-work code working tree. The "code substrate" of `plans/AN/boundary-concept.md` has **zero implementation**.
+**What exists today.** `knowledge_items` is the only durable output store; `artifacts` exist but carry **no filesystem columns** (no repoPath/filePath/commitSha — verified) and `artifacts.cost` is always NULL. `git-export` writes knowledge markdown to a single global repo; it is not a per-work code working tree. The "code filesystem" of `plans/AN/boundary-concept.md` has **zero implementation**.
 
-**What's genuinely missing.** A substrate record that binds a product (and the unit of work under it) to the working files it operates on — for code, a git repository (clone URL/local path + branch, forge optional via an AN Connection); generalized so other output kinds are substrate kinds too — distinct from `knowledge_items` and from the global knowledge-export config.
+**What's genuinely missing.** A filesystem record that binds a product (and the unit of work under it) to the working files it operates on — for code, a git repository (clone URL/local path + branch, forge optional via an AN Connection); generalized so other output kinds are filesystem kinds too — distinct from `knowledge_items` and from the global knowledge-export config.
 
 **Depends on.** None to build the model. (Its binding level — product vs unit of work — is settled by `/concept AO`; live-proof an agent works *in* it comes with AO2.)
 
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** `DONE — /concept AO0 locked (plans/AO/concept.md + research-substrate-vs-tool.md). Substrate = authored corpora only (code + doc_set); attached to an agent-within-a-team; connected via a Connection + resource selection; SoRs are AN tools.`
-- **Design:** `Required — a surface to attach/inspect/select an agent's substrate (a repo, a doc-set folder), via its Connection + resource; /design multi-variant + human review.`
+- **Concept:** `DONE — /concept AO0 locked (plans/AO/concept.md + research-filesystem-vs-tool.md). Filesystem = authored corpora only (code + doc_set); attached to an agent-within-a-team; connected via a Connection + resource selection; SoRs are AN tools.`
+- **Design:** `Required — a surface to attach/inspect/select an agent's filesystem (a repo, a doc-set folder), via its Connection + resource; /design multi-variant + human review.`
 
-**Human design review.** Yes — introduces a new user-facing way to attach a substrate to an agent within a team; its shape and placement are what's being decided.
+**Human design review.** Yes — introduces a new user-facing way to attach a filesystem to an agent within a team; its shape and placement are what's being decided.
 
 **Acceptance criteria.**
-- An agent within a team can be attached to a substrate, and afterward that attachment (its kind, resource, write-back capability, state) is visible.
-- A `code` substrate records its repository (Connection + repo + branch) with forge auth resolved from an existing **Connection** (Track AN), not re-modelled here.
-- The substrate model accommodates the `doc_set` authoring kind (a markdown/Obsidian folder), so the primitive is not code-only — **and systems of record (inbox/CRM/ticket) are categorically excluded** (those are AN tools, not substrates).
-- A substrate attachment is distinct from, and does not overwrite, the instance knowledge-export configuration or a knowledge item.
-- An unreachable/unauthenticated substrate surfaces as needing attention rather than failing silently.
+- An agent within a team can be attached to a filesystem, and afterward that attachment (its kind, resource, write-back capability, state) is visible.
+- A `code` filesystem records its repository (Connection + repo + branch) with forge auth resolved from an existing **Connection** (Track AN), not re-modelled here.
+- The filesystem model accommodates the `doc_set` authoring kind (a markdown/Obsidian folder), so the primitive is not code-only — **and systems of record (inbox/CRM/ticket) are categorically excluded** (those are AN tools, not filesystems).
+- A filesystem attachment is distinct from, and does not overwrite, the instance knowledge-export configuration or a knowledge item.
+- An unreachable/unauthenticated filesystem surfaces as needing attention rather than failing silently.
 
 **Validation scenarios.**
-- Given an agent in a team, when a founder attaches a `code` repository (Connection + repo + branch) as its substrate, then the repo + branch + write-back + state are shown.
-- Given a writing agent, when a `doc_set` folder substrate is attached, then a non-code substrate kind is recorded (proving generality without a sync engine).
-- Given a substrate whose forge Connection is missing, when it is viewed, then it is shown as needing attention.
+- Given an agent in a team, when a founder attaches a `code` repository (Connection + repo + branch) as its filesystem, then the repo + branch + write-back + state are shown.
+- Given a writing agent, when a `doc_set` folder filesystem is attached, then a non-code filesystem kind is recorded (proving generality without a sync engine).
+- Given a filesystem whose forge Connection is missing, when it is viewed, then it is shown as needing attention.
 
-**Plan calls.** Concept DONE (AO0). Then `/design` the attach/select surface (novel → human review). Standard `/architecture` modelling the substrate record + attachment + resource selection, forge auth via the AN Connection seam.
+**Plan calls.** Concept DONE (AO0). Then `/design` the attach/select surface (novel → human review). Standard `/architecture` modelling the filesystem record + attachment + resource selection, forge auth via the AN Connection seam.
 
-**Contracts / constraints.** Substrate (files) and Connection (auth/tools) are distinct and compose; the substrate references a Connection + resource, **no credential stored on the substrate record** — but the Connection's auth **is provisioned into the sandbox** so the agent works with it (no withholding). Local-first: a substrate functions with no forge. The substrate is an authored corpus only — not a system of record, not a knowledge item, not the knowledge-export target. Write-back rides the host (`git`/`file`); no custom sync engine. Forward-only migration.
+**Contracts / constraints.** Filesystem (files) and Connection (auth/tools) are distinct and compose; the filesystem references a Connection + resource, **no credential stored on the filesystem record** — but the Connection's auth **is provisioned into the sandbox** so the agent works with it (no withholding). Local-first: a filesystem functions with no forge. The filesystem is an authored corpus only — not a system of record, not a knowledge item, not the knowledge-export target. Write-back rides the host (`git`/`file`); no custom sync engine. Forward-only migration.
 
-**Out of scope.** Materializing the substrate into a sandbox (AO2). Review/land (AO3). Product scope itself (AO4). The forge auth mechanism (Track AN).
+**Out of scope.** Materializing the filesystem into a sandbox (AO2). Review/land (AO3). Product scope itself (AO4). The forge auth mechanism (Track AN).
 
 **Effort.** L (~5d)
 
 ---
 
-### AO2 — Materialize the substrate into the session sandbox
+### AO2 — Materialize the filesystem into the session sandbox
 
-**Workpackage.** As the system running a session, I want the unit of work's bound substrate placed into that session's sandbox — for code, the repository checked out at its branch — so that the harness can read, edit, build, and test real working files instead of an empty directory. The sandbox is already isolated per session, so this is a plain checkout into it, plus the tools to act on it.
+**Workpackage.** As the system running a session, I want the unit of work's bound filesystem placed into that session's sandbox — for code, the repository checked out at its branch — so that the harness can read, edit, build, and test real working files instead of an empty directory. The sandbox is already isolated per session, so this is a plain checkout into it, plus the tools to act on it.
 
-**Why this matters.** This is where an agent stops being a planner and becomes a builder. Today even with Claude Code detected (`fileEditing: true`), the sandbox holds only knowledge files — so an agent cannot produce a code change. With the substrate materialized, the build step becomes real for code and for file-based work generally. Cost of not building it: the build loop has no execute stage.
+**Why this matters.** This is where an agent stops being a planner and becomes a builder. Today even with Claude Code detected (`fileEditing: true`), the sandbox holds only knowledge files — so an agent cannot produce a code change. With the filesystem materialized, the build step becomes real for code and for file-based work generally. Cost of not building it: the build loop has no execute stage.
 
 **What exists today.** Session provisioning spawns a unique per-session sandbox (`spawn()` = `mkdir`; isolated leaf), then writes knowledge/context + `AGENTS.md`/`CLAUDE.md`. The harness runs with `cwd: sandboxPath`. `GitRunner` exists but is **export-only** — `init/add/commit/push`, no `clone`/`fetch`/`checkout`. No step places working files into the sandbox.
 
-**What's genuinely missing.** A provisioning step that materializes the bound substrate (AO1) into the session sandbox at its branch before the harness runs; inbound-git capability (clone/checkout) the runner lacks; a tool surface for the agent to act on the files (edit/build/test/commit); and a writeback path that captures the result.
+**What's genuinely missing.** A provisioning step that materializes the bound filesystem (AO1) into the session sandbox at its branch before the harness runs; inbound-git capability (clone/checkout) the runner lacks; a tool surface for the agent to act on the files (edit/build/test/commit); and a writeback path that captures the result.
 
-**Depends on.** AO1 — there must be a bound substrate to materialize.
+**Depends on.** AO1 — there must be a bound filesystem to materialize.
 
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** `Not required — consumes the AO1 Substrate noun and the existing Session/Sandbox primitives.`
+- **Concept:** `Not required — consumes the AO1 Filesystem noun and the existing Session/Sandbox primitives.`
 - **Design:** `Not required — sandbox/runtime provisioning; no rendered surface.`
 
 **Human design review.** No — backend provisioning mechanism.
 
 **Acceptance criteria.**
-- When a session starts for a unit of work with a code substrate, the sandbox contains that repository's working tree at its branch, and the agent can read, edit, and run its build/test commands.
+- When a session starts for a unit of work with a code filesystem, the sandbox contains that repository's working tree at its branch, and the agent can read, edit, and run its build/test commands.
 - The agent's changes to the working tree are captured (committed/written back) rather than lost when the sandbox is destroyed.
-- A session for a unit of work with no substrate still provisions and runs (no working tree), rather than failing.
+- A session for a unit of work with no filesystem still provisions and runs (no working tree), rather than failing.
 - The bound Connection's auth **is provisioned into the sandbox** so the agent's own `git`/`gh` tools fetch/push using it — agents work **with** their credentials (durable-auth→disposable-sandbox, PR #364). No credential withholding, no broker-only path.
 
 **Validation scenarios.**
-- Given a unit of work with a code substrate, when a session starts, then the sandbox holds the repo at its branch and the agent edits a file and runs the project's test command against it.
+- Given a unit of work with a code filesystem, when a session starts, then the sandbox holds the repo at its branch and the agent edits a file and runs the project's test command against it.
 - Given the agent made changes, when the session ends, then those changes are captured (not lost).
-- Given a substrate-less unit of work, when a session starts, then it provisions with no working tree and internal tools still work.
-- Given a code substrate with a forge Connection, when a session starts, then the agent can run a real authenticated `git fetch`/push against the repo using the provisioned auth.
+- Given a filesystem-less unit of work, when a session starts, then it provisions with no working tree and internal tools still work.
+- Given a code filesystem with a forge Connection, when a session starts, then the agent can run a real authenticated `git fetch`/push against the repo using the provisioned auth.
 
 **Plan calls.** Skip `/design`. Standard `/architecture` for the materialization step (checkout into the isolated sandbox — no shared worktrees), inbound-git capability, the agent's file/build/git tool surface, and writeback. **Live-proof:** a real session checks out a real repo, the agent edits + runs tests, and the change is captured — before `done`.
 
-**Contracts / constraints.** Plain checkout into the already-isolated per-session sandbox. The bound Connection's auth **is provisioned into the sandbox** (durable-auth→disposable-sandbox, PR #364) so the agent's own tools fetch/push with it — agents work **with** their credentials, like a real employee; **no withholding, no broker-only path** (the reverted-broker model is dead). A substrate-less session degrades to today's behavior. Materialization is driven by the agent's substrate attachment (AO1), never a global path.
+**Contracts / constraints.** Plain checkout into the already-isolated per-session sandbox. The bound Connection's auth **is provisioned into the sandbox** (durable-auth→disposable-sandbox, PR #364) so the agent's own tools fetch/push with it — agents work **with** their credentials, like a real employee; **no withholding, no broker-only path** (the reverted-broker model is dead). A filesystem-less session degrades to today's behavior. Materialization is driven by the agent's filesystem attachment (AO1), never a global path.
 
-**Out of scope.** Turning captured output into review/landing (AO3). Product scope (AO4). The substrate binding (AO1). Harness selection (Track AM).
+**Out of scope.** Turning captured output into review/landing (AO3). Product scope (AO4). The filesystem binding (AO1). Harness selection (Track AM).
 
 **Effort.** L (~5d)
 
@@ -119,7 +119,7 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 **What `/concept AO3` must re-check after AL7 ships.**
 - Does AL7 already generate review subjects from *agent output across kinds* (task/artifact/code), or only from the cases it shipped? If general, this WP closes with no new scope.
-- Does AL7's execute-on-approve cover **landing a substrate change** (push/PR/merge/publish via the connected target), or is a substrate-specific landing step still missing?
+- Does AL7's execute-on-approve cover **landing a filesystem change** (push/PR/merge/publish via the connected target), or is a filesystem-specific landing step still missing?
 - Is the fixture `GET /api/reviews` replaced by real generation as part of AL7, or still outstanding?
 - Only the residual that AL7 does **not** cover becomes the (re-scoped) AO3 WP — or this WP is closed as subsumed.
 
@@ -141,7 +141,7 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 **Contracts / constraints.** We review **outputs/results, not raw diffs** — render through the existing proof-family canvases. The agent never executes the landing; the system triggers the connected target. No duplication of AL7 — this WP only addresses what AL7 demonstrably does not.
 
-**Out of scope.** The review experience/surface (Track AL). The AL7 loop itself (dep). Materializing the substrate (AO2).
+**Out of scope.** The review experience/surface (Track AL). The AL7 loop itself (dep). Materializing the filesystem (AO2).
 
 **Effort.** TBD — re-size in `/concept AO3` after AL7.
 
@@ -149,19 +149,19 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 ### AO4 — Product as a first-class scope (multi-product) — DEFERRED
 
-**Status: DEFERRED (founder, 2026-06-26).** "Product" is **not modelled for now** — the build scope is the **Team**; multi-product = multi-team. The `/concept AO0` pass set the Product noun aside until the substrate keystone (AO1/AO2) exists. The residual reconciliation is also smaller than this WP assumes: `productId` was already removed by U1 (→ `teamId`), and `scopeId` already equals `teamId` (`scopeKind="product"`) — so the only live residual is the per-team isolation of promotion (the factory-wide `DISTINCT scopeId` leak at `promotion-pipeline.ts:207`). Re-scope or re-open this WP only after AO1/AO2 land. The text below is the original framing, retained for history.
+**Status: DEFERRED (founder, 2026-06-26).** "Product" is **not modelled for now** — the build scope is the **Team**; multi-product = multi-team. The `/concept AO0` pass set the Product noun aside until the filesystem keystone (AO1/AO2) exists. The residual reconciliation is also smaller than this WP assumes: `productId` was already removed by U1 (→ `teamId`), and `scopeId` already equals `teamId` (`scopeKind="product"`) — so the only live residual is the per-team isolation of promotion (the factory-wide `DISTINCT scopeId` leak at `promotion-pipeline.ts:207`). Re-scope or re-open this WP only after AO1/AO2 land. The text below is the original framing, retained for history.
 
-**Workpackage.** As a founder running HyperIdle and a couple of other apps on one instance, I want a **product** to be a first-class scope — the durable thing being built — that isolates each product's substrate, work, knowledge, connections, and cost, so that building one product can't leak into or collide with another. Today there is no such scope: work scopes by `teamId`, knowledge by a separate `productId` (never wired), git-export by `scopeId`, and connections by `userId`; knowledge promotion leaks across teams.
+**Workpackage.** As a founder running HyperIdle and a couple of other apps on one instance, I want a **product** to be a first-class scope — the durable thing being built — that isolates each product's filesystem, work, knowledge, connections, and cost, so that building one product can't leak into or collide with another. Today there is no such scope: work scopes by `teamId`, knowledge by a separate `productId` (never wired), git-export by `scopeId`, and connections by `userId`; knowledge promotion leaks across teams.
 
 **Founder framing (2026-06-25) — kept deliberately loose.** "Project" is rejected — projects are time-bound and end. The scope is **product**: durable, the thing being built. **How a product couples to a team is an open question to explore in `/concept AO`, not a decision to pre-resolve here** — it may be 1:1, a team may build several products, or a product may span teams; the right coupling is exactly what the concept pass must work out (alongside reconciling the three disjoint scope keys onto product). Treat the cardinality below as illustrative, not fixed.
 
 **Why this matters.** This is the entire "AND a set of other apps" half of the core task. Today concurrent products contaminate each other: promotion auto-validates one team's principles for all (promotion-pipeline.ts:207, no team filter), and there is no per-product budget, credential, repo, or UI context — so a team must run a separate instance per product. Cost of not building it: multi-product is a trap that appears to work until two builds interfere.
 
-**What exists today.** The bet→task→session spine is `teamId`-scoped and N-team-capable at the route/DB level — a real foundation. But `teams` has no owner FK or substrate binding; the three scope keys (`teamId`/`productId`/`scopeId`) are disjoint and unreconciled; promotion counts `DISTINCT scopeId` factory-wide; connections are `userId`-only; cost caps are per-agent/factory; the AppShell has no product context or picker and every call hits global `/api/teams`. (Vestigial "Nimmly" demo data persists in pre-AF17 *local* DBs only; source is guarded clean.)
+**What exists today.** The bet→task→session spine is `teamId`-scoped and N-team-capable at the route/DB level — a real foundation. But `teams` has no owner FK or filesystem binding; the three scope keys (`teamId`/`productId`/`scopeId`) are disjoint and unreconciled; promotion counts `DISTINCT scopeId` factory-wide; connections are `userId`-only; cost caps are per-agent/factory; the AppShell has no product context or picker and every call hits global `/api/teams`. (Vestigial "Nimmly" demo data persists in pre-AF17 *local* DBs only; source is guarded clean.)
 
-**What's genuinely missing.** A first-class **product** scope threaded through substrate, work, knowledge (product-scoped promotion + wired context filtering), connections, cost, and the UI shell (a product picker / namespaced calls) — reconciling the three disjoint scope keys onto product, and defining product↔team (not 1:1).
+**What's genuinely missing.** A first-class **product** scope threaded through filesystem, work, knowledge (product-scoped promotion + wired context filtering), connections, cost, and the UI shell (a product picker / namespaced calls) — reconciling the three disjoint scope keys onto product, and defining product↔team (not 1:1).
 
-**Depends on.** AO1 — a product owns its substrate; the substrate model must exist to isolate it per product.
+**Depends on.** AO1 — a product owns its filesystem; the filesystem model must exist to isolate it per product.
 
 **Complexity.** L
 
@@ -172,21 +172,21 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 **Human design review.** Yes — introduces a top-level product context/switcher in the shell; a load-bearing IA change.
 
 **Acceptance criteria.**
-- An instance can host multiple products, each with its own substrate, work, knowledge scope, connections, and cost budget, and a founder can tell which product they are operating in and switch.
+- An instance can host multiple products, each with its own filesystem, work, knowledge scope, connections, and cost budget, and a founder can tell which product they are operating in and switch.
 - Knowledge promotion and context for one product do not validate or inject into another's (no cross-product leak).
 - A connection and a cost budget can be scoped to a product, so one product's spend or credentials are not another's.
-- Concurrent work across two products operates on disjoint substrates/sandboxes and neither can read the other's.
+- Concurrent work across two products operates on disjoint filesystems/sandboxes and neither can read the other's.
 - The product↔team coupling decided in `/concept AO` is implemented and made explicit (whatever cardinality that exploration settles on).
 
 **Validation scenarios.**
-- Given two products, when each runs work, then each product's substrate/work/sessions are isolated and a founder can switch context between them.
+- Given two products, when each runs work, then each product's filesystem/work/sessions are isolated and a founder can switch context between them.
 - Given two products, when one accumulates a repeated knowledge finding, then it is promoted only within that product (the other is unaffected).
 - Given per-product cost budgets, when one product hits its cap, then the other is unaffected.
 
-**Plan calls.** `/concept AO` (product + substrate; reconcile the three scope keys; **explore the product↔team coupling**). `/design` the product context/switcher + per-product surfaces (novel → human review). Standard `/architecture` to thread the product scope through substrate, work, knowledge promotion/context, connections, cost, and the API namespace. Purge any vestigial demo data from local DBs as part of this.
+**Plan calls.** `/concept AO` (product + filesystem; reconcile the three scope keys; **explore the product↔team coupling**). `/design` the product context/switcher + per-product surfaces (novel → human review). Standard `/architecture` to thread the product scope through filesystem, work, knowledge promotion/context, connections, cost, and the API namespace. Purge any vestigial demo data from local DBs as part of this.
 
-**Contracts / constraints.** One load-bearing **product** identifier; the three legacy scope keys reconcile onto it (no new fourth key). "Product" is durable (not the time-bound "project"). Promotion + knowledge context are product-scoped — no cross-product validation/injection. Per-product isolation of substrate, connections, and cost. Forward-only migration; back-compatible single-product default.
+**Contracts / constraints.** One load-bearing **product** identifier; the three legacy scope keys reconcile onto it (no new fourth key). "Product" is durable (not the time-bound "project"). Promotion + knowledge context are product-scoped — no cross-product validation/injection. Per-product isolation of filesystem, connections, and cost. Forward-only migration; back-compatible single-product default.
 
-**Out of scope.** The substrate model (AO1) and materialization (AO2). Review/land (AO3). Outbound connectivity (Track AN). Multi-node/horizontal scale.
+**Out of scope.** The filesystem model (AO1) and materialization (AO2). Review/land (AO3). Outbound connectivity (Track AN). Multi-node/horizontal scale.
 
 **Effort.** L (~6d)

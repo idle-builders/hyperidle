@@ -39,8 +39,8 @@ What teams don't do is dissolve at ship. A shipped bet means the team is *betwee
 
 Only when the product dissolves. Killing a product is a deliberate founder decision (made through the assistant's thread, ratified through Conversations), and dissolving the team is part of the kill ritual. The team's accumulated knowledge is archived into the Practice layer (so the practice keeps the lessons even when the product is gone) and then the team is dissolved.
 
-### 4.5 Substrates attach here (Track AO)
+### 4.5 Filesystems attach here (Track AO)
 
-An agent within a team can have a **substrate** attached — the durable working files its output lives in (a git repo for code, a document set for non-code), team-scoped. See [Substrate primitive](./substrate-primitive.md). Implementation: **Track AO** (AO1 model + attach surface, AO2 materialization).
+An agent within a team can have a **filesystem** attached — the durable working files its output lives in (a git repo for code, a document set for non-code), team-scoped. See [Filesystem primitive](./filesystem-primitive.md). Implementation: **Track AO** (AO1 model + attach surface, AO2 materialization).
 
 ---
