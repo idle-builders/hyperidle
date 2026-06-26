@@ -210,6 +210,25 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(res.status).toBe(404);
 		});
 
+		// M2: teamId absent (no matching teams row) → 404 (FK violation caught at insert)
+		// This exercises the catch-based FK guard in filesystems.ts (the ONLY real enforcement path).
+		test("POST with non-existent teamId → 404 NOT_FOUND", async ({ app }) => {
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId: "team-does-not-exist-ao1",
+					kind: "code",
+					connectionId: null,
+					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
+					writeback: "git",
+				}),
+			});
+			expect(res.status).toBe(404);
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.code).toBe("NOT_FOUND");
+		});
+
 		test("registered filesystem row carries NO credential column", async ({ db, app }) => {
 			const { teamId } = await seedTeamAndBots(db, "ac1e");
 

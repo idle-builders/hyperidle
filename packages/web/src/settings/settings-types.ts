@@ -21,6 +21,7 @@ export type SettingsSectionId =
 	| "appearance"
 	| "models"
 	| "agents"
+	| "filesystems"
 	| "backend"
 	| "worker"; // X3/AF15: worker and agent configuration sections
 
@@ -49,6 +50,8 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "orgchart", label: "Org chart" },
 	{ id: "models", label: "Models" },
 	{ id: "agents", label: "Agents" },
+	// AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
+	{ id: "filesystems", label: "Filesystems" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },

@@ -59,13 +59,9 @@ const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (resourceRef is tin
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
 function rowToFilesystem(row: FilesystemRow): Filesystem {
-	let resourceRef: Filesystem["resourceRef"];
-	try {
-		resourceRef = JSON.parse(row.resourceRef) as Filesystem["resourceRef"];
-	} catch {
-		// Malformed JSON — return a safe fallback so inspect never 500s.
-		resourceRef = { kind: "code", repo: "", branch: "" };
-	}
+	// resourceRef is always valid JSON — it is only written via JSON.stringify(validatedBody.resourceRef).
+	// Letting parse throw here is correct: a corrupt row is a real error, not a silent code-repo fake.
+	const resourceRef = JSON.parse(row.resourceRef) as Filesystem["resourceRef"];
 
 	return {
 		id: row.id,
@@ -121,24 +117,9 @@ export function createFilesystemRoutes(
 		async (c) => {
 			const body = c.req.valid("json");
 
-			// Verify teamId exists (FK guard before insert)
-			const team = await db
-				.select({ id: teamMembers.teamId })
-				.from(teamMembers)
-				.where(eq(teamMembers.teamId, body.teamId))
-				.limit(1);
-			if (team.length === 0) {
-				// teams table directly
-				const teamRow = await db
-					.select({ id: filesystems.teamId })
-					.from(filesystems)
-					.where(eq(filesystems.teamId, body.teamId))
-					.limit(0);
-				// Check teams table existence via a simpler query
-				void teamRow;
-			}
-
 			// Derive source from the Connection (via resolver) or fallback.
+			// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
+			// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
 			const connectionId = body.connectionId ?? null;
 			let source: string;
 			if (connectionId == null) {

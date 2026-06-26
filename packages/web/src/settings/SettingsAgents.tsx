@@ -225,6 +225,8 @@ export function SettingsAgents(): JSX.Element {
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editValues, setEditValues] = useState<EditFormValues | null>(null);
+	// AO1: snapshot of filesystemIds at edit-open time, used to compute add/remove diff on save.
+	const [editOriginalFsIds, setEditOriginalFsIds] = useState<string[]>([]);
 	const [editError, setEditError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [addMode, setAddMode] = useState(false);
@@ -309,6 +311,7 @@ export function SettingsAgents(): JSX.Element {
 			if (e.key === "Escape") {
 				setEditingId(null);
 				setEditValues(null);
+				setEditOriginalFsIds([]);
 				setEditError(null);
 				setAddMode(false);
 			}
@@ -342,16 +345,37 @@ export function SettingsAgents(): JSX.Element {
 		}
 	}, []);
 
-	const handleEditOpen = useCallback((agent: AgentConfig): void => {
+	const handleEditOpen = useCallback(async (agent: AgentConfig): Promise<void> => {
 		setEditingId(agent.id);
-		setEditValues(agentToEditValues(agent));
 		setEditError(null);
 		setAddMode(false);
+
+		// AO1: fetch the agent's currently-injected filesystems from the real injection route
+		// so the round-trip reflects persisted state, not stale form state.
+		// GET /api/filesystems?agentUserId= returns the bot's injected set.
+		let injectedIds: string[] = [];
+		try {
+			const injRes = await apiFetch(`/api/filesystems?agentUserId=${encodeURIComponent(agent.id)}`);
+			if (injRes.ok) {
+				const injJson = (await injRes.json()) as {
+					filesystems?: Array<{ id: string }>;
+				};
+				if (Array.isArray(injJson.filesystems)) {
+					injectedIds = injJson.filesystems.map((f) => f.id);
+				}
+			}
+		} catch {
+			// Non-fatal: fall back to empty list
+		}
+
+		setEditOriginalFsIds(injectedIds);
+		setEditValues({ ...agentToEditValues(agent), filesystemIds: injectedIds });
 	}, []);
 
 	const handleEditCancel = useCallback((): void => {
 		setEditingId(null);
 		setEditValues(null);
+		setEditOriginalFsIds([]);
 		setEditError(null);
 	}, []);
 
@@ -360,6 +384,8 @@ export function SettingsAgents(): JSX.Element {
 		setSaving(true);
 		setEditError(null);
 		try {
+			// PATCH the agent (agent config fields only — filesystemIds handled separately below).
+			// AO1: /api/agents does NOT handle filesystemIds; injection is via /api/filesystems/:id/injections.
 			const res = await apiFetch(`/api/agents/${encodeURIComponent(editingId)}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
@@ -370,7 +396,6 @@ export function SettingsAgents(): JSX.Element {
 					harnessType: editValues.harnessType || null,
 					modelId: editValues.modelId || null,
 					maxConcurrentSessions: editValues.maxConcurrentSessions,
-					filesystemIds: editValues.filesystemIds,
 				}),
 			});
 
@@ -386,21 +411,47 @@ export function SettingsAgents(): JSX.Element {
 			}
 
 			const updated = (await res.json()) as AgentConfig;
+
+			// AO1: persist filesystem injection changes via the real injection routes.
+			// Diff: added = in new list but not original; removed = in original but not new list.
+			const newIds = new Set(editValues.filesystemIds);
+			const origIds = new Set(editOriginalFsIds);
+			const toAdd = editValues.filesystemIds.filter((id) => !origIds.has(id));
+			const toRemove = editOriginalFsIds.filter((id) => !newIds.has(id));
+
+			await Promise.all([
+				...toAdd.map((fsId) =>
+					apiFetch(`/api/filesystems/${encodeURIComponent(fsId)}/injections`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ agentUserId: editingId }),
+					}),
+				),
+				...toRemove.map((fsId) =>
+					apiFetch(
+						`/api/filesystems/${encodeURIComponent(fsId)}/injections/${encodeURIComponent(editingId)}`,
+						{ method: "DELETE" },
+					),
+				),
+			]);
+
 			setAgents((prev) => prev.map((a) => (a.id === editingId ? updated : a)));
 			setEditingId(null);
 			setEditValues(null);
+			setEditOriginalFsIds([]);
 			showToast("Agent saved");
 		} catch {
 			showToast("Failed to save agent");
 		} finally {
 			setSaving(false);
 		}
-	}, [editingId, editValues, showToast]);
+	}, [editingId, editValues, editOriginalFsIds, showToast]);
 
 	const handleAddSave = useCallback(async (): Promise<void> => {
 		setAdding(true);
 		setAddError(null);
 		try {
+			// AO1: POST agent without filesystemIds — injection is handled separately below.
 			const res = await apiFetch("/api/agents", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -411,7 +462,6 @@ export function SettingsAgents(): JSX.Element {
 					harnessType: addValues.harnessType || null,
 					modelId: addValues.modelId || null,
 					maxConcurrentSessions: addValues.maxConcurrentSessions,
-					filesystemIds: addValues.filesystemIds,
 					// AH4: include selected teamId (teamMembers.id); null = explicit unassigned
 					teamId: addTeamId,
 				}),
@@ -429,6 +479,21 @@ export function SettingsAgents(): JSX.Element {
 			}
 
 			const created = (await res.json()) as AgentConfig;
+
+			// AO1: inject all selected filesystems into the newly-created agent.
+			// POST /api/filesystems/:id/injections — one call per selected filesystem.
+			if (addValues.filesystemIds.length > 0) {
+				await Promise.all(
+					addValues.filesystemIds.map((fsId) =>
+						apiFetch(`/api/filesystems/${encodeURIComponent(fsId)}/injections`, {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ agentUserId: created.id }),
+						}),
+					),
+				);
+			}
+
 			setAgents((prev) => [...prev, created]);
 			setAddMode(false);
 			setAddValues({
@@ -719,7 +784,7 @@ export function SettingsAgents(): JSX.Element {
 													<Button
 														variant="ghost"
 														size="sm"
-														onClick={() => handleEditOpen(agent)}
+														onClick={() => void handleEditOpen(agent)}
 														aria-label={`Edit ${agent.name}`}
 													>
 														Edit
