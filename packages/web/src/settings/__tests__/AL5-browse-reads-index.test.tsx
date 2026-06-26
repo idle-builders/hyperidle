@@ -76,15 +76,11 @@ const STRIPE_MANIFEST: SurfaceManifest = {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function setupFetch(
-	manifests: SurfaceManifest[],
-	adoptions: unknown[] = [],
-): void {
+function setupFetch(manifests: SurfaceManifest[], adoptions: unknown[] = []): void {
 	vi.stubGlobal(
 		"fetch",
 		vi.fn().mockImplementation((input: string | URL | Request) => {
-			const url =
-				typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+			const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 			if (url.includes("/api/surface-registry")) {
 				return Promise.resolve({
 					ok: true,

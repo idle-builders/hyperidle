@@ -21,9 +21,9 @@ import { describe, expect, it, vi } from "vitest";
 
 // These imports will FAIL until the modules are implemented (RED phase).
 import {
+	loadRegistryIndex,
 	OFFICIAL_REGISTRY_INDEX,
 	type RegistryIndex,
-	loadRegistryIndex,
 } from "../registry-index.js";
 
 // ── AC1: Official index is a valid RegistryIndex with the Stripe surface ─────
@@ -101,14 +101,9 @@ describe("AL5 registry-index — loadRegistryIndex(url)", () => {
 	});
 
 	it("throws when the URL is unreachable (fetch fails)", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockRejectedValue(new Error("Network error")),
-		);
+		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
 
-		await expect(
-			loadRegistryIndex("https://unreachable.invalid/registry.json"),
-		).rejects.toThrow();
+		await expect(loadRegistryIndex("https://unreachable.invalid/registry.json")).rejects.toThrow();
 
 		vi.unstubAllGlobals();
 	});
@@ -123,9 +118,7 @@ describe("AL5 registry-index — loadRegistryIndex(url)", () => {
 			}),
 		);
 
-		await expect(
-			loadRegistryIndex("https://example.com/not-found.json"),
-		).rejects.toThrow();
+		await expect(loadRegistryIndex("https://example.com/not-found.json")).rejects.toThrow();
 
 		vi.unstubAllGlobals();
 	});
@@ -140,9 +133,7 @@ describe("AL5 registry-index — loadRegistryIndex(url)", () => {
 			}),
 		);
 
-		await expect(
-			loadRegistryIndex("https://example.com/bad-index.json"),
-		).rejects.toThrow();
+		await expect(loadRegistryIndex("https://example.com/bad-index.json")).rejects.toThrow();
 
 		vi.unstubAllGlobals();
 	});

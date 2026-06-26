@@ -20,11 +20,7 @@
 import { describe, expect, it } from "vitest";
 
 // These imports will FAIL until the modules are implemented (RED phase).
-import {
-	type AddSource,
-	type InstallResult,
-	parseAddSource,
-} from "../add-install.js";
+import { type AddSource, type InstallResult, parseAddSource } from "../add-install.js";
 
 // ── AC3: parseAddSource — resolves source form ────────────────────────────────
 
@@ -51,9 +47,7 @@ describe("AL5 add-install — parseAddSource()", () => {
 
 	describe("GitHub source form", () => {
 		it("parses 'github:owner/repo/item' as type='github'", () => {
-			const result: AddSource = parseAddSource(
-				"github:acme-org/hyperidle-surfaces/stripe-review",
-			);
+			const result: AddSource = parseAddSource("github:acme-org/hyperidle-surfaces/stripe-review");
 			expect(result.type).toBe("github");
 			if (result.type !== "github") throw new Error("narrowing");
 			expect(result.owner).toBe("acme-org");
@@ -137,10 +131,7 @@ describe("AL5 add-install — installSurface() file-copy proof", () => {
 				sampleFixture: "test-fixture",
 				files: ["registry-item.json", "TestSurface.tsx"],
 			};
-			await fs.writeFile(
-				path.join(sourceDir, "registry-item.json"),
-				JSON.stringify(manifest),
-			);
+			await fs.writeFile(path.join(sourceDir, "registry-item.json"), JSON.stringify(manifest));
 			await fs.writeFile(
 				path.join(sourceDir, "TestSurface.tsx"),
 				"export const TestSurface = () => null;",

@@ -78,15 +78,11 @@ const COMMUNITY_INDEX: CommunityRegistryIndex = {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function setupFetch(
-	installedManifests: SurfaceManifest[],
-	adoptions: unknown[] = [],
-): void {
+function setupFetch(installedManifests: SurfaceManifest[], adoptions: unknown[] = []): void {
 	vi.stubGlobal(
 		"fetch",
 		vi.fn().mockImplementation((input: string | URL | Request) => {
-			const url =
-				typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+			const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 			if (url.includes("/api/surface-registry")) {
 				// Only installed (built-in) surfaces are in the server registry.
 				return Promise.resolve({
@@ -169,14 +165,11 @@ describe("AL5 community index — pointing browse at a URL lists its surfaces (A
 
 		// Find and interact with the add-registry control.
 		const addRegistryInput =
-			screen.queryByPlaceholderText(/registry.*url/i) ??
-			screen.queryByLabelText(/registry.*url/i);
+			screen.queryByPlaceholderText(/registry.*url/i) ?? screen.queryByLabelText(/registry.*url/i);
 
 		if (!addRegistryInput) {
 			// If no input found yet, the UI is not wired — test must fail.
-			throw new Error(
-				"No registry URL input found — community index wiring is not implemented",
-			);
+			throw new Error("No registry URL input found — community index wiring is not implemented");
 		}
 
 		await userEvent.type(addRegistryInput, COMMUNITY_INDEX.url);
@@ -245,8 +238,7 @@ describe("AL5 community index — uninstalled surface shows install-affordance (
 		// The test looks for the "Install" affordance on the community surface.
 		// Until the flow is implemented, this assertion will fail.
 		const addRegistryInput =
-			screen.queryByPlaceholderText(/registry.*url/i) ??
-			screen.queryByLabelText(/registry.*url/i);
+			screen.queryByPlaceholderText(/registry.*url/i) ?? screen.queryByLabelText(/registry.*url/i);
 
 		if (!addRegistryInput) {
 			throw new Error(
@@ -264,9 +256,7 @@ describe("AL5 community index — uninstalled surface shows install-affordance (
 		});
 
 		// The community surface should NOT have an "Adopt…" button (not installed yet).
-		expect(
-			screen.queryByRole("button", { name: /adopt acme figma review/i }),
-		).toBeNull();
+		expect(screen.queryByRole("button", { name: /adopt acme figma review/i })).toBeNull();
 
 		// It SHOULD have an install affordance (e.g. "Install" button or copy-command).
 		const installEl =

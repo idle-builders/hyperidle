@@ -32,6 +32,7 @@ import {
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { AdoptionView, CommunityRegistryIndex, SurfaceManifest } from "@hyperidle/shared";
+import { loadRegistryIndex } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { slotPermission } from "../pages/review/slot-policy.js";
@@ -190,6 +191,8 @@ interface BrowseDialogProps {
 	open: boolean;
 	onClose: () => void;
 	manifests: SurfaceManifest[];
+	/** Community surfaces loaded from a remote index but NOT yet installed in the build. */
+	communityOnlySurfaces: SurfaceManifest[];
 	/** Optionally pre-selected manifest (from Available row "Adopt…"). */
 	preSelected?: SurfaceManifest;
 	onAdopted: () => void;
@@ -202,6 +205,7 @@ function BrowseDialog({
 	open,
 	onClose,
 	manifests,
+	communityOnlySurfaces,
 	preSelected,
 	onAdopted,
 	teamId,
@@ -219,11 +223,6 @@ function BrowseDialog({
 			setError(null);
 		}
 	}, [open, preSelected]);
-
-	// @lore AL5: CommunityRegistryIndex is the §3.2 seam for "add a registry URL" —
-	// knip guard requires this type be imported by a real importer in B5.
-	// The addRegistryUrl state is the read path that consumes the type.
-	const [_communityRegistries] = useState<CommunityRegistryIndex[]>([]);
 
 	const handleAdopt = useCallback(async () => {
 		if (!selected) return;
@@ -329,6 +328,41 @@ function BrowseDialog({
 							/>
 						))}
 					</ItemList>
+
+					{/* Community-only surfaces (not yet installed in the build) */}
+					{communityOnlySurfaces.length > 0 && (
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+								Community (not installed)
+							</span>
+							<ItemList variant="contained" isEmpty={false}>
+								{communityOnlySurfaces.map((m) => (
+									<Row
+										key={m.id}
+										lead={
+											<span className="inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-[600] text-[var(--text-secondary)]">
+												{m.id.slice(0, 2)}
+											</span>
+										}
+										title={m.title}
+										subtitle={
+											<span className="text-[var(--text-tertiary)]">
+												wraps {m.baseCanvas} · {m.provenance}
+											</span>
+										}
+										actions={
+											<span className="text-[12px] text-[var(--text-tertiary)]">
+												Install via{" "}
+												<code className="rounded bg-[var(--surface-container)] px-[6px] py-[3px] font-mono text-[11px]">
+													add {m.id}
+												</code>
+											</span>
+										}
+									/>
+								))}
+							</ItemList>
+						</div>
+					)}
 				</div>
 				{/* Right — preview / manifest detail */}
 				<div className="flex w-[300px] shrink-0 flex-col gap-[12px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] p-[18px]">
@@ -413,6 +447,40 @@ export function SettingsReviewSurfaces(): JSX.Element {
 	const [resetError, setResetError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [preSelected, setPreSelected] = useState<SurfaceManifest | undefined>(undefined);
+
+	// @lore AL5 AC4: Community registry wiring — replaces the dead _communityRegistries stub.
+	// User types a registry URL; we fetch via loadRegistryIndex + list uninstalled surfaces.
+	// Uninstalled surfaces show "Install via `add <id>`" not "Adopt…" (build-time action).
+	const [communityRegistries, setCommunityRegistries] = useState<CommunityRegistryIndex[]>([]);
+	const [registryUrlInput, setRegistryUrlInput] = useState("");
+	const [registryUrlLoading, setRegistryUrlLoading] = useState(false);
+	const [registryUrlError, setRegistryUrlError] = useState<string | null>(null);
+
+	const handleAddRegistry = useCallback(async () => {
+		const url = registryUrlInput.trim();
+		if (!url) return;
+		setRegistryUrlLoading(true);
+		setRegistryUrlError(null);
+		try {
+			const index = await loadRegistryIndex(url);
+			const entry: CommunityRegistryIndex = { url, manifests: index.surfaces };
+			setCommunityRegistries((prev) => {
+				if (prev.some((r) => r.url === url)) return prev;
+				return [...prev, entry];
+			});
+			setRegistryUrlInput("");
+		} catch {
+			setRegistryUrlError("Couldn't load registry — check the URL and try again.");
+		} finally {
+			setRegistryUrlLoading(false);
+		}
+	}, [registryUrlInput]);
+
+	// Community surfaces from loaded indexes that are NOT in the server registry.
+	const installedRegistryIds = new Set(manifests.map((m) => m.id));
+	const communityOnlySurfaces: SurfaceManifest[] = communityRegistries.flatMap((r) =>
+		r.manifests.filter((m) => !installedRegistryIds.has(m.id)),
+	);
 
 	const loadData = useCallback(async () => {
 		// Skip if teamId not yet available — avoid 400 spam; re-runs when teamId loads.
@@ -549,6 +617,92 @@ export function SettingsReviewSurfaces(): JSX.Element {
 							))}
 						</ItemList>
 					</section>
+
+					{/* Community surfaces (loaded from an external index, not yet installed in build) */}
+					{communityOnlySurfaces.length > 0 && (
+						<section className="flex flex-col gap-[9px]">
+							<div className="flex flex-col gap-[3px]">
+								<SectionLabel label="Community (not installed)" />
+								<p className="text-[12px] text-[var(--text-tertiary)]">
+									Surfaces from community registries. Run{" "}
+									<code className="rounded bg-[var(--surface-container)] px-[6px] py-[3px] font-mono text-[11px]">
+										npm run surface:add
+									</code>{" "}
+									to install one into your build.
+								</p>
+							</div>
+							<ItemList variant="contained" isEmpty={false}>
+								{communityOnlySurfaces.map((m) => (
+									<Row
+										key={m.id}
+										lead={
+											<span className="inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[12px] font-[600] text-[var(--text-secondary)]">
+												{m.id.slice(0, 2)}
+											</span>
+										}
+										title={m.title}
+										subtitle={
+											<span className="text-[var(--text-tertiary)]">
+												wraps {m.baseCanvas} · {m.provenance}
+											</span>
+										}
+										actions={
+											<span className="text-[12px] text-[var(--text-tertiary)]">
+												Install via{" "}
+												<code className="rounded bg-[var(--surface-container)] px-[6px] py-[3px] font-mono text-[11px]">
+													add {m.id}
+												</code>
+											</span>
+										}
+									/>
+								))}
+							</ItemList>
+						</section>
+					)}
+
+					{/* Add a community registry by URL */}
+					<section className="flex flex-col gap-[9px]">
+						<div className="flex flex-col gap-[3px]">
+							<SectionLabel label="Add registry" />
+							<p className="text-[12px] text-[var(--text-tertiary)]">
+								Load surfaces from a community registry by URL. Uninstalled surfaces show an install
+								command — they become adoptable after{" "}
+								<code className="rounded bg-[var(--surface-container)] px-[6px] py-[3px] font-mono text-[11px]">
+									npm run surface:add
+								</code>
+								.
+							</p>
+						</div>
+						<div className="flex gap-[6px]">
+							<input
+								id="registry-url-input"
+								type="url"
+								placeholder="Registry URL (https://…)"
+								value={registryUrlInput}
+								onChange={(e) => setRegistryUrlInput(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") void handleAddRegistry();
+								}}
+								className="min-w-0 flex-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-forest)]"
+								disabled={registryUrlLoading}
+								aria-label="Add registry URL"
+							/>
+							<Button
+								variant="secondary"
+								size="sm"
+								onClick={() => void handleAddRegistry()}
+								disabled={registryUrlLoading || !registryUrlInput.trim()}
+								aria-label="Add registry"
+							>
+								{registryUrlLoading ? "Loading…" : "Add registry"}
+							</Button>
+						</div>
+						{registryUrlError ? (
+							<p className="text-[12px] text-[var(--status-error)]" role="alert">
+								{registryUrlError}
+							</p>
+						) : null}
+					</section>
 				</>
 			)}
 
@@ -565,6 +719,7 @@ export function SettingsReviewSurfaces(): JSX.Element {
 					setPreSelected(undefined);
 				}}
 				manifests={manifests}
+				communityOnlySurfaces={communityOnlySurfaces}
 				preSelected={preSelected}
 				onAdopted={() => {
 					void loadData();
