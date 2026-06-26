@@ -11,27 +11,69 @@
  *   /absolute/path/to/surface                             (local path)
  *   ./relative/path/to/surface                            (local relative)
  *
- * The command copies the surface's source files into
- *   surfaces/<surfaceId>/
- * relative to the repo root. The human then reviews, commits, and rebuilds.
+ * The command:
+ *   1. Copies the surface's source files into
+ *        packages/web/src/pages/review/surfaces/<surfaceId>/
+ *      — the directory the app resolves surfaces from.
+ *   2. Generates a register.ts in that directory that calls registerSurface()
+ *      so the surface is wired into the registry at module-load time after rebuild.
+ *   3. Appends an import line to surface-registry.generated.ts so surface-registry.ts
+ *      picks it up automatically.
+ *   4. Appends the manifest to FIRST_PARTY_SURFACE_MANIFESTS in shared so the
+ *      server registry accepts adoption POSTs for this surface (POST 201).
+ *
+ * The human reviews all generated/modified files, commits, and rebuilds.
  *
  * This is a BUILD-TIME action — no runtime eval of fetched code.
- * The copied files are plain TypeScript/JSON; the human reviews before commit.
+ *
+ * @lore AL5 INSTALL-LOOP: Previously `add` installed into repo-root `surfaces/`
+ * (nothing built/resolved from there) and never registered the surface, so
+ * getSurfaceEntry returned undefined and adoption POST 400'd. Now:
+ *   - Target dir = packages/web/src/pages/review/surfaces/<id>/ (app resolves from here)
+ *   - Registration = generated register.ts calls registerSurface() on import
+ *   - Index = surface-registry.generated.ts imports all register.ts files
+ *   - Server = FIRST_PARTY_SURFACE_MANIFESTS in shared updated so POST 201s
  *
  * @lore AL5 ETHOS (code-not-config): `add` writes files to disk for a human
  * to review + commit + rebuild. It never eval()s or dynamically loads fetched code.
- * Security is minimal hygiene: write only into surfaces/, validate manifest shape.
+ * Security: sanitize manifest id (basename) + sanitize file paths (strip ../).
  */
 
-import { mkdir } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { installSurface, parseAddSource } from "../packages/shared/src/add-install.js";
+import {
+	generateRegistrationFile,
+	installSurface,
+	parseAddSource,
+	updateRegistryGeneratedIndex,
+} from "../packages/shared/src/add-install.js";
 
 // Repo root = dirname of this script's parent.
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = join(__filename, "..", "..");
-const DEFAULT_SURFACES_DIR = join(repoRoot, "surfaces");
+
+// Target dir: the directory the app actually resolves surfaces from.
+// @lore AL5 INSTALL-LOOP: Previously "surfaces/" (repo root) — nothing imported
+// from there. Now the web package's surfaces directory.
+const DEFAULT_SURFACES_DIR = join(
+	repoRoot,
+	"packages",
+	"web",
+	"src",
+	"pages",
+	"review",
+	"surfaces",
+);
+
+// Shared review-surface.ts — FIRST_PARTY_SURFACE_MANIFESTS lives here.
+const SHARED_REVIEW_SURFACE_PATH = join(
+	repoRoot,
+	"packages",
+	"shared",
+	"src",
+	"review-surface.ts",
+);
 
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
@@ -41,7 +83,8 @@ async function main(): Promise<void> {
 			[
 				"Usage: npm run surface:add -- <source>",
 				"",
-				"Installs a surface into surfaces/<surfaceId>/ for review + commit.",
+				"Installs a surface into packages/web/src/pages/review/surfaces/<surfaceId>/",
+				"and wires it into the registry for review + commit + rebuild.",
 				"",
 				"Source forms:",
 				"  https://example.com/surfaces/foo/registry-item.json",
@@ -49,7 +92,8 @@ async function main(): Promise<void> {
 				"  /absolute/path/to/surface",
 				"  ./relative/path",
 				"",
-				"After install: review the files, commit, and rebuild (npm run build).",
+				"After install: review the changed files, commit, and rebuild (npm run build).",
+				"After rebuild: the surface appears in Settings › Review surfaces and can be adopted.",
 				"",
 			].join("\n"),
 		);
@@ -72,9 +116,6 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// Ensure the surfaces dir exists.
-	await mkdir(DEFAULT_SURFACES_DIR, { recursive: true });
-
 	process.stdout.write(`Installing surface from ${source.type} source…\n`);
 
 	let result: Awaited<ReturnType<typeof installSurface>>;
@@ -87,19 +128,141 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
+	process.stdout.write(`Installed surface files: ${result.installedPath}\n`);
+
+	// ── Step 2: Read the installed manifest for codegen ────────────────────────
+	let manifest: Record<string, unknown>;
+	try {
+		const raw = await readFile(
+			join(result.installedPath, "registry-item.json"),
+			"utf-8",
+		);
+		manifest = JSON.parse(raw) as Record<string, unknown>;
+	} catch (err) {
+		process.stderr.write(
+			`Warning: could not read installed registry-item.json for codegen — ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+		manifest = { id: result.surfaceId, title: result.surfaceId };
+	}
+
+	// ── Step 3: Generate register.ts in the installed surface dir ──────────────
+	try {
+		const registerPath = await generateRegistrationFile({
+			manifest: manifest as Parameters<typeof generateRegistrationFile>[0]["manifest"],
+			installedPath: result.installedPath,
+		});
+		process.stdout.write(`Generated registration file: ${registerPath}\n`);
+	} catch (err) {
+		process.stderr.write(
+			`Warning: could not generate register.ts — ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+	}
+
+	// ── Step 4: Append to surface-registry.generated.ts ───────────────────────
+	try {
+		await updateRegistryGeneratedIndex({
+			surfacesDir: DEFAULT_SURFACES_DIR,
+			surfaceId: result.surfaceId,
+		});
+		process.stdout.write(
+			`Updated surface-registry.generated.ts with import for ${result.surfaceId}\n`,
+		);
+	} catch (err) {
+		process.stderr.write(
+			`Warning: could not update surface-registry.generated.ts — ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+	}
+
+	// ── Step 5: Append manifest to FIRST_PARTY_SURFACE_MANIFESTS in shared ─────
+	// This ensures the server registry accepts adoption POSTs for this surface.
+	// @lore AL5 INSTALL-LOOP: The server builds SERVER_REGISTRY from
+	// OFFICIAL_REGISTRY_INDEX.surfaces which derives from FIRST_PARTY_SURFACE_MANIFESTS.
+	// Without this step, POST /api/surface-adoptions → 400 (surface not in registry).
+	try {
+		await appendManifestToShared(manifest, SHARED_REVIEW_SURFACE_PATH);
+		process.stdout.write(
+			`Appended manifest to FIRST_PARTY_SURFACE_MANIFESTS in packages/shared/src/review-surface.ts\n`,
+		);
+	} catch (err) {
+		process.stderr.write(
+			`Warning: could not update shared review-surface.ts — ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+	}
+
 	process.stdout.write(
 		[
-			`Installed: ${result.surfaceId}`,
-			`  Path: ${result.installedPath}`,
+			"",
+			`Surface '${result.surfaceId}' installed successfully.`,
 			"",
 			"Next steps:",
-			`  1. Review the files in ${result.installedPath}`,
-			"  2. Commit the files (git add surfaces/ && git commit)",
+			`  1. Review ALL changed files:`,
+			`       ${result.installedPath}`,
+			`       packages/web/src/pages/review/surfaces/surface-registry.generated.ts`,
+			`       packages/shared/src/review-surface.ts`,
+			`  2. Commit (git add packages/ && git commit)`,
 			"  3. Rebuild (npm run build)",
-			"  4. Adopt the surface in Settings › Review surfaces",
+			`  4. Adopt in Settings › Review surfaces (surface '${result.surfaceId}' will appear)`,
 			"",
 		].join("\n"),
 	);
+}
+
+/**
+ * Appends the installed surface manifest to FIRST_PARTY_SURFACE_MANIFESTS
+ * in packages/shared/src/review-surface.ts so the server registry accepts it.
+ *
+ * Finds the closing `];` of the array literal and inserts the new manifest entry
+ * before it. Idempotent: no-op if the surface id is already present.
+ */
+async function appendManifestToShared(
+	manifest: Record<string, unknown>,
+	filePath: string,
+): Promise<void> {
+	const content = await readFile(filePath, "utf-8");
+
+	// Idempotency check: if the id is already referenced, skip.
+	const id = String(manifest["id"] ?? "");
+	if (!id) throw new Error("Manifest has no id");
+	if (content.includes(`id: "${id}"`)) {
+		// Already present — no-op.
+		return;
+	}
+
+	// Build the manifest entry as a TypeScript object literal.
+	const situations = Array.isArray(manifest["situations"])
+		? (manifest["situations"] as Array<Record<string, unknown>>)
+		: [];
+	const situationsStr = situations
+		.map(
+			(s) =>
+				`{ tool: ${JSON.stringify(s["tool"])}, kind: ${JSON.stringify(s["kind"])} as import("./review-surface.js").ReviewCanvasKind }`,
+		)
+		.join(", ");
+
+	const entry = `\t{
+\t\tid: ${JSON.stringify(manifest["id"])},
+\t\ttitle: ${JSON.stringify(manifest["title"])},
+\t\tdescription: ${JSON.stringify(manifest["description"] ?? "")},
+\t\tauthor: ${JSON.stringify(manifest["author"] ?? "")},
+\t\tversion: ${JSON.stringify(manifest["version"] ?? "1.0.0")},
+\t\tbaseCanvas: ${JSON.stringify(manifest["baseCanvas"] ?? "action_operation")} as import("./review-surface.js").ReviewCanvasKind,
+\t\tlayering: ${JSON.stringify(manifest["layering"] ?? "wrap")} as import("./review-surface.js").LayeringMode,
+\t\tprovenance: "community" as import("./review-surface.js").SurfaceProvenance,
+\t\tsituations: [${situationsStr}],
+\t\tsampleFixture: ${JSON.stringify(manifest["sampleFixture"] ?? "")},
+\t},`;
+
+	// Insert before the closing `];` of the FIRST_PARTY_SURFACE_MANIFESTS array.
+	const closingMarker = "];";
+	const idx = content.lastIndexOf(closingMarker);
+	if (idx === -1) {
+		throw new Error(
+			`Could not find closing '${closingMarker}' in ${filePath} — cannot append manifest`,
+		);
+	}
+
+	const updated = content.slice(0, idx) + entry + "\n" + content.slice(idx);
+	await writeFile(filePath, updated, "utf-8");
 }
 
 main().catch((err: unknown) => {

@@ -59,8 +59,11 @@ function getServerSurfaceEntry(id: string): ServerSurfaceEntry | undefined {
 	return SERVER_REGISTRY.get(id);
 }
 
-// Re-export for the registry endpoint (returns the array, not the map).
-const SERVER_FIRST_PARTY: readonly ServerSurfaceEntry[] = Array.from(SERVER_REGISTRY.values());
+// @lore AL5 INSTALL-LOOP: SERVER_REGISTRY is built from OFFICIAL_REGISTRY_INDEX.surfaces
+// which derives from FIRST_PARTY_SURFACE_MANIFESTS in shared. When surface:add installs
+// a community surface it appends the manifest to FIRST_PARTY_SURFACE_MANIFESTS — after
+// rebuild, OFFICIAL_REGISTRY_INDEX.surfaces includes it, and this Map will contain it.
+// The Map is rebuilt at module load; no runtime mutation needed on the server.
 
 // ── Zod schemas ──────────────────────────────────────────────────────────────
 
@@ -116,7 +119,7 @@ export function createSurfaceRegistryRoutes(_db: HyperIdleDb): Hono<HyperIdleEnv
 		});
 		if (deny) return deny;
 
-		const manifests = SERVER_FIRST_PARTY.map((e) => e.manifest);
+		const manifests = Array.from(SERVER_REGISTRY.values()).map((e) => e.manifest);
 		return c.json(manifests);
 	});
 
