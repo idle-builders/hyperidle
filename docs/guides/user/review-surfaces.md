@@ -10,12 +10,36 @@ Review surfaces are code, not magic. Each surface is a React component that spec
 
 A surface only renders for your team if you **deliberately adopted** it. Adoption is a committed, version-pinned choice your team makes. You can always see which surface rendered any given review, and which team member made the adoption.
 
+## Browsing the catalog
+
+Open **Settings → Review surfaces** and click **Browse registry**. The browse dialog shows:
+
+- **HyperIdle Official** — the curated catalog that ships with HyperIdle (first-party surfaces).
+- **Community registries** — additional catalogs your team has added by URL. Each entry in a community catalog shows its provenance and description; clicking an uninstalled surface shows "install via `add …`".
+
+A team administrator can add a community registry by URL — the app fetches the catalog's index (name, version, surface list) and shows it alongside the official catalog.
+
+## Installing a community surface
+
+Installing a community surface is a **build-time step** — the surface code is copied into the app and rebuilt before it becomes available. This is intentional: the surface runs in your app, so your team reviews the source before it ships with a release.
+
+Steps:
+
+1. Find a surface in the browse dialog (or copy its source URL from the community registry).
+2. A developer runs: `npm run surface:add -- <source>` where `<source>` is the surface URL, a `github:owner/repo/item` shorthand, or a local path.
+3. The command copies the source files, generates registration glue, and prints the changed files.
+4. Review the changed files, commit, and rebuild (`npm run build`).
+5. After rebuild, the surface appears in **Available** in Settings → Review surfaces.
+6. Adopt it for the situation you want — done.
+
+The installed surface ships with your next release and is available to all team members after they update.
+
 ## Adopting a surface
 
 1. Open **Settings → Review surfaces**.
 2. The page shows two groups:
    - **Adopted** — your team's active mappings (situation → surface), each showing the surface name, version, and provenance.
-   - **Available** — surfaces in your registries not yet assigned to any situation.
+   - **Available** — surfaces installed in the app but not yet assigned to any situation.
 3. Click **Browse registry** (or **Adopt…** on any Available row) to open the browse dialog.
 4. In the dialog, select a surface from the list. The right panel shows its description, base canvas, and provenance — and a live preview in dev mode.
 5. Click **Adopt for `<situation>`** to commit. The Adopted group refreshes immediately.
