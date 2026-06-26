@@ -60,6 +60,20 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── AN1: ServiceConnection types ──
+export type {
+	ConnectionAuthSource,
+	ConnectionHealth,
+	HeldAuthSource,
+	ServiceConnectionView,
+} from "./connection.js";
+export {
+	CONNECTION_AUTH_SOURCES,
+	CONNECTION_HEALTH,
+	HELD_AUTH_SOURCES,
+	isConnectionAuthSource,
+	isHeldAuthSource,
+} from "./connection.js";
 // ── Credential catalog (P3) ──
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
@@ -171,6 +185,8 @@ export type {
 	HarnessOptionControlKind,
 	HarnessReadinessState,
 	HarnessRuntimeCapabilities,
+	// AN1: inherited tools enumeration
+	InheritedToolDescriptor,
 	McpConnectionInfo,
 	PreCompactionEvent,
 	// AL6: return action name type

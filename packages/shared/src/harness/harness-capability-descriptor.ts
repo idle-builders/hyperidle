@@ -1,3 +1,4 @@
+import type { ConnectionHealth } from "../connection.js";
 import type { ModelProvider } from "../model-gateway.js";
 
 export const HARNESS_OPTION_CONTROL_KINDS = ["select", "boolean", "number", "text"] as const;
@@ -79,6 +80,24 @@ export interface HarnessDiscoveryStatus {
 	readonly disabled?: boolean;
 }
 
+/**
+ * AN1: Identity-only descriptor for a tool the harness/environment is already
+ * configured with. Concept hard-rule 4: no secret, no token, no env, no command —
+ * only name + kind + source + health.
+ *
+ * @lore AN1: Enforced at the type level — no secret field can appear here.
+ * The descriptor type is the invariant, not a convention.
+ */
+export interface InheritedToolDescriptor {
+	/** Server/CLI identity, e.g. "github", "linear", "gh". */
+	readonly name: string;
+	readonly kind: "mcp-server" | "cli";
+	/** Source harness: "claude-code" | "codex" | "opencode" | "environment". */
+	readonly harness: string;
+	/** evidence-first; "unknown" when not provable from probe output. */
+	readonly health: ConnectionHealth | "unknown";
+}
+
 export interface HarnessCapabilityDescriptor {
 	readonly type: string;
 	readonly name: string;
@@ -90,4 +109,15 @@ export interface HarnessCapabilityDescriptor {
 	readonly runtime: HarnessRuntimeCapabilities;
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
+	/**
+	 * AN1: Tools the harness/environment is already configured with.
+	 * Identity only — names and liveness, never token values.
+	 * Default [] (additive, non-breaking for existing consumers).
+	 *
+	 * @lore AN1: Placed top-level (peer to runtime/models) because inherited
+	 * tools are a harness-level fact, not a runtime capability boolean.
+	 * Nesting under runtime would bloat HarnessRuntimeCapabilities consumers.
+	 * connection.ts imports nothing from harness/ — no within-package cycle.
+	 */
+	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }

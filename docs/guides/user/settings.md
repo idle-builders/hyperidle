@@ -14,6 +14,7 @@ Click the **Settings** button in the Sidebar to open Settings. Sections stack ve
 | **Notifications** | Per-type toggles, quiet hours |
 | **Worker** | Desktop + shared backend: register this device as a worker node |
 | **Backend** | Shows current backend mode (Web / Local / Shared) |
+| **Connections** | External services your agents can use — token, MCP server, or inherited from your harness |
 | **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
 
 ### Org Chart
