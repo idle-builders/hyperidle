@@ -28,8 +28,8 @@ The concept pins most decisions. The genuinely-unsettled ones, with my read + ev
 1. **What's the smallest version of AO1 that's still useful?**
    My read: the **durable record + the four read/write/list/detach routes + the reachability check**. NOT materialization (AO2), NOT the UI (deferred to `/design`), NOT a Connection table (AN owns it; we model the seam). In-scope = `substrates` table + `Substrate` type + CRUD-ish API + `needs_attention` resolution. Out = checkout, auth provisioning runtime, the attach surface TSX.
 
-2. **`agent_member_id` FK target — `teamMembers.id` (the membership group) or `users.id` (the individual agent)?**
-   The canonical shape says `agentMemberId → teamMembers.id` ("agent-within-a-team"). **But `team_members` is the membership *group* table (one row per team via the U1 1:1 invariant), not an individual agent** (schema.ts:97-117 — `teamMembers` has `members` JSON + `leadAgentId`, no per-agent identity). The individual agent is a `users` row whose `users.teamId → teamMembers.id` (schema.ts:47). **Contradiction flagged in open questions (Q1).** My read: honor the canonical shape literally — `agent_member_id → team_members.id` — which means "attached to a team's membership group" (i.e. team-level-or-the-group), with `team_id → teams.id` as the always-present scope. This matches the concept's "or shared at the **Team** level — always team-scoped" and the cardinality `agent-in-team 1 — 0..N`. A future per-individual-agent attachment is an additive `agent_user_id → users.id` column, not a reshape. **Not re-opening the concept** — the canonical-shapes FK name is load-bearing and I mirror it.
+2. **Agent-attachment FK target — `teamMembers.id` (the membership group) or `users.id` (the individual agent)? RESOLVED → `users.id`.**
+   `team_members` is the membership *group* table — **one row per team** via the U1 1:1 invariant (schema.ts:97-99 `@lore U1`), with `members` JSON + `leadAgentId` and **no per-agent identity** (schema.ts:100-117). Keying the attachment to `team_members.id` therefore carries zero per-agent information — it degenerates into a duplicate of `team_id`, and AO2 cannot bind a substrate to one agent. The **runtime agent identity is `users.id`**: `sessions.agentId → users.id` (schema.ts:252-254), and the individual agent is a `users` row (`users.teamId → team_members.id`, schema.ts:47). AO2's per-agent materialization (§5, Phase 4.5) resolves the bound substrate *inside a session that runs as a specific `agentId` (= `users.id`)*, so the attachment column must point at `users.id` for that join to close. **Decision: `agent_user_id → users.id` (nullable; null → team-level/shared).** This matches the canonical shape (`docs/process-layer/canonical-shapes.md §Substrate` + `substrate-primitive.md`, both already `agentUserId → users.id`) and the concept's two attachment levels — "attached to **one agent within a team** OR shared at the **Team** level" (cardinality `agent-in-team 1 — 0..N`). `team_id → teams.id` stays the always-present scope. The earlier candidate (`agent_member_id → team_members.id`) is dropped entirely — not shipped as a vestige. Open question Q1 records the resolution.
 
 3. **`resource_ref` — structured columns or one opaque string?**
    The shape says `resourceRef: string` ("a repo+branch, a folder path"). My read: **one `resource_ref` text column holding a JSON-encoded selector** discriminated by `kind`, plus a denormalized `branch` is *not* added (keep it inside `resource_ref` to honor the single-column shape). Design-it-twice below (§Phase 3·A) picks JSON-in-text over split columns. Rationale: open `kind` vocabulary → per-kind selector shapes → a typed JSON blob (Zod-validated at the boundary, exactly as `artifacts.previewJson` does, schema.ts:858 + artifacts.ts:118) beats a column-per-kind that ossifies the vocabulary.
@@ -37,7 +37,7 @@ The concept pins most decisions. The genuinely-unsettled ones, with my read + ev
 4. **Reachability — stored column or computed on read?**
    My read: **`state` is a stored column** (`attached` | `reachable` | `needs_attention`) as the canonical shape mandates, **and** the inspect/list route runs a **cheap structural reachability check** that can *transition* `attached→reachable` or `→needs_attention` and persist it. v1 reachability is **structural, not a network round-trip**: a `code` substrate with `writeback:'git'` + a `connection_id` is `needs_attention` iff the referenced Connection is absent/unresolvable; a bare-local substrate (`connection_id` null) is `reachable` if its local path is the form we expect. **No live `git ls-remote`** in AO1 — that auth lives in the sandbox (AO2), and AO1 must not reach for forge creds. Open question Q2 records the v1 boundary.
 
-5. **Does the spec contradict an existing doc?** No. The canonical shape, the concept, and the track file agree. The only internal tension is the `agent_member_id` FK-target naming (Q2 above / open question Q1) — a naming gap, not a contradiction; I mirror the canonical name.
+5. **Does the spec contradict an existing doc?** No. The canonical shape, the concept, and the track file agree — all three name the individual-agent attachment `agentUserId → users.id` (Q2 above / Q1 resolution). No remaining tension.
 
 ---
 
@@ -48,19 +48,20 @@ Every symbol the plan or spec references, verified against `main` (worktree `AO0
 | Symbol / assumption | Reality (file:line) | Plan handling |
 |---|---|---|
 | `teams` table, `id` PK | `pgTable("teams", { id: text().primaryKey(), … })` schema.ts:17-34 | `substrates.team_id → teams.id` FK. ✅ |
-| `teamMembers` table, `id` PK | `pgTable("team_members", { id, teamId→teams.id, members, leadAgentId, … })` schema.ts:100-117 | `substrates.agent_member_id → team_members.id` (nullable). Note: it's the *group* row, not an individual — see Q1. ✅ |
-| `users.teamId → teamMembers.id` | schema.ts:47 | confirms the individual-agent↔group indirection underpinning Q1. Informational. |
+| `teamMembers` table = **one row per team** (U1 1:1) | `pgTable("team_members", { id, teamId→teams.id, members, leadAgentId, … })` schema.ts:100-117; `@lore U1` one row per team schema.ts:97-99 | **NOT** the substrate's agent-attachment target — it's the membership *group* (no per-agent identity), so it would carry zero per-agent info. See Q1. ✅ |
+| `users` table = the individual agent; `users.teamId → teamMembers.id` | schema.ts:36-95, :47 | The individual agent is a `users` row. `substrates.agent_user_id → users.id` (nullable). ✅ |
+| **`sessions.agentId → users.id`** — the runtime agent identity | schema.ts:252-254 | **Decisive for Q1.** AO2 materializes inside a session running as a specific `agentId` (= `users.id`); the attachment FK must be `users.id` for that join to close. ✅ |
 | `artifacts` has substrate columns | NO — `artifacts` = `{id, producingTaskId, kind, label, previewJson, createdAt}` schema.ts:848-865. **No repoPath/filePath/commitSha.** | Spec confirmed: substrate is a **new table**, distinct from `artifacts`. ✅ |
 | `knowledge_items` | `{id, scopeKind, scopeId, topic, title, body, format, status, …}` schema.ts:580-607 | Substrate is **distinct** — not a knowledge item. The "squeeze non-code output into knowledge_items" workaround is what AO1 ends. ✅ |
 | `git-export` global config / target | `git-export-runner.ts` + `git-export-routes.ts` — writes knowledge markdown to a single global repo (`scopeId`). | Substrate must **not** overwrite this. Different table, different concern (AC4). ✅ |
 | `GitRunner` capability | `init/add/rm/commit/push/diffCached/revParse/configSet/remoteAdd/lsFiles/statusPorcelain` — git-export-runner.ts:18-41. **NO clone/fetch/checkout.** | The **inbound-git gap** AO2 fills. AO1 specifies the seam (§5); does not implement it. ✅ |
-| `service_connections` table / `ServiceConnectionResolver` | **ABSENT on main** (grep: zero hits). AN unmerged (recoverable @ PR #353/#365 per MEMORY). | Model the **Connection seam** by reference only (§4). `connection_id` is a **plain `text` column, NOT a DB FK** (the target table doesn't exist on main). ✅ |
+| `service_connections` table / `ServiceConnectionResolver` | **ABSENT on this branch now** (grep: zero hits) — but it was **merged (migration 0036 `CREATE TABLE service_connections`) then dropped (0038 `DROP TABLE "service_connections" CASCADE`)**. Reverted, not never-merged (Track AN reset, PR #364 — broker/registry dropped per MEMORY). | Model the **Connection seam** by reference only (§4). `connection_id` is a **plain `text` column, NOT a DB FK** — the target table is genuinely absent now, and AN's *re-merged* shape isn't fixed (it already churned once), so don't assume 0036's columns. ✅ |
 | Migration numbering | drizzle dir tail = `0038_skinny_argent.sql`; `_journal.json` idx 38. | New migration **`0039_AO1_substrates.sql`**, forward-only, `db:generate`-authored. ✅ |
 | Route construction pattern | `createXRoutes(db, eventBus?) → Hono`; mounted `api.route("/path", createXRoutes(...))` app.ts:402-461. Zod via `validateBody`/`zValidator` + `validationHook` (validate.ts). `requireBoundary({kind:"public-data"})` middleware (artifacts.ts:159). | `createSubstrateRoutes(db, eventBus)`, mounted `api.route("/substrates", …)`. Same Zod + boundary patterns. ✅ |
-| `db/index.ts` schema re-export block | schema tables + `$inferSelect`/`$inferInsert` types re-exported alphabetically (index.ts:27-127). | Add `substrates`, `type Substrate`, `type NewSubstrate` to this block. **`sharedFiles`.** ✅ |
+| `db/index.ts` schema re-export block | schema tables + `$inferSelect`/`$inferInsert` types re-exported alphabetically (index.ts:27-127); db exports `ArtifactRow` (NOT `Artifact`) — the precedent. | Add `substrates`, `type SubstrateRow`, `type NewSubstrate` to this block. **No `Substrate` type in db** (the wire `Substrate` is in `@hyperidle/shared`). **`sharedFiles`.** ✅ |
 | `@hyperidle/shared` type home | per-concept files re-exported from `src/index.ts` (e.g. `proposed-call.ts`, `team.ts`). | New `packages/shared/src/substrate.ts`, re-exported from `index.ts`. ✅ |
 
-**No spec assumption disagreed in a way that blocks the plan.** The two notable reconciliations: (a) `connection_id` is a non-FK text column because the AN table is absent on `main`; (b) `agent_member_id` targets the membership-group table per the canonical name (Q1).
+**No spec assumption disagreed in a way that blocks the plan.** The two notable reconciliations: (a) `connection_id` is a non-FK text column because AN's connection table was reverted (dropped in 0038) and its re-merged shape isn't settled; (b) `agent_user_id` targets `users.id` (the individual agent, = `sessions.agentId`), matching the canonical shape and the concept's per-agent attachment level (Q1).
 
 ---
 
@@ -70,13 +71,13 @@ Mapped from TRACK-AO.md AO1 ACs + validation scenarios. Each AC names the exact 
 
 | # | Acceptance criterion | Verification method |
 |---|---|---|
-| AC1 | An agent-in-team can be attached to a substrate; afterward kind/resource/writeback/state are visible. | **Integration test** (`substrates.integration.test.ts`): `POST /api/substrates` with `{teamId, agentMemberId, kind:'code', connectionId, resourceRef:{repo,branch}, writeback:'git'}` → 201 + body echoes the record. Then `GET /api/substrates/:id` → 200 asserts `kind/resourceRef/writeback/state` present. |
+| AC1 | An agent-in-team can be attached to a substrate; afterward kind/resource/writeback/state are visible. | **Integration test** (`substrates.integration.test.ts`): `POST /api/substrates` with `{teamId, agentUserId, kind:'code', connectionId, resourceRef:{repo,branch}, writeback:'git'}` → 201 + body echoes the record. Asserts the row binds to that one agent (`agentUserId` round-trips). A second POST with `agentUserId:null` creates a team-shared substrate. Then `GET /api/substrates/:id` → 200 asserts `kind/resourceRef/writeback/state` present. |
 | AC2 | A `code` substrate records its repo (Connection + repo + branch) with forge auth resolved from a **Connection** (AN), not re-modelled. | **Integration test**: create with `connectionId:"conn-x"` + `resourceRef:{repo:"owner/r",branch:"main"}`; assert the row stores `connection_id` + the JSON selector and stores **no token/secret** (assert `Object.keys(row)` has no credential column). Unit test on the resolver **seam interface** (`SubstrateAuthResolver`) — a fake resolver is called with `connectionId` and returns an auth handle (proves AO1 references, never embeds, auth). |
 | AC3 | The model accommodates `doc_set` (a markdown/Obsidian folder); SoRs (inbox/CRM/ticket) categorically excluded. | **Integration test**: `POST` with `kind:'doc_set'`, `resourceRef:{folder:"/notes"}`, `writeback:'file'` → 201. **Negative test**: `POST` with `kind:'inbox'` (or any non-registered kind) → 400 `VALIDATION_ERROR`. (Kind set at create-time is constrained to `SUBSTRATE_KINDS`; reads accept open vocab — mirrors artifacts.ts ARTIFACT_KINDS pattern.) |
 | AC4 | A substrate attachment is distinct from, and does not overwrite, the knowledge-export config or a knowledge item. | **Integration test**: create a substrate; assert `knowledge_items` rowcount unchanged and `git-export` config (server_config / git-export route GET) unchanged. Plus **schema test**: `substrates` is a separate table (migration creates it; no ALTER on `artifacts`/`knowledge_items`/`server_config`). |
 | AC5 | An unreachable/unauthenticated substrate surfaces as **needs_attention**, never silently. | **Integration test**: create a `code`+`git` substrate with `connectionId:"missing-conn"`; inject a fake resolver that reports the connection absent; `GET /api/substrates/:id` → `state:"needs_attention"`. Inverse: present connection → `state:"reachable"`. |
 | AC6 | Detach removes the attachment. | **Integration test**: `DELETE /api/substrates/:id` → 204; subsequent `GET` → 404. |
-| AC7 | Types are importable and `npm run check` is clean. | `npm run check` zero errors; `import { type Substrate, substrates } from "@hyperidle/db"` and `import { type SubstrateKind, SUBSTRATE_KINDS } from "@hyperidle/shared"` resolve in server + a test. |
+| AC7 | Types are importable and `npm run check` is clean. | `npm run check` zero errors; `import { type SubstrateRow, substrates } from "@hyperidle/db"` and `import { type Substrate, type SubstrateKind, SUBSTRATE_KINDS } from "@hyperidle/shared"` resolve in server + a test (the wire `Substrate` is in shared; db exposes `SubstrateRow`). |
 | AC8 | Forward-only migration runs cleanly. | Migration test (existing `applyMigrations` harness): `0039_AO1_substrates.sql` applies on a fresh DB; `substrates` table + indexes exist; re-running migrations is idempotent (no down-migration). |
 
 ---
@@ -91,7 +92,7 @@ Mapped from TRACK-AO.md AO1 ACs + validation scenarios. Each AC names the exact 
 
 ### B. `connection_id` — DB foreign key vs plain reference column
 
-- **Alt 1 — real FK** `connection_id → service_connections.id`. *Trade-off:* referential integrity. *Reject:* **the target table does not exist on `main`** (AN unmerged). A FK to a nonexistent table won't migrate. Coupling AO1's migration to AN's is exactly the dependency the spec forbids ("model the seam, do not depend on AN internals").
+- **Alt 1 — real FK** `connection_id → service_connections.id`. *Trade-off:* referential integrity. *Reject:* **the target table is genuinely absent on this branch** — `service_connections` was merged (0036) then **dropped/reverted (0038)** as part of the AN reset, and its re-merged shape isn't settled. A FK to a nonexistent table won't migrate, and pinning to 0036's columns would couple AO1's migration to a shape AN has already churned — exactly the dependency the spec forbids ("model the seam, do not depend on AN internals").
 - **Alt 2 — plain nullable `text` column** + an application-layer **`SubstrateAuthResolver` seam** that AN satisfies later. *Trade-off:* no DB-level integrity for the connection link (an orphan `connection_id` is possible). *Mitigation:* the reachability check (AC5) turns an unresolvable `connection_id` into `needs_attention` — exactly the "surface, never silent" contract. The integrity gap is *the feature*, not a bug.
 - **Pick: Alt 2.** When AN merges, it can add the FK constraint in its own forward migration (or leave it soft). AO1 stays decoupled. The seam interface (§4) is the contract AN implements.
 
@@ -127,7 +128,8 @@ export type ResourceRef =
 export interface Substrate {
   id: string;                  // opaque, stable
   teamId: string;              // FK → teams.id. The scope. Required.
-  agentMemberId: string | null;// FK → team_members.id. null → team-level (shared) substrate.
+  agentUserId: string | null;  // FK → users.id (the individual agent, = sessions.agentId).
+                               //   null → team-level (shared) substrate.
   kind: SubstrateKind;         // open vocab; create constrained to SUBSTRATE_KINDS.
   connectionId: string | null; // reference to a Connection (AN). null → bare local path.
   resourceRef: ResourceRef;    // parsed selector (stored as JSON text in DB).
@@ -138,7 +140,7 @@ export interface Substrate {
 
 /** Zod schemas (route boundary). Lives here or co-located in the route file — see Task 4. */
 // resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema])
-// createSubstrateSchema = z.object({ teamId, agentMemberId: z.string().nullable().optional(),
+// createSubstrateSchema = z.object({ teamId, agentUserId: z.string().nullable().optional(),
 //   kind: z.enum(SUBSTRATE_KINDS), connectionId: z.string().nullable().optional(),
 //   resourceRef: resourceRefSchema, writeback: z.enum(WRITEBACK_MODES) })
 ```
@@ -162,17 +164,20 @@ export const substrates = pgTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "restrict" }),
-    // Primary attachment: the team's membership group. null → team-level (shared).
-    // @lore AO1 Q1: targets team_members.id (the membership GROUP), per the canonical
-    // shape's `agent_member_id`. The individual agent is a users row (users.teamId →
-    // team_members.id); a per-individual attachment is an additive agent_user_id column.
-    agentMemberId: text("agent_member_id").references(() => teamMembers.id, {
+    // Primary attachment: the INDIVIDUAL agent. null → team-level (shared).
+    // @lore AO1 Q1: targets users.id (the runtime agent identity = sessions.agentId,
+    // schema.ts:252-254), NOT team_members.id. team_members is one row per team (U1 1:1,
+    // schema.ts:97-99) with no per-agent identity, so keying it would carry zero per-agent
+    // info and break AO2's per-agent materialization (it resolves the bound substrate by
+    // the session's agentId = users.id). Matches canonical-shapes §Substrate (agentUserId).
+    agentUserId: text("agent_user_id").references(() => users.id, {
       onDelete: "cascade",
     }),
     // OPEN vocabulary. 'code' | 'doc_set' initially. SoRs excluded at the app layer (Zod).
     kind: text("kind").notNull(),
-    // Reference to a Connection (Track AN). NOT a DB FK — the service_connections table
-    // is absent on main (AN unmerged). An unresolvable id → needs_attention (AC5).
+    // Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
+    // (0036) then reverted (0038, AN reset); absent now, re-merged shape unsettled.
+    // An unresolvable id → needs_attention (AC5).
     // @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
     connectionId: text("connection_id"),
     // JSON-encoded ResourceRef, discriminated by kind. Mirrors artifacts.previewJson.
@@ -185,17 +190,20 @@ export const substrates = pgTable(
   },
   (table) => [
     index("substrates_team_idx").on(table.teamId),
-    index("substrates_agent_member_idx").on(table.agentMemberId),
+    index("substrates_agent_user_idx").on(table.agentUserId),
   ],
 );
 
-export type Substrate = typeof substrates.$inferSelect;       // DB row (resourceRef: string)
+export type SubstrateRow = typeof substrates.$inferSelect;    // DB row (resourceRef: string). NOT named `Substrate`.
 export type NewSubstrate = typeof substrates.$inferInsert;
+// The wire type `Substrate` (resourceRef: ResourceRef, parsed) lives in @hyperidle/shared — see §1.
 ```
 
-> **DB-row vs wire-type seam.** `substrates.$inferSelect.resourceRef` is `string` (JSON text); the shared `Substrate.resourceRef` is the parsed `ResourceRef`. The route maps row→wire by `JSON.parse(row.resourceRef)` + Zod-validate (exactly the `rowToArtifact` pattern, artifacts.ts:98-129). Two distinct types, one named `Substrate` in each package — acceptable (mirrors `Artifact`/`ArtifactRow`). To avoid the name collision being confusing, the **DB select type is `SubstrateRow`** (re-exported), the **wire type is `Substrate`** (shared).
-
-**Correction to the snippet:** export as `type SubstrateRow = typeof substrates.$inferSelect`.
+> **DB-row vs wire-type seam — exactly one type named `Substrate` ships.** `substrates.$inferSelect.resourceRef` is `string` (JSON text); the shared `Substrate.resourceRef` is the parsed `ResourceRef`. The route maps row→wire by `JSON.parse(row.resourceRef)` + Zod-validate (exactly the `rowToArtifact` pattern, artifacts.ts:98-129). Mirrors the real codebase precedent **verbatim** (db/index.ts:28 exports `type ArtifactRow`, shared exports `Artifact` — NOT two `Artifact`s):
+> - **`@hyperidle/shared` exports `Substrate`** — the wire/domain type, `resourceRef: ResourceRef` (parsed). This is the *only* type named `Substrate` anywhere.
+> - **`@hyperidle/db` exports `SubstrateRow`** (= `typeof substrates.$inferSelect`, `resourceRef: string`) **and `NewSubstrate`** (`$inferInsert`). Neither is named `Substrate`.
+>
+> The schema snippet's `export type Substrate = typeof substrates.$inferSelect` below is **wrong as written** — it must read `export type SubstrateRow = typeof substrates.$inferSelect`. There is no `Substrate` type in `@hyperidle/db`.
 
 **`db/index.ts`** — add to the schema re-export block (index.ts:27-127), alphabetically: `substrates`, `type SubstrateRow`, `type NewSubstrate`.
 
@@ -205,7 +213,7 @@ export type NewSubstrate = typeof substrates.$inferInsert;
 CREATE TABLE "substrates" (
 	"id" text PRIMARY KEY NOT NULL,
 	"team_id" text NOT NULL,
-	"agent_member_id" text,
+	"agent_user_id" text,
 	"kind" text NOT NULL,
 	"connection_id" text,
 	"resource_ref" text NOT NULL,
@@ -215,13 +223,13 @@ CREATE TABLE "substrates" (
 );
 --> statement-breakpoint
 ALTER TABLE "substrates" ADD CONSTRAINT "substrates_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "substrates" ADD CONSTRAINT "substrates_agent_member_id_team_members_id_fk" FOREIGN KEY ("agent_member_id") REFERENCES "team_members"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "substrates" ADD CONSTRAINT "substrates_agent_user_id_users_id_fk" FOREIGN KEY ("agent_user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "substrates_team_idx" ON "substrates" USING btree ("team_id");--> statement-breakpoint
-CREATE INDEX "substrates_agent_member_idx" ON "substrates" USING btree ("agent_member_id");
+CREATE INDEX "substrates_agent_user_idx" ON "substrates" USING btree ("agent_user_id");
 ```
 
 > **Relation to `artifacts` / `knowledge_items`:** a NEW, distinct table. No ALTER on either. No FK between them. The substrate is the *files the agent authors*; the Artifact (L3) is the *reviewable record derived from* a session that materialized a substrate; a knowledge item is a *promoted fabric entry*. AC4 asserts the migration touches neither table nor the export config.
-> **`onDelete`:** `team_id` RESTRICT (a team with substrates isn't silently deletable — matches teams/teamMembers RESTRICT convention). `agent_member_id` CASCADE (dissolving a membership group removes its agent-level attachments; the team-scoped ones with `agent_member_id` null survive).
+> **`onDelete`:** `team_id` RESTRICT (a team with substrates isn't silently deletable — matches teams/teamMembers RESTRICT convention). `agent_user_id` CASCADE (deleting an individual agent removes its agent-level attachments; the team-scoped ones with `agent_user_id` null survive).
 
 ---
 
@@ -233,11 +241,12 @@ New file. `createSubstrateRoutes(db: HyperIdleDb, eventBus: EventBus): Hono`. Mo
 
 | Method + path | Purpose | Validation | Returns |
 |---|---|---|---|
-| `POST /api/substrates` | Attach a substrate to a team / agent-member. | `createSubstrateSchema` (Zod). `resourceRef` discriminated-union must match `kind`. `kind ∈ SUBSTRATE_KINDS`. `writeback ∈ WRITEBACK_MODES`. `teamId` must exist (FK). | `201` + `Substrate` (state `attached`). `400` VALIDATION_ERROR on bad kind/ref. `404` if `teamId`/`agentMemberId` absent. |
-| `GET /api/substrates?teamId=&agentMemberId=` | List substrates for a team (optionally filtered by agent-member). | query Zod: `teamId` required, `agentMemberId` optional. | `200` + `{ substrates: Substrate[] }`. Each row's `state` reflects a fresh reachability check (§ below). |
+| `POST /api/substrates` | Attach a substrate to one agent (or team-shared). | `createSubstrateSchema` (Zod). `resourceRef` discriminated-union must match `kind`. `kind ∈ SUBSTRATE_KINDS`. `writeback ∈ WRITEBACK_MODES`. `teamId` must exist (FK); `agentUserId` (if non-null) must exist. | `201` + `Substrate` (state `attached`). `400` VALIDATION_ERROR on bad kind/ref. `404` if `teamId`/`agentUserId` absent. |
+| `GET /api/substrates?teamId=&agentUserId=` | List substrates for a team (optionally filtered to one agent). | query Zod: `teamId` required, `agentUserId` optional. | `200` + `{ substrates: Substrate[] }`. Each row's `state` reflects a fresh reachability check (§ below). |
 | `GET /api/substrates/:id` | Inspect one substrate; runs the reachability check + persists any transition. | path id. | `200` + `Substrate` (with refreshed `state`). `404` if absent. |
-| `PATCH /api/substrates/:id` | Update the attachment (resource selection / branch / writeback / connection). | `patchSubstrateSchema` (partial of create, minus `teamId`). | `200` + updated `Substrate`. `400`/`404`. |
 | `DELETE /api/substrates/:id` | Detach. | path id. | `204`. `404` if absent. |
+
+> **No `PATCH` route in AO1.** Earlier drafts carried `PATCH /api/substrates/:id` (edit resource/branch/writeback/connection), but **no AC mandates an update path** — AO1's ACs require only attach (POST), inspect (GET :id), list (GET), detach (DELETE), and reachability (state on read). Per the critique (WARN-2 / SUGG-1), an untested mutation route is scope-creep, so it is **cut**. Re-selecting a resource in v1 = detach + re-attach (the row is small and the resourceRef is the only mutable field anyone needs). A first-class `PATCH` lands in a later WP **with its own AC** (e.g. "PATCH branch → GET reflects new branch; PATCH cannot change `teamId`"), not bolted on here untested.
 
 **Reachability / `needs_attention` check** (AC5) — a pure function `resolveSubstrateState(row, deps): SubstrateState`, called by `GET /:id` and `GET /` (list), persisting a transition when it changes:
 
@@ -251,6 +260,8 @@ resolveSubstrateState(row, { authResolver }):
 ```
 
 > v1 reachability is **structural** (does the referenced Connection exist + resolve to an auth handle), NOT a live `git ls-remote`. Forge round-trips need the sandbox creds (AO2). When AN is absent, `authResolver` is a **no-op resolver that reports every `connectionId` unresolvable** → a `code`+`git`+`connectionId` substrate correctly shows `needs_attention` until AN lands. A bare-local substrate is `reachable` regardless. This satisfies "surface, never silent" without reaching for creds AO1 shouldn't hold (hard rule 1).
+>
+> **Disclosed v1 state (intended, NOT a bug — WARN-3):** with no real `SubstrateAuthResolver` registered on `main` (AN's connection table reverted in 0038), the shipped `NoopAuthResolver.canResolve` returns false for **every** `connectionId`. Consequently **every connection-backed substrate (`connectionId` non-null, `writeback:'git'`) permanently shows `needs_attention`** in v1; the only substrates that reach `reachable` are bare-local ones (`connectionId` null) or `writeback:'none'`. This is concept-correct ("surface, never silent" — hard rule 7): a substrate whose forge auth cannot yet be resolved *should* read needs-attention, not falsely-green. It is **not** a regression and AO2/the founder must not read a forge-backed substrate's standing `needs_attention` as a defect — it clears the moment AN registers a real resolver, **without any change to AO1**. AC5's "inverse: present connection → `reachable`" branch is therefore exercised only with an **injected fake resolver** in the integration test, never via the default binding — which is exactly right.
 
 **Validation (Zod) lives in the route file** (co-located, like `createArtifactSchema` in artifacts.ts) importing `SUBSTRATE_KINDS`/`WRITEBACK_MODES` from `@hyperidle/shared`. `resourceRefSchema = z.discriminatedUnion("kind", [...])`. Body size cap via `createBodyLimit` (resourceRef is tiny — 8KB cap).
 
@@ -326,7 +337,7 @@ export interface SubstrateMaterializer {
 - `writeback:'none'` → read-only reference; captureBack is a no-op.
 
 **Where it hooks into `session-provisioning.ts`:**
-- **Materialize** — between **Phase 4 (sandbox spawn, @463 `workspace.spawn`)** and **Phase 6 (context assembly, @487 `strategy.assembleContext`)**. A new **Phase 4.5**: resolve the unit-of-work's bound substrate(s) → call `materializer.materialize({ substrate, sandboxPath, auth: await authResolver.resolve(substrate.connectionId) })`. A **substrate-less session skips this and degrades to today's behavior** (concept hard rule 7; AO2 AC3). The auth resolution + sandbox provisioning happen here so the working tree + creds exist before context assembly and before the harness starts (@901).
+- **Materialize** — between **Phase 4 (sandbox spawn, @463 `workspace.spawn`)** and **Phase 6 (context assembly, @487 `strategy.assembleContext`)**. A new **Phase 4.5**: resolve the bound substrate(s) for the session's agent — `WHERE team_id = :sessionTeamId AND (agent_user_id = :sessionAgentId OR agent_user_id IS NULL)`, where `:sessionAgentId` is `sessions.agentId` (= `users.id`). This is exactly why the attachment FK is `users.id` (Q1): the only per-agent join AO2 has is `agentId`, and it points at `users`. Then call `materializer.materialize({ substrate, sandboxPath, auth: await authResolver.resolve(substrate.connectionId) })`. A **substrate-less session skips this and degrades to today's behavior** (concept hard rule 7; AO2 AC3). The auth resolution + sandbox provisioning happen here so the working tree + creds exist before context assembly and before the harness starts (@901).
 - **Capture-back** — at teardown, in the normal-completion path **after `endSession` (@1117) and before `workspace.destroy` (@1122)** so authored changes are captured before the sandbox is thrown away (AO2 AC2). The crash/budget paths capture-back too if a working tree exists.
 
 > AO1 ships **none** of this. It ships the `SubstrateMaterializer` *type* + the hook-point documentation so AO2 binds without re-litigating the seam. AO1's only runtime is the record + routes + reachability.
@@ -341,7 +352,7 @@ export interface SubstrateMaterializer {
 | T2 | Schema: `substrates` table + `SubstrateRow`/`NewSubstrate`; re-export in `db/index.ts`. | `packages/db/src/schema.ts`; `packages/db/src/index.ts`. | `npm run check`; table appears in `schema`. | T1 (types only conceptually) |
 | T3 | Forward-only migration `0039_AO1_substrates.sql` + journal entry. | `packages/db/drizzle/0039_AO1_substrates.sql`; `packages/db/drizzle/meta/_journal.json` (+ snapshot). Authored via `npm run db:generate`. | AC8 migration test: applies on fresh DB; table+indexes exist; no ALTER on artifacts/knowledge_items/server_config. | T2 |
 | T4 | `NoopAuthResolver` (default binding) + `resolveSubstrateState` pure fn. | `packages/server/src/services/substrate-reachability.ts` (new); resolver in same dir or `substrate-auth-resolver.ts`. | AC5 unit test: code+git+connectionId → `needs_attention` under Noop; bare-local → `reachable`; writeback:none → reachable. | T1 |
-| T5 | Routes: `createSubstrateRoutes` (POST/GET list/GET id/PATCH/DELETE) + co-located Zod. | `packages/server/src/routes/substrates.ts` (new). | AC1/AC3/AC6 integration tests (POST→GET→DELETE; doc_set ok; bad kind 400). | T2, T4 |
+| T5 | Routes: `createSubstrateRoutes` (POST / GET list / GET id / DELETE — no PATCH) + co-located Zod. | `packages/server/src/routes/substrates.ts` (new). | AC1/AC3/AC6 integration tests (POST→GET→DELETE; doc_set ok; bad kind 400). | T2, T4 |
 | T6 | Mount in app. | `packages/server/src/app.ts` (`api.route("/substrates", …)` ~line 408). | AC1 integration test reaches the route through `createApp`. | T5 |
 | T7 | `SubstrateMaterializer` type (AO2 seam) — type only, no impl. | `packages/shared/src/substrate.ts` (extend) + re-export. | `npm run check`; importable. | T1 |
 | T8 | Distinctness assertions: substrate ≠ knowledge-export / knowledge-item. | test in `substrates.integration.test.ts`. | AC4: create substrate → `knowledge_items` count + git-export config unchanged. | T5 |
@@ -354,7 +365,7 @@ export interface SubstrateMaterializer {
 
 | Vector | Applies? | Handling |
 |---|---|---|
-| Rate-limit on POST/PATCH | N/A — single-founder, anti-enterprise (ETHOS). Same posture as `artifacts`/`bets` POSTs (no rate-limit). Reviewer may flag; default N/A with reason. | — |
+| Rate-limit on POST/DELETE | N/A — single-founder, anti-enterprise (ETHOS). Same posture as `artifacts`/`bets` POSTs (no rate-limit). Reviewer may flag; default N/A with reason. | — |
 | Input-trust on agent-authored fields | **Yes** — `resourceRef` (`repo`/`branch`/`folder`) could be agent-supplied. | Zod discriminated-union validates shape. `branch` sanitized to git-ref-safe (reject leading `-`, control chars) — reuse the export path's `sanitizeBranch` posture. `repo` is a reference string only (AO1 never spawns git with it; AO2 does, through the hardened `GitRunner` + `--` argv guards already present). |
 | Secret handling / new credential surface | **Yes — and the key invariant.** | The substrate row stores **no token/secret** (AC2). Auth lives only as a `SubstrateAuth` handle yielded by the resolver to AO2, provisioned into the sandbox. AO1 never logs/returns a token. The `connection_id` is an opaque reference. |
 | Path traversal (folder input) | **Yes** — `doc_set` `folder`. | AO1 only *stores* the path; it never reads/writes it (AO2 does, inside the isolated sandbox). v1: validate it's an absolute path; full traversal containment is AO2's (it resolves the path against the sandbox). Recorded as an AO2 obligation. |
@@ -386,13 +397,13 @@ No existing test's assertions change. New tests only. `protectedTests: []`. (The
 
 ## 11. Risks / open questions (for the reviewer)
 
-1. **`agent_member_id` FK target naming (Q1).** The canonical shape says `agentMemberId → teamMembers.id`, but `team_members` is the **membership-group** table (one row per team under the U1 1:1 invariant), not an individual agent — the individual is a `users` row (`users.teamId → team_members.id`). I honored the canonical name (FK → `team_members.id`), reading "attached to an agent within a team" as "attached to the team's membership group, or team-level." **Is that the intended semantics, or should the attachment target the individual `users.id`?** If the latter, the canonical shape + `docs` need a one-line correction (a `/concept` touch, not a silent divergence). I did **not** re-open the concept; flagging per the skill's "genuine contradiction" rule. Cheapest reconciliation if individual-agent is wanted: add `agent_user_id text references users.id` as an **additive** column later — no reshape.
+1. **Agent-attachment FK target (Q1) — RESOLVED → `users.id`.** The substrate's agent attachment is `agent_user_id → users.id` (nullable; null → team-shared), not `agent_member_id → team_members.id`. Rationale: `team_members` is **one row per team** under the U1 1:1 invariant (schema.ts:97-99) and carries no per-agent identity, so keying it would make the attachment a duplicate of `team_id` and leave AO2 unable to bind a substrate to one agent. The runtime agent identity is `users.id` — `sessions.agentId → users.id` (schema.ts:252-254) — which is what AO2's Phase-4.5 materialization resolves against (`agent_user_id = :sessionAgentId OR agent_user_id IS NULL`). This matches the canonical shape and `substrate-primitive.md` (both already corrected to `agentUserId → users.id`) and the concept's two attachment levels (one agent OR team-shared). The candidate `agent_member_id → team_members.id` is dropped entirely — no vestigial column, no second migration. **Closed; not a concept re-open** — the canonical docs already carry this shape.
 
 2. **v1 reachability is structural, not a live forge round-trip.** A `code`+`git` substrate shows `needs_attention` when its Connection doesn't resolve, **not** when the remote is genuinely unreachable/the branch is gone. Live `git ls-remote` needs the sandbox creds (AO2). Is structural reachability sufficient for AO1's AC5, or does the founder expect a live check at attach-time? My read: structural is correct for AO1 (AO1 must not hold forge creds — hard rule 1); the live check is an AO2/runtime concern.
 
-3. **`doc_set` folder source for v1.** The concept names Obsidian/markdown folders; with AN unmerged there's no Drive/Obsidian *connection* yet. v1 `doc_set` is realistically a **bare local folder** (`connection_id` null, `writeback:'file'`). A connection-backed `doc_set` is modeled (the seam supports it) but unexercised until a folder-providing Connection exists. Acceptable for "prove generality without a sync engine" (AO1 AC3 / validation scenario 2)? My read: yes — the AC only requires the *kind is recorded*, which a local folder satisfies.
+3. **`doc_set` folder source for v1.** The concept names Obsidian/markdown folders; with AN's connection table reverted (0038) there's no Drive/Obsidian *connection* yet. v1 `doc_set` is realistically a **bare local folder** (`connection_id` null, `writeback:'file'`). A connection-backed `doc_set` is modeled (the seam supports it) but unexercised until a folder-providing Connection exists. Acceptable for "prove generality without a sync engine" (AO1 AC3 / validation scenario 2)? My read: yes — the AC only requires the *kind is recorded*, which a local folder satisfies.
 
-4. **`connection_id` is a non-FK text column** (AN absent on main). When AN merges it can add the constraint. Until then an orphan `connection_id` is possible — but that's exactly the `needs_attention` path (AC5), so the integrity gap is surfaced, not silent. Confirm this decoupling is preferred over blocking AO1 on AN.
+4. **`connection_id` is a non-FK text column** (AN's `service_connections` reverted in 0038; absent now, re-merged shape unsettled). When AN re-merges it can add the constraint in its own forward migration. Until then an orphan `connection_id` is possible — but that's exactly the `needs_attention` path (AC5), so the integrity gap is surfaced, not silent. Confirm this decoupling is preferred over blocking AO1 on AN.
 
 5. **Name collision `Substrate` (wire) vs `SubstrateRow` (DB).** I split them (wire = parsed `resourceRef`, row = JSON string), mirroring `Artifact`/`ArtifactRow`. Reviewer: confirm the split is clearer than a single type with a `string` resourceRef.
 
