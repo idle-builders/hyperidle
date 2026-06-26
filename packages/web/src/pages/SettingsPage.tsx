@@ -18,6 +18,7 @@ import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
+import { SettingsConnections } from "../settings/SettingsConnections.js";
 import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
@@ -101,6 +102,16 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agent backends</SectionTitle>
 						<SettingsHarnesses />
+					</section>
+
+					{/* AN1: Connections section — after Agent backends. SettingsConnections owns its own h2 heading,
+					     so no SectionTitle wrapper here. */}
+					<section
+						id="settings-section-connections"
+						data-testid="settings-section-connections"
+						className="flex flex-col"
+					>
+						<SettingsConnections />
 					</section>
 
 					{/* AD8b AC-2: Assistant section — system prompt editor, between Agents and Appearance */}
