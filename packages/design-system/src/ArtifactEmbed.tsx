@@ -13,12 +13,16 @@ import { dsProps } from "./ds-attrs.js";
  * @lore L3 review fix D-B5: delegated `<ArtifactView>` mount per approved.md
  * §2 line 121 + §7 row 4. The design system package cannot import from
  * `packages/web` (that would invert the dep direction), so the embed exposes
- * a `viewSlot` injection point. The host (e.g. a review message in
- * `packages/web`) maps the artifact via `artifactToView(artifact)` and passes
- * the resulting `<ArtifactView .../>` element as `viewSlot`. When `viewSlot`
- * is omitted (or no shape mapping exists for the kind), the embed renders the
- * one-line `summarizePreview` fallback. The embed root remains chrome-less:
- * no bg-/border-/rounded-/shadow- classes (asserted by the protected test).
+ * a `viewSlot` injection point.
+ *
+ * @lore AM5 K5: `<ArtifactView>` shell has been DELETED (it was the second caller
+ * of the now-removed `getRenderer(kind)`; its `viewSlot=` prop was never populated
+ * in production — `viewSlot ?? summary` always fell to the summary path). The
+ * `viewSlot` prop is kept for API stability but the deleted `ArtifactView` no
+ * longer provides the implementation. Artifact content is now rendered by
+ * `ArtifactPreviewSurface` composing `composeArtifactBody` (the block payloads).
+ * A future WP may use `viewSlot` for custom host content; for now it remains a
+ * no-op extension point.
  */
 export interface ArtifactEmbedProps {
 	data: Artifact;

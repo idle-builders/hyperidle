@@ -1,8 +1,8 @@
+import { CodeDeltaRenderer } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
-
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact";
 
 const artifact = MOCK_REVIEW_SUBJECT.artifacts.find(
@@ -74,5 +74,32 @@ describe("ReviewCodeDiff canvas", () => {
 			screen.getByText(/@@ -116,9 \+116,18 @@ export async function onPromoApplied/),
 		).toBeInTheDocument();
 		expect(screen.getByText(/const promo = await promos\.find\(evt\.code\);/)).toBeInTheDocument();
+	});
+
+	// ── K2b inverse-proof: ReviewCodeDiff composes the DS CodeDeltaRenderer slot seam ──
+	// This test verifies the C1 wiring is real. It will go RED if FileDiff reverts to its
+	// own hand-rolled hunk/line DOM and stops using CodeDeltaRenderer.
+	//
+	// Proof strategy: CodeDeltaRenderer (the DS core) is what emits `data-diff-type`
+	// attributes and the `aria-label="Code diff: <file>"` on the <pre> element.
+	// If FileDiff stops composing the DS core these attributes vanish from the DOM.
+	it("K2b — FileDiff delegates structure to DS CodeDeltaRenderer (diff-type attrs + aria-label present)", () => {
+		// Confirm CodeDeltaRenderer is exported from the DS (import succeeds).
+		expect(CodeDeltaRenderer).toBeDefined();
+
+		const { container } = renderCanvas();
+
+		// The DS CodeDeltaRenderer emits data-diff-type on each diff line div.
+		// The review chrome's slot wiring is the only path that produces this in FileDiff.
+		const addLines = container.querySelectorAll('[data-diff-type="add"]');
+		const delLines = container.querySelectorAll('[data-diff-type="del"]');
+		expect(addLines.length).toBeGreaterThan(0);
+		expect(delLines.length).toBeGreaterThan(0);
+
+		// CodeDeltaRenderer renders <pre aria-label="Code diff: <file>"> — the review
+		// chrome's hand-rolled version used a plain <div>, not a labelled <pre>.
+		// This label is structural proof that CodeDeltaRenderer owns the diff structure.
+		const preDiff = container.querySelector('pre[aria-label^="Code diff:"]');
+		expect(preDiff).not.toBeNull();
 	});
 });

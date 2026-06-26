@@ -35,10 +35,11 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/work/bet/bet-9");
 	});
 
-	it("host + task → navigate('/work/task/:id')", () => {
+	it("host + task → does NOT navigate (AM5 H5/BLOCKER-1: no betId in scope, documented no-op)", () => {
 		const navigate = vi.fn();
 		createOpenHandler(navigate)({ route: "host", hostKind: "task", hostId: "task-3" });
-		expect(navigate).toHaveBeenCalledWith("/work/task/task-3");
+		// AM5 H5: task host returns null from resolveHostRoute — no navigation (no betId)
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	it("artifact → navigate('/artifacts/:id')", () => {

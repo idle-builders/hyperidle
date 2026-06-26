@@ -53,19 +53,20 @@ describe("R6 AC6: ArtifactCreatedEvent is a valid KernelEvent", () => {
 	});
 
 	it("ArtifactCreatedEvent has the correct discriminant type literal 'artifact_created'", () => {
+		// AM5 B2: code_diff → code (pre-alpha purge)
 		const event: ArtifactCreatedEvent = {
 			type: "artifact_created",
 			streamId: "s-1",
 			artifactId: "a-1",
 			taskId: "t-1",
-			kind: "code_diff",
+			kind: "code",
 			timestamp: 1748000000000,
 		};
 
 		expect(event.type).toBe("artifact_created");
 		expect(event.artifactId).toBe("a-1");
 		expect(event.taskId).toBe("t-1");
-		expect(event.kind).toBe("code_diff");
+		expect(event.kind).toBe("code");
 		expect(typeof event.streamId).toBe("string");
 		expect(typeof event.timestamp).toBe("number");
 	});

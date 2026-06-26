@@ -27,7 +27,7 @@ The axis name is "Product areas."
 | **Conversations** | ThreadRow, Composer, ThreadShell, CommentRow, RichMessageCard, ThreadHostBanner, NotificationRow, conversation pages |
 | **Artifacts** | ArtifactCostChip, ArtifactEmbed, ArtifactGalleryCard, ArtifactKindBadge, ArtifactPreview, ArtifactPreviewSurface, ArtifactStackItem, ArtifactTimestamp |
 | **Settings** | Settings panels (SettingsModels, SettingsAgents, SettingsAssistant, SettingsWorker) |
-| **System** | AppShell layout, Sidebar, kind renderers (code, image, url, text, file, json, audio) |
+| **System** | AppShell layout, Sidebar |
 
 ## Classification rules
 
@@ -38,7 +38,7 @@ Group assignment is **derived** — from source path, story title, or an explici
    - `web/src/pages/work/…` → Work
    - `web/src/pages/knowledge/…` → Knowledge
    - `web/src/settings/…` → Settings
-   - `web/src/shell/…`, `web/src/layouts/…`, `design-system/src/kinds/…` → System
+   - `web/src/shell/…`, `web/src/layouts/…` → System
    - Flat `web/src/pages/…` — falls through to title
 3. **Title fallback** — for flat `web/src/pages/*.stories.tsx` only: `"Page: Work/*"` → Work, `"Page: Knowledge/*"` → Knowledge, etc.
 4. **`DS_COMPONENT_GROUPS[title]`** — central registry in `discovery.ts` for the flat `design-system/src/` root (path carries no axis signal there)
@@ -70,7 +70,7 @@ Theme toggle (Dark / Light) in the viewer toolbar switches the cascade; token ti
 
 ## Visual regression
 
-The DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`) covers all DS stories (`src/*.stories.tsx` including Tokens, and `src/kinds/*.stories.tsx`). It does NOT cover web stories (cross-package coupling is avoided in the test runner). The guard `expect(modules.length).toBeGreaterThanOrEqual(56)` must stay — a glob returning `{}` makes the net vacuously green. See `.claude/rules/visual-regression.md`.
+The DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`) covers all DS stories (`src/*.stories.tsx` including Tokens). It also globs `src/kinds/*.stories.tsx` (AM5: the kind-renderer stories were deleted — `kinds/` now only contains `compose-artifact-body.tsx`; the guard currently requires ≥52 stories). It does NOT cover web stories (cross-package coupling is avoided in the test runner). The guard must stay — a glob returning `{}` makes the net vacuously green. See `.claude/rules/visual-regression.md`.
 
 ## Deferred cleanup
 

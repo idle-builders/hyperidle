@@ -201,7 +201,16 @@ export type Embed =
 // ── OpenTarget — the routing seam (no router in the renderer) ────────
 
 export type OpenTarget =
-	| { readonly route: "host"; readonly hostKind: BlockHostKind; readonly hostId: string }
+	| {
+			readonly route: "host";
+			readonly hostKind: BlockHostKind;
+			readonly hostId: string;
+			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
+			 *  to the resolved path; KnowledgeDetail scrolls to the matching data-block-id element.
+			 *  Security: blockId is matched by value comparison against known block ids, never
+			 *  concatenated into a querySelector (selector-injection mitigation). */
+			readonly blockId?: string;
+	  }
 	| { readonly route: "artifact"; readonly artifactId: string }
 	| { readonly route: "review"; readonly betId: string; readonly reviewId: string }
 	| { readonly route: "session"; readonly sessionId: string };
@@ -273,7 +282,8 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 		return {
 			kind: "block",
 			title: ref.blockId,
-			target: { route: "host", hostKind: ref.hostKind, hostId: ref.hostId },
+			// @lore AM5 T8: thread blockId so the open-handler can append #block-<id>
+			target: { route: "host", hostKind: ref.hostKind, hostId: ref.hostId, blockId: ref.blockId },
 		};
 	}
 	if (ref.kind === "mention") {

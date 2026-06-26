@@ -64,6 +64,15 @@ export interface ArtifactSectionProps {
 	 * Callers that override onOpen can intercept navigation (e.g. for analytics).
 	 */
 	onOpen?: (artifactId: string) => void;
+	/**
+	 * AM5 WIRE: Called when "View all" is activated (overflow present, nextCursor !== null).
+	 * When not provided, the overflow affordance renders as an inert label.
+	 *
+	 * @lore AM5 T9: Previously the overflow span was non-interactive (L12 B-3 lore).
+	 * The /artifacts/:id route now exists (H5 fix) and can be driven through the open contract.
+	 * Callers that know the full-listing context supply this callback.
+	 */
+	onViewAll?: () => void;
 }
 
 /** Number of skeletons to show per layout while loading. */
@@ -80,6 +89,7 @@ export function ArtifactSection({
 	heading,
 	emptyDescription,
 	onOpen,
+	onViewAll,
 }: ArtifactSectionProps): JSX.Element | null {
 	const navigate = useNavigate();
 	const query: Pick<ArtifactQuery, "limit"> | undefined =
@@ -202,16 +212,27 @@ export function ArtifactSection({
 				<ArtifactPreview data={items[0]} />
 			)}
 
-			{/* @lore L12 (B-3): non-interactive span — the target page doesn't exist yet.
-			    TODO: replace with a <Link> once the full artifact list page ships. */}
-			{nextCursor !== null && (
-				<span
-					data-testid="artifact-section-view-all"
-					className="text-xs text-[var(--text-tertiary)] mt-2 inline-block"
-				>
-					View all
-				</span>
-			)}
+			{/* @lore AM5 T9 (was L12 B-3): wired via onViewAll callback (the /artifacts/:id route
+			    now exists via the H5 fix). When onViewAll is provided, renders as a button
+			    routed through the open contract; when absent, falls back to an inert label. */}
+			{nextCursor !== null &&
+				(onViewAll ? (
+					<button
+						type="button"
+						data-testid="artifact-section-view-all"
+						onClick={onViewAll}
+						className="text-xs text-[var(--text-tertiary)] mt-2 inline-block hover:text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)]"
+					>
+						View all
+					</button>
+				) : (
+					<span
+						data-testid="artifact-section-view-all"
+						className="text-xs text-[var(--text-tertiary)] mt-2 inline-block"
+					>
+						View all
+					</span>
+				))}
 		</section>
 	);
 }

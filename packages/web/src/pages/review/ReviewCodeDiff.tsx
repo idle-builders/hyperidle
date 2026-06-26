@@ -12,8 +12,10 @@
 // callback is a no-op. No router/context. The story renders L1+L2 with the top file
 // expanded to L3 so the full drill-down is visible in a single screenshot.
 
+import type { CodeDelta, DiffLineRef } from "@hyperidle/design-system";
+import { CodeDeltaRenderer } from "@hyperidle/design-system";
 import type { AnchorRef } from "@hyperidle/shared";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
@@ -66,16 +68,6 @@ interface CiCheck {
 	/** success cells show a ✓; the coverage delta carries its own text. */
 	readonly detail?: string;
 }
-
-// @lore AL1: reuse CodeRenderer's exact diff tints (AI6) so the code canvas and any
-// inline artifact diff render identically. add = success 10%, del = error 10%.
-const LINE_TINT: Record<LineKind, string> = {
-	add: "bg-[color-mix(in_oklab,var(--status-success)_10%,transparent)]",
-	del: "bg-[color-mix(in_oklab,var(--status-error)_10%,transparent)]",
-	ctx: "",
-};
-
-const LINE_PREFIX: Record<LineKind, string> = { add: "+", del: "-", ctx: " " };
 
 // ── fixture — GitHub PR, the expired-promo silent-success → typed-422 fix ─────────
 // Realistic: the meat (catch → typed 422) is 6 lines inside a 12-file PR; generated
@@ -342,7 +334,38 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 	);
 }
 
+// ── helpers to build a CodeDelta from the review's Hunk type ─────────────────────
+
+/** Convert the review Hunk model to a DS CodeDelta (thread oldNo/newNo through). */
+function toDelta(filePath: string, hunks: readonly Hunk[]): CodeDelta {
+	return {
+		file: filePath,
+		hunks: hunks.map((h) => ({
+			header: h.header,
+			lines: h.lines.map((l) => ({
+				kind: l.kind,
+				text: l.text,
+				oldNo: l.oldNo,
+				newNo: l.newNo,
+			})),
+		})),
+	};
+}
+
+/** Build a stable key for a (hunkIndex, lineIndex) pair used inside FileDiff. */
+function lineKey(hunkIndex: number, lineIndex: number): string {
+	return `${hunkIndex}:${lineIndex}`;
+}
+
 // ── L3: a single file's hunks with a line-number gutter ───────────────────────────
+//
+// @lore AM5 C1: FileDiff now composes the DS CodeDeltaRenderer (K2b) via the
+// four per-line slot callbacks (renderLineGutter / renderLineAffordance /
+// renderLineBelow / renderTrailing). The DS core owns the hunk/line structure
+// (hunk headers, data-diff-type, prefix glyph, <code> text, line bg tints);
+// the review chrome fills the slots with its dual gutter, "+" button,
+// InlineComposer, AnchoredThreadCard, and orphan pass.
+// The rendered DOM is byte-identical to the previous hand-rolled version.
 function FileDiff({
 	hunks,
 	filePath,
@@ -362,6 +385,28 @@ function FileDiff({
 		import("@hyperidle/shared").BlockId | null
 	>(null);
 
+	// ── pre-compute anchor info per (hunkIndex, lineIndex) ────────────────────
+	// This avoids re-deriving block ids inside every slot call (which would
+	// recompute inside render-time callbacks with no stable reference).
+	type LineInfo = {
+		readonly blockId: import("@hyperidle/shared").BlockId;
+		readonly anchor: AnchorRef;
+	};
+	const lineInfoMap = useMemo(() => {
+		const map = new Map<string, LineInfo>();
+		hunks.forEach((hunk, hunkIndex) => {
+			hunk.lines.forEach((line, lineIndex) => {
+				const blockId = line.blockId ?? lineBlockId(artifactId, filePath, hunkIndex, line);
+				const spotLabel = line.spotLabel ?? `${filePath}:${line.newNo ?? line.oldNo ?? "new"}`;
+				map.set(lineKey(hunkIndex, lineIndex), {
+					blockId,
+					anchor: { artifactId, blockId, spotLabel },
+				});
+			});
+		});
+		return map;
+	}, [hunks, artifactId, filePath]);
+
 	const threadMap = useMemo(() => {
 		const map = new Map<string, import("./review-composition.js").ReviewComment[]>();
 		for (const c of anchors) {
@@ -374,109 +419,114 @@ function FileDiff({
 		return map;
 	}, [anchors]);
 
-	const allBlockIds = new Set<string>();
+	// Track all block ids that appear in the current diff for orphan detection.
+	const allBlockIds = useMemo(() => {
+		const s = new Set<string>();
+		for (const info of lineInfoMap.values()) s.add(info.blockId);
+		return s;
+	}, [lineInfoMap]);
+
+	// ── slot: dual line-number gutter (old | new) ─────────────────────────────
+	const renderLineGutter = (ref: DiffLineRef): ReactNode => (
+		<>
+			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
+				{ref.oldNo ?? ""}
+			</span>
+			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums border-r border-[var(--border-subtle)]">
+				{ref.newNo ?? ""}
+			</span>
+		</>
+	);
+
+	// ── slot: inline-comment "+" affordance ───────────────────────────────────
+	const renderLineAffordance = (ref: DiffLineRef): ReactNode => {
+		if (readOnly) return null;
+		const info = lineInfoMap.get(lineKey(ref.hunkIndex, ref.lineIndex));
+		if (!info) return null;
+		return (
+			<button
+				type="button"
+				aria-label="Add inline comment"
+				title="Add inline comment"
+				onClick={() => setComposerBlockId(info.blockId)}
+				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+			>
+				+
+			</button>
+		);
+	};
+
+	// ── slot: InlineComposer + AnchoredThreadCard below the line ─────────────
+	const renderLineBelow = (ref: DiffLineRef): ReactNode => {
+		const info = lineInfoMap.get(lineKey(ref.hunkIndex, ref.lineIndex));
+		if (!info) return null;
+		const { anchor } = info;
+		const threadComments = threadMap.get(info.blockId) ?? [];
+		const composerOpen = composerBlockId === info.blockId;
+		return (
+			<Fragment key={`below:${ref.hunkIndex}:${ref.lineIndex}`}>
+				{composerOpen ? (
+					<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
+						<div className="flex flex-col items-center gap-0">
+							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
+							<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
+							<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
+						</div>
+						<InlineComposer
+							anchor={anchor}
+							onSubmit={async (text: string) => {
+								await onAddAnchor({ anchor, text });
+								setComposerBlockId(null);
+							}}
+						/>
+					</div>
+				) : null}
+				{threadComments.length > 0 ? (
+					<div className="pl-[88px] pr-[12px] py-[9px]">
+						<AnchoredThreadCard
+							anchor={anchor}
+							comments={threadComments}
+							readOnly={readOnly}
+							onReply={async (text: string) => {
+								await onAddAnchor({ anchor, text });
+							}}
+						/>
+					</div>
+				) : null}
+			</Fragment>
+		);
+	};
+
+	// ── slot: orphaned anchors after all hunks ────────────────────────────────
+	const renderTrailing = (): ReactNode =>
+		Array.from(threadMap.entries())
+			.filter(([blockId]) => !allBlockIds.has(blockId))
+			.map(([blockId, comments]) => {
+				const first = comments[0];
+				if (!first?.anchor) return null;
+				return (
+					<div key={blockId} className="px-[12px] py-[9px] opacity-60">
+						<AnchoredThreadCard
+							anchor={first.anchor}
+							comments={comments}
+							readOnly={readOnly}
+							orphan
+						/>
+					</div>
+				);
+			});
+
+	const delta = toDelta(filePath, hunks);
 
 	return (
 		<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)]">
-			{hunks.map((hunk, hunkIndex) => (
-				<div key={hunk.header}>
-					<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
-						{hunk.header}
-					</div>
-					<div className="font-mono text-[12px] leading-[var(--leading-body)]">
-						{hunk.lines.map((line) => {
-							const blockId = line.blockId ?? lineBlockId(artifactId, filePath, hunkIndex, line);
-							const spotLabel =
-								line.spotLabel ?? `${filePath}:${line.newNo ?? line.oldNo ?? "new"}`;
-							allBlockIds.add(blockId);
-							const anchor: AnchorRef = { artifactId, blockId, spotLabel };
-							const threadComments = threadMap.get(blockId) ?? [];
-							const composerOpen = composerBlockId === blockId;
-							return (
-								<Fragment
-									key={`${hunk.header}:${line.oldNo ?? "x"}:${line.newNo ?? "x"}:${line.text}`}
-								>
-									<div
-										data-diff-type={line.kind}
-										className={`group/line relative flex ${LINE_TINT[line.kind]}`}
-									>
-										{/* line-number gutter — old | new, tabular so columns hold */}
-										<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
-											{line.oldNo ?? ""}
-										</span>
-										<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums border-r border-[var(--border-subtle)]">
-											{line.newNo ?? ""}
-										</span>
-										{/* hover inline-comment "+" affordance, anchored in the gutter seam */}
-										{readOnly ? null : (
-											<button
-												type="button"
-												aria-label="Add inline comment"
-												title="Add inline comment"
-												onClick={() => setComposerBlockId(blockId)}
-												className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
-											>
-												+
-											</button>
-										)}
-										<span className="select-none w-[16px] shrink-0 px-[3px] text-center text-[var(--text-tertiary)]">
-											{LINE_PREFIX[line.kind]}
-										</span>
-										<code className="flex-1 whitespace-pre pr-[12px] text-[var(--text-primary)]">
-											{line.text}
-										</code>
-									</div>
-									{composerOpen ? (
-										<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
-											<div className="flex flex-col items-center gap-0">
-												<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
-												<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
-												<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
-											</div>
-											<InlineComposer
-												anchor={anchor}
-												onSubmit={async (text: string) => {
-													await onAddAnchor({ anchor, text });
-													setComposerBlockId(null);
-												}}
-											/>
-										</div>
-									) : null}
-									{threadComments.length > 0 ? (
-										<div className="pl-[88px] pr-[12px] py-[9px]">
-											<AnchoredThreadCard
-												anchor={anchor}
-												comments={threadComments}
-												readOnly={readOnly}
-												onReply={async (text: string) => {
-													await onAddAnchor({ anchor, text });
-												}}
-											/>
-										</div>
-									) : null}
-								</Fragment>
-							);
-						})}
-					</div>
-				</div>
-			))}
-			{/* Orphaned anchors: block no longer resolves in the current diff. */}
-			{Array.from(threadMap.entries())
-				.filter(([blockId]) => !allBlockIds.has(blockId))
-				.map(([blockId, comments]) => {
-					const first = comments[0];
-					if (!first?.anchor) return null;
-					return (
-						<div key={blockId} className="px-[12px] py-[9px] opacity-60">
-							<AnchoredThreadCard
-								anchor={first.anchor}
-								comments={comments}
-								readOnly={readOnly}
-								orphan
-							/>
-						</div>
-					);
-				})}
+			<CodeDeltaRenderer
+				delta={delta}
+				renderLineGutter={renderLineGutter}
+				renderLineAffordance={renderLineAffordance}
+				renderLineBelow={renderLineBelow}
+				renderTrailing={renderTrailing}
+			/>
 		</div>
 	);
 }
