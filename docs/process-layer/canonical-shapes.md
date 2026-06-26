@@ -215,25 +215,27 @@ Implementation story: **AL7** — Review execution loop (`.pipeline/work-package
 **Full spec:** `docs/process-layer/substrate-primitive.md`. Concept locked in `plans/AO/concept.md`.
 
 ```
-// The durable working files an agent's output lives in, attached to an
-// agent within a team. Team-scoped. ("Product" is not modelled for now.)
+// Durable file-like artifacts an agent AUTHORS, attached to an agent within
+// a team. Team-scoped. ("Product" not modelled for now.)
 type Substrate = {
   id: string             // opaque, stable
   teamId: string         // FK → owning Team (teams.id). The scope. Required.
   agentMemberId?: string // FK → agent-within-a-team (teamMembers.id) it attaches to.
-                         //      Primary attachment; null → a team-level (shared) substrate.
-  kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set'.
-  location: string       // for 'code': clone URL / local path + branch
-  connectionId?: string  // OPTIONAL FK → Connection (AN) for forge auth. By ref.
+                         //      Primary; null → a team-level (shared) substrate.
+  kind: string           // OPEN vocab. Initial: 'code' (git repo) | 'doc_set' (authoring folder).
+                         //      Systems of record (inbox/CRM/ticket) are EXCLUDED — they are AN tools.
+  connectionId?: string  // OPTIONAL FK → Connection (AN): the account+auth the resource lives in.
+                         //      By ref; auth provisioned INTO the sandbox. Null → bare local path.
+  resourceRef: string    // which resource of the connection: a repo+branch, a folder path.
+  writeback: 'git' | 'file' | 'none'   // how authored changes leave the sandbox
   state: 'attached' | 'reachable' | 'needs_attention'
   createdAt: string
 }
 ```
 
-- **Scope = Team; attaches to an agent within a team.** A substrate is attached to one agent-in-team (primary) or shared at team level — always team-scoped. A session the agent runs materializes its attached substrate(s). A first-class multi-instance "Product" scope is **deferred** (AO4).
-- **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); for a code substrate the bound Connection's forge auth is present so the agent's own `git`/`gh` tools push/PR. **No credential withholding, no broker-only path.** The review gate (AL7) checkpoints *irreversible landing*, never withholds access.
-- **Substrate ⟂ Connection** — files vs auth/tools; distinct axes that compose. The substrate references the Connection; the Connection supplies the auth.
-- **Local-first** — a substrate functions with no forge (a plain local git repo).
-- **Materialization** is driven by the agent's attachment (AO2), never a global path; a substrate-less session degrades to today's behavior. Forward-only migration.
+- **Substrate vs Tool vs Knowledge (research-grounded, `plans/AO/research-substrate-vs-tool.md`).** A substrate is **only** a file-bearing corpus the agent **authors** — materialized into the sandbox, edited, written back with history. **Code repos + document authoring** materialize. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → substrate; *operate a system of record* → tool; *look something up* → knowledge.
+- **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (repo/folder) is the substrate. Substrate ⟂ Connection: files vs auth/tools, compose.
+- **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); the bound Connection's forge auth is present so the agent's own `git`/`gh` push/PR. **No withholding, no broker-only path.** AL7 checkpoints irreversible *landing*, never access.
+- **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.** Local-first; forward-only migration.
 
 Implementation stories: **AO1** (substrate model + attach surface), **AO2** (materialization). Concept: `plans/AO/concept.md`.

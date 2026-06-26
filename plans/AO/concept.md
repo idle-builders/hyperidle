@@ -1,22 +1,50 @@
 # Concept — Track AO (Self-Hosting Build Loop): Substrate
 
-**Level:** Track concept (gating). Fixed input for **AO1** (substrate model + bind surface). AO2 consumes it (materialization); AO3 is parked behind AL7; AO4 (multi-instance scope) is **deferred** — for now the build scope is simply the **Team** (see "Scope" below).
+**Level:** Track concept (gating). Fixed input for **AO1** (substrate model + bind surface). AO2 consumes it (materialization); AO3 is parked behind AL7; AO4 (multi-instance scope) is **deferred** — for now the build scope is simply the **Team**.
 
-**One load-bearing noun:** **Substrate** — *new primitive.* The working files an agent's output lives in and accrues history on, **attached to an agent within a team**, of a `kind` (a git **code repository** for code work, a **document/knowledge set** for non-code work).
+**One load-bearing noun:** **Substrate** — *new primitive.* The durable working files an **agent authors and accrues history on**, materialized into its session sandbox, of a `kind` (a git **code repository** for code work, a **document-authoring set** for writing work).
 
-> **Scope = Team. "Product" is not modelled (for now).** An earlier draft introduced a Product noun and a Product↔Team coupling; the founder has set that aside — we speak only of **Team**. Multi-instance / per-product isolation (AO4) is deferred. Everything below scopes to the Team and, more precisely, to an **agent within a team**.
+> **Scope = Team. "Product" is not modelled (for now).** We speak only of **Team**, and more precisely an **agent within a team** the substrate attaches to. Multi-instance / per-product isolation (AO4) is deferred.
+
+> **Substrate is deliberately NARROW (research-grounded, 2026-06-26).** A substrate is **only** a file-bearing working set the agent **authors** — code (canonical) and document-authoring. **Systems of record** (email inboxes, ticket queues, CRMs) and **drive lookups** are **NOT substrates** — they reach the agent as **live tools** (Track AN) or **retrieval** (knowledge fabric). See "Substrate vs Tool vs Knowledge" below and `plans/AO/research-substrate-vs-tool.md`.
+
+---
+
+## Substrate vs Tool vs Knowledge — the decision rule (research-grounded)
+
+Every production agent system surveyed (MCP spec; Devin/Claude Code; Glean/Notion connectors; Decagon/Sierra support agents) draws **one sharp line**. There are three ways an agent reaches state:
+
+1. **Substrate (materialize)** — the agent gets a local, editable, file-like **working set** in its sandbox; it reads/edits/builds/tests/diffs and **writes back as a batch with history**. **Reserved for code repos and document authoring** — the only places a filesystem + version-control + test/diff loop is the native workflow. (Devin/Claude Code clone a repo into a per-session sandbox; nobody materializes a non-code system of record.)
+2. **Tool (live API action)** — the agent takes **discrete read/act operations** against a **live stateful system of record** that owns its own consistency, permissions, and workflow. **Email inboxes, ticket queues, CRMs are ALWAYS this** — never materialized. Sending an email, updating a ticket, PATCHing a CRM record, pushing a PR are all tool actions. **This is Track AN** (MCP connectors). MCP encodes it: **tools** = model-controlled actions; **resources** = read-only data (no write method).
+3. **Knowledge / retrieval (index)** — a reference corpus read via an **index** (RAG); the agent never edits it. Cloud-drive *lookup* ("find the Q3 doc") is this. **This is the existing knowledge fabric**, not substrate.
+
+**The discriminator** is **not** "does an API exist" (everything has one) — it is **what the work is**: *author/transform a coherent corpus* → **substrate**; *operate a live system of record* → **tool**; *look something up* → **knowledge**. The **same** Drive folder is a **substrate** when the job is "revise these 10 documents" and a **tool/knowledge** when the job is "find the Q3 report."
+
+| System | Side | Why |
+|---|---|---|
+| **Code repo** (git) | **Substrate** | file-like, version-controlled, branch/merge, test loop — canonical |
+| **Doc-authoring set** (Obsidian / markdown folder) | **Substrate** | a corpus edited as files; write-back = file/git; **publish via discrete action** |
+| Email inbox (Gmail/Outlook) | **Tool** (AN) | live SoR; read=query, act=send/draft; no synced maildir |
+| Ticket queue (Zendesk/Linear) | **Tool** (AN) | live SoR; read/update via API |
+| CRM (Salesforce/HubSpot) | **Tool** (AN) | live SoR; PATCH via API |
+| Cloud drive (lookup) | **Knowledge** (read) / **Tool** (write) | read via index; write via discrete create-file; no edit-and-syncback |
+
+So AO does **not** materialize inboxes/CRMs/ticket queues, and does **not** build a Drive/Dropbox two-way sync engine. Those are AN tools / fabric retrieval. AO materializes only **authored corpora**.
+
+> **How a substrate is connected (founder framing).** Like other connectors: connect the account once in Settings (a **Connection**, Track AN — token or inherited, **never an OAuth app HyperIdle registers**); then per-agent configure **which resource of that connection** is the substrate (a GitHub **repo**+branch; an Obsidian/Drive **folder**). The Connection supplies the auth; the Substrate is the file-bearing **resource selection** injected to an agent. Files (substrate) and auth/tools (Connection) are distinct axes that **compose**.
 
 ---
 
 ## Required reading (downstream: `/architecture`, `/design`, `/pipeline`)
 
-- `docs/architecture/system-boundary.md` — RIDE git / INTEGRATE infra / REPLACE collaboration; "code lives in a local git repo, forge-optional"; code is git-derived, never stored-of-record. **The substrate noun is grounded here.**
+- `plans/AO/research-substrate-vs-tool.md` — **the substrate↔tool↔knowledge decision rule + citations.** Read first.
+- `docs/architecture/system-boundary.md` — RIDE git / INTEGRATE infra / REPLACE collaboration; "code lives in a local git repo, forge-optional."
 - `docs/process-layer/substrate-primitive.md` — the Substrate ground-truth this pass writes.
-- `docs/process-layer/canonical-shapes.md` — the Substrate canonical-shape entry this pass adds.
-- `docs/process-layer/staged-operation.md` — the trust model: **agents hold their own credentials in the sandbox**; the review gate is a collaboration checkpoint on irreversible landing, never a credential boundary. **Read this for how agents work *with* access.**
-- `docs/process-layer/teams-persistent-product-bound.md` — Team is persistent; an agent belongs to exactly one team; lifecycle (commit → active → kill).
-- `docs/process-layer/artifact-primitive.md` — Artifact (L3) is the *reviewable record*; substrate is the *files the record derives from*. Open `kind` vocabulary is the model the substrate `kind` mirrors.
-- Code seams (verified 2026-06-26): `packages/db/src/schema.ts` (teams 17-34, teamMembers ~102, users ~47, artifacts 848-865, knowledgeItems 580-602, scopeId 590), `packages/fabric/src/services/git-export-runner.ts` (export-only — no clone/fetch/checkout), `packages/server/src/services/session-provisioning.ts` (sandbox spawn + context write), `packages/fabric/src/promotion-pipeline.ts:207` (factory-wide leak — a Team-isolation item, deferred with AO4).
+- `docs/process-layer/canonical-shapes.md` — the Substrate canonical-shape entry.
+- `docs/process-layer/staged-operation.md` — the trust model: **agents hold their own credentials in the sandbox**; the review gate checkpoints irreversible *landing*, never withholds access.
+- `.pipeline/work-packages/TRACK-AN.md` — Connection (connect-once; held token / inherited / service OAuth; no HyperIdle OAuth app). A code substrate references a Connection for forge auth.
+- `docs/process-layer/artifact-primitive.md` — Artifact (L3) is the *reviewable record*; substrate is the *files it derives from*. Open `kind` vocabulary mirrors the substrate `kind`.
+- Code seams (verified 2026-06-26): `packages/db/src/schema.ts` (teams 17-34, teamMembers ~102, artifacts 848-865), `packages/fabric/src/services/git-export-runner.ts` (export-only — **no clone/fetch/checkout**), `packages/server/src/services/session-provisioning.ts` (sandbox spawn).
 
 ---
 
@@ -25,10 +53,9 @@
 | Noun | Class | Code reality (2026-06-26, grep-verified) |
 |---|---|---|
 | **Substrate** | **New primitive** | Zero implementation. `artifacts` has no repoPath/filePath/commitSha (schema.ts:848-865). `GitRunner` is export-only — `init/add/commit/push`, **no clone/fetch/checkout** (git-export-runner.ts:18-41). Sandbox holds `context/ knowledge/ work/` only — no `src/`. |
-| Team | Stable (input) | `teams` table — the durable scope. An agent belongs to exactly one team (`teamMembers`, U1). The build scope for AO. |
-| Agent-within-a-team | Stable (input) | An agent's membership in a team (`teamMembers`; `users.teamId`). **The primary thing a substrate attaches to.** |
-| Unit of work (bet/task/session) | Stable (input) | `teamId`-scoped spine. A session run by an agent materializes that agent's attached substrate (AO2). |
-| Connection (Track AN) | Stable (input, not yet built) | Holds durable auth/tools; provisioned **into** the sandbox each spawn (durable-auth→disposable-sandbox, PR #364). Supplies forge auth to a code substrate. Composes with substrate. |
+| Connection (Track AN) | Stable (input, not yet merged) | Per-(user×service) account record; auth = held token / inherited / service OAuth; **no HyperIdle OAuth app**. Supplies forge auth to a code substrate; provisioned into the sandbox each spawn. Substrate references it. |
+| Team / agent-within-a-team | Stable (input) | `teams` / `teamMembers`. The scope, and the thing a substrate attaches to. |
+| Knowledge fabric | Stable (input) | The retrieval/index read path for reference corpora — the "knowledge" side of the decision rule. Not a substrate. |
 
 **Human-design-review forecast (advisory).** **AO1 = Yes** (new attach/inspect substrate surface). `/design`'s `DESIGN-CLASS` remains authoritative.
 
@@ -36,23 +63,25 @@
 
 ## Phase 1 — Essence (Substrate)
 
-1. **Identity.** A Substrate is the **durable working files an agent's output lives in and accrues history on**, attached to an **agent within a team**, of a `kind` — a git **code repository** for code, a **document/knowledge set** for non-code. It is a *container of working files with history*, not an event, not a snapshot.
-2. **Essential properties.** Every substrate has: a `kind`; a **location** (for code: clone URL / local path + branch); an **attachment** to an agent-within-a-team (team-scoped); the capacity to **accrue history** (commits / revisions); a **reachability state**. It is distinct from `knowledge_items` and from the knowledge-export config.
+1. **Identity.** A Substrate is the **durable working files an agent authors and accrues history on**, attached to an **agent within a team**, of a `kind` — a git **code repository** for code, a **document-authoring set** (markdown/Obsidian folder) for writing. A *container of authored, file-like working artifacts with history* — not a system of record, not a retrieval index.
+2. **Essential properties.** Every substrate has: a `kind`; a **resource selection** within a Connection (the repo / folder) — or a bare local path; an **attachment** to an agent-within-a-team (team-scoped); a **write-back capability** (`git` | `file` | `none`); the capacity to **accrue history**; a **reachability state**.
 3. **Rejection list.** See Phase 2.
-4. **Composition.** A Substrate is **attached to an agent within a team** (primary), under that **Team** as scope (`agent-in-team 1 — 0..N Substrate`; a team may share one at team level). For a code kind it **references** a forge **Connection** (Track AN) for auth — by reference; the Connection's auth is provisioned **into** the sandbox so the agent's own tools work. A **session** the agent runs **materializes** its attached substrate(s) into the sandbox (AO2). The **Artifact** (L3) the agent produces is **derived from** the substrate, never the substrate itself.
-5. **Lifecycle.** `attached` → `reachable` (materializable; can be checked out / opened) ⇄ `needs-attention` (unreachable / unauthenticated — surfaced, never silent). A code substrate's working tree is materialized per session, **mutated by the agent**, and **captured back** (committed/written) at session end. The substrate record is durable; the materialization is ephemeral.
-6. **Authority.** The **agent (within its team)** owns and works its substrate(s). The **founder attaches** a substrate to an agent/team (and sees its kind/location/state). The **system materializes** it at provisioning **and provisions the Connection's auth into the sandbox** — the agent uses its **own** credentials and tools (git/gh) to fetch/push, exactly like a real employee. For code, the **git repo itself** is the source of truth (code is git-derived, never HyperIdle-stored-of-record — system-boundary hard rule 4).
-7. **Vocabulary collision.** "Substrate" is used informally in `system-boundary.md` and the deep review — this pass **formalizes** it; no collision. Distinguish hard from **sandbox** (the ephemeral per-session dir where a substrate is materialized) and from **workspace** (retired term → sandbox).
+4. **Composition.** A Substrate **references a Connection** (Track AN) + a **resource selector** (which repo/folder); for a `code` kind the Connection supplies forge auth provisioned **into** the sandbox. It is **attached to an agent within a team** (primary), under that **Team** as scope. A **session** the agent runs **materializes** it into the sandbox (AO2). The **Artifact** (L3) the agent produces is **derived from** the substrate.
+5. **Lifecycle.** `attached` → `reachable` ⇄ `needs-attention` (unreachable/unauthenticated — surfaced, never silent). Per session: **materialized → authored by the agent → captured back** (git commit / file write). For an authored artifact destined for an external system, the draft lives in the sandbox and is **published via a discrete tool action** at the end (the publish is a Connection/tool op, not a substrate sync).
+6. **Authority & access.** The **agent (within its team)** authors its substrate(s). The **founder attaches** it (Connection + resource). The **system materializes** it **and provisions the agent's inherited Connections/tools/credentials into the sandbox** — the agent uses its **own** credentials and tools, like a real employee. For code, the **git repo itself** is the source of truth (code is git-derived).
+7. **Vocabulary collision.** "Substrate" is formalized here; distinguish from **sandbox** (ephemeral materialization target), **Connection/tool** (live SoR access — AN), and the **knowledge fabric** (retrieval index).
 
 ---
 
 ## Phase 2 — Rejection list (what a Substrate is NOT, with reasons)
 
-- **Not a `knowledge_item`** — knowledge items are *derived, promoted, attention-scored* fabric entries; a substrate is the *raw working files* the agent edits/builds/tests. Different store, different lifecycle. *(Today non-code output is wrongly squeezed into `knowledge_items` — AO1 fixes exactly this.)*
-- **Not the knowledge-export config/target** — `git-export` writes knowledge markdown to a single global repo; a substrate is the agent's working files. Attaching a substrate **must not overwrite** the export configuration (an AO1 AC).
-- **Not a Connection (Track AN)** — a Connection is *auth + tools*; a substrate is *files*. Orthogonal axes that **compose**: the Connection supplies the forge auth that is provisioned **into the sandbox** alongside the materialized substrate. They are distinct records; the substrate references the Connection, it does not embed or replace it.
-- **Not the sandbox** — the sandbox is the *ephemeral, per-session, isolated directory* where a substrate is *materialized* (AO2). The substrate is durable; the sandbox is thrown away each session.
-- **Not HyperIdle's store-of-record for code** — code is **git-derived**; the Artifact is derived from the repo, never our canonical store (system-boundary hard rule 4).
+- **Not a system of record / live tool** — email inboxes, ticket queues, CRMs are **live stateful systems** the agent operates via **discrete API actions** (Track AN), which own their own consistency/permissions/concurrency. No production agent materializes one as an editable-and-synced local copy. (Research, 2026-06-26.) A substrate is an **authored corpus**, not an operated system.
+- **Not a retrieval/knowledge index** — a reference corpus read via RAG (cloud-drive lookup) is the **knowledge fabric**; the agent reads it, never edits-and-syncs it. A substrate is **edited and written back**.
+- **Not a `knowledge_item`** — knowledge items are derived, promoted, attention-scored fabric entries; a substrate is the raw working files the agent authors. (Today non-code output is wrongly squeezed into `knowledge_items` — AO1 fixes this.)
+- **Not the knowledge-export config/target** — `git-export` writes knowledge markdown to a single global repo; attaching a substrate must not overwrite that config.
+- **Not a Connection (Track AN)** — a Connection is *auth + tools*; a substrate is *files*. Orthogonal axes that **compose**: the substrate references the Connection; the Connection supplies the auth provisioned into the sandbox.
+- **Not the sandbox** — the sandbox is the ephemeral per-session dir where a substrate is *materialized* (AO2). The substrate is durable; the sandbox is thrown away.
+- **Not HyperIdle's store-of-record for code** — code is git-derived; the Artifact is derived from the repo (system-boundary hard rule 4).
 
 ---
 
@@ -60,38 +89,41 @@
 
 | Term | Definition | Aliases NOT to use |
 |---|---|---|
-| **Substrate** | Durable working files an agent's output lives in and accrues history on, attached to an agent-within-a-team, of a `kind`. | workspace (= sandbox), repo (one *kind*), working directory, codebase (code-only), project files |
-| **Substrate kind** | The class of a substrate's files. Initial committed set: `code` (git repo), `doc_set` (document/knowledge set). **Open** vocabulary. | substrate type, repo type |
-| **Sandbox** | The ephemeral, per-session, isolated directory where a substrate is *materialized* and the agent's inherited Connections/tools/creds are provisioned (AO2). | workspace, container, env |
-| **Materialize** | Place an agent's attached substrate into a session sandbox (e.g. checkout a repo at its branch). | mount, sync, hydrate |
-| **Land** | Make an approved substrate change real via the connected target (push/PR/merge/publish) — the *agent's own* tool call, using its own creds, routed through review (AO3/AL7). | deploy (one kind), commit (capture ≠ land), execute |
+| **Substrate** | Durable file-like working artifacts an agent **authors** and accrues history on, attached to an agent-within-a-team, of a `kind`. | workspace (= sandbox), repo (one *kind*), connector (= Connection/tool), knowledge base (= retrieval) |
+| **Substrate kind** | The class of authored files. Initial committed set: `code` (git repo), `doc_set` (markdown/Obsidian folder). **Open** vocabulary. | substrate type, repo type |
+| **Resource selection** | Which sub-resource of a Connection the substrate is (a GitHub repo+branch; a Drive/Obsidian folder). | path, target |
+| **Write-back capability** | How authored changes leave the sandbox: `git` (commit→push/PR), `file` (file write), `none` (read-only reference). | sync, save |
+| **Sandbox** | The ephemeral per-session dir where a substrate is materialized and the agent's Connections/tools/creds are provisioned (AO2). | workspace, container |
+| **Land** | Make an approved substrate change real via the connected target (push/PR/merge/publish) — the agent's own tool call, routed through review (AO3/AL7). | deploy, commit (capture ≠ land) |
 
 ---
 
 ## Phase 4 — Contracts
 
-- **Cardinality.** `agent-in-team 1 — 0..N Substrate` (primary). A substrate is attached to **one** agent-within-a-team, or shared at the **Team** level; either way it is **team-scoped**. A session run by that agent materializes its attached substrate(s) (defaults to its primary).
-- **Closure.** Substrate `kind` vocabulary is **OPEN** (mirrors the Artifact-kind model): new kinds added without editing core. Initial committed kinds: `code` + at least one non-code (`doc_set`) — the primitive must not be code-only (AO1 AC).
-- **Mutability.** The attachment (`kind`, `location`, `branch`) is set at attach and updatable; the **materialized working tree** is mutated by the agent and captured back.
-- **Identity.** Opaque substrate id. For `code`, the natural address is `(location + branch)`.
+- **Cardinality.** `agent-in-team 1 — 0..N Substrate` (primary); a substrate attaches to one agent-within-a-team or is shared at the **Team** level — always team-scoped. A session the agent runs materializes its attached substrate(s).
+- **Closure.** Substrate `kind` vocabulary is **OPEN** (mirrors Artifact-kind). Initial committed kinds: `code` (git) + `doc_set` (authoring). **Systems of record are categorically excluded** — they are tools (AN), not a substrate kind.
+- **Write-back is a capability axis.** `git` | `file` | `none` — not every substrate writes back (a read-only reference folder = `none`). **Conflict rides the host's native mechanism** — git merge for `code`; for a plain `file` folder, **last-write-wins + a captured snapshot**. **No custom conflict/sync engine** (no production system materializes a non-code SoR for syncback; we don't either).
+- **Mutability.** The attachment (`kind`, resource selection, branch, write-back capability) is settable/updatable; the materialized working tree is authored and captured back.
+- **Identity.** Opaque substrate id; for `code`, `(connection + repo + branch)` is the natural address.
 - **Hard rules.**
-  1. **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); for a code substrate the forge auth from the bound Connection is present so the agent's own git/gh tools fetch/push/PR. We do **not** withhold credentials, do **not** build a broker-only path, do **not** design against a rogue agent. The review gate (AL7) is a **collaboration checkpoint on irreversible landing** that fades as trust grows — never a credential boundary.
-  2. Substrate ⟂ Connection — distinct axes (files vs auth/tools) that **compose**, never merge. The substrate references the Connection; the Connection supplies the auth.
-  3. **Local-first** — a substrate functions with **no forge** (a plain local git repo; a solo founder needs no GitHub).
-  4. A substrate is **not** a knowledge item and **not** the knowledge-export target — attaching one must not overwrite the export config or a knowledge item.
-  5. An unreachable/unauthenticated substrate surfaces as **needs-attention**, never a silent failure.
-  6. Materialization is driven by the **agent's attachment**, never a global path. A substrate-less session degrades to today's behavior (provisions, runs, no working tree).
-  7. **Forward-only** migration.
+  1. **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); for a code substrate the bound Connection's forge auth is present so the agent's own git/gh tools fetch/push/PR. **No credential withholding, no broker-only path, no design against a rogue agent.** The review gate (AL7) checkpoints *irreversible landing*, fades as trust grows — never a credential boundary.
+  2. **No OAuth app.** Auth always arrives via the Connection (held token or inherited) — HyperIdle never registers a per-service OAuth app.
+  3. Substrate ⟂ Connection — distinct axes (files vs auth/tools) that compose, never merge.
+  4. **Substrate = authored corpus only.** Systems of record (inbox/ticket/CRM) and retrieval indexes are NOT substrates.
+  5. **Local-first** — a substrate functions with no forge (a plain local git repo / local folder).
+  6. Not a knowledge item, not the knowledge-export target — attaching must not overwrite either.
+  7. Unreachable/unauthenticated → **needs-attention**, never silent. Materialization is driven by the agent's attachment, never a global path; a substrate-less session degrades to today's behavior.
+  8. **Forward-only** migration.
 
 ---
 
 ## Phase 6 — Self-critique (1 round)
 
-- **Rejection list distinct?** Yes — five different stores/axes (knowledge item, export target, Connection, sandbox, store-of-record).
-- **Vocabulary collisions?** "substrate" only appears as the informal concept being formalized; no clash. "Product" removed per founder.
-- **Contracts complete?** Cardinality / closure / mutability / identity / hard rules covered. Binding level settled at **agent-within-a-team** (founder, 2026-06-26).
-- **Credential model correct?** Yes — corrected: **creds are present in the sandbox**; the agent uses its own tools/auth. The earlier "no cred in sandbox" line was reverted-broker garbage and is removed.
-- **Right files touched?** This pass writes `plans/AO/concept.md`, creates `docs/process-layer/substrate-primitive.md`, adds the canonical-shape entry, and links it from the index. No Product modelling; the teams doc is left as-is.
+- **Rejection list distinct?** Yes — now seven distinct things (SoR/tool, retrieval index, knowledge_item, export target, Connection, sandbox, store-of-record). The SoR + retrieval rejections are the research-grounded additions that make the boundary load-bearing.
+- **Vocabulary collisions?** "substrate" formalizes informal usage; "connector/connection" reserved for AN tools; "knowledge base" reserved for fabric. No clash.
+- **Contracts complete?** Cardinality / closure / write-back-capability / conflict (ride-host) / mutability / identity / hard rules covered. Binding = agent-within-a-team; auth = Connection (no OAuth).
+- **Credential model correct?** Yes — **creds present in the sandbox**; the agent uses its own tools/auth. The earlier "no cred in sandbox" line was reverted-broker garbage, removed.
+- **Decision rule grounded?** Yes — `plans/AO/research-substrate-vs-tool.md`, 23/25 claims verified against primary sources (MCP spec, Google, Glean, Notion, Cognition).
 
 **Concept LOCKED.**
 
@@ -99,4 +131,4 @@
 
 ## Rationale (why this shape)
 
-The substrate is the *structural keystone* of Track AO: without a durable home for an agent's output (code least of all — the sandbox has no `src/`), agents stay doc-only. We attach it to an **agent within a team** because that is where work actually happens — a specific builder agent operates a specific repo; a marketing agent operates a document set. Generalizing `kind` beyond `code` (git repo → doc set) is what lets one HyperIdle instance build *similar-stack apps* and serve non-engineering work with one primitive. The substrate (files) and Connection (auth/tools) stay **distinct axes that compose** — but, critically, **the agent has its credentials in the sandbox and works with them**, like a real employee (ETHOS §4; the no-credential / broker-only model was reverted in PR #364). The review gate governs *irreversible landing* as a collaboration checkpoint, not by starving the agent of access. **Product** is deliberately not modelled yet — the scope is the **Team**; multi-instance isolation (AO4) is deferred until the substrate keystone exists.
+The substrate is the *structural keystone* of Track AO: without a durable home an agent authors output in (code least of all — the sandbox has no `src/`), agents stay doc-only. The research settles the question the founder raised — **where does substrate stop and tool begin?** Every production system draws the same line: **materialize a working filesystem only for authored, version-controlled corpora (code, documents); reach live systems of record (inboxes, CRMs, ticket queues) through discrete API tools; read reference corpora through a retrieval index.** So a substrate is **deliberately narrow** — an *authored* corpus, connected like any other connector (account in Settings → per-agent resource selection), with write-back riding the host's native mechanism (git for code; file-write for a folder; nothing custom). Inboxes and CRMs are **Track AN tools**, not substrates; drive *lookup* is the **knowledge fabric**. The agent works **with its credentials** in the sandbox, like a real employee (ETHOS §4; the no-credential/broker model was reverted, PR #364); the review gate governs *irreversible landing*, not access. **Product** is not modelled yet — scope is the **Team**; multi-instance isolation (AO4) is deferred until this keystone exists.
