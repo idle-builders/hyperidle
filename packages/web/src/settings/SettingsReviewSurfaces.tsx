@@ -39,6 +39,7 @@ import type {
 	TrustTier,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { slotPermission } from "../pages/review/slot-policy.js";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -225,6 +226,9 @@ interface BrowseDialogProps {
 	/** Optionally pre-selected manifest (from Available row "Adopt…"). */
 	preSelected?: SurfaceManifest;
 	onAdopted: () => void;
+	/** @lore AL5 FIX-2: teamId is required by POST /api/surface-adoptions (Zod schema).
+	 * Without it the server returns 400 and the adopt action silently fails. */
+	teamId?: string;
 }
 
 function BrowseDialog({
@@ -233,6 +237,7 @@ function BrowseDialog({
 	manifests,
 	preSelected,
 	onAdopted,
+	teamId,
 }: BrowseDialogProps): JSX.Element {
 	const [selected, setSelected] = useState<SurfaceManifest | null>(preSelected ?? null);
 	const [tool, setTool] = useState("");
@@ -260,6 +265,13 @@ function BrowseDialog({
 			setError("Select a situation to adopt for.");
 			return;
 		}
+		// @lore AL5 FIX-2: teamId guard — POST /api/surface-adoptions requires teamId
+		// in the body (Zod schema). Without it the server returns 400 (VALIDATION_ERROR).
+		// Mirrors ReviewPage's skip-when-no-teamId pattern (FIX-1).
+		if (!teamId) {
+			setError("Team not yet loaded — please try again.");
+			return;
+		}
 		setSubmitting(true);
 		setError(null);
 		try {
@@ -267,6 +279,7 @@ function BrowseDialog({
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					teamId,
 					tool: tool || situation.tool,
 					kind: kind || situation.kind,
 					surfaceId: selected.id,
@@ -287,7 +300,7 @@ function BrowseDialog({
 		} finally {
 			setSubmitting(false);
 		}
-	}, [selected, tool, kind, onAdopted, onClose]);
+	}, [selected, tool, kind, teamId, onAdopted, onClose]);
 
 	const situationLabel = selected?.situations[0]
 		? `${tool || selected.situations[0].tool} · ${kind || selected.situations[0].kind}`
@@ -426,6 +439,13 @@ function BrowseDialog({
 // ---------------------------------------------------------------------------
 
 export function SettingsReviewSurfaces(): JSX.Element {
+	const { user } = useCurrentUser();
+	// @lore AL5 FIX-2: teamId threaded from useCurrentUser — same pattern as
+	// ReviewPage (FIX-1). GET /api/surface-adoptions requires ?teamId= (400 without
+	// it). POST body requires teamId. DELETE scopes to team row. Skip fetch until
+	// teamId is available to avoid spamming the server with 400s.
+	const teamId = user?.teamId;
+
 	const [adoptions, setAdoptions] = useState<AdoptionView[]>([]);
 	const [manifests, setManifests] = useState<SurfaceManifest[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -435,11 +455,17 @@ export function SettingsReviewSurfaces(): JSX.Element {
 	const [preSelected, setPreSelected] = useState<SurfaceManifest | undefined>(undefined);
 
 	const loadData = useCallback(async () => {
+		// Skip if teamId not yet available — avoid 400 spam; re-runs when teamId loads.
+		if (!teamId) {
+			setLoading(false);
+			setAdoptions([]);
+			return;
+		}
 		setLoading(true);
 		setError(null);
 		try {
 			const [adoptionsRes, registryRes] = await Promise.all([
-				apiFetch("/api/surface-adoptions"),
+				apiFetch(`/api/surface-adoptions?teamId=${encodeURIComponent(teamId)}`),
 				apiFetch("/api/surface-registry"),
 			]);
 			if (!(adoptionsRes.ok && registryRes.ok)) {
@@ -455,7 +481,7 @@ export function SettingsReviewSurfaces(): JSX.Element {
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [teamId]);
 
 	useEffect(() => {
 		void loadData();
@@ -465,7 +491,11 @@ export function SettingsReviewSurfaces(): JSX.Element {
 		async (id: string): Promise<void> => {
 			setResetError(null);
 			try {
-				const res = await apiFetch(`/api/surface-adoptions/${id}`, { method: "DELETE" });
+				// Include ?teamId= for team-scoped DELETE isolation (WARN-2 pattern).
+				const url = teamId
+					? `/api/surface-adoptions/${id}?teamId=${encodeURIComponent(teamId)}`
+					: `/api/surface-adoptions/${id}`;
+				const res = await apiFetch(url, { method: "DELETE" });
 				if (res.ok) {
 					void loadData();
 				} else {
@@ -475,7 +505,7 @@ export function SettingsReviewSurfaces(): JSX.Element {
 				setResetError("Couldn't reset to base canvas — please try again.");
 			}
 		},
-		[loadData],
+		[loadData, teamId],
 	);
 
 	// Surfaces in the registry not referenced by any current adoption.
@@ -579,6 +609,7 @@ export function SettingsReviewSurfaces(): JSX.Element {
 				onAdopted={() => {
 					void loadData();
 				}}
+				teamId={teamId}
 			/>
 		</div>
 	);
