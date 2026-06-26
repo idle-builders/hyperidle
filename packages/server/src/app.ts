@@ -18,6 +18,7 @@ import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
+import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
@@ -461,6 +462,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/surface-adoptions", createSurfaceAdoptionRoutes(options.db));
 		api.route("/surface-registry", createSurfaceRegistryRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
+		// AN1: per-user service connections (token | mcp | inherited projected)
+		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));
 		api.route("/hint-progress", createHintRoutes(options.db));
 		// AD2: Dispatch queue observer — GET /api/dispatch-queue
 		api.route("/dispatch-queue", createDispatchQueueRoutes());

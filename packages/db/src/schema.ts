@@ -1181,6 +1181,60 @@ export type NewTailoredGrant = typeof tailoredGrants.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 export type NewOperationOutcome = typeof operationOutcomes.$inferInsert;
+
+// --- AN1: Service connections (per-user external tool connections) ---
+
+/**
+ * Per-(user × service × authSource) connection record.
+ *
+ * Stores ONLY held connections (token | mcp). Inherited connections are
+ * projected live from the harness descriptor and NEVER written here.
+ * (Concept hard-rule 4 / Phase-0 decision 1.)
+ *
+ * @lore AN1: No `trust_tier` column — ETHOS §2 kills preemptive security gates.
+ * authSource is app-enforced to { token, mcp } on insert (Zod at the route
+ * boundary); the `inherited` value never reaches this table.
+ *
+ * @lore AN1: Separate from `server_credentials` (closed infra-secret catalog).
+ * This is an open, user-driven set that reuses the encryption primitive only.
+ * Writing a ServiceConnection into serverCredentials violates concept hard-rule 5.
+ */
+export const serviceConnections = pgTable(
+	"service_connections",
+	{
+		/** sc-<uuid> — stable opaque server-issued id. */
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		/** Display name: "GitHub", "Stripe", … (open set, user-supplied). */
+		service: text("service").notNull(),
+		/** "token" | "mcp" — inherited NEVER stored (projected live). */
+		authSource: text("auth_source").notNull(),
+		/** AES-256-GCM base64(iv+ct+tag) — null for mcp (no stored secret). */
+		encryptedToken: text("encrypted_token"),
+		/** https:// URL — mcp only; null for token. */
+		serverUrl: text("server_url"),
+		/** "working" | "needs-attention" — set by validate endpoint. */
+		health: text("health").notNull().default("needs-attention"),
+		lastValidatedAt: text("last_validated_at"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(t) => [
+		/** One (token|mcp) connection per (user × service × authSource). */
+		uniqueIndex("service_connections_user_service_source_idx").on(
+			t.userId,
+			t.service,
+			t.authSource,
+		),
+		index("service_connections_user_idx").on(t.userId),
+	],
+);
+
+export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
+export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
+
 /**
  * AL5 — Surface adoptions table.
  *

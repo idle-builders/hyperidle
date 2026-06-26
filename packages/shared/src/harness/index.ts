@@ -23,6 +23,7 @@ export type {
 	HarnessOptionControlKind,
 	HarnessReadinessState,
 	HarnessRuntimeCapabilities,
+	InheritedToolDescriptor,
 } from "./harness-capability-descriptor.js";
 export { HARNESS_OPTION_CONTROL_KINDS } from "./harness-capability-descriptor.js";
 export { isHarnessEvent, normalizeHarnessEvent } from "./harness-event-normalization.js";

@@ -142,6 +142,8 @@ export function describeRegisteredHarness(
 			models: builtinModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
+			// AN1: environment-level CLI tools (gh, stripe, etc.) attached via discovery probe
+			inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
 		};
 	}
 
@@ -160,6 +162,8 @@ export function describeRegisteredHarness(
 			models: cliModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
+			// AN1: MCP server list from discovery probe; default [] for non-ready harnesses
+			inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
 		};
 	}
 
@@ -173,6 +177,8 @@ export function describeRegisteredHarness(
 		models: cliModels(caps),
 		runtime,
 		modelProviders: meta.modelProviders,
+		// AN1: external harnesses have no probed inherited tools
+		inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
 	};
 }
 
@@ -200,6 +206,8 @@ export function missingKnownHarnessDescriptors(
 			models: cliModelsFromInput(discoveryInput?.models),
 			runtime: runtimeFromDiscovery(discoveryInput),
 			modelProviders: [],
+			// AN1: missing harnesses were not discovered — no probed inherited tools
+			inheritedTools: discoveryInput?.inheritedTools ?? [],
 		};
 	});
 }

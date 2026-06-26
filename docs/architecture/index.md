@@ -27,4 +27,5 @@ This document describes the parts of HyperIdle, how they interface with each oth
 - [WebSocket push contract](./websocket-push-contract.md)
 - [Authorization model](./authorization-model.md)
 - [Credential model](./credential-model.md)
+- [Connection model](./connection-model.md) — per-user service connections (held vs inherited), `ServiceConnection*` types, `service_connections` table, resolver, `inheritedTools` descriptor extension (AN1)
 
