@@ -1,8 +1,13 @@
 // ── AK3: Bet decomposition types + constants ──
 
 // ── AL5: Surface install resolver (add <source> CLI) ──
-export type { AddSource, InstallResult } from "./add-install.js";
-export { installSurface, parseAddSource } from "./add-install.js";
+export type { AddSource, GenerateRegistrationFileOptions, InstallResult } from "./add-install.js";
+export {
+	generateRegistrationFile,
+	installSurface,
+	parseAddSource,
+	updateRegistryGeneratedIndex,
+} from "./add-install.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,

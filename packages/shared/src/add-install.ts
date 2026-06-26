@@ -17,7 +17,7 @@
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 // ── AddSource discriminated union ─────────────────────────────────────────────
 
@@ -121,8 +121,9 @@ export function parseAddSource(source: string): AddSource {
 /**
  * Copies a surface's source files into targetDir/<surfaceId>/.
  *
- * For local sources: copies files listed in registry-item.json (or all files
- * in the directory if `files` is omitted).
+ * For local sources: copies files listed in registry-item.json's `files` array
+ * (falls back to ["registry-item.json"] if `files` is omitted — NOT all files
+ * in the directory; only explicitly listed files are copied).
  *
  * For URL sources: fetches registry-item.json, then fetches each listed file
  * and writes them to disk.
@@ -130,8 +131,9 @@ export function parseAddSource(source: string): AddSource {
  * For github sources: resolves to a raw.githubusercontent.com URL and delegates
  * to the URL path.
  *
- * @lore AL5: Writes only within targetDir — basic hygiene to prevent escaping
- * the surfaces/ directory. No sandbox; this is a developer/build-time action.
+ * @lore AL5 SECURITY: manifest.id is sanitized (basename) before use as a dir name
+ * so a manifest with id: "../.." cannot escape the targetDir. File paths in `files`
+ * are also sanitized (strip ../ segments). No sandbox — build-time action.
  */
 export async function installSurface({
 	source,
@@ -167,7 +169,14 @@ async function installFromLocal({
 		throw new Error(`Invalid registry-item.json at ${manifestPath}: missing 'id' or 'title'`);
 	}
 
-	const surfaceId = manifest.id;
+	// Security: sanitize manifest id before using it as a directory name.
+	// A manifest with id: "../.." must not escape the surfaces dir.
+	// @lore AL5 SECURITY: basename() strips all directory components; a dot-segment
+	// id like "../evil" becomes "evil". We also reject empty ids after sanitization.
+	const surfaceId = basename(manifest.id.replace(/[/\\]/g, "-"));
+	if (!surfaceId) {
+		throw new Error(`Invalid surface id '${manifest.id}': must not be empty after sanitization`);
+	}
 	const destDir = join(targetDir, surfaceId);
 	await mkdir(destDir, { recursive: true });
 
@@ -208,7 +217,12 @@ async function installFromUrl({
 		throw new Error(`Invalid registry-item.json at ${registryItemUrl}: missing 'id' or 'title'`);
 	}
 
-	const surfaceId = manifest.id;
+	// Security: sanitize manifest id before using it as a directory name.
+	// @lore AL5 SECURITY: same guard as installFromLocal — basename() strips path traversal.
+	const surfaceId = basename(manifest.id.replace(/[/\\]/g, "-"));
+	if (!surfaceId) {
+		throw new Error(`Invalid surface id '${manifest.id}': must not be empty after sanitization`);
+	}
 	const destDir = join(targetDir, surfaceId);
 	await mkdir(destDir, { recursive: true });
 
@@ -253,4 +267,141 @@ async function installFromGithub({
 	const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${itemPath}/registry-item.json`;
 
 	return installFromUrl({ registryItemUrl: rawUrl, targetDir });
+}
+
+// ── Registration file generator ───────────────────────────────────────────────
+
+/**
+ * GenerateRegistrationFileOptions: the manifest from the installed surface + the
+ * component file name within the installed dir.
+ */
+export interface GenerateRegistrationFileOptions {
+	/** The installed surface's manifest (parsed from registry-item.json). */
+	readonly manifest: SurfaceRegistryItem & { readonly [k: string]: unknown };
+	/**
+	 * The primary component file name within the installed dir
+	 * (e.g. "StripeRefundReview.tsx"). Must be one of the manifest.files entries.
+	 * If omitted, the generator looks for the first .tsx file in manifest.files.
+	 */
+	readonly componentFile?: string;
+	/** Absolute path to the installed surface dir (targetDir/<surfaceId>/). */
+	readonly installedPath: string;
+	/**
+	 * Path to write the generated register.ts file (default: installedPath/register.ts).
+	 * Exposed for testing.
+	 */
+	readonly outputPath?: string;
+}
+
+/**
+ * Generates a `register.ts` file in the installed surface directory.
+ *
+ * The generated file imports the surface component, builds a minimal manifest
+ * constant, and calls registerSurface() from the web surface-registry module.
+ *
+ * When surface-registry.ts (or a generated index) imports this file, the surface
+ * is wired into the registry at module-load time — no runtime eval, no Vite magic.
+ *
+ * @lore AL5 INSTALL-LOOP: The generated file is the bridge between the file-copy
+ * (installSurface) and the registry (registerSurface). The human reviews + commits
+ * both the surface source and the generated register.ts. After rebuild the surface
+ * appears in listSurfaces() and becomes adoptable.
+ *
+ * @lore AL5: Lives in shared (no React) so the CLI (scripts/) can call it without
+ * jsdom. The generated file itself imports React (via the surface component) but
+ * that's only evaluated in the web/jsdom context.
+ */
+export async function generateRegistrationFile(
+	opts: GenerateRegistrationFileOptions,
+): Promise<string> {
+	const { manifest, installedPath } = opts;
+	const files: readonly string[] = Array.isArray((manifest as { files?: string[] }).files)
+		? ((manifest as { files?: string[] }).files ?? [])
+		: [];
+
+	// Find the primary component file: explicit > first .tsx in files > fallback name.
+	const componentFile =
+		opts.componentFile ??
+		files.find((f) => f.endsWith(".tsx") && !f.endsWith(".stories.tsx")) ??
+		`${manifest.id}.tsx`;
+
+	// Strip .tsx extension to get the component name.
+	const componentName = componentFile.replace(/\.tsx$/, "");
+
+	// The generated register.ts imports from the surface component (sibling file)
+	// and from the web surface-registry (relative path from surfaces/<id>/ to surfaces/).
+	// @lore AL5: The relative path "../surface-registry.js" is correct from
+	// packages/web/src/pages/review/surfaces/<id>/register.ts to surface-registry.ts.
+	const generated = `/**
+ * AUTO-GENERATED by surface:add — do not edit manually.
+ * Review this file, commit it together with the surface source, then rebuild.
+ *
+ * Imports the installed surface component and registers it so it appears in
+ * getSurfaceEntry() / listSurfaces() at module-load time.
+ *
+ * @lore AL5 INSTALL-LOOP: This file is the registration bridge. surface-registry.ts
+ * imports it (via surfaces/surface-registry.generated.ts) so the surface is active
+ * after rebuild without any manual wiring.
+ */
+
+import type { ReviewCanvasComponent } from "../../review-artifact.js";
+import { registerSurface } from "../surface-registry.js";
+import { ${componentName} } from "./${componentFile.replace(/\.tsx$/, ".js")}";
+
+const manifest = ${JSON.stringify(manifest, null, 2)} as const;
+
+// Register the surface — called once at module-load time.
+registerSurface(
+  // Cast needed: manifest is typed as const (literal types), registerSurface expects SurfaceManifest.
+  manifest as Parameters<typeof registerSurface>[0],
+  ${componentName} as ReviewCanvasComponent,
+);
+`;
+
+	const outputPath = opts.outputPath ?? join(installedPath, "register.ts");
+	await writeFile(outputPath, generated, "utf-8");
+	return outputPath;
+}
+
+// ── Surfaces registry index updater ──────────────────────────────────────────
+
+/**
+ * Updates (or creates) the generated surface registry index file at
+ * `packages/web/src/pages/review/surfaces/surface-registry.generated.ts`.
+ *
+ * The generated file imports and re-exports all installed surface registration
+ * files. surface-registry.ts imports this file so all installed surfaces are
+ * registered at module-load time.
+ *
+ * @lore AL5 INSTALL-LOOP: This is the index half of the registration bridge.
+ * When a new surface is installed, its register.ts is appended to this index.
+ * When surface-registry.ts imports the index, all registered surfaces are active.
+ */
+export async function updateRegistryGeneratedIndex(opts: {
+	/** Absolute path to the surfaces/ dir (packages/web/src/pages/review/surfaces/). */
+	readonly surfacesDir: string;
+	/** Surface id to add (its register.ts will be imported). */
+	readonly surfaceId: string;
+}): Promise<void> {
+	const { surfacesDir, surfaceId } = opts;
+	const indexPath = join(surfacesDir, "surface-registry.generated.ts");
+
+	// Read existing content (or start fresh).
+	let existing: string;
+	try {
+		existing = await readFile(indexPath, "utf-8");
+	} catch {
+		existing = `/**
+ * AUTO-GENERATED by surface:add — do not edit manually.
+ * Imports all installed surface registration files so they are wired into
+ * the registry at module-load time.
+ */
+`;
+	}
+
+	// Append the new import if not already present.
+	const importLine = `import "./${surfaceId}/register.js";\n`;
+	if (!existing.includes(importLine)) {
+		await writeFile(indexPath, existing + importLine, "utf-8");
+	}
 }
