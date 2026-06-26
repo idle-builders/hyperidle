@@ -142,6 +142,8 @@ export function describeRegisteredHarness(
 			models: builtinModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
+			// AN1: default [] — populated by discovery probes for CLI harnesses
+			inheritedTools: [],
 		};
 	}
 
@@ -160,6 +162,8 @@ export function describeRegisteredHarness(
 			models: cliModels(caps),
 			runtime,
 			modelProviders: meta.modelProviders,
+			// AN1: populated by discovery probes; default [] for non-ready harnesses
+			inheritedTools: [],
 		};
 	}
 
@@ -173,6 +177,8 @@ export function describeRegisteredHarness(
 		models: cliModels(caps),
 		runtime,
 		modelProviders: meta.modelProviders,
+		// AN1: default [] for external harnesses
+		inheritedTools: [],
 	};
 }
 
@@ -200,6 +206,8 @@ export function missingKnownHarnessDescriptors(
 			models: cliModelsFromInput(discoveryInput?.models),
 			runtime: runtimeFromDiscovery(discoveryInput),
 			modelProviders: [],
+			// AN1: default [] — unknown harnesses have no probed inherited tools
+			inheritedTools: [],
 		};
 	});
 }
