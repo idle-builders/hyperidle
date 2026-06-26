@@ -913,7 +913,7 @@ export const filesystems = pgTable(
  *
  * @lore AO1 Q1: The agent FK is users.id (the runtime agent identity = sessions.agentId,
  * schema.ts:252-254), NOT team_members.id (one row per team, U1 1:1, no per-agent identity).
- * AO2's per-bot materialization resolves sessions.agentId → filesystem_injections → filesystems.
+ * AO2's per-bot mount resolves sessions.agentId → filesystem_injections → filesystems.
  * Replaces the removed single-owner column. Parallel to connector/tool injection.
  */
 export const filesystemInjections = pgTable(

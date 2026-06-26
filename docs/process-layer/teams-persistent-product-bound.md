@@ -41,6 +41,6 @@ Only when the product dissolves. Killing a product is a deliberate founder decis
 
 ### 4.5 Filesystems attach here (Track AO)
 
-An agent within a team can have a **filesystem** attached — the durable working files its output lives in (a git repo for code, a document set for non-code), team-scoped. See [Filesystem primitive](./filesystem-primitive.md). Implementation: **Track AO** (AO1 model + attach surface, AO2 materialization).
+An agent within a team can have a **filesystem** attached — the durable working files its output lives in (a git repo for code, a document set for non-code), team-scoped. See [Filesystem primitive](./filesystem-primitive.md). Implementation: **Track AO** (AO1 model + attach surface, AO2 mount).
 
 ---

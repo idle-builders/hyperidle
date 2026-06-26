@@ -235,7 +235,7 @@ type Filesystem = {
 
 // Per-bot INJECTION: which registered filesystems are injected into a given bot's
 // sessions. Parallel to connector/tool injection ("connect once, inject per agent").
-// Many bots may share a filesystem; a bot may have many. AO2 materializes the bot's
+// Many bots may share a filesystem; a bot may have many. AO2 mounts the bot's
 // injected filesystems into its sandbox.
 type FilesystemInjection = {
   agentUserId: string    // FK → users.id (the bot/agent = sessions.agentId)
@@ -246,9 +246,9 @@ type FilesystemInjection = {
 ```
 
 - **Registry + per-bot injection (two Settings surfaces).** **Settings → Filesystems** = the team's registry of connected filesystems, each row showing its **`source`** (local / GitHub / GDrive …) in an easy-to-detect badge + resource + state. **Per-bot** (the bot's config in **Settings → Agents**) = select **which filesystems to inject** into that bot. A filesystem is registered ONCE and injected to 0..N bots — it is NOT owned by a single agent (the old `agentUserId` column on the filesystem is replaced by the `FilesystemInjection` mapping).
-- **Filesystem vs Tool vs Knowledge (research-grounded, `plans/AO/research-filesystem-vs-tool.md`).** A filesystem is **only** a file-bearing corpus the agent **authors** — materialized into the sandbox, edited, written back with history. **Code repos + document authoring** materialize. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge.
+- **Filesystem vs Tool vs Knowledge (research-grounded, `plans/AO/research-filesystem-vs-tool.md`).** A filesystem is **only** a file-bearing corpus the agent **authors** — mounted into the sandbox, edited, written back with history. **Code repos + document authoring** mount. **Systems of record** (email/ticket/CRM) are **live tools** (Track AN) — never mounted. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge.
 - **Connected like any connector** — account once in Settings = a **Connection** (AN; held token or inherited, **never a HyperIdle OAuth app**); the filesystem records **which resource** (repo/folder) of that connection it is, and its **`source`** derives from the connection type. Filesystem ⟂ Connection: files vs auth/tools, compose.
 - **Agents work *with* their credentials.** The sandbox is provisioned with the agent's inherited Connections/tools/creds (durable-auth→disposable-sandbox, PR #364); the bound Connection's forge auth is present so the agent's own `git`/`gh` push/PR. **No withholding, no broker-only path.** AL7 checkpoints irreversible *landing*, never access.
 - **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.** Local-first; forward-only migration.
 
-Implementation stories: **AO1** (filesystem model + attach surface), **AO2** (materialization). Concept: `plans/AO/concept.md`.
+Implementation stories: **AO1** (filesystem model + attach surface), **AO2** (mount). Concept: `plans/AO/concept.md`.

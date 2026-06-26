@@ -158,10 +158,10 @@ export type {
 	FilesystemAuthResolver,
 	FilesystemInjection,
 	FilesystemKind,
-	FilesystemMaterializer,
+	FilesystemMounter,
 	FilesystemSource,
 	FilesystemState,
-	MaterializeResult,
+	MountResult,
 	ResourceRef,
 	WriteBack,
 } from "./filesystem.js";

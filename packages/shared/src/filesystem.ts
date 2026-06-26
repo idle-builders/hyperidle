@@ -80,15 +80,15 @@ export interface FilesystemAuthResolver {
 	/** The SOURCE TYPE of a connection ('github' | 'gdrive' | …), used by the register route
 	 *  to derive `filesystems.source`. Returns null when the connection is absent/unknown. */
 	sourceOf(connectionId: string): string | null | Promise<string | null>;
-	/** Full resolution used by AO2 at materialization to provision auth into the sandbox.
+	/** Full resolution used by AO2 at mount to provision auth into the sandbox.
 	 *  Returns null when the connection is absent/unauthenticated. */
 	resolve(connectionId: string): Promise<FilesystemAuth | null>;
 }
 
-// ─── AO2 materialization seam ───────────────────────────────────────────────
+// ─── AO2 mount seam ───────────────────────────────────────────────
 
-/** Outcome of a materialize call. */
-export interface MaterializeResult {
+/** Outcome of a mount call. */
+export interface MountResult {
 	success: boolean;
 	sandboxPath: string;
 	error?: string;
@@ -102,17 +102,17 @@ export interface CaptureResult {
 }
 
 /** The contract AO2 implements. AO1 ships the type only — no implementation.
- *  Hooks into session-provisioning.ts Phase 4.5 (materialize) + teardown (captureBack).
- *  @lore AO1 §5: Materialize between sandbox spawn (Phase 4) and context assembly (Phase 6).
+ *  Hooks into session-provisioning.ts Phase 4.5 (mount) + teardown (captureBack).
+ *  @lore AO1 §5: Mount between sandbox spawn (Phase 4) and context assembly (Phase 6).
  *  captureBack after endSession, before workspace.destroy. */
-export interface FilesystemMaterializer {
+export interface FilesystemMounter {
 	/** Place the filesystem's working set into the session sandbox at its branch/folder,
 	 *  and provision the bound Connection's auth INTO the sandbox. Idempotent per sandbox. */
-	materialize(input: {
+	mount(input: {
 		filesystem: Filesystem;
 		sandboxPath: string;
 		auth: FilesystemAuth | null; // from FilesystemAuthResolver.resolve (null → local-first/none)
-	}): Promise<MaterializeResult>;
+	}): Promise<MountResult>;
 
 	/** Capture authored changes back out of the sandbox after the session.
 	 *  git → commit (+ push/PR is a LANDING op, AL7/AO3, not here); file → write/snapshot; none → no-op. */

@@ -1,6 +1,6 @@
 # Filesystem primitive (Track AO)
 
-A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (materialization), AO3 (land). Grounded in [System Boundary](../architecture/system-boundary.md).
+A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (mount), AO3 (land). Grounded in [System Boundary](../architecture/system-boundary.md).
 
 ## Why it exists
 
@@ -10,8 +10,8 @@ Without a filesystem an agent can research and plan but cannot produce durable, 
 
 A filesystem is **deliberately narrow** — it is **only** a file-bearing corpus the agent **authors**. Every production agent system surveyed (MCP spec; Devin/Claude Code; Glean/Notion connectors; Decagon/Sierra) draws one sharp line. Three ways an agent reaches state:
 
-1. **Filesystem (materialize)** — a local, editable, file-like **working set** in the sandbox; read/edit/build/test/diff, then **write back with history**. Reserved for **code repos and document authoring** — the only places a filesystem + version-control + test/diff loop is native.
-2. **Tool (live API action)** — discrete read/act operations against a **live system of record** that owns its own consistency/permissions/workflow. **Email inboxes, ticket queues, CRMs are ALWAYS this** — never materialized. This is **Track AN** (MCP connectors; MCP `tools` = actions, `resources` = read-only data).
+1. **Filesystem (mount)** — a local, editable, file-like **working set** in the sandbox; read/edit/build/test/diff, then **write back with history**. Reserved for **code repos and document authoring** — the only places a filesystem + version-control + test/diff loop is native.
+2. **Tool (live API action)** — discrete read/act operations against a **live system of record** that owns its own consistency/permissions/workflow. **Email inboxes, ticket queues, CRMs are ALWAYS this** — never mounted. This is **Track AN** (MCP connectors; MCP `tools` = actions, `resources` = read-only data).
 3. **Knowledge / retrieval (index)** — a reference corpus read via a RAG **index**; the agent never edits it. Cloud-drive *lookup* is this — the **knowledge fabric**, not filesystem.
 
 **Discriminator:** not "does an API exist" (everything has one) — **what the work is**: *author/transform a corpus* → filesystem; *operate a live system of record* → tool; *look something up* → knowledge. The same Drive folder is a **filesystem** when the job is "revise these 10 docs" and a **tool/knowledge** when the job is "find the Q3 report."
@@ -25,7 +25,7 @@ A filesystem is **deliberately narrow** — it is **only** a file-bearing corpus
 | CRM (Salesforce/HubSpot) | **Tool** (AN) | live SoR; PATCH via API |
 | Cloud drive (lookup) | **Knowledge** (read) / **Tool** (write) | read via index; write via discrete create-file; no edit-and-syncback |
 
-AO does **not** materialize inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox two-way sync engine.
+AO does **not** mount inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox two-way sync engine.
 
 ## How it connects — registry + per-bot injection (two surfaces)
 
@@ -58,7 +58,7 @@ Filesystem {                # a REGISTERED, team-scoped file source. NOT owned b
 
 # Per-bot INJECTION: which registered filesystems are injected into a given bot's sessions.
 # Parallel to connector/tool injection ("connect once, inject per agent"). Many bots may
-# share a filesystem; a bot may have many. AO2 materializes a bot's injected filesystems.
+# share a filesystem; a bot may have many. AO2 mounts a bot's injected filesystems.
 FilesystemInjection {
   agent_user_id   # FK → users.id (the bot/agent = sessions.agentId)
   filesystem_id   # FK → filesystems.id
@@ -71,14 +71,14 @@ FilesystemInjection {
 
 ## What it is not
 
-- **Not a system of record / live tool** — inboxes, ticket queues, CRMs are operated via discrete API actions (Track AN); they own their own consistency/permissions/concurrency and are never materialized as an editable-and-synced copy.
+- **Not a system of record / live tool** — inboxes, ticket queues, CRMs are operated via discrete API actions (Track AN); they own their own consistency/permissions/concurrency and are never mounted as an editable-and-synced copy.
 - **Not a retrieval/knowledge index** — a RAG corpus (drive lookup) is the knowledge fabric; read, never edited-and-synced.
 - **Not a `knowledge_item`** — knowledge items are derived/promoted/attention-scored fabric entries; a filesystem is the raw authored working files. (AO1 ends the squeeze-into-`knowledge_items` workaround.)
 - **Not the knowledge-export config/target** — attaching a filesystem must not overwrite the global export config.
 - **Not a Connection** — Connection is auth + tools; filesystem is files. Compose, never merge (the filesystem derives its `source` from the Connection).
 - **Not owned by a single agent** — a filesystem is **registered team-scoped** and **injected per-bot** via `FilesystemInjection`. Many bots may share one; a bot may have many. There is **no `agent_user_id` column on the filesystem** — that ownership model is replaced by the injection mapping.
 - **Not the injection mapping** — `FilesystemInjection` (`{ agent_user_id, filesystem_id }`, UNIQUE) is the per-bot *wiring*; the filesystem is the registered file source it points at.
-- **Not the sandbox** — the sandbox is the ephemeral per-session materialization target (AO2). The filesystem is durable.
+- **Not the sandbox** — the sandbox is the ephemeral per-session mount target (AO2). The filesystem is durable.
 - **Not HyperIdle's store-of-record for code** — code is git-derived ([System Boundary](../architecture/system-boundary.md) hard rule 4).
 
 ## Composition
@@ -86,7 +86,7 @@ FilesystemInjection {
 - **References** a Connection (AN) + a **resource selection** (repo/folder), and **derives its `source`** from the Connection (or `local`); for `code`, the Connection supplies forge auth provisioned into the sandbox.
 - **Registered under** a Team (`Team 1 — 0..N Filesystem`) — the registry scope.
 - **Injected into** 0..N bots via `FilesystemInjection` (`Filesystem N — N Bot`); a bot may have many injected filesystems.
-- **Materialized by** a session a bot runs — its **injected** filesystems (AO2).
+- **Mountd by** a session a bot runs — its **injected** filesystems (AO2).
 - **Source of** the Artifacts (L3) the agent produces.
 
 ## Lifecycle
@@ -94,16 +94,16 @@ FilesystemInjection {
 ```
 registered ──► reachable ⇄ needs_attention      (injected into / ejected from bots independently)
                    │
-                   └─(per session, AO2)─► materialized → authored by agent → captured back
+                   └─(per session, AO2)─► mounted → authored by agent → captured back
 ```
 
-Durable record; ephemeral materialization. Registration and per-bot injection are independent axes (inject/eject a registered filesystem on any bot without re-registering). The working set is placed in the sandbox, authored using the agent's own tools/creds, captured back (git commit / file write). An authored artifact destined for an external system is drafted in the sandbox and **published via a discrete tool action** at the end. Nothing is lost when the sandbox is destroyed.
+Durable record; ephemeral mount. Registration and per-bot injection are independent axes (inject/eject a registered filesystem on any bot without re-registering). The working set is placed in the sandbox, authored using the agent's own tools/creds, captured back (git commit / file write). An authored artifact destined for an external system is drafted in the sandbox and **published via a discrete tool action** at the end. Nothing is lost when the sandbox is destroyed.
 
 ## Authority & access
 
 - A **bot** authors the filesystems **injected to it**.
 - The **founder registers** the filesystem (Connection + resource selection → team registry) and sees its `source`/kind/location/state; the founder **injects/ejects** it per-bot (the bot's config).
-- The **system materializes** the bot's **injected** filesystems **and provisions the bot's inherited Connections/tools/credentials into the sandbox** (durable-auth→disposable-sandbox, PR #364) — the agent uses its **own** credentials to act.
+- The **system mounts** the bot's **injected** filesystems **and provisions the bot's inherited Connections/tools/credentials into the sandbox** (durable-auth→disposable-sandbox, PR #364) — the agent uses its **own** credentials to act.
 - For code, the **git repo itself** is the source of truth.
 
 ## Contracts
@@ -121,7 +121,7 @@ Durable record; ephemeral materialization. Registration and per-bot injection ar
   4. **Filesystem = authored corpus only** — SoRs and retrieval indexes are excluded.
   5. **Local-first** — works with no forge (a plain local git repo / folder).
   6. Not a knowledge item, not the knowledge-export target.
-  7. Unreachable/unauthenticated → **needs-attention**, never silent. Materialization driven by the bot's **injected** filesystems (`sessions.agentId → FilesystemInjection → Filesystem`), never a global path.
+  7. Unreachable/unauthenticated → **needs-attention**, never silent. Mount driven by the bot's **injected** filesystems (`sessions.agentId → FilesystemInjection → Filesystem`), never a global path.
   8. Forward-only migration.
 
 ## Vocabulary
@@ -142,4 +142,4 @@ The build scope is the **Team** — a filesystem is **registered** at the team l
 
 ## Rationale
 
-The filesystem is Track AO's keystone — an agent without a durable home for its authored output stays doc-only. Research (`plans/AO/research-filesystem-vs-tool.md`) settles the boundary: **materialize a filesystem only for authored, version-controlled corpora (code, documents); reach live systems of record (inbox/CRM/ticket) through discrete API tools (AN); read reference corpora through retrieval (fabric).** So a filesystem is narrow and connected like any connector — **registered** (account in Settings → team registry, each row stamped with its **`source`**) and **injected per-bot** (the bot's config selects which filesystems it receives) — with write-back riding the host's native mechanism (git for code; file-write for a folder; nothing custom). It is **not owned by a single agent**: registration and per-bot injection are separate axes (the `FilesystemInjection` mapping), mirroring "connect once, inject per agent" — many bots may share a filesystem, a bot may have many. The agent works **with its credentials**, like a real employee ([System Boundary](../architecture/system-boundary.md); [Proposed Call](./staged-operation.md); the no-credential/broker model was reverted in PR #364).
+The filesystem is Track AO's keystone — an agent without a durable home for its authored output stays doc-only. Research (`plans/AO/research-filesystem-vs-tool.md`) settles the boundary: **mount a filesystem only for authored, version-controlled corpora (code, documents); reach live systems of record (inbox/CRM/ticket) through discrete API tools (AN); read reference corpora through retrieval (fabric).** So a filesystem is narrow and connected like any connector — **registered** (account in Settings → team registry, each row stamped with its **`source`**) and **injected per-bot** (the bot's config selects which filesystems it receives) — with write-back riding the host's native mechanism (git for code; file-write for a folder; nothing custom). It is **not owned by a single agent**: registration and per-bot injection are separate axes (the `FilesystemInjection` mapping), mirroring "connect once, inject per agent" — many bots may share a filesystem, a bot may have many. The agent works **with its credentials**, like a real employee ([System Boundary](../architecture/system-boundary.md); [Proposed Call](./staged-operation.md); the no-credential/broker model was reverted in PR #364).
