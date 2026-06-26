@@ -19,8 +19,23 @@
  * Connection is missing — AC5). No skeleton / empty / error here (deferred to
  * build).
  *
+ * Inspect (folded in from Variant B per design-critique CRITICAL-1): each row
+ * expands inline into a labeled inspect grid — Kind / State / Resource / Branch /
+ * Write-back / Connection as six separate fields. The grid is split into two
+ * clusters — "Resource & files" and "Auth & write-back" — divided by a rule, so
+ * Filesystem ⟂ Connection is structurally legible (the auth axis is visibly
+ * apart from the resource axis, never merged). Identifier values (resource,
+ * branch, connection repo) render MONO — same datum, same typeface as the row
+ * title (design-critique MAJOR-1: KeyValue's 15px-sans value would break that
+ * mono consistency, so the inspect uses a mono-aware labeled field, not bare
+ * KeyValue). One row is rendered expanded; the rest collapsed.
+ *
  * @lore AO1: KindMark is an inline single-use shape adapted from AN1 ServiceMark.
  * Do not promote to the design system. Composes only catalogued primitives.
+ * @lore AO1: InspectField is an inline labeled-pair (KeyValue's exact label
+ * treatment) that renders identifier values MONO — bare KeyValue forces a 15px
+ * sans value (KeyValue.tsx:23), which would lose the resource's mono identity in
+ * the inspect grid (design-critique MAJOR-1). Inline single-use, not promoted.
  *
  * Composes only catalogued design-system primitives (Row, ItemList, SectionLabel,
  * StatusChip, Tag, Button, Menu, Dialog, Input, Select) — zero new shapes.
@@ -36,7 +51,6 @@ import {
 	Row,
 	SectionLabel,
 	Select,
-	type Status,
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
@@ -133,6 +147,86 @@ function connectionNote(c: string | null): string {
 	return c ? `Auth via ${c} connection` : "Local · no connection needed";
 }
 
+/** Inspect-grid write-back value (the capability axis, terse form for the grid). */
+function writebackValue(w: WriteBack): string {
+	if (w === "git") return "git · commit → PR";
+	if (w === "file") return "file · last write wins";
+	return "none · read-only";
+}
+
+/**
+ * @lore AO1: inline labeled-pair for the inspect grid. Reuses KeyValue's exact
+ * uppercase-mono label treatment (KeyValue.tsx:20) but renders the VALUE itself
+ * mono when `mono` is set — so identifier values (resource, branch, connection
+ * repo) keep the same mono identity they have in the row title. Bare KeyValue
+ * forces a 15px SANS value, which would break same-datum mono consistency
+ * (design-critique MAJOR-1). Inline single-use, not promoted to the DS.
+ */
+function InspectField({
+	label,
+	value,
+	mono,
+}: {
+	label: string;
+	value: string;
+	mono?: boolean;
+}): JSX.Element {
+	return (
+		<div className="flex flex-col gap-[3px]">
+			<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+				{label}
+			</span>
+			<span
+				className={
+					mono
+						? "font-[family-name:var(--font-mono)] text-[13px] text-[var(--text-primary)]"
+						: "text-[13px] text-[var(--text-primary)]"
+				}
+			>
+				{value}
+			</span>
+		</div>
+	);
+}
+
+/**
+ * The inline inspect grid revealed when a row is expanded. Split into two
+ * clusters divided by a rule — "Resource & files" (the resource axis) and
+ * "Auth & write-back" (the auth/connection axis) — so Filesystem ⟂ Connection
+ * is visibly separate, never merged. Maps to GET /api/filesystems/:id.
+ */
+function FilesystemInspect({ fs }: { fs: FilesystemView }): JSX.Element {
+	return (
+		<div className="px-[12px] pb-[12px] pt-[9px] flex flex-col gap-[9px] border-t-[1px] border-[var(--border-subtle)] bg-[var(--surface-container)]">
+			<div className="flex flex-col gap-[6px]">
+				<span className="uppercase text-[10px] tracking-[var(--tracking-caps-sm)] font-medium text-[var(--text-tertiary)]">
+					Resource &amp; files
+				</span>
+				<div className="grid grid-cols-3 gap-x-[24px] gap-y-[9px]">
+					<InspectField label="Kind" value={kindLabel(fs.kind)} />
+					<InspectField label="Resource" value={fs.resource} mono />
+					<InspectField label="Branch" value={fs.branch ?? "—"} mono={Boolean(fs.branch)} />
+				</div>
+			</div>
+			{/* Auth axis — visually apart from the resource cluster (Filesystem ⟂ Connection). */}
+			<div className="flex flex-col gap-[6px] pt-[9px] border-t-[1px] border-[var(--border-subtle)]">
+				<span className="uppercase text-[10px] tracking-[var(--tracking-caps-sm)] font-medium text-[var(--text-tertiary)]">
+					Auth &amp; write-back
+				</span>
+				<div className="grid grid-cols-3 gap-x-[24px] gap-y-[9px]">
+					<InspectField
+						label="Connection"
+						value={fs.connection ?? "Local (none)"}
+						mono={Boolean(fs.connection)}
+					/>
+					<InspectField label="Write-back" value={writebackValue(fs.writeback)} />
+					<InspectField label="State" value={stateLabel(fs.state)} />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 /** @lore AO1: inline single-use shape adapted from AN1 ServiceMark, not promoted. */
 function KindMark({ kind }: { kind: FilesystemKind }): JSX.Element {
 	const mark = kind === "code" ? "{ }" : "¶";
@@ -160,50 +254,74 @@ function bySeverity(a: FilesystemView, b: FilesystemView): number {
 // Filesystem row
 // ---------------------------------------------------------------------------
 
-function FilesystemRow({ fs }: { fs: FilesystemView }): JSX.Element {
+function FilesystemRow({
+	fs,
+	defaultExpanded = false,
+}: {
+	fs: FilesystemView;
+	defaultExpanded?: boolean;
+}): JSX.Element {
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [expanded, setExpanded] = useState(defaultExpanded);
+	const inspectId = `fs-inspect-${fs.id}`;
 	return (
-		<Row
-			lead={<KindMark kind={fs.kind} />}
-			title={
-				<span className="flex items-center gap-[9px]">
-					<span className="font-[var(--font-mono)] text-[13px]">{fs.resource}</span>
-					{fs.branch ? (
-						<span className="font-[var(--font-mono)] text-[11px] text-[var(--text-tertiary)]">
-							@{fs.branch}
-						</span>
-					) : null}
-					<Tag label={kindLabel(fs.kind)} />
-				</span>
-			}
-			subtitle={
-				<span className="flex items-center gap-[6px]">
-					{connectionNote(fs.connection)}
-					<span className="text-[var(--text-tertiary)]">· {writebackNote(fs.writeback)}</span>
-				</span>
-			}
-			actions={
-				<span className="flex items-center gap-[9px]">
-					<StatusChip status={stateToStatus(fs.state) as Status} label={stateLabel(fs.state)} />
-					<div className="relative">
+		<div>
+			<Row
+				lead={<KindMark kind={fs.kind} />}
+				title={
+					<span className="flex items-center gap-[9px]">
+						<span className="font-[family-name:var(--font-mono)] text-[13px]">{fs.resource}</span>
+						{fs.branch ? (
+							<span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--text-tertiary)]">
+								@{fs.branch}
+							</span>
+						) : null}
+						<Tag label={kindLabel(fs.kind)} />
+					</span>
+				}
+				subtitle={
+					<span className="flex items-center gap-[6px]">
+						{connectionNote(fs.connection)}
+						<span className="text-[var(--text-tertiary)]">· {writebackNote(fs.writeback)}</span>
+					</span>
+				}
+				actions={
+					<span className="flex items-center gap-[9px]">
+						<StatusChip status={stateToStatus(fs.state)} label={stateLabel(fs.state)} />
 						<Button
 							variant="ghost"
 							size="sm"
-							aria-label={`Actions for ${fs.resource}`}
-							onClick={() => setMenuOpen((o) => !o)}
+							aria-expanded={expanded}
+							aria-controls={inspectId}
+							onClick={() => setExpanded((o) => !o)}
 						>
-							⋯
+							{expanded ? "Hide" : "Inspect"}
 						</Button>
-						<Menu
-							open={menuOpen}
-							onClose={() => setMenuOpen(false)}
-							items={rowMenuItems()}
-							label={`Actions for ${fs.resource}`}
-						/>
-					</div>
-				</span>
-			}
-		/>
+						<div className="relative">
+							<Button
+								variant="ghost"
+								size="sm"
+								aria-label={`Actions for ${fs.resource}`}
+								onClick={() => setMenuOpen((o) => !o)}
+							>
+								⋯
+							</Button>
+							<Menu
+								open={menuOpen}
+								onClose={() => setMenuOpen(false)}
+								items={rowMenuItems()}
+								label={`Actions for ${fs.resource}`}
+							/>
+						</div>
+					</span>
+				}
+			/>
+			{expanded ? (
+				<div id={inspectId}>
+					<FilesystemInspect fs={fs} />
+				</div>
+			) : null}
+		</div>
 	);
 }
 
@@ -215,10 +333,16 @@ function AgentGroup({
 	agentName,
 	role,
 	filesystems,
+	expandedId,
+	onAttach,
 }: {
 	agentName: string;
 	role: string;
 	filesystems: FilesystemView[];
+	/** Row to render expanded (its inline inspect grid open) on first paint. */
+	expandedId?: string;
+	/** Open the attach dialog pre-filled for THIS agent (Q2: per-group pre-fill). */
+	onAttach: (agentName: string) => void;
 }): JSX.Element {
 	const sorted = [...filesystems].sort(bySeverity);
 	const needs = sorted.some((f) => f.state === "needs_attention");
@@ -232,7 +356,7 @@ function AgentGroup({
 							<span className="text-[11px] font-[400] tracking-normal normal-case text-[var(--text-tertiary)]">
 								{role}
 							</span>
-							<Button variant="ghost" size="sm">
+							<Button variant="ghost" size="sm" onClick={() => onAttach(agentName)}>
 								+ Attach
 							</Button>
 						</span>
@@ -246,7 +370,7 @@ function AgentGroup({
 			</div>
 			<ItemList variant="contained" isEmpty={sorted.length === 0}>
 				{sorted.map((fs) => (
-					<FilesystemRow key={fs.id} fs={fs} />
+					<FilesystemRow key={fs.id} fs={fs} defaultExpanded={fs.id === expandedId} />
 				))}
 			</ItemList>
 		</section>
@@ -260,9 +384,12 @@ function AgentGroup({
 function AttachFilesystemDialog({
 	open,
 	onClose,
+	prefillAgent,
 }: {
 	open: boolean;
 	onClose: () => void;
+	/** Pre-selected agent when opened from a group's `+ Attach`; "" = page-level (unfilled). */
+	prefillAgent: string;
 }): JSX.Element {
 	const [kind, setKind] = useState<FilesystemKind>("code");
 	return (
@@ -289,9 +416,10 @@ function AttachFilesystemDialog({
 				<Select
 					id="attach-agent"
 					label="Agent"
-					value="Builder Bot"
+					value={prefillAgent}
 					onChange={() => {}}
 					options={[
+						{ value: "", label: "Select an agent…" },
 						{ value: "Builder Bot", label: "Builder Bot · builder" },
 						{ value: "Acme PM", label: "Acme PM · product_manager" },
 					]}
@@ -346,8 +474,14 @@ export default {
 
 export const Populated = (): JSX.Element => {
 	const [dialogOpen, setDialogOpen] = useState(false);
+	// "" = page-level (unfilled); an agent name = that group's `+ Attach` (Q2 pre-fill).
+	const [prefillAgent, setPrefillAgent] = useState("");
 	const builder = FILESYSTEMS.filter((f) => f.agentName === "Builder Bot");
 	const pm = FILESYSTEMS.filter((f) => f.agentName === "Acme PM");
+	const openForAgent = (agentName: string): void => {
+		setPrefillAgent(agentName);
+		setDialogOpen(true);
+	};
 	return (
 		<div className="p-[24px] max-w-[760px] flex flex-col gap-[24px] bg-[var(--surface-page)]">
 			<div className="flex items-start justify-between gap-[12px]">
@@ -358,13 +492,28 @@ export const Populated = (): JSX.Element => {
 						Auth comes from a connection; the filesystem is the resource.
 					</p>
 				</div>
-				<Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
+				<Button variant="secondary" size="sm" onClick={() => openForAgent("")}>
 					+ Attach filesystem
 				</Button>
 			</div>
-			<AgentGroup agentName="Builder Bot" role="builder" filesystems={builder} />
-			<AgentGroup agentName="Acme PM" role="product_manager" filesystems={pm} />
-			<AttachFilesystemDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+			<AgentGroup
+				agentName="Builder Bot"
+				role="builder"
+				filesystems={builder}
+				expandedId="fs-acme-app"
+				onAttach={openForAgent}
+			/>
+			<AgentGroup
+				agentName="Acme PM"
+				role="product_manager"
+				filesystems={pm}
+				onAttach={openForAgent}
+			/>
+			<AttachFilesystemDialog
+				open={dialogOpen}
+				onClose={() => setDialogOpen(false)}
+				prefillAgent={prefillAgent}
+			/>
 		</div>
 	);
 };

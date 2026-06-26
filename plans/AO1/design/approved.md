@@ -6,14 +6,14 @@
 
 **Surface.** A new Settings section **Filesystems**, adjacent to **Connections** (AN1). Team-scoped page; filesystems **grouped by agent**. The cleanest expression of the concept's Filesystem ⟂ Connection hard rule: auth (Connections) and files (Filesystems) are matching sibling Settings sections.
 
-**Story (design source of truth):** `packages/web/src/settings/SettingsFilesystems.stories.tsx` → `SettingsFilesystems` / `Populated` ("Filesystems — by agent (Settings section)"). The KeyValue inspect to fold in is embodied in `AgentFilesystemsInline.stories.tsx`.
+**Story (design source of truth):** `packages/web/src/settings/SettingsFilesystems.stories.tsx` → `SettingsFilesystems` / `Populated` ("Filesystems — by agent (Settings section)"). **The inspect is now folded into THIS story** (design-critique CRITICAL-1): each row expands inline into the labeled inspect grid, so `#SettingsFilesystems` renders the full recommended surface + inspect. `AgentFilesystemsInline.stories.tsx` (Variant B) remains as an alternate for `/human-design-review`, not the source of the fold-in.
 
 ## Component mapping (zero new shapes)
 - Page header: `h2` (20/600) + lede `<p>` (13/secondary) + `Button variant="secondary" size="sm"` ("+ Attach filesystem").
 - Per-agent group: `SectionLabel label={agentName} trailing={role + <Button ghost sm>+ Attach</Button>}` + `<p>` (12/tertiary) help/attention caption.
 - Attachment list: `ItemList variant="contained"`, rows severity-sorted (needs_attention first).
 - Attachment row: `Row` — `lead=<KindMark>` (inline single-use mark, AN1 ServiceMark precedent; `{ }` for code, `¶` for doc_set), `title=` mono resource + mono `@branch` + `Tag label={kind}`, `subtitle=` `Auth via <Connection>` (or `Local · no connection`) · write-back note, `actions=` `StatusChip` + `Menu` (Re-select resource… / Detach).
-- **Inspect (pulled from B):** clicking a row (or a Row "Inspect" action) reveals an inline `KeyValue` grid — Kind / State / Resource / Branch / Write-back / Connection as six labeled fields (Filesystem ⟂ Connection legible). Maps to `GET /api/filesystems/:id`.
+- **Inspect (folded into A's story):** a row "Inspect" action (`aria-expanded`/`aria-controls`-wired ghost button) reveals an inline labeled grid — Kind / State / Resource / Branch / Write-back / Connection as six fields, split into a **Resource & files** cluster and an **Auth & write-back** cluster divided by a rule (Filesystem ⟂ Connection visibly separate). Identifier values render **mono** via an inline `InspectField` (NOT bare `KeyValue`, whose 15px sans value would break the row-title mono — design-critique MAJOR-1). Maps to `GET /api/filesystems/:id`.
 - Attach dialog: `Dialog size="md"` + `Select` (agent, kind, connection) + `Input` (repo, branch / folder), footer `Button ghost` Cancel + `Button primary` Attach. Per-group `+ Attach` pre-fills that agent; page-level button starts unfilled.
 
 ## State→StatusChip mapping
