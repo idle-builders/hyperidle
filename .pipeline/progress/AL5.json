@@ -1,7 +1,7 @@
 {
   "id": "AL5",
   "status": "in_progress",
-  "currentStep": "4b-review",
+  "currentStep": "5b-docs",
   "branch": "concept/AL5-tool-tailored-canvases",
   "pr": 361,
   "note": "REOPENED 2026-06-26: AL5 not finished \u2014 'registry/community' was a typed-but-unwired stub (CommunityRegistryIndex + dead _communityRegistries state). Finishing the real install/discovery (curated index browse reads + add <url|github|local> + community-index-by-URL + kill dead stubs) on PR #361 before ship. Core (in-repo registry, adoption, slot model, Stripe proof vehicle, trust-tier-dropped) already green.",
@@ -14,7 +14,8 @@
     "6-retro": "done",
     "ship": "pending",
     "3b-registry-install": "done",
-    "4b-review": "in_progress"
+    "4b-review": "done",
+    "5b-docs": "in_progress"
   },
   "startedAt": "2026-06-25",
   "completedAt": "2026-06-26"
