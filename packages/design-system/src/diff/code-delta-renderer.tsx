@@ -24,6 +24,10 @@ import type { JSX, ReactNode } from "react";
 interface DiffLine {
 	readonly kind: "add" | "del" | "ctx";
 	readonly text: string;
+	/** old-file line number (null on pure additions). */
+	readonly oldNo?: number | null;
+	/** new-file line number (null on pure deletions). */
+	readonly newNo?: number | null;
 }
 
 interface DiffHunk {
@@ -42,6 +46,10 @@ export interface DiffLineRef {
 	readonly hunkIndex: number;
 	readonly lineIndex: number;
 	readonly kind: "add" | "del" | "ctx";
+	/** old-file line number (null on pure additions, undefined when not provided). */
+	readonly oldNo: number | null;
+	/** new-file line number (null on pure deletions, undefined when not provided). */
+	readonly newNo: number | null;
 	readonly text: string;
 }
 
@@ -104,7 +112,14 @@ export function CodeDeltaRenderer({
 					</div>
 					<div className="font-mono text-[12px] leading-[var(--leading-body)]">
 						{hunk.lines.map((line, lineIndex) => {
-							const ref: DiffLineRef = { hunkIndex, lineIndex, kind: line.kind, text: line.text };
+							const ref: DiffLineRef = {
+								hunkIndex,
+								lineIndex,
+								kind: line.kind,
+								oldNo: line.oldNo ?? null,
+								newNo: line.newNo ?? null,
+								text: line.text,
+							};
 							return (
 								<div key={`${hunkIndex}-${lineIndex}-${line.kind}`}>
 									<div data-diff-type={line.kind} className={`relative flex ${LINE_BG[line.kind]}`}>
