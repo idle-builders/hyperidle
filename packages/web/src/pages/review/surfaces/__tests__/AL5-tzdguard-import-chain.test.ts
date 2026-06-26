@@ -1,40 +1,34 @@
 /**
- * AL5 TDZ-GUARD — proves the generated-index import chain is crash-free.
+ * AL5 — generated-index import chain: registration behavior tests.
  *
- * CONTEXT: The false-green gap in AL5 v3.
- * The previous tests called registerSurface() DIRECTLY, never going through the
- * generated-index import chain that surface:add produces. The CLI generates:
+ * CONTEXT: When `surface:add` installs a community surface it generates:
  *
  *   surface-registry.generated.ts → <id>/register.ts → registerSurface(...)
  *
- * When register.ts imported registerSurface from surface-registry.ts, this circular
- * ESM chain crashed in a fresh Node.js process (e.g., `npm run surface:add`):
- *   ReferenceError: Cannot access 'REGISTRY' before initialization
- *
- * THE FIX: register.ts now imports registerSurface from surface-registry-api.ts
- * (a leaf module with no back-imports). The circular chain is broken.
+ * register.ts must import registerSurface from surface-registry-api.ts (the
+ * cycle-free leaf) — NEVER from surface-registry.ts (which would reintroduce the
+ * circular ESM chain that crashes `npm run surface:add` in a fresh Node process with
+ * ReferenceError: Cannot access 'REGISTRY' before initialization).
  *
  * WHAT THIS TEST PROVES:
  *   Part 1 — The fixture register.ts (mimicking surface:add output) can be imported
  *             and its side-effect (registerSurface call) reaches the real REGISTRY.
  *             This exercises the import chain: generated-index → register.ts → api.ts.
  *
- *   Part 2 — surface-registry-api.ts exports registerSurface and has no import from
- *             surface-registry.ts, proving the cycle is fully broken.
+ *   Part 2 — surface-registry-api.ts exports registerSurface and is accessible as a
+ *             standalone module; surface-registry.ts re-exports the public API.
  *
- * GUARD CONDITION (manual verification, documented here):
- *   Reverting al5-tzdguard-surface/register.ts to import from "../../surface-registry.js"
- *   and running `npm run surface:add -- ./some-fixture-path` in a fresh process MUST
- *   crash with ReferenceError. This was verified during development:
- *   - With old path (surface-registry.js): `npm run surface:add` crashes (TDZ)
- *   - With new path (surface-registry-api.js): `npm run surface:add` succeeds
+ * THE STATIC GUARD (not this test):
+ *   The invariant "generated files must only import from surface-registry-api, never
+ *   from surface-registry" is enforced by the ESLint rule in eslint.config.ts
+ *   (AL5 block — no-restricted-imports scoped to register.ts and .generated.ts files
+ *   under surfaces/). The lint rule is the real guard; this test proves runtime
+ *   registration behavior.
  *
  * @lore AL5 TDZ-GUARD SCOPE: ESM circular TDZ crashes at module-init time in a fresh
- * Node.js process. Vitest + vite transform does not faithfully reproduce this because:
- *   a) vite transforms ESM to CJS-compatible format for vitest (no true TDZ for static imports)
- *   b) sequential dynamic import() doesn't reproduce synchronous circular TDZ
- * The test proves the import chain WORKS (surfaces register correctly). The TDZ guard
- * is proven by the live surface:add execution in the task report.
+ * Node.js process. Vitest + vite transform does not faithfully reproduce the TDZ
+ * because vite transforms ESM for module caching. The TDZ guard is therefore a static
+ * lint rule — not a runtime test. This file tests registration correctness only.
  */
 
 import { describe, expect, it } from "vitest";
@@ -52,7 +46,7 @@ import "../__test-fixtures__/generated-index-fixture.js";
 
 const FIXTURE_ID = "al5-tzdguard-fixture";
 
-describe("AL5 TDZ-GUARD — Part 1: generated-index import chain registers surface", () => {
+describe("AL5 — Part 1: generated-index import chain registers surface", () => {
 	it("fixture surface is in getSurfaceEntry() after generated-index import", () => {
 		// Proof: the generated-index → register.ts → surface-registry-api.ts chain
 		// called registerSurface, which added the fixture to the real REGISTRY.
@@ -100,7 +94,7 @@ describe("AL5 TDZ-GUARD — Part 1: generated-index import chain registers surfa
 
 // ── Part 2: surface-registry-api.ts is cycle-free ────────────────────────────
 
-describe("AL5 TDZ-GUARD — Part 2: surface-registry-api is a cycle-free leaf", () => {
+describe("AL5 — Part 2: surface-registry-api is a cycle-free leaf", () => {
 	it("surface-registry-api.ts exports registerSurface as a function", async () => {
 		// Dynamic import to independently verify the leaf module.
 		const api = await import("../surface-registry-api.js");
@@ -117,28 +111,8 @@ describe("AL5 TDZ-GUARD — Part 2: surface-registry-api is a cycle-free leaf", 
 	});
 });
 
-// ── Guard documentation ────────────────────────────────────────────────────────
-
-describe("AL5 TDZ-GUARD — guard documentation", () => {
-	it("GUARD: if this test file loaded, the import chain did NOT throw (TDZ guard proven)", () => {
-		// This test is a sentinel. If the import at the top of this file:
-		//   import "../__test-fixtures__/generated-index-fixture.js"
-		// had crashed with a TDZ ReferenceError (because register.ts imported from
-		// surface-registry.ts instead of surface-registry-api.ts), NONE of the tests
-		// in this file would run — the module would fail to load.
-		//
-		// The fact that this test runs proves:
-		//   1. The import chain evaluated without crash
-		//   2. The fixture surface was registered
-		//   3. surface-registry-api.ts is the safe import path for generated register.ts files
-		//
-		// REVERT TEST (manual): change al5-tzdguard-surface/register.ts line:
-		//   import { registerSurface } from "../../surface-registry-api.js";
-		// to:
-		//   import { registerSurface } from "../../surface-registry.js";
-		// Then run `npm run surface:add -- ./test-surface-path` in a FRESH NODE PROCESS.
-		// It MUST crash with: ReferenceError: Cannot access 'REGISTRY' before initialization
-		// (vitest doesn't reproduce the TDZ because vite transforms ESM for module caching)
-		expect(true).toBe(true);
-	});
-});
+// ── Describe blocks end here ───────────────────────────────────────────────────
+// The static TDZ guard (preventing generated files from importing surface-registry.ts)
+// is enforced by the ESLint rule in eslint.config.ts (AL5 block). That lint rule is
+// proven non-vacuous: a violating import in register.ts triggers error no-restricted-imports.
+// See eslint.config.ts for the rule definition and the AL5-concept task report for proof.

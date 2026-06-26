@@ -20,7 +20,8 @@
 		"packages/server/src/services/service-connection-resolver.ts",
 		"packages/server/src/harness/re-engage.ts",
 		"packages/server/src/tools/live-proof-lanes.ts",
-		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts"
+		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
+		"**/__test-fixtures__/**"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],

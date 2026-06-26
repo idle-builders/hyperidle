@@ -1,32 +1,26 @@
 /**
- * AL5 — install → adopt end-to-end test (registry/route/resolver).
- *
- * This is the proof that was missing: install a fixture surface → it appears in
- * the registry/index → the adopt POST returns 201 → resolveSurface returns
- * source:"adopted" for that situation.
- *
- * Model: code is built-in, so "adoptable after install + register" — not a
- * running-browser hot-load. We prove the registry/index/resolver/route include
- * the surface post-register, driving the real modules (not tmp-dir file-copy).
+ * AL5 — registry / resolver / server-index behavior tests.
  *
  * Test structure:
- *   Part A — registry: registerSurface(fixture) → getSurfaceEntry / listSurfaces
- *   Part B — resolver: resolveSurface with adoption naming the fixture → source:"adopted"
- *   Part C — server route: POST /api/surface-adoptions with fixture surfaceId → 201
- *             (requires the manifest to be in OFFICIAL_REGISTRY_INDEX, which the
- *              add CLI ensures by appending to REGISTERED_SURFACE_MANIFESTS)
+ *   Part A — registry API: registerSurface(fixture) → getSurfaceEntry / listSurfaces.
+ *             Tests that the registry Map wires correctly (the same path a generated
+ *             register.ts uses at module-load time after `surface:add`).
+ *             NOTE: this calls registerSurface() directly — it does NOT go through
+ *             the generated-index import chain. The import-chain behavior is tested
+ *             separately in AL5-tzdguard-import-chain.test.ts.
  *
- * @lore AL5 INSTALL-LOOP: Parts A+B test the web-side of the loop (registerSurface
- * + resolveSurface). Part C tests the server-side (REGISTERED_SURFACE_MANIFESTS
- * → OFFICIAL_REGISTRY_INDEX → SERVER_REGISTRY → POST 201). The server test is
- * already covered by surface-adoptions.integration.test.ts for the stripe surface;
- * here we focus on the newly installed fixture surface end-to-end.
+ *   Part B — resolver: resolveSurface with an adoption row naming the fixture
+ *             → source:"adopted" (or version-mismatch degradation).
+ *
+ *   Part C — server-index derivation invariant: OFFICIAL_REGISTRY_INDEX.surfaces
+ *             contains all REGISTERED_SURFACE_MANIFESTS entries. This is the contract
+ *             that makes any manifest appended by `surface:add` adoptable via the server
+ *             route. Full POST-201 proof for first-party surfaces is in
+ *             surface-adoptions.integration.test.ts.
  *
  * @lore AL5: registerSurface is idempotent — calling it multiple times with the
- * same id is safe (subsequent calls are no-ops). We reset by re-importing a fresh
- * module in each describe block where needed; but since the Map is module-level
- * and vitest reuses modules across tests, we use a unique fixture id per test file
- * to avoid cross-test pollution.
+ * same id is safe (subsequent calls are no-ops). We use a unique fixture id per
+ * test file to avoid cross-test pollution from module-level Map state.
  */
 
 import type { AdoptionView, SurfaceManifest, SurfaceSituation } from "@hyperidle/shared";
@@ -79,9 +73,9 @@ const FIXTURE_ADOPTION: AdoptionView = {
 
 const FIXTURE_SITUATION: SurfaceSituation = { tool: "al5-e2e", kind: "action_operation" };
 
-// ── Part A — Registry: registerSurface wires the surface into the Map ─────────
+// ── Part A — Registry API: registerSurface wires the surface into the Map ────
 
-describe("AL5 install→adopt E2E — Part A: registry registration", () => {
+describe("AL5 — Part A: registry API registration behavior", () => {
 	it("before registerSurface: fixture surface is NOT in registry", () => {
 		// Before registration, getSurfaceEntry returns undefined for the fixture id.
 		// (This passes because the fixture id is unique and not in FIRST_PARTY.)
@@ -150,7 +144,7 @@ describe("AL5 install→adopt E2E — Part A: registry registration", () => {
 
 // ── Part B — Resolver: resolveSurface uses the registered surface ──────────────
 
-describe("AL5 install→adopt E2E — Part B: resolver returns source:'adopted' for installed surface", () => {
+describe("AL5 — Part B: resolver returns source:'adopted' for registered surface", () => {
 	it("resolveSurface with adoption naming fixture → source:'adopted', correct component", () => {
 		// Ensure fixture is registered (idempotent).
 		registerSurface(FIXTURE_MANIFEST, FixtureSurfaceComponent);
@@ -200,21 +194,17 @@ describe("AL5 install→adopt E2E — Part B: resolver returns source:'adopted' 
 	});
 });
 
-// ── Part C — Server-side: OFFICIAL_REGISTRY_INDEX derives from FIRST_PARTY ────
+// ── Part C — Server-index derivation invariant ────────────────────────────────
 //
-// The full server integration path (POST /api/surface-adoptions → 201) for the
-// first-party stripe surface is already proven in surface-adoptions.integration.test.ts.
+// Verifies that OFFICIAL_REGISTRY_INDEX.surfaces contains all REGISTERED_SURFACE_MANIFESTS
+// entries. This is the contract that makes `surface:add`-installed manifests adoptable:
+// when surface:add appends a manifest to REGISTERED_SURFACE_MANIFESTS, the rebuilt
+// server includes it in SERVER_REGISTRY → POST /api/surface-adoptions returns 201.
 //
-// Here we verify the structural invariant that makes an installed surface adoptable:
-// OFFICIAL_REGISTRY_INDEX.surfaces includes all REGISTERED_SURFACE_MANIFESTS entries,
-// and the server builds SERVER_REGISTRY from that index.
-//
-// When surface:add appends a new manifest to REGISTERED_SURFACE_MANIFESTS (step 5 in
-// the CLI), the rebuilt server will include it in SERVER_REGISTRY → POST 201.
-//
-// This is the contract test: "OFFICIAL_REGISTRY_INDEX is derived from REGISTERED_SURFACE_MANIFESTS".
+// Full POST-201 proof for the first-party stripe surface is in
+// surface-adoptions.integration.test.ts. Part C tests the derivation contract only.
 
-describe("AL5 install→adopt E2E — Part C: server index derivation invariant", () => {
+describe("AL5 — Part C: server-index derivation contract", () => {
 	it("OFFICIAL_REGISTRY_INDEX.surfaces contains all REGISTERED_SURFACE_MANIFESTS entries", async () => {
 		// The server registry is built from OFFICIAL_REGISTRY_INDEX.surfaces.
 		// This test verifies the derivation is correct — so any manifest in
