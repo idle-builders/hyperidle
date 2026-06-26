@@ -26,6 +26,8 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { createApp } from "../app.js";
+import { createLoginSession } from "../services/login-session.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-an1-connections";
@@ -373,54 +375,155 @@ describe("AN1 — /api/connections routes", () => {
 		});
 	});
 
-	// ─── AC5: Per-user isolation ───────────────────────────────────────────────
+	// ─── AC5: Per-user isolation (real cross-user tests via Bearer token auth) ───
+	//
+	// @lore AN1 W1-fix: The prior AC5 tests only authenticated as one user and
+	// tested a NON-EXISTENT id for the IDOR DELETE test — never User A's REAL row
+	// from User B's session.  These replacement tests mint a real Bearer session for
+	// User B (via createLoginSession + sharedMode app) and prove:
+	//   (1) B's GET excludes A's real connection
+	//   (2) B's DELETE of A's real row → 404
+	//   (3) B's validate of A's real row → 404
+	//
+	// Sanity-break evidence (documented per test):
+	//   When the WHERE clause in GET / DELETE / validate was changed to omit
+	//   `eq(serviceConnections.userId, userId)`, tests (1), (2) and (3) all went RED.
+	//   Restoring the userId scope → GREEN.  Proves the tests exercise the real guards.
 
-	describe("AC5 — per-user isolation", () => {
-		test("user B GET does not return user A's connection", async ({ app, db }) => {
-			// Seed A first (auth resolves to first human — user A authenticates)
+	describe("AC5 — per-user isolation (real two-user Bearer flow)", () => {
+		test("(1) user B GET excludes user A's real connection", async ({ db, eventBus }) => {
+			// Create a sharedMode app so Bearer token auth works for user B.
+			// @lore AN1 W1-fix: the default test fixture app is local-mode (single API key
+			// resolves to first human). sharedMode=true enables Bearer auth per user.
+			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+
+			// Seed user A first — API key auth resolves to first human = USER_A.
 			await seedUserA(db);
+			await seedUserB(db);
 
-			// Create connection as user A
-			await app.request("/api/connections", {
+			// Create a connection as user A (via API key → first human = A)
+			const createRes = await sharedApp.request("/api/connections", {
 				method: "POST",
 				headers: authHeadersA(),
 				body: JSON.stringify({
 					service: "Stripe",
 					authSource: "token",
-					token: "sk-a-only-isolation-001",
+					token: "sk-a-iso-real-001",
 				}),
 			});
+			expect(createRes.status).toBe(201);
+			const created = (await createRes.json()) as Record<string, unknown>;
+			const aConnectionId = created["id"] as string;
+			expect(typeof aConnectionId).toBe("string");
 
-			// Seed user B — user B has no connections of their own
-			await seedUserB(db);
+			// Mint a real Bearer session for user B
+			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
 
-			// Verify user A has exactly one Stripe connection by listing via the API.
-			// (The test fixture auth resolves to the first-inserted human = USER_A_ID.)
-			// @lore AN1: auth resolves to first human; cross-user isolation verified
-			// via GET list shape — user A's list contains the Stripe row with the right
-			// authSource. User B's isolation proven via the resolver unit tests and the
-			// IDOR DELETE test below.
-			const listRes = await app.request("/api/connections", { headers: authHeadersA() });
-			// When route exists: returns 200 with user A's connections only
-			// When route doesn't exist: returns 404, which fails this check → correct red
+			// User B lists their connections — must NOT see user A's Stripe row
+			const listRes = await sharedApp.request("/api/connections", {
+				headers: {
+					// biome-ignore lint/style/useNamingConvention: HTTP header name
+					Authorization: `Bearer ${tokenB}`,
+					"Content-Type": "application/json",
+				},
+			});
 			expect(listRes.status).toBe(200);
-			const list = (await listRes.json()) as Array<{ service: string; userId?: string }>;
-			// User A can see their own Stripe connection
-			const stripeRow = list.find((c) => c.service === "Stripe");
-			expect(stripeRow).toBeDefined();
-			// The view must NOT expose userId (no cross-user data leakage signal)
-			expect(stripeRow).not.toHaveProperty("userId");
+			const list = (await listRes.json()) as Array<{ id: string; service: string }>;
+			const leaked = list.find((c) => c.id === aConnectionId);
+			// If the userId scope guard is removed, leaked is defined → test goes RED.
+			expect(leaked).toBeUndefined();
 		});
 
-		test("DELETE with a non-existent/other-user's id → 404 (never 403)", async ({ app, db }) => {
+		test("(2) user B DELETE of user A's real id → 404 (not 403, not 200)", async ({
+			db,
+			eventBus,
+		}) => {
+			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+
+			await seedUserA(db);
+			await seedUserB(db);
+
+			// Create a connection as user A
+			const createRes = await sharedApp.request("/api/connections", {
+				method: "POST",
+				headers: authHeadersA(),
+				body: JSON.stringify({
+					service: "GitHub",
+					authSource: "token",
+					token: "gh-a-iso-real-delete-001",
+				}),
+			});
+			expect(createRes.status).toBe(201);
+			const created = (await createRes.json()) as Record<string, unknown>;
+			const aConnectionId = created["id"] as string;
+
+			// Mint Bearer session for user B
+			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
+
+			// User B tries to delete user A's real connection — must be 404
+			const deleteRes = await sharedApp.request(`/api/connections/${aConnectionId}`, {
+				method: "DELETE",
+				headers: {
+					// biome-ignore lint/style/useNamingConvention: HTTP header name
+					Authorization: `Bearer ${tokenB}`,
+				},
+			});
+			// AC5: cross-user delete reads as not-found (never 403 — never leaks existence).
+			// If the userId scope guard in DELETE is removed, the row is found and deleted → 204 → RED.
+			expect(deleteRes.status).toBe(404);
+
+			// Confirm user A's connection still exists (was not deleted by user B's attempt)
+			const listResA = await sharedApp.request("/api/connections", {
+				headers: authHeadersA(),
+			});
+			const listA = (await listResA.json()) as Array<{ id: string }>;
+			const stillThere = listA.find((c) => c.id === aConnectionId);
+			expect(stillThere).toBeDefined();
+		});
+
+		test("(3) user B validate of user A's real id → 404", async ({ db, eventBus }) => {
+			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+
+			await seedUserA(db);
+			await seedUserB(db);
+
+			// Create a connection as user A
+			const createRes = await sharedApp.request("/api/connections", {
+				method: "POST",
+				headers: authHeadersA(),
+				body: JSON.stringify({
+					service: "Stripe",
+					authSource: "token",
+					token: "sk-a-iso-real-validate-001",
+				}),
+			});
+			expect(createRes.status).toBe(201);
+			const created = (await createRes.json()) as Record<string, unknown>;
+			const aConnectionId = created["id"] as string;
+
+			// Mint Bearer session for user B
+			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
+
+			// User B validates user A's real connection — must be 404
+			const validateRes = await sharedApp.request(`/api/connections/${aConnectionId}/validate`, {
+				method: "POST",
+				headers: {
+					// biome-ignore lint/style/useNamingConvention: HTTP header name
+					Authorization: `Bearer ${tokenB}`,
+				},
+			});
+			// If the userId scope guard in validate is removed, validate returns 200 → RED.
+			expect(validateRes.status).toBe(404);
+		});
+
+		test("(legacy) DELETE with non-existent id → 404 (existing baseline)", async ({ app, db }) => {
 			await seedUserA(db);
 
-			// Try to delete an id that belongs to no one or another user
 			const res = await app.request("/api/connections/sc-definitely-does-not-exist-xyz", {
 				method: "DELETE",
 				headers: authHeadersA(),
 			});
-			// AC5: cross-user delete → 404, never 403 (never leaks existence)
+			// AC5: non-existent delete → 404, never 403
 			expect(res.status).toBe(404);
 		});
 	});
