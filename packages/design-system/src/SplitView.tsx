@@ -42,6 +42,8 @@ export interface SplitViewProps {
 	dividerRatio: number; // 0..1 — origin's share in `split`
 	onModeChange?: (mode: FoldMode) => void;
 	onRatioChange?: (ratio: number) => void;
+	/** @lore AM5 T6: per-surface persistence key — web composes SplitView + useUiPreference(surfaceKey, default) to persist the divider ratio in localStorage. SplitView itself stays presentational; this prop is informational for the stories viewer only. */
+	surfaceKey?: string;
 }
 
 // ── Icons (inline, currentColor) — the icon mode controls ────────────────────

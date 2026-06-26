@@ -1,6 +1,7 @@
-import { Composer } from "@hyperidle/design-system";
+import { Composer, SplitView } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import { useUiPreference } from "../../hooks/useUiPreference.js";
 import { getReviewCanvas } from "./canvas-registry.js";
 import { ReviewActionOperation } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
@@ -641,7 +642,8 @@ function ExaminePane({
 }): JSX.Element {
 	const Canvas = getReviewCanvas(artifact.kind);
 	return (
-		<aside className="flex h-full w-[620px] shrink-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--surface-container)]">
+		// AM5 T6: w-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
+		<aside className="flex h-full flex-col bg-[var(--surface-container)]">
 			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<KindBadge kind={artifact.kind} />
 				<ToolLogo tool={artifact.tool as ToolId} size="sm" />
@@ -700,6 +702,8 @@ export function ReviewComposition({
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
+	// AM5 T6: SplitView ratio persistence for the review surface
+	const [reviewRatio, setReviewRatio] = useUiPreference("review", 0.55);
 
 	const activeArtifact = subject.artifacts.find((a) => a.id === activeId) ?? null;
 	const resolved = resolvedProp ?? subject.verdict?.decision !== undefined;
@@ -738,38 +742,51 @@ export function ReviewComposition({
 		[subject.conversation, activeArtifactId, resolved, onPostComment, openArtifact],
 	);
 
-	return (
-		<ReviewCanvasProvider value={canvasContext}>
-			<div className="flex h-full w-full bg-[var(--surface-page)] text-[var(--text-primary)]">
-				<div className="flex h-full min-w-0 flex-1 flex-col">
-					<FrameHeader
-						subject={subject}
-						menuOpen={menuOpen}
-						onToggleMenu={() => setMenuOpen((v) => !v)}
-						onSubmitVerdict={onSubmitVerdict}
+	// AM5 T6: ExaminePane reconciled onto SplitView (surfaceKey="review").
+	// The review list is the origin; ExaminePane fills the destination.
+	const reviewListPane = (
+		<div className="flex h-full flex-col bg-[var(--surface-page)] text-[var(--text-primary)]">
+			<FrameHeader
+				subject={subject}
+				menuOpen={menuOpen}
+				onToggleMenu={() => setMenuOpen((v) => !v)}
+				onSubmitVerdict={onSubmitVerdict}
+				resolved={resolved}
+			/>
+			<div className="min-h-0 flex-1 overflow-auto">
+				<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
+					<TaskSection subject={subject} />
+					<ResultSection subject={subject} />
+					<NeedsSection subject={subject} onJump={openArtifact} />
+					<ArtifactsSection subject={subject} activeId={activeId} onOpen={openArtifact} />
+					<ConversationSection
+						comments={subject.conversation}
+						threadId={threadId}
+						onPostComment={onPostComment}
 						resolved={resolved}
 					/>
-
-					<div className="min-h-0 flex-1 overflow-auto">
-						<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
-							<TaskSection subject={subject} />
-							<ResultSection subject={subject} />
-							<NeedsSection subject={subject} onJump={openArtifact} />
-							<ArtifactsSection subject={subject} activeId={activeId} onOpen={openArtifact} />
-							<ConversationSection
-								comments={subject.conversation}
-								threadId={threadId}
-								onPostComment={onPostComment}
-								resolved={resolved}
-							/>
-						</div>
-					</div>
 				</div>
-
-				{activeArtifact ? (
-					<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />
-				) : null}
 			</div>
+		</div>
+	);
+
+	return (
+		<ReviewCanvasProvider value={canvasContext}>
+			{activeArtifact ? (
+				<SplitView
+					surfaceKey="review"
+					mode="split"
+					dividerRatio={reviewRatio}
+					onRatioChange={setReviewRatio}
+					onModeChange={(mode) => {
+						if (mode === "fold-back") setActiveId(null);
+					}}
+					origin={reviewListPane}
+					destination={<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />}
+				/>
+			) : (
+				<div className="h-full w-full">{reviewListPane}</div>
+			)}
 		</ReviewCanvasProvider>
 	);
 }
