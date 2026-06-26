@@ -58,8 +58,8 @@ import {
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
-import { type JSX, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
@@ -497,6 +497,26 @@ function KnowledgeDetailView({
 	const [editing, setEditing] = useState(false);
 	// T2: editContent captures body at edit-start time (consumed once by BodyEditor on mount)
 	const [editContent, setEditContent] = useState<string>(initialContent);
+
+	// AM5 T8: block-anchored scroll (AC2). Read hash → parse #block-<id> → scroll DERIVED block.
+	// @lore AM5 T8: Security — blockId is matched by VALUE comparison against data-block-id
+	// attributes, never concatenated into a querySelector string (selector-injection guard).
+	// scrollIntoView?.() is the optional-call guard (jsdom leaves it undefined; precedent
+	// HostThreadSection.tsx, WorkBet.tsx). React 18: schedule via rAF so the KnowledgeBody
+	// render is complete (https://react.dev/reference/react/useEffect).
+	const { hash } = useLocation();
+	useEffect(() => {
+		if (!hash.startsWith("#block-")) return;
+		const decoded = decodeURIComponent(hash.slice("#block-".length));
+		if (!decoded) return;
+		const raf = requestAnimationFrame(() => {
+			const el = Array.from(document.querySelectorAll("[data-block-id]")).find(
+				(node) => node.getAttribute("data-block-id") === decoded,
+			);
+			(el as HTMLElement | undefined)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+		});
+		return () => cancelAnimationFrame(raf);
+	}, [hash, savedContent]);
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);

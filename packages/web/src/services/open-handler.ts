@@ -60,7 +60,14 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 		switch (target.route) {
 			case "host": {
 				const path = resolveHostRoute(target.hostKind, target.hostId);
-				if (path !== null) navigate(path);
+				if (path === null) return;
+				// @lore AM5 T8: append #block-<encodeURIComponent(blockId)> for block-anchored open (AC2).
+				// No selector concat — the fragment is matched by value at the scroll site (KnowledgeDetail).
+				navigate(
+					target.blockId
+						? `${path}#block-${encodeURIComponent(target.blockId)}`
+						: path,
+				);
 				return;
 			}
 			case "artifact":
