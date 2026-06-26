@@ -86,7 +86,11 @@ const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
  * doesn't match the normalized kind).
  *
  * For F1 (preview JSON schema incompatibility):
- * - code kind: old code_diff preview {file, hunks} is compatible with new code schema.
+ * - code kind: AM5 K4b purge — old code_diff preview {file, hunks} is NOT compatible
+ *   with the new pure code schema {path, lang, text}. Old {file, hunks} rows yield
+ *   null preview at read time (pre-alpha purge; no migration). OLD_KIND_MAP still maps
+ *   code_diff→code for the kind field. The preview is only populated for rows that
+ *   already carry the pure {path,lang,text} shape.
  * - text kinds: old previews (contract {parties, title}, drafted_email {to, subject, bodyExcerpt},
  *   decision {claim, rationale}, etc.) are NOT compatible with new text schema {body, format}.
  *   These previews are nulled out at read time. The content is preserved in the DB

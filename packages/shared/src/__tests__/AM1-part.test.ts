@@ -183,7 +183,12 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 		const be = blockEmbeds[0];
 		if (be?.kind === "block") {
 			// AM5 T8: blockId is now threaded from ref.blockId to the target (block-anchor AC2).
-			expect(be.target).toEqual({ route: "host", hostKind: "knowledge_item", hostId: "k-1", blockId: "blk:v1:k" });
+			expect(be.target).toEqual({
+				route: "host",
+				hostKind: "knowledge_item",
+				hostId: "k-1",
+				blockId: "blk:v1:k",
+			});
 		}
 	});
 
@@ -197,7 +202,12 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 		const be = (parts[0]?.embeds ?? []).find((e) => e.kind === "block");
 		if (be?.kind === "block") {
 			// AM5 T8: blockId is now threaded from ref.blockId to the target (block-anchor AC2).
-			expect(be.target).toEqual({ route: "host", hostKind: "bet", hostId: "bet-9", blockId: "blk:v1:b" });
+			expect(be.target).toEqual({
+				route: "host",
+				hostKind: "bet",
+				hostId: "bet-9",
+				blockId: "blk:v1:b",
+			});
 		} else {
 			throw new Error("expected a block Embed for the bet-hosted ref");
 		}
@@ -214,7 +224,12 @@ describe("AM1 BlockRef → block Embed (AC2, C1 — host target is total)", () =
 		const be = (parts[0]?.embeds ?? []).find((e) => e.kind === "block");
 		if (be?.kind === "block") {
 			// AM5 T8: blockId is now threaded from ref.blockId to the target (block-anchor AC2).
-			expect(be.target).toEqual({ route: "host", hostKind: "task", hostId: "task-3", blockId: "blk:v1:t" });
+			expect(be.target).toEqual({
+				route: "host",
+				hostKind: "task",
+				hostId: "task-3",
+				blockId: "blk:v1:t",
+			});
 		} else {
 			throw new Error("expected a block Embed for the task-hosted ref");
 		}

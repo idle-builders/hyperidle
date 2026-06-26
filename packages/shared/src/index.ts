@@ -446,7 +446,6 @@ export type {
 	CodePreview,
 	CreateArtifactInput,
 	DataPreview,
-	DiffHunk,
 	HtmlPreview,
 	ImagePreview,
 	TextPreview,

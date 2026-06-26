@@ -32,8 +32,8 @@ vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-import { useAssistantThread } from "../../hooks/useAssistantThread.js";
 import { MemoryRouter } from "react-router-dom";
+import { useAssistantThread } from "../../hooks/useAssistantThread.js";
 import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
 
 const NOW_ISO = new Date().toISOString();
