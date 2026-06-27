@@ -26,7 +26,7 @@
 |---|---|---|
 | AO1 ships AO2 seam types | `FilesystemMounter`/`FilesystemAuth`/`MountResult`/`CaptureResult` exist in `shared/src/filesystem.ts`; **only types, no impl** | AO2 implements them in `packages/server`. Keep signatures byte-identical; refine `FilesystemAuth.provision` usage. |
 | Hook point "Phase 4.5 / teardown" | `admitSession` Phase 4 = `workspace.spawn`; Phase 6 = `strategy.assembleContext`. `runSession` teardown destroys sandbox at 3 exit paths (crash/budget/normal: lines 1062, 1104, 1122) | Mount in `admitSession` **between Phase 5 (row insert) and Phase 6 (context assembly)** — see §1. captureBack in `runSession` **before each `workspace.destroy`** — see §5. |
-| `resolveToken(connectionId)` available server-side | `ServiceConnectionResolverAdapter.resolveToken` binds `userId` from `c.get("userId")` (per-request). **AO2 runs DETACHED — no request context, no request userId.** | **Load-bearing reconciliation (§3).** The mounter resolves the token by the connection's **owning userId** (read `service_connections.userId` for the row), not a request userId. New server-side resolver method `resolveTokenByConnectionId(connectionId)`. |
+| `resolveToken(connectionId)` available server-side | `ServiceConnectionResolverAdapter.resolveToken` binds `userId` from `c.get("userId")` (per-request). **AO2 runs DETACHED — no request context, no request userId.** | **Load-bearing reconciliation (§3).** AO2 adds a second `FilesystemAuthResolver` seam impl, `OwnerScopedAuthResolver`, that resolves the token by the connection's **owning userId** (`service_connections.userId`), reusing `ServiceConnectionResolver.resolve(userId, id)`. No new method on the concrete class — keeps the AO1 seam, AN2 subsumes. |
 | `GitRunner` can checkout | Export-only: `init/add/commit/push/lsRemote`, **no clone/fetch/checkout** | §2 adds `clone`/`fetchCheckout` to the runner (same file, same hardened `spawnGit`). |
 | Connection supplies `source` for provision mode | `FilesystemAuth.provision` discriminator: `git-credential{remote}` / `env{vars}` / `none`. AO1's adapter currently returns `{mode:"none"}` (no row context) | AO2 builds the `git-credential` directive itself at mount (it HAS the row + resolved token); does not rely on the adapter's context-free `resolve()`. |
 | Materialization driven by injection query | `filesystem_injections` PK `(agentUserId, filesystemId)`, index on `agentUserId` | §1 query: `SELECT f.* FROM filesystems f JOIN filesystem_injections fi ON fi.filesystemId=f.id WHERE fi.agentUserId = :agentId`. |
@@ -39,7 +39,7 @@
 ## Phase 0 — Interrogation (resolved with recommended answers)
 
 1. **Where does the resolved token's `userId` come from in a detached run?**
-   Recommend: from the **connection row's `userId`** (the human/owner who registered the Connection), looked up by `connectionId`. The agent is a bot; it doesn't own the Connection — its team's founder does. AO2 adds `ServiceConnectionResolver.resolveTokenByConnectionId(connectionId)` that reads `service_connections.userId` then decrypts. This is the durable-auth → disposable-sandbox projection: the agent acts with the founder's forge auth. *Confirm.*
+   Recommend: from the **connection row's `userId`** (the human/owner who registered the Connection), looked up by `connectionId`. The agent is a bot; it doesn't own the Connection — its team's founder does. AO2 adds a detached-safe `FilesystemAuthResolver` seam impl, `OwnerScopedAuthResolver`, that reads `service_connections.userId` then delegates to `ServiceConnectionResolver.resolve(userId, id)` (the one decrypt path; no new crypto, no new method on the concrete class). This is the durable-auth → disposable-sandbox projection: the agent acts with the founder's forge auth. *Confirm.*
 
 2. **Clone-per-session vs cached bare mirror + worktree?**
    Recommend: **plain clone per session into the isolated sandbox** (the spec says "plain checkout into the already-isolated per-session sandbox — no shared worktrees"). Caching is an optimization with a coupling/coherence cost (shared object store across sandboxes breaks the isolation guarantee). Single-founder scale; a shallow clone is seconds. *Confirm — defer caching.*
@@ -61,7 +61,7 @@ These five are the load-bearing forks. All have a single sane recommended answer
 
 **Where:** inside `admitSession()` in `session-provisioning.ts`, a **new Phase 5.5** between the Phase 5 session-row insert (line 479) and Phase 6 context assembly (line 488), INSIDE the existing `try` block (so a mount failure triggers `revertTaskToAccepted` exactly like a context-assembly failure — same rollback semantics, no new error path).
 
-**Why before context assembly, not after:** context assembly writes `context/ knowledge/ work/` + `.fabric/manifest.json` into the sandbox; materialization writes the repo working tree. They write **disjoint subtrees** (repo at sandbox root or a `repo/` subdir; fabric in `.fabric/`, `context/`). Order is not semantically forced, but materializing **first** means a mount failure aborts before the (more expensive) context assembly runs and before `session_started` is emitted — fail fast, cheap rollback. Materialize → assemble context → start ingestion → emit `session_started`.
+**Why before context assembly, not after:** materializing **first** means a mount failure aborts before the (more expensive) context assembly runs and before `session_started` is emitted — fail fast, cheap rollback. Materialize → assemble context → start ingestion → emit `session_started`. **Note: ordering does NOT buy subtree disjointness** — assembly + scaffolding (below) write into the same sandbox root the repo occupies, *after* the mount. The collision is resolved by capture scoping (§5b), not by ordering. The earlier "disjoint subtrees" claim was wrong and is retracted.
 
 **Driver query (the AC1 "never a global path" requirement):**
 ```ts
@@ -74,9 +74,24 @@ const injected = await db
 ```
 For each injected filesystem row → `mounter.mount(...)`. **Zero rows → skip entirely (degradation path, AC3).** The session provisions with no working tree, context assembly + ingestion + harness run exactly as today.
 
-**Mount target path within the sandbox:** a single injected `code` filesystem mounts at **`<sandboxPath>` root** (so the harness `cwd` IS the repo — matches "the sandbox holds the repo working tree", and `git`/build/test commands run with no `cd`). Multiple injected filesystems (rare, N:N allows it) mount at `<sandboxPath>/<filesystemId>/` — the FIRST `code` filesystem still goes to root for the common single-repo case. *Recommendation: v1 supports the common case (≤1 `code` fs at root, `doc_set` folders at `<sandboxPath>/<slug>/`); record multi-code as a known limitation, not a blocker (single-founder, one-repo-per-bot is the norm).*
+**Mount target path within the sandbox — root-mount, capture scoped (the CRITICAL resolution):**
 
-**Wiring the mounter into provisioning deps:** add an optional `filesystemMounter?: FilesystemMounter` to `ProvisionSessionDeps`. Constructed in `app.ts` (where `db` + `ServiceConnectionResolver` already exist, lines 416-451) and threaded through `createSessionRoutes` → `startSessionProvision` deps, exactly like `mcpBridgeRegistry`. **Absent → no materialization** (kernel-only mode, tests without the adapter stay green — same pattern as `mcpBridgeRegistry`).
+The harness `cwd` is **hardwired to `sandboxPath`** in every adapter — `claude-agent-sdk-adapter.ts:252` (`cwd: config.sandboxPath`), `cli-harness-adapter.ts:377` + `:603` (spawn + re-engage), and codex/opencode pick up the same cwd (adapter-pool.ts:327-328, 380). There is no per-adapter cwd override on the AO2 surface. Therefore the repo working tree MUST sit at `<sandboxPath>` root so the agent's `git`/build/test commands run against it with no `cd`. **A `<sandbox>/workspace/<fs>/` subdir mount would require rewriting every harness adapter's cwd — out of AO2 scope and a bad coupling.** So a single injected `code` filesystem mounts at **`<sandboxPath>` root**.
+
+**The collision the critique flagged is real and root-mount alone does not fix it.** The sandbox root is *co-owned* by provisioning scaffolding written AFTER the mount (verified call sites in `session-provisioning.ts`):
+
+| Writer | Writes at root | Line |
+|---|---|---|
+| `assembleContext` | `context/`, `knowledge/`, `work/`, `.fabric/manifest.json` | 504-507 |
+| `writeSandboxAgentsMd` | `AGENTS.md` | 725 |
+| Phase 8b MCP | `.mcp.json` + CLI MCP configs (`opencode.json`) | 753-762 |
+| `provisionReturnHook` | `.claude/settings.json`, `.codex/hooks.json`, `.opencode/plugins/...` | 800-802 |
+
+Two failures if capture is naive `git add -A`: **(a) pollution** — the bundle/commit stages all that HyperIdle scaffolding; **(b) overwrite** — in the self-hosting case (materialized repo IS HyperIdle, the whole point of Track AO) `writeSandboxAgentsMd` overwrites the repo's own `AGENTS.md`, and `.mcp.json`/`.claude/` shadow real repo files, and the polluted tree is what gets committed.
+
+**Resolution (§5b): scoped capture + scaffolding-path exclusion + overwrite guard.** Capture is NOT `add -A`; it stages only the repo's own tracked + agent-authored paths, with the fixed scaffolding paths excluded via a sandbox-local `.git/info/exclude` written at mount and an explicit negative pathspec at commit. The overwrite risk is handled at mount: the mounter records the repo's pre-scaffolding tree (the clone is pristine), and capture diffs against the clone's `HEAD` so scaffolding files — which are untracked in the repo, or, if the repo *does* track an `AGENTS.md`, are excluded by the fixed-path list before assembly runs — never enter the commit. See §5b for the exact mechanism. Multiple injected filesystems (rare, N:N): the FIRST `code` filesystem goes to root; additional `doc_set` folders mount at `<sandboxPath>/<slug>/` and capture per-folder. *v1 supports ≤1 `code` fs at root + `doc_set` at subdir; multi-code recorded as a known limitation.*
+
+**Wiring the mounter into provisioning deps:** add an optional `filesystemMounter?: FilesystemMounter` to `ProvisionSessionDeps`. Constructed in `app.ts` (where `db` + `ServiceConnectionResolver` already exist, lines 416-451): build `OwnerScopedAuthResolver({ db, resolver: scResolver })` (§3), pass it into `SandboxFilesystemMounter` as its `FilesystemAuthResolver` seam, thread the mounter through `createSessionRoutes` → `startSessionProvision` deps, exactly like `mcpBridgeRegistry`. The driver in Phase 5.5 calls `authResolver.resolve(connectionId)` to produce the `auth` arg for `mount`. **Absent → no materialization** (kernel-only mode, tests without the adapter stay green — same pattern as `mcpBridgeRegistry`).
 
 ---
 
@@ -93,14 +108,19 @@ clone(url: string, branch: string, opts?: {
   tokenConfig?: GitConfigInjection;
 }): Promise<void>;
 
-/** Create a `git bundle` of all local commits not in the original remote tip,
- *  written to `bundlePath`. Used by captureBack to make a clone's commits durable
- *  before the sandbox is destroyed. */
+/** Create a `git bundle` at `bundlePath` containing everything reachable from `ref`.
+ *  captureBack passes ref = the capture branch tip (the bot's commit), bundling
+ *  the full branch ref so the bundle is self-contained and restorable on any clone
+ *  (including a shallow one). Used to make the clone's commits durable before the
+ *  sandbox is destroyed. */
 bundle(bundlePath: string, ref: string): Promise<void>;
 ```
-- `clone` runs `git clone --depth <n> --single-branch --branch <branch> -- <url> <cwd>` via `runExpectOk` with the token-config env (reuse the exact `GIT_CONFIG_COUNT/KEY_0/VALUE_0` injection `probeGitRemote` already builds; factor the header-builder out of `filesystem-reachability.ts` into a shared helper so both call sites share one implementation).
-- `bundle` runs `git bundle create <bundlePath> <ref>` (local op, `localMs` timeout class).
-- **No `checkout` method needed** — `--branch` on clone already lands the working tree at the branch. `fetch` is deferred (AO3 landing concern; a fresh clone per session needs no incremental fetch).
+- `clone` binds the runner cwd to the (empty, freshly-spawned) target dir and runs `git clone --depth <n> --single-branch --branch <branch> -- <url> .` (clone into `.` = the bound cwd — resolves the SUGGESTION ambiguity; never `<url> <cwd>` with cwd===target). Token via the same `GIT_CONFIG_COUNT/KEY_0/VALUE_0` injection `probeGitRemote` builds, from the shared header-builder helper factored out of `filesystem-reachability.ts`.
+- **`bundle` ref-spec pinned:** captureBack commits onto the cloned branch, then calls `bundle(<path>, "refs/heads/<branch>")` → `git bundle create <bundlePath> refs/heads/<branch>`. We bundle the **branch ref**, NOT bare `HEAD` and NOT a `<base>..HEAD` range:
+  - bundling the named ref makes the bundle **self-describing** — `git clone <bundle>` / `git fetch <bundle> <branch>` restores the branch + the bot's commit without needing a base sha.
+  - on a `--depth=1` shallow clone, `git bundle create <ref>` packs the shallow commits reachable from the ref (the bot's new commit + the single base commit). That is exactly the durability target: the bundle carries the authored work and restores it. A `<base>..HEAD` *range* bundle is what historically breaks on shallow clones (no negative base ref) — we avoid the range form entirely. (local op, `localMs` timeout class).
+  - **Proven, not assumed:** Lane A restores the bundle (`git clone <bundle> <tmp>` / `git -C <tmp> log`) and asserts the bot's commit + edit are present — see §Live-proof. The shallow-bundle behavior is verified in that lane, not hoped.
+- **No `checkout` method** — `--branch` on clone lands the working tree at the branch. `fetch` deferred (AO3 landing).
 
 **Env hardening:** all new methods go through the existing `spawnGit` → `buildGitEnv`, so they inherit `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS=/bin/false`, `GIT_CONFIG_NOSYSTEM=1`, the env allow-list, and credential-redacted logging **for free**. This is the single biggest reason to extend, not fork.
 
@@ -108,20 +128,29 @@ bundle(bundlePath: string, ref: string): Promise<void>;
 
 ---
 
-## §3 — Server-side token resolution (the detached-run reconciliation)
+## §3 — Server-side token resolution through the AO1 seam (the detached-run reconciliation)
 
-The AO1 `ServiceConnectionResolverAdapter` binds `userId` from `c.get("userId")` — **unavailable in the detached `admitSession` run.** AO2 needs the token without a request.
+**The seam, not the concrete class.** AO1 shipped the `FilesystemAuthResolver` seam (`shared/src/filesystem.ts:77`) with `resolve(connectionId) → FilesystemAuth | null` and `resolveToken(connectionId) → string | null` — *both keyed on `connectionId` only, no request userId in the signature*. AO2's mounter depends on **this seam**, exactly the consumer AO1 built it for. It does NOT couple to the concrete `ServiceConnectionResolver` and does NOT add a method to that class. This keeps the data flow coherent and lets **AN2 later subsume** the provisioning resolver behind the same seam.
 
-**New method on `ServiceConnectionResolver`:**
+**Why a second impl, not the AO1 adapter.** The shipped `ServiceConnectionResolverAdapter` (filesystem-reachability.ts:54) binds `userId` at construction from `c.get("userId")` — **request-bound, unusable in the detached `admitSession` run** (verified: constructor takes `(resolver, userId)`, line 55-57). AO2 adds a second seam impl, **`OwnerScopedAuthResolver implements FilesystemAuthResolver`**, that resolves the `userId` from the **connection row's owner** instead of a request:
+
 ```ts
-/** Resolve the plaintext token for a connection by its OWNING user (read from the row).
- *  For server-side provisioning where there is no request userId. Same decrypt path,
- *  same null-on-any-failure contract. Never throws. */
-async resolveTokenByConnectionId(connectionId: string): Promise<string | null>;
+// packages/server/src/services/owner-scoped-auth-resolver.ts (NEW)
+// Detached-safe FilesystemAuthResolver: derives userId from service_connections.userId
+// (the founder who registered the Connection), not from a request context.
+export class OwnerScopedAuthResolver implements FilesystemAuthResolver {
+  constructor(private readonly deps: { db: HyperIdleDb; resolver: ServiceConnectionResolver });
+  async resolve(connectionId: string): Promise<FilesystemAuth | null>;       // wrapper; mount enriches host
+  async resolveToken(connectionId: string): Promise<string | null>;          // owner-scoped decrypt
+  async canResolve(connectionId: string): Promise<boolean>;
+  sourceOf(_: string): null;
+}
 ```
-Implementation: `SELECT * FROM service_connections WHERE id = connectionId LIMIT 1` → if `authSource!=="token"` or no `encryptedToken` or no `serverSecret` → `null`; else `decryptCredentialValue(row.encryptedToken, serverSecret)`. This reads the **connection owner's** token (the founder who registered it) — the durable-auth → disposable-sandbox projection (the bot acts with the founder's forge auth, like a real employee).
+`resolveToken` impl: `SELECT userId, ... FROM service_connections WHERE id = connectionId LIMIT 1` → delegate to the existing `ServiceConnectionResolver.resolve(row.userId, connectionId)` (the **one** plaintext path; no new decrypt code, no duplicated crypto). Null on any failure; never throws. This is the durable-auth → disposable-sandbox projection: the bot acts with the founder's forge auth, like an employee.
 
-**Security note (earned, not preemptive):** this is the ONLY new plaintext path AO2 adds. It is wired EXCLUSIVELY into the mounter → sandbox git config, never to a route response or logger (mirrors the AN1 `@lore`: "the resolver is the ONLY plaintext path… never to a route response"). No cross-user check is needed/added — AO2 is server-side provisioning resolving a Connection the team's founder bound to the team's filesystem; designing a cross-tenant guard here would be preemptive security against a non-threat (single-founder, team-scoped). The reviewer's security lens covers this in §Security.
+**No new method on `ServiceConnectionResolver`.** The earlier rev's `resolveTokenByConnectionId` is dropped — it orphaned the seam. The owner→token lookup lives in the seam impl, reusing `ServiceConnectionResolver.resolve(userId, id)` unchanged.
+
+**Security note (earned, not preemptive):** the only plaintext path remains `ServiceConnectionResolver.resolve` (unchanged); `OwnerScopedAuthResolver` is wired EXCLUSIVELY into the mounter → sandbox git config, never to a route response or logger (mirrors the AN1 `@lore`). No cross-tenant guard — server-side provisioning of a Connection the team's founder bound to the team's filesystem; a cross-tenant guard here would be preemptive security against a non-threat (single-founder, team-scoped). Reviewer's security lens covers this in §Security.
 
 ---
 
@@ -129,18 +158,24 @@ Implementation: `SELECT * FROM service_connections WHERE id = connectionId LIMIT
 
 **Contract:** the resolved token is projected into the sandbox as a **disposable, sandbox-scoped git config**; the durable filesystem/session records store **no plaintext secret**; the projection **dies with the sandbox** (sandbox is `rm -rf`'d at teardown).
 
+**Auth data flow (coherent, through the seam — resolves WARNING 2):**
+
+`mount`'s frozen signature carries `auth: FilesystemAuth | null`. **It is now live, not vestigial.** Provisioning passes it: at Phase 5.5, for each injected filesystem with a `connectionId`, the driver calls `authResolver.resolve(connectionId)` on the `OwnerScopedAuthResolver` seam impl and passes the result as `mount(...).auth`. The mounter then:
+1. reads the raw token via the **same seam**: `authResolver.resolveToken(filesystem.connectionId)` (single owner-scoped decrypt);
+2. builds the host-scoped directive itself using the remote host it owns from `repoToUrl(filesystem.resourceRef.repo)` — the seam can't supply the host (the seam is keyed on `connectionId` only, which is why AO1's `resolve()` returns `{mode:"none"}`). The mounter contributes the host; the seam contributes the token. Both auth touches go through the seam — nothing self-resolves crypto.
+
+So `auth` is consumed (it signals "a Connection is bound; resolve & project"), and the token comes through the seam. `auth === null` → local-first, no projection. **This is the coherent flow the prior rev lacked** — no dropped param, no orphaned seam, no concrete-class coupling. AN2 subsumes by swapping the seam impl.
+
 **Mechanism (build on git's native config, not a HyperIdle invention):** at mount, write the token as a **repo-local git config** inside the cloned working tree:
 ```
-git config --local http.<host>/.extraHeader "Authorization: Basic <base64(x-access-token:TOKEN)>"
+git config --local http.${protocol}//${host}/.extraHeader "Authorization: Basic <base64(x-access-token:TOKEN)>"
 ```
-via the existing `GitRunner.configSet(key, value)` (already on the interface, line 50). The header is **host-scoped** (only sent to the forge origin), identical to the `probeGitRemote` convention. Because it is `--local`, it lives in `<sandboxPath>/.git/config` — inside the disposable sandbox, removed by `workspace.destroy`'s `rm -rf`. The agent's own `git fetch`/`push`/`gh` then authenticate ambiently with no token in argv, no env var the agent can echo to a log, no credential helper process.
+via the existing `GitRunner.configSet(key, value)` (interface line 50). The header key uses the **exact host-scoped shape** from filesystem-reachability.ts:161 — `http.${protocol}//${host}/.extraHeader` — produced by the shared header-builder helper (§2, factored out of `probeGitRemote` so the shapes can't drift). Because it is `--local`, it lives in `<sandboxPath>/.git/config` — inside the disposable sandbox, removed by `workspace.destroy`'s `rm -rf`. The agent's own `git fetch`/`push`/`gh` then authenticate ambiently with no token in argv, no env var the agent can echo to a log, no credential helper process.
 
-`FilesystemAuth.provision` maps:
-- `{ mode: "git-credential", remote }` → write the `http.<host>/.extraHeader` local config (the `code`+forge case).
-- `{ mode: "env", vars }` → write the vars to the sandbox's harness env (e.g. `GH_TOKEN` for `gh` — already in `buildGitEnv`'s allow-list). v1 prefers `git-credential`; `env` is the `gh`-CLI escape hatch, optional.
-- `{ mode: "none" }` → local-first, no projection (bare local repo / public repo / `null` token).
-
-**The mounter builds the `provision` directive itself** (it has the row + the resolved token + the resolved remote host from `repoToUrl(resourceRef.repo)`), rather than calling the AO1 adapter's context-free `resolve()` which returns `{mode:"none"}`. AO1's `resolve()` stays as the seam; AO2's mounter is the real implementation that AN2 can later subsume.
+`FilesystemAuth.provision` maps (the directive the mounter builds from the seam token + its own host):
+- `git-credential` (remote host known) → write the `http.${protocol}//${host}/.extraHeader` local config (the `code`+forge case).
+- `env{vars}` → write the vars to the sandbox's harness env (e.g. `GH_TOKEN` — already in `buildGitEnv`'s allow-list). v1 prefers `git-credential`; `env` is the `gh`-CLI escape hatch, optional.
+- `none` → local-first, no projection (bare local repo / public repo / `auth === null`).
 
 **Teardown:** no explicit auth teardown call — the `.git/config` containing the header is inside the sandbox dir that `workspace.destroy` removes. Disposability is structural, not a cleanup step. (captureBack's bundle, §5, is taken BEFORE destroy and written OUTSIDE the sandbox, so the durable artifact never carries the `.git/config` secret.)
 
@@ -148,12 +183,39 @@ via the existing `GitRunner.configSet(key, value)` (already on the interface, li
 
 ## §5 — Writeback / capture path
 
-**Where:** a new `mounter.captureBack(...)` call in `runSession()`, placed **before every `workspace.destroy(sandboxHandle)`** (3 sites: line 1062 budget, 1104 not-returned, 1122 normal). Crash path (line 1040 `crashSession`) does NOT destroy the sandbox via `workspace.destroy` in the same way — confirm crash teardown; capture on crash is best-effort (the working tree may be inconsistent). Recommend: capture on normal + budget + not-returned completion; skip on crash (the agent didn't finish).
+**Where:** a new `mounter.captureBack(...)` call in `runSession()`, placed **before every `workspace.destroy(sandboxHandle)`** (3 sites: line 1062 budget, 1104 not-returned, 1122 normal). Crash path (line 1040 `crashSession`) does NOT call `workspace.destroy` — capture on normal + budget + not-returned; skip on crash (agent didn't finish, tree may be inconsistent).
+
+**Mounted-filesystem handle (resolves WARNING 1 — runSession can't see the mounts):** mount runs in `admitSession`; capture runs in `runSession`. The only handoff is `AdmittedSession`, which today carries no mounted-filesystem rows, so captureBack would have nothing to iterate. **Fix: carry the mounted rows on `AdmittedSession`.** Add `readonly mountedFilesystems: readonly MountedFilesystem[]` (default `[]`) to the `AdmittedSession` interface (line 281), where `MountedFilesystem = { filesystem: Filesystem; mountPath: string }`. Phase 5.5 populates it as it mounts each row; `runSession` iterates `admitted.mountedFilesystems` before each destroy site and calls `captureBack({ filesystem, sandboxPath: mountPath })` per entry. Carrying the rows (vs re-querying `agentId → injections → filesystems` in `runSession`) avoids drift if injections changed mid-session — capture exactly what was mounted. Zero mounts → empty array → captureBack loop is a no-op (degradation path intact).
 
 **Per `writeback` kind:**
-- **`git`** → `runner.add([])` (`-A`) → `runner.commit(msg, agentName, agentEmail)` (author = the bot's identity) → `runner.bundle(<durableBundlePath>, "HEAD")`. The bundle is written to a **durable capture dir** outside the sandbox: `<captureBasePath>/<sessionId>/<filesystemId>.bundle`. This is what survives `rm -rf <sandbox>`. (Push/PR = AO3/AL7 landing, explicitly out of scope.)
-- **`file`** → copy the changed folder tree out to `<captureBasePath>/<sessionId>/<filesystemId>/` (last-write-wins snapshot, per concept "ride the host"). No diff/merge engine.
+- **`git`** → **scoped stage (NOT `add -A`)** → `runner.commit(msg, agentName, agentEmail)` (author = the bot's identity) → `runner.bundle(<durableBundlePath>, "refs/heads/<branch>")`. The bundle is written to a **durable capture dir** outside the sandbox: `<captureBasePath>/<sessionId>/<filesystemId>.bundle`. This is what survives `rm -rf <sandbox>`. Scoped stage = §5b. (Push/PR = AO3/AL7 landing, out of scope.)
+- **`file`** → copy the changed folder tree out to `<captureBasePath>/<sessionId>/<filesystemId>/` (last-write-wins snapshot, per concept "ride the host"), **excluding the scaffolding paths (§5b list)**. No diff/merge engine.
 - **`none`** → no-op, `CaptureResult{captured:false}`.
+
+## §5b — Scaffolding-scoped capture (the CRITICAL part-b resolution)
+
+Root-mount means HyperIdle scaffolding lives in the same tree as the repo. Naive `git add -A` would commit it (pollution) and, in the self-hosting case, commit a scaffolding-overwritten `AGENTS.md` (overwrite). Three measures, all at the mounter, none touching the harness or assembly:
+
+**1. Pristine baseline at mount.** The clone lands a pristine repo; its `HEAD` is the untouched upstream tip. Capture diffs the working tree against **that** `HEAD`. Repo files the agent never touched stay unstaged regardless of what assembly wrote *around* them.
+
+**2. Fixed scaffolding-path exclusion (`.git/info/exclude`), written at mount.** The mounter writes the known scaffolding paths to `<sandbox>/.git/info/exclude` immediately after clone, **before** Phase 6/8b run. The list is the verified writer set:
+```
+/AGENTS.md
+/.mcp.json
+/.claude/
+/.codex/
+/.opencode/
+/.fabric/
+/context/
+/knowledge/
+/work/
+/opencode.json
+```
+`.git/info/exclude` keeps these **untracked** even after assembly writes them, so a scoped `git add` never picks them up. (`info/exclude` is local-only, dies with the sandbox, never alters the repo's own committed `.gitignore`.)
+
+**3. Overwrite guard for tracked scaffolding names (self-hosting).** If the repo *itself* tracks a file that collides with a scaffolding name (the self-hosting case: HyperIdle tracks `AGENTS.md`/`CLAUDE.md`/`.mcp.json`), `info/exclude` won't un-track it, so assembly's overwrite *would* show as a modification. Guard: the mounter records the set of repo-tracked paths at mount (`git ls-files`, intersected with the scaffolding list) and the **scoped stage uses an explicit pathspec that subtracts those collision paths**: `git add -- . ':(exclude)AGENTS.md' ':(exclude).mcp.json' …` (only the names actually tracked AND on the scaffolding list — built at mount). So an assembly-overwritten tracked `AGENTS.md` is never staged; the bot's *intended* edits to other files are. The agent editing a genuinely-tracked `AGENTS.md` on purpose is out of v1 scope (rare; recorded as a known limitation — the common bot edits source, not its own context file).
+
+**Net:** the commit/bundle contains the agent's authored repo changes and nothing HyperIdle injected. The `file`-writeback snapshot applies the same exclusion list when copying out. Verified by Lane A asserting the restored bundle contains the edit AND does **not** contain `AGENTS.md`/`.mcp.json`/`.fabric/` (negative assertion — the anti-pollution proof).
 
 **Provenance row (§6):** each capture writes a `filesystem_captures` row linking `(sessionId, filesystemId, captureKind, capturePath, commitSha?, createdAt)` so the captured output is discoverable after teardown (AO3 reads this to build a review subject). `CaptureResult.success=false` is logged via the observability adapter, never throws into teardown (teardown must complete).
 
@@ -200,9 +262,9 @@ Already structural: the §1 driver query returns zero rows for a bot with no inj
 | # | AC (reconciled) | Verification |
 |---|---|---|
 | AC1 | Session for a bot with an injected `code` fs → sandbox holds the repo working tree at its branch; agent reads/edits/runs build/test | **Live-proof integration test** (§Live-proof): real local git repo → real session via the shipped `POST /api/sessions` provisioning path → assert `<sandbox>/.git` exists + a known file from the repo is present + `git rev-parse --abbrev-ref HEAD` == branch. Driver = injection query (assert NOT a global path: a second un-injected bot gets no tree). |
-| AC2 | Working-tree changes captured per `writeback`, not lost on destroy | Live-proof: agent (or test harness acting as agent) edits a file + the test command runs; after session end assert a `filesystem_captures` row exists AND the durable bundle/snapshot at `capturePath` contains the edit (restore the bundle to a temp dir, `git log`/file-read asserts the change). Sandbox is destroyed — proving capture is durable. |
+| AC2 | Working-tree changes captured per `writeback`, not lost on destroy | Live-proof (Lane A, §Live-proof): test simulates the agent edit + test command runs; after session end assert a `filesystem_captures` row exists AND **restoring the bundle** (`git clone <capturePath>` → `git log`/file-read) shows the bot's commit + the edit, AND the restored tree does NOT contain the scaffolding (`AGENTS.md`/`.mcp.json`/`.fabric/` — §5b anti-pollution). Sandbox destroyed first — proves durable. Bundle ref-spec = `refs/heads/<branch>` (§2). |
 | AC3 | Bot with no injected fs still provisions/runs | Integration test: agent with zero `filesystem_injections` → `provisionSession` → assert `sessions.state` reaches a terminal/active outcome and no mount attempted (mounter spy/`filesystem_captures` empty). |
-| AC4 | Forge auth provisioned as disposable projection; durable record stores no plaintext; dies with sandbox | (a) **Unit**: `resolveTokenByConnectionId` decrypts the owner's token; assert no plaintext in any `filesystems`/`sessions`/`filesystem_captures` column (read rows back, assert token string absent). (b) **Unit**: mount writes `http.<host>/.extraHeader` to `<sandbox>/.git/config` (host-scoped, base64), token NOT in argv (assert via runner spy argv). (c) **Structural**: after `workspace.destroy`, `<sandbox>/.git/config` is gone (dir removed). (d) **Live-proof Lane B** (local, network, skip-guarded like AO1 Lane B): real PAT → clone a real private repo → assert working tree present. |
+| AC4 | Forge auth provisioned as disposable projection; durable record stores no plaintext; dies with sandbox | (a) **Unit**: `OwnerScopedAuthResolver.resolveToken` decrypts the owner's token; assert no plaintext in any `filesystems`/`sessions`/`filesystem_captures` column (read rows back, assert token string absent). (b) **Unit**: mount writes `http.${protocol}//${host}/.extraHeader` to `<sandbox>/.git/config` (host-scoped, base64), token NOT in argv (assert via runner spy argv). (c) **Structural**: after `workspace.destroy`, `<sandbox>/.git/config` is gone (dir removed). (d) **Live-proof Lane B** (local, network, skip-guarded like AO1 Lane B): real PAT → clone a real private repo → assert working tree present. |
 
 **route-checklist:** AO2 mounts on the existing `POST /api/sessions` provisioning path only (no new routes). The materialization hook is in `admitSession` (1 call site) + captureBack in `runSession` (3 destroy sites). Checklist for the reviewer: Phase 5.5 mount present; captureBack before each of lines ~1062/1104/1122 `workspace.destroy`.
 
@@ -212,12 +274,12 @@ Already structural: the §1 driver query returns zero rows for a bot with no inj
 
 1. **(schema)** Add `filesystemCaptures` table to `schema.ts` + `npm run db:generate`. Export row types. *(proves: migration runs; `.schema` shows table)* — `sharedFiles: schema.ts`.
 2. **(fabric)** Extend `GitRunner` interface + `createGitRunner` + `FakeGitRunner` with `clone` + `bundle`. Factor the GIT_CONFIG header-builder (`x-access-token` → Basic) into a shared helper reused by `probeGitRemote` and the mounter. *(proves: unit test clones a `file://` local repo into a temp dir, asserts working tree + branch; bundle round-trips)*.
-3. **(server)** Add `ServiceConnectionResolver.resolveTokenByConnectionId(connectionId)`. *(proves: unit — seed encrypted connection, resolve by id, assert plaintext; wrong id → null)*.
-4. **(server)** Implement `SandboxFilesystemMounter implements FilesystemMounter`: `mount` (clone via runner with host-scoped token config + write disposable local git config) + `captureBack` (commit + bundle / file-snapshot / none + write `filesystem_captures`). Lives at `packages/server/src/services/filesystem-mounter.ts`. *(proves: unit per provision mode + capture kind)*.
-5. **(server)** Wire Phase 5.5 into `admitSession` (driver query → loop `mount`; zero rows → skip) inside the existing try/revert block. Add `filesystemMounter?` + `captureBasePath?` to `ProvisionSessionDeps`. *(proves: AC3 degradation integration test)*.
-6. **(server)** Wire `captureBack` before the 3 `workspace.destroy` sites in `runSession`. *(proves: AC2 capture integration test)*.
-7. **(server/app)** Construct `SandboxFilesystemMounter` in `app.ts` (reuse `scResolver`, `db`) and thread through `createSessionRoutes` → `startSessionProvision` deps. *(proves: live-proof test goes through the real route)*.
-8. **(live-proof)** Lane A hermetic integration test + Lane B network-tagged (skip-guarded) test (§Live-proof).
+3. **(server)** Add `OwnerScopedAuthResolver implements FilesystemAuthResolver` (`owner-scoped-auth-resolver.ts`): `resolveToken` reads `service_connections.userId` → `ServiceConnectionResolver.resolve(userId, id)`. **No new method on the concrete class.** *(proves: unit — seed encrypted connection, resolve by id via owner, assert plaintext; wrong id → null)*.
+4. **(server)** Implement `SandboxFilesystemMounter implements FilesystemMounter` (`filesystem-mounter.ts`), constructed with the `FilesystemAuthResolver` seam: `mount` (clone via runner → write `.git/info/exclude` scaffolding list §5b → write disposable host-scoped local git config from seam token §4) + `captureBack` (scoped stage §5b + commit + bundle `refs/heads/<branch>` / file-snapshot / none + write `filesystem_captures`). *(proves: unit per provision mode + capture kind; scoped-stage excludes scaffolding)*.
+5. **(server)** Add `mountedFilesystems` to `AdmittedSession` (WARNING 1). Wire Phase 5.5 into `admitSession` (driver query → `authResolver.resolve` → loop `mount`; zero rows → skip; populate `mountedFilesystems`) inside the existing try/revert block. Add `filesystemMounter?` + `captureBasePath?` to `ProvisionSessionDeps`. *(proves: AC3 degradation integration test)*.
+6. **(server)** Wire `captureBack` before the 3 `workspace.destroy` sites in `runSession`, iterating `admitted.mountedFilesystems`. *(proves: AC2 capture integration test)*.
+7. **(server/app)** Construct `OwnerScopedAuthResolver` + `SandboxFilesystemMounter` in `app.ts` (reuse `scResolver`, `db`) and thread the mounter through `createSessionRoutes` → `startSessionProvision` deps. *(proves: live-proof test goes through the real route)*.
+8. **(live-proof)** Lane A hermetic integration test (incl. anti-pollution negative assertion + named sanity-break) + Lane B network-tagged (skip-guarded) test (§Live-proof).
 
 Dependency order: 1 → 2,3 (parallel) → 4 → 5,6 → 7 → 8.
 
@@ -230,21 +292,31 @@ Dependency order: 1 → 2,3 (parallel) → 4 → 5,6 → 7 → 8.
 clone(url: string, branch: string, opts?: { depth?: number; tokenConfig?: GitConfigInjection }): Promise<void>;
 bundle(bundlePath: string, ref: string): Promise<void>;
 
-// packages/server/src/services/service-connection-resolver.ts:
-async resolveTokenByConnectionId(connectionId: string): Promise<string | null>;
+// packages/server/src/services/owner-scoped-auth-resolver.ts (NEW) — detached-safe seam impl:
+export class OwnerScopedAuthResolver implements FilesystemAuthResolver {
+  constructor(deps: { db: HyperIdleDb; resolver: ServiceConnectionResolver });
+  resolve(connectionId: string): Promise<FilesystemAuth | null>;
+  resolveToken(connectionId: string): Promise<string | null>; // owner-scoped: row.userId → resolver.resolve(userId, id)
+  canResolve(connectionId: string): Promise<boolean>;
+  sourceOf(_: string): null;
+}
+// NO new method on ServiceConnectionResolver — owner→token lives in the seam impl, reusing resolve(userId, id).
 
 // packages/server/src/services/filesystem-mounter.ts (NEW):
 export class SandboxFilesystemMounter implements FilesystemMounter {
-  constructor(deps: { db: HyperIdleDb; resolver: ServiceConnectionResolver; captureBasePath: string });
+  constructor(deps: { authResolver: FilesystemAuthResolver; captureBasePath: string });
   mount(input: { filesystem: Filesystem; sandboxPath: string; auth: FilesystemAuth | null }): Promise<MountResult>;
   captureBack(input: { filesystem: Filesystem; sandboxPath: string }): Promise<CaptureResult>;
 }
 
-// packages/server/src/services/session-provisioning.ts — ProvisionSessionDeps gains:
+// packages/server/src/services/session-provisioning.ts:
+// AdmittedSession gains (resolves WARNING 1 — runSession sees the mounts):
+readonly mountedFilesystems: readonly { filesystem: Filesystem; mountPath: string }[];
+// ProvisionSessionDeps gains:
 readonly filesystemMounter?: FilesystemMounter;
 readonly captureBasePath?: string;
 ```
-`MountResult`/`CaptureResult`/`FilesystemAuth`/`Filesystem` are imported from `@hyperidle/shared` (already defined — no change).
+The mounter depends on the **`FilesystemAuthResolver` seam**, not the concrete `ServiceConnectionResolver` — AN2 subsumes by swapping the impl. `MountResult`/`CaptureResult`/`FilesystemAuth`/`Filesystem`/`FilesystemAuthResolver` imported from `@hyperidle/shared` (already defined — no change).
 
 ---
 
@@ -254,9 +326,17 @@ readonly captureBasePath?: string;
 1. `test({ db, app })` fixture. Create a **real local git repo** in a temp dir (`git init`, commit a `README.md` + a trivial `package.json` with a `test` script, on branch `main`) — this is the "remote" (cloned via `file://`).
 2. Seed team + bot user + a `filesystems` row (`kind:code`, `connectionId:null` local-first, `resourceRef:{kind:code, repo:"file:///<temp>", branch:"main"}`, `writeback:git`) + a `filesystem_injections` row for the bot.
 3. Drive the **shipped provisioning path** — call `provisionSession`/`admitSession` with the real `SandboxFilesystemMounter` + `LocalSandboxAdapter` + a builtin/stub adapter (the harness adapter may be a test adapter; the **materialization + capture under test is real**, not mocked). Assert: `<sandbox>` contains `README.md` and `.git`; `HEAD` is on `main`.
-4. Edit a file in the sandbox (the test acts as the agent's edit — the harness file-tool is the harness's concern, proven separately; here we prove the *capture path*), run `npm test`/`node` against the working tree to prove it's executable, then trigger session teardown.
-5. After teardown: assert `<sandbox>` is gone AND a `filesystem_captures` row exists AND restoring `capturePath` (the bundle) to a temp dir shows the edit commit. **This proves clone→edit→run→capture→survive-destroy end to end, through the real route handler.**
+4. Edit a file in the sandbox. **Boundary stated explicitly:** the test *simulates the agent's edit* (writes/edits a file in the sandbox tree directly). This is acceptable and intentional — the harness's native fileEditing/shell is the harness's concern, proven per-harness in the existing real-harness lanes; **what AO2 owns and must prove is the materialization + capture pipeline**, not the harness edit path. Run `npm test`/`node` against the working tree to prove it's executable, then trigger teardown.
+5. After teardown, assert (the **restore-and-read-back** is an assertion, not a hope):
+   - `<sandbox>` is gone (structural disposability);
+   - a `filesystem_captures` row exists with `commitSha` + `capturePath`;
+   - **restore the bundle** to a fresh temp dir (`git clone <capturePath> <tmp>` or `git -C <tmp> fetch <capturePath> <branch>`) → `git -C <tmp> log` shows the bot's commit AND the edited file content is present (the edit survived destroy);
+   - **anti-pollution negative assertion (§5b):** the restored tree does NOT contain `AGENTS.md`, `.mcp.json`, `.fabric/`, `context/` — proving scoped capture excluded the scaffolding.
+
+   **This proves clone→edit→run→scoped-capture→survive-destroy end to end, through the real route handler.**
 6. AC3: a second bot with no injection → provision → assert no mount, session active, no capture row.
+
+**Sanity-break (memory `mock-validation-trap` — names the revert→red, required):** the reviewer must be able to un-wire the fix and watch Lane A go red. Pinned break: **un-wire the Phase 5.5 mount call** (or set `filesystemMounter` to undefined in the test's deps) → Lane A's step-5 `<sandbox>/.git` / restored-bundle assertions go **red** (no clone happened, no capture row, nothing to restore). This is feasible and cheap (one deps line) and is the gate that proves Lane A tests the real wiring, not a fixture. Lane A must NOT pass with the mount un-wired.
 
 **Lane B — local-only, network, skip-guarded (mirrors AO1 Lane B):** env `AO2_GITHUB_PAT` + `AO2_GITHUB_REPO` → seed an encrypted `service_connections` row → filesystem referencing it → real session → real authed `clone` of a real (private) GitHub repo → assert working tree present. LOUDLY skip when env absent. This is the proof the disposable forge-auth projection accepts a real token (can't be mocked — a mock reproduces the rejected Noop stub).
 
@@ -266,7 +346,8 @@ readonly captureBasePath?: string;
 
 ## Security & abuse cases
 
-- **Secret handling (new credential surface):** the ONLY new plaintext path is `resolveTokenByConnectionId`, wired exclusively mounter→sandbox-git-config. Token never in argv/URL/log (host-scoped `--local` config + `redactArg` + `buildGitEnv` allow-list). Durable records (`filesystems`/`sessions`/`filesystem_captures`) store no plaintext (AC4a). **Addressed.**
+- **Secret handling (new credential surface):** the plaintext path stays `ServiceConnectionResolver.resolve` (unchanged); `OwnerScopedAuthResolver` reuses it and is wired exclusively mounter→sandbox-git-config. Token never in argv/URL/log (host-scoped `--local` config + `redactArg` + `buildGitEnv` allow-list). Durable records (`filesystems`/`sessions`/`filesystem_captures`) store no plaintext (AC4a). **Addressed.**
+- **Capture pollution / self-host overwrite (§5b):** scoped stage (not `add -A`) + `.git/info/exclude` scaffolding list + tracked-collision pathspec subtraction ensure the bundle/commit carries only the agent's repo edits, never injected `AGENTS.md`/`.mcp.json`/`.fabric/` and never an assembly-overwritten tracked file. Verified by Lane A's anti-pollution negative assertion. **Addressed.**
 - **Path traversal (resourceRef.repo / folder as path input):** `repoToUrl` + `extractLocalPath` already constrain shapes; clone target is always `<sandboxPath>` (server-controlled), never agent-controlled. Mount writes only within the sandbox; capture writes only within `<captureBasePath>/<sessionId>/`. **Addressed** — assert capturePath is under captureBasePath (no `..`).
 - **SSRF (outbound clone URL):** the clone URL comes from a founder-registered filesystem row (not agent input). `git clone` over `file://`/`https://`. Local-first `file://` is intended (local repos). No new SSRF surface beyond what AO1's `git ls-remote` already does against the same `resourceRef`. **N/A-beyond-AO1** — same trust boundary (founder-registered resource).
 - **Rate-limit:** no new POST/PATCH route (rides existing `POST /api/sessions`). **N/A.**
@@ -286,9 +367,12 @@ Security posture is **earned, not preemptive** (ETHOS): no cross-tenant guard, n
 
 ## sharedFiles
 - `packages/db/src/schema.ts` (new `filesystem_captures` table)
-- `packages/fabric/src/services/git-export-runner.ts` (GitRunner interface + factory)
-- `packages/server/src/services/session-provisioning.ts` (ProvisionSessionDeps + Phase 5.5 + captureBack)
-- `packages/server/src/app.ts` (mounter construction + deps wiring)
+- `packages/fabric/src/services/git-export-runner.ts` (GitRunner interface + factory + `FakeGitRunner` no-op stubs for `clone`/`bundle`)
+- `packages/server/src/services/filesystem-reachability.ts` (factor the host-scoped header-builder helper out of `probeGitRemote` for shared reuse)
+- `packages/server/src/services/owner-scoped-auth-resolver.ts` (NEW — detached-safe `FilesystemAuthResolver` seam impl)
+- `packages/server/src/services/filesystem-mounter.ts` (NEW — `SandboxFilesystemMounter`)
+- `packages/server/src/services/session-provisioning.ts` (`AdmittedSession.mountedFilesystems` + `ProvisionSessionDeps` + Phase 5.5 + captureBack)
+- `packages/server/src/app.ts` (resolver + mounter construction + deps wiring)
 - `packages/server/src/routes/sessions-routes.ts` (deps passthrough)
 - `packages/fabric/src/index.ts` (re-export if any new fabric symbol is needed by server)
 
@@ -300,4 +384,4 @@ Security posture is **earned, not preemptive** (ETHOS): no cross-tenant guard, n
 - **Crash-path capture** — recommend skip (inconsistent tree); confirm.
 - **Shallow clone + future push** — `--depth=1` is fine for AO2 (capture=bundle, no push); AO3 may need `--unshallow`. Out of scope here.
 - **`captureBasePath` default** — needs a sane default sibling of `sandboxBasePath`; confirm path convention in build.
-- ⚠️ UNVERIFIED: `git bundle create <path> HEAD` on a `--depth=1` shallow clone bundles only the shallow commits — sufficient to recover the agent's new commit (the durability target), but not full history. Acceptable for capture (the bundle carries the new work); verify in Lane A build.
+- **Bundle ref-spec on shallow clone (was UNVERIFIED, now pinned + proven):** §2 bundles `refs/heads/<branch>` (named ref, NOT bare `HEAD`, NOT a `<base>..HEAD` range — the range form is what breaks on shallow clones). On `--depth=1` this packs the shallow commits reachable from the branch (bot's new commit + the single base) — sufficient to restore the authored work. **Lane A asserts the restore-and-read-back** (restore the bundle, read the commit + edit), so this is proven in-build, not assumed. Full history is intentionally not preserved (out of scope; AO3 `--unshallow` if it ever needs push).
