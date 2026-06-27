@@ -90,11 +90,12 @@ async function insertTask(db: HyperIdleDb, taskId: string, betId: string): Promi
 	});
 }
 
+// AM5 B4: default kind changed from code_diff → code (pre-alpha purge)
 async function insertArtifact(
 	db: HyperIdleDb,
 	artifactId: string,
 	producingTaskId: string,
-	kind = "code_diff",
+	kind = "code",
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(artifacts).values({
@@ -199,7 +200,7 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		// Each row has the expected shape
 		expect(body!.summaries[0]!.messageCount).toBe(2);
 		expect(body!.summaries[0]!.threadId).toBe("t-b");
-		expect(body!.summaries[0]!.artifactKind).toBe("code_diff");
+		expect(body!.summaries[0]!.artifactKind).toBe("code"); // AM5 B4: code_diff → code
 	});
 
 	test("filters out artifacts with zero thread messages", async ({ db, app }) => {

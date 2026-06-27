@@ -151,21 +151,15 @@ describe("create_artifact tool", () => {
 
 		it("creates an artifact with kind=code and a matching preview", async () => {
 			// @lore AE6: was kind=code_diff; updated to kind=code (fundamental kind)
+			// @lore AM5 K4b: code preview purified from {file,hunks} to {path,lang,text}
 			const result = await createArtifactTool.handler(
 				{
 					kind: "code",
 					preview: {
 						kind: "code",
-						file: "src/index.ts",
-						hunks: [
-							{
-								header: "@@ -1,3 +1,4 @@",
-								lines: [
-									{ kind: "ctx", text: "const x = 1;" },
-									{ kind: "add", text: "const y = 2;" },
-								],
-							},
-						],
+						path: "src/index.ts",
+						lang: "typescript",
+						text: "const x = 1;\nconst y = 2;",
 					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),
@@ -355,13 +349,15 @@ describe("create_artifact tool", () => {
 		it("returns KIND_MISMATCH for any combination of mismatched kind/preview", async () => {
 			// @lore AE6: was kind=decision / preview.kind=verification (both unregistered).
 			// Now uses kind=text (registered) with preview.kind=code (mismatch).
+			// @lore AM5 K4b: code preview purified from {file,hunks} to {path,lang,text}
 			const result = await createArtifactTool.handler(
 				{
 					kind: "text",
 					preview: {
 						kind: "code",
-						file: "src/x.ts",
-						hunks: [],
+						path: "src/x.ts",
+						lang: null,
+						text: "",
 					} as ArtifactPreview,
 				},
 				makeContext(db, eventBus),

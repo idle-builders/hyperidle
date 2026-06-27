@@ -17,16 +17,17 @@ describe("AE5 — resolveHostRoute", () => {
 		expect(resolveHostRoute("bet", "bet-123")).toBe("/work/bet/bet-123");
 	});
 
-	it("resolves task to /work/task/:id", () => {
-		expect(resolveHostRoute("task", "task-456")).toBe("/work/task/task-456");
+	it("resolves task to null (AM5 H5/BLOCKER-1: no betId in scope — documented no-op)", () => {
+		// AM5: task host → null (no betId available; future WP threads betId)
+		expect(resolveHostRoute("task", "task-456")).toBeNull();
 	});
 
 	it("resolves knowledge_item to /knowledge/:id", () => {
 		expect(resolveHostRoute("knowledge_item", "ki-789")).toBe("/knowledge/ki-789");
 	});
 
-	it("resolves artifact to /work/artifact/:id", () => {
-		expect(resolveHostRoute("artifact", "art-001")).toBe("/work/artifact/art-001");
+	it("resolves artifact to /artifacts/:id (AM5 H5 fix, was /work/artifact/:id)", () => {
+		expect(resolveHostRoute("artifact", "art-001")).toBe("/artifacts/art-001");
 	});
 
 	it("resolves agent to /work/agent/:id", () => {
@@ -305,7 +306,7 @@ describe("AE5 — Conversations header context link", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders host context link with tag and title in thread header", async () => {
+	it("renders host context title (no link for task — AM5 H5/BLOCKER-1: task resolves to null)", async () => {
 		const { Conversations } = await import("../pages/Conversations.js");
 
 		const router = createMemoryRouter(
@@ -322,11 +323,16 @@ describe("AE5 — Conversations header context link", () => {
 
 		render(<RouterProvider router={router} />);
 
-		// Wait for the context link to appear
-		const link = await screen.findByRole("link", { name: /My Test Task/i });
-		expect(link).toBeDefined();
-		// Should navigate to /work/task/task-123
-		expect((link as HTMLAnchorElement).href).toContain("/work/task/task-123");
+		// AM5: task resolveHostRoute → null, so hostTitle renders as text, not a link.
+		// Wait for the thread to load (title or host text will appear somewhere on screen).
+		const heading = await screen.findByRole("heading", { name: /My Test Task/i }).catch(() => null);
+		const hostText = await screen.findByText(/My Test Task/i).catch(() => null);
+		// Either a heading or inline text is acceptable — the key assertion is
+		// that it does NOT render as a navigable link to /work/task/task-123.
+		expect(heading ?? hostText).not.toBeNull();
+		// Confirm there is no link to the old dead task route
+		const links = document.querySelectorAll("a[href*='/work/task/task-123']");
+		expect(links).toHaveLength(0);
 	});
 
 	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {

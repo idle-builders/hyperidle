@@ -47,8 +47,9 @@ const MOCK_ARTIFACT = {
 	label: null,
 	preview: {
 		kind: "code" as const,
-		file: "packages/web/src/Foo.tsx",
-		hunks: [],
+		path: "packages/web/src/Foo.tsx",
+		lang: "typescript",
+		text: "// Foo.tsx",
 	},
 	cost: {
 		money: { minor: 4, currency: "USD" as const },

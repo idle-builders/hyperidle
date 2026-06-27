@@ -30,7 +30,7 @@ The viewer at `:8098` (`npm run ds:serve`) is the primary design-review surface.
 Every custom component must have a `.stories.tsx` file. Stories are auto-discovered via `import.meta.glob` from:
 
 - `packages/design-system/src/*.stories.tsx` — Foundation/Primitives/Blocks/domain components
-- `packages/design-system/src/kinds/*.stories.tsx` — kind renderers (System group)
+- `packages/design-system/src/kinds/*.stories.tsx` — (AM5: the kind-renderer layer was deleted; `kinds/` now only contains `compose-artifact-body.tsx` with no stories)
 - `packages/web/src/components/*.stories.tsx` — web composites (classified by registry)
 - `packages/web/src/shell/*.stories.tsx` — shells (System group)
 - `packages/web/src/pages/*.stories.tsx` — flat pages (classified from title: `Page: Work/*` → Work)

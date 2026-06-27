@@ -46,7 +46,7 @@ describe("L18 — ArtifactThreadSummary type exports", () => {
 	it("ArtifactThreadSummary allows null threadId when no thread exists", () => {
 		const summary: ArtifactThreadSummary = {
 			artifactId: "art-2",
-			artifactKind: "code_diff",
+			artifactKind: "code", // AM5 B3: code_diff → code (pre-alpha purge)
 			artifactTitle: "component.tsx",
 			threadId: null,
 			messageCount: 0,

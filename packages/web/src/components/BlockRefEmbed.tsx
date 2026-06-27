@@ -24,12 +24,24 @@ export interface BlockRefEmbedProps {
 	blockId: string;
 	hostKind: BlockHostKind;
 	hostId: string;
+	/**
+	 * AM5 T9 WIRE: Called when the user clicks the embed card to open the block in context.
+	 * Routes through the open contract (block-anchored open, H2/AC2) — caller supplies
+	 * createOpenHandler to keep this component navigation-agnostic.
+	 * When absent, the card is non-interactive (backward compat).
+	 */
+	onOpen?: () => void;
 }
 
 /**
  * Renders an inline embed card for a block reference in a thread message.
  */
-export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps): JSX.Element {
+export function BlockRefEmbed({
+	blockId,
+	hostKind,
+	hostId,
+	onOpen,
+}: BlockRefEmbedProps): JSX.Element {
 	const { status, payload, hostLabel, error, retry } = useBlockResolution(
 		hostKind,
 		hostId,
@@ -83,15 +95,36 @@ export function BlockRefEmbed({ blockId, hostKind, hostId }: BlockRefEmbedProps)
 	// status === "resolved"
 	if (!payload) return <></>;
 
+	// AM5 T9: wire onOpen to make the embed card interactive when the open contract is supplied.
+	// Uses button wrapper only when onOpen is provided (keyboard + pointer accessible, backward compat).
+	const cardContent = (
+		<>
+			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+				Block from {hostLabel ?? hostKind}
+			</div>
+			<div className="text-[13px] text-[var(--text-secondary)]">{renderPayload(payload)}</div>
+		</>
+	);
+
+	if (onOpen) {
+		return (
+			<button
+				type="button"
+				data-testid="block-ref-embed-resolved"
+				onClick={onOpen}
+				className="w-full text-left border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+			>
+				{cardContent}
+			</button>
+		);
+	}
+
 	return (
 		<div
 			data-testid="block-ref-embed-resolved"
 			className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 		>
-			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-				Block from {hostLabel ?? hostKind}
-			</div>
-			<div className="text-[13px] text-[var(--text-secondary)]">{renderPayload(payload)}</div>
+			{cardContent}
 		</div>
 	);
 }

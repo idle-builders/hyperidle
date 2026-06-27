@@ -86,7 +86,11 @@ const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
  * doesn't match the normalized kind).
  *
  * For F1 (preview JSON schema incompatibility):
- * - code kind: old code_diff preview {file, hunks} is compatible with new code schema.
+ * - code kind: AM5 K4b purge — old code_diff preview {file, hunks} is NOT compatible
+ *   with the new pure code schema {path, lang, text}. Old {file, hunks} rows yield
+ *   null preview at read time (pre-alpha purge; no migration). OLD_KIND_MAP still maps
+ *   code_diff→code for the kind field. The preview is only populated for rows that
+ *   already carry the pure {path,lang,text} shape.
  * - text kinds: old previews (contract {parties, title}, drafted_email {to, subject, bodyExcerpt},
  *   decision {claim, rationale}, etc.) are NOT compatible with new text schema {body, format}.
  *   These previews are nulled out at read time. The content is preserved in the DB
@@ -118,16 +122,12 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 				const parsed = artifactPreviewSchema.safeParse(raw);
 				if (parsed.success && parsed.data.kind === kind) {
 					preview = parsed.data as Artifact["preview"];
-				} else if (parsed.success && parsed.data.kind !== kind) {
-					// Stale preview kind discriminant: re-inject the current kind and try again
-					// (handles code_diff -> code: the preview data is forward-compatible).
-					const withNewKind = { ...(raw as object), kind };
-					const reparsed = artifactPreviewSchema.safeParse(withNewKind);
-					if (reparsed.success && reparsed.data.kind === kind) {
-						preview = reparsed.data as Artifact["preview"];
-					}
-					// Otherwise preview remains null (old shape incompatible with new schema)
 				}
+				// Stale discriminant or schema mismatch → preview stays null.
+				// @lore AM5 K4b: the code_diff→code re-inject branch is DELETED (pre-alpha purge).
+				// code.ts schema is now {path,lang,text}; old {file,hunks} rows yield null preview
+				// (unrenderable without a data migration). OLD_KIND_MAP still maps code_diff→code
+				// for the kind field. The preview stays null for un-migrated rows.
 			} else {
 				// Unregistered kind: accept any JSON object (open vocabulary)
 				const parsed = fallbackPreviewSchema.safeParse(raw);

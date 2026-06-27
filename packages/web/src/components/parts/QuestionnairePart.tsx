@@ -56,6 +56,8 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 					// is not wired in AM1, so the options must not present a clickable
 					// affordance that records nothing. They show the choices the agent
 					// offered; a later WP turns them into real controls.
+					// @lore AM5 T9 DEFER: answering/verdict wiring is an interaction concern,
+					// not artifact rendering. Out of AM5 scope. Explicitly decided, not forgotten.
 					<li
 						key={option}
 						className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[13px] font-[500] text-[var(--text-secondary)]"
