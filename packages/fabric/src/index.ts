@@ -127,7 +127,7 @@ export type {
 	GitConfigInjection,
 	GitRunner,
 } from "./services/git-export-runner.js";
-export { createGitRunner } from "./services/git-export-runner.js";
+export { createGitRunner, FakeGitRunner } from "./services/git-export-runner.js";
 
 // item-router
 export { routeItem } from "./services/item-router.js";

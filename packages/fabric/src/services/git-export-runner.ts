@@ -68,6 +68,39 @@ export interface GitRunner {
 		url: string,
 		opts?: { tokenConfig?: GitConfigInjection },
 	): Promise<{ reachable: boolean; reason?: string }>;
+
+	/**
+	 * AO2: Clone a remote into the runner's cwd at a specific branch.
+	 * Shallow by default (depth=1, single-branch) — AO2 agents edit + commit, no history needed.
+	 * Token injected via `tokenConfig` (GIT_CONFIG_COUNT/KEY_n/VALUE_n env) — NEVER in argv/URL.
+	 *
+	 * @lore AO2 §2: clone into `.` (the runner's cwd). This is NOT `git clone <url> <dir>` —
+	 * the cwd is already the target directory (freshly-spawned sandbox). Using `.` means
+	 * git doesn't create a subdirectory inside the already-isolated sandbox.
+	 *
+	 * @lore AO2 §2: All new methods reuse the hardened spawnGit → buildGitEnv path,
+	 * so GIT_TERMINAL_PROMPT=0, GIT_ASKPASS=/bin/false, GIT_CONFIG_NOSYSTEM=1, and
+	 * credential-redacted logging are inherited for free. No new env logic.
+	 */
+	clone(
+		url: string,
+		branch: string,
+		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+	): Promise<void>;
+
+	/**
+	 * AO2: Create a `git bundle` at `bundlePath` containing everything reachable from `ref`.
+	 * captureBack uses ref = "refs/heads/<branch>" to produce a self-describing bundle:
+	 *   - `git clone <bundle>` or `git fetch <bundle> <branch>` restores the branch + bot commit.
+	 *   - On a --depth=1 shallow clone, bundles the shallow commits reachable from the ref
+	 *     (bot's new commit + the single base commit) — sufficient to restore authored work.
+	 *
+	 * @lore AO2 §2: We bundle the NAMED BRANCH REF, NOT bare HEAD and NOT a range (<base>..HEAD).
+	 * A range bundle breaks on shallow clones (no negative base ref). The named-ref form is
+	 * self-describing and restores correctly from both shallow and full clones.
+	 * Lane A Lane-A restores the bundle and asserts the bot's commit + edit are present.
+	 */
+	bundle(bundlePath: string, ref: string): Promise<void>;
 }
 
 export interface CreateGitRunnerOptions {
@@ -325,6 +358,45 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			if (r.stdout.length === 0) return [];
 			return r.stdout.split(/\r?\n/).filter((l) => l.length > 0);
 		},
+		async clone(
+			url: string,
+			branch: string,
+			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+		): Promise<void> {
+			// @lore AO2 §2: clone into `.` (cwd = the already-empty sandbox dir).
+			// `--` prevents url from being treated as an option.
+			// Token via GIT_CONFIG_COUNT/KEY_n/VALUE_n — never in argv or URL.
+			const depth = opts?.depth ?? 1;
+			const args: string[] = [
+				"clone",
+				"--depth",
+				String(depth),
+				"--single-branch",
+				"--branch",
+				branch,
+				"--",
+				url,
+				".",
+			];
+			const extraEnv: Record<string, string> = {};
+			if (opts?.tokenConfig) {
+				extraEnv.GIT_CONFIG_COUNT = "1";
+				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
+				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
+			}
+			const result = await run(args, pushMs, extraEnv);
+			if (result.exitCode !== 0) {
+				const redactedArgs = redactArgs(args).join(" ");
+				const tail = result.stderr.trim() || result.stdout.trim();
+				throw new Error(`git ${redactedArgs} failed (${result.exitCode}): ${redactArg(tail)}`);
+			}
+		},
+		async bundle(bundlePath: string, ref: string): Promise<void> {
+			// @lore AO2 §2: bundle the NAMED BRANCH REF (not bare HEAD, not a range).
+			// Named ref → self-describing bundle; works on shallow clones.
+			// `git bundle create <path> <ref>` — local op, localMs timeout.
+			await runExpectOk(["bundle", "create", bundlePath, ref], localMs);
+		},
 		async lsRemote(
 			url: string,
 			opts?: { tokenConfig?: GitConfigInjection },
@@ -357,4 +429,54 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			}
 		},
 	};
+}
+
+/**
+ * AO2: No-op test double for GitRunner. Used in tests that need a GitRunner-shaped
+ * object without touching a real git repo. Production wires `createGitRunner()`.
+ *
+ * @lore AO2 §2: FakeGitRunner is a test double — no-op stubs, not production stubs
+ * from memory. The `clone` and `bundle` methods resolve without side effects so
+ * tests can assert on the interface shape without spawning real git processes.
+ */
+export class FakeGitRunner implements GitRunner {
+	constructor(private readonly _cwd: string) {}
+
+	async init(_branch: string): Promise<void> {}
+	async add(_paths: readonly string[]): Promise<void> {}
+	async rm(_path: string): Promise<void> {}
+	async commit(
+		_message: string,
+		_authorName: string,
+		_authorEmail: string,
+	): Promise<string> {
+		return "fake-sha-0000000000000000000000000000000000000000";
+	}
+	async push(_remote: string, _branch: string): Promise<void> {}
+	async diffCached(): Promise<boolean> {
+		return true;
+	}
+	async revParseIsInsideWorkTree(): Promise<boolean> {
+		return true;
+	}
+	async configSet(_key: string, _value: string): Promise<void> {}
+	async remoteAdd(_name: string, _url: string): Promise<void> {}
+	async lsFiles(): Promise<readonly string[]> {
+		return [];
+	}
+	async statusPorcelain(): Promise<readonly string[]> {
+		return [];
+	}
+	async lsRemote(
+		_url: string,
+		_opts?: { tokenConfig?: GitConfigInjection },
+	): Promise<{ reachable: boolean; reason?: string }> {
+		return { reachable: true };
+	}
+	async clone(
+		_url: string,
+		_branch: string,
+		_opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+	): Promise<void> {}
+	async bundle(_bundlePath: string, _ref: string): Promise<void> {}
 }
