@@ -124,6 +124,7 @@ export {
 // git-export-runner
 export type {
 	CreateGitRunnerOptions,
+	GitConfigInjection,
 	GitRunner,
 } from "./services/git-export-runner.js";
 export { createGitRunner } from "./services/git-export-runner.js";

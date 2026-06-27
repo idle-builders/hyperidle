@@ -1,34 +1,76 @@
 /**
- * AO1 RED — Unit tests for the filesystem reachability pure function and
- * the FilesystemAuthResolver seam (NoopAuthResolver).
+ * AO1 — Unit + Lane A live-proof tests for filesystem reachability.
  *
- * These tests FAIL until:
- *   - `packages/server/src/services/filesystem-reachability.ts` is created
- *     and exports `resolveFilesystemState`.
- *   - `packages/server/src/services/noop-auth-resolver.ts` (or same file)
- *     exports `NoopAuthResolver` implementing `FilesystemAuthResolver`.
- *   - `packages/shared/src/filesystem.ts` exports `FILESYSTEM_KINDS`,
- *     `WRITEBACK_MODES`, `SUBSTRATE_STATES`, and the `FilesystemAuthResolver` interface.
+ * Lane A: CI-live, hermetic, real git + real fs, NO network/secret.
+ *   - Real temp git repo → file:// ls-remote → reachable (exit 0)
+ *   - Non-existent file:// path → needs_attention (exit non-zero)
+ *   - Real existing folder → reachable (fs.access R_OK)
+ *   - Non-existent folder → needs_attention (ENOENT)
+ *
+ * Lane B: LOCAL-ONLY, real PAT + real GitHub → see AO1-reachability-lane-b.integration.test.ts
  *
  * Coverage:
- *   AC5  — resolveFilesystemState: writeback:none → reachable; local → reachable;
- *            NoopAuthResolver + connectionId → needs_attention; fake resolver → reachable
+ *   AC5  — resolveFilesystemState: writeback:none → reachable; local probe → real result;
+ *            NoopAuthResolver + connectionId → needs_attention
  *   AC3  — FILESYSTEM_KINDS does not include SoR kinds
  *   AC2  — FilesystemAuthResolver seam: canResolve / sourceOf / resolve shape
+ *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
  *
- * Source of truth: plans/AO1/architecture.md §3 reachability block + §4 seam
+ * Source of truth: plans/AO1/architecture.md §v2 (Reachability rework v2)
  */
 
+import * as cp from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
-// These imports will FAIL (red) until the green-phase implementation creates these files.
-// We import via the path the architecture specifies (Task T4).
-import { NoopAuthResolver, resolveFilesystemState } from "../services/filesystem-reachability.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+	NoopAuthResolver,
+	probeGitRemote,
+	probeLocalPath,
+	resolveFilesystemState,
+} from "../services/filesystem-reachability.js";
 
-// ─── resolveFilesystemState ──────────────────────────────────────────────────
+// ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
+
+let tempRepoDir: string;
+let missingPath: string;
+let existingDir: string;
+
+beforeAll(() => {
+	// Create a real git repo in a temp dir — used for file:// ls-remote probes.
+	tempRepoDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao1-git-probe-"));
+	existingDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao1-fs-probe-"));
+	missingPath = path.join(os.tmpdir(), `ao1-does-not-exist-${Date.now()}`);
+
+	// git init + at least one commit so ls-remote exits 0.
+	cp.execSync("git init -b main", { cwd: tempRepoDir, stdio: "ignore" });
+	cp.execSync("git config user.email test@hyperidle.local", { cwd: tempRepoDir, stdio: "ignore" });
+	cp.execSync("git config user.name Test", { cwd: tempRepoDir, stdio: "ignore" });
+	fs.writeFileSync(path.join(tempRepoDir, "README.md"), "probe");
+	cp.execSync("git add README.md", { cwd: tempRepoDir, stdio: "ignore" });
+	cp.execSync("git commit -m 'probe'", { cwd: tempRepoDir, stdio: "ignore" });
+});
+
+afterAll(() => {
+	// Clean up temp dirs.
+	try {
+		fs.rmSync(tempRepoDir, { recursive: true, force: true });
+	} catch {
+		/* ignore */
+	}
+	try {
+		fs.rmSync(existingDir, { recursive: true, force: true });
+	} catch {
+		/* ignore */
+	}
+});
+
+// ─── resolveFilesystemState — pure logic ─────────────────────────────────────
 
 describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
-	it("writeback:'none' → 'reachable' regardless of connectionId", async () => {
+	it("writeback:'none' → 'reachable' regardless of connectionId (no probe)", async () => {
 		const state = await resolveFilesystemState(
 			{
 				id: "fs-1",
@@ -36,7 +78,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				source: "github",
 				kind: "code",
 				connectionId: "conn-abc",
-				resourceRef: JSON.stringify({ kind: "code", repo: "owner/r", branch: "main" }),
+				// A non-existent path — proves writeback:none short-circuits before any probe.
+				resourceRef: JSON.stringify({ kind: "code", repo: "/definitely/not/real", branch: "main" }),
 				writeback: "none",
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
@@ -46,15 +89,16 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 		expect(state).toBe("reachable");
 	});
 
-	it("bare-local (connectionId null) → 'reachable'", async () => {
+	it("bare-local code (connectionId null) + real existing path → 'reachable'", async () => {
 		const state = await resolveFilesystemState(
 			{
-				id: "fs-2",
+				id: "fs-la1",
 				teamId: "team-1",
 				source: "local",
 				kind: "code",
 				connectionId: null,
-				resourceRef: JSON.stringify({ kind: "code", repo: "/home/user/repo", branch: "main" }),
+				// tempRepoDir is a real directory — access(R_OK) succeeds.
+				resourceRef: JSON.stringify({ kind: "code", repo: tempRepoDir, branch: "main" }),
 				writeback: "git",
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
@@ -62,6 +106,60 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 			{ authResolver: new NoopAuthResolver() },
 		);
 		expect(state).toBe("reachable");
+	});
+
+	it("bare-local code (connectionId null) + missing path → 'needs_attention'", async () => {
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-la2",
+				teamId: "team-1",
+				source: "local",
+				kind: "code",
+				connectionId: null,
+				resourceRef: JSON.stringify({ kind: "code", repo: missingPath, branch: "main" }),
+				writeback: "git",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: new NoopAuthResolver() },
+		);
+		expect(state).toBe("needs_attention");
+	});
+
+	it("bare-local doc_set (connectionId null) + real folder → 'reachable'", async () => {
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-la3",
+				teamId: "team-1",
+				source: "obsidian",
+				kind: "doc_set",
+				connectionId: null,
+				resourceRef: JSON.stringify({ kind: "doc_set", folder: existingDir }),
+				writeback: "file",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: new NoopAuthResolver() },
+		);
+		expect(state).toBe("reachable");
+	});
+
+	it("bare-local doc_set (connectionId null) + missing folder → 'needs_attention'", async () => {
+		const state = await resolveFilesystemState(
+			{
+				id: "fs-la4",
+				teamId: "team-1",
+				source: "obsidian",
+				kind: "doc_set",
+				connectionId: null,
+				resourceRef: JSON.stringify({ kind: "doc_set", folder: missingPath }),
+				writeback: "file",
+				state: "attached",
+				createdAt: "2026-06-26T00:00:00.000Z",
+			},
+			{ authResolver: new NoopAuthResolver() },
+		);
+		expect(state).toBe("needs_attention");
 	});
 
 	it("connection-backed + NoopAuthResolver → 'needs_attention'", async () => {
@@ -72,7 +170,11 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				source: "github",
 				kind: "code",
 				connectionId: "conn-missing",
-				resourceRef: JSON.stringify({ kind: "code", repo: "owner/repo", branch: "main" }),
+				resourceRef: JSON.stringify({
+					kind: "code",
+					repo: "https://github.com/owner/repo",
+					branch: "main",
+				}),
 				writeback: "git",
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
@@ -82,25 +184,29 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 		expect(state).toBe("needs_attention");
 	});
 
-	it("connection-backed + real resolver (canResolve=true) → 'reachable'", async () => {
-		// A fake resolver that always resolves: simulates AN providing a real resolver
+	it("connection-backed + real resolver (canResolve=true) + no git token → git probe runs", async () => {
+		// A fake resolver that always resolves but returns no FilesystemAuth token.
+		// The git probe runs against the temp file:// repo.
 		const fakeResolver = {
 			canResolve: async (_connectionId: string) => true,
 			sourceOf: async (_connectionId: string) => "github",
-			resolve: async (_connectionId: string) => ({
-				connectionId: _connectionId,
-				provision: { mode: "none" as const },
-			}),
+			resolve: async (_connectionId: string) => null as null,
 		};
 
+		// The probe path: kind=code, connectionId non-null, fakeResolver.resolve=null
+		// → no rawToken → git ls-remote without auth against the file:// repo → reachable.
 		const state = await resolveFilesystemState(
 			{
-				id: "fs-4",
+				id: "fs-la5",
 				teamId: "team-1",
-				source: "github",
+				source: "local",
 				kind: "code",
 				connectionId: "conn-real",
-				resourceRef: JSON.stringify({ kind: "code", repo: "owner/repo", branch: "main" }),
+				resourceRef: JSON.stringify({
+					kind: "code",
+					repo: `file://${tempRepoDir}`,
+					branch: "main",
+				}),
 				writeback: "git",
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
@@ -129,20 +235,74 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 	});
 });
 
+// ─── Lane A: probeLocalPath (real fs.access) ─────────────────────────────────
+
+describe("probeLocalPath — real fs.access probe (Lane A, hermetic)", () => {
+	it("existing dir → { state: 'reachable' }", async () => {
+		const result = await probeLocalPath(existingDir);
+		expect(result.state).toBe("reachable");
+		expect(result.reason).toBeUndefined();
+	});
+
+	it("missing path → { state: 'needs_attention', reason includes 'ENOENT' }", async () => {
+		const result = await probeLocalPath(missingPath);
+		expect(result.state).toBe("needs_attention");
+		expect(result.reason).toBeDefined();
+		// reason surfaces the ENOENT code and the path
+		expect(result.reason).toMatch(/ENOENT|enoent|no such/i);
+	});
+
+	it("existing file → { state: 'reachable' }", async () => {
+		const testFile = path.join(existingDir, "probe.txt");
+		fs.writeFileSync(testFile, "probe");
+		const result = await probeLocalPath(testFile);
+		expect(result.state).toBe("reachable");
+	});
+});
+
+// ─── Lane A: probeGitRemote (real git ls-remote, file://, no network) ────────
+
+describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no network)", () => {
+	it("real file:// git repo → { reachable: true }", async () => {
+		// LIVE PROOF: real `git ls-remote file://<tempRepoDir>` → exit 0 → reachable
+		const url = `file://${tempRepoDir}`;
+		const result = await probeGitRemote(url);
+		expect(result.state).toBe("reachable");
+		expect(result.reason).toBeUndefined();
+	});
+
+	it("non-existent file:// path → { reachable: false }", async () => {
+		// LIVE PROOF: real `git ls-remote file:///path/does/not/exist` → exit non-zero → needs_attention
+		const url = `file://${missingPath}`;
+		const result = await probeGitRemote(url);
+		expect(result.state).toBe("needs_attention");
+		expect(result.reason).toBeDefined();
+	});
+
+	it("bogus https:// URL → { reachable: false } (no network — git fails immediately)", async () => {
+		// git ls-remote https://localhost:9999/no-such-repo will fail (connection refused / timeout).
+		// GIT_TERMINAL_PROMPT=0 ensures it errors immediately without hanging.
+		// This tests the non-zero exit → needs_attention path without network.
+		const url = "https://localhost:9999/no-such-repo.git";
+		const result = await probeGitRemote(url);
+		expect(result.state).toBe("needs_attention");
+	}, 35_000); // allow up to git's connect timeout
+});
+
 // ─── NoopAuthResolver ────────────────────────────────────────────────────────
 
 describe("NoopAuthResolver seam (AC2 / AC5)", () => {
-	it("canResolve always returns false (no AN connection table)", async () => {
+	it("canResolve always returns false", async () => {
 		const resolver = new NoopAuthResolver();
 		expect(await resolver.canResolve("any-connection-id")).toBe(false);
 	});
 
-	it("sourceOf always returns null (cannot derive source without AN)", async () => {
+	it("sourceOf always returns null", async () => {
 		const resolver = new NoopAuthResolver();
 		expect(await resolver.sourceOf("any-connection-id")).toBeNull();
 	});
 
-	it("resolve always returns null (cannot provision auth without AN)", async () => {
+	it("resolve always returns null", async () => {
 		const resolver = new NoopAuthResolver();
 		expect(await resolver.resolve("any-connection-id")).toBeNull();
 	});

@@ -15,6 +15,22 @@ import { createLogger, type Logger } from "@hyperidle/shared";
  * Both Bun and Node execute the same code path — Bun provides the
  * Node compatibility shim. No runtime-specific branching needed.
  */
+/**
+ * Optional per-request git config injected via environment variables.
+ * Token never goes in argv or URL — only in the child env via GIT_CONFIG_*
+ * (verified mechanism; see plans/AO1/architecture.md §v2·2).
+ *
+ * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the ONLY safe token path.
+ * Putting tokens in the URL or `-c http.extraHeader=…` in argv leaks to ps/logs.
+ * The env-var path is invisible to ps and is stripped from child env inheritance.
+ */
+export interface GitConfigInjection {
+	/** git config key, e.g. `http.https://github.com/.extraHeader` */
+	key: string;
+	/** git config value, e.g. `Authorization: Basic <base64>` */
+	value: string;
+}
+
 export interface GitRunner {
 	/** Initialize a new repo. Uses `-b <branch>` so the default branch is set correctly. */
 	init(branch: string): Promise<void>;
@@ -38,6 +54,20 @@ export interface GitRunner {
 	lsFiles(): Promise<readonly string[]>;
 	/** `git status --porcelain` rows (array of lines). */
 	statusPorcelain(): Promise<readonly string[]>;
+	/**
+	 * Probe a remote's refs WITHOUT cloning. Reachability check.
+	 * exit 0 → { reachable: true }; non-zero → { reachable: false, reason }.
+	 * Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — NEVER in URL or argv.
+	 * Uses the push timeout class (30s default) for the network round-trip.
+	 *
+	 * @lore AO1 v2: This is the REAL reachability gate. The non-zero exit is
+	 * DATA (unreachable), not an exception. Never throws — always returns a result object.
+	 * Token-shape stderr is redacted before it enters the reason string.
+	 */
+	lsRemote(
+		url: string,
+		opts?: { tokenConfig?: GitConfigInjection },
+	): Promise<{ reachable: boolean; reason?: string }>;
 }
 
 export interface CreateGitRunnerOptions {
@@ -91,12 +121,18 @@ function redactArgs(args: readonly string[]): string[] {
  * prevents `/etc/gitconfig` from pulling in operator-surprising helpers;
  * `GIT_ASKPASS=/bin/false` fails closed on a credential prompt.
  *
+ * When `extraConfigs` are provided, injects GIT_CONFIG_COUNT/KEY_n/VALUE_n
+ * so a token reaches git without touching argv or URL (AO1 v2·2 verified path).
+ *
  * @lore Security review [high] `git-export-runner.ts:64` — inheriting
  * `process.env` exposed credential.helper, http.proxy, core.sshCommand,
  * and our own `HYPERIDLE_API_KEY` to child git. Now we compose a minimal
  * env from PATH + HOME + a small allow-list plus explicit hardening vars.
+ *
+ * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the safe env-injection
+ * path for auth tokens. Token never in argv; never leaks to ps or logs.
  */
-function buildGitEnv(): Record<string, string> {
+function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<string, string> {
 	const allowed = [
 		"PATH",
 		"HOME",
@@ -120,6 +156,19 @@ function buildGitEnv(): Record<string, string> {
 	env.GIT_ASKPASS = "/bin/false";
 	env.GIT_OPTIONAL_LOCKS = "0";
 	env.GIT_CONFIG_NOSYSTEM = "1";
+
+	// Inject extra git config entries via env (token-safe path — never in argv).
+	if (extraConfigs && extraConfigs.length > 0) {
+		env.GIT_CONFIG_COUNT = String(extraConfigs.length);
+		for (let i = 0; i < extraConfigs.length; i++) {
+			const cfg = extraConfigs[i];
+			if (cfg) {
+				env[`GIT_CONFIG_KEY_${i}`] = cfg.key;
+				env[`GIT_CONFIG_VALUE_${i}`] = cfg.value;
+			}
+		}
+	}
+
 	return env;
 }
 
@@ -132,12 +181,13 @@ async function spawnGit(
 	cwd: string,
 	timeoutMs: number,
 	logger: Logger,
+	extraEnv?: Record<string, string>,
 ): Promise<SpawnResult> {
 	logger.debug("git spawn", { args: redactArgs(args), cwd, timeoutMs });
 	return new Promise<SpawnResult>((resolve) => {
 		const proc = spawn("git", args, {
 			cwd,
-			env: buildGitEnv(),
+			env: { ...buildGitEnv(), ...extraEnv },
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
@@ -188,8 +238,12 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 	const localMs = opts?.timeouts?.localMs ?? DEFAULT_LOCAL_MS;
 	const pushMs = opts?.timeouts?.pushMs ?? DEFAULT_PUSH_MS;
 
-	function run(args: readonly string[], timeoutMs: number): Promise<SpawnResult> {
-		return spawnGit(args, repoPath, timeoutMs, logger);
+	function run(
+		args: readonly string[],
+		timeoutMs: number,
+		extraEnv?: Record<string, string>,
+	): Promise<SpawnResult> {
+		return spawnGit(args, repoPath, timeoutMs, logger, extraEnv);
 	}
 
 	async function runExpectOk(args: readonly string[], timeoutMs: number): Promise<SpawnResult> {
@@ -270,6 +324,37 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			const r = await runExpectOk(["status", "--porcelain"], localMs);
 			if (r.stdout.length === 0) return [];
 			return r.stdout.split(/\r?\n/).filter((l) => l.length > 0);
+		},
+		async lsRemote(
+			url: string,
+			opts?: { tokenConfig?: GitConfigInjection },
+		): Promise<{ reachable: boolean; reason?: string }> {
+			// Build env: start from base hardened env, inject token config if present.
+			// Token NEVER in argv or URL — only in GIT_CONFIG_COUNT/KEY_n/VALUE_n env vars.
+			// @lore AO1 v2: Non-zero exit is DATA (unreachable), not an exception.
+			// The args array only contains the URL (already credential-free).
+			const extraEnv: Record<string, string> = {};
+			if (opts?.tokenConfig) {
+				extraEnv.GIT_CONFIG_COUNT = "1";
+				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
+				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
+			}
+			try {
+				// "--" prevents url from being treated as an option if it starts oddly.
+				// "--quiet" suppresses non-fatal warnings that clutter stderr.
+				const result = await run(["ls-remote", "--quiet", "--", url], pushMs, extraEnv);
+				if (result.exitCode === 0) {
+					return { reachable: true };
+				}
+				// Redact token-shaped strings from stderr before surfacing as reason.
+				const raw = (result.stderr.trim() || result.stdout.trim()).slice(0, 300);
+				const reason = redactArg(raw);
+				return { reachable: false, reason };
+			} catch (err) {
+				// Spawn errors (git not on PATH, etc.) — never throw, return unreachable.
+				const reason = err instanceof Error ? err.message : String(err);
+				return { reachable: false, reason: redactArg(reason) };
+			}
 		},
 	};
 }

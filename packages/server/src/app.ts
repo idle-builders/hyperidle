@@ -46,6 +46,7 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/assistant-turn.js";
+import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
@@ -62,6 +63,7 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "./services/observability/types.js";
+import { ServiceConnectionResolver } from "./services/service-connection-resolver.js";
 import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 
 interface AppOptions {
@@ -408,7 +410,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
-		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus));
+		// AO1 v2: Wire the real ServiceConnectionResolver for reachability probes.
+		// serverSecret may be null (no credential key configured) — the resolver handles null
+		// gracefully (returns null for every connectionId → needs_attention for git probes).
+		const scResolver = new ServiceConnectionResolver(options.db, getServerSecret());
+		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus, scResolver));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));

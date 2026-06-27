@@ -22,6 +22,7 @@
  * Source of truth: plans/AO1/architecture.md §Phase 2 + §3 + §8
  */
 
+import * as os from "node:os";
 import { type HyperIdleDb, knowledgeItems, teamMembers, teams, users } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -685,8 +686,15 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(got.state).toBe("needs_attention");
 		});
 
-		test("local filesystem (connectionId null) → state:'reachable'", async ({ db, app }) => {
+		test("local filesystem (connectionId null, real existing path) → state:'reachable'", async ({
+			db,
+			app,
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5b");
+
+			// Use os.tmpdir() — guaranteed to exist on every platform.
+			// @lore AO1 v2: The real probe checks fs.access(R_OK) — must use a real path.
+			const realPath = os.tmpdir();
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -695,7 +703,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					teamId,
 					kind: "code",
 					connectionId: null,
-					resourceRef: { kind: "code", repo: "/home/user/repo", branch: "main" },
+					resourceRef: { kind: "code", repo: realPath, branch: "main" },
 					writeback: "git",
 				}),
 			});
@@ -705,7 +713,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
 			expect(getRes.status).toBe(200);
 			const got = (await getRes.json()) as Record<string, unknown>;
-			// Local (no connection) → reachable
+			// Local (no connection) + real path exists → reachable
 			expect(got.state).toBe("reachable");
 		});
 

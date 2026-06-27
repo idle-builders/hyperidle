@@ -1,6 +1,6 @@
 // AO1 — Hono router for /api/filesystems.
 // Registry CRUD + per-bot injection wiring.
-// Source of truth: plans/AO1/architecture.md §3.
+// Source of truth: plans/AO1/architecture.md §3 + §v2 (Reachability rework v2).
 
 import * as crypto from "node:crypto";
 import {
@@ -23,9 +23,15 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { NoopAuthResolver, resolveFilesystemState } from "../services/filesystem-reachability.js";
+import {
+	NoopAuthResolver,
+	resolveFilesystemState,
+	ServiceConnectionResolverAdapter,
+} from "../services/filesystem-reachability.js";
+import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -84,8 +90,36 @@ function rowToInjection(row: FilesystemInjectionRow): FilesystemInjection {
 	};
 }
 
+// ─── Per-request resolver factory ─────────────────────────────────────────────
+
+/**
+ * Build the FilesystemAuthResolver for a specific request.
+ * When a real ServiceConnectionResolver is available, wraps it in the adapter
+ * (which closes over the request userId). Falls back to NoopAuthResolver.
+ *
+ * @lore AO1 v2: The adapter MUST be constructed per-request — it closes over userId.
+ * A singleton would bind to one userId across all requests.
+ */
+function buildAuthResolver(
+	connectionResolver: ServiceConnectionResolver | undefined,
+	userId: string,
+): FilesystemAuthResolver {
+	if (connectionResolver) {
+		return new ServiceConnectionResolverAdapter(connectionResolver, userId);
+	}
+	return new NoopAuthResolver();
+}
+
 // ─── Reachability helper (mutates stored state) ───────────────────────────────
 
+/**
+ * Run a live reachability probe and persist any state transition.
+ * Only call this on single-row paths (GET /:id, POST register).
+ * The LIST route MUST NOT call this — use stored state only (perf constraint:
+ * one ls-remote per list row makes team-list latency-bound on the forge).
+ *
+ * @lore AO1 v2: list = cached state; inspect/register = live probe.
+ */
 async function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
@@ -104,9 +138,17 @@ async function checkAndPersistState(
 export function createFilesystemRoutes(
 	db: HyperIdleDb,
 	_eventBus?: EventBus,
-	authResolver: FilesystemAuthResolver = new NoopAuthResolver(),
-): Hono {
-	const router = new Hono();
+	/**
+	 * Pass the real ServiceConnectionResolver for per-request adapter construction.
+	 * When absent (tests without AN1 resolver, non-db contexts), falls back to NoopAuthResolver.
+	 *
+	 * @lore AO1 v2: The resolver is passed at route-creation time, but the adapter
+	 * is constructed PER REQUEST (inside the handler) because it closes over userId
+	 * from c.get("userId"). A process-singleton adapter would bind to one userId — wrong.
+	 */
+	connectionResolver?: ServiceConnectionResolver,
+): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
 	router.post(
@@ -116,6 +158,8 @@ export function createFilesystemRoutes(
 		validateBody(registerFilesystemSchema),
 		async (c) => {
 			const body = c.req.valid("json");
+			const userId = c.get("userId");
+			const authResolver = buildAuthResolver(connectionResolver, userId);
 
 			// Derive source from the Connection (via resolver) or fallback.
 			// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
@@ -132,6 +176,7 @@ export function createFilesystemRoutes(
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 
+			// Insert with 'attached' state — probe below will update if different.
 			try {
 				await db.insert(filesystems).values({
 					id,
@@ -157,7 +202,11 @@ export function createFilesystemRoutes(
 			// Row must exist — we just inserted it.
 			const inserted = rows2[0];
 			if (inserted == null) throw new Error("Filesystem disappeared after insert");
-			return c.json(rowToFilesystem(inserted), 201);
+
+			// Run live probe on register — persists result, returns the updated row.
+			// @lore AO1 v2: probe on register so the caller gets the real initial state.
+			const probed = await checkAndPersistState(db, inserted, authResolver);
+			return c.json(rowToFilesystem(probed), 201);
 		},
 	);
 
@@ -196,9 +245,10 @@ export function createFilesystemRoutes(
 			rows = await db.select().from(filesystems).where(inArray(filesystems.id, fsIds));
 		}
 
-		// Run reachability check + persist transitions for each row
-		const refreshed = await Promise.all(rows.map((r) => checkAndPersistState(db, r, authResolver)));
-		return c.json({ filesystems: refreshed.map(rowToFilesystem) }, 200);
+		// LIST route: use STORED state (do NOT live-probe every row).
+		// @lore AO1 v2: one ls-remote per list row makes team-list latency-bound on the forge.
+		// The inspect (GET /:id) and register (POST /) paths trigger live probes.
+		return c.json({ filesystems: rows.map(rowToFilesystem) }, 200);
 	});
 
 	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
@@ -210,6 +260,8 @@ export function createFilesystemRoutes(
 			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 		}
 
+		const userId = c.get("userId");
+		const authResolver = buildAuthResolver(connectionResolver, userId);
 		const refreshed = await checkAndPersistState(db, row, authResolver);
 		return c.json(rowToFilesystem(refreshed), 200);
 	});
