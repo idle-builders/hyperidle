@@ -98,6 +98,36 @@ export interface FilesystemAuthResolver {
 	resolveToken(connectionId: string): Promise<string | null>;
 }
 
+// ─── AO2 shared constants ─────────────────────────────────────────
+
+/**
+ * Every root path the session-provisioning writers create inside the sandbox.
+ * Capture MUST exclude all of these — they are HyperIdle injection, never the
+ * agent's authored repo work.
+ *
+ * A writer that adds a new sandbox path MUST add it here (and the writers
+ * import this so the relationship is enforced, not hoped).
+ *
+ * @lore AO2 §5b·0: Single source of truth — the capture-exclude list.
+ * - CLAUDE.md fell off the exclude list in rev2 (@lore AK1 dual-write).
+ * - .codex-home/ fell off the exclude list in rev2 (@lore AL6 — auth.json is a REAL HOST CREDENTIAL).
+ * Both are explicitly tested by name to prevent re-drift.
+ */
+export const SANDBOX_SCAFFOLDING_PATHS = [
+	"AGENTS.md", // context-assembly-prompt.ts:278 writeSandboxAgentsMd (dual-write)
+	"CLAUDE.md", // context-assembly-prompt.ts:279 writeSandboxAgentsMd (dual-write, @lore AK1)
+	".mcp.json", // session-provisioning Phase 8b internal MCP
+	".claude/", // provision-return-hook.ts:118 settings.json + return-check.sh
+	".codex/", // provision-return-hook.ts:198 legacy/compat hooks
+	".codex-home/", // provision-return-hook.ts:222 — auth.json + config.toml COPIED FROM ~/.codex (CREDENTIAL), @lore AL6
+	"opencode.json", // cli-mcp-config.ts:122 opencode MCP config
+	".opencode/", // provision-return-hook.ts opencode plugin path
+	".fabric/", // context-assembly.ts:91 manifest
+	"context/", // context-assembly.ts:92-94 read-only context tree
+	"knowledge/", // context-assembly.ts:95-97
+	"work/", // context-assembly.ts:98 + task-notes.md
+] as const;
+
 // ─── AO2 mount seam ───────────────────────────────────────────────
 
 /** Outcome of a mount call. */
