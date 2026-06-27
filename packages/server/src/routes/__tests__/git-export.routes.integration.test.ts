@@ -142,6 +142,7 @@ describe("git-export routes", () => {
 				remoteAdd: async () => {},
 				lsFiles: async () => [],
 				statusPorcelain: async () => [],
+				lsRemote: async () => ({ reachable: true }),
 			};
 			const stubFs: FsAdapter = {
 				existsSync: () => true,

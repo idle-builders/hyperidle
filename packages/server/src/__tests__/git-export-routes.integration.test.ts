@@ -105,6 +105,13 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 			calls.push("statusPorcelain");
 			return [];
 		},
+		async lsRemote(
+			_url: string,
+			_opts?: { tokenConfig?: { key: string; value: string } },
+		): Promise<{ reachable: boolean; reason?: string }> {
+			calls.push("lsRemote");
+			return { reachable: true };
+		},
 	};
 }
 
@@ -436,6 +443,13 @@ describe("Git Export HTTP routes", () => {
 				async statusPorcelain() {
 					runner.calls.push("statusPorcelain");
 					return [];
+				},
+				async lsRemote(
+					_url: string,
+					_opts?: { tokenConfig?: { key: string; value: string } },
+				): Promise<{ reachable: boolean; reason?: string }> {
+					runner.calls.push("lsRemote");
+					return { reachable: true };
 				},
 			};
 			const app = buildApp(db, { createRunner: () => runner, fs: createMemFs() });

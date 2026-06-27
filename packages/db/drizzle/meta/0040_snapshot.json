@@ -1,5 +1,5 @@
 {
-	"id": "cd2252b1-9180-4bb1-9f39-f95ea3ad8a77",
+	"id": "c3cbc390-f8c9-487e-a608-0b699138c957",
 	"prevId": "dd475570-d762-4580-b3ac-8771465ef112",
 	"version": "7",
 	"dialect": "postgresql",
@@ -34,12 +34,6 @@
 				},
 				"preview_json": {
 					"name": "preview_json",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"surface": {
-					"name": "surface",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -327,6 +321,186 @@
 			},
 			"indexes": {},
 			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.filesystem_injections": {
+			"name": "filesystem_injections",
+			"schema": "",
+			"columns": {
+				"agent_user_id": {
+					"name": "agent_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"filesystem_id": {
+					"name": "filesystem_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"filesystem_injections_agent_user_idx": {
+					"name": "filesystem_injections_agent_user_idx",
+					"columns": [
+						{
+							"expression": "agent_user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"filesystem_injections_filesystem_idx": {
+					"name": "filesystem_injections_filesystem_idx",
+					"columns": [
+						{
+							"expression": "filesystem_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"filesystem_injections_agent_user_id_users_id_fk": {
+					"name": "filesystem_injections_agent_user_id_users_id_fk",
+					"tableFrom": "filesystem_injections",
+					"tableTo": "users",
+					"columnsFrom": ["agent_user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"filesystem_injections_filesystem_id_filesystems_id_fk": {
+					"name": "filesystem_injections_filesystem_id_filesystems_id_fk",
+					"tableFrom": "filesystem_injections",
+					"tableTo": "filesystems",
+					"columnsFrom": ["filesystem_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"filesystem_injections_agent_user_id_filesystem_id_pk": {
+					"name": "filesystem_injections_agent_user_id_filesystem_id_pk",
+					"columns": ["agent_user_id", "filesystem_id"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.filesystems": {
+			"name": "filesystems",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"team_id": {
+					"name": "team_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"source": {
+					"name": "source",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"kind": {
+					"name": "kind",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"connection_id": {
+					"name": "connection_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"resource_ref": {
+					"name": "resource_ref",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"writeback": {
+					"name": "writeback",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"state": {
+					"name": "state",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'attached'"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"filesystems_team_idx": {
+					"name": "filesystems_team_idx",
+					"columns": [
+						{
+							"expression": "team_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"filesystems_team_id_teams_id_fk": {
+					"name": "filesystems_team_id_teams_id_fk",
+					"tableFrom": "filesystems",
+					"tableTo": "teams",
+					"columnsFrom": ["team_id"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				}
+			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
 			"policies": {},

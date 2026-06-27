@@ -19,6 +19,7 @@ import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsConnections } from "../settings/SettingsConnections.js";
+import { SettingsFilesystems } from "../settings/SettingsFilesystems.js";
 import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
 import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
@@ -92,6 +93,17 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agents</SectionTitle>
 						<SettingsAgents />
+					</section>
+
+					{/* AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
+					     Sibling of Harnesses/Models/Agents per approved design (plans/AO1/design/approved.md). */}
+					<section
+						id="settings-section-filesystems"
+						data-testid="settings-section-filesystems"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Filesystems</SectionTitle>
+						<SettingsFilesystems />
 					</section>
 
 					{/* AM4: Agent backends section — harness detection + enable/disable */}

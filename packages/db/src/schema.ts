@@ -867,6 +867,82 @@ export const artifacts = pgTable(
 	],
 );
 
+// --- AO1: Filesystem registry + per-bot injection ---
+
+/**
+ * Registered, team-scoped file source. NOT owned by a single agent.
+ * Per-bot wiring lives in the filesystemInjections mapping below.
+ *
+ * @lore AO1 Q6: `source` is stored (not computed) so the registry can display
+ * it without resolving a possibly-absent Connection (service_connections was
+ * reverted in 0038). `connection_id` is a plain text column, not a FK, for the
+ * same reason — AO1 ⟂ AN; AN may add the FK in its own migration.
+ * @lore AO1 AC3: `kind` is stored as open-vocab text; SoR kinds are rejected
+ * at the Zod boundary on POST.
+ */
+export const filesystems = pgTable(
+	"filesystems",
+	{
+		id: text("id").primaryKey(),
+		// Registry scope. Always present. The Team that owns this registered filesystem.
+		// NOT single-owner — per-bot wiring is the separate filesystemInjections table.
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		// The SOURCE TYPE — 'local' | 'github' | 'gdrive' | … OPEN vocabulary; derived from the
+		// Connection at register-time (or 'local'). Stored (queryable in the registry without
+		// resolving a possibly-absent Connection). Surfaced prominently in the UI.
+		source: text("source").notNull(),
+		// OPEN vocabulary. 'code' | 'doc_set' initially. SoRs excluded at the app layer (Zod).
+		kind: text("kind").notNull(),
+		// Reference to a Connection (Track AN). NOT a DB FK — service_connections was merged
+		// (0036) then reverted (0038, AN reset); absent now, re-merged shape unsettled.
+		// An unresolvable id → needs_attention (AC5).
+		// @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
+		connectionId: text("connection_id"),
+		// JSON-encoded ResourceRef, discriminated by kind. Mirrors artifacts.previewJson.
+		resourceRef: text("resource_ref").notNull(),
+		// Capability axis: how authored changes leave the sandbox.
+		writeback: text("writeback").notNull(),
+		// Reachability lifecycle. Stored; the inspect/list route may transition + persist it.
+		state: text("state").notNull().default("attached"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [index("filesystems_team_idx").on(table.teamId)],
+);
+
+/**
+ * Per-bot INJECTION: which registered filesystems are injected into a given bot's sessions.
+ *
+ * @lore AO1 Q1: The agent FK is users.id (the runtime agent identity = sessions.agentId,
+ * schema.ts:252-254), NOT team_members.id (one row per team, U1 1:1, no per-agent identity).
+ * AO2's per-bot mount resolves sessions.agentId → filesystem_injections → filesystems.
+ * Replaces the removed single-owner column. Parallel to connector/tool injection.
+ */
+export const filesystemInjections = pgTable(
+	"filesystem_injections",
+	{
+		agentUserId: text("agent_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		filesystemId: text("filesystem_id")
+			.notNull()
+			.references(() => filesystems.id, { onDelete: "cascade" }),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.agentUserId, table.filesystemId] }), // UNIQUE (agentUserId, filesystemId)
+		index("filesystem_injections_agent_user_idx").on(table.agentUserId),
+		index("filesystem_injections_filesystem_idx").on(table.filesystemId),
+	],
+);
+
+export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
+export type NewFilesystem = typeof filesystems.$inferInsert;
+export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
+export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/shared — see §1.
+
 // --- P3: Server-side credential storage (shared mode) ---
 
 /**
