@@ -116,10 +116,6 @@ Re-engage is bounded by `AL6_MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` 
 
 A registry exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
 
-### `isolated` — `sdk-inprocess`
-
-`IsolatedHarnessAdapter` forks a child process that runs `ClaudeAgentSdkAdapter`. The SDK Stop closure (wired in `startSession`) consults the enforcement registry via the `ReturnHookConfig.bridgeToken`/`mcpUrl` threaded in `SessionConfig.returnHook`. The closure reads the registry entry and calls `shouldForceReturn`; if a force message is returned, it returns `{ decision: "block", reason: forceMessage }` to the SDK. The child worker's event stream is a relay loop (`// AL6-relay`) — no gate wired there; the gate lives in the parent's drain in `session-provisioning.ts`.
-
 ### `cursor-agent` — `soft-continue` (inert)
 
 Cursor Agent is not spawnable today (`cursor-agent` binary unavailable; no documented headless CLI surface). `provisionReturnHook` is a no-op for `soft-continue`. No sessions are started, so nothing to enforce. The drain-gate floor handles any future surface.

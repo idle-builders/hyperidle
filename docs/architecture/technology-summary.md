@@ -10,7 +10,7 @@
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
 | Scheduler | setInterval + EventBus + SQLite polling | _Future candidate:_ BullMQ / Temporal (cloud profile only) |
 | Harness (default) | Claude Agent SDK | — |
-| Sandbox (default) | LocalSandboxAdapter (filesystem) | Docker, E2B |
+| Sandbox (default) | LocalSandboxAdapter (host working dir) | Opt-in isolation planned (AQ2) |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64) | — |
 | Notifications | ntfy.sh / SMTP | APNs, Firebase |

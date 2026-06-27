@@ -297,7 +297,7 @@ The adapter also handles:
 
 ### 2.8 Workspace Adapter
 
-**What it is.** Abstraction over where agents physically run. Each workspace is an isolated environment with file access, shell access, and installed tools.
+**What it is.** Abstraction over where agents physically run. Each workspace is a **per-session working directory on the host machine**. The agent runs as a host child process with the user's environment inherited (PATH, HOME, LANG). There is no isolation boundary (see [Run-unit model](./run-unit-model.md)).
 
 **Technology.** One module per workspace type:
 
@@ -312,11 +312,11 @@ interface SandboxAdapter {
 }
 ```
 
-**Supported workspaces:**
-- **Docker + gVisor** (default for laptop/VPS) — a container per agent session.
-- **E2B Desktop Sandbox** (managed cloud) — Firecracker-based VM per session.
-- **Daytona** (self-hosted cloud) — workspace sandbox per agent.
-- **Git repo** (minimal) — the workspace is a directory; "spawn" is `git worktree add`.
+**Supported workspaces (as of AQ1):**
+- **LocalSandboxAdapter** (default) — a working directory under `HYPERIDLE_WORKSPACES_DIR`; the harness runs as a host child process.
+- **DisabledSandboxAdapter** — server-profile boot guard; refuses to provision sessions on shared backends.
+
+Opt-in isolation (per-agent sandbox boundary) is planned for AQ2.
 
 ### 2.9 Notification Adapter
 
