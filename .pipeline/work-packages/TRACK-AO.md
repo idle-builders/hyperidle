@@ -50,7 +50,14 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 - A `code` filesystem records its repository (Connection + repo + branch) with forge auth resolved from an existing **Connection** (Track AN), not re-modelled here.
 - The filesystem model accommodates the `doc_set` authoring kind (a markdown/Obsidian folder), so the primitive is not code-only — **and systems of record (inbox/CRM/ticket) are categorically excluded** (those are AN tools, not filesystems).
 - A filesystem attachment is distinct from, and does not overwrite, the instance knowledge-export configuration or a knowledge item.
-- An unreachable/unauthenticated filesystem surfaces as needing attention rather than failing silently.
+- An unreachable/unauthenticated filesystem surfaces as needing attention rather than failing silently — **via a REAL reachability probe against the real source, never a stub** (founder 2026-06-27: a stub built from memory is worthless + non-mergeable; PR #366 v1's `NoopAuthResolver` was rejected for exactly this).
+
+**Reachability scope (founder decision, 2026-06-27).** Real registration = a real check against the real source, and that is a **matrix of per-source integrations** (each its own auth + probe + live-proof) — plausibly larger than AO2. **AO1 ships the reachable slice, real + live-proven:**
+- **`local` / Obsidian folder** → `fs` access probe (Obsidian vault = a local folder; NOT deferred).
+- **`code` / git forge** (GitHub) → `git ls-remote` using the real token from AN1's `ServiceConnectionResolver` (now on main). Real repo → `reachable`; bogus/no-auth → `needs_attention`.
+- **Deferred to their own connector-gated WPs (queued):** GDrive, Dropbox, S3, … — each needs an AN connector that does not exist yet (+ the no-OAuth question). Stated honestly, never stubbed.
+
+See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the real AN resolver + real `git ls-remote` behavior.
 
 **Validation scenarios.**
 - Given an agent in a team, when a founder attaches a `code` repository (Connection + repo + branch) as its filesystem, then the repo + branch + write-back + state are shown.
