@@ -3,8 +3,9 @@
   "title": "Run on the computer: remove the sandbox",
   "track": "AQ",
   "complexity": "M",
-  "status": "in_progress",
-  "currentStep": "6-retro",
+  "status": "done",
+  "currentStep": "shipped",
   "gate": "ci-required",
-  "startedAt": "2026-06-27T00:00:00Z"
+  "startedAt": "2026-06-27T00:00:00Z",
+  "completedAt": "2026-06-28T00:00:00Z"
 }
