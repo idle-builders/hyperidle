@@ -80,16 +80,17 @@ The harness `cwd` is **hardwired to `sandboxPath`** in every adapter — `claude
 
 **The collision the critique flagged is real and root-mount alone does not fix it.** The sandbox root is *co-owned* by provisioning scaffolding written AFTER the mount (verified call sites in `session-provisioning.ts`):
 
-| Writer | Writes at root | Line |
+| Writer (verified file:fn) | Writes at root | Note |
 |---|---|---|
-| `assembleContext` | `context/`, `knowledge/`, `work/`, `.fabric/manifest.json` | 504-507 |
-| `writeSandboxAgentsMd` | `AGENTS.md` | 725 |
-| Phase 8b MCP | `.mcp.json` + CLI MCP configs (`opencode.json`) | 753-762 |
-| `provisionReturnHook` | `.claude/settings.json`, `.codex/hooks.json`, `.opencode/plugins/...` | 800-802 |
+| `context-assembly.ts:91-106` `assembleContext` | `.fabric/`, `context/`, `knowledge/`, `work/` | read-only context tree + manifest |
+| `context-assembly-prompt.ts:277-279` `writeSandboxAgentsMd` | **`AGENTS.md` AND `CLAUDE.md`** (dual-write, every session) | `@lore AK1` — NOT `AGENTS.md`-only; both files written verbatim |
+| `session-provisioning.ts` Phase 8b MCP | `.mcp.json` | internal-MCP config |
+| `cli-mcp-config.ts:87-122` | `.codex-home/config.toml`, `opencode.json` | CLI-harness MCP config |
+| `provision-return-hook.ts:118,198,222` `provisionReturnHook` | `.claude/`, `.codex/`, **`.codex-home/`** (auth.json + config.toml copied from `~/.codex`), `.opencode/` | `@lore AL6` — **`.codex-home/auth.json` is a real host credential copied in on the codex path** |
 
-Two failures if capture is naive `git add -A`: **(a) pollution** — the bundle/commit stages all that HyperIdle scaffolding; **(b) overwrite** — in the self-hosting case (materialized repo IS HyperIdle, the whole point of Track AO) `writeSandboxAgentsMd` overwrites the repo's own `AGENTS.md`, and `.mcp.json`/`.claude/` shadow real repo files, and the polluted tree is what gets committed.
+Two failures if capture is naive `git add -A`: **(a) pollution** — the bundle/commit stages all that HyperIdle scaffolding, and on the codex path it stages **`.codex-home/auth.json`, a real host credential** (this is the load-bearing leak, not cosmetic — see §Security); **(b) overwrite** — in the self-hosting case (materialized repo IS HyperIdle, the whole point of Track AO) `writeSandboxAgentsMd` overwrites the repo's own `AGENTS.md` **and `CLAUDE.md`**, and `.mcp.json`/`.claude/` shadow real repo files (HyperIdle tracks all of these at root — `git ls-files` confirms `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, a populated `.claude/` tree), and the polluted tree is what gets committed.
 
-**Resolution (§5b): scoped capture + scaffolding-path exclusion + overwrite guard.** Capture is NOT `add -A`; it stages only the repo's own tracked + agent-authored paths, with the fixed scaffolding paths excluded via a sandbox-local `.git/info/exclude` written at mount and an explicit negative pathspec at commit. The overwrite risk is handled at mount: the mounter records the repo's pre-scaffolding tree (the clone is pristine), and capture diffs against the clone's `HEAD` so scaffolding files — which are untracked in the repo, or, if the repo *does* track an `AGENTS.md`, are excluded by the fixed-path list before assembly runs — never enter the commit. See §5b for the exact mechanism. Multiple injected filesystems (rare, N:N): the FIRST `code` filesystem goes to root; additional `doc_set` folders mount at `<sandboxPath>/<slug>/` and capture per-folder. *v1 supports ≤1 `code` fs at root + `doc_set` at subdir; multi-code recorded as a known limitation.*
+**Resolution (§5b): scoped capture + scaffolding-path exclusion + tracked-collision overwrite guard, all derived from a single shared constant (`SANDBOX_SCAFFOLDING_PATHS`) that the provisioning writers and the capture-exclude both import** — so a future writer can't silently drift off the exclude list. Capture is NOT `add -A`; it stages only the repo's own tracked + agent-authored paths, with the scaffolding paths excluded via a sandbox-local `.git/info/exclude` written at mount and an explicit negative pathspec at commit. The overwrite risk is handled at mount: the mounter records the repo's pre-scaffolding tree (the clone is pristine), and capture diffs against the clone's `HEAD`. The overwrite-guard pathspec is built at capture time from **`git ls-files ∩ SANDBOX_SCAFFOLDING_PATHS`** — the full set of tracked files that collide with a scaffolding path — not a hardcoded subset, so the self-hosting case (`AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.claude/`) is subtracted in full. See §5b for the exact mechanism. Multiple injected filesystems (rare, N:N): the FIRST `code` filesystem goes to root; additional `doc_set` folders mount at `<sandboxPath>/<slug>/` and capture per-folder. *v1 supports ≤1 `code` fs at root + `doc_set` at subdir; multi-code recorded as a known limitation.*
 
 **Wiring the mounter into provisioning deps:** add an optional `filesystemMounter?: FilesystemMounter` to `ProvisionSessionDeps`. Constructed in `app.ts` (where `db` + `ServiceConnectionResolver` already exist, lines 416-451): build `OwnerScopedAuthResolver({ db, resolver: scResolver })` (§3), pass it into `SandboxFilesystemMounter` as its `FilesystemAuthResolver` seam, thread the mounter through `createSessionRoutes` → `startSessionProvision` deps, exactly like `mcpBridgeRegistry`. The driver in Phase 5.5 calls `authResolver.resolve(connectionId)` to produce the `auth` arg for `mount`. **Absent → no materialization** (kernel-only mode, tests without the adapter stay green — same pattern as `mcpBridgeRegistry`).
 
@@ -194,28 +195,39 @@ via the existing `GitRunner.configSet(key, value)` (interface line 50). The head
 
 ## §5b — Scaffolding-scoped capture (the CRITICAL part-b resolution)
 
-Root-mount means HyperIdle scaffolding lives in the same tree as the repo. Naive `git add -A` would commit it (pollution) and, in the self-hosting case, commit a scaffolding-overwritten `AGENTS.md` (overwrite). Three measures, all at the mounter, none touching the harness or assembly:
+Root-mount means HyperIdle scaffolding lives in the same tree as the repo. Naive `git add -A` would commit it (pollution — including, on the codex path, a real host credential) and, in the self-hosting case, commit scaffolding-overwritten tracked files (overwrite). Four measures, all at the mounter, none touching the harness or assembly.
+
+**0. Single source of truth — `SANDBOX_SCAFFOLDING_PATHS`, co-located with the writers (closes the drift bug).** The exclude list is NOT a free-floating literal in the mounter (that is exactly what drifted: `CLAUDE.md` and `.codex-home/` fell off it). It is a **shared exported constant** that the writers themselves import, so a future writer added to provisioning physically cannot fall off the capture exclude list without changing the constant. Both writer packages (`fabric` for context-assembly + AGENTS/CLAUDE, `server` for MCP/return-hook) need it, so the constant lives in `@hyperidle/shared`:
+```ts
+// packages/shared/src/filesystem.ts (co-located with the FilesystemMounter contract)
+/** Every root path the session-provisioning writers create inside the sandbox.
+ *  Capture MUST exclude all of these — they are HyperIdle injection, never the
+ *  agent's authored repo work. A writer that adds a new sandbox path MUST add it
+ *  here (and the writers import this so the relationship is enforced, not hoped). */
+export const SANDBOX_SCAFFOLDING_PATHS = [
+  "AGENTS.md",        // context-assembly-prompt.ts:278 writeSandboxAgentsMd (dual-write)
+  "CLAUDE.md",        // context-assembly-prompt.ts:279 writeSandboxAgentsMd (dual-write, @lore AK1)
+  ".mcp.json",        // session-provisioning Phase 8b internal MCP
+  ".claude/",         // provision-return-hook.ts:118 settings.json + return-check.sh
+  ".codex/",          // provision-return-hook.ts:198 legacy/compat hooks
+  ".codex-home/",     // provision-return-hook.ts:222 — auth.json + config.toml COPIED FROM ~/.codex (CREDENTIAL), @lore AL6
+  "opencode.json",    // cli-mcp-config.ts:122 opencode MCP config
+  ".opencode/",       // provision-return-hook.ts opencode plugin path
+  ".fabric/",         // context-assembly.ts:91 manifest
+  "context/",         // context-assembly.ts:92-94 read-only context tree
+  "knowledge/",       // context-assembly.ts:95-97
+  "work/",            // context-assembly.ts:98 + task-notes.md
+] as const;
+```
+The build wires `context-assembly.ts`, `context-assembly-prompt.ts`, `cli-mcp-config.ts`, `provision-return-hook.ts`, and `session-provisioning.ts` (Phase 8b) to derive their write paths from / be guarded against this constant (at minimum a same-file unit assertion that each writer's literal is `∈ SANDBOX_SCAFFOLDING_PATHS`), so adding a writer that isn't listed fails a test rather than silently leaking into the next capture.
 
 **1. Pristine baseline at mount.** The clone lands a pristine repo; its `HEAD` is the untouched upstream tip. Capture diffs the working tree against **that** `HEAD`. Repo files the agent never touched stay unstaged regardless of what assembly wrote *around* them.
 
-**2. Fixed scaffolding-path exclusion (`.git/info/exclude`), written at mount.** The mounter writes the known scaffolding paths to `<sandbox>/.git/info/exclude` immediately after clone, **before** Phase 6/8b run. The list is the verified writer set:
-```
-/AGENTS.md
-/.mcp.json
-/.claude/
-/.codex/
-/.opencode/
-/.fabric/
-/context/
-/knowledge/
-/work/
-/opencode.json
-```
-`.git/info/exclude` keeps these **untracked** even after assembly writes them, so a scoped `git add` never picks them up. (`info/exclude` is local-only, dies with the sandbox, never alters the repo's own committed `.gitignore`.)
+**2. Scaffolding-path exclusion (`.git/info/exclude`), written at mount.** The mounter writes **`SANDBOX_SCAFFOLDING_PATHS`** (each prefixed `/` to anchor at root) to `<sandbox>/.git/info/exclude` immediately after clone, **before** Phase 6/8b run. `.git/info/exclude` keeps these **untracked** even after assembly writes them, so a scoped `git add` never picks them up. This is what keeps **`.codex-home/auth.json` out of the commit on the codex path** — the credential dir is never staged because it's on the constant. (`info/exclude` is local-only, dies with the sandbox, never alters the repo's own committed `.gitignore`.)
 
-**3. Overwrite guard for tracked scaffolding names (self-hosting).** If the repo *itself* tracks a file that collides with a scaffolding name (the self-hosting case: HyperIdle tracks `AGENTS.md`/`CLAUDE.md`/`.mcp.json`), `info/exclude` won't un-track it, so assembly's overwrite *would* show as a modification. Guard: the mounter records the set of repo-tracked paths at mount (`git ls-files`, intersected with the scaffolding list) and the **scoped stage uses an explicit pathspec that subtracts those collision paths**: `git add -- . ':(exclude)AGENTS.md' ':(exclude).mcp.json' …` (only the names actually tracked AND on the scaffolding list — built at mount). So an assembly-overwritten tracked `AGENTS.md` is never staged; the bot's *intended* edits to other files are. The agent editing a genuinely-tracked `AGENTS.md` on purpose is out of v1 scope (rare; recorded as a known limitation — the common bot edits source, not its own context file).
+**3. Tracked-collision overwrite guard, derived (not hardcoded).** If the repo *itself* tracks a file that collides with a scaffolding path (the self-hosting case: HyperIdle tracks `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, and a populated `.claude/` tree), `info/exclude` won't un-track it, so assembly's overwrite *would* show as a modification. Guard: at mount the mounter runs `git ls-files` and computes the **collision set = tracked paths that match any entry of `SANDBOX_SCAFFOLDING_PATHS`** (a path matches a `dir/` entry if it's under that dir). The scoped stage subtracts the full collision set via an explicit pathspec built from it: `git add -- . ':(exclude)AGENTS.md' ':(exclude)CLAUDE.md' ':(exclude).mcp.json' ':(exclude).claude/**' …` — **every** colliding tracked path, computed from the constant, never a hardcoded `AGENTS.md`/`.mcp.json` pair. So an assembly-overwritten tracked `CLAUDE.md` or `.claude/settings.json` is never staged; the bot's *intended* edits to other files are. The agent editing a genuinely-tracked scaffolding file on purpose is out of v1 scope (rare; recorded as a known limitation — the common bot edits source, not its own context/settings files).
 
-**Net:** the commit/bundle contains the agent's authored repo changes and nothing HyperIdle injected. The `file`-writeback snapshot applies the same exclusion list when copying out. Verified by Lane A asserting the restored bundle contains the edit AND does **not** contain `AGENTS.md`/`.mcp.json`/`.fabric/` (negative assertion — the anti-pollution proof).
+**Net:** the commit/bundle contains the agent's authored repo changes and nothing HyperIdle injected — **no scaffolding, and specifically no `.codex-home/auth.json`**. The `file`-writeback snapshot applies the same exclusion list when copying out. Verified by Lane A asserting the restored bundle contains the edit AND does **not** contain any of `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.fabric/`, `context/`, **`.codex-home/`** — and specifically no `auth.json` and no secret string (the credential-leak proof, exercised on a codex-path variant — see §Live-proof).
 
 **Provenance row (§6):** each capture writes a `filesystem_captures` row linking `(sessionId, filesystemId, captureKind, capturePath, commitSha?, createdAt)` so the captured output is discoverable after teardown (AO3 reads this to build a review subject). `CaptureResult.success=false` is logged via the observability adapter, never throws into teardown (teardown must complete).
 
@@ -262,7 +274,7 @@ Already structural: the §1 driver query returns zero rows for a bot with no inj
 | # | AC (reconciled) | Verification |
 |---|---|---|
 | AC1 | Session for a bot with an injected `code` fs → sandbox holds the repo working tree at its branch; agent reads/edits/runs build/test | **Live-proof integration test** (§Live-proof): real local git repo → real session via the shipped `POST /api/sessions` provisioning path → assert `<sandbox>/.git` exists + a known file from the repo is present + `git rev-parse --abbrev-ref HEAD` == branch. Driver = injection query (assert NOT a global path: a second un-injected bot gets no tree). |
-| AC2 | Working-tree changes captured per `writeback`, not lost on destroy | Live-proof (Lane A, §Live-proof): test simulates the agent edit + test command runs; after session end assert a `filesystem_captures` row exists AND **restoring the bundle** (`git clone <capturePath>` → `git log`/file-read) shows the bot's commit + the edit, AND the restored tree does NOT contain the scaffolding (`AGENTS.md`/`.mcp.json`/`.fabric/` — §5b anti-pollution). Sandbox destroyed first — proves durable. Bundle ref-spec = `refs/heads/<branch>` (§2). |
+| AC2 | Working-tree changes captured per `writeback`, not lost on destroy | Live-proof (Lane A, §Live-proof): test simulates the agent edit + test command runs; after session end assert a `filesystem_captures` row exists AND **restoring the bundle** (`git clone <capturePath>` → `git log`/file-read) shows the bot's commit + the edit, AND the restored tree does NOT contain the scaffolding (`AGENTS.md`/`CLAUDE.md`/`.mcp.json`/`.fabric/` — §5b anti-pollution). **Plus a codex-path variant (Lane A 5b) asserting `.codex-home/`/`auth.json`/secret string is ABSENT from the bundle** (the credential-leak proof). Sandbox destroyed first — proves durable. Bundle ref-spec = `refs/heads/<branch>` (§2). |
 | AC3 | Bot with no injected fs still provisions/runs | Integration test: agent with zero `filesystem_injections` → `provisionSession` → assert `sessions.state` reaches a terminal/active outcome and no mount attempted (mounter spy/`filesystem_captures` empty). |
 | AC4 | Forge auth provisioned as disposable projection; durable record stores no plaintext; dies with sandbox | (a) **Unit**: `OwnerScopedAuthResolver.resolveToken` decrypts the owner's token; assert no plaintext in any `filesystems`/`sessions`/`filesystem_captures` column (read rows back, assert token string absent). (b) **Unit**: mount writes `http.${protocol}//${host}/.extraHeader` to `<sandbox>/.git/config` (host-scoped, base64), token NOT in argv (assert via runner spy argv). (c) **Structural**: after `workspace.destroy`, `<sandbox>/.git/config` is gone (dir removed). (d) **Live-proof Lane B** (local, network, skip-guarded like AO1 Lane B): real PAT → clone a real private repo → assert working tree present. |
 
@@ -272,22 +284,26 @@ Already structural: the §1 driver query returns zero rows for a bot with no inj
 
 ## Ordered task list
 
+0. **(shared)** Add `SANDBOX_SCAFFOLDING_PATHS` to `packages/shared/src/filesystem.ts` (the complete verified writer set, §5b·0). Wire the writers (`context-assembly.ts`, `context-assembly-prompt.ts`, `cli-mcp-config.ts`, `provision-return-hook.ts`, session-provisioning Phase 8b) to derive-from / be asserted-against it. *(proves: a same-file unit test per writer asserts its written root path ∈ `SANDBOX_SCAFFOLDING_PATHS` — adding an unlisted writer fails a test, not a capture)*. **This task must land before §5b's mounter can import the list.**
 1. **(schema)** Add `filesystemCaptures` table to `schema.ts` + `npm run db:generate`. Export row types. *(proves: migration runs; `.schema` shows table)* — `sharedFiles: schema.ts`.
 2. **(fabric)** Extend `GitRunner` interface + `createGitRunner` + `FakeGitRunner` with `clone` + `bundle`. Factor the GIT_CONFIG header-builder (`x-access-token` → Basic) into a shared helper reused by `probeGitRemote` and the mounter. *(proves: unit test clones a `file://` local repo into a temp dir, asserts working tree + branch; bundle round-trips)*.
 3. **(server)** Add `OwnerScopedAuthResolver implements FilesystemAuthResolver` (`owner-scoped-auth-resolver.ts`): `resolveToken` reads `service_connections.userId` → `ServiceConnectionResolver.resolve(userId, id)`. **No new method on the concrete class.** *(proves: unit — seed encrypted connection, resolve by id via owner, assert plaintext; wrong id → null)*.
-4. **(server)** Implement `SandboxFilesystemMounter implements FilesystemMounter` (`filesystem-mounter.ts`), constructed with the `FilesystemAuthResolver` seam: `mount` (clone via runner → write `.git/info/exclude` scaffolding list §5b → write disposable host-scoped local git config from seam token §4) + `captureBack` (scoped stage §5b + commit + bundle `refs/heads/<branch>` / file-snapshot / none + write `filesystem_captures`). *(proves: unit per provision mode + capture kind; scoped-stage excludes scaffolding)*.
+4. **(server)** Implement `SandboxFilesystemMounter implements FilesystemMounter` (`filesystem-mounter.ts`), constructed with the `FilesystemAuthResolver` seam: `mount` (clone via runner → write `.git/info/exclude` from `SANDBOX_SCAFFOLDING_PATHS` §5b·2 → compute tracked-collision set `git ls-files ∩ SANDBOX_SCAFFOLDING_PATHS` §5b·3 → write disposable host-scoped local git config from seam token §4) + `captureBack` (scoped stage with derived overwrite-guard pathspec §5b + commit + bundle `refs/heads/<branch>` / file-snapshot / none + write `filesystem_captures`). *(proves: unit per provision mode + capture kind; scoped-stage excludes scaffolding INCLUDING a seeded `.codex-home/auth.json`)*.
 5. **(server)** Add `mountedFilesystems` to `AdmittedSession` (WARNING 1). Wire Phase 5.5 into `admitSession` (driver query → `authResolver.resolve` → loop `mount`; zero rows → skip; populate `mountedFilesystems`) inside the existing try/revert block. Add `filesystemMounter?` + `captureBasePath?` to `ProvisionSessionDeps`. *(proves: AC3 degradation integration test)*.
 6. **(server)** Wire `captureBack` before the 3 `workspace.destroy` sites in `runSession`, iterating `admitted.mountedFilesystems`. *(proves: AC2 capture integration test)*.
 7. **(server/app)** Construct `OwnerScopedAuthResolver` + `SandboxFilesystemMounter` in `app.ts` (reuse `scResolver`, `db`) and thread the mounter through `createSessionRoutes` → `startSessionProvision` deps. *(proves: live-proof test goes through the real route)*.
-8. **(live-proof)** Lane A hermetic integration test (incl. anti-pollution negative assertion + named sanity-break) + Lane B network-tagged (skip-guarded) test (§Live-proof).
+8. **(live-proof)** Lane A hermetic integration test (incl. anti-pollution negative assertion + **codex-path credential-absence variant, §Live-proof 5b** + named sanity-break) + Lane B network-tagged (skip-guarded) test (§Live-proof).
 
-Dependency order: 1 → 2,3 (parallel) → 4 → 5,6 → 7 → 8.
+Dependency order: 0 → 1 → 2,3 (parallel) → 4 → 5,6 → 7 → 8.
 
 ---
 
 ## Type signatures / contracts (deltas only)
 
 ```ts
+// packages/shared/src/filesystem.ts — NEW shared constant (single source of truth, §5b·0):
+export const SANDBOX_SCAFFOLDING_PATHS: readonly string[]; // complete verified writer set incl. CLAUDE.md + .codex-home/
+
 // packages/fabric/src/services/git-export-runner.ts — GitRunner interface gains:
 clone(url: string, branch: string, opts?: { depth?: number; tokenConfig?: GitConfigInjection }): Promise<void>;
 bundle(bundlePath: string, ref: string): Promise<void>;
@@ -331,9 +347,10 @@ The mounter depends on the **`FilesystemAuthResolver` seam**, not the concrete `
    - `<sandbox>` is gone (structural disposability);
    - a `filesystem_captures` row exists with `commitSha` + `capturePath`;
    - **restore the bundle** to a fresh temp dir (`git clone <capturePath> <tmp>` or `git -C <tmp> fetch <capturePath> <branch>`) → `git -C <tmp> log` shows the bot's commit AND the edited file content is present (the edit survived destroy);
-   - **anti-pollution negative assertion (§5b):** the restored tree does NOT contain `AGENTS.md`, `.mcp.json`, `.fabric/`, `context/` — proving scoped capture excluded the scaffolding.
+   - **anti-pollution negative assertion (§5b):** the restored tree does NOT contain `AGENTS.md`, `CLAUDE.md`, `.mcp.json`, `.fabric/`, `context/` — proving scoped capture excluded the scaffolding.
 
    **This proves clone→edit→run→scoped-capture→survive-destroy end to end, through the real route handler.**
+5b. **Credential-leak variant (load-bearing — a Claude-only test cannot catch this; memory: agent-behavior needs the hardest member).** Run at least one Lane A variant under the **codex** provisioning path (`cliMcpDialect`/`settings-codex` so `provisionReturnHook` writes `<sandbox>/.codex-home/`), OR directly seed a `<sandbox>/.codex-home/auth.json` containing a known sentinel secret string before capture. After capture + teardown, assert the restored bundle (and the `file`-snapshot path) contain **NONE** of: `.codex-home/`, any `auth.json`, the sentinel secret string. This exercises the exact directory that leaks. The plain (non-codex) variant alone passes even with `.codex-home/` off the exclude list — so this variant is what actually proves the disposable-auth guarantee (§4) holds through the capture back door.
 6. AC3: a second bot with no injection → provision → assert no mount, session active, no capture row.
 
 **Sanity-break (memory `mock-validation-trap` — names the revert→red, required):** the reviewer must be able to un-wire the fix and watch Lane A go red. Pinned break: **un-wire the Phase 5.5 mount call** (or set `filesystemMounter` to undefined in the test's deps) → Lane A's step-5 `<sandbox>/.git` / restored-bundle assertions go **red** (no clone happened, no capture row, nothing to restore). This is feasible and cheap (one deps line) and is the gate that proves Lane A tests the real wiring, not a fixture. Lane A must NOT pass with the mount un-wired.
@@ -347,12 +364,12 @@ The mounter depends on the **`FilesystemAuthResolver` seam**, not the concrete `
 ## Security & abuse cases
 
 - **Secret handling (new credential surface):** the plaintext path stays `ServiceConnectionResolver.resolve` (unchanged); `OwnerScopedAuthResolver` reuses it and is wired exclusively mounter→sandbox-git-config. Token never in argv/URL/log (host-scoped `--local` config + `redactArg` + `buildGitEnv` allow-list). Durable records (`filesystems`/`sessions`/`filesystem_captures`) store no plaintext (AC4a). **Addressed.**
-- **Capture pollution / self-host overwrite (§5b):** scoped stage (not `add -A`) + `.git/info/exclude` scaffolding list + tracked-collision pathspec subtraction ensure the bundle/commit carries only the agent's repo edits, never injected `AGENTS.md`/`.mcp.json`/`.fabric/` and never an assembly-overwritten tracked file. Verified by Lane A's anti-pollution negative assertion. **Addressed.**
+- **Capture pollution → credential disclosure (STRIDE Information-Disclosure, §5b) — reclassified from cosmetic.** On the codex path `provisionReturnHook` writes `<sandbox>/.codex-home/auth.json`, a **real host credential copied from `~/.codex`** (`@lore AL6`). A naive `git add -A` would `git bundle` it into the durable, post-teardown capture — a host secret reaching a durable artifact that survives `rm -rf <sandbox>`. This is NOT pollution-as-cosmetic; it is an Information-Disclosure finding, and it is the load-bearing reason the capture must be scoped. **Invariant (must hold):** capture stages ONLY paths that differ from the pristine-clone `HEAD` AND are on the agent-authored set — **never any path in `SANDBOX_SCAFFOLDING_PATHS`**, and specifically never `.codex-home/`/`auth.json`. The §4 disposability claim ("the bundle contains no `.git/config` secret") is true for the `.git/config` token but is silently false for any *staged* secret file unless the scaffolding exclusion holds — so the exclusion is a security control, not a cleanliness nicety. Enforced by: the shared `SANDBOX_SCAFFOLDING_PATHS` constant (drift-proof exclude list, §5b·0), `.git/info/exclude` + derived tracked-collision pathspec (§5b·2/3), and **proven by Lane A's codex-path credential-absence assertion** (§Live-proof 5b). **Addressed.**
 - **Path traversal (resourceRef.repo / folder as path input):** `repoToUrl` + `extractLocalPath` already constrain shapes; clone target is always `<sandboxPath>` (server-controlled), never agent-controlled. Mount writes only within the sandbox; capture writes only within `<captureBasePath>/<sessionId>/`. **Addressed** — assert capturePath is under captureBasePath (no `..`).
 - **SSRF (outbound clone URL):** the clone URL comes from a founder-registered filesystem row (not agent input). `git clone` over `file://`/`https://`. Local-first `file://` is intended (local repos). No new SSRF surface beyond what AO1's `git ls-remote` already does against the same `resourceRef`. **N/A-beyond-AO1** — same trust boundary (founder-registered resource).
 - **Rate-limit:** no new POST/PATCH route (rides existing `POST /api/sessions`). **N/A.**
 - **Input-trust (agent-authored fields):** the agent does not author the filesystem/connection/branch — the founder registers them (AO1). The agent only authors file contents inside its own sandbox. **N/A.**
-- **Disposability:** the auth projection lives in the sandbox `.git/config`, removed by `workspace.destroy`. Reviewer verifies no auth leaks into the durable bundle (the bundle is `git bundle` of commits/objects — contains no `.git/config`). **Addressed (AC4c).**
+- **Disposability:** the forge-auth projection lives in the sandbox `.git/config`, removed by `workspace.destroy`. The `git bundle` is commits/objects only — it carries no `.git/config`, so the forge token never reaches the durable artifact. **But disposability of `.git/config` is NOT the whole story:** any *staged secret file* (the `.codex-home/auth.json` case above) WOULD reach the bundle unless the scaffolding exclusion holds. Disposability is therefore guaranteed by two independent controls — `.git/config` lives in the disposed sandbox (forge token) AND scoped capture excludes every scaffolding path (codex auth). Reviewer verifies both: no `.git/config` in the bundle AND no `.codex-home/`/`auth.json`/secret string (Lane A 5b). **Addressed (AC4c + §5b).**
 
 Security posture is **earned, not preemptive** (ETHOS): no cross-tenant guard, no rogue-agent design — single-founder, team-scoped, agent works with the founder's creds like an employee.
 
@@ -366,6 +383,9 @@ Security posture is **earned, not preemptive** (ETHOS): no cross-tenant guard, n
 (AO2 must not alter AO1's registry/reachability assertions. AO2 extends the `GitRunner` interface — the export-runner's existing H1 tests must stay green; new methods are additive.)
 
 ## sharedFiles
+- `packages/shared/src/filesystem.ts` (NEW `SANDBOX_SCAFFOLDING_PATHS` constant — single source of truth for the capture-exclude list, imported by writers + mounter)
+- `packages/fabric/src/context-assembly.ts` + `packages/fabric/src/context-assembly-prompt.ts` (assert/derive their root write paths against `SANDBOX_SCAFFOLDING_PATHS`)
+- `packages/server/src/harness/cli-mcp-config.ts` + `packages/server/src/harness/provision-return-hook.ts` (assert/derive write paths against `SANDBOX_SCAFFOLDING_PATHS` — esp. `.codex-home/`)
 - `packages/db/src/schema.ts` (new `filesystem_captures` table)
 - `packages/fabric/src/services/git-export-runner.ts` (GitRunner interface + factory + `FakeGitRunner` no-op stubs for `clone`/`bundle`)
 - `packages/server/src/services/filesystem-reachability.ts` (factor the host-scoped header-builder helper out of `probeGitRemote` for shared reuse)
