@@ -169,7 +169,12 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 
 		const artifactsWithOp = existingArtifacts.map((a) => {
 			if (a.id === opRow.artifactId) {
-				return { ...a, proposedCall: proposedCallView };
+				// AL5 (simplified): merge in the named surface from the DB row if present.
+				return {
+					...a,
+					...(artifactRow?.surface && !a.surface ? { surface: artifactRow.surface } : {}),
+					proposedCall: proposedCallView,
+				};
 			}
 			return a;
 		});
@@ -179,6 +184,8 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			artifactsWithOp.push({
 				id: opRow.artifactId,
 				kind: artifactRow?.kind ?? "action_operation",
+				// AL5 (simplified): include the named surface if set on the artifact row.
+				...(artifactRow?.surface ? { surface: artifactRow.surface } : {}),
 				tool: opRow.toolId,
 				app: opRow.toolId,
 				sourceHref: "",

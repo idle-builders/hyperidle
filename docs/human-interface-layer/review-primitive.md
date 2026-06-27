@@ -18,6 +18,33 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 | `batch` | `ReviewBatch` | Per-item rollup with flagged items surfaced first. |
 | `browser_preview` | `ReviewBrowserPreview` | Basic browser view of a deployed or preview URL. |
 
+## Review surfaces (AL5)
+
+The nine family canvases above are the *generic* floor — they work for any artifact kind. A **review surface** specializes one of them for a recognizable case: "a Stripe refund review", "a marketing-campaign review", "a data-migration review". A review surface **is a named React component** — same shape as the family canvases — registered in a static map. It is code, not config: open-ended UI, AI writes one cheaply.
+
+### How it works
+
+The producing agent names a surface on its artifact via the `surface` param of `create_artifact`. The available names come from `REVIEW_SURFACES` in `@hyperidle/shared`. At render time, the review calls `getReviewSurface(artifact.surface)` (in `packages/web/src/pages/review/review-surfaces.ts`): a plain key lookup in the `REVIEW_SURFACE_REGISTRY` static map. If the name is present, that component renders. If the name is absent, unknown, or the component throws, the caller falls back to `getReviewCanvas(artifact.kind)` — the family canvas for that kind. The floor always works; no adoption, no DB row, no settings page required.
+
+### AS-BUILT module map
+
+| File | What it is |
+|---|---|
+| `packages/shared/src/review-surface.ts` | `REVIEW_CANVAS_KINDS`, `ReviewCanvasKind`, `ReviewSurfaceCatalogEntry`, `REVIEW_SURFACES` — the named surface catalog the agent references when calling `create_artifact` |
+| `packages/web/src/pages/review/review-surfaces.ts` | `REVIEW_SURFACE_REGISTRY` (static `Record<string, ReviewCanvasComponent>`), `getReviewSurface(name)` — the entire surface layer |
+| `packages/web/src/pages/review/surfaces/stripe-refund-review/` | Proof-vehicle surface: `StripeRefundReview.tsx`, `StripeRefundReview.stories.tsx` |
+
+### Adding a surface (config-time, three edits)
+
+Adding a surface is the same kind of change as adding a family canvas or swapping the Strategy (`setActiveStrategy` in `server-factory.ts`) — a code change shipped with a release, not an in-app action.
+
+1. Write the component under `packages/web/src/pages/review/surfaces/<name>/`.
+2. Add one line to `REVIEW_SURFACE_REGISTRY` in `review-surfaces.ts` (`"name": Component`).
+3. Add one entry to `REVIEW_SURFACES` in `packages/shared/src/review-surface.ts` (`{ name, description }`).
+4. Rebuild/restart.
+
+No CLI, no manifest, no DB, no settings page. Full developer guide: [`docs/guides/developer/review-surfaces.md`](../guides/developer/review-surfaces.md). User guide: [`docs/guides/user/review-surfaces.md`](../guides/user/review-surfaces.md).
+
 ## Composition surface (AL3)
 
 The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` wraps the canvas families into a coherent review page:

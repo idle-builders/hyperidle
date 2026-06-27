@@ -352,6 +352,9 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// ── AL5: Review Surface catalog ──
+export type { ReviewCanvasKind } from "./review-surface.js";
+export { REVIEW_CANVAS_KINDS, REVIEW_SURFACES } from "./review-surface.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
 	RoutineBudget,

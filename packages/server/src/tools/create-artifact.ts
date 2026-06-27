@@ -19,12 +19,49 @@
 
 import { randomUUID } from "node:crypto";
 import { artifacts, tasks } from "@hyperidle/db";
-import { ARTIFACT_KINDS, type ArtifactCreatedEvent } from "@hyperidle/shared";
+import { ARTIFACT_KINDS, type ArtifactCreatedEvent, REVIEW_SURFACES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { readSurfaceEntries, resolveSurfacesDir } from "../routes/surfaces.js";
 import { artifactPreviewSchema } from "../schemas/artifact-preview.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
+
+/**
+ * Build a human-readable list of available surface names for the agent description.
+ * Merges built-in REVIEW_SURFACES with folder surfaces read at call time.
+ * Folder surfaces are read lazily (per tool invocation context) so new drops
+ * appear without a server restart.
+ *
+ * @lore AL5: Built-ins appear first; folder surfaces append after. If a folder
+ * surface has the same name as a built-in, it does not appear twice (the built-in
+ * wins at render time anyway). We include both in the description as documentation
+ * would be confusing if we silently dropped one.
+ */
+function buildSurfaceNamesDescription(): string {
+	const folderEntries = readSurfaceEntries(resolveSurfacesDir());
+	// Merge: built-ins first, then folder surfaces not already in built-ins
+	const builtinNames = new Set(REVIEW_SURFACES.map((s) => s.name));
+	const allEntries = [
+		...REVIEW_SURFACES,
+		...folderEntries.filter((e) => !builtinNames.has(e.name)),
+	];
+	return allEntries.length > 0
+		? "Available named surfaces:\n" +
+				allEntries.map((s) => `- '${s.name}': ${s.description}`).join("\n")
+		: "No named surfaces registered.";
+}
+
+/**
+ * Read surface names description once at module load time.
+ * This includes both built-in and folder surfaces present at startup.
+ * Agents see new folder surfaces on next server restart (documented model).
+ *
+ * @lore AL5: We call at module load (not per-request) because Zod schema
+ * .describe() is static — baked in at schema construction time. The cost is
+ * one fs.readdir per server start, which is negligible.
+ */
+const SURFACE_NAMES_DESCRIPTION = buildSurfaceNamesDescription();
 
 const createArtifactInputSchema = z.object({
 	kind: z
@@ -46,6 +83,20 @@ const createArtifactInputSchema = z.object({
 		.nullable()
 		.describe(
 			"Optional business-domain tag (e.g., 'contract', 'email', 'dashboard'). Does not affect rendering.",
+		),
+	/**
+	 * AL5 (simplified + drop-in): optional named review surface override.
+	 * When set to a known surface name, the web renders that component instead of
+	 * the family canvas. Unknown names silently degrade to the family canvas (safe floor).
+	 * Folder surfaces (from ~/.hyperidle/surfaces/) are included if present at server start.
+	 */
+	surface: z
+		.string()
+		.max(200)
+		.optional()
+		.nullable()
+		.describe(
+			`Optional named review surface to use instead of the family canvas.\n${SURFACE_NAMES_DESCRIPTION}\nIf omitted or unknown, the standard family canvas renders (safe default).`,
 		),
 	preview: artifactPreviewSchema.nullable(),
 });
@@ -89,6 +140,7 @@ async function handler(args: CreateArtifactInput, ctx: ToolContext): Promise<Too
 		kind: input.kind,
 		label: input.label ?? null,
 		previewJson: input.preview !== null ? JSON.stringify(input.preview) : null,
+		surface: input.surface ?? null,
 		createdAt: now,
 	});
 

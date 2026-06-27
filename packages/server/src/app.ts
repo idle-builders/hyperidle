@@ -39,6 +39,7 @@ import { createSearchRoutes } from "./routes/search.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
 import { createStatusRoutes } from "./routes/status.js";
+import { createSurfacesRoutes } from "./routes/surfaces.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
@@ -586,6 +587,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		});
 		APP_DISPOSERS.set(app, disposers);
 	}
+
+	// AL5: drop-in surfaces served from ~/.hyperidle/surfaces/.
+	// No DB dependency — mounted outside the db block. Auth middleware still covers it
+	// (mounted above for all /api routes). Routes declare public-data boundary.
+	api.route("/surfaces", createSurfacesRoutes());
 
 	// 404 handler for unknown /api routes
 	api.notFound((c) => {

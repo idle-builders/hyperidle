@@ -230,6 +230,8 @@
 		--accent-secondary-dim: rgba(217, 119, 6, 0.08);
 		--status-info-dim: rgba(46, 125, 186, 0.08);
 		--status-error-dim: rgba(220, 74, 58, 0.08);
+		/* AL5: dim background for warning inline chips (mirrors status-error-dim pattern). */
+		--status-warning-dim: rgba(217, 119, 6, 0.08);
 		--accent-secondary-hover: #b86305;
 		--status-error-hover: #c53e30;
 
@@ -346,6 +348,8 @@
 		--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 		--status-info-dim: rgba(68, 152, 212, 0.1);
 		--status-error-dim: rgba(238, 106, 90, 0.1);
+		/* AL5: dim background for warning inline chips — dark mode, 0.10 to match pattern. */
+		--status-warning-dim: rgba(217, 119, 6, 0.1);
 		--accent-secondary-hover: #b86305;
 		--status-error-hover: #c53e30;
 
@@ -400,6 +404,8 @@
 			--accent-secondary-dim: rgba(217, 119, 6, 0.1);
 			--status-info-dim: rgba(68, 152, 212, 0.1);
 			--status-error-dim: rgba(238, 106, 90, 0.1);
+			/* AL5: dim background for warning inline chips — media-query dark override. */
+			--status-warning-dim: rgba(217, 119, 6, 0.1);
 			--accent-secondary-hover: #b86305;
 			--status-error-hover: #c53e30;
 

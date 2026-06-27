@@ -163,39 +163,47 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 
 ---
 
-### AL5 — Tool-tailored review canvases (override the family floor)
+### AL5 — Review surfaces (community/first-party React surfaces, registry-distributed, adopted)
 
-**Workpackage.** As HyperIdle and its ecosystem, I want a tool or a third party to supply a **tailored review canvas** for a specific tool's output that replaces the generic family canvas — either shipped by the tool itself (its MCP server returns the review UI) or contributed via a registered template — so reviewing, say, a Stripe refund or a Figma design is purpose-built without HyperIdle hand-building every tool's canvas. This opens the canvas slot to tool-shipped and community-contributed overrides, with the family canvas as the always-present floor.
+> **Reshaped 2026-06-25 (two founder redirects).** Was "Tool-tailored review canvases" via MCP-Apps `ui://` UIs (#1, deferred), then briefly declarative-config "templates" with runtime auto-apply (#2, rejected). Now: a **review-surface** model — a contributed review surface **is a React component** specializing a base canvas, **distributed through a registry** (shadcn-style, anyone can host) and **deliberately adopted** by a team (owned, version-pinned, reviewable — **never runtime auto-applied**). Concept: `plans/AL5/concept.md`.
 
-**Why this matters.** "Review for anything across every tool" cannot scale if HyperIdle builds every tool's canvas. The override tiers let the long tail be covered by the tool vendor (MCP Apps) or the community (a template/registry). The founder and the ecosystem benefit; without it, every non-family-generic tool gets only the generic canvas.
+**Workpackage.** As a community contributor or as HyperIdle, I want to **write a review surface** — a React component that specializes one of the base review canvases for a specific app/tool/task (a Stripe refund, a marketing campaign, a data migration) — and **publish it to a registry**; and as a team I want to **browse, preview, and adopt** the surface I want for a given review situation, owned and version-pinned — so reviewing domain work is purpose-built without HyperIdle hand-building every surface, and "review for anything" becomes "review *well* for the work that matters."
 
-**What exists today.** HyperIdle speaks MCP (the harness). The built-in family canvases + the kind→family selection (AL2/AL3). No mechanism for a tool's MCP server to return an embeddable review canvas, and no community template/registry for a per-tool canvas.
+**Why this matters.** Properly structured, domain-specific review surfaces are a key of the future of agentic business. "Review for anything" cannot be *good* if every tool gets only the generic canvas, and cannot *scale* if HyperIdle authors every specialized surface. The review canvas is already React; a surface is just more React, cheap to write (often AI-written) and reviewable as code. A registry lets HyperIdle and the community cover the long tail through one mechanism.
 
-**What's genuinely missing.** The resolution layer above the family floor: render a tool-shipped canvas (a sandboxed UI returned by the tool's MCP server) when present, and/or a community-registered per-tool template, selected by (tool, kind) ahead of the generic family canvas — safely (sandboxed, trust-tiered).
+**What exists today.** The nine built-in base canvases (React) + the kind→family registry (AL2/AL3); the definition+registry pattern (`kinds/registry.ts`); the AN trust-tier vocab. No review-surface unit, no registry/distribution, no adoption mechanism, no slot/extension contracts on the base canvases.
 
-**Depends on.** AL3 — there must be a review surface with a canvas slot (and the family floor) to override; cannot start until the composition exists.
+**What's genuinely missing.** The **review-surface** noun and its lifecycle: a React component specializing a base canvas (via declared slots), **published to a registry** (HyperIdle's, community ones — anyone can host) with a manifest (base canvas, deps, provenance, trust), and **deliberately adopted** by a team for a situation (`tool/task → surface`, owned + version-pinned + reviewable). Plus the two layering modes — **wrap** (compose over the base via slots, upgrade-safe) vs **eject** (fork the base source, you own it) — and the base-canvas fallback.
+
+**Depends on.** AL3 — there must be a review composition (and the base canvases) to specialize; cannot start until it exists.
 
 **Complexity.** L
 
-**Human design review.** No — primarily an integration + resolution mechanism (the canvas is supplied by the tool/community); any host chrome extends the existing canvas slot. (`/design`'s DESIGN-CLASS is authoritative.)
+**Human design review.** No — the review-rendering side is the **existing slot** in `ReviewComposition` (a surface fills the same pane the base canvas does; defining slot/wrap points is architecture, and a surface's own visuals are author-owned). The only new pixels are the **adopt/browse control**, a routine management surface following the AN1 Connections-list pattern + the existing `:8098` preview. No new primitive/interaction. (`/design`'s DESIGN-CLASS is authoritative.)
 
 **Acceptance criteria.**
-- When a tool supplies its own review canvas for an artifact, the review renders that canvas (sandboxed) instead of the generic family canvas.
-- When a community-registered template matches an artifact's (tool, kind), the review renders that template instead of the generic family canvas.
-- When neither is present, the review falls back to the family canvas (the floor always works).
-- A tool-supplied/community canvas renders safely — sandboxed, with a trust tier — and cannot compromise the host.
-- An action taken in a tool-supplied canvas routes back through HyperIdle's existing connection to that tool, not a re-implemented integration.
+- A contributor (HyperIdle or community) can **write a review surface as a React component** that specializes a base canvas, preview it against sample data, and **publish it to a registry** with a manifest — or **fork** an existing surface as the starting point.
+- A team can **browse a registry, preview a surface, and adopt** it for a review situation (`tool/task → surface`); the adoption is **owned, committed, and version-pinned** — and the system renders the **adopted** surface by that explicit mapping, **never** by auto-selecting among candidates at render time.
+- When no surface is adopted for a situation — or an adopted surface fails to load — the review renders the **base canvas** (the floor always works); a broken surface never breaks the host review.
+- A surface specializes its base canvas by **wrap** (compose over it via slots — upgrade-safe) or **eject** (fork its source — owned); the base canvas declares per-slot which is allowed.
+- First-party and community surfaces use **one registry mechanism**, distinguished by **provenance** (`first-party | community` — identity, not a gate). No trust-tier gate (ETHOS: no preemptive trust tiers).
+- **Discovery — a real registry index.** The browse UI reads its list of available surfaces from a **registry index** (a JSON catalog), NOT a hardcoded in-repo map. HyperIdle ships one **curated** official index (the default catalog); a team can also point the browse at any **community index by URL**.
+- **Install — `add <source>` brings a surface's source into the build.** A command installs a surface by fetching its registry item + component files from a **URL, a GitHub repo, or a local path** and copying the source into the repo's `surfaces/` dir, after which the surface is adoptable. (Code is built in — no runtime plugin eval.) Proven end-to-end: install a surface from a source → it appears in the registry → a team adopts it → it renders.
+- **No dead stubs.** Every typed seam shipped for this WP (e.g. `CommunityRegistryIndex`, the browse "add a registry URL" state) is wired and exercised by a test, or removed. A typed-but-unwired seam does not count as done.
 
 **Validation scenarios.**
-- Given a tool that ships a review canvas, when its artifact is reviewed, then the tool's canvas renders sandboxed; given a tool that doesn't, then the family canvas renders.
-- Given a community-registered template for a (tool, kind), when a matching artifact is reviewed, then the template renders.
-- Given a malformed/untrusted contributed canvas, when rendered, then it is sandboxed and cannot break the host review.
+- Given a published "Stripe refund review" surface a team has adopted for Stripe refunds, when such an artifact is reviewed, then that surface renders over its base canvas; swapping the adoption back to the base canvas is a deliberate, owned change.
+- Given a situation with no adopted surface, when its artifact is reviewed, then the base canvas renders.
+- Given an adopted surface that fails to load, when its artifact is reviewed, then the review degrades to the base canvas — the host review is unaffected.
+- Given a contributor writing a surface, when they edit it, then it renders live against sample data before publishing.
+- Given a surface published to a registry index (a JSON catalog, including via a URL), when a team opens browse, then that surface is listed from the index — not from a hardcoded map.
+- Given a surface's source at a URL / GitHub repo / local path, when a user runs `add <source>`, then its files are copied into the repo and the surface becomes adoptable; a surface in a community index but not yet installed shows an "install via `add …`" affordance rather than a one-click runtime load.
 
-**Plan calls.** Concept-introducing — run `/concept` first (the override-resolution model, the MCP-Apps `ui://` integration, the community manifest + trust/registry tiers — building on `plans/AL1/design/tool-ecosystem-and-canvases.md` §3). Then architecture; likely splits (MCP-Apps integration vs the community manifest/registry).
+**Plan calls.** Concept locked (`plans/AL5/concept.md`). **Skip `/design`** — the review-rendering side is the existing slot; the only new surface (adopt/browse) is routine and follows existing patterns (the builder designs it inline against the AN1 Connections list + `:8098` viewer). Standard architecture pass; likely splits (the base-canvas slot contracts + wrap/eject layering + the surface component model vs the registry/distribution + adoption store + versioning/provenance).
 
-**Contracts / constraints.** The family canvas is always the floor (any override is additive; a missing/failed override degrades to it). Contributed/tool canvases are sandboxed with a trust tier. Selection order is deterministic (tool-shipped > community template > family floor).
+**Contracts / constraints.** A review surface is **code (a React component) specializing a base canvas — not declarative config, not an untrusted runtime plugin**; trust is adopt-time code review + ownership, not a sandbox. **No runtime auto-apply** — a surface runs only where a team deliberately adopted it (owned, version-pinned, reviewable); the registry is a catalog of availables, the app reflects adoptions. The base canvas is always the floor + fallback (no adoption / failed surface ⇒ base canvas). Two layering modes: wrap (upgrade-safe) | eject (owned); per-slot `wrap|eject|forbidden`. A surface is the lens, never the decision (never mutates verdict/action/gate). One registry mechanism for first-party + community; distinguished by **provenance** only (no trust-tier gate — ETHOS); provenance certifies identity, not correctness. The registry is a real **index** (a JSON catalog, curated default + community-by-URL); **install = `add <url|github|local>`** copies source into the build (no runtime eval); no typed-but-unwired seams ship as "done".
 
-**Out of scope.** The built-in family canvases (AL2). Building per-tool MCP connectors. Any specific tool's canvas content.
+**Out of scope.** The built-in base canvases (AL2). Building per-tool connectors (AN). Any specific surface's content. The supplier-shipped `ui://` UI tier (deferred). The connector registry (AN4 — a connector may *reference* an AL5 surface).
 
 **Effort.** L (~6d)
 

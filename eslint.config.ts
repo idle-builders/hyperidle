@@ -1094,6 +1094,72 @@ export default [
 		},
 	},
 
+	// AL5 — Surface register.ts and *.generated.ts must ONLY import registerSurface
+	// from `surface-registry-api` — never from `./surface-registry` or any relative
+	// path resolving to `surface-registry.ts`.
+	//
+	// WHY: surface-registry.ts imports surface-registry.generated.ts which imports
+	// every <id>/register.ts. If register.ts imported from surface-registry.ts, the
+	// ESM circular chain causes a ReferenceError (REGISTRY in TDZ) that crashes
+	// `npm run surface:add` in a fresh Node process.
+	//
+	// surface-registry-api.ts is the leaf: it holds REGISTRY + registerSurface and
+	// has NO imports from surface-registry.ts — the cycle is broken there.
+	//
+	// Scoped to:
+	//   - surfaces/**/register.ts    — generated registration sidecars
+	//   - surfaces/**/*.generated.ts — the generated index file
+	//
+	// Test fixtures under __test-fixtures__/ mimic register.ts and must obey the
+	// same constraint (they are the fixtures the TDZ test exercises).
+	//
+	// @lore AL5 STATIC-GUARD: this is the canonical enforcement of the TDZ-safe
+	// import invariant. The test (AL5-tzdguard-import-chain.test.ts) proves
+	// registration works; THIS rule enforces that generated files never reintroduce
+	// the bad path. A test cannot catch this because vitest/vite transforms ESM and
+	// does not reproduce the fresh-process TDZ.
+	{
+		files: [
+			"packages/web/src/pages/review/surfaces/**/register.ts",
+			"packages/web/src/pages/review/surfaces/**/*.generated.ts",
+			// fixture register.ts files under __test-fixtures__ mimic generated output
+			// and must satisfy the same import constraint.
+			"packages/web/src/pages/review/surfaces/__test-fixtures__/**/register.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							// Matches any relative path that resolves to surface-registry.ts:
+							//   ../surface-registry
+							//   ./surface-registry
+							//   ../../surface-registry
+							//   (with or without .js extension)
+							// Allow: surface-registry-api (the TDZ-safe leaf module).
+							group: [
+								"**/surface-registry",
+								"**/surface-registry.js",
+								"../surface-registry",
+								"../surface-registry.js",
+								"./surface-registry",
+								"./surface-registry.js",
+								"../../surface-registry",
+								"../../surface-registry.js",
+							],
+							message:
+								"AL5 TDZ-GUARD: generated register.ts and *.generated.ts must import registerSurface ONLY from surface-registry-api (the cycle-free leaf), never from surface-registry. Importing surface-registry creates a circular ESM chain that crashes `npm run surface:add` with ReferenceError: Cannot access 'REGISTRY' before initialization.",
+						},
+					],
+				},
+			],
+		},
+	},
+
 	// AL6 — Classifying stream-drain lint guard (AC4 static).
 	//
 	// Every `for await` loop over a streamEvents() iterable must be classified

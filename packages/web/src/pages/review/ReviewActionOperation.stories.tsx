@@ -7,13 +7,19 @@
 import type { JSX } from "react";
 import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { ReviewActionOperation } from "./ReviewActionOperation";
+import type { ActionOperationPayload, ReviewArtifact } from "./review-artifact";
 
 export default {
 	title: "Review/Action Operation",
 	group: "Conversations",
 };
 
-const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "action_operation")!;
+// @lore AL5: cast needed because MOCK_REVIEW_SUBJECT.artifacts uses ReviewArtifact<unknown>;
+// isActionOperationPayload() guards the payload at runtime. The canvas defaults to REFUND
+// fixture when the payload doesn't match.
+const artifact = MOCK_REVIEW_SUBJECT.artifacts.find(
+	(a) => a.kind === "action_operation",
+)! as ReviewArtifact<ActionOperationPayload>;
 
 export function Populated(): JSX.Element {
 	return (

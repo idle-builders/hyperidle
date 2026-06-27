@@ -1,4 +1,15 @@
+// AL5 A3: ReviewCanvasKind moved to @hyperidle/shared so shared can reference
+// it without importing from web. Re-exported here for backward compat — all
+// existing web-internal imports remain valid.
+import type { ReviewCanvasKind } from "@hyperidle/shared";
 import type { ComponentType } from "react";
+
+export type { ReviewCanvasKind } from "@hyperidle/shared";
+export { REVIEW_CANVAS_KINDS } from "@hyperidle/shared";
+
+// @lore AL5 A3: ReviewCanvasKind is now sourced from @hyperidle/shared (review-surface.ts).
+// This file re-exports it for backward compat. The type is identical — 9 string literals,
+// same names. No behavior change for existing canvases.
 
 /**
  * AL2 — Review canvas vocabulary and contracts.
@@ -9,16 +20,6 @@ import type { ComponentType } from "react";
  * dedicated canvases, plus two utility canvases (outcome_summary frame lead and
  * browser_preview escape hatch) approved in AL1.
  */
-export type ReviewCanvasKind =
-	| "outcome_summary" // frame lead
-	| "field_change_set" // record/field change-set
-	| "action_operation" // staged action/operation receipt
-	| "rendered_in_context" // email/docs render
-	| "metrics_moved" // metrics/data-diff
-	| "visual_diff" // visual before→after
-	| "code_diff" // code diff (must-win)
-	| "batch" // batch/per-item container
-	| "browser_preview"; // basic browser view
 
 export interface ReviewArtifact<TPayload = unknown> {
 	readonly id: string;
@@ -27,6 +28,9 @@ export interface ReviewArtifact<TPayload = unknown> {
 	readonly sourceHref: string; // deep link back to source record
 	readonly title: string; // artifact title
 	readonly kind: ReviewCanvasKind;
+	/** AL5 (simplified): optional named surface override. If set and known to
+	 *  REVIEW_SURFACE_REGISTRY, renders that surface instead of the family canvas. */
+	readonly surface?: string;
 	readonly payload: TPayload;
 }
 

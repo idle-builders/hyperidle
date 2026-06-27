@@ -17,11 +17,24 @@
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
 import type { ProposedCallStatus } from "@hyperidle/shared";
-import { type JSX, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
-import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
+import type { ActionOperationPayload, ReviewArtifact } from "./review-artifact.js";
 import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
+
+/**
+ * AL5 (simplified): slot overrides for the action_operation canvas.
+ * StripeRefundReview passes these to customise lead + footer regions.
+ * Inlined here after surface-slots.ts was deleted.
+ */
+export type CanvasSlots = Partial<Record<"header" | "lead" | "detail" | "footer", ReactNode>>;
+
+/** Return the slot override if defined, otherwise the default node. */
+function slot(slots: CanvasSlots | undefined, key: keyof CanvasSlots, def: ReactNode): ReactNode {
+	if (slots && key in slots) return slots[key];
+	return def;
+}
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.
@@ -97,16 +110,140 @@ export interface ReviewActionOperationProps {
 	readonly onReject?: () => void;
 }
 
+/**
+ * AL5: The full prop type for action_operation surfaces (and the canvas itself).
+ * A surface MUST accept this full prop set and forward status/outcome/proposedCall
+ * so the AL7 OutcomeBand (granted/executed/failed) is never silently dropped.
+ *
+ * @lore AL5 WARN-1: surface props are a SUPERSET of base canvas props. For
+ * action_operation, this includes the AL7 trust-first props. A surface that
+ * accepted only { artifact, slots? } would silently drop the OutcomeBand.
+ *
+ * @lore AL5: artifact is typed as ReviewArtifact<ActionOperationPayload> for
+ * surfaces that need typed access to payload fields. The canvas itself guards
+ * the payload via isActionOperationPayload() so it safely accepts ReviewArtifact<unknown>
+ * at runtime. The narrower type on ActionOperationCanvasProps surfaces the intent.
+ */
+export interface ActionOperationCanvasProps {
+	readonly artifact: ReviewArtifact<ActionOperationPayload>;
+	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
+	readonly status?: ProposedCallStatus;
+	readonly outcome?: ProposedCallOutcomeView;
+	readonly proposedCall?: ProposedCallView;
+	/** AL5: optional slot overrides — undefined => base canvas renders its defaults. */
+	readonly slots?: CanvasSlots;
+}
+
 function ReviewActionOperationView({
 	operation = REFUND,
 	status = "captured",
 	outcome,
 	onApprove,
 	onReject,
-}: ReviewActionOperationProps): JSX.Element {
+	slots,
+}: ReviewActionOperationProps & { readonly slots?: CanvasSlots }): JSX.Element {
 	// L3 starts expanded so the layering is visible in a single screenshot;
 	// in the thread it collapses to keep the canvas at L1+L2 by default.
 	const [showDetail, setShowDetail] = useState<boolean>(true);
+
+	// ── AL5 slot seams — defaults are the existing regions ─────────────────
+	const defaultHeader = (
+		<header className="px-[18px] pt-[18px] pb-[12px]">
+			<div className="min-w-0 flex-1">
+				<div className="flex items-center gap-[6px]">
+					<h2 className="text-[15px] font-[600] leading-none text-[var(--text-primary)]">
+						{operation.action}
+					</h2>
+					<IrreversibleBadge />
+				</div>
+				<p className="mt-[6px] text-[13px] leading-[1.45] text-[var(--text-secondary)]">
+					{operation.intent}
+				</p>
+			</div>
+		</header>
+	);
+
+	const defaultLead = (
+		<div
+			className="mx-[18px] flex items-baseline justify-between border px-[18px] py-[12px]"
+			style={{
+				borderRadius: "var(--r-subtle)",
+				borderColor: "var(--accent-secondary-dim)",
+				background: "var(--accent-secondary-dim)",
+			}}
+		>
+			<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
+				Refund amount
+			</span>
+			<span
+				className="text-[30px] font-[700] leading-none text-[var(--text-primary)]"
+				style={{ fontVariantNumeric: "tabular-nums" }}
+			>
+				{operation.amount}
+				<span className="ml-[6px] text-[13px] font-[500] text-[var(--text-tertiary)]">
+					{operation.currency}
+				</span>
+			</span>
+		</div>
+	);
+
+	const defaultDetail = (
+		<dl className="mt-[12px] px-[18px]">
+			{operation.fields.map((field, i) => (
+				<div
+					key={field.label}
+					className="flex items-start justify-between gap-[12px] py-[9px]"
+					style={{
+						borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
+					}}
+				>
+					<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">
+						{field.label}
+					</dt>
+					<dd className="min-w-0 text-right">
+						<div
+							className={
+								field.mono
+									? "truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
+									: "text-[13px] font-[500] text-[var(--text-primary)]"
+							}
+							style={field.mono ? { fontVariantNumeric: "tabular-nums" } : undefined}
+						>
+							{field.value}
+						</div>
+						{field.sub ? (
+							<div className="mt-[3px] text-[12px] text-[var(--text-secondary)]">{field.sub}</div>
+						) : null}
+					</dd>
+				</div>
+			))}
+		</dl>
+	);
+
+	const defaultFooter = (
+		<footer className="mt-[6px] flex items-center justify-end gap-[9px] border-t border-[var(--border-subtle)] px-[18px] py-[12px]">
+			<button
+				type="button"
+				onClick={onReject}
+				className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-secondary)] transition-opacity hover:opacity-80"
+				style={{ borderRadius: "var(--r-pill)", transitionDuration: "var(--motion-fast)" }}
+			>
+				Reject
+			</button>
+			<button
+				type="button"
+				onClick={onApprove}
+				className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-opacity hover:opacity-90"
+				style={{
+					borderRadius: "var(--r-pill)",
+					background: "var(--accent-primary)",
+					transitionDuration: "var(--motion-fast)",
+				}}
+			>
+				Approve refund
+			</button>
+		</footer>
+	);
 
 	return (
 		<article
@@ -116,75 +253,14 @@ function ReviewActionOperationView({
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
-			{/* ── L1 · one glance: action + amount + tool + irreversible ── */}
-			<header className="px-[18px] pt-[18px] pb-[12px]">
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-[6px]">
-						<h2 className="text-[15px] font-[600] leading-none text-[var(--text-primary)]">
-							{operation.action}
-						</h2>
-						<IrreversibleBadge />
-					</div>
-					<p className="mt-[6px] text-[13px] leading-[1.45] text-[var(--text-secondary)]">
-						{operation.intent}
-					</p>
-				</div>
-			</header>
+			{/* ── header seam (AL5 §1.3): above the card body ── */}
+			{slot(slots, "header", defaultHeader)}
 
-			{/* the amount — the single loudest element on the canvas */}
-			<div
-				className="mx-[18px] flex items-baseline justify-between border px-[18px] py-[12px]"
-				style={{
-					borderRadius: "var(--r-subtle)",
-					borderColor: "var(--accent-secondary-dim)",
-					background: "var(--accent-secondary-dim)",
-				}}
-			>
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-					Refund amount
-				</span>
-				<span
-					className="text-[30px] font-[700] leading-none text-[var(--text-primary)]"
-					style={{ fontVariantNumeric: "tabular-nums" }}
-				>
-					{operation.amount}
-					<span className="ml-[6px] text-[13px] font-[500] text-[var(--text-tertiary)]">
-						{operation.currency}
-					</span>
-				</span>
-			</div>
+			{/* ── lead seam (AL5 §1.3): primary summary / amount region ── */}
+			{slot(slots, "lead", defaultLead)}
 
-			{/* ── L2 · the receipt: the fields that define the operation ── */}
-			<dl className="mt-[12px] px-[18px]">
-				{operation.fields.map((field, i) => (
-					<div
-						key={field.label}
-						className="flex items-start justify-between gap-[12px] py-[9px]"
-						style={{
-							borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
-						}}
-					>
-						<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">
-							{field.label}
-						</dt>
-						<dd className="min-w-0 text-right">
-							<div
-								className={
-									field.mono
-										? "truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
-										: "text-[13px] font-[500] text-[var(--text-primary)]"
-								}
-								style={field.mono ? { fontVariantNumeric: "tabular-nums" } : undefined}
-							>
-								{field.value}
-							</div>
-							{field.sub ? (
-								<div className="mt-[3px] text-[12px] text-[var(--text-secondary)]">{field.sub}</div>
-							) : null}
-						</dd>
-					</div>
-				))}
-			</dl>
+			{/* ── detail seam (AL5 §1.3): the receipt fields ── */}
+			{slot(slots, "detail", defaultDetail)}
 
 			{/* ── AL7 trust-first · the execution outcome band (granted | executed | failed) ── */}
 			{/* @lore AL7: `granted` is transient — the agent is provisioned for session 2.
@@ -250,29 +326,8 @@ function ReviewActionOperationView({
 				</div>
 			) : null}
 
-			{/* ── L3 · the pre-commit verdict gate ── */}
-			<footer className="mt-[6px] flex items-center justify-end gap-[9px] border-t border-[var(--border-subtle)] px-[18px] py-[12px]">
-				<button
-					type="button"
-					onClick={onReject}
-					className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-secondary)] transition-opacity hover:opacity-80"
-					style={{ borderRadius: "var(--r-pill)", transitionDuration: "var(--motion-fast)" }}
-				>
-					Reject
-				</button>
-				<button
-					type="button"
-					onClick={onApprove}
-					className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-opacity hover:opacity-90"
-					style={{
-						borderRadius: "var(--r-pill)",
-						background: "var(--accent-primary)",
-						transitionDuration: "var(--motion-fast)",
-					}}
-				>
-					Approve refund
-				</button>
-			</footer>
+			{/* ── footer seam (AL5 §1.3): verdict gate ── */}
+			{slot(slots, "footer", defaultFooter)}
 		</article>
 	);
 }
@@ -523,15 +578,21 @@ function ProposedCallArgsPanel({
 	);
 }
 
+/**
+ * ReviewActionOperation — the exported canvas entry point.
+ *
+ * AL5: Now accepts ActionOperationCanvasProps which includes the AL7 trust-first
+ * props (status/outcome/proposedCall) AND the optional slots bag.
+ * The slots are forwarded into ReviewActionOperationView so surfaces can override
+ * the declared seams (header/lead/detail/footer) without losing the AL7 OutcomeBand.
+ */
 export function ReviewActionOperation({
 	artifact,
 	status,
 	outcome,
 	proposedCall,
-}: ReviewCanvasProps &
-	Pick<ReviewActionOperationProps, "status" | "outcome"> & {
-		readonly proposedCall?: ProposedCallView;
-	}): JSX.Element {
+	slots,
+}: ActionOperationCanvasProps): JSX.Element {
 	const operation = isActionOperationPayload(artifact.payload)
 		? mapActionPayload(artifact.payload)
 		: REFUND;
@@ -546,7 +607,12 @@ export function ReviewActionOperation({
 			{/* AC10b WARNING-2: render the concrete captured args (verbatim, not a summary)
 			    so the human approves what the agent actually called. */}
 			{proposedCall ? <ProposedCallArgsPanel proposedCall={proposedCall} /> : null}
-			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
+			<ReviewActionOperationView
+				operation={operation}
+				status={status}
+				outcome={outcome}
+				slots={slots}
+			/>
 		</div>
 	);
 }

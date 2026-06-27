@@ -13,6 +13,7 @@ HyperIdle is an operating system for running a Product Factory — a portfolio o
 - [Ambient Awareness](./the-rail.md)
 - [Global Search](./global-search.md)
 - [Settings](./settings.md)
+- [Review Surfaces](./review-surfaces.md)
 - [Connecting services](./connections.md) — token, MCP server, inherited from harness; Settings → Connections
 - [Agents](./agents.md)
 - [Cost Management](./cost-management.md)

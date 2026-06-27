@@ -63,7 +63,8 @@
 		"eval:quick": "npm run -w @hyperidle/eval eval -- --quick",
 		"docs:dev": "vitepress dev docs/product",
 		"docs:build": "vitepress build docs/product",
-		"smoke:ah6": "tsx --env-file-if-exists=.env scripts/ah6-smoke-local.ts"
+		"smoke:ah6": "tsx --env-file-if-exists=.env scripts/ah6-smoke-local.ts",
+		"build-surface": "tsx scripts/build-surface.ts"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
@@ -80,6 +81,7 @@
 		"@typescript-eslint/utils": "^8.59.0",
 		"@vitest/coverage-v8": "^4.1.5",
 		"concurrently": "^9.1.0",
+		"esbuild": "^0.25.0",
 		"eslint": "^10.2.1",
 		"eslint-plugin-design": "*",
 		"eslint-plugin-drizzle": "^0.2.3",

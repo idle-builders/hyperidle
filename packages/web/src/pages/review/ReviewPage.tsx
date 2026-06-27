@@ -23,25 +23,36 @@ import { ReviewComposition } from "./ReviewComposition.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
+export interface ReviewLoaderResult {
+	readonly subject: ComposedReviewSubject;
+}
+
 export type ReviewLoader = (params: {
 	readonly betId: string;
 	readonly reviewId: string;
-}) => Promise<ComposedReviewSubject>;
+	readonly teamId?: string;
+}) => Promise<ReviewLoaderResult>;
 
 interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
 }
 
-async function defaultLoader({
+/** @internal Exported for unit-testing. */
+export async function defaultLoader({
 	reviewId,
 }: {
+	readonly betId: string;
 	readonly reviewId: string;
-}): Promise<ComposedReviewSubject> {
-	const res = await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`);
-	if (!res.ok) {
-		throw new Error(`Could not load review: ${res.status}`);
+	readonly teamId?: string;
+}): Promise<ReviewLoaderResult> {
+	const reviewRes = await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`);
+
+	if (!reviewRes.ok) {
+		throw new Error(`Could not load review: ${reviewRes.status}`);
 	}
-	return (await res.json()) as ComposedReviewSubject;
+
+	const subject = (await reviewRes.json()) as ComposedReviewSubject;
+	return { subject };
 }
 
 function isArtifactEntityRef(ref: {
@@ -128,11 +139,16 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		return { ...subject, conversation: threadComments };
 	}, [subject, hostThread.data]);
 
+	// Capture teamId from user for the loader. Re-run if user loads after page mount.
+	const teamId = user?.teamId;
+
 	useEffect(() => {
 		let cancelled = false;
-		loader({ betId, reviewId })
-			.then((s) => {
-				if (!cancelled) setSubject(s);
+		loader({ betId, reviewId, teamId })
+			.then(({ subject: s }) => {
+				if (!cancelled) {
+					setSubject(s);
+				}
 			})
 			.catch((e: unknown) => {
 				if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
@@ -140,7 +156,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 		return () => {
 			cancelled = true;
 		};
-	}, [betId, reviewId, loader]);
+	}, [betId, reviewId, loader, teamId]);
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
@@ -150,10 +166,10 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
 			await postPlainHostMessage(activeThreadId, text, crypto.randomUUID(), undefined, anchor);
 			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId, teamId });
 			setSubject(refreshed);
 		},
-		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
+		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, teamId, user],
 	);
 
 	const handleSubmitVerdict = useCallback(
@@ -176,10 +192,10 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 			// one — which is also how the user sees a race/authz failure surface.
 			await postVerdictHostMessage(threadId, decision, reviewMessageId, crypto.randomUUID());
 			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			const { subject: refreshed } = await loader({ betId, reviewId, teamId });
 			setSubject(refreshed);
 		},
-		[betId, hostThread, loader, reviewId, user],
+		[betId, hostThread, loader, reviewId, teamId, user],
 	);
 
 	if (error) {

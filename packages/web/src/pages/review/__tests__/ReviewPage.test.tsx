@@ -2,8 +2,10 @@ import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ReviewPage } from "../ReviewPage.js";
+import { type ReviewLoaderResult, ReviewPage } from "../ReviewPage.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
+
+const LOADER_RESULT: ReviewLoaderResult = { subject: REVIEW_COMPOSITION_SUBJECT };
 
 const anchoredMessage: Message = {
 	id: "host-msg-1",
@@ -97,7 +99,7 @@ afterEach(() => {
 	refreshSpy.mockClear();
 });
 describe("ReviewPage route", () => {
-	function renderRoute(loader?: () => Promise<typeof REVIEW_COMPOSITION_SUBJECT>) {
+	function renderRoute(loader?: () => Promise<ReviewLoaderResult>) {
 		const router = createMemoryRouter(
 			[
 				{
@@ -111,17 +113,18 @@ describe("ReviewPage route", () => {
 	}
 
 	it("loads the review subject and renders the composition", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
 			expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		});
-		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123" });
+		// teamId is undefined in this test because the mock user has no teamId.
+		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123", teamId: undefined });
 	});
 
 	it("maps host-thread messages into the review conversation with anchors", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
@@ -135,7 +138,7 @@ describe("ReviewPage route", () => {
 		// review" routes here. This confirms the relocated verdict DECISION UI
 		// (Approve / Request changes + the overflow reject/edit menu) is present
 		// and reachable on the review page.
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		await waitFor(() => {
@@ -146,7 +149,7 @@ describe("ReviewPage route", () => {
 	});
 
 	it("submitting Approve POSTs a verdict resolving the review message, then refreshes", async () => {
-		const loader = vi.fn().mockResolvedValue(REVIEW_COMPOSITION_SUBJECT);
+		const loader = vi.fn().mockResolvedValue(LOADER_RESULT);
 		renderRoute(loader);
 
 		const approve = await screen.findByRole("button", { name: /^approve$/i });
@@ -205,7 +208,7 @@ describe("ReviewPage route", () => {
 
 describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders", () => {
 	function renderReview(subject: typeof REVIEW_COMPOSITION_SUBJECT) {
-		const loader = vi.fn().mockResolvedValue(subject);
+		const loader = vi.fn().mockResolvedValue({ subject, adoptions: [] });
 		const router = createMemoryRouter(
 			[
 				{
@@ -293,5 +296,55 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 		});
 		// Error text must appear verbatim
 		expect(screen.getByText(verbatimError)).toBeInTheDocument();
+	});
+});
+
+// ── Named surface renders via artifact.surface field ─────────────────────────
+//
+// AL5 (simplified): proves the full chain for the named surface model:
+//   ReviewPage (loader result) → ReviewComposition → getReviewSurface(artifact.surface)
+//   → StripeRefundReview (renders Stripe-specific lead + routing note)
+//
+// The loader supplies a subject where the action_operation artifact carries
+// surface:"stripe-refund-review" — no DB adoptions, no resolveSurface machinery.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("AL5 (simplified): artifact.surface triggers named surface component", () => {
+	it("renders StripeRefundReview when artifact.surface='stripe-refund-review'", async () => {
+		// Build a subject where the action_operation artifact declares its surface name.
+		const subjectWithSurface = {
+			...REVIEW_COMPOSITION_SUBJECT,
+			artifacts: REVIEW_COMPOSITION_SUBJECT.artifacts.map((a) =>
+				a.kind === "action_operation" ? { ...a, surface: "stripe-refund-review" } : a,
+			),
+		};
+
+		const loader = vi.fn().mockResolvedValue({
+			subject: subjectWithSurface,
+		} satisfies ReviewLoaderResult);
+
+		const router = createMemoryRouter(
+			[
+				{
+					path: "/work/bet/:betId/review/:reviewId",
+					element: <ReviewPage loader={loader} />,
+				},
+			],
+			{ initialEntries: ["/work/bet/bet-123/review/rev-1"] },
+		);
+		render(<RouterProvider router={router} />);
+
+		// Open the action_operation artifact (stripe refund)
+		const artifactRow = await screen.findByText(/Refund payment/);
+		fireEvent.click(artifactRow);
+
+		// StripeRefundReview renders a "Stripe Refund" header in RefundLead and a
+		// routing note in RefundRoutingNote — absent from the base ReviewActionOperation.
+		await waitFor(() => {
+			expect(screen.getByText("Stripe Refund")).toBeInTheDocument();
+		});
+		expect(
+			screen.getByText(/Approving sends the refund via your Stripe connection/),
+		).toBeInTheDocument();
 	});
 });

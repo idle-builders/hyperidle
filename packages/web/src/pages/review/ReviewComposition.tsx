@@ -1,9 +1,9 @@
 import { Composer, SplitView } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useUiPreference } from "../../hooks/useUiPreference.js";
 import { getReviewCanvas } from "./canvas-registry.js";
-import { ReviewActionOperation } from "./ReviewActionOperation.js";
+import { type ActionOperationCanvasProps, ReviewActionOperation } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
 import type {
 	ComposedReviewSubject,
@@ -12,6 +12,7 @@ import type {
 	ReviewKpi,
 	ReviewNeed,
 } from "./review-composition.js";
+import { getReviewSurface } from "./review-surfaces.js";
 import { type ToolId, ToolLogo } from "./ToolLogo.js";
 
 // ── small presentational atoms ─────────────────────────────────────────────────────
@@ -640,7 +641,6 @@ function ExaminePane({
 	readonly artifact: ComposedReviewSubject["artifacts"][number];
 	readonly onClose: () => void;
 }): JSX.Element {
-	const Canvas = getReviewCanvas(artifact.kind);
 	return (
 		// AM5 T6: w-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
 		<aside className="flex h-full flex-col bg-[var(--surface-container)]">
@@ -671,19 +671,33 @@ function ExaminePane({
 
 			<div className="min-h-0 flex-1 overflow-auto">
 				<div className="flex flex-col gap-[18px] p-[18px]">
-					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
-					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
-					    Fallback to stagedOperation for backward compat during migration. */}
-					{artifact.kind === "action_operation" ? (
-						<ReviewActionOperation
-							artifact={artifact}
-							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
-							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
-							proposedCall={artifact.proposedCall}
-						/>
-					) : (
-						<Canvas artifact={artifact} />
-					)}
+					{/* AL5 (simplified): render-by-name with family canvas floor.
+					    Named surface takes priority if set and known; otherwise the family canvas.
+					    For action_operation: AL7 props (status/outcome/proposedCall) forwarded
+					    through BOTH the named surface and the base canvas path — OutcomeBand intact.
+					    @lore AL5: No SurfaceBoundary needed — in-repo surfaces don't need error
+					    isolation. All surface components are trusted, reviewed, committed code. */}
+					{artifact.kind === "action_operation"
+						? (() => {
+								const Canvas = (getReviewSurface(artifact.surface) ??
+									ReviewActionOperation) as React.ComponentType<ActionOperationCanvasProps>;
+								const typedArtifact = artifact as ActionOperationCanvasProps["artifact"];
+								const status = artifact.proposedCall?.status ?? artifact.stagedOperation?.status;
+								const outcome = artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome;
+								const proposedCall = artifact.proposedCall;
+								return (
+									<Canvas
+										artifact={typedArtifact}
+										status={status}
+										outcome={outcome}
+										proposedCall={proposedCall}
+									/>
+								);
+							})()
+						: (() => {
+								const Canvas = getReviewSurface(artifact.surface) ?? getReviewCanvas(artifact.kind);
+								return <Canvas artifact={artifact} />;
+							})()}
 				</div>
 			</div>
 		</aside>

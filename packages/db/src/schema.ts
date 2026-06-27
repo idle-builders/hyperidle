@@ -856,6 +856,9 @@ export const artifacts = pgTable(
 		// AE6: optional business-domain tag (e.g., 'contract', 'email'). Does NOT affect renderer.
 		label: text("label"),
 		previewJson: text("preview_json"),
+		/** AL5 (simplified): optional named review surface. When set, the web renders
+		 *  the named surface component instead of the family canvas for this artifact. */
+		surface: text("surface"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
