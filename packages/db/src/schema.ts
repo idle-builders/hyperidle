@@ -856,6 +856,9 @@ export const artifacts = pgTable(
 		// AE6: optional business-domain tag (e.g., 'contract', 'email'). Does NOT affect renderer.
 		label: text("label"),
 		previewJson: text("preview_json"),
+		/** AL5 (simplified): optional named review surface. When set, the web renders
+		 *  the named surface component instead of the family canvas for this artifact. */
+		surface: text("surface"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
@@ -1234,55 +1237,3 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
-
-/**
- * AL5 — Surface adoptions table.
- *
- * A team's deliberate, version-pinned adoption of a review surface for a given
- * (tool, kind) situation. The unique index enforces concept hard-rule #2:
- * at-most-one adopted surface per (team × situation) — the DB CANNOT hold two.
- *
- * Default adoption = absence of a row → base canvas (floor).
- *
- * @lore AL5 §4.1: teamId FKs to `teams` (the workspace), NOT `teamMembers`.
- * An adoption is a workspace-owned config, not a per-user membership row.
- * Scoped by teamId at the query level (not per-user like serviceConnections).
- */
-export const surfaceAdoptions = pgTable(
-	"surface_adoptions",
-	{
-		id: text("id").primaryKey(), // sa-<uuid>
-		/** Adoption is a deployment/team-owned choice, not per-user. Scope = team. */
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "cascade" }),
-		/** situation.tool — "stripe", "github", etc. */
-		tool: text("tool").notNull(),
-		/** situation.kind — "action_operation", etc. */
-		kind: text("kind").notNull(),
-		/** manifest.id — "stripe-refund-review" */
-		surfaceId: text("surface_id").notNull(),
-		/** manifest.version at adopt time. Informational at AL5 (single in-repo version). */
-		pinnedVersion: text("pinned_version").notNull(),
-		/** "first-party" | "community" */
-		provenance: text("provenance").notNull(),
-		/** Who adopted it. */
-		adoptedBy: text("adopted_by")
-			.notNull()
-			.references(() => users.id),
-		createdAt: text("created_at").notNull(),
-		updatedAt: text("updated_at").notNull(),
-	},
-	(t) => [
-		/**
-		 * EXACTLY ONE adopted surface per (team × situation) — enforces concept
-		 * "0..1 adopted". The DB cannot hold two adoptions for the same situation.
-		 * POST upserts via ON CONFLICT; the constraint rejects raw double-inserts.
-		 */
-		uniqueIndex("surface_adoptions_team_situation_idx").on(t.teamId, t.tool, t.kind),
-		index("surface_adoptions_team_idx").on(t.teamId),
-	],
-);
-
-export type SurfaceAdoptionRow = typeof surfaceAdoptions.$inferSelect;
-export type NewSurfaceAdoptionRow = typeof surfaceAdoptions.$inferInsert;

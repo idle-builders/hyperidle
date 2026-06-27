@@ -1,10 +1,5 @@
 // ── AK3: Bet decomposition types + constants ──
 
-// ── AL5: Surface install resolver (add <source> CLI) ──
-// TYPES only — the runtime functions use node:fs/promises and cannot run in the browser.
-// The CLI imports them directly from the source file path (not via a subpath export).
-// @lore AL5: Same isolation pattern as "@hyperidle/shared/net" (ssrf.ts uses node:dns/net).
-export type { AddSource, GenerateRegistrationFileOptions, InstallResult } from "./add-install.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,
@@ -336,28 +331,9 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
-// ── AL5: Registry index (official catalog + community loader) ──
-export type { RegistryIndex } from "./registry-index.js";
-export {
-	loadRegistryIndex,
-	OFFICIAL_REGISTRY_INDEX,
-} from "./registry-index.js";
-// ── AL5: Review Surface registry types ──
-export type {
-	AdoptionView,
-	CommunityRegistryIndex,
-	LayeringMode,
-	ReviewCanvasKind,
-	SurfaceManifest,
-	SurfaceProvenance,
-	SurfaceSituation,
-} from "./review-surface.js";
-export {
-	LAYERING_MODES,
-	REGISTERED_SURFACE_MANIFESTS,
-	REVIEW_CANVAS_KINDS,
-	SURFACE_PROVENANCE,
-} from "./review-surface.js";
+// ── AL5: Review Surface catalog ──
+export type { ReviewCanvasKind } from "./review-surface.js";
+export { REVIEW_CANVAS_KINDS, REVIEW_SURFACES } from "./review-surface.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
 	RoutineBudget,

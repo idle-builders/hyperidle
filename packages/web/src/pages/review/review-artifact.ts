@@ -7,8 +7,6 @@ import type { ComponentType } from "react";
 export type { ReviewCanvasKind } from "@hyperidle/shared";
 export { REVIEW_CANVAS_KINDS } from "@hyperidle/shared";
 
-import type { CanvasSlots } from "./surface-slots.js";
-
 // @lore AL5 A3: ReviewCanvasKind is now sourced from @hyperidle/shared (review-surface.ts).
 // This file re-exports it for backward compat. The type is identical — 9 string literals,
 // same names. No behavior change for existing canvases.
@@ -30,13 +28,14 @@ export interface ReviewArtifact<TPayload = unknown> {
 	readonly sourceHref: string; // deep link back to source record
 	readonly title: string; // artifact title
 	readonly kind: ReviewCanvasKind;
+	/** AL5 (simplified): optional named surface override. If set and known to
+	 *  REVIEW_SURFACE_REGISTRY, renders that surface instead of the family canvas. */
+	readonly surface?: string;
 	readonly payload: TPayload;
 }
 
 export interface ReviewCanvasProps<TPayload = unknown> {
 	readonly artifact: ReviewArtifact<TPayload>;
-	/** AL5: optional slot overrides — undefined => base canvas renders its defaults. Additive/opt-in. */
-	readonly slots?: CanvasSlots;
 }
 
 export type ReviewCanvasComponent<TPayload = unknown> = ComponentType<ReviewCanvasProps<TPayload>>;

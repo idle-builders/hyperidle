@@ -19,12 +19,19 @@
 
 import { randomUUID } from "node:crypto";
 import { artifacts, tasks } from "@hyperidle/db";
-import { ARTIFACT_KINDS, type ArtifactCreatedEvent } from "@hyperidle/shared";
+import { ARTIFACT_KINDS, type ArtifactCreatedEvent, REVIEW_SURFACES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { artifactPreviewSchema } from "../schemas/artifact-preview.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
+
+/** Human-readable list of available surface names for the agent description. */
+const SURFACE_NAMES_DESCRIPTION =
+	REVIEW_SURFACES.length > 0
+		? "Available named surfaces:\n" +
+			REVIEW_SURFACES.map((s) => `- '${s.name}': ${s.description}`).join("\n")
+		: "No named surfaces registered.";
 
 const createArtifactInputSchema = z.object({
 	kind: z
@@ -46,6 +53,19 @@ const createArtifactInputSchema = z.object({
 		.nullable()
 		.describe(
 			"Optional business-domain tag (e.g., 'contract', 'email', 'dashboard'). Does not affect rendering.",
+		),
+	/**
+	 * AL5 (simplified): optional named review surface override.
+	 * When set to a known surface name, the web renders that component instead of
+	 * the family canvas. Unknown names silently degrade to the family canvas (safe floor).
+	 */
+	surface: z
+		.string()
+		.max(200)
+		.optional()
+		.nullable()
+		.describe(
+			`Optional named review surface to use instead of the family canvas.\n${SURFACE_NAMES_DESCRIPTION}\nIf omitted or unknown, the standard family canvas renders (safe default).`,
 		),
 	preview: artifactPreviewSchema.nullable(),
 });
@@ -89,6 +109,7 @@ async function handler(args: CreateArtifactInput, ctx: ToolContext): Promise<Too
 		kind: input.kind,
 		label: input.label ?? null,
 		previewJson: input.preview !== null ? JSON.stringify(input.preview) : null,
+		surface: input.surface ?? null,
 		createdAt: now,
 	});
 

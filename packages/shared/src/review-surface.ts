@@ -1,20 +1,27 @@
 /**
- * AL5 — Review Surface shared types.
+ * AL5 (simplified) — Review surface shared types.
  *
- * Shared because both the web registry loader and the server adoption resolver
- * reference the *shape*; the **component** stays in web.
+ * Contains only what shared needs to export:
+ * 1. The 9 canvas kinds (REVIEW_CANVAS_KINDS / ReviewCanvasKind).
+ * 2. The named surface catalog (REVIEW_SURFACES) — a tiny static list the
+ *    agent uses when calling create_artifact with surface=.
  *
- * @lore AL5: NO component reference here — shared has no React. The registry
- * (web) joins manifest.id → component. Same split as KindDefinition (schema in
- * shared, renderer in web).
+ * All machinery (SurfaceManifest, REGISTERED_SURFACE_MANIFESTS, AdoptionView,
+ * registry-index, add-install) has been removed (AL5 simplification).
+ *
+ * @lore AL5: The old model (DB adoptions, install CLI, manifest, slot/wrap/eject)
+ * was replaced with a dead-simple named-surface registry in the web package:
+ * `REVIEW_SURFACE_REGISTRY: Record<string, ReviewCanvasComponent>`.
+ * Shared only provides the surface NAME list so the agent can reference names
+ * in create_artifact's `surface` param without importing from web.
  */
 
 /**
- * The 9 review canvas kinds from AL2. Moved here so shared can reference the
- * union without importing from web (web → shared direction is safe; shared ↛ web).
+ * The 9 review canvas kinds from AL2. Shared so web's `review-artifact.ts`
+ * and server-side code can reference the union without importing from web.
  *
- * @lore AL5 A2: ReviewCanvasKind in web/review-artifact.ts re-exports from here.
- * The const here is the authority; web's union type is derived from it.
+ * @lore AL5: Previously exported alongside SurfaceManifest etc. The kinds
+ * themselves remain valid — only the surface-install machinery is removed.
  */
 export const REVIEW_CANVAS_KINDS = [
 	"outcome_summary",
@@ -30,100 +37,25 @@ export const REVIEW_CANVAS_KINDS = [
 
 export type ReviewCanvasKind = (typeof REVIEW_CANVAS_KINDS)[number];
 
-/** The addressable review situation: a (tool, kind) pair. */
-export interface SurfaceSituation {
-	readonly tool: string; // "stripe"
-	readonly kind: ReviewCanvasKind; // "action_operation"
-}
-
-/** Where the surface sits on its base canvas. CLOSED (concept). */
-export const LAYERING_MODES = ["wrap", "eject"] as const;
-export type LayeringMode = (typeof LAYERING_MODES)[number];
-
-/** Who authored it. CLOSED. */
-export const SURFACE_PROVENANCE = ["first-party", "community"] as const;
-export type SurfaceProvenance = (typeof SURFACE_PROVENANCE)[number];
-
 /**
- * A community registry pointer — a URL serving a `surface-registry.json` index
- * (an array of SurfaceManifest + a resolvable component module URL).
+ * Catalog of named review surfaces available at runtime.
  *
- * @lore AL5 §3.2: This type is consumed by the browse dialog's "add a registry URL"
- * read path (B5 displays remote manifests). The knip guard requires a real importer.
+ * The agent uses this when calling create_artifact with an optional `surface`
+ * param. Web's REVIEW_SURFACE_REGISTRY keys must match these names exactly.
+ * Adding a surface = write the component, add it to REVIEW_SURFACE_REGISTRY,
+ * and add one entry here. Config-time, no DB, no install.
  */
-export interface CommunityRegistryIndex {
-	readonly url: string;
-	readonly manifests: readonly SurfaceManifest[];
-}
-
-/**
- * The descriptor that accompanies a review-surface component. Mirrors a shadcn
- * registry-item.json: an id, the base canvas it specializes (registryDependency),
- * npm deps, provenance/trust, version, and bundled sample data for preview.
- */
-export interface SurfaceManifest {
-	/** Stable registry id, namespaced for community: "stripe-refund-review" | "@acme/figma-review". */
-	readonly id: string;
-	readonly title: string;
+export interface ReviewSurfaceCatalogEntry {
+	/** Stable name matching the key in REVIEW_SURFACE_REGISTRY. */
+	readonly name: string;
+	/** Short description for the agent. */
 	readonly description: string;
-	/** "Name <email>" (shadcn author convention). */
-	readonly author: string;
-	/** semver. Adoptions PIN this. */
-	readonly version: string;
-	/** The base canvas it specializes — the shadcn `registryDependencies` of the floor. */
-	readonly baseCanvas: ReviewCanvasKind;
-	readonly layering: LayeringMode;
-	readonly provenance: SurfaceProvenance;
-	/** npm runtime deps, shadcn-style "pkg@1.2.3". Informational at AL5 (in-repo build). */
-	readonly dependencies?: readonly string[];
-	/** The (tool, kind) situations this surface is BUILT for — discovery hint, NOT auto-apply.
-	 *  Adoption is still an explicit human choice; this only pre-filters the browse dialog. */
-	readonly situations: readonly SurfaceSituation[];
-	/** Bundled sample fixture id for the preview (renders the surface's .stories.tsx). */
-	readonly sampleFixture: string;
 }
 
-/**
- * The flat display shape for an adoption, server-joined against the registry
- * for surfaceTitle/baseCanvas.
- *
- * Architecture §5: server-joined display shape, never carries a secret.
- */
-export interface AdoptionView {
-	readonly id: string;
-	readonly tool: string;
-	readonly kind: ReviewCanvasKind;
-	readonly surfaceId: string;
-	readonly pinnedVersion: string;
-	readonly provenance: SurfaceProvenance;
-	readonly surfaceTitle: string;
-	readonly baseCanvas: ReviewCanvasKind;
-}
-
-/**
- * Surface manifests seeded at startup (first-party) plus any community surfaces
- * appended by `surface:add`. Used by the server's adoption validator and the web
- * browse dialog via OFFICIAL_REGISTRY_INDEX.surfaces.
- *
- * @lore AL5 FIX-2: Previously the server inlined a duplicate copy. Moving here
- * eliminates drift. NO component references — shared has no React.
- * @lore AL5 RENAME: Previously FIRST_PARTY_SURFACE_MANIFESTS. Renamed because
- * `surface:add` appends community-provenance entries here after install, making
- * "FIRST_PARTY" a misnomer. Both server and web import from @hyperidle/shared.
- */
-export const REGISTERED_SURFACE_MANIFESTS: readonly SurfaceManifest[] = [
+export const REVIEW_SURFACES: ReadonlyArray<ReviewSurfaceCatalogEntry> = [
 	{
-		id: "stripe-refund-review",
-		title: "Stripe Refund Review",
+		name: "stripe-refund-review",
 		description:
 			"Specializes the action_operation canvas for Stripe refunds with a refund-specific lead summary and routing note.",
-		author: "HyperIdle <hi@hyperidle.com>",
-		version: "1.0.0",
-		baseCanvas: "action_operation",
-		layering: "wrap",
-		provenance: "first-party",
-		situations: [{ tool: "stripe", kind: "action_operation" }],
-		sampleFixture: "stripe-refund",
 	},
-	/* surface:add inserts above */
 ];

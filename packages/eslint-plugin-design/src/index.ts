@@ -27,7 +27,6 @@ import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
 import { noRawSettingsTextarea } from "./rules/no-raw-settings-textarea.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
-import { noSurfaceNetworkImport } from "./rules/no-surface-network-import.js";
 import { noUndefinedFontHeading } from "./rules/no-undefined-font-heading.js";
 import { noUngatedStreamDrain } from "./rules/no-ungated-stream-drain.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
@@ -57,7 +56,6 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-raw-overlay-z": noRawOverlayZ,
 	"no-dialog-boilerplate": noDialogBoilerplate,
 	"no-raw-settings-textarea": noRawSettingsTextarea,
-	"no-surface-network-import": noSurfaceNetworkImport,
 	"no-unknown-cast": noUnknownCast,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
@@ -85,8 +83,6 @@ const recommendedRules: Linter.RulesRecord = {
 	// AH3 D4: Prevent regression to raw DaisyUI textarea in settings pages.
 	// Must use <Input textarea> from @hyperidle/design-system.
 	"design/no-raw-settings-textarea": "error",
-	// AL5 AC5: surfaces/** must not import network/API utilities.
-	"design/no-surface-network-import": "error",
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",
 	"design/require-focus-on-interactive": "warn",

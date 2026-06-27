@@ -1,9 +1,4 @@
-import type {
-	AdoptionView,
-	AnchorRef,
-	ProposedCallStatus,
-	VerdictDecision,
-} from "@hyperidle/shared";
+import type { AnchorRef, ProposedCallStatus, VerdictDecision } from "@hyperidle/shared";
 import type { ReviewArtifact, ReviewSubject } from "./review-artifact.js";
 
 export interface ReviewCommentRef {
@@ -136,18 +131,4 @@ export interface ReviewCompositionProps {
 	readonly threadId?: string;
 	readonly initialOpenArtifactId?: string | null;
 	readonly resolved?: boolean;
-	/**
-	 * AL5 §4.3: team's adopted surface rows, fetched once by ReviewPage's loader.
-	 * Defaults to [] (every artifact uses its base canvas — safe fallback).
-	 * The ExaminePane uses these to resolve which surface component to render per artifact.
-	 */
-	readonly adoptions?: ReadonlyArray<AdoptionView>;
-	/**
-	 * AL5: callback for the "swap" button in ExaminePane's RenderedByLine attribution.
-	 * Not provided in tests (ReviewComposition renders without a Router); provided by
-	 * ReviewPage (which is always inside a Router) to navigate to Settings → Surfaces.
-	 * @lore AL5: useNavigate cannot be called inside ReviewComposition because tests
-	 * render it outside a Router context. Navigation is lifted to the page level.
-	 */
-	readonly onSwap?: () => void;
 }

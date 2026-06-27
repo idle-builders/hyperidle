@@ -1,5 +1,5 @@
 {
-	"id": "0b3cae3d-ea80-4024-bf71-a29f50f84408",
+	"id": "cd2252b1-9180-4bb1-9f39-f95ea3ad8a77",
 	"prevId": "dd475570-d762-4580-b3ac-8771465ef112",
 	"version": "7",
 	"dialect": "postgresql",
@@ -34,6 +34,12 @@
 				},
 				"preview_json": {
 					"name": "preview_json",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"surface": {
+					"name": "surface",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -2835,141 +2841,6 @@
 					"columnsFrom": ["agent_id"],
 					"columnsTo": ["id"],
 					"onDelete": "restrict",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
-		"public.surface_adoptions": {
-			"name": "surface_adoptions",
-			"schema": "",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"team_id": {
-					"name": "team_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"tool": {
-					"name": "tool",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"kind": {
-					"name": "kind",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"surface_id": {
-					"name": "surface_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"pinned_version": {
-					"name": "pinned_version",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"provenance": {
-					"name": "provenance",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"adopted_by": {
-					"name": "adopted_by",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"created_at": {
-					"name": "created_at",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				}
-			},
-			"indexes": {
-				"surface_adoptions_team_situation_idx": {
-					"name": "surface_adoptions_team_situation_idx",
-					"columns": [
-						{
-							"expression": "team_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						},
-						{
-							"expression": "tool",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						},
-						{
-							"expression": "kind",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": true,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
-				"surface_adoptions_team_idx": {
-					"name": "surface_adoptions_team_idx",
-					"columns": [
-						{
-							"expression": "team_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"surface_adoptions_team_id_teams_id_fk": {
-					"name": "surface_adoptions_team_id_teams_id_fk",
-					"tableFrom": "surface_adoptions",
-					"tableTo": "teams",
-					"columnsFrom": ["team_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
-				"surface_adoptions_adopted_by_users_id_fk": {
-					"name": "surface_adoptions_adopted_by_users_id_fk",
-					"tableFrom": "surface_adoptions",
-					"tableTo": "users",
-					"columnsFrom": ["adopted_by"],
-					"columnsTo": ["id"],
-					"onDelete": "no action",
 					"onUpdate": "no action"
 				}
 			},

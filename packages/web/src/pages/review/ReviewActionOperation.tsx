@@ -17,12 +17,24 @@
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
 import type { ProposedCallStatus } from "@hyperidle/shared";
-import { type JSX, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
 import type { ActionOperationPayload, ReviewArtifact } from "./review-artifact.js";
 import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
-import { type CanvasSlots, slot } from "./surface-slots.js";
+
+/**
+ * AL5 (simplified): slot overrides for the action_operation canvas.
+ * StripeRefundReview passes these to customise lead + footer regions.
+ * Inlined here after surface-slots.ts was deleted.
+ */
+export type CanvasSlots = Partial<Record<"header" | "lead" | "detail" | "footer", ReactNode>>;
+
+/** Return the slot override if defined, otherwise the default node. */
+function slot(slots: CanvasSlots | undefined, key: keyof CanvasSlots, def: ReactNode): ReactNode {
+	if (slots && key in slots) return slots[key];
+	return def;
+}
 
 // ── fixture ─────────────────────────────────────────────────────────────────
 // A realistic Stripe refund staged for human verdict.

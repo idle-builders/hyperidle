@@ -24,7 +24,6 @@ import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
-import { SettingsReviewSurfaces } from "../settings/SettingsReviewSurfaces.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 
 /** Shared section title style: 13px/600 uppercase, text-tertiary, border-bottom */
@@ -83,15 +82,6 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Models</SectionTitle>
 						<SettingsModels />
-					</section>
-
-					{/* AL5: Review surfaces section */}
-					<section
-						id="settings-section-surfaces"
-						data-testid="settings-section-surfaces"
-						className="flex flex-col gap-[18px]"
-					>
-						<SettingsReviewSurfaces />
 					</section>
 
 					{/* AF15 AC-1: Agents section — after Models, before Assistant (design spec) */}

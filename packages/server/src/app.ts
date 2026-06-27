@@ -38,10 +38,6 @@ import { createSearchRoutes } from "./routes/search.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
 import { createStatusRoutes } from "./routes/status.js";
-import {
-	createSurfaceAdoptionRoutes,
-	createSurfaceRegistryRoutes,
-} from "./routes/surface-adoptions.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
@@ -459,8 +455,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
 		}
 		api.route("/git-export", createGitExportRoutes(options.db));
-		api.route("/surface-adoptions", createSurfaceAdoptionRoutes(options.db));
-		api.route("/surface-registry", createSurfaceRegistryRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
 		// AN1: per-user service connections (token | mcp | inherited projected)
 		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));

@@ -1,12 +1,11 @@
-import type { AdoptionView, Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
+import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ReviewLoaderResult, ReviewPage } from "../ReviewPage.js";
 import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
-// AL5 §5: loader now returns { subject, adoptions } — wrap fixtures for mocks.
-const LOADER_RESULT: ReviewLoaderResult = { subject: REVIEW_COMPOSITION_SUBJECT, adoptions: [] };
+const LOADER_RESULT: ReviewLoaderResult = { subject: REVIEW_COMPOSITION_SUBJECT };
 
 const anchoredMessage: Message = {
 	id: "host-msg-1",
@@ -300,37 +299,30 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 	});
 });
 
-// ── FIX-1 (component test): adopted surface renders via loader result ─────────
+// ── Named surface renders via artifact.surface field ─────────────────────────
 //
-// Proves that when the loader returns adoptions, the adopted surface
-// (StripeRefundReview) renders through the full chain:
-//   ReviewPage (loader result) → ReviewComposition → resolveSurface → StripeRefundReview
-// NOT via direct prop injection — the adoptions come from the loader result.
+// AL5 (simplified): proves the full chain for the named surface model:
+//   ReviewPage (loader result) → ReviewComposition → getReviewSurface(artifact.surface)
+//   → StripeRefundReview (renders Stripe-specific lead + routing note)
 //
-// The companion test for the loader's URL threading (defaultLoader calls
-// /api/surface-adoptions?teamId=) lives in ReviewPage.loader.test.ts to avoid
-// a module-level vi.mock("api-fetch") polluting this file's other tests.
+// The loader supplies a subject where the action_operation artifact carries
+// surface:"stripe-refund-review" — no DB adoptions, no resolveSurface machinery.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("FIX-1 component: loader-supplied adoptions reach the rendered surface", () => {
-	it("renders StripeRefundReview surface when loader returns adoption for stripe/action_operation", async () => {
-		const adoption: AdoptionView = {
-			id: "sa-test-1",
-			tool: "stripe",
-			kind: "action_operation",
-			surfaceId: "stripe-refund-review",
-			pinnedVersion: "1.0.0",
-			provenance: "first-party",
-			surfaceTitle: "Stripe Refund Review",
-			baseCanvas: "action_operation",
+describe("AL5 (simplified): artifact.surface triggers named surface component", () => {
+	it("renders StripeRefundReview when artifact.surface='stripe-refund-review'", async () => {
+		// Build a subject where the action_operation artifact declares its surface name.
+		const subjectWithSurface = {
+			...REVIEW_COMPOSITION_SUBJECT,
+			artifacts: REVIEW_COMPOSITION_SUBJECT.artifacts.map((a) =>
+				a.kind === "action_operation" ? { ...a, surface: "stripe-refund-review" } : a,
+			),
 		};
 
 		const loader = vi.fn().mockResolvedValue({
-			subject: REVIEW_COMPOSITION_SUBJECT,
-			adoptions: [adoption],
+			subject: subjectWithSurface,
 		} satisfies ReviewLoaderResult);
 
-		// Render the full ReviewPage with this loader (adoptions from loader, NOT prop injection)
 		const router = createMemoryRouter(
 			[
 				{
