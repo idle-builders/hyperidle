@@ -1301,9 +1301,14 @@ stories:
     depends: [AO1]
     complexity: L
 
-  # Track AQ: The Run-Unit (Sandbox / Workspace) Model
+  # Track AQ: The Run-Unit (Sandbox) Model
   - id: AQ1
-    title: "Define the run-unit: what a sandbox is, and isolation vs inherited secrets"
+    title: "Run on the computer: remove the sandbox"
     track: AQ
     depends: []
     complexity: M
+  - id: AQ2
+    title: "Add an opt-in sandbox (isolation + credential doorway)"
+    track: AQ
+    depends: [AQ1]
+    complexity: L
