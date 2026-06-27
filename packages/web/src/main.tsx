@@ -35,14 +35,22 @@ window.__hyperidleJsxRuntime = ReactJsxRuntime;
  * AL5: Load folder surfaces before mounting React so getReviewSurface() is
  * populated synchronously when components render for the first time.
  * Failures are isolated — a failed load does not block app startup.
+ *
+ * @lore AL5: Boot runs inside an async IIFE (NOT top-level await) — the Vite
+ * build target (chrome87/es2020) does not allow top-level await, which breaks
+ * `vite build`. The IIFE keeps "load surfaces before first render" without it.
  */
-await loadFolderSurfaces();
+async function boot(): Promise<void> {
+	await loadFolderSurfaces();
 
-const root = document.getElementById("root");
-if (!root) throw new Error("Root element not found");
+	const root = document.getElementById("root");
+	if (!root) throw new Error("Root element not found");
 
-createRoot(root).render(
-	<StrictMode>
-		<App />
-	</StrictMode>,
-);
+	createRoot(root).render(
+		<StrictMode>
+			<App />
+		</StrictMode>,
+	);
+}
+
+void boot();
