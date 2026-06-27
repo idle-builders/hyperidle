@@ -145,26 +145,6 @@
         "@types/nodemailer": "^6.4.17",
       },
     },
-    "packages/pipeline": {
-      "name": "@hyperidle/pipeline",
-      "version": "0.0.1",
-      "dependencies": {
-        "@anthropic-ai/claude-agent-sdk": "^0.2.0",
-        "@hyperidle/shared": "*",
-        "@opentelemetry/api": "^1.9.1",
-        "@opentelemetry/exporter-trace-otlp-http": "^0.216.0",
-        "@opentelemetry/resources": "^2.7.1",
-        "@opentelemetry/sdk-trace-base": "^2.7.1",
-        "@opentelemetry/sdk-trace-node": "^2.7.1",
-        "@opentelemetry/semantic-conventions": "^1.40.0",
-        "ink": "^6.0.0",
-        "react": "^19.0.0",
-        "yaml": "^2.7.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.0.0",
-      },
-    },
     "packages/server": {
       "name": "@hyperidle/server",
       "version": "0.0.1",
@@ -513,8 +493,6 @@
     "@hyperidle/desktop": ["@hyperidle/desktop@workspace:packages/desktop"],
 
     "@hyperidle/fabric": ["@hyperidle/fabric@workspace:packages/fabric"],
-
-    "@hyperidle/pipeline": ["@hyperidle/pipeline@workspace:packages/pipeline"],
 
     "@hyperidle/server": ["@hyperidle/server@workspace:packages/server"],
 

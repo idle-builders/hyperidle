@@ -232,9 +232,8 @@ If a founder pastes implementation detail into the spec, strip it out before reg
     ```
 3. **Update the WORK_PACKAGES.md index** if the row count changed for that track (e.g. `Stories: L1–L30` → `Stories: L1–L31`).
 4. **Validate.** Run:
-    - `npm run -w @hyperidle/pipeline test` — manifest tests must pass (catches duplicate ID, invalid complexity, dangling deps).
-    - `npm run check && npm run lint` — sanity.
-5. **Single commit.** All four changes ship together: TRACK update + manifest + index + tests. Message: `plan: register <ID> — <title>`.
+    - `npm run check && npm run lint` — sanity. Manually confirm the new manifest entry has a unique ID, valid complexity (`S | M | L`), and no dangling `depends` references.
+5. **Single commit.** All changes ship together: TRACK update + manifest + index. Message: `plan: register <ID> — <title>`.
 
 ---
 

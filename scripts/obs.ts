@@ -10,7 +10,7 @@
 //   source <(npm run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
 //   source <(npm run obs:env --workpackage=L15)              # OTel env + hyperidle.workpackage tag
 //   npm run obs:smoke                                        # emit one span; verify ingest
-//   npm run obs:run -- bin/pipeline L15                  # run a command with OTel env set
+//   npm run obs:run -- <command>                         # run a command with OTel env set
 
 import { type Span, SpanStatusCode, trace } from "@opentelemetry/api";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
