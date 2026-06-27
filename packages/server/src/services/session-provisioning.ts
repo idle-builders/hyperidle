@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, routines, sessions, tasks, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, filesystemInjections, filesystems, routines, sessions, tasks, users } from "@hyperidle/db";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,
@@ -17,6 +17,8 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	type Filesystem,
+	type FilesystemMounter,
 	type HarnessAdapter,
 	type IngestionHandle,
 	isInternalExtractionDrain,
@@ -184,6 +186,17 @@ export interface ProvisionSessionDeps {
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
+	/**
+	 * AO2: When present, filesystems are materialized into each session's sandbox.
+	 * Absent → no materialization (substrate-less degradation, AC3).
+	 * @lore AO2 §5: same optional-presence pattern as mcpBridgeRegistry.
+	 */
+	readonly filesystemMounter?: FilesystemMounter;
+	/**
+	 * AO2: Sibling of sandboxBasePath. Durable dir where capture bundles/snapshots
+	 * are written before the sandbox is destroyed. Required when filesystemMounter present.
+	 */
+	readonly captureBasePath?: string;
 }
 
 export interface ProvisionSessionParams {
@@ -278,6 +291,15 @@ export interface ProvisionSessionResult {
  * `runSession` (phases 8-11) needs to run the harness and tear down. Produced by
  * `admitSession` AFTER the session row is committed and `session_started` emitted.
  */
+/** AO2: A filesystem successfully mounted into the sandbox. Carried on AdmittedSession
+ *  so runSession's captureBack can iterate without re-querying (prevents drift if
+ *  injections changed mid-session). Zero mounts → empty array → captureBack is a no-op.
+ *  @lore AO2 §5 WARNING-1 resolution. */
+export interface MountedFilesystem {
+	readonly filesystem: Filesystem;
+	readonly mountPath: string;
+}
+
 export interface AdmittedSession {
 	readonly sessionId: string;
 	readonly sessionContext: SessionContext;
@@ -293,6 +315,12 @@ export interface AdmittedSession {
 	readonly harness: HarnessAdapter;
 	readonly adapterId: string;
 	readonly routinePerRunCap: number | null;
+	/**
+	 * AO2 §5: Filesystems successfully mounted in Phase 5.5.
+	 * runSession iterates these before each workspace.destroy to captureBack.
+	 * Default: [] (no injections → no mounts → captureBack loop is a no-op).
+	 */
+	readonly mountedFilesystems: readonly MountedFilesystem[];
 }
 
 /**
@@ -458,6 +486,8 @@ export async function admitSession(
 	let sandboxHandle: SandboxHandle;
 	let sandboxPath: string;
 	let ingestion: IngestionHandle;
+	// AO2 §5: populated in Phase 5.5; carried to runSession via AdmittedSession.
+	const mountedFilesystems: MountedFilesystem[] = [];
 	try {
 		// ── Phase 4: spawn sandbox via adapter.
 		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
@@ -477,6 +507,76 @@ export async function admitSession(
 			// AA2: populate routineId when this is a routine session.
 			...(params.routineId ? { routineId: params.routineId } : {}),
 		});
+
+		// ── Phase 5.5: materialize filesystems into the sandbox (AO2).
+		// Runs AFTER the session row insert (Phase 5) so the sessionId is stable,
+		// and BEFORE context assembly (Phase 6) — fail fast before the more expensive
+		// context assembly + ingestion phases. A mount failure triggers the same
+		// revertTaskToAccepted rollback as an assembly failure (same try block).
+		//
+		// Driver query: filesystems ⋈ filesystem_injections WHERE agentUserId = agentId.
+		// AC1 "never a global path": only filesystems injected into THIS bot are mounted.
+		// Zero rows → skip entirely (substrate-less degradation, AC3).
+		//
+		// @lore AO2 §1: ordering does NOT buy subtree disjointness — assembly + scaffolding
+		// write into the same sandbox root the repo occupies, AFTER the mount. The collision
+		// is resolved by capture scoping (§5b), not by ordering.
+		if (deps.filesystemMounter) {
+			const injected = await db
+				.select({
+					id: filesystems.id,
+					teamId: filesystems.teamId,
+					source: filesystems.source,
+					kind: filesystems.kind,
+					connectionId: filesystems.connectionId,
+					resourceRef: filesystems.resourceRef,
+					writeback: filesystems.writeback,
+					state: filesystems.state,
+					createdAt: filesystems.createdAt,
+				})
+				.from(filesystems)
+				.innerJoin(filesystemInjections, eq(filesystemInjections.filesystemId, filesystems.id))
+				.where(eq(filesystemInjections.agentUserId, params.agentId));
+
+			for (const row of injected) {
+				// Parse the resourceRef JSON (stored as text in DB, Filesystem type has parsed shape).
+				let resourceRef: Filesystem["resourceRef"];
+				try {
+					resourceRef = JSON.parse(row.resourceRef) as Filesystem["resourceRef"];
+				} catch {
+					// Malformed resourceRef — skip this filesystem (doesn't throw; surface via mounter result).
+					continue;
+				}
+
+				const filesystem: Filesystem = {
+					id: row.id,
+					teamId: row.teamId,
+					source: row.source,
+					kind: row.kind,
+					connectionId: row.connectionId ?? null,
+					resourceRef,
+					writeback: row.writeback as Filesystem["writeback"],
+					state: row.state as Filesystem["state"],
+					createdAt: row.createdAt,
+				};
+
+				// Mount at sandboxPath root for code filesystems (harness cwd = sandboxPath).
+				// @lore AO2 §1: v1 supports ≤1 code-fs-at-root; multiple code-fs is a known limitation.
+				const mountPath = sandboxPath;
+				const mountResult = await deps.filesystemMounter.mount({
+					filesystem,
+					sandboxPath: mountPath,
+					auth: null, // auth resolved inside mount() via authResolver.resolveToken()
+				});
+
+				if (mountResult.success) {
+					mountedFilesystems.push({ filesystem, mountPath });
+				}
+				// Mount failure: log but don't throw — substrate-less degradation (AC3).
+				// A failed mount means the agent won't have the repo, but the session continues.
+				// @lore AO2: per ETHOS "build for fast, not enterprise" — no preemptive gate.
+			}
+		}
 
 		// ── Phase 6: assemble context into the sandbox (via Strategy Port).
 		// @lore AK2 §5a: was `assembleContext(db, {...})` hard-imported from
@@ -565,6 +665,7 @@ export async function admitSession(
 		harness,
 		adapterId,
 		routinePerRunCap,
+		mountedFilesystems,
 	};
 }
 
@@ -595,7 +696,7 @@ export async function runSession(
 	 */
 	onHarnessStarted?: () => void,
 ): Promise<ProvisionSessionResult> {
-	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl } = deps;
+	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl, filesystemMounter } = deps;
 	const {
 		sessionId,
 		sessionContext,
@@ -610,7 +711,32 @@ export async function runSession(
 		harness,
 		adapterId,
 		routinePerRunCap,
+		mountedFilesystems,
 	} = admitted;
+
+	/**
+	 * AO2 §5+6: Capture authored changes from each mounted filesystem before
+	 * the sandbox is destroyed. Called at all 3 destroy sites (budget, not_returned, normal).
+	 * NOT called on crash path — inconsistent tree, agent didn't finish.
+	 * Failures are logged but never throw into teardown.
+	 * @lore AO2: captureBasePath is a sibling of sandboxBasePath; never rm'd at teardown.
+	 */
+	async function captureAllMountedFilesystems(): Promise<void> {
+		if (!filesystemMounter || mountedFilesystems.length === 0) return;
+		for (const { filesystem, mountPath } of mountedFilesystems) {
+			try {
+				await filesystemMounter.captureBack({
+					filesystem,
+					sandboxPath: mountPath,
+				});
+			} catch (err) {
+				// CaptureResult.success=false logged via observability adapter, never throws.
+				// @lore AO2 §5: teardown must complete regardless of capture outcome.
+				console.error(`[AO2] captureBack failed for filesystem ${filesystem.id}:`, err);
+			}
+		}
+	}
+
 
 	// AF7 §5: cooperative abort flag for non-builtin adapters (the provisioning
 	// event loop checks this each iteration). For builtin the real stop is
@@ -1059,6 +1185,8 @@ export async function runSession(
 	if (budgetExhausted) {
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, "budget_exhausted");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		// AO2 §5+6: capture before destroy (budget_exhausted path).
+		await captureAllMountedFilesystems();
 		await workspace.destroy(sandboxHandle);
 		// AL6: budget_exhausted → exempt from return enforcement.
 		const returnVerdict = evaluateReturn(returnGate, "budget_exhausted");
@@ -1101,6 +1229,8 @@ export async function runSession(
 		// persistence layer: a not-returned turn is never recorded as "completed".
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		// AO2 §5+6: capture before destroy (not_returned path).
+		await captureAllMountedFilesystems();
 		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		enforcementRegistry.unregister(sessionId);
@@ -1116,6 +1246,8 @@ export async function runSession(
 
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
 	await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+	// AO2 §5+6: capture before destroy (normal completion path).
+	await captureAllMountedFilesystems();
 	// Also destroy the workspace via the adapter to keep its internal map
 	// consistent. `rm({ force: true })` is a no-op on the already-removed
 	// directory, so no additional error handling is needed.
