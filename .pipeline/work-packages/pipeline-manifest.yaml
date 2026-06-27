@@ -1308,7 +1308,12 @@ stories:
     depends: []
     complexity: M
   - id: AQ2
-    title: "Add an opt-in sandbox (isolation + credential doorway)"
+    title: "Add an opt-in sandbox (per-agent isolation + credential doorway)"
+    track: AQ
+    depends: [AQ1]
+    complexity: L
+  - id: AQ3
+    title: "Make remote scheduling work end-to-end (host-local on a joined desktop)"
     track: AQ
     depends: [AQ1]
     complexity: L
