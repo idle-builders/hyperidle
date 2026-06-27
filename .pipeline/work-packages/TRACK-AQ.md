@@ -27,7 +27,7 @@ The original "isolation and inherited OAuth are mutually exclusive past L1" fram
 
 **Why this matters.** The word "sandbox" lies today: `CliHarnessAdapter` spawns `claude`/`codex`/`opencode` as a **host child process** (`cwd = sandboxPath`, env `["PATH","HOME","LANG"]`) — not inside the `DockerSandboxAdapter` container, which only wraps HyperIdle's own internal exec tool. Builders form a wrong mental model (agent contained) that drives AN2/AO2 assumptions wrongly. AQ1 makes the reality the design: run on the host, inherited tools work for free, held connections (AN2) are provisioned in. ETHOS: don't build the wall first.
 
-**Scope of "remove."** Make host execution the default and only path; remove/retire the misleading isolation machinery from that path (the `DockerSandboxAdapter` wrapping that implies agent containment; the gated-off `IsolatedHarnessAdapter`/`RemoteHarnessAdapter` as if they were the boundary). Keep the code noun `Sandbox*` (AK1 guard forbids reverting to `Workspace*`); the run-unit is honestly a working directory. Do **not** build any new isolation — that is AQ2.
+**Scope of "remove" — HARD DELETE.** Delete the isolation machinery outright; AQ2 will engineer isolation cleanly from scratch, not from this code. Remove `DockerSandboxAdapter`, `IsolatedHarnessAdapter` (+ `isolated-session-worker`/`isolated-session-protocol`), `RemoteHarnessAdapter` (+ its WS worker wiring), and their gates/registration/tests. Reduce the run path to host execution in a working directory (`LocalSandboxAdapter` is the only `SandboxAdapter`; the CLI/SDK/builtin harnesses run as host processes — already the reality). Keep the code noun `Sandbox*` (AK1 guard forbids reverting to `Workspace*`); the run-unit is honestly a working directory. Do **not** build any new isolation — that is AQ2. If a deletion reveals a load-bearing coupling that can't be cleanly cut, raise it rather than leaving a stub.
 
 **Depends on.** None (concept locked). Unblocks AN2 (held provisioning + inherited tools on the host) and AO2 (substrate into the host working dir).
 
@@ -41,7 +41,7 @@ The original "isolation and inherited OAuth are mutually exclusive past L1" fram
 
 **Acceptance criteria.**
 - An agent session runs in a per-session working directory on the host with the user's environment inherited; a live run proves a CLI harness (claude/codex/opencode) executes and inherited tools work without any per-session auth step.
-- The default and only run path is host execution; no code path claims or defaults to isolation. The misleading Docker/isolated "boundary" framing is removed from the default path (gated-off experimental adapters either deleted or clearly marked AQ2-deferred, not presented as the run-unit boundary).
+- The default and only run path is host execution; no code path claims or defaults to isolation. `DockerSandboxAdapter`, `IsolatedHarnessAdapter`, `RemoteHarnessAdapter` and their workers/gates/registration/tests are **deleted** (not gated, not stubbed); `knip`/`npm run lint` confirm no dead references remain.
 - Held connections (AN2) provision into the host working directory; inherited connections are present via the host environment (AN1 hard-rule 4 holds — nothing extracted).
 - `npm run verify` green.
 
