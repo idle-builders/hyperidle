@@ -16,6 +16,10 @@ The word "sandbox" promised an isolation boundary the primary path never deliver
 
 Isolation is not abandoned — it is **deferred to AQ2** as an explicit, opt-in capability, designed from the research rather than from the half-built Docker/isolated machinery that exists today.
 
+**Founder refinement (2026-06-28) — two corrections.**
+1. **Sandboxing is a property of the *agent*, not the run-unit.** Whether a given agent runs isolated is attached to the agent and applied wherever it runs. AQ1 removes the run-unit-level isolation machinery; AQ2 reintroduces isolation as a per-agent property. The run-unit itself is just "where" — a working directory on whichever host executes.
+2. **Remote ≠ sandbox; remote is distribution/scheduling.** Running a task on another desktop joined to this HyperIdle instance is a *scheduler* concern: that desktop runs the task **host-local**, exactly as the current desktop would. The remote-worker subsystem (`RemoteHarnessAdapter`, WS routes, `/worker-token`, desktop client, `SettingsWorker` UI) is therefore **kept** in AQ1 — it is not isolation. (It is currently stubbed transport; reframing it from a "harness boundary" into a clean scheduler is a separate future WP.) AQ1 deletes only the **isolation** adapters (Docker, Isolated).
+
 ---
 
 ## Phase 0 — The noun

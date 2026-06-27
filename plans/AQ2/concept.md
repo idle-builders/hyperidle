@@ -8,7 +8,7 @@
 
 ## Direction (from research + founder)
 
-Add isolation as an **explicit, opt-in capability layered on the AQ1 host run-unit** — never a default wall. Three things the locked concept must settle:
+Add isolation as an **explicit, opt-in capability** — never a default wall. **Founder framing (2026-06-28): sandboxing is a property of the *agent*, not the run-unit.** Whether an agent is isolated is attached to the agent and applied wherever it runs — on the local desktop or on a remote desktop joined to this instance (remote is a *scheduler/distribution* concern that runs the task host-local; it is orthogonal to isolation, and is kept untouched by AQ1). Three things the locked concept must settle:
 
 1. **The isolation mechanism is not ours to invent first — survey says lean on what exists.**
    - **Local (Mac):** prefer the **harness's own OS-native sandbox** (Seatbelt) — it already isolates files while keeping logins via allowlist; offer **Apple `container`** (per-container microVM) where Apple-Silicon + macOS 26, Lima/Colima fallback.

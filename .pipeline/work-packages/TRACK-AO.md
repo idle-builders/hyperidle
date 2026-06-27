@@ -76,6 +76,8 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 ### AO2 — Materialize the filesystem into the session sandbox
 
+> **AQ1 implication (founder, 2026-06-28) — building WITHOUT a sandbox for now.** AQ1 removes isolation: the "session sandbox" is a **working directory on the host**, no boundary. So AO2's materialization is a **plain checkout into a host directory** and writeback is a **direct host-filesystem** capture — there is no isolation layer to cross, no container/worker copy-in/out. When a task runs on a **remote** joined desktop, it runs host-local *there*, so materialization + writeback happen on that desktop's host filesystem (a scheduler concern, not an isolation one). Drop any "materialize across an isolation boundary" assumption; per-agent isolation (and materializing into it) is an **AQ2** concern. Update the wording below ("already isolated per session") accordingly when AO2 is architected.
+
 **Workpackage.** As the system running a session, I want the unit of work's bound filesystem placed into that session's sandbox — for code, the repository checked out at its branch — so that the harness can read, edit, build, and test real working files instead of an empty directory. The sandbox is already isolated per session, so this is a plain checkout into it, plus the tools to act on it.
 
 **Why this matters.** This is where an agent stops being a planner and becomes a builder. Today even with Claude Code detected (`fileEditing: true`), the sandbox holds only knowledge files — so an agent cannot produce a code change. With the filesystem materialized, the build step becomes real for code and for file-based work generally. Cost of not building it: the build loop has no execute stage.
