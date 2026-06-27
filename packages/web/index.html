@@ -10,6 +10,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <!--
+      AL5: Import map for drop-in review surface modules.
+      Dropped .js files import { useState } from "react" (externalized by build-surface).
+      The import map redirects those bare imports to shim modules served by the Hono
+      server. The shims re-export React from window.__hyperidleReact (set in main.tsx),
+      ensuring a single React instance and preventing "invalid hook call" errors.
+      @lore AL5: The import map must appear BEFORE any module scripts to take effect.
+    -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "/api/surfaces/_shims/react.js",
+        "react/jsx-runtime": "/api/surfaces/_shims/jsx-runtime.js"
+      }
+    }
+    </script>
     <script>
       // K3/U4 theme persistence — runs synchronously before React mounts.
       // @lore FOIT prevention: we MUST set data-theme before the first paint

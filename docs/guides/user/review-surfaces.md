@@ -12,9 +12,17 @@ If the surface name is absent, unknown, or the surface fails to render, the gene
 
 ## Where surfaces come from
 
-Review surfaces are configured outside the running app — exactly like the Strategy (the AI model wiring) or the nine base canvases. A developer adds one by writing a component, adding a line to the static registry, and adding an entry to the surface catalog, then rebuilding. The surface ships with the next release and is available to everyone after they update.
+Two sources:
 
-There is no in-app install step, no settings page to adopt or swap surfaces. The available surfaces are a property of the release.
+**Built-in surfaces** ship with the app and are available to everyone after they update HyperIdle. A developer adds one by writing a component, registering it, and including it in the next release.
+
+**Drop-in surfaces** are provided by third parties or your own team. They are pre-built `.js` files:
+
+1. Drop the `.js` file into `~/.hyperidle/surfaces/`.
+2. Restart HyperIdle.
+3. The AI agent can now name the surface when creating artifacts.
+
+No settings page, no install step — just drop the file and restart. The folder is created automatically on first use.
 
 ## The generic view is always the fallback
 
