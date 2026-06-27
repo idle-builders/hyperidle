@@ -664,6 +664,18 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5a");
 
+			// Use a non-existent absolute local path so git ls-remote exits non-zero
+			// without ANY network call. repoToUrl("/no/such/repo") → file:///no/such/repo
+			// → git ls-remote file:///no/such/repo → exit non-zero → needs_attention.
+			// @lore AO1 v2 M1 fix: the old "owner/repo" short form became a local file://
+			// path accidentally (the M1 bug). Now that repoToUrl correctly maps "owner/repo"
+			// → https://github.com/…, using it here would hit the network in CI. This
+			// hermetic scenario uses a missing local path (absolute) instead — the real
+			// git probe still runs (Lane A, no network), and the result is still needs_attention
+			// for the right reason: NoopAuthResolver.resolveToken() → null (no token) + git
+			// ls-remote against a non-existent file:// → non-zero exit.
+			const missingLocalRepo = `/ao1-test-nonexistent-repo-${Date.now().toString(36)}`;
+
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
 				headers: auth(),
@@ -671,7 +683,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					teamId,
 					kind: "code",
 					connectionId: "missing-conn-xyz",
-					resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
+					resourceRef: { kind: "code", repo: missingLocalRepo, branch: "main" },
 					writeback: "git",
 				}),
 			});
@@ -679,7 +691,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			const created = (await createRes.json()) as Record<string, unknown>;
 			const id = created.id as string;
 
-			// On GET, the reachability check runs; NoopAuthResolver can't resolve → needs_attention
+			// On GET, the reachability check runs:
+			// - resolveToken("missing-conn-xyz") → null (NoopAuthResolver)
+			// - repoToUrl(missingLocalRepo) → file:///ao1-test-nonexistent-… (absolute path)
+			// - git ls-remote file:///no/such/path → exit non-zero → needs_attention
 			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
 			expect(getRes.status).toBe(200);
 			const got = (await getRes.json()) as Record<string, unknown>;

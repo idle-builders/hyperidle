@@ -30,6 +30,10 @@ export class NoopAuthResolver implements FilesystemAuthResolver {
 	resolve(_connectionId: string): Promise<FilesystemAuth | null> {
 		return Promise.resolve(null);
 	}
+
+	resolveToken(_connectionId: string): Promise<string | null> {
+		return Promise.resolve(null);
+	}
 }
 
 // ─── ServiceConnectionResolverAdapter ────────────────────────────────────────
@@ -58,7 +62,7 @@ export class ServiceConnectionResolverAdapter implements FilesystemAuthResolver 
 		return token !== null;
 	}
 
-	async sourceOf(_connectionId: string): Promise<string | null> {
+	sourceOf(_connectionId: string): null {
 		// The real resolver only exposes resolve(userId, id) → token | null.
 		// We return null here — sourceHint fallback in the register route covers this.
 		// A future AN2 revision could expose a sourceOf() directly on the resolver.
@@ -82,14 +86,12 @@ export class ServiceConnectionResolverAdapter implements FilesystemAuthResolver 
 	}
 
 	/**
-	 * Expose the raw decrypted token for git ls-remote injection.
-	 * This is NOT part of the FilesystemAuthResolver interface — it is an
-	 * internal method used only by resolveFilesystemState when it needs to
-	 * inject a token into the git env.
+	 * Resolve the raw decrypted token for git ls-remote injection.
+	 * Implements FilesystemAuthResolver.resolveToken() — single decrypt, no double-trip.
 	 *
-	 * @lore AO1 v2: The seam interface doesn't carry the raw token (opaque FilesystemAuth).
-	 * resolveFilesystemState calls this directly when authResolver is this class.
-	 * This avoids a third DB round-trip by going straight to the resolver.
+	 * @lore AO1 v2: resolveToken() is the ONLY call resolveFilesystemState makes on the
+	 * real-token path. The old code called resolve() (wasted decrypt → provision:none wrapper)
+	 * then resolveToken() (second decrypt). Now: one call, no instanceof downcast, no waste.
 	 */
 	async resolveToken(connectionId: string): Promise<string | null> {
 		return this.resolver.resolve(this.userId, connectionId);
@@ -113,7 +115,7 @@ export interface ProbeResult {
  * is a local path) and doc_set folders (connectionId null, resourceRef.folder).
  * Obsidian = a local folder — treated as local, IN SCOPE (v2 doc over-deferred it).
  */
-export async function probeLocalPath(targetPath: string): Promise<ProbeResult> {
+export function probeLocalPath(targetPath: string): Promise<ProbeResult> {
 	return new Promise<ProbeResult>((resolve) => {
 		fs.access(targetPath, fs.constants.R_OK, (err) => {
 			if (err) {
@@ -236,8 +238,11 @@ export async function resolveFilesystemState(
 		// Bare local path: probe the actual filesystem.
 		const localPath = extractLocalPath(row);
 		if (localPath == null) {
-			// No extractable path — treat as reachable (backward compat with test-only paths).
-			return "reachable";
+			// No extractable path — unparseable bare-local ref. "Surface, never silent."
+			// @lore AO1 v2: Changed from reachable → needs_attention. A malformed bare-local
+			// resourceRef (no scheme, no extractable path) must never silently pass as reachable.
+			// The only way here is a corrupt row (Zod schema rejects bad shapes at register time).
+			return "needs_attention";
 		}
 		const result = await withTimeout(probeLocalPath(localPath), opts?.timeoutMs ?? 5_000);
 		return result.state;
@@ -245,7 +250,7 @@ export async function resolveFilesystemState(
 
 	// Connection-backed path.
 	if (row.kind === "code") {
-		// Git remote probe: resolve token, then ls-remote.
+		// Git remote probe: resolve token ONCE via the seam, then ls-remote.
 		const resourceRef = parseResourceRef(row.resourceRef);
 		const repo = resourceRef?.kind === "code" ? resourceRef.repo : null;
 
@@ -258,37 +263,21 @@ export async function resolveFilesystemState(
 		// git ls-remote file:///path works fine for local repos too.
 		const url = repoToUrl(repo);
 
-		// Resolve token via the real AN1 resolver (or Noop → null in tests).
-		const auth = await deps.authResolver.resolve(row.connectionId);
-		// The token lives in FilesystemAuth but we need the raw string for ls-remote injection.
-		// The seam doesn't expose the raw token — re-resolve via the resolver directly.
-		// We call canResolve to check, then resolve to get auth; but the raw token is already
-		// decrypted inside ServiceConnectionResolverAdapter.resolve() → we lose it in the provision:none wrapper.
-		// Solution: check via canResolve (which calls resolve internally); if auth is non-null, the
-		// resolver returned something. But to inject the token into git, we need it raw.
-		// @lore AO1 v2: The FilesystemAuthResolver.resolve() returns FilesystemAuth (opaque provision),
-		// NOT the raw token. The real raw token is needed for GIT_CONFIG injection. We extend the seam
-		// minimally: if the authResolver is a ServiceConnectionResolverAdapter, call its inner resolver.
-		// Otherwise (Noop/fake), auth=null → no token → ls-remote without auth (public repo or fails).
-		let rawToken: string | null = null;
-		if (auth !== null && deps.authResolver instanceof ServiceConnectionResolverAdapter) {
-			// The adapter already decrypted the token in canResolve; re-decrypt here.
-			// This is an extra SELECT — acceptable for the single-row inspect path.
-			rawToken = await deps.authResolver.resolveToken(row.connectionId);
-		}
+		// Resolve token via the seam — single decrypt, no double-trip, no instanceof downcast.
+		// @lore AO1 v2: resolveToken() is the only call on the real-token path. The old code
+		// called resolve() (wasted decrypt) then resolveToken() (second decrypt), and leaked
+		// instanceof ServiceConnectionResolverAdapter into this function. Now the seam carries
+		// resolveToken() and NoopAuthResolver returns null (→ ls-remote without auth).
+		const rawToken = await deps.authResolver.resolveToken(row.connectionId);
 
 		const result = await withTimeout(probeGitRemote(url, rawToken), opts?.timeoutMs ?? 30_000);
 		return result.state;
 	}
 
-	// doc_set + connectionId: check if the connection resolves at all.
-	// GDrive/Dropbox/S3 probes are DEFERRED — no connector exists yet.
-	// If the connection resolves (token exists), surface needs_attention with a reason.
-	// If it doesn't resolve, surface needs_attention (can't auth).
-	// @lore AO1 v2: Honest deferral — not a stub. The check is real
-	// (can we decrypt the token?); the probe is deferred (no GDrive client).
-	const resolved = await deps.authResolver.canResolve(row.connectionId);
-	return resolved ? "needs_attention" : "needs_attention";
+	// doc_set + connectionId: GDrive/Dropbox/S3 probes are DEFERRED — no connector exists yet.
+	// @lore AO1 v2: Honest deferral — not a stub. The deferred sources are documented;
+	// needs_attention is the correct surface state until a real probe lands (AO2+).
+	return "needs_attention";
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -310,13 +299,33 @@ function extractLocalPath(row: FilesystemReachabilityInput): string | null {
 	return null;
 }
 
-/** Convert a repo reference to a URL for git ls-remote. */
-function repoToUrl(repo: string): string {
-	// Already a URL (http/https/file/ssh/git@)
+/**
+ * Convert a repo reference to a URL for git ls-remote.
+ *
+ * Decision order:
+ *   1. Already a full clone URL (https/http/git@/file:/ssh:/git:) → pass through.
+ *   2. `owner/repo` short form (exactly one slash, no scheme, no absolute prefix) →
+ *      construct `https://github.com/<owner>/<repo>.git`.
+ *      This is the conventional GitHub short form (e.g. "octocat/Hello-World").
+ *   3. Absolute local path → `file://<path>`.
+ *   4. Anything else → resolve against cwd and treat as `file://`.
+ *
+ * @lore AO1 v2: M1 fix — the old code hit case 4 for "owner/repo" and produced
+ * `file:///cwd/owner/repo`, probing a non-existent local directory. A GitHub-backed
+ * filesystem with `owner/repo` short form was permanently needs_attention even with
+ * a valid PAT. Now case 2 intercepts it before the local-path fallback.
+ */
+export function repoToUrl(repo: string): string {
+	// 1. Already a full URL (http/https/file/ssh/git@/git:)
 	if (/^(https?|git@|file:|ssh:|git:)/.test(repo)) return repo;
-	// Absolute local path → file:// URL
+	// 2. owner/repo short form: exactly one slash, no leading slash, no scheme
+	//    Matches "octocat/Hello-World" but NOT "org/sub/repo" or "/abs/path/repo"
+	if (/^[^/]+\/[^/]+$/.test(repo)) {
+		return `https://github.com/${repo}.git`;
+	}
+	// 3. Absolute local path → file:// URL
 	if (path.isAbsolute(repo)) return `file://${repo}`;
-	// Relative path — treat as file://
+	// 4. Relative path — resolve against cwd
 	return `file://${path.resolve(repo)}`;
 }
 
@@ -347,7 +356,7 @@ function parseResourceRef(raw: string): ParsedRef {
 }
 
 /** Wrap a promise with a timeout; on timeout, returns needs_attention. */
-async function withTimeout(p: Promise<ProbeResult>, timeoutMs: number): Promise<ProbeResult> {
+function withTimeout(p: Promise<ProbeResult>, timeoutMs: number): Promise<ProbeResult> {
 	return Promise.race([
 		p,
 		new Promise<ProbeResult>((resolve) =>

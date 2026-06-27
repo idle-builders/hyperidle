@@ -29,6 +29,7 @@ import {
 	NoopAuthResolver,
 	probeGitRemote,
 	probeLocalPath,
+	repoToUrl,
 	resolveFilesystemState,
 } from "../services/filesystem-reachability.js";
 
@@ -185,15 +186,16 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 	});
 
 	it("connection-backed + real resolver (canResolve=true) + no git token → git probe runs", async () => {
-		// A fake resolver that always resolves but returns no FilesystemAuth token.
-		// The git probe runs against the temp file:// repo.
+		// A fake resolver that always resolves but returns no raw token.
+		// resolveToken() → null means ls-remote runs without auth (public/local repo is fine).
 		const fakeResolver = {
 			canResolve: async (_connectionId: string) => true,
 			sourceOf: async (_connectionId: string) => "github",
 			resolve: async (_connectionId: string) => null as null,
+			resolveToken: async (_connectionId: string): Promise<string | null> => null,
 		};
 
-		// The probe path: kind=code, connectionId non-null, fakeResolver.resolve=null
+		// The probe path: kind=code, connectionId non-null, fakeResolver.resolveToken=null
 		// → no rawToken → git ls-remote without auth against the file:// repo → reachable.
 		const state = await resolveFilesystemState(
 			{
@@ -333,5 +335,41 @@ describe("WRITEBACK_MODES constant", () => {
 		expect(WRITEBACK_MODES).toContain("git");
 		expect(WRITEBACK_MODES).toContain("file");
 		expect(WRITEBACK_MODES).toContain("none");
+	});
+});
+
+// ─── repoToUrl — URL construction (M1 fix proof, hermetic, no network) ────────
+
+describe("repoToUrl — repo reference to git URL (AO1 M1 fix)", () => {
+	it("owner/repo short form → https://github.com/<owner>/<repo>.git", () => {
+		// The canonical GitHub short form must map to a real HTTPS clone URL,
+		// NOT a local file path. This was the M1 correctness bug.
+		expect(repoToUrl("octocat/Hello-World")).toBe("https://github.com/octocat/Hello-World.git");
+		expect(repoToUrl("owner/repo")).toBe("https://github.com/owner/repo.git");
+	});
+
+	it("full https:// URL passes through unchanged", () => {
+		expect(repoToUrl("https://github.com/owner/repo.git")).toBe(
+			"https://github.com/owner/repo.git",
+		);
+		expect(repoToUrl("https://github.com/owner/repo")).toBe("https://github.com/owner/repo");
+	});
+
+	it("full https:// URL without .git passes through unchanged", () => {
+		expect(repoToUrl("https://gitlab.com/owner/repo")).toBe("https://gitlab.com/owner/repo");
+	});
+
+	it("git@ SSH URL passes through unchanged", () => {
+		expect(repoToUrl("git@github.com:owner/repo.git")).toBe("git@github.com:owner/repo.git");
+	});
+
+	it("file:// URL passes through unchanged", () => {
+		const url = "file:///home/user/myrepo";
+		expect(repoToUrl(url)).toBe(url);
+	});
+
+	it("absolute local path → file:// URL", () => {
+		expect(repoToUrl("/home/user/myrepo")).toBe("file:///home/user/myrepo");
+		expect(repoToUrl("/tmp/ao1-test-repo")).toBe("file:///tmp/ao1-test-repo");
 	});
 });

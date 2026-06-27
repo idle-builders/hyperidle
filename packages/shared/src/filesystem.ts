@@ -83,6 +83,19 @@ export interface FilesystemAuthResolver {
 	/** Full resolution used by AO2 at mount to provision auth into the sandbox.
 	 *  Returns null when the connection is absent/unauthenticated. */
 	resolve(connectionId: string): Promise<FilesystemAuth | null>;
+	/**
+	 * Resolve the RAW decrypted credential string for git env injection (AO1 reachability probe).
+	 * Returns null when the connection is absent, unresolvable, or produces no token.
+	 * Unlike resolve(), this bypasses the FilesystemAuth wrapper so the caller can inject
+	 * directly into GIT_CONFIG_VALUE_n without a second round-trip.
+	 *
+	 * @lore AO1 v2: resolveFilesystemState needs the raw token for GIT_CONFIG injection.
+	 * Adding resolveToken() to the seam eliminates the instanceof ServiceConnectionResolverAdapter
+	 * downcast and the double-decrypt (resolve() was called only to check non-null, then resolveToken()
+	 * decrypted again). NoopAuthResolver returns null (no credential); real adapter delegates to
+	 * ServiceConnectionResolver.resolve() once.
+	 */
+	resolveToken(connectionId: string): Promise<string | null>;
 }
 
 // ─── AO2 mount seam ───────────────────────────────────────────────
