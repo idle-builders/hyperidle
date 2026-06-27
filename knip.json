@@ -46,9 +46,6 @@
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": [
-				"src/harness/isolated-session-worker.ts!",
-				"src/harness/isolated-harness-adapter.ts!",
-				"src/harness/docker-sandbox-adapter.ts!",
 				"src/harness/harness-session-probe.ts!"
 			],
 			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
