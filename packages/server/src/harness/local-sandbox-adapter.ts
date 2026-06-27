@@ -1,7 +1,10 @@
 /**
- * Local sandbox adapter — creates directories on the host file system (D3).
- * @lore AK1: Renamed from local-workspace-adapter.ts. LocalSandboxAdapter → LocalSandboxAdapter.
- * Error messages retain "DockerSandboxAdapter" to remain grep-able; lore updated below.
+ * Local sandbox adapter — creates per-session working directories on the host file system (D3).
+ * @lore AK1: Renamed from local-workspace-adapter.ts.
+ * @lore AQ1: The run-unit is a host working directory; the agent runs as a host process with the
+ * user's environment. No container isolation is built or claimed (AQ2 adds opt-in isolation).
+ * Refused on server profiles (non-laptop) — the shared backend runs no agents
+ * (DisabledSandboxAdapter handles that boot guard). Laptop profile is always allowed.
  */
 
 import { spawn as spawnProcess } from "node:child_process";
@@ -14,11 +17,10 @@ let nextId = 1;
 /**
  * Run a shell command line via `sh -c`, returning stdout/stderr/exitCode.
  *
- * @lore I2 review MEDIUM-3: the local adapter is intentionally dev-only
- * (gated to non-production by the constructor) and runs commands through
- * the host shell so developers can hand it the same shell snippets they'd
- * type at the prompt. The Docker adapter is the production path and runs
- * argv-form `docker exec` to keep agent payloads out of any host shell.
+ * @lore I2 review MEDIUM-3: the local adapter is the run path on laptop profiles.
+ * It runs commands through the host shell — the same environment the user has.
+ * This is intentional: agents inherit the user's tools and credentials via the
+ * real $HOME. Refused on non-laptop server profiles (see constructor guard).
  */
 function runShell(
 	command: string,
@@ -55,18 +57,17 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 	private readonly sandboxes = new Map<string, SandboxHandle>();
 
 	constructor() {
-		// @lore I2 review A3 / S4: refuse to operate on server deployments.
-		// The local adapter executes commands directly on the host filesystem
-		// with no isolation; allowing it on vps/cloud would let an agent
-		// escape the intended Docker boundary. The laptop profile (desktop
-		// app) is inherently local and must be allowed even in production
-		// (packaged Electron). The gate uses HYPERIDLE_PROFILE rather than
-		// NODE_ENV so the desktop app (laptop profile, NODE_ENV=production)
-		// is not blocked.
+		// @lore I2 review A3 / S4 / AQ1: refuse to operate on server deployments.
+		// The local adapter executes commands directly on the host filesystem;
+		// it is the correct run path on laptop profiles (the agent runs host-local
+		// with the user's environment). On server profiles (vps/cloud) the shared
+		// backend runs no agents — DisabledSandboxAdapter is used there.
+		// The gate uses HYPERIDLE_PROFILE rather than NODE_ENV so the desktop app
+		// (laptop profile, NODE_ENV=production) is not blocked.
 		const profile = process.env.HYPERIDLE_PROFILE ?? "laptop";
 		if (process.env.NODE_ENV === "production" && profile !== "laptop") {
 			throw new Error(
-				"LocalSandboxAdapter is not allowed in server environments. Use DockerSandboxAdapter for isolated sandbox execution.",
+				"LocalSandboxAdapter is not allowed on a server profile; the shared backend runs no agents (set HYPERIDLE_PROFILE=laptop to run host-local).",
 			);
 		}
 	}

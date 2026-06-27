@@ -675,7 +675,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		session.child.kill("SIGTERM");
 
 		// Escalate to SIGKILL after 5 seconds if process hasn't exited
-		// @lore X5 W1: SIGTERM -> 5s wait -> SIGKILL mirrors IsolatedHarnessAdapter pattern
+		// @lore X5 W1: SIGTERM -> 5s wait -> SIGKILL — graceful shutdown gives the process
+		// time to flush output before the hard kill.
 		session.killTimer = setTimeout(() => {
 			const s = this.sessions.get(handle.sessionId);
 			if (s && !s.done) {

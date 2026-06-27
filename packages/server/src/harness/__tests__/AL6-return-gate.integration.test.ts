@@ -673,7 +673,6 @@ describe("AL6 v2 — return-gate integration", () => {
 			const caps = adapter.getCapabilities();
 			expect(caps.returnEnforcement).toBe("process-reengage");
 		});
-
 	});
 
 	// ── AC5 (integration): mid-turn tools all execute normally ────────────────

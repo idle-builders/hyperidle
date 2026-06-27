@@ -45,9 +45,7 @@
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
-			"entry": [
-				"src/harness/harness-session-probe.ts!"
-			],
+			"entry": ["src/harness/harness-session-probe.ts!"],
 			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},

@@ -43,10 +43,10 @@ describe("I2 S4 / review A3 — LocalSandboxAdapter production guard", () => {
 		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed/i);
 	});
 
-	it("error message recommends DockerSandboxAdapter", () => {
+	it("error message indicates server-profile restriction (AQ1: no Docker reference)", () => {
 		process.env.NODE_ENV = "production";
 		process.env.HYPERIDLE_PROFILE = "vps";
-		expect(() => new LocalSandboxAdapter()).toThrow(/Docker/i);
+		expect(() => new LocalSandboxAdapter()).toThrow(/not allowed.*server/i);
 	});
 
 	it("spawn() succeeds in NODE_ENV=test (the default for the suite)", async () => {

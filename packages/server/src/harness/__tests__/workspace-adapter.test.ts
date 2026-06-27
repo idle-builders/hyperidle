@@ -150,5 +150,4 @@ describe("SandboxAdapter interface (D3)", () => {
 			await adapter.destroy(handle);
 		});
 	});
-
 });
