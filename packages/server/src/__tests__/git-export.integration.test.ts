@@ -56,7 +56,9 @@ type GitCall =
 	| { cmd: "configSet"; key: string; value: string }
 	| { cmd: "remoteAdd"; name: string; url: string }
 	| { cmd: "lsFiles" }
-	| { cmd: "statusPorcelain" };
+	| { cmd: "statusPorcelain" }
+	| { cmd: "clone" }
+	| { cmd: "bundle" };
 
 interface FakeGitRunnerOptions {
 	/** Whether git thinks cwd is already a worktree. Defaults to true. */
@@ -157,6 +159,18 @@ class FakeGitRunner implements GitRunner {
 		await this.wait();
 		// FakeGitRunner always reports reachable — not the subject of git-export tests.
 		return { reachable: true };
+	}
+	async clone(
+		_url: string,
+		_branch: string,
+		_opts?: { depth?: number; tokenConfig?: { key: string; value: string } },
+	): Promise<void> {
+		await this.wait();
+		this.calls.push({ cmd: "clone" } as GitCall);
+	}
+	async bundle(_bundlePath: string, _ref: string): Promise<void> {
+		await this.wait();
+		this.calls.push({ cmd: "bundle" } as GitCall);
 	}
 }
 

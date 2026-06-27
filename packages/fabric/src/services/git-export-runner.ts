@@ -440,7 +440,9 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
  * tests can assert on the interface shape without spawning real git processes.
  */
 export class FakeGitRunner implements GitRunner {
-	constructor(private readonly _cwd: string) {}
+	// @lore AO2: _cwd kept for parity with createGitRunner(repoPath) signature.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	constructor(_cwd: string) {}
 
 	async init(_branch: string): Promise<void> {}
 	async add(_paths: readonly string[]): Promise<void> {}

@@ -27,6 +27,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	type HyperIdleDb,
 	filesystemInjections,
 	filesystems,
 	serviceConnections,
@@ -50,10 +51,6 @@ let captureBasePath: string;
 const NOW = "2026-06-27T00:00:00.000Z";
 const TEST_CREDENTIAL_KEY = "ao2-test-credential-key-32-chars!!";
 const TEST_API_KEY = "test-key-ao2";
-
-function auth(): Record<string, string> {
-	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
-}
 
 // Create the source git repo once for all tests in this file.
 beforeAll(() => {
@@ -102,7 +99,7 @@ afterEach(() => {
 
 // ─── Seed helpers ─────────────────────────────────────────────────────────────
 
-async function seedBaseEntities(db: Parameters<typeof test>[1]["db"], prefix: string) {
+async function seedBaseEntities(db: HyperIdleDb, prefix: string) {
 	const teamId = `team-ao2-${prefix}`;
 	const teamMembersId = `tm-ao2-${prefix}`;
 	const botId = `bot-ao2-${prefix}`;
@@ -141,7 +138,7 @@ async function seedBaseEntities(db: Parameters<typeof test>[1]["db"], prefix: st
 }
 
 async function seedFilesystem(
-	db: Parameters<typeof test>[1]["db"],
+	db: HyperIdleDb,
 	{
 		teamId,
 		botId,
@@ -286,7 +283,7 @@ describe("AC4: OwnerScopedAuthResolver — owner-scoped token resolution (unit)"
 			});
 
 			// Read back the stored connection row and filesystem row — verify no plaintext.
-			const { serviceConnections: scTable, filesystems: fsTable } = await import("@hyperidle/db");
+			const { filesystems: fsTable } = await import("@hyperidle/db");
 			const { eq } = await import("drizzle-orm");
 
 			const connRow = await db
@@ -781,7 +778,7 @@ describe("AC2: captureBack — git writeback, bundle restore, anti-pollution, co
 
 	test(
 		"AC2 sanity-break: mount un-wired (filesystemMounter=undefined) → no .git in sandbox",
-		async ({ db }) => {
+		async ({ db: _db }) => {
 			// This test PROVES that AC1/AC2 tests the real wiring, not a fixture.
 			// Without the mounter, clone never happens → no .git.
 			// Un-wire by NOT calling mounter.mount and checking the sandbox is bare.

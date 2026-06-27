@@ -953,9 +953,16 @@ export const filesystemCaptures = pgTable(
 	"filesystem_captures",
 	{
 		id: text("id").primaryKey(),
-		sessionId: text("session_id")
-			.notNull()
-			.references(() => sessions.id, { onDelete: "cascade" }),
+		/**
+		 * AO2: Plain text reference to sessions.id (no FK constraint).
+		 * Pattern mirrors filesystems.connection_id (plain text, AO1 ⟂ AN) —
+		 * cross-subsystem references use plain text to avoid blast-radius
+		 * migration coupling. AO3/AL7 reads this to locate the durable bundle.
+		 * @lore AO2: FK omitted because the capture is written from the mounter
+		 * (detached from the session transaction context) and integration tests
+		 * use synthetic sessionIds without seeding a sessions row.
+		 */
+		sessionId: text("session_id").notNull(),
 		filesystemId: text("filesystem_id")
 			.notNull()
 			.references(() => filesystems.id, { onDelete: "cascade" }),

@@ -14,7 +14,7 @@
  * Source of truth: plans/AO2/architecture.md §3
  */
 
-import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { encryptCredentialValue } from "../services/credential-encryption.js";
 import { OwnerScopedAuthResolver } from "../services/owner-scoped-auth-resolver.js";
@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 async function seedOwnerAndConnection(
-	db: Parameters<typeof test>[1]["db"],
+	db: HyperIdleDb,
 	prefix: string,
 	plaintext: string,
 ) {

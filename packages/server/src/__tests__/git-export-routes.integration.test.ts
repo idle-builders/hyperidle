@@ -112,6 +112,16 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 			calls.push("lsRemote");
 			return { reachable: true };
 		},
+		async clone(
+			_url: string,
+			_branch: string,
+			_opts?: { depth?: number; tokenConfig?: { key: string; value: string } },
+		): Promise<void> {
+			calls.push("clone");
+		},
+		async bundle(_bundlePath: string, _ref: string): Promise<void> {
+			calls.push("bundle");
+		},
 	};
 }
 
@@ -450,6 +460,16 @@ describe("Git Export HTTP routes", () => {
 				): Promise<{ reachable: boolean; reason?: string }> {
 					runner.calls.push("lsRemote");
 					return { reachable: true };
+				},
+				async clone(
+					_url: string,
+					_branch: string,
+					_opts?: { depth?: number; tokenConfig?: { key: string; value: string } },
+				): Promise<void> {
+					runner.calls.push("clone");
+				},
+				async bundle(_bundlePath: string, _ref: string): Promise<void> {
+					runner.calls.push("bundle");
 				},
 			};
 			const app = buildApp(db, { createRunner: () => runner, fs: createMemFs() });
