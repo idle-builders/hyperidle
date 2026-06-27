@@ -940,6 +940,42 @@ export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 // The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/shared — see §1.
 
+/**
+ * AO2 — Per-session capture provenance.
+ * Written by SandboxFilesystemMounter.captureBack() before workspace.destroy().
+ * AO3/AL7 reads this to locate the durable bundle/snapshot for review.
+ *
+ * @lore AO2 §6: Kept separate from `artifacts` (kernel-clean @lore O2) because
+ * a capture is a filesystem operation record, not an L3 reviewable Artifact.
+ * AO3 builds the Artifact from this provenance row.
+ */
+export const filesystemCaptures = pgTable(
+	"filesystem_captures",
+	{
+		id: text("id").primaryKey(),
+		sessionId: text("session_id")
+			.notNull()
+			.references(() => sessions.id, { onDelete: "cascade" }),
+		filesystemId: text("filesystem_id")
+			.notNull()
+			.references(() => filesystems.id, { onDelete: "cascade" }),
+		/** git | file | none — snapshot of the fs's writeback mode at capture time. */
+		writeback: text("writeback").notNull(),
+		/** Durable path to the bundle (.bundle) or snapshot (dir) or "none". */
+		capturePath: text("capture_path").notNull(),
+		/** git writeback only: the commit SHA of the bot's authored commit. */
+		commitSha: text("commit_sha"),
+		createdAt: text("created_at").notNull(),
+	},
+	(t) => [
+		index("filesystem_captures_session_idx").on(t.sessionId),
+		index("filesystem_captures_filesystem_idx").on(t.filesystemId),
+	],
+);
+
+export type FilesystemCaptureRow = typeof filesystemCaptures.$inferSelect;
+export type NewFilesystemCaptureRow = typeof filesystemCaptures.$inferInsert;
+
 // --- P3: Server-side credential storage (shared mode) ---
 
 /**
