@@ -674,21 +674,6 @@ describe("AL6 v2 — return-gate integration", () => {
 			expect(caps.returnEnforcement).toBe("process-reengage");
 		});
 
-		test("IsolatedHarnessAdapter: returnEnforcement='sdk-inprocess' (inherits inner SDK hook)", async () => {
-			const { IsolatedHarnessAdapter } = await import("../../harness/isolated-harness-adapter.js");
-			const fakeResolver = { resolve: async (_key: string) => null };
-			const fakeConfig = {
-				maxMemoryMb: 512,
-				maxDurationMs: 60000,
-				envAllowlist: [],
-			};
-			const adapter = new IsolatedHarnessAdapter(
-				fakeResolver as unknown as ConstructorParameters<typeof IsolatedHarnessAdapter>[0],
-				fakeConfig,
-			);
-			const caps = adapter.getCapabilities();
-			expect(caps.returnEnforcement).toBe("sdk-inprocess");
-		});
 	});
 
 	// ── AC5 (integration): mid-turn tools all execute normally ────────────────

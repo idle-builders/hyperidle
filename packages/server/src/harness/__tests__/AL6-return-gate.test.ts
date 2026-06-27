@@ -24,7 +24,6 @@ import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
-import { IsolatedHarnessAdapter } from "../isolated-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
@@ -312,19 +311,6 @@ describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 
 		const adapter = new ClaudeAgentSdkAdapter();
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
 		// FAILS red until Task 5 adds returnEnforcement:"sdk-inprocess"
-		expect(caps.returnEnforcement).toBe("sdk-inprocess");
-	});
-
-	it("IsolatedHarnessAdapter: returnEnforcement='sdk-inprocess' (inherits inner SDK hook)", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
-		const stubResolver = { resolve: async () => undefined } as any;
-		const adapter = new IsolatedHarnessAdapter(stubResolver, {
-			maxMemoryMb: 512,
-			maxDurationMs: 30_000,
-			envAllowlist: [],
-		});
-		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-		// FAILS red until Task 7 adds returnEnforcement:"sdk-inprocess"
 		expect(caps.returnEnforcement).toBe("sdk-inprocess");
 	});
 

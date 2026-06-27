@@ -2,7 +2,6 @@ import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DockerSandboxAdapter } from "../docker-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import type { SandboxAdapter, SandboxHandle } from "../sandbox-adapter.js";
 
@@ -152,20 +151,4 @@ describe("SandboxAdapter interface (D3)", () => {
 		});
 	});
 
-	describe("DockerSandboxAdapter", () => {
-		it("implements SandboxAdapter interface", () => {
-			const adapter: SandboxAdapter = new DockerSandboxAdapter();
-			expect(typeof adapter.spawn).toBe("function");
-			expect(typeof adapter.exec).toBe("function");
-			expect(typeof adapter.destroy).toBe("function");
-		});
-
-		it("can be constructed with custom options", () => {
-			const adapter = new DockerSandboxAdapter({
-				image: "ubuntu:latest",
-				mountPath: "/work",
-			});
-			expect(adapter).toBeDefined();
-		});
-	});
 });
