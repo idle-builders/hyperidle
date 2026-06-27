@@ -19,7 +19,7 @@ Six lenses + AC completeness audit, one session. Three positive lenses check the
 1. The workpackage in the relevant track file under `.pipeline/work-packages/TRACK-*.md` — extract every acceptance criterion
 2. `plans/<workpackage-id>/architecture.md` — the technical plan (always start here), especially its "Security & abuse cases" block
 3. The specific authoritative files named in the plan's **Required reading** section — read each end-to-end
-4. `plans/<workpackage-id>/concept.md` — the locked concept output, if present
+4. `plans/<workpackage-id>/requirements.md` — the locked requirements output, if present
 5. `plans/<workpackage-id>/design/approved.md` — the approved design spec (if UI story)
 6. `CLAUDE.md` (tech stack), `packages/design-system/DESIGN.md` + `PRINCIPLES.md` (if UI), canonical-shapes contracts under `docs/<topic>/`
 7. `.claude/rules/typescript.md` — TypeScript rules the code must follow

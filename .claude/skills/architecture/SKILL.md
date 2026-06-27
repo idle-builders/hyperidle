@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Interrogate the spec, then draft. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
+description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Interrogate the spec, then draft. Run AFTER /refine (always) and AFTER /design (when the story has UI)."
 argument-hint: "[story-id]"
 user-invocable: true
 min_tool_calls: 25
@@ -11,12 +11,12 @@ min_tool_calls: 25
 **Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The reviewer catches errors before they become expensive rework.
 
 **Fixed inputs (do NOT re-litigate):**
-- Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
+- Requirements doc from `/refine` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
 - Approved design from `/design` (UI workpackages) — `plans/<workpackage-id>/design/approved.md`.
 
-**Doc discovery:** Read the "Required reading" from `/concept` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
+**Doc discovery:** Read the "Required reading" from `/refine` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
 
-If the spec contradicts an existing concept doc, stop — that's a `/concept` gap.
+If the spec contradicts an existing requirements doc, stop — that's a `/refine` gap.
 
 ## Phase 0 — Interrogate the understanding
 

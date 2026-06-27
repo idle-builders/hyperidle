@@ -84,7 +84,7 @@ Rules:
 - **Opt-in, thinnest shim.** Only wrap a surface that actually consumes router/context. `MockProviders` provides exactly two providers — router + assistant. A surface needing a route param wraps its children in `<Routes><Route path=… element=…/></Routes>` itself; the harness provides the router, the story provides the match.
 - **Feed it fixtures, not fetches.** Pass an existing fixture from `packages/web/src/pages/__fixtures__/` or `packages/web/src/fixtures/` (or an `override*` prop that short-circuits the fetch). Seed a new fixture only if the surface has none — do not pre-build fixtures for surfaces you aren't rendering.
 - **Never reach a backend.** An ESLint `no-restricted-imports` block scoped to `packages/web/src/preview/**` forbids `@hyperidle/server` and `@hyperidle/db`. The no-backend contract is lint-enforced.
-- **One story, three jobs.** The same `.stories.tsx` is the design prototype, the annotation surface for `/human-design-review`, and (post-build) the catalog entry — no parallel mockup medium.
+- **One story, three jobs.** The same `.stories.tsx` is the design prototype, the annotation surface for `/human-concept-review`, and (post-build) the catalog entry — no parallel mockup medium.
 
 ### Design variants are TSX stories
 

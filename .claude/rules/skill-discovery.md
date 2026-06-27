@@ -5,8 +5,8 @@ Before responding to ANY implementation or review request, check if a skill shou
 ## Two kinds of skills
 
 **Individual skills** — domain knowledge loaded INTO an agent session. They define a specific act, not a step. They never launch agents.
-- `/concept`, `/design`, `/architecture` (designer — production)
-- `/human-design-review` (designer + founder — conditional stakes-gated phase after `/design-critique`; founder annotates the rendered variant in the browser, designer revises the TSX to approval. Novel `DESIGN-CLASS` only; a novel design in an autonomous run parks)
+- `/refine`, `/design`, `/architecture` (designer — production)
+- `/human-concept-review` (designer + founder — conditional stakes-gated phase after `/design-critique`; fires on novel design OR significant doc rewrite (DESIGN-CLASS or DOC-CLASS); founder reviews the user/dev-guide draft + rendered variant, designer revises the TSX to approval. Novel `DESIGN-CLASS` or significant `DOC-CLASS` only; a novel design in an autonomous run parks)
 - `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + 6 lenses + AC completeness)
 - `/write-tests`, `/write-code`, `/write-docs`, `/visual-polish` (builder)
 - `/ship` (builder — verify + attestation + PR)
@@ -27,9 +27,9 @@ Before responding to ANY implementation or review request, check if a skill shou
 ```
 User request arrives
     │
-    ├── Is it about defining a primitive or domain concept? → /concept <story>
+    ├── Is it about sharpening the user requirement? ──→ /refine <story>
     ├── Is it about exploring UI/UX direction? ──→ /design <story>
-    ├── Is it about a founder annotating a rendered design variant? → /human-design-review <story>
+    ├── Is it about a founder reviewing the user/dev-guide draft + design? → /human-concept-review <story>
     ├── Is it about producing the technical plan? → /architecture <story>
     ├── Is it about building a feature? ─────────→ /pipeline <story>
     ├── Is it about running multiple stories? ───→ /pipeline <target>
@@ -57,13 +57,13 @@ User request arrives
 | "I can skip the design phase" | You can. You shouldn't. The critique exists because your designs have blind spots. |
 | "I don't need to plan, I'll figure it out as I go" | That's how you end up rewriting half the implementation. 10 minutes of /architecture saves hours of rework. |
 | "The workpackage has obvious UI, I'll skip /design" | The design step is where multi-variant exploration happens. Skipping it locks you into the first idea — almost always not the best one. |
-| "I know what a Thread / Block / Artifact is, I'll skip /concept" | If the concept were obvious you wouldn't need a 4-paragraph workpackage. /concept's probes catch silent assumptions before they become load-bearing. |
+| "I know what a Thread / Block / Artifact is, I'll skip /refine" | If the requirement were obvious you wouldn't need a 4-paragraph workpackage. /refine's probes catch silent assumptions before they become load-bearing. |
 | "A retro is navel-gazing" | Without /retro, you repeat the same mistakes every workpackage. Compounding improvement is the whole point. |
 | "I'll just bump versions manually" | Manual bumps skip changelog research, miss breaking changes, and skip verification. /upgrade catches what you won't. |
 
 ## Skill Priority
 
-1. **Concept first:** /concept (any story that introduces or reshapes a primitive / domain concept / load-bearing noun)
+1. **Refine first:** /refine (any story that introduces or reshapes a primitive / domain concept / load-bearing noun — sharpen the user requirement)
 2. **Design next:** /design (designer produces; UI stories, before architecture)
 3. **Architecture then:** /architecture (designer produces; every story, before any code)
 4. **Critique:** /design-critique then /architecture-critique (reviewer evaluates; different agent than producer)

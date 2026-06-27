@@ -60,6 +60,9 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── concept-review gate-decision helper ──
+export type { ConceptReviewDecision, DesignClass, DocClass } from "./concept-review-decision.js";
+export { conceptReviewDecision } from "./concept-review-decision.js";
 // ── AN1: ServiceConnection types ──
 export type {
 	ConnectionAuthSource,
@@ -82,9 +85,6 @@ export {
 	CREDENTIAL_STATES,
 	isCredentialName,
 } from "./credential.js";
-// ── AJ3: design-review gate-decision helper ──
-export type { DesignClass, DesignReviewDecision } from "./design-review-decision.js";
-export { designReviewDecision } from "./design-review-decision.js";
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,

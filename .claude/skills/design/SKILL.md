@@ -19,18 +19,18 @@ Inspired by:
 
 ## When this runs
 
-- **In the pipeline:** Architect persona, after `/concept` and before `/architecture`.
+- **In the pipeline:** Architect persona, after `/refine` and before `/architecture`.
 - **On `/design <story-id>`:** explicit invocation for any story with a UI surface, especially the L-track primitives (Thread L1, Block L2, Artifact L3) where multiple plausible shapes exist.
 - **Skip when:** the story has no user-facing surface, OR an approved design already exists for this surface and the change is a pure layout tweak (then run only the in-session Phase 2 critique on the existing `approved.md`).
 
-**Fixed input from `/concept`:** the relevant `docs/concept/*.md` section is the conceptual model these variants must respect. Variants explore the *visual / interaction shape* of a Thread / Block / Artifact — they do not redefine what a Thread / Block / Artifact IS. If a variant only works by changing the concept, that's a `/concept` issue, not a design issue.
+**Fixed input from `/refine`:** the relevant `docs/concept/*.md` section is the conceptual model these variants must respect. Variants explore the *visual / interaction shape* of a Thread / Block / Artifact — they do not redefine what a Thread / Block / Artifact IS. If a variant only works by changing the concept, that's a `/refine` issue, not a design issue.
 
 ## Inputs
 
 Read all of the following in one parallel batch of Read calls — these files are independent (anchor-scoped where possible):
 
 1. The workpackage in `.pipeline/work-packages/TRACK-<letter>.md`.
-2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
+2. The per-workpackage requirements output at `plans/<workpackage-id>/requirements.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The requirements doc tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-regression.md`.
 5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
@@ -208,9 +208,9 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 `approved.md` is the **input contract** to `/architecture`. The architect does NOT re-decide visual hierarchy, component vocabulary, or interaction grammar.
 
-**After `/design-critique`, a `novel` `DESIGN-CLASS` triggers `/human-design-review`** — the founder opens the rendered variant in the viewer and annotates it element-by-element before the design is locked for build (pipeline Phase 2.5). `routine` / `routine-low-conf` proceed straight to build. The gate reads the `DESIGN-CLASS:` line emitted in Phase 0a — do not duplicate or re-derive it. See `/human-design-review`.
+**After `/design-critique`, a `novel` `DESIGN-CLASS` triggers `/human-concept-review`** — the founder opens the rendered variant in the viewer and annotates it element-by-element before the design is locked for build (pipeline Phase 2.5). `routine` / `routine-low-conf` proceed straight to build. The gate reads the `DESIGN-CLASS:` line emitted in Phase 0a — do not duplicate or re-derive it. See `/human-concept-review`.
 
-**Scope across every phase — and especially while revising under `/human-design-review`: a story that renders, and nothing else.** Do the minimal effort to make the `.stories.tsx` render the intended design in the viewer. Do NOT run `npm run test` / `check` / `lint`, do NOT re-bless the DOM-snapshot net, and do NOT gate your work on tests passing. Tests, production code, primitive/code fixes, and snapshot-blessing are the **builder's** job in the green phase — hand them off. Mixing them into design wastes effort, slows iteration, and blurs the red/green boundary.
+**Scope across every phase — and especially while revising under `/human-concept-review`: a story that renders, and nothing else.** Do the minimal effort to make the `.stories.tsx` render the intended design in the viewer. Do NOT run `npm run test` / `check` / `lint`, do NOT re-bless the DOM-snapshot net, and do NOT gate your work on tests passing. Tests, production code, primitive/code fixes, and snapshot-blessing are the **builder's** job in the green phase — hand them off. Mixing them into design wastes effort, slows iteration, and blurs the red/green boundary.
 
 ## Anti-patterns
 
@@ -244,5 +244,5 @@ Each variant's embodiment is a discoverable `.stories.tsx` story (in `packages/d
 
 
 - `/architecture` — consumes `approved.md` as fixed input; never re-litigates the visual contract; runs its own in-session architectural critique
-- `/human-design-review` — conditional phase after `/design-critique`; for a `novel` `DESIGN-CLASS` the founder annotates the rendered story in the viewer and the designer revises the TSX until approval (the approved story flows straight into build — no HTML→TSX rebuild)
+- `/human-concept-review` — conditional phase after `/design-critique`; for a `novel` `DESIGN-CLASS` the founder annotates the rendered story in the viewer and the designer revises the TSX until approval (the approved story flows straight into build — no HTML→TSX rebuild)
 - `/visual-polish` — used later, AFTER implementation, to bring the rendered TSX to pixel parity with the approved design

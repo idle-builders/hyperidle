@@ -45,7 +45,7 @@ function makeNotification(
 
 describe("inferSkillName", () => {
 	it("extracts from a slash-prefixed token", () => {
-		expect(inferSkillNameForTesting("/concept hello")).toBe("concept");
+		expect(inferSkillNameForTesting("/refine hello")).toBe("refine");
 		expect(inferSkillNameForTesting("running /architecture-review now")).toBe(
 			"architecture-review",
 		);
@@ -78,7 +78,7 @@ describe("handleSystemMessage emits OTel spans", () => {
 
 	it("opens a span on task_started and closes it on task_notification", async () => {
 		const taskSpans = new Map<string, Span>();
-		handleSystemMessage("g", STORY_ID, makeStarted("/concept L10"), taskSpans);
+		handleSystemMessage("g", STORY_ID, makeStarted("/refine L10"), taskSpans);
 		expect(taskSpans.size).toBe(1);
 		expect(exporter.getFinishedSpans()).toHaveLength(0);
 
@@ -101,11 +101,11 @@ describe("handleSystemMessage emits OTel spans", () => {
 		expect(spans).toHaveLength(1);
 		const attrs = spans[0]!.attributes;
 		expect(attrs[HYPERIDLE.storyId]).toBe(STORY_ID);
-		expect(attrs[HYPERIDLE.persona]).toBe("concept");
+		expect(attrs[HYPERIDLE.persona]).toBe("refine");
 		expect(attrs[HYPERIDLE.totalTokens]).toBe(1234);
 		expect(attrs[HYPERIDLE.toolCallsActual]).toBe(22);
 		expect(attrs[HYPERIDLE.durationMs]).toBe(5000);
-		// Frontmatter-derived: concept's min_tool_calls is set in the shipped SKILL.md.
+		// Frontmatter-derived: refine's min_tool_calls is set in the shipped SKILL.md.
 		expect(attrs[HYPERIDLE.toolCallsMinimumEstimate]).toBeTypeOf("number");
 		expect(attrs[HYPERIDLE.toolCallsMinimumEstimate]).toBeGreaterThan(0);
 	});

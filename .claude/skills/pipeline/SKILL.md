@@ -10,7 +10,7 @@ min_tool_calls: 40
 
 Target: **<target>**
 
-You are autonomous. There is NO human. Never pause, never ask, never stop until every workpackage you were given is done or blocked. This autonomous stance is the **default**; when `PIPELINE_INTERACTIVE` is exactly `1` (the canonical rule — see "## Run modes" below), the run additionally surfaces the **ship-summary** founder touchpoint before the human merge — and *only* that, *only* in interactive mode. The default-off autonomous stance is unchanged. (The concept recap is upstream founder work in `/concept`, not a pipeline behavior.)
+You are autonomous. There is NO human. Never pause, never ask, never stop until every workpackage you were given is done or blocked. This autonomous stance is the **default**; when `PIPELINE_INTERACTIVE` is exactly `1` (the canonical rule — see "## Run modes" below), the run additionally surfaces two founder touchpoints — the **requirement recap** at the end of Phase 1 (`/refine`) and the **ship-summary** before the human merge — and *only* those, *only* in interactive mode. The default-off autonomous stance is unchanged. (The post-ship **outcome summary** is a separate, always-on final step — see below — not gated by interactive mode.)
 
 **NEVER end your turn without a tool call** unless every workpackage you were given is done/blocked.
 
@@ -40,23 +40,25 @@ Record session start time.
 
 ## Run modes
 
-**Canonical `PIPELINE_INTERACTIVE` rule** — interactive mode is on if and only if `PIPELINE_INTERACTIVE` is exactly the literal string `1`. Every other value — unset, empty, `0`, `true`, `yes`, anything else — is autonomous mode. This rule is stated once here and is the single source of truth; every consumer (`/concept`, `/ship`) references it rather than re-deriving its own truthiness check.
+**Canonical `PIPELINE_INTERACTIVE` rule** — interactive mode is on if and only if `PIPELINE_INTERACTIVE` is exactly the literal string `1`. Every other value — unset, empty, `0`, `true`, `yes`, anything else — is autonomous mode. This rule is stated once here and is the single source of truth; every consumer (`/refine`, `/ship`) references it rather than re-deriving its own truthiness check.
 
-Read once at run start. The run mode governs exactly **one** pipeline-owned touchpoint: the **ship-summary check** (before the human merge, in the Ship phase — see "Ship-summary check" in the dispatch block; it is its own accountability check on top of the CI-green gate, not a recap of `/ship`). In autonomous mode (the default), no touchpoints fire.
+Read once at run start. The run mode governs exactly **two** pipeline-owned touchpoints: the **requirement recap** (at the end of Phase 1's `/refine`, when it runs — a post-lock confirm/redirect on the requirement) and the **ship-summary check** (before the human merge, in the Ship phase — its own accountability check on top of the CI-green gate). In autonomous mode (the default), neither fires.
 
-**The concept recap is NOT a pipeline touchpoint.** It lives in `/concept`, which the founder runs upstream before invoking the pipeline (see "## Pre-condition" — the pipeline does not run `/concept`). By the time `/pipeline` starts, the concept is already confirmed (or `blocked: concept-contested`). The pipeline never owns, dispatches, or re-runs the concept recap.
+**The requirement recap IS a Phase-1 touchpoint now.** The pipeline runs `/refine` in Phase 1 (when the Refinement gate says so), and in interactive mode `/refine` surfaces its post-lock recap there. This differs from the old model where concept work ran upstream: the *strategic frame* still must exist upstream (settled in `/work-planning` — see "## Pre-condition"), but the per-workpackage requirement is sharpened inside the run.
+
+**The post-ship outcome summary is always-on, not interactive-gated.** It is the final step every run, autonomous or interactive (see "Final summary to the human"). It is distinct from the interactive ship-summary check.
 
 **Orthogonality:** `PIPELINE_AB_MODE=1` is an independent flag for PR-replay. A/B runs stay autonomous — interactive mode stays OFF under A/B. Cron/unattended runs always run autonomous (signal absent). The two flags are independent; A/B never implies interactive.
 
-**Hard rule:** interactive mode never alters the committed artifact set, phase order, persona separation, or the ship gate. Enabling it adds a chat-surfaced ship summary; it removes, reorders, and adds nothing to what gets committed.
+**Hard rule:** interactive mode never alters the committed artifact set, phase order, persona separation, or the ship gate. Enabling it adds the chat-surfaced requirement recap + ship summary; it removes, reorders, and adds nothing to what gets committed.
 
 ---
 
 ## Pre-condition
 
-The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/concept/*.md` section + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
+The pipeline runs `/refine` (Phase 1) to sharpen a workpackage's per-WP requirement, but it does NOT settle the worktrack's **strategic frame** — what the whole track is about, its load-bearing primitive/boundary, what a Thread / Block / Artifact / Bet / Cost IS and ISN'T at the track level. That is upstream founder work, done in `/work-planning`'s strategic-framing questionnaire and landed in `docs/<topic>/` ground truth. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the strategic frame for any track that introduces or reshapes a primitive must exist in `docs/`. The pipeline (and `/refine`) read it as fixed input.
 
-If a workpackage is dispatched to the pipeline and `/concept` work is missing for a New / Reshaped noun, **fail fast**: mark the workpackage `blocked` with reason `concept-missing` and move on. Do not autonomously redefine concepts.
+If a workpackage reaches the pipeline and the strategic frame is missing for a New / Reshaped noun it depends on, **fail fast**: mark the workpackage `blocked` with reason `concept-missing` and move on. Do not autonomously invent the strategic frame. (Sharpening the *per-workpackage* requirement is fine — that's exactly what Phase 1's `/refine` does.)
 
 ---
 
@@ -86,7 +88,7 @@ Each persona phase **commits its output and pushes** before returning:
 
 | Phase | What gets committed | CI? |
 |---|---|---|
-| 1 — designer /concept | prose only | `[skip ci]` |
+| 1 — designer /refine (if needed) | requirements.md (incl. guide draft) | `[skip ci]` |
 | 1 — designer /design (UI stories) | design variants | `[skip ci]` |
 | 1 — designer /architecture | plan doc | `[skip ci]` |
 | 2 — reviewer /design-critique | approved.md | `[skip ci]` |
@@ -129,9 +131,9 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 
 | Phase | Persona | Effort | Skills | Why |
 |---|---|---|---|---|
-| 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
+| 1 | **designer** | high | `/refine` (if needed) → `/design` → `/architecture` | Production only. Requirement (value + noun shape + guide draft) + variant exploration + technical plan. `/refine` runs only when the Refinement gate says so. |
 | 2 | **reviewer** + **designer** | high | `/design-critique` → `/architecture-critique` → designer revision loop | Evaluates designer output. If CRITICAL/WARNING findings, designer revises, reviewer re-critiques (max 3 rounds). Builder receives a clean, approved plan. Context carries to Phase 4. |
-| 2.5 | **designer** (or orchestrator park) | conditional | `/human-design-review` | **Stakes-gated, conditional.** Runs only when `designReviewDecision(DESIGN-CLASS) == "run"` (`novel`). Interactive + tool present → founder annotates the rendered variant, designer revises TSX to approval. Autonomous / no tool → **park** (`status: awaiting-human-design-review`). `routine` / `routine-low-conf` → skipped silently. |
+| 2.5 | **designer** (or orchestrator park) | conditional | `/human-concept-review` | **Stakes-gated, conditional.** Runs only when `conceptReviewDecision(DESIGN-CLASS, DOC-CLASS) == "run"` (novel design OR significant guide rewrite). Interactive + tool present → founder reviews the rendered variant + guide draft, designer revises TSX + draft to approval. Autonomous / no tool → **park** (`status: awaiting-human-concept-review`). Otherwise → skipped silently. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Implementation only — no docs here. Must pass `npm run verify` before pushing. |
 | 4 | **reviewer** + **builder** | high | `/review` + fix loop | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes; reviewer re-reviews. Reviews code, not docs (docs come next). Verdict DONE required before proceeding. |
 | 5 | **builder** | medium | `/write-docs` | Print the concept essence + as-built implementation into `docs/`, then retire superseded `plans/<id>/` artifacts. Runs after review so docs describe the final, reviewed code. |
@@ -152,11 +154,14 @@ For each phase, the orchestrator spawns agents exactly ONCE with a stable name, 
 ```
 Phase 1 — designer (production):
   SPAWN: Agent(subagent_type="designer", name="designer-<id>")
-  Run /concept (read concept doc, probe if New/Reshaped nouns exist).
+  Run /refine IF the Refinement gate says so (WP marked Refinement: Required,
+    goal unclear, or New/Reshaped noun) — sharpen the requirement, ask the
+    value question, draft the user/dev guide, emit the DOC-CLASS line. Skip
+    when the requirement is already sharp and locked in docs/.
   Run /design (classify routine/novel, generate 1-3 variants).
     Skip /design if no UI surface.
-  Run /architecture (interrogate spec, draft plan).
-  Commit each skill's output (concept.md, variants, plan) and push.
+  Run /architecture (interrogate spec + requirement, draft plan).
+  Commit each skill's output (requirements.md, variants, plan) and push.
   Prose commits use [skip ci].
   DO NOT let the designer exit — it may be needed in Phase 2 to apply critique fixes.
 
@@ -177,30 +182,35 @@ Phase 2 — reviewer + designer (critique loop):
   Commit critique output (approved.md, critique doc) and push [skip ci].
   DO NOT let the reviewer exit — it will be reused in Phase 4.
 
-Phase 2.5 — human-design-review (conditional, stakes-gated):
-  Only relevant when the WP had a UI surface (a /design run happened).
-  Read the DESIGN-CLASS line /design emitted (Phase 0a, in brief.md).
-  decision = designReviewDecision(DESIGN-CLASS)   // @hyperidle/shared, unit-tested
-  ├─ decision == "skip"  (routine | routine-low-conf):
+Phase 2.5 — human-concept-review (conditional, stakes-gated):
+  Relevant when the WP touched a user-facing part — a UI surface (a /design run
+  happened) and/or a user/dev-guide draft (a /refine run emitted a DOC-CLASS).
+  Read the DESIGN-CLASS line /design emitted (Phase 0a, in brief.md) and the
+  DOC-CLASS line /refine emitted (Phase 5, in requirements.md). A missing line
+  defaults to its low-stakes value (DESIGN-CLASS=routine, DOC-CLASS=none).
+  decision = conceptReviewDecision(DESIGN-CLASS, DOC-CLASS)  // @hyperidle/shared, unit-tested
+  ├─ decision == "skip"  (routine design AND non-significant docs):
   │      → SKIP silently. Proceed to Phase 3. No prompt, no park.
-  └─ decision == "run"   (novel):
+  └─ decision == "run"   (novel design OR significant guide rewrite):
        ├─ Interactive run WITH annotation tool
-       │  (PIPELINE_INTERACTIVE == "1", founder reachable, MCP tool registered):
-       │    → SendMessage(to="designer-<id>") with /human-design-review.
-       │      Designer runs the annotate → drain-MCP → revise-TSX → re-render
-       │      loop until the founder approves, then commits the revised story +
-       │      refreshed approved.md and pushes [skip ci]. Proceed to Phase 3.
+       │  (PIPELINE_INTERACTIVE == "1", founder reachable, viewer overlay present):
+       │    → SendMessage(to="designer-<id>") with /human-concept-review.
+       │      Designer runs the review loop — founder annotates the rendered
+       │      variant + reads the guide draft; designer revises the TSX and the
+       │      guide draft until the founder approves, then commits the revised
+       │      story + refreshed approved.md + refreshed requirements.md and
+       │      pushes [skip ci]. Proceed to Phase 3.
        └─ Autonomous run, OR no annotation tool reachable:
             → PARK. Write .pipeline/progress/<id>.json:
-                status        = "awaiting-human-design-review",
-                currentStep   = "human-design-review",
-                reason        = "novel design requires founder review",
+                status        = "awaiting-human-concept-review",
+                currentStep   = "human-concept-review",
+                reason        = "high-stakes change requires founder review",
                 parkedAt      = <now>.
             → STOP this WP's pipeline progression (do NOT dispatch write-tests,
               write-code, review, docs, retro, or ship). Other WPs in the batch
               proceed independently.
-  The gate is purely DESIGN-CLASS-driven via designReviewDecision (the stakes
-  half). Whether a "run" becomes the interactive loop or a park is the
+  The gate is driven by conceptReviewDecision(DESIGN-CLASS, DOC-CLASS) (the
+  stakes half). Whether a "run" becomes the interactive loop or a park is the
   orchestrator's mode + tool decision — never folded into the helper.
 
 Phase 3 — builder (TDD):
@@ -238,7 +248,8 @@ Phase 4 — review (code) + fix loop:
 
 Phase 5 — write-docs (builder):
   SEND: SendMessage(to="builder-<id>") with /write-docs.
-  Builder prints the essence of the concept (plans/<id>/concept.md) and
+  Builder prints the essence of the requirement (plans/<id>/requirements.md,
+  reconciling the backwards-planned guide draft against as-built reality) and
   the AS-BUILT implementation back into docs/:
     - ground truth (docs/<topic>/) updated to match what shipped;
     - user-facing pages (docs/product/, docs/guides/user/) written per
@@ -306,33 +317,37 @@ recap of /ship):
 
 ### Park-for-review contract (Phase 2.5)
 
-- **Status value:** `awaiting-human-design-review` is a **`status`**, NOT a `blocked` reason. It is intentional (working as designed — a high-stakes design correctly held for a human), and its resolution is "the founder runs `/human-design-review`," not a bugfix. Folding it into `blocked` would lose that signal. It is distinct from `done` and from `blocked` in the final summary.
+- **Status value:** `awaiting-human-concept-review` is a **`status`**, NOT a `blocked` reason. It is intentional (working as designed — a high-stakes change correctly held for a human), and its resolution is "the founder runs `/human-concept-review`," not a bugfix. Folding it into `blocked` would lose that signal. It is distinct from `done` and from `blocked` in the final summary.
 - **Who writes it:** the pipeline orchestrator, to `.pipeline/progress/<id>.json` (the orchestrator's owned file), at the Phase 2.5 gate.
-- **Effect:** the WP does not advance to build/ship; sibling WPs in the batch proceed independently. The gate-rule mapping (`DESIGN-CLASS → run | skip`) is the unit-tested `designReviewDecision` (`@hyperidle/shared`) — the doc references it as the source of truth so the rule cannot silently drift; the orchestrator owns only the mode + tool decision of run-vs-park.
+- **Effect:** the WP does not advance to build/ship; sibling WPs in the batch proceed independently. The gate-rule mapping (`(DESIGN-CLASS, DOC-CLASS) → run | skip`) is the unit-tested `conceptReviewDecision` (`@hyperidle/shared`) — the doc references it as the source of truth so the rule cannot silently drift; the orchestrator owns only the mode + tool decision of run-vs-park.
 
-**Why park, not ship.** The pipeline's default stance is "no human, never pause." Park is the **one** deliberate exception: a `novel` design must not auto-ship unreviewed — high-stakes design is not autonomously shippable (TRACK-AJ § AJ3). Do not "optimize" the park away to keep an unattended run green. This is stakes-gating, not presence-gating: the canonical `PIPELINE_INTERACTIVE` rule (defined once under "## Run modes") governs only whether the *novel* branch loops or parks — it never makes the gate itself fire or skip. `PIPELINE_AB_MODE` is orthogonal; an A/B run is autonomous, so a `novel` design parks there too.
+**Why park, not ship.** The pipeline's default stance is "no human, never pause." Park is the **one** deliberate exception: a high-stakes change (a `novel` design or a `significant` user/dev-guide rewrite) must not auto-ship unreviewed — it is not autonomously shippable (TRACK-AJ § AJ3). Do not "optimize" the park away to keep an unattended run green. This is stakes-gating, not presence-gating: the canonical `PIPELINE_INTERACTIVE` rule (defined once under "## Run modes") governs only whether the *run* branch loops or parks — it never makes the gate itself fire or skip. `PIPELINE_AB_MODE` is orthogonal; an A/B run is autonomous, so a high-stakes change parks there too.
 
 ### Loop rules
 
 - If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 3. Max 3 attempts per story.
 - If Reviewer verdict is NOT DONE: Builder applies the cited fixes in the Phase 4 loop, reviewer re-reviews. Max 3 attempts per story.
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
-- If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
+- If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The requirement may need another `/refine` pass, or the strategic frame may need upstream `/work-planning` work.
 
 After ship: verify CI is green (already asserted by /ship). Move to next story.
 
-### Final summary to the human (outcome-first)
+### Final summary to the human — post-ship outcome summary (ALWAYS-ON)
 
-When the batch is done/blocked, write ONE summary for the human. Lead with **what was built and what they can now do** — the pipeline mechanics are not the story. The human skim-reads this to know what shipped and decide what to merge.
+The **last step of every run**, autonomous or interactive. After ship (CI green), write ONE outcome summary per workpackage — what was *actually* built versus what was intended, how it really works, what value it delivers, and what's still missing. This is the run's accountability artifact; it is NOT the interactive-only ship-summary check (that fires before merge, in interactive mode only) and NOT the retro (process/cost signals). It is chat prose — no new committed file.
 
-Per workpackage, 2–4 lines:
-- **What now exists / works** — user-visible outcome in plain words (not the workpackage ID/title verbatim).
-- **Key surfaces** — 3–5 files/pages/routes touched.
-- **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`, or `parked: awaiting human design review` (a `novel` design that needs the founder — distinct from both `done` and `blocked`).
+Lead with **what was built and what they can now do** — the pipeline mechanics are not the story. Per workpackage, the four beats (terse — one to two lines each, sourced, no fabrication):
 
-For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …; AG7 parked for design review") then the per-WP lines.
+- **Goal vs actually built** — what the WP set out to deliver (from the requirement / ACs) versus what shipped. Name any scope that moved.
+- **How it works now vs architecture** — the as-built behavior in plain words, and where it diverged from the `/architecture` plan (if it did).
+- **User value** — what a user/dev can now do or see that they couldn't before, in plain words (not the WP ID/title verbatim).
+- **Gaps** — what's deliberately deferred, unproven, or still missing against the goal. "none" is a reviewable claim, not filler.
 
-Do **not** report: phase numbers, persona names, critique scores, review-round counts, attestation internals, verify tool lists. Keep it scannable. (Mirrors `/ship` step 7b.)
+Close each WP with **Status** — `PR #N · CI green · ready to merge`, or `blocked: <plain reason>`, or `parked: awaiting human concept review` (a high-stakes change that needs the founder — distinct from both `done` and `blocked`).
+
+For a batch, a one-line lead ("3 of 4 shipped; AF12 blocked on …; AG7 parked for concept review") then the per-WP four-beat blocks.
+
+Do **not** report: phase numbers, persona names, critique scores, review-round counts, attestation internals, verify tool lists. Keep it scannable.
 
 ---
 
@@ -354,11 +369,11 @@ The agent that created the design cannot objectively score it. Moving critique t
 
 ### Why interactive mode is strictly additive (AJ2)
 
-The default autonomous stance (CLAUDE.md: "There is NO human. Never pause.") is sacrosanct — cron runs, A/B replays, and unattended pipelines must never block on a touchpoint. Interactive mode adds exactly two human-facing moments (concept recap upstream in `/concept`, ship summary in `/ship`) by opt-in env var (`PIPELINE_INTERACTIVE=1`). Neither touchpoint alters the committed artifact set: the same run, autonomous or interactive, commits the same files. The ship summary is its own **accountability check** — not a merge gate: it never blocks or performs the human's merge, but the pipeline must not emit a hollow one (an unevidenced AC or a bare "CI green" echo fails the check). The concept recap is a true gate, but it lives upstream in `/concept`, not inside the pipeline.
+The default autonomous stance (CLAUDE.md: "There is NO human. Never pause.") is sacrosanct — cron runs, A/B replays, and unattended pipelines must never block on a touchpoint. Interactive mode adds exactly two human-facing moments (the requirement recap at the end of Phase 1's `/refine`, and the ship summary in `/ship`) by opt-in env var (`PIPELINE_INTERACTIVE=1`). Neither touchpoint alters the committed artifact set: the same run, autonomous or interactive, commits the same files. The ship summary is its own **accountability check** — not a merge gate: it never blocks or performs the human's merge, but the pipeline must not emit a hollow one (an unevidenced AC or a bare "CI green" echo fails the check). The requirement recap is a true confirm/redirect gate on the locked requirement.
 
-The recap lives in `/concept` (not the pipeline) because the pipeline pre-condition explicitly states "the pipeline does NOT run `/concept`." By the time the pipeline starts, the concept is already confirmed (or `blocked: concept-contested`). Moving the recap into the pipeline would contradict that pre-condition — a structural change the strictly-additive contract forbids. The split (recap upstream, summary in-pipeline) is the spine of AJ2: each touchpoint lives where its owning skill already runs, so no phase order or persona boundary changes.
+Both touchpoints live where their owning skill already runs — the recap inside `/refine` (Phase 1), the summary inside `/ship` — so enabling interactive mode changes no phase order or persona boundary, only what gets surfaced to the founder. Separately, the **post-ship outcome summary** is always-on (not interactive-gated) and is the run's final step regardless of mode.
 
-Future agents adding a third touchpoint must: amend this concept doc, state the canonical `PIPELINE_INTERACTIVE` rule by reference (not re-derive it), gate the touchpoint with an explicit "in autonomous mode this step is absent" clause, and prove the committed artifact set is unchanged.
+Future agents adding another interactive touchpoint must: amend this doc, state the canonical `PIPELINE_INTERACTIVE` rule by reference (not re-derive it), gate the touchpoint with an explicit "in autonomous mode this step is absent" clause, and prove the committed artifact set is unchanged.
 
 ### Why /design's variant count is now conditional (TE-18)
 
@@ -381,10 +396,10 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 - `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in $ARGUMENTS — never anyone else's.
 
 **Don't rationalize skipping personas:**
-- "Concept work isn't done but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
+- "The strategic frame isn't settled but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder settles the frame in `/work-planning` upstream. (Sharpening the per-WP requirement IS in scope — that's Phase 1's `/refine`.)
 - "The plan is done, I can stop" → planning is Phase 1 of 6. You haven't built anything yet.
 - "This story is simple, skip the review" → simple stories have the highest skip rate and highest regression rate.
 - "The reviewer is redundant, tests passed" → tests prove behavior, the reviewer proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "The retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and `/compound` can't propose the next round.
 
-**When to skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, Designer skips `/design` and Reviewer skips `/design-critique`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
+**When to skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, requirements-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, Designer skips `/design` and Reviewer skips `/design-critique`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
