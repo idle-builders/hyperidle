@@ -117,3 +117,38 @@ The plan's §D flags `components.md`, deployment/system docs. It misses: `docs/a
 2. **CRITICAL-2:** Add `packages/server/src/harness/__tests__/AL6-return-gate.integration.test.ts` to §A's surviving-test edits — remove the `IsolatedHarnessAdapter` subtest (lines 677-692) + its dynamic import. Keep the remote subtest (654) and the `isolated-shaped-tier2` mock (545). Resolve the contradiction: move this file out of the "assertions must not change" protected set (mirror how `AL6-reprompt-loop.integration.test.ts` is handled); update Migrations + the protectedTests footnote.
 3. **WARNING-1 (recommended):** Scrub `isolated-session-worker` from the `eslint.config.ts:1115` comment in the task-4 lore pass.
 4. **WARNING-2 (note only, Phase-5):** Widen §D's docs list with `docs/agent-layer/return-gate-enforcement.md`, `docs/product/launch-readiness-audit.md`, `docs/product/vision-gap-audit.md`.
+
+---
+
+## Round 2 verdict (2026-06-28) — re-review of the revised plan
+
+**Verdict: APPROVED.** Overall **8.5/10** (was 6.5). Both CRITICALs resolved; both WARNINGs folded. Re-verified every claim against the actual worktree files (knip.json, the AL6 integration test, eslint.config.ts) plus a full repo-wide grep sweep of the deleted symbols.
+
+### CRITICAL-1 — `knip.json` forced entries — RESOLVED
+The plan now deletes the three forced-entry lines (`isolated-session-worker.ts!`, `isolated-harness-adapter.ts!`, `docker-sandbox-adapter.ts!`) and explicitly keeps `harness-session-probe.ts!`. Wired in four consistent places: §A knip-config edit (with the exact JSON), task 2 ("same commit as the source deletions"), Migrations, and sharedFiles. Verified against `knip.json` lines 49-52 — the three delete-set files are exactly lines 49-51 and the kept probe is line 52. Correct.
+
+### CRITICAL-2 — `AL6-return-gate.integration.test.ts` dynamic import — RESOLVED
+The plan now schedules removing the lines 677-692 isolated subtest **and its `await import("../../harness/isolated-harness-adapter.js")`** (§A task 3, Migrations, Risk-1). Verified against the file: lines 677-692 are exactly that subtest with the dynamic import; line 654 is the `RemoteHarnessAdapter` subtest (KEPT); line 545 is the `isolated-shaped-tier2` bare mock-name string with no import (KEPT). The round-1 self-contradiction is gone: the file is now consistently described as **intentionally edited** (out of the "assertions must not change" set) with only its **remote** subtest protected — across §A, §B (table row), the Test-strategy footnote, protectedTests, Risk-2, and Migrations. No remaining KEEP-vs-edit conflict.
+
+### WARNING-1 — eslint comment — FOLDED
+§A (line 112), task 4, and Migrations now scrub `isolated-session-worker, ` from the `eslint.config.ts:1115` relay comment. Verified the comment exists verbatim at line 1115; correctly noted as comment-only (no lint/check/knip impact) — a stale-reference hygiene fix.
+
+### WARNING-2 — docs sweep — FOLDED
+§D now lists `docs/agent-layer/return-gate-enforcement.md`, `docs/product/launch-readiness-audit.md`, `docs/product/vision-gap-audit.md` alongside the original four; correctly deferred to Phase-5 `/write-docs` (not an AQ1 build gate).
+
+### Deletion-map completeness — re-verified by full grep sweep
+A repo-wide grep for `DockerSandboxAdapter|IsolatedHarnessAdapter|IsolationConfig|isolated-session-worker|isolated-session-protocol|isolated-harness-adapter|docker-sandbox-adapter|HYPERIDLE_ENABLE_ISOLATED|HYPERIDLE_ENABLE_DOCKER` (excluding `plans/`) returns hits in exactly the set of files the plan handles — every hit is either inside a deleted file/test, or inside an explicitly-edited file (knip.json, eslint.config.ts, adapter-pool.ts §4 block, the four lore/error-string source files, the five edited test files). **No reference is left uncovered.** The "deleted, not stubbed" net (`npm run check` TS-strict catching static + dynamic imports, `knip`/`knip:production` catching the config entries, `lint` catching unused imports) will go green after the scheduled edits.
+
+### Updated dimension scores
+| # | Dimension | R1 | R2 | Note |
+|---|---|---|---|---|
+| 2 | Completeness of the change map | 4 | **9** | Both missed refs added; full grep sweep confirms no uncovered reference. |
+| 3 | Reconciliation rigor | 7 | **9** | The falsified "complete sweep" claims (knip, dynamic import) are now true. |
+| 4 | Test/verification adequacy | 7 | **8** | The net's own gates (check/knip) now pass on the scheduled map. |
+| 5 | Risk identification | 6 | **8** | Risk-1 now enumerates the dynamic import; mitigation no longer falsified. |
+| 9 | Clarity / actionability | 7 | **9** | The §B/protectedTests/Risk-2 self-contradiction is resolved. |
+
+Dimensions 1, 6, 7, 8 unchanged (8/8/8/9). Overall **8.5/10 — APPROVED.**
+
+### Remaining findings
+None blocking. NICE-1 (optional clarifying lore line on `remote-harness-adapter.ts`) remains genuinely optional — verified no `S2:` isolation framing exists in that file, so it is harmless either way. Build may proceed.
