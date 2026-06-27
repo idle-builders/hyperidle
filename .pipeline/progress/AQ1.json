@@ -4,7 +4,7 @@
   "track": "AQ",
   "complexity": "M",
   "status": "in_progress",
-  "currentStep": "1-architecture",
+  "currentStep": "2-architecture-critique",
   "gate": "ci-required",
   "startedAt": "2026-06-27T00:00:00Z"
 }
