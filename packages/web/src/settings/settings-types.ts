@@ -21,6 +21,7 @@ export type SettingsSectionId =
 	| "appearance"
 	| "models"
 	| "agents"
+	| "filesystems"
 	| "backend"
 	| "worker"; // X3/AF15: worker and agent configuration sections
 
@@ -49,6 +50,8 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "orgchart", label: "Org chart" },
 	{ id: "models", label: "Models" },
 	{ id: "agents", label: "Agents" },
+	// AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
+	{ id: "filesystems", label: "Filesystems" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
@@ -56,6 +59,19 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	// "worker" filtered at runtime by AppShell.tsx visibleSettingsSections — shared-mode only.
 	{ id: "worker", label: "Worker" },
 ];
+
+/**
+ * AO1: A team-registered filesystem as the per-bot injection control sees it.
+ * The bot's config selects WHICH registered filesystems to inject; the registry
+ * itself lives in Settings → Filesystems. `source` is the easy-to-detect mark.
+ */
+export interface InjectableFilesystem {
+	id: string;
+	source: string; // 'local' | 'github' | 'gdrive' | 'obsidian' | …
+	/** repo "owner/name" or folder path — the resource selection. */
+	resource: string;
+	kind: string; // 'code' | 'doc_set' | …
+}
 
 /** X3: Agent configuration as returned by GET /api/agents. */
 export interface AgentConfig {
@@ -74,4 +90,9 @@ export interface AgentConfig {
 	activeSessions: number;
 	/** AB3: "team" | "strategy" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal" renamed to "individual". */
 	agentCategory: string | null;
+	/**
+	 * AO1: Registered-filesystem ids injected into THIS bot (the per-bot injection
+	 * mapping). Drawn from the team registry; defaults to [] when absent.
+	 */
+	filesystemIds?: string[];
 }

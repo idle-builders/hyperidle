@@ -150,6 +150,14 @@ class FakeGitRunner implements GitRunner {
 		this.calls.push({ cmd: "statusPorcelain" });
 		return this.opts.statusLines ?? [];
 	}
+	async lsRemote(
+		_url: string,
+		_opts?: { tokenConfig?: { key: string; value: string } },
+	): Promise<{ reachable: boolean; reason?: string }> {
+		await this.wait();
+		// FakeGitRunner always reports reachable — not the subject of git-export tests.
+		return { reachable: true };
+	}
 }
 
 function createMemFs(initial?: Record<string, string>): FsAdapter & {

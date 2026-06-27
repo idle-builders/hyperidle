@@ -57,7 +57,9 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// (org.ts line 106 validates target against teamMembers.id, not teams.id).
 		// The UI shows teams.name as the label but submits teamMembers.id as value.
 		const teamRows = await db
-			.select({ id: teamMembers.id, name: teams.name })
+			// AO1: include teams.id (teamActualId) alongside teamMembers.id so the
+			// UI can fetch team-scoped resources (filesystems) that key on teams.id.
+			.select({ id: teamMembers.id, name: teams.name, teamActualId: teams.id })
 			.from(teamMembers)
 			.innerJoin(teams, eq(teams.id, teamMembers.teamId))
 			.where(isNull(teamMembers.dissolvedAt));
