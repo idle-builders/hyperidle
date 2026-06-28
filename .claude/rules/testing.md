@@ -32,7 +32,7 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 
 - Tests only live in `packages/`. No tests in `scripts/` or project root.
 - Unit tests: `<name>.test.ts` in `packages/<pkg>/src/__tests__/`.
-- Integration tests: `<name>.integration.test.ts` — use vitest fixtures that inject `{ db, app, eventBus }` per test.
+- Integration tests: `<name>.integration.test.ts` — exercise a **real integration point** with no stub standing in for it. Service integration uses the vitest fixtures that inject `{ db, app, eventBus }`; harness-facing integration uses the **real installed harness binary**. See **Integration tests: two archetypes**.
 - E2E tests: Playwright for user-facing features (`*.spec.ts`).
 - Tests must not depend on execution order.
 
@@ -42,7 +42,7 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 |---|---|---|
 | `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
 | `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
-| `*.integration.test.ts` | DB/API integration (vitest fixtures) | 1-10s per file |
+| `*.integration.test.ts` | Integration — a real integration point, no stub of it: **service** (real DB + app fixtures) **or harness-facing** (real installed binary, zero stubs, hard-fail if absent) | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
 ## Standards
@@ -58,9 +58,16 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 - Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
 - Design system: every UI component must have a `.stories.tsx` file.
 
-## Harness & agent features
+## Integration tests: two archetypes
 
-Features that touch a harness or agent are integration-tested against the **actual installed harness** — the real CLI/SDK on the machine — never a stub or mock, and across **every supported harness**, not just one. A stubbed-harness test is a false green: it proves the wrapper, not that the feature works on the harness. This is a local-only lane (like e2e — never a GitHub Actions job). If a supported harness is not present in the env, the feature is not proven done on it — surface that, don't substitute a stub.
+An integration test exercises a **real integration point**, with no stub standing in for that point. Decide which kind you're writing by one question: **is the harness / agent / CLI the thing under test?**
+
+- **No → service integration.** The integration point is the DB + app. Real PGlite + real Hono app via the `{ db, app, eventBus }` fixtures (already the norm), deterministic.
+- **Yes → harness integration.** The integration point is the **real installed harness binary**. Real CLI/SDK, real LLM, across **every supported harness** — not just one — and **zero stubs**. If a path through the harness adapter is stubbed, scripted, echoed, or `vi.mock`'d, it is **not** an integration test — it is a mislabeled unit test. Either test the pure logic directly as a `*.test.ts` unit (stubs belong there) or test it against the real harness. A stubbed-harness test is a false green: it proves the wrapper, not that the feature works on the harness.
+
+**A binary absent means the work is not done — hard-fail, never skip.** Harness integration tests run locally (where the binaries are installed) as part of the suite, and the signed attestation carries the result — no test suite runs in GitHub Actions. A missing harness must **fail** the run and stop the agent with "harness X not installed — cannot complete," not `skipIf`-skip to green. A green minted while every agentic test silently skipped is the deepest false-green.
+
+> **Rolling out via Track AR.** AR1 makes this mechanically enforced: a `requireHarness()` hard-fail helper replacing `skipIf`, a lint guard rejecting a stubbed harness adapter in a harness-facing integration test, an attestation executed-count floor for agentic tests, and the collapse of the redundant `*.real-harness.test.ts` lane into `*.integration.test.ts` (it only existed to dodge a CI-binary problem that does not exist). Until those land, follow the rule by hand. AR2–AR6 convert the ~30 currently-stubbed harness tests; see `.pipeline/work-packages/TRACK-AR.md`.
 
 ## Fixture pattern (integration tests)
 

@@ -58,8 +58,10 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 |---|---|---|
 | `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
 | `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
-| `*.integration.test.ts` | DB/API integration (vitest fixtures: `{ db, app, eventBus }`) | 1-10s per file |
+| `*.integration.test.ts` | Integration — a real integration point, no stub of it. **Service**: real DB + app (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed binary, zero stubs, hard-fail if absent. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
+
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. A missing binary hard-fails the run (the work can't be completed) — never `skipIf` to green. Rolling out via Track AR.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
