@@ -1112,7 +1112,7 @@ export default [
 	// @lore AL6: T9 static guard. This is a "static property → lint" enforcement
 	// (CLAUDE.md). The rule prevents the "forgotten drain" blind spot: a future
 	// unexempted turn drain that omits the gate is caught at lint time, not at
-	// runtime. Forwarding relays (isolated-session-worker, desktop-worker-client)
+	// runtime. Forwarding relays (desktop-worker-client)
 	// and the extraction drain (bet-decomposition) are classified by their markers
 	// so the rule never requires eslint-disable on them.
 	{

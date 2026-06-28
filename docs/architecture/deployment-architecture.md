@@ -2,7 +2,7 @@
 
 ### 6.1 Laptop Profile
 
-Everything runs on one machine. Single process for the API + Scheduler. Docker containers for agent workspaces. SQLite for all storage.
+Everything runs on one machine. Single process for the API + Scheduler. Agent sessions run in per-session host working directories (no container). SQLite for all storage.
 
 ```
 MacBook / Linux laptop
@@ -12,9 +12,9 @@ MacBook / Linux laptop
 │   ├── Event Bus (in-process)
 │   └── SQLite database
 │       └── hyperidle.db (primitives + knowledge_items)
-├── Docker (agent workspaces)
-│   ├── container: acme-builder-session-42
-│   └── container: acme-growth-session-43
+├── /tmp/hyperidle-workspaces/ (agent session working dirs — host filesystem)
+│   ├── session-42/ (acme-builder session, rm -rf on destroy)
+│   └── session-43/ (acme-growth session, rm -rf on destroy)
 ├── Git repo (markdown artifacts)
 │   ├── factory/ (PRINCIPLES.md, FOCUS.md, ...)
 │   └── products/acme/ (BRIEF.md, ARCHITECTURE.md, ...)
@@ -30,7 +30,7 @@ Same architecture, but the VPS is always on. Tailscale for secure remote access.
 ```
 VPS (Ubuntu, 4+ cores, 8+ GB RAM)
 ├── hyperidle (systemd service)
-├── Docker (agent workspaces)
+├── /tmp/hyperidle-workspaces/ (agent session working dirs — host filesystem)
 ├── Tailscale (network access)
 ├── OpenTelemetry collector (optional, planned)
 └── Nginx reverse proxy (for HTTPS)
@@ -40,13 +40,13 @@ The Factory app is accessed via `https://factory.tailscale-hostname:443` from an
 
 ### 6.3 Cloud Profile
 
-Workspaces run on E2B or Daytona. The process layer runs on a small VM or container. Postgres replaces SQLite for the Primitive Store.
+The process layer runs on a small VM or container. Postgres replaces SQLite for the Primitive Store. Agent sessions run host-local on the VM by default; remote isolated workspaces (E2B/Daytona) are planned for AQ2+.
 
 ```
 Cloud (AWS/GCP/Hetzner)
 ├── VM: hyperidle (API + Scheduler)
 ├── Postgres (Primitive Store + Knowledge)
-├── E2B / Daytona (agent workspaces)
+├── /tmp/hyperidle-workspaces/ (agent session working dirs — host filesystem, AQ1)
 ├── Redis or NATS (Event Bus — cloud profile only, not used on laptop/VPS)
 └── Managed observability (OpenTelemetry planned)
 ```

@@ -28,4 +28,5 @@ This document describes the parts of HyperIdle, how they interface with each oth
 - [Authorization model](./authorization-model.md)
 - [Credential model](./credential-model.md)
 - [Connection model](./connection-model.md) — per-user service connections (held vs inherited), `ServiceConnection*` types, `service_connections` table, resolver, `inheritedTools` descriptor extension (AN1)
+- [Run-unit model](./run-unit-model.md) — as-built (AQ1): host working directory, no isolation, two axes (scheduling/distribution vs isolation/sandbox), `LocalSandboxAdapter` + `DisabledSandboxAdapter`; AQ2 adds opt-in isolation; AQ3 completes remote transport
 

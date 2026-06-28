@@ -491,19 +491,6 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 			expect(caps.returnEnforcement).toBe("settings-claude");
 		});
 
-		test("IsolatedHarnessAdapter declares returnEnforcement='builtin-loop' (inner worker runs BuiltinHarnessAdapter)", async () => {
-			const { IsolatedHarnessAdapter } = await import("../../harness/isolated-harness-adapter.js");
-			// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
-			const stubResolver = { resolve: async () => undefined } as any;
-			const adapter = new IsolatedHarnessAdapter(stubResolver, {
-				maxMemoryMb: 512,
-				maxDurationMs: 30_000,
-				envAllowlist: [],
-			});
-			const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-			expect(caps.returnEnforcement).toBe("builtin-loop");
-		});
-
 		test("CliHarnessAdapter (codex) declares returnEnforcement='settings-codex'", async () => {
 			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
 			const adapter = new CliHarnessAdapter({

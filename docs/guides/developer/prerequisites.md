@@ -4,4 +4,4 @@
 - **Git** — version control
 
 Optional:
-- **Docker 24+ & Docker Compose v2** — only for VPS deployment profile or container-based workspaces
+- **Docker 24+ & Docker Compose v2** — only for VPS deployment profile

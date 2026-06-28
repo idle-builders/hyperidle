@@ -311,7 +311,7 @@ The product story documents (`docs/product/`) are written at an aspirational/des
 |---------|--------------|--------|
 | **Letta harness adapter** | `docs/architecture/components.md` §2.7 "Letta (planned)" | Not implemented. Only `claude-agent-sdk`, `cli`, `builtin`, `isolated`, and `remote` adapters exist. |
 | **OpenHands harness adapter** | `docs/architecture/components.md` §2.7 "OpenHands (planned)" | Not implemented. |
-| **E2B Desktop Sandbox workspace** | `docs/architecture/components.md` §2.8 "E2B Desktop Sandbox (managed cloud)" | Not implemented. Only local and Docker workspace adapters exist. |
+| **E2B Desktop Sandbox workspace** | `docs/architecture/components.md` §2.8 "E2B Desktop Sandbox (managed cloud)" | Not implemented. Only `LocalSandboxAdapter` (host working directory) exists. `DockerSandboxAdapter` removed in AQ1. Opt-in isolation planned for AQ2. |
 | **Daytona workspace adapter** | `docs/architecture/components.md` §2.8 "Daytona (self-hosted cloud)" | Not implemented. |
 | **APNs/Firebase push notifications** | `docs/architecture/components.md` §2.9 "APNs / Firebase (when native mobile wrapper ships)" | Not implemented. ntfy.sh and SMTP adapters are built. |
 | **OpenTelemetry observability** | `docs/architecture/components.md` §2.10 "OpenTelemetry (planned)" | Not implemented. Console and no-op adapters exist. |

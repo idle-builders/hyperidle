@@ -47,8 +47,8 @@ HyperIdle is an OS for your agent factory. Its process layer sits between agent 
 │  │ Workspace    │  │ Harness      │  │ Observability        │    │
 │  │ Adapter      │  │ Adapter      │  │ Adapter              │    │
 │  │              │  │              │  │                      │    │
-│  │ Local /      │  │ Claude SDK   │  │ Console / no-op /    │    │
-│  │ Docker / E2B │  │              │  │ OTel (planned)       │    │
+│  │ Local (host  │  │ Claude SDK   │  │ Console / no-op /    │    │
+│  │ working dir) │  │              │  │ OTel (planned)       │    │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
 ```

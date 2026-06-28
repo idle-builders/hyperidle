@@ -25,7 +25,6 @@ import { describe, expect, it } from "vitest";
 import { CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { IsolatedHarnessAdapter } from "../isolated-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
@@ -313,18 +312,6 @@ describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 
 		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
 		expect(caps.returnEnforcement).toBe("settings-claude");
-	});
-
-	it("IsolatedHarnessAdapter: returnEnforcement='builtin-loop' (inner worker runs BuiltinHarnessAdapter)", () => {
-		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for capability-only test
-		const stubResolver = { resolve: async () => undefined } as any;
-		const adapter = new IsolatedHarnessAdapter(stubResolver, {
-			maxMemoryMb: 512,
-			maxDurationMs: 30_000,
-			envAllowlist: [],
-		});
-		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-		expect(caps.returnEnforcement).toBe("builtin-loop");
 	});
 
 	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────

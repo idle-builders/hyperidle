@@ -772,9 +772,9 @@ These features have no direct UI but are callable via API and are foundational t
 **Category:** Launch-Ready
 **UI Path:** API-only: selected via agent configuration (harnessType field)
 **Discoverability:** 1
-**Test Coverage:** `docker-workspace-adapter.lifecycle.test.ts`, multiple harness-specific tests
+**Test Coverage:** Multiple harness-specific tests; `aq1-adapter-pool-host-only.test.ts` asserts host-only local pool.
 
-**What works:** 7 adapters: builtin, CLI, claude-agent-sdk, isolated, remote, docker-workspace, local-workspace. Each implements the same interface.
+**What works:** 5 adapters: builtin, CLI, claude-agent-sdk, remote, local-workspace. Each implements the same interface. `docker-workspace` and `isolated` adapters were removed in AQ1 (host-only local run path).
 **What's rough:** No UI to show which harness adapter is in use for a running session. The TaskSheet shows sessions but not which harness is powering them.
 **Recommendation:** Expose `harnessType` in the session metadata visible in TaskSheet.
 

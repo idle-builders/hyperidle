@@ -414,7 +414,7 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Structure around the model | **harness** (harness adapter) | — |
 | Agent behaviour instruction | **system prompt** | ~~old term~~ (zero industry use) |
 | Project/agent instruction file | **AGENTS.md** (Linux-Foundation cross-vendor standard) | — |
-| Isolated place an agent runs | **sandbox** (sandbox adapter), cwd `/workspace` | ~~workspace~~ as the unit |
+| Host working directory where an agent runs | **sandbox** (sandbox adapter), cwd = per-session dir under `HYPERIDLE_WORKSPACES_DIR` | ~~workspace~~ as the unit |
 | One run of agent work | **session** | — |
 | Capability the agent calls | **tool** (+ **MCP** for external) | part of ~~tools~~ |
 | Packaged procedural know-how | **Skill** (Agent Skill) | part of ~~tools~~ |

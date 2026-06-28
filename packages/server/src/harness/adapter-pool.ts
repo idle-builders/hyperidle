@@ -6,8 +6,6 @@
  * release() decrements the count when a session ends.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
@@ -574,44 +572,6 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 
 	// 3. CLI adapters: registered dynamically when available
 	await registerCliAdaptersIfAvailable(pool);
-
-	// 4. AF7 §8 (Z8-050): docker/isolated adapters are experimental and OFF by
-	// default. They were previously instantiated only in tests — never reachable
-	// in production — a silent dead path. Make them explicitly gated, not deleted:
-	// they register only when their env flag is set AND their runtime prerequisite
-	// is available; a flag-set-but-prereq-missing case logs a warning and SKIPS
-	// (never throws, never registers a broken adapter).
-	//
-	// @lore Z8-050: DockerSandboxAdapter is a SandboxAdapter (workspace
-	// lifecycle), NOT a HarnessAdapter — it cannot live in this HarnessAdapter
-	// pool. It is selected via the workspace-adapter wiring in server-factory, not
-	// here. We document the flag (HYPERIDLE_ENABLE_DOCKER) at its construction site;
-	// this pool factory governs only the harness adapters.
-	//
-	// @lore Z8-050: IsolatedHarnessAdapter forks isolated-session-worker.js and
-	// requires a CredentialResolver + IsolationConfig that this local-pool factory
-	// does not receive (it builds a credential-free local pool). Until that wiring
-	// exists, we gate on HYPERIDLE_ENABLE_ISOLATED and check the worker script's
-	// availability, logging a clear warning when enabled-but-unwireable instead of
-	// failing silently. This is coherence (reachable iff enabled + available), not
-	// removal — the adapter keeps its passing tests and a future wiring path.
-	if (process.env.HYPERIDLE_ENABLE_ISOLATED === "1") {
-		const workerScript = path.join(
-			path.dirname(new URL(import.meta.url).pathname),
-			"isolated-session-worker.js",
-		);
-		if (!fs.existsSync(workerScript)) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				"[adapter-pool] HYPERIDLE_ENABLE_ISOLATED=1 but isolated-session-worker.js is not present; skipping isolated adapter registration.",
-			);
-		} else {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				"[adapter-pool] HYPERIDLE_ENABLE_ISOLATED=1: isolated harness is experimental and requires a CredentialResolver + IsolationConfig that the local pool factory does not provide; not registered. Wire it explicitly in server-factory if needed.",
-			);
-		}
-	}
 
 	return pool;
 }
