@@ -9,7 +9,7 @@
 		"./test-utils": "./src/test-utils.ts",
 		"./tools": "./src/tools/index.ts",
 		"./schemas": "./src/schemas/index.ts",
-		"./harness": "./src/harness/claude-agent-sdk-adapter.ts",
+		"./harness": "./src/harness/cli-harness-adapter.ts",
 		"./session": "./src/session.ts",
 		"./services/session-provisioning": "./src/services/session-provisioning.ts",
 		"./services/model-gateway": "./src/services/model-gateway.ts",
@@ -31,7 +31,6 @@
 		"start": "node --import tsx src/index.ts"
 	},
 	"dependencies": {
-		"@anthropic-ai/claude-agent-sdk": "^0.2.109",
 		"@hono/node-server": "^2.0.2",
 		"@hono/zod-validator": "^0.7.6",
 		"@hyperidle/db": "*",

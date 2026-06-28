@@ -13,9 +13,9 @@
  * @lore S4: No auto-reconnect in scope. If WS drops, status changes to
  * "disconnected". User must toggle off and on to reconnect.
  *
- * @lore S4 Decision 2: ClaudeAgentSdkAdapter is instantiated once and reused
- * across concurrent sessions — the adapter tracks sessions by ID in a Map and
- * is concurrent-safe.
+ * @lore S4 Decision 2: The claude CLI adapter (CliHarnessAdapter) is instantiated
+ * once and reused across concurrent sessions — the adapter tracks sessions by ID
+ * in a Map and is concurrent-safe.
  */
 
 import type {

@@ -176,7 +176,7 @@ export interface SessionResult {
  * making "uniform across harnesses" un-skippable.
  *
  * Channels:
- *   "sdk-inprocess"   — BLOCKING Stop closure wired in startSession (claude-agent-sdk, isolated)
+ *   "sdk-inprocess"   — dead since claude moved to settings-claude; no adapter declares this
  *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
  *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
  *   "builtin-loop"    — in-process loop owns turn-end (BLOCKING)

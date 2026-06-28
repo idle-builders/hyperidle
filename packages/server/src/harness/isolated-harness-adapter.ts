@@ -218,10 +218,11 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 			subAgents: true,
 			modelProviders: ["anthropic"],
 			mcpSupport: true,
-			// AL6 v4-final: isolated runs the Claude Agent SDK in a worker process.
-			// The inner SDK adapter has a Stop hook wired at session start — the same
-			// sdk-inprocess mechanism as the direct ClaudeAgentSdkAdapter.
-			returnEnforcement: "sdk-inprocess",
+			// AL6 v4-final: isolated forks isolated-session-worker which runs
+			// BuiltinHarnessAdapter in a child process (builtin-loop, in-process,
+			// no file artifact). The drain-gate floor backstops any escape from the
+			// child — no hook file is written into the sandbox.
+			returnEnforcement: "builtin-loop",
 		};
 	}
 

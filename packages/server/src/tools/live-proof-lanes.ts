@@ -14,9 +14,9 @@
  *
  * @lore AL7 probe-fix: The probe MUST detect the installed CLI binary (`which claude/codex/opencode`),
  * NOT `require.resolve('@anthropic-ai/claude-agent-sdk')`. The claude-code real-harness
- * test spawns the real `claude` binary directly (like AL6). The @anthropic-ai/claude-agent-sdk
- * package is for the SDK adapter path (ClaudeAgentSdkAdapter), which is a different harness
- * lane. A binary-absent env where the SDK is resolvable via workspace node_modules would
+ * test spawns the real `claude` binary directly (like AL6). The claude CLI adapter
+ * (CliHarnessAdapter) is the production path; binary presence is the authoritative check.
+ * A binary-absent env where an npm package is resolvable via workspace node_modules would
  * produce a false green-now claim. Binary presence is the authoritative check.
  *
  * @lore AL7 delta: codex and opencode now use real `which` probes (green-now / absent-fail)
@@ -51,7 +51,7 @@ export function getLiveProofLaneState(harness: LiveProofHarness | string): LiveP
 		case "builtin":
 			return "green-now";
 		case "claude-code": {
-			// Probe whether the real Claude SDK is installed in this environment.
+			// Probe whether the real `claude` binary is on PATH in this environment.
 			// If absent, the declared state flips to absent-fail per AC14b.
 			const available = isClaudeCodeAvailable();
 			return available ? "green-now" : "absent-fail";
@@ -145,11 +145,11 @@ export async function probeLiveProofHarnessAvailability(
  * is the authoritative probe for the claude-code real-harness lane.
  *
  * @lore AL7 probe-fix: Previously this checked `require.resolve('@anthropic-ai/claude-agent-sdk')`.
- * That was wrong: the SDK is resolvable in vitest via workspace node_modules even
- * when the binary is absent, yielding a false green-now claim. And more critically,
- * the real-harness test spawns the CLI binary — not the SDK adapter — so the binary
- * IS the availability check. `which claude` is the same pattern used by AM2's
- * binaryPresent() helper and all other harness discovery probes.
+ * That was wrong: an npm package may be resolvable in vitest via workspace node_modules
+ * even when the binary is absent, yielding a false green-now claim. The real-harness
+ * test spawns the CLI binary directly — the binary IS the availability check.
+ * `which claude` is the same pattern used by AM2's binaryPresent() helper and all
+ * other harness discovery probes.
  *
  * A green-now harness whose real CLI binary is absent makes the lane FAIL (AC14b —
  * absence is never a pass).

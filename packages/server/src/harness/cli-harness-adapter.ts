@@ -32,9 +32,30 @@ import {
 	AL6_MAX_FORCE_RETURNS,
 	isReturnAction,
 	normalizeHarnessEvent,
+	preMapClaudeEvent,
 	shouldForceReturn,
 } from "@hyperidle/shared";
+
 import { enforcementRegistry } from "./return-enforcement-registry.js";
+
+/**
+ * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
+ * export exposes CredentialResolver (previously re-exported from claude-agent-sdk-adapter.ts).
+ * Desktop uses: import type { CredentialResolver } from "@hyperidle/server/harness"
+ */
+export type { CredentialResolver } from "../services/credential-resolver.js";
+
+/**
+ * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`
+ * Stop hook (writes .claude/settings.json + return-check.sh) — NOT stream
+ * return-detection. The process does not emit a sentinel line that signals
+ * completion; the Stop hook fires inside the claude subprocess before it exits.
+ * The preMapClaudeEvent pre-map is applied per-line in parseStdoutLine only when
+ * eventDialect === "claude-stream-json". It is best-effort one-event-per-line:
+ * multi-block assistant messages keep the first tool_use block; else the first
+ * text block; else an empty completion event. Applied explicitly here — NOT
+ * inside normalizeHarnessEvent — so codex/opencode adapters are unaffected.
+ */
 
 /**
  * Template variable names used in args and envMap.
@@ -86,17 +107,16 @@ export interface CliAdapterConfig {
 	/**
 	 * Host env vars to forward into the subprocess.
 	 * Anything not listed here is NOT forwarded — same sandboxing model as
-	 * ClaudeAgentSdkAdapter's ALLOWED_ENV_KEYS allowlist.
+	 * the claude CLI adapter's ALLOWED_ENV_KEYS allowlist.
 	 */
 	readonly envAllowlist: readonly string[];
 	/**
 	 * @lore AF10 (Z8-049/Z8-088): The JSON field name on the CLI terminal result
 	 * line that carries the total cost in USD. Defaults to "total_cost_usd" (the
-	 * field the `claude` CLI uses, same as the SDK adapter at
-	 * claude-agent-sdk-adapter.ts:287). Override for CLI tools that use a
-	 * different field name — this makes version drift a one-line config change
-	 * rather than a code change. Only a finite non-negative number is accepted;
-	 * anything else is treated as missing (no cost_update emitted).
+	 * field the `claude` CLI emits on its terminal result line). Override for CLI
+	 * tools that use a different field name — this makes version drift a one-line
+	 * config change rather than a code change. Only a finite non-negative number is
+	 * accepted; anything else is treated as missing (no cost_update emitted).
 	 */
 	readonly costField?: string;
 	/**
@@ -134,6 +154,13 @@ export interface CliAdapterConfig {
 	 * Absent → re-engage uses the sandbox instruction file only.
 	 */
 	readonly reEngageCarrier?: "run-arg" | "stdin";
+	/**
+	 * claude-cli-adapter: Dialect tag for per-line event pre-mapping.
+	 * When set to "claude-stream-json", parseStdoutLine translates each parsed
+	 * object via preMapClaudeEvent before calling normalizeHarnessEvent.
+	 * Absent ⇒ no pre-map (codex/opencode behavior unchanged).
+	 */
+	readonly eventDialect?: "claude-stream-json";
 	/**
 	 * AL7 delta: Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
@@ -272,6 +299,7 @@ let nextId = 1;
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
+	if (binary === "claude") return "settings-claude";
 	return "none";
 }
 
@@ -735,6 +763,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// one synthetic terminal cost_update in streamEvents (after all stdout
 				// lines are drained). Only a finite non-negative number is accepted —
 				// anything else (missing, string, negative) is ignored (fallback = 0).
+				// Cost capture runs on the ORIGINAL parsed object (before any dialect
+				// pre-map) because the "result" type and "total_cost_usd" field are
+				// present on the raw claude stream-json line.
 				if (obj["type"] === "result" && session) {
 					const costField = this.config.costField ?? "total_cost_usd";
 					const rawCost = obj[costField];
@@ -743,7 +774,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				const event = normalizeHarnessEvent(parsed);
+				// claude-cli-adapter: Apply dialect pre-map if configured.
+				// preMapClaudeEvent translates claude stream-json types (assistant/result/system)
+				// to canonical HarnessEvent types before normalization.
+				const toNormalize =
+					this.config.eventDialect === "claude-stream-json" ? preMapClaudeEvent(parsed) : parsed;
+
+				const event = normalizeHarnessEvent(toNormalize);
 
 				// AL6 CRIT-3: track return actions for process-reengage decisions.
 				// When the agent calls a return action, mark returnSeen so we skip

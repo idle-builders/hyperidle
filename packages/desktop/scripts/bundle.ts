@@ -50,7 +50,7 @@ const EXTERNALS = ["electron", "@electric-sql/pglite"];
 const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
 
 // AJV runtime helpers referenced by dynamically-generated validators inside
-// @modelcontextprotocol/sdk (a transitive dep of @anthropic-ai/claude-agent-sdk).
+// @modelcontextprotocol/sdk (a direct server dep via mcp/mcp-bridge.ts inbound bridge).
 // esbuild inlines the validator code but the generated validators re-emit
 // require("ajv/dist/runtime/...") calls at runtime. Since node_modules are NOT
 // packaged with the Electron app (only dist/**/* is included), these sub-path

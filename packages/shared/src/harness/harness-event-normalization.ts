@@ -56,6 +56,69 @@ function unknownEvent(input: unknown): HarnessEvent {
 }
 
 /**
+ * Translate claude CLI stream-json event types to canonical HarnessEvent types
+ * before normalization.
+ *
+ * claude `--output-format stream-json --verbose` emits one JSON object per line:
+ *   - `assistant` — turn content (text or tool_use blocks in message.content)
+ *   - `result`    — session summary (total_cost_usd, subtype, result text)
+ *   - `system`    — init info, not useful for event dispatch
+ *   - `user`      — echo of the prompt (ignored)
+ *
+ * Without this pre-map these all hit the default branch of normalizeHarnessEvent
+ * and become error events (unknown type). This pre-map converts them to canonical
+ * types so the event stream is useful.
+ *
+ * @lore claude-cli-adapter: Return enforcement for claude is the `settings-claude`
+ * Stop hook (not stream return-detection). This pre-map is best-effort one-event-
+ * per-line: multi-block assistant messages keep the first tool_use; else text.
+ *
+ * NOT called from normalizeHarnessEvent — the CLI adapter applies it explicitly
+ * so codex/opencode are unaffected.
+ */
+export function preMapClaudeEvent(input: unknown): Record<string, unknown> {
+	if (!isRecord(input) || typeof input.type !== "string") {
+		return input as Record<string, unknown>;
+	}
+
+	switch (input.type) {
+		case "assistant": {
+			// message.content is an array of blocks
+			const message = isRecord(input.message) ? input.message : {};
+			const content = Array.isArray(message.content) ? message.content : [];
+			// Prefer the first tool_use block over text
+			for (const block of content) {
+				if (!isRecord(block)) continue;
+				if (block.type === "tool_use") {
+					return {
+						type: "tool_call",
+						toolName: typeof block.name === "string" ? block.name : "unknown",
+						args: isRecord(block.input) ? block.input : {},
+					};
+				}
+			}
+			// Fall back to the first text block
+			for (const block of content) {
+				if (!isRecord(block)) continue;
+				if (block.type === "text" && typeof block.text === "string") {
+					return { type: "completion", text: block.text };
+				}
+			}
+			return { type: "completion", text: "" };
+		}
+		case "result": {
+			return {
+				type: "completion",
+				text: typeof input.result === "string" ? input.result : "",
+			};
+		}
+		default:
+			// system, user, or anything else → benign completion to avoid error-event pollution
+			return { type: "completion", text: "" };
+	}
+}
+
+/**
  * Translate opencode JSONL raw event types to canonical HarnessEvent types
  * before normalization.
  *

@@ -15,9 +15,9 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
+import { AdapterPool, CLAUDE_CLI_CONFIG } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
-import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
+import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
@@ -38,7 +38,7 @@ function makeAH2Pool(): AdapterPool {
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		maxConcurrent: 4,
 	});
-	pool.register("local-claude-code", new ClaudeAgentSdkAdapter(), {
+	pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
 		name: "Claude Code",
 		kind: "local",
 		type: "claude-code",

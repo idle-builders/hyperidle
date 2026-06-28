@@ -2,7 +2,7 @@
  * S2: isolated-session-worker — child process for IsolatedHarnessAdapter.
  *
  * Receives a { type: "start", config: SessionConfig } message via IPC,
- * runs the agent session using ClaudeAgentSdkAdapter, streams events back
+ * runs the agent session using BuiltinHarnessAdapter, streams events back
  * via IPC as { type: "event", event } messages, and sends a final
  * { type: "session_result", result } message when done.
  *
@@ -11,6 +11,10 @@
  * @lore S2: This file runs as a forked child process. It must NOT be imported
  * by the main server — only executed by fork(). The IsolatedHarnessAdapter
  * forks this file with a sandboxed env.
+ *
+ * @lore claude-cli-adapter: Previously used ClaudeAgentSdkAdapter (now deleted).
+ * Switched to BuiltinHarnessAdapter which provides the same in-process LLM
+ * call capability without the @anthropic-ai/claude-agent-sdk dependency.
  */
 
 import type { SessionConfig } from "@hyperidle/shared";
@@ -45,9 +49,9 @@ function runWorker(): void {
 	});
 
 	async function runSession(config: SessionConfig): Promise<void> {
-		// Dynamic import to avoid loading the SDK unless actually running
-		const { ClaudeAgentSdkAdapter } = await import("./claude-agent-sdk-adapter.js");
-		const adapter = new ClaudeAgentSdkAdapter();
+		// Dynamic import to avoid loading the builtin harness unless actually running
+		const { BuiltinHarnessAdapter } = await import("./builtin-harness-adapter.js");
+		const adapter = new BuiltinHarnessAdapter();
 		const handle = await adapter.startSession(config);
 
 		let result = null;
