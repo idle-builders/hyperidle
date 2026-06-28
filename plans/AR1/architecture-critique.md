@@ -1,8 +1,59 @@
 # Architecture Critique: AR1
 
-ARCHITECTURE-SCORE: 7/10  rounds=1  score-line: SA:8 LI:9 AC:8 DM:6 N:8 MD:7 FMC:6 S:8 V:7
+ARCHITECTURE-SCORE: 9/10  rounds=2  score-line: SA:9 LI:9 AC:9 DM:9 N:9 MD:8 FMC:9 S:9 V:9
 
 Critique target: `plans/AR1/architecture.md` against `.pipeline/work-packages/TRACK-AR.md` (AR1 §23–68 + preamble). Every claim below was verified against the real codebase, not the plan's prose.
+
+---
+
+## ROUND 2 VERDICT — BUILD-READY (9/10)
+
+Re-reviewed the revised `architecture.md` against the round-1 findings. **Both CRITICAL resolved, all five WARNINGs resolved, no new drift introduced.** Verifications below are against the real tree (vitest 4.1.5 json reporter source, the real AM2/session-provisioning gates, the real verify-attest/check-attestation pair), not the plan's prose.
+
+### C1 — RESOLVED (verified, not hand-waved).
+The json-wiring is now fully designed and every load-bearing claim checks out against the real vitest 4 source:
+- **JSON reporter shape — verified EXACTLY.** `node_modules/vitest/dist/chunks/index.UpGiHP7g.js:3551–3595`: top-level `testResults[]`, one per file, each carrying `assertionResults[]` and the file path as `name` (= `file.filepath`, line 3594). Each assertion's `status` comes from `StatusMap` (line 3513): `fail→"failed"`, `pass→"passed"`, `skip→"skipped"`, `todo→"todo"`, `only/run/queued→"pending"`. The plan's claimed `passed|failed|skipped|pending|todo` set and the "pending/todo count as skipped" @lore (§313) are correct. *One builder note: the parent file-path field is named `name`, not `filePath` — the plan says "file path on the parent" without naming it; harmless, but the builder reads `entry.name`.*
+- **Path is outside the tree — verified.** json writes to `os.tmpdir()` (absolute). The reporter resolves `outputFile` via `resolve(config.root, outputFile)` (line 3623); `resolve(root, absolutePath)` returns the absolute path unchanged (confirmed by node). So the file lands in tmp, `git status --porcelain` (verify-attest.ts:89-90, run *before* the test leg) never sees it, `dirty` cannot flip. The C1 self-contradiction (temp-file vs reuse-test:all-output) is gone — the plan now commits to `os.tmpdir()` unambiguously (§280).
+- **No double real-LLM run — verified.** §296 replaces `execSync("npm run test:all")` with `execSync("npm run test")` + `execSync("npx vitest run --config vitest.integration.config.ts --reporter=dot --reporter=json --outputFile=$TMP")`. Since `test:all = test && test:integration` and `test:integration = vitest run --config vitest.integration.config.ts`, this is behaviorally identical to the old single run, with reporter flags added to the second leg. The integration suite runs **once**. R3 closed.
+- **Dot reporter preserved — verified.** Config sets `reporters: ["dot"]` (vitest.integration.config.ts:25). Plan passes BOTH `--reporter=dot --reporter=json` (§274, §303), so console output is not lost. Correct.
+- **Fail-closed on missing json — verified.** §324-332: `if (!existsSync(INTEGRATION_RESULTS_PATH)) { status=failed; process.exit(1) }`. A green can't be minted without counts. C1.d satisfied.
+- **Counts inside the HMAC payload — verified.** §336 embeds `agenticExecuted`/`agenticSkipped` in `payload` before `createHmac` (verify-attest.ts:113 signs `JSON.stringify(payload)`). Tamper-proof. `ATTESTED_TOOLS = ["test","test:integration"]` already exists (verify-attest.ts:63), so the two-leg framing aligns with the declared tools — no drift.
+
+**The contradiction is gone. C1 is real, designed, and correct.**
+
+### C2 — RESOLVED.
+The non-existent-precedent claim is removed everywhere. Required-reading §23 now reads "**NOT an allowlist precedent** — none of these has allowlist machinery; the allowlist is net-new." Decision 1 §54, Decision 3 §80-82 all state "**This is new code, not a copied pattern**" and cite the verified `grep allowlist|baseline|--write|known.*debt` returning nothing in ah5/ah6/mock-inventory. ah5 is now cited only for the **fail-closed-on-zero** discipline. The monotonic-shrink rule (dirty+allowlisted→PASS, dirty+not→FAIL, clean+allowlisted→FAIL, stale-path→FAIL) is coherent and each branch is covered by the guard self-test (task 12). Resolved.
+
+### W1 — RESOLVED (verified per-file against the real gates).
+- `AM2-builtin-gateway.integration.test.ts:35` — `canProbeOpenAiCompatible = Boolean(OPENAI_API_KEY)`; it has a two-level gate (outer `skipIf(!hasGatewayKey)` :203, inner `skipIf(!canProbeOpenAiCompatible)` :210). Plan maps it to `requireHarness("openai-key")` (= `OPENAI_API_KEY`). Correct — `OPENAI_API_KEY` present ⟹ `hasGatewayKey` true, so the single require collapses both gates soundly.
+- `AM2-real-harness-discovery.integration.test.ts:22-23` — any-of-three (`ANTHROPIC ?? OPENAI ?? OPENROUTER`). Plan maps `any-gateway-key` (those exact three). Correct.
+- `session-provisioning.integration.test.ts:117` — `skipIf(!process.env.ANTHROPIC_API_KEY)`. Plan maps `anthropic-key`. Correct.
+The round-1 hole (helper had no `OPENAI_API_KEY`, mapped builtin-gateway to a wrong any-of set) is fixed: the `HarnessName` vocabulary now carries distinct `openai-key`/`anthropic-key`/`any-gateway-key` names, each documented to its exact gate (§144-157, route checklist §437-445). The old wrong `AI_GATEWAY_API_KEY` name is gone.
+
+### W2 — RESOLVED, sound.
+`maxWorkers:1 + fileParallelism:false` two-project config is promoted to THE mechanism (§217-252). `describe.sequential` (round-1's wrong intra-file primitive) is explicitly rejected as wrong for a cross-file constraint. `projects` is verified as established repo precedent (`vitest.config.ts` uses it). `maxWorkers:1` is the real cross-file serializer; `fileParallelism:false` is correctly flagged as belt-and-braces insurance, and the one genuinely-unverified item (exact `fileParallelism` key name under a project block) is correctly scoped as "engineer confirms; maxWorkers:1 alone is load-bearing." Sound.
+
+### W3 — RESOLVED.
+Predicate unit test is now task 11 (`is-harness-facing-integration.test.ts`), importing `isHarnessFacingIntegration` from the guard, running in `npm run test`. It covers **both** directions: positive (seam import→true), false-positive #1 (`.test.ts` unit w/ `mock-harness-adapter`→false by suffix), false-positive #2 (web `.integration` no seam→false), false-negative (transitive-only→false, documented miss), and the `mock-harness-adapter`-in-integration→true offender case (§422-428). Guard self-test (task 12) is wired into `verify` via `honest-harness-guard:selftest` *before* `:check` (§258, §429). The single-sourced predicate now feeds both guard and floor with one real test guarding both blast radii. Resolved.
+
+### W4 — RESOLVED.
+Verified repo-local `.claude/skills/write-tests/SKILL.md:19` carves the harness out and contains **no** "mock the LLM" invitation. The plan no longer claims the invitation is "gone": §121, §376, §465 all explicitly state the upstream `test-layers.md:22` line "**remains reachable** via on-demand load … Do **not** claim it is gone." R1 (§465) is reframed precisely: AC met at repo surface, upstream residual filed as out-of-PR follow-up + `@lore`. Resolved.
+
+### W5 — RESOLVED.
+`check-attestation.ts` floor (§340-357) asserts the non-empty floor FIRST: `if (total === 0) fail(...)` before the zero-executed check. A predicate that selects zero agentic files now FAILS (not passes vacuously), closing the "mis-scoped predicate silently empties the floor" hole — which the plan correctly identifies (§359) as the *deepest* hole the track exists to close, deeper than "all skipped." Back-compat preserved (legacy `agenticExecuted===undefined` skips the block, matching `srcHash?` precedent at check-attestation.ts:60). Resolved.
+
+### No new drift introduced.
+- The two-leg verify-attest run is behaviorally identical to `test:all`; `ATTESTED_TOOLS` unchanged; `check-attestation` only reads payload fields, never re-runs. No CI re-run regression.
+- Dirty gate runs before the test leg; tmp json is invisible to it. No ordering trap.
+- S1–S4 (round-1 suggestions) are all folded in: AL6 collision rename recorded for AR6 (S1/R4), AN1+AM2×3+session-provisioning added to protectedTests (S2, §483-488), import-safety of the `.ts` export noted (S3, §24), R2/R3 locked into the plan body rather than deferred to the engineer (S4).
+
+**Round-2 score: 9/10. Zero CRITICAL, zero WARNING remaining. BUILD-READY.** The −1 is residual, not blocking: (a) one genuinely-unverified config key (`fileParallelism` under a project block) the engineer confirms at build, with a verified load-bearing fallback (`maxWorkers:1`); (b) the upstream `test-layers.md:22` invitation is a knowingly-accepted out-of-repo residual (R1). Neither gates the build. Proceed to `/write-tests`.
+
+---
+
+## ROUND 1 (historical — all findings resolved in round 2)
+
+ARCHITECTURE-SCORE: 7/10  rounds=1  score-line: SA:8 LI:9 AC:8 DM:6 N:8 MD:7 FMC:6 S:8 V:7
 
 ---
 
