@@ -24,15 +24,10 @@
 import type { HarnessEvent, ResolvedModel } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+import { requireHarness } from "./require-harness.js";
 
+// requireHarness("openai-key") guarantees OPENAI_API_KEY is present at test time.
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-const hasGatewayKey = Boolean(OPENAI_API_KEY ?? ANTHROPIC_API_KEY ?? OPENROUTER_API_KEY);
-
-// OPENAI_API_KEY must be present specifically — other keys use different provider paths
-const canProbeOpenAiCompatible = Boolean(OPENAI_API_KEY);
 
 /**
  * @lore AM2: OPENAI_API_KEY may hold an OpenRouter key (sk-or-v1-...) rather than a
@@ -199,16 +194,12 @@ async function tryModelCall(
 }
 
 describe("AM2 builtin gateway — real openai-compatible call", () => {
-	// outer skip: no gateway key at all
-	test.skipIf(!hasGatewayKey)(
+	// AR1: requireHarness("openai-key") replaces the outer hasGatewayKey skipIf.
+	// OPENAI_API_KEY is required specifically — other keys use different provider paths.
+	requireHarness("openai-key");
+	test(
 		"drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text",
-		async (ctx) => {
-			// Inner skip: gateway key present but not OPENAI_API_KEY specifically
-			// (other keys use anthropic/openrouter provider paths, not openai-compatible)
-			if (!canProbeOpenAiCompatible) {
-				ctx.skip();
-				return;
-			}
+		async () => {
 
 			// Guaranteed at this point: OPENAI_API_KEY is present
 			const apiKey = OPENAI_API_KEY as string;

@@ -17,12 +17,13 @@
  * execute and capture fixtures.
  */
 
-import { execFile, execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { probeHarnessSession } from "../harness-session-probe.js";
+import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -48,20 +49,6 @@ async function writeFixtureIfMissing(filePath: string, content: string): Promise
 		await writeFile(filePath, content, "utf-8");
 	}
 }
-
-function binaryPresent(name: string): boolean {
-	try {
-		// execFileSync("which") is the lightweight check
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const codexInstalled = binaryPresent("codex");
-const claudeInstalled = binaryPresent("claude");
-const opencodeInstalled = binaryPresent("opencode");
 
 // Check auth by running `codex login status` — logged in = starts with "Logged in"
 async function codexAuthed(): Promise<boolean> {
@@ -102,8 +89,10 @@ async function opencodeAuthed(): Promise<boolean> {
 }
 
 describe("AM2 real harness session probe", () => {
-	test.skipIf(!codexInstalled)(
-		"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
+	describe("codex session probe", () => {
+		requireHarness("codex");
+		test(
+			"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
 		async (ctx) => {
 			// Verify authed state — skip if binary present but not logged in
 			const authed = await codexAuthed();
@@ -134,73 +123,80 @@ describe("AM2 real harness session probe", () => {
 			);
 		},
 		120_000,
-	);
+		);
+	});
 
-	test.skipIf(!claudeInstalled)(
-		"claude session probe: executes real claude -p and captures usage-bearing result fixture",
-		async (ctx) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				ctx.skip();
-				return;
-			}
+	describe("claude session probe", () => {
+		requireHarness("claude");
+		test(
+			"claude session probe: executes real claude -p and captures usage-bearing result fixture",
+			async (ctx) => {
+				const authed = await claudeAuthed();
+				if (!authed) {
+					ctx.skip();
+					return;
+				}
 
-			const result = await probeHarnessSession("claude-code");
+				const result = await probeHarnessSession("claude-code");
 
-			expect(result.ok).toBe(true);
-			expect(result.family).toBe("claude-code");
-			expect(result.capturedLine).toBeDefined();
-			expect(result.capturedLine!.length).toBeGreaterThan(0);
+				expect(result.ok).toBe(true);
+				expect(result.family).toBe("claude-code");
+				expect(result.capturedLine).toBeDefined();
+				expect(result.capturedLine!.length).toBeGreaterThan(0);
 
-			// The committed fixture MUST be the usage-bearing result line
-			const parsed = JSON.parse(result.capturedLine!) as Record<string, unknown>;
-			expect(parsed.type).toBe("result");
-			expect(parsed.usage).toBeDefined();
-			expect(typeof (parsed.usage as Record<string, unknown>).input_tokens).toBe("number");
-			expect(typeof (parsed.usage as Record<string, unknown>).output_tokens).toBe("number");
-			expect(typeof parsed.total_cost_usd).toBe("number");
-			expect(result.eventType).toBe("result");
+				// The committed fixture MUST be the usage-bearing result line
+				const parsed = JSON.parse(result.capturedLine!) as Record<string, unknown>;
+				expect(parsed.type).toBe("result");
+				expect(parsed.usage).toBeDefined();
+				expect(typeof (parsed.usage as Record<string, unknown>).input_tokens).toBe("number");
+				expect(typeof (parsed.usage as Record<string, unknown>).output_tokens).toBe("number");
+				expect(typeof parsed.total_cost_usd).toBe("number");
+				expect(result.eventType).toBe("result");
 
-			// Write fixture for AC6 normalization test (write-once: skip if already committed)
-			await writeFixtureIfMissing(
-				join(FIXTURES_DIR, "claude-stream.jsonl"),
-				`${result.capturedLine!}\n`,
-			);
-		},
-		120_000,
-	);
-
-	test.skipIf(!opencodeInstalled)(
-		"opencode session probe: executes real opencode run and captures event line",
-		async (ctx) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				ctx.skip();
-				return;
-			}
-
-			const result = await probeHarnessSession("opencode");
-
-			// opencode probe must execute (launch proof); event-normalization may be `unknown`
-			// The probe is ok if it captured a line or detected a specific failure mode
-			// (not just "binary missing" / "not authed")
-			expect(result.family).toBe("opencode");
-
-			if (result.ok && result.capturedLine) {
-				// Write fixture — even if we can't normalize it, record it (write-once)
+				// Write fixture for AC6 normalization test (write-once: skip if already committed)
 				await writeFixtureIfMissing(
-					join(FIXTURES_DIR, "opencode-run.json"),
-					`${result.capturedLine}\n`,
+					join(FIXTURES_DIR, "claude-stream.jsonl"),
+					`${result.capturedLine!}\n`,
 				);
-			}
+			},
+			120_000,
+		);
+	});
 
-			// Whether ok or not, it must have tried (not been skipped at the probe level for auth reasons)
-			// The probe itself ran — that's the launch proof.
-			// If reason is defined (failure case), it must NOT say "not installed" / "binary not found"
-			if (result.reason !== undefined) {
-				expect(result.reason).not.toMatch(/not installed|binary not found/i);
-			}
-		},
-		120_000,
-	);
+	describe("opencode session probe", () => {
+		requireHarness("opencode");
+		test(
+			"opencode session probe: executes real opencode run and captures event line",
+			async (ctx) => {
+				const authed = await opencodeAuthed();
+				if (!authed) {
+					ctx.skip();
+					return;
+				}
+
+				const result = await probeHarnessSession("opencode");
+
+				// opencode probe must execute (launch proof); event-normalization may be `unknown`
+				// The probe is ok if it captured a line or detected a specific failure mode
+				// (not just "binary missing" / "not authed")
+				expect(result.family).toBe("opencode");
+
+				if (result.ok && result.capturedLine) {
+					// Write fixture — even if we can't normalize it, record it (write-once)
+					await writeFixtureIfMissing(
+						join(FIXTURES_DIR, "opencode-run.json"),
+						`${result.capturedLine}\n`,
+					);
+				}
+
+				// Whether ok or not, it must have tried (not been skipped at the probe level for auth reasons)
+				// The probe itself ran — that's the launch proof.
+				// If reason is defined (failure case), it must NOT say "not installed" / "binary not found"
+				if (result.reason !== undefined) {
+					expect(result.reason).not.toMatch(/not installed|binary not found/i);
+				}
+			},
+			120_000,
+		);
+	});
 });

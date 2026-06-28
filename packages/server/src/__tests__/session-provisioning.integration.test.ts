@@ -1,12 +1,12 @@
 /**
  * Session Provisioning — AC2 integration test (real claude CLI adapter).
  *
- * This test is gated on `ANTHROPIC_API_KEY` env as a proxy for "claude is
- * configured" (see test.skipIf gate below). Note: the new CLI adapter uses
- * inherited login (not API key), so this proxy is imperfect. The authoritative
- * live proof for the claude CLI path is the real-harness lane
- * (`*.real-harness.test.ts`, AL6/AL7). This integration test remains gated on
- * ANTHROPIC_API_KEY for historical compatibility.
+ * This test is gated on `ANTHROPIC_API_KEY` env via requireHarness("anthropic-key").
+ * Note: the new CLI adapter uses inherited login (not API key), so this proxy is
+ * imperfect. The authoritative live proof for the claude CLI path is
+ * AL6-return-enforcement-realbinary.integration.test.ts and
+ * AL7-two-session-trust-first.integration.test.ts (AR1 lane collapse).
+ * This integration test uses ANTHROPIC_API_KEY as a proxy for "claude is configured".
  * It proves AC2 of D5:
  *   "Claude integration test: provision real session → agent runs → session
  *    completes."
@@ -38,6 +38,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { AdapterPool, CLAUDE_CLI_CONFIG } from "../harness/adapter-pool.js";
 import { CliHarnessAdapter } from "../harness/cli-harness-adapter.js";
+import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -98,6 +99,7 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
+	requireHarness("anthropic-key");
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -114,7 +116,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		}
 	});
 
-	test.skipIf(!process.env.ANTHROPIC_API_KEY)(
+	test(
 		"provisions a real Claude session and completes with cost > 0",
 		async ({ db, eventBus }) => {
 			await seedDomain(db);
