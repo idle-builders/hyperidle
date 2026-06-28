@@ -1,0 +1,279 @@
+# Track AR: Honest Harness Integration Testing
+
+**What this track is.** An integration test must exercise a **real integration point**, with no stub standing in for that point. The codebase honors this for the *web/service* half — `*.integration.test.ts` runs against real PGlite + a real Hono app — but systematically violates it for the *agent-facing* half: a 47-file swarm audit found **30 harness-facing integration tests that stub the seam** (26 stub-the-seam, 3 wrapper-only, 1 mislabeled-unit) across 8 feature areas. They inject a `ScriptedAdapter` / `EchoHarnessAdapter` / `vi.mock("../harness/llm-client")` / `null as any` so the suite goes green while the real CLI/SDK harness path is never spawned. This track makes harness integration tests **honest**: real installed binary, real LLM, zero stubs, hard-fail when a binary is absent.
+
+**The forcing principle.** Decide every test by one question: *is the harness/agent/CLI the thing under test?*
+- **No** → web/service integration: the integration point is the DB + app. Real PGlite + real Hono. Already the norm.
+- **Yes** → harness integration: the integration point is the **real installed harness binary**. Real CLI/SDK, real LLM, every supported harness, **zero stubs**. Binary absent → **HARD FAIL** (never `skipIf`); the run dies and the agent hard-stops and tells the user it cannot finish.
+
+If a path through the harness adapter is stubbed, it is **not** an integration test — it is a mislabeled unit test. Either test the pure logic directly as a `*.test.ts` unit (stubs belong there) or test it against the real harness. There is no third option.
+
+**Why now.** This is the same failure the retro log already names twice and never closed: **CC-004 / C1 "stub-the-seam / wiring-proof gap"** — *"ScriptedAdapter hardcoded reply → happy suite green while user message never reached model, 3 review rounds"* (AH3); *"v1 shipped with only scripted tests (mock/stub LLM streams via cassettes)… No live test proved a real agent on a real harness actually gets forced"* (AL6). It recurs because the rule that forbids it (`.claude/rules/testing.md:62`) lives in one path-scoped file the pipeline's `write-tests`/`review` skills never reference, while the surface builders *do* read (`write-tests/test-layers.md:22`: *"mock only nondeterministic externals (LLM calls, network)"*) reads as an explicit invitation to mock the harness, and the convention table defines `*.integration.test.ts` as "DB/API integration" — silent on the harness. The rule is mislocated and out-competed; the lane that would carry the real proof (`.real-harness.test.ts`) is undocumented in every naming table and runs in no automated regimen.
+
+**The lane collapse.** `.real-harness.test.ts` was a workaround for a CI-binary problem **that does not exist**: no tests run in GitHub Actions — *all* tests run locally and attestation carries the result; CI only validates the HMAC signature. So harness integration tests are simply `*.integration.test.ts` that happen to face the harness; they run locally (where binaries are installed) as part of `verify`. The separate suffix/lane is retired and folded in.
+
+**The deepest hole — attestation is the enforcement point.** Because attestation carries the local result, a green can currently be minted while every agentic test silently skipped: `verify-attest` records only the **exit code, not executed-vs-skipped count** (per `plans/reviews/testability-agentic-journey-review.md` — *"the attested CI lane can go 100% green while silently skipping every real-LLM/real-CLI test"*). Hard-fail-on-absent fixes the test; the attestation must **also** assert an executed-count floor for agentic integration tests, so no green survives a 100%-skipped agentic surface — defense in depth against the floor being eroded later.
+
+**Scope rules.** Ground every claim in the real adapters and orchestrator in `packages/server/src/harness/` and `packages/server/src/services/session-provisioning.ts` — never a hand-rolled test rig that bypasses production. The keystone (AR2) is that the real proof goes through the production `provisionSession()`, not a bespoke server+MCP wiring the current `*.real-harness.test.ts` files hand-build. Honest tests will surface real product bugs (cost over-counting, sandbox-deleted-before-observable); fixing the surfaced feature bug is in scope for the WP that surfaces it. **Evals are a tuning tool, not test coverage (founder framing) — out of scope for this track.**
+
+**Reference.** `.claude/rules/testing.md` (§Harness, naming table); `CLAUDE.md` (test tables); plugin skills `write-tests/references/test-layers.md`, `review/references/lenses.md`; `vitest.integration.config.ts`, `vitest.real-harness.config.ts`, `vitest.config.ts`, `package.json` test scripts; `scripts/verify-attest.ts`, `scripts/check-attestation.ts`; `packages/server/src/services/session-provisioning.ts` (`provisionSession`/`admitSession`/`runSession`), `assistant-turn.ts`, `session-lifecycle.ts:341` (sandbox teardown); `packages/server/src/harness/` adapters + `adapter-pool.ts`; `.claude/process/compound-candidates.md` (CC-004); `plans/reviews/testability-agentic-journey-review.md`.
+
+---
+
+### AR1 — The harness-integration testing rule, lane collapse, and enforcement floor
+
+**Work package.** As a builder (and reviewer) writing harness-touching tests, I want one unambiguous rule — *integration tests exercise a real integration point; a harness-facing one uses the real binary with zero stubs and hard-fails when the binary is absent* — stated everywhere I actually read (testing rules, the project tables, and the pipeline write-tests/review skills), with the redundant `.real-harness.test.ts` lane folded into `*.integration.test.ts`, every `skipIf`-on-absent replaced by a `requireHarness()` that hard-fails, a guard that rejects a stubbed/faked harness adapter in a harness-facing integration test, and an attestation that fails when agentic integration tests report zero executed — so that a stubbed-seam test can no longer be written by following the guidance, slip past review, or mint a green attestation by silently skipping.
+
+**Why this matters.** The recurrence is structural, not careless: the rule is mislocated (one path-scoped file) and out-competed (the read-most surface says "mock the LLM/network," which *is* the harness), and the enforcement layer (attestation) records only an exit code, so a 100%-skipped agentic surface mints green. Every builder who touches the harness pays the CC-004 tax — AH3 cost 3 review rounds, AL6 cost 4. The founder benefits directly: the next harness WP is proven or honestly blocked, never falsely green. The cost of not doing this: the other AR WPs convert tests onto a foundation that still invites the next stub.
+
+**Type.** infra / tooling.
+
+**What exists today.** Three lanes exist by suffix: `*.test.ts` (`vitest.config.ts`, unit), `*.integration.test.ts` (`vitest.integration.config.ts`, PGlite + app fixtures), `*.real-harness.test.ts` (`vitest.real-harness.config.ts`, spawns real binaries, run only by `npm run test:real-harness`, in no automated regimen). The rule is stated once at `.claude/rules/testing.md:62` ("never a stub or mock… across every supported harness") but the naming tables there and in `CLAUDE.md` define `*.integration.test.ts` only as "DB/API integration" and omit `.real-harness.test.ts` entirely; the pipeline `write-tests`/`review` skills never reference it and `test-layers.md:22` actively says to mock LLM/network. Real-binary tests today `test.skipIf(no binary/key)` → skip on any machine without the tool. `scripts/verify-attest.ts` records the suite exit code; `scripts/check-attestation.ts` validates the signature; neither counts executed-vs-skipped. `packages/eslint-plugin-design` and `eslint-plugin-authz` show the in-repo pattern for a custom lint rule.
+
+**What's genuinely missing.** A single decision rule stated on every surface a builder reads; the collapse of the `.real-harness` lane into `*.integration.test.ts`; a `requireHarness()` hard-fail helper replacing `skipIf`; a guard that fails when a harness-facing integration test constructs a fake/scripted harness adapter or skips on absence; and an attestation executed-count floor for agentic integration tests.
+
+**Depends on.** None — it edits testing rules, skills, vitest config, attestation scripts, and a lint guard, all of which exist.
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- `.claude/rules/testing.md` and both `CLAUDE.md` test tables state the two-archetype decision rule ("is the harness/agent/CLI the thing under test?"), define a harness-facing integration test as real-binary / zero-stub / hard-fail-on-absent, and no longer list `.real-harness.test.ts` as a separate lane.
+- The pipeline `write-tests` guidance (`test-layers.md` / SKILL) carves the harness **out** of "nondeterministic externals you may mock," and the `review` lenses gain a tripwire that flags a harness-touching AC proven only by a stubbed adapter as a blocking finding.
+- The `.real-harness.test.ts` suffix and `vitest.real-harness.config.ts` are gone; those tests run as `*.integration.test.ts` under the integration config (configured so real-LLM files run serially to respect rate limits), and `npm run test:real-harness` is removed or repurposed.
+- A `requireHarness(name)` helper exists and is used in place of every `skipIf`-on-absent in harness integration tests; when the named binary/key is absent the test run **fails** with a message naming the missing harness and that the work cannot be completed — it does not skip.
+- A lint/check guard fails the build when a `*.integration.test.ts` whose path exercises the harness adapter constructs a fake/scripted/echo harness adapter or `vi.mock`s the harness/LLM client, or contains a `skipIf` on harness availability.
+- `verify-attest` records executed and skipped counts for the integration suite, and `check-attestation` fails the attestation when agentic harness integration tests report zero executed — a green can no longer be minted while every agentic test skipped.
+- `npm run verify` passes on a machine with the supported harness binaries installed, and fails with the `requireHarness` message on a machine without them.
+
+**Validation scenarios.**
+- Given a new harness-facing test that injects a `ScriptedAdapter`, when `npm run lint`/`verify` runs, then the guard fails and points the author to write it against the real harness or demote it to a `*.test.ts` unit.
+- Given a machine missing the `codex` binary, when `npm run verify` runs, then a harness integration test for codex fails with a "harness not installed — cannot complete" message and no attestation is minted (not a silent skip, not a green).
+- Given an integration run where every agentic test was skipped, when `check-attestation` validates, then it fails on the executed-count floor.
+- Given a builder reading only `CLAUDE.md` and the `write-tests` skill, when they scope a harness test, then the guidance tells them to use the real binary — the "mock the LLM" reading is gone.
+
+**Plan calls.** Standard architecture pass — no `/design` (no UI surface). Plan the rule text, the lane-collapse mechanics (config merge, suffix migration, script removal), the `requireHarness` helper shape, the guard (eslint rule vs check script — pick per false-positive risk on builtin/in-process cases), and the attestation executed/skipped wiring. The guard's *content* check (stub-adapter detection) may start as a report with a known-debt allowlist so it does not break `main` before AR3–AR6 convert the offenders; the lane/skipIf/filename checks enforce immediately.
+
+**Contracts / constraints.**
+- No tests run in GitHub Actions; all run locally and attestation carries the result. Do not add a CI test job.
+- Do not weaken or bypass attestation; the executed-count floor is additive.
+- The guard must not false-positive on legitimate `*.test.ts` units that stub (stubs are correct there) or on web/service `*.integration.test.ts` that never touch the harness.
+- Renaming `.real-harness.test.ts` files preserves their assertions; this WP only moves the lane, it does not rewrite their bodies (that is AR6's consolidation).
+
+**Out of scope.**
+- Converting the 30 stubbed tests to real-harness (AR2–AR6).
+- Fixing the product bugs honest tests will surface (AR2/AR3).
+- Any eval re-wiring.
+
+**Effort.** L (~2d)
+
+---
+
+### AR2 — One real agent run through the production `provisionSession()`
+
+**Work package.** As anyone trusting the harness backbone, I want one automated integration test that drives a **real agent turn through the production `provisionSession()` orchestrator** — real `HarnessAdapter`, real model, the real `admitSession`/`runSession` phases and sandbox teardown — and asserts on the agent's actual output, so that the production seam (`adapter ↔ provisionSession ↔ teardown`) is verified by a real run instead of by the hand-built server+MCP rigs the current real-harness tests use, and the conversions in AR3–AR6 have a proven pattern to reuse.
+
+**Why this matters.** Today the only end-to-end agent proofs (`AL7-two-session-trust-first`, `AL6-real-harness-return-enforcement`) hand-build their own wiring and never call `provisionSession()` — so a regression in the production orchestrator passes every gate (per the testability review). The orchestrator also deletes the sandbox at teardown (`session-lifecycle.ts:341`) before output can be observed, which is *why* those tests rebuild their own rig. Closing both — a real run through production plus a capture-before-teardown seam — gives the founder a single test that proves the agentic core actually works, and gives AR3–AR6 a template instead of seven reinvented rigs.
+
+**Why this matters (cont).** This is the keystone: it converts the abstract rule (AR1) into a concrete, reusable production-seam pattern.
+
+**Type.** backend + test infra.
+
+**What exists today.** `provisionSession()` (`session-provisioning.ts`) runs phases 1–11 (`admitSession` + `runSession`); `runAssistantTurn()` is the task-free twin. `AM2-builtin-gateway.integration.test.ts` already makes a real model call through `BuiltinHarnessAdapter` (verdict: real-integration) but does not flow the full `provisionSession` path and currently `skipIf` no key. `session-lifecycle.ts:341` removes the sandbox at teardown; AO2 added `filesystem_captures` (migration 0041) capturing some state before teardown. The `CliHarnessAdapter` spawns real `claude`/`codex`/`opencode`; `BuiltinHarnessAdapter` runs in-process with a real LLM call.
+
+**What's genuinely missing.** No automated test goes intake→`provisionSession`→real harness→real tool/output→teardown through the production orchestrator, and there is no general seam to observe agent output *before* the sandbox is deleted (only AO2's narrow capture exists).
+
+**Depends on.** AR1 — must be authored under the collapsed lane using `requireHarness` (hard-fail, no skip) and counts toward the attestation floor; reusing AR1's primitives is the point.
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- An integration test provisions a real session via the production `provisionSession()` (not a hand-built server/MCP rig) with a real `HarnessAdapter` and a real model, runs a turn on an obvious task, and asserts on the agent's actual produced output (a tool call made and/or a file/artifact written) — not on a fabricated event or adapter stub.
+- The agent's output is observable by the assertions despite teardown — a capture-before-teardown seam exposes what the session produced before `session-lifecycle.ts:341` deletes the sandbox.
+- The test hard-fails (via `requireHarness`) when the required harness/model is unavailable; it never skips to green.
+- The pattern (provision-real → capture → assert → teardown) is documented/extractable so AR3–AR6 reuse it rather than rebuilding rigs.
+
+**Validation scenarios.**
+- Given an obvious task ("create a file X with content Y"), when the test runs through `provisionSession()` with a real harness, then the assertion sees the real produced artifact/tool-call before teardown.
+- Given the model/binary is absent, when the test runs, then it fails with the missing-harness message — no green.
+- Given a regression that breaks the `adapter ↔ provisionSession` seam, when the test runs, then it fails (the seam is genuinely exercised).
+
+**Plan calls.** Standard architecture pass, backend — no `/design`. Decide the capture-before-teardown seam (extend AO2's `filesystem_captures` vs a test-observable hook on the provisioning result) with the lightest production change that does not weaken the teardown contract. Prefer `BuiltinHarnessAdapter` + a cheap real model for the default lane, with the same shape proven against at least one CLI binary.
+
+**Contracts / constraints.**
+- Goes through the real `provisionSession()` — no bespoke wiring that bypasses production phases.
+- The capture seam must not weaken or defer the real teardown (no leaked sandboxes); it observes, it does not disable cleanup.
+- Real binary / real model, zero stubs; hard-fail on absence.
+
+**Out of scope.**
+- Converting the existing stubbed feature tests (AR3–AR6).
+- The full multi-stage journey walk (folded into AR4's dispatch→provision flow, not a separate deliverable here).
+
+**Effort.** M (~1d)
+
+---
+
+### AR3 — Provisioning, adapter pool, and cost: real harness integration + cost-delta fix
+
+**Work package.** As someone trusting that sessions provision and bill correctly, I want the provisioning / adapter-pool / cost integration tests (`X3-session-provisioning`, `X6-provisioning-integration`, `adapter-pool-integration`, `AF10-provisioning-cost-delta`, `af7-dispatch-wiring`, `af7-nonblocking-provision`, `af7-state-sync`) to prove their behavior against a **real harness through `provisionSession()`** instead of a `ScriptedHarness`/`CapturingHarnessAdapter` that yields fabricated `cost_update` events — and, because honest cost tests will expose it, the **cost over-counting bug fixed** (`recordCostAndCheck` accumulates the running total instead of the per-step delta), so that provisioning and billing are proven on real harness output.
+
+**Why this matters.** AF10 asserts `costActual` equal to numbers it itself injected as synthetic `cost_update` events — it proves arithmetic over fabricated input, not that cost is captured from a real harness; the real over-counting defect (lore'd, deferred) sits underneath, untouched. Provisioning and adapter-pool tests inject fake adapters so a regression in the real provision path passes. The founder is billed on this path; it must be proven on real numbers.
+
+**Type.** backend.
+
+**What exists today.** `session-provisioning.integration.test.ts` is already real-integration (good baseline). The seven listed files inject `ScriptedHarness`/`CapturingHarnessAdapter`/`makeBuiltinPool` test doubles into `provisionSession`'s `adapterPool` seam and assert on DB rows populated by scripted events. `recordCostAndCheck` (per `R5-agent-work-loop.integration.test.ts:362-363` + lore) adds the running total rather than the delta → multi-step sessions over-count. AO2 capture + AR2's seam make real output observable.
+
+**What's genuinely missing.** Real harness cost/provisioning assertions (real `cost_update` from a real run), and the corrected per-step cost delta.
+
+**Depends on.** AR1 (lane + `requireHarness` + guard + attestation floor) and AR2 (the provision-real → capture → assert pattern these reuse instead of rebuilding rigs).
+
+**Complexity.** L
+
+**Acceptance criteria.**
+- The provisioning / adapter-pool / cost integration tests assert on cost and session state produced by a **real harness run through `provisionSession()`**; no `ScriptedHarness`/`CapturingHarnessAdapter`/fabricated `cost_update` remains in these files (any genuinely pure-logic assertion is demoted to a `*.test.ts` unit).
+- A multi-step real session reports cost equal to the **sum of per-step deltas**, and `recordCostAndCheck` no longer over-counts; a regression to running-total accumulation makes the test fail.
+- The `af7` provisioning/dispatch/state-sync behaviors are proven through the real provision path (real adapter), not an injected fake.
+- All converted tests hard-fail on missing harness; none skip.
+
+**Validation scenarios.**
+- Given a real two-step agent session, when cost is recorded, then the persisted `costActual` equals delta1+delta2 (not delta1 + (delta1+delta2)).
+- Given the cost-delta fix reverted, when the cost test runs, then it fails (sanity-break).
+- Given a real provision through the pool, when `af7-state-sync` asserts, then it reflects real adapter state, not a fake's canned output.
+
+**Plan calls.** Standard architecture pass, backend. Triage each of the seven files: convert to real-harness-via-`provisionSession` (reuse AR2) or demote a pure-logic remnant to a unit. Fix `recordCostAndCheck` to use the per-step delta and prove it with a real multi-step run.
+
+**Contracts / constraints.**
+- Real binary/model, zero stubs in the integration tests; hard-fail on absence.
+- The cost fix preserves the existing cost API/row shape (back-compat at the API level).
+- Reuse AR2's seam; do not rebuild bespoke provisioning rigs.
+
+**Out of scope.**
+- Assistant-turn / dispatcher conversions (AR4).
+- Cost UI or reporting changes beyond the delta correctness fix.
+
+**Effort.** L (~2d)
+
+---
+
+### AR4 — Assistant turn, agent execution, and dispatcher: real harness integration
+
+**Work package.** As someone trusting that a user message and a dispatched task actually drive a real agent, I want `AH3-assistant-turn`, `AK4-assistant-draft`, `AH6-lane-gates-broken-turn`, `assistant-turn-per-agent-seam`, `R1-wire-agent-execution`, and `AD2-task-dispatcher` to prove their behavior against a **real harness**, with the **dispatch→provision seam flowed through a real agent** (not a directly-seeded `in_progress` task), so that the path from intake/dispatch to a real agent turn is verified end-to-end instead of by a `vi.mock("../harness/llm-client")` or an `EchoHarnessAdapter`.
+
+**Why this matters.** These are the heart of the agentic journey and today every one stubs the model reply, so "the assistant answered" / "the dispatched task ran" is proven by a hardcoded echo. The dispatch→provision seam has never flowed a real agent — tests seed `in_progress` tasks directly, so the handoff that matters most is unverified. The founder's core loop (message → agent → result; task → agent → result) must be proven real.
+
+**Type.** backend.
+
+**What exists today.** `runAssistantTurn()` and the dispatcher are real code; the six tests drive them but `vi.mock` `callLlm` / inject `CapturingHarnessAdapter` so the model output is scripted. `R5-agent-work-loop` proves tool→review→cost with a real loop in pieces. No test flows dispatch→provision through a real agent.
+
+**What's genuinely missing.** Real-model assistant turns and a real dispatch→provision→agent flow asserting on genuine agent output.
+
+**Depends on.** AR1 and AR2 (reuse the production-seam real-run pattern; assert on real output via the capture seam).
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- The assistant-turn / agent-execution tests run a **real model turn** through the production path and assert on the agent's actual reply/tool-calls; no `vi.mock` of the harness/LLM client or echo adapter remains (pure-logic remnants demoted to units).
+- A test flows the **dispatch→provision seam with a real agent** — a dispatched task provisions and runs a real harness turn — rather than seeding an `in_progress` task and asserting downstream state.
+- `AH6` lane-gate behavior on a broken/real turn is proven against real harness output.
+- All converted tests hard-fail on missing harness; none skip.
+
+**Validation scenarios.**
+- Given a user message, when the assistant turn runs against a real model, then the persisted reply is the model's actual output (empty/mocked input would fail).
+- Given a dispatched task, when the dispatcher runs, then a real agent turn is provisioned and its real output is asserted — the seam is exercised, not bypassed.
+- Given the harness binary absent, when the suite runs, then it hard-fails with the missing-harness message.
+
+**Plan calls.** Standard architecture pass, backend. Triage the six files (convert vs demote). Build the dispatch→provision→real-agent flow on AR2's pattern. This WP carries the "one real walk through the seam" the testability review flagged as missing.
+
+**Contracts / constraints.**
+- Real model, zero stubs; hard-fail on absence.
+- Reuse `provisionSession`/AR2 seam; no bespoke rigs.
+- Preserve the dispatcher's existing contracts; this changes the test fidelity, not the dispatch API.
+
+**Out of scope.**
+- Strategy/decomposition tests (AR5).
+- MCP bridge/enforcement consolidation (AR6).
+
+**Effort.** M (~1d)
+
+---
+
+### AR5 — Strategy and bet decomposition: real agent or honest demotion
+
+**Work package.** As someone trusting that bets decompose into real work, I want `AK2-contributor-scenario`, `AK2-minimal-strategy`, `AK3-bet-decomposition`, `AK3-bet-decomposition-subscriber`, and `AK8-strategy-decomposition` to either prove decomposition **via a real agent** or, where the assertion is genuinely pure logic over a given decomposition, be **demoted to honest `*.test.ts` units** — so that no test claims to prove agent-driven decomposition while feeding it a scripted `EchoHarnessAdapter` output.
+
+**Why this matters.** Decomposition is where a strategy agent turns a bet into tasks; the current tests inject scripted agent output and a fake `ContributorStrategy` with `eventBus … as never`, so "the agent decomposed the bet" is hardcoded. Either the decomposition is agent-driven (then prove it real) or it is deterministic post-processing of a decomposition (then it is a unit test and should say so). The honest split removes the false claim either way.
+
+**Type.** backend.
+
+**What exists today.** These tests inject scripted harness output + fake strategies into the decomposition path and assert on resulting tasks/edges. Some assertions are pure transforms of a given decomposition; some genuinely depend on the agent producing it. `AK7`/`AK8` already pruned some seam cruft.
+
+**What's genuinely missing.** A clean separation: real-agent proof for the agent-driven parts, unit tests for the pure-logic parts — with no scripted-adapter "integration" test in between.
+
+**Depends on.** AR1 and AR2.
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- Each of the five files is either converted to prove decomposition against a **real agent** through the production path, or demoted to a `*.test.ts` unit whose stubs are honest (testing pure logic over a supplied decomposition) — no scripted/echo harness adapter remains in a `*.integration.test.ts`.
+- For the agent-driven assertions, a real strategy agent produces the decomposition and the resulting tasks/edges are asserted from that real output.
+- Demoted units no longer carry the `.integration` suffix and do not route through `provisionSession` with a fake adapter.
+- Converted integration tests hard-fail on missing harness; none skip.
+
+**Validation scenarios.**
+- Given a real bet, when a real strategy agent decomposes it, then the persisted tasks reflect the agent's actual decomposition (a fake/empty output would fail).
+- Given a pure transform of a supplied decomposition, when it is run as a unit test, then it passes deterministically with no harness involved — and is named `*.test.ts`.
+- Given a harness absent, when the converted integration tests run, then they hard-fail.
+
+**Plan calls.** Standard architecture pass, backend. Per-file triage is the core work: classify each assertion agent-driven vs pure-logic, then convert or demote. Reuse AR2 for the real-agent parts.
+
+**Contracts / constraints.**
+- No scripted/echo harness adapter in any `*.integration.test.ts`.
+- Demotions preserve the assertion; they change the lane and remove the false integration claim.
+- Real agent, zero stubs, hard-fail on absence for the converted tests.
+
+**Out of scope.**
+- Changing decomposition product behavior (unless a real test surfaces a genuine bug, then fix it).
+- MCP / enforcement consolidation (AR6).
+
+**Effort.** M (~1d)
+
+---
+
+### AR6 — MCP bridge/routing, capabilities, and enforcement consolidation
+
+**Work package.** As someone trusting the agentic seams (the MCP bridge agents call, harness capability reporting, and the return-gate/forcing enforcement), I want `mcp-route`, `mcp-bridge`, `mcp-bridge-registry`, `cli-mcp-config`, and `AM2-harness-capabilities` proven against a **real harness**, and the existing real proofs (`AL6` return-gate/reprompt/uniform/return-enforcement, `ah5-gates`, `AL7-builtin-live-session`/`AL7-tailored-grant` and their former `.real-harness` siblings) **consolidated into the integration lane** with pure-logic machinery demoted to units — so that the bridge, capabilities, and enforcement are proven once, honestly, through the real harness, with no scripted-adapter duplicate masquerading as the proof.
+
+**Why this matters.** The MCP bridge *is* the agentic seam (agents call tools through it); proving it with a scripted adapter proves nothing about real tool calls. The enforcement files are the good-pattern-gone-confusing case: they have real `.real-harness` siblings but the `.integration` copies feed scripted events and over-claim. Consolidating leaves one honest proof per behavior instead of a real test plus a stubbed look-alike. `cli-mcp-config` is a mislabeled unit and should become one.
+
+**Type.** backend.
+
+**What exists today.** `mcp-bridge-stateful.integration.test.ts` is already real-integration (T0b proves session capability). `mcp-route`/`mcp-bridge`/`mcp-bridge-registry` use wrapper/fake adapters; `cli-mcp-config` uses no db/app fixtures (mislabeled unit). `AM2-harness-capabilities` scripts the capability source. `AL6`×4 + `ah5` + `AL7`×2 assert against scripted adapters in `*.integration.test.ts` and also have real `.real-harness.test.ts` siblings (`AL6-real-harness-return-enforcement.real-harness.test.ts`, `AL7-two-session-trust-first.real-harness.test.ts`) that AR1 folds into the integration lane.
+
+**What's genuinely missing.** Real-harness proof for the bridge/capabilities, and one consolidated honest test per enforcement behavior (the scripted `.integration` duplicate removed or demoted), with `cli-mcp-config` renamed to a unit.
+
+**Depends on.** AR1 (the lane fold brings the real siblings in; the guard flags the duplicates) and AR2 (real-run pattern for the bridge/capabilities proofs).
+
+**Complexity.** M
+
+**Acceptance criteria.**
+- `mcp-route`, `mcp-bridge`, `mcp-bridge-registry`, and `AM2-harness-capabilities` prove their behavior against a **real harness** calling through the production bridge; no wrapper/fake adapter remains in these `*.integration.test.ts`.
+- `cli-mcp-config` is a `*.test.ts` unit (it uses no db/app/real-service) — its `.integration` label is removed.
+- For each enforcement behavior (return-gate, reprompt, uniform-forcing, return-enforcement, broken-stream gates, builtin-live-session, tailored-grant) there is **one** honest proof: the real-harness sibling lives in the integration lane, and the scripted-adapter `.integration` duplicate is either removed or demoted to a pure-logic unit (e.g. the gate-verdict function tested directly).
+- No `*.integration.test.ts` in this set constructs a scripted/fake harness adapter; converted tests hard-fail on missing harness.
+
+**Validation scenarios.**
+- Given a real agent calling a tool through the MCP bridge, when the route test runs, then it asserts the real tool call reached the handler (a fake adapter would no longer satisfy it).
+- Given return-enforcement, when the suite runs, then the real-harness proof executes (no skip) and there is no second scripted test claiming to prove the same thing.
+- Given `cli-mcp-config`, when the suite runs, then it runs as a unit with honest stubs and no integration label.
+
+**Plan calls.** Standard architecture pass, backend. Convert the bridge/capabilities tests to real-harness via the production bridge (reuse AR2). For each enforcement behavior, keep the folded-in real sibling as the single integration proof and demote/remove the scripted duplicate; demote `cli-mcp-config` to a unit.
+
+**Contracts / constraints.**
+- One honest proof per behavior — no real test plus stubbed look-alike.
+- Real harness through the production bridge; zero stubs; hard-fail on absence.
+- Demotions preserve assertions and remove the false integration claim.
+
+**Out of scope.**
+- Provisioning/cost (AR3), assistant-turn/dispatcher (AR4), decomposition (AR5).
+- Changing MCP bridge or enforcement product behavior (unless a real test surfaces a genuine bug).
+
+**Effort.** M (~1d)

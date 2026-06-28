@@ -1317,3 +1317,35 @@ stories:
     track: AQ
     depends: [AQ1]
     complexity: L
+
+  # Track AR: Honest Harness Integration Testing
+  - id: AR1
+    title: "The harness-integration testing rule, lane collapse, and enforcement floor"
+    track: AR
+    depends: []
+    complexity: L
+  - id: AR2
+    title: "One real agent run through the production provisionSession()"
+    track: AR
+    depends: [AR1]
+    complexity: M
+  - id: AR3
+    title: "Provisioning, adapter pool, and cost: real harness integration + cost-delta fix"
+    track: AR
+    depends: [AR1, AR2]
+    complexity: L
+  - id: AR4
+    title: "Assistant turn, agent execution, and dispatcher: real harness integration"
+    track: AR
+    depends: [AR1, AR2]
+    complexity: M
+  - id: AR5
+    title: "Strategy and bet decomposition: real agent or honest demotion"
+    track: AR
+    depends: [AR1, AR2]
+    complexity: M
+  - id: AR6
+    title: "MCP bridge/routing, capabilities, and enforcement consolidation"
+    track: AR
+    depends: [AR1, AR2]
+    complexity: M
