@@ -2,7 +2,7 @@
 
 Before responding to ANY implementation or review request, check if a skill should be invoked. Even at 1% chance of applicability, invoke the skill BEFORE generating any response.
 
-The core pipeline skills now ship from the **`pipeline@agent-pipeline` plugin** (source: `ambrovia/agent-skills-pipeline`), so they are invoked **namespaced** as `/pipeline:<skill>`. HyperIdle-specific skills (`/visual-polish`, `/security-audit`, `/product-deep-review`, `/upgrade`) remain local and are invoked bare. Repo-specific bindings the plugin skills read (`verify`, `paths.docs`, design system, models) live in `pipeline.config.yml`.
+The core pipeline skills ship from the **`pipeline@agent-pipeline` plugin** (`ambrovia/agent-skills-pipeline`), invoked **namespaced** as `/pipeline:<skill>`. HyperIdle-specific skills (`/visual-polish`, `/security-audit`, `/product-deep-review`, `/upgrade`) are local, invoked bare. Repo-specific bindings the plugin skills read (`verify`, `paths.docs`, design system, models) live in `pipeline.config.yml`.
 
 ## Two kinds of skills
 

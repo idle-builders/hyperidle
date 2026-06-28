@@ -2,9 +2,9 @@
 
 TSX is the single design source of truth (AJ1) — each component has exactly one `.tsx`; the `.stories.tsx` story IS the design artifact.
 
-## How visual regression is caught now
+## How visual regression is caught
 
-The former automated DOM-snapshot net (`catalog-snapshot.test.tsx`) has been **retired** along with the in-repo story viewer — live story rendering + browser annotation now live in the `/pipeline:human-concept-review` skill's own component viewer, not in `packages/design-system`. Visual fidelity is gated by:
+Visual fidelity is gated by:
 
 1. **Human concept review** — the primary visual gate. For a high-stakes change (`DESIGN-CLASS: novel` or `DOC-CLASS: significant`) the founder opens the chosen variant rendered live in the skill's viewer and annotates it element-by-element; the planner revises the real TSX until approved. See `/pipeline:human-concept-review`.
 2. **Token guard** — `npm run token-guard:check` guards token definitions against off-scale / off-grid / re-mapping drift.
