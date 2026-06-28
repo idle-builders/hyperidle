@@ -12,7 +12,7 @@
  *                         containing Stop hook. CliHarnessAdapter detects this dir
  *                         and sets CODEX_HOME=<sandboxPath>/.codex-home when spawning codex.
  *   "process-reengage" → writes .opencode/plugins/return-signal.ts
- *   "sdk-inprocess"    → no-op (SDK Stop closure wired in startSession directly)
+ *   "sdk-inprocess"    → no-op (dead — no adapter declares this; kept in union for backward compat)
  *   "builtin-loop"     → no-op (in-process loop; no file artifact)
  *   "soft-continue"    → no-op (cursor inert today)
  *   "none"             → no-op (drain-gate floor only)

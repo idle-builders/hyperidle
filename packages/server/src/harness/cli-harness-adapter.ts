@@ -32,9 +32,30 @@ import {
 	AL6_MAX_FORCE_RETURNS,
 	isReturnAction,
 	normalizeHarnessEvent,
+	preMapClaudeEvent,
 	shouldForceReturn,
 } from "@hyperidle/shared";
+
 import { enforcementRegistry } from "./return-enforcement-registry.js";
+
+/**
+ * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
+ * export exposes CredentialResolver (previously re-exported from claude-agent-sdk-adapter.ts).
+ * Desktop uses: import type { CredentialResolver } from "@hyperidle/server/harness"
+ */
+export type { CredentialResolver } from "../services/credential-resolver.js";
+
+/**
+ * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`
+ * Stop hook (writes .claude/settings.json + return-check.sh) — NOT stream
+ * return-detection. The process does not emit a sentinel line that signals
+ * completion; the Stop hook fires inside the claude subprocess before it exits.
+ * The preMapClaudeEvent pre-map is applied per-line in parseStdoutLine only when
+ * eventDialect === "claude-stream-json". It is best-effort one-event-per-line:
+ * multi-block assistant messages keep the first tool_use block; else the first
+ * text block; else an empty completion event. Applied explicitly here — NOT
+ * inside normalizeHarnessEvent — so codex/opencode adapters are unaffected.
+ */
 
 /**
  * Template variable names used in args and envMap.
@@ -86,17 +107,16 @@ export interface CliAdapterConfig {
 	/**
 	 * Host env vars to forward into the subprocess.
 	 * Anything not listed here is NOT forwarded — same sandboxing model as
-	 * ClaudeAgentSdkAdapter's ALLOWED_ENV_KEYS allowlist.
+	 * the claude CLI adapter's ALLOWED_ENV_KEYS allowlist.
 	 */
 	readonly envAllowlist: readonly string[];
 	/**
 	 * @lore AF10 (Z8-049/Z8-088): The JSON field name on the CLI terminal result
 	 * line that carries the total cost in USD. Defaults to "total_cost_usd" (the
-	 * field the `claude` CLI uses, same as the SDK adapter at
-	 * claude-agent-sdk-adapter.ts:287). Override for CLI tools that use a
-	 * different field name — this makes version drift a one-line config change
-	 * rather than a code change. Only a finite non-negative number is accepted;
-	 * anything else is treated as missing (no cost_update emitted).
+	 * field the `claude` CLI emits on its terminal result line). Override for CLI
+	 * tools that use a different field name — this makes version drift a one-line
+	 * config change rather than a code change. Only a finite non-negative number is
+	 * accepted; anything else is treated as missing (no cost_update emitted).
 	 */
 	readonly costField?: string;
 	/**
@@ -114,15 +134,20 @@ export interface CliAdapterConfig {
 	 * needs a per-session kickoff message (e.g. the forcing message on re-engage),
 	 * this field declares the delivery mechanism:
 	 *
-	 * "stdin" — piped to the subprocess via stdin.
 	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
 	 * Absent → no per-session prompt carrier (hardcoded only).
 	 *
 	 * @lore AL6 WARN-F2: Without this field, re-engage runs use the same generic
 	 * "proceed" prompt regardless of the forcing message — the agent never sees the
 	 * "you must return" instruction on re-engage.
+	 *
+	 * @lore cli-adapter-stdin: "stdin" was removed from this union. The adapter closes
+	 * stdin immediately after spawn (child.stdin?.end()) to prevent codex/opencode from
+	 * blocking on stdin EOF. No production config ever set seedPrompt:"stdin" and there
+	 * is no code that writes to child.stdin. A future stdin carrier would require a
+	 * conditional skip of the stdin-close.
 	 */
-	readonly seedPrompt?: "stdin" | "positional";
+	readonly seedPrompt?: "positional";
 	/**
 	 * AL6 WARN-F3: Per-session re-engage carrier for OpenCode.
 	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
@@ -130,10 +155,20 @@ export interface CliAdapterConfig {
 	 * delivered to the re-invoked process.
 	 *
 	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
-	 * "stdin" — pipe to stdin.
 	 * Absent → re-engage uses the sandbox instruction file only.
+	 *
+	 * @lore cli-adapter-stdin: "stdin" was removed from this union. stdin is closed
+	 * immediately after spawn to prevent blocking on stdin EOF. No production config
+	 * ever set reEngageCarrier:"stdin" and no code writes to child.stdin.
 	 */
-	readonly reEngageCarrier?: "run-arg" | "stdin";
+	readonly reEngageCarrier?: "run-arg";
+	/**
+	 * claude-cli-adapter: Dialect tag for per-line event pre-mapping.
+	 * When set to "claude-stream-json", parseStdoutLine translates each parsed
+	 * object via preMapClaudeEvent before calling normalizeHarnessEvent.
+	 * Absent ⇒ no pre-map (codex/opencode behavior unchanged).
+	 */
+	readonly eventDialect?: "claude-stream-json";
 	/**
 	 * AL7 delta: Per-session MCP config file the binary reads to reach the HyperIdle bridge.
 	 * Mirrors claude's .mcp.json. Absent ⇒ binary gets no MCP wiring (builtin/SDK paths).
@@ -212,7 +247,7 @@ interface CliSession {
 	 * AL6 CRIT-3: The reEngageCarrier config from the adapter, threaded here
 	 * so streamEvents can spawn additional processes without accessing this.config.
 	 */
-	readonly reEngageCarrier?: "run-arg" | "stdin";
+	readonly reEngageCarrier?: "run-arg";
 	/**
 	 * AL6 CRIT-3: The resolved env for the process (includes CODEX_HOME, etc).
 	 * Reused for re-engage spawns.
@@ -272,6 +307,7 @@ let nextId = 1;
 function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
+	if (binary === "claude") return "settings-claude";
 	return "none";
 }
 
@@ -378,6 +414,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
+
+		// @lore cli-adapter-stdin: Close stdin immediately after spawn.
+		// The adapter delivers the prompt via argv (positional {{prompt}} for codex/opencode,
+		// -p for claude) — NEVER via stdin. Leaving stdin open causes `codex exec` to block
+		// on "Reading additional input from stdin..." waiting for EOF before it runs the LLM
+		// turn. Closing immediately is safe for all supported binaries: claude uses -p (positional),
+		// opencode uses `run` (positional), codex uses `exec <prompt>` (positional). None read
+		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.real-harness.test.ts).
+		// Optional-chain: the mock spawnFn in unit tests returns a ChildProcess without .stdin.
+		child.stdin?.end();
 
 		const sessionId = `cli-session-${nextId++}`;
 
@@ -605,6 +651,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									stdio: ["pipe", "pipe", "pipe"],
 								});
 
+								// @lore cli-adapter-stdin: Close stdin on re-engage spawns too.
+								// Re-engage delivers the forcing message via positional arg ("run-arg" carrier).
+								// The adapter never writes to stdin — stdin must be closed immediately to prevent
+								// the same hang as the initial spawn (codex/opencode block on stdin EOF).
+								reEngageChild.stdin?.end();
+
 								// Reset session for the new child.
 								// @lore AL6 CRIT-3: We mutate the CliSession object to point at the
 								// new child while keeping the same stdoutLines/stderrLines arrays.
@@ -736,6 +788,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// one synthetic terminal cost_update in streamEvents (after all stdout
 				// lines are drained). Only a finite non-negative number is accepted —
 				// anything else (missing, string, negative) is ignored (fallback = 0).
+				// Cost capture runs on the ORIGINAL parsed object (before any dialect
+				// pre-map) because the "result" type and "total_cost_usd" field are
+				// present on the raw claude stream-json line.
 				if (obj["type"] === "result" && session) {
 					const costField = this.config.costField ?? "total_cost_usd";
 					const rawCost = obj[costField];
@@ -744,7 +799,13 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				const event = normalizeHarnessEvent(parsed);
+				// claude-cli-adapter: Apply dialect pre-map if configured.
+				// preMapClaudeEvent translates claude stream-json types (assistant/result/system)
+				// to canonical HarnessEvent types before normalization.
+				const toNormalize =
+					this.config.eventDialect === "claude-stream-json" ? preMapClaudeEvent(parsed) : parsed;
+
+				const event = normalizeHarnessEvent(toNormalize);
 
 				// AL6 CRIT-3: track return actions for process-reengage decisions.
 				// When the agent calls a return action, mark returnSeen so we skip

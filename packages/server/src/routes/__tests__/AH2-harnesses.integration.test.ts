@@ -15,9 +15,9 @@
 
 import { users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
+import { AdapterPool, CLAUDE_CLI_CONFIG } from "../../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
-import { ClaudeAgentSdkAdapter } from "../../harness/claude-agent-sdk-adapter.js";
+import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
 import { createLoginSession } from "../../services/login-session.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
@@ -28,7 +28,16 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
 }
 
-/** Minimal adapter pool for AH2 harness tests (builtin + claude-code only). */
+/**
+ * Minimal adapter pool for AH2 harness tests (builtin + claude-code).
+ *
+ * @lore claude-cli-adapter: Uses CliHarnessAdapter(CLAUDE_CLI_CONFIG) instead of
+ * ClaudeAgentSdkAdapter (deleted). The pool construction explicitly registers
+ * claude-code to preserve test coverage regardless of whether the `claude`
+ * binary is installed — the test validates the HTTP API behavior, not binary
+ * availability. This mirrors the production pool which conditionally registers
+ * only when `claude` is on PATH; here we register unconditionally for API coverage.
+ */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
 	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
@@ -38,7 +47,7 @@ function makeAH2Pool(): AdapterPool {
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		maxConcurrent: 4,
 	});
-	pool.register("local-claude-code", new ClaudeAgentSdkAdapter(), {
+	pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
 		name: "Claude Code",
 		kind: "local",
 		type: "claude-code",
@@ -77,7 +86,7 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		// The local pool always registers 'builtin' and 'claude-code'
+		// The test pool always registers 'builtin' and 'claude-code' (unconditional for API coverage)
 		expect(body.length).toBeGreaterThanOrEqual(1);
 
 		for (const entry of body) {
@@ -107,7 +116,10 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(builtin).toBeDefined();
 	});
 
-	test("includes 'claude-code' harness type (always registered)", async ({ db, eventBus }) => {
+	test("includes 'claude-code' harness type (registered in test pool)", async ({
+		db,
+		eventBus,
+	}) => {
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;

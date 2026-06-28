@@ -17,7 +17,7 @@
  *   fixtures/cli-result-with-cost.ndjson   — result line with total_cost_usd: 0.0123
  *   fixtures/cli-result-without-cost.ndjson — result line without the field
  *
- * Field name used: `total_cost_usd` (matches SDK adapter `claude-agent-sdk-adapter.ts:287`).
+ * Field name used: `total_cost_usd` (matches `CliAdapterConfig.costField` default "total_cost_usd").
  * Configured via `CliAdapterConfig.costField` (default "total_cost_usd") per §4.1.
  */
 

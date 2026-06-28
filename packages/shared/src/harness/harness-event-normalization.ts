@@ -56,6 +56,69 @@ function unknownEvent(input: unknown): HarnessEvent {
 }
 
 /**
+ * Translate claude CLI stream-json event types to canonical HarnessEvent types
+ * before normalization.
+ *
+ * claude `--output-format stream-json --verbose` emits one JSON object per line:
+ *   - `assistant` — turn content (text or tool_use blocks in message.content)
+ *   - `result`    — session summary (total_cost_usd, subtype, result text)
+ *   - `system`    — init info, not useful for event dispatch
+ *   - `user`      — echo of the prompt (ignored)
+ *
+ * Without this pre-map these all hit the default branch of normalizeHarnessEvent
+ * and become error events (unknown type). This pre-map converts them to canonical
+ * types so the event stream is useful.
+ *
+ * @lore claude-cli-adapter: Return enforcement for claude is the `settings-claude`
+ * Stop hook (not stream return-detection). This pre-map is best-effort one-event-
+ * per-line: multi-block assistant messages keep the first tool_use; else text.
+ *
+ * NOT called from normalizeHarnessEvent — the CLI adapter applies it explicitly
+ * so codex/opencode are unaffected.
+ */
+export function preMapClaudeEvent(input: unknown): Record<string, unknown> {
+	if (!isRecord(input) || typeof input.type !== "string") {
+		return input as Record<string, unknown>;
+	}
+
+	switch (input.type) {
+		case "assistant": {
+			// message.content is an array of blocks
+			const message = isRecord(input.message) ? input.message : {};
+			const content = Array.isArray(message.content) ? message.content : [];
+			// Prefer the first tool_use block over text
+			for (const block of content) {
+				if (!isRecord(block)) continue;
+				if (block.type === "tool_use") {
+					return {
+						type: "tool_call",
+						toolName: typeof block.name === "string" ? block.name : "unknown",
+						args: isRecord(block.input) ? block.input : {},
+					};
+				}
+			}
+			// Fall back to the first text block
+			for (const block of content) {
+				if (!isRecord(block)) continue;
+				if (block.type === "text" && typeof block.text === "string") {
+					return { type: "completion", text: block.text };
+				}
+			}
+			return { type: "completion", text: "" };
+		}
+		case "result": {
+			return {
+				type: "completion",
+				text: typeof input.result === "string" ? input.result : "",
+			};
+		}
+		default:
+			// system, user, or anything else → benign completion to avoid error-event pollution
+			return { type: "completion", text: "" };
+	}
+}
+
+/**
  * Translate opencode JSONL raw event types to canonical HarnessEvent types
  * before normalization.
  *
@@ -105,13 +168,82 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 	}
 }
 
+/**
+ * Translate codex JSONL raw event types to canonical HarnessEvent types
+ * before normalization.
+ *
+ * codex `exec <prompt> --json` emits NDJSON where `type` is codex-specific.
+ * Verified codex event types (2026-06-28):
+ *   thread.started — session init; no content; benign → ignored (empty completion)
+ *   turn.started   — turn init; no content; benign → ignored
+ *   item.completed — turn content; item.type === "agent_message" carries the text
+ *   turn.completed — session summary; carries usage (input/output tokens) → token_usage
+ *
+ * @lore cli-adapter-real-binary codex-events: Without this pre-map, all codex events
+ * normalize to UnknownHarnessEvent (error) because their type strings are not in the
+ * canonical EVENT_TYPES set. Discovered 2026-06-28 when the stdin-close fix unblocked
+ * codex sessions through the production adapter and exposed the missing pre-map.
+ * The item.completed event is the primary carrier of the agent's response text.
+ */
+function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknown> {
+	switch (input.type) {
+		case "item.completed": {
+			// item.completed carries the agent's response in item.text (agent_message type).
+			const item = isRecord(input.item) ? input.item : {};
+			const text = typeof item.text === "string" ? item.text : "";
+			return { type: "completion", text };
+		}
+		case "turn.completed": {
+			// turn.completed carries usage info (input/output token counts).
+			const usage = isRecord(input.usage) ? input.usage : {};
+			const inputTokens =
+				typeof usage.input_tokens === "number" && Number.isFinite(usage.input_tokens)
+					? usage.input_tokens
+					: 0;
+			const outputTokens =
+				typeof usage.output_tokens === "number" && Number.isFinite(usage.output_tokens)
+					? usage.output_tokens
+					: 0;
+			return { type: "token_usage", inputTokens, outputTokens };
+		}
+		case "thread.started":
+		case "turn.started":
+			// Lifecycle events with no content — produce a benign ignored completion.
+			// We return a completion with empty text rather than an error event.
+			return { type: "completion", text: "" };
+		default:
+			return input;
+	}
+}
+
 export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 	if (!isRecord(input) || typeof input.type !== "string") {
 		return unknownEvent(input);
 	}
 
 	// Pre-map opencode raw event types to canonical types before the main switch.
-	const mapped = preMapOpencodeEvent(input);
+	// Pre-map codex raw event types if the input looks like a codex event.
+	//
+	// @lore harness-event-normalization asymmetry: codex pre-map is GLOBAL (applied
+	// unconditionally here) because codex's dot-namespaced event types (item.completed,
+	// turn.completed, thread.started, turn.started) are disjoint from all other harness
+	// vocabularies — no ambiguity risk. The only runtime caller of normalizeHarnessEvent
+	// for codex events is the CliHarnessAdapter, which receives codex JSONL exclusively.
+	// By contrast, claude's pre-map (preMapClaudeEvent) is adapter-gated via the
+	// eventDialect field in CliAdapterConfig: claude emits "result" and "system" types
+	// that could be ambiguous if applied globally, so the adapter applies it explicitly
+	// in parseStdoutLine only when eventDialect === "claude-stream-json".
+	//
+	// @lore harness-event-normalization reference-identity: The expression
+	// `afterOpencode === input` (reference identity, not deep equality) relies on
+	// preMapOpencodeEvent's `default: return input` branch returning the SAME object
+	// reference. If preMapOpencodeEvent ever returns a copy in its default branch,
+	// this guard will silently invert: codex events would hit opencode's fallthrough
+	// path (which returns a copy, !== input) and skip the codex pre-map. If you change
+	// preMapOpencodeEvent's default branch to return a copy, replace this guard with
+	// an explicit type-check against known opencode event types.
+	const afterOpencode = preMapOpencodeEvent(input);
+	const mapped = afterOpencode === input ? preMapCodexEvent(input) : afterOpencode;
 
 	if (!(EVENT_TYPES as readonly string[]).includes(mapped.type as string)) {
 		return unknownEvent(input);

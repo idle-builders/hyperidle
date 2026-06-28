@@ -106,6 +106,10 @@ function makeFakeChild(): {
 	const stdout = new EventEmitter() as NodeJS.ReadableStream & EventEmitter;
 	const stderr = new EventEmitter() as NodeJS.ReadableStream & EventEmitter;
 	const stdin = new EventEmitter() as NodeJS.WritableStream & EventEmitter;
+	// Real ChildProcess.stdin is a Writable with .end(); the adapter closes stdin
+	// after spawn (so codex exec doesn't block reading stdin). EventEmitter has no
+	// .end(), so add a no-op to keep the fake faithful to a real child.
+	(stdin as unknown as { end: () => void }).end = () => undefined;
 	const proc = new EventEmitter() as ChildProcess;
 	(proc as unknown as { stdout: unknown }).stdout = stdout;
 	(proc as unknown as { stderr: unknown }).stderr = stderr;

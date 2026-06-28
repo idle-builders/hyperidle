@@ -26,7 +26,7 @@
  *
  * Per-harness honest matrix (DONE matrix, verified June 2026):
  *   - builtin:      GREEN-NOW (this test IS the live proof — in-process, always available)
- *   - claude-code:  PENDING (absent-fail in this env — @anthropic-ai/claude-agent-sdk not installed)
+ *   - claude-code:  PENDING (absent-fail in this env — `claude` binary not on PATH)
  *   - codex:        green-now (AL7 delta: MCP wired; absent binary → absent-fail)
  *   - opencode:     green-now (AL7 delta: MCP wired; absent binary → absent-fail)
  *   - cursor-agent: skipped (unavailable per harness-capability-descriptors)

@@ -1,12 +1,23 @@
 /**
- * Session Provisioning — AC2 integration test (real Claude Agent SDK).
+ * Session Provisioning — AC2 integration test (real claude CLI adapter).
  *
- * This test is skipped unless `ANTHROPIC_API_KEY` is present in the environment
- * (e.g. in CI with secrets configured). It proves AC2 of D5:
+ * This test is gated on `ANTHROPIC_API_KEY` env as a proxy for "claude is
+ * configured" (see test.skipIf gate below). Note: the new CLI adapter uses
+ * inherited login (not API key), so this proxy is imperfect. The authoritative
+ * live proof for the claude CLI path is the real-harness lane
+ * (`*.real-harness.test.ts`, AL6/AL7). This integration test remains gated on
+ * ANTHROPIC_API_KEY for historical compatibility.
+ * It proves AC2 of D5:
  *   "Claude integration test: provision real session → agent runs → session
  *    completes."
  *
- * It uses `ClaudeAgentSdkAdapter` (D2) and `LocalSandboxAdapter` (D3).
+ * It uses `CliHarnessAdapter(CLAUDE_CLI_CONFIG)` (the claude CLI adapter)
+ * and `LocalSandboxAdapter` (D3).
+ *
+ * @lore claude-cli-adapter: Previously used ClaudeAgentSdkAdapter (now deleted).
+ * The claude CLI adapter spawns the `claude` binary directly (same as AL6
+ * real-harness tests). The test is gated on `ANTHROPIC_API_KEY` env presence
+ * as a proxy for "claude is configured" in the test environment.
  */
 
 import * as fs from "node:fs";
@@ -25,8 +36,8 @@ import {
 import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
+import { AdapterPool, CLAUDE_CLI_CONFIG } from "../harness/adapter-pool.js";
+import { CliHarnessAdapter } from "../harness/cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -109,7 +120,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 			await seedDomain(db);
 			const workspace = new LocalSandboxAdapter();
 			const adapterPool = new AdapterPool();
-			adapterPool.register("local", new ClaudeAgentSdkAdapter(), {
+			adapterPool.register("local", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
 				name: "local",
 				kind: "local",
 				modelProviders: ["anthropic"],

@@ -8,7 +8,6 @@
 
 import type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
-import { ClaudeAgentSdkAdapter } from "./claude-agent-sdk-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 import {
 	describeRegisteredHarness,
@@ -419,6 +418,71 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 };
 
 /**
+ * CLI adapter config for the `claude` CLI (claude-code harness type).
+ *
+ * Key design decisions:
+ * - No ANTHROPIC_API_KEY in envMap: claude uses its own installed auth (via HOME).
+ *   Injecting our key would shadow the user's configured auth and break the
+ *   intended "installed harness brings its own credentials" pattern (mirrors
+ *   codex reading ~/.codex/auth.json — we don't inject OpenAI keys there either).
+ * @lore claude-cli-adapter: envMap is empty intentionally — claude authenticates
+ * via ~/.claude/ credentials installed by `claude login`. Injecting ANTHROPIC_API_KEY
+ * would shadow the user's configured auth, potentially breaking enterprise/SSO setups.
+ * - returnEnforcementChannel: "settings-claude" — provisionReturnHook writes
+ *   .claude/settings.json + return-check.sh Stop hook before the subprocess starts.
+ * - eventDialect: "claude-stream-json" — triggers preMapClaudeEvent pre-map in
+ *   parseStdoutLine so assistant/result/system lines become canonical events.
+ * - costField defaults to "total_cost_usd" (claude's actual result line field).
+ * - --mcp-config .mcp.json: session-provisioning.ts writes this file in claude-native
+ *   format ({mcpServers:{hyperidle:{type:"http",url}}}) for every MCP session.
+ *   No dialect entry in writeCliMcpConfig needed — claude uses its own format.
+ */
+export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
+	binary: "claude",
+	// @lore claude-cli-adapter: `-p <prompt>` is the headless prompt flag;
+	// `--output-format stream-json --verbose` emits one JSON object per line;
+	// `--model {{model}}` sets the model; `--mcp-config .mcp.json` wires MCP;
+	// `--strict-mcp-config` enforces MCP config (no auto-discovery from other dirs);
+	// `--permission-mode bypassPermissions` allows all tool calls without prompts;
+	// `--settings .claude/settings.json` loads the session-provisioned settings
+	// (which includes the return-check.sh Stop hook).
+	args: [
+		"-p",
+		"{{prompt}}",
+		"--output-format",
+		"stream-json",
+		"--verbose",
+		"--model",
+		"{{model}}",
+		"--mcp-config",
+		".mcp.json",
+		"--strict-mcp-config",
+		"--permission-mode",
+		"bypassPermissions",
+		"--settings",
+		".claude/settings.json",
+	],
+	// No API key injection — claude uses its own installed auth via HOME.
+	envMap: {},
+	eventFormat: "ndjson",
+	// PATH + HOME needed for binary resolution and credential loading.
+	// LANG for locale-sensitive output correctness.
+	// @lore claude-cli-adapter macos-keychain-auth: USER + LOGNAME are REQUIRED for
+	// claude's claude.ai OAuth (the default Max/Pro login). On macOS the token lives in
+	// the login Keychain, not a file; the Security framework needs USER/LOGNAME to
+	// resolve the keychain user. With only [PATH,HOME,LANG] the real binary returns
+	// `authentication_failed — "Not logged in"`. PROVEN via live smoke against
+	// claude 2.1.170: adding USER+LOGNAME → real turn completes (total_cost_usd>0).
+	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
+	// returnEnforcementChannel: settings-claude — provisionReturnHook writes
+	// .claude/settings.json + return-check.sh Stop hook before session start.
+	returnEnforcementChannel: "settings-claude",
+	// Dialect tag — triggers preMapClaudeEvent in parseStdoutLine.
+	eventDialect: "claude-stream-json",
+	// costField defaults to "total_cost_usd" (claude's terminal result line field).
+};
+
+/**
  * Register CLI adapters for any well-known tools that are available on PATH.
  * Silently skips tools whose binary is not found — no error thrown.
  *
@@ -448,7 +512,7 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
 
 /**
  * Create an AdapterPool pre-loaded with all available local adapters:
- * 1. claude-code (ClaudeAgentSdkAdapter) — always registered
+ * 1. claude-code (CliHarnessAdapter, binary `claude`) — registered if on PATH
  * 2. builtin (BuiltinHarnessAdapter stub) — always registered (X6 fills in)
  * 3. codex / opencode — registered if their binary is on PATH
  *
@@ -470,21 +534,31 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * pipeline. This is intentional substrate scoping — not a bug. AM3 will call
  * `probeHarnessSession` per family and merge the probe result into the
  * HarnessCapabilityDescriptor before pool registration.
+ *
+ * @lore claude-cli-adapter: modelProviders is set to ["anthropic"] in the
+ * registration metadata (not from getCapabilities().modelProviders which returns
+ * []). AdapterPool.select() reads entry.meta.modelProviders — the registration
+ * info — so anthropic-provider sessions correctly select the claude adapter.
  */
 export async function createLocalAdapterPool(): Promise<AdapterPool> {
 	const discoveries = await discoverLocalHarnesses();
 	const pool = new AdapterPool(discoveries);
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
 
-	// 1. Claude Code adapter (existing)
-	const claudeAdapter = new ClaudeAgentSdkAdapter();
-	pool.register("local-claude-code", claudeAdapter, {
-		name: "Claude Code",
-		kind: "local",
-		type: "claude-code",
-		modelProviders: ["anthropic"],
-		maxConcurrent,
-	});
+	// 1. claude-code adapter (CliHarnessAdapter, registered only if `claude` binary is on PATH)
+	if (await CliHarnessAdapter.checkAvailability(CLAUDE_CLI_CONFIG.binary)) {
+		pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			name: "Claude Code",
+			kind: "local",
+			type: "claude-code",
+			// @lore claude-cli-adapter: modelProviders here is registration metadata read
+			// by AdapterPool.select() — not the adapter's getCapabilities().modelProviders
+			// (which returns []). Setting ["anthropic"] allows anthropic-provider sessions
+			// to select this adapter via the modelProviders filter.
+			modelProviders: ["anthropic"],
+			maxConcurrent,
+		});
+	}
 
 	// 2. X6: Built-in harness adapter — supports direct API calls to all providers
 	const builtinAdapter = new BuiltinHarnessAdapter();

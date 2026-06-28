@@ -630,11 +630,12 @@ describe("AL6 v2 — return-gate integration", () => {
 			expect(caps.returnEnforcement).toBe("builtin-loop");
 		});
 
-		test("ClaudeAgentSdkAdapter: returnEnforcement='sdk-inprocess' (SDK Stop closure)", async () => {
-			const { ClaudeAgentSdkAdapter } = await import("../../harness/claude-agent-sdk-adapter.js");
-			const adapter = new ClaudeAgentSdkAdapter();
+		test("claude CLI adapter (CliHarnessAdapter): returnEnforcement='settings-claude'", async () => {
+			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
+			const { CLAUDE_CLI_CONFIG } = await import("../../harness/adapter-pool.js");
+			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
 			const caps = adapter.getCapabilities();
-			expect(caps.returnEnforcement).toBe("sdk-inprocess");
+			expect(caps.returnEnforcement).toBe("settings-claude");
 		});
 
 		test("CliHarnessAdapter (codex): returnEnforcement='settings-codex' (file-provisioned Stop hook)", async () => {

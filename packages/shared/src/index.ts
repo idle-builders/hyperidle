@@ -244,6 +244,8 @@ export {
 	isReturnAction,
 	MockHarnessAdapter,
 	normalizeHarnessEvent,
+	// claude CLI adapter: pre-map for stream-json events
+	preMapClaudeEvent,
 	// AL6: closed accepted-return set
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,

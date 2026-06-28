@@ -266,7 +266,7 @@ export async function assemblePrompt(
  * for Claude Agent SDK + Aider/Goose/OpenCode). Both files contain identical content.
  *
  * Rationale for dual-write: no adapter positively verified to read AGENTS.md today;
- * all read CLAUDE.md (see claude-agent-sdk-adapter.ts:167-170 + context-assembly-prompt.ts:10-17).
+ * all read CLAUDE.md (see cli-harness-adapter.ts + context-assembly-prompt.ts:10-17).
  * Writing AGENTS.md-only would stop every harness from seeing the assembled context = behaviour change.
  * Dual-write: every harness keeps reading CLAUDE.md (behaviour preserved); AGENTS.md exists
  * as the named standard surface (AC satisfied).

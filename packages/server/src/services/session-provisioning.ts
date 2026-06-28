@@ -667,8 +667,8 @@ export async function runSession(
 	// loop) rather than emitting tool_call events for the provisioning orchestrator
 	// to invoke. setSessionToolRegistry() pre-registers the session-scoped registry
 	// so the harness can call it when the loop starts. This call is guarded by
-	// meta.type === "builtin" — external harnesses (ClaudeAgentSdkAdapter) receive
-	// the registry indirectly via MCP bridge (X2), not via this method.
+	// meta.type === "builtin" — external harnesses (claude CLI adapter, codex, etc.)
+	// receive the registry indirectly via MCP bridge (X2), not via this method.
 	if (selectedAdapter.meta.type === "builtin" && harness instanceof BuiltinHarnessAdapter) {
 		harness.setSessionToolRegistry(sessionId, registry);
 	}

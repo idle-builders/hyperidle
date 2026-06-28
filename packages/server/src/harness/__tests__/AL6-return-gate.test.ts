@@ -22,8 +22,9 @@
 import type { HarnessEvent } from "@hyperidle/shared";
 import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
+import { CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
-import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
@@ -307,11 +308,10 @@ describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 
 		expect(caps.returnEnforcement).toBe("builtin-loop");
 	});
 
-	it("ClaudeAgentSdkAdapter: returnEnforcement='sdk-inprocess'", () => {
-		const adapter = new ClaudeAgentSdkAdapter();
+	it("claude CLI adapter (CliHarnessAdapter): returnEnforcement='settings-claude'", () => {
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-		// FAILS red until Task 5 adds returnEnforcement:"sdk-inprocess"
-		expect(caps.returnEnforcement).toBe("sdk-inprocess");
+		expect(caps.returnEnforcement).toBe("settings-claude");
 	});
 
 	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────

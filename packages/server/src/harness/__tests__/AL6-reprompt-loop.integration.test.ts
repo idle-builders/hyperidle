@@ -483,13 +483,12 @@ describe("AL6 v4-final — hook provisioning (re-authored from v3 loop)", () => 
 			expect(caps.returnEnforcement).toBe("builtin-loop");
 		});
 
-		test("ClaudeAgentSdkAdapter declares returnEnforcement='sdk-inprocess'", async () => {
-			const { ClaudeAgentSdkAdapter } = await import("../../harness/claude-agent-sdk-adapter.js");
-			const adapter = new ClaudeAgentSdkAdapter();
+		test("claude CLI adapter (CliHarnessAdapter) declares returnEnforcement='settings-claude'", async () => {
+			const { CliHarnessAdapter } = await import("../../harness/cli-harness-adapter.js");
+			const { CLAUDE_CLI_CONFIG } = await import("../../harness/adapter-pool.js");
+			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
 			const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-
-			// FAILS red until Task 5 adds returnEnforcement:"sdk-inprocess"
-			expect(caps.returnEnforcement).toBe("sdk-inprocess");
+			expect(caps.returnEnforcement).toBe("settings-claude");
 		});
 
 		test("CliHarnessAdapter (codex) declares returnEnforcement='settings-codex'", async () => {
