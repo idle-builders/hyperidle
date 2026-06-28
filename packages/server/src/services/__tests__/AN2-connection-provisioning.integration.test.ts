@@ -5,7 +5,7 @@
  * Proves:
  *   AC1 — spawned session config has held service entries
  *   AC4 — respawn idempotent (same entries in fresh sandbox)
- *   AC5 — two services materialized from one generic path
+ *   AC5 — two services provisioned from one generic path
  *   AC6 — disconnect removes entry on next spawn
  *   AC7 — cross-user isolation (user A's connections not in user B's sandbox)
  *   HR3 — secret not written into $HOME
@@ -155,9 +155,9 @@ describe("listActiveHeld (real DB)", () => {
 	});
 });
 
-// ── AC1 — held connection materializes in sandbox config ──────────────────────
+// ── AC1 — held connection provisioned into sandbox config ─────────────────────
 
-describe("AC1 — materializes held token connection in sandbox", () => {
+describe("AC1 — provisions held token connection into sandbox", () => {
 	test("claude-native: .mcp.json written with held MCP-bearer entry", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -287,7 +287,7 @@ describe("AC4 — respawn idempotent (destroy sandbox, re-provision, same entrie
 
 // ── AC5 — two services, no new code ───────────────────────────────────────────
 
-describe("AC5 — two services, both materialize from one generic path", () => {
+describe("AC5 — two services, both provisioned from one generic path", () => {
 	test("stripe + figma → two server entries, no per-service code", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {

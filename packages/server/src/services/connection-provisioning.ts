@@ -3,7 +3,7 @@
  *
  * The central act of AN2: at spawn time, read the owning human's active held
  * connections, resolve each, SSRF-check each outbound URL, and write the
- * materialized form into the session working directory so the agent's tools
+ * provisioned form into the session working directory so the agent's tools
  * authenticate directly. No gate; re-apply every spawn; idempotent.
  *
  * @lore AN2 ownership: Single-founder is the locked deployment
@@ -69,7 +69,7 @@ export const SERVICE_CLI_ENV: Readonly<Record<string, readonly string[]>> = {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
- * One MCP server entry to materialize in the harness config.
+ * One MCP server entry to provision into the harness config.
  * bearerToken is present for token-MCP-bearer, absent for plain mcp.
  */
 export interface ResolvedMcpServer {
