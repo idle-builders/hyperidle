@@ -854,9 +854,20 @@ export async function runSession(
 					adapterCapabilities.cliMcpDialect === undefined &&
 					selectedAdapter.meta.type === "claude-code",
 			});
-			if (Object.keys(connEnv).length > 0) {
+			// Merge MCP token env from file-carrier (codex bearer_token_env_var) AND
+			// env injections from plan (CLI-key: GH_TOKEN/GITHUB_TOKEN; convention carriers).
+			// plan.envInjections is the sole carrier for CLI-key tokens — it never rides a
+			// config file, so without this merge GH_TOKEN never reaches the spawned process.
+			// @lore AN2 C2-fix: connEnv covers the codex/opencode MCP file-carrier tokens;
+			// plan.envInjections covers CLI-key (GH_TOKEN) and convention (<SVC>_TOKEN) vars.
+			// Both must be merged; only connEnv was merged before this fix.
+			const mergedConnEnv: Record<string, string> = {
+				...plan.envInjections,
+				...connEnv,
+			};
+			if (Object.keys(mergedConnEnv).length > 0) {
 				// Merge with inbound bridge token env (distinct var names prevent collision).
-				mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...connEnv };
+				mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mergedConnEnv };
 			}
 		} catch (connErr) {
 			// Connection provisioning failed — continue without external tools.

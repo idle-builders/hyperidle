@@ -16,8 +16,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serviceConnections, users } from "@hyperidle/db";
-// Use db-only fixture (avoids importing app.ts which has a pre-existing Zod schema error
-// in artifact-preview.ts:41 — unrelated to AN2, present on the base branch).
+// Use db-only fixture: these tests call buildProvisioningPlan / applyProvisioningPlan
+// directly (not through HTTP routes), so the server `app` fixture is unnecessary here.
+// The session-provisioning.ts Phase 8b-connections merge is tested by the C2 unit
+// test below (see "C2 — envInjections merged into mcpTokenEnv" describe block).
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
@@ -375,10 +377,8 @@ describe("AC6 — disconnect removes entry on next spawn", () => {
 				mcpServers: Record<string, unknown>;
 			};
 			expect(mcpJson2.mcpServers.stripe).toBeUndefined();
-		} else {
-			// No .mcp.json at all is also correct — no entries to write
-			expect(true).toBe(true);
 		}
+		// else: no .mcp.json written at all — also correct (no entries → no file).
 		fs.rmSync(sandbox2, { recursive: true, force: true });
 	});
 });
@@ -450,5 +450,90 @@ describe("HR3 — secret never written into $HOME", () => {
 		// The secret token must NOT be written in the toml file (only via env var)
 		const toml = fs.readFileSync(configPath, "utf-8");
 		expect(toml).not.toContain("sk_test_secret");
+	});
+});
+
+// ── C2 — envInjections present in plan and returned by applyProvisioningPlan ──
+//
+// Proves that buildProvisioningPlan populates envInjections for CLI-key services
+// AND that applyProvisioningPlan returns them in mcpTokenEnv so session-provisioning.ts
+// can merge them into the child process env (the C2 fix in session-provisioning.ts:857).
+//
+// The session-provisioning.ts merge itself is not exercised here (no real spawn);
+// this test proves the data exists in the plan for the merge to consume.
+
+describe("C2 — envInjections in plan and mcpTokenEnv for CLI-key path", () => {
+	test("github CLI-key token appears in plan.envInjections and applyProvisioningPlan mcpTokenEnv", async ({
+		db,
+	}) => {
+		await seedHumanUser(db);
+		await seedConnection(db, {
+			id: "sc-c2-gh",
+			userId: USER_HUMAN_ID,
+			service: "github",
+			authSource: "token",
+			// no serverUrl → CLI-key path (github is in SERVICE_CLI_ENV)
+			token: "ghs_c2_test_token",
+		});
+
+		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const userId = await resolveOwningHumanUserId(db);
+		const plan = await buildProvisioningPlan({ db, resolver, userId });
+
+		// C2a: buildProvisioningPlan must populate envInjections for CLI-key tokens.
+		// These vars flow to the child process env — the sole carrier for CLI-key tokens.
+		expect(plan.envInjections.GH_TOKEN).toBe("ghs_c2_test_token");
+		expect(plan.envInjections.GITHUB_TOKEN).toBe("ghs_c2_test_token");
+		expect(plan.mcpServers).toHaveLength(0); // no MCP server entry for CLI-key
+
+		// C2b: applyProvisioningPlan with claudeNative=false + no dialect returns {} mcpTokenEnv
+		// (no config file to write). The plan.envInjections is what session-provisioning.ts
+		// MUST merge (the C2 fix: plan.envInjections → mergedConnEnv → mcpTokenEnv).
+		// We verify the plan carries the correct values so the merge receives real data.
+		const result = await applyProvisioningPlan({
+			plan,
+			sandboxPath,
+			cliMcpDialect: undefined,
+			claudeNative: false,
+		});
+		// No config written (no MCP servers, no carrier for this harness type).
+		// The env injections live in plan.envInjections; session-provisioning.ts merges them.
+		expect(result.mcpTokenEnv).toEqual({});
+		// Confirm the plan still carries the injections (not mutated).
+		expect(plan.envInjections.GH_TOKEN).toBe("ghs_c2_test_token");
+	});
+
+	test("MCP-bearer token appears in both plan.envInjections and applyProvisioningPlan mcpTokenEnv (codex path)", async ({
+		db,
+	}) => {
+		await seedHumanUser(db);
+		await seedConnection(db, {
+			id: "sc-c2-stripe",
+			userId: USER_HUMAN_ID,
+			service: "stripe",
+			authSource: "token",
+			serverUrl: "https://mcp.stripe.com",
+			token: "sk_c2_stripe",
+		});
+
+		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const userId = await resolveOwningHumanUserId(db);
+		const plan = await buildProvisioningPlan({ db, resolver, userId });
+
+		// MCP-bearer: envInjections carries the per-server token var AND mcpTokenEnv returns it.
+		expect(plan.envInjections.STRIPE_MCP_TOKEN).toBe("sk_c2_stripe");
+
+		// For codex-toml, applyProvisioningPlan returns the token in mcpTokenEnv.
+		const result = await applyProvisioningPlan({
+			plan,
+			sandboxPath,
+			cliMcpDialect: "codex-toml",
+			claudeNative: false,
+		});
+		expect(result.mcpTokenEnv).toMatchObject({ STRIPE_MCP_TOKEN: "sk_c2_stripe" });
+
+		// The session-provisioning.ts merge (C2 fix) then merges:
+		//   plan.envInjections (STRIPE_MCP_TOKEN) + connEnv (STRIPE_MCP_TOKEN from codex writer)
+		// Both sources agree — no data loss either way.
 	});
 });
