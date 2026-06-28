@@ -37,6 +37,7 @@
 		"honest-harness-guard": "npx tsx scripts/honest-harness-guard.ts",
 		"honest-harness-guard:check": "npx tsx scripts/honest-harness-guard.ts --check",
 		"honest-harness-guard:selftest": "npx tsx scripts/honest-harness-guard.ts --selftest",
+		"attestation-floor:selftest": "npx tsx scripts/check-attestation.ts --selftest",
 		"verify": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run mock-inventory:check && npm run demo-fixture-guard:check && npm run token-guard:check && npm run harness-vocab-guard:check && npm run ah5-mock-guard:check && npm run ah6-mock-guard:check && npm run honest-harness-guard:selftest && npm run honest-harness-guard:check && npm run build && npm run -w @hyperidle/desktop build && npx tsx scripts/verify-attest.ts",
 		"verify:quick": "npm run check && npm run lint && npm run knip && npm run knip:production",
 		"db:generate": "npm run -w @hyperidle/db generate",

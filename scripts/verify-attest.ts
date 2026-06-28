@@ -28,8 +28,22 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { extractAgenticCounts } from "./lib/attestation-floor.js";
+import {
+	isHarnessFacingIntegration,
+} from "./honest-harness-guard.js";
+
+/**
+ * Path for the integration test JSON reporter output.
+ * Written OUTSIDE the repo tree (os.tmpdir()) so git status --porcelain cannot
+ * see it and the dirty flag cannot flip during verify-attest.
+ * @lore AR1: Must be outside the repo tree — .gitignore files inside the tree
+ * can still be detected by `git status --porcelain` and flip `dirty`. os.tmpdir()
+ * is categorically invisible to git.
+ */
+const INTEGRATION_RESULTS_PATH = join(tmpdir(), "hyperidle-integration-results.json");
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -61,7 +75,6 @@ const SECRET_PATH = join(SECRET_DIR, "verify-secret");
  * Every other (fast) tool runs live in CI and is intentionally absent here.
  */
 const ATTESTED_TOOLS = ["test", "test:integration"];
-const ATTESTED_COMMAND = "npm run test:all";
 
 function getOrCreateSecret(): string {
 	if (existsSync(SECRET_PATH)) {
@@ -90,12 +103,69 @@ function main(): void {
 		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
 	// Run the attested tools and derive status from the REAL exit code.
-	process.stderr.write(`verify-attest: running attested tools (${ATTESTED_COMMAND})...\n`);
+	// Two legs: unit tests (exit code only) + integration tests (with json reporter for floor).
+	// The integration leg runs via explicit vitest command — NOT npm run test:integration —
+	// so verify-attest controls the reporter+outputFile without mutating the shared script.
+	// @lore AR1: single run, no double cost — same suite, json is a side effect.
+	process.stderr.write(`verify-attest: running attested tools (${ATTESTED_TOOLS.join(", ")})...\n`);
 	let status: "passed" | "failed" = "passed";
 	try {
-		execSync(ATTESTED_COMMAND, { stdio: "inherit" });
+		// Unit + component leg — exit code only (unchanged behavior).
+		process.stderr.write("verify-attest: [1/2] npm run test (unit + component)...\n");
+		execSync("npm run test", { stdio: "inherit" });
+		// Integration leg — same suite as npm run test:integration, PLUS json to os.tmpdir().
+		process.stderr.write("verify-attest: [2/2] vitest integration (with json reporter)...\n");
+		execSync(
+			`npx vitest run --config vitest.integration.config.ts` +
+			` --reporter=dot --reporter=json --outputFile=${INTEGRATION_RESULTS_PATH}`,
+			{ stdio: "inherit" },
+		);
 	} catch {
 		status = "failed";
+	}
+
+	// Fail-closed: if the json results file is absent after the run (e.g. integration
+	// leg crashed before the reporter flushed), refuse to mint a green attestation.
+	// C1.d: a green cannot be minted without the agentic counts.
+	if (!existsSync(INTEGRATION_RESULTS_PATH)) {
+		process.stderr.write(
+			"verify-attest: integration results json missing — cannot attest the agentic floor. " +
+			"The integration leg may have crashed before the reporter flushed. " +
+			"Fix the integration tests and re-run verify.\n",
+		);
+		process.exit(1);
+	}
+
+	// Extract agentic counts from the vitest json results.
+	// isHarnessFacingIntegration is single-sourced with the guard (W3/W5).
+	let agenticExecuted = 0;
+	let agenticSkipped = 0;
+	try {
+		const raw = readFileSync(INTEGRATION_RESULTS_PATH, "utf-8");
+		const results = JSON.parse(raw) as { testResults: Array<{ name: string; assertionResults: Array<{ status: string }> }> };
+		// Build predicate: file must match *.integration.test.ts AND import a harness seam.
+		// We pre-read sources for the predicate (which needs the source for import detection).
+		const counts = extractAgenticCounts(
+			results as Parameters<typeof extractAgenticCounts>[0],
+			(filePath: string) => {
+				if (!filePath.endsWith(".integration.test.ts") && !filePath.endsWith(".integration.test.tsx")) {
+					return false;
+				}
+				try {
+					const source = readFileSync(filePath, "utf-8");
+					return isHarnessFacingIntegration(filePath, source);
+				} catch {
+					return false;
+				}
+			},
+		);
+		agenticExecuted = counts.agenticExecuted;
+		agenticSkipped = counts.agenticSkipped;
+	} catch (err) {
+		process.stderr.write(
+			`verify-attest: failed to parse integration results json: ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+		process.exit(1);
 	}
 
 	const payload = {
@@ -108,6 +178,8 @@ function main(): void {
 		partial: false,
 		smartSkipped: [] as string[],
 		timestamp: new Date().toISOString(),
+		agenticExecuted,
+		agenticSkipped,
 	};
 
 	const hmac = createHmac("sha256", secret).update(JSON.stringify(payload)).digest("hex");
