@@ -1,0 +1,22 @@
+{
+  "id": "AN2",
+  "title": "Authenticate once; connected tools work in every sandbox",
+  "track": "AN",
+  "complexity": "L",
+  "status": "in_progress",
+  "currentStep": "architecture",
+  "branch": "concept/AN2-rechallenge-post-aq1",
+  "startedAt": "2026-06-28T12:33:37Z",
+  "concept": { "status": "locked", "doc": "plans/AN2/concept.md", "relockedPostAQ1": true },
+  "research": ["plans/AN2/research-mcp-auth.md"],
+  "phases": {
+    "design": "skipped — no UI surface (backend/runtime provisioning)",
+    "architecture": "pending",
+    "architecture-critique": "pending",
+    "build": "pending",
+    "review": "pending",
+    "retro": "pending",
+    "ship": "pending"
+  },
+  "notes": "Concept re-locked against AQ1 (host run-unit, no isolation). Build rides the shipping injection seam (cli-harness-adapter/cli-mcp-config). Per-harness live-proof mandated."
+}
