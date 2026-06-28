@@ -85,6 +85,20 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 	);
 	const { z } = await import("zod");
 
+	// @lore AN2 version-seam bridge: The server package uses zod 4.4.3
+	// (packages/server/node_modules/zod) while the MCP SDK deduped to zod 3.25.76
+	// (root node_modules/zod). TypeScript sees their $ZodType brands as distinct
+	// nominal types even though the runtime objects are structurally identical and
+	// both are accepted by the SDK's zod-compat.js at runtime. This is the same
+	// §9 cross-version seam documented in mcp-bridge.ts asMcpInputSchema. We use
+	// the same pattern: accept the schema as unknown and re-brand it to the SDK's
+	// AnySchema type. The cast is safe: no wire-shape change, no parsing change.
+	type McpAnySchema = import("@modelcontextprotocol/sdk/server/zod-compat.js").AnySchema;
+	type McpRawShape = Record<string, McpAnySchema>;
+	function asMcpShape(shape: unknown): McpRawShape {
+		return shape as McpRawShape;
+	}
+
 	// Start the HTTP server with the streamable transport
 	const httpServer = http.createServer();
 	await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
@@ -110,8 +124,9 @@ async function startMcpTestServer(): Promise<McpTestServer> {
 		server.tool(
 			"ping_test",
 			"Returns a known echo value for AN2 live-proof",
-			{ echo: z.string() },
-			async ({ echo }) => {
+			asMcpShape({ echo: z.string() }),
+			async (args: Record<string, string>) => {
+				const echo = args["echo"] ?? "";
 				return {
 					content: [{ type: "text" as const, text: `AN2_PROBE_OK:${echo}` }],
 				};
