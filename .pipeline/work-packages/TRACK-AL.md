@@ -311,10 +311,10 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** Required — run `/concept AL8` first. It reshapes the gating classifier: reconcile AL7's `reversibility` axis with the shipped policy engine's `riskTier` + approval-rate trust signal into one model, and define when a staged operation auto-executes vs gates. A load-bearing reshape of how the gate decides — point at `docs/process-layer/staged-operation.md` and `packages/fabric/src/services/policy-engine.ts`.
-- **Design:** Light — extends existing review/outcome surfaces (an auto-executed staged op appears with its outcome, like the existing item auto_resolve path); no novel surface. Single-variant `/design` to place auto-execution provenance, no human-review park.
+- **Refinement:** Required — run `/pipeline:refine AL8` first. It reshapes the gating classifier: reconcile AL7's `reversibility` axis with the shipped policy engine's `riskTier` + approval-rate trust signal into one model, and define when a staged operation auto-executes vs gates. A load-bearing reshape of how the gate decides — point at `docs/process-layer/staged-operation.md` and `packages/fabric/src/services/policy-engine.ts`.
+- **Design:** Light — extends existing review/outcome surfaces (an auto-executed staged op appears with its outcome, like the existing item auto_resolve path); no novel surface. Single-variant `/pipeline:design` to place auto-execution provenance, no human-review park.
 
-**Human design review.** No — backend gating reconciliation; the only surface change is showing auto-execution provenance on existing review/outcome surfaces, not a new primitive.
+**Human concept review.** No — backend gating reconciliation; the only surface change is showing auto-execution provenance on existing review/outcome surfaces, not a new primitive.
 
 **Acceptance criteria.**
 - A reversible staged operation from a sufficiently-trusted agent executes without requiring a human verdict, and its outcome is still recorded and visible against the review.
@@ -330,7 +330,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Given a new agent with no verdict history, when it stages a reversible operation, then it is gated (cold-start protection), not auto-executed.
 - Given an auto-executed operation, when a human views the review, then it is shown as auto-executed rather than human-approved.
 
-**Plan calls.** Concept-reshaping — run `/concept AL8` first (reconcile reversibility × riskTier × approval-rate trust into one classifier). Then a standard architecture pass plus a light `/design` to place auto-execution provenance on the existing review surfaces. Spans the fabric policy-engine and the staged-operation-dispatcher domains.
+**Plan calls.** Concept-reshaping — run `/pipeline:refine AL8` first (reconcile reversibility × riskTier × approval-rate trust into one classifier). Then a standard architecture pass plus a light `/pipeline:design` to place auto-execution provenance on the existing review surfaces. Spans the fabric policy-engine and the staged-operation-dispatcher domains.
 
 **Contracts / constraints.**
 - Irreversible + any trust level → always gated; never auto-executes. The ETHOS §3 floor is preserved.
@@ -361,10 +361,10 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 **Complexity.** M
 
 **Pre-build gates.**
-- **Concept:** Not required — consumes the already-locked AD4 trust model (verdict-history approval rate, settled in `policy-engine.ts` + `agent-profile.ts`); introduces no noun.
+- **Refinement:** Not required — consumes the already-locked AD4 trust model (verdict-history approval rate, settled in `policy-engine.ts` + `agent-profile.ts`); introduces no noun.
 - **Design:** Not required — backend/data/route removal. Any residual autonomy UI field is removed as dead UI, not a design decision; if a surface genuinely needs rework, that is flagged back, not pre-resolved here.
 
-**Human design review.** No — vestigial-code removal; no new or reshaped surface.
+**Human concept review.** No — vestigial-code removal; no new or reshaped surface.
 
 **Acceptance criteria.**
 - The per-skill autonomy level can no longer be set or read through any API — the route that mutated it is gone.
@@ -377,7 +377,7 @@ Source: the kernel/strategy USP analysis of 2026-06-13 (`plans/AK/kernel-strateg
 - Given the policy engine, when it makes a gating decision, then it relies solely on the verdict-history trust signal (unchanged behavior).
 - Given a code search for the per-skill autonomy type, when run after the change, then it returns no vestigial references.
 
-**Plan calls.** Skip `/design`. Standard architecture pass — locate every reference to the per-skill autonomy level (routes, settings, types, events, any UI), confirm none feeds a live gating decision, and remove them. Distinguish the dead per-skill dial from any genuinely-live axis (e.g. routine autonomy) before deleting. Spans server routes + fabric/web types.
+**Plan calls.** Skip `/pipeline:design`. Standard architecture pass — locate every reference to the per-skill autonomy level (routes, settings, types, events, any UI), confirm none feeds a live gating decision, and remove them. Distinguish the dead per-skill dial from any genuinely-live axis (e.g. routine autonomy) before deleting. Spans server routes + fabric/web types.
 
 **Contracts / constraints.**
 - Gating behavior is unchanged — removal is provably behavior-neutral (the data was unconsumed for decisions).

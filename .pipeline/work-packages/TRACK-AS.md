@@ -86,7 +86,7 @@
 - Given the LLM judge returns text wrapped in code fences or malformed JSON, when scored, then the result is recorded as `judge-errored` (surfaced in the report), not silently `0.0`.
 - Given a scenario with tiers T1–T4, when scored, then the report shows distinct per-tier scores and a difficulty-aware aggregate.
 
-**Plan calls.** Standard architecture pass, backend — no `/design`. Plan the tool-call-introspection judge inputs (from AS1's captured run), the schema'd LLM-judge contract (structured tool-use / validated output + errored-vs-zero distinction), and the difficulty-aware aggregate shape. Reuse the project's existing structured-output patterns rather than inventing a parser.
+**Plan calls.** Standard architecture pass, backend — no `/pipeline:design`. Plan the tool-call-introspection judge inputs (from AS1's captured run), the schema'd LLM-judge contract (structured tool-use / validated output + errored-vs-zero distinction), and the difficulty-aware aggregate shape. Reuse the project's existing structured-output patterns rather than inventing a parser.
 
 **Contracts / constraints.**
 - Judges grade real run output (real tool-calls / captured artifacts), never fabricated state.

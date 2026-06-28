@@ -98,7 +98,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - Given the model/binary is absent, when the test runs, then it fails with the missing-harness message — no green.
 - Given a regression that breaks the `adapter ↔ provisionSession` seam, when the test runs, then it fails (the seam is genuinely exercised).
 
-**Plan calls.** Standard architecture pass, backend — no `/design`. Decide the capture-before-teardown seam (extend AO2's `filesystem_captures` vs a test-observable hook on the provisioning result) with the lightest production change that does not weaken the teardown contract. Prefer `BuiltinHarnessAdapter` + a cheap real model for the default lane, with the same shape proven against at least one CLI binary.
+**Plan calls.** Standard architecture pass, backend — no `/pipeline:design`. Decide the capture-before-teardown seam (extend AO2's `filesystem_captures` vs a test-observable hook on the provisioning result) with the lightest production change that does not weaken the teardown contract. Prefer `BuiltinHarnessAdapter` + a cheap real model for the default lane, with the same shape proven against at least one CLI binary.
 
 **Contracts / constraints.**
 - Goes through the real `provisionSession()` — no bespoke wiring that bypasses production phases.

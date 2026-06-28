@@ -8,7 +8,7 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 
 **Sequencing.** All six WPs are independent (no inter-dependencies) and can be built in any order or in parallel. AP2 (fabric scoring) and AK9 (fabric Kernel-infra extraction) touch *different* parts of `packages/fabric` — scoring/Strategy vs Kernel infra — so they do not conflict and need no ordering.
 
-**Out of this track.** The fabric package-cohesion split (Kernel infra leaving the Strategy package) is **AK9**. The deeper "what is a Strategy/plugin" question is a separate `/concept`. The audit's Part-4 "bonus" items are **not overengineering** and are deliberately excluded here — most notably the **reviews-route regression** (a real DB-backed route silently reduced to a fixture in a cleanup commit), plus a stale propagation-log lore comment, three built-but-unwired design lint rules, and a `riskTier` column duplication. These should be tracked as correctness/bugfix work, not audit cleanup — flagged to the founder separately.
+**Out of this track.** The fabric package-cohesion split (Kernel infra leaving the Strategy package) is **AK9**. The deeper "what is a Strategy/plugin" question is a separate `/pipeline:refine`. The audit's Part-4 "bonus" items are **not overengineering** and are deliberately excluded here — most notably the **reviews-route regression** (a real DB-backed route silently reduced to a fixture in a cleanup commit), plus a stale propagation-log lore comment, three built-but-unwired design lint rules, and a `riskTier` column duplication. These should be tracked as correctness/bugfix work, not audit cleanup — flagged to the founder separately.
 
 **Reference docs:** `plans/overeng-audit/overengineering-audit.md` (the confirmed findings, themed), `plans/overeng-audit/code-composition.md` (LOC composition by package and the fabric/db breakdowns).
 
@@ -91,7 +91,7 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 - Given an item with maximal live signals, when it is scored, then it reaches the expected score ceiling.
 - Given a `factory_settings` override for a surviving weight, when scoring runs, then the override changes the ranking as expected.
 
-**Plan calls.** Backend scoring — skip `/design`. Standard `/architecture` pass; this intentionally **changes scoring output**, so the plan must define the new normalized weight set and the tests that pin the new ranking. Apply the mock-validation guard: the proof must exercise the real scoring path, and reverting the fix must turn a test red.
+**Plan calls.** Backend scoring — skip `/pipeline:design`. Standard `/pipeline:architecture` pass; this intentionally **changes scoring output**, so the plan must define the new normalized weight set and the tests that pin the new ranking. Apply the mock-validation guard: the proof must exercise the real scoring path, and reverting the fix must turn a test red.
 
 **Contracts / constraints.**
 - Intentional behaviour change to relevance ranking — this is the point; document the new weight set in `docs/knowledge-architecture/relevance-and-attention.md`.
@@ -136,7 +136,7 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 - Given the desktop app, when it starts and then quits, then the server handle is created and disposed exactly as today.
 - Given the code after collapse, when searched, then no single-implementation interface/union remains for these three (excluding `SafeStorageLike`).
 
-**Plan calls.** Backend/desktop cleanup — skip `/design`. Standard `/architecture` pass to confirm the DB union truly has no runtime branch and to choose the concrete-type shape for the desktop inlines.
+**Plan calls.** Backend/desktop cleanup — skip `/pipeline:design`. Standard `/pipeline:architecture` pass to confirm the DB union truly has no runtime branch and to choose the concrete-type shape for the desktop inlines.
 
 **Contracts / constraints.**
 - No behaviour change to DB connectivity or desktop lifecycle.
@@ -180,7 +180,7 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 - Given each DB profile, when it resolves, then the correct driver + URL are produced without the removed fields.
 - Given the pipeline emits a span, when its attributes are inspected, then every declared attribute has a real value and none is a permanently-unset placeholder.
 
-**Plan calls.** Backend cleanup — skip `/design`. Standard `/architecture` pass; confirm each parameter/field/attribute is genuinely unread in production (tests-only reads count as unread for production purposes) and decide where the DB topology fields move if still needed by tests.
+**Plan calls.** Backend cleanup — skip `/pipeline:design`. Standard `/pipeline:architecture` pass; confirm each parameter/field/attribute is genuinely unread in production (tests-only reads count as unread for production purposes) and decide where the DB topology fields move if still needed by tests.
 
 **Contracts / constraints.**
 - No behaviour change to routes, DB resolution, or emitted telemetry values.
@@ -223,7 +223,7 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 - Given the single consumer of `useBlockResolution`, when it resolves a block, then it gets the correct field (description, not the buggy `pitch`) and the previously-dead branches no longer exist.
 - Given `npm run verify`, when it runs, then it is green.
 
-**Plan calls.** Web cleanup — skip `/design` (no visual change intended; the snapshot net guards against drift). Standard `/architecture` pass to decide inline-vs-keep for the hook based on its single caller.
+**Plan calls.** Web cleanup — skip `/pipeline:design` (no visual change intended; the snapshot net guards against drift). Standard `/pipeline:architecture` pass to decide inline-vs-keep for the hook based on its single caller.
 
 **Contracts / constraints.**
 - No visual change — the snapshot net must show no unintended diff; if a diff appears it is reviewed and re-blessed only if intended.

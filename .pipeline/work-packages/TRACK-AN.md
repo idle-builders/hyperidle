@@ -8,7 +8,7 @@
 
 **Scope rules.** External tool use only. Ride the MCP standard — a tool source is a standard MCP server; we never reimplement a service's API. `npm run verify` passes after each workpackage merges.
 
-**Concept status.** The prior `plans/AN/concept.md` was deleted as not worth keeping. Every workpackage below is marked **Concept: Required** — run `/concept <id>` to lock its nouns fresh (there is no concept doc to lean on). Reference: `docs/architecture/credential-model.md`, `docs/agent-layer/harness-capability-descriptor.md`, `packages/server/src/mcp/mcp-bridge.ts`, AL7 (`plans/AL7/`).
+**Concept status.** The prior `plans/AN/requirements.md` was deleted as not worth keeping. Every workpackage below is marked **Concept: Required** — run `/pipeline:refine <id>` to lock its nouns fresh (there is no concept doc to lean on). Reference: `docs/architecture/credential-model.md`, `docs/agent-layer/harness-capability-descriptor.md`, `packages/server/src/mcp/mcp-bridge.ts`, AL7 (`plans/AL7/`).
 
 ---
 
@@ -128,8 +128,8 @@ Also: the credential model (`docs/architecture/credential-model.md`, `packages/s
 **Complexity.** M
 
 **Pre-build gates.**
-- **Concept:** Required — run `/concept AN3` first. Small, but lock how an *inherited* tool relates to a *connected* one (you see the former; you set up the latter) so the vocabulary is clean.
-- **Design:** Light — extends AN1's manage surface with a read-only "inherited" view; single-variant `/design` to place it, no human-review park.
+- **Concept:** Required — run `/pipeline:refine AN3` first. Small, but lock how an *inherited* tool relates to a *connected* one (you see the former; you set up the latter) so the vocabulary is clean.
+- **Design:** Light — extends AN1's manage surface with a read-only "inherited" view; single-variant `/pipeline:design` to place it, no human-review park.
 
 **Human design review.** No — extends AN1's surface with a read-only group; introduces no new primitive.
 
@@ -144,7 +144,7 @@ Also: the credential model (`docs/architecture/credential-model.md`, `packages/s
 - Given a user whose harness has nothing extra, when they open their connections, then the inherited view shows an honest none-state.
 - Given an inherited tool, when it renders, then no credential or token value is present in the output.
 
-**Plan calls.** Run `/concept AN3`, then a single-variant `/design` to place the inherited view, then a standard architecture pass reading the harness capability descriptor (AM2) and projecting the user's configured MCP servers / inherited tools into AN1's surface.
+**Plan calls.** Run `/pipeline:refine AN3`, then a single-variant `/pipeline:design` to place the inherited view, then a standard architecture pass reading the harness capability descriptor (AM2) and projecting the user's configured MCP servers / inherited tools into AN1's surface.
 
 **Contracts / constraints.** Renders from the harness capability descriptor — no per-harness branching in the UI. The inherited view is read-only (you see what you inherit; you don't "connect" it). No secret values surfaced. Consistent with AN1's connection vocabulary and layout.
 
