@@ -67,7 +67,7 @@ An integration test exercises a **real integration point**, with no stub standin
 
 **A binary absent means the work is not done — hard-fail, never skip.** Harness integration tests run locally (where the binaries are installed) as part of the suite, and the signed attestation carries the result — no test suite runs in GitHub Actions. A missing harness must **fail** the run and stop the agent with "harness X not installed — cannot complete," not `skipIf`-skip to green. A green minted while every agentic test silently skipped is the deepest false-green.
 
-> **Rolling out via Track AR.** AR1 makes this mechanically enforced: a `requireHarness()` hard-fail helper replacing `skipIf`, a lint guard rejecting a stubbed harness adapter in a harness-facing integration test, an attestation executed-count floor for agentic tests, and the collapse of the redundant `*.real-harness.test.ts` lane into `*.integration.test.ts` (it only existed to dodge a CI-binary problem that does not exist). Until those land, follow the rule by hand. AR2–AR6 convert the ~30 currently-stubbed harness tests; see `.pipeline/work-packages/TRACK-AR.md`.
+> **Enforced by Track AR.** `requireHarness()` hard-fails on absence (never `skipIf`). `scripts/honest-harness-guard.ts` rejects a stubbed harness adapter in a harness-facing integration test. The attestation floor (`agenticExecuted` floor in `check-attestation.ts`) fails on zero-executed agentic tests. The `*.real-harness.test.ts` lane has been collapsed into `*.integration.test.ts`. AR2–AR6 convert the remaining ~30 stubbed harness tests to real binaries; see `.pipeline/work-packages/TRACK-AR.md`.
 
 ## Fixture pattern (integration tests)
 
