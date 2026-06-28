@@ -1,0 +1,23 @@
+{
+	"$comment": "Known-debt stubbed harness adapters — shrinks monotonically as AR2–AR6 convert each. A path here that the guard finds CLEAN fails the guard (remove the line). Never add by hand: regenerate via npm run honest-harness-guard -- --write-allowlist.",
+	"version": 1,
+	"stubbedHarnessIntegration": [
+		"packages/server/src/__tests__/AD2-task-dispatcher.integration.test.ts",
+		"packages/server/src/__tests__/AF10-provisioning-cost-delta.integration.test.ts",
+		"packages/server/src/__tests__/AH6-lane-gates-broken-turn.integration.test.ts",
+		"packages/server/src/__tests__/AK2-contributor-scenario.integration.test.ts",
+		"packages/server/src/__tests__/AK2-fabric-parity.integration.test.ts",
+		"packages/server/src/__tests__/AK2-minimal-strategy.integration.test.ts",
+		"packages/server/src/__tests__/AL7-builtin-live-session.integration.test.ts",
+		"packages/server/src/__tests__/AL7-tailored-grant.integration.test.ts",
+		"packages/server/src/__tests__/R1-wire-agent-execution.integration.test.ts",
+		"packages/server/src/__tests__/X3-session-provisioning.integration.test.ts",
+		"packages/server/src/__tests__/af7-dispatch-wiring.integration.test.ts",
+		"packages/server/src/__tests__/af7-nonblocking-provision.integration.test.ts",
+		"packages/server/src/__tests__/assistant-turn-per-agent-seam.integration.test.ts",
+		"packages/server/src/__tests__/mcp-route.integration.test.ts",
+		"packages/server/src/harness/__tests__/AL6-reprompt-loop.integration.test.ts",
+		"packages/server/src/harness/__tests__/AL6-uniform-forcing.integration.test.ts",
+		"packages/server/src/routes/__tests__/AK4-assistant-draft.integration.test.ts"
+	]
+}
