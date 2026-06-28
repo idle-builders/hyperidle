@@ -16,7 +16,7 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 
 **Execute the locked plan mechanically. If the plan is wrong, raise a BLOCKER — do NOT redesign in-flight.**
 
-The designer → builder handoff is plan-and-execute. The moment you start redesigning, you build the wrong thing fast. If reality contradicts the plan (a type doesn't compose, a schema column doesn't satisfy a constraint, a route collides), that's a BLOCKER for the designer — not something you silently fix.
+The planner → builder handoff is plan-and-execute. The moment you start redesigning, you build the wrong thing fast. If reality contradicts the plan (a type doesn't compose, a schema column doesn't satisfy a constraint, a route collides), that's a BLOCKER for the planner — not something you silently fix.
 
 A typo in a file path or a natural naming convention — resolve those in-flight. A structural disagreement with the plan — stop and raise it.
 
@@ -63,7 +63,7 @@ Scope creep is the #1 cause of story failure.
 
 ## Confusion Management
 
-For **implementation** ambiguity (schema vs. interface choice, library API shape, file location), use a CONFUSION block — pick your best option and flag for review. For **plan** ambiguity (the plan disagrees with reality), use a BLOCKER — that's the designer's job, not yours.
+For **implementation** ambiguity (schema vs. interface choice, library API shape, file location), use a CONFUSION block — pick your best option and flag for review. For **plan** ambiguity (the plan disagrees with reality), use a BLOCKER — that's the planner's job, not yours.
 
 ## Design System
 
@@ -72,7 +72,7 @@ Before any UI code, read `packages/design-system/DESIGN.md` and `packages/design
 ## What You Do NOT Do
 
 - Redesign the plan in-flight (raise BLOCKER instead)
-- Make UX decisions (that's the designer's domain)
+- Make UX decisions (that's the planner's domain)
 - Skip tests — every feature needs tests
 - Ship UI without `.stories.tsx`
 - Leave lint or type errors

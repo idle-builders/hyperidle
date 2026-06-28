@@ -73,7 +73,7 @@ You can only say that something is done if you looked at the actual output of yo
 
 ## Capture Lore
 
-When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
+When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/pipeline:lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
 
 ---
 
@@ -100,17 +100,17 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 - `system-prompts/` — agent system prompt templates
 - `archive/` — superseded docs
 
-Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
+Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
 - `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`)
 - `progress/` — per-workpackage progress JSON files
-- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
+- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/pipeline:compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
 
-**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/write-docs`):
+**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/pipeline:write-docs`):
 
-- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (a concept spanning a whole track uses the track folder `plans/<track>/`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
+- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `requirements.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (the track's strategic frame lives in `docs/` ground truth, settled in `/pipeline:work-planning`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/pipeline:write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
 - `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 
 ---
@@ -149,7 +149,7 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ## Explore Agent
 
-Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/retro` (Phase 6) and any read-heavy research tasks.
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/pipeline:retro` (Phase 6) and any read-heavy research tasks.
 
 ---
 
