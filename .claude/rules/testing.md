@@ -57,6 +57,7 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 - `beforeEach`/`afterEach` only for non-DB setup (e.g. `vi.stubEnv`).
 - Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
 - Design system: every UI component must have a `.stories.tsx` file.
+- Prefer a polling watcher over `fs.watch` in tests — `fs.watch` flakes. Gate any real `fs.watch` test behind an env flag, excluded from the default run.
 
 ## Integration tests: two archetypes
 

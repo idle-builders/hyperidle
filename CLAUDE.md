@@ -37,7 +37,7 @@ Tests are for application logic. A test imports code and asserts on its behavior
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
 
 ### Which command to use when
 
@@ -137,11 +137,15 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 When you call multiple tools and there are no dependencies between them, make all the independent tool calls in parallel. Reading three files to spot a pattern is three Read calls in one parallel batch, not three sequential ones. `git status` + `git diff` + `git log` is one batch of three Bash calls. Call tools sequentially only when a later call needs the result of an earlier one (read file A → decide what to read next from A's contents; edit file → re-read to verify; build → only run tests on green).
 
+Grep can misreport files with control characters as binary and skip them — never conclude "no matches" or "dead code" from grep alone; confirm with `rg -a` or by reading the file.
+
 ---
 
 ## Git
 
 **Strict isolation — non-negotiable.** ALWAYS work in a dedicated git worktree on a feature branch cut from fresh `origin/main`. Never edit, commit, or build in the primary checkout; never work directly on `main`. `git fetch origin && git worktree add .worktrees/<id> -b <type>/<id>-<desc> origin/main`, then work there. One worktree+branch per unit of work — no sharing, no reuse across tasks.
+
+**Worktree hygiene.** Verify `pwd` before writing — artifacts belong in the worktree, never the primary checkout. Run lint/check from the host project root, not a worktree cwd. Before committing, reject stray build artifacts (`*.d.ts`/`*.js` in source dirs, native binaries, core dumps).
 
 Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected and clean by default (npm run verify succeeds required for merge). Always use a pull request to add features to main. Always push your changes after commit. **Every feature branch must be based on `origin/main` and every PR must target `main`.** No stacked PRs — never target another feature branch. Also you are not an admin user and cannot bypass any branch protication.
 
