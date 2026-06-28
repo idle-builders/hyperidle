@@ -7,7 +7,21 @@ export default defineConfig({
 		maxWorkers: 4,
 		minWorkers: 4,
 		include: ["packages/**/*.integration.test.{ts,tsx}"],
-		exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
+		exclude: [
+			"**/node_modules/**",
+			"**/.git/**",
+			"**/dist/**",
+			"**/.worktrees/**",
+			// Real-harness tests: call real CLIs (claude, codex, opencode) — local-only lane.
+			// Naming convention is *.real-harness.test.ts but AN1 used .integration.test.ts
+			// by mistake. Excluded here to match the intended local-only lane semantics.
+			// @lore AN1: AN1-real-harness-inherited.integration.test.ts is a real-harness
+			// test mis-named as .integration.test.ts. Adding the explicit exclude here keeps
+			// it out of test:all without renaming (which would break the cross-branch
+			// attestation source-hash). The test can still run via:
+			//   npx vitest run --config vitest.integration.config.ts <file>
+			"**/harness/__tests__/*real-harness*.integration.test.{ts,tsx}",
+		],
 		reporters: ["dot"],
 		pool: "threads",
 		// @lore AD8a: isolate:true required to fix ES-module mock leakage in the
