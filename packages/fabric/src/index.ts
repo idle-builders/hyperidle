@@ -124,10 +124,12 @@ export {
 // git-export-runner
 export type {
 	CreateGitRunnerOptions,
+	FakeGitCall,
+	FakeGitRunner,
 	GitConfigInjection,
 	GitRunner,
 } from "./services/git-export-runner.js";
-export { createGitRunner } from "./services/git-export-runner.js";
+export { createFakeGitRunner, createGitRunner } from "./services/git-export-runner.js";
 
 // item-router
 export { routeItem } from "./services/item-router.js";
@@ -350,7 +352,7 @@ export type {
 	Manifest,
 	ManifestEntry,
 } from "./context-assembly.js";
-export { assembleContext } from "./context-assembly.js";
+export { assembleContext, EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "./context-assembly.js";
 // context-assembly-prompt (X1 + AA2 + AH3)
 export type {
 	AssistantPromptResult,
@@ -364,6 +366,7 @@ export {
 	assembleRoutinePrompt,
 	buildTemplateVariables,
 	composeAssistantPrompt,
+	EMITTED_ROOTS_AGENTS_MD,
 	stripFrontmatter,
 	substituteTemplateVars,
 	writeSandboxAgentsMd,

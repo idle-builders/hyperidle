@@ -80,6 +80,8 @@ export interface SessionRouteDeps {
 	 * When present, held connections are provisioned into each session sandbox.
 	 */
 	readonly serviceConnectionResolver?: import("../services/session-provisioning.js").ProvisionSessionDeps["serviceConnectionResolver"];
+	/** AO2: Optional filesystem mounter for mount + captureBack hooks. */
+	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
 }
 
 /** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
@@ -324,6 +326,8 @@ export function createSessionRoutes(
 							mcpBaseUrl: deps.mcpBaseUrl,
 							// AN2: thread the already-constructed resolver (encapsulates serverSecret).
 							serviceConnectionResolver: deps.serviceConnectionResolver,
+							// AO2: pass through the mounter if present.
+							...(deps.mounter ? { mounter: deps.mounter } : {}),
 						},
 						{
 							agentId: body.agentId,

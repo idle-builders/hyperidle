@@ -158,6 +158,28 @@ class FakeGitRunner implements GitRunner {
 		// FakeGitRunner always reports reachable — not the subject of git-export tests.
 		return { reachable: true };
 	}
+	// ── AO2 inbound-git stubs (not the subject of git-export tests) ──────────
+	async clone(_url: string, _branch?: string, _opts?: object): Promise<void> {
+		await this.wait();
+	}
+	async bundle(_outputPath: string, _refSpec?: string): Promise<void> {
+		await this.wait();
+	}
+	async worktreeAdd(_path: string, _branch: string, _opts?: object): Promise<void> {
+		await this.wait();
+	}
+	async worktreeRemove(_path: string, _opts?: object): Promise<void> {
+		await this.wait();
+	}
+	async fetch(_remote?: string): Promise<void> {
+		await this.wait();
+	}
+	async checkout(_branch: string, _opts?: object): Promise<void> {
+		await this.wait();
+	}
+	async restoreStaged(_paths: readonly string[]): Promise<void> {
+		await this.wait();
+	}
 }
 
 function createMemFs(initial?: Record<string, string>): FsAdapter & {

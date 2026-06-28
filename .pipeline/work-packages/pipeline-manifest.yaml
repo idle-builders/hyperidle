@@ -1291,10 +1291,10 @@ stories:
     depends: []
     complexity: L
   - id: AO2
-    title: Materialize the substrate into the session sandbox
+    title: Mount the bound filesystem into the session working directory
     track: AO
     depends: [AO1]
-    complexity: L
+    complexity: M
   - id: AO3
     title: Agent output becomes reviewable and landable (NEEDS RESEARCH post-AL7)
     track: AO

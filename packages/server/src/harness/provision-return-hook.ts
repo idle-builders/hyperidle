@@ -88,6 +88,30 @@ export async function provisionReturnHook(opts: ProvisionReturnHookOptions): Pro
 	}
 }
 
+// ── AO2: EMITTED_ROOTS exports for scaffolding-drift-guard ───────────────────
+
+/**
+ * Root directories emitted by provisionClaudeSettings.
+ * Exported so the AO2 scaffolding-drift-guard can assert coverage without
+ * re-hardcoding the path list in the test.
+ *
+ * @lore AO2 C2: Exported separately per provisioner so the drift-guard can
+ * enumerate ALL provisioners (Claude, Codex, OpenCode) rather than just Claude.
+ */
+export const EMITTED_ROOTS_CLAUDE_SETTINGS = [".claude"] as const;
+
+/**
+ * Root directories emitted by provisionCodexHome.
+ * .codex for backward-compat (unit tests + legacy); .codex-home for the real
+ * per-session CODEX_HOME that codex actually reads.
+ */
+export const EMITTED_ROOTS_CODEX_HOME = [".codex", ".codex-home"] as const;
+
+/**
+ * Root directories emitted by provisionOpencodePlugin.
+ */
+export const EMITTED_ROOTS_OPENCODE_PLUGIN = [".opencode"] as const;
+
 // ── Private provisioning helpers ──────────────────────────────────────────────
 
 /**

@@ -53,6 +53,8 @@ export interface RoutineProvisionDeps {
 	readonly adapterPool?: AdapterPool;
 	readonly workspaceAdapter?: SandboxAdapter;
 	readonly sandboxBasePath?: string;
+	/** AO2: Optional filesystem mounter for mount + captureBack hooks. */
+	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
 }
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
@@ -656,6 +658,8 @@ export function createRoutineRoutes(
 				eventBus,
 				adapterPool: provisionDeps.adapterPool,
 				workspace: provisionDeps.workspaceAdapter,
+				// AO2: pass through the mounter if present.
+				...(provisionDeps.mounter ? { mounter: provisionDeps.mounter } : {}),
 			};
 
 			try {

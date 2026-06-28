@@ -288,6 +288,13 @@
 			"when": 1785000000000,
 			"tag": "0040_chubby_chimera",
 			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "7",
+			"when": 1785100000000,
+			"tag": "0041_wet_photon",
+			"breakpoints": true
 		}
 	]
 }

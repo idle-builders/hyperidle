@@ -101,6 +101,11 @@ export interface TaskDispatcherDeps {
 	readonly mcpBridgeRegistry?: any;
 	/** Optional MCP base URL (passed through to provisionSession). */
 	readonly mcpBaseUrl?: string;
+	/**
+	 * AO2: Optional filesystem mounter (passed through to provisionSession).
+	 * When absent, sessions run without filesystem mount (degrade to today's behavior).
+	 */
+	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
 }
 
 /** A single entry in the dispatch queue. */
@@ -371,6 +376,8 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 						workspace: deps.workspace,
 						mcpBridgeRegistry: deps.mcpBridgeRegistry,
 						mcpBaseUrl: deps.mcpBaseUrl,
+						// AO2: pass through the mounter if present.
+						...(deps.mounter ? { mounter: deps.mounter } : {}),
 					},
 					{
 						taskId: entry.taskId,
