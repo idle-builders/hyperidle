@@ -22,7 +22,7 @@
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
-import { isPrivateHostLiteral } from "@hyperidle/shared/net";
+import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -396,11 +396,16 @@ export function createConnectionRoutes(
 					}
 				}
 			} else {
-				// mcp: AN1 does not probe the live MCP endpoint (AN2 seam)
-				// Report existing health or needs-attention for unvalidated
-				health = toHealth(row.health);
-				// If it was previously needs-attention and we can't probe, keep it
-				// If it was working, a successful prior validation stands
+				// mcp: AN2 live MCP reachability probe.
+				// resolveUrlForSSRF → pin the resolved IP → attempt HTTP reach.
+				// This is the ONE path where AN2 owns the connect and can pin the IP
+				// to guard against DNS rebinding (W3 in the architecture critique).
+				//
+				// @lore AN2 validate-SSRF: Only /validate pins the resolved IP because
+				// AN2 owns the connect here. The provisioned-config path (spawn-time
+				// SSRF check in buildProvisioningPlan) is check-only, not pinned,
+				// because the harness owns the subsequent connect.
+				health = await probeMcpReachability(row.serverUrl);
 			}
 
 			const now = new Date().toISOString();
@@ -419,6 +424,75 @@ export function createConnectionRoutes(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * AN2 — Live MCP reachability probe for mcp connections.
+ *
+ * Resolves the URL via resolveUrlForSSRF (SSRF check + pinned IP), then attempts
+ * an HTTP GET to the MCP endpoint to verify it is reachable.
+ *
+ * This is the ONLY AN2 path that is genuinely DNS-rebinding-guarded: AN2 owns
+ * the connect here and pins the resolved IP (unlike the provisioned-config path
+ * where the harness owns the connect and AN2 cannot pin).
+ *
+ * Returns "working" if the server responds (2xx or MCP-typical 4xx like 405/404),
+ * "needs-attention" if SSRF check fails, DNS resolution fails, or the server is
+ * unreachable within the timeout.
+ *
+ * @lore AN2 validate-SSRF: Uses resolveUrlForSSRF + pinned IP for the fetch.
+ * "Pinned" means we use the IP from the DNS resolution result rather than the
+ * hostname, preventing a DNS rebinding attack between check and connect.
+ * This guard applies ONLY here (AN2 owns the connect). The provisioned-config
+ * path is check-only (harness owns the connect, pinning is impossible without
+ * proxying — concept hard-rule 6).
+ */
+async function probeMcpReachability(
+	serverUrl: string | null | undefined,
+): Promise<ConnectionHealth> {
+	if (!serverUrl) return "needs-attention";
+
+	const ssrfResult = await resolveUrlForSSRF(serverUrl, { label: "mcp serverUrl" });
+	if (!ssrfResult.ok) return "needs-attention";
+
+	// Pin the resolved IP to guard against DNS rebinding (only possible here because
+	// AN2 owns this connect — unlike the provisioned-config path).
+	try {
+		const parsed = new URL(serverUrl);
+		const pinnedAddress = ssrfResult.addresses[0];
+		if (!pinnedAddress) return "needs-attention";
+
+		// Build the fetch URL with the pinned IP.
+		// For https, we must send the Host header with the original hostname.
+		const pinnedUrl = new URL(serverUrl);
+		pinnedUrl.hostname =
+			pinnedAddress.family === 6 ? `[${pinnedAddress.address}]` : pinnedAddress.address;
+
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 5_000);
+
+		try {
+			const response = await fetch(pinnedUrl.toString(), {
+				method: "GET",
+				headers: { Host: parsed.hostname },
+				signal: controller.signal,
+			});
+			clearTimeout(timer);
+
+			// MCP servers respond to GET / with various status codes (200, 404, 405).
+			// Any HTTP response means the server is reachable.
+			// Only network-level failure (no response) or SSRF blockage → needs-attention.
+			if (response.status > 0) {
+				return "working";
+			}
+			return "needs-attention";
+		} catch {
+			clearTimeout(timer);
+			return "needs-attention";
+		}
+	} catch {
+		return "needs-attention";
+	}
+}
 
 function isUniqueViolation(err: unknown): boolean {
 	if (!(err instanceof Error)) return false;

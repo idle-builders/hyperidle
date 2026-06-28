@@ -45,6 +45,24 @@
     "triageHint": "straight-swap"
   },
   {
+    "path": "packages/server/src/services/connection-provisioning.ts",
+    "line": 96,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/services/connection-provisioning.ts",
+    "line": 104,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
     "path": "packages/web/src/components/sessionContentFixtures.tsx",
     "line": 30,
     "symbol": "u-founder",

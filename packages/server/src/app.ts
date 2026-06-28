@@ -448,6 +448,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				credentialResolver: options.credentialResolver,
 				mcpBridgeRegistry: options.mcpBridgeRegistry,
 				mcpBaseUrl: options.mcpBaseUrl,
+				// AN2: thread the already-constructed scResolver (encapsulates serverSecret).
+				// This is the same resolver used by filesystem routes — constructed once at :416.
+				serviceConnectionResolver: scResolver,
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));

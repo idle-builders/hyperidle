@@ -207,19 +207,30 @@ describe("AM4 AC2 — POST /api/harnesses/redetect", () => {
 	}) => {
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
 
-		// First call
-		const res1 = await app.request("/api/harnesses/redetect", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res1.status).toBe(200);
+		// Freeze Date.now() across both calls so the limiter's 5s window cannot elapse
+		// between them. Under full-suite parallel load the test continuation can be
+		// CPU-starved for >5s between the two awaited requests, resetting the rolling
+		// bucket (resetAt = firstCall + 5_000ms) and letting the second call through —
+		// a load-dependent flake unrelated to the behavior under test. Only Date.now is
+		// mocked (not timers), so real async/DB work is unaffected.
+		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+		try {
+			// First call
+			const res1 = await app.request("/api/harnesses/redetect", {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res1.status).toBe(200);
 
-		// Second call immediately — within the 5s window → 429
-		const res2 = await app.request("/api/harnesses/redetect", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res2.status).toBe(429);
+			// Second call — within the (frozen) 5s window → 429
+			const res2 = await app.request("/api/harnesses/redetect", {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res2.status).toBe(429);
+		} finally {
+			nowSpy.mockRestore();
+		}
 	});
 
 	test("redetect response does NOT contain secrets (secret-leak assertion)", async ({

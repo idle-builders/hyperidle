@@ -75,6 +75,11 @@ export interface SessionRouteDeps {
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
+	/**
+	 * AN2: Already-constructed ServiceConnectionResolver.
+	 * When present, held connections are provisioned into each session sandbox.
+	 */
+	readonly serviceConnectionResolver?: import("../services/session-provisioning.js").ProvisionSessionDeps["serviceConnectionResolver"];
 }
 
 /** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
@@ -317,6 +322,8 @@ export function createSessionRoutes(
 							workspace: deps.workspaceAdapter,
 							mcpBridgeRegistry: deps.mcpBridgeRegistry,
 							mcpBaseUrl: deps.mcpBaseUrl,
+							// AN2: thread the already-constructed resolver (encapsulates serverSecret).
+							serviceConnectionResolver: deps.serviceConnectionResolver,
 						},
 						{
 							agentId: body.agentId,

@@ -184,6 +184,20 @@ export interface ProvisionSessionDeps {
 	readonly mcpBridgeRegistry?: McpBridgeRegistry;
 	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
 	readonly mcpBaseUrl?: string;
+	/**
+	 * AN2: Already-constructed ServiceConnectionResolver (encapsulates serverSecret).
+	 * When present, held connections are provisioned into the session sandbox.
+	 * Mirrors the mcpBridgeRegistry? optional pattern: absent → graceful no-op.
+	 *
+	 * @lore AN2: No serverSecret? field here — the resolver encapsulates the secret.
+	 * Threading the raw secret would open a second decryption path against
+	 * concept hard-rule 3 (W2). The already-constructed resolver at app.ts:416
+	 * is the ONLY secret-bearing path.
+	 */
+	readonly serviceConnectionResolver?: Pick<
+		import("./service-connection-resolver.js").ServiceConnectionResolver,
+		"resolve"
+	>;
 }
 
 export interface ProvisionSessionParams {
@@ -595,7 +609,15 @@ export async function runSession(
 	 */
 	onHarnessStarted?: () => void,
 ): Promise<ProvisionSessionResult> {
-	const { db, eventBus, adapterPool, workspace, mcpBridgeRegistry, mcpBaseUrl } = deps;
+	const {
+		db,
+		eventBus,
+		adapterPool,
+		workspace,
+		mcpBridgeRegistry,
+		mcpBaseUrl,
+		serviceConnectionResolver,
+	} = deps;
 	const {
 		sessionId,
 		sessionContext,
@@ -789,6 +811,82 @@ export async function runSession(
 			console.warn(
 				`[session-provisioning] MCP bridge creation failed for session ${sessionId}; falling back to event-stream mode:`,
 				bridgeErr,
+			);
+		}
+	}
+
+	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
+	//
+	// Re-applies the owning human's active held connections into the session sandbox.
+	// Gate-free: installs tools, steps out of the way. Re-applied every spawn from
+	// the durable service_connections rows (idempotent — no provisioned state).
+	//
+	// Gated on serviceConnectionResolver being configured (optional dep, mirrors
+	// the mcpBridgeRegistry? pattern for graceful no-op when unconfigured).
+	//
+	// The discriminator `selectedAdapter.meta.type === "claude-code"` is the resolved
+	// adapter identity (confirmed at adapter-pool.ts:553). There is no `harnessType`
+	// local in runSession scope — `selectedAdapter.meta.type` is the real discriminator
+	// (W4 in the architecture critique).
+	//
+	// builtin is NOT a carrier: mcpSupport:false, in-process callLlm() loop, never
+	// spawns a child, never reads mcpTokenEnv. A write here would be dead. See
+	// @lore AN2 builtin-scoped-out in connection-provisioning.ts.
+	//
+	// @lore AN2 Phase8b-connections: This block runs AFTER the inbound bridge write
+	// so the inbound .mcp.json already exists when claudeNative=true merges into it.
+	// The merge is additive — the hyperidle entry is preserved.
+	if (serviceConnectionResolver) {
+		try {
+			const { buildProvisioningPlan, applyProvisioningPlan, resolveOwningHumanUserId } =
+				await import("./connection-provisioning.js");
+			const ownerId = await resolveOwningHumanUserId(db);
+			const plan = await buildProvisioningPlan({
+				db,
+				resolver: serviceConnectionResolver,
+				userId: ownerId,
+			});
+			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({
+				plan,
+				sandboxPath,
+				cliMcpDialect: adapterCapabilities.cliMcpDialect,
+				claudeNative:
+					adapterCapabilities.cliMcpDialect === undefined &&
+					selectedAdapter.meta.type === "claude-code",
+			});
+			// Merge MCP token env from file-carrier (codex bearer_token_env_var) AND
+			// env injections from plan (CLI-key: GH_TOKEN/GITHUB_TOKEN; convention carriers).
+			// plan.envInjections is the sole carrier for CLI-key tokens — it never rides a
+			// config file, so without this merge GH_TOKEN never reaches the spawned process.
+			// @lore AN2 C2-fix: connEnv covers the codex/opencode MCP file-carrier tokens;
+			// plan.envInjections covers CLI-key (GH_TOKEN) and convention (<SVC>_TOKEN) vars.
+			// Both must be merged; only connEnv was merged before this fix.
+			//
+			// @lore AN2 C2-regression-exposure: this exact merge (two spreads, six lines) is
+			// verified only by code-read + the real-harness tests reproducing the merge locally
+			// in-test. No integration test calls provisionSession() through the real `app`
+			// fixture and asserts a spawned child sees the injected env. Regression surface is
+			// low (the merge is two spreads of well-typed plain objects) but if a refactor ever
+			// splits this block, the CLI-key carrier silently breaks. A future hardening pass
+			// should drive one provisionSession() integration spawn through the server `app`
+			// fixture (codex or CLI-key session) and assert the child env carries the token.
+			// Blocked on a lightweight "start a session and inspect its env" test harness that
+			// the current integration fixture doesn't have.
+			const mergedConnEnv: Record<string, string> = {
+				...plan.envInjections,
+				...connEnv,
+			};
+			if (Object.keys(mergedConnEnv).length > 0) {
+				// Merge with inbound bridge token env (distinct var names prevent collision).
+				mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mergedConnEnv };
+			}
+		} catch (connErr) {
+			// Connection provisioning failed — continue without external tools.
+			// A missing tool is not a session-killer (concept hard-rule 1: no gate).
+			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge :789
+			console.warn(
+				`[connection-provisioning] failed for session ${sessionId}; continuing without external tools:`,
+				connErr,
 			);
 		}
 	}
