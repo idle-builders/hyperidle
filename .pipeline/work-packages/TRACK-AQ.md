@@ -1,4 +1,6 @@
-# Track AQ: The Run-Unit (Sandbox / Workspace) Model
+# Track AQ: The Run-Unit — Scheduling (where) × Sandbox (how isolated)
+
+**Two orthogonal axes (founder, 2026-06-28).** Where an agent runs (the **scheduler/distribution** axis — local desktop or a joined remote desktop, which runs the task **host-local**) is independent of how isolated it runs (the **sandbox** axis — a per-**agent** property). The word "sandbox" used to conflate them. This track separates them: AQ1 strips sandbox to nothing (run host-local) and realigns the remote system to the scheduler axis; AQ2 adds the per-agent sandbox; AQ3 makes remote scheduling work end-to-end.
 
 **What this track is.** Every agent session runs *somewhere* — a directory, a container, a remote box. Today the codebase calls that place a "sandbox," but the name promises an isolation boundary the code does not actually deliver: the external CLI harnesses (claude / codex / opencode) run as **host child processes** cwd'd into a scratch directory, with `HOME` forwarded — not inside the Docker container that the `SandboxAdapter` spawns. This track exists to **sharpen what the run-unit actually is** before more workpackages build on the ambiguous version of it.
 
@@ -6,7 +8,13 @@
 
 **Why now.** Two live tracks already lean on an undefined run-unit. AN2 ("connected tools work in every sandbox") split its contract into "local sandbox inherits machine logins ≈ free" vs "remote sandbox must carry auth in" — which is really a statement about *how much of a boundary the sandbox is*, with no single definition to point at. AO2 ("materialize the substrate into the session sandbox") materializes an agent's working files into the same run-unit. Both inherit whatever ambiguity we leave here. Sharpen it once, centrally.
 
-**Concept status — central noun deliberately UNLOCKED.** The run-unit primitive (whether the local/desktop unit is honestly a *workspace* or a *sandbox*, and where it sits on the isolation spectrum) is **not yet locked**. **AQ1 is the concept pass that locks it.** No build / implementation workpackages are registered in this track until AQ1's decision lands — the follow-up work is deliberately deferred and will be planned *from* the locked concept and from how workspaces actually work today.
+**Concept status — split decided (2026-06-27).** Research into the sandboxing landscape (OS-native harness sandboxes, Apple `container` microVMs, Firecracker, the credential-proxy doorway — see `plans/AQ2/research-sandboxing.md`) reshaped the original single-WP plan. The founder split the track:
+
+- **AQ1 — run on the computer (remove the sandbox).** The word "sandbox" lied: the agent already runs as a host process with the user's environment. AQ1 makes that the honest, only path — a working directory on the host, no isolation built or claimed — to get things running simply. **Concept LOCKED** (`plans/AQ1/concept.md`).
+- **AQ2 — add an opt-in sandbox (per-agent).** Real isolation as a property of the agent, designed from the research: lean on the harness's own OS sandbox / Apple `container` locally, Firecracker remotely, and the **credential doorway** (egress injection proxy / outside tool-server) so tools keep working under isolation without the secret entering the box. This **dissolves** the "isolation vs inherited OAuth" tradeoff. **Concept SEED** (`plans/AQ2/concept.md`); run `/concept AQ2` to lock before any build.
+- **AQ3 — make remote scheduling work end-to-end.** The distribution axis: run a task on a desktop joined to this instance, which executes it **host-local** (the implemented transport behind today's stub). AQ1 realigns the remote subsystem to this model and leaves the seam coherent; AQ3 makes it actually run across machines, live-proven. Not started.
+
+The original "isolation and inherited OAuth are mutually exclusive past L1" framing is **superseded** — it only holds if the credential must live with the agent; the doorway keeps it out.
 
 **Scope rules.** Ground every claim in the real adapters in `packages/server/src/harness/` — never aspirational architecture. Reconcile vocabulary with the harness-vocabulary lock (the AK1 `workspace → sandbox` rename) and with AN1/AN2's Connection model (held vs inherited). ETHOS-aligned: isolation is **opt-in for genuine cases** (shared server, untrusted code), never a preemptive wall held down by default. `npm run verify` is not relevant to a concept-only WP.
 
@@ -14,51 +22,111 @@
 
 ---
 
-### AQ1 — Define the run-unit: what a sandbox is, and isolation vs inherited secrets
+### AQ1 — Run on the computer (remove the sandbox)
 
-**Workpackage.** As a builder planning AN2 / AO2 (and anyone reasoning about where agents run), I want a single locked definition of the **run-unit** an agent session executes in — what it actually is today, where the external CLI harness runs relative to it, and the spectrum from "scratch directory on the host" to "isolated container" to "remote machine" — so that downstream tracks point at one settled concept instead of each re-deriving it. The concept must answer the forcing question head-on: at each isolation level, what happens to the user's inherited / OAuth-backed tools, and is there an ethos-clean way to gain isolation from the user's computer while still keeping those secrets working — or is that an honest tradeoff we must name rather than a problem we can solve.
+**Concept:** LOCKED — `plans/AQ1/concept.md`. The run-unit is a **per-session working directory on the host**; the agent runs as a host process with the user's environment. No isolation is built, claimed, or defaulted-to.
 
-**Why this matters.** The word "sandbox" currently lies — it names an isolation boundary the primary (CLI) path walks around. A builder reading it forms a wrong mental model: they assume the agent is contained when it is running on the host with the user's full `HOME`. That wrong model is load-bearing — it silently drives whether inherited OAuth survives a spawn, whether a held connection is "set an env var" or "carry auth into a jail," and the whole trust posture. The cost of not locking this: AN2 and AO2 each bake in a different unstated assumption about the run-unit, and the "inherited tools vanish in a real sandbox" surprise ships as a latent bug nobody decided on. The founder benefits directly: one deliberate decision instead of three accidental ones.
+**Workpackage.** As a user (and the builders of AN2 / AO2), I want agent sessions to run honestly **on my computer** — in a plain working directory, with my environment and logins inherited — so that things actually run, simply, without a half-built "sandbox" that pretends to isolate while the CLI harness already runs on the host. AQ1 removes the isolation illusion from the default path and makes host execution the explicit, only path.
 
-**What exists today.** The run-unit is two decoupled things wearing one name. (1) `SandboxAdapter` is a *filesystem* namespace: `LocalSandboxAdapter.spawn()` is a bare `mkdir`; `DockerSandboxAdapter.spawn()` makes a host dir + a `node:20-slim` container with that dir bind-mounted (`sleep infinity`), whose `exec()` runs via `docker exec`. (2) The `HarnessAdapter` is the thing that runs the agent: for CLI harnesses (`cli-harness-adapter.ts`), the `claude`/`codex`/`opencode` binary is spawned as a **host child process** with `cwd = sandboxPath` and `env = allowlist(["PATH","HOME","LANG"]) + injected` — *not* inside the container. So the external CLI agent does its file edits and bash on the host (with real `HOME`), and the Docker container is used only by HyperIdle's own internal exec tool. `IsolatedHarnessAdapter` (forked worker, allowlisted env) and `RemoteHarnessAdapter` (WebSocket to a remote worker, stubbed) are the only paths that approach a real boundary. AN1's connection model already defines held vs inherited and forbids extracting inherited auth (hard-rule 4); AN2's concept names the local-free vs remote-carry-in split without a single definition to anchor it.
+**Why this matters.** The word "sandbox" lies today: `CliHarnessAdapter` spawns `claude`/`codex`/`opencode` as a **host child process** (`cwd = sandboxPath`, env `["PATH","HOME","LANG"]`) — not inside the `DockerSandboxAdapter` container, which only wraps HyperIdle's own internal exec tool. Builders form a wrong mental model (agent contained) that drives AN2/AO2 assumptions wrongly. AQ1 makes the reality the design: run on the host, inherited tools work for free, held connections (AN2) are provisioned in. ETHOS: don't build the wall first.
 
-**What's genuinely missing.** A locked concept of the run-unit: its honest identity (workspace vs sandbox), the isolation spectrum enumerated with what each level does to inherited/OAuth secrets and to held connections, and a reasoned answer (or honest bound) to "isolation-from-host while preserving inherited secrets." Nothing today states this in one place; every consumer re-derives a partial, often wrong, version.
+**Scope of "remove" — HARD DELETE (isolation only).** Delete the **isolation** machinery outright; AQ2 will engineer isolation cleanly from scratch (and as a **per-agent property**, not a run-unit one), not from this code. Remove `DockerSandboxAdapter` and `IsolatedHarnessAdapter` (+ `isolated-session-worker`/`isolated-session-protocol`), their gates (`HYPERIDLE_ENABLE_ISOLATED`; `HYPERIDLE_ENABLE_DOCKER` is comment-only/never read — scrub it), registration, and tests. Reduce the run path to host execution in a working directory (`LocalSandboxAdapter` is the only general `SandboxAdapter`; `DisabledSandboxAdapter` is a boot guard, not isolation — keep it; the CLI/SDK/builtin harnesses run as host processes — already the reality). Keep the code noun `Sandbox*` (AK1 guard forbids reverting to `Workspace*`); the run-unit is honestly a working directory. Do **not** build any new isolation — that is AQ2.
 
-**Depends on.** None — it is grounded entirely in existing code and shipped concepts (AN1, AN2). It is upstream *of* the eventual AN2/AO2 implementation decisions, not blocked by them.
+**KEEP and REALIGN the remote-worker subsystem (founder, 2026-06-28).** `RemoteHarnessAdapter` + the WS worker routes + `/worker-token` + desktop worker client + web `SettingsWorker` UI are **not** isolation — they are **distribution/scheduling**: run a task on another desktop joined to this HyperIdle instance, which runs it **host-local** there exactly as it would on the current desktop. Remote ≠ sandbox. AQ1 **does not delete** them — it **realigns** them to the scheduler axis as the natural place to fix the misalignment the sandbox dissection exposes:
+- Strip any isolation/sandbox-boundary framing or coupling from the remote path (`RemoteHarnessAdapter.getCapabilities`, comments, types). A remote run is "execute host-local on the joined desktop," not "run in a jail."
+- Make the seam **coherent and correct** in the no-sandbox world: it compiles, the local path it shares works correctly, and the subsystem's tests pass at the seam.
+- **Do NOT** implement the stubbed end-to-end transport here — that is **AQ3**. AQ1 leaves remote correct-by-construction and clearly bounded; AQ3 makes it actually run across machines, live-proven.
+
+`CredentialResolver`/`DbCredentialResolver` is the production resolver wired everywhere — **keep it**; only the isolated adapter's *use* of it is removed.
+
+**Depends on.** None (concept locked). Unblocks AN2 (held provisioning + inherited tools on the host) and AO2 (substrate into the host working dir).
 
 **Complexity.** M
 
 **Pre-build gates.**
-- **Concept:** Required — **this WP *is* the concept pass.** Run `/concept AQ1` (track-level central noun: the **run-unit** — sandbox vs workspace, the isolation spectrum). It locks the noun and terminates; there is no architecture/build phase in this WP.
-- **Design:** Not required — concept/research only; no rendered surface.
+- **Concept:** Done (LOCKED, this pass).
+- **Design:** Not required — runtime/no rendered surface.
 
-**Human design review.** No — concept/research deliverable; introduces no user-facing component.
+**Human design review.** No.
 
 **Acceptance criteria.**
-- A reader of the locked concept can correctly state where the external CLI harness runs relative to the run-unit today (host process vs container) and why that is why inherited OAuth currently works without any per-session step.
-- The concept distinguishes the two jobs the word "sandbox" conflates — a *workspace* (working directory) and an *isolation boundary* (what the agent can reach) — and states which the run-unit actually delivers today.
-- The concept enumerates the isolation spectrum (from host-process-with-real-`HOME` through containerized-harness to remote-machine) and, for each level, states what happens to the user's inherited / OAuth-backed tools and to held connections.
-- The concept answers the forcing question with a clear recommendation: whether (and by what mechanism) the system can gain isolation from the user's computer while keeping inherited tools working — or an explicit, reasoned statement that beyond a named level it is a tradeoff, with what the user does instead (e.g. connect a held token).
-- The run-unit vocabulary is locked — one canonical term for the local/desktop unit with a rejection list — consistent with the AK1 sandbox rename and AN1/AN2's held/inherited vocabulary.
-- The concept names which existing workpackages depend on this decision (at least AN2 and AO2) and what each needs from it, so the follow-up implementation work can be planned from the locked concept.
+- An agent session runs in a per-session working directory on the host with the user's environment inherited; a live run proves a CLI harness (claude/codex/opencode) executes and inherited tools work without any per-session auth step.
+- The default and only **local** run path is host execution; no code path claims or defaults to isolation. `DockerSandboxAdapter` and `IsolatedHarnessAdapter` (+ their workers/gates/registration/tests) are **deleted** (not gated, not stubbed); `knip`/`npm run lint`/`npm run check` confirm no dead references remain.
+- The remote-worker subsystem is **kept and realigned** to the scheduler axis: no isolation/sandbox-boundary framing or coupling remains on the remote path; the subsystem compiles and its tests pass at the seam. The end-to-end transport is **not** implemented here (that is AQ3) — but what remains is coherent, not broken.
+- A live run proves the local host path works correctly end-to-end (a real CLI harness executes in a host working directory and an inherited tool works with no per-session login).
+- Held connections (AN2) provision into the host working directory; inherited connections are present via the host environment (AN1 hard-rule 4 holds — nothing extracted).
+- `npm run verify` green.
 
 **Validation scenarios.**
-- Given the locked concept, when a builder new to the codebase reads it, then they can describe — and point at the adapter code for — where `claude`/`codex`/`opencode` runs relative to the run-unit and why inherited OAuth survives a spawn today.
-- Given the forcing question, when the concept is read, then for each isolation level it states whether inherited OAuth survives and, where it does not, what the user must do instead — with no level left ambiguous.
-- Given AN2's local-free-vs-remote-carry-in split, when this concept lands, then AN2 can reference a single run-unit definition rather than restating the boundary in its own terms.
+- Given a clean spawn, when a session starts, then a real CLI harness runs in the host working directory and an inherited tool (e.g. `gh`) works with no per-session login.
+- Given the codebase post-AQ1, when a builder reads the run path, then it honestly describes host execution with no isolation claim.
 
-**Plan calls.** This is a **concept/research workpackage** — run `/concept AQ1` and stop. The deliverable is a locked concept doc (`plans/AQ1/concept.md`, retired into a `docs/architecture/` ground-truth file at `/write-docs`) plus a recommended decision on the isolation-vs-inherited-secrets question. No `/design`, no `/write-tests`, no `/write-code`. The concept must be grounded in the named adapters and must explicitly enumerate the consumers (AN2, AO2) and the follow-up implementation WPs it unblocks — those follow-up WPs are **deferred** and planned separately once the decision lands and against how workspaces actually work today.
-
-**Contracts / constraints.**
-- Concept-only — terminates at a locked doc + recommendation; no code, schema, or build.
-- Every claim grounded in the real adapters (`Local`/`Docker` `SandboxAdapter`, `Cli`/`Isolated`/`Remote` `HarnessAdapter`, `CLI_TOOL_CONFIGS.envAllowlist`); no aspirational architecture stated as fact.
-- ETHOS §2-aligned: isolation is opt-in for genuine cases (shared server, untrusted code), never a preemptive default wall; never design against a hypothetical rogue agent. Inherited auth is never extracted from the keychain (AN1 hard-rule 4 holds).
-- Vocabulary reconciles with the harness-vocabulary lock (AK1 `workspace → sandbox`) and AN1/AN2 (Connection, held, inherited) — one coherent run-unit term, not a fourth synonym.
-- Does not commit an implementation or reshape AN2's provisioning design; it supplies the definition those decisions consume.
+**Plan calls.** `/architecture AQ1` (small — it removes/retires machinery and confirms the host path) → `/write-tests` → `/write-code` → `/review` → `/ship`. Live-proof required (a real session running on the host).
 
 **Out of scope.**
-- Building any new isolation mechanism (containerizing the CLI harness, remote-sandbox implementation) — deferred follow-up WPs, planned from the locked concept.
-- Changing AN2's or AO2's shipped/locked concepts — this informs their *implementation* decisions; it does not re-open their concept docs.
-- Implementing `RemoteHarnessAdapter` (stubbed today).
+- Any isolation mechanism (OS-native sandbox, Apple `container`, Firecracker, remote) — **AQ2**.
+- The credential doorway (proxy / outside tool-server) — **AQ2**.
+- Reshaping AN1/AN2/AO2 concepts.
 
-**Effort.** M (~6h)
+**Effort.** M
+
+---
+
+### AQ2 — Add an opt-in sandbox
+
+**Concept:** SEED — `plans/AQ2/concept.md` + research `plans/AQ2/research-sandboxing.md`. Run `/concept AQ2` to lock before architecture.
+
+**Workpackage.** As a user with a genuine isolation need (shared server, running untrusted code), I want to **opt into a real sandbox** for an agent session — layered on the AQ1 host run-unit — while my connected tools keep working, so that I gain isolation from my computer without losing my tools and without the secret ever entering the box.
+
+**Why this matters.** AQ1 ships the honest no-boundary default. The genuine-isolation case still needs a real answer, and the research shows there *is* one that dissolves the old "isolation vs inherited OAuth" tradeoff: keep the credential outside the box and mediate the agent's authenticated effect via a **credential doorway** (egress injection proxy / outside-the-sandbox tool-server). Designed from the research, not from today's half-built machinery.
+
+**Direction (from `plans/AQ2/research-sandboxing.md`).**
+- Lean on the **harness's own OS-native sandbox** (Seatbelt / Landlock+bubblewrap) where it already isolates files while keeping logins via allowlist; offer **Apple `container`** (per-container microVM) on Apple-Silicon + macOS 26 (Lima/Colima fallback); **Firecracker** for remote/multi-tenant (build-or-buy: E2B/Fly). A plain container is not a boundary for untrusted code.
+- **Credential doorway** — the load-bearing new noun: the agent only ever sees a placeholder; the secret stays on the host/outside. Reject the fragile "let the command escape to the host" model as the boundary. Honors AN1 hard-rule 4 (no keychain extraction; used in place).
+
+**Depends on.** AQ1 (the host run-unit it layers on); consumes AN1/AN2 (Connection, held/inherited).
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Concept:** Required — run `/concept AQ2` (nouns to lock: **isolation level** as an opt-in dimension; **credential doorway**).
+- **Design:** Likely — any user-facing opt-in surface (choosing isolation for a session/team).
+
+**Human design review.** Forecast: maybe (new opt-in surface) — `/design` `DESIGN-CLASS` decides.
+
+**Acceptance criteria (provisional — refine at `/concept AQ2`).**
+- A user can opt a session into a real isolation level; the agent is isolated from the rest of the host yet a connected tool still works via the credential doorway, proven by a live run.
+- The secret never enters the sandbox (proven: placeholder visible inside, real value only outside); no keychain extraction (AN1 hard-rule 4).
+- Isolation is opt-in only — never imposed by default (ETHOS §2).
+- `npm run verify` green; live-proof of one isolated session with a working connected tool.
+
+**Out of scope.**
+- Multi-tenant remote operation as a product (Firecracker hosting) beyond proving the model — separate track if pursued.
+- Reshaping AN1/AN2/AO2 concepts.
+
+**Effort.** L
+
+---
+
+### AQ3 — Make remote scheduling work end-to-end
+
+**Workpackage.** As a user with more than one machine joined to my HyperIdle instance, I want to run a task on another desktop and have it **execute host-local there** — exactly as it would on the current desktop — so that "where it runs" is a real scheduling choice, not a stub. This implements the transport behind today's stubbed `RemoteHarnessAdapter` and proves a task dispatched to a joined desktop runs and returns results across machines.
+
+**Why this matters.** AQ1 realigns the remote subsystem to the scheduler axis (remote = run host-local elsewhere, decoupled from sandbox) but deliberately leaves the actual cross-machine transport unimplemented. AQ3 closes that gap: the distribution axis becomes real. Without it, the remote UI/routes exist but no task can actually run remotely.
+
+**What exists today (after AQ1).** `RemoteHarnessAdapter` + WS worker routes + `/worker-token` + desktop worker client + web `SettingsWorker` UI, realigned to the scheduler model and coherent at the seam, but the execution transport is a stub — no real end-to-end remote run.
+
+**Depends on.** AQ1 (the realigned, coherent remote seam + host-local run path). Orthogonal to AQ2 (per-agent sandbox) — a remotely-scheduled task is still subject to the agent's own sandbox property once AQ2 lands.
+
+**Complexity.** L
+
+**Pre-build gates.** Concept: likely a short `/concept AQ3` (the scheduler nouns: joined desktop / worker, dispatch, host-local run). Design: the `SettingsWorker` surface may need work — `/design` decides.
+
+**Acceptance criteria (provisional).**
+- A task dispatched to a joined desktop runs **host-local** on that desktop and returns results to the originating instance — **live-proven across two machines** (per the e2e-is-local-only rule, a local two-process/two-host proof).
+- Remote carries no sandbox/isolation semantics — isolation, if any, is the agent's AQ2 property applied on whichever desktop executes.
+- `npm run verify` green.
+
+**Out of scope.** Per-agent sandbox (AQ2). Multi-tenant/hosted remote as a product.
+
+**Effort.** L
