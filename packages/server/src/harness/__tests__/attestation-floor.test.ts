@@ -24,13 +24,13 @@
  */
 
 import { describe, expect, test } from "vitest";
+import { isHarnessFacingIntegration } from "../../../../scripts/honest-harness-guard.js";
 import {
+	type AgenticCounts,
 	assertAgenticFloor,
 	extractAgenticCounts,
-	type AgenticCounts,
 	type VitestJsonResult,
 } from "../../../../scripts/lib/attestation-floor.js";
-import { isHarnessFacingIntegration } from "../../../../scripts/honest-harness-guard.js";
 
 // ── Vitest JSON fixture builder ───────────────────────────────────────────────
 
@@ -57,7 +57,8 @@ function buildVitestJson(files: FixtureFile[]): VitestJsonResult {
 // ── Fixture paths ─────────────────────────────────────────────────────────────
 
 // Harness-facing integration file (predicate → true)
-const HARNESS_FILE = "packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts";
+const HARNESS_FILE =
+	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts";
 // Harness-facing with seam import (we pass a source that triggers isHarnessFacingIntegration)
 const HARNESS_SOURCE_MAP: Record<string, string> = {
 	[HARNESS_FILE]: `import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";\ntest('x', () => {});`,
@@ -104,11 +105,7 @@ describe("extractAgenticCounts — all agentic tests executed", () => {
 		const json = buildVitestJson([
 			{
 				name: HARNESS_FILE,
-				assertions: [
-					{ status: "passed" },
-					{ status: "failed" },
-					{ status: "passed" },
-				],
+				assertions: [{ status: "passed" }, { status: "failed" }, { status: "passed" }],
 			},
 		]);
 		const counts = extractAgenticCounts(json, alwaysAgenticPredicate);
@@ -133,18 +130,14 @@ describe("extractAgenticCounts — all agentic tests skipped", () => {
 	});
 
 	test("pending counts as skipped", () => {
-		const json = buildVitestJson([
-			{ name: HARNESS_FILE, assertions: [{ status: "pending" }] },
-		]);
+		const json = buildVitestJson([{ name: HARNESS_FILE, assertions: [{ status: "pending" }] }]);
 		const counts = extractAgenticCounts(json, alwaysAgenticPredicate);
 		expect(counts.agenticExecuted).toBe(0);
 		expect(counts.agenticSkipped).toBe(1);
 	});
 
 	test("todo counts as skipped", () => {
-		const json = buildVitestJson([
-			{ name: HARNESS_FILE, assertions: [{ status: "todo" }] },
-		]);
+		const json = buildVitestJson([{ name: HARNESS_FILE, assertions: [{ status: "todo" }] }]);
 		const counts = extractAgenticCounts(json, alwaysAgenticPredicate);
 		expect(counts.agenticExecuted).toBe(0);
 		expect(counts.agenticSkipped).toBe(1);
@@ -183,9 +176,7 @@ describe("extractAgenticCounts — non-agentic files excluded from counts", () =
 
 describe("extractAgenticCounts — zero agentic files matched", () => {
 	test("no files match the predicate → executed=0, skipped=0 (empty set)", () => {
-		const json = buildVitestJson([
-			{ name: SERVICE_FILE, assertions: [{ status: "passed" }] },
-		]);
+		const json = buildVitestJson([{ name: SERVICE_FILE, assertions: [{ status: "passed" }] }]);
 		const counts = extractAgenticCounts(json, neverAgenticPredicate);
 		expect(counts.agenticExecuted).toBe(0);
 		expect(counts.agenticSkipped).toBe(0);
@@ -263,7 +254,10 @@ describe("assertAgenticFloor — legacy back-compat", () => {
 	test("undefined agenticExecuted → no violation (legacy attestation, skip the floor)", () => {
 		// The check-attestation.ts block only runs if typeof agenticExecuted === "number"
 		// This test verifies the back-compat: an attestation without the field passes.
-		const counts: AgenticCounts = { agenticExecuted: undefined as unknown as number, agenticSkipped: undefined as unknown as number };
+		const counts: AgenticCounts = {
+			agenticExecuted: undefined as unknown as number,
+			agenticSkipped: undefined as unknown as number,
+		};
 		const result = assertAgenticFloor(counts);
 		// Legacy attestations without the field should be exempt
 		expect(result).toBeNull();

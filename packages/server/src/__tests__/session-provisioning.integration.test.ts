@@ -36,9 +36,9 @@ import {
 import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { AdapterPool, CLAUDE_CLI_CONFIG } from "../harness/adapter-pool.js";
 import { CliHarnessAdapter } from "../harness/cli-harness-adapter.js";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -116,37 +116,33 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		}
 	});
 
-	test(
-		"provisions a real Claude session and completes with cost > 0",
-		async ({ db, eventBus }) => {
-			await seedDomain(db);
-			const workspace = new LocalSandboxAdapter();
-			const adapterPool = new AdapterPool();
-			adapterPool.register("local", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
-				name: "local",
-				kind: "local",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 4,
-			});
+	test("provisions a real Claude session and completes with cost > 0", async ({ db, eventBus }) => {
+		await seedDomain(db);
+		const workspace = new LocalSandboxAdapter();
+		const adapterPool = new AdapterPool();
+		adapterPool.register("local", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			name: "local",
+			kind: "local",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
+		});
 
-			const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
-			const result = await provisionSession(deps, {
-				taskId: "task-1",
-				agentId: "agent-1",
-				productId: "p1",
-				sandboxBasePath: tmpDir,
-			});
+		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
+		const result = await provisionSession(deps, {
+			taskId: "task-1",
+			agentId: "agent-1",
+			productId: "p1",
+			sandboxBasePath: tmpDir,
+		});
 
-			expect(result.outcome).toBe("completed");
-			expect(result.totalCostCents).toBeGreaterThan(0);
+		expect(result.outcome).toBe("completed");
+		expect(result.totalCostCents).toBeGreaterThan(0);
 
-			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-			expect(session?.state).toBe("done");
-			// @lore AF4: `cost` was stripped from the sessions table (O2) — cost now
-			// lives on the run result (asserted above via totalCostCents). Type-bridge
-			// the removed column so this legacy assertion compiles unchanged.
-			expect((session as { cost?: number } | undefined)?.cost ?? 0).toBeGreaterThan(0);
-		},
-		120_000,
-	);
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
+		expect(session?.state).toBe("done");
+		// @lore AF4: `cost` was stripped from the sessions table (O2) — cost now
+		// lives on the run result (asserted above via totalCostCents). Type-bridge
+		// the removed column so this legacy assertion compiles unchanged.
+		expect((session as { cost?: number } | undefined)?.cost ?? 0).toBeGreaterThan(0);
+	}, 120_000);
 });

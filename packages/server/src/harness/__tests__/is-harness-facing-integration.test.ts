@@ -55,7 +55,7 @@ const NON_SEAM_IMPORTS = {
 };
 
 function makeSource(...imports: string[]): string {
-	return imports.join("\n") + "\n\ntest('placeholder', () => {});";
+	return `${imports.join("\n")}\n\ntest('placeholder', () => {});`;
 }
 
 // ── POSITIVE cases: harness-facing integration tests (should return true) ─────
@@ -92,8 +92,7 @@ describe("isHarnessFacingIntegration — positive cases (true)", () => {
 	});
 
 	test("*.integration.test.ts importing session-provisioning → true", () => {
-		const path =
-			"packages/server/src/__tests__/session-provisioning.integration.test.ts";
+		const path = "packages/server/src/__tests__/session-provisioning.integration.test.ts";
 		const source = makeSource(SEAM_IMPORTS.sessionProvisioning);
 		expect(isHarnessFacingIntegration(path, source)).toBe(true);
 	});
@@ -113,7 +112,11 @@ describe("isHarnessFacingIntegration — positive cases (true)", () => {
 
 	test("seam import mixed with non-seam imports → true", () => {
 		const path = "packages/server/src/harness/__tests__/foo.integration.test.ts";
-		const source = makeSource(NON_SEAM_IMPORTS.testFixtures, SEAM_IMPORTS.cliAdapter, NON_SEAM_IMPORTS.shared);
+		const source = makeSource(
+			NON_SEAM_IMPORTS.testFixtures,
+			SEAM_IMPORTS.cliAdapter,
+			NON_SEAM_IMPORTS.shared,
+		);
 		expect(isHarnessFacingIntegration(path, source)).toBe(true);
 	});
 });

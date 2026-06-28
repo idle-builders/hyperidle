@@ -91,9 +91,7 @@ async function opencodeAuthed(): Promise<boolean> {
 describe("AM2 real harness session probe", () => {
 	describe("codex session probe", () => {
 		requireHarness("codex");
-		test(
-			"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
-		async (ctx) => {
+		test("codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture", async (ctx) => {
 			// Verify authed state — skip if binary present but not logged in
 			const authed = await codexAuthed();
 			if (!authed) {
@@ -121,82 +119,72 @@ describe("AM2 real harness session probe", () => {
 				join(FIXTURES_DIR, "codex-exec.jsonl"),
 				`${result.capturedLine!}\n`,
 			);
-		},
-		120_000,
-		);
+		}, 120_000);
 	});
 
 	describe("claude session probe", () => {
 		requireHarness("claude");
-		test(
-			"claude session probe: executes real claude -p and captures usage-bearing result fixture",
-			async (ctx) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					ctx.skip();
-					return;
-				}
+		test("claude session probe: executes real claude -p and captures usage-bearing result fixture", async (ctx) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				ctx.skip();
+				return;
+			}
 
-				const result = await probeHarnessSession("claude-code");
+			const result = await probeHarnessSession("claude-code");
 
-				expect(result.ok).toBe(true);
-				expect(result.family).toBe("claude-code");
-				expect(result.capturedLine).toBeDefined();
-				expect(result.capturedLine!.length).toBeGreaterThan(0);
+			expect(result.ok).toBe(true);
+			expect(result.family).toBe("claude-code");
+			expect(result.capturedLine).toBeDefined();
+			expect(result.capturedLine!.length).toBeGreaterThan(0);
 
-				// The committed fixture MUST be the usage-bearing result line
-				const parsed = JSON.parse(result.capturedLine!) as Record<string, unknown>;
-				expect(parsed.type).toBe("result");
-				expect(parsed.usage).toBeDefined();
-				expect(typeof (parsed.usage as Record<string, unknown>).input_tokens).toBe("number");
-				expect(typeof (parsed.usage as Record<string, unknown>).output_tokens).toBe("number");
-				expect(typeof parsed.total_cost_usd).toBe("number");
-				expect(result.eventType).toBe("result");
+			// The committed fixture MUST be the usage-bearing result line
+			const parsed = JSON.parse(result.capturedLine!) as Record<string, unknown>;
+			expect(parsed.type).toBe("result");
+			expect(parsed.usage).toBeDefined();
+			expect(typeof (parsed.usage as Record<string, unknown>).input_tokens).toBe("number");
+			expect(typeof (parsed.usage as Record<string, unknown>).output_tokens).toBe("number");
+			expect(typeof parsed.total_cost_usd).toBe("number");
+			expect(result.eventType).toBe("result");
 
-				// Write fixture for AC6 normalization test (write-once: skip if already committed)
-				await writeFixtureIfMissing(
-					join(FIXTURES_DIR, "claude-stream.jsonl"),
-					`${result.capturedLine!}\n`,
-				);
-			},
-			120_000,
-		);
+			// Write fixture for AC6 normalization test (write-once: skip if already committed)
+			await writeFixtureIfMissing(
+				join(FIXTURES_DIR, "claude-stream.jsonl"),
+				`${result.capturedLine!}\n`,
+			);
+		}, 120_000);
 	});
 
 	describe("opencode session probe", () => {
 		requireHarness("opencode");
-		test(
-			"opencode session probe: executes real opencode run and captures event line",
-			async (ctx) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					ctx.skip();
-					return;
-				}
+		test("opencode session probe: executes real opencode run and captures event line", async (ctx) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				ctx.skip();
+				return;
+			}
 
-				const result = await probeHarnessSession("opencode");
+			const result = await probeHarnessSession("opencode");
 
-				// opencode probe must execute (launch proof); event-normalization may be `unknown`
-				// The probe is ok if it captured a line or detected a specific failure mode
-				// (not just "binary missing" / "not authed")
-				expect(result.family).toBe("opencode");
+			// opencode probe must execute (launch proof); event-normalization may be `unknown`
+			// The probe is ok if it captured a line or detected a specific failure mode
+			// (not just "binary missing" / "not authed")
+			expect(result.family).toBe("opencode");
 
-				if (result.ok && result.capturedLine) {
-					// Write fixture — even if we can't normalize it, record it (write-once)
-					await writeFixtureIfMissing(
-						join(FIXTURES_DIR, "opencode-run.json"),
-						`${result.capturedLine}\n`,
-					);
-				}
+			if (result.ok && result.capturedLine) {
+				// Write fixture — even if we can't normalize it, record it (write-once)
+				await writeFixtureIfMissing(
+					join(FIXTURES_DIR, "opencode-run.json"),
+					`${result.capturedLine}\n`,
+				);
+			}
 
-				// Whether ok or not, it must have tried (not been skipped at the probe level for auth reasons)
-				// The probe itself ran — that's the launch proof.
-				// If reason is defined (failure case), it must NOT say "not installed" / "binary not found"
-				if (result.reason !== undefined) {
-					expect(result.reason).not.toMatch(/not installed|binary not found/i);
-				}
-			},
-			120_000,
-		);
+			// Whether ok or not, it must have tried (not been skipped at the probe level for auth reasons)
+			// The probe itself ran — that's the launch proof.
+			// If reason is defined (failure case), it must NOT say "not installed" / "binary not found"
+			if (result.reason !== undefined) {
+				expect(result.reason).not.toMatch(/not installed|binary not found/i);
+			}
+		}, 120_000);
 	});
 });

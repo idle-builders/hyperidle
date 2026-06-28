@@ -70,7 +70,6 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import { normalizeHarnessEvent } from "@hyperidle/shared";
-import { requireHarness } from "./require-harness.js";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
@@ -85,6 +84,7 @@ import type { RegisteredTool, ToolContext, ToolRegistry } from "../../tools/tool
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
 import type { ToolResult } from "../../tools/tool-result.js";
 import { err } from "../../tools/tool-result.js";
+import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -508,305 +508,299 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	describe("claude-code CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("claude");
-		test(
-			"FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+		test("FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-				const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s1-"));
-				const testSessionId = `al7-rh-s1-${Math.random().toString(36).slice(2, 10)}`;
+			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s1-"));
+			const testSessionId = `al7-rh-s1-${Math.random().toString(36).slice(2, 10)}`;
 
-				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
+			const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
 
-				try {
-					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
-					const mcpConfigPath = path.join(s1SandboxPath, "mcp-config.json");
-					writeMcpConfig(mcpConfigPath, mcpUrl);
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const mcpConfigPath = path.join(s1SandboxPath, "mcp-config.json");
+				writeMcpConfig(mcpConfigPath, mcpUrl);
 
-					// Write minimal .claude/settings.json with workspace trust (no Stop hook).
-					const claudeDir = path.join(s1SandboxPath, ".claude");
-					fs.mkdirSync(claudeDir, { recursive: true });
-					fs.writeFileSync(
-						path.join(claudeDir, "settings.json"),
-						JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
-						"utf-8",
-					);
+				// Write minimal .claude/settings.json with workspace trust (no Stop hook).
+				const claudeDir = path.join(s1SandboxPath, ".claude");
+				fs.mkdirSync(claudeDir, { recursive: true });
+				fs.writeFileSync(
+					path.join(claudeDir, "settings.json"),
+					JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
+					"utf-8",
+				);
 
-					const cleanEnv = buildCleanEnv();
+				const cleanEnv = buildCleanEnv();
 
-					// Prompt the agent to call commit_file via the MCP tool.
-					// --allowedTools restricts the agent to ONLY the MCP commit_file tool,
-					// preventing it from using built-in Write/Bash tools instead.
-					//
-					// @lore AL7 real-harness allowedTools: Without --allowedTools, the claude
-					// binary uses its own built-in Write/Bash tools instead of our MCP
-					// commit_file tool (built-ins are preferred by default). Restricting to
-					// only mcp__hyperidle__commit_file forces the agent to call our tool.
-					const prompt =
-						"Use the commit_file MCP tool to write the text 'al7-proof-s1' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
-
-					const result = await spawnDetached(
-						"claude",
-						[
-							"-p",
-							prompt,
-							"--mcp-config",
-							mcpConfigPath,
-							"--strict-mcp-config",
-							"--allowedTools",
-							"mcp__hyperidle__commit_file",
-							"--dangerously-skip-permissions",
-							"--output-format",
-							"json",
-							"--model",
-							"claude-haiku-4-5",
-						],
-						{
-							cwd: s1SandboxPath,
-							env: cleanEnv,
-							timeoutMs: 60_000,
-						},
-					);
-
-					// Assert: the REAL capturing router intercepted commit_file (capturedCalls >= 1).
-					// This proves: real binary → real MCP call → real registry.invoke → capture.
-					//
-					// @lore AL7 real-harness sanity-break: Change the MCP URL to a wrong token
-					// to verify this assertion fails (bridgeRegistry.lookup returns undefined →
-					// 401 → claude gets a tool error → captured stays 0).
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 FULL BINARY PROOF FAILED (session 1): real claude binary did NOT call commit_file via MCP. ` +
-								`capturingRouter.captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
-								`stdout: "${result.stdout.slice(0, 500)}" ` +
-								`stderr: "${result.stderr.slice(0, 400)}" ` +
-								`exitCode: ${result.exitCode}. ` +
-								`MCP URL (stateful): ${mcpUrl}. ` +
-								`Check: (1) production MCP bridge reachable at /api/mcp/:token, ` +
-								`(2) commit_file exposed, ` +
-								`(3) --allowedTools mcp__hyperidle__commit_file forces tool use, ` +
-								`(4) claude completed at least one turn (exitCode should be 0).`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-
-					// The captured call must be commit_file.
-					const firstCapture = testServer.capturingRouter.captured[0];
-					expect(firstCapture?.toolId).toBe("commit_file");
-
-					// The binary must have completed (non-null exit code, JSON output).
-					expect(result.exitCode).not.toBeNull();
-				} finally {
-					await testServer.close();
-				}
-			},
-			90_000,
-		);
-
-		test(
-			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				// This test extends session-1 to prove the full two-session loop.
-				// It runs session 1 (capture), approves in-process, then runs session 2
-				// (grant-bearing) and asserts the real file is written to disk.
+				// Prompt the agent to call commit_file via the MCP tool.
+				// --allowedTools restricts the agent to ONLY the MCP commit_file tool,
+				// preventing it from using built-in Write/Bash tools instead.
 				//
-				// @lore AL7 real-harness session-2: The sandbox is NOT torn down between
-				// sessions — session 2 reuses the same sandboxPath and the file written
-				// by commit_file persists for assertion.
+				// @lore AL7 real-harness allowedTools: Without --allowedTools, the claude
+				// binary uses its own built-in Write/Bash tools instead of our MCP
+				// commit_file tool (built-ins are preferred by default). Restricting to
+				// only mcp__hyperidle__commit_file forces the agent to call our tool.
+				const prompt =
+					"Use the commit_file MCP tool to write the text 'al7-proof-s1' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
 
-				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s2loop-"));
-				const testSessionId = `al7-rh-s2-${Math.random().toString(36).slice(2, 10)}`;
+				const result = await spawnDetached(
+					"claude",
+					[
+						"-p",
+						prompt,
+						"--mcp-config",
+						mcpConfigPath,
+						"--strict-mcp-config",
+						"--allowedTools",
+						"mcp__hyperidle__commit_file",
+						"--dangerously-skip-permissions",
+						"--output-format",
+						"json",
+						"--model",
+						"claude-haiku-4-5",
+					],
+					{
+						cwd: s1SandboxPath,
+						env: cleanEnv,
+						timeoutMs: 60_000,
+					},
+				);
 
-				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
-
-				try {
-					// ── Session 1 ──────────────────────────────────────────────────────
-					const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					const s1McpConfigPath = path.join(sandboxPath, "s1-mcp-config.json");
-					writeMcpConfig(s1McpConfigPath, s1McpUrl);
-
-					const claudeDir = path.join(sandboxPath, ".claude");
-					fs.mkdirSync(claudeDir, { recursive: true });
-					fs.writeFileSync(
-						path.join(claudeDir, "settings.json"),
-						JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
-						"utf-8",
+				// Assert: the REAL capturing router intercepted commit_file (capturedCalls >= 1).
+				// This proves: real binary → real MCP call → real registry.invoke → capture.
+				//
+				// @lore AL7 real-harness sanity-break: Change the MCP URL to a wrong token
+				// to verify this assertion fails (bridgeRegistry.lookup returns undefined →
+				// 401 → claude gets a tool error → captured stays 0).
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 FULL BINARY PROOF FAILED (session 1): real claude binary did NOT call commit_file via MCP. ` +
+							`capturingRouter.captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
+							`stdout: "${result.stdout.slice(0, 500)}" ` +
+							`stderr: "${result.stderr.slice(0, 400)}" ` +
+							`exitCode: ${result.exitCode}. ` +
+							`MCP URL (stateful): ${mcpUrl}. ` +
+							`Check: (1) production MCP bridge reachable at /api/mcp/:token, ` +
+							`(2) commit_file exposed, ` +
+							`(3) --allowedTools mcp__hyperidle__commit_file forces tool use, ` +
+							`(4) claude completed at least one turn (exitCode should be 0).`,
 					);
-
-					const cleanEnv = buildCleanEnv();
-					const s1Prompt =
-						"Use the commit_file MCP tool to write the text 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
-
-					const s1Result = await spawnDetached(
-						"claude",
-						[
-							"-p",
-							s1Prompt,
-							"--mcp-config",
-							s1McpConfigPath,
-							"--strict-mcp-config",
-							"--allowedTools",
-							"mcp__hyperidle__commit_file",
-							"--dangerously-skip-permissions",
-							"--output-format",
-							"json",
-							"--model",
-							"claude-haiku-4-5",
-						],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
-					);
-
-					// Assert session 1 captured the call.
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 two-session loop FAILED at session 1: commit_file not captured. ` +
-								`stdout: "${s1Result.stdout.slice(0, 400)}" ` +
-								`stderr: "${s1Result.stderr.slice(0, 300)}" ` +
-								`exitCode: ${s1Result.exitCode}`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-					const capturedCall = testServer.capturingRouter.captured[0]!;
-					expect(capturedCall.toolId).toBe("commit_file");
-
-					// ── Approve (in-process) ────────────────────────────────────────────
-					// Grant the approved call to the capturing router.
-					testServer.capturingRouter.approvedCall = capturedCall;
-
-					// Rebuild the MCP bridge with the grant-bearing router.
-					// The same CapturingRouter instance switches to grant-bearing mode.
-					testServer.capturingRouter.setMode("grant-bearing");
-					await testServer.rebuildBridge(testServer.capturingRouter);
-
-					// ── Session 2 ──────────────────────────────────────────────────────
-					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					const s2McpConfigPath = path.join(sandboxPath, "s2-mcp-config.json");
-					writeMcpConfig(s2McpConfigPath, s2McpUrl);
-
-					// Session 2: same prompt. The grant-bearing router allows commit_file.
-					// The real commit_file handler will write the file to sandboxPath.
-					const s2Prompt =
-						"Use the commit_file MCP tool to write the text 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned (it should say the file was written).";
-
-					const s2Result = await spawnDetached(
-						"claude",
-						[
-							"-p",
-							s2Prompt,
-							"--mcp-config",
-							s2McpConfigPath,
-							"--strict-mcp-config",
-							"--allowedTools",
-							"mcp__hyperidle__commit_file",
-							"--dangerously-skip-permissions",
-							"--output-format",
-							"json",
-							"--model",
-							"claude-haiku-4-5",
-						],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
-					);
-
-					// Assert session 2: real file written to disk.
-					// commit_file writes to ctx.sandboxPath/proof.txt (relative path resolved).
-					const expectedFile = path.join(sandboxPath, "proof.txt");
-					if (!fs.existsSync(expectedFile)) {
-						throw new Error(
-							`AL7 two-session loop FAILED at session 2: proof.txt not written to disk. ` +
-								`Expected file: ${expectedFile}. ` +
-								`stdout: "${s2Result.stdout.slice(0, 500)}" ` +
-								`stderr: "${s2Result.stderr.slice(0, 300)}" ` +
-								`exitCode: ${s2Result.exitCode}. ` +
-								`captured.length=${testServer.capturingRouter.captured.length}, ` +
-								`approvedCall=${JSON.stringify(testServer.capturingRouter.approvedCall)}`,
-						);
-					}
-					expect(fs.existsSync(expectedFile)).toBe(true);
-
-					const fileContent = fs.readFileSync(expectedFile, "utf-8");
-					expect(fileContent).toBe("al7-proof");
-
-					// Assert: session 2 completed cleanly.
-					expect(s2Result.exitCode).not.toBeNull();
-
-					// Work continues: session 2 should have produced output (the agent
-					// reported on the tool result after commit_file completed).
-					expect(s2Result.stdout.length).toBeGreaterThan(0);
-				} finally {
-					await testServer.close();
 				}
-			},
-			180_000,
-		);
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
 
-		test(
-			"MCP bridge wiring: commit_file exposed via MCP schema + real server reachable",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
+				// The captured call must be commit_file.
+				const firstCapture = testServer.capturingRouter.captured[0];
+				expect(firstCapture?.toolId).toBe("commit_file");
+
+				// The binary must have completed (non-null exit code, JSON output).
+				expect(result.exitCode).not.toBeNull();
+			} finally {
+				await testServer.close();
+			}
+		}, 90_000);
+
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			// This test extends session-1 to prove the full two-session loop.
+			// It runs session 1 (capture), approves in-process, then runs session 2
+			// (grant-bearing) and asserts the real file is written to disk.
+			//
+			// @lore AL7 real-harness session-2: The sandbox is NOT torn down between
+			// sessions — session 2 reuses the same sandboxPath and the file written
+			// by commit_file persists for assertion.
+
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s2loop-"));
+			const testSessionId = `al7-rh-s2-${Math.random().toString(36).slice(2, 10)}`;
+
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				// ── Session 1 ──────────────────────────────────────────────────────
+				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const s1McpConfigPath = path.join(sandboxPath, "s1-mcp-config.json");
+				writeMcpConfig(s1McpConfigPath, s1McpUrl);
+
+				const claudeDir = path.join(sandboxPath, ".claude");
+				fs.mkdirSync(claudeDir, { recursive: true });
+				fs.writeFileSync(
+					path.join(claudeDir, "settings.json"),
+					JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
+					"utf-8",
+				);
+
+				const cleanEnv = buildCleanEnv();
+				const s1Prompt =
+					"Use the commit_file MCP tool to write the text 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
+
+				const s1Result = await spawnDetached(
+					"claude",
+					[
+						"-p",
+						s1Prompt,
+						"--mcp-config",
+						s1McpConfigPath,
+						"--strict-mcp-config",
+						"--allowedTools",
+						"mcp__hyperidle__commit_file",
+						"--dangerously-skip-permissions",
+						"--output-format",
+						"json",
+						"--model",
+						"claude-haiku-4-5",
+					],
+					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				);
+
+				// Assert session 1 captured the call.
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 two-session loop FAILED at session 1: commit_file not captured. ` +
+							`stdout: "${s1Result.stdout.slice(0, 400)}" ` +
+							`stderr: "${s1Result.stderr.slice(0, 300)}" ` +
+							`exitCode: ${s1Result.exitCode}`,
+					);
 				}
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+				const capturedCall = testServer.capturingRouter.captured[0]!;
+				expect(capturedCall.toolId).toBe("commit_file");
 
-				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "wiring-"));
-				const testSessionId = `al7-rh-wiring-${Math.random().toString(36).slice(2, 10)}`;
+				// ── Approve (in-process) ────────────────────────────────────────────
+				// Grant the approved call to the capturing router.
+				testServer.capturingRouter.approvedCall = capturedCall;
 
-				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+				// Rebuild the MCP bridge with the grant-bearing router.
+				// The same CapturingRouter instance switches to grant-bearing mode.
+				testServer.capturingRouter.setMode("grant-bearing");
+				await testServer.rebuildBridge(testServer.capturingRouter);
 
-				try {
-					// Verify MCP server is reachable via HTTP.
-					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+				// ── Session 2 ──────────────────────────────────────────────────────
+				const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const s2McpConfigPath = path.join(sandboxPath, "s2-mcp-config.json");
+				writeMcpConfig(s2McpConfigPath, s2McpUrl);
 
-					// MCP SSE/HTTP server responds to POST with initialize request.
-					// A minimal MCP initialize probe: POST { "method": "initialize", ... }
-					// The bridge registry is wired; the transport handles the request.
-					const initResponse = await fetch(mcpUrl, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
-							Accept: "application/json, text/event-stream",
+				// Session 2: same prompt. The grant-bearing router allows commit_file.
+				// The real commit_file handler will write the file to sandboxPath.
+				const s2Prompt =
+					"Use the commit_file MCP tool to write the text 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned (it should say the file was written).";
+
+				const s2Result = await spawnDetached(
+					"claude",
+					[
+						"-p",
+						s2Prompt,
+						"--mcp-config",
+						s2McpConfigPath,
+						"--strict-mcp-config",
+						"--allowedTools",
+						"mcp__hyperidle__commit_file",
+						"--dangerously-skip-permissions",
+						"--output-format",
+						"json",
+						"--model",
+						"claude-haiku-4-5",
+					],
+					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				);
+
+				// Assert session 2: real file written to disk.
+				// commit_file writes to ctx.sandboxPath/proof.txt (relative path resolved).
+				const expectedFile = path.join(sandboxPath, "proof.txt");
+				if (!fs.existsSync(expectedFile)) {
+					throw new Error(
+						`AL7 two-session loop FAILED at session 2: proof.txt not written to disk. ` +
+							`Expected file: ${expectedFile}. ` +
+							`stdout: "${s2Result.stdout.slice(0, 500)}" ` +
+							`stderr: "${s2Result.stderr.slice(0, 300)}" ` +
+							`exitCode: ${s2Result.exitCode}. ` +
+							`captured.length=${testServer.capturingRouter.captured.length}, ` +
+							`approvedCall=${JSON.stringify(testServer.capturingRouter.approvedCall)}`,
+					);
+				}
+				expect(fs.existsSync(expectedFile)).toBe(true);
+
+				const fileContent = fs.readFileSync(expectedFile, "utf-8");
+				expect(fileContent).toBe("al7-proof");
+
+				// Assert: session 2 completed cleanly.
+				expect(s2Result.exitCode).not.toBeNull();
+
+				// Work continues: session 2 should have produced output (the agent
+				// reported on the tool result after commit_file completed).
+				expect(s2Result.stdout.length).toBeGreaterThan(0);
+			} finally {
+				await testServer.close();
+			}
+		}, 180_000);
+
+		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "wiring-"));
+			const testSessionId = `al7-rh-wiring-${Math.random().toString(36).slice(2, 10)}`;
+
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				// Verify MCP server is reachable via HTTP.
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+
+				// MCP SSE/HTTP server responds to POST with initialize request.
+				// A minimal MCP initialize probe: POST { "method": "initialize", ... }
+				// The bridge registry is wired; the transport handles the request.
+				const initResponse = await fetch(mcpUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+						Accept: "application/json, text/event-stream",
+					},
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2025-03-26",
+							capabilities: {},
+							clientInfo: { name: "al7-test", version: "1.0" },
 						},
-						body: JSON.stringify({
-							jsonrpc: "2.0",
-							id: 1,
-							method: "initialize",
-							params: {
-								protocolVersion: "2025-03-26",
-								capabilities: {},
-								clientInfo: { name: "al7-test", version: "1.0" },
-							},
-						}),
-					});
+					}),
+				});
 
-					// The MCP server should respond 200 to initialize.
-					expect(initResponse.status).toBe(200);
+				// The MCP server should respond 200 to initialize.
+				expect(initResponse.status).toBe(200);
 
-					// The capturing router exposes commit_file.
-					expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
-					expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
-				} finally {
-					await testServer.close();
-				}
-			},
-			30_000,
-		);
+				// The capturing router exposes commit_file.
+				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
+				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
+			} finally {
+				await testServer.close();
+			}
+		}, 30_000);
 	});
 
 	// ── CODEX CLI (real binary, MCP-routed two-session loop) ─────────────────
@@ -842,259 +836,255 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	describe("codex CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("codex");
-		test(
-			"FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
+		test("FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
+			// do not exist yet (T4). This test will fail at the import/call site
+			// until T4+T5+T6 land.
+
+			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s1-"));
+			const testSessionId = `al7-rh-codex-s1-${Math.random().toString(36).slice(2, 10)}`;
+
+			// Codex requires a git repo.
+			execFileSync("git", ["init"], { cwd: s1SandboxPath, stdio: "ignore" });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+				cwd: s1SandboxPath,
+				stdio: "ignore",
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
+			});
+
+			const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
+
+			try {
+				// T3 COMPLETE: uses /api/mcp/:token (production bridge path).
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+
+				// writeCliMcpConfig (T4/T6): appends the [mcp_servers.hyperidle] block
+				// to .codex-home/config.toml (codex-toml dialect).
+				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
+				fs.mkdirSync(codexHomeDir, { recursive: true });
+
+				// Copy auth.json + config.toml from ~/.codex (AL6 recipe).
+				const homeCodexDir = path.join(os.homedir(), ".codex");
+				for (const fname of ["auth.json", "config.toml"]) {
+					const src = path.join(homeCodexDir, fname);
+					if (fs.existsSync(src)) {
+						fs.copyFileSync(src, path.join(codexHomeDir, fname));
+					}
 				}
 
-				// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
-				// do not exist yet (T4). This test will fail at the import/call site
-				// until T4+T5+T6 land.
-
-				const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s1-"));
-				const testSessionId = `al7-rh-codex-s1-${Math.random().toString(36).slice(2, 10)}`;
-
-				// Codex requires a git repo.
-				execFileSync("git", ["init"], { cwd: s1SandboxPath, stdio: "ignore" });
-				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
-					cwd: s1SandboxPath,
-					stdio: "ignore",
-					env: {
-						...process.env,
-						GIT_AUTHOR_NAME: "test",
-						GIT_AUTHOR_EMAIL: "test@test.com",
-						GIT_COMMITTER_NAME: "test",
-						GIT_COMMITTER_EMAIL: "test@test.com",
-					},
+				// Append the MCP block (this is what writeCliMcpConfig does for codex-toml).
+				const { tokenEnv } = writeCliMcpConfig({
+					dialect: "codex-toml",
+					sandboxPath: s1SandboxPath,
+					mcpUrl,
+					token: testServer.token,
 				});
 
-				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
-
-				try {
-					// T3 COMPLETE: uses /api/mcp/:token (production bridge path).
-					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
-
-					// writeCliMcpConfig (T4/T6): appends the [mcp_servers.hyperidle] block
-					// to .codex-home/config.toml (codex-toml dialect).
-					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
-					const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
-					fs.mkdirSync(codexHomeDir, { recursive: true });
-
-					// Copy auth.json + config.toml from ~/.codex (AL6 recipe).
-					const homeCodexDir = path.join(os.homedir(), ".codex");
-					for (const fname of ["auth.json", "config.toml"]) {
-						const src = path.join(homeCodexDir, fname);
-						if (fs.existsSync(src)) {
-							fs.copyFileSync(src, path.join(codexHomeDir, fname));
-						}
-					}
-
-					// Append the MCP block (this is what writeCliMcpConfig does for codex-toml).
-					const { tokenEnv } = writeCliMcpConfig({
-						dialect: "codex-toml",
-						sandboxPath: s1SandboxPath,
-						mcpUrl,
-						token: testServer.token,
-					});
-
-					const cleanEnv = buildCleanEnv();
-					cleanEnv.CODEX_HOME = codexHomeDir;
-					// Inject the MCP token env var (codex reads from bearer_token_env_var).
-					if (tokenEnv) {
-						Object.assign(cleanEnv, tokenEnv);
-					}
-
-					const prompt =
-						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
-
-					const result = await spawnDetached(
-						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
-						{
-							cwd: s1SandboxPath,
-							env: cleanEnv,
-							timeoutMs: 60_000,
-							closeStdin: true,
-						},
-					);
-
-					// AC1: real codex called commit_file via MCP → router captured it.
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 FULL BINARY PROOF FAILED (codex session 1): real codex binary did NOT call commit_file via MCP. ` +
-								`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
-								`stdout: "${result.stdout.slice(0, 500)}" ` +
-								`stderr: "${result.stderr.slice(0, 400)}" ` +
-								`exitCode: ${result.exitCode}. ` +
-								`MCP URL: ${mcpUrl}.`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-
-					const firstCapture = testServer.capturingRouter.captured[0];
-					expect(firstCapture?.toolId).toBe("commit_file");
-
-					// AC8 control — NAMED assertion: capture-mode → NO file written.
-					// The mode is still "capture" — no setMode("grant-bearing"), no approval.
-					// Proves: a captured-but-unapproved Proposed Call does NOT execute.
-					const proofFile = path.join(s1SandboxPath, "proof.txt");
-					expect(
-						fs.existsSync(proofFile),
-						"AC8 NAMED CONTROL: proof.txt must NOT exist in capture-mode (no approval granted). " +
-							"A captured call must be held — not executed — until explicitly approved.",
-					).toBe(false);
-
-					expect(result.exitCode).not.toBeNull();
-				} finally {
-					await testServer.close();
-				}
-			},
-			90_000,
-		);
-
-		test(
-			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
+				const cleanEnv = buildCleanEnv();
+				cleanEnv.CODEX_HOME = codexHomeDir;
+				// Inject the MCP token env var (codex reads from bearer_token_env_var).
+				if (tokenEnv) {
+					Object.assign(cleanEnv, tokenEnv);
 				}
 
-				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s2loop-"));
-				const testSessionId = `al7-rh-codex-s2-${Math.random().toString(36).slice(2, 10)}`;
+				const prompt =
+					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
 
-				// Codex requires a git repo.
-				execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
-				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
-					cwd: sandboxPath,
-					stdio: "ignore",
-					env: {
-						...process.env,
-						GIT_AUTHOR_NAME: "test",
-						GIT_AUTHOR_EMAIL: "test@test.com",
-						GIT_COMMITTER_NAME: "test",
-						GIT_COMMITTER_EMAIL: "test@test.com",
+				const result = await spawnDetached(
+					"codex",
+					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					{
+						cwd: s1SandboxPath,
+						env: cleanEnv,
+						timeoutMs: 60_000,
+						closeStdin: true,
 					},
+				);
+
+				// AC1: real codex called commit_file via MCP → router captured it.
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 FULL BINARY PROOF FAILED (codex session 1): real codex binary did NOT call commit_file via MCP. ` +
+							`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
+							`stdout: "${result.stdout.slice(0, 500)}" ` +
+							`stderr: "${result.stderr.slice(0, 400)}" ` +
+							`exitCode: ${result.exitCode}. ` +
+							`MCP URL: ${mcpUrl}.`,
+					);
+				}
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+
+				const firstCapture = testServer.capturingRouter.captured[0];
+				expect(firstCapture?.toolId).toBe("commit_file");
+
+				// AC8 control — NAMED assertion: capture-mode → NO file written.
+				// The mode is still "capture" — no setMode("grant-bearing"), no approval.
+				// Proves: a captured-but-unapproved Proposed Call does NOT execute.
+				const proofFile = path.join(s1SandboxPath, "proof.txt");
+				expect(
+					fs.existsSync(proofFile),
+					"AC8 NAMED CONTROL: proof.txt must NOT exist in capture-mode (no approval granted). " +
+						"A captured call must be held — not executed — until explicitly approved.",
+				).toBe(false);
+
+				expect(result.exitCode).not.toBeNull();
+			} finally {
+				await testServer.close();
+			}
+		}, 90_000);
+
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s2loop-"));
+			const testSessionId = `al7-rh-codex-s2-${Math.random().toString(36).slice(2, 10)}`;
+
+			// Codex requires a git repo.
+			execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+				cwd: sandboxPath,
+				stdio: "ignore",
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
+			});
+
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+
+				// ── Session 1 ──────────────────────────────────────────────────────
+				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const codexHomeDir = path.join(sandboxPath, ".codex-home");
+				fs.mkdirSync(codexHomeDir, { recursive: true });
+				const homeCodexDir = path.join(os.homedir(), ".codex");
+				for (const fname of ["auth.json", "config.toml"]) {
+					const src = path.join(homeCodexDir, fname);
+					if (fs.existsSync(src)) {
+						fs.copyFileSync(src, path.join(codexHomeDir, fname));
+					}
+				}
+				const { tokenEnv: s1TokenEnv } = writeCliMcpConfig({
+					dialect: "codex-toml",
+					sandboxPath,
+					mcpUrl: s1McpUrl,
+					token: testServer.token,
 				});
 
-				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+				const cleanEnv = buildCleanEnv();
+				cleanEnv.CODEX_HOME = codexHomeDir;
+				if (s1TokenEnv) Object.assign(cleanEnv, s1TokenEnv);
 
-				try {
-					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const prompt =
+					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
 
-					// ── Session 1 ──────────────────────────────────────────────────────
-					const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					const codexHomeDir = path.join(sandboxPath, ".codex-home");
-					fs.mkdirSync(codexHomeDir, { recursive: true });
-					const homeCodexDir = path.join(os.homedir(), ".codex");
-					for (const fname of ["auth.json", "config.toml"]) {
-						const src = path.join(homeCodexDir, fname);
-						if (fs.existsSync(src)) {
-							fs.copyFileSync(src, path.join(codexHomeDir, fname));
-						}
-					}
-					const { tokenEnv: s1TokenEnv } = writeCliMcpConfig({
-						dialect: "codex-toml",
-						sandboxPath,
-						mcpUrl: s1McpUrl,
-						token: testServer.token,
-					});
+				const s1Result = await spawnDetached(
+					"codex",
+					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000, closeStdin: true },
+				);
 
-					const cleanEnv = buildCleanEnv();
-					cleanEnv.CODEX_HOME = codexHomeDir;
-					if (s1TokenEnv) Object.assign(cleanEnv, s1TokenEnv);
-
-					const prompt =
-						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
-
-					const s1Result = await spawnDetached(
-						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000, closeStdin: true },
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 codex two-session loop FAILED at session 1: commit_file not captured. ` +
+							`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
 					);
-
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 codex two-session loop FAILED at session 1: commit_file not captured. ` +
-								`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-					const capturedCall = testServer.capturingRouter.captured[0]!;
-					expect(capturedCall.toolId).toBe("commit_file");
-
-					// AC8 NAMED CONTROL: capture-mode → file NOT written.
-					const proofFile = path.join(sandboxPath, "proof.txt");
-					expect(
-						fs.existsSync(proofFile),
-						"AC8 NAMED CONTROL (codex session 1): proof.txt must NOT exist in capture-mode. " +
-							"Unapproved Proposed Call must be held, not executed.",
-					).toBe(false);
-
-					// ── Approve (in-process) ────────────────────────────────────────────
-					testServer.capturingRouter.approvedCall = capturedCall;
-					testServer.capturingRouter.setMode("grant-bearing");
-					await testServer.rebuildBridge(testServer.capturingRouter);
-
-					// ── Session 2 ──────────────────────────────────────────────────────
-					// @lore AL7 codex-s2-config-refresh: TOML does not allow duplicate table
-					// keys. The session-2 writeCliMcpConfig call would append a second
-					// [mcp_servers.hyperidle] block to the same config.toml, causing codex
-					// to fail with "duplicate key". Fix: recreate config.toml from scratch
-					// (copy base from ~/.codex) before writing the session-2 MCP block.
-					// In production this never happens because each session gets a fresh sandbox.
-					const s2ConfigTomlPath = path.join(codexHomeDir, "config.toml");
-					const homeCodexConfigPath = path.join(homeCodexDir, "config.toml");
-					if (fs.existsSync(homeCodexConfigPath)) {
-						fs.copyFileSync(homeCodexConfigPath, s2ConfigTomlPath);
-					} else {
-						fs.writeFileSync(s2ConfigTomlPath, "", "utf-8");
-					}
-					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					const { tokenEnv: s2TokenEnv } = writeCliMcpConfig({
-						dialect: "codex-toml",
-						sandboxPath,
-						mcpUrl: s2McpUrl,
-						token: testServer.token,
-					});
-					const s2Env = { ...cleanEnv };
-					if (s2TokenEnv) Object.assign(s2Env, s2TokenEnv);
-
-					const s2Result = await spawnDetached(
-						"codex",
-						["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
-						{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000, closeStdin: true },
-					);
-
-					// AC3: real codex executed the approved op → file written.
-					if (!fs.existsSync(proofFile)) {
-						throw new Error(
-							`AL7 codex two-session loop FAILED at session 2: proof.txt not written. ` +
-								`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
-								`exitCode: ${s2Result.exitCode}`,
-						);
-					}
-					expect(fs.existsSync(proofFile)).toBe(true);
-					expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
-
-					expect(s2Result.exitCode).not.toBeNull();
-					// codex --json emits turn.completed when done.
-					expect(s2Result.stdout).toContain("turn.completed");
-				} finally {
-					await testServer.close();
 				}
-			},
-			180_000,
-		);
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+				const capturedCall = testServer.capturingRouter.captured[0]!;
+				expect(capturedCall.toolId).toBe("commit_file");
+
+				// AC8 NAMED CONTROL: capture-mode → file NOT written.
+				const proofFile = path.join(sandboxPath, "proof.txt");
+				expect(
+					fs.existsSync(proofFile),
+					"AC8 NAMED CONTROL (codex session 1): proof.txt must NOT exist in capture-mode. " +
+						"Unapproved Proposed Call must be held, not executed.",
+				).toBe(false);
+
+				// ── Approve (in-process) ────────────────────────────────────────────
+				testServer.capturingRouter.approvedCall = capturedCall;
+				testServer.capturingRouter.setMode("grant-bearing");
+				await testServer.rebuildBridge(testServer.capturingRouter);
+
+				// ── Session 2 ──────────────────────────────────────────────────────
+				// @lore AL7 codex-s2-config-refresh: TOML does not allow duplicate table
+				// keys. The session-2 writeCliMcpConfig call would append a second
+				// [mcp_servers.hyperidle] block to the same config.toml, causing codex
+				// to fail with "duplicate key". Fix: recreate config.toml from scratch
+				// (copy base from ~/.codex) before writing the session-2 MCP block.
+				// In production this never happens because each session gets a fresh sandbox.
+				const s2ConfigTomlPath = path.join(codexHomeDir, "config.toml");
+				const homeCodexConfigPath = path.join(homeCodexDir, "config.toml");
+				if (fs.existsSync(homeCodexConfigPath)) {
+					fs.copyFileSync(homeCodexConfigPath, s2ConfigTomlPath);
+				} else {
+					fs.writeFileSync(s2ConfigTomlPath, "", "utf-8");
+				}
+				const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const { tokenEnv: s2TokenEnv } = writeCliMcpConfig({
+					dialect: "codex-toml",
+					sandboxPath,
+					mcpUrl: s2McpUrl,
+					token: testServer.token,
+				});
+				const s2Env = { ...cleanEnv };
+				if (s2TokenEnv) Object.assign(s2Env, s2TokenEnv);
+
+				const s2Result = await spawnDetached(
+					"codex",
+					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000, closeStdin: true },
+				);
+
+				// AC3: real codex executed the approved op → file written.
+				if (!fs.existsSync(proofFile)) {
+					throw new Error(
+						`AL7 codex two-session loop FAILED at session 2: proof.txt not written. ` +
+							`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
+							`exitCode: ${s2Result.exitCode}`,
+					);
+				}
+				expect(fs.existsSync(proofFile)).toBe(true);
+				expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
+
+				expect(s2Result.exitCode).not.toBeNull();
+				// codex --json emits turn.completed when done.
+				expect(s2Result.stdout).toContain("turn.completed");
+			} finally {
+				await testServer.close();
+			}
+		}, 180_000);
 	});
 
 	// ── OPENCODE CLI (real binary, MCP-routed two-session loop) ──────────────
@@ -1120,243 +1110,239 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	describe("opencode CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("opencode");
-		test(
-			"FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-				const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
-				const testSessionId = `al7-rh-oc-s1-${Math.random().toString(36).slice(2, 10)}`;
+			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
+			const testSessionId = `al7-rh-oc-s1-${Math.random().toString(36).slice(2, 10)}`;
 
-				const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
+			const testServer = await startAl7TestServer(s1SandboxPath, testSessionId);
 
-				try {
-					const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
 
-					// @lore AL7 T3 opencode: writeCliMcpConfig writes opencode.json to sandboxPath.
-					// Currently RED: writeCliMcpConfig does not exist yet (T4).
-					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
-					writeCliMcpConfig({
-						dialect: "opencode-json",
-						sandboxPath: s1SandboxPath,
-						mcpUrl,
-						token: testServer.token,
-					});
+				// @lore AL7 T3 opencode: writeCliMcpConfig writes opencode.json to sandboxPath.
+				// Currently RED: writeCliMcpConfig does not exist yet (T4).
+				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				writeCliMcpConfig({
+					dialect: "opencode-json",
+					sandboxPath: s1SandboxPath,
+					mcpUrl,
+					token: testServer.token,
+				});
 
-					const cleanEnv = buildCleanEnv();
+				const cleanEnv = buildCleanEnv();
 
-					// W4: --model must be provider-prefixed (openrouter/~anthropic/claude-haiku-latest).
-					// This is the real-harness hardcoded known-good model id (AL6 recipe).
-					const prompt =
-						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
+				// W4: --model must be provider-prefixed (openrouter/~anthropic/claude-haiku-latest).
+				// This is the real-harness hardcoded known-good model id (AL6 recipe).
+				const prompt =
+					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
 
-					const result = await spawnDetached(
-						"opencode",
-						[
-							"run",
-							prompt,
-							"--format",
-							"json",
-							"--pure",
-							"--dir",
-							s1SandboxPath,
-							"--model",
-							"openrouter/~anthropic/claude-haiku-latest",
-						],
-						{
-							cwd: s1SandboxPath,
-							env: cleanEnv,
-							timeoutMs: 60_000,
-						},
+				const result = await spawnDetached(
+					"opencode",
+					[
+						"run",
+						prompt,
+						"--format",
+						"json",
+						"--pure",
+						"--dir",
+						s1SandboxPath,
+						"--model",
+						"openrouter/~anthropic/claude-haiku-latest",
+					],
+					{
+						cwd: s1SandboxPath,
+						env: cleanEnv,
+						timeoutMs: 60_000,
+					},
+				);
+
+				// AC2: real opencode called commit_file via MCP → router captured it.
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 FULL BINARY PROOF FAILED (opencode session 1): real opencode binary did NOT call commit_file via MCP. ` +
+							`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
+							`stdout: "${result.stdout.slice(0, 500)}" ` +
+							`stderr: "${result.stderr.slice(0, 400)}" ` +
+							`exitCode: ${result.exitCode}. ` +
+							`MCP URL: ${mcpUrl}. ` +
+							`opencode.json must be loaded from spawn cwd (config resolution).`,
 					);
-
-					// AC2: real opencode called commit_file via MCP → router captured it.
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 FULL BINARY PROOF FAILED (opencode session 1): real opencode binary did NOT call commit_file via MCP. ` +
-								`captured.length=${testServer.capturingRouter.captured.length}, expected >=1. ` +
-								`stdout: "${result.stdout.slice(0, 500)}" ` +
-								`stderr: "${result.stderr.slice(0, 400)}" ` +
-								`exitCode: ${result.exitCode}. ` +
-								`MCP URL: ${mcpUrl}. ` +
-								`opencode.json must be loaded from spawn cwd (config resolution).`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-
-					const firstCapture = testServer.capturingRouter.captured[0];
-					expect(firstCapture?.toolId).toBe("commit_file");
-
-					// AC8 NAMED CONTROL: capture-mode → NO file written.
-					// Mode is still "capture"; no approval granted.
-					const proofFile = path.join(s1SandboxPath, "proof.txt");
-					expect(
-						fs.existsSync(proofFile),
-						"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
-							"Unapproved Proposed Call must be held, not executed.",
-					).toBe(false);
-
-					expect(result.exitCode).not.toBeNull();
-				} finally {
-					await testServer.close();
 				}
-			},
-			90_000,
-		);
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
 
-		test(
-			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+				const firstCapture = testServer.capturingRouter.captured[0];
+				expect(firstCapture?.toolId).toBe("commit_file");
 
-				const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s2loop-"));
-				const testSessionId = `al7-rh-oc-s2-${Math.random().toString(36).slice(2, 10)}`;
+				// AC8 NAMED CONTROL: capture-mode → NO file written.
+				// Mode is still "capture"; no approval granted.
+				const proofFile = path.join(s1SandboxPath, "proof.txt");
+				expect(
+					fs.existsSync(proofFile),
+					"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
+						"Unapproved Proposed Call must be held, not executed.",
+				).toBe(false);
 
-				const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+				expect(result.exitCode).not.toBeNull();
+			} finally {
+				await testServer.close();
+			}
+		}, 90_000);
 
-				try {
-					const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-					// ── Session 1 ──────────────────────────────────────────────────────
-					const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					writeCliMcpConfig({
-						dialect: "opencode-json",
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s2loop-"));
+			const testSessionId = `al7-rh-oc-s2-${Math.random().toString(36).slice(2, 10)}`;
+
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+
+				// ── Session 1 ──────────────────────────────────────────────────────
+				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				writeCliMcpConfig({
+					dialect: "opencode-json",
+					sandboxPath,
+					mcpUrl: s1McpUrl,
+					token: testServer.token,
+				});
+
+				const cleanEnv = buildCleanEnv();
+
+				const prompt =
+					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
+					"You MUST use the commit_file tool — no other tools are available. " +
+					"After calling the tool, report what the tool returned.";
+
+				const s1Result = await spawnDetached(
+					"opencode",
+					[
+						"run",
+						prompt,
+						"--format",
+						"json",
+						"--pure",
+						"--dir",
 						sandboxPath,
-						mcpUrl: s1McpUrl,
-						token: testServer.token,
-					});
+						"--model",
+						"openrouter/~anthropic/claude-haiku-latest",
+					],
+					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				);
 
-					const cleanEnv = buildCleanEnv();
-
-					const prompt =
-						"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
-						"You MUST use the commit_file tool — no other tools are available. " +
-						"After calling the tool, report what the tool returned.";
-
-					const s1Result = await spawnDetached(
-						"opencode",
-						[
-							"run",
-							prompt,
-							"--format",
-							"json",
-							"--pure",
-							"--dir",
-							sandboxPath,
-							"--model",
-							"openrouter/~anthropic/claude-haiku-latest",
-						],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				if (testServer.capturingRouter.captured.length < 1) {
+					throw new Error(
+						`AL7 opencode two-session loop FAILED at session 1: commit_file not captured. ` +
+							`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
 					);
+				}
+				expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
+				const capturedCall = testServer.capturingRouter.captured[0]!;
+				expect(capturedCall.toolId).toBe("commit_file");
 
-					if (testServer.capturingRouter.captured.length < 1) {
-						throw new Error(
-							`AL7 opencode two-session loop FAILED at session 1: commit_file not captured. ` +
-								`stdout: "${s1Result.stdout.slice(0, 400)}" stderr: "${s1Result.stderr.slice(0, 300)}"`,
-						);
-					}
-					expect(testServer.capturingRouter.captured.length).toBeGreaterThanOrEqual(1);
-					const capturedCall = testServer.capturingRouter.captured[0]!;
-					expect(capturedCall.toolId).toBe("commit_file");
+				// AC8 NAMED CONTROL: capture-mode → file NOT written.
+				const proofFile = path.join(sandboxPath, "proof.txt");
+				expect(
+					fs.existsSync(proofFile),
+					"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
+						"Unapproved Proposed Call must be held, not executed.",
+				).toBe(false);
 
-					// AC8 NAMED CONTROL: capture-mode → file NOT written.
-					const proofFile = path.join(sandboxPath, "proof.txt");
-					expect(
-						fs.existsSync(proofFile),
-						"AC8 NAMED CONTROL (opencode session 1): proof.txt must NOT exist in capture-mode. " +
-							"Unapproved Proposed Call must be held, not executed.",
-					).toBe(false);
+				// ── Approve (in-process) ────────────────────────────────────────────
+				testServer.capturingRouter.approvedCall = capturedCall;
+				testServer.capturingRouter.setMode("grant-bearing");
+				await testServer.rebuildBridge(testServer.capturingRouter);
 
-					// ── Approve (in-process) ────────────────────────────────────────────
-					testServer.capturingRouter.approvedCall = capturedCall;
-					testServer.capturingRouter.setMode("grant-bearing");
-					await testServer.rebuildBridge(testServer.capturingRouter);
+				// ── Session 2 ──────────────────────────────────────────────────────
+				const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
+				writeCliMcpConfig({
+					dialect: "opencode-json",
+					sandboxPath,
+					mcpUrl: s2McpUrl,
+					token: testServer.token,
+				});
 
-					// ── Session 2 ──────────────────────────────────────────────────────
-					const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
-					writeCliMcpConfig({
-						dialect: "opencode-json",
+				const s2Result = await spawnDetached(
+					"opencode",
+					[
+						"run",
+						prompt,
+						"--format",
+						"json",
+						"--pure",
+						"--dir",
 						sandboxPath,
-						mcpUrl: s2McpUrl,
-						token: testServer.token,
-					});
+						"--model",
+						"openrouter/~anthropic/claude-haiku-latest",
+					],
+					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				);
 
-					const s2Result = await spawnDetached(
-						"opencode",
-						[
-							"run",
-							prompt,
-							"--format",
-							"json",
-							"--pure",
-							"--dir",
-							sandboxPath,
-							"--model",
-							"openrouter/~anthropic/claude-haiku-latest",
-						],
-						{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
+				// AC4: real opencode executed the approved op → file written.
+				if (!fs.existsSync(proofFile)) {
+					throw new Error(
+						`AL7 opencode two-session loop FAILED at session 2: proof.txt not written. ` +
+							`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
+							`exitCode: ${s2Result.exitCode}`,
 					);
+				}
+				expect(fs.existsSync(proofFile)).toBe(true);
+				expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
 
-					// AC4: real opencode executed the approved op → file written.
-					if (!fs.existsSync(proofFile)) {
-						throw new Error(
-							`AL7 opencode two-session loop FAILED at session 2: proof.txt not written. ` +
-								`stdout: "${s2Result.stdout.slice(0, 500)}" stderr: "${s2Result.stderr.slice(0, 300)}" ` +
-								`exitCode: ${s2Result.exitCode}`,
-						);
-					}
-					expect(fs.existsSync(proofFile)).toBe(true);
-					expect(fs.readFileSync(proofFile, "utf-8")).toBe("al7-proof");
+				expect(s2Result.exitCode).not.toBeNull();
 
-					expect(s2Result.exitCode).not.toBeNull();
-
-					// W3 (RESOLVED): opencode --format json emits JSONL. At least one line must
-					// normalize to a non-error HarnessEvent via normalizeHarnessEvent — proving
-					// the T6 obligation: opencode events are visible to the event-handling loop.
-					// The opencode pre-map in normalizeHarnessEvent translates step_finish → completion
-					// and tool → tool_call. Without the pre-map, all events would normalize to error.
-					const s2Lines = s2Result.stdout.split("\n").filter((l) => l.trim().length > 0);
-					let nonErrorNormalizedCount = 0;
-					for (const line of s2Lines) {
-						try {
-							const parsed: unknown = JSON.parse(line);
-							const event = normalizeHarnessEvent(parsed);
-							// Count events that normalize to a canonical type (not error/unknown).
-							// Error type includes both real errors AND unknownEvent (UnknownHarnessEvent).
-							const isUnknownEvent =
-								event.type === "error" &&
-								"code" in event &&
-								(event as { code: string }).code === "UnknownHarnessEvent";
-							if (!isUnknownEvent) {
-								nonErrorNormalizedCount++;
-							}
-						} catch {
-							// Non-JSON line (e.g. debug output) — skip.
+				// W3 (RESOLVED): opencode --format json emits JSONL. At least one line must
+				// normalize to a non-error HarnessEvent via normalizeHarnessEvent — proving
+				// the T6 obligation: opencode events are visible to the event-handling loop.
+				// The opencode pre-map in normalizeHarnessEvent translates step_finish → completion
+				// and tool → tool_call. Without the pre-map, all events would normalize to error.
+				const s2Lines = s2Result.stdout.split("\n").filter((l) => l.trim().length > 0);
+				let nonErrorNormalizedCount = 0;
+				for (const line of s2Lines) {
+					try {
+						const parsed: unknown = JSON.parse(line);
+						const event = normalizeHarnessEvent(parsed);
+						// Count events that normalize to a canonical type (not error/unknown).
+						// Error type includes both real errors AND unknownEvent (UnknownHarnessEvent).
+						const isUnknownEvent =
+							event.type === "error" &&
+							"code" in event &&
+							(event as { code: string }).code === "UnknownHarnessEvent";
+						if (!isUnknownEvent) {
+							nonErrorNormalizedCount++;
 						}
+					} catch {
+						// Non-JSON line (e.g. debug output) — skip.
 					}
-					expect(
-						nonErrorNormalizedCount,
-						"W3 ASSERTION: at least one opencode stdout JSONL line must normalize to a " +
-							"non-unknown HarnessEvent via normalizeHarnessEvent. " +
-							`Got 0 structured events out of ${s2Lines.length} lines. ` +
-							"Check that the opencode pre-map in normalizeHarnessEvent covers the actual " +
-							`event types emitted. stdout sample: "${s2Result.stdout.slice(0, 400)}"`,
-					).toBeGreaterThanOrEqual(1);
-				} finally {
-					await testServer.close();
 				}
-			},
-			180_000,
-		);
+				expect(
+					nonErrorNormalizedCount,
+					"W3 ASSERTION: at least one opencode stdout JSONL line must normalize to a " +
+						"non-unknown HarnessEvent via normalizeHarnessEvent. " +
+						`Got 0 structured events out of ${s2Lines.length} lines. ` +
+						"Check that the opencode pre-map in normalizeHarnessEvent covers the actual " +
+						`event types emitted. stdout sample: "${s2Result.stdout.slice(0, 400)}"`,
+				).toBeGreaterThanOrEqual(1);
+			} finally {
+				await testServer.close();
+			}
+		}, 180_000);
 	});
 });

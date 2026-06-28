@@ -14,10 +14,10 @@
  * at the expected location.
  */
 export {
-	extractAgenticCounts,
-	assertAgenticFloor,
 	type AgenticCounts,
-	type VitestJsonResult,
-	type VitestFileResult,
+	assertAgenticFloor,
+	extractAgenticCounts,
 	type VitestAssertionResult,
+	type VitestFileResult,
+	type VitestJsonResult,
 } from "../../../scripts/lib/attestation-floor.js";

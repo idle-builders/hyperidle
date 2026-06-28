@@ -14,8 +14,8 @@
  * at the expected location.
  */
 export {
-	isHarnessFacingIntegration,
 	checkGuardRules,
 	type GuardFile,
 	type GuardResult,
+	isHarnessFacingIntegration,
 } from "../../scripts/honest-harness-guard.js";

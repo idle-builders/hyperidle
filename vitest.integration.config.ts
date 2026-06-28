@@ -66,12 +66,7 @@ export default defineConfig({
 						"packages/**/harness/__tests__/*.integration.test.{ts,tsx}",
 						"packages/server/src/__tests__/session-provisioning.integration.test.ts",
 					],
-					exclude: [
-						"**/node_modules/**",
-						"**/.git/**",
-						"**/dist/**",
-						"**/.worktrees/**",
-					],
+					exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
 					maxWorkers: 1,
 					minWorkers: 1,
 					fileParallelism: false,

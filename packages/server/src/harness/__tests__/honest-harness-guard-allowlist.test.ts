@@ -23,10 +23,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import {
-	type GuardFile,
-	checkGuardRules,
-} from "../../../../scripts/honest-harness-guard.js";
+import { checkGuardRules, type GuardFile } from "../../../../scripts/honest-harness-guard.js";
 
 // GuardResult shape — mirrors the export; declared locally so strict-mode
 // `.find()` callbacks type-check even when the module doesn't exist yet (red phase).

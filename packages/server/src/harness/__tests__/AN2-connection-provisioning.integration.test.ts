@@ -253,473 +253,458 @@ describe("builtin: scoped out of AN2 connection provisioning (C1)", () => {
 
 // ── CLAUDE-CODE: real .mcp.json bearer MCP ────────────────────────────────────
 
-describe(
-	"claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.json Bearer",
-	() => {
-		requireHarness("claude");
-		test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async ({
-			skip,
-		}) => {
+describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.json Bearer", () => {
+	requireHarness("claude");
+	test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async ({
+		skip,
+	}) => {
+		// Check claude auth
+		try {
+			execFileSync("claude", ["auth", "status"], { stdio: "ignore", timeout: 10_000 });
+		} catch {
+			process.stdout.write("[AN2 real-harness claude] SKIP: claude not authenticated\n");
+			skip();
+			return;
+		}
 
-			// Check claude auth
-			try {
-				execFileSync("claude", ["auth", "status"], { stdio: "ignore", timeout: 10_000 });
-			} catch {
-				process.stdout.write("[AN2 real-harness claude] SKIP: claude not authenticated\n");
-				skip();
-				return;
-			}
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-claude-"));
+		let mcpServer: McpTestServer | null = null;
 
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-claude-"));
-			let mcpServer: McpTestServer | null = null;
+		try {
+			mcpServer = await startMcpTestServer();
 
-			try {
-				mcpServer = await startMcpTestServer();
+			// Provision the .mcp.json with the bearer MCP entry via applyProvisioningPlan.
+			const plan = {
+				mcpServers: [
+					{
+						name: "an2-test",
+						url: mcpServer.url,
+						bearerToken: mcpServer.bearerToken,
+					},
+				],
+				envInjections: {},
+			};
 
-				// Provision the .mcp.json with the bearer MCP entry via applyProvisioningPlan.
-				const plan = {
-					mcpServers: [
-						{
-							name: "an2-test",
-							url: mcpServer.url,
-							bearerToken: mcpServer.bearerToken,
-						},
+			await applyProvisioningPlan({
+				plan,
+				sandboxPath,
+				cliMcpDialect: undefined,
+				claudeNative: true,
+			});
+
+			// Verify .mcp.json was written with the bearer header.
+			const mcpJson = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
+				mcpServers: Record<string, { type: string; url: string; headers?: Record<string, string> }>;
+			};
+			expect(mcpJson.mcpServers["an2-test"]).toBeDefined();
+			expect(mcpJson.mcpServers["an2-test"]?.headers?.Authorization).toBe(
+				`Bearer ${mcpServer.bearerToken}`,
+			);
+
+			// Write .claude/settings.json to pre-approve all project MCP servers.
+			// This bypasses the interactive trust prompt for .mcp.json entries.
+			// @lore AN2 claude-mcp-trust: enableAllProjectMcpServers:true in
+			// .claude/settings.json (the project settings file, not ~/.claude.json)
+			// pre-approves all .mcp.json servers in that cwd — no trust dialog spawned.
+			fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
+			fs.writeFileSync(
+				path.join(sandboxPath, ".claude", "settings.json"),
+				JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
+				"utf-8",
+			);
+
+			const cleanEnv = buildCleanEnv();
+
+			const prompt =
+				"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
+				"Return the exact text you receive from the tool.";
+
+			process.stdout.write(
+				"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
+			);
+
+			// @lore AN2 claude-model-tool-calling: haiku (~50% flaky) sometimes narrates the
+			// tool instead of calling it even when the schema is loaded. Pinned to sonnet
+			// (alias "sonnet" accepted by claude CLI → latest claude-sonnet-*) which reliably
+			// calls tools. The alias "sonnet" is documented in `claude --help` as an accepted
+			// shorthand alongside "opus" and "fable".
+			//
+			// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
+			// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
+			//   the agent output WITHOUT AN2_PROBE_OK. This name only appears when the tool
+			//   schema was actually loaded (Bearer auth + MCP handshake succeeded), meaning
+			//   auth is proven and the model merely narrated instead of calling.
+			//
+			// - Tamper invariant (CRITICAL): if the bearer token is WRONG, the MCP server
+			//   returns 401 on the first MCP request, the tool schema is NEVER loaded, so
+			//   `mcp__an2-test__ping_test` never appears in the agent output. A tampered token
+			//   produces output like "no such tool exists in my available tool set" — no MCP
+			//   namespace. The retry condition evaluates false → zero retries → hard assertion
+			//   fails. Verified live: tamper test showed mcp__an2-test__ping_test=false in
+			//   auth-failure output (output contains "no such tool", not the MCP namespace).
+			//
+			// - Any other failure (exitCode null = timeout, empty output) is NOT retried.
+			const MAX_ATTEMPTS = 3; // 1 real + 2 retries
+			let lastResult = { stdout: "", stderr: "", exitCode: null as number | null };
+
+			for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+				const r = await spawnDetached(
+					"claude",
+					[
+						"-p",
+						prompt,
+						"--dangerously-skip-permissions",
+						"--output-format",
+						"json",
+						"--model",
+						"sonnet",
 					],
-					envInjections: {},
-				};
-
-				await applyProvisioningPlan({
-					plan,
-					sandboxPath,
-					cliMcpDialect: undefined,
-					claudeNative: true,
-				});
-
-				// Verify .mcp.json was written with the bearer header.
-				const mcpJson = JSON.parse(
-					fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8"),
-				) as {
-					mcpServers: Record<
-						string,
-						{ type: string; url: string; headers?: Record<string, string> }
-					>;
-				};
-				expect(mcpJson.mcpServers["an2-test"]).toBeDefined();
-				expect(mcpJson.mcpServers["an2-test"]?.headers?.Authorization).toBe(
-					`Bearer ${mcpServer.bearerToken}`,
+					{
+						cwd: sandboxPath,
+						env: cleanEnv,
+						timeoutMs: 90_000,
+					},
 				);
+				lastResult = r;
+				const out = r.stdout + r.stderr;
 
-				// Write .claude/settings.json to pre-approve all project MCP servers.
-				// This bypasses the interactive trust prompt for .mcp.json entries.
-				// @lore AN2 claude-mcp-trust: enableAllProjectMcpServers:true in
-				// .claude/settings.json (the project settings file, not ~/.claude.json)
-				// pre-approves all .mcp.json servers in that cwd — no trust dialog spawned.
-				fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
-				fs.writeFileSync(
-					path.join(sandboxPath, ".claude", "settings.json"),
-					JSON.stringify({ enableAllProjectMcpServers: true }, null, 2),
-					"utf-8",
-				);
-
-				const cleanEnv = buildCleanEnv();
-
-				const prompt =
-					"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
-					"Return the exact text you receive from the tool.";
-
-				process.stdout.write(
-					"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
-				);
-
-				// @lore AN2 claude-model-tool-calling: haiku (~50% flaky) sometimes narrates the
-				// tool instead of calling it even when the schema is loaded. Pinned to sonnet
-				// (alias "sonnet" accepted by claude CLI → latest claude-sonnet-*) which reliably
-				// calls tools. The alias "sonnet" is documented in `claude --help` as an accepted
-				// shorthand alongside "opus" and "fable".
-				//
-				// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
-				// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
-				//   the agent output WITHOUT AN2_PROBE_OK. This name only appears when the tool
-				//   schema was actually loaded (Bearer auth + MCP handshake succeeded), meaning
-				//   auth is proven and the model merely narrated instead of calling.
-				//
-				// - Tamper invariant (CRITICAL): if the bearer token is WRONG, the MCP server
-				//   returns 401 on the first MCP request, the tool schema is NEVER loaded, so
-				//   `mcp__an2-test__ping_test` never appears in the agent output. A tampered token
-				//   produces output like "no such tool exists in my available tool set" — no MCP
-				//   namespace. The retry condition evaluates false → zero retries → hard assertion
-				//   fails. Verified live: tamper test showed mcp__an2-test__ping_test=false in
-				//   auth-failure output (output contains "no such tool", not the MCP namespace).
-				//
-				// - Any other failure (exitCode null = timeout, empty output) is NOT retried.
-				const MAX_ATTEMPTS = 3; // 1 real + 2 retries
-				let lastResult = { stdout: "", stderr: "", exitCode: null as number | null };
-
-				for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-					const r = await spawnDetached(
-						"claude",
-						[
-							"-p",
-							prompt,
-							"--dangerously-skip-permissions",
-							"--output-format",
-							"json",
-							"--model",
-							"sonnet",
-						],
-						{
-							cwd: sandboxPath,
-							env: cleanEnv,
-							timeoutMs: 90_000,
-						},
-					);
-					lastResult = r;
-					const out = r.stdout + r.stderr;
-
-					if (out.includes("AN2_PROBE_OK")) {
-						// Success — break immediately.
-						break;
-					}
-
-					// Only retry if:
-					// 1. The process exited cleanly (not a timeout).
-					// 2. The MCP-namespaced tool name appears in the output — this ONLY happens
-					//    when the schema loaded successfully (auth passed), meaning the model
-					//    merely narrated the tool instead of calling it.
-					// If auth failed, the schema never loads and the namespaced name never appears.
-					const modelDeclined = r.exitCode !== null && out.includes("mcp__an2-test__ping_test");
-
-					if (!modelDeclined || attempt === MAX_ATTEMPTS) {
-						// Not a model-decline (or exhausted retries) — let the hard assertion fail.
-						break;
-					}
-
-					process.stdout.write(
-						`[AN2 real-harness claude] attempt ${attempt}: model declined to call tool ` +
-							`(mcp__an2-test__ping_test appeared in output without sentinel) — retrying...\n`,
-					);
+				if (out.includes("AN2_PROBE_OK")) {
+					// Success — break immediately.
+					break;
 				}
 
-				const allOutput = lastResult.stdout + lastResult.stderr;
+				// Only retry if:
+				// 1. The process exited cleanly (not a timeout).
+				// 2. The MCP-namespaced tool name appears in the output — this ONLY happens
+				//    when the schema loaded successfully (auth passed), meaning the model
+				//    merely narrated the tool instead of calling it.
+				// If auth failed, the schema never loads and the namespaced name never appears.
+				const modelDeclined = r.exitCode !== null && out.includes("mcp__an2-test__ping_test");
 
-				// HARD ASSERTION: AN2_PROBE_OK must appear in the agent's output.
-				// This proves: provisioned .mcp.json Bearer header → agent authenticated →
-				// agent called ping_test → tool returned sentinel value.
-				if (!allOutput.includes("AN2_PROBE_OK")) {
-					throw new Error(
-						`[AN2 claude FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found in claude output. ` +
-							`The provisioned .mcp.json Bearer MCP server was NOT authenticated or the tool was NOT called. ` +
-							`stdout: "${lastResult.stdout.slice(0, 400)}" ` +
-							`stderr: "${lastResult.stderr.slice(0, 200)}" ` +
-							`exitCode: ${lastResult.exitCode}. ` +
-							`MCP URL: ${mcpServer?.url}. ` +
-							`Check: (1) .claude/settings.json has enableAllProjectMcpServers:true, ` +
-							`(2) .mcp.json has correct bearer header, ` +
-							`(3) stateful McpServer instance is live.`,
-					);
+				if (!modelDeclined || attempt === MAX_ATTEMPTS) {
+					// Not a model-decline (or exhausted retries) — let the hard assertion fail.
+					break;
 				}
-				expect(allOutput).toContain("AN2_PROBE_OK");
-				expect(lastResult.exitCode).not.toBeNull();
 
 				process.stdout.write(
-					"[AN2 real-harness claude] LIVE PROOF: AN2_PROBE_OK found in claude output — " +
-						".mcp.json Bearer MCP connection succeeded.\n",
+					`[AN2 real-harness claude] attempt ${attempt}: model declined to call tool ` +
+						`(mcp__an2-test__ping_test appeared in output without sentinel) — retrying...\n`,
 				);
-			} finally {
-				await mcpServer?.close();
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 120_000);
-	},
-);
+
+			const allOutput = lastResult.stdout + lastResult.stderr;
+
+			// HARD ASSERTION: AN2_PROBE_OK must appear in the agent's output.
+			// This proves: provisioned .mcp.json Bearer header → agent authenticated →
+			// agent called ping_test → tool returned sentinel value.
+			if (!allOutput.includes("AN2_PROBE_OK")) {
+				throw new Error(
+					`[AN2 claude FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found in claude output. ` +
+						`The provisioned .mcp.json Bearer MCP server was NOT authenticated or the tool was NOT called. ` +
+						`stdout: "${lastResult.stdout.slice(0, 400)}" ` +
+						`stderr: "${lastResult.stderr.slice(0, 200)}" ` +
+						`exitCode: ${lastResult.exitCode}. ` +
+						`MCP URL: ${mcpServer?.url}. ` +
+						`Check: (1) .claude/settings.json has enableAllProjectMcpServers:true, ` +
+						`(2) .mcp.json has correct bearer header, ` +
+						`(3) stateful McpServer instance is live.`,
+				);
+			}
+			expect(allOutput).toContain("AN2_PROBE_OK");
+			expect(lastResult.exitCode).not.toBeNull();
+
+			process.stdout.write(
+				"[AN2 real-harness claude] LIVE PROOF: AN2_PROBE_OK found in claude output — " +
+					".mcp.json Bearer MCP connection succeeded.\n",
+			);
+		} finally {
+			await mcpServer?.close();
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+	}, 120_000);
+});
 
 // ── CODEX: real config.toml bearer MCP ────────────────────────────────────────
 
-describe(
-	"codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer",
-	() => {
-		requireHarness("codex");
-		test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async ({
-			skip,
-		}) => {
-			// Check codex auth
-			try {
-				const authResult = await spawnDetached("codex", ["login", "status"], {
-					cwd: os.tmpdir(),
-					env: buildCleanEnv(),
-					timeoutMs: 10_000,
-				});
-				const out = (authResult.stdout + authResult.stderr).trim();
-				if (!out.startsWith("Logged in")) {
-					process.stdout.write("[AN2 real-harness codex] SKIP: codex not authenticated\n");
-					skip();
-					return;
-				}
-			} catch {
-				process.stdout.write("[AN2 real-harness codex] SKIP: codex auth check failed\n");
+describe("codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer", () => {
+	requireHarness("codex");
+	test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async ({
+		skip,
+	}) => {
+		// Check codex auth
+		try {
+			const authResult = await spawnDetached("codex", ["login", "status"], {
+				cwd: os.tmpdir(),
+				env: buildCleanEnv(),
+				timeoutMs: 10_000,
+			});
+			const out = (authResult.stdout + authResult.stderr).trim();
+			if (!out.startsWith("Logged in")) {
+				process.stdout.write("[AN2 real-harness codex] SKIP: codex not authenticated\n");
 				skip();
 				return;
 			}
+		} catch {
+			process.stdout.write("[AN2 real-harness codex] SKIP: codex auth check failed\n");
+			skip();
+			return;
+		}
 
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-codex-"));
-			let mcpServer: McpTestServer | null = null;
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-codex-"));
+		let mcpServer: McpTestServer | null = null;
 
-			try {
-				// codex requires a git repo.
-				execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
-				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
-					cwd: sandboxPath,
-					stdio: "ignore",
-					env: {
-						...process.env,
-						GIT_AUTHOR_NAME: "test",
-						GIT_AUTHOR_EMAIL: "test@test.com",
-						GIT_COMMITTER_NAME: "test",
-						GIT_COMMITTER_EMAIL: "test@test.com",
-					},
-				});
+		try {
+			// codex requires a git repo.
+			execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+				cwd: sandboxPath,
+				stdio: "ignore",
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
+			});
 
-				mcpServer = await startMcpTestServer();
+			mcpServer = await startMcpTestServer();
 
-				// Provision .codex-home/config.toml with the bearer MCP entry.
-				const plan = {
-					mcpServers: [
-						{
-							name: "an2-test",
-							url: mcpServer.url,
-							bearerToken: mcpServer.bearerToken,
-						},
-					],
-					envInjections: {},
-				};
-
-				const result = await applyProvisioningPlan({
-					plan,
-					sandboxPath,
-					cliMcpDialect: "codex-toml",
-					claudeNative: false,
-				});
-
-				// Verify config.toml was written correctly.
-				const toml = fs.readFileSync(path.join(sandboxPath, ".codex-home", "config.toml"), "utf-8");
-				expect(toml).toContain("[mcp_servers.an2-test]");
-				expect(toml).toContain(`url = "${mcpServer.url}"`);
-				expect(toml).toContain('bearer_token_env_var = "AN2_TEST_MCP_TOKEN"');
-				expect(result.mcpTokenEnv).toMatchObject({
-					AN2_TEST_MCP_TOKEN: mcpServer.bearerToken,
-				});
-
-				// Set up .codex-home with auth from real ~/.codex.
-				const codexHomeDir = path.join(sandboxPath, ".codex-home");
-				const homeCodexDir = path.join(os.homedir(), ".codex");
-				for (const fname of ["auth.json", "config.toml"]) {
-					const src = path.join(homeCodexDir, fname);
-					if (fs.existsSync(src)) {
-						fs.copyFileSync(src, path.join(codexHomeDir, fname));
-					}
-				}
-
-				// Re-provision after copying base config (codex-toml appends to existing).
-				const plan2 = {
-					mcpServers: [
-						{
-							name: "an2-test",
-							url: mcpServer.url,
-							bearerToken: mcpServer.bearerToken,
-						},
-					],
-					envInjections: {},
-				};
-				const result2 = await applyProvisioningPlan({
-					plan: plan2,
-					sandboxPath,
-					cliMcpDialect: "codex-toml",
-					claudeNative: false,
-				});
-
-				// Build clean env with CODEX_HOME + bearer token env var.
-				const cleanEnv = buildCleanEnv();
-				cleanEnv.CODEX_HOME = codexHomeDir;
-				// Inject the per-server token env var that codex reads via bearer_token_env_var.
-				for (const [k, v] of Object.entries(result2.mcpTokenEnv)) {
-					cleanEnv[k] = v;
-				}
-
-				process.stdout.write(
-					"[AN2 real-harness codex] Starting real codex session with AN2-provisioned MCP server...\n",
-				);
-
-				const prompt =
-					"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
-					"Return the exact text you receive from the tool.";
-
-				const spawnResult = await spawnDetached(
-					"codex",
-					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+			// Provision .codex-home/config.toml with the bearer MCP entry.
+			const plan = {
+				mcpServers: [
 					{
-						cwd: sandboxPath,
-						env: cleanEnv,
-						timeoutMs: 90_000,
-						closeStdin: true,
+						name: "an2-test",
+						url: mcpServer.url,
+						bearerToken: mcpServer.bearerToken,
 					},
-				);
+				],
+				envInjections: {},
+			};
 
-				const allOutput = spawnResult.stdout + spawnResult.stderr;
+			const result = await applyProvisioningPlan({
+				plan,
+				sandboxPath,
+				cliMcpDialect: "codex-toml",
+				claudeNative: false,
+			});
 
-				// HARD ASSERTION: AN2_PROBE_OK must appear in codex output.
-				if (!allOutput.includes("AN2_PROBE_OK")) {
-					throw new Error(
-						`[AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
-							`The provisioned config.toml bearer MCP entry was NOT authenticated or tool was NOT called. ` +
-							`stdout: "${spawnResult.stdout.slice(0, 400)}" ` +
-							`stderr: "${spawnResult.stderr.slice(0, 200)}" ` +
-							`exitCode: ${spawnResult.exitCode}. ` +
-							`MCP URL: ${mcpServer?.url}. ` +
-							`Check: CODEX_HOME set, AN2_TEST_MCP_TOKEN injected, config.toml has [mcp_servers.an2-test].`,
-					);
+			// Verify config.toml was written correctly.
+			const toml = fs.readFileSync(path.join(sandboxPath, ".codex-home", "config.toml"), "utf-8");
+			expect(toml).toContain("[mcp_servers.an2-test]");
+			expect(toml).toContain(`url = "${mcpServer.url}"`);
+			expect(toml).toContain('bearer_token_env_var = "AN2_TEST_MCP_TOKEN"');
+			expect(result.mcpTokenEnv).toMatchObject({
+				AN2_TEST_MCP_TOKEN: mcpServer.bearerToken,
+			});
+
+			// Set up .codex-home with auth from real ~/.codex.
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			const homeCodexDir = path.join(os.homedir(), ".codex");
+			for (const fname of ["auth.json", "config.toml"]) {
+				const src = path.join(homeCodexDir, fname);
+				if (fs.existsSync(src)) {
+					fs.copyFileSync(src, path.join(codexHomeDir, fname));
 				}
-				expect(allOutput).toContain("AN2_PROBE_OK");
-				expect(spawnResult.exitCode).not.toBeNull();
-
-				process.stdout.write(
-					"[AN2 real-harness codex] LIVE PROOF: AN2_PROBE_OK found in codex output — " +
-						"config.toml bearer MCP connection succeeded.\n",
-				);
-			} finally {
-				await mcpServer?.close();
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 120_000);
-	},
-);
+
+			// Re-provision after copying base config (codex-toml appends to existing).
+			const plan2 = {
+				mcpServers: [
+					{
+						name: "an2-test",
+						url: mcpServer.url,
+						bearerToken: mcpServer.bearerToken,
+					},
+				],
+				envInjections: {},
+			};
+			const result2 = await applyProvisioningPlan({
+				plan: plan2,
+				sandboxPath,
+				cliMcpDialect: "codex-toml",
+				claudeNative: false,
+			});
+
+			// Build clean env with CODEX_HOME + bearer token env var.
+			const cleanEnv = buildCleanEnv();
+			cleanEnv.CODEX_HOME = codexHomeDir;
+			// Inject the per-server token env var that codex reads via bearer_token_env_var.
+			for (const [k, v] of Object.entries(result2.mcpTokenEnv)) {
+				cleanEnv[k] = v;
+			}
+
+			process.stdout.write(
+				"[AN2 real-harness codex] Starting real codex session with AN2-provisioned MCP server...\n",
+			);
+
+			const prompt =
+				"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
+				"Return the exact text you receive from the tool.";
+
+			const spawnResult = await spawnDetached(
+				"codex",
+				["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+				{
+					cwd: sandboxPath,
+					env: cleanEnv,
+					timeoutMs: 90_000,
+					closeStdin: true,
+				},
+			);
+
+			const allOutput = spawnResult.stdout + spawnResult.stderr;
+
+			// HARD ASSERTION: AN2_PROBE_OK must appear in codex output.
+			if (!allOutput.includes("AN2_PROBE_OK")) {
+				throw new Error(
+					`[AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
+						`The provisioned config.toml bearer MCP entry was NOT authenticated or tool was NOT called. ` +
+						`stdout: "${spawnResult.stdout.slice(0, 400)}" ` +
+						`stderr: "${spawnResult.stderr.slice(0, 200)}" ` +
+						`exitCode: ${spawnResult.exitCode}. ` +
+						`MCP URL: ${mcpServer?.url}. ` +
+						`Check: CODEX_HOME set, AN2_TEST_MCP_TOKEN injected, config.toml has [mcp_servers.an2-test].`,
+				);
+			}
+			expect(allOutput).toContain("AN2_PROBE_OK");
+			expect(spawnResult.exitCode).not.toBeNull();
+
+			process.stdout.write(
+				"[AN2 real-harness codex] LIVE PROOF: AN2_PROBE_OK found in codex output — " +
+					"config.toml bearer MCP connection succeeded.\n",
+			);
+		} finally {
+			await mcpServer?.close();
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+	}, 120_000);
+});
 
 // ── OPENCODE: real opencode.json inline header ────────────────────────────────
 
-describe(
-	"opencode: real CLI connects to AN2-provisioned MCP server via opencode.json inline header",
-	() => {
-		requireHarness("opencode");
-		test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async ({
-			skip,
-		}) => {
-			// Check opencode auth
-			try {
-				const authResult = await spawnDetached("opencode", ["providers", "list"], {
-					cwd: os.tmpdir(),
-					env: buildCleanEnv(),
-					timeoutMs: 10_000,
-				});
-				const out = authResult.stdout + authResult.stderr;
-				if (!/\d+\s+credentials|environment variable/i.test(out)) {
-					process.stdout.write("[AN2 real-harness opencode] SKIP: opencode has no providers\n");
-					skip();
-					return;
-				}
-			} catch {
-				process.stdout.write("[AN2 real-harness opencode] SKIP: opencode auth check failed\n");
+describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode.json inline header", () => {
+	requireHarness("opencode");
+	test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async ({
+		skip,
+	}) => {
+		// Check opencode auth
+		try {
+			const authResult = await spawnDetached("opencode", ["providers", "list"], {
+				cwd: os.tmpdir(),
+				env: buildCleanEnv(),
+				timeoutMs: 10_000,
+			});
+			const out = authResult.stdout + authResult.stderr;
+			if (!/\d+\s+credentials|environment variable/i.test(out)) {
+				process.stdout.write("[AN2 real-harness opencode] SKIP: opencode has no providers\n");
 				skip();
 				return;
 			}
+		} catch {
+			process.stdout.write("[AN2 real-harness opencode] SKIP: opencode auth check failed\n");
+			skip();
+			return;
+		}
 
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-opencode-"));
-			let mcpServer: McpTestServer | null = null;
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-opencode-"));
+		let mcpServer: McpTestServer | null = null;
 
-			try {
-				mcpServer = await startMcpTestServer();
+		try {
+			mcpServer = await startMcpTestServer();
 
-				// Provision opencode.json with the inline bearer header.
-				const plan = {
-					mcpServers: [
-						{
-							name: "an2-test",
-							url: mcpServer.url,
-							bearerToken: mcpServer.bearerToken,
-						},
-					],
-					envInjections: {},
-				};
-
-				await applyProvisioningPlan({
-					plan,
-					sandboxPath,
-					cliMcpDialect: "opencode-json",
-					claudeNative: false,
-				});
-
-				// Verify opencode.json was written with inline Authorization.
-				const opencodeJson = JSON.parse(
-					fs.readFileSync(path.join(sandboxPath, "opencode.json"), "utf-8"),
-				) as {
-					mcp: Record<
-						string,
-						{ type: string; url: string; headers?: Record<string, string>; enabled: boolean }
-					>;
-				};
-				expect(opencodeJson.mcp["an2-test"]).toBeDefined();
-				expect(opencodeJson.mcp["an2-test"]?.url).toBe(mcpServer.url);
-				expect(opencodeJson.mcp["an2-test"]?.headers?.Authorization).toBe(
-					`Bearer ${mcpServer.bearerToken}`,
-				);
-
-				const cleanEnv = buildCleanEnv();
-
-				process.stdout.write(
-					"[AN2 real-harness opencode] Starting real opencode session with AN2-provisioned MCP server...\n",
-				);
-
-				const prompt =
-					"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
-					"Return the exact text you receive from the tool.";
-
-				const result = await spawnDetached(
-					"opencode",
-					[
-						"run",
-						prompt,
-						"--format",
-						"json",
-						"--pure",
-						"--dir",
-						sandboxPath,
-						"--model",
-						"openrouter/~anthropic/claude-haiku-latest",
-					],
+			// Provision opencode.json with the inline bearer header.
+			const plan = {
+				mcpServers: [
 					{
-						cwd: sandboxPath,
-						env: cleanEnv,
-						timeoutMs: 90_000,
+						name: "an2-test",
+						url: mcpServer.url,
+						bearerToken: mcpServer.bearerToken,
 					},
+				],
+				envInjections: {},
+			};
+
+			await applyProvisioningPlan({
+				plan,
+				sandboxPath,
+				cliMcpDialect: "opencode-json",
+				claudeNative: false,
+			});
+
+			// Verify opencode.json was written with inline Authorization.
+			const opencodeJson = JSON.parse(
+				fs.readFileSync(path.join(sandboxPath, "opencode.json"), "utf-8"),
+			) as {
+				mcp: Record<
+					string,
+					{ type: string; url: string; headers?: Record<string, string>; enabled: boolean }
+				>;
+			};
+			expect(opencodeJson.mcp["an2-test"]).toBeDefined();
+			expect(opencodeJson.mcp["an2-test"]?.url).toBe(mcpServer.url);
+			expect(opencodeJson.mcp["an2-test"]?.headers?.Authorization).toBe(
+				`Bearer ${mcpServer.bearerToken}`,
+			);
+
+			const cleanEnv = buildCleanEnv();
+
+			process.stdout.write(
+				"[AN2 real-harness opencode] Starting real opencode session with AN2-provisioned MCP server...\n",
+			);
+
+			const prompt =
+				"Call the ping_test tool from the an2-test MCP server with echo='LIVE_PROOF'. " +
+				"Return the exact text you receive from the tool.";
+
+			const result = await spawnDetached(
+				"opencode",
+				[
+					"run",
+					prompt,
+					"--format",
+					"json",
+					"--pure",
+					"--dir",
+					sandboxPath,
+					"--model",
+					"openrouter/~anthropic/claude-haiku-latest",
+				],
+				{
+					cwd: sandboxPath,
+					env: cleanEnv,
+					timeoutMs: 90_000,
+				},
+			);
+
+			const allOutput = result.stdout + result.stderr;
+
+			// HARD ASSERTION: AN2_PROBE_OK must appear in opencode output.
+			if (!allOutput.includes("AN2_PROBE_OK")) {
+				throw new Error(
+					`[AN2 opencode FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
+						`The provisioned opencode.json inline Authorization header did NOT authenticate. ` +
+						`stdout: "${result.stdout.slice(0, 400)}" ` +
+						`stderr: "${result.stderr.slice(0, 200)}" ` +
+						`exitCode: ${result.exitCode}. ` +
+						`MCP URL: ${mcpServer?.url}. ` +
+						`Check: opencode.json has an2-test with headers.Authorization:Bearer, ` +
+						`stateful MCP server instance is live.`,
 				);
-
-				const allOutput = result.stdout + result.stderr;
-
-				// HARD ASSERTION: AN2_PROBE_OK must appear in opencode output.
-				if (!allOutput.includes("AN2_PROBE_OK")) {
-					throw new Error(
-						`[AN2 opencode FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
-							`The provisioned opencode.json inline Authorization header did NOT authenticate. ` +
-							`stdout: "${result.stdout.slice(0, 400)}" ` +
-							`stderr: "${result.stderr.slice(0, 200)}" ` +
-							`exitCode: ${result.exitCode}. ` +
-							`MCP URL: ${mcpServer?.url}. ` +
-							`Check: opencode.json has an2-test with headers.Authorization:Bearer, ` +
-							`stateful MCP server instance is live.`,
-					);
-				}
-				expect(allOutput).toContain("AN2_PROBE_OK");
-				expect(result.exitCode).not.toBeNull();
-
-				process.stdout.write(
-					"[AN2 real-harness opencode] LIVE PROOF: AN2_PROBE_OK found in opencode output — " +
-						"opencode.json inline Authorization MCP connection succeeded.\n",
-				);
-			} finally {
-				await mcpServer?.close();
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 120_000);
-	},
-);
+			expect(allOutput).toContain("AN2_PROBE_OK");
+			expect(result.exitCode).not.toBeNull();
+
+			process.stdout.write(
+				"[AN2 real-harness opencode] LIVE PROOF: AN2_PROBE_OK found in opencode output — " +
+					"opencode.json inline Authorization MCP connection succeeded.\n",
+			);
+		} finally {
+			await mcpServer?.close();
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+	}, 120_000);
+});
 
 // ── CLI-KEY: GH_TOKEN env injection ──────────────────────────────────────────
 
