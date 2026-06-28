@@ -168,13 +168,82 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 	}
 }
 
+/**
+ * Translate codex JSONL raw event types to canonical HarnessEvent types
+ * before normalization.
+ *
+ * codex `exec <prompt> --json` emits NDJSON where `type` is codex-specific.
+ * Verified codex event types (2026-06-28):
+ *   thread.started — session init; no content; benign → ignored (empty completion)
+ *   turn.started   — turn init; no content; benign → ignored
+ *   item.completed — turn content; item.type === "agent_message" carries the text
+ *   turn.completed — session summary; carries usage (input/output tokens) → token_usage
+ *
+ * @lore cli-adapter-real-binary codex-events: Without this pre-map, all codex events
+ * normalize to UnknownHarnessEvent (error) because their type strings are not in the
+ * canonical EVENT_TYPES set. Discovered 2026-06-28 when the stdin-close fix unblocked
+ * codex sessions through the production adapter and exposed the missing pre-map.
+ * The item.completed event is the primary carrier of the agent's response text.
+ */
+function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknown> {
+	switch (input.type) {
+		case "item.completed": {
+			// item.completed carries the agent's response in item.text (agent_message type).
+			const item = isRecord(input.item) ? input.item : {};
+			const text = typeof item.text === "string" ? item.text : "";
+			return { type: "completion", text };
+		}
+		case "turn.completed": {
+			// turn.completed carries usage info (input/output token counts).
+			const usage = isRecord(input.usage) ? input.usage : {};
+			const inputTokens =
+				typeof usage.input_tokens === "number" && Number.isFinite(usage.input_tokens)
+					? usage.input_tokens
+					: 0;
+			const outputTokens =
+				typeof usage.output_tokens === "number" && Number.isFinite(usage.output_tokens)
+					? usage.output_tokens
+					: 0;
+			return { type: "token_usage", inputTokens, outputTokens };
+		}
+		case "thread.started":
+		case "turn.started":
+			// Lifecycle events with no content — produce a benign ignored completion.
+			// We return a completion with empty text rather than an error event.
+			return { type: "completion", text: "" };
+		default:
+			return input;
+	}
+}
+
 export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 	if (!isRecord(input) || typeof input.type !== "string") {
 		return unknownEvent(input);
 	}
 
 	// Pre-map opencode raw event types to canonical types before the main switch.
-	const mapped = preMapOpencodeEvent(input);
+	// Pre-map codex raw event types if the input looks like a codex event.
+	//
+	// @lore harness-event-normalization asymmetry: codex pre-map is GLOBAL (applied
+	// unconditionally here) because codex's dot-namespaced event types (item.completed,
+	// turn.completed, thread.started, turn.started) are disjoint from all other harness
+	// vocabularies — no ambiguity risk. The only runtime caller of normalizeHarnessEvent
+	// for codex events is the CliHarnessAdapter, which receives codex JSONL exclusively.
+	// By contrast, claude's pre-map (preMapClaudeEvent) is adapter-gated via the
+	// eventDialect field in CliAdapterConfig: claude emits "result" and "system" types
+	// that could be ambiguous if applied globally, so the adapter applies it explicitly
+	// in parseStdoutLine only when eventDialect === "claude-stream-json".
+	//
+	// @lore harness-event-normalization reference-identity: The expression
+	// `afterOpencode === input` (reference identity, not deep equality) relies on
+	// preMapOpencodeEvent's `default: return input` branch returning the SAME object
+	// reference. If preMapOpencodeEvent ever returns a copy in its default branch,
+	// this guard will silently invert: codex events would hit opencode's fallthrough
+	// path (which returns a copy, !== input) and skip the codex pre-map. If you change
+	// preMapOpencodeEvent's default branch to return a copy, replace this guard with
+	// an explicit type-check against known opencode event types.
+	const afterOpencode = preMapOpencodeEvent(input);
+	const mapped = afterOpencode === input ? preMapCodexEvent(input) : afterOpencode;
 
 	if (!(EVENT_TYPES as readonly string[]).includes(mapped.type as string)) {
 		return unknownEvent(input);

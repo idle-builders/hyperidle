@@ -134,15 +134,20 @@ export interface CliAdapterConfig {
 	 * needs a per-session kickoff message (e.g. the forcing message on re-engage),
 	 * this field declares the delivery mechanism:
 	 *
-	 * "stdin" — piped to the subprocess via stdin.
 	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
 	 * Absent → no per-session prompt carrier (hardcoded only).
 	 *
 	 * @lore AL6 WARN-F2: Without this field, re-engage runs use the same generic
 	 * "proceed" prompt regardless of the forcing message — the agent never sees the
 	 * "you must return" instruction on re-engage.
+	 *
+	 * @lore cli-adapter-stdin: "stdin" was removed from this union. The adapter closes
+	 * stdin immediately after spawn (child.stdin?.end()) to prevent codex/opencode from
+	 * blocking on stdin EOF. No production config ever set seedPrompt:"stdin" and there
+	 * is no code that writes to child.stdin. A future stdin carrier would require a
+	 * conditional skip of the stdin-close.
 	 */
-	readonly seedPrompt?: "stdin" | "positional";
+	readonly seedPrompt?: "positional";
 	/**
 	 * AL6 WARN-F3: Per-session re-engage carrier for OpenCode.
 	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
@@ -150,10 +155,13 @@ export interface CliAdapterConfig {
 	 * delivered to the re-invoked process.
 	 *
 	 * "run-arg" — pass the forcing message as a positional argument to `opencode run <msg>`.
-	 * "stdin" — pipe to stdin.
 	 * Absent → re-engage uses the sandbox instruction file only.
+	 *
+	 * @lore cli-adapter-stdin: "stdin" was removed from this union. stdin is closed
+	 * immediately after spawn to prevent blocking on stdin EOF. No production config
+	 * ever set reEngageCarrier:"stdin" and no code writes to child.stdin.
 	 */
-	readonly reEngageCarrier?: "run-arg" | "stdin";
+	readonly reEngageCarrier?: "run-arg";
 	/**
 	 * claude-cli-adapter: Dialect tag for per-line event pre-mapping.
 	 * When set to "claude-stream-json", parseStdoutLine translates each parsed
@@ -239,7 +247,7 @@ interface CliSession {
 	 * AL6 CRIT-3: The reEngageCarrier config from the adapter, threaded here
 	 * so streamEvents can spawn additional processes without accessing this.config.
 	 */
-	readonly reEngageCarrier?: "run-arg" | "stdin";
+	readonly reEngageCarrier?: "run-arg";
 	/**
 	 * AL6 CRIT-3: The resolved env for the process (includes CODEX_HOME, etc).
 	 * Reused for re-engage spawns.
@@ -406,6 +414,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			env: sandboxedEnv,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
+
+		// @lore cli-adapter-stdin: Close stdin immediately after spawn.
+		// The adapter delivers the prompt via argv (positional {{prompt}} for codex/opencode,
+		// -p for claude) — NEVER via stdin. Leaving stdin open causes `codex exec` to block
+		// on "Reading additional input from stdin..." waiting for EOF before it runs the LLM
+		// turn. Closing immediately is safe for all supported binaries: claude uses -p (positional),
+		// opencode uses `run` (positional), codex uses `exec <prompt>` (positional). None read
+		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.real-harness.test.ts).
+		// Optional-chain: the mock spawnFn in unit tests returns a ChildProcess without .stdin.
+		child.stdin?.end();
 
 		const sessionId = `cli-session-${nextId++}`;
 
@@ -632,6 +650,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									env: session.spawnEnv,
 									stdio: ["pipe", "pipe", "pipe"],
 								});
+
+								// @lore cli-adapter-stdin: Close stdin on re-engage spawns too.
+								// Re-engage delivers the forcing message via positional arg ("run-arg" carrier).
+								// The adapter never writes to stdin — stdin must be closed immediately to prevent
+								// the same hang as the initial spawn (codex/opencode block on stdin EOF).
+								reEngageChild.stdin?.end();
 
 								// Reset session for the new child.
 								// @lore AL6 CRIT-3: We mutate the CliSession object to point at the
