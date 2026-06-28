@@ -49,23 +49,12 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-// ── Binary detection (same pattern as AL6/AL7) ────────────────────────────────
-
-function binaryPresent(name: string): boolean {
-	try {
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const claudeInstalled = binaryPresent("claude");
-const codexInstalled = binaryPresent("codex");
-const opencodeInstalled = binaryPresent("opencode");
+// ── Binary detection (AR1: requireHarness replaces binaryPresent + skipIf) ────
+// requireHarness("claude"/"codex"/"opencode") is called inside each describe block.
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -163,7 +152,8 @@ function provisionCodexHome(sandboxPath: string): boolean {
 // when this test runs inside Claude Code.
 
 describe("claude-code CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!claudeInstalled)(
+	requireHarness("claude");
+	test(
 		"drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real cost + no error pollution",
 		async ({ skip }) => {
 			const authed = await claudeAuthed();
@@ -447,7 +437,8 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 }
 
 describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!codexInstalled)(
+	requireHarness("codex");
+	test(
 		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.codex) against real codex → completion + outcome completed",
 		async ({ skip }) => {
 			await runCodexAdapterTest({ skip });
@@ -469,7 +460,8 @@ describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", (
 // envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" } — the adapter injects the resolved key.
 
 describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!opencodeInstalled)(
+	requireHarness("opencode");
+	test(
 		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed",
 		async ({ skip }) => {
 			// Check for provider key in env — do NOT fabricate a key.
