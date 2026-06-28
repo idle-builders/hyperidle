@@ -1349,3 +1349,21 @@ stories:
     track: AR
     depends: [AR1, AR2]
     complexity: M
+
+  # Track AS: Eval — the Tuning Loop (per-journey, graded, on the real harness seam)
+  # Rides Track AR's AR2 keystone seam (real provisionSession run + capture-before-teardown).
+  - id: AS1
+    title: A runnable eval lane on the production harness seam
+    track: AS
+    depends: [AR2]
+    complexity: L
+  - id: AS2
+    title: Graded judges that read the agent's actual tool-calls
+    track: AS
+    depends: [AS1]
+    complexity: M
+  - id: AS3
+    title: The per-journey, tiered eval suite
+    track: AS
+    depends: [AS1, AS2]
+    complexity: L
