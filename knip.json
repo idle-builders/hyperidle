@@ -55,10 +55,7 @@
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
-			"entry": [
-				"src/**/*.stories.tsx",
-				"scripts/*.ts!"
-			],
+			"entry": ["src/**/*.stories.tsx", "scripts/*.ts!"],
 			"ignoreDependencies": ["@tiptap/pm"]
 		},
 		"packages/web": {
