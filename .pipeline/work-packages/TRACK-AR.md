@@ -30,14 +30,14 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **What exists today.** Three lanes exist by suffix: `*.test.ts` (`vitest.config.ts`, unit), `*.integration.test.ts` (`vitest.integration.config.ts`, PGlite + app fixtures), `*.real-harness.test.ts` (`vitest.real-harness.config.ts`, spawns real binaries, run only by `npm run test:real-harness`, in no automated regimen). The rule is stated once at `.claude/rules/testing.md:62` ("never a stub or mock… across every supported harness") but the naming tables there and in `CLAUDE.md` define `*.integration.test.ts` only as "DB/API integration" and omit `.real-harness.test.ts` entirely; the pipeline `write-tests`/`review` skills never reference it and `test-layers.md:22` actively says to mock LLM/network. Real-binary tests today `test.skipIf(no binary/key)` → skip on any machine without the tool. `scripts/verify-attest.ts` records the suite exit code; `scripts/check-attestation.ts` validates the signature; neither counts executed-vs-skipped. `packages/eslint-plugin-design` and `eslint-plugin-authz` show the in-repo pattern for a custom lint rule.
 
-**What's genuinely missing.** A single decision rule stated on every surface a builder reads; the collapse of the `.real-harness` lane into `*.integration.test.ts`; a `requireHarness()` hard-fail helper replacing `skipIf`; a guard that fails when a harness-facing integration test constructs a fake/scripted harness adapter or skips on absence; and an attestation executed-count floor for agentic integration tests.
+**What's genuinely missing.** The two-archetype rule *prose* already landed in this registration PR (`.claude/rules/testing.md` §Integration tests: two archetypes, both `CLAUDE.md` tables, the `write-tests`/`review` skills — stated as the direction). What is missing is the *mechanism* that enforces it and keeps the prose true: the collapse of the `.real-harness` lane into `*.integration.test.ts`; a `requireHarness()` hard-fail helper replacing `skipIf`; a guard that fails when a harness-facing integration test constructs a fake/scripted harness adapter or skips on absence; and an attestation executed-count floor for agentic integration tests.
 
 **Depends on.** None — it edits testing rules, skills, vitest config, attestation scripts, and a lint guard, all of which exist.
 
 **Complexity.** L
 
 **Acceptance criteria.**
-- `.claude/rules/testing.md` and both `CLAUDE.md` test tables state the two-archetype decision rule ("is the harness/agent/CLI the thing under test?"), define a harness-facing integration test as real-binary / zero-stub / hard-fail-on-absent, and no longer list `.real-harness.test.ts` as a separate lane.
+- The two-archetype rule prose (landed in this registration PR across `.claude/rules/testing.md`, both `CLAUDE.md` tables, and the `write-tests`/`review` skills) is updated **in lockstep** as the mechanism lands — once the lane collapses, those surfaces no longer describe `.real-harness.test.ts` as a separate lane and instead match the shipped structure. Prose and mechanism never drift.
 - The pipeline `write-tests` guidance (`test-layers.md` / SKILL) carves the harness **out** of "nondeterministic externals you may mock," and the `review` lenses gain a tripwire that flags a harness-touching AC proven only by a stubbed adapter as a blocking finding.
 - The `.real-harness.test.ts` suffix and `vitest.real-harness.config.ts` are gone; those tests run as `*.integration.test.ts` under the integration config (configured so real-LLM files run serially to respect rate limits), and `npm run test:real-harness` is removed or repurposed.
 - A `requireHarness(name)` helper exists and is used in place of every `skipIf`-on-absent in harness integration tests; when the named binary/key is absent the test run **fails** with a message naming the missing harness and that the work cannot be completed — it does not skip.
@@ -58,6 +58,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - Do not weaken or bypass attestation; the executed-count floor is additive.
 - The guard must not false-positive on legitimate `*.test.ts` units that stub (stubs are correct there) or on web/service `*.integration.test.ts` that never touch the harness.
 - Renaming `.real-harness.test.ts` files preserves their assertions; this WP only moves the lane, it does not rewrite their bodies (that is AR6's consolidation).
+- Any lane/suffix/helper change ships with the matching prose update to `.claude/rules/testing.md`, `CLAUDE.md`, and the `write-tests`/`review` skills in the same PR — the guidance must always describe the shipped structure.
 
 **Out of scope.**
 - Converting the 30 stubbed tests to real-harness (AR2–AR6).
