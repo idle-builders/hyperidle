@@ -3,8 +3,8 @@
   "title": "Authenticate once; connected tools work in every sandbox",
   "track": "AN",
   "complexity": "L",
-  "status": "in_progress",
-  "currentStep": "retro",
+  "status": "done",
+  "currentStep": "shipped",
   "branch": "concept/AN2-rechallenge-post-aq1",
   "startedAt": "2026-06-28T12:33:37Z",
   "concept": {
@@ -21,9 +21,10 @@
     "architecture-critique": "done \u2014 approved round 2 (C1+W1-4 resolved)",
     "build": "done \u2014 green after review-loop-2",
     "review": "DONE round 3 \u2014 all 6 ACs met, live-proof deterministic",
-    "retro": "in_progress",
-    "ship": "pending"
+    "retro": "done \u2014 .pipeline/retro-log/AN2.jsonl",
+    "ship": "in_progress"
   },
   "notes": "Concept re-locked against AQ1 (host run-unit, no isolation). Build rides the shipping injection seam (cli-harness-adapter/cli-mcp-config). Per-harness live-proof mandated.",
-  "updatedAt": "2026-06-28T16:22:09Z"
+  "updatedAt": "2026-06-28T16:23:38Z",
+  "completedAt": "2026-06-28T16:23:38Z"
 }
