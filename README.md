@@ -21,36 +21,15 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `.pipeline/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress/<story-id>.json` (one file per story, atomic writes, race-free across parallel agents) plus `.pipeline/run.json` for run-level metadata, so they can hand off to each other.
-
-| Entry point | Runs as | When to use |
-|---|---|---|
-| `bin/pipeline <target>` | Standalone Ink TUI that spawns Claude Agent SDK sessions per track | Headless / CI / multi-track parallel runs |
-| `/pipeline <target>` (inside `claude`) | Slash command in an interactive Claude Code session | Single-session work where you want to read transcripts and intervene |
-
-### `bin/pipeline` — standalone TUI runner
-
-```bash
-bin/pipeline L                      # every story in Track L
-bin/pipeline "L1 L2 L3"             # a specific subset
-bin/pipeline all                    # the whole manifest
-bin/pipeline -h                     # usage
-```
-
-Flags:
-
-- `-c, --concurrency <n>` — max parallel streams, default `3`. Tracks run in parallel; stories within a track run sequentially.
-- `-i, --interactive` — surface the agent's permission requests for approval inside the TUI instead of auto-allowing.
-
-The TUI shows per-stream output, blocked count, and live progress. Re-running with the same target resumes from the last checkpoint.
+The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `.pipeline/work-packages/pipeline-manifest.yaml`. It checkpoints to `.pipeline/progress/<story-id>.json` (one file per story, atomic writes, race-free across parallel agents) plus `.pipeline/run.json` for run-level metadata.
 
 ### `/pipeline` — interactive Claude Code skill
 
-Inside `claude`, type `/pipeline <target>` (e.g. `/pipeline L`) to run the same loop in your current session — useful when you want to read every transcript and step in.
+Inside `claude`, type `/pipeline <target>` (e.g. `/pipeline L`) to run the loop in your current session — read every transcript and step in when you want.
 
 ### Run the pipeline in Docker (recommended)
 
-The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (Node.js, Claude Code, Playwright + Chromium, `git`, `gh`, `sudo`). The container sets `HYPERIDLE_DOCKER=1` so the pipeline runner detects in-container mode.
+The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (Node.js, Claude Code, Playwright + Chromium, `git`, `gh`, `sudo`).
 
 ```bash
 # 1. Build the image (one-time, or after Dockerfile changes)
@@ -68,7 +47,7 @@ claude login
 gh auth login 
 
 # 4. start the pipeline
-bin/pipeline <workpackages>
+claude               # then:  /pipeline <workpackages>
 ```
 
 Pipeline state is checkpointed per story under `.pipeline/progress/` — re-running `/pipeline <target>` resumes where the last run left off.
@@ -82,7 +61,7 @@ claude                # in this repo root
 # then:  /pipeline K
 ```
 
-The host-mode runner still writes to `.pipeline/progress/<id>.json`. Worktrees are created in `.worktrees/<story-id>/` per story.
+The runner writes to `.pipeline/progress/<id>.json`. Worktrees are created in `.worktrees/<story-id>/` per story.
 
 ---
 
@@ -116,7 +95,6 @@ See `docs/deployment/` for the full operator guide.
 | `npm run db:migrate` | Apply migrations |
 | `npm run ds:serve` | Design-system component viewer (`:8098`) |
 | `npm run ds:sync` | HTML ↔ TSX visual regression check |
-| `bin/pipeline <target>` | Standalone batch story runner (see Pipeline above) |
 | `bin/service` | Manage a macOS LaunchAgent for the prod server |
 
 ---
@@ -131,10 +109,9 @@ hyperidle/
 │   ├── web/         # React + Vite frontend (port 5173)
 │   ├── shared/      # Shared types, constants, TOON codec
 │   ├── fabric/      # Knowledge fabric, context assembly, file watching, writeback
-│   ├── design-system/ # Tier 1 + 2 components (TSX + HTML reference)
-│   └── pipeline/    # Ink-based CLI for batch story processing
+│   └── design-system/ # Tier 1 + 2 components (TSX + HTML reference)
 ├── docs/            # Architecture, requirements, work packages
-├── bin/             # Shell wrappers (setup, pipeline, service)
+├── bin/             # Shell wrappers (setup, service)
 └── .pipeline/       # Pipeline runtime state (run.json + progress/<id>.json + retro-log/<id>.jsonl per story)
 ```
 

@@ -50,7 +50,6 @@
 		"obs:run": "npx tsx scripts/obs.ts run",
 		"obs:collector": "npx tsx scripts/trace-collector.ts",
 		"obs:report": "npx tsx scripts/trace-report.ts",
-		"pipeline": "bin/pipeline",
 		"knip": "npx knip",
 		"knip:production": "npx knip --production --include files,dependencies,unlisted,binaries",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",

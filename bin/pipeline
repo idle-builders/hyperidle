@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# Pipeline orchestrator — thin wrapper around packages/pipeline
-cd "$(git rev-parse --show-toplevel)" || exit 1
-exec npx tsx packages/pipeline/src/index.tsx "$@"

@@ -27,7 +27,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts!"],
-			"ignoreBinaries": ["bin/pipeline", "vitepress"],
+			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
 		"packages/shared": {},
@@ -103,7 +103,6 @@
 				"tippy.js"
 			]
 		},
-		"packages/pipeline": {},
 		"packages/strategy-minimal": {},
 		"packages/desktop": {
 			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
