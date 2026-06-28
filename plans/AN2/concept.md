@@ -12,6 +12,7 @@
 
 - `docs/architecture/connection-model.md` — the **Connection** primitive (held `token`/`mcp` vs `inherited`), `ServiceConnectionResolver` (the sole plaintext seam), hard rules. **Fixed input.**
 - `docs/architecture/run-unit-model.md` (AQ1, #371) — the run-unit AN2 provisions into: a **per-session host working directory**, no isolation, harness as host child process with real `$HOME`. Its lifecycle explicitly hosts the AN2 provisioning step. **Fixed input** — supersedes any local-vs-remote isolation assumption in this doc.
+- `plans/AN2/research-mcp-auth.md` — held-token injection grounded against the **real** harness seams (`cli-harness-adapter.ts:353-372`, `cli-mcp-config.ts`, Phase 8b) + the per-harness integration-test matrix. **Architecture must build straight on this**; do not re-derive the injection mechanism.
 - `ETHOS.md` §2 (*Trust Agents and Humans; Earn Security from Learnings*) — "a tool that can't authenticate is useless"; no preemptive gate; the credential may live in the sandbox the agent controls.
 - `packages/server/src/services/service-connection-resolver.ts` — AN1 shipped this; it is the AN2 injection seam (the only path returning a decrypted token).
 - `packages/server/src/mcp/mcp-bridge.ts` + `mcp-bridge-registry.ts` — the **inbound** bridge (HyperIdle's own tools → harness). AN2 is the *opposite direction*; do not extend the inbound bridge to carry external tools.
@@ -116,7 +117,7 @@ Authoritative direction words: **inbound** = HyperIdle-tools-to-harness (existin
 4. **Per-user isolation.** One user's connection never provisions into another user's sandbox. (AN1 hard-rule 3.)
 5. **Never extract inherited auth.** Provisioning carries held connections only; inherited auth stays in the harness/keychain. (AN1 hard-rule 4.)
 6. **Ride the MCP standard outbound.** No reimplementation of a service API; a new service is configuration (a Connection row), never new per-service client code.
-7. **Live-proof.** AN2 is a live-proof WP: it must drive one real external MCP server end-to-end before `done` (an in-repo standard MCP server over a real transport is acceptable; a stub of our own client is not).
+7. **Live-proof — per harness, real CLI, real deployed session.** AN2 is a live-proof WP. Injection is its entire value, and writing a config file proves nothing on its own — so proof is **per-carrier**: spawn a **real deployed session** through each real harness adapter and confirm the agent **actually authenticates to and calls a real MCP server / CLI tool with the held token**. The matrix (each gets ≥1 real end-to-end run): **claude-code** (native `.mcp.json` + Bearer header), **codex** (`config.toml` via `CODEX_HOME` + `bearer_token_env_var`), **opencode** (`opencode.json` inline header), the **CLI-key sub-case** (`GH_TOKEN` → real `gh`), and **builtin** (registry injection, or scoped out with reason). In-repo standard MCP server over a real transport is acceptable; a stub of our own client is **not** ([[feedback_no_stubs_from_memory]], [[feedback_mock_validation_trap]]). Local-lane (`test:integration`/`test:e2e`), never a GitHub Actions job ([[feedback_e2e_local_only]]). If a harness binary is absent, the test **skips with a loud logged reason**; the WP is not `done` until every carrier has a real run where its binary exists. Mechanics + matrix: `plans/AN2/research-mcp-auth.md`.
 
 ---
 
