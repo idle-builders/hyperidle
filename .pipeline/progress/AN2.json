@@ -4,19 +4,26 @@
   "track": "AN",
   "complexity": "L",
   "status": "in_progress",
-  "currentStep": "architecture",
+  "currentStep": "build",
   "branch": "concept/AN2-rechallenge-post-aq1",
   "startedAt": "2026-06-28T12:33:37Z",
-  "concept": { "status": "locked", "doc": "plans/AN2/concept.md", "relockedPostAQ1": true },
-  "research": ["plans/AN2/research-mcp-auth.md"],
+  "concept": {
+    "status": "locked",
+    "doc": "plans/AN2/concept.md",
+    "relockedPostAQ1": true
+  },
+  "research": [
+    "plans/AN2/research-mcp-auth.md"
+  ],
   "phases": {
-    "design": "skipped — no UI surface (backend/runtime provisioning)",
-    "architecture": "pending",
-    "architecture-critique": "pending",
-    "build": "pending",
+    "design": "skipped \u2014 no UI surface (backend/runtime provisioning)",
+    "architecture": "done \u2014 plans/AN2/architecture.md",
+    "architecture-critique": "done \u2014 approved round 2 (C1+W1-4 resolved)",
+    "build": "in_progress",
     "review": "pending",
     "retro": "pending",
     "ship": "pending"
   },
-  "notes": "Concept re-locked against AQ1 (host run-unit, no isolation). Build rides the shipping injection seam (cli-harness-adapter/cli-mcp-config). Per-harness live-proof mandated."
+  "notes": "Concept re-locked against AQ1 (host run-unit, no isolation). Build rides the shipping injection seam (cli-harness-adapter/cli-mcp-config). Per-harness live-proof mandated.",
+  "updatedAt": "2026-06-28T12:49:00Z"
 }
