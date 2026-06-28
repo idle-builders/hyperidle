@@ -4,11 +4,14 @@
 
 **Mode:** Autonomous (`PIPELINE_INTERACTIVE` ≠ `1`) — no recap gate.
 
+> **AQ1 reconciliation (re-locked 2026-06-28).** AQ1 shipped (#371, `docs/architecture/run-unit-model.md`) and **removed isolation entirely**: the run-unit is a **per-session working directory on the host**; the harness runs as a **host child process** with the real `$HOME`. `Sandbox*` is now the *working-directory* code noun, not an isolation boundary; `DockerSandboxAdapter`/`IsolatedHarnessAdapter` were deleted (only `LocalSandboxAdapter` + `DisabledSandboxAdapter` remain). This **does not reshape AN2** — AQ1's own lifecycle names AN2 (`spawn → mkdir → AN2 provisioning applies held connections into the dir → harness starts`). It **simplifies** AN2: the **central noun and both satellites stand**; the only change is the Phase 4 **deployment-shape contract**, whose "local-free vs remote-carry-in" split is **deleted** — there is no isolation axis to provision across. The provisioning target is *always* a host working dir with the real `$HOME`; inherited tools always survive a spawn; only **held** connections are provisioned. Provisioning *into an isolated run-unit* is an **AQ2** concern (opt-in isolation + credential doorway), explicitly out of AN2.
+
 ---
 
 ## Required reading (downstream `/architecture`, `/pipeline`)
 
 - `docs/architecture/connection-model.md` — the **Connection** primitive (held `token`/`mcp` vs `inherited`), `ServiceConnectionResolver` (the sole plaintext seam), hard rules. **Fixed input.**
+- `docs/architecture/run-unit-model.md` (AQ1, #371) — the run-unit AN2 provisions into: a **per-session host working directory**, no isolation, harness as host child process with real `$HOME`. Its lifecycle explicitly hosts the AN2 provisioning step. **Fixed input** — supersedes any local-vs-remote isolation assumption in this doc.
 - `ETHOS.md` §2 (*Trust Agents and Humans; Earn Security from Learnings*) — "a tool that can't authenticate is useless"; no preemptive gate; the credential may live in the sandbox the agent controls.
 - `packages/server/src/services/service-connection-resolver.ts` — AN1 shipped this; it is the AN2 injection seam (the only path returning a decrypted token).
 - `packages/server/src/mcp/mcp-bridge.ts` + `mcp-bridge-registry.ts` — the **inbound** bridge (HyperIdle's own tools → harness). AN2 is the *opposite direction*; do not extend the inbound bridge to carry external tools.
@@ -30,8 +33,8 @@ AN2 introduces the bridge from "agent" to "external effect." Three new nouns; th
 | **Provisioned connection** | **New** (satellite) | What a single held Connection *becomes* inside a sandbox: an ephemeral materialized form (an injected secret, or an outbound MCP-server pointer) that lives and dies with the sandbox. |
 | **Outbound MCP client** | **New** (satellite) | HyperIdle acting as an MCP *client* reaching out to a connected service's own MCP server — the inverse of the existing inbound bridge. Does not exist today; AN2 introduces it. |
 | Connection | Stable (AN1) | Per-(user × service) durable record + auth pointer. Fixed input — not reshaped here. |
-| Sandbox | Stable | Disposable per-session filesystem/process namespace (`SandboxAdapter`: local / docker / remote / isolated). |
-| Session / spawn | Stable (AM3) | A session runs in one sandbox; "spawn" = the per-session sandbox creation event. |
+| Sandbox (= run-unit / working dir) | Stable (AQ1) | The disposable per-session **working directory on the host** the agent runs in — `mkdir` at spawn, `rm -rf` at destroy. **Not** an isolation boundary (AQ1). Code noun: `SandboxAdapter` → `LocalSandboxAdapter` (host run path) \| `DisabledSandboxAdapter` (server-profile boot guard). "Run-unit" / "working directory" is the canonical term (`docs/architecture/run-unit-model.md`); "sandbox" survives only as the code noun. |
+| Session / spawn | Stable (AM3) | A session runs in one run-unit; "spawn" = the per-session working-directory creation event. The harness starts as a **host child process** (cwd = working dir, real `$HOME`). |
 | `ServiceConnectionResolver` | Stable (AN1) | The sole server-side path that decrypts a held `token`. AN2 consumes it; does not fork it. |
 
 **Human design review forecast:** unchanged — **No.** Backend/runtime mechanism, no rendered surface (matches the WP field). No new primitive surfaces a UI component.
@@ -77,7 +80,7 @@ AN2 introduces the bridge from "agent" to "external effect." Three new nouns; th
 
 4. **A provisioned connection is NOT durable sandbox state.** Nothing is copied into a persistent store; the materialized secret lives only in the disposable sandbox and is gone on destroy. *Why:* the Connection is the durable thing, the sandbox is disposable — the whole "durable → disposable, re-apply on spawn" model collapses if provisioning persists anything.
 
-5. **Provisioning NEVER extracts an inherited connection's auth.** It carries **held** connections (`token`, `mcp`) only. `inherited` connections are present because the **harness itself** already holds them (free in a local sandbox that inherits the machine); HyperIdle holds no auth material for them and must not reach into the keychain to carry them into a remote sandbox. *Why:* AN1 hard-rule 4 — copying an inherited token into a HyperIdle-controlled artifact is a defect; it also re-opens the OAuth-app ceremony the track rejects.
+5. **Provisioning NEVER extracts an inherited connection's auth.** It carries **held** connections (`token`, `mcp`) only. `inherited` connections are present because the **harness reads the real `$HOME`** — the agent runs as a host child process (AQ1), so `~/.config/gh`, `~/.ssh`, keychain logins are already there with no per-session step. This holds for a *joined remote desktop* too: AQ1 "remote" is **distribution, not isolation** — the task runs host-local on that desktop with *its* `$HOME`, so its inherited tools work the same way. HyperIdle holds no auth material for inherited connections and never reaches into the keychain to copy them anywhere. *Why:* AN1 hard-rule 4 — copying an inherited token into a HyperIdle-controlled artifact is a defect; it also re-opens the OAuth-app ceremony the track rejects.
 
 6. **The outbound MCP client is NOT a per-service integration.** No service-specific client code. *Why:* AC requires a second service reachable "by configuration, not new per-service code" — genericity is a hard contract, not a nicety.
 
@@ -104,7 +107,7 @@ Authoritative direction words: **inbound** = HyperIdle-tools-to-harness (existin
 - **Mutability.** A provisioned connection is **immutable and ephemeral** — written once at spawn, never mutated in a running sandbox, destroyed with the sandbox. The durable Connection is the single source of truth; provisioning is a pure read-projection of it.
 - **Identity.** Provisioning has **no durable identity** — it is a re-derivable function of `(user's active held connections, sandbox)`. Idempotent across respawns by construction.
 - **Spawn-time read.** Active connections are read **at spawn**; connect/disconnect takes effect on the **next** spawn. Provisioning never reaches into a live sandbox to add/revoke a tool.
-- **Deployment-shape contract.** Same model, two materializations: a **local** sandbox may inherit the user's machine logins (harness-native, ≈ free) so inherited tools are already present; a **remote** sandbox inherits nothing and must have **held** connections carried in on every spawn via `SessionConfig`/written config. Held-connection provisioning is identical in both; only inherited availability differs.
+- **Run-unit contract (AQ1, supersedes the old deployment-shape split).** There is **one** provisioning target: a **host working directory with the real `$HOME`** (`LocalSandboxAdapter`). No isolation axis exists for AN2 to provision across — the old "local-free vs remote-carry-in" split is **deleted**. Consequences: (a) **inherited** connections need **zero** provisioning work — they are already present via `$HOME` on every spawn, local or on a joined remote desktop (AQ1 "remote" = distribution, runs host-local with its own `$HOME`); (b) **held** connections are the *entire* AN2 job — provisioned into the working dir on every spawn (`token` → injected secret, `mcp` → outbound pointer); (c) provisioning **into an isolated run-unit is out of scope** — opt-in isolation and its credential doorway are **AQ2**. When AQ2 lands, the held-connection projection here is the baseline it carries across an isolation boundary; AN2 builds nothing for that case now.
 
 ### Hard rules (a violation downstream means the concept is broken)
 1. **No gate.** Provisioned tools run directly; provisioning never interposes approval/review/reversibility on their use. Review rides AL7 only where a human chose it or a learning earned it.
@@ -131,4 +134,12 @@ The Track AN reset (PR #364) killed the broker-gate, the trust tiers, and the "c
 - *Rationale concrete?* Cites the PR #364 reset, ETHOS §2 verbatim intent, and the specific "gate at this seam" temptation — not "for clarity."
 - *Right files touched?* This concept lives in `plans/AN2/`. Ground truth (`docs/architecture/connection-model.md`) already forward-references AN2 in multiple places; it is intentionally **not** pre-edited with unbuilt provisioning mechanics — `/write-docs` retires this concept into it after build (avoids documenting behavior that does not yet exist).
 
-**Concept LOCKED.**
+### AQ1 re-lock self-critique (2026-06-28)
+
+- *Did AQ1 reshape AN2 or just simplify it?* Simplify. The central noun (Connection provisioning) and both satellites (provisioned connection, outbound MCP client) are untouched — AQ1's lifecycle diagram *hosts* the AN2 step verbatim. Only the Phase 4 deployment-shape contract changed (split deleted). A reshape would have changed identity/composition/lifecycle; none moved.
+- *Is the rejection list still distinct post-AQ1?* Yes. Rejection 5 (never extract inherited) is now *stronger*, not weaker — inherited works via real `$HOME` everywhere, so there is never a motive to extract; the "remote = isolated box that inherits nothing" premise that once made extraction tempting is gone.
+- *Vocabulary collision with AQ1?* Checked `run-unit-model.md`: canonical term is **run-unit / working directory**; `Sandbox*` is explicitly the code noun. This doc now states that mapping (Phase 0) and stops treating "sandbox" as an isolation noun. No collision; aligned.
+- *Anything still assuming isolation?* Swept — no remaining claim that a remote/isolated target "inherits nothing" or that auth is "carried across a boundary." The single isolation-bearing contract (Phase 4) is rewritten; isolation provisioning is deferred to AQ2 by name.
+- *Does the WP spec agree?* Yes — `.pipeline/work-packages/TRACK-AN.md` AN2 banner already carries the founder's 2026-06-28 AQ1 direction (target host run-unit, collapse the split, defer isolation to AQ2). This doc now matches it.
+
+**Concept RE-LOCKED (2026-06-28, post-AQ1).** Downstream `/architecture` consumes the run-unit contract above as fixed input: one host working-dir target, held-connection provisioning only, no isolation materialization.
