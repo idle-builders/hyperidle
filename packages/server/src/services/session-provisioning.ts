@@ -861,6 +861,17 @@ export async function runSession(
 			// @lore AN2 C2-fix: connEnv covers the codex/opencode MCP file-carrier tokens;
 			// plan.envInjections covers CLI-key (GH_TOKEN) and convention (<SVC>_TOKEN) vars.
 			// Both must be merged; only connEnv was merged before this fix.
+			//
+			// @lore AN2 C2-regression-exposure: this exact merge (two spreads, six lines) is
+			// verified only by code-read + the real-harness tests reproducing the merge locally
+			// in-test. No integration test calls provisionSession() through the real `app`
+			// fixture and asserts a spawned child sees the injected env. Regression surface is
+			// low (the merge is two spreads of well-typed plain objects) but if a refactor ever
+			// splits this block, the CLI-key carrier silently breaks. A future hardening pass
+			// should drive one provisionSession() integration spawn through the server `app`
+			// fixture (codex or CLI-key session) and assert the child env carries the token.
+			// Blocked on a lightweight "start a session and inspect its env" test harness that
+			// the current integration fixture doesn't have.
 			const mergedConnEnv: Record<string, string> = {
 				...plan.envInjections,
 				...connEnv,

@@ -347,25 +347,76 @@ describe.skipIf(!claudeInstalled)(
 					"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
 				);
 
-				const result = await spawnDetached(
-					"claude",
-					[
-						"-p",
-						prompt,
-						"--dangerously-skip-permissions",
-						"--output-format",
-						"json",
-						"--model",
-						"claude-haiku-4-5",
-					],
-					{
-						cwd: sandboxPath,
-						env: cleanEnv,
-						timeoutMs: 90_000,
-					},
-				);
+				// @lore AN2 claude-model-tool-calling: haiku (~50% flaky) sometimes narrates the
+				// tool instead of calling it even when the schema is loaded. Pinned to sonnet
+				// (alias "sonnet" accepted by claude CLI → latest claude-sonnet-*) which reliably
+				// calls tools. The alias "sonnet" is documented in `claude --help` as an accepted
+				// shorthand alongside "opus" and "fable".
+				//
+				// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
+				// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
+				//   the agent output WITHOUT AN2_PROBE_OK. This name only appears when the tool
+				//   schema was actually loaded (Bearer auth + MCP handshake succeeded), meaning
+				//   auth is proven and the model merely narrated instead of calling.
+				//
+				// - Tamper invariant (CRITICAL): if the bearer token is WRONG, the MCP server
+				//   returns 401 on the first MCP request, the tool schema is NEVER loaded, so
+				//   `mcp__an2-test__ping_test` never appears in the agent output. A tampered token
+				//   produces output like "no such tool exists in my available tool set" — no MCP
+				//   namespace. The retry condition evaluates false → zero retries → hard assertion
+				//   fails. Verified live: tamper test showed mcp__an2-test__ping_test=false in
+				//   auth-failure output (output contains "no such tool", not the MCP namespace).
+				//
+				// - Any other failure (exitCode null = timeout, empty output) is NOT retried.
+				const MAX_ATTEMPTS = 3; // 1 real + 2 retries
+				let lastResult = { stdout: "", stderr: "", exitCode: null as number | null };
 
-				const allOutput = result.stdout + result.stderr;
+				for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+					const r = await spawnDetached(
+						"claude",
+						[
+							"-p",
+							prompt,
+							"--dangerously-skip-permissions",
+							"--output-format",
+							"json",
+							"--model",
+							"sonnet",
+						],
+						{
+							cwd: sandboxPath,
+							env: cleanEnv,
+							timeoutMs: 90_000,
+						},
+					);
+					lastResult = r;
+					const out = r.stdout + r.stderr;
+
+					if (out.includes("AN2_PROBE_OK")) {
+						// Success — break immediately.
+						break;
+					}
+
+					// Only retry if:
+					// 1. The process exited cleanly (not a timeout).
+					// 2. The MCP-namespaced tool name appears in the output — this ONLY happens
+					//    when the schema loaded successfully (auth passed), meaning the model
+					//    merely narrated the tool instead of calling it.
+					// If auth failed, the schema never loads and the namespaced name never appears.
+					const modelDeclined = r.exitCode !== null && out.includes("mcp__an2-test__ping_test");
+
+					if (!modelDeclined || attempt === MAX_ATTEMPTS) {
+						// Not a model-decline (or exhausted retries) — let the hard assertion fail.
+						break;
+					}
+
+					process.stdout.write(
+						`[AN2 real-harness claude] attempt ${attempt}: model declined to call tool ` +
+							`(mcp__an2-test__ping_test appeared in output without sentinel) — retrying...\n`,
+					);
+				}
+
+				const allOutput = lastResult.stdout + lastResult.stderr;
 
 				// HARD ASSERTION: AN2_PROBE_OK must appear in the agent's output.
 				// This proves: provisioned .mcp.json Bearer header → agent authenticated →
@@ -374,9 +425,9 @@ describe.skipIf(!claudeInstalled)(
 					throw new Error(
 						`[AN2 claude FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found in claude output. ` +
 							`The provisioned .mcp.json Bearer MCP server was NOT authenticated or the tool was NOT called. ` +
-							`stdout: "${result.stdout.slice(0, 400)}" ` +
-							`stderr: "${result.stderr.slice(0, 200)}" ` +
-							`exitCode: ${result.exitCode}. ` +
+							`stdout: "${lastResult.stdout.slice(0, 400)}" ` +
+							`stderr: "${lastResult.stderr.slice(0, 200)}" ` +
+							`exitCode: ${lastResult.exitCode}. ` +
 							`MCP URL: ${mcpServer?.url}. ` +
 							`Check: (1) .claude/settings.json has enableAllProjectMcpServers:true, ` +
 							`(2) .mcp.json has correct bearer header, ` +
@@ -384,7 +435,7 @@ describe.skipIf(!claudeInstalled)(
 					);
 				}
 				expect(allOutput).toContain("AN2_PROBE_OK");
-				expect(result.exitCode).not.toBeNull();
+				expect(lastResult.exitCode).not.toBeNull();
 
 				process.stdout.write(
 					"[AN2 real-harness claude] LIVE PROOF: AN2_PROBE_OK found in claude output — " +
@@ -785,8 +836,16 @@ describe.skipIf(!ghInstalled)("CLI-key: GH_TOKEN env injection → real gh CLI o
 			});
 
 			const allOutput = result.stdout + result.stderr;
-			// gh auth status outputs "Logged in" or shows account/github.com info when authed.
-			expect(allOutput).toMatch(/Logged in|github\.com/i);
+			// Require the success-only marker: "✓ Logged in to github.com account".
+			// An invalid token prints "X Failed to log in to github.com" (contains "github.com"
+			// but NOT the checkmark success line) — the old /Logged in|github\.com/i regex
+			// passed on a bogus token (reviewer W-gh finding). The ✓ line only appears when the
+			// token authenticates successfully.
+			// @lore AN2 gh-auth-assertion: verified live: `gh auth status` with a valid token
+			// (via GH_CONFIG_DIR sandbox + GH_TOKEN) prints "✓ Logged in to github.com account".
+			// With an invalid token: "X Failed to log in to github.com using token … The token
+			// in GH_TOKEN is invalid." — no checkmark, so this assertion correctly rejects it.
+			expect(allOutput).toMatch(/✓ Logged in to github\.com account/);
 
 			process.stdout.write(
 				"[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection → " +
