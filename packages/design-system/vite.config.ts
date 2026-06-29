@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { annotationsPlugin } from "./viewer/annotations/vite-plugin-annotations.js";
@@ -9,7 +10,7 @@ import { annotationsPlugin } from "./viewer/annotations/vite-plugin-annotations.
 // serves /__annotations REST endpoints. It is never included in production builds
 // (no transform/generateBundle). Writes to repo-root/.annotations/ (gitignored).
 export default defineConfig({
-	plugins: [react(), annotationsPlugin()],
+	plugins: [tailwindcss(), react(), annotationsPlugin()],
 	root: "viewer",
 	server: { port: 8098 },
 });

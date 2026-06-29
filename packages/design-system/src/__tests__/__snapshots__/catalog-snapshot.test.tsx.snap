@@ -2719,7 +2719,7 @@ exports[`CommentRow > WithMention 1`] = `
 exports[`Composer > Default 1`] = `
 "<div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
   <div class="flex items-stretch gap-[9px]">
-    <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+    <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
     <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
       "Send"
     </button>
@@ -2734,7 +2734,7 @@ exports[`Composer > WithUnresolvedReviewLink 1`] = `
     "Unresolved review · acting required ↑"
   </button>
   <div class="flex items-stretch gap-[9px]">
-    <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+    <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
     <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
       "Send"
     </button>
@@ -3214,19 +3214,19 @@ exports[`Image > WithTitle 1`] = `
 exports[`Input > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <div class="flex flex-col gap-[6px] " data-ds-component="Input" data-ds-source="design-system" data-ds-tier="0">
-    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " placeholder="Enter text..." />
+    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " placeholder="Enter text..." />
   </div>
   <div class="flex flex-col gap-[6px] " data-ds-component="Input" data-ds-source="design-system" data-ds-tier="0">
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-name">
       "Name"
     </label>
-    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " id="input-name" placeholder="Full name" />
+    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " id="input-name" placeholder="Full name" />
   </div>
   <div class="flex flex-col gap-[6px] " data-ds-component="Input" data-ds-source="design-system" data-ds-tier="0">
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-email">
       "Email"
     </label>
-    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " aria-describedby="input-email-hint" id="input-email" placeholder="you@example.com" />
+    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " aria-describedby="input-email-hint" id="input-email" placeholder="you@example.com" />
     <span class="text-[12px] text-[var(--text-tertiary)]" id="input-email-hint">
       "We'll never share your email."
     </span>
@@ -3235,7 +3235,7 @@ exports[`Input > Default 1`] = `
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-username">
       "Username"
     </label>
-    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]" aria-describedby="input-username-error" aria-invalid="true" id="input-username" placeholder="username" />
+    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]" aria-describedby="input-username-error" aria-invalid="true" id="input-username" placeholder="username" />
     <span class="text-[12px] font-medium text-[var(--status-error)]" id="input-username-error">
       "Username is already taken."
     </span>
@@ -3250,13 +3250,13 @@ exports[`Input > DisabledState 1`] = `
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-name">
       "Name"
     </label>
-    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " id="input-name" placeholder="Disabled input" disabled="" />
+    <input class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed " id="input-name" placeholder="Disabled input" disabled="" />
   </div>
   <div class="flex flex-col gap-[6px] " data-ds-component="Input" data-ds-source="design-system" data-ds-tier="0">
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-description">
       "Description"
     </label>
-    <textarea class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed  resize-y min-h-[80px] leading-[1.55]" id="input-description" placeholder="Disabled textarea" disabled="" />
+    <textarea class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed  resize-y min-h-[80px] leading-[1.55]" id="input-description" placeholder="Disabled textarea" disabled="" />
   </div>
 </div>
 "
@@ -3268,7 +3268,7 @@ exports[`Input > TextareaVariant 1`] = `
     <label class="text-[13px] font-medium text-[var(--text-primary)]" for="input-description">
       "Description"
     </label>
-    <textarea class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed  resize-y min-h-[80px] leading-[1.55]" id="input-description" placeholder="Enter a description..." />
+    <textarea class="w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed  resize-y min-h-[80px] leading-[1.55]" id="input-description" placeholder="Enter a description..." />
   </div>
 </div>
 "
@@ -6306,7 +6306,7 @@ exports[`Review Anchored Comment > CodeLineHoverComposer 1`] = `
           </div>
           <div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
             <div class="flex items-stretch gap-[9px]">
-              <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+              <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
               <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
                 "Send"
               </button>
@@ -7017,7 +7017,7 @@ exports[`SearchField > Empty 1`] = `
         <path />
       </svg>
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Search..." />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Search..." />
     <span class="absolute right-[8px] flex items-center gap-[3px]" />
   </div>
 </div>
@@ -7035,7 +7035,7 @@ exports[`SearchField > InContextDemoCard 1`] = `
         <path />
       </svg>
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Search knowledge base..." />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Search knowledge base..." />
     <span class="absolute right-[8px] flex items-center gap-[3px]">
       <kbd class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
         "/"
@@ -7057,7 +7057,7 @@ exports[`SearchField > InteractiveTypeToTest 1`] = `
         <path />
       </svg>
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Type something..." value="" />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Type something..." value="" />
     <span class="absolute right-[8px] flex items-center gap-[3px]">
       <kbd class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
         "/"
@@ -7074,7 +7074,7 @@ exports[`SearchField > Loading 1`] = `
     <span class="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
       <span class="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin" />
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Search..." value="fetching..." />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Search..." value="fetching..." />
     <span class="absolute right-[8px] flex items-center gap-[3px]">
       <button class="inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]" aria-label="clear" type="button">
         <svg aria-hidden="true">
@@ -7099,7 +7099,7 @@ exports[`SearchField > WithKeyboardShortcut 1`] = `
         <path />
       </svg>
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Search..." />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Search..." />
     <span class="absolute right-[8px] flex items-center gap-[3px]">
       <kbd class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
         "/"
@@ -7121,7 +7121,7 @@ exports[`SearchField > WithValue 1`] = `
         <path />
       </svg>
     </span>
-    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-none" type="text" placeholder="Search..." value="react component" />
+    <input class="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-primary)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden" type="text" placeholder="Search..." value="react component" />
     <span class="absolute right-[8px] flex items-center gap-[3px]">
       <button class="inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]" aria-label="clear" type="button">
         <svg aria-hidden="true">
@@ -7186,7 +7186,7 @@ exports[`Select > Default 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
         <option value="light">
           "Light"
         </option>
@@ -7205,7 +7205,7 @@ exports[`Select > Default 1`] = `
       "Theme"
     </label>
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full" id="select-theme">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full" id="select-theme">
         <option value="light">
           "Light"
         </option>
@@ -7224,7 +7224,7 @@ exports[`Select > Default 1`] = `
       "Theme"
     </label>
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full" id="select-theme" disabled="">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full" id="select-theme" disabled="">
         <option value="light">
           "Light"
         </option>
@@ -7246,7 +7246,7 @@ exports[`Select > DisabledOption 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
         <option value="" disabled="">
           "-- no team --"
         </option>
@@ -7262,7 +7262,7 @@ exports[`Select > DisabledOption 1`] = `
   </div>
   <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
         <option value="" disabled="">
           "-- no team --"
         </option>
@@ -7288,7 +7288,7 @@ exports[`Select > FullWidthVsFixed 1`] = `
     </p>
     <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
       <div class="relative">
-        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
+        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
           <option value="light">
             "Light"
           </option>
@@ -7309,7 +7309,7 @@ exports[`Select > FullWidthVsFixed 1`] = `
     </p>
     <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
       <div class="relative">
-        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0  w-full">
+        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0  w-full">
           <option value="light">
             "Light"
           </option>
@@ -7330,7 +7330,7 @@ exports[`Select > FullWidthVsFixed 1`] = `
     </p>
     <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
       <div class="relative">
-        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px]  w-[88px]">
+        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px]  w-[88px]">
           <option value="light">
             "Light"
           </option>
@@ -7357,7 +7357,7 @@ exports[`Select > Sizes 1`] = `
     </p>
     <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
       <div class="relative">
-        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
+        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
           <option value="light">
             "Light"
           </option>
@@ -7378,7 +7378,7 @@ exports[`Select > Sizes 1`] = `
     </p>
     <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
       <div class="relative">
-        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
+        <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
           <option value="light">
             "Light"
           </option>
@@ -7401,7 +7401,7 @@ exports[`Select > WithPlaceholder 1`] = `
 "<div class="p-[18px] flex flex-col gap-[12px]">
   <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[10px] min-h-[44px] xl:min-h-0 w-full">
         <option value="" disabled="">
           "Choose a theme…"
         </option>
@@ -7420,7 +7420,7 @@ exports[`Select > WithPlaceholder 1`] = `
   </div>
   <div class="flex flex-col gap-[6px]" data-ds-component="Select" data-ds-source="design-system" data-ds-tier="0">
     <div class="relative">
-      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
+      <select class="appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer py-[6px] min-h-[44px] xl:min-h-[32px] w-full">
         <option value="" disabled="">
           "Select one…"
         </option>
@@ -9013,7 +9013,7 @@ exports[`ThreadRow > WithHostTag 1`] = `
 `;
 
 exports[`ThreadShell > Empty 1`] = `
-"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
+"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
   <div class="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]" data-ds-component="ThreadHostBanner" data-ds-source="design-system" data-ds-tier="2">
     <div class="flex items-center gap-[9px] min-w-0 flex-1">
       <span class="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]" data-ds-component="Tag" data-ds-source="design-system" data-ds-tier="1">
@@ -9046,7 +9046,7 @@ exports[`ThreadShell > Empty 1`] = `
   <div class="max-w-[720px] mx-auto w-full px-[24px]">
     <div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
       <div class="flex items-stretch gap-[9px]">
-        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
         <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
           "Send"
         </button>
@@ -9058,7 +9058,7 @@ exports[`ThreadShell > Empty 1`] = `
 `;
 
 exports[`ThreadShell > ErrorState 1`] = `
-"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
+"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
   <div class="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]" data-ds-component="ThreadHostBanner" data-ds-source="design-system" data-ds-tier="2">
     <div class="flex items-center gap-[9px] min-w-0 flex-1">
       <span class="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]" data-ds-component="Tag" data-ds-source="design-system" data-ds-tier="1">
@@ -9098,7 +9098,7 @@ exports[`ThreadShell > ErrorState 1`] = `
 `;
 
 exports[`ThreadShell > Loading 1`] = `
-"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
+"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
   <div class="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]" data-ds-component="ThreadHostBanner" data-ds-source="design-system" data-ds-tier="2">
     <div class="flex items-center gap-[9px] min-w-0 flex-1">
       <span class="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]" data-ds-component="Tag" data-ds-source="design-system" data-ds-tier="1">
@@ -9130,7 +9130,7 @@ exports[`ThreadShell > Loading 1`] = `
   <div class="max-w-[720px] mx-auto w-full px-[24px]">
     <div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
       <div class="flex items-stretch gap-[9px]">
-        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
         <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
           "Send"
         </button>
@@ -9142,7 +9142,7 @@ exports[`ThreadShell > Loading 1`] = `
 `;
 
 exports[`ThreadShell > PopulatedChat 1`] = `
-"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
+"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
   <div class="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]" data-ds-component="ThreadHostBanner" data-ds-source="design-system" data-ds-tier="2">
     <div class="flex items-center gap-[9px] min-w-0 flex-1">
       <span class="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]" data-ds-component="Tag" data-ds-source="design-system" data-ds-tier="1">
@@ -9191,7 +9191,7 @@ exports[`ThreadShell > PopulatedChat 1`] = `
   <div class="max-w-[720px] mx-auto w-full px-[24px]">
     <div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
       <div class="flex items-stretch gap-[9px]">
-        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
         <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
           "Send"
         </button>
@@ -9203,7 +9203,7 @@ exports[`ThreadShell > PopulatedChat 1`] = `
 `;
 
 exports[`ThreadShell > PopulatedReview 1`] = `
-"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
+"<div class="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden" data-ds-shell="ThreadShell" data-ds-source="web-shell" data-ds-tier="3" aria-live="polite">
   <div class="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]" data-ds-component="ThreadHostBanner" data-ds-source="design-system" data-ds-tier="2">
     <div class="flex items-center gap-[9px] min-w-0 flex-1">
       <span class="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]" data-ds-component="Tag" data-ds-source="design-system" data-ds-tier="1">
@@ -9269,7 +9269,7 @@ exports[`ThreadShell > PopulatedReview 1`] = `
   <div class="max-w-[720px] mx-auto w-full px-[24px]">
     <div class="flex flex-col gap-[6px] py-[12px] px-[24px] pb-[18px]" data-ds-component="Composer" data-ds-source="design-system" data-ds-tier="2">
       <div class="flex items-stretch gap-[9px]">
-        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
+        <textarea class="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]" placeholder="Reply to thread…" />
         <button class="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]" type="button" disabled="">
           "Send"
         </button>
