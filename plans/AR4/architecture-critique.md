@@ -84,3 +84,59 @@ The plan frames the CLI-reply risk as "does the assistant-turn MCP bridge expose
 4. Address W-3/W-4 and N-1 in passing.
 
 **Carry-forward to Phase 4:** verify the chosen C-1 resolution is actually what the builder implemented (no smuggled CLI lane that crashes-then-asserts-weakly; no `state:"in_progress"` seed inside the AD2-real AC2 assertion; the builtin lane uses a real OpenRouter resolver, not `ANTHROPIC_API_KEY`); confirm `onBeforeTeardown` stays additive-optional and teardown still deletes the sandbox; confirm no demoted assertion (per-agent test-2, AH6 verdict, AD2/R1 error paths) is silently lost.
+
+---
+
+## Round 2 — re-critique of the revised plan
+
+**Verdict: APPROVE.** Overall **8/10**. Zero CRITICAL. Every required change from Round 1 landed and is mechanically correct against the code, not cosmetic. Approval bar (≥7, no CRITICAL) met.
+
+### C-1 — RESOLVED (verified mechanically, not cosmetically)
+
+The fix is the recommended (a): AH3/AK4/AH6 convert to **real builtin only** via a first-class `BUILTIN_ONLY_INTEGRATION` carve-out; the 4-harness matrix moves entirely to AD2/R1. Verified against code:
+
+- **The carve-out is honest, not an allowlist hack.** The plan slots a `BUILTIN_ONLY_INTEGRATION` check into `ruleFor` *before* the coverage rule (`honest-harness-guard.ts:359` `missingHarnesses`): if the file is listed, skip the 4-harness coverage check but still enforce (a) zero-stub (`:340-348`, unchanged), (b) no-skipIf (`:323-336`, unchanged), and (c) a positive `declared.has("builtin")` check. The discipline is preserved; only the 3 CLI lanes the path *cannot* run are exempted. This is mechanically sound — `ruleFor` already has the exact insertion point, and `declaredHarnesses` (`:212`) gives the builtin-declared check for free.
+- **Builtin-only is genuinely correct here vs coverage-debt.** Confirmed against `assistant-turn.ts`: `runAssistantTurn` builds `SessionConfig` with `sandboxPath:""` (no cwd for a CLI), writes no `.mcp.json`, passes no `mcpConnectionInfo`, and resolves the model internally (ignores external `resolvedModel`). A CLI harness genuinely cannot run this path in production — it is builtin-only by construction, not "temporarily <4." Coverage-debt would lie ("debt to be paid") and trip the debt-paid branch (`:371-375`) forever. The carve-out states the truth. **Right distinction.**
+- **The floor still holds — verified.** `assertPerHarnessFloor` (`attestation-floor.ts:127-143`) fails only if a *supported* harness has zero executed agentic assertions **across the whole selected set**, bucketed by the `[harness:X]` describe tag in `ancestorTitles` (`:98-99`). AD2-real + R1-real each loop all four `SUPPORTED_HARNESS_LANES` → builtin/claude/codex/opencode each >0. The three builtin-only files add builtin executions. So claude/codex/opencode floors are satisfied by AD2/R1; builtin by all five. The carve-out lives in the **guard's** coverage rule, which is independent of the **floor** (floor reads vitest JSON tags, not guard coverage). **No floor change needed — and the plan correctly claims none.** This is the key non-cosmetic point: the carve-out cannot silently drop a harness from the floor, because the floor never consulted the guard's coverage rule.
+- **AD2/R1 genuinely flow through `provisionSession` and run all four.** Confirmed: `drainQueue` (`task-dispatcher.ts:247`) → `resolveProvisionSession()` → `provisionSession(...)` (`:366`) with `mcpBridgeRegistry`/`mcpBaseUrl` already threaded (`:372-373`); R1 POST → `provisionSession` is the same path. `SUPPORTED_HARNESS_LANES` (`provision-real-session.ts:395`) carries all four with per-harness `prepFn` (claude `.mcp.json`, codex git, opencode XDG). The matrix obligation lands where the path can actually bear it.
+
+### W-1 — RESOLVED (verified)
+
+The revised `runAssistantTurnThroughHarness` constructs a real OpenRouter `CredentialResolver` + seeds agent-row `modelProvider:"openrouter"`/`modelId`. Verified this takes the `:326` branch in `assistant-turn.ts` (`deps.credentialResolver` truthy → `resolveAgentModel`), avoiding the `:352-366` else-branch entirely (no `ANTHROPIC_API_KEY`, no `missing_key` notice). Confirmed `resolveAgentModel` with `openrouter` → `credentialResolver.resolve("openrouter_api_key")` → runnable `{provider:"openrouter", baseUrl:"https://openrouter.ai/api"}` model (`model-gateway.ts:98-114`) the builtin adapter calls. The "reuses lane.prepFn model" claim is explicitly dropped (Q2b, §A). The builtin lane yields a **real** turn, not a notice row. **Correct.**
+
+### W-2 — RESOLVED honestly (verified)
+
+AH6 broken-leg demoted to `AH6-lane-gate-verdict.test.ts` unit; only the valid-lane (Sanity) leg is real. Verified the current broken-leg uses `mockCallLlmBehavior="empty-content"` (a scripted empty content array, `:82-83`) — a real model essentially never emits this, so it genuinely cannot be forced on real output. The plan moves the S1 verdict-over-crafted-empty-transcript (the predicate is a pure fn, `:49`) to a unit and keeps the valid-lane S1-over-real-output as the real leg. This is **not hiding a skip** — it is an honest decomposition by what each leg can actually prove, stated plainly in DoD (AC3 row), §B, and protectedTests (the verdict unit is named the inheritor of Term-2b). No `skipIf`, no vacuous green.
+
+### W-3 / W-4 — addressed
+
+- **W-3:** per-agent-seam test-2 ("a real assistant message is persisted") now has a named home — AH3-real H1 is listed in protectedTests (line 144, 344) as the explicit inheritor, with the dependency stated ("if AH3-real builtin conversion does not land, this coverage is lost"). The cross-file migration is no longer implicit.
+- **W-4:** risk #3 corrected — now states the assistant reply channel is `drainResult.text` (`assistant-turn.ts:512-513`), not an MCP `send_message` row, and reframes the real risk as the W-1 credential path. The risk register points at the right wall.
+- **N-1:** `SCAN_DIRS` vs `EXPLICIT_HARNESS_INTEGRATION` conflation corrected — the plan now states plainly that the floor selects via `isHarnessIntegrationPath` on vitest JSON (independent of `SCAN_DIRS`) and `SCAN_DIRS` is guard-lint-only. Matches the code (`attestation-floor.ts:88` applies the predicate to JSON paths).
+
+### Residual notes (not blocking)
+
+- **The carve-out is a new shared mechanism.** `BUILTIN_ONLY_INTEGRATION` is introduced by AR4 and lands in `honest-harness-predicate.ts` + `ruleFor`. sharedFiles flags the conflict risk with AR3/AR5/AR6 honestly. Phase-4: confirm the `ruleFor` insertion is an early-skip of *only* the coverage rule and does not short-circuit the stub/skipIf rules (the plan says "consults it before the coverage rule" — the builder must place it after `:348` stub-check, after `:336` skipIf-check, before `:359` coverage-check, and still emit the builtin-declared violation).
+- **One production touch** (`onBeforeTeardown` on `TaskDispatcherDeps`) is additive-optional and confirmed-minimal (Round-1 verified). Phase-4: confirm teardown still deletes the sandbox (observe-not-disable).
+
+### Dimension scores (round 2)
+
+| # | Dimension | R1 | R2 | Note |
+|---|---|---|---|---|
+| 1 | Spec fidelity / AC completeness | 6 | 8 | Triage intact; the matrix-coverage contradiction is resolved by moving the obligation to AD2/R1 and carving out the builtin-only path honestly. |
+| 2 | Layer integrity / soundness | 5 | 8 | The assistant-turn/provisionSession separation is now consistent — builtin-only is owned as the real production shape, not papered over. |
+| 3 | Data model / contract | 8 | 8 | Unchanged — dispatcher `onBeforeTeardown` additive; reply-row channel correct. |
+| 4 | Interface / API design | 5 | 8 | `runAssistantTurnThroughHarness` now specifies the credential resolver + agent-row model fields; no `lane` param; "reuses lane model" dropped. |
+| 5 | Complexity / simplicity | 7 | 8 | The carve-out is the minimal honest mechanism; per-agent full demotion retained. |
+| 6 | Reuse of AR2 pattern | 6 | 8 | Verbatim for AD2/R1; the builtin runner is correctly a *second* thin runner, not a forced lane-table reuse. |
+| 7 | Testability / validation plan | 5 | 8 | AD2/R1 full-matrix; builtin-only files honest; AH6 broken-leg correctly a unit; floor math verified. |
+| 8 | Security & abuse | 9 | 9 | Unchanged — correctly N/A; AR2 secret/path posture reused. |
+| 9 | Risk honesty | 6 | 8 | Risk #3 corrected; the builtin-only constraint and the one production touch are surfaced with fallbacks. |
+
+**Overall: 8/10 — APPROVE.** Zero CRITICAL. Proceed to build.
+
+### Carry-forward to Phase 4 (additive to Round 1's list)
+- Confirm `ruleFor`'s `BUILTIN_ONLY_INTEGRATION` branch skips **only** the coverage rule (stub + skipIf rules still fire) and still emits a violation if a listed file fails to declare `requireHarness("builtin")`.
+- Confirm attestation `byHarness` shows claude/codex/opencode satisfied by AD2-real+R1-real and builtin by all five — and that adding the carve-out did not zero any harness in the floor.
+- Confirm the builtin assistant lane actually resolves an OpenRouter model at runtime (a real turn, non-empty `ast-*` reply) — not a `missing_key` notice row masquerading as green.
+- Confirm AH6-real carries the valid-lane leg only and `AH6-lane-gate-verdict.test.ts` carries the broken-lane verdict — no smuggled `empty-content` scripted mock left in the `*-real` file.
