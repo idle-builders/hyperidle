@@ -41,14 +41,14 @@
 				"src/pg-test-runner.ts!",
 				"scripts/strip-public-schema.ts!"
 			],
-			"ignoreBinaries": ["drizzle-kit"],
+			"ignoreBinaries": ["drizzle-kit", "vitest"],
 			"ignoreDependencies": ["zod"]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/harness-session-probe.ts!"],
-			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
+			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
