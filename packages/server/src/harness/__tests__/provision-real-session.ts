@@ -378,13 +378,19 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
  * as the "extractable matrix helper". AR3–AR6 adopt: import SUPPORTED_HARNESS_LANES,
  * run: `for (const lane of SUPPORTED_HARNESS_LANES) { requireHarness(lane.harnessName); … }`
  *
- * @lore AR2 W-2: Each CLI lane's task description uses send_message so the agent
- * calls a return action → outcome === "completed" (not "not_returned"). This is
- * the plan-mandated unconditional floor: completed + real cost (where the CLI
- * reports it) proves the lane RAN through real provisionSession, not a stub.
- * Codex reports total_cost_usd → totalCostCents > 0 is assertable. Opencode
- * uses OpenRouter without a costField → totalCostCents stays 0; outcome ===
- * "completed" is the floor.
+ * @lore AR2 W-2 (honest floor, round-3): builtin + claude fire the MCP return tool
+ * (send_message) → outcome "completed". codex + opencode do REAL billable work on a
+ * file-write task but do NOT call the MCP return tool → outcome reliably "not_returned".
+ * Forcing "completed" for CLI lanes triggers the return-gate re-prompt loop until the
+ * 240s ceiling → timeout. Honest floor: "completed"|"not_returned" (FAIL on "crashed")
+ * + seam-captured file (best-effort). Stub-distinguishing: a stub/crashed run has no
+ * sandbox → seam can't fire → no file captured; a real run ends non-crash + may write.
+ *
+ * @lore AR2 codex-cost-zero: codex emits `turn.completed` with a `usage` block, NOT the
+ * claude-stream-json `result` event with `total_cost_usd`. The cli-harness-adapter cost
+ * extraction only fires on `type === "result"` → totalCostCents is always 0 for codex.
+ * The `costField: "total_cost_usd"` in CLI_TOOL_CONFIGS.codex is vestigial and never
+ * fires. Asserting `totalCostCents > 0` for codex always fails — don't do it.
  */
 export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 	{
