@@ -1,7 +1,7 @@
 {
   "id": "AR2",
   "status": "in_progress",
-  "currentStep": "3-build",
+  "currentStep": "4-review",
   "branch": "feat/AR2-real-provision-session",
   "startedAt": "2026-06-29",
   "complexity": "M",
