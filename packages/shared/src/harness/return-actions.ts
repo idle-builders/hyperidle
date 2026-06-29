@@ -47,7 +47,7 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
  */
 function stripMcpNamespace(toolName: string): string {
 	// `mcp__<server>__<bare>` — two leading double-underscore-delimited segments.
-	const match = /^mcp__[^_][^_]*__(.+)$/.exec(toolName);
+	const match = /^mcp__.+?__(.+)$/.exec(toolName);
 	return match?.[1] ?? toolName;
 }
 

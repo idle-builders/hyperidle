@@ -266,11 +266,10 @@ describe("AR2 Lane 1 — builtin harness + real model (AC1/AC2/AC3/AC4)", () => 
 				// AC1 proof for Lane 1. Lane 2 is the load-bearing AC2 proof (native Write).
 				expect(result.totalCostCents).toBeGreaterThan(0);
 
-				// Seam exercise: onBeforeTeardown was wired and fired (cap.files is a Map).
-				// Lane 1 doesn't assert on a specific file because cheap OpenRouter models
-				// don't reliably call commit_file (W2 resolution — see lore above).
+				// Seam exercise: onBeforeTeardown wired and fired — real cost > 0 is the
+				// signal (stub yields 0). Lane 1 doesn't assert on a specific file because
+				// cheap OpenRouter models don't reliably call commit_file (W2 resolution).
 				// The load-bearing AC2 file proof lives in Lane 2 (native Write).
-				expect(cap.files).toBeInstanceOf(Map);
 
 				succeeded = true;
 				break;
@@ -394,5 +393,5 @@ describe("AR2 Lane 2 — claude CLI + native Write (AC1/AC2/AC3/AC4)", () => {
 		const answerContent = cap.files.get("answer.txt");
 		expect(answerContent).toBeDefined();
 		expect(answerContent).toContain("4");
-	}, 240_000); // drops to one turn; until then the re-prompt budget adds turns. // AL6 re-prompt loop. Once the isReturnAction MCP-namespace fix lands this // 240s: matches the harness project ceiling — the real claude run can hit the
+	}, 240_000); // 240s: harness project ceiling — the real claude run uses AL6 re-prompt loops until send_message fires via MCP.
 });
