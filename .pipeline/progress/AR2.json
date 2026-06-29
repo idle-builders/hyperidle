@@ -1,10 +1,12 @@
 {
   "id": "AR2",
   "status": "in_progress",
-  "currentStep": "setup",
+  "currentStep": "3-build",
   "branch": "feat/AR2-real-provision-session",
   "startedAt": "2026-06-29",
   "complexity": "M",
-  "dependsOn": ["AR1"],
+  "dependsOn": [
+    "AR1"
+  ],
   "notes": "One real agent run through production provisionSession() + capture-before-teardown seam."
 }
