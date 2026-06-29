@@ -51,8 +51,12 @@ export default defineConfig({
 				extends: true,
 				test: {
 					name: "harness",
-					hookTimeout: 120_000,
-					testTimeout: 120_000,
+					// @lore AR1: 240s ceiling — the session-provisioning real claude run can
+					// hit the AL6 re-prompt loop (the MCP-namespace return-action bug delays
+					// gate recognition), pushing a single honest run past 120s. Per-test args
+					// can lower this; the project default must not cap below the slowest honest run.
+					hookTimeout: 240_000,
+					testTimeout: 240_000,
 					// Real-LLM serial: never run two real-binary harness files in parallel.
 					fileParallelism: false,
 					include: HARNESS_INCLUDE,

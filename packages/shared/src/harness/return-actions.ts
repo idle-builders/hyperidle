@@ -41,6 +41,19 @@ export function isReturnAction(toolName: string, _args?: Record<string, unknown>
 	return RETURN_ACTION_SET.has(toolName);
 }
 
+// @lore AR2-latent-bug return-action-mcp-namespace: isReturnAction matches the
+// BARE tool name only. A real CLI harness (claude/codex/opencode) calls the
+// HyperIdle return tools through the MCP bridge, where they arrive NAMESPACED as
+// `mcp__hyperidle__send_message` (etc.). Those never match RETURN_ACTION_SET, so
+// the return gate (return-gate.ts) records `not_returned` even when the agent
+// genuinely returned — a real CLI+MCP session can therefore never be verdicted
+// "completed". The in-process builtin harness is unaffected (it calls bare names).
+// AR1's session-provisioning.integration.test.ts surfaced this end-to-end. Fix is
+// AR2's (provisionSession-seam WP): strip a leading `mcp__<server>__` prefix before
+// the set lookup (mirror the same on the CLI adapter's :821 returnSeen check).
+// NOT fixed in AR1 — AR1 is test-honesty only and must not change production
+// behavior to make a test pass.
+
 /**
  * AL6: Exemption predicate for internal-extraction drains (concept §1.5).
  *
