@@ -24,11 +24,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
+import { runAssistantTurn } from "../../services/assistant-turn.js";
+import type { CredentialResolver } from "../../services/credential-resolver.js";
 import type {
 	BeforeTeardownContext,
 	ProvisionSessionDeps,
@@ -582,4 +584,153 @@ export async function runThroughHarness(
 
 	const result = await provisionSession(deps, params);
 	return { result, cap };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// runAssistantTurnThroughHarness (AR4 — builtin-only assistant-turn runner)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Seed the minimal DB rows for a builtin assistant turn test.
+ *
+ * Creates: human user + ast-* agent (with openrouter modelProvider/modelId so
+ * resolveAgentModel yields a runnable model) + assistant thread + trigger message.
+ *
+ * @lore AR4 W-1: The agent row MUST carry modelProvider:"openrouter" + a real
+ * modelId so assistant-turn.ts:329 (resolveAgentModel) takes the per-agent branch
+ * and produces an openai-compatible resolved model. Without these fields the
+ * else-branch at :352-366 fires and requires ANTHROPIC_API_KEY (which never exists
+ * per the strict harness-key model) — persisting a missing_key notice instead of a
+ * real turn.
+ */
+export interface AssistantTurnSeedOpts {
+	readonly userId: string;
+	readonly threadId: string;
+	readonly triggerMessageId: string;
+	/** OpenRouter model id to seed on the ast-* agent row. Defaults to "openai/gpt-4o-mini". */
+	readonly modelId?: string;
+	readonly now?: string;
+}
+
+export async function seedAssistantTurnDomain(
+	db: HyperIdleDb,
+	opts: AssistantTurnSeedOpts,
+): Promise<void> {
+	const {
+		userId,
+		threadId,
+		triggerMessageId,
+		modelId = "openai/gpt-4o-mini",
+		now = new Date().toISOString(),
+	} = opts;
+	const assistantId = `ast-${userId}`;
+
+	// Human user
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: "AR4 Test User",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+
+	// Assistant agent — modelProvider + modelId are load-bearing (W-1)
+	await db.insert(users).values({
+		id: assistantId,
+		kind: "ai",
+		name: "AR4 Test Assistant",
+		role: "assistant",
+		status: "active",
+		harnessType: "builtin",
+		modelProvider: "openrouter",
+		modelId,
+		systemPrompt: "You are a helpful assistant. Be concise.",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
+
+	// Assistant thread (hostKind="user" = the assistant thread pattern)
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: userId,
+		initiatorId: userId,
+		participants: JSON.stringify([userId, assistantId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	// The trigger message (human → assistant)
+	await db.insert(messages).values({
+		id: triggerMessageId,
+		threadId,
+		senderId: userId,
+		type: "plain",
+		payload: JSON.stringify({ text: "Reply with the word PONG and nothing else." }),
+		clientKey: `ck-${triggerMessageId}`,
+		createdAt: now,
+	});
+}
+
+/**
+ * Run a real builtin assistant turn through `runAssistantTurn`.
+ *
+ * Builds a real builtin AdapterPool + a real OpenRouter CredentialResolver
+ * (OPENROUTER_API_KEY from env) + seeds the agent row with modelProvider/modelId
+ * so resolveAgentModel yields a runnable model. Calls runAssistantTurn and
+ * returns after the turn completes (reply or notice persisted to DB).
+ *
+ * **No `lane` param.** `runAssistantTurn` is builtin-only by construction
+ * (no sandbox cwd, no .mcp.json bridge → CLI harnesses cannot start). This runner
+ * is the honest vehicle for the genuinely builtin-only production path.
+ *
+ * @lore AR4 W-1: Must supply a real CredentialResolver resolving openrouter_api_key
+ * from OPENROUTER_API_KEY. Without it, assistant-turn.ts:352-366 fires (ANTHROPIC_API_KEY
+ * else-branch) and persists a missing_key notice — no real model runs.
+ *
+ * @lore AR4 Q2b: The agent row must carry modelProvider:"openrouter" + modelId so
+ * resolveAgentModel (assistant-turn.ts:329) produces an openai-compatible model
+ * the builtin adapter calls. The lane table's prepFn.resolvedModel is a field
+ * runAssistantTurn never reads — model resolution is internal, not external.
+ */
+export async function runAssistantTurnThroughHarness(
+	ctx: { db: HyperIdleDb; eventBus: EventBus },
+	params: { userId: string; threadId: string; triggerMessageId: string },
+): Promise<void> {
+	const apiKey = process.env.OPENROUTER_API_KEY;
+	if (!apiKey) {
+		throw new Error(
+			"runAssistantTurnThroughHarness: OPENROUTER_API_KEY not set — " +
+				"builtin assistant turn requires this key (requireHarness('builtin') should have caught this).",
+		);
+	}
+
+	// Real builtin adapter pool — same construction as SUPPORTED_HARNESS_LANES builtin lane.
+	const pool = new AdapterPool();
+	pool.register(
+		"builtin-local",
+		new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 512 }),
+		{
+			name: "builtin-local",
+			kind: "local",
+			modelProviders: ["openai-compatible"],
+			maxConcurrent: 1,
+		},
+	);
+
+	// Real OpenRouter CredentialResolver — resolves openrouter_api_key from env.
+	// This is the load-bearing W-1 fix: takes the resolveAgentModel branch (not the
+	// ANTHROPIC_API_KEY else-branch) so a real model runs.
+	const credentialResolver: CredentialResolver = {
+		async resolve(name: string): Promise<string | null> {
+			if (name === "openrouter_api_key") return apiKey;
+			return null;
+		},
+	};
+
+	await runAssistantTurn(
+		{ db: ctx.db, eventBus: ctx.eventBus, adapterPool: pool, credentialResolver },
+		params,
+	);
 }

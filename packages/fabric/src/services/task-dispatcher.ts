@@ -101,6 +101,18 @@ export interface TaskDispatcherDeps {
 	readonly mcpBridgeRegistry?: any;
 	/** Optional MCP base URL (passed through to provisionSession). */
 	readonly mcpBaseUrl?: string;
+	/**
+	 * AR4: forwarded to provisionSession so a dispatched real agent's sandbox is
+	 * observable via the capture seam (createSandboxCapture). Additive-optional —
+	 * preserves the dispatch API; existing call sites compile unchanged.
+	 * Mirrors the same field on ProvisionSessionDeps (session-provisioning.ts:236).
+	 *
+	 * @lore AR4: Design-it-twice §C Option 1 — adds ~2 lines to drainQueue, gives
+	 * the load-bearing artifact proof for the dispatch→provision real-agent AC2 test.
+	 * Observer fires BEFORE teardown deletes the sandbox (not disabling teardown).
+	 */
+	// biome-ignore lint/suspicious/noExplicitAny: BeforeTeardownContext type lives in server — fabric passes opaquely
+	readonly onBeforeTeardown?: (ctx: any) => Promise<void>;
 }
 
 /** A single entry in the dispatch queue. */
@@ -371,6 +383,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 						workspace: deps.workspace,
 						mcpBridgeRegistry: deps.mcpBridgeRegistry,
 						mcpBaseUrl: deps.mcpBaseUrl,
+						...(deps.onBeforeTeardown ? { onBeforeTeardown: deps.onBeforeTeardown } : {}),
 					},
 					{
 						taskId: entry.taskId,

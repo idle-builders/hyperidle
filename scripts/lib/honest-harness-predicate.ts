@@ -44,6 +44,33 @@ export type SupportedHarness = (typeof SUPPORTED_HARNESSES)[number];
  */
 export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
 	"__tests__/session-provisioning.integration.test.ts",
+	// AR4 — real-harness converted files (4-harness matrix: AD2 + R1)
+	"__tests__/AD2-task-dispatcher-real.integration.test.ts",
+	"__tests__/R1-wire-agent-execution-real.integration.test.ts",
+	// AR4 — builtin-only real-harness files (assistant-turn path: AH3 + AK4 + AH6)
+	"routes/__tests__/AH3-assistant-turn-real.integration.test.ts",
+	"routes/__tests__/AK4-assistant-draft-real.integration.test.ts",
+	"__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts",
+];
+
+/**
+ * Files whose production path is GENUINELY builtin-only — the assistant turn
+ * cannot run a CLI harness (no sandbox cwd, no .mcp.json bridge, Q2 in AR4 plan).
+ * Files listed here are exempted from the 4-harness coverage rule but MUST still:
+ *   (a) declare requireHarness("builtin")
+ *   (b) contain zero stubs / vi.mock of harness seams
+ *   (c) use no skipIf-on-absent gate
+ *
+ * @lore AR4: `runAssistantTurn` builds SessionConfig with sandboxPath:""
+ *   (assistant-turn.ts:466); CliHarnessAdapter.startSession uses cwd:config.sandboxPath
+ *   → empty cwd → CLI cannot start. Also no .mcp.json bridge (provisionSession writes
+ *   it; runAssistantTurn does not). Forcing CLI lanes would test a path that does not
+ *   exist. The 4-harness matrix obligation lives on AD2/R1 (real provisionSession path).
+ */
+export const BUILTIN_ONLY_INTEGRATION: readonly string[] = [
+	"routes/__tests__/AH3-assistant-turn-real.integration.test.ts",
+	"routes/__tests__/AK4-assistant-draft-real.integration.test.ts",
+	"__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts",
 ];
 
 /** Harness-dir integration suffix: `…/harness/__tests__/<anything>.integration.test.ts`. */
