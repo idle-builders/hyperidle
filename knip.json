@@ -27,7 +27,7 @@
 	"exclude": ["duplicates"],
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!"],
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
 			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
