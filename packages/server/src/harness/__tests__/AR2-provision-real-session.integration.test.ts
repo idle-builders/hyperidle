@@ -65,15 +65,18 @@ import {
 } from "@hyperidle/db";
 import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import {
+	type ProvisionSessionDeps,
+	provisionSession,
+} from "../../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
 import { AdapterPool, CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import { type ProvisionSessionDeps, provisionSession } from "../../services/session-provisioning.js";
-import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
-import { test } from "../../test-fixtures.js";
-import { requireHarness } from "./require-harness.js";
 import { createSandboxCapture, startMcpBridgeServer } from "./provision-real-session.js";
+import { requireHarness } from "./require-harness.js";
 
 // ─── Shared constants ────────────────────────────────────────────────────────
 
@@ -107,8 +110,12 @@ async function seedDomain(
 	db: HyperIdleDb,
 	opts: { taskId: string; agentId: string; taskDescription: string; doneCondition: string },
 ): Promise<void> {
-	await db.insert(teams).values({ id: "p1", name: "AR2 Integration Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "p1", name: "AR2 Integration Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",
@@ -181,105 +188,106 @@ describe("AR2 Lane 1 — builtin harness + real model (AC1/AC2/AC3/AC4)", () => 
 		}
 	});
 
-	test(
-		"provisions a real builtin session; agent writes answer.txt via commit_file; seam captures it before teardown",
-		async ({ db, eventBus }) => {
-			const agentId = "ar2-builtin-agent";
-			const taskId = "ar2-builtin-task";
+	test("provisions a real builtin session; agent writes answer.txt via commit_file; seam captures it before teardown", async ({
+		db,
+		eventBus,
+	}) => {
+		const agentId = "ar2-builtin-agent";
+		const taskId = "ar2-builtin-task";
 
-			await seedDomain(db, {
-				taskId,
-				agentId,
-				taskDescription:
-					"Use the commit_file tool to write a file named 'answer.txt' containing exactly " +
-					"the number 4 into the sandbox. Then report your result to the human owner " +
-					"(id 'owner-1') by calling send_message with to='owner-1' and body 'Done: 4'. " +
-					"Do NOT hand off or submit a review.",
-				doneCondition:
-					"Agent reports the answer to the human owner (id 'owner-1') via send_message.",
-			});
+		await seedDomain(db, {
+			taskId,
+			agentId,
+			taskDescription:
+				"Use the commit_file tool to write a file named 'answer.txt' containing exactly " +
+				"the number 4 into the sandbox. Then report your result to the human owner " +
+				"(id 'owner-1') by calling send_message with to='owner-1' and body 'Done: 4'. " +
+				"Do NOT hand off or submit a review.",
+			doneCondition: "Agent reports the answer to the human owner (id 'owner-1') via send_message.",
+		});
 
-			// AC4: use the extractable createSandboxCapture helper.
-			const cap = createSandboxCapture({ paths: ["answer.txt"] });
+		// AC4: use the extractable createSandboxCapture helper.
+		const cap = createSandboxCapture({ paths: ["answer.txt"] });
 
-			// Builtin lane: no MCP bridge needed. mcpSupport:false + tools execute in-process.
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
+		// Builtin lane: no MCP bridge needed. mcpSupport:false + tools execute in-process.
+		const apiKey = process.env.OPENROUTER_API_KEY as string;
 
-			// Pick a working model from the bounded candidate list (mirrors AM2 pattern).
-			// We need to try candidates but provisionSession takes a single resolvedModel.
-			// Strategy: attempt each model in turn using the bounded list.
-			let lastError: unknown = null;
-			let succeeded = false;
+		// Pick a working model from the bounded candidate list (mirrors AM2 pattern).
+		// We need to try candidates but provisionSession takes a single resolvedModel.
+		// Strategy: attempt each model in turn using the bounded list.
+		let lastError: unknown = null;
+		let succeeded = false;
 
-			for (const candidate of BUILTIN_MODEL_CANDIDATES) {
-				// Re-create the pool for each attempt (the previous attempt may have
-				// consumed the adapter slot, though with retry:2 the harness project
-				// typically handles transient model errors).
-				const pool = new AdapterPool();
-				pool.register("builtin-local", new BuiltinHarnessAdapter({ maxIterations: 5, maxOutputTokens: 512 }), {
+		for (const candidate of BUILTIN_MODEL_CANDIDATES) {
+			// Re-create the pool for each attempt (the previous attempt may have
+			// consumed the adapter slot, though with retry:2 the harness project
+			// typically handles transient model errors).
+			const pool = new AdapterPool();
+			pool.register(
+				"builtin-local",
+				new BuiltinHarnessAdapter({ maxIterations: 5, maxOutputTokens: 512 }),
+				{
 					name: "builtin-local",
 					kind: "local",
 					modelProviders: ["openai-compatible"],
 					maxConcurrent: 1,
+				},
+			);
+
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: pool,
+				workspace: new LocalSandboxAdapter(),
+				// AC2: the capture seam callback — fires after drain, before rm.
+				onBeforeTeardown: cap.onBeforeTeardown,
+			};
+
+			try {
+				const result = await provisionSession(deps, {
+					taskId,
+					agentId,
+					productId: "p1",
+					sandboxBasePath: tmpDir,
+					resolvedModel: {
+						provider: "openai-compatible",
+						model: candidate,
+						apiKey,
+						baseUrl: OPENROUTER_BASE_URL,
+					},
 				});
 
-				const deps: ProvisionSessionDeps = {
-					db,
-					eventBus,
-					adapterPool: pool,
-					workspace: new LocalSandboxAdapter(),
-					// AC2: the capture seam callback — fires after drain, before rm.
-					onBeforeTeardown: cap.onBeforeTeardown,
-				};
+				// AC1: real cost > 0 — a stub/echo run yields 0.
+				expect(result.totalCostCents).toBeGreaterThan(0);
 
-				try {
-					const result = await provisionSession(deps, {
-						taskId,
-						agentId,
-						productId: "p1",
-						sandboxBasePath: tmpDir,
-						resolvedModel: {
-							provider: "openai-compatible",
-							model: candidate,
-							apiKey,
-							baseUrl: OPENROUTER_BASE_URL,
-						},
-					});
+				// AC2: the seam fired and captured real bytes the real model wrote.
+				// If onBeforeTeardown was never wired, `cap.files` is empty → this fails.
+				const answerContent = cap.files.get("answer.txt");
+				expect(answerContent).toBeDefined();
+				expect(answerContent).toContain("4");
 
-					// AC1: real cost > 0 — a stub/echo run yields 0.
-					expect(result.totalCostCents).toBeGreaterThan(0);
-
-					// AC2: the seam fired and captured real bytes the real model wrote.
-					// If onBeforeTeardown was never wired, `cap.files` is empty → this fails.
-					const answerContent = cap.files.get("answer.txt");
-					expect(answerContent).toBeDefined();
-					expect(answerContent).toContain("4");
-
-					succeeded = true;
-					break;
-				} catch (err) {
-					// Distinguish auth errors (→ FAIL immediately) from model-not-available
-					// (→ try next candidate), mirroring the AM2 pattern.
-					const msg = err instanceof Error ? err.message : String(err);
-					if (/401|403|Unauthorized|Forbidden/i.test(msg)) {
-						throw new Error(
-							`AR2 Lane 1 FAIL: builtin key present but got auth error for model "${candidate}": ${msg}`,
-						);
-					}
-					lastError = err;
+				succeeded = true;
+				break;
+			} catch (err) {
+				// Distinguish auth errors (→ FAIL immediately) from model-not-available
+				// (→ try next candidate), mirroring the AM2 pattern.
+				const msg = err instanceof Error ? err.message : String(err);
+				if (/401|403|Unauthorized|Forbidden/i.test(msg)) {
+					throw new Error(
+						`AR2 Lane 1 FAIL: builtin key present but got auth error for model "${candidate}": ${msg}`,
+					);
 				}
+				lastError = err;
 			}
+		}
 
-			if (!succeeded) {
-				throw new Error(
-					`AR2 Lane 1: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} failed. ` +
-						`Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-				);
-			}
-		},
-		// 240s: matches the harness project ceiling — real-model tool-calling can run long.
-		240_000,
-	);
+		if (!succeeded) {
+			throw new Error(
+				`AR2 Lane 1: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} failed. ` +
+					`Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+			);
+		}
+	}, 240_000); // 240s: matches the harness project ceiling — real-model tool-calling can run long.
 });
 
 // ─── Lane 2: real claude CLI + native Write tool ──────────────────────────────
@@ -311,79 +319,74 @@ describe("AR2 Lane 2 — claude CLI + native Write (AC1/AC2/AC3/AC4)", () => {
 		}
 	});
 
-	test(
-		"provisions a real claude CLI session; agent writes answer.txt via native Write tool; seam captures it before teardown",
-		async ({ db, eventBus }) => {
-			if (!bridge) throw new Error("bridge not set up");
+	test("provisions a real claude CLI session; agent writes answer.txt via native Write tool; seam captures it before teardown", async ({
+		db,
+		eventBus,
+	}) => {
+		if (!bridge) throw new Error("bridge not set up");
 
-			const agentId = "ar2-claude-agent";
-			const taskId = "ar2-claude-task";
+		const agentId = "ar2-claude-agent";
+		const taskId = "ar2-claude-task";
 
-			// Lane 2: task directs the agent to use its native Write tool (not a HyperIdle tool).
-			// The native Write writes directly into the sandbox directory, which is the
-			// agent's working directory. send_message for the (non-aborting) return.
-			await seedDomain(db, {
-				taskId,
-				agentId,
-				taskDescription:
-					"Create a file named 'answer.txt' in the current working directory containing " +
-					"exactly the number 4. Then report your result to the human owner " +
-					"(id 'owner-1') by calling send_message with to='owner-1' and body 'Done: 4'. " +
-					"Do NOT hand off or submit a review.",
-				doneCondition:
-					"Agent creates answer.txt and reports to the human owner via send_message.",
-			});
+		// Lane 2: task directs the agent to use its native Write tool (not a HyperIdle tool).
+		// The native Write writes directly into the sandbox directory, which is the
+		// agent's working directory. send_message for the (non-aborting) return.
+		await seedDomain(db, {
+			taskId,
+			agentId,
+			taskDescription:
+				"Create a file named 'answer.txt' in the current working directory containing " +
+				"exactly the number 4. Then report your result to the human owner " +
+				"(id 'owner-1') by calling send_message with to='owner-1' and body 'Done: 4'. " +
+				"Do NOT hand off or submit a review.",
+			doneCondition: "Agent creates answer.txt and reports to the human owner via send_message.",
+		});
 
-			// AC4: use the extractable createSandboxCapture helper.
-			const cap = createSandboxCapture({ paths: ["answer.txt"] });
+		// AC4: use the extractable createSandboxCapture helper.
+		const cap = createSandboxCapture({ paths: ["answer.txt"] });
 
-			const adapterPool = new AdapterPool();
-			adapterPool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
-				name: "local-claude",
-				kind: "local",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 4,
-			});
+		const adapterPool = new AdapterPool();
+		adapterPool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			name: "local-claude",
+			kind: "local",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
+		});
 
-			const deps: ProvisionSessionDeps = {
-				db,
-				eventBus,
-				adapterPool,
-				workspace: new LocalSandboxAdapter(),
-				mcpBridgeRegistry: bridge.mcpBridgeRegistry,
-				mcpBaseUrl: bridge.mcpBaseUrl,
-				// AC2: the capture seam callback — fires after drain, before rm.
-				onBeforeTeardown: cap.onBeforeTeardown,
-			};
+		const deps: ProvisionSessionDeps = {
+			db,
+			eventBus,
+			adapterPool,
+			workspace: new LocalSandboxAdapter(),
+			mcpBridgeRegistry: bridge.mcpBridgeRegistry,
+			mcpBaseUrl: bridge.mcpBaseUrl,
+			// AC2: the capture seam callback — fires after drain, before rm.
+			onBeforeTeardown: cap.onBeforeTeardown,
+		};
 
-			const result = await provisionSession(deps, {
-				taskId,
-				agentId,
-				productId: "p1",
-				sandboxBasePath: tmpDir,
-				// claude uses keychain auth; model string must be a real catalog id.
-				resolvedModel: {
-					provider: "anthropic" as const,
-					model: "claude-haiku-4-5",
-					apiKey: "keychain-auth-unused",
-					baseUrl: "https://api.anthropic.com",
-				},
-			});
+		const result = await provisionSession(deps, {
+			taskId,
+			agentId,
+			productId: "p1",
+			sandboxBasePath: tmpDir,
+			// claude uses keychain auth; model string must be a real catalog id.
+			resolvedModel: {
+				provider: "anthropic" as const,
+				model: "claude-haiku-4-5",
+				apiKey: "keychain-auth-unused",
+				baseUrl: "https://api.anthropic.com",
+			},
+		});
 
-			// AC1: real cost > 0 — a stub/echo run yields 0.
-			expect(result.totalCostCents).toBeGreaterThan(0);
+		// AC1: real cost > 0 — a stub/echo run yields 0.
+		expect(result.totalCostCents).toBeGreaterThan(0);
 
-			// AC2 (load-bearing): the seam fired and captured real bytes the native
-			// Write tool produced. This file has NO other observation channel — it is
-			// purely a sandbox artifact, deleted at teardown. If `onBeforeTeardown`
-			// was never wired, `cap.files` is empty → this assertion fails.
-			const answerContent = cap.files.get("answer.txt");
-			expect(answerContent).toBeDefined();
-			expect(answerContent).toContain("4");
-		},
-		// 240s: matches the harness project ceiling — the real claude run can hit the
-		// AL6 re-prompt loop. Once the isReturnAction MCP-namespace fix lands this
-		// drops to one turn; until then the re-prompt budget adds turns.
-		240_000,
-	);
+		// AC2 (load-bearing): the seam fired and captured real bytes the native
+		// Write tool produced. This file has NO other observation channel — it is
+		// purely a sandbox artifact, deleted at teardown. If `onBeforeTeardown`
+		// was never wired, `cap.files` is empty → this assertion fails.
+		const answerContent = cap.files.get("answer.txt");
+		expect(answerContent).toBeDefined();
+		expect(answerContent).toContain("4");
+	}, 240_000); // drops to one turn; until then the re-prompt budget adds turns. // AL6 re-prompt loop. Once the isReturnAction MCP-namespace fix lands this // 240s: matches the harness project ceiling — the real claude run can hit the
 });

@@ -69,6 +69,8 @@ An integration test exercises a **real integration point**, with no stub standin
 
 > **Enforced (shipped via Track AR1).** This is mechanically enforced now: a `requireHarness(<name>)` hard-fail helper (`packages/server/src/harness/__tests__/require-harness.ts`) replaces every `skipIf`-on-absent gate; the `honest-harness-guard` lint check (`scripts/honest-harness-guard.ts`, wired into `npm run lint`) rejects a stubbed/`vi.mock`'d harness adapter in a harness-facing integration test; an attestation agentic executed-count floor (`agenticExecuted`/`agenticSkipped` in the signed payload, enforced by `check-attestation.ts`) refuses a green where every agentic test skipped; and the redundant `*.real-harness.test.ts` lane is collapsed into `*.integration.test.ts` (it only existed to dodge a CI-binary problem that does not exist). The strict harness model: `claude`/`codex`/`opencode`/`gh` are keychain/inherited-login CLI binaries with **no API key**; `builtin` is gated by `OPENROUTER_API_KEY` (the only key — never Anthropic, never OpenAI). AR2–AR6 convert the remaining currently-stubbed harness tests tracked in `scripts/honest-harness-guard.allowlist.json`; see `.pipeline/work-packages/TRACK-AR.md`.
 
+**Harness integration tests observe real output via `createSandboxCapture` + the `onBeforeTeardown` seam** (AR2). The seam fires after drain, before teardown deletes the sandbox — the only window to capture pure-sandbox files with no DB row. Import from `packages/server/src/harness/__tests__/provision-real-session.ts`; follow the four-step recipe in that module's JSDoc.
+
 ## Fixture pattern (integration tests)
 
 ```typescript

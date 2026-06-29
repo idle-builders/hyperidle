@@ -23,10 +23,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { enforcementRegistry } from "../return-enforcement-registry.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
 import type { BeforeTeardownContext } from "../../services/session-provisioning.js";
+import { enforcementRegistry } from "../return-enforcement-registry.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // createSandboxCapture

@@ -175,6 +175,16 @@ async function accumulateSessionTokensOnBet(
 		.where(eq(bets.id, task.betId));
 }
 
+/**
+ * AR2: Read-only context passed to `onBeforeTeardown` observers.
+ * Exposes the session identity and sandbox location — sufficient for a
+ * harness integration test to read the real files a real agent produced.
+ */
+export interface BeforeTeardownContext {
+	readonly sessionId: string;
+	readonly sandboxPath: string;
+}
+
 export interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
@@ -198,6 +208,32 @@ export interface ProvisionSessionDeps {
 		import("./service-connection-resolver.js").ServiceConnectionResolver,
 		"resolve"
 	>;
+	/**
+	 * AR2: optional observation hook, fired once after the agent's turn fully
+	 * drains and the sandbox is completely written, BEFORE teardown deletes it
+	 * (`endSession`'s `fs.promises.rm` at session-lifecycle.ts:341). Observes
+	 * only — it cannot pause, defer, or cancel teardown, which runs unconditionally
+	 * afterward even if this callback throws. Absent → no-op (every production
+	 * caller omits it). Lets a harness integration test read the real files a real
+	 * agent produced before deletion.
+	 *
+	 * Mirrors the existing optional `onHarnessStarted` callback (post-start twin).
+	 * This is the post-drain / pre-teardown twin.
+	 *
+	 * @lore AR2: The seam fires AFTER `adapterPool.release` (drain try/finally,
+	 * ~line 1095) and BEFORE the `if (crashed)` teardown dispatch (~line 1137).
+	 * That is the unique point both AFTER the agent finished writing (stop done,
+	 * drain done) AND BEFORE anything deletes the sandbox. It precedes all four
+	 * teardown branches (completed / not_returned / budget_exhausted / crashed),
+	 * so exactly one fire per run regardless of outcome.
+	 *
+	 * @lore AR2 crash-path note: on the crash path `crashSession` does NOT delete
+	 * the sandbox (session-lifecycle.ts:415–416, "knowledge preserved for debugging").
+	 * The seam fires anyway for consistency, but the sandbox would survive crash
+	 * teardown regardless. For completed/not_returned/budget_exhausted the seam is
+	 * the ONLY pre-deletion window.
+	 */
+	readonly onBeforeTeardown?: (ctx: BeforeTeardownContext) => void | Promise<void>;
 }
 
 export interface ProvisionSessionParams {
@@ -1132,6 +1168,30 @@ export async function runSession(
 		const registryForceCount = registryEntry?.forceCount ?? 0;
 		const adapterForceCount = harness.getForceReturnCount?.(sessionId) ?? 0;
 		return registryForceCount + adapterForceCount;
+	}
+
+	// AR2: observation seam — sandbox is fully written; teardown has not run yet.
+	// Fires once, after drain + stopSession + adapterPool.release, before every
+	// teardown branch (completed / not_returned / budget_exhausted / crashed).
+	// Swallow observer errors so a failed capture never strands a sandbox; the
+	// teardown below always runs unconditionally. A failed capture surfaces as a
+	// failed test assertion (expected bytes never captured), not a leaked sandbox.
+	//
+	// @lore AR2: Production callers omit `onBeforeTeardown` → this block is a
+	// no-op at zero cost. The seam is purely test-observability infrastructure
+	// (mirrors the existing optional `onHarnessStarted` callback). It observes;
+	// it does not disable, defer, or condition teardown.
+	if (deps.onBeforeTeardown) {
+		try {
+			await deps.onBeforeTeardown({ sessionId, sandboxPath });
+		} catch (observeErr) {
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(
+				`[session-provisioning] onBeforeTeardown observer threw for ${sessionId}; ` +
+					`continuing teardown:`,
+				observeErr,
+			);
+		}
 	}
 
 	if (crashed) {
