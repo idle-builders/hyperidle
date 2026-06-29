@@ -11,11 +11,11 @@
 		"eval": "tsx src/cli.ts"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.93.0",
+		"@anthropic-ai/sdk": "^0.106.0",
+		"@electric-sql/pglite": "^0.5.1",
 		"@hyperidle/db": "*",
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
-		"@electric-sql/pglite": "^0.5.1",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
