@@ -494,14 +494,22 @@ async function probeMcpReachability(
 	}
 }
 
+// @lore drizzle-orm 0.45.2: wraps PGlite errors — outer message is "Failed query: …",
+// original error (with code 23505 and "duplicate key" message) is in err.cause.
+// Walk the cause chain to find the real constraint error.
 function isUniqueViolation(err: unknown): boolean {
 	if (!(err instanceof Error)) return false;
-	const msg = err.message.toLowerCase();
-	return (
-		msg.includes("unique") ||
-		msg.includes("duplicate") ||
-		msg.includes("constraint") ||
-		// PGlite unique violation code
-		("code" in err && (err as { code?: string }).code === "23505")
-	);
+	const check = (e: unknown): boolean => {
+		if (!(e instanceof Error)) return false;
+		const msg = e.message.toLowerCase();
+		const isMatch =
+			msg.includes("unique") ||
+			msg.includes("duplicate") ||
+			msg.includes("constraint") ||
+			("code" in e && (e as { code?: string }).code === "23505");
+		if (isMatch) return true;
+		if (e.cause !== undefined) return check(e.cause);
+		return false;
+	};
+	return check(err);
 }

@@ -191,7 +191,15 @@ export function createFilesystemRoutes(
 				});
 			} catch (err) {
 				// FK violation on teamId → 404
-				const msg = err instanceof Error ? err.message : String(err);
+				// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
+				const errMsg = (e: unknown): string => {
+					if (!(e instanceof Error)) return String(e);
+					const own = e.message;
+					if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
+						return own;
+					return e.cause !== undefined ? errMsg(e.cause) : own;
+				};
+				const msg = errMsg(err);
 				if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
 					return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
 				}
@@ -343,13 +351,24 @@ export function createFilesystemRoutes(
 					createdAt: now,
 				});
 			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
 				// UNIQUE constraint violation (composite PK already exists) → 409
+				// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find constraint message.
+				const constraintMsg = (e: unknown): string => {
+					if (!(e instanceof Error)) return String(e);
+					const own = e.message.toLowerCase();
+					if (
+						e.message.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
+						own.includes("duplicate key") ||
+						own.includes("unique constraint")
+					)
+						return e.message;
+					return e.cause !== undefined ? constraintMsg(e.cause) : e.message;
+				};
+				const msg = constraintMsg(err);
 				if (
 					msg.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
-					msg.includes("duplicate key") ||
-					msg.includes("UNIQUE constraint") ||
-					msg.includes("unique constraint")
+					msg.toLowerCase().includes("duplicate key") ||
+					msg.toLowerCase().includes("unique constraint")
 				) {
 					return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
 				}

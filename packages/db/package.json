@@ -15,14 +15,14 @@
 		"migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.4.4",
+		"@electric-sql/pglite": "^0.5.1",
 		"@hyperidle/shared": "*",
-		"drizzle-orm": "^0.39.0",
+		"drizzle-orm": "^0.45.2",
 		"drizzle-zod": "^0.8.3",
 		"postgres": "^3.4.9",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"drizzle-kit": "^0.30.0"
+		"drizzle-kit": "^0.31.10"
 	}
 }
