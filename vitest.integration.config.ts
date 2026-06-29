@@ -59,6 +59,15 @@ export default defineConfig({
 					testTimeout: 240_000,
 					// Real-LLM serial: never run two real-binary harness files in parallel.
 					fileParallelism: false,
+					// @lore AR1: retry:2 (3 attempts) on the HARNESS project ONLY. Real-LLM
+					// agentic-loop tests are nondeterministic — a multi-turn model run can
+					// transiently fail to complete a tool action (e.g. "proof.txt not written"
+					// in session 2) and pass on re-run. Lane-level retry absorbs that transient
+					// model nondeterminism so the attested gate isn't a coin-flip, WITHOUT masking
+					// a real break (a genuine logic/contract failure fails all 3 attempts). The
+					// SERVICE project is deliberately NOT retried: its tests are deterministic
+					// DB+app tests, and a retry there would hide real flakiness / race bugs.
+					retry: 2,
 					include: HARNESS_INCLUDE,
 					exclude: SHARED_EXCLUDE,
 					pool: "threads",
