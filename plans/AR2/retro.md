@@ -86,3 +86,43 @@ Line-397 comment replaced with one clean sentence.
 3. **Two-lane pattern is honest about model limitations.** Cheap ≠ Honest. Both run, both gate on the real harness.
 4. **Spec premises need architecture vetting.** Always review spec against reality before build starts.
 5. **Stale base = noise.** Always work on a fresh-rebased feature branch.
+
+---
+
+## Reopened cycle — equal-harness-coverage
+
+AR2 first **shipped** (PR #382, CI green) covering only `claude`+`builtin`, then was reopened because that violated AR1's governing rule "harness integration tests run across EVERY supported harness." The reopened cycle hardened the *gate* (not just the test) to make subset coverage non-shippable, and surfaced two more real product bugs. Three builder rounds + three review rounds.
+
+### Signal: A shipped, CI-green WP was rejected for a rule violation no gate caught
+
+AR2's first ship (PR #382) covered only `claude`+`builtin` — two of four supported harnesses. CI was green. The founder caught the gap by **reading the test**, not from any gate firing. honest-harness-guard only banned *stubs* (a single real `claude` lane passes it clean); the attestation floor only checked global `agenticExecuted>0` (one harness satisfies it). Neither encoded harness *breadth*. **Evidence:** `git log` shows `e059c90f chore(AR2): reopen — expand to full supported-harness matrix`; the prior cycle's done/attestation (`dcd9de2c`, `a10edf5e`, `agenticExecuted=105`) minted green on the partial matrix.
+
+### Friction (root cause): the local spec out-competed the governing rule — the EXACT failure AR1 was built to prevent
+
+AR2's own spec said "at least one CLI binary" (TRACK-AR.md Plan-calls, ~line 154 pre-amend) and its ACs said "a real `HarnessAdapter`" (singular) — both narrower than AR1's rule "every supported harness." All three personas (designer, builder, reviewer) + the orchestrator followed the *local* spec and shipped a conforming-to-spec, violating-the-rule WP. **Evidence:** TRACK-AR.md diff (`267548b7` amend) replaces "at least one CLI binary" with "Cover the FULL supported-harness matrix (`builtin`+`claude`+`codex`+`opencode`)" and adds AC "The test covers the FULL supported-harness matrix … NOT 'at least one CLI binary.'" The rule itself (`.claude/rules/testing.md`) was *also* edited to name `SUPPORTED_HARNESSES` explicitly — i.e. the rule was clear in intent but not mechanically pinned, so a narrower local spec won.
+
+### Win: the fix hardened the GATE, not just the test (belt-and-suspenders)
+
+Founder direction was to make subset coverage *mechanically* non-shippable, two independent layers:
+- **Lint coverage check** (`scripts/honest-harness-guard.ts` §1): every harness-facing `*.integration.test.ts` must `declare` a `requireHarness(<name>)` lane for all of `SUPPORTED_HARNESSES` (single source in `scripts/lib/honest-harness-predicate.ts`), or be on `scripts/coverage-debt.allowlist.json` (AR3–AR6 staged debt, shrinks monotonically). Gates the *source declaration*.
+- **Attestation per-harness floor** (`assertPerHarnessFloor` in `scripts/lib/attestation-floor.ts`; `agenticExecutedByHarness` keyed off `[harness:X]` describe tags via `ancestorTitles`): fails if any supported harness ran *zero* executed agentic assertions. Gates *execution*.
+
+The lint check proves the name appears; the floor proves the lane RAN. AR2's own test is on **neither** allowlist — it fully conforms (4 lanes, `agenticExecutedByHarness` = builtin/claude/codex/opencode each `{executed:1}`). **Evidence:** committed attestation `fbcb5b2e….json` carries all four keys non-zero; `coverage-debt.allowlist.json` lists 13 AR3–AR6 files, none AR2.
+
+### Cost: a review *non-blocker* I tightened became a real BLOCKER (W-2) — ~1 avoidable full build cycle
+
+The round-2 review (`31aba878`) flagged W-2 — codex/opencode floor admitting `not_returned` — as **"Defensible, not blocking,"** explicitly recommending acceptance with a justifying lore reference. The orchestrator nonetheless instructed the builder to tighten the floor to require `outcome==="completed"` (`fbcb5b2e`: "tighten CLI floor to completed+cost"). Both lanes then **timed out at 240s** (survived `retry:2` → structural, not flake): codex/opencode do real work but legitimately end `not_returned` on a file-write task (they don't fire the MCP return tool), so the return-gate re-prompt loop never reached `completed`. Reverted to an honest floor — non-crash outcome (`completed|not_returned`) + best-effort `answer.txt` capture (`a4a6cfc1`). **Cost:** one extra full build+verify cycle (~10min) chasing an over-tightening the reviewer had *pre-warned* about. **Lesson:** a "tighten this" instruction to a builder needs an explicit "or raise a BLOCKER with evidence" escape that the builder must USE before shipping the tightened version — the reviewer's "not blocking" should have been the stop signal.
+
+### Win: honest harness tests surfaced TWO more real product bugs (AR-track thesis validated again)
+
+Expanding to the real codex+opencode lanes exposed bugs stubs would bury forever:
+- **opencode `tool_use` event unmapped → would crash `provisionSession`** (`crashed=true` via `UnknownHarnessEvent`). opencode `--format json` emits `tool_use` (not `tool`), plus `step_start`/`text` lifecycle events, none handled. **Fixed** (`c7bd4a03`, `harness-event-normalization.ts`; shape verified by running opencode manually 2026-06-29). Also added `XDG_DATA_HOME` isolation for SQLite lock contention.
+- **codex cost-extraction vestigial → codex cost always 0.** `CLI_TOOL_CONFIGS.codex.costField = total_cost_usd` is never emitted; codex reports via `turn.completed` + a usage block, not a `result`+`total_cost_usd` event. **Deferred to AR3, lore'd** (`@lore codex-cost-zero`).
+
+### Cost/Signal: builders repeatedly STRANDED the long agentic verify; the orchestrator drove it
+
+The 4-lane agentic verify is slow (~80s+ when healthy, 240s on the timeout). Builders repeatedly **backgrounded it and ended the turn** → `agenticExecuted=0` interrupted attestations. The orchestrator had to drive verify itself each round. Reconfirms the AR1 ship-loop lesson: the long agentic run must complete *in-turn*; a backgrounded verify is a non-attestation.
+
+### Cost: where the three rounds went (and which were avoidable)
+
+designer-amend → architecture-critique → **builder R1** (gate+matrix, `468c31e7`) → **review R1** (`31aba878`) → **builder R2** (W-1 comment-strip / M-1 exports / W-2 tighten, `fbcb5b2e`) → **review R2** → **builder R3** (W-2 honest-floor revert, `a4a6cfc1`) → **review R3** (`20605c78`). Round 1→2 was legitimate (real W-1/M-1 findings). **Round 2→3 was avoidable**: it existed only to revert the W-2 over-tightening the reviewer had already labeled non-blocking. One of three builder rounds was pure round-trip cost on a pre-warned over-correction.
