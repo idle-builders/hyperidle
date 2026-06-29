@@ -1,8 +1,8 @@
 {
-	"sha": "c7bd4a039dae8f08be122bbd8dc3f4e7bafbf652",
-	"srcHash": "3916865d9466599ebeb3d5fd8ed69765b1248e5d3a5b40a1b7c5afd2daf5f41c",
-	"status": "passed",
-	"dirty": true,
+	"sha": "fbcb5b2e07fefc7cbac4f377a1a3e78bb4dd3cbe",
+	"srcHash": "020cd6ed6a84e1433d7d47b2078ba59d1b86af196d672abfdcb6132224e1d57c",
+	"status": "failed",
+	"dirty": false,
 	"tools": [
 		"test",
 		"test:integration"
@@ -33,6 +33,6 @@
 			"skipped": 0
 		}
 	},
-	"timestamp": "2026-06-29T18:05:21.385Z",
-	"hmac": "55aca133b4fc8de77dc012721bddf637ca806882f0e9fb6892159b2110cbe27b"
+	"timestamp": "2026-06-29T19:24:55.005Z",
+	"hmac": "72c594e94173411d62f575aeb75ae51337e9ad847b5f5dc73354d1804f745e5d"
 }

@@ -1,7 +1,7 @@
 {
   "id": "AR2",
   "status": "in_progress",
-  "currentStep": "4-review-gate-matrix",
+  "currentStep": "5-docs",
   "branch": "feat/AR2-real-provision-session",
   "startedAt": "2026-06-29",
   "complexity": "M",
