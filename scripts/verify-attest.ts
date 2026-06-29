@@ -32,9 +32,13 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { isHarnessIntegrationPath } from "./lib/honest-harness-predicate.js";
+import {
+	SUPPORTED_HARNESSES,
+	isHarnessIntegrationPath,
+} from "./lib/honest-harness-predicate.js";
 import {
 	type VitestJsonResult,
+	assertPerHarnessFloor,
 	extractAgenticCounts,
 } from "./lib/attestation-floor.js";
 
@@ -132,15 +136,18 @@ function main(): void {
 	// failure AND forces the floor to trip — never a silent `undefined`.
 	let agenticExecuted = 0;
 	let agenticSkipped = 0;
+	let agenticExecutedByHarness: Record<string, { executed: number; skipped: number }> = {};
 	try {
 		const json = JSON.parse(readFileSync(tmpJson, "utf-8")) as VitestJsonResult;
 		const counts = extractAgenticCounts(json, isHarnessIntegrationPath);
 		agenticExecuted = counts.agenticExecuted;
 		agenticSkipped = counts.agenticSkipped;
+		agenticExecutedByHarness = counts.byHarness;
 	} catch {
 		status = "failed";
 		agenticExecuted = 0;
 		agenticSkipped = 0;
+		agenticExecutedByHarness = {};
 		process.stderr.write(
 			"verify-attest: could not read integration JSON — status=failed, agentic counts 0/0\n",
 		);
@@ -148,6 +155,29 @@ function main(): void {
 		try {
 			rmSync(tmpDir, { recursive: true, force: true });
 		} catch {}
+	}
+
+	// AR2 W5: a fresh verify-attest run ALWAYS populates agenticExecutedByHarness
+	// with all four supported-harness keys, defaulting absent buckets to 0.
+	// This ensures the per-harness floor in check-attestation can never be
+	// permanently inert because the field was missing. Back-compat path (legacy
+	// attestations without this field) is in check-attestation.ts only.
+	const byHarnessWithDefaults: Record<string, { executed: number; skipped: number }> = {};
+	for (const h of SUPPORTED_HARNESSES) {
+		byHarnessWithDefaults[h] = agenticExecutedByHarness[h] ?? { executed: 0, skipped: 0 };
+	}
+	// Also include any extra harnesses found in the report (future-proofing).
+	for (const [h, v] of Object.entries(agenticExecutedByHarness)) {
+		if (!(h in byHarnessWithDefaults)) byHarnessWithDefaults[h] = v;
+	}
+
+	// Fail immediately if any supported harness has zero executed — the gate
+	// runs at attest time so no status=passed attestation can be minted for a
+	// partially-covered matrix.
+	const perHarnessViolation = assertPerHarnessFloor(byHarnessWithDefaults, SUPPORTED_HARNESSES);
+	if (perHarnessViolation) {
+		status = "failed";
+		process.stderr.write(`verify-attest: ${perHarnessViolation}\n`);
 	}
 
 	const payload = {
@@ -161,6 +191,8 @@ function main(): void {
 		smartSkipped: [] as string[],
 		agenticExecuted,
 		agenticSkipped,
+		/** AR2: per-harness executed/skipped counts. Always populated on a fresh verify-attest run. */
+		agenticExecutedByHarness: byHarnessWithDefaults,
 		timestamp: new Date().toISOString(),
 	};
 

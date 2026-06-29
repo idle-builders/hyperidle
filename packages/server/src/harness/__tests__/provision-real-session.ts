@@ -19,7 +19,9 @@
  * makes the seam load-bearing for AC2.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
@@ -116,6 +118,81 @@ function readDirRecursive(dir: string, root: string, out: Map<string, string>): 
 			}
 		}
 	}
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Per-harness sandbox/auth prep helpers (lifted from cli-adapter-real-binary.
+// integration.test.ts so both test files share one source — AR2 §4)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Provision the sandbox files that CLAUDE_CLI_CONFIG args reference.
+ *
+ * @lore AR2: In the AR2 integration test we use `startMcpBridgeServer()` which
+ * writes a live `.mcp.json`; for cli-adapter-real-binary (which only tests the
+ * CliHarnessAdapter directly, not provisionSession) a dead URL is fine. Here we
+ * write a placeholder `.mcp.json` + the required `.claude/settings.json` so
+ * both call-sites share the same sandbox setup. The live `.mcp.json` from
+ * `startMcpBridgeServer` overwrites the placeholder if called after this.
+ */
+export function provisionClaudeSandbox(sandboxPath: string): void {
+	// --mcp-config .mcp.json: placeholder — startMcpBridgeServer overwrites this
+	// with a live URL when used through provisionSession.
+	fs.writeFileSync(
+		path.join(sandboxPath, ".mcp.json"),
+		JSON.stringify({
+			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
+		}),
+		"utf-8",
+	);
+	// --settings .claude/settings.json: empty object = no Stop hook → no re-prompt loop.
+	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
+	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
+}
+
+/**
+ * Copy codex auth (auth.json + config.toml only, NOT SQLite files) into .codex-home/.
+ * Returns true if auth.json was found, false if codex auth is unavailable.
+ *
+ * @lore AR2: SQLite files (.db) lock and cause codex to exit before making an LLM call.
+ * Copy ONLY auth.json + config.toml. The adapter auto-detects .codex-home/ and sets
+ * CODEX_HOME. Codex also requires a git repo in the sandbox cwd — call `git init` +
+ * empty commit before running the adapter.
+ */
+export function provisionCodexHome(sandboxPath: string): boolean {
+	const codexHomeDir = path.join(sandboxPath, ".codex-home");
+	fs.mkdirSync(codexHomeDir, { recursive: true });
+	const homeCodexDir = path.join(os.homedir(), ".codex");
+	let authFound = false;
+	for (const fname of ["auth.json", "config.toml"]) {
+		const src = path.join(homeCodexDir, fname);
+		if (fs.existsSync(src)) {
+			fs.copyFileSync(src, path.join(codexHomeDir, fname));
+			if (fname === "auth.json") authFound = true;
+		}
+	}
+	return authFound;
+}
+
+/**
+ * Initialize a git repo in the sandbox (required by codex exec).
+ *
+ * @lore AR2: `codex exec` fails with "not a git repository" unless the cwd is
+ * a git repo. We create an empty initial commit so codex finds a valid HEAD.
+ */
+export function initGitRepo(sandboxPath: string): void {
+	execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
+	execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+		cwd: sandboxPath,
+		stdio: "ignore",
+		env: {
+			...process.env,
+			GIT_AUTHOR_NAME: "test",
+			GIT_AUTHOR_EMAIL: "test@test.com",
+			GIT_COMMITTER_NAME: "test",
+			GIT_COMMITTER_EMAIL: "test@test.com",
+		},
+	});
 }
 
 // ────────────────────────────────────────────────────────────────────────────

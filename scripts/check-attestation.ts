@@ -22,7 +22,8 @@ import { execSync } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { assertAgenticFloor } from "./lib/attestation-floor.js";
+import { assertAgenticFloor, assertPerHarnessFloor } from "./lib/attestation-floor.js";
+import { SUPPORTED_HARNESSES } from "./lib/honest-harness-predicate.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -72,6 +73,11 @@ interface Attestation {
 	/** AR1 agentic floor: assertions skipped (skipped|pending|todo) across harness-facing
 	 * integration files. Optional for legacy back-compat. */
 	agenticSkipped?: number;
+	/** AR2: per-harness executed/skipped counts keyed by [harness:X] describe tag.
+	 * Optional for legacy attestations minted before AR2 ⇒ the per-harness floor is
+	 * skipped (back-compat, mirrors the srcHash?/agenticExecuted? optional pattern).
+	 * A fresh verify-attest run ALWAYS populates this with all four supported-harness keys. */
+	agenticExecutedByHarness?: Record<string, { executed: number; skipped: number }>;
 	timestamp: string;
 	hmac: string;
 }
@@ -164,6 +170,18 @@ function main(): void {
 	});
 	if (floorViolation) {
 		fail(floorViolation);
+	}
+
+	// AR2 per-harness floor: every supported harness must have at least one executed
+	// agentic assertion. Optional field ⇒ legacy attestations validate (back-compat).
+	// A fresh verify-attest run always populates all four keys; the floor returns null
+	// on undefined (the only way the floor can be skipped is a pre-AR2 attestation).
+	const perHarnessViolation = assertPerHarnessFloor(
+		attestation.agenticExecutedByHarness,
+		SUPPORTED_HARNESSES,
+	);
+	if (perHarnessViolation) {
+		fail(perHarnessViolation);
 	}
 
 	// Source-integrity: the attested tests must correspond to the source CI is

@@ -192,10 +192,16 @@ const DIRTY_SRC = [
 	`test("x", async () => {});`,
 ].join("\n");
 
+// AR2: a "clean" harness-facing integration file must declare ALL four SUPPORTED_HARNESSES.
+// A file with only "claude" is now coverage-dirty (incomplete matrix) — CLEAN_SRC must cover
+// the full matrix to pass the coverage check added in honest-harness-guard.ts §1.
 const CLEAN_SRC = [
 	`import { requireHarness } from "./require-harness.js";`,
 	`import { CliHarnessAdapter } from "../cli-harness-adapter.js";`,
+	`requireHarness("builtin");`,
 	`requireHarness("claude");`,
+	`requireHarness("codex");`,
+	`requireHarness("opencode");`,
 	`test("x", async () => {});`,
 ].join("\n");
 
