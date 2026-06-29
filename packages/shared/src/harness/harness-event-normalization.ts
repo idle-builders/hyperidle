@@ -163,6 +163,47 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 			const args = isRecord(input.input) ? input.input : isRecord(input.args) ? input.args : {};
 			return { type: "tool_call", toolName, args };
 		}
+		case "tool_use": {
+			// tool_use event signals a tool call (observed in opencode --format json output).
+			// The event structure: { type:"tool_use", part:{ type:"tool", tool:<name>,
+			// state:{ input:<args> } } }
+			//
+			// @lore AR2 opencode-tool_use: opencode --format json emits "tool_use" (not "tool")
+			// for tool calls. Discovered 2026-06-29 by running `opencode run ... --format json`
+			// manually: the JSONL stream contains step_start → tool_use → step_finish.
+			// Without this branch, tool_use hits the default path → preMapCodexEvent (no match)
+			// → unknownEvent → { type:"error", code:"UnknownHarnessEvent" }
+			// → provisionSession crashed=true. Fix: map tool_use to tool_call using part.tool
+			// for the name and part.state.input for the args.
+			const part = isRecord(input.part) ? input.part : {};
+			const toolName =
+				typeof part.tool === "string"
+					? part.tool
+					: typeof input.tool === "string"
+						? input.tool
+						: "unknown";
+			const state = isRecord(part.state) ? part.state : {};
+			const args = isRecord(state.input)
+				? state.input
+				: isRecord(input.input)
+					? input.input
+					: isRecord(input.args)
+						? input.args
+						: {};
+			return { type: "tool_call", toolName, args };
+		}
+		case "step_start":
+		case "text":
+			// Lifecycle / streaming events with no actionable content — produce a benign
+			// empty completion so they don't fall through to unknownEvent (→ error).
+			//
+			// @lore AR2 opencode-events: opencode `--format json` emits step_start (turn-start
+			// lifecycle) and text (streaming text chunk) events alongside step_finish.
+			// Verified opencode 1.17.11: a simple `run` turn yields step_start → text → step_finish.
+			// Without these branches, step_start and text hit the default path → unknownEvent
+			// → { type: "error", code: "UnknownHarnessEvent" } → provisionSession crashed = true.
+			// The fix: map them to a benign empty completion (same pattern as codex thread.started).
+			return { type: "completion", text: "" };
 		default:
 			return input;
 	}
@@ -173,9 +214,10 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
  * before normalization.
  *
  * codex `exec <prompt> --json` emits NDJSON where `type` is codex-specific.
- * Verified codex event types (2026-06-28):
+ * Verified codex event types (2026-06-28/2026-06-29):
  *   thread.started — session init; no content; benign → ignored (empty completion)
  *   turn.started   — turn init; no content; benign → ignored
+ *   item.started   — item start (command/tool execution start); benign → ignored
  *   item.completed — turn content; item.type === "agent_message" carries the text
  *   turn.completed — session summary; carries usage (input/output tokens) → token_usage
  *
@@ -184,6 +226,10 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
  * canonical EVENT_TYPES set. Discovered 2026-06-28 when the stdin-close fix unblocked
  * codex sessions through the production adapter and exposed the missing pre-map.
  * The item.completed event is the primary carrier of the agent's response text.
+ *
+ * @lore AR2 codex-item-started: `item.started` is emitted when codex begins executing
+ * a command/tool (e.g. shell command). It was missing from the pre-map, causing
+ * provisionSession to crash whenever codex ran any shell command. Added 2026-06-29.
  */
 function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknown> {
 	switch (input.type) {
@@ -208,8 +254,10 @@ function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknow
 		}
 		case "thread.started":
 		case "turn.started":
-			// Lifecycle events with no content — produce a benign ignored completion.
-			// We return a completion with empty text rather than an error event.
+		case "item.started":
+			// Lifecycle events with no actionable content — produce a benign empty completion.
+			// @lore AR2: item.started fires when codex begins executing a shell command.
+			// Without this branch it becomes UnknownHarnessEvent → error → crashed=true.
 			return { type: "completion", text: "" };
 		default:
 			return input;

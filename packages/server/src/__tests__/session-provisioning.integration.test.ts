@@ -267,30 +267,20 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 				.where(eq(messages.senderId, "agent-1"));
 			expect(agentMessages.length).toBeGreaterThan(0);
 
-			// @lore AR2-latent-bug return-action-mcp-namespace: `result.outcome` is the
-			// AL6 return-VERDICT. For a real claude session the ONLY return tools available
+			// @lore AR2-fix return-action-mcp-namespace: `result.outcome` is the AL6
+			// return-VERDICT. For a real claude session the ONLY return tools available
 			// are the MCP-bridge ones, so the agent calls `mcp__hyperidle__send_message`.
-			// But `isReturnAction` (shared/harness/return-actions.ts) matches the BARE name
-			// `send_message` and does NOT strip the `mcp__<server>__` prefix, so the return
-			// gate never registers the return → endSession persists outcome="not_returned"
-			// even though the agent genuinely returned (proven by the real message row above).
-			// This is a latent PRODUCTION bug AR1's honest test surfaced (same class as the
-			// unconditional `--mcp-config` one): a real CLI+MCP session can NEVER be verdicted
-			// "completed" until isReturnAction strips the MCP namespace. AR2 (the
-			// provisionSession-seam WP) owns the fix; NOT in AR1 scope (test-honesty only —
-			// AR1 must not change production behavior to make a test pass). We assert the
-			// honest current verdict so a regression (or the AR2 fix flipping it to
-			// "completed") is caught here.
-			expect(result.outcome).toBe("not_returned");
+			// AR2 fixed `isReturnAction` (shared/harness/return-actions.ts) to strip the
+			// `mcp__<server>__` prefix before the set lookup, so the return gate now
+			// correctly registers the return → endSession persists outcome="completed".
+			// AR1 surfaced the bug; AR2 owns the fix (AR1 was test-honesty only, must not
+			// change production behavior). Updated assertion: "completed" (was "not_returned").
+			expect(result.outcome).toBe("completed");
 		} finally {
 			await bridge.close();
 		}
-		// 240s: a real claude session that returns via the MCP send_message tool can run
-		// long once the return-enforcement re-prompt loop (AL6) is in play — because the
-		// MCP-namespace return-action bug (lored above) prevents the gate from recognizing
-		// the first send_message, so the Stop hook re-prompts up to the AL6 force budget,
-		// adding turns. Observed live: 40-140s. The session genuinely completes (real cost,
-		// real message row); it is just slow. Once AR2 fixes isReturnAction this drops to
-		// one turn. Generous ceiling keeps the honest run from flaking on a slow LLM day.
+		// 240s: a real claude session that returns via the MCP send_message tool now
+		// completes in one turn (the AR2 isReturnAction fix eliminated the re-prompt loop
+		// for CLI+MCP sessions). Ceiling kept generous for slow LLM days.
 	}, 240_000);
 });

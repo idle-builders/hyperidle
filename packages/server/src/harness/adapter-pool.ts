@@ -368,6 +368,14 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// AL7 delta: codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
 		mcpConfig: { dialect: "codex-toml" },
+		// @lore AR2 codex-stderr-ignore: codex emits informational messages to stderr
+		// throughout a session (startup "Reading additional input from stdin...",
+		// progress lines, debug output). ALL are benign — real failures manifest as
+		// non-zero exit code (→ buildResult outcome:"crashed") or JSONL error events
+		// in stdout. Silencing all codex stderr prevents false crash-on-informational-line.
+		// Verified codex-cli 0.141.x: the process exits 0 on success regardless of
+		// how much stderr it emits.
+		stderrIgnorePatterns: [/.*/],
 	},
 	opencode: {
 		binary: "opencode",
@@ -401,7 +409,13 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
 		// (captured>=1) is on the MCP router path and does NOT depend on event normalization.
 		eventFormat: "ndjson",
-		envAllowlist: ["PATH", "HOME", "LANG"],
+		// @lore AR2 opencode-env: OPENROUTER_API_KEY is included for OpenRouter-routed models.
+		// XDG_DATA_HOME is included so callers can set a per-session data directory to isolate
+		// opencode's SQLite database (avoids lock contention when multiple processes run in
+		// rapid succession). Without XDG_DATA_HOME isolation, concurrent opencode processes
+		// hang on the global ~/.local/share/opencode/opencode.db write-lock.
+		// See provisionOpencodeHome() in provision-real-session.ts for the isolation pattern.
+		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
 		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
 		// deriveCliChannel("opencode") → "process-reengage" is a fallback; explicit is authoritative.
@@ -414,6 +428,12 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// AL7 delta: opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
+		// @lore AR2 opencode-stderr-ignore: opencode emits informational progress messages
+		// to stderr (model selection, run status, debug output). ALL are benign — real
+		// failures manifest as non-zero exit code (→ buildResult outcome:"crashed") or
+		// JSONL error events in stdout. Silencing all opencode stderr prevents false
+		// crash-on-informational-line (same reasoning as codex).
+		stderrIgnorePatterns: [/.*/],
 	},
 };
 

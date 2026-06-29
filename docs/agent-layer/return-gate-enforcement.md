@@ -16,6 +16,8 @@ Three tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `
 
 The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName)` is an O(1) lookup and the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 
+**MCP-namespace stripping (AR2 W1 fix):** CLI harnesses route tool calls through the MCP bridge. The MCP protocol namespaces tool names with the server prefix (`mcp__<server>__<tool>`, e.g. `mcp__hyperidle__submit_review`). Before AR2, `isReturnAction` received the raw namespaced name and returned `false` — causing CLI-harness turns that called a return action to be recorded as `not_returned`. `stripMcpNamespace(toolName)` in `packages/shared/src/harness/return-actions.ts` strips the `mcp__<server>__` prefix before the membership check. `isReturnAction` now calls `stripMcpNamespace` internally so all callers get correct behaviour without knowing the transport layer.
+
 ---
 
 ## 2. Exemptions
@@ -247,7 +249,8 @@ Local-only tests (require binary + auth). The builtin block is the CI anchor.
 | Symbol | Location | Value / purpose |
 |---|---|---|
 | `RETURN_ACTION_NAMES` | `harness/return-actions.ts` | `["submit_review", "handoff_to", "send_message"]` |
-| `isReturnAction(name)` | `harness/return-actions.ts` | O(1) membership check |
+| `stripMcpNamespace(name)` | `harness/return-actions.ts` | Strips `mcp__<server>__` prefix; called internally by `isReturnAction` |
+| `isReturnAction(name)` | `harness/return-actions.ts` | O(1) membership check; strips MCP namespace first (AR2 W1 fix) |
 | `isInternalExtractionDrain(config)` | `harness/return-actions.ts` | Exemption check (`tools.length === 0`) |
 | `AL6_FORCE_RETURN_MESSAGE` | `harness/return-actions.ts` | The forcing message text |
 | `AL6_MAX_FORCE_RETURNS` | `harness/return-actions.ts` | `2` — budget per session |

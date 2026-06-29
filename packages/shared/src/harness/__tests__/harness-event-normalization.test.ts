@@ -72,8 +72,66 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		}
 	});
 
-	it("unmapped opencode type → error/UnknownHarnessEvent (not silently dropped)", () => {
+	it("step_start → benign empty completion (not an error — lifecycle event, AR2 fix)", () => {
+		// @lore AR2 opencode-events: step_start is emitted at turn-start by opencode
+		// `--format json`. Without this mapping it falls through to unknownEvent →
+		// { type:"error" } → provisionSession crashed=true. Mapped to benign completion.
 		const input = { type: "step_start", id: "s1" };
+		const result = normalizeHarnessEvent(input);
+		expect(result.type).toBe("completion");
+	});
+
+	it("text → benign empty completion (not an error — streaming chunk, AR2 fix)", () => {
+		// @lore AR2 opencode-events: text events are streaming text chunks emitted by
+		// opencode between step_start and step_finish. Mapped to benign completion.
+		const input = { type: "text", content: "hello" };
+		const result = normalizeHarnessEvent(input);
+		expect(result.type).toBe("completion");
+	});
+
+	it("tool_use → tool_call (actual opencode --format json event shape, AR2 fix)", () => {
+		// @lore AR2 opencode-tool_use: opencode --format json emits "tool_use" (not "tool")
+		// for tool calls. Discovered 2026-06-29 by running opencode manually. Real event:
+		// { type:"tool_use", part:{ type:"tool", tool:"bash", state:{ input:{ command:"echo 4" } } } }
+		// Without this branch, tool_use hits default → preMapCodexEvent (no match) →
+		// unknownEvent → { type:"error", code:"UnknownHarnessEvent" } → crash.
+		const input = {
+			type: "tool_use",
+			part: {
+				type: "tool",
+				tool: "bash",
+				callID: "call_abc",
+				state: {
+					status: "completed",
+					input: { command: "echo 4" },
+					output: "4\n",
+				},
+			},
+		};
+		const result = normalizeHarnessEvent(input);
+		expect(result.type).toBe("tool_call");
+		if (result.type === "tool_call") {
+			expect(result.toolName).toBe("bash");
+			expect(result.args).toEqual({ command: "echo 4" });
+		}
+	});
+
+	it("tool_use → tool_call (fallback toolName from top-level tool field when part absent)", () => {
+		const input = {
+			type: "tool_use",
+			tool: "write_file",
+			input: { path: "out.txt" },
+		};
+		const result = normalizeHarnessEvent(input);
+		expect(result.type).toBe("tool_call");
+		if (result.type === "tool_call") {
+			expect(result.toolName).toBe("write_file");
+		}
+	});
+
+	it("genuinely unknown opencode type → error/UnknownHarnessEvent (not silently dropped)", () => {
+		// Use a truly unrecognized type (not one of the handled lifecycle events).
+		const input = { type: "opencode_future_unknown_event", id: "x1" };
 		const result = normalizeHarnessEvent(input);
 		// Unmapped types fall through to unknownEvent → error event with UnknownHarnessEvent code
 		expect(result.type).toBe("error");

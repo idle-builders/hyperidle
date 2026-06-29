@@ -106,6 +106,42 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 	});
 });
 
+describe("isReturnAction — MCP namespace stripping (AR2)", () => {
+	// The real return-action tool names shipped in v1 (return-actions.ts).
+	// CLI harnesses route HyperIdle tools through MCP as `mcp__<server>__<bare>`.
+	// stripMcpNamespace() must normalise these to the bare name before the set lookup.
+
+	it("namespaced send_message is recognised as a return action", () => {
+		expect(isReturnAction("mcp__hyperidle__send_message")).toBe(true);
+	});
+
+	it("namespaced submit_review is recognised as a return action", () => {
+		expect(isReturnAction("mcp__hyperidle__submit_review")).toBe(true);
+	});
+
+	it("namespaced handoff_to is recognised as a return action", () => {
+		expect(isReturnAction("mcp__hyperidle__handoff_to")).toBe(true);
+	});
+
+	it("bare send_message still works (builtin path — no namespace)", () => {
+		expect(isReturnAction("send_message")).toBe(true);
+	});
+
+	it("namespaced non-return tool is NOT a false positive", () => {
+		// update_task_status is deferred (not in v1 set); namespaced form must also be false.
+		expect(isReturnAction("mcp__hyperidle__update_task_status")).toBe(false);
+		expect(isReturnAction("mcp__hyperidle__read_inbox")).toBe(false);
+	});
+
+	it("server name with underscores is handled correctly (W-1 regex fix)", () => {
+		// Regex was /^mcp__[^_][^_]*__/ — rejected server names like `my_server`.
+		// Fixed to /^mcp__.+?__/ — non-greedy, matches any server name.
+		expect(isReturnAction("mcp__my_server__send_message")).toBe(true);
+		expect(isReturnAction("mcp__hyper_idle__submit_review")).toBe(true);
+		expect(isReturnAction("mcp__hyper_idle__read_inbox")).toBe(false);
+	});
+});
+
 describe("isInternalExtractionDrain — AC4: exemption predicate", () => {
 	// The exemption helper is also in return-actions (or return-gate — architecture §2.3).
 	// Import it from @hyperidle/shared once it exists. For now reference the planned export.

@@ -24,6 +24,26 @@ import { execFileSync } from "node:child_process";
 
 export type HarnessName = "claude" | "codex" | "opencode" | "gh" | "builtin";
 
+/**
+ * AR2 §0 — bidirectional lockstep with scripts/lib/honest-harness-predicate.ts
+ * SUPPORTED_HARNESSES. `packages/` cannot import `scripts/`, so we mirror the
+ * 4-element literal here and assert TYPE IDENTITY in BOTH directions:
+ *   _AssertSupportedInHarness: every supported name is a valid HarnessName (→).
+ *   _AssertHarnessCoversSupported: every member of the mirror is a SupportedHarness (←).
+ * Adding a harness to SUPPORTED_HARNESSES without updating HarnessName → `npm run check` RED.
+ * Adding to HarnessName without updating the mirror → `npm run check` RED (the ← assert fails).
+ * `gh` is intentionally a HarnessName but NOT in the mirror — it is a tool, not an agent harness.
+ */
+// biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
+const SUPPORTED_HARNESSES_MIRROR = ["builtin", "claude", "codex", "opencode"] as const;
+type _SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
+// Each supported name must be a valid HarnessName (→):
+type _AssertSupportedInHarness = _SupportedHarness extends HarnessName ? true : never;
+// Each mirror member must be a SupportedHarness — both directions enforced (←):
+type _AssertHarnessCoversSupported = HarnessName extends _SupportedHarness | "gh" ? true : never;
+// Compile-time proof that both asserts hold (any `never` in the union = error):
+declare const _lockstepCheck: [_AssertSupportedInHarness, _AssertHarnessCoversSupported];
+
 /** Binary name on PATH for each binary-backed harness. */
 const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
 	claude: "claude",
