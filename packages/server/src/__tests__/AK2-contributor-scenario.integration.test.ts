@@ -36,8 +36,8 @@ import type {
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
-	SUPPORTED_HARNESS_LANES,
 	runThroughHarness,
+	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "../harness/__tests__/provision-real-session.js";
 import { requireHarness } from "../harness/__tests__/require-harness.js";

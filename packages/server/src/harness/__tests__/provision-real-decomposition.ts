@@ -209,4 +209,3 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 export function makeTmpDir(prefix: string): string {
 	return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
-

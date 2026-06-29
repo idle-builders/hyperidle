@@ -25,12 +25,21 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, knowledgeItems, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	knowledgeItems,
+	sessions,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
-	SUPPORTED_HARNESS_LANES,
 	runThroughHarness,
+	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "../harness/__tests__/provision-real-session.js";
 import { requireHarness } from "../harness/__tests__/require-harness.js";

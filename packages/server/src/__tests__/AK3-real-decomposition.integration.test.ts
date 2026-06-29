@@ -22,13 +22,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-	decompositionDepsForLane,
-} from "../harness/__tests__/provision-real-decomposition.js";
+import { decompositionDepsForLane } from "../harness/__tests__/provision-real-decomposition.js";
 import { SUPPORTED_HARNESS_LANES } from "../harness/__tests__/provision-real-session.js";
 import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
