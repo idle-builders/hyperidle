@@ -126,3 +126,63 @@ describe("missingHarnesses — returns SUPPORTED_HARNESSES not declared in sourc
 		expect(missing).toHaveLength(4);
 	});
 });
+
+// ── Comment/string stripping (W-1 fix) ────────────────────────────────────────
+
+describe("declaredHarnesses — comment and string mentions do NOT count as declared", () => {
+	test("harness name in a line comment is NOT declared", () => {
+		// Gate: requireHarness("codex")   ← this would be a comment in real source
+		const src = `// requireHarness("codex")\nrequireHarness("builtin")\nrequireHarness("claude")\nrequireHarness("opencode")`;
+		const result = declaredHarnesses(src);
+		// codex is only in a line comment — must NOT be counted
+		expect(result.has("codex")).toBe(false);
+		expect(result.has("builtin")).toBe(true);
+		expect(result.has("claude")).toBe(true);
+		expect(result.has("opencode")).toBe(true);
+	});
+
+	test("harness name in a block/JSDoc comment is NOT declared", () => {
+		const src = `/**\n * Gate: requireHarness("codex")\n */\nrequireHarness("builtin")`;
+		const result = declaredHarnesses(src);
+		expect(result.has("codex")).toBe(false);
+		expect(result.has("builtin")).toBe(true);
+	});
+
+	test("harness name in a string literal is NOT declared", () => {
+		// Error message string that mentions the harness name
+		const src = `throw new Error("requireHarness('codex') passed but no auth.json");\nrequireHarness("builtin")`;
+		const result = declaredHarnesses(src);
+		expect(result.has("codex")).toBe(false);
+		expect(result.has("builtin")).toBe(true);
+	});
+
+	test("file that gates 3 harnesses but mentions the 4th only in a comment → missingHarnesses reports the 4th", () => {
+		// This is the exact sanity-break scenario from the reviewer:
+		// remove the real requireHarness("codex") gate call,
+		// leave "codex" in a JSDoc comment and an error string — guard must FAIL.
+		const srcWithCommentOnly = [
+			`/**`,
+			` * Gate: requireHarness("codex")`,
+			` */`,
+			`throw new Error("requireHarness('codex') passed but no auth.json");`,
+			`requireHarness("builtin")`,
+			`requireHarness("claude")`,
+			`requireHarness("opencode")`,
+		].join("\n");
+		const missing = missingHarnesses(srcWithCommentOnly);
+		// codex appears only in comment + string — must be reported as missing
+		expect(missing).toContain("codex");
+		expect(missing).toHaveLength(1);
+	});
+
+	test("real requireHarness call is not stripped — all four declared", () => {
+		const src = [
+			`requireHarness("builtin")`,
+			`requireHarness("claude")`,
+			`requireHarness("codex")`,
+			`requireHarness("opencode")`,
+		].join("\n");
+		const missing = missingHarnesses(src);
+		expect(missing).toHaveLength(0);
+	});
+});

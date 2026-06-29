@@ -24,11 +24,24 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
-import type { BeforeTeardownContext } from "../../services/session-provisioning.js";
+import type {
+	BeforeTeardownContext,
+	ProvisionSessionDeps,
+	ProvisionSessionParams,
+	ProvisionSessionResult,
+} from "../../services/session-provisioning.js";
+import { provisionSession } from "../../services/session-provisioning.js";
+import { AdapterPool, CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { enforcementRegistry } from "../return-enforcement-registry.js";
+import type { HarnessName } from "./require-harness.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // createSandboxCapture
@@ -273,4 +286,294 @@ export async function startMcpBridgeServer(): Promise<{
 			});
 		},
 	};
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SUPPORTED_HARNESS_LANES + runThroughHarness (M-1: AC4 matrix deliverable)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Shared runtime context passed to `runThroughHarness`. Consumers provide
+ * the live db + eventBus (from vitest fixtures), a fresh tmpDir, and the
+ * optional MCP bridge (CLI lanes need it; the builtin lane does not).
+ *
+ * The capture handle is created internally by `runThroughHarness` — callers
+ * read `.files` from the returned object.
+ *
+ * @lore AR2 M-1 (AC4): This context type plus the lane table is the
+ * "extractable matrix helper" the plan named as AC4's deliverable. AR3–AR6
+ * import `SUPPORTED_HARNESS_LANES` and call `runThroughHarness(lane, ctx)`
+ * for each lane — no hand-rebuilt 4-lane describe wiring.
+ */
+export interface HarnessRunCtx {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+	/** Per-test scratch directory — caller creates and cleans up. */
+	readonly tmpDir: string;
+	/**
+	 * Live MCP bridge from `startMcpBridgeServer()`. Required for CLI lanes;
+	 * optional for builtin (which doesn't spawn an external process).
+	 */
+	readonly bridge?: {
+		readonly mcpBridgeRegistry: McpBridgeRegistry;
+		readonly mcpBaseUrl: string;
+		readonly close: () => Promise<void>;
+	};
+}
+
+/**
+ * Per-lane provisioning parameters that `runThroughHarness` assembles into
+ * `ProvisionSessionDeps` + `ProvisionSessionParams`. Each lane carries its
+ * own adapter setup + per-harness prep logic, so a consumer iterating the
+ * table gets all four gates + [harness:X] tags for free.
+ *
+ * `prepFn` runs synchronously before `provisionSession` — it provisions
+ * per-harness auth (codex home, opencode home, git repo init, etc.) and
+ * returns the `ProvisionSessionParams` for this lane. The capture seam
+ * (`cap`) is threaded into `ProvisionSessionDeps.onBeforeTeardown`.
+ */
+export interface HarnessLane {
+	/**
+	 * Harness name — pass to `requireHarness(lane.harnessName)` at describe scope.
+	 * Also used as the `[harness:X]` attestation tag suffix.
+	 */
+	readonly harnessName: HarnessName;
+	/**
+	 * Describe-title prefix including the mechanical attestation tag.
+	 * Usage: `describe(\`\${lane.describeTag} MyTest suite\`, () => { … })`.
+	 * The tag drives the per-harness executed-count bucket in check-attestation.
+	 *
+	 * @lore AR2 M-2 (mitigated by M-1): when the lane table exists, the tag is
+	 * DERIVED from `harnessName` — a typo in `harnessName` misroutes the bucket
+	 * but at least the tag and the gate stay consistent. The previous hand-typed
+	 * shape required consistent edits in two places.
+	 */
+	readonly describeTag: string;
+	/**
+	 * Build the adapter + provision params for this lane.
+	 * `ctx.tmpDir` is the per-test sandbox root. `ctx.bridge` is the MCP bridge
+	 * (CLI lanes throw if absent; the builtin lane ignores it).
+	 *
+	 * Returns the `ProvisionSessionParams` the runner should pass to
+	 * `provisionSession`, the assembled `AdapterPool`, and any per-harness
+	 * capture paths (empty = capture all).
+	 */
+	readonly prepFn: (ctx: HarnessRunCtx) => {
+		readonly pool: AdapterPool;
+		readonly params: ProvisionSessionParams;
+		readonly capturePaths?: readonly string[];
+	};
+}
+
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
+
+/**
+ * The canonical four-harness lane table. Importing this and iterating
+ * `for (const lane of SUPPORTED_HARNESS_LANES)` is AC4's deliverable for AR3–AR6:
+ * each lane carries its own `requireHarness` gate name, `[harness:X]` tag,
+ * adapter setup, and per-harness prep — the consumer gets all four gates by
+ * construction, no hand-rebuilding.
+ *
+ * @lore AR2 M-1: The plan §4 explicitly names this export + `runThroughHarness`
+ * as the "extractable matrix helper". AR3–AR6 adopt: import SUPPORTED_HARNESS_LANES,
+ * run: `for (const lane of SUPPORTED_HARNESS_LANES) { requireHarness(lane.harnessName); … }`
+ *
+ * @lore AR2 W-2: Each CLI lane's task description uses send_message so the agent
+ * calls a return action → outcome === "completed" (not "not_returned"). This is
+ * the plan-mandated unconditional floor: completed + real cost (where the CLI
+ * reports it) proves the lane RAN through real provisionSession, not a stub.
+ * Codex reports total_cost_usd → totalCostCents > 0 is assertable. Opencode
+ * uses OpenRouter without a costField → totalCostCents stays 0; outcome ===
+ * "completed" is the floor.
+ */
+export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
+	{
+		harnessName: "builtin",
+		describeTag: "[harness:builtin]",
+		prepFn: (ctx) => {
+			const pool = new AdapterPool();
+			pool.register(
+				"builtin-local",
+				new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
+				{
+					name: "builtin-local",
+					kind: "local",
+					modelProviders: ["openai-compatible"],
+					maxConcurrent: 1,
+				},
+			);
+			const apiKey = process.env.OPENROUTER_API_KEY as string;
+			return {
+				pool,
+				params: {
+					taskId: `ar-builtin-task-${Date.now()}`,
+					agentId: `ar-builtin-agent-${Date.now()}`,
+					productId: "p1",
+					sandboxBasePath: ctx.tmpDir,
+					resolvedModel: {
+						provider: "openai-compatible",
+						model: "openai/gpt-4o-mini",
+						apiKey,
+						baseUrl: OPENROUTER_BASE_URL,
+					},
+				},
+			};
+		},
+	},
+	{
+		harnessName: "claude",
+		describeTag: "[harness:claude]",
+		prepFn: (ctx) => {
+			if (!ctx.bridge)
+				throw new Error("claude lane requires a live MCP bridge from startMcpBridgeServer()");
+			const pool = new AdapterPool();
+			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+				name: "local-claude",
+				kind: "local",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 4,
+			});
+			return {
+				pool,
+				params: {
+					taskId: `ar-claude-task-${Date.now()}`,
+					agentId: `ar-claude-agent-${Date.now()}`,
+					productId: "p1",
+					sandboxBasePath: ctx.tmpDir,
+					resolvedModel: {
+						provider: "anthropic" as const,
+						model: "claude-haiku-4-5",
+						apiKey: "keychain-auth-unused",
+						baseUrl: "https://api.anthropic.com",
+					},
+				},
+				capturePaths: ["answer.txt"],
+			};
+		},
+	},
+	{
+		harnessName: "codex",
+		describeTag: "[harness:codex]",
+		prepFn: (ctx) => {
+			if (!ctx.bridge)
+				throw new Error("codex lane requires a live MCP bridge from startMcpBridgeServer()");
+			initGitRepo(ctx.tmpDir);
+			const authFound = provisionCodexHome(ctx.tmpDir);
+			if (!authFound) {
+				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
+			}
+			const codexConfig = CLI_TOOL_CONFIGS.codex;
+			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			const pool = new AdapterPool();
+			pool.register("local-codex", new CliHarnessAdapter(codexConfig), {
+				name: "local-codex",
+				kind: "local",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 2,
+			});
+			return {
+				pool,
+				params: {
+					taskId: `ar-codex-task-${Date.now()}`,
+					agentId: `ar-codex-agent-${Date.now()}`,
+					productId: "p1",
+					sandboxBasePath: ctx.tmpDir,
+					resolvedModel: {
+						provider: "openai-compatible" as const,
+						model: "codex-mini-latest",
+						apiKey: "",
+						baseUrl: "https://api.openai.com",
+					},
+				},
+				capturePaths: ["answer.txt"],
+			};
+		},
+	},
+	{
+		harnessName: "opencode",
+		describeTag: "[harness:opencode]",
+		prepFn: (ctx) => {
+			if (!ctx.bridge)
+				throw new Error("opencode lane requires a live MCP bridge from startMcpBridgeServer()");
+			const apiKey = process.env.OPENROUTER_API_KEY;
+			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
+			provisionOpencodeHome(ctx.tmpDir);
+			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
+			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			const pool = new AdapterPool();
+			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
+				name: "local-opencode",
+				kind: "local",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 2,
+			});
+			return {
+				pool,
+				params: {
+					taskId: `ar-opencode-task-${Date.now()}`,
+					agentId: `ar-opencode-agent-${Date.now()}`,
+					productId: "p1",
+					sandboxBasePath: ctx.tmpDir,
+					resolvedModel: {
+						provider: "openai-compatible" as const,
+						model: "openrouter/openai/gpt-4o-mini",
+						apiKey,
+						baseUrl: "https://openrouter.ai/api",
+					},
+				},
+				capturePaths: ["answer.txt"],
+			};
+		},
+	},
+];
+
+/**
+ * Run a single harness lane through production `provisionSession()`.
+ *
+ * 1. Calls `lane.prepFn(ctx)` to build the adapter pool + ProvisionSessionParams.
+ * 2. Creates a `SandboxCapture` for the paths the lane declared.
+ * 3. Assembles `ProvisionSessionDeps` (including MCP bridge when the lane needs it).
+ * 4. Calls `await provisionSession(deps, params)` and returns the result +
+ *    the populated capture handle.
+ *
+ * **Reference usage (AR3–AR6):**
+ * ```ts
+ * for (const lane of SUPPORTED_HARNESS_LANES) {
+ *   describe(`${lane.describeTag} Suite name`, () => {
+ *     requireHarness(lane.harnessName);
+ *     test("real session runs", async ({ db, eventBus }) => {
+ *       await seedDomain(db, { taskId, agentId, taskDescription, doneCondition });
+ *       const { result, cap } = await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
+ *       expect(result.outcome).toBe("completed");
+ *     });
+ *   });
+ * }
+ * ```
+ *
+ * @lore AR2 M-1: `runThroughHarness` is AC4's "loop runner" export. AR3–AR6 adopt
+ * by importing this function; they never hand-build adapter + deps again.
+ */
+export async function runThroughHarness(
+	lane: HarnessLane,
+	ctx: HarnessRunCtx,
+): Promise<{ result: ProvisionSessionResult; cap: SandboxCapture }> {
+	const { pool, params, capturePaths } = lane.prepFn(ctx);
+	const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
+
+	const deps: ProvisionSessionDeps = {
+		db: ctx.db,
+		eventBus: ctx.eventBus,
+		adapterPool: pool,
+		workspace: new LocalSandboxAdapter(),
+		...(ctx.bridge
+			? {
+					mcpBridgeRegistry: ctx.bridge.mcpBridgeRegistry,
+					mcpBaseUrl: ctx.bridge.mcpBaseUrl,
+				}
+			: {}),
+		onBeforeTeardown: cap.onBeforeTeardown,
+	};
+
+	const result = await provisionSession(deps, params);
+	return { result, cap };
 }

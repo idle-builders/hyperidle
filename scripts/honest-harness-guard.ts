@@ -85,14 +85,119 @@ export function isStubDirty(source: string): boolean {
 // ── AR2: coverage detection ───────────────────────────────────────────────────
 
 /**
+ * Strip line comments (`//…`) and block comments (`/*…*\/`) from TypeScript
+ * source, AND blank out any occurrence of `requireHarness(...)` that appears
+ * INSIDE a string or template literal — so that the call regex only fires on
+ * genuine code-level call expressions.
+ *
+ * Strategy (single pass with state tracking):
+ *  1. Block comments (`/*…*\/`, including JSDoc `/**…*\/`) → removed entirely.
+ *  2. Line comments (`//…` to end of line) → removed entirely.
+ *  3. String/template literals (single/double/backtick, escape-aware) →
+ *     KEPT in output but any `requireHarness` text inside them is blanked with
+ *     spaces of equal length — preserving offset alignment while erasing the
+ *     false call expression. The surrounding quotes remain so the string is
+ *     syntactically intact and a direct `requireHarness("builtin")` call OUTSIDE
+ *     a string is unaffected.
+ *
+ * @lore AR2 W-1 (round-2 fix): The original implementation matched requireHarness
+ * over raw source text — a JSDoc comment or error-string literal containing
+ * `requireHarness("codex")` was falsely counted as declared. Confirmed by the
+ * reviewer's sanity-break: removing the real gate call while JSDoc + error-string
+ * mentions remained left the guard green. This fix strips comment occurrences and
+ * blanks in-string occurrences so only real call expressions remain matchable.
+ *
+ * @lore AR2 W-1: We do NOT replace the entire string content with `""` because
+ * the direct call `requireHarness("builtin")` has its argument `"builtin"` as a
+ * top-level string literal — replacing ALL strings with `""` erases the harness
+ * name from real calls too. Instead we blank only the `requireHarness` text inside
+ * strings, leaving the surrounding string (and its content) intact.
+ */
+function stripCodeSoOnlyRealCallsRemain(source: string): string {
+	const REQUIRE_HARNESS_TEXT = "requireHarness";
+	let result = "";
+	let i = 0;
+	const len = source.length;
+
+	while (i < len) {
+		// Block comment: /* … */
+		if (source[i] === "/" && source[i + 1] === "*") {
+			i += 2;
+			while (i < len && !(source[i] === "*" && source[i + 1] === "/")) {
+				i++;
+			}
+			i += 2; // consume closing */
+			continue;
+		}
+		// Line comment: // … \n
+		if (source[i] === "/" && source[i + 1] === "/") {
+			i += 2;
+			while (i < len && source[i] !== "\n") {
+				i++;
+			}
+			continue;
+		}
+		// String/template literals — keep in output but blank requireHarness inside them
+		if (source[i] === '"' || source[i] === "'" || source[i] === "`") {
+			const quote = source[i];
+			result += source[i]; // opening quote
+			i++;
+			while (i < len && source[i] !== quote) {
+				// Escape sequence
+				if (source[i] === "\\" && i + 1 < len) {
+					result += source[i] + source[i + 1];
+					i += 2;
+					continue;
+				}
+				// Template expression ${…} — recurse logically (simplified: no nesting)
+				if (quote === "`" && source[i] === "$" && source[i + 1] === "{") {
+					result += source[i] + source[i + 1];
+					i += 2;
+					let depth = 1;
+					while (i < len && depth > 0) {
+						if (source[i] === "{") depth++;
+						else if (source[i] === "}") depth--;
+						result += source[i];
+						i++;
+					}
+					continue;
+				}
+				// Check: does the string content contain `requireHarness`?
+				if (
+					source.startsWith(REQUIRE_HARNESS_TEXT, i) &&
+					source[i + REQUIRE_HARNESS_TEXT.length] === "("
+				) {
+					// Blank it with spaces of equal length
+					result += " ".repeat(REQUIRE_HARNESS_TEXT.length);
+					i += REQUIRE_HARNESS_TEXT.length;
+					continue;
+				}
+				result += source[i];
+				i++;
+			}
+			if (i < len) {
+				result += source[i]; // closing quote
+				i++;
+			}
+			continue;
+		}
+		result += source[i];
+		i++;
+	}
+	return result;
+}
+
+/**
  * Regex matching every `requireHarness(...)` call in a file body. The captured
  * group is the entire argument list (everything between the parens).
  *
- * @lore AR2 W2: This is a tolerant regex over raw source text — it cannot
- * distinguish code from a comment. A commented-out `requireHarness("codex")`
- * would be falsely counted as declared. The defence-in-depth is the per-harness
- * attestation floor: a comment-declared but un-gated lane contributes ZERO
- * executed assertions → floor FAILS. Do NOT tighten this regex into brittleness.
+ * Applied ONLY on source pre-processed by `stripCodeSoOnlyRealCallsRemain` —
+ * comments are removed and in-string occurrences of `requireHarness` are blanked.
+ *
+ * @lore AR2 W-1: Applied after stripping so occurrences in JSDoc/block/line
+ * comments and string literals are invisible to this regex. Removing a real gate
+ * call now FAILS the guard even when the harness name remains in a comment or
+ * error-string. Confirmed load-bearing by round-2 sanity-break.
  */
 const REQUIRE_HARNESS_CALL = /requireHarness\s*\(\s*([^)]*)\)/g;
 const HARNESS_NAME_LITERAL = /["']([a-z-]+)["']/g;
@@ -100,10 +205,14 @@ const HARNESS_NAME_LITERAL = /["']([a-z-]+)["']/g;
 /**
  * The set of harness names a file passes to `requireHarness(...)` across all calls.
  * Handles multi-arg calls (`requireHarness("claude", "codex")`).
+ *
+ * Comments are stripped and in-string occurrences of requireHarness are blanked
+ * before matching — only genuine call expressions count as declared.
  */
 export function declaredHarnesses(source: string): Set<string> {
+	const stripped = stripCodeSoOnlyRealCallsRemain(source);
 	const declared = new Set<string>();
-	for (const call of source.matchAll(REQUIRE_HARNESS_CALL)) {
+	for (const call of stripped.matchAll(REQUIRE_HARNESS_CALL)) {
 		for (const lit of call[1].matchAll(HARNESS_NAME_LITERAL)) {
 			declared.add(lit[1]);
 		}
