@@ -198,6 +198,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **Contracts / constraints.**
 - Real model, zero stubs; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - Reuse `provisionSession`/AR2 seam; no bespoke rigs.
 - Preserve the dispatcher's existing contracts; this changes the test fidelity, not the dispatch API.
 
@@ -242,6 +243,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - No scripted/echo harness adapter in any `*.integration.test.ts`.
 - Demotions preserve the assertion; they change the lane and remove the false integration claim.
 - Real agent, zero stubs, hard-fail on absence for the converted tests.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 
 **Out of scope.**
 - Changing decomposition product behavior (unless a real test surfaces a genuine bug, then fix it).
@@ -283,6 +285,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 **Contracts / constraints.**
 - One honest proof per behavior — no real test plus stubbed look-alike.
 - Real harness through the production bridge; zero stubs; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - Demotions preserve assertions and remove the false integration claim.
 
 **Out of scope.**
