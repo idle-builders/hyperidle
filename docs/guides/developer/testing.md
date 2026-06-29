@@ -19,8 +19,10 @@ Run a specific file: `npm run test -- packages/server/src/__tests__/my.test.ts`
 |---|---|---|
 | `*.test.ts` | Unit tests (pure logic) | Functions, utilities, state machines, calculations |
 | `*.test.tsx` | Component tests (React rendering) | React components, hooks |
-| `*.integration.test.ts` | Integration tests (DB + API) | Drizzle queries, Hono routes end-to-end |
+| `*.integration.test.ts` | Integration tests (real integration point, no stub) | **Service**: Drizzle queries, Hono routes end-to-end (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed harness binary, zero stubs |
 | `*.spec.ts` | E2E tests (Playwright) | User journeys across the full stack |
+
+There is **one** integration suffix — `*.integration.test.ts`. There is no separate `*.real-harness.test.ts` lane (collapsed in AR1).
 
 ### Fixture Pattern (Integration Tests)
 
@@ -67,6 +69,26 @@ describe("Teams table", () => {
 - Use `test()` not `it()` — only `test()` receives fixture injection.
 - `beforeEach`/`afterEach` only for non-DB concerns (e.g. `vi.stubEnv`). Never for DB setup.
 - Tests that need custom `AppOptions` destructure `{ db, eventBus }` and call `createApp()` manually.
+
+### Harness-Facing Integration Tests (real binary, no stub)
+
+An integration test exercises a **real integration point**. Decide which kind you're writing by one question: **is the harness / agent / CLI the thing under test?**
+
+- **No → service integration.** The integration point is the DB + app. Use the `{ db, app, eventBus }` fixtures above.
+- **Yes → harness integration.** The integration point is the **real installed harness binary**. Real CLI, real LLM, **zero stubs**. A stubbed / scripted / echoed / `vi.mock`'d harness adapter makes it a mislabeled unit test — move that logic to a `*.test.ts` unit instead.
+
+Gate availability with `requireHarness(<name>)` (`packages/server/src/harness/require-harness.ts`) — **never `skipIf`**. A missing harness hard-fails the run (the work can't be completed). The strict harness model:
+
+| Harness | Gate |
+|---|---|
+| `claude` · `codex` · `opencode` · `gh` | CLI binary on PATH, authed via keychain / inherited login — **no API key** |
+| `builtin` | in-process; only key is `OPENROUTER_API_KEY` from `.env` |
+
+`ANTHROPIC_API_KEY` is never a test gate; there is no `openai-key` gate for `builtin`.
+
+These tests run locally (where binaries are installed) via the serial `harness` project in `vitest.integration.config.ts`; the signed attestation carries the result and enforces an executed-count floor (a green can't be minted while every agentic harness test skipped). Three mechanisms keep this honest: `requireHarness` (hard-fail), the `honest-harness-guard` lint check (rejects a stubbed harness adapter), and the attestation agentic floor.
+
+**Full rules — single source:** [`.claude/rules/testing.md`](../../../.claude/rules/testing.md) §"Integration tests: two archetypes".
 
 ### E2E Tests (Playwright)
 

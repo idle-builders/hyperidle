@@ -86,7 +86,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				<textarea
 					data-testid="composer-textarea"
 					rows={1}
-					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 					placeholder="Reply to thread…"
 					value={text}
 					onChange={(e): void => setText(e.target.value)}

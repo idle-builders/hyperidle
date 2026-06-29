@@ -1,0 +1,15 @@
+[
+	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL6-reprompt-loop.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL6-return-gate.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL6-uniform-forcing.integration.test.ts",
+	"packages/server/src/harness/__tests__/AL7-two-session-trust-first.integration.test.ts",
+	"packages/server/src/harness/__tests__/AM2-builtin-gateway.integration.test.ts",
+	"packages/server/src/harness/__tests__/AM2-real-harness-session-probe.integration.test.ts",
+	"packages/server/src/harness/__tests__/AN1-real-harness-inherited.integration.test.ts",
+	"packages/server/src/harness/__tests__/AN2-connection-provisioning.integration.test.ts",
+	"packages/server/src/harness/__tests__/ah5-gates-on-broken-stream.integration.test.ts",
+	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts"
+]

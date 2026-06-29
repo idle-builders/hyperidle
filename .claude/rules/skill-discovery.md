@@ -2,7 +2,7 @@
 
 Before responding to ANY implementation or review request, check if a skill should be invoked. Even at 1% chance of applicability, invoke the skill BEFORE generating any response.
 
-The core pipeline skills ship from the **`pipeline@agent-pipeline` plugin** (`ambrovia/agent-skills-pipeline`), invoked **namespaced** as `/pipeline:<skill>`. HyperIdle-specific skills (`/visual-polish`, `/security-audit`, `/product-deep-review`, `/upgrade`) are local, invoked bare. Repo-specific bindings the plugin skills read (`verify`, `paths.docs`, design system, models) live in `pipeline.config.yml`.
+The core pipeline skills ship from the **`pipeline@agent-pipeline` plugin** (`ambrovia/agent-skills-pipeline`), invoked **namespaced** as `/pipeline:<skill>`. HyperIdle-specific skills (`/visual-polish`, `/security-audit`, `/product-deep-review`, `/upgrade-versions`) are local, invoked bare. Repo-specific bindings the plugin skills read (`verify`, `paths.docs`, design system, models) live in `pipeline.config.yml`.
 
 ## Two kinds of skills
 
@@ -19,7 +19,7 @@ The core pipeline skills ship from the **`pipeline@agent-pipeline` plugin** (`am
 **Combined skills** — orchestrate agent launches. They define steps: "launch agent X with skill Y."
 - `/pipeline:pipeline` — full autonomous build pipeline
 - `/pipeline:work-planning` — register a new work package (settles the track's strategic frame)
-- `/upgrade` — multi-phase dependency upgrade
+- `/upgrade-versions` — foundation-first layered dependency upgrade
 
 **Manual deep-review skills (Fable, founder-invoked)** — run on the `auditor` agent (Fable), NOT part of the pipeline. Whole-surface, coverage-aware across runs via `.pipeline/audits/<domain>/ledger.json`. Reserved for high-stakes passes where Fable's long-horizon lead pays for itself.
 - `/security-audit` — full penetration-style security bench
@@ -42,7 +42,7 @@ User request arrives
     ├── Is it about documenting decisions? ──────→ /pipeline:lore <files|scan|index>
     ├── Is it about visual fidelity? ────────────→ /visual-polish <reference>
     ├── Is it about process improvement? ────────→ /pipeline:retro <workpackage|pipeline>
-    ├── Is it about updating dependencies? ──────→ /upgrade [scope]
+    ├── Is it about updating dependencies? ──────→ /upgrade-versions [scope]
     └── None of the above? ──────────────────────→ Proceed normally
 ```
 
@@ -62,7 +62,7 @@ User request arrives
 | "The workpackage has obvious UI, I'll skip /pipeline:design" | The design step is where multi-variant exploration happens. Skipping it locks you into the first idea — almost always not the best one. |
 | "I know what a Thread / Block / Artifact is, I'll skip /pipeline:refine" | If the requirement were obvious you wouldn't need a 4-paragraph workpackage. /pipeline:refine's probes catch silent assumptions before they become load-bearing. |
 | "A retro is navel-gazing" | Without /pipeline:retro, you repeat the same mistakes every workpackage. Compounding improvement is the whole point. |
-| "I'll just bump versions manually" | Manual bumps skip changelog research, miss breaking changes, and skip verification. /upgrade catches what you won't. |
+| "I'll just bump versions manually" | Manual bumps skip changelog research, miss breaking changes, and skip verification. /upgrade-versions catches what you won't. |
 
 ## Skill Priority
 
@@ -71,5 +71,5 @@ User request arrives
 3. **Architecture then:** /pipeline:architecture (planner produces; every story, before any code)
 4. **Critique:** /pipeline:design-critique then /pipeline:architecture-critique (reviewer evaluates; different agent than producer)
 5. **Combined skills:** /pipeline:pipeline
-6. **Maintenance skills:** /upgrade, /pipeline:lore
+6. **Maintenance skills:** /upgrade-versions, /pipeline:lore
 7. **Compounding:** /pipeline:retro (after shipping — feeds improvements back into skills)

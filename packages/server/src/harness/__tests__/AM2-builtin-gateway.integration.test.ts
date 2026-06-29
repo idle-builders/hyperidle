@@ -1,59 +1,37 @@
 /**
- * AC3 — real built-in / API-gateway proven against a real configured gateway path.
+ * AC3 — real built-in gateway proven against the real configured builtin path.
  *
- * Builds a ResolvedModel with provider: "openai-compatible", baseUrl: "https://api.openai.com",
- * apiKey: OPENAI_API_KEY, model: "gpt-4o-mini" (fallback to "gpt-3.5-turbo"), drives one
- * harmless turn through BuiltinHarnessAdapter, collects streamEvents, and asserts:
+ * Builds a ResolvedModel with provider: "openai-compatible" against OpenRouter
+ * (baseUrl: "https://openrouter.ai/api", model: "openai/gpt-4o-mini") using the
+ * builtin key (OPENROUTER_API_KEY — the ONLY key the builtin harness uses), drives
+ * one harmless turn through BuiltinHarnessAdapter, collects streamEvents, and asserts:
  *   - real normalized token_usage (inputTokens/outputTokens > 0)
  *   - real cost_update (totalCost/deltaCost)
  *   - completion event with non-empty text ≠ the prompt (REQUIRED real-output discriminator)
  *
  * @lore AM2: The REQUIRED real-output discriminator is `completion.text` non-empty AND ≠ prompt.
  * A stub echoing input fails this. A canned usage block with empty/echoed text fails this.
- * That forces a real round-trip to https://api.openai.com.
+ * That forces a real round-trip to https://openrouter.ai/api.
  *
- * Skip logic:
- *   - 401/403 (auth error) → FAIL (configured-but-invalid key = real bug)
- *   - 404 / model-not-available across the whole named list → test throws with model list + error
- *   - OPENAI_API_KEY absent (other keys present) → skip (cannot prove openai-compatible path)
- *   - No gateway key at all → skip (top-level skipIf)
- *
- * This test MUST EXECUTE on this machine (OPENAI_API_KEY is present).
+ * @lore AR1: gated by requireHarness("builtin") — OPENROUTER_API_KEY presence is the
+ * ONLY builtin gate. There is NO ANTHROPIC_API_KEY / OPENAI_API_KEY path in this system;
+ * the strict harness model forbids those tokens entirely. requireHarness HARD-FAILS
+ * (never skips) when the key is absent. Auth errors (401/403) from the gateway are a
+ * real bug → FAIL, not skip.
  */
 
 import type { HarnessEvent, ResolvedModel } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+import { requireHarness } from "./require-harness.js";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-const hasGatewayKey = Boolean(OPENAI_API_KEY ?? ANTHROPIC_API_KEY ?? OPENROUTER_API_KEY);
-
-// OPENAI_API_KEY must be present specifically — other keys use different provider paths
-const canProbeOpenAiCompatible = Boolean(OPENAI_API_KEY);
-
-/**
- * @lore AM2: OPENAI_API_KEY may hold an OpenRouter key (sk-or-v1-...) rather than a
- * direct OpenAI key. OpenRouter is OpenAI-compatible; it uses the same chat/completions
- * endpoint shape but at https://openrouter.ai/api. We detect this and use the correct baseUrl.
- * This does NOT change the provider path being tested — it's still "openai-compatible" /
- * callOpenAi() / Bearer auth — just the correct baseUrl for the key.
- */
-function resolveOpenAiCompatibleEndpoint(apiKey: string): { baseUrl: string; model: string } {
-	if (apiKey.startsWith("sk-or-")) {
-		// OpenRouter key — use OpenRouter's openai-compatible endpoint
-		// Closed, bounded model list for OpenRouter: gpt-4o-mini is available via OpenRouter
-		return { baseUrl: "https://openrouter.ai/api", model: "openai/gpt-4o-mini" };
-	}
-	// Standard OpenAI key
-	return { baseUrl: "https://api.openai.com", model: "gpt-4o-mini" };
-}
-
-// Closed, bounded model list — NEVER unbounded fallback
-// (resolved per key type in resolveOpenAiCompatibleEndpoint)
-const OPENAI_MODEL_CANDIDATES = ["gpt-4o-mini", "gpt-3.5-turbo"] as const;
+// OpenRouter is OpenAI-compatible: same chat/completions endpoint shape at
+// https://openrouter.ai/api. The provider path under test is "openai-compatible" /
+// Bearer auth — driven by the builtin key (OPENROUTER_API_KEY).
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
+// Closed, bounded model list — NEVER an unbounded fallback. These are valid OpenRouter
+// model ids reachable via the openai-compatible endpoint.
+const BUILTIN_MODEL_CANDIDATES = ["openai/gpt-4o-mini", "openai/gpt-3.5-turbo"] as const;
 
 const PROBE_PROMPT = "Reply with exactly the single word: ACKNOWLEDGED";
 
@@ -124,20 +102,14 @@ function assertGatewayEvents(events: HarnessEvent[]): void {
 
 async function tryModelCall(
 	adapter: BuiltinHarnessAdapter,
-	candidateModel: string,
+	model: string,
 	apiKey: string,
 ): Promise<{ success: true } | { success: false; err: unknown }> {
-	// Resolve the correct baseUrl and model for the given key type.
-	// For OpenRouter keys (sk-or-*), use OpenRouter's openai-compatible endpoint.
-	// For direct OpenAI keys, use the candidate model against api.openai.com.
-	const endpoint = resolveOpenAiCompatibleEndpoint(apiKey);
-	// When using direct OpenAI, candidateModel overrides the default from resolveOpenAiCompatibleEndpoint
-	const model = apiKey.startsWith("sk-or-") ? endpoint.model : candidateModel;
 	const resolvedModel: ResolvedModel = {
 		provider: "openai-compatible",
 		model,
 		apiKey,
-		baseUrl: endpoint.baseUrl,
+		baseUrl: OPENROUTER_BASE_URL,
 	};
 	const sessionId = `am2-gateway-probe-${Date.now()}-${model}`;
 
@@ -172,7 +144,7 @@ async function tryModelCall(
 			// 401/403 in the error message = auth error → FAIL
 			if (/401|403|Unauthorized|Forbidden/i.test(errorMessage)) {
 				throw new Error(
-					`AC3 FAIL: OPENAI_API_KEY is present but returned auth error for model "${model}". Session error: ${errorMessage}`,
+					`AC3 FAIL: the builtin key is present but returned auth error for model "${model}". Session error: ${errorMessage}`,
 				);
 			}
 
@@ -191,7 +163,7 @@ async function tryModelCall(
 		if (isAuthError(err)) {
 			// 401/403 thrown directly (before session event) → FAIL immediately
 			throw new Error(
-				`AC3 FAIL: OPENAI_API_KEY is present but returned auth error (${(err as HttpErrorLike).status}) for model "${model}". The openai-compatible gateway path is broken. Error: ${(err as Error).message}`,
+				`AC3 FAIL: the builtin key is present but returned auth error (${(err as HttpErrorLike).status}) for model "${model}". The openai-compatible gateway path is broken. Error: ${(err as Error).message}`,
 			);
 		}
 		return { success: false, err };
@@ -199,45 +171,30 @@ async function tryModelCall(
 }
 
 describe("AM2 builtin gateway — real openai-compatible call", () => {
-	// outer skip: no gateway key at all
-	test.skipIf(!hasGatewayKey)(
-		"drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text",
-		async (ctx) => {
-			// Inner skip: gateway key present but not OPENAI_API_KEY specifically
-			// (other keys use anthropic/openrouter provider paths, not openai-compatible)
-			if (!canProbeOpenAiCompatible) {
-				ctx.skip();
-				return;
+	requireHarness("builtin");
+
+	test("drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text", async () => {
+		// Guaranteed by requireHarness("builtin"): OPENROUTER_API_KEY is present.
+		const apiKey = process.env.OPENROUTER_API_KEY as string;
+
+		const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
+
+		let lastError: unknown = null;
+
+		for (const candidate of BUILTIN_MODEL_CANDIDATES) {
+			// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
+			const result = await tryModelCall(adapter, candidate, apiKey);
+			if (result.success) {
+				return; // done — real call succeeded
 			}
+			lastError = result.err;
+		}
 
-			// Guaranteed at this point: OPENAI_API_KEY is present
-			const apiKey = OPENAI_API_KEY as string;
-
-			const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
-
-			// For OpenRouter keys (sk-or-*): single model attempt via OpenRouter endpoint.
-			// For direct OpenAI keys: try models in bounded list order.
-			const isOpenRouterKey = apiKey.startsWith("sk-or-");
-			const candidatesToTry = isOpenRouterKey ? ["openai/gpt-4o-mini"] : OPENAI_MODEL_CANDIDATES;
-
-			let lastError: unknown = null;
-
-			for (const candidate of candidatesToTry) {
-				// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
-				const result = await tryModelCall(adapter, candidate, apiKey);
-				if (result.success) {
-					return; // done — real call succeeded
-				}
-				lastError = result.err;
-			}
-
-			// All candidates failed with non-auth errors — throw with details
-			// (per plan: on model-not-available, the test throws with model list + final error;
-			// it does NOT silently pass)
-			throw new Error(
-				`AC3: all candidates in bounded list ${JSON.stringify(candidatesToTry)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-			);
-		},
-		120_000,
-	);
+		// All candidates failed with non-auth errors — throw with details
+		// (per plan: on model-not-available, the test throws with model list + final error;
+		// it does NOT silently pass)
+		throw new Error(
+			`AC3: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+		);
+	}, 120_000);
 });

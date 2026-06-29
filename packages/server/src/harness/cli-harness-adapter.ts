@@ -182,6 +182,19 @@ export interface CliAdapterConfig {
 	 * calls writeCliMcpConfig. No per-backend branching in the router/registry.
 	 */
 	readonly mcpConfig?: { readonly dialect: "codex-toml" } | { readonly dialect: "opencode-json" };
+	/**
+	 * Stderr lines matching any of these patterns are silently dropped (not yielded as
+	 * error events). Use for known-benign, binary-specific informational stderr output
+	 * that does NOT indicate a failure.
+	 *
+	 * @lore AR2 codex-stderr-filter: codex always emits "Reading additional input from
+	 * stdin..." to stderr on startup, even when stdin is closed immediately. Without this
+	 * filter, that line becomes { type: "error", code: "CliStderr" } → provisionSession
+	 * sets crashed=true on the first event. Verified codex-cli 0.141.x: the message is
+	 * purely informational (codex still runs the LLM turn and exits 0); only the stderr
+	 * line causes the false crash.
+	 */
+	readonly stderrIgnorePatterns?: readonly RegExp[];
 }
 
 /** Injected dependencies (for testing). */
@@ -421,7 +434,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// on "Reading additional input from stdin..." waiting for EOF before it runs the LLM
 		// turn. Closing immediately is safe for all supported binaries: claude uses -p (positional),
 		// opencode uses `run` (positional), codex uses `exec <prompt>` (positional). None read
-		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.real-harness.test.ts).
+		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.integration.test.ts).
 		// Optional-chain: the mock spawnFn in unit tests returns a ChildProcess without .stdin.
 		child.stdin?.end();
 
@@ -875,6 +888,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	private wireStderr(session: CliSession): void {
 		let buffer = "";
+		const ignorePatterns = this.config.stderrIgnorePatterns;
 
 		session.child.stderr?.on("data", (chunk: Buffer) => {
 			buffer += chunk.toString();
@@ -882,6 +896,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			buffer = lines.pop() ?? "";
 			for (const line of lines) {
 				if (line.length > 0) {
+					// Drop known-benign informational lines before they become error events.
+					if (ignorePatterns?.some((re) => re.test(line))) continue;
 					session.stderrLines.push(line);
 					session.notifyStream?.();
 				}
@@ -890,7 +906,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		session.child.stderr?.on("end", () => {
 			if (buffer.length > 0) {
-				session.stderrLines.push(buffer);
+				// Apply filter to the final buffered fragment as well.
+				if (!ignorePatterns?.some((re) => re.test(buffer))) {
+					session.stderrLines.push(buffer);
+				}
 				buffer = "";
 				session.notifyStream?.();
 			}

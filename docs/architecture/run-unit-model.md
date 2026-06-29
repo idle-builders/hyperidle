@@ -50,6 +50,37 @@ After AQ1, two implementations of `SandboxAdapter` exist:
 
 ETHOS §2: security is earned from real learnings, not built preemptively. The single-user laptop case is served directly — the user trusts their own machine and their agents. Isolation adds friction without a concrete threat model to justify it. When a shared-server or untrusted-code case arises, AQ2 will add opt-in isolation as an explicit per-agent property designed from research.
 
+## Capture Seam — `onBeforeTeardown` (AR2)
+
+The `destroy` step deletes the working directory via `fs.promises.rm`. Normally nothing observes those files — they are ephemeral by design. For testing purposes `ProvisionSessionDeps` exposes one optional observation hook:
+
+```ts
+interface ProvisionSessionDeps {
+  // ...
+  readonly onBeforeTeardown?: (ctx: BeforeTeardownContext) => void | Promise<void>;
+}
+
+interface BeforeTeardownContext {
+  readonly sessionId: string;
+  readonly sandboxPath: string;
+}
+```
+
+`runSession` fires it once after the agent's turn fully drains and the sandbox is written, **before** `endSession`/`crashSession` delete the directory (`session-lifecycle.ts:341`). If the hook throws, the error is logged and swallowed — teardown always runs. Production callers omit this field entirely (no behavior change). The hook is strictly for test observation; it cannot pause, defer, or cancel teardown.
+
+This is the correct and only observation window: the drain has completed (`harness.stopSession` has returned, all native writes flushed, the adapter slot released), but neither `endSession` nor `crashSession` has been called yet. Any earlier hook would see an incomplete sandbox; any later hook would observe an already-deleted directory.
+
+### Harness Integration Pattern (AR2 — template for AR3–AR6)
+
+Harness integration tests that need to assert on real agent output use this four-step recipe (`packages/server/src/harness/__tests__/provision-real-session.ts`):
+
+1. `requireHarness(<name>)` at `describe` scope — hard-fail if the harness is absent, never `skipIf`.
+2. Seed domain rows; `setActiveStrategy(fabricStrategy)`; register the real adapter in an `AdapterPool`; set up `LocalSandboxAdapter`; CLI harnesses also need `startMcpBridgeServer()`.
+3. `const cap = createSandboxCapture()`; pass `onBeforeTeardown: cap.onBeforeTeardown` into `ProvisionSessionDeps` alongside real deps; `await provisionSession(deps, params)`.
+4. Assert on `cap.files` (relative path → string content, populated when the seam fired) and/or DB rows the agent's tools wrote and/or `result`.
+
+The helpers `createSandboxCapture` and `startMcpBridgeServer` are exported from `packages/server/src/harness/__tests__/provision-real-session.ts`. See `.claude/rules/testing.md` §Integration tests: two archetypes for the rule-level description.
+
 ## Next steps
 
 - **AQ2** — opt-in isolation as a per-agent property, built from research. The run-unit model here is the baseline AQ2 builds on top of.

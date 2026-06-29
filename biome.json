@@ -164,6 +164,8 @@
 			"!.verify-attestation.json",
 			"!.verify-attestations",
 			"!packages/desktop/release",
+			"!packages/web/src/index.css",
+			"!packages/design-system/viewer/viewer.css",
 			"!packages/design-system/*.html",
 			"!packages/design-system/html",
 			"!packages/design-system/viewer/*.js",

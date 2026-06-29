@@ -461,6 +461,43 @@ describe("CliHarnessAdapter streamEvents — ndjson mode", () => {
 		expect((events[0] as { type: string; message: string; code: string }).code).toBe("CliStderr");
 	});
 
+	it("silently drops stderr lines matching stderrIgnorePatterns (no error event emitted)", async () => {
+		// @lore AR2 codex/opencode-stderr-ignore: CLI tools emit informational stderr.
+		// stderrIgnorePatterns filters them before they become error events that crash provisionSession.
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		// Config with a pattern that matches the benign line we'll emit.
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ args: [], eventFormat: "ndjson", stderrIgnorePatterns: [/benign/] }),
+			{ spawnFn: spawnSpy },
+		);
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		const events: HarnessEvent[] = [];
+		const streamPromise = (async () => {
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+				// Stop after the completion event to avoid blocking the test.
+				if (event.type === "completion") break;
+			}
+		})();
+
+		// The stderr line matches the pattern → silently dropped (no error event).
+		fakeChild.emitStderr("benign informational startup message");
+		// A real stdout completion unblocks the stream so the test can terminate.
+		fakeChild.emitStdout(JSON.stringify({ type: "completion", text: "done" }));
+		fakeChild.emitExit(0, null);
+
+		await streamPromise;
+
+		// No error events — the filtered stderr line was silently dropped.
+		expect(events.every((e) => e.type !== "error")).toBe(true);
+		// The stdout completion event was still emitted.
+		expect(events.some((e) => e.type === "completion")).toBe(true);
+	});
+
 	it("stops streaming when the process exits", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();

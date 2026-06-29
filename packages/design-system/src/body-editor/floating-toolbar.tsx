@@ -15,7 +15,7 @@
  */
 
 import type { Editor } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import type { JSX } from "react";
 
 interface FloatingToolbarProps {
@@ -76,9 +76,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps): JSX.Element {
 	return (
 		<BubbleMenu
 			editor={editor}
-			tippyOptions={{
+			options={{
 				placement: "top",
-				animation: false,
 			}}
 		>
 			<div

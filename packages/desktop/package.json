@@ -14,14 +14,14 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.4.4"
+		"@electric-sql/pglite": "^0.5.1"
 	},
 	"devDependencies": {
 		"@hyperidle/db": "*",
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
-		"electron": "36.9.5",
-		"esbuild": "^0.25.0",
+		"electron": "^42.5.0",
+		"esbuild": "^0.28.1",
 		"vitest": "*",
 		"zod": "^4.3.6"
 	}

@@ -18,9 +18,9 @@
  * desktop now uses PGlite as its database engine. The WASM binary ships
  * inside the pglite package and must be resolvable from node_modules.
  *
- * @lore N5: Node target is node22 (NOT node20). Electron 36 ships Node 22.x
- * (ABI 135). Using node20 produces a technically working but incorrect build
- * that prevents use of Node 22 APIs. See architecture-critique.md finding #4.
+ * @lore N5: Node target is node24 (NOT node22). Electron 42 ships Node 24.x
+ * (ABI 137). Using node22 produces a technically working but incorrect build
+ * that prevents use of Node 24 APIs. Updated from node22 in Electron 36→42 upgrade.
  *
  * @lore N5: preload output is preload.js (not preload.cjs) so that main.ts's
  * existing `path.join(Dirname, "preload.js")` reference works in both dev
@@ -93,8 +93,8 @@ await esbuild.build({
 	entryPoints: [path.join(DESKTOP_DIR, "src/main.ts")],
 	bundle: true,
 	platform: "node",
-	// @lore N5: Electron 36 ships Node 22.x — use node22 as the esbuild target.
-	target: "node22",
+	// @lore N5: Electron 42 ships Node 24.x — use node24 as the esbuild target.
+	target: "node24",
 	format: "cjs",
 	outfile: path.join(DIST_DIR, "main.cjs"),
 	external: EXTERNALS,

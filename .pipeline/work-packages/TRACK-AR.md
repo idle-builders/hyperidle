@@ -8,6 +8,14 @@
 
 If a path through the harness adapter is stubbed, it is **not** an integration test — it is a mislabeled unit test. Either test the pure logic directly as a `*.test.ts` unit (stubs belong there) or test it against the real harness. There is no third option.
 
+**The harness model — STRICT, non-negotiable.** Every gate, helper, fixture, doc, and assertion in this track MUST conform to the real harness model. Getting this wrong is not a detail — it is the exact failure this track exists to kill (a test gating on a dependency the real path never uses is a phantom gate that silently skips or hard-fails for the wrong reason).
+
+- **The CLI harnesses are the leading, essential ones: `claude` (Claude Code), `codex`, `opencode`.** Each is its own **installed binary**, authenticated entirely through the host's **keychain / inherited login**. They take **NO API key of any kind.** A harness integration test for a CLI gates **only on the binary's presence** — `requireHarness("claude" | "codex" | "opencode")` (and `"gh"` for the GitHub CLI, also a keychain/inherited binary). Never on a key. (Keychain auth needs `USER`+`LOGNAME` in the adapter env allowlist — see PR #374, claude-code is the real CLI, not an SDK.)
+- **The builtin (in-process) harness is secondary — "good to have," not the focus.** It is the **only** harness that uses an API key, and that key is the **OpenRouter** key (`OPENROUTER_API_KEY`), read from `.env`. **Never OpenAI. Never Anthropic.**
+- **There is NO scenario in which `ANTHROPIC_API_KEY` exists.** Any test, gate, `requireHarness` token, helper, comment, or doc that references an Anthropic API key — or treats one as a "proxy for claude is configured" — is **wrong by construction** and must be removed. The honest gate for the claude CLI is the `claude` binary, full stop. An `OPENAI_API_KEY` gate for the builtin path is equally wrong; the builtin's key is OpenRouter.
+- **`requireHarness`'s entire vocabulary is therefore harness-named, not key-named:** `claude`, `codex`, `opencode`, `gh` (binary-on-PATH checks), and the single builtin/OpenRouter `.env` key. No `anthropic-key`. No `openai-key`. If a test needs "a configured agent," it names the harness it actually drives.
+- The track's prose still inherited a stale **"real CLI/SDK"** phrasing in places — there is no SDK path anymore; it is **real CLI binary** everywhere. Treat any "SDK" mention as a bug to fix in lockstep.
+
 **Why now.** This is the same failure the retro log already names twice and never closed: **CC-004 / C1 "stub-the-seam / wiring-proof gap"** — *"ScriptedAdapter hardcoded reply → happy suite green while user message never reached model, 3 review rounds"* (AH3); *"v1 shipped with only scripted tests (mock/stub LLM streams via cassettes)… No live test proved a real agent on a real harness actually gets forced"* (AL6). It recurs because the rule that forbids it (`.claude/rules/testing.md:62`) lives in one path-scoped file the pipeline's `write-tests`/`review` skills never reference, while the surface builders *do* read (`write-tests/test-layers.md:22`: *"mock only nondeterministic externals (LLM calls, network)"*) reads as an explicit invitation to mock the harness, and the convention table defines `*.integration.test.ts` as "DB/API integration" — silent on the harness. The rule is mislocated and out-competed; the lane that would carry the real proof (`.real-harness.test.ts`) is undocumented in every naming table and runs in no automated regimen.
 
 **The lane collapse.** `.real-harness.test.ts` was a workaround for a CI-binary problem **that does not exist**: no tests run in GitHub Actions — *all* tests run locally and attestation carries the result; CI only validates the HMAC signature. So harness integration tests are simply `*.integration.test.ts` that happen to face the harness; they run locally (where binaries are installed) as part of `verify`. The separate suffix/lane is retired and folded in.
@@ -40,7 +48,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - The two-archetype rule prose (landed in this registration PR across `.claude/rules/testing.md`, both `CLAUDE.md` tables, and the `write-tests`/`review` skills) is updated **in lockstep** as the mechanism lands — once the lane collapses, those surfaces no longer describe `.real-harness.test.ts` as a separate lane and instead match the shipped structure. Prose and mechanism never drift.
 - The pipeline `write-tests` guidance (`test-layers.md` / SKILL) carves the harness **out** of "nondeterministic externals you may mock," and the `review` lenses gain a tripwire that flags a harness-touching AC proven only by a stubbed adapter as a blocking finding.
 - The `.real-harness.test.ts` suffix and `vitest.real-harness.config.ts` are gone; those tests run as `*.integration.test.ts` under the integration config (configured so real-LLM files run serially to respect rate limits), and `npm run test:real-harness` is removed or repurposed.
-- A `requireHarness(name)` helper exists and is used in place of every `skipIf`-on-absent in harness integration tests; when the named binary/key is absent the test run **fails** with a message naming the missing harness and that the work cannot be completed — it does not skip.
+- A `requireHarness(name)` helper exists and is used in place of every `skipIf`-on-absent in harness integration tests; when the named harness is absent the test run **fails** with a message naming the missing harness and that the work cannot be completed — it does not skip. **Its vocabulary conforms to the STRICT harness model above:** `claude` / `codex` / `opencode` / `gh` are binary-on-PATH checks (keychain/inherited auth, NO API key); the builtin path's only key is `OPENROUTER_API_KEY` from `.env`. **No `anthropic-key` token may exist** anywhere (no `ANTHROPIC_API_KEY` scenario), and **no `openai-key` token** for the builtin path (it is OpenRouter). Every test's gate names the harness it actually drives — `session-provisioning` and the claude-CLI tests gate on `requireHarness("claude")`, never on a key proxy.
 - A lint/check guard fails the build when a `*.integration.test.ts` whose path exercises the harness adapter constructs a fake/scripted/echo harness adapter or `vi.mock`s the harness/LLM client, or contains a `skipIf` on harness availability.
 - `verify-attest` records executed and skipped counts for the integration suite, and `check-attestation` fails the attestation when agentic harness integration tests report zero executed — a green can no longer be minted while every agentic test skipped.
 - `npm run verify` passes on a machine with the supported harness binaries installed, and fails with the `requireHarness` message on a machine without them.
@@ -51,7 +59,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - Given an integration run where every agentic test was skipped, when `check-attestation` validates, then it fails on the executed-count floor.
 - Given a builder reading only `CLAUDE.md` and the `write-tests` skill, when they scope a harness test, then the guidance tells them to use the real binary — the "mock the LLM" reading is gone.
 
-**Plan calls.** Standard architecture pass — no `/design` (no UI surface). Plan the rule text, the lane-collapse mechanics (config merge, suffix migration, script removal), the `requireHarness` helper shape, the guard (eslint rule vs check script — pick per false-positive risk on builtin/in-process cases), and the attestation executed/skipped wiring. The guard's *content* check (stub-adapter detection) may start as a report with a known-debt allowlist so it does not break `main` before AR3–AR6 convert the offenders; the lane/skipIf/filename checks enforce immediately.
+**Plan calls.** Standard architecture pass — no `/pipeline:design` (no UI surface). Plan the rule text, the lane-collapse mechanics (config merge, suffix migration, script removal), the `requireHarness` helper shape, the guard (eslint rule vs check script — pick per false-positive risk on builtin/in-process cases), and the attestation executed/skipped wiring. The guard's *content* check (stub-adapter detection) may start as a report with a known-debt allowlist so it does not break `main` before AR3–AR6 convert the offenders; the lane/skipIf/filename checks enforce immediately.
 
 **Contracts / constraints.**
 - No tests run in GitHub Actions; all run locally and attestation carries the result. Do not add a CI test job.
@@ -89,21 +97,24 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **Acceptance criteria.**
 - An integration test provisions a real session via the production `provisionSession()` (not a hand-built server/MCP rig) with a real `HarnessAdapter` and a real model, runs a turn on an obvious task, and asserts on the agent's actual produced output (a tool call made and/or a file/artifact written) — not on a fabricated event or adapter stub.
+- **The test covers the FULL supported-harness matrix — `SUPPORTED_HARNESSES` = `builtin` + `claude` + `codex` + `opencode`** (`gh` is a tool not an agent harness; `cursor-agent` is inert) — one `requireHarness(<name>)`-gated lane through real `provisionSession()` per harness, with equal coverage. NOT "at least one CLI binary."
+- **Equal coverage is mechanically enforced, not a per-author choice:** the `honest-harness-guard` lint coverage check fails the build when a harness-facing `*.integration.test.ts` omits a `requireHarness` lane for any member of `SUPPORTED_HARNESSES` (naming the missing harnesses), and the attestation **per-harness** floor (`agenticExecutedByHarness` in the signed payload, enforced by `check-attestation.ts`) fails when any supported harness ran zero executed agentic assertions. A subset-covered harness test cannot ship; a declared-but-dead lane cannot mint green.
 - The agent's output is observable by the assertions despite teardown — a capture-before-teardown seam exposes what the session produced before `session-lifecycle.ts:341` deletes the sandbox.
 - The test hard-fails (via `requireHarness`) when the required harness/model is unavailable; it never skips to green.
-- The pattern (provision-real → capture → assert → teardown) is documented/extractable so AR3–AR6 reuse it rather than rebuilding rigs.
+- The pattern (provision-real → capture → assert → teardown) is documented/extractable **as a matrix helper** (`SUPPORTED_HARNESS_LANES` + `runThroughHarness` in `provision-real-session.ts`) so AR3–AR6 import "run through all supported harnesses" rather than rebuilding rigs or re-deriving per-harness wiring.
 
 **Validation scenarios.**
 - Given an obvious task ("create a file X with content Y"), when the test runs through `provisionSession()` with a real harness, then the assertion sees the real produced artifact/tool-call before teardown.
 - Given the model/binary is absent, when the test runs, then it fails with the missing-harness message — no green.
 - Given a regression that breaks the `adapter ↔ provisionSession` seam, when the test runs, then it fails (the seam is genuinely exercised).
 
-**Plan calls.** Standard architecture pass, backend — no `/pipeline:design`. Decide the capture-before-teardown seam (extend AO2's `filesystem_captures` vs a test-observable hook on the provisioning result) with the lightest production change that does not weaken the teardown contract. Prefer `BuiltinHarnessAdapter` + a cheap real model for the default lane, with the same shape proven against at least one CLI binary.
+**Plan calls.** Standard architecture pass, backend — no `/pipeline:design`. Decide the capture-before-teardown seam (extend AO2's `filesystem_captures` vs a test-observable hook on the provisioning result) with the lightest production change that does not weaken the teardown contract. **Cover the FULL supported-harness matrix (`builtin` + `claude` + `codex` + `opencode`), one lane each through real `provisionSession()`, every lane `requireHarness`-gated** — NOT "at least one CLI binary." Plan the enforcement that makes equal coverage non-regressable: a `SUPPORTED_HARNESSES` single source of truth, a `honest-harness-guard` coverage check (a harness-facing test must declare a lane for every supported harness; staged debt for AR3–AR6), and an attestation **per-harness** floor (`agenticExecutedByHarness`; fail if any supported harness ran zero). Ground per-harness setup in the existing `cli-adapter-real-binary.integration.test.ts` prep helpers + `adapter-pool.ts` `CLI_TOOL_CONFIGS` — do not invent.
 
 **Contracts / constraints.**
 - Goes through the real `provisionSession()` — no bespoke wiring that bypasses production phases.
 - The capture seam must not weaken or defer the real teardown (no leaked sandboxes); it observes, it does not disable cleanup.
 - Real binary / real model, zero stubs; hard-fail on absence.
+- **Coverage across the full `SUPPORTED_HARNESSES` matrix is mechanically enforced (lint coverage check + attestation per-harness floor) — not a per-test author choice.** AR2's own test is on neither debt allowlist; it fully conforms.
 
 **Out of scope.**
 - Converting the existing stubbed feature tests (AR3–AR6).
@@ -144,6 +155,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **Contracts / constraints.**
 - Real binary/model, zero stubs in the integration tests; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - The cost fix preserves the existing cost API/row shape (back-compat at the API level).
 - Reuse AR2's seam; do not rebuild bespoke provisioning rigs.
 
@@ -186,6 +198,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **Contracts / constraints.**
 - Real model, zero stubs; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - Reuse `provisionSession`/AR2 seam; no bespoke rigs.
 - Preserve the dispatcher's existing contracts; this changes the test fidelity, not the dispatch API.
 
@@ -230,6 +243,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - No scripted/echo harness adapter in any `*.integration.test.ts`.
 - Demotions preserve the assertion; they change the lane and remove the false integration claim.
 - Real agent, zero stubs, hard-fail on absence for the converted tests.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 
 **Out of scope.**
 - Changing decomposition product behavior (unless a real test surfaces a genuine bug, then fix it).
@@ -271,6 +285,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 **Contracts / constraints.**
 - One honest proof per behavior — no real test plus stubbed look-alike.
 - Real harness through the production bridge; zero stubs; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - Demotions preserve assertions and remove the false integration claim.
 
 **Out of scope.**

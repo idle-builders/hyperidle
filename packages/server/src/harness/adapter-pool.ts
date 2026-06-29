@@ -368,6 +368,14 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// AL7 delta: codex reads MCP server from .codex-home/config.toml;
 		// the token is delivered via HYPERIDLE_MCP_TOKEN env var (bearer_token_env_var).
 		mcpConfig: { dialect: "codex-toml" },
+		// @lore AR2 codex-stderr-ignore: codex emits informational messages to stderr
+		// throughout a session (startup "Reading additional input from stdin...",
+		// progress lines, debug output). ALL are benign — real failures manifest as
+		// non-zero exit code (→ buildResult outcome:"crashed") or JSONL error events
+		// in stdout. Silencing all codex stderr prevents false crash-on-informational-line.
+		// Verified codex-cli 0.141.x: the process exits 0 on success regardless of
+		// how much stderr it emits.
+		stderrIgnorePatterns: [/.*/],
 	},
 	opencode: {
 		binary: "opencode",
@@ -401,7 +409,13 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
 		// (captured>=1) is on the MCP router path and does NOT depend on event normalization.
 		eventFormat: "ndjson",
-		envAllowlist: ["PATH", "HOME", "LANG"],
+		// @lore AR2 opencode-env: OPENROUTER_API_KEY is included for OpenRouter-routed models.
+		// XDG_DATA_HOME is included so callers can set a per-session data directory to isolate
+		// opencode's SQLite database (avoids lock contention when multiple processes run in
+		// rapid succession). Without XDG_DATA_HOME isolation, concurrent opencode processes
+		// hang on the global ~/.local/share/opencode/opencode.db write-lock.
+		// See provisionOpencodeHome() in provision-real-session.ts for the isolation pattern.
+		envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
 		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
 		// deriveCliChannel("opencode") → "process-reengage" is a fallback; explicit is authoritative.
@@ -414,6 +428,12 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// AL7 delta: opencode reads MCP server from opencode.json in the sandbox cwd;
 		// the token is inline in headers.Authorization (no tokenEnv needed).
 		mcpConfig: { dialect: "opencode-json" },
+		// @lore AR2 opencode-stderr-ignore: opencode emits informational progress messages
+		// to stderr (model selection, run status, debug output). ALL are benign — real
+		// failures manifest as non-zero exit code (→ buildResult outcome:"crashed") or
+		// JSONL error events in stdout. Silencing all opencode stderr prevents false
+		// crash-on-informational-line (same reasoning as codex).
+		stderrIgnorePatterns: [/.*/],
 	},
 };
 
@@ -443,6 +463,16 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	// `--output-format stream-json --verbose` emits one JSON object per line;
 	// `--model {{model}}` sets the model; `--mcp-config .mcp.json` wires MCP;
 	// `--strict-mcp-config` enforces MCP config (no auto-discovery from other dirs);
+	// @lore AR2-latent-bug: `--mcp-config .mcp.json --strict-mcp-config` is passed
+	// UNCONDITIONALLY — claude crashes "MCP config file not found" whenever no
+	// `.mcp.json` was written (i.e. a session provisioned with NO MCP bridge).
+	// Production masks this because server-factory always supplies a bridge so
+	// provisionSession always writes `.mcp.json`. A no-bridge session would crash
+	// identically. AR2 (the provisionSession-seam WP) owns the fix: make these args
+	// conditional on a bridge being provisioned, or always write a (possibly empty)
+	// `.mcp.json`. NOT fixed in AR1 (test-honesty scope only). This surfaced when
+	// AR1 un-skipped session-provisioning.integration.test.ts, which now wires the
+	// bridge into its deps so `.mcp.json` exists and the real claude run completes.
 	// `--permission-mode bypassPermissions` allows all tool calls without prompts;
 	// `--settings .claude/settings.json` loads the session-provisioned settings
 	// (which includes the return-check.sh Stop hook).

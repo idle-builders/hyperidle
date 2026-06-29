@@ -29,6 +29,29 @@ export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
 const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
 
 /**
+ * Strip a leading MCP namespace prefix from a tool name.
+ *
+ * CLI harnesses (claude/codex/opencode) route HyperIdle tools through the MCP
+ * bridge, where they arrive NAMESPACED as `mcp__<server>__<bare-name>` (e.g.
+ * `mcp__hyperidle__send_message`). The bare name is `send_message`. The builtin
+ * harness calls bare names directly (no namespace). This helper normalises both
+ * forms to the bare name so callers can do a single set lookup.
+ *
+ * Pattern: `mcp__<server>__<name>` → `<name>`. Any string not matching the
+ * pattern is returned unchanged (idempotent for bare names and unknown forms).
+ *
+ * @lore AR2: Fixed here — AR1 surfaced the bug end-to-end (session verdicted
+ * `not_returned` even when the agent genuinely called `send_message` via MCP).
+ * AR1 could not fix it (test-honesty scope only; must not change production
+ * behavior to make a test pass). AR2 (provisionSession-seam WP) owns the fix.
+ */
+function stripMcpNamespace(toolName: string): string {
+	// `mcp__<server>__<bare>` — two leading double-underscore-delimited segments.
+	const match = /^mcp__.+?__(.+)$/.exec(toolName);
+	return match?.[1] ?? toolName;
+}
+
+/**
  * AL6: Per-tool return predicate. True when `toolName` is a member of the
  * closed accepted-return set AND its per-tool argument predicate holds.
  *
@@ -36,9 +59,14 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
  * Path A hook: when an argument-gated member (e.g. update_task_status→done)
  * is added, extend this function with a per-name predicate — do NOT widen
  * the set to "any tool with the right args".
+ *
+ * @lore AR2: MCP-namespaced tool names (`mcp__hyperidle__send_message` etc.)
+ * are normalised to their bare form before the set lookup so CLI+MCP sessions
+ * are verdicted correctly. The builtin harness is unaffected (bare names pass
+ * through `stripMcpNamespace` unchanged).
  */
 export function isReturnAction(toolName: string, _args?: Record<string, unknown>): boolean {
-	return RETURN_ACTION_SET.has(toolName);
+	return RETURN_ACTION_SET.has(stripMcpNamespace(toolName));
 }
 
 /**

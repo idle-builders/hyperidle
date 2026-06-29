@@ -55,7 +55,7 @@ export const noOffScaleRadius: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		// Mapping from named-radius suffix → px (Tailwind v3 defaults).
+		// Mapping from named-radius suffix → px (Tailwind v4 defaults — same values as v3).
 		const NAMED_PX: Record<string, number> = {
 			"": 4, // `rounded` alone
 			"-none": 0,

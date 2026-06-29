@@ -29,3 +29,4 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 - [What This Document Does Not Cover](./what-this-document-does-not-cover.md)
 - [Harness error taxonomy](./harness-error-taxonomy.md)
 - [Return-Gate Enforcement](./return-gate-enforcement.md)
+- [Harness Coverage Enforcement](./harness-coverage-enforcement.md)

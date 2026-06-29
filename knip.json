@@ -14,6 +14,8 @@
 		"**/test-setup.ts",
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
+		"packages/server/src/harness/__tests__/require-harness.ts",
+		"packages/server/src/harness/__tests__/provision-real-session.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
@@ -31,7 +33,8 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!"],
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
+			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
@@ -44,14 +47,14 @@
 				"src/pg-test-runner.ts!",
 				"scripts/strip-public-schema.ts!"
 			],
-			"ignoreBinaries": ["drizzle-kit"],
+			"ignoreBinaries": ["drizzle-kit", "vitest"],
 			"ignoreDependencies": ["zod"]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/harness-session-probe.ts!"],
-			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor"],
+			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
@@ -108,7 +111,8 @@
 			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
-			"entry": ["*.ts!", "__tests__/**/*.test.ts"]
+			"entry": ["*.ts!", "lib/**/*.ts!", "__tests__/**/*.test.ts"],
+			"project": ["**/*.ts"]
 		}
 	}
 }
