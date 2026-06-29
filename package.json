@@ -51,7 +51,6 @@
 		"obs:smoke": "npx tsx scripts/obs.ts smoke",
 		"obs:run": "npx tsx scripts/obs.ts run",
 		"obs:collector": "npx tsx scripts/trace-collector.ts",
-		"obs:report": "npx tsx scripts/trace-report.ts",
 		"knip": "npx knip",
 		"knip:production": "npx knip --production --include files,dependencies,unlisted,binaries",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
@@ -72,7 +71,6 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.1",
-		"@duckdb/node-api": "^1.5.4-r.1",
 		"@opentelemetry/api": "^1.9.1",
 		"@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
 		"@opentelemetry/resources": "^2.8.0",
