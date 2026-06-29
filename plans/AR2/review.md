@@ -69,3 +69,17 @@ The candidate loop reuses the same `taskId`/`agentId` (`maxConcurrentSessions: 1
 4. (W-2/O-1) Drop the `instanceof Map` filler; fix the line-397 comment.
 
 Files: `/Users/tg/hyperidle/.worktrees/AR2/packages/shared/src/harness/return-actions.ts`, `/Users/tg/hyperidle/.worktrees/AR2/packages/server/src/tools/__tests__/AL6-return-actions.closure.test.ts`, `/Users/tg/hyperidle/.worktrees/AR2/packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts`, `/Users/tg/hyperidle/.worktrees/AR2/packages/server/src/services/session-provisioning.ts`.
+
+---
+
+## Round 2 — re-review (Phase 4)
+
+**Verdict: DONE.** Both blocking findings resolved; both warnings + the observation addressed. No regression to the AC1–AC4 PASS findings.
+
+- **C1 — RESOLVED.** New suite "isReturnAction — MCP namespace stripping (AR2)" (`AL6-return-actions.closure.test.ts:109-143`) genuinely exercises `stripMcpNamespace`/`isReturnAction` with namespaced names. (a) Asserts all three namespaced returns → true; (b) the underscore-server case `mcp__my_server__send_message` → true is load-bearing — it would FAIL under the OLD `/^mcp__[^_][^_]*__/` regex (server segment forbade underscores); (c) tool names are the REAL trio from `return-actions.ts:23` (`send_message`/`submit_review`/`handoff_to`), not invented; (d) namespaced non-returns `mcp__hyperidle__update_task_status` and `mcp__hyperidle__read_inbox` asserted → false (no false positive). Bare `send_message` → true also asserted (builtin path).
+- **C2 — RESOLVED.** `merge-base HEAD origin/main == origin/main` (`0d60d78`) — rebased, not behind. `git diff origin/main -- package-lock.json` is now only benign `libc` field removals; the phantom 104-line `@anthropic-ai/claude-agent-sdk` deletion is gone.
+- **W-1 — RESOLVED.** Regex is now `/^mcp__.+?__(.+)$/` (`return-actions.ts:50`), non-greedy, matches any server name including underscored ones.
+- **W-2 — RESOLVED.** The `cap.files instanceof Map` tautology is removed from Lane 1; assertions are now `result.totalCostCents > 0` + honest seam-fired comment (test:265-272). No filler.
+- **O-1 — RESOLVED.** Garbled line-397 comment replaced with one clean sentence (test:396).
+
+Regression scan (quick): seam wiring (`onBeforeTeardown: cap.onBeforeTeardown`), Lane 2 load-bearing `cap.files.get("answer.txt").toContain("4")`, `requireHarness` gates (no skipIf), helper export — all unchanged from round 1. Seam, helper, and two-lane integration test intact.
