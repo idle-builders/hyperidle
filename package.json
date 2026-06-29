@@ -81,7 +81,7 @@
 		"@typescript-eslint/parser": "^8.62.0",
 		"@typescript-eslint/utils": "^8.62.0",
 		"@vitest/coverage-v8": "^4.1.9",
-		"concurrently": "^9.2.3",
+		"concurrently": "^10.0.3",
 		"eslint": "^10.6.0",
 		"eslint-plugin-design": "*",
 		"eslint-plugin-drizzle": "^0.2.3",
