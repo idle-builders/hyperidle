@@ -43,7 +43,7 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@electric-sql/pglite": "^0.4.4",
+		"@electric-sql/pglite": "^0.5.1",
 		"@types/smtp-server": "^3.5.13",
 		"@types/ws": "^8.18.1",
 		"smtp-server": "^3.18.4"

@@ -14,7 +14,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.4.4"
+		"@electric-sql/pglite": "^0.5.1"
 	},
 	"devDependencies": {
 		"@hyperidle/db": "*",
