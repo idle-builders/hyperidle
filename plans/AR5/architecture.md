@@ -6,6 +6,19 @@ This is a **test-fidelity** change. Production contracts (`runBetDecomposition`,
 
 ---
 
+## AC → proof traceability (flat map; W-1)
+
+Every AR5 acceptance criterion, mapped to the specific file + assertion that proves it. Phase-4 reads this row-by-row.
+
+| AC | What it requires | Proven by (file → assertion) |
+|---|---|---|
+| **AC1** — each of the five files is converted-to-real-agent OR demoted to an honest `*.test.ts` unit; **no scripted/echo harness adapter remains in any `*.integration.test.ts`** | `EchoHarnessAdapter` / mock `HarnessAdapter` deleted from all five | **CONVERT:** `AK2-contributor-scenario.integration.test.ts` (Echo deleted, real session via `runThroughHarness`), `AK2-minimal-strategy.integration.test.ts` (Echo deleted). **DEMOTE/confirm-honest:** `AK3-bet-decomposition.integration.test.ts` (AC5 mock adapter relocated to `bet-decomposition.test.ts` — **mandatory**, W-5), `AK3-bet-decomposition-subscriber.integration.test.ts` (no harness adapter — confirmed), `AK8-strategy-decomposition.integration.test.ts` (no harness adapter — confirmed). **Guard:** post-AR5, `grep` for any `implements HarnessAdapter` / `new EchoHarnessAdapter` / config-capturing adapter inside the five `*.integration.test.ts` returns **zero**. |
+| **AC2** — for agent-driven assertions, a real strategy agent produces the decomposition; tasks/edges asserted from that real output | **NEW** `AK3-real-decomposition.integration.test.ts` → four-lane matrix, Decision A (`decompositionDepsForLane` → `runBetDecomposition` Branch 3 → `runRealPmTurn` → real binary → JSON parse → persist). Assertion: the pinned predicate in W-2 below (≥1 persisted task, non-trivial title, `decompositionStatus === "done"`). |
+| **AC3** — demoted units no longer carry `.integration`; do not route through `provisionSession` with a fake adapter | The **pure-logic-over-supplied-decomposition** assertions move to `*.test.ts`: AC5 `tools:[]` → `bet-decomposition.test.ts`; AK2-minimal inertness → `minimal-strategy.test.ts`. None call `provisionSession`. **Reconciliation (W-4):** AK8 + subscriber + the DB/app assertions of AK3 are **service**-integration (real `db`/`eventBus`/`app`, zero harness stub) — they were never harness-facing, so the suffix-drop clause does **not** bind them; they keep `*.integration.test.ts`. The clause applies only to the pure-logic demotions named above. |
+| **AC4** — converted integration tests hard-fail on missing harness; none skip | Each converted file iterates `SUPPORTED_HARNESS_LANES` with `requireHarness(lane.harnessName)` at describe scope — no `skipIf` anywhere. Files: `AK2-contributor-scenario`, `AK2-minimal-strategy`, `AK3-real-decomposition`. |
+
+---
+
 ## 0. Ground truth read from the code (not guessed)
 
 ### 0.1 The production decomposition path — `bet-decomposition.ts`
@@ -65,14 +78,41 @@ Build `BetDecompositionDeps` with a **real `AdapterPool`** carrying the lane's r
 
 **Decision A = A1.** New shared helper `packages/server/src/harness/__tests__/provision-real-decomposition.ts` exposing `decompositionDepsForLane(lane, ctx): BetDecompositionDeps` + a scratch-dir capture, built on the AR2 lane data + prep helpers. (Builder may inline if it stays under one file; a sibling helper is preferred for the AR6 dedup trajectory.)
 
-### Decision A — open risk for the reviewer
-Real CLI agents are nondeterministic and `tools:[]` JSON-only prompting is fragile: a model may wrap JSON in prose → `JSON.parse` fails → `taskList=[]` → `blocked/empty`, not `done`. The converted **agent-driven** assertion must therefore be robust: assert "**≥1 task persisted whose title is non-trivial AND the bet reached `done`**", and rely on the `harness` project's `retry:2` (3 attempts) to absorb transient JSON-format misses — exactly as AR2's lanes do. If even with retry a given harness cannot reliably return parseable JSON for a tiny bet, that is a real finding (the production prompt is too fragile), to be surfaced, not masked. **Reviewer: confirm the assertion is strong enough that a fake/empty output fails, yet loose enough to survive model phrasing variance.**
+### Decision A — pinned agent-driven assertion (W-2; the builder MUST write this shape)
+
+Real CLI agents are nondeterministic and `tools:[]` JSON-only prompting is fragile: a model may wrap JSON in prose → `JSON.parse` fails → `taskList=[]` → `blocked/empty`, not `done`. The converted **agent-driven** assertion is therefore pinned as **concrete code, not prose** — the builder may not soften it into `tasks.length >= 0` or drop the `done` clause:
+
+```ts
+// AK3-real-decomposition.integration.test.ts — the agent-driven assertion, verbatim shape.
+// Fail-closed: a fake/empty/non-array model output → runRealPmTurn returns [] (bet-decomposition.ts:606)
+// → Branch-3 empty-guard → decompositionStatus 'blocked'/'empty', so BOTH asserts below fail.
+const bet = await db.query.bets.findFirst({ where: eq(bets.id, betId) });
+expect(bet?.decompositionStatus).toBe("done");          // empty/failed output → "blocked", fails closed
+
+const tasks = await db.query.tasks.findMany({ where: eq(tasks.betId, betId) });
+expect(tasks.length).toBeGreaterThanOrEqual(1);          // ≥1 real persisted task
+expect(
+  tasks.every((t) => t.title.trim().length >= 3),        // non-trivial title — survives phrasing variance
+).toBe(true);
+```
+
+- **Field/value names verified in code:** `bets.decompositionStatus` terminal value `"done"` (`bet-decomposition.ts:241,247`); empty `taskList` → `markTerminal(..., "blocked", "empty")` (`:278`). The `done` assert therefore **cannot** pass on fake/empty output.
+- **Threshold is a literal:** `title.trim().length >= 3` — not "non-trivial" prose. Tasks are asserted as **DB rows** (`db.query.tasks`), never sandbox files (decomposition persists to the DB; §4 task 1).
+- **Retry posture is a code-level fact, not a hope:** the assertion runs in the serial `harness` vitest project, which carries `retry: 2` (3 attempts) — the builder inherits it by placing the file in `HARNESS_INCLUDE`; do not add a per-test retry override. This absorbs transient JSON-format misses exactly as AR2's lanes do.
+- If even with `retry: 2` a given harness cannot reliably return parseable JSON for a tiny bet, that is a **real production-prompt-fragility finding** to surface, not mask (do not loosen the assertion to hide it).
 
 ---
 
 ## 2. Per-file, per-assertion triage
 
-Legend: **DEMOTE** = pure-logic over a supplied decomposition → `*.test.ts` unit, assertion preserved, no `provisionSession`, no scripted adapter, stubs legitimate. **CONVERT** = agent-driven → real-harness `*.integration.test.ts`, full matrix, hard-fail on absent binary.
+Legend: **DEMOTE** = pure-logic over a supplied decomposition → `*.test.ts` unit, assertion preserved, no `provisionSession`, no scripted adapter, stubs legitimate. **CONVERT** = agent-driven → real-harness `*.integration.test.ts`, full matrix, hard-fail on absent binary. **CONFIRM-HONEST (service-integration)** = real `db`/`eventBus`/`app` fixtures, zero harness stub, assertion unchanged, **keeps** `*.integration.test.ts`.
+
+### Reconciling AC3 "demoted units drop `.integration`" with keeping AK8 + subscriber + AK3-DB asserts as `.integration` (W-4)
+
+AC3 reads "Demoted units no longer carry the `.integration` suffix." Read literally against the wrong files this conflicts with keeping AK8, the AK3-subscriber, and AK3's DB/app assertions as `*.integration.test.ts`. The reconciliation, stated explicitly so the builder does not "fix" it:
+
+- **The suffix-drop clause binds ONLY the pure-logic-over-supplied-decomposition demotions** — i.e. the assertions that move to a `*.test.ts` unit with no DB/server fixture: the AK3 **AC5 `tools:[]`** assertion → `bet-decomposition.test.ts`, and the AK2-minimal **inertness** assertions → `minimal-strategy.test.ts`. These are the only true "demotions to unit"; they correctly shed `.integration`.
+- **AK8, the AK3-subscriber, and AK3's DB/app assertion groups are NOT demotions-to-unit.** They are **service**-integration tests: they need real `db`/`eventBus`/`app` fixtures and they **stub no harness** (they fake only the Strategy port and the `runDecompositionTurn` turn seam — neither is a harness adapter). They were **never harness-facing** — the path-only predicate never classified them as harness tests, and they never constructed an `EchoHarnessAdapter`. They were mislabeled-by-proximity (sitting next to a scripted-adapter file), never claiming harness integration. Therefore the suffix-drop clause does not bind them; they stay honest `*.integration.test.ts` **service** tests. The AC's intent — "no test claims to prove agent-driven decomposition while feeding a scripted `EchoHarnessAdapter`" — is fully satisfied: there is no false *harness* claim to strip, because there was never a harness stub in those files.
 
 ### 2.1 `AK2-contributor-scenario.integration.test.ts` (383 LOC)
 
@@ -122,11 +162,13 @@ The largest file. Mostly **service-integration** (real PGlite + app, no harness)
 | `runBetDecomposition — idempotency CAS` (pre-set running → stub not called) | Real DB CAS | **No** | **DEMOTE** |
 | `resolveOrphanedDecompositions` (3 tests: flips running, leaves terminal, clean boot) | Real DB | **No** | **DEMOTE** |
 | `GET /bets/:id returns decomposition fields` (2 tests: API shape) | Real app + DB | **No** — API contract | **DEMOTE** (service-integration via `app` fixture) |
-| `runBetDecomposition — real PM turn uses tools:[] (AC5)` | **mock `HarnessAdapter` capturing SessionConfig** — Branch 3 but with a structural mock adapter | **Partially** — asserts the *production code* builds `tools:[]`; the adapter is mocked to capture config, not to produce a decomposition | **SPLIT — see below** |
+| `runBetDecomposition — real PM turn uses tools:[] (AC5)` | **mock `HarnessAdapter` capturing SessionConfig (`:~640`)** — Branch 3 but with a structural mock adapter | **Partially** — asserts the *production code* builds `tools:[]`; the adapter is mocked to capture config, not to produce a decomposition | **DEMOTE — MANDATORY relocation to `bet-decomposition.test.ts` (W-5); a constructed `HarnessAdapter` may NOT remain in this `.integration.test.ts`** |
 
-**The AC5 `tools:[]` assertion is the one genuinely-agent-adjacent test, and it is subtle.** What it proves is a **production-code property**: "when Branch 3 runs, the `SessionConfig` it builds carries `tools:[]`." That is a *static-ish behavioral property of `runRealPmTurn`*, observable without a real LLM (the mock adapter captures the config the production code constructed). Two honest options:
+**The AC5 `tools:[]` assertion is the one genuinely-agent-adjacent test, and it is subtle.** What it proves is a **production-code property**: "when Branch 3 runs, the `SessionConfig` it builds carries `tools:[]`." That is a *static-ish behavioral property of `runRealPmTurn`*, observable without a real LLM (the mock adapter captures the config the production code constructed).
 
-- **DEMOTE the `tools:[]` assertion** to a `bet-decomposition.test.ts` unit that calls `runBetDecomposition` Branch 3 with a **config-capturing adapter** (legitimate stub — it is testing what *the production code builds*, not what the agent returns). This keeps the cheap, deterministic proof of User Sovereignty.
+> **W-5 — relocation is MANDATORY, not optional.** The config-capturing `mockAdapter` constructed at `AK3-bet-decomposition.integration.test.ts:~640` is a **constructed `HarnessAdapter` inside a `.integration.test.ts`** — i.e. a real instance of exactly what AC1 forbids ("no scripted/echo harness adapter remains in a `*.integration.test.ts`"). A config-capturing adapter is still a `HarnessAdapter`; "it only captures, doesn't script output" is **not** an exemption. It MUST move to a `*.test.ts` unit. There is no "or keep it as a service-integration" branch — leaving it in any `.integration.test.ts` would actively exercise the path-only-guard blind spot (Risk 4), not merely leave it theoretical. The single honest option:
+
+- **DEMOTE the `tools:[]` assertion (MANDATORY)** to a `bet-decomposition.test.ts` unit that calls `runBetDecomposition` Branch 3 with a **config-capturing adapter** (legitimate stub *in a unit* — it is testing what *the production code builds*, not what the agent returns). This keeps the cheap, deterministic proof of User Sovereignty, and removes the last constructed `HarnessAdapter` from the five `*.integration.test.ts` files.
 - **AND CONVERT a new agent-driven assertion** (which does NOT exist in the file today): "a real agent decomposes a real bet → ≥1 real task persisted, bet `done`." This is the file's contribution to the matrix. It is the AC's core ("a real strategy agent produces the decomposition and the resulting tasks/edges are asserted from that real output").
 
 **So `AK3-bet-decomposition.integration.test.ts` splits three ways:**
@@ -195,7 +237,9 @@ Proves the **Strategy port owns decomposition** (AC1 `decomposeBet` is called; A
 ## 4. Ordered task list for the builder
 
 **Phase 1 — Wiring + helper (foundation first).**
-1. Write `packages/server/src/harness/__tests__/provision-real-decomposition.ts`: `decompositionDepsForLane(lane: HarnessLane, ctx: HarnessRunCtx): BetDecompositionDeps` — reuse `lane.prepFn` adapter construction + per-harness prep (`provisionCodexHome`/`provisionOpencodeHome`/`initGitRepo`/`OPENROUTER_API_KEY`), assemble a real `AdapterPool` + real `resolveModel` + scratch `sandboxBasePath` under `ctx.tmpDir`, **omit `runDecompositionTurn`** (forces Branch 3). Add a scratch-dir capture for the persisted-task assertion (assert via `db`, not sandbox — tasks are DB rows). Cite `@lore AR5`.
+1. Write `packages/server/src/harness/__tests__/provision-real-decomposition.ts`: `decompositionDepsForLane(lane: HarnessLane, ctx: HarnessRunCtx): BetDecompositionDeps` — reuse `lane.prepFn` adapter construction + per-harness prep (`provisionCodexHome`/`provisionOpencodeHome`/`initGitRepo`/`OPENROUTER_API_KEY`), assemble a real `AdapterPool` + real `resolveModel` + scratch `sandboxBasePath` under `ctx.tmpDir`, **omit `runDecompositionTurn`** (forces Branch 3). Add a scratch-dir capture for the persisted-task assertion (assert via `db`, not sandbox — tasks are DB rows).
+   - **MANDATORY `@lore` comment at the top of the helper (W-3)** — capture the `provisionSession`-vs-`runBetDecomposition`-Branch-3 divergence so no future agent "unifies" this back into `runThroughHarness`:
+     > `@lore AR5` — This helper builds `BetDecompositionDeps` and drives `runBetDecomposition` **Branch 3** (`runRealPmTurn`), NOT `provisionSession`/`runThroughHarness`. The production decomposition turn does NOT flow through `provisionSession` — `runRealPmTurn` (bet-decomposition.ts:522) calls `adapterPool.select()` directly on a scratch `tools:[]` PM turn. Driving `provisionSession` here would prove "a real agent ran a *session*," not "a real agent *decomposed a bet*" — the exact false-adjacency Track AR exists to kill. Do NOT collapse this into `runThroughHarness`; that would silently weaken the proof to the wrong seam. The AK2 session-completion files correctly DO use `runThroughHarness` because there the thing under test genuinely is a session running to completion.
 2. Add the three converted file paths to `EXPLICIT_HARNESS_INTEGRATION` in `scripts/lib/honest-harness-predicate.ts` and to `HARNESS_INCLUDE` in `vitest.integration.config.ts`. (Do this BEFORE writing the converted tests so the guard coverage check is live while you author them.)
 
 **Phase 2 — Conversions (red→green per file).**
@@ -204,7 +248,7 @@ Proves the **Strategy port owns decomposition** (AC1 `decomposeBet` is called; A
 5. NEW `AK3-real-decomposition.integration.test.ts`: four-lane via `decompositionDepsForLane`; seed a real team+eligible agent+bet; call `runBetDecomposition` (Branch 3); assert ≥1 persisted task with non-trivial title AND `decompositionStatus='done'`. Robust assertion per Decision A risk note.
 
 **Phase 3 — Demotions (assertion-preserving relabels).**
-6. `AK3-bet-decomposition.integration.test.ts`: demote override-driven `runBetDecomposition` asserts + AC5 `tools:[]` to `bet-decomposition.test.ts` units (config-capturing adapter for AC5 — legitimate stub). Keep DB/app asserts (`findEligibleTeamAgents`, `resolveOrphanedDecompositions`, `GET /bets/:id`) as service-integration. Preserve every assertion verbatim.
+6. `AK3-bet-decomposition.integration.test.ts`: demote override-driven `runBetDecomposition` asserts to `bet-decomposition.test.ts` units. **MANDATORY (W-5): relocate the AC5 `tools:[]` config-capturing `mockAdapter` (`:~640`) to a `bet-decomposition.test.ts` unit** — a constructed `HarnessAdapter` may NOT remain in this `.integration.test.ts`; this is one of the actual AC1 violations, not an optional cleanup. Keep DB/app asserts (`findEligibleTeamAgents`, `resolveOrphanedDecompositions`, `GET /bets/:id`) as service-integration. Preserve every assertion verbatim. **End-state guard for this file: zero `implements HarnessAdapter` / `new …Adapter` constructions remain.**
 7. `AK3-bet-decomposition-subscriber.integration.test.ts`: confirm no scripted harness adapter; leave as honest service-integration. (No-op beyond the confirmation comment.)
 8. `AK8-strategy-decomposition.integration.test.ts`: confirm Strategy-port + turn-seam stubs are the only fakes; leave as honest service-integration.
 
@@ -230,3 +274,7 @@ Proves the **Strategy port owns decomposition** (AC1 `decomposeBet` is called; A
 3. **AK8 / subscriber "demote" is really "confirm honest."** Neither file stubs a *harness*; both stub the Strategy port / turn seam (legitimate) over the real DB + event bus. The honest end-state is "service-integration, no change" — NOT a harness conversion and NOT a `.test.ts` rename (they need fixtures). Reviewer: confirm this satisfies the AC's "demoted to a unit whose stubs are honest" (service-integration with legitimate non-harness stubs is the spirit; the false *harness-integration* claim was never actually present, only implied by proximity).
 4. **Path-only guard blind spot (cross-cutting).** The fact that all five files dodged the guard for being outside `harness/__tests__/` is itself a finding: a *future* scripted-harness test placed in `server/src/__tests__/` would also dodge it. AR5 closes its own three files by listing them in `EXPLICIT_HARNESS_INTEGRATION`, but the general gap (any `server/src/__tests__/*.integration.test.ts` that instantiates a `HarnessAdapter` is invisible to the guard) is **AR6 territory or a new finding** — flag it, don't fix it in AR5.
 5. **Over-demotion check.** Demotions must preserve every assertion verbatim (spec: "demotions preserve the assertion; they change the lane"). Reviewer to diff each demoted assertion against its origin and confirm nothing was weakened or dropped.
+
+### Explicitly OUT of AR5 scope — do not touch (reviewer NOTE N-1)
+
+- **`AK2-fabric-parity.integration.test.ts` is NOT one of AR5's five files and is OUT of scope.** Verified it carries the same smell — it constructs an `EchoHarnessAdapter` (`:141 class EchoHarnessAdapter implements HarnessAdapter`, used at `:280,:306`) inside a `*.integration.test.ts`. This is a real sibling violation, but the AR5 work-package boundary is the **named five** (`AK2-contributor-scenario`, `AK2-minimal-strategy`, `AK3-bet-decomposition`, `AK3-bet-decomposition-subscriber`, `AK8-strategy-decomposition`). **The builder must NOT convert or modify `AK2-fabric-parity` in this WP.** It is tracked for a future WP (its conversion is the same shape as AK2-minimal — fabric-parity under a real session). Stating it here so it is not silently forgotten and not silently swept into AR5's diff.
