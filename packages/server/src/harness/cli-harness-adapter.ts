@@ -421,7 +421,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// on "Reading additional input from stdin..." waiting for EOF before it runs the LLM
 		// turn. Closing immediately is safe for all supported binaries: claude uses -p (positional),
 		// opencode uses `run` (positional), codex uses `exec <prompt>` (positional). None read
-		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.real-harness.test.ts).
+		// stdin. Proven via the real-binary adapter test (cli-adapter-real-binary.integration.test.ts).
 		// Optional-chain: the mock spawnFn in unit tests returns a ChildProcess without .stdin.
 		child.stdin?.end();
 

@@ -80,7 +80,7 @@ The registry is the single source of truth for force budget tracking. It is regi
 
 **Blocking protocol:** exit-2 + stderr. Claude Code re-prompts with the stderr content as a blocking user message.
 
-**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "FULL BINARY PROOF (claude)" spawns the real `claude` binary (`buildCleanEnv` zeroes `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT`/etc. so nested-session detection is bypassed; keychain auth still works via `HOME`/`PATH`). Turn completes → Stop hook fires → bridge receives `POST` → `callCount >= 1` asserted.
+**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (claude)" spawns the real `claude` binary (`buildCleanEnv` zeroes `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT`/etc. so nested-session detection is bypassed; keychain auth still works via `HOME`/`PATH`). Turn completes → Stop hook fires → bridge receives `POST` → `callCount >= 1` asserted.
 
 ### `codex` — `settings-codex` (CODEX_HOME strategy)
 
@@ -98,7 +98,7 @@ Codex reads hooks **only** from `CODEX_HOME/hooks.json` (default `~/.codex/hooks
 
 **Blocking protocol:** `{"decision":"block","reason":"..."}` on stdout (not exit-2 + stderr like Claude Code). Exit 0 with this JSON output blocks the stop and re-prompts with the reason. Exit 0 with no JSON (or `{"decision":"approve"}`) allows the stop.
 
-**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "FULL BINARY PROOF (CODEX_HOME)" proves end-to-end: real `codex exec` binary, per-session CODEX_HOME, Stop hook fires, bridge POST received, `callCount >= 1` asserted.
+**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (CODEX_HOME)" proves end-to-end: real `codex exec` binary, per-session CODEX_HOME, Stop hook fires, bridge POST received, `callCount >= 1` asserted.
 
 ### `opencode` — `process-reengage`
 
@@ -108,7 +108,7 @@ OpenCode has no native blocking Stop hook. Enforcement is via **process wrapper 
 
 Re-engage is bounded by `AL6_MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` counter tracks re-spawns; when the budget is spent, the session ends and the drain-gate floor settles the verdict.
 
-**Proof:** `AL6-real-harness-return-enforcement.integration.test.ts` — "opencode process-reengage PROVEN" spawns the real opencode binary, detects `step_finish` on first turn, fires the re-engage spawn with the forcing message, confirms both turns complete.
+**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "opencode process-reengage PROVEN" spawns the real opencode binary, detects `step_finish` on first turn, fires the re-engage spawn with the forcing message, confirms both turns complete.
 
 ### `builtin` — `builtin-loop`
 
@@ -226,9 +226,9 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 ## 11. Real-Harness Integration Tests
 
-`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement.integration.test.ts`
+`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` (live spawns) + `…/AL6-real-harness-return-enforcement.integration.test.ts` (the deterministic in-process builtin/cursor anchor).
 
-Spawns each real binary headless. Binary/auth gating follows the AM2 pattern: `binaryPresent()` + auth-check + `ctx.skip()`. The `builtin` block has no binary dependency and runs in CI unconditionally.
+The realbinary file spawns each real binary headless, gated per-binary by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. The anchor file drives the in-process `BuiltinHarnessAdapter` deterministically (no binary dependency). Both run locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
 
 | Harness | Test | Proof |
 |---|---|---|

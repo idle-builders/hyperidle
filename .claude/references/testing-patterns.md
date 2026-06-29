@@ -66,8 +66,10 @@ For each function/endpoint, test:
 | `{ db }` fixture | Database queries, transactions, constraints |
 | `{ app }` fixture | API endpoint integration (includes routing, middleware, DB) |
 | `{ db, eventBus }` + `createApp()` | Custom AppOptions beyond defaults |
-| Manual mock | External services (LLM APIs, email, webhooks) |
+| Manual mock | Truly out-of-band external services (email, webhooks) — NOT the harness |
 | `vi.fn()` | Verifying call counts or arguments on injected dependencies |
+
+**Never mock the harness / agent / CLI / LLM when it is the thing under test.** A harness-facing integration test drives the **real installed binary** (or the in-process builtin) — gate it with `requireHarness(<name>)`, never a stub. Mocking the harness/LLM under test is a false green (the CC-004 tripwire in `/review`, blocking). A deterministic LLM double is permitted ONLY in a *service* integration test where the harness is **not** under test (proving routing/persistence, not the agent). See `.claude/rules/testing.md` §Integration tests: two archetypes.
 
 Never mock Drizzle. Never mock Hono middleware. Never mock internal modules.
 Never call `createTestDb()`, `createTestApp()`, or `new EventBus()` in test files — fixtures provide these.

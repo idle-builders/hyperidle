@@ -113,7 +113,7 @@ Also review for:
 - **Type safety** — `any`, `as`, `@ts-ignore`, `!` assertions. Count them. Each one is a finding.
 - **Coupling** — shared mutable state, import cycles, god objects
 - **Test quality** — happy-path-only tests, tautologies, tests that mock everything
-- **Stubbed harness seam** — a harness/agent-touching AC proven only by a stubbed/scripted/`vi.mock`'d adapter in `*.integration.test.ts` is a false green (CC-004). The proof must hit the real installed harness; an absent binary must hard-fail, not `skipIf`. See `.claude/rules/testing.md` §Integration tests: two archetypes.
+- **Stubbed harness seam (BLOCKING)** — a harness/agent-touching AC proven only by a stubbed/scripted/`vi.mock`'d adapter in `*.integration.test.ts` is a false green (CC-004) and is a **blocking** finding, not advisory. The proof must hit the real installed harness, gated by `requireHarness(<name>)` (the honest gate — never a key proxy); an absent binary must hard-fail via `requireHarness`, not `skipIf`. Track AR1 enforces this via the `honest-harness-guard` lint check (`scripts/honest-harness-guard.ts`) + the attestation agentic floor; a new dirty harness-facing integration file that is not on `scripts/honest-harness-guard.allowlist.json` fails the build. See `.claude/rules/testing.md` §Integration tests: two archetypes.
 - **Performance** — N+1 queries, unbounded lists, missing indexes, allocations in render loops
 
 ---
