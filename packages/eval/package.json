@@ -16,7 +16,7 @@
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
 		"@electric-sql/pglite": "^0.5.1",
-		"drizzle-orm": "^0.39.0"
+		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
 		"tsx": "^4.21.0",

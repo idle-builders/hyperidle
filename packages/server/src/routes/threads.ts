@@ -1018,10 +1018,18 @@ export function createThreadRoutes(
 			// AF14 C2: Unique constraint violation on threads_direct_key_uq means a
 			// concurrent writer won the race. Re-select the winner and append the initial
 			// message to it (Option B — preserves user intent).
+			// @lore drizzle-orm 0.45.2: wraps PGlite errors — outer message is "Failed query: …",
+			// original error (with constraint name) is in cause.cause. Walk the chain.
+			const constraintMsgInChain = (e: unknown): string => {
+				if (!(e instanceof Error)) return "";
+				if (e.message.toLowerCase().includes("threads_direct_key_uq")) return e.message;
+				if (e.cause !== undefined) return constraintMsgInChain(e.cause);
+				return e.message;
+			};
 			if (
 				dmDirectKey &&
 				cause instanceof Error &&
-				cause.message.toLowerCase().includes("threads_direct_key_uq")
+				constraintMsgInChain(cause).toLowerCase().includes("threads_direct_key_uq")
 			) {
 				const [winner] = await db
 					.select()
