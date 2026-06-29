@@ -1,7 +1,7 @@
 {
   "id": "AR2",
-  "status": "in_progress",
-  "currentStep": "5-docs",
+  "status": "done",
+  "currentStep": "shipped",
   "branch": "feat/AR2-real-provision-session",
   "startedAt": "2026-06-29",
   "complexity": "M",
@@ -9,5 +9,6 @@
     "AR1"
   ],
   "notes": "One real agent run through production provisionSession() + capture-before-teardown seam.",
-  "reopenReason": "AR1 rule violation: harness integration tests must run against EVERY supported harness (claude+codex+opencode+builtin); shipped version covered only claude+builtin. Not human approved."
+  "reopenReason": "AR1 rule violation: harness integration tests must run against EVERY supported harness (claude+codex+opencode+builtin); shipped version covered only claude+builtin. Not human approved.",
+  "completedAt": "2026-06-29"
 }
