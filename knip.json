@@ -28,6 +28,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts!"],
+			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
@@ -112,7 +113,8 @@
 			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
-			"entry": ["*.ts!", "__tests__/**/*.test.ts"]
+			"entry": ["*.ts!", "__tests__/**/*.test.ts"],
+			"project": ["**/*.ts"]
 		}
 	}
 }
