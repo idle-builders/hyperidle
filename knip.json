@@ -20,7 +20,10 @@
 		"packages/server/src/services/service-connection-resolver.ts",
 		"packages/server/src/harness/re-engage.ts",
 		"packages/server/src/tools/live-proof-lanes.ts",
-		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts"
+		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
+		"packages/scripts/honest-harness-guard.ts",
+		"packages/scripts/lib/attestation-floor.ts",
+		"packages/server/src/harness/__tests__/require-harness.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
