@@ -155,6 +155,7 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 **Contracts / constraints.**
 - Real binary/model, zero stubs in the integration tests; hard-fail on absence.
+- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
 - The cost fix preserves the existing cost API/row shape (back-compat at the API level).
 - Reuse AR2's seam; do not rebuild bespoke provisioning rigs.
 
