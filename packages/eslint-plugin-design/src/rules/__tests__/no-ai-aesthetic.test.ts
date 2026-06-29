@@ -61,6 +61,17 @@ ruleTester.run("no-ai-aesthetic", noAiAesthetic, {
 			code: 'const J = <div className="bg-gradient-to-r from-indigo-500 to-purple-500" />;',
 			errors: [{ messageId: "gradientBg" }],
 		},
+		// Tailwind v4 bg-linear-* and bg-radial-* variants also fire
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="bg-linear-to-r from-indigo-500 to-purple-500" />;',
+			errors: [{ messageId: "gradientBg" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="bg-radial-at-center from-violet-500 to-fuchsia-500" />;',
+			errors: [{ messageId: "gradientBg" }],
+		},
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="backdrop-blur-md" />;',

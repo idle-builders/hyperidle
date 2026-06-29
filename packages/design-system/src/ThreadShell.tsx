@@ -396,7 +396,7 @@ export function ThreadShell({
 			{...dsShellProps("ThreadShell")}
 			data-testid="thread-shell"
 			aria-live="polite"
-			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-none"
+			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden"
 		>
 			{!hideHostBanner && banner}
 			{error ? (

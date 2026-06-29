@@ -19,7 +19,7 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import Table from "@tiptap/extension-table";
+import { Table } from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
@@ -88,6 +88,8 @@ export function buildFullExtensions(placeholder: string): AnyExtension[] {
 		StarterKit.configure({
 			// Replaced by CodeBlockLowlight for syntax highlighting
 			codeBlock: false,
+			// StarterKit v3 bundles Link — disable to avoid "Duplicate extension names" with our custom Link
+			link: false,
 		}),
 		CodeBlockLowlight.configure({ lowlight }),
 		Table.configure({ resizable: false }),
@@ -121,6 +123,8 @@ export function buildMiniExtensions(placeholder: string): AnyExtension[] {
 			blockquote: false,
 			codeBlock: false,
 			horizontalRule: false,
+			// StarterKit v3 bundles Link — disable to avoid "Duplicate extension names" with our custom Link
+			link: false,
 		}),
 		Placeholder.configure({ placeholder }),
 		buildLinkExtension(),
