@@ -5,21 +5,21 @@
  *   AC2 (partial) — register/lookup by token maps to the correct bridge instance
  *   AC5 (partial) — unregister removes the bridge (size goes to 0)
  *
- * Critique warning — crash-path cleanup:
- *   Tests both teardown paths: unregister before endSession AND before crashSession.
+ * Demoted from mcp-bridge-registry.integration.test.ts (AR6): pure registry unit,
+ * no harness, no agent. Real integration proof is T0b (mcp-bridge-stateful) +
+ * AL7-two-session (real binaries).
  *
- * These tests import from paths that don't exist yet — they will fail until
- * the green phase implementation is written.
+ * @lore AR6 demotion: Moved from src/__tests__ to mcp/__tests__ as a .test.ts unit.
+ * Uses { db } fixture from test-fixtures (not createTestDb() directly).
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMcpBridge, type McpBridgeInstance } from "../mcp/mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { buildToolRegistry, type ToolContext } from "../tools/tool-registry.js";
+import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
+import { createMcpBridgeRegistry } from "../mcp-bridge-registry.js";
+import { buildToolRegistry, type ToolContext } from "../../tools/tool-registry.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,10 +37,12 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 	};
 }
 
-async function makeBridge(sessionId: string): Promise<McpBridgeInstance> {
-	const handle = await createTestDb();
+async function makeBridge(
+	db: import("@hyperidle/db").HyperIdleDb,
+	sessionId: string,
+): Promise<McpBridgeInstance> {
 	const eventBus = new EventBus();
-	const ctx = makeContext(handle.db, eventBus);
+	const ctx = makeContext(db, eventBus);
 	const registry = buildToolRegistry(ctx, { role: "builder" });
 	return createMcpBridge({ sessionId, registry });
 }
@@ -50,12 +52,12 @@ async function makeBridge(sessionId: string): Promise<McpBridgeInstance> {
 // ---------------------------------------------------------------------------
 
 describe("createMcpBridgeRegistry", () => {
-	it("returns a registry with size=0 initially", () => {
+	test("returns a registry with size=0 initially", () => {
 		const registry = createMcpBridgeRegistry();
 		expect(registry.size).toBe(0);
 	});
 
-	it("exposes register, lookup, unregister, handleRequest, size", () => {
+	test("exposes register, lookup, unregister, handleRequest, size", () => {
 		const registry = createMcpBridgeRegistry();
 		expect(typeof registry.register).toBe("function");
 		expect(typeof registry.lookup).toBe("function");
@@ -70,48 +72,53 @@ describe("createMcpBridgeRegistry", () => {
 // ---------------------------------------------------------------------------
 
 describe("McpBridgeRegistry register + lookup (AC2)", () => {
-	let registry: McpBridgeRegistry;
-	let bridge: McpBridgeInstance;
-
-	beforeEach(async () => {
-		registry = createMcpBridgeRegistry();
-		bridge = await makeBridge("session-lookup-1");
-	});
-
-	it("lookup returns undefined for unknown token", () => {
+	test("lookup returns undefined for unknown token", () => {
+		const registry = createMcpBridgeRegistry();
 		const found = registry.lookup("does-not-exist");
 		expect(found).toBeUndefined();
 	});
 
-	it("register increases size by 1", () => {
+	test("register increases size by 1", async ({ db }) => {
+		const registry = createMcpBridgeRegistry();
+		const bridge = await makeBridge(db, "session-lookup-1");
 		registry.register(bridge);
 		expect(registry.size).toBe(1);
+		await bridge.transport.close();
 	});
 
-	it("lookup returns the registered bridge by token", () => {
+	test("lookup returns the registered bridge by token", async ({ db }) => {
+		const registry = createMcpBridgeRegistry();
+		const bridge = await makeBridge(db, "session-lookup-2");
 		registry.register(bridge);
 		const found = registry.lookup(bridge.token);
 		expect(found).toBe(bridge);
-		expect(found?.sessionId).toBe("session-lookup-1");
+		expect(found?.sessionId).toBe("session-lookup-2");
+		await bridge.transport.close();
 	});
 
-	it("lookup returns undefined for a different token", () => {
+	test("lookup returns undefined for a different token", async ({ db }) => {
+		const registry = createMcpBridgeRegistry();
+		const bridge = await makeBridge(db, "session-lookup-3");
 		registry.register(bridge);
 		const found = registry.lookup(
 			"000000000000000000000000000000000000000000000000000000000000dead",
 		);
 		expect(found).toBeUndefined();
+		await bridge.transport.close();
 	});
 
-	it("can register multiple bridges independently", async () => {
-		const bridge2 = await makeBridge("session-lookup-2");
-		registry.register(bridge);
+	test("can register multiple bridges independently", async ({ db }) => {
+		const registry = createMcpBridgeRegistry();
+		const bridge1 = await makeBridge(db, "session-lookup-multi-1");
+		const bridge2 = await makeBridge(db, "session-lookup-multi-2");
+		registry.register(bridge1);
 		registry.register(bridge2);
 
 		expect(registry.size).toBe(2);
-		expect(registry.lookup(bridge.token)?.sessionId).toBe("session-lookup-1");
-		expect(registry.lookup(bridge2.token)?.sessionId).toBe("session-lookup-2");
+		expect(registry.lookup(bridge1.token)?.sessionId).toBe("session-lookup-multi-1");
+		expect(registry.lookup(bridge2.token)?.sessionId).toBe("session-lookup-multi-2");
 
+		await bridge1.transport.close();
 		await bridge2.transport.close();
 	});
 });
@@ -121,9 +128,9 @@ describe("McpBridgeRegistry register + lookup (AC2)", () => {
 // ---------------------------------------------------------------------------
 
 describe("McpBridgeRegistry unregister (AC5 partial)", () => {
-	it("unregister removes bridge so lookup returns undefined", async () => {
+	test("unregister removes bridge so lookup returns undefined", async ({ db }) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-unreg-1");
+		const bridge = await makeBridge(db, "session-unreg-1");
 
 		registry.register(bridge);
 		expect(registry.size).toBe(1);
@@ -134,15 +141,15 @@ describe("McpBridgeRegistry unregister (AC5 partial)", () => {
 		expect(registry.lookup(bridge.token)).toBeUndefined();
 	});
 
-	it("unregister is a no-op for unknown token (does not throw)", async () => {
+	test("unregister is a no-op for unknown token (does not throw)", async () => {
 		const registry = createMcpBridgeRegistry();
 		await expect(registry.unregister("nonexistent-token")).resolves.not.toThrow();
 		expect(registry.size).toBe(0);
 	});
 
-	it("unregister calls transport.close()", async () => {
+	test("unregister calls transport.close()", async ({ db }) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-unreg-close");
+		const bridge = await makeBridge(db, "session-unreg-close");
 
 		const closeSpy = vi.spyOn(bridge.transport, "close").mockResolvedValue(undefined);
 
@@ -152,9 +159,9 @@ describe("McpBridgeRegistry unregister (AC5 partial)", () => {
 		expect(closeSpy).toHaveBeenCalledOnce();
 	});
 
-	it("unregister calls mcpServer.close()", async () => {
+	test("unregister calls mcpServer.close()", async ({ db }) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-unreg-mcp-close");
+		const bridge = await makeBridge(db, "session-unreg-mcp-close");
 
 		const mcpCloseSpy = vi.spyOn(bridge.mcpServer, "close").mockResolvedValue(undefined);
 
@@ -166,9 +173,11 @@ describe("McpBridgeRegistry unregister (AC5 partial)", () => {
 
 	// Critique warning: crash-path teardown — unregister must be called
 	// before BOTH endSession() and crashSession() paths.
-	it("unregister before endSession path: bridge is removed before normal session end", async () => {
+	test("unregister before endSession path: bridge is removed before normal session end", async ({
+		db,
+	}) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-end-path");
+		const bridge = await makeBridge(db, "session-end-path");
 
 		registry.register(bridge);
 		expect(registry.size).toBe(1);
@@ -183,9 +192,11 @@ describe("McpBridgeRegistry unregister (AC5 partial)", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("unregister before crashSession path: bridge is removed before crash teardown", async () => {
+	test("unregister before crashSession path: bridge is removed before crash teardown", async ({
+		db,
+	}) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-crash-path");
+		const bridge = await makeBridge(db, "session-crash-path");
 
 		registry.register(bridge);
 		expect(registry.size).toBe(1);
@@ -203,7 +214,7 @@ describe("McpBridgeRegistry unregister (AC5 partial)", () => {
 // ---------------------------------------------------------------------------
 
 describe("McpBridgeRegistry handleRequest (AC2)", () => {
-	it("returns 401 for unknown token", async () => {
+	test("returns 401 for unknown token", async () => {
 		const registry = createMcpBridgeRegistry();
 		const req = new Request("http://localhost/api/mcp/badtoken", { method: "POST" });
 		const res = await registry.handleRequest("badtoken", req);
@@ -211,7 +222,7 @@ describe("McpBridgeRegistry handleRequest (AC2)", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("returns 401 for empty token", async () => {
+	test("returns 401 for empty token", async () => {
 		const registry = createMcpBridgeRegistry();
 		const req = new Request("http://localhost/api/mcp/", { method: "POST" });
 		const res = await registry.handleRequest("", req);
@@ -219,9 +230,9 @@ describe("McpBridgeRegistry handleRequest (AC2)", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("delegates to transport.handleRequest for a registered bridge", async () => {
+	test("delegates to transport.handleRequest for a registered bridge", async ({ db }) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-handle-req");
+		const bridge = await makeBridge(db, "session-handle-req");
 
 		// Mock transport.handleRequest to track delegation
 		const mockResponse = new Response("ok", { status: 200 });
@@ -237,9 +248,9 @@ describe("McpBridgeRegistry handleRequest (AC2)", () => {
 		expect(res.status).toBe(200);
 	});
 
-	it("returns 401 after unregister (token no longer valid)", async () => {
+	test("returns 401 after unregister (token no longer valid)", async ({ db }) => {
 		const registry = createMcpBridgeRegistry();
-		const bridge = await makeBridge("session-post-unreg");
+		const bridge = await makeBridge(db, "session-post-unreg");
 
 		vi.spyOn(bridge.transport, "close").mockResolvedValue(undefined);
 		vi.spyOn(bridge.mcpServer, "close").mockResolvedValue(undefined);
