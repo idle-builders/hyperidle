@@ -175,6 +175,33 @@ export function provisionCodexHome(sandboxPath: string): boolean {
 }
 
 /**
+ * Provision a per-session opencode data directory into `<sandbox>/.opencode-data/`.
+ * Returns true if auth.json was found, false if opencode auth is unavailable.
+ *
+ * @lore AR2 opencode-xdg-isolation: opencode uses a single global SQLite DB at
+ * `~/.local/share/opencode/opencode.db`. When multiple opencode processes run
+ * concurrently or in rapid succession, the second process hangs on the SQLite
+ * write-lock. The fix: set XDG_DATA_HOME per-session (via CLI_TOOL_CONFIGS.opencode
+ * envMap `XDG_DATA_HOME: "{{sandbox}}/.opencode-data"`) so each subprocess has its
+ * own DB. This function provisions the per-session data dir with the credentials
+ * opencode needs to make LLM calls. WITHOUT this, the opencode process either hangs
+ * (DB lock) or fails auth (no credentials in the isolated data dir).
+ *
+ * Copy ONLY auth.json — NOT the SQLite DB files (they are session state, not credentials).
+ * Verified opencode 1.17.11: `XDG_DATA_HOME` is respected; credentials are read from
+ * `$XDG_DATA_HOME/opencode/auth.json`.
+ */
+export function provisionOpencodeHome(sandboxPath: string): boolean {
+	const opencodePer = path.join(sandboxPath, ".opencode-data", "opencode");
+	fs.mkdirSync(opencodePer, { recursive: true });
+	const globalOpencode = path.join(os.homedir(), ".local", "share", "opencode");
+	const authSrc = path.join(globalOpencode, "auth.json");
+	if (!fs.existsSync(authSrc)) return false;
+	fs.copyFileSync(authSrc, path.join(opencodePer, "auth.json"));
+	return true;
+}
+
+/**
  * Initialize a git repo in the sandbox (required by codex exec).
  *
  * @lore AR2: `codex exec` fails with "not a git repository" unless the cwd is
