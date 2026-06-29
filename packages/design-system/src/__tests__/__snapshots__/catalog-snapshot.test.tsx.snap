@@ -2148,66 +2148,68 @@ exports[`BodyEditor > RichContent 1`] = `
           "; };"
         </code>
       </pre>
-      <table style="min-width: 75px;">
-        <colgroup>
-          <col style="min-width: 25px;" />
-          <col style="min-width: 25px;" />
-          <col style="min-width: 25px;" />
-        </colgroup>
-        <tbody>
-          <tr>
-            <th>
-              <p>
-                "Name"
-              </p>
-            </th>
-            <th>
-              <p>
-                "Value"
-              </p>
-            </th>
-            <th>
-              <p>
-                "Count"
-              </p>
-            </th>
-          </tr>
-          <tr>
-            <td>
-              <p>
-                "Alpha"
-              </p>
-            </td>
-            <td>
-              <p>
-                "foo"
-              </p>
-            </td>
-            <td>
-              <p>
-                "1"
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <p>
-                "Beta"
-              </p>
-            </td>
-            <td>
-              <p>
-                "bar"
-              </p>
-            </td>
-            <td>
-              <p>
-                "2"
-              </p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="tableWrapper">
+        <table style="min-width: 75px;">
+          <colgroup>
+            <col style="min-width: 25px;" />
+            <col style="min-width: 25px;" />
+            <col style="min-width: 25px;" />
+          </colgroup>
+          <tbody>
+            <tr>
+              <th>
+                <p>
+                  "Name"
+                </p>
+              </th>
+              <th>
+                <p>
+                  "Value"
+                </p>
+              </th>
+              <th>
+                <p>
+                  "Count"
+                </p>
+              </th>
+            </tr>
+            <tr>
+              <td>
+                <p>
+                  "Alpha"
+                </p>
+              </td>
+              <td>
+                <p>
+                  "foo"
+                </p>
+              </td>
+              <td>
+                <p>
+                  "1"
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <p>
+                  "Beta"
+                </p>
+              </td>
+              <td>
+                <p>
+                  "bar"
+                </p>
+              </td>
+              <td>
+                <p>
+                  "2"
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <hr />
       <img src="https://placehold.co/600x200" />
     </div>
