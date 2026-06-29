@@ -1,102 +1,49 @@
 /**
- * AK2 — Minimal Strategy end-to-end integration tests (RED phase).
+ * AK2 — Minimal Strategy end-to-end integration tests.
+ * AR5 CONVERSION: replaced EchoHarnessAdapter with real 4-lane matrix via
+ * `runThroughHarness`. The thing under test is "a real session runs to
+ * completion under the minimal Strategy" — the harness IS the integration
+ * point, so `runThroughHarness` is the correct entry point here.
  *
  * AC1: A task can be dispatched and run end-to-end under a minimal Strategy
  *      that performs no context assembly, relevance, or attention work.
  *
  * Scenario 1 (from the WP validation scenarios):
- *   Given the minimal Strategy is active, when a task is dispatched (stub/echo
- *   harness), then a session runs to completion AND:
- *   - no knowledge/ files exist in the sandbox
- *   - no .fabric/manifest.json with items (empty manifest written by scaffold)
- *   - no knowledge_items rows created for this sessionId (no writeback)
+ *   Given the minimal Strategy is active, when a task is dispatched (real
+ *   harness), then a session runs to completion AND the Strategy stays inert.
  *
- * These tests FAIL until:
- *   1. packages/shared/src/strategy-port.ts exists (types — done in red phase)
- *   2. packages/server/src/services/strategy-registry.ts exists (green #2)
- *   3. packages/strategy-minimal exists with minimalStrategy exported (green #3)
- *   4. Both Kernel provisioning paths (session-provisioning.ts + session-lifecycle.ts)
- *      route through getActiveStrategy() instead of hard-importing assembleContext/
- *      startWatcher from @hyperidle/fabric (green #5a, #5b)
+ * Inertness assertions (no knowledge files, no knowledge_items writeback) are
+ * demoted to packages/strategy-minimal/src/__tests__/minimal-strategy.test.ts
+ * (AR5 / architecture-critique N-2) because those properties are about the
+ * Strategy object itself, not the harness:
+ *   - "no files under knowledge/" → direct assembleContext call in unit
+ *   - ".fabric/manifest.json has zero items" → direct assembleContext call
+ *   - "beginLearningIngestion dispose() is no-op" → direct call in unit
+ * The existing minimal-strategy.test.ts already covers all three.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	type HyperIdleDb,
-	knowledgeItems,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import type {
-	HarnessAdapter,
-	HarnessCapabilities,
-	HarnessEvent,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
-} from "@hyperidle/shared";
+import { bets, type HyperIdleDb, knowledgeItems, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import {
-	type ProvisionSessionDeps,
-	type ProvisionSessionParams,
-	provisionSession,
-} from "../services/session-provisioning.js";
+	SUPPORTED_HARNESS_LANES,
+	runThroughHarness,
+	startMcpBridgeServer,
+} from "../harness/__tests__/provision-real-session.js";
+import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Echo harness — completes immediately with zero cost
+// Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3)
 // ---------------------------------------------------------------------------
-
-class EchoHarnessAdapter implements HarnessAdapter {
-	async startSession(_config: SessionConfig): Promise<SessionHandle> {
-		return { sessionId: "echo-session" };
-	}
-
-	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
-		// AL6 v2: emit submit_review so the return gate sees a return action.
-		yield { type: "tool_call", toolName: "submit_review", args: { message: "AK2 stub done" } };
-		yield { type: "completion", text: "Echo: done." };
-	}
-
-	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-		return {
-			outcome: "completed",
-			cost: { minor: 0, currency: "USD" },
-			tokenUsage: { byTier: {} },
-		};
-	}
-
-	getCapabilities(): HarnessCapabilities {
-		return {
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: ["anthropic"],
-			mcpSupport: false,
-			returnEnforcement: "none",
-		};
-	}
-}
-
-function makePool(adapter: HarnessAdapter): AdapterPool {
-	const pool = new AdapterPool();
-	pool.register("local", adapter, {
-		name: "local",
-		kind: "local",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	});
-	return pool;
-}
+const BUILTIN_LANE = SUPPORTED_HARNESS_LANES[0]!;
+const CLAUDE_LANE = SUPPORTED_HARNESS_LANES[1]!;
+const CODEX_LANE = SUPPORTED_HARNESS_LANES[2]!;
+const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]!;
 
 // ---------------------------------------------------------------------------
 // Seed helpers
@@ -154,129 +101,49 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function baseParams(basePath: string): ProvisionSessionParams {
-	return {
-		taskId: "task-ak2",
-		agentId: "agent-ak2",
-		productId: "p-ak2",
-		sandboxBasePath: basePath,
-	};
-}
-
 // ---------------------------------------------------------------------------
-// Tests
+// Shared lane describe body factory (reduces duplication across 4 lanes)
 // ---------------------------------------------------------------------------
 
-describe("AK2 — Minimal Strategy: dispatch with no context assembly work", () => {
+function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void {
 	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
-	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ak2-minimal-integration-"));
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ak2-minimal-${lane.harnessName}-`));
+		if (lane.harnessName !== "builtin") {
+			bridge = await startMcpBridgeServer();
+		}
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = undefined;
+		}
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
 	});
 
-	// AC1 / Scenario 1 main assertion: session reaches `completed` under minimal.
-	test("session runs to completion (state=done, outcome=completed) under minimal Strategy", async ({
+	// AC1 / Scenario 1 main assertion: session reaches completion under minimal.
+	test("session runs to completion (state=done) under minimal Strategy", async ({
 		db,
+		eventBus,
 	}) => {
-		// Import minimalStrategy from the (not-yet-existing) strategy-minimal package.
-		// This import itself will fail until green phase #3 — the right failure reason.
 		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
 
 		await seedDomain(db);
 		setActiveStrategy(minimalStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
+		const { result } = await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
-		const result = await provisionSession(deps, baseParams(tmpDir));
-
+		// AR2 lore: builtin+claude fire MCP return tool → "completed";
+		// codex+opencode do real work but may not return → "not_returned".
+		expect(["completed", "not_returned"]).toContain(result.outcome);
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-
 		expect(session?.state).toBe("done");
-		expect(session?.outcome).toBe("completed");
-	});
-
-	// AC1 / Scenario 1: no knowledge files written under knowledge/ dir.
-	test("no files written under knowledge/ when minimal Strategy is active", async ({ db }) => {
-		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
-
-		await seedDomain(db);
-		setActiveStrategy(minimalStrategy);
-
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
-
-		const result = await provisionSession(deps, baseParams(tmpDir));
-
-		// Find the session's sandbox path.
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-
-		const sandboxPath = session?.sandboxSnapshot;
-		expect(sandboxPath).toBeTruthy();
-
-		// knowledge/ directory exists (scaffold) but is empty — no knowledge
-		// injection happened from the seeded knowledge_items.
-		const knowledgeDir = path.join(sandboxPath!, "knowledge");
-		if (fs.existsSync(knowledgeDir)) {
-			// Walk recursively — assert no files (dirs are ok for scaffold).
-			function countFiles(dir: string): number {
-				const entries = fs.readdirSync(dir, { withFileTypes: true });
-				return entries.reduce((acc, e) => {
-					if (e.isDirectory()) return acc + countFiles(path.join(dir, e.name));
-					return acc + 1;
-				}, 0);
-			}
-			expect(countFiles(knowledgeDir)).toBe(0);
-		}
-	});
-
-	// AC1 / Scenario 1: .fabric/manifest.json written with zero items during session.
-	// NOTE: the sandbox is deleted by endSession on session completion, so we verify
-	// the manifest was written during assembly using a pre-completion hook. The
-	// unit test in minimal-strategy.test.ts directly asserts the manifest shape;
-	// this integration test verifies the session ran to completion under minimal.
-	// We assert zero knowledge_items rows as the observable proxy for "no Fabric
-	// assembly happened" (the unit tests cover the manifest shape directly).
-	test(".fabric/manifest.json has zero items when minimal Strategy is active", async ({ db }) => {
-		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
-
-		await seedDomain(db);
-		setActiveStrategy(minimalStrategy);
-
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
-
-		const result = await provisionSession(deps, baseParams(tmpDir));
-
-		// The session row stores the sandbox path even after cleanup.
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-		const capturedSandboxPath: string | null | undefined = session?.sandboxSnapshot;
-
-		// NOTE: the sandbox dir is deleted by endSession. We cannot read the
-		// manifest from disk post-session. The unit tests in minimal-strategy.test.ts
-		// assert the manifest shape directly. Here we assert session outcome only.
-		expect(session?.state).toBe("done");
-		expect(session?.outcome).toBe("completed");
-		expect(capturedSandboxPath).toBeTruthy();
 	});
 
 	// AC1 / Scenario 1: no new knowledge_items rows created (no writeback).
@@ -285,6 +152,7 @@ describe("AK2 — Minimal Strategy: dispatch with no context assembly work", () 
 	// so the total row count stays at exactly the seeded count (1 row seeded above).
 	test("no new knowledge_items rows created (no writeback) when minimal Strategy is active", async ({
 		db,
+		eventBus,
 	}) => {
 		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
 
@@ -296,14 +164,7 @@ describe("AK2 — Minimal Strategy: dispatch with no context assembly work", () 
 
 		setActiveStrategy(minimalStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
-
-		await provisionSession(deps, baseParams(tmpDir));
+		await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
 		// @lore AK2: knowledge_items rows are created by the Fabric's writeback
 		// path. Under minimal Strategy the IngestionHandle.dispose() is a no-op
@@ -311,4 +172,30 @@ describe("AK2 — Minimal Strategy: dispatch with no context assembly work", () 
 		const after = await db.select().from(knowledgeItems);
 		expect(after).toHaveLength(beforeCount);
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Tests — 4-lane harness matrix (AR5 conversion)
+// Explicit per-lane describe blocks so the honest-harness-guard coverage check
+// finds literal requireHarness("...") call expressions in the source.
+// ---------------------------------------------------------------------------
+
+describe(`${BUILTIN_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+	requireHarness("builtin");
+	makeLaneDescribe(BUILTIN_LANE);
+});
+
+describe(`${CLAUDE_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+	requireHarness("claude");
+	makeLaneDescribe(CLAUDE_LANE);
+});
+
+describe(`${CODEX_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+	requireHarness("codex");
+	makeLaneDescribe(CODEX_LANE);
+});
+
+describe(`${OPENCODE_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+	requireHarness("opencode");
+	makeLaneDescribe(OPENCODE_LANE);
 });

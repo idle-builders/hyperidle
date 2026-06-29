@@ -1,5 +1,9 @@
 /**
- * AK2 — Contributor scenario integration tests (RED phase).
+ * AK2 — Contributor Strategy: register and run with zero Kernel changes.
+ * AR5 CONVERSION: replaced EchoHarnessAdapter with real 4-lane matrix via
+ * `runThroughHarness`. The thing under test is "a real session runs to
+ * completion under a custom ContributorStrategy" — the harness IS the
+ * integration point, so `runThroughHarness` is the correct entry point here.
  *
  * AC4: Selecting the minimal Strategy requires no Kernel-code modification —
  *      only registering a different Strategy; the Kernel imports no specific
@@ -11,14 +15,11 @@
  *
  * This test defines a tiny in-test Strategy (NOT @hyperidle/strategy-minimal,
  * NOT @hyperidle/fabric) that implements Strategy<HyperIdleDb> from scratch.
- * It registers via setActiveStrategy and dispatches a session. The test proves:
+ * It registers via setActiveStrategy and dispatches a session via the real
+ * harness binary. The test proves:
  * - The Strategy Port seam is open — any conforming object can run.
  * - ZERO changes to Kernel code are needed (the test only registers + dispatches).
  * - The contributor's Strategy can observe what it received from the Kernel.
- *
- * These tests FAIL until:
- *   1. packages/server/src/services/strategy-registry.ts exists (green #2)
- *   2. Both Kernel provisioning paths route through getActiveStrategy() (green #5a, #5b)
  */
 
 import * as fs from "node:fs";
@@ -28,25 +29,18 @@ import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } fr
 import type {
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
-	HarnessAdapter,
-	HarnessCapabilities,
-	HarnessEvent,
 	IngestionHandle,
 	IngestionRequest,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
 	Strategy,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import {
-	type ProvisionSessionDeps,
-	type ProvisionSessionParams,
-	provisionSession,
-} from "../services/session-provisioning.js";
+	SUPPORTED_HARNESS_LANES,
+	runThroughHarness,
+	startMcpBridgeServer,
+} from "../harness/__tests__/provision-real-session.js";
+import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
@@ -154,49 +148,12 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 }
 
 // ---------------------------------------------------------------------------
-// Echo harness (same as minimal-strategy tests)
+// Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3)
 // ---------------------------------------------------------------------------
-
-class EchoHarnessAdapter implements HarnessAdapter {
-	async startSession(_config: SessionConfig): Promise<SessionHandle> {
-		return { sessionId: "echo-session" };
-	}
-
-	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
-		// AL6 v2: emit submit_review so the return gate sees a return action.
-		yield { type: "tool_call", toolName: "submit_review", args: { message: "AK2 stub done" } };
-		yield { type: "completion", text: "Echo: done." };
-	}
-
-	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-		return {
-			outcome: "completed",
-			cost: { minor: 0, currency: "USD" },
-			tokenUsage: { byTier: {} },
-		};
-	}
-
-	getCapabilities(): HarnessCapabilities {
-		return {
-			preCompactionTrigger: false,
-			subAgents: false,
-			modelProviders: ["anthropic"],
-			mcpSupport: false,
-			returnEnforcement: "none",
-		};
-	}
-}
-
-function makePool(adapter: HarnessAdapter): AdapterPool {
-	const pool = new AdapterPool();
-	pool.register("local", adapter, {
-		name: "local",
-		kind: "local",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	});
-	return pool;
-}
+const BUILTIN_LANE = SUPPORTED_HARNESS_LANES[0]!;
+const CLAUDE_LANE = SUPPORTED_HARNESS_LANES[1]!;
+const CODEX_LANE = SUPPORTED_HARNESS_LANES[2]!;
+const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]!;
 
 // ---------------------------------------------------------------------------
 // Seed helpers
@@ -240,28 +197,27 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function baseParams(basePath: string): ProvisionSessionParams {
-	return {
-		taskId: "task-ak2c",
-		agentId: "agent-ak2c",
-		productId: "p-ak2c",
-		sandboxBasePath: basePath,
-	};
-}
-
 // ---------------------------------------------------------------------------
-// Tests
+// Shared lane describe body factory (reduces duplication across 4 lanes)
 // ---------------------------------------------------------------------------
 
-describe("AK2 — Contributor Strategy: register and run with zero Kernel changes", () => {
+function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void {
 	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
-	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ak2-contributor-"));
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ak2-contributor-${lane.harnessName}-`));
+		if (lane.harnessName !== "builtin") {
+			bridge = await startMcpBridgeServer();
+		}
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = undefined;
+		}
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -270,51 +226,34 @@ describe("AK2 — Contributor Strategy: register and run with zero Kernel change
 	// AC4 / Scenario 3: contributor registers their Strategy and it runs to completion.
 	test("contributor Strategy runs session to completion without modifying Kernel code", async ({
 		db,
+		eventBus,
 	}) => {
 		const contributorStrategy = new ContributorStrategy();
 		await seedDomain(db);
-
-		// The contributor ONLY calls setActiveStrategy — no Kernel code changes.
 		setActiveStrategy(contributorStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
+		const { result } = await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
-		const result = await provisionSession(deps, baseParams(tmpDir));
-
-		// Session completed.
+		// AR2 lore: builtin+claude fire MCP return tool → "completed";
+		// codex+opencode do real work but may not return → "not_returned".
+		expect(["completed", "not_returned"]).toContain(result.outcome);
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-
 		expect(session?.state).toBe("done");
-		expect(session?.outcome).toBe("completed");
 	});
 
 	// AC4 / Scenario 3: the Kernel passed the correct request fields to the contributor.
 	test("Kernel passes correct assembleContext request fields to the contributor Strategy", async ({
 		db,
+		eventBus,
 	}) => {
 		const contributorStrategy = new ContributorStrategy();
 		await seedDomain(db);
 		setActiveStrategy(contributorStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
+		await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
-		await provisionSession(deps, baseParams(tmpDir));
-
-		// The Kernel called assembleContext exactly once.
 		expect(contributorStrategy.assembleContextCalls).toHaveLength(1);
-
 		const req = contributorStrategy.assembleContextCalls[0]!;
-		// Kernel passed the correct identifiers — no contract deviation.
 		expect(req.taskId).toBe("task-ak2c");
 		expect(req.agentId).toBe("agent-ak2c");
 		expect(req.teamId).toBe("p-ak2c");
@@ -327,57 +266,58 @@ describe("AK2 — Contributor Strategy: register and run with zero Kernel change
 	// AC4 / Scenario 3: the Kernel called beginLearningIngestion and disposed the handle.
 	test("Kernel calls beginLearningIngestion and disposes the handle on session end", async ({
 		db,
+		eventBus,
 	}) => {
 		const contributorStrategy = new ContributorStrategy();
 		await seedDomain(db);
 		setActiveStrategy(contributorStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
+		await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
-		await provisionSession(deps, baseParams(tmpDir));
-
-		// Kernel called beginLearningIngestion exactly once at P7.
 		expect(contributorStrategy.ingestionCalls).toHaveLength(1);
-
-		// Kernel disposed the handle at teardown (session end path).
-		// dispose() is called once — not zero, not twice.
 		expect(contributorStrategy.disposeCallCount).toBe(1);
 	});
 
 	// AC4 / Scenario 3: the contributor's custom context file is in the sandbox.
-	// NOTE: the Kernel deletes the sandbox at session end (endSession step 6). We
-	// cannot check disk state after provisionSession returns. Instead we verify via
-	// in-memory capture: ContributorStrategy records the path and content it wrote
-	// during assembleContext. This is equivalent — it proves the Kernel passed the
-	// sandbox to the contributor and let it write freely.
 	// @lore AK2: sandbox deleted by endSession; use in-memory capture for disk assertions.
-	test("contributor Strategy's custom context assembly appears in the sandbox", async ({ db }) => {
+	test("contributor Strategy's custom context assembly appears in the sandbox", async ({
+		db,
+		eventBus,
+	}) => {
 		const contributorStrategy = new ContributorStrategy();
 		await seedDomain(db);
 		setActiveStrategy(contributorStrategy);
 
-		const deps: ProvisionSessionDeps = {
-			db,
-			eventBus: { emit: () => {}, on: () => {}, off: () => {} } as never,
-			adapterPool: makePool(new EchoHarnessAdapter()),
-			workspace: new LocalSandboxAdapter(),
-		};
+		await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
 
-		await provisionSession(deps, baseParams(tmpDir));
-
-		// The contributor wrote a custom context file — the Kernel did not
-		// interfere with what was written.
 		const record = contributorStrategy.toRecord();
-		// Verify the file path was set during assembly (non-empty = assembleContext was called).
-		const customContextPath = record.capturedContextPath;
-		expect(customContextPath).toContain("contributor-context.md");
-		// Verify the captured content contains the expected text (written during assembly).
-		const content = record.capturedContextContent;
-		expect(content).toContain("Custom knowledge for session");
+		expect(record.capturedContextPath).toContain("contributor-context.md");
+		expect(record.capturedContextContent).toContain("Custom knowledge for session");
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Tests — 4-lane harness matrix (AR5 conversion)
+// Explicit per-lane describe blocks so the honest-harness-guard coverage check
+// finds literal requireHarness("...") call expressions in the source.
+// ---------------------------------------------------------------------------
+
+describe(`${BUILTIN_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+	requireHarness("builtin");
+	makeLaneDescribe(BUILTIN_LANE);
+});
+
+describe(`${CLAUDE_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+	requireHarness("claude");
+	makeLaneDescribe(CLAUDE_LANE);
+});
+
+describe(`${CODEX_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+	requireHarness("codex");
+	makeLaneDescribe(CODEX_LANE);
+});
+
+describe(`${OPENCODE_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+	requireHarness("opencode");
+	makeLaneDescribe(OPENCODE_LANE);
 });

@@ -20,6 +20,10 @@ const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.w
 const HARNESS_INCLUDE = [
 	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
 	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
+	// AR5: converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
+	"packages/server/src/__tests__/AK2-contributor-scenario.integration.test.ts",
+	"packages/server/src/__tests__/AK2-minimal-strategy.integration.test.ts",
+	"packages/server/src/__tests__/AK3-real-decomposition.integration.test.ts",
 ];
 
 export default defineConfig({
