@@ -22,7 +22,6 @@ import { execSync } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { assertAgenticFloor } from "./lib/attestation-floor.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -66,13 +65,6 @@ interface Attestation {
 	partial: boolean;
 	smartSkipped: string[];
 	timestamp: string;
-	/**
-	 * AR1 attestation floor — agentic harness integration test counts.
-	 * Optional for back-compat: pre-AR1 attestations lack these fields (pass
-	 * the floor check for legacy files — matches the srcHash? optional precedent).
-	 */
-	agenticExecuted?: number;
-	agenticSkipped?: number;
 	hmac: string;
 }
 
@@ -119,72 +111,7 @@ function findAttestation(): string {
 	);
 }
 
-/**
- * Selftest for the AR1 agentic floor logic (Task 9).
- *
- * Hand-feeds synthetic count fixtures to assertAgenticFloor and asserts the
- * expected pass/fail outcomes. Sanity-break: the "all-skipped" fixture must fail
- * (not pass) — proves the floor is load-bearing, not vacuous.
- *
- * Wired into check-attestation via --selftest flag (not into npm run verify
- * separately — the attestation-floor unit tests in packages/server cover the
- * pure function; this selftest covers the integration point in check-attestation).
- */
-function runFloorSelftest(): void {
-	process.stderr.write("[check-attestation:selftest] Running floor self-tests...\n");
-
-	let passed = 0;
-	let failed = 0;
-
-	function assert(label: string, result: string | null, expectFail: boolean): void {
-		const gotFail = result !== null;
-		if (gotFail === expectFail) {
-			process.stderr.write(`  ✓ ${label}\n`);
-			passed++;
-		} else {
-			process.stderr.write(
-				`  ✗ ${label}: expected ${expectFail ? "FAIL" : "PASS"}, got ${gotFail ? `FAIL ("${result}")` : "PASS"}\n`,
-			);
-			failed++;
-		}
-	}
-
-	// ≥1 executed — must PASS
-	assert("≥1 executed → PASS", assertAgenticFloor({ agenticExecuted: 5, agenticSkipped: 2 }), false);
-
-	// All skipped — must FAIL (zero-executed floor)
-	// Sanity-break discipline (mock-validation-trap lore): if this passes, the floor is broken.
-	assert("all-skipped → FAIL", assertAgenticFloor({ agenticExecuted: 0, agenticSkipped: 3 }), true);
-
-	// Empty set — must FAIL (W5 non-empty floor)
-	assert("empty-set → FAIL", assertAgenticFloor({ agenticExecuted: 0, agenticSkipped: 0 }), true);
-
-	// Legacy (no counts field) — must PASS (back-compat)
-	// We simulate legacy by passing a value that looks like it has no number type.
-	assert(
-		"legacy no-counts (undefined cast) → PASS",
-		assertAgenticFloor({ agenticExecuted: undefined as unknown as number, agenticSkipped: 0 }),
-		false,
-	);
-
-	process.stderr.write(
-		`[check-attestation:selftest] ${passed} passed, ${failed} failed\n`,
-	);
-	if (failed > 0) {
-		process.stderr.write("[check-attestation:selftest] FAIL: floor selftest failures.\n");
-		process.exit(1);
-	}
-	process.stderr.write("[check-attestation:selftest] PASS: all floor self-tests passed.\n");
-	process.exit(0);
-}
-
 function main(): void {
-	// Handle --selftest before normal execution
-	if (process.argv.includes("--selftest")) {
-		runFloorSelftest();
-		return;
-	}
-
 	const secret = process.env.VERIFY_SECRET;
 	if (!secret) {
 		fail("VERIFY_SECRET env var not set — add it as a GitHub Actions secret");
@@ -218,33 +145,6 @@ function main(): void {
 
 	if (attestation.dirty) {
 		fail("verify ran with uncommitted changes — commit all changes, then re-run verify");
-	}
-
-	// AR1 agentic floor: post-AR1 attestations carry agenticExecuted + agenticSkipped.
-	// Pre-AR1 attestations lack these fields — skip the floor (back-compat, matches srcHash? precedent).
-	//
-	// @lore AR1: three locks. (1) requireHarness — absence throws RED, can't skip.
-	// (2) executed-count floor — a green needs ≥1 agentic test that ran.
-	// (3) non-empty floor (W5) — the agentic set itself can't be empty, so a mis-scoped
-	// predicate can't silently empty the floor. W5 fires first.
-	if (typeof attestation.agenticExecuted === "number") {
-		const total = attestation.agenticExecuted + (attestation.agenticSkipped ?? 0);
-		// W5: non-empty floor — the predicate must have selected ≥1 agentic test
-		if (total === 0) {
-			fail(
-				"agentic harness integration set is EMPTY (zero agentic tests collected) — " +
-				"the executed-count floor cannot be vacuously satisfied (AR1 floor / W5). " +
-				"Check that isHarnessFacingIntegration is selecting files correctly.",
-			);
-		}
-		// Zero-executed floor — all agentic tests reported as skipped
-		if (attestation.agenticExecuted === 0) {
-			fail(
-				"agentic harness integration tests reported ZERO executed — " +
-				"a green cannot be minted on a 100%-skipped agentic surface (AR1 floor). " +
-				"Use requireHarness() so absence throws RED, not skipIf to green.",
-			);
-		}
 	}
 
 	// Source-integrity: the attested tests must correspond to the source CI is

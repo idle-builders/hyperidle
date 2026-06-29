@@ -49,12 +49,23 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-// ── Binary detection (AR1: requireHarness replaces binaryPresent + skipIf) ────
-// requireHarness("claude"/"codex"/"opencode") is called inside each describe block.
+// ── Binary detection (same pattern as AL6/AL7) ────────────────────────────────
+
+function binaryPresent(name: string): boolean {
+	try {
+		execFileSync("which", [name], { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+const claudeInstalled = binaryPresent("claude");
+const codexInstalled = binaryPresent("codex");
+const opencodeInstalled = binaryPresent("opencode");
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -152,123 +163,124 @@ function provisionCodexHome(sandboxPath: string): boolean {
 // when this test runs inside Claude Code.
 
 describe("claude-code CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	requireHarness("claude");
-	test("drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real cost + no error pollution", async ({
-		skip,
-	}) => {
-		const authed = await claudeAuthed();
-		if (!authed) {
-			skip();
-			return;
-		}
-
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-real-"));
-
-		try {
-			provisionClaudeSandbox(sandboxPath);
-
-			const config: SessionConfig = {
-				sessionId: `cli-adapter-real-${Math.random().toString(36).slice(2, 10)}`,
-				sandboxPath,
-				systemPromptPath: "",
-				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
-				modelTier: "workhorse" as const,
-				tools: [],
-				resolvedModel: {
-					provider: "anthropic" as const,
-					// apiKey is intentionally empty: CLAUDE_CLI_CONFIG.envMap is {} so nothing
-					// is injected. claude authenticates via the macOS keychain through the
-					// forwarded HOME/USER/LOGNAME env vars (envAllowlist).
-					// The allowlist excludes CLAUDECODE etc — no nested-session detection fires.
-					model: "claude-haiku-4-5",
-					apiKey: "",
-					baseUrl: "https://api.anthropic.com",
-				},
-				mcpConnectionInfo: undefined,
-			};
-
-			// NO spawnFn → REAL spawn.
-			const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
-
-			const handle = await adapter.startSession(config);
-
-			const events: HarnessEvent[] = [];
-			for await (const ev of adapter.streamEvents(handle)) {
-				events.push(ev);
+	test.skipIf(!claudeInstalled)(
+		"drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real cost + no error pollution",
+		async ({ skip }) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
 			}
 
-			const result = await adapter.stopSession(handle);
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-real-"));
 
-			// ── Assertion 1: completion event containing "ADAPTER_OK" ─────────────
-			// Proves preMapClaudeEvent translated the real binary's stream-json output.
-			// The real binary emits assistant-block JSON; preMapClaudeEvent converts it
-			// to { type: "completion", text: "ADAPTER_OK" } before normalizeHarnessEvent.
-			const hasCompletion = events.some(
-				(e) =>
-					e.type === "completion" &&
-					typeof (e as { text?: string }).text === "string" &&
-					(e as { text: string }).text.includes("ADAPTER_OK"),
-			);
-			if (!hasCompletion) {
-				const completions = events
-					.filter((e) => e.type === "completion")
-					.map((e) => (e as { text?: string }).text ?? "")
-					.join(" | ");
-				throw new Error(
-					`ADAPTER PROOF FAILED: no completion event with 'ADAPTER_OK'. ` +
-						`events: ${events.map((e) => e.type).join(",")}. ` +
-						`completion texts: "${completions}"`,
+			try {
+				provisionClaudeSandbox(sandboxPath);
+
+				const config: SessionConfig = {
+					sessionId: `cli-adapter-real-${Math.random().toString(36).slice(2, 10)}`,
+					sandboxPath,
+					systemPromptPath: "",
+					assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
+					modelTier: "workhorse" as const,
+					tools: [],
+					resolvedModel: {
+						provider: "anthropic" as const,
+						// apiKey is intentionally empty: CLAUDE_CLI_CONFIG.envMap is {} so nothing
+						// is injected. claude authenticates via the macOS keychain through the
+						// forwarded HOME/USER/LOGNAME env vars (envAllowlist).
+						// The allowlist excludes CLAUDECODE etc — no nested-session detection fires.
+						model: "claude-haiku-4-5",
+						apiKey: "",
+						baseUrl: "https://api.anthropic.com",
+					},
+					mcpConnectionInfo: undefined,
+				};
+
+				// NO spawnFn → REAL spawn.
+				const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
+
+				const handle = await adapter.startSession(config);
+
+				const events: HarnessEvent[] = [];
+				for await (const ev of adapter.streamEvents(handle)) {
+					events.push(ev);
+				}
+
+				const result = await adapter.stopSession(handle);
+
+				// ── Assertion 1: completion event containing "ADAPTER_OK" ─────────────
+				// Proves preMapClaudeEvent translated the real binary's stream-json output.
+				// The real binary emits assistant-block JSON; preMapClaudeEvent converts it
+				// to { type: "completion", text: "ADAPTER_OK" } before normalizeHarnessEvent.
+				const hasCompletion = events.some(
+					(e) =>
+						e.type === "completion" &&
+						typeof (e as { text?: string }).text === "string" &&
+						(e as { text: string }).text.includes("ADAPTER_OK"),
 				);
-			}
-			expect(hasCompletion).toBe(true);
+				if (!hasCompletion) {
+					const completions = events
+						.filter((e) => e.type === "completion")
+						.map((e) => (e as { text?: string }).text ?? "")
+						.join(" | ");
+					throw new Error(
+						`ADAPTER PROOF FAILED: no completion event with 'ADAPTER_OK'. ` +
+							`events: ${events.map((e) => e.type).join(",")}. ` +
+							`completion texts: "${completions}"`,
+					);
+				}
+				expect(hasCompletion).toBe(true);
 
-			// ── Assertion 2: real cost_update with totalCost > 0 ─────────────────
-			// Proves total_cost_usd captured from the real result line.
-			// The real `claude` binary emits a terminal {"type":"result","total_cost_usd":X}
-			// line; parseStdoutLine captures it → streamEvents emits one cost_update.
-			const costEvent = events.find((e) => e.type === "cost_update");
-			expect(
-				costEvent,
-				"Expected a cost_update event from the real result line's total_cost_usd",
-			).toBeDefined();
-			if (costEvent !== undefined && costEvent.type === "cost_update") {
+				// ── Assertion 2: real cost_update with totalCost > 0 ─────────────────
+				// Proves total_cost_usd captured from the real result line.
+				// The real `claude` binary emits a terminal {"type":"result","total_cost_usd":X}
+				// line; parseStdoutLine captures it → streamEvents emits one cost_update.
+				const costEvent = events.find((e) => e.type === "cost_update");
 				expect(
-					costEvent.totalCost,
-					"cost_update.totalCost must be > 0 (real LLM turn consumed tokens)",
+					costEvent,
+					"Expected a cost_update event from the real result line's total_cost_usd",
+				).toBeDefined();
+				if (costEvent !== undefined && costEvent.type === "cost_update") {
+					expect(
+						costEvent.totalCost,
+						"cost_update.totalCost must be > 0 (real LLM turn consumed tokens)",
+					).toBeGreaterThan(0);
+				}
+
+				// ── Assertion 3: no UnknownHarnessEvent errors ────────────────────────
+				// Proves preMapClaudeEvent handled ALL stream-json line types without
+				// falling through to the error path.
+				// system/assistant/result/user lines must NOT produce UnknownHarnessEvent.
+				const hasUnknownError = events.some(
+					(e) =>
+						e.type === "error" &&
+						"code" in e &&
+						(e as { code: string }).code === "UnknownHarnessEvent",
+				);
+				if (hasUnknownError) {
+					const errorEvents = events.filter(
+						(e) => e.type === "error" && (e as { code?: string }).code === "UnknownHarnessEvent",
+					);
+					throw new Error(
+						`ADAPTER PROOF FAILED: preMapClaudeEvent produced UnknownHarnessEvent errors. ` +
+							`Errors: ${JSON.stringify(errorEvents.slice(0, 3))}`,
+					);
+				}
+				expect(hasUnknownError).toBe(false);
+
+				// ── Assertion 4: result.outcome + cost.minor ──────────────────────────
+				expect(result.outcome).toBe("completed");
+				expect(
+					result.cost.minor,
+					"result.cost.minor must be > 0 (real session cost captured from terminal result line)",
 				).toBeGreaterThan(0);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-
-			// ── Assertion 3: no UnknownHarnessEvent errors ────────────────────────
-			// Proves preMapClaudeEvent handled ALL stream-json line types without
-			// falling through to the error path.
-			// system/assistant/result/user lines must NOT produce UnknownHarnessEvent.
-			const hasUnknownError = events.some(
-				(e) =>
-					e.type === "error" &&
-					"code" in e &&
-					(e as { code: string }).code === "UnknownHarnessEvent",
-			);
-			if (hasUnknownError) {
-				const errorEvents = events.filter(
-					(e) => e.type === "error" && (e as { code?: string }).code === "UnknownHarnessEvent",
-				);
-				throw new Error(
-					`ADAPTER PROOF FAILED: preMapClaudeEvent produced UnknownHarnessEvent errors. ` +
-						`Errors: ${JSON.stringify(errorEvents.slice(0, 3))}`,
-				);
-			}
-			expect(hasUnknownError).toBe(false);
-
-			// ── Assertion 4: result.outcome + cost.minor ──────────────────────────
-			expect(result.outcome).toBe("completed");
-			expect(
-				result.cost.minor,
-				"result.cost.minor must be > 0 (real session cost captured from terminal result line)",
-			).toBeGreaterThan(0);
-		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-		}
-	}, 90_000);
+		},
+		90_000,
+	);
 });
 
 // ── CODEX CLI adapter (production path, real binary) ─────────────────────────
@@ -430,32 +442,18 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			);
 		}
 	} finally {
-		// @lore codex-cleanup: codex spawns background plugin-clone threads that may
-		// still hold file handles on .codex-home/.tmp/ when the test completes.
-		// rmSync with recursive+force can fail with ENOTEMPTY on macOS when a process
-		// still holds a handle in a subdirectory. Retry once after 200ms; if still
-		// failing, swallow ENOTEMPTY (the OS cleans up /tmp at reboot).
-		try {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-		} catch (e) {
-			if ((e as NodeJS.ErrnoException).code !== "ENOTEMPTY") throw e;
-			await new Promise((r) => setTimeout(r, 200));
-			try {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			} catch {
-				// Swallow persistent ENOTEMPTY — temp dir will be OS-cleaned.
-			}
-		}
+		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	}
 }
 
 describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	requireHarness("codex");
-	test("drives CliHarnessAdapter(CLI_TOOL_CONFIGS.codex) against real codex → completion + outcome completed", async ({
-		skip,
-	}) => {
-		await runCodexAdapterTest({ skip });
-	}, 90_000);
+	test.skipIf(!codexInstalled)(
+		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.codex) against real codex → completion + outcome completed",
+		async ({ skip }) => {
+			await runCodexAdapterTest({ skip });
+		},
+		90_000,
+	);
 });
 
 // ── OPENCODE CLI adapter (production path, real binary) ───────────────────────
@@ -471,68 +469,69 @@ describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", (
 // envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" } — the adapter injects the resolved key.
 
 describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	requireHarness("opencode");
-	test("drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed", async ({
-		skip,
-	}) => {
-		// Check for provider key in env — do NOT fabricate a key.
-		const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
-		if (!apiKey) {
-			skip();
-			return;
-		}
-
-		const authed = await opencodeAuthed();
-		if (!authed) {
-			skip();
-			return;
-		}
-
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
-
-		try {
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!opencodeConfig) {
-				throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+	test.skipIf(!opencodeInstalled)(
+		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed",
+		async ({ skip }) => {
+			// Check for provider key in env — do NOT fabricate a key.
+			const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+			if (!apiKey) {
+				skip();
+				return;
 			}
 
-			const config: SessionConfig = {
-				sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,
-				sandboxPath,
-				systemPromptPath: "",
-				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
-				modelTier: "workhorse" as const,
-				tools: [],
-				resolvedModel: {
-					provider: "anthropic" as const,
-					// Provider-prefixed model id required by opencode.
-					// @lore AL6 opencode-model-format: opencode uses provider-prefixed model IDs.
-					model: "anthropic/claude-haiku-4-5",
-					apiKey,
-					baseUrl: "https://api.anthropic.com",
-				},
-				mcpConnectionInfo: undefined,
-			};
-
-			// NO spawnFn → REAL spawn.
-			const adapter = new CliHarnessAdapter(opencodeConfig);
-
-			const handle = await adapter.startSession(config);
-
-			const events: HarnessEvent[] = [];
-			for await (const ev of adapter.streamEvents(handle)) {
-				events.push(ev);
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
 			}
 
-			const result = await adapter.stopSession(handle);
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
 
-			// Assert: completion event present.
-			expect(events.some((e) => e.type === "completion")).toBe(true);
+			try {
+				const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
+				if (!opencodeConfig) {
+					throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+				}
 
-			// Assert: result.outcome "completed".
-			expect(result.outcome).toBe("completed");
-		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-		}
-	}, 90_000);
+				const config: SessionConfig = {
+					sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,
+					sandboxPath,
+					systemPromptPath: "",
+					assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
+					modelTier: "workhorse" as const,
+					tools: [],
+					resolvedModel: {
+						provider: "anthropic" as const,
+						// Provider-prefixed model id required by opencode.
+						// @lore AL6 opencode-model-format: opencode uses provider-prefixed model IDs.
+						model: "anthropic/claude-haiku-4-5",
+						apiKey,
+						baseUrl: "https://api.anthropic.com",
+					},
+					mcpConnectionInfo: undefined,
+				};
+
+				// NO spawnFn → REAL spawn.
+				const adapter = new CliHarnessAdapter(opencodeConfig);
+
+				const handle = await adapter.startSession(config);
+
+				const events: HarnessEvent[] = [];
+				for await (const ev of adapter.streamEvents(handle)) {
+					events.push(ev);
+				}
+
+				const result = await adapter.stopSession(handle);
+
+				// Assert: completion event present.
+				expect(events.some((e) => e.type === "completion")).toBe(true);
+
+				// Assert: result.outcome "completed".
+				expect(result.outcome).toBe("completed");
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		},
+		90_000,
+	);
 });

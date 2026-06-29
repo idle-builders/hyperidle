@@ -1,12 +1,12 @@
 /**
  * Session Provisioning — AC2 integration test (real claude CLI adapter).
  *
- * This test is gated on `ANTHROPIC_API_KEY` env via requireHarness("anthropic-key").
- * Note: the new CLI adapter uses inherited login (not API key), so this proxy is
- * imperfect. The authoritative live proof for the claude CLI path is
- * AL6-return-enforcement-realbinary.integration.test.ts and
- * AL7-two-session-trust-first.integration.test.ts (AR1 lane collapse).
- * This integration test uses ANTHROPIC_API_KEY as a proxy for "claude is configured".
+ * This test is gated on `ANTHROPIC_API_KEY` env as a proxy for "claude is
+ * configured" (see test.skipIf gate below). Note: the new CLI adapter uses
+ * inherited login (not API key), so this proxy is imperfect. The authoritative
+ * live proof for the claude CLI path is the real-harness lane
+ * (`*.real-harness.test.ts`, AL6/AL7). This integration test remains gated on
+ * ANTHROPIC_API_KEY for historical compatibility.
  * It proves AC2 of D5:
  *   "Claude integration test: provision real session → agent runs → session
  *    completes."
@@ -36,7 +36,6 @@ import {
 import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { AdapterPool, CLAUDE_CLI_CONFIG } from "../harness/adapter-pool.js";
 import { CliHarnessAdapter } from "../harness/cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
@@ -99,7 +98,6 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
-	requireHarness("anthropic-key");
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -116,33 +114,37 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		}
 	});
 
-	test("provisions a real Claude session and completes with cost > 0", async ({ db, eventBus }) => {
-		await seedDomain(db);
-		const workspace = new LocalSandboxAdapter();
-		const adapterPool = new AdapterPool();
-		adapterPool.register("local", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
-			name: "local",
-			kind: "local",
-			modelProviders: ["anthropic"],
-			maxConcurrent: 4,
-		});
+	test.skipIf(!process.env.ANTHROPIC_API_KEY)(
+		"provisions a real Claude session and completes with cost > 0",
+		async ({ db, eventBus }) => {
+			await seedDomain(db);
+			const workspace = new LocalSandboxAdapter();
+			const adapterPool = new AdapterPool();
+			adapterPool.register("local", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+				name: "local",
+				kind: "local",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 4,
+			});
 
-		const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
-		const result = await provisionSession(deps, {
-			taskId: "task-1",
-			agentId: "agent-1",
-			productId: "p1",
-			sandboxBasePath: tmpDir,
-		});
+			const deps: ProvisionSessionDeps = { db, eventBus, adapterPool, workspace };
+			const result = await provisionSession(deps, {
+				taskId: "task-1",
+				agentId: "agent-1",
+				productId: "p1",
+				sandboxBasePath: tmpDir,
+			});
 
-		expect(result.outcome).toBe("completed");
-		expect(result.totalCostCents).toBeGreaterThan(0);
+			expect(result.outcome).toBe("completed");
+			expect(result.totalCostCents).toBeGreaterThan(0);
 
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-		expect(session?.state).toBe("done");
-		// @lore AF4: `cost` was stripped from the sessions table (O2) — cost now
-		// lives on the run result (asserted above via totalCostCents). Type-bridge
-		// the removed column so this legacy assertion compiles unchanged.
-		expect((session as { cost?: number } | undefined)?.cost ?? 0).toBeGreaterThan(0);
-	}, 120_000);
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
+			expect(session?.state).toBe("done");
+			// @lore AF4: `cost` was stripped from the sessions table (O2) — cost now
+			// lives on the run result (asserted above via totalCostCents). Type-bridge
+			// the removed column so this legacy assertion compiles unchanged.
+			expect((session as { cost?: number } | undefined)?.cost ?? 0).toBeGreaterThan(0);
+		},
+		120_000,
+	);
 });

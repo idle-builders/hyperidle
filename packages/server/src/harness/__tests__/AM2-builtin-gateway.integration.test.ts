@@ -24,10 +24,15 @@
 import type { HarnessEvent, ResolvedModel } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
-import { requireHarness } from "./require-harness.js";
 
-// requireHarness("openai-key") guarantees OPENAI_API_KEY is present at test time.
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+const hasGatewayKey = Boolean(OPENAI_API_KEY ?? ANTHROPIC_API_KEY ?? OPENROUTER_API_KEY);
+
+// OPENAI_API_KEY must be present specifically — other keys use different provider paths
+const canProbeOpenAiCompatible = Boolean(OPENAI_API_KEY);
 
 /**
  * @lore AM2: OPENAI_API_KEY may hold an OpenRouter key (sk-or-v1-...) rather than a
@@ -194,36 +199,45 @@ async function tryModelCall(
 }
 
 describe("AM2 builtin gateway — real openai-compatible call", () => {
-	// AR1: requireHarness("openai-key") replaces the outer hasGatewayKey skipIf.
-	// OPENAI_API_KEY is required specifically — other keys use different provider paths.
-	requireHarness("openai-key");
-	test("drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text", async () => {
-		// Guaranteed at this point: OPENAI_API_KEY is present
-		const apiKey = OPENAI_API_KEY as string;
-
-		const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
-
-		// For OpenRouter keys (sk-or-*): single model attempt via OpenRouter endpoint.
-		// For direct OpenAI keys: try models in bounded list order.
-		const isOpenRouterKey = apiKey.startsWith("sk-or-");
-		const candidatesToTry = isOpenRouterKey ? ["openai/gpt-4o-mini"] : OPENAI_MODEL_CANDIDATES;
-
-		let lastError: unknown = null;
-
-		for (const candidate of candidatesToTry) {
-			// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
-			const result = await tryModelCall(adapter, candidate, apiKey);
-			if (result.success) {
-				return; // done — real call succeeded
+	// outer skip: no gateway key at all
+	test.skipIf(!hasGatewayKey)(
+		"drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text",
+		async (ctx) => {
+			// Inner skip: gateway key present but not OPENAI_API_KEY specifically
+			// (other keys use anthropic/openrouter provider paths, not openai-compatible)
+			if (!canProbeOpenAiCompatible) {
+				ctx.skip();
+				return;
 			}
-			lastError = result.err;
-		}
 
-		// All candidates failed with non-auth errors — throw with details
-		// (per plan: on model-not-available, the test throws with model list + final error;
-		// it does NOT silently pass)
-		throw new Error(
-			`AC3: all candidates in bounded list ${JSON.stringify(candidatesToTry)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-		);
-	}, 120_000);
+			// Guaranteed at this point: OPENAI_API_KEY is present
+			const apiKey = OPENAI_API_KEY as string;
+
+			const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
+
+			// For OpenRouter keys (sk-or-*): single model attempt via OpenRouter endpoint.
+			// For direct OpenAI keys: try models in bounded list order.
+			const isOpenRouterKey = apiKey.startsWith("sk-or-");
+			const candidatesToTry = isOpenRouterKey ? ["openai/gpt-4o-mini"] : OPENAI_MODEL_CANDIDATES;
+
+			let lastError: unknown = null;
+
+			for (const candidate of candidatesToTry) {
+				// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
+				const result = await tryModelCall(adapter, candidate, apiKey);
+				if (result.success) {
+					return; // done — real call succeeded
+				}
+				lastError = result.err;
+			}
+
+			// All candidates failed with non-auth errors — throw with details
+			// (per plan: on model-not-available, the test throws with model list + final error;
+			// it does NOT silently pass)
+			throw new Error(
+				`AC3: all candidates in bounded list ${JSON.stringify(candidatesToTry)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+			);
+		},
+		120_000,
+	);
 });

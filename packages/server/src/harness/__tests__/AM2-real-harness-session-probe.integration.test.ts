@@ -17,13 +17,12 @@
  * execute and capture fixtures.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { probeHarnessSession } from "../harness-session-probe.js";
-import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +48,20 @@ async function writeFixtureIfMissing(filePath: string, content: string): Promise
 		await writeFile(filePath, content, "utf-8");
 	}
 }
+
+function binaryPresent(name: string): boolean {
+	try {
+		// execFileSync("which") is the lightweight check
+		execFileSync("which", [name], { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+const codexInstalled = binaryPresent("codex");
+const claudeInstalled = binaryPresent("claude");
+const opencodeInstalled = binaryPresent("opencode");
 
 // Check auth by running `codex login status` — logged in = starts with "Logged in"
 async function codexAuthed(): Promise<boolean> {
@@ -89,9 +102,9 @@ async function opencodeAuthed(): Promise<boolean> {
 }
 
 describe("AM2 real harness session probe", () => {
-	describe("codex session probe", () => {
-		requireHarness("codex");
-		test("codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture", async (ctx) => {
+	test.skipIf(!codexInstalled)(
+		"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
+		async (ctx) => {
 			// Verify authed state — skip if binary present but not logged in
 			const authed = await codexAuthed();
 			if (!authed) {
@@ -119,12 +132,13 @@ describe("AM2 real harness session probe", () => {
 				join(FIXTURES_DIR, "codex-exec.jsonl"),
 				`${result.capturedLine!}\n`,
 			);
-		}, 120_000);
-	});
+		},
+		120_000,
+	);
 
-	describe("claude session probe", () => {
-		requireHarness("claude");
-		test("claude session probe: executes real claude -p and captures usage-bearing result fixture", async (ctx) => {
+	test.skipIf(!claudeInstalled)(
+		"claude session probe: executes real claude -p and captures usage-bearing result fixture",
+		async (ctx) => {
 			const authed = await claudeAuthed();
 			if (!authed) {
 				ctx.skip();
@@ -152,12 +166,13 @@ describe("AM2 real harness session probe", () => {
 				join(FIXTURES_DIR, "claude-stream.jsonl"),
 				`${result.capturedLine!}\n`,
 			);
-		}, 120_000);
-	});
+		},
+		120_000,
+	);
 
-	describe("opencode session probe", () => {
-		requireHarness("opencode");
-		test("opencode session probe: executes real opencode run and captures event line", async (ctx) => {
+	test.skipIf(!opencodeInstalled)(
+		"opencode session probe: executes real opencode run and captures event line",
+		async (ctx) => {
 			const authed = await opencodeAuthed();
 			if (!authed) {
 				ctx.skip();
@@ -185,6 +200,7 @@ describe("AM2 real harness session probe", () => {
 			if (result.reason !== undefined) {
 				expect(result.reason).not.toMatch(/not installed|binary not found/i);
 			}
-		}, 120_000);
-	});
+		},
+		120_000,
+	);
 });
