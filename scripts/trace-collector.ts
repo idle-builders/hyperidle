@@ -1,13 +1,6 @@
 #!/usr/bin/env tsx
 // OTLP/HTTP-JSON receiver. Appends each span as a JSONL row to
-// .pipeline/traces.jsonl. Reports query the file via DuckDB
-// read_json_auto — no lock contention because the file is append-only.
-//
-// Why JSONL + DuckDB-on-read instead of a direct DuckDB write path:
-// DuckDB holds an exclusive lock on its database file, so a running writer
-// blocks every other process from reading. Rolling spans into JSONL keeps
-// the collector dead simple, lets DuckDB do real analytics on the same data
-// (read_json_auto + json_extract), and stays inspectable with jq / tail.
+// .pipeline/traces.jsonl (append-only, inspectable with jq / tail).
 //
 // Usage:
 //   npm run obs:collector                 # foreground; Ctrl-C to stop
@@ -256,7 +249,6 @@ server.listen(PORT, () => {
 	console.log(`trace collector listening on http://localhost:${PORT}`);
 	console.log(`  endpoint: POST /v1/traces (OTLP/HTTP-JSON)`);
 	console.log(`  file:     ${TRACE_FILE}`);
-	console.log(`  query:    npm run obs:report   (DuckDB over read_json_auto)`);
 });
 
 const stop = (): void => {

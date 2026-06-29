@@ -14,9 +14,9 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2",
-		"nodemailer": "^6.10.1"
+		"nodemailer": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/nodemailer": "^6.4.17"
+		"@types/nodemailer": "^8.0.1"
 	}
 }

@@ -58,9 +58,13 @@ const ROUNDED_3XL = /\brounded-3xl\b/;
 // is filed; until it lands, the K1 → K6 invariant ("no rule encodes a value
 // not in AESTHETICS.md") is satisfied at the value level (palette names, class
 // prefixes are unchanged) — only the composition rule differs.
+//
+// @lore upgrade-deferred: Tailwind v4 renames `bg-gradient-to-*` → `bg-linear-*`
+// and adds `bg-radial-*`. Both v3 and v4 direction prefixes are matched so the
+// rule fires on code written for either Tailwind version.
 const GRADIENT_AI_BG_LITERAL =
-	/\bbg-gradient-(?:to|from|via)-(?:indigo|purple|violet|fuchsia|pink)-\d{2,3}\b/;
-const GRADIENT_DIRECTION = /\bbg-gradient-(?:to-[a-z]+|from-|via-|to-)/;
+	/\bbg-(?:gradient-(?:to|from|via)|linear|radial)-(?:to|from|via)?-?(?:indigo|purple|violet|fuchsia|pink)-\d{2,3}\b/;
+const GRADIENT_DIRECTION = /\bbg-(?:gradient-(?:to-[a-z]+|from-|via-|to-)|linear-to-|radial-at-)/;
 const GRADIENT_AI_STOP = /\b(?:from|via|to)-(?:indigo|purple|violet|fuchsia|pink)-\d{2,3}\b/;
 
 const BACKDROP_BLUR = /\bbackdrop-(?:blur|filter)(?:-[a-z0-9]+)?\b/;

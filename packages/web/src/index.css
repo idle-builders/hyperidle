@@ -1,8 +1,91 @@
 @import "@hyperidle/design-system/tokens.css";
+@import "tailwindcss";
+@plugin "daisyui";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@plugin "daisyui/theme" {
+  name: "hearth-light";
+  default: true;
+  color-scheme: light;
+  --color-primary: #16764f;
+  --color-primary-content: #ffffff;
+  --color-secondary: #d97706;
+  --color-secondary-content: #ffffff;
+  --color-accent: #6b5d4d;
+  --color-accent-content: #ffffff;
+  --color-neutral: #ede7db;
+  --color-neutral-content: #2c241a;
+  --color-base-100: #f5f0e6;
+  --color-base-200: #ede7db;
+  --color-base-300: #e8e0d0;
+  --color-base-content: #2c241a;
+  --color-info: #2e7dba;
+  --color-info-content: #ffffff;
+  --color-success: #16764f;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #dc4a3a;
+  --color-error-content: #ffffff;
+  --radius-box: 16px;
+  --radius-field: 16px;
+  --radius-selector: 9999px;
+}
+
+@plugin "daisyui/theme" {
+  name: "hearth-dark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-primary: #2eaa7a;
+  --color-primary-content: #ffffff;
+  --color-secondary: #d97706;
+  --color-secondary-content: #ffffff;
+  --color-accent: #a89880;
+  --color-accent-content: #1a1510;
+  --color-neutral: #231e16;
+  --color-neutral-content: #ede5d8;
+  --color-base-100: #1a1510;
+  --color-base-200: #231e16;
+  --color-base-300: #3d342a;
+  --color-base-content: #ede5d8;
+  --color-info: #4498d4;
+  --color-info-content: #ffffff;
+  --color-success: #2eaa7a;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #ee6a5a;
+  --color-error-content: #ffffff;
+  --radius-box: 16px;
+  --radius-field: 16px;
+  --radius-selector: 9999px;
+}
+
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  --color-surface-page: var(--surface-page);
+  --color-surface-container: var(--surface-container);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+}
+
+@source "../../design-system/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
+/*
+ * @lore upgrade-deferred-majors — DaisyUI v5 changed `.input` from
+ * `display: block; width: 100%` (v4) to `display: inline-flex;
+ * width: clamp(3rem, 20rem, 100%)` (v5). Raw `.input` usages without our DS
+ * Input component must add `w-full` explicitly (DaisyUI v5 sublayers beat
+ * @layer base so a global override would not work). Affected: AgentAddDialog,
+ * AgentEditDialog — fixed by adding w-full at the call sites.
+ */
 
 /* L23 — KnowledgeBody scoped heading hierarchy.
  *

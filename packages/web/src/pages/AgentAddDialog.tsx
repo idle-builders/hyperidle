@@ -175,7 +175,7 @@ export function AgentAddDialog({
 						id="add-dialog-name"
 						type="text"
 						aria-label="Agent name"
-						className="input input-sm input-bordered"
+						className="input input-sm input-bordered w-full"
 						placeholder="Agent name"
 						value={formValues.name}
 						onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
@@ -233,7 +233,7 @@ export function AgentAddDialog({
 							id="add-dialog-harness"
 							type="text"
 							aria-label="Harness"
-							className="input input-sm input-bordered"
+							className="input input-sm input-bordered w-full"
 							value={formValues.harnessType}
 							onChange={(e) => setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))}
 							placeholder="e.g. claude-code"
@@ -272,7 +272,7 @@ export function AgentAddDialog({
 							id="add-dialog-sessions"
 							type="number"
 							aria-label="Max sessions"
-							className="input input-sm input-bordered"
+							className="input input-sm input-bordered w-full"
 							value={formValues.maxConcurrentSessions}
 							min={1}
 							max={20}
