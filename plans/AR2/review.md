@@ -74,3 +74,39 @@ These are exactly the real-behavior fixes the honest harness test is designed to
 ## Adversarial: can both gates be defeated to merge a subset-covered harness test?
 
 To ship a real subset-covered lane an author must (a) defeat the lint coverage rule AND (b) defeat the per-harness floor. The lint rule can be fooled by a comment/string mention (W-1) — but then the floor catches it (the un-gated harness runs 0 executed assertions → `check-attestation` fails). To defeat BOTH an author would need a textual `requireHarness("codex")` AND a *real executing* codex assertion tagged `[harness:codex]` — i.e. an actually-covered lane. The regression class (AR2's original bug) is genuinely closed. The only residual is mis-CREDIT via a mistagged describe (M-2), which requires the author to actively mislabel a real lane — caught at review, not silently green.
+
+---
+
+## Round 3 — re-review of W-1 / M-1 / W-2 fixes + codex-lane judgment
+
+**Verdict: DONE.** All three round-1 non-blockers are resolved and load-bearing. The codex lane is acceptable as-is — strengthening to `tokens > 0` is NOT recommended (see judgment). Cost-bug deferral to AR3 is correct.
+
+### W-1 — RESOLVED (sanity-break run for real)
+`declaredHarnesses` now pre-strips comments + blanks in-string `requireHarness` via `stripCodeSoOnlyRealCallsRemain` (honest-harness-guard.ts:116-188); only genuine call expressions count.
+- **Sanity-break (re-run round 3):** baseline `--check` clean → removed ONLY the `requireHarness("codex")` call at line 420 (JSDoc mention at line 40 left intact, `grep -c` confirms 1 textual occurrence remained) → guard **FAILED**: `incomplete harness coverage — declares { builtin, claude, opencode } … Add a requireHarness("<name>") lane for: codex`. Restored → clean, zero diff. The round-1 false-negative is closed.
+- **Unit fixture proves it:** `packages/db/src/__tests__/ar2-coverage-guard.test.ts` — 17 tests pass, including line-comment (l.133), block/JSDoc (l.144), string-literal (l.151), and the exact reviewer sanity-break scenario (l.159: 3 gated + 4th only in comment+string → `missingHarnesses` reports the 4th). Comment-only mention provably does NOT count.
+
+### M-1 — RESOLVED
+`SUPPORTED_HARNESS_LANES` (provision-real-session.ts:395) + `runThroughHarness` (l.562) both exported. The AR2 integration test is the reference usage: lanes 2/3/4 call `runThroughHarness(lane, ctx)`; all four bind `SUPPORTED_HARNESS_LANES[0..3]` and derive `describeTag` from the lane (l.201-204, 208/329/419/521). `describeTag` is now DERIVED from `harnessName` (closes round-1 M-2's hand-typed-tag risk). AR3–AR6 iterate the table for free.
+- *Note (non-blocking):* lane 1 (builtin) does not call `runThroughHarness` — it inline-rebuilds adapter+deps for the candidate-model retry loop (l.251-316). Defensible (candidate retry is a test-level concern the lane table intentionally doesn't model), and it still binds `BUILTIN_LANE.describeTag`. Lanes 2/3/4 are the true reference for the loop runner.
+
+### W-2 — RESOLVED, honest (not green-theater)
+The round-2 over-tightening to `completed`-only was correctly REVERTED in `a4a6cfc1`. Root cause is real and now lore'd in 3 places (provision-real-session.ts:381-393, test l.62-71, per-lane l.485-498/608-616): builtin+claude fire the MCP return tool → `completed`; codex+opencode do real billable work on a file-write task but don't call the return tool → reliably `not_returned`; forcing `completed` re-prompts to the 240s ceiling.
+- (a) **Honest:** the floor is `expect(["completed","not_returned"]).toContain(outcome)` — FAILs on `crashed`/`error`. A stub/crashed run yields `crashed` + no sandbox → seam can't fire → no file. Not loosened-to-green.
+- (b) **`@lore`'d** against re-tightening — explicit "round-3 REVERT of over-tightening" + "don't do it" notes.
+- (c) **builtin + claude still assert `completed`** via `totalCostCents > 0` (the unconditional cost signal; builtin l.312, claude l.405) AND claude additionally asserts the captured `answer.txt` bytes (l.411-413, the load-bearing AC2 proof).
+
+### Codex-lane judgment — KEEP AS-IS, do NOT add `tokens > 0` (non-blocking)
+The proposed `tokens > 0` strengthening is **not implementable on `result`**: `ProvisionSessionResult` (session-provisioning.ts:295-324) exposes only `sessionId`/`outcome`/`totalCostCents`/`returnVerdict`/`forceReturnCount` — **no token field**. Codex's `usage`-block tokens are merged into `bets.tokensActualJson` (l.1089-1090), never surfaced on the result. So asserting `tokens > 0` would require either (i) widening `ProvisionSessionResult` — a production-surface change AR2's "lightest production change" mandate rules out, and arguably AR3's cost/billing turf — or (ii) reading `bets.tokensActualJson` back from the DB, which is exactly the real-cost assertion AR3 owns (AC: "cost is captured from a real harness").
+
+The codex lane is **not** theater without it: the structure is real (`requireHarness("codex")` → real binary, real `provisionSession`, honest-harness-guard bans stubs) and the assertion is `outcome ∈ {completed, not_returned}` (FAIL on crashed) + best-effort `answer.txt` capture. A stub cannot reach a non-crash outcome through the real provision path, and the seam only fires on a real sandbox. That distinguishes a real codex turn from a stub/echo at the structural level. The honest gap — codex's *produced output* is proven only "best-effort" (file may not be written) — is real but is the same gap AR3 closes properly by surfacing real cost/tokens from the codex `usage` block. Forcing a weak token assertion into AR2 by widening production surface would be the wrong fix. **Recommendation: keep as-is; AR3 surfaces real codex output (cost/tokens) when it fixes the vestigial `costField`.**
+
+### Cost-bug scoping (vestigial `codex.costField`) — CORRECTLY DEFERRED TO AR3, surfaced honestly
+`CLI_TOOL_CONFIGS.codex.costField: "total_cost_usd"` never fires (codex emits `turn.completed`+`usage`, not a `result` event), so `totalCostCents` is always 0 for codex. This is **not swept**: documented in 3 `@lore` blocks (codex-cost-zero at provision-real-session.ts:389-393 and test l.491-498). AR2's own AC1 cost claim does **not** depend on it — AC1 is carried by the **builtin lane's `totalCostCents > 0`** (the reliable cost signal) and claude's cost+bytes. AR3 explicitly owns "Provisioning, adapter pool, and cost … cost is captured from a real harness" (TRACK-AR.md:127-154), so the codex cost-extraction fix is its turf by charter. Deferral is correct and honest.
+
+**Status line:**
+- W-1: RESOLVED — comment/string strip works; sanity-break re-run fails naming codex; 17-test fixture proves comment-only ≠ declared.
+- M-1: RESOLVED — `SUPPORTED_HARNESS_LANES` + `runThroughHarness` exported; AR2 test is reference usage; tag derived.
+- W-2: RESOLVED — honest `completed|not_returned` floor (FAIL on crashed), `@lore`'d against re-tightening, builtin+claude still assert `completed`+cost.
+- Codex lane: KEEP AS-IS — `tokens > 0` not surfaced on `result`; structure + non-crash + best-effort capture is enough; AR3 closes the produced-output gap. NOT blocking.
+- Cost bug: CORRECTLY deferred to AR3, surfaced in 3 `@lore` blocks; AR2's cost claim rides builtin, not codex.
