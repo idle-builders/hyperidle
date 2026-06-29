@@ -69,7 +69,6 @@ import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { requireHarness } from "./require-harness.js";
 import { provisionReturnHook } from "../../harness/provision-return-hook.js";
 import {
 	createEnforcementRegistry,
@@ -78,11 +77,11 @@ import {
 import type { McpBridgeInstance } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
+import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
 // ── Binary detection (mirror of AM2 pattern) ───────────────────────────────
-
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -373,232 +372,39 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	describe("claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
-		test(
-			"FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-fb-"));
-				const testSessionId = `al6v4-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-fb-"));
+			const testSessionId = `al6v4-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
 
-				try {
-					const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
+			try {
+				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
 
-					// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
-					// The real server mounts POST /api/mcp/:token/return-status with the REAL
-					// enforcement registry. After the hook fires, we assert forceCount >= 1
-					// in the REAL registry — proving the full loop: binary → real route → real registry.
-					//
-					// @lore AL6 CRIT-1: The mcpUrl points at the REAL server. The provisioned hook
-					// script curls this URL. The route resolves token → sessionId → registry entry →
-					// shouldForceReturn → forceMessage (or empty). The registry forceCount is incremented
-					// by the route on each block. This proves the real hook→adjudicator loop.
-					//
-					// Sanity-break: if you change bridgeToken to a wrong value in provisionReturnHook,
-					// the bridge lookup fails, forceCount stays 0, and the assertion fails. Test is not vacuous.
-					const realServer = await startRealServer(bridgeToken, testSessionId);
-
-					try {
-						// mcpUrl points at the REAL server's /api/mcp/:token path.
-						// The hook script will POST to /api/mcp/:token/return-status.
-						const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
-
-						await provisionReturnHook({
-							sandboxPath,
-							channel: "settings-claude",
-							bridgeToken,
-							mcpUrl,
-							forceBudget: 2,
-						});
-
-						// Clean env: zero out CC session-detection vars so nested-session
-						// detection does not fire. Keychain auth (claude.ai OAuth) still
-						// works via the inherited HOME + macOS Security framework.
-						const cleanEnv = buildCleanEnv();
-
-						// Spawn the REAL claude binary headless.
-						// --dangerously-skip-permissions: required for non-interactive mode.
-						// --output-format json: machine-readable; no TTY required.
-						// --model claude-haiku-4-5: cheapest fast model for trivial prompt.
-						// detached: true (inside spawnDetached): own process group → CC's
-						//   SIGTERM cascade does not reach the child before hook fires.
-						//
-						// @lore AL6 real-claude-full-binary: The prompt MUST be short and
-						// trivial so the LLM call completes quickly (~3s). The Stop hook
-						// fires when the session ends — before the claude process exits.
-						const result = await spawnDetached(
-							"claude",
-							[
-								"-p",
-								"Say exactly: HOOK_TEST_DONE",
-								"--dangerously-skip-permissions",
-								"--output-format",
-								"json",
-								"--model",
-								"claude-haiku-4-5",
-							],
-							{
-								cwd: sandboxPath,
-								env: cleanEnv,
-								timeoutMs: 30_000,
-							},
-						);
-
-						// Assert: the REAL enforcement registry forceCount was incremented.
-						// This proves the hook reached the REAL route + REAL registry.
-						// forceCount=0 means the hook either didn't fire, or the route 404'd,
-						// or the token was mis-resolved (all are test failures).
-						const entry = realServer.enforcementReg.get(testSessionId);
-						if ((entry?.forceCount ?? 0) < 1) {
-							throw new Error(
-								`FULL BINARY PROOF FAILED: claude Stop hook did not POST to the REAL route ` +
-									`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
-									`Binary stdout: "${result.stdout.slice(0, 400)}" ` +
-									`stderr: "${result.stderr.slice(0, 400)}" ` +
-									`exitCode: ${result.exitCode}. ` +
-									`Real server URL: ${realServer.url}. ` +
-									`Check that: (1) settings.json has hooks.Stop, ` +
-									`(2) real server is reachable from the hook script at ${mcpUrl}/return-status, ` +
-									`(3) claude completed at least one turn (exitCode should be 0 or 1).`,
-							);
-						}
-						expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
-
-						// The binary must have completed (non-null exit code, valid JSON output).
-						expect(result.exitCode).not.toBeNull();
-					} finally {
-						await realServer.close();
-					}
-				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
-				}
-			},
-			60_000,
-		);
-
-		test(
-			"LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-live-"));
-				const testSessionId = `al6v4-claude-live-${Math.random().toString(36).slice(2, 10)}`;
+				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
+				// The real server mounts POST /api/mcp/:token/return-status with the REAL
+				// enforcement registry. After the hook fires, we assert forceCount >= 1
+				// in the REAL registry — proving the full loop: binary → real route → real registry.
+				//
+				// @lore AL6 CRIT-1: The mcpUrl points at the REAL server. The provisioned hook
+				// script curls this URL. The route resolves token → sessionId → registry entry →
+				// shouldForceReturn → forceMessage (or empty). The registry forceCount is incremented
+				// by the route on each block. This proves the real hook→adjudicator loop.
+				//
+				// Sanity-break: if you change bridgeToken to a wrong value in provisionReturnHook,
+				// the bridge lookup fails, forceCount stays 0, and the assertion fails. Test is not vacuous.
+				const realServer = await startRealServer(bridgeToken, testSessionId);
 
 				try {
-					const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
-
-					// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
-					// The real route returns forceMessage when gate.returned=false (the default).
-					// The hook script receives the forceMessage and exits 2 (stderr carries it).
-					const realServer = await startRealServer(bridgeToken, testSessionId);
-
-					try {
-						// mcpUrl points at the REAL route.
-						const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
-
-						await provisionReturnHook({
-							sandboxPath,
-							channel: "settings-claude",
-							bridgeToken,
-							mcpUrl,
-							forceBudget: 2,
-						});
-
-						// Verify provisioned hook has right structure (injection-safety check).
-						const settingsContent = JSON.parse(
-							fs.readFileSync(path.join(sandboxPath, ".claude", "settings.json"), "utf-8"),
-						) as Record<string, unknown>;
-						expect(settingsContent).toHaveProperty("hooks");
-						const hooks = settingsContent.hooks as Record<string, unknown>;
-						expect(hooks).toHaveProperty("Stop");
-						// The hook script file must be referenced (no shell chars in JSON).
-						const hookStr = JSON.stringify(hooks.Stop);
-						expect(hookStr).not.toMatch(/[`$<>|;&]/);
-
-						// The hook script must exist.
-						const scriptPath = path.join(sandboxPath, ".claude", "return-check.sh");
-						expect(fs.existsSync(scriptPath)).toBe(true);
-
-						// Execute the hook script directly — this is exactly what claude
-						// executes when a session stops. The script POSTs to the REAL route.
-						// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
-						//
-						// @lore AL6 CRIT-1 real-claude-hook-transport: The script is executed
-						// directly (not via full claude session) to isolate the transport proof.
-						// The real route returns AL6_FORCE_RETURN_MESSAGE (because gate.returned=false),
-						// the script sees non-empty body → exits 2 + stderr = forceMessage.
-						const scriptResult = await new Promise<{
-							stdout: string;
-							stderr: string;
-							exitCode: number | null;
-						}>((resolve) => {
-							execFile(
-								"/bin/sh",
-								[scriptPath],
-								{ cwd: sandboxPath, timeout: 15_000 },
-								(err, stdout, stderr) => {
-									resolve({
-										stdout,
-										stderr: String(stderr),
-										exitCode: err?.code != null ? Number(err.code) : 0,
-									});
-								},
-							);
-						});
-
-						// The REAL registry forceCount must be >= 1 (real route incremented it).
-						// This proves the script reached the REAL route (not a mock).
-						// forceCount=0 means the script's curl hit a 404, 401, or wrong host.
-						const entry = realServer.enforcementReg.get(testSessionId);
-						if ((entry?.forceCount ?? 0) < 1) {
-							throw new Error(
-								`Claude hook script did not POST to the REAL route ` +
-									`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
-									`script stdout: "${scriptResult.stdout}" ` +
-									`stderr: "${scriptResult.stderr}" ` +
-									`exitCode: ${scriptResult.exitCode}`,
-							);
-						}
-						expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
-
-						// When the real route returns a forcing message, the script should exit 2
-						// (so claude re-prompts with the stderr message = the forcing message).
-						expect(scriptResult.exitCode).toBe(2);
-						// The stderr must contain the force message (from the real route response body).
-						expect(scriptResult.stderr).toContain("return");
-					} finally {
-						await realServer.close();
-					}
-				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
-				}
-			},
-			30_000,
-		);
-
-		test(
-			"provision .claude/settings.json → hook file structure correct, injection-safe",
-			async ({ skip }) => {
-				const authed = await claudeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-"));
-
-				try {
-					const registry = createEnforcementRegistry();
-					const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
-					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+					// mcpUrl points at the REAL server's /api/mcp/:token path.
+					// The hook script will POST to /api/mcp/:token/return-status.
+					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -608,44 +414,231 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 						forceBudget: 2,
 					});
 
-					// Trust marker: enableAllProjectMcpServers + hooks section.
+					// Clean env: zero out CC session-detection vars so nested-session
+					// detection does not fire. Keychain auth (claude.ai OAuth) still
+					// works via the inherited HOME + macOS Security framework.
+					const cleanEnv = buildCleanEnv();
+
+					// Spawn the REAL claude binary headless.
+					// --dangerously-skip-permissions: required for non-interactive mode.
+					// --output-format json: machine-readable; no TTY required.
+					// --model claude-haiku-4-5: cheapest fast model for trivial prompt.
+					// detached: true (inside spawnDetached): own process group → CC's
+					//   SIGTERM cascade does not reach the child before hook fires.
+					//
+					// @lore AL6 real-claude-full-binary: The prompt MUST be short and
+					// trivial so the LLM call completes quickly (~3s). The Stop hook
+					// fires when the session ends — before the claude process exits.
+					const result = await spawnDetached(
+						"claude",
+						[
+							"-p",
+							"Say exactly: HOOK_TEST_DONE",
+							"--dangerously-skip-permissions",
+							"--output-format",
+							"json",
+							"--model",
+							"claude-haiku-4-5",
+						],
+						{
+							cwd: sandboxPath,
+							env: cleanEnv,
+							timeoutMs: 30_000,
+						},
+					);
+
+					// Assert: the REAL enforcement registry forceCount was incremented.
+					// This proves the hook reached the REAL route + REAL registry.
+					// forceCount=0 means the hook either didn't fire, or the route 404'd,
+					// or the token was mis-resolved (all are test failures).
+					const entry = realServer.enforcementReg.get(testSessionId);
+					if ((entry?.forceCount ?? 0) < 1) {
+						throw new Error(
+							`FULL BINARY PROOF FAILED: claude Stop hook did not POST to the REAL route ` +
+								`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
+								`Binary stdout: "${result.stdout.slice(0, 400)}" ` +
+								`stderr: "${result.stderr.slice(0, 400)}" ` +
+								`exitCode: ${result.exitCode}. ` +
+								`Real server URL: ${realServer.url}. ` +
+								`Check that: (1) settings.json has hooks.Stop, ` +
+								`(2) real server is reachable from the hook script at ${mcpUrl}/return-status, ` +
+								`(3) claude completed at least one turn (exitCode should be 0 or 1).`,
+						);
+					}
+					expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
+
+					// The binary must have completed (non-null exit code, valid JSON output).
+					expect(result.exitCode).not.toBeNull();
+				} finally {
+					await realServer.close();
+				}
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 60_000);
+
+		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-live-"));
+			const testSessionId = `al6v4-claude-live-${Math.random().toString(36).slice(2, 10)}`;
+
+			try {
+				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
+
+				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
+				// The real route returns forceMessage when gate.returned=false (the default).
+				// The hook script receives the forceMessage and exits 2 (stderr carries it).
+				const realServer = await startRealServer(bridgeToken, testSessionId);
+
+				try {
+					// mcpUrl points at the REAL route.
+					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-claude",
+						bridgeToken,
+						mcpUrl,
+						forceBudget: 2,
+					});
+
+					// Verify provisioned hook has right structure (injection-safety check).
 					const settingsContent = JSON.parse(
 						fs.readFileSync(path.join(sandboxPath, ".claude", "settings.json"), "utf-8"),
 					) as Record<string, unknown>;
-
 					expect(settingsContent).toHaveProperty("hooks");
 					const hooks = settingsContent.hooks as Record<string, unknown>;
 					expect(hooks).toHaveProperty("Stop");
-
-					// Shell script file must exist and be referenced in settings.
-					expect(fs.existsSync(path.join(sandboxPath, ".claude", "return-check.sh"))).toBe(true);
-
-					// The script content must contain the bridge URL.
-					const scriptContent = fs.readFileSync(
-						path.join(sandboxPath, ".claude", "return-check.sh"),
-						"utf-8",
-					);
-					expect(scriptContent).toContain(mcpUrl);
-
-					// settings.json hook command must NOT contain shell expansion chars.
+					// The hook script file must be referenced (no shell chars in JSON).
 					const hookStr = JSON.stringify(hooks.Stop);
 					expect(hookStr).not.toMatch(/[`$<>|;&]/);
 
-					const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
-					const gate = { returned: false };
-					registry.register(sessionId, { gate, forceCount: 0, exempt: false });
+					// The hook script must exist.
+					const scriptPath = path.join(sandboxPath, ".claude", "return-check.sh");
+					expect(fs.existsSync(scriptPath)).toBe(true);
 
-					const state = registry.get(sessionId);
-					expect(state).toBeDefined();
-					expect(state?.forceCount).toBe(0);
+					// Execute the hook script directly — this is exactly what claude
+					// executes when a session stops. The script POSTs to the REAL route.
+					// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
+					//
+					// @lore AL6 CRIT-1 real-claude-hook-transport: The script is executed
+					// directly (not via full claude session) to isolate the transport proof.
+					// The real route returns AL6_FORCE_RETURN_MESSAGE (because gate.returned=false),
+					// the script sees non-empty body → exits 2 + stderr = forceMessage.
+					const scriptResult = await new Promise<{
+						stdout: string;
+						stderr: string;
+						exitCode: number | null;
+					}>((resolve) => {
+						execFile(
+							"/bin/sh",
+							[scriptPath],
+							{ cwd: sandboxPath, timeout: 15_000 },
+							(err, stdout, stderr) => {
+								resolve({
+									stdout,
+									stderr: String(stderr),
+									exitCode: err?.code != null ? Number(err.code) : 0,
+								});
+							},
+						);
+					});
 
-					registry.unregister(sessionId);
+					// The REAL registry forceCount must be >= 1 (real route incremented it).
+					// This proves the script reached the REAL route (not a mock).
+					// forceCount=0 means the script's curl hit a 404, 401, or wrong host.
+					const entry = realServer.enforcementReg.get(testSessionId);
+					if ((entry?.forceCount ?? 0) < 1) {
+						throw new Error(
+							`Claude hook script did not POST to the REAL route ` +
+								`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
+								`script stdout: "${scriptResult.stdout}" ` +
+								`stderr: "${scriptResult.stderr}" ` +
+								`exitCode: ${scriptResult.exitCode}`,
+						);
+					}
+					expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
+
+					// When the real route returns a forcing message, the script should exit 2
+					// (so claude re-prompts with the stderr message = the forcing message).
+					expect(scriptResult.exitCode).toBe(2);
+					// The stderr must contain the force message (from the real route response body).
+					expect(scriptResult.stderr).toContain("return");
 				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
+					await realServer.close();
 				}
-			},
-			120_000,
-		);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 30_000);
+
+		test("provision .claude/settings.json → hook file structure correct, injection-safe", async ({
+			skip,
+		}) => {
+			const authed = await claudeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-"));
+
+			try {
+				const registry = createEnforcementRegistry();
+				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+
+				await provisionReturnHook({
+					sandboxPath,
+					channel: "settings-claude",
+					bridgeToken,
+					mcpUrl,
+					forceBudget: 2,
+				});
+
+				// Trust marker: enableAllProjectMcpServers + hooks section.
+				const settingsContent = JSON.parse(
+					fs.readFileSync(path.join(sandboxPath, ".claude", "settings.json"), "utf-8"),
+				) as Record<string, unknown>;
+
+				expect(settingsContent).toHaveProperty("hooks");
+				const hooks = settingsContent.hooks as Record<string, unknown>;
+				expect(hooks).toHaveProperty("Stop");
+
+				// Shell script file must exist and be referenced in settings.
+				expect(fs.existsSync(path.join(sandboxPath, ".claude", "return-check.sh"))).toBe(true);
+
+				// The script content must contain the bridge URL.
+				const scriptContent = fs.readFileSync(
+					path.join(sandboxPath, ".claude", "return-check.sh"),
+					"utf-8",
+				);
+				expect(scriptContent).toContain(mcpUrl);
+
+				// settings.json hook command must NOT contain shell expansion chars.
+				const hookStr = JSON.stringify(hooks.Stop);
+				expect(hookStr).not.toMatch(/[`$<>|;&]/);
+
+				const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
+				const gate = { returned: false };
+				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
+
+				const state = registry.get(sessionId);
+				expect(state).toBeDefined();
+				expect(state?.forceCount).toBe(0);
+
+				registry.unregister(sessionId);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 120_000);
 	});
 
 	// ── CODEX CLI (binary+auth gated, LIVE ENFORCEMENT) ──────────────────────
@@ -670,120 +663,29 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	describe("codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
-		test(
-			"LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-live-"));
-				const testSessionId = `al6v4-codex-live-${Math.random().toString(36).slice(2, 10)}`;
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-live-"));
+			const testSessionId = `al6v4-codex-live-${Math.random().toString(36).slice(2, 10)}`;
 
-				try {
-					const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
+			try {
+				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
 
-					// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
-					// The real route returns forceMessage (gate.returned=false → shouldForceReturn → message).
-					// The codex hook script receives it and outputs {"decision":"block","reason":message}.
-					const realServer = await startRealServer(bridgeToken, testSessionId);
-
-					try {
-						// mcpUrl points at the REAL route.
-						const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
-
-						await provisionReturnHook({
-							sandboxPath,
-							channel: "settings-codex",
-							bridgeToken,
-							mcpUrl,
-							forceBudget: 2,
-						});
-
-						// Verify the format is correct (nested hooks.Stop not top-level Stop).
-						const hooksContent = JSON.parse(
-							fs.readFileSync(path.join(sandboxPath, ".codex", "hooks.json"), "utf-8"),
-						) as Record<string, unknown>;
-						expect(hooksContent).toHaveProperty("hooks");
-						const hooksObj = hooksContent.hooks as Record<string, unknown>;
-						expect(hooksObj).toHaveProperty("Stop");
-
-						// The hook script must exist.
-						const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
-						expect(fs.existsSync(scriptPath)).toBe(true);
-
-						// Execute the hook script directly — this is what codex executes
-						// at turn-end. The script POSTs to the REAL route and prints
-						// {"decision":"block","reason":"..."} on stdout when blocking.
-						//
-						// @lore AL6 CRIT-1 real-codex-hook-transport: Script execution proves the
-						// full transport: hook → real route → real registry. The codex blocking
-						// behavior (decision:block JSON stdout) was verified manually.
-						const scriptResult = await new Promise<{
-							stdout: string;
-							stderr: string;
-							exitCode: number | null;
-						}>((resolve) => {
-							execFile(
-								"/bin/sh",
-								[scriptPath],
-								{ cwd: sandboxPath, timeout: 15_000 },
-								(err, stdout, stderr) => {
-									resolve({
-										stdout,
-										stderr: String(stderr),
-										exitCode: err?.code != null ? Number(err.code) : 0,
-									});
-								},
-							);
-						});
-
-						// The REAL registry forceCount must be >= 1 (real route incremented it).
-						const entry = realServer.enforcementReg.get(testSessionId);
-						if ((entry?.forceCount ?? 0) < 1) {
-							throw new Error(
-								`Codex hook script did not POST to the REAL route ` +
-									`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
-									`script stdout: "${scriptResult.stdout}" ` +
-									`stderr: "${scriptResult.stderr}" ` +
-									`exitCode: ${scriptResult.exitCode}`,
-							);
-						}
-						expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
-
-						// When the real route returns a forcing message, the codex hook script must
-						// output {"decision":"block","reason":"..."} on stdout and exit 0.
-						// @lore AL6 real-codex-semantics: Codex uses JSON stdout, NOT exit 2.
-						expect(scriptResult.stdout).toContain('"decision":"block"');
-						expect(scriptResult.stdout).toContain("return");
-						expect(scriptResult.exitCode).toBe(0);
-					} finally {
-						await realServer.close();
-					}
-				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
-				}
-			},
-			30_000,
-		);
-
-		test(
-			"provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-"));
+				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
+				// The real route returns forceMessage (gate.returned=false → shouldForceReturn → message).
+				// The codex hook script receives it and outputs {"decision":"block","reason":message}.
+				const realServer = await startRealServer(bridgeToken, testSessionId);
 
 				try {
-					const registry = createEnforcementRegistry();
-					const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
-					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+					// mcpUrl points at the REAL route.
+					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
 
 					await provisionReturnHook({
 						sandboxPath,
@@ -793,189 +695,273 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 						forceBudget: 2,
 					});
 
-					const codexDir = path.join(sandboxPath, ".codex");
-					expect(fs.existsSync(codexDir)).toBe(true);
-
-					const hooksPath = path.join(codexDir, "hooks.json");
-					expect(fs.existsSync(hooksPath)).toBe(true);
-
-					const hooksContent = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<
-						string,
-						unknown
-					>;
-
-					// @lore AL6 real-codex-format: MUST be { "hooks": { "Stop": [...] } }
-					// NOT the flat { "Stop": { ... } } format which is silently ignored.
+					// Verify the format is correct (nested hooks.Stop not top-level Stop).
+					const hooksContent = JSON.parse(
+						fs.readFileSync(path.join(sandboxPath, ".codex", "hooks.json"), "utf-8"),
+					) as Record<string, unknown>;
 					expect(hooksContent).toHaveProperty("hooks");
 					const hooksObj = hooksContent.hooks as Record<string, unknown>;
 					expect(hooksObj).toHaveProperty("Stop");
-					expect(Array.isArray(hooksObj.Stop)).toBe(true);
 
-					// The Stop hook must reference the script file (not inline command with shell chars).
-					const stopHooks = hooksObj.Stop as unknown[];
-					const hookStr = JSON.stringify(stopHooks);
-					// No shell expansion chars in JSON config.
-					expect(hookStr).not.toMatch(/[`$<>|;&]/);
-
-					// The shell script must exist and reference the bridge URL.
-					const scriptPath = path.join(codexDir, "return-check.sh");
+					// The hook script must exist.
+					const scriptPath = path.join(sandboxPath, ".codex", "return-check.sh");
 					expect(fs.existsSync(scriptPath)).toBe(true);
-					const scriptContent = fs.readFileSync(scriptPath, "utf-8");
-					expect(scriptContent).toContain(mcpUrl);
 
-					// Trust: codex uses --dangerously-bypass-hook-trust at spawn time.
-					// No sentinel file needed (trust is per-invocation, not filesystem).
-
-					const sessionId = `al6v4-codex-test-${Math.random().toString(36).slice(2)}`;
-					const gate = { returned: false };
-					registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-					const state = registry.get(sessionId);
-					expect(state).toBeDefined();
-					expect(state?.gate).toBeDefined();
-
-					registry.unregister(sessionId);
-				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
-				}
-			},
-			120_000,
-		);
-
-		test(
-			"WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
-
-				const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
-					| Record<string, unknown>
-					| undefined;
-				expect(codexConfig).toBeDefined();
-
-				const args = codexConfig?.args as string[] | undefined;
-				const hasSeedPromptCarrier =
-					args?.some((a) => a.includes("{{prompt}}") || a.includes("{{seed}}")) ||
-					"seedPrompt" in (codexConfig ?? {}) ||
-					"promptCarrier" in (codexConfig ?? {});
-
-				expect(hasSeedPromptCarrier).toBe(true);
-			},
-		);
-
-		test(
-			"FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1",
-			async ({ skip }) => {
-				const authed = await codexAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				// Create a git-init'd sandbox (codex requires a git repo).
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-fb-"));
-
-				try {
-					// codex requires a git repo in the working directory.
-					const { execFileSync: execSync } = await import("node:child_process");
-					execSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
-					execSync("git", ["commit", "--allow-empty", "-m", "init"], {
-						cwd: sandboxPath,
-						stdio: "ignore",
-						env: {
-							...process.env,
-							GIT_AUTHOR_NAME: "test",
-							GIT_AUTHOR_EMAIL: "test@test.com",
-							GIT_COMMITTER_NAME: "test",
-							GIT_COMMITTER_EMAIL: "test@test.com",
-						},
-					});
-
-					const bridgeToken = `codex-fb-token-${Math.random().toString(36).slice(2)}`;
-					const testSessionId = `codex-fb-session-${Math.random().toString(36).slice(2)}`;
-
-					// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
-					// The real server mounts /api/mcp/:token/return-status with the real enforcement
-					// registry. forceCount>=1 proves the hook fired against the REAL route.
-					const realServer = await startRealServer(bridgeToken, testSessionId);
-
-					try {
-						// mcpUrl points at the REAL server's /api/mcp/:token path.
-						// The hook script appends /return-status → full URL: /api/mcp/:token/return-status.
-						const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
-
-						// provisionCodexHome writes:
-						//   sandboxPath/.codex/hooks.json (compat)
-						//   sandboxPath/.codex-home/ with auth.json + config.toml + hooks.json
-						await provisionReturnHook({
-							sandboxPath,
-							channel: "settings-codex",
-							bridgeToken,
-							mcpUrl,
-							forceBudget: 2,
-						});
-
-						// Verify the CODEX_HOME dir was created with the hooks.json.
-						const codexHomeDir = path.join(sandboxPath, ".codex-home");
-						expect(fs.existsSync(codexHomeDir)).toBe(true);
-						expect(fs.existsSync(path.join(codexHomeDir, "hooks.json"))).toBe(true);
-						expect(fs.existsSync(path.join(codexHomeDir, "return-check.sh"))).toBe(true);
-
-						// Spawn the REAL codex binary with CODEX_HOME set to the per-session dir.
-						// --dangerously-bypass-hook-trust: bypass hash-check for automation.
-						// --json: JSONL output including turn.completed.
-						//
-						// @lore AL6 codex-codex-home: CODEX_HOME must point to the per-session
-						// dir (not ~/.codex). The dir contains only auth.json + config.toml —
-						// no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
-						const cleanEnv = buildCleanEnv();
-						cleanEnv["CODEX_HOME"] = codexHomeDir;
-
-						const result = await spawnDetached(
-							"codex",
-							["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
-							{
-								cwd: sandboxPath,
-								env: cleanEnv,
-								timeoutMs: 30_000,
+					// Execute the hook script directly — this is what codex executes
+					// at turn-end. The script POSTs to the REAL route and prints
+					// {"decision":"block","reason":"..."} on stdout when blocking.
+					//
+					// @lore AL6 CRIT-1 real-codex-hook-transport: Script execution proves the
+					// full transport: hook → real route → real registry. The codex blocking
+					// behavior (decision:block JSON stdout) was verified manually.
+					const scriptResult = await new Promise<{
+						stdout: string;
+						stderr: string;
+						exitCode: number | null;
+					}>((resolve) => {
+						execFile(
+							"/bin/sh",
+							[scriptPath],
+							{ cwd: sandboxPath, timeout: 15_000 },
+							(err, stdout, stderr) => {
+								resolve({
+									stdout,
+									stderr: String(stderr),
+									exitCode: err?.code != null ? Number(err.code) : 0,
+								});
 							},
 						);
+					});
 
-						// AL6 CRIT-1: Assert against the REAL enforcement registry, NOT a mock callCount.
-						// If the Stop hook POSTed to the real /api/mcp/:token/return-status route,
-						// enforcementRegistry.incrementForce was called → forceCount >= 1.
-						// This test FAILS if the route is removed or the hook posts to the wrong URL.
-						const entry = realServer.enforcementReg.get(testSessionId);
-						if (!entry || entry.forceCount < 1) {
-							throw new Error(
-								`CODEX_HOME FULL BINARY PROOF FAILED: codex Stop hook did not POST to real /api/mcp/:token/return-status ` +
-									`(enforcementReg.forceCount=${entry?.forceCount ?? "missing"}). ` +
-									`stdout: "${result.stdout.slice(0, 500)}" ` +
-									`stderr: "${result.stderr.slice(0, 300)}" ` +
-									`exitCode: ${result.exitCode}. ` +
-									`CODEX_HOME: ${codexHomeDir}. ` +
-									`hooks.json contents: ${fs.readFileSync(path.join(codexHomeDir, "hooks.json"), "utf-8")}`,
-							);
-						}
-						expect(entry.forceCount).toBeGreaterThanOrEqual(1);
-
-						// The binary must have completed (non-null exit code, turn.completed in stdout).
-						expect(result.exitCode).not.toBeNull();
-						expect(result.stdout).toContain("turn.completed");
-					} finally {
-						await realServer.close();
+					// The REAL registry forceCount must be >= 1 (real route incremented it).
+					const entry = realServer.enforcementReg.get(testSessionId);
+					if ((entry?.forceCount ?? 0) < 1) {
+						throw new Error(
+							`Codex hook script did not POST to the REAL route ` +
+								`(registry forceCount=${entry?.forceCount ?? 0}, expected >=1). ` +
+								`script stdout: "${scriptResult.stdout}" ` +
+								`stderr: "${scriptResult.stderr}" ` +
+								`exitCode: ${scriptResult.exitCode}`,
+						);
 					}
+					expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
+
+					// When the real route returns a forcing message, the codex hook script must
+					// output {"decision":"block","reason":"..."} on stdout and exit 0.
+					// @lore AL6 real-codex-semantics: Codex uses JSON stdout, NOT exit 2.
+					expect(scriptResult.stdout).toContain('"decision":"block"');
+					expect(scriptResult.stdout).toContain("return");
+					expect(scriptResult.exitCode).toBe(0);
 				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
+					await realServer.close();
 				}
-			},
-			60_000,
-		);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 30_000);
+
+		test("provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-"));
+
+			try {
+				const registry = createEnforcementRegistry();
+				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+
+				await provisionReturnHook({
+					sandboxPath,
+					channel: "settings-codex",
+					bridgeToken,
+					mcpUrl,
+					forceBudget: 2,
+				});
+
+				const codexDir = path.join(sandboxPath, ".codex");
+				expect(fs.existsSync(codexDir)).toBe(true);
+
+				const hooksPath = path.join(codexDir, "hooks.json");
+				expect(fs.existsSync(hooksPath)).toBe(true);
+
+				const hooksContent = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<
+					string,
+					unknown
+				>;
+
+				// @lore AL6 real-codex-format: MUST be { "hooks": { "Stop": [...] } }
+				// NOT the flat { "Stop": { ... } } format which is silently ignored.
+				expect(hooksContent).toHaveProperty("hooks");
+				const hooksObj = hooksContent.hooks as Record<string, unknown>;
+				expect(hooksObj).toHaveProperty("Stop");
+				expect(Array.isArray(hooksObj.Stop)).toBe(true);
+
+				// The Stop hook must reference the script file (not inline command with shell chars).
+				const stopHooks = hooksObj.Stop as unknown[];
+				const hookStr = JSON.stringify(stopHooks);
+				// No shell expansion chars in JSON config.
+				expect(hookStr).not.toMatch(/[`$<>|;&]/);
+
+				// The shell script must exist and reference the bridge URL.
+				const scriptPath = path.join(codexDir, "return-check.sh");
+				expect(fs.existsSync(scriptPath)).toBe(true);
+				const scriptContent = fs.readFileSync(scriptPath, "utf-8");
+				expect(scriptContent).toContain(mcpUrl);
+
+				// Trust: codex uses --dangerously-bypass-hook-trust at spawn time.
+				// No sentinel file needed (trust is per-invocation, not filesystem).
+
+				const sessionId = `al6v4-codex-test-${Math.random().toString(36).slice(2)}`;
+				const gate = { returned: false };
+				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
+
+				const state = registry.get(sessionId);
+				expect(state).toBeDefined();
+				expect(state?.gate).toBeDefined();
+
+				registry.unregister(sessionId);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 120_000);
+
+		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+
+			const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
+				| Record<string, unknown>
+				| undefined;
+			expect(codexConfig).toBeDefined();
+
+			const args = codexConfig?.args as string[] | undefined;
+			const hasSeedPromptCarrier =
+				args?.some((a) => a.includes("{{prompt}}") || a.includes("{{seed}}")) ||
+				"seedPrompt" in (codexConfig ?? {}) ||
+				"promptCarrier" in (codexConfig ?? {});
+
+			expect(hasSeedPromptCarrier).toBe(true);
+		});
+
+		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async ({
+			skip,
+		}) => {
+			const authed = await codexAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			// Create a git-init'd sandbox (codex requires a git repo).
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-fb-"));
+
+			try {
+				// codex requires a git repo in the working directory.
+				const { execFileSync: execSync } = await import("node:child_process");
+				execSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
+				execSync("git", ["commit", "--allow-empty", "-m", "init"], {
+					cwd: sandboxPath,
+					stdio: "ignore",
+					env: {
+						...process.env,
+						GIT_AUTHOR_NAME: "test",
+						GIT_AUTHOR_EMAIL: "test@test.com",
+						GIT_COMMITTER_NAME: "test",
+						GIT_COMMITTER_EMAIL: "test@test.com",
+					},
+				});
+
+				const bridgeToken = `codex-fb-token-${Math.random().toString(36).slice(2)}`;
+				const testSessionId = `codex-fb-session-${Math.random().toString(36).slice(2)}`;
+
+				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
+				// The real server mounts /api/mcp/:token/return-status with the real enforcement
+				// registry. forceCount>=1 proves the hook fired against the REAL route.
+				const realServer = await startRealServer(bridgeToken, testSessionId);
+
+				try {
+					// mcpUrl points at the REAL server's /api/mcp/:token path.
+					// The hook script appends /return-status → full URL: /api/mcp/:token/return-status.
+					const mcpUrl = `${realServer.url}/api/mcp/${bridgeToken}`;
+
+					// provisionCodexHome writes:
+					//   sandboxPath/.codex/hooks.json (compat)
+					//   sandboxPath/.codex-home/ with auth.json + config.toml + hooks.json
+					await provisionReturnHook({
+						sandboxPath,
+						channel: "settings-codex",
+						bridgeToken,
+						mcpUrl,
+						forceBudget: 2,
+					});
+
+					// Verify the CODEX_HOME dir was created with the hooks.json.
+					const codexHomeDir = path.join(sandboxPath, ".codex-home");
+					expect(fs.existsSync(codexHomeDir)).toBe(true);
+					expect(fs.existsSync(path.join(codexHomeDir, "hooks.json"))).toBe(true);
+					expect(fs.existsSync(path.join(codexHomeDir, "return-check.sh"))).toBe(true);
+
+					// Spawn the REAL codex binary with CODEX_HOME set to the per-session dir.
+					// --dangerously-bypass-hook-trust: bypass hash-check for automation.
+					// --json: JSONL output including turn.completed.
+					//
+					// @lore AL6 codex-codex-home: CODEX_HOME must point to the per-session
+					// dir (not ~/.codex). The dir contains only auth.json + config.toml —
+					// no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
+					const cleanEnv = buildCleanEnv();
+					cleanEnv["CODEX_HOME"] = codexHomeDir;
+
+					const result = await spawnDetached(
+						"codex",
+						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
+						{
+							cwd: sandboxPath,
+							env: cleanEnv,
+							timeoutMs: 30_000,
+						},
+					);
+
+					// AL6 CRIT-1: Assert against the REAL enforcement registry, NOT a mock callCount.
+					// If the Stop hook POSTed to the real /api/mcp/:token/return-status route,
+					// enforcementRegistry.incrementForce was called → forceCount >= 1.
+					// This test FAILS if the route is removed or the hook posts to the wrong URL.
+					const entry = realServer.enforcementReg.get(testSessionId);
+					if (!entry || entry.forceCount < 1) {
+						throw new Error(
+							`CODEX_HOME FULL BINARY PROOF FAILED: codex Stop hook did not POST to real /api/mcp/:token/return-status ` +
+								`(enforcementReg.forceCount=${entry?.forceCount ?? "missing"}). ` +
+								`stdout: "${result.stdout.slice(0, 500)}" ` +
+								`stderr: "${result.stderr.slice(0, 300)}" ` +
+								`exitCode: ${result.exitCode}. ` +
+								`CODEX_HOME: ${codexHomeDir}. ` +
+								`hooks.json contents: ${fs.readFileSync(path.join(codexHomeDir, "hooks.json"), "utf-8")}`,
+						);
+					}
+					expect(entry.forceCount).toBeGreaterThanOrEqual(1);
+
+					// The binary must have completed (non-null exit code, turn.completed in stdout).
+					expect(result.exitCode).not.toBeNull();
+					expect(result.stdout).toContain("turn.completed");
+				} finally {
+					await realServer.close();
+				}
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 60_000);
 	});
 
 	// ── OPENCODE CLI (binary+auth gated) ────────────────────────────────────
@@ -1007,250 +993,241 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	describe("opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
-		test(
-			"FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-				// Spawn opencode run with a trivial prompt, fast model, JSON output.
-				// detached: true (inside spawnDetached) — own process group so CC's
-				// SIGTERM cascade doesn't reach it before the session completes.
-				//
-				// @lore AL6 opencode-full-binary: Uses openrouter/~anthropic/claude-haiku-latest
-				// (fastest available via OpenRouter). The session completes in ~3s. Pure mode
-				// (--pure) skips external plugin loading for speed. JSON output is streamed
-				// per-event; we look for a step_finish event proving the turn completed.
-				const result = await spawnDetached(
-					"opencode",
-					[
-						"run",
-						"Say exactly: HOOK_TEST_DONE",
-						"--format",
-						"json",
-						"--pure",
-						"--model",
-						"openrouter/~anthropic/claude-haiku-latest",
-					],
-					{
-						cwd: os.tmpdir(),
-						env: buildCleanEnv(),
-						timeoutMs: 30_000,
-					},
+			// Spawn opencode run with a trivial prompt, fast model, JSON output.
+			// detached: true (inside spawnDetached) — own process group so CC's
+			// SIGTERM cascade doesn't reach it before the session completes.
+			//
+			// @lore AL6 opencode-full-binary: Uses openrouter/~anthropic/claude-haiku-latest
+			// (fastest available via OpenRouter). The session completes in ~3s. Pure mode
+			// (--pure) skips external plugin loading for speed. JSON output is streamed
+			// per-event; we look for a step_finish event proving the turn completed.
+			const result = await spawnDetached(
+				"opencode",
+				[
+					"run",
+					"Say exactly: HOOK_TEST_DONE",
+					"--format",
+					"json",
+					"--pure",
+					"--model",
+					"openrouter/~anthropic/claude-haiku-latest",
+				],
+				{
+					cwd: os.tmpdir(),
+					env: buildCleanEnv(),
+					timeoutMs: 30_000,
+				},
+			);
+
+			// The binary must have produced JSON output containing a step_finish event.
+			// This proves the re-engage invocation path: opencode can be spawned headless
+			// from HyperIdle's process wrapper and complete a real session turn.
+			if (!(result.stdout.includes("step_finish") || result.stdout.includes("turn.completed"))) {
+				throw new Error(
+					`OpenCode binary did not complete a session turn. ` +
+						`stdout: "${result.stdout.slice(0, 500)}" ` +
+						`stderr: "${result.stderr.slice(0, 300)}" ` +
+						`exitCode: ${result.exitCode}`,
 				);
+			}
 
-				// The binary must have produced JSON output containing a step_finish event.
-				// This proves the re-engage invocation path: opencode can be spawned headless
-				// from HyperIdle's process wrapper and complete a real session turn.
-				if (!(result.stdout.includes("step_finish") || result.stdout.includes("turn.completed"))) {
-					throw new Error(
-						`OpenCode binary did not complete a session turn. ` +
-							`stdout: "${result.stdout.slice(0, 500)}" ` +
-							`stderr: "${result.stderr.slice(0, 300)}" ` +
-							`exitCode: ${result.exitCode}`,
-					);
-				}
+			// Verify JSON output contains completion marker.
+			const hasCompletion =
+				result.stdout.includes("step_finish") || result.stdout.includes("turn.completed");
+			expect(hasCompletion).toBe(true);
+		}, 60_000);
 
-				// Verify JSON output contains completion marker.
-				const hasCompletion =
-					result.stdout.includes("step_finish") || result.stdout.includes("turn.completed");
-				expect(hasCompletion).toBe(true);
-			},
-			60_000,
-		);
+		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
 
-		test(
-			"provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-opencode-"));
 
-				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-opencode-"));
+			try {
+				const bridgeToken = `opencode-test-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
 
-				try {
-					const bridgeToken = `opencode-test-token-${Math.random().toString(36).slice(2)}`;
-					const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
-
-					await provisionReturnHook({
-						sandboxPath,
-						channel: "process-reengage",
-						bridgeToken,
-						mcpUrl,
-						forceBudget: 2,
-					});
-
-					// The opencode plugin file must be written.
-					const pluginDir = path.join(sandboxPath, ".opencode", "plugins");
-					expect(fs.existsSync(pluginDir)).toBe(true);
-
-					const pluginFile = path.join(pluginDir, "return-signal.ts");
-					expect(fs.existsSync(pluginFile)).toBe(true);
-
-					const pluginContent = fs.readFileSync(pluginFile, "utf-8");
-					// The plugin must emit a turn-end marker on session.idle.
-					expect(pluginContent).toContain("session.idle");
-
-					// The plugin must reference the bridge URL for the re-engage callback.
-					expect(pluginContent).toContain(mcpUrl);
-				} finally {
-					fs.rmSync(sandboxPath, { recursive: true, force: true });
-				}
-			},
-			120_000,
-		);
-
-		test(
-			"WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
-
-				const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
-					| Record<string, unknown>
-					| undefined;
-				expect(opencodeConfig).toBeDefined();
-
-				// The config must document the re-engage prompt carrier.
-				const hasReEngageCarrier =
-					"reEngageCarrier" in (opencodeConfig ?? {}) ||
-					"promptCarrier" in (opencodeConfig ?? {}) ||
-					(opencodeConfig?.args as string[] | undefined)?.some(
-						(a) => a.includes("{{prompt}}") || a.includes("{{message}}"),
-					);
-
-				expect(hasReEngageCarrier).toBe(true);
-			},
-		);
-
-		test(
-			"LIVE: opencode binary is reachable, auth present, and version is valid",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
-
-				// Fast verification: binary reachable + auth present + version valid.
-				// The FULL BINARY PROOF (above) proves the session completion path.
-
-				// Fact 1: opencode binary executes correctly with a fast flag.
-				const { stdout: versionOut } = await execFileAsync("opencode", ["--version"], {
-					timeout: 10_000,
+				await provisionReturnHook({
+					sandboxPath,
+					channel: "process-reengage",
+					bridgeToken,
+					mcpUrl,
+					forceBudget: 2,
 				});
-				expect(versionOut.trim().length).toBeGreaterThan(0);
-				// Version should be a semver string.
-				expect(versionOut.trim()).toMatch(/^\d+\.\d+/);
 
-				// Fact 2: providers list confirms credentials present.
-				const { stdout: providersOut } = await execFileAsync("opencode", ["providers", "list"], {
-					timeout: 10_000,
-				});
-				// Should list at least one provider with credentials.
-				const hasCredentials =
-					/\d+\s+credentials/.test(providersOut) ||
-					providersOut.includes("environment variable") ||
-					providersOut.includes("API key");
-				expect(hasCredentials).toBe(true);
-			},
-			30_000,
-		);
+				// The opencode plugin file must be written.
+				const pluginDir = path.join(sandboxPath, ".opencode", "plugins");
+				expect(fs.existsSync(pluginDir)).toBe(true);
 
-		test(
-			"LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes",
-			async ({ skip }) => {
-				const authed = await opencodeAuthed();
-				if (!authed) {
-					skip();
-					return;
-				}
+				const pluginFile = path.join(pluginDir, "return-signal.ts");
+				expect(fs.existsSync(pluginFile)).toBe(true);
 
-				// This test proves the process-reengage path for opencode:
-				//   1. HyperIdle owns the opencode spawn.
-				//   2. stdout is parsed for step_finish (turn-end signal).
-				//   3. On step_finish from a no-return turn, HyperIdle re-invokes opencode
-				//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
-				//   4. The second invocation completes → re-engage path proven end-to-end.
-				//
-				// @lore AL6 opencode-process-reengage-proven: The production re-engage logic
-				// lives in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599).
-				// This test proves the real opencode binary spawns headlessly and completes
-				// a turn (step_finish in stdout), and that a second spawn with the forcing
-				// message as the first positional arg also completes — validating the run-arg
-				// carrier mechanism. The deterministic adapter loop is proven separately in
-				// AL6-cli-reengage-adapter.test.ts via injected spawnFn (no binary required).
+				const pluginContent = fs.readFileSync(pluginFile, "utf-8");
+				// The plugin must emit a turn-end marker on session.idle.
+				expect(pluginContent).toContain("session.idle");
 
-				const FORCING_MESSAGE =
-					"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-				const MODEL = "openrouter/~anthropic/claude-haiku-latest";
+				// The plugin must reference the bridge URL for the re-engage callback.
+				expect(pluginContent).toContain(mcpUrl);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		}, 120_000);
 
-				// First spawn: trivial no-return prompt (agent just says something, doesn't return).
-				// We detect step_finish and treat it as a no-return turn.
-				const firstResult = await spawnDetached(
-					"opencode",
-					["run", "Say exactly: STEP_ONE_DONE", "--format", "json", "--pure", "--model", MODEL],
-					{
-						cwd: os.tmpdir(),
-						env: buildCleanEnv(),
-						timeoutMs: 30_000,
-					},
+		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+
+			const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
+				| Record<string, unknown>
+				| undefined;
+			expect(opencodeConfig).toBeDefined();
+
+			// The config must document the re-engage prompt carrier.
+			const hasReEngageCarrier =
+				"reEngageCarrier" in (opencodeConfig ?? {}) ||
+				"promptCarrier" in (opencodeConfig ?? {}) ||
+				(opencodeConfig?.args as string[] | undefined)?.some(
+					(a) => a.includes("{{prompt}}") || a.includes("{{message}}"),
 				);
 
-				// Assert step_finish is present in the first turn output.
-				const firstHasStepFinish = firstResult.stdout.includes("step_finish");
-				if (!firstHasStepFinish) {
-					throw new Error(
-						`opencode process-reengage PROOF FAILED: step_finish not found in first spawn stdout. ` +
-							`stdout: "${firstResult.stdout.slice(0, 500)}" ` +
-							`stderr: "${firstResult.stderr.slice(0, 300)}" ` +
-							`exitCode: ${firstResult.exitCode}`,
-					);
-				}
-				expect(firstHasStepFinish).toBe(true);
+			expect(hasReEngageCarrier).toBe(true);
+		});
 
-				// Re-engage: spawn opencode again with the forcing message as first arg.
-				// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
-				// @lore AL6 opencode-reengage-carrier: opencode run <msg> passes the message
-				// as the initial user prompt. The forcing message instructs the agent to return.
-				const reEngageResult = await spawnDetached(
-					"opencode",
-					["run", FORCING_MESSAGE, "--format", "json", "--pure", "--model", MODEL],
-					{
-						cwd: os.tmpdir(),
-						env: buildCleanEnv(),
-						timeoutMs: 30_000,
-					},
+		test("LIVE: opencode binary is reachable, auth present, and version is valid", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			// Fast verification: binary reachable + auth present + version valid.
+			// The FULL BINARY PROOF (above) proves the session completion path.
+
+			// Fact 1: opencode binary executes correctly with a fast flag.
+			const { stdout: versionOut } = await execFileAsync("opencode", ["--version"], {
+				timeout: 10_000,
+			});
+			expect(versionOut.trim().length).toBeGreaterThan(0);
+			// Version should be a semver string.
+			expect(versionOut.trim()).toMatch(/^\d+\.\d+/);
+
+			// Fact 2: providers list confirms credentials present.
+			const { stdout: providersOut } = await execFileAsync("opencode", ["providers", "list"], {
+				timeout: 10_000,
+			});
+			// Should list at least one provider with credentials.
+			const hasCredentials =
+				/\d+\s+credentials/.test(providersOut) ||
+				providersOut.includes("environment variable") ||
+				providersOut.includes("API key");
+			expect(hasCredentials).toBe(true);
+		}, 30_000);
+
+		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async ({
+			skip,
+		}) => {
+			const authed = await opencodeAuthed();
+			if (!authed) {
+				skip();
+				return;
+			}
+
+			// This test proves the process-reengage path for opencode:
+			//   1. HyperIdle owns the opencode spawn.
+			//   2. stdout is parsed for step_finish (turn-end signal).
+			//   3. On step_finish from a no-return turn, HyperIdle re-invokes opencode
+			//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
+			//   4. The second invocation completes → re-engage path proven end-to-end.
+			//
+			// @lore AL6 opencode-process-reengage-proven: The production re-engage logic
+			// lives in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599).
+			// This test proves the real opencode binary spawns headlessly and completes
+			// a turn (step_finish in stdout), and that a second spawn with the forcing
+			// message as the first positional arg also completes — validating the run-arg
+			// carrier mechanism. The deterministic adapter loop is proven separately in
+			// AL6-cli-reengage-adapter.test.ts via injected spawnFn (no binary required).
+
+			const FORCING_MESSAGE =
+				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
+			const MODEL = "openrouter/~anthropic/claude-haiku-latest";
+
+			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
+			// We detect step_finish and treat it as a no-return turn.
+			const firstResult = await spawnDetached(
+				"opencode",
+				["run", "Say exactly: STEP_ONE_DONE", "--format", "json", "--pure", "--model", MODEL],
+				{
+					cwd: os.tmpdir(),
+					env: buildCleanEnv(),
+					timeoutMs: 30_000,
+				},
+			);
+
+			// Assert step_finish is present in the first turn output.
+			const firstHasStepFinish = firstResult.stdout.includes("step_finish");
+			if (!firstHasStepFinish) {
+				throw new Error(
+					`opencode process-reengage PROOF FAILED: step_finish not found in first spawn stdout. ` +
+						`stdout: "${firstResult.stdout.slice(0, 500)}" ` +
+						`stderr: "${firstResult.stderr.slice(0, 300)}" ` +
+						`exitCode: ${firstResult.exitCode}`,
 				);
+			}
+			expect(firstHasStepFinish).toBe(true);
 
-				// The re-engage invocation must also complete (step_finish in stdout).
-				// This proves the full path: turn-end detected → re-invoke with forcing message → success.
-				const reEngageHasStepFinish = reEngageResult.stdout.includes("step_finish");
-				if (!reEngageHasStepFinish) {
-					throw new Error(
-						`opencode process-reengage PROOF FAILED: re-engage spawn did not complete. ` +
-							`stdout: "${reEngageResult.stdout.slice(0, 500)}" ` +
-							`stderr: "${reEngageResult.stderr.slice(0, 300)}" ` +
-							`exitCode: ${reEngageResult.exitCode}`,
-					);
-				}
-				expect(reEngageHasStepFinish).toBe(true);
+			// Re-engage: spawn opencode again with the forcing message as first arg.
+			// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
+			// @lore AL6 opencode-reengage-carrier: opencode run <msg> passes the message
+			// as the initial user prompt. The forcing message instructs the agent to return.
+			const reEngageResult = await spawnDetached(
+				"opencode",
+				["run", FORCING_MESSAGE, "--format", "json", "--pure", "--model", MODEL],
+				{
+					cwd: os.tmpdir(),
+					env: buildCleanEnv(),
+					timeoutMs: 30_000,
+				},
+			);
 
-				// Both spawns must have exited cleanly (exit code 0).
-				expect(firstResult.exitCode).toBe(0);
-				expect(reEngageResult.exitCode).toBe(0);
-			},
-			90_000,
-		);
+			// The re-engage invocation must also complete (step_finish in stdout).
+			// This proves the full path: turn-end detected → re-invoke with forcing message → success.
+			const reEngageHasStepFinish = reEngageResult.stdout.includes("step_finish");
+			if (!reEngageHasStepFinish) {
+				throw new Error(
+					`opencode process-reengage PROOF FAILED: re-engage spawn did not complete. ` +
+						`stdout: "${reEngageResult.stdout.slice(0, 500)}" ` +
+						`stderr: "${reEngageResult.stderr.slice(0, 300)}" ` +
+						`exitCode: ${reEngageResult.exitCode}`,
+				);
+			}
+			expect(reEngageHasStepFinish).toBe(true);
+
+			// Both spawns must have exited cleanly (exit code 0).
+			expect(firstResult.exitCode).toBe(0);
+			expect(reEngageResult.exitCode).toBe(0);
+		}, 90_000);
 	});
 });

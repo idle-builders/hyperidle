@@ -103,32 +103,26 @@ describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 	test("*.test.ts unit IN the harness dir → false (stubs allowed in units)", () => {
 		// AL6-return-gate.test.ts legitimately stubs — wrong suffix, never selected.
 		expect(
-			isHarnessIntegrationPath(
-				"packages/server/src/harness/__tests__/AL6-return-gate.test.ts",
-			),
+			isHarnessIntegrationPath("packages/server/src/harness/__tests__/AL6-return-gate.test.ts"),
 		).toBe(false);
 	});
 
 	test("adapter-pool.test.ts unit in harness dir → false", () => {
 		expect(
-			isHarnessIntegrationPath(
-				"packages/server/src/harness/__tests__/adapter-pool.test.ts",
-			),
+			isHarnessIntegrationPath("packages/server/src/harness/__tests__/adapter-pool.test.ts"),
 		).toBe(false);
 	});
 
 	test("web/service *.integration.test.ts (no harness dir) → false", () => {
 		expect(
-			isHarnessIntegrationPath(
-				"packages/server/src/__tests__/threads.integration.test.ts",
-			),
+			isHarnessIntegrationPath("packages/server/src/__tests__/threads.integration.test.ts"),
 		).toBe(false);
 	});
 
 	test("db service *.integration.test.ts → false", () => {
-		expect(
-			isHarnessIntegrationPath("packages/db/src/__tests__/teams.integration.test.ts"),
-		).toBe(false);
+		expect(isHarnessIntegrationPath("packages/db/src/__tests__/teams.integration.test.ts")).toBe(
+			false,
+		);
 	});
 
 	test("X3-session-provisioning.integration.test.ts (NOT the explicit one) → false", () => {
@@ -142,15 +136,13 @@ describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 	});
 
 	test("a non-test harness source file → false", () => {
-		expect(
-			isHarnessIntegrationPath("packages/server/src/harness/cli-harness-adapter.ts"),
-		).toBe(false);
+		expect(isHarnessIntegrationPath("packages/server/src/harness/cli-harness-adapter.ts")).toBe(
+			false,
+		);
 	});
 
 	test("*.spec.ts (E2E) in any location → false", () => {
-		expect(
-			isHarnessIntegrationPath("packages/web/e2e/ah5-live-agent-path.spec.ts"),
-		).toBe(false);
+		expect(isHarnessIntegrationPath("packages/web/e2e/ah5-live-agent-path.spec.ts")).toBe(false);
 	});
 
 	test("a *.real-harness.test.ts file (pre-rename) → false (not yet *.integration.test.ts)", () => {
@@ -174,9 +166,7 @@ describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 describe("isHarnessIntegrationPath — separator handling", () => {
 	test("matches regardless of leading ./", () => {
 		expect(
-			isHarnessIntegrationPath(
-				"./packages/server/src/harness/__tests__/foo.integration.test.ts",
-			),
+			isHarnessIntegrationPath("./packages/server/src/harness/__tests__/foo.integration.test.ts"),
 		).toBe(true);
 	});
 });

@@ -30,8 +30,8 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	type GuardFile,
 	checkGuardRules,
+	type GuardFile,
 	hasAbsentSkipIf,
 	isHarnessIntegrationPath,
 	isStubDirty,
@@ -80,7 +80,9 @@ describe("isStubDirty — flags fake/scripted/mocked harness seams", () => {
 
 	test("import of mock-harness-adapter → dirty", () => {
 		expect(
-			isStubDirty(`import { MockHarnessAdapter } from "../../../shared/harness/mock-harness-adapter.js";`),
+			isStubDirty(
+				`import { MockHarnessAdapter } from "../../../shared/harness/mock-harness-adapter.js";`,
+			),
 		).toBe(true);
 	});
 
@@ -92,7 +94,7 @@ describe("isStubDirty — flags fake/scripted/mocked harness seams", () => {
 		expect(isStubDirty(`vi.mock("../harness/callLlm.js");`)).toBe(true);
 	});
 
-	test('vi.mock of any harness module → dirty', () => {
+	test("vi.mock of any harness module → dirty", () => {
 		expect(isStubDirty(`vi.mock("../../harness/cli-harness-adapter.js");`)).toBe(true);
 	});
 

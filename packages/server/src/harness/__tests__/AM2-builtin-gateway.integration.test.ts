@@ -173,32 +173,28 @@ async function tryModelCall(
 describe("AM2 builtin gateway — real openai-compatible call", () => {
 	requireHarness("builtin");
 
-	test(
-		"drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text",
-		async () => {
-			// Guaranteed by requireHarness("builtin"): OPENROUTER_API_KEY is present.
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
+	test("drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text", async () => {
+		// Guaranteed by requireHarness("builtin"): OPENROUTER_API_KEY is present.
+		const apiKey = process.env.OPENROUTER_API_KEY as string;
 
-			const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
+		const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 100 });
 
-			let lastError: unknown = null;
+		let lastError: unknown = null;
 
-			for (const candidate of BUILTIN_MODEL_CANDIDATES) {
-				// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
-				const result = await tryModelCall(adapter, candidate, apiKey);
-				if (result.success) {
-					return; // done — real call succeeded
-				}
-				lastError = result.err;
+		for (const candidate of BUILTIN_MODEL_CANDIDATES) {
+			// tryModelCall throws on auth errors (→ FAIL), returns {success:false} on other errors
+			const result = await tryModelCall(adapter, candidate, apiKey);
+			if (result.success) {
+				return; // done — real call succeeded
 			}
+			lastError = result.err;
+		}
 
-			// All candidates failed with non-auth errors — throw with details
-			// (per plan: on model-not-available, the test throws with model list + final error;
-			// it does NOT silently pass)
-			throw new Error(
-				`AC3: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-			);
-		},
-		120_000,
-	);
+		// All candidates failed with non-auth errors — throw with details
+		// (per plan: on model-not-available, the test throws with model list + final error;
+		// it does NOT silently pass)
+		throw new Error(
+			`AC3: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} returned non-auth errors. Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+		);
+	}, 120_000);
 });

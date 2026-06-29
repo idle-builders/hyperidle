@@ -27,9 +27,9 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	type VitestJsonResult,
 	assertAgenticFloor,
 	extractAgenticCounts,
+	type VitestJsonResult,
 } from "../../../../scripts/lib/attestation-floor.js";
 
 // ── Fixture builders mirroring the vitest --reporter=json shape ───────────────
