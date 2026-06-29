@@ -112,7 +112,7 @@ Reports `ready` when any credential is present, with the matched credential name
 - `step_finish` → `completion` (text extracted from `properties.output`, `output`, or `text`)
 - `tool` → `tool_call` (toolName from `tool` or `name`; args from `input` or `args`)
 
-This pre-map is required for the MCP-routed two-session loop to see opencode tool calls and turn completions. Proven live: opencode session-2 lane asserts `normalizeHarnessEvent` produces ≥1 non-error event (`AL7-two-session-trust-first.real-harness.test.ts`, June 2026). Locked in CI by `packages/shared/src/harness/__tests__/harness-event-normalization.test.ts`.
+This pre-map is required for the MCP-routed two-session loop to see opencode tool calls and turn completions. Proven live: opencode session-2 lane asserts `normalizeHarnessEvent` produces ≥1 non-error event (`AL7-two-session-trust-first.integration.test.ts`, June 2026). Locked in CI by `packages/shared/src/harness/__tests__/harness-event-normalization.test.ts`.
 
 **MCP delivery (AL7):** per-session `writeCliMcpConfig({ dialect: "opencode-json" })` writes `opencode.json` into the sandbox cwd. opencode reads it at spawn, registering `mcp.hyperidle` as a remote MCP server. Token is inline in `headers.Authorization`. **Headless invocation:** `opencode run <prompt> --format json --pure --dir <sandbox> --model <provider/model>`. Proven live against the PRODUCTION `createMcpBridge` + `createMcpRoute` at `/api/mcp/:token` (June 2026).
 

@@ -14,6 +14,7 @@
 		"**/test-setup.ts",
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
+		"packages/server/src/harness/__tests__/require-harness.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/server/src/middleware/response-validator.ts",
@@ -26,7 +27,8 @@
 	"exclude": ["duplicates"],
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!"],
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
+			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
 		},
@@ -111,7 +113,8 @@
 			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
-			"entry": ["*.ts!", "__tests__/**/*.test.ts"]
+			"entry": ["*.ts!", "lib/**/*.ts!", "__tests__/**/*.test.ts"],
+			"project": ["**/*.ts"]
 		}
 	}
 }

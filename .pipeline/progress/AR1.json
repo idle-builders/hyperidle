@@ -1,0 +1,18 @@
+{
+  "id": "AR1",
+  "status": "done",
+  "currentStep": "shipped",
+  "resetNote": "Founder halted build: implementation baked a WRONG harness/key model. Reverted ALL code/tests/plan artifacts on branch; kept ONLY strict-harness-model concept (plans/AR/concept.md) + workpackage spec (TRACK-AR.md). Greenlit 2026-06-29: restart from corrected concept.",
+  "architectureScore": 8.5,
+  "reworkReason": "Founder correction: requireHarness baked a WRONG harness/key model (anthropic-key, openai-key-for-builtin). CLIs (claude/codex/opencode) are keychain binaries with NO API key; builtin uses OpenRouter from .env; NO anthropic key exists anywhere. Architecture must lock the harness model strictly; code/tests reverted.",
+  "prNumber": 381,
+  "worktree": ".worktrees/AR1",
+  "startedAt": "2026-06-28T00:00:00Z",
+  "restartedAt": "2026-06-29T00:00:00Z",
+  "complexity": "L",
+  "track": "AR",
+  "notes": "Harness-integration testing rule + lane collapse + requireHarness + stub-adapter guard + attestation executed-count floor + lockstep prose. No UI surface; no new primitive (infra/tooling) -> skip /concept block + /design. Concept locked in plans/AR/concept.md (STRICT harness model).",
+  "verifyProven": "status=passed dirty=False agenticExecuted=103 (HEAD 093d9191, env=OPENROUTER_API_KEY only)",
+  "reviewVerdict": "code DONE (findings 1+3 resolved, retry correct, tokens clean, AC1-6 met, AC7 live-proven); attestation commits at ship per ordering",
+  "completedAt": "2026-06-29T00:00:00Z"
+}

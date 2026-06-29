@@ -5,7 +5,7 @@
  * required for the MCP-routed two-session loop to see opencode tool calls and
  * turn completions — without it all opencode events normalize to `unknown`.
  *
- * The local-only real-harness lane (`AL7-two-session-trust-first.real-harness.test.ts`)
+ * The local-only harness-facing lane (`AL7-two-session-trust-first.integration.test.ts`)
  * proves this against a live opencode binary; these deterministic unit tests lock
  * the pure function's behavior in every CI run, no binary required.
  */

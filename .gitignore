@@ -60,6 +60,19 @@ scripts/harness-vocab-guard.js
 scripts/harness-vocab-guard.js.map
 scripts/harness-vocab-guard.d.ts
 scripts/harness-vocab-guard.d.ts.map
+# AR1: honest-harness-guard + scripts/lib pure modules — tsx-run, no commit of emitted artifacts
+scripts/honest-harness-guard.js
+scripts/honest-harness-guard.js.map
+scripts/honest-harness-guard.d.ts
+scripts/honest-harness-guard.d.ts.map
+scripts/lib/honest-harness-predicate.js
+scripts/lib/honest-harness-predicate.js.map
+scripts/lib/honest-harness-predicate.d.ts
+scripts/lib/honest-harness-predicate.d.ts.map
+scripts/lib/attestation-floor.js
+scripts/lib/attestation-floor.js.map
+scripts/lib/attestation-floor.d.ts
+scripts/lib/attestation-floor.d.ts.map
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
 packages/design-system/viewer/*.js

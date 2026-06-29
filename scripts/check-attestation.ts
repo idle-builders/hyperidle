@@ -22,6 +22,7 @@ import { execSync } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { assertAgenticFloor } from "./lib/attestation-floor.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -64,6 +65,13 @@ interface Attestation {
 	allTools: string[];
 	partial: boolean;
 	smartSkipped: string[];
+	/** AR1 agentic floor: assertions executed (passed|failed) across harness-facing
+	 * integration files. Optional for legacy attestations minted before AR1 ⇒ the
+	 * floor is skipped (back-compat, matches the srcHash? precedent). */
+	agenticExecuted?: number;
+	/** AR1 agentic floor: assertions skipped (skipped|pending|todo) across harness-facing
+	 * integration files. Optional for legacy back-compat. */
+	agenticSkipped?: number;
 	timestamp: string;
 	hmac: string;
 }
@@ -145,6 +153,17 @@ function main(): void {
 
 	if (attestation.dirty) {
 		fail("verify ran with uncommitted changes — commit all changes, then re-run verify");
+	}
+
+	// AR1 agentic floor: a green cannot be minted while EVERY harness-facing
+	// integration test skipped. Optional fields ⇒ legacy attestations validate (the
+	// floor returns null on undefined/undefined). New attestations always carry both.
+	const floorViolation = assertAgenticFloor({
+		agenticExecuted: attestation.agenticExecuted,
+		agenticSkipped: attestation.agenticSkipped,
+	});
+	if (floorViolation) {
+		fail(floorViolation);
 	}
 
 	// Source-integrity: the attested tests must correspond to the source CI is

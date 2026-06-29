@@ -23,13 +23,20 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
+	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	rmSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { isHarnessIntegrationPath } from "./lib/honest-harness-predicate.js";
+import {
+	type VitestJsonResult,
+	extractAgenticCounts,
+} from "./lib/attestation-floor.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -61,7 +68,11 @@ const SECRET_PATH = join(SECRET_DIR, "verify-secret");
  * Every other (fast) tool runs live in CI and is intentionally absent here.
  */
 const ATTESTED_TOOLS = ["test", "test:integration"];
-const ATTESTED_COMMAND = "npm run test:all";
+// @lore AR1: verify-attest runs `test:all`'s two constituent legs directly (rather
+// than the chained `npm run test:all`) so it can attach a JSON reporter to the
+// integration leg and read per-file executed/skipped counts for the agentic floor.
+// Combined semantics are identical to `test:all`'s `&&`-chain: BOTH legs must pass.
+const ATTESTED_COMMAND_UNIT = "npm run test";
 
 function getOrCreateSecret(): string {
 	if (existsSync(SECRET_PATH)) {
@@ -89,13 +100,54 @@ function main(): void {
 	const dirty =
 		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
-	// Run the attested tools and derive status from the REAL exit code.
-	process.stderr.write(`verify-attest: running attested tools (${ATTESTED_COMMAND})...\n`);
+	// Run the attested tools (unit leg + integration leg) and derive status from the
+	// REAL exit codes. The integration leg carries a JSON reporter so the agentic floor
+	// can read per-file executed/skipped counts. Combined status = both legs pass.
 	let status: "passed" | "failed" = "passed";
+
+	process.stderr.write("verify-attest: running attested unit leg (npm run test)...\n");
 	try {
-		execSync(ATTESTED_COMMAND, { stdio: "inherit" });
+		execSync(ATTESTED_COMMAND_UNIT, { stdio: "inherit" });
 	} catch {
 		status = "failed";
+	}
+
+	// Integration leg with a multi-reporter: --reporter=dot preserves the human terminal
+	// output; --reporter=json --outputFile writes the machine JSON in the SAME run (no
+	// double-run of the real-LLM harness tests).
+	const tmpDir = mkdtempSync(join(tmpdir(), "ar1-attest-"));
+	const tmpJson = join(tmpDir, "integration.json");
+	const integrationCmd =
+		"npx vitest run --config vitest.integration.config.ts " +
+		`--reporter=dot --reporter=json --outputFile=${tmpJson}`;
+	process.stderr.write("verify-attest: running attested integration leg...\n");
+	try {
+		execSync(integrationCmd, { stdio: "inherit" });
+	} catch {
+		status = "failed";
+	}
+
+	// Read the integration JSON and derive the agentic executed/skipped counts. A
+	// missing/unparseable JSON (integration leg crashed before writing) is itself a
+	// failure AND forces the floor to trip — never a silent `undefined`.
+	let agenticExecuted = 0;
+	let agenticSkipped = 0;
+	try {
+		const json = JSON.parse(readFileSync(tmpJson, "utf-8")) as VitestJsonResult;
+		const counts = extractAgenticCounts(json, isHarnessIntegrationPath);
+		agenticExecuted = counts.agenticExecuted;
+		agenticSkipped = counts.agenticSkipped;
+	} catch {
+		status = "failed";
+		agenticExecuted = 0;
+		agenticSkipped = 0;
+		process.stderr.write(
+			"verify-attest: could not read integration JSON — status=failed, agentic counts 0/0\n",
+		);
+	} finally {
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	}
 
 	const payload = {
@@ -107,6 +159,8 @@ function main(): void {
 		allTools: ATTESTED_TOOLS,
 		partial: false,
 		smartSkipped: [] as string[],
+		agenticExecuted,
+		agenticSkipped,
 		timestamp: new Date().toISOString(),
 	};
 
