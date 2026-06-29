@@ -202,9 +202,18 @@ node --version                              # must satisfy the envelope
 
 ## Phase 5: GitHub Actions
 
-- `uses: owner/action@vN` on a major tag auto-gets minor/patch. Focus on **major tag bumps** (`@v4 → @v5`) and SHA-pinned third-party actions.
-- For each, fetch latest release (`https://api.github.com/repos/{owner}/{action}/releases/latest`), research the major changelog, edit `.github/workflows/*.yml`, commit `chore(ci): upgrade {action} v{old} → v{new}`.
-- Validate YAML; CI confirms on push. Per project rules, never weaken or modify rulesets/branch protection to make CI pass.
+GitHub Actions are real, versioned dependencies — upgrade them every run, not just the npm tree.
+
+1. **Enumerate** every external action: `grep -rhn 'uses:' .github/workflows/ | grep -v 'uses: \./' | sort -u`. (`uses: ./…` are local reusable workflows — skip them.)
+2. **Find the latest major** for each `owner/action`. Pinned to a major tag (`@v4`) already auto-gets minor/patch, so the only manual move is the **major bump** (`@v4 → @v5`) plus any SHA-pinned third-party action. Check the action's GitHub **releases** page (or `https://api.github.com/repos/{owner}/{action}/releases/latest`) — verify the version on the web, don't infer from memory. Note that a single repo may be referenced at mixed tags (e.g. `actions/checkout` at both `@v4` and `@v6`) — bring them all to one latest major.
+3. **Research the major changelog** for behavioral breaks before bumping — these are CI-runtime breaks, not code breaks, and don't show up in `npm run verify`:
+   - `actions/checkout` ≥v5 raised the runner Node floor; v7 **blocks fork-PR checkouts for `pull_request_target` / `workflow_run`** — grep workflows for those triggers; if none use them it's N/A.
+   - `actions/setup-node` ≥v6 requires a newer runner Node — fine on GH-hosted `ubuntu-latest`, confirm `node-version:` is still pinned where expected.
+   - Docker / cloud setup actions: skim the major notes for renamed inputs.
+4. **Edit** `.github/workflows/*.yml`, then **validate YAML** parses (e.g. `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml`).
+5. **Commit** the workflow edits: `chore(ci): upgrade {action(s)} v{old} → v{new}` (one commit for the whole CI bump is fine — they share one verification).
+6. **Regenerate the verify attestation — REQUIRED, easy to miss.** The attestation fingerprint (`scripts/check-attestation.ts` → `sourceHash`) covers **all tracked source, including `.github/`**. Any workflow edit changes that fingerprint, so the attestation carried over from `origin/main` no longer matches and CI **fails at "Validate test attestation"** even though every action bump is correct. After committing the workflow edits, run `npm run verify` (regenerates `.verify-attestations/<sha>.json`), then commit that file: `git add .verify-attestations/ && git commit -m "chore(ci): regenerate verify attestation for actions upgrade"`. CI then validates green. (This is also why a CI-only change can never skip `verify` — there is no docs-fast-path for `.yml`.)
+7. Push; CI confirms on the PR (the run itself exercises the bumped `checkout`/`setup-node`). Per project rules, never weaken or modify rulesets/branch protection to make CI pass.
 
 ---
 
