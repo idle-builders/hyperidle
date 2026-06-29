@@ -19,13 +19,17 @@ import * as path from "node:path";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, test } from "../../test-fixtures.js";
 import {
+	buildToolRegistry,
+	type ToolContext,
+	type ToolRegistry,
+} from "../../tools/tool-registry.js";
+import type { ToolResult } from "../../tools/tool-result.js";
+import {
 	type CreateMcpBridgeOptions,
 	createMcpBridge,
 	type McpBridgeInstance,
 	toolResultToCallToolResult,
 } from "../mcp-bridge.js";
-import { buildToolRegistry, type ToolContext, type ToolRegistry } from "../../tools/tool-registry.js";
-import type { ToolResult } from "../../tools/tool-result.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -126,7 +130,9 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 	let bridge: McpBridgeInstance;
 	let registry: ToolRegistry;
 
-	test("returns a McpBridgeInstance with token, sessionId, mcpServer, transport", async ({ db }) => {
+	test("returns a McpBridgeInstance with token, sessionId, mcpServer, transport", async ({
+		db,
+	}) => {
 		const eventBus = new EventBus();
 		const ctx = makeContext(db, eventBus);
 		registry = buildToolRegistry(ctx, { role: "assistant" });

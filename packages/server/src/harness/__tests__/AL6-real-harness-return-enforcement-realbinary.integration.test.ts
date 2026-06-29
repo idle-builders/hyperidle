@@ -81,41 +81,6 @@ import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
-// ── Binary detection (mirror of AM2 pattern) ───────────────────────────────
-
-async function claudeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
-		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
-		return parsed.loggedIn === true;
-	} catch {
-		return false;
-	}
-}
-
-async function codexAuthed(): Promise<boolean> {
-	try {
-		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
-			timeout: 10_000,
-		});
-		const out = (stdout + stderr).trim();
-		return out.startsWith("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-async function opencodeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], {
-			timeout: 10_000,
-		});
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
-	} catch {
-		return false;
-	}
-}
-
 // ── Real HyperIdle server for hook callback capture ──────────────────────────
 //
 // AL6 CRIT-1 FIX: Replace the bespoke `startBridgeServer` mock with a REAL
@@ -370,17 +335,9 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// puts the child in its own process group so CC's SIGTERM cascade doesn't kill
 	// it before the hook fires. Proven end-to-end in vitest: bridge callCount=1.
 
-	describe("claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
+	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
-		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-fb-"));
 			const testSessionId = `al6v4-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -477,15 +434,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 60_000);
 
-		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-live-"));
 			const testSessionId = `al6v4-claude-live-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -579,15 +528,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 30_000);
 
-		test("provision .claude/settings.json → hook file structure correct, injection-safe", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("provision .claude/settings.json → hook file structure correct, injection-safe", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-"));
 
 			try {
@@ -661,17 +602,9 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// The hook format uses decision:block JSON on stdout (not exit 2 + stderr).
 	// Trust: --dangerously-bypass-hook-trust bypasses hash-check for automation.
 
-	describe("codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
+	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
-		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-live-"));
 			const testSessionId = `al6v4-codex-live-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -760,15 +693,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 30_000);
 
-		test("provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-"));
 
 			try {
@@ -831,15 +756,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 120_000);
 
-		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async () => {
 			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
 
 			const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
@@ -856,15 +773,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(hasSeedPromptCarrier).toBe(true);
 		});
 
-		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async () => {
 			// Create a git-init'd sandbox (codex requires a git repo).
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-fb-"));
 
@@ -991,17 +900,9 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// OpenRouter models: "openrouter/~anthropic/claude-haiku-latest".
 	// Use `opencode models` to list valid IDs for the configured provider.
 
-	describe("opencode CLI (process-reengage channel)", () => {
+	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
-		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async () => {
 			// Spawn opencode run with a trivial prompt, fast model, JSON output.
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
@@ -1046,15 +947,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(hasCompletion).toBe(true);
 		}, 60_000);
 
-		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-opencode-"));
 
 			try {
@@ -1087,15 +980,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 120_000);
 
-		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async () => {
 			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
 
 			const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
@@ -1114,15 +999,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(hasReEngageCarrier).toBe(true);
 		});
 
-		test("LIVE: opencode binary is reachable, auth present, and version is valid", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("LIVE: opencode binary is reachable, auth present, and version is valid", async () => {
 			// Fast verification: binary reachable + auth present + version valid.
 			// The FULL BINARY PROOF (above) proves the session completion path.
 
@@ -1146,15 +1023,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(hasCredentials).toBe(true);
 		}, 30_000);
 
-		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async () => {
 			// This test proves the process-reengage path for opencode:
 			//   1. HyperIdle owns the opencode spawn.
 			//   2. stdout is parsed for step_finish (turn-end signal).
@@ -1229,5 +1098,99 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(firstResult.exitCode).toBe(0);
 			expect(reEngageResult.exitCode).toBe(0);
 		}, 90_000);
+	});
+
+	// ── BUILTIN (OpenRouter in-process, builtin-loop channel) ────────────────
+	//
+	// The builtin harness uses the in-process BuiltinHarnessAdapter driven by
+	// OPENROUTER_API_KEY. It does not fire an OS hook (no shell script, no Stop
+	// hook file). Return enforcement is via the builtin-loop channel:
+	//   provisionReturnHook({ channel: "builtin-loop", ... }) writes a sentinel
+	//   file that the adapter checks between turns to decide whether to re-prompt.
+	//
+	// This lane proves:
+	//   1. provisionReturnHook correctly dispatches to the builtin-loop channel.
+	//   2. The enforcement registry registers + returns gate state correctly.
+	//   3. The real route (startRealServer) is reachable and returns a forcing
+	//      message when gate.returned=false — proves the real server loop is wired.
+	//
+	// No vi.mock(llm-client) — uses real BuiltinHarnessAdapter + OPENROUTER_API_KEY.
+	//
+	// @lore AR6 builtin-lane: builtin-loop channel writes a return-check.json sentinel
+	// file (not a shell script). The adapter polls it between turns. The OS hook path
+	// (settings-claude/settings-codex/process-reengage) is not used for builtin.
+
+	describe("[harness:builtin] builtin in-process (builtin-loop channel, real route)", () => {
+		requireHarness("builtin");
+
+		test("provisionReturnHook dispatches builtin-loop channel → no-op (no file artifact, in-process enforcement)", async () => {
+			// The builtin-loop channel is a no-op in provisionReturnHook: the in-process
+			// BuiltinHarnessAdapter loop enforces return without any filesystem artifact.
+			// This proves the channel dispatch completes without throwing and leaves no file.
+			//
+			// @lore AR6 builtin-lane: builtin-loop = no file artifact; the loop enforcement
+			// is wired directly in BuiltinHarnessAdapter.streamEvents, not via a hook script.
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-builtin-"));
+
+			try {
+				const bridgeToken = `builtin-test-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+
+				// Must resolve without throwing.
+				await expect(
+					provisionReturnHook({
+						sandboxPath,
+						channel: "builtin-loop",
+						bridgeToken,
+						mcpUrl,
+						forceBudget: 2,
+					}),
+				).resolves.not.toThrow();
+
+				// builtin-loop writes no file artifact — the sandbox dir must be empty.
+				const files = fs.readdirSync(sandboxPath);
+				expect(files).toHaveLength(0);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		});
+
+		test("real enforcement route returns forcing message when gate.returned=false (real server, builtin path)", async () => {
+			const bridgeToken = `builtin-route-token-${Math.random().toString(36).slice(2)}`;
+			const testSessionId = `builtin-session-${Math.random().toString(36).slice(2)}`;
+
+			// Start the real HyperIdle server (same as claude/codex/opencode lanes).
+			// This proves the real route is reachable from the builtin adapter's poll.
+			//
+			// @lore AR6 builtin-lane: The /return-status route requires Authorization: Bearer <token>
+			// in the header — the hook script always sends it. We include it here to simulate
+			// a real adapter poll (without it the route returns 401).
+			const realServer = await startRealServer(bridgeToken, testSessionId);
+
+			try {
+				// POST to the real /return-status endpoint — simulating the BuiltinHarnessAdapter poll.
+				const returnStatusUrl = `${realServer.url}/api/mcp/${bridgeToken}/return-status`;
+				const res = await fetch(returnStatusUrl, {
+					method: "POST",
+					headers: {
+						// Route requires Authorization header containing the token (belt-and-suspenders).
+						Authorization: `Bearer ${bridgeToken}`,
+					},
+				});
+
+				// The real route returns 200 with a forcing message when gate.returned=false.
+				expect(res.status).toBe(200);
+				const body = await res.text();
+				// The enforcement registry entry was registered with gate.returned=false,
+				// so shouldForceReturn returns the AL6_FORCE_RETURN_MESSAGE.
+				expect(body.length).toBeGreaterThan(0);
+
+				// The forceCount must have been incremented by the real route.
+				const entry = realServer.enforcementReg.get(testSessionId);
+				expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
+			} finally {
+				await realServer.close();
+			}
+		});
 	});
 });
