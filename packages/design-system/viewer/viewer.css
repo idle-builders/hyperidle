@@ -79,47 +79,58 @@
 @source "../src/**/*.{ts,tsx}";
 @source "../../web/src/**/*.{ts,tsx}";
 
-/* ── Reset (matches _tokens.css exactly) ── */
-
-*,
-*::before,
-*::after {
-	box-sizing: border-box;
-	margin: 0;
-	padding: 0;
-}
-
 /*
- * @lore K13 — Workbench root font-size is 16 px to match the production app.
- * Production (`packages/web/`) sets no explicit `html` font-size, so it inherits
- * the browser default of 16 px. The K12 workbench originally shipped at 14 px,
- * which made every density token compute 12.5 % smaller in the workbench than
- * in the real app and skewed K13's tier-by-tier critique screenshots. K13
- * Phase 0 bumped the root to 16 px so screenshots are interpretable against
- * production. The catalog body copy is still rendered via Tailwind's default
- * scale (which is rem-based), so a one-time bump is the cheapest fix.
+ * @lore upgrade-deferred-majors — In Tailwind v4, ALL utility classes are placed
+ * in @layer utilities. Unlayered CSS always beats any @layer rule (per CSS
+ * Cascade Level 5). The old viewer resets (*, html, body, button) were
+ * unlayered, which meant `button{background:none;border:none}` beat
+ * `@layer utilities{.bg-\[var(--accent-primary)\]{...}}`. Fix: move these
+ * resets into @layer base so utilities (which are in a later, higher-priority
+ * layer) can override them.
  */
-html,
-body {
-	background: var(--surface-page);
-	color: var(--text-primary);
-	font-family: var(--ui);
-	font-size: 16px;
-	line-height: 1.45;
-	-webkit-font-smoothing: antialiased;
-	height: 100%;
-}
+@layer base {
+	/* ── Reset (matches _tokens.css exactly) ── */
 
-#root {
-	min-height: 100vh;
-}
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+	}
 
-button {
-	font-family: inherit;
-	background: none;
-	border: none;
-	color: inherit;
-	cursor: pointer;
+	/*
+	 * @lore K13 — Workbench root font-size is 16 px to match the production app.
+	 * Production (`packages/web/`) sets no explicit `html` font-size, so it inherits
+	 * the browser default of 16 px. The K12 workbench originally shipped at 14 px,
+	 * which made every density token compute 12.5 % smaller in the workbench than
+	 * in the real app and skewed K13's tier-by-tier critique screenshots. K13
+	 * Phase 0 bumped the root to 16 px so screenshots are interpretable against
+	 * production. The catalog body copy is still rendered via Tailwind's default
+	 * scale (which is rem-based), so a one-time bump is the cheapest fix.
+	 */
+	html,
+	body {
+		background: var(--surface-page);
+		color: var(--text-primary);
+		font-family: var(--ui);
+		font-size: 16px;
+		line-height: 1.45;
+		-webkit-font-smoothing: antialiased;
+		height: 100%;
+	}
+
+	#root {
+		min-height: 100vh;
+	}
+
+	button {
+		font-family: inherit;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+	}
 }
 
 /* ── Scrollbars ── */
