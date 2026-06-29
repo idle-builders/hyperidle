@@ -443,6 +443,16 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	// `--output-format stream-json --verbose` emits one JSON object per line;
 	// `--model {{model}}` sets the model; `--mcp-config .mcp.json` wires MCP;
 	// `--strict-mcp-config` enforces MCP config (no auto-discovery from other dirs);
+	// @lore AR2-latent-bug: `--mcp-config .mcp.json --strict-mcp-config` is passed
+	// UNCONDITIONALLY — claude crashes "MCP config file not found" whenever no
+	// `.mcp.json` was written (i.e. a session provisioned with NO MCP bridge).
+	// Production masks this because server-factory always supplies a bridge so
+	// provisionSession always writes `.mcp.json`. A no-bridge session would crash
+	// identically. AR2 (the provisionSession-seam WP) owns the fix: make these args
+	// conditional on a bridge being provisioned, or always write a (possibly empty)
+	// `.mcp.json`. NOT fixed in AR1 (test-honesty scope only). This surfaced when
+	// AR1 un-skipped session-provisioning.integration.test.ts, which now wires the
+	// bridge into its deps so `.mcp.json` exists and the real claude run completes.
 	// `--permission-mode bypassPermissions` allows all tool calls without prompts;
 	// `--settings .claude/settings.json` loads the session-provisioned settings
 	// (which includes the return-check.sh Stop hook).
