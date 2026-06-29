@@ -21,7 +21,7 @@
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
 		"electron": "^42.5.0",
-		"esbuild": "^0.25.0",
+		"esbuild": "^0.28.1",
 		"vitest": "*",
 		"zod": "^4.3.6"
 	}
