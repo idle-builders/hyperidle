@@ -78,6 +78,43 @@ describe("isStubDirty — flags fake/scripted/mocked harness seams", () => {
 		expect(isStubDirty(`class FakeAdapter implements HarnessAdapter {}`)).toBe(true);
 	});
 
+	test("factory function returning : HarnessAdapter → dirty (AR1 finding 3)", () => {
+		// The dominant in-repo stub idiom: a hand-rolled factory whose RETURN TYPE
+		// is HarnessAdapter (AL6-return-gate's makeStubAdapter, ah5's makeBrokenStreamAdapter).
+		const multiLine = [
+			`function makeStubAdapter(`,
+			`	events: HarnessEvent[],`,
+			`): HarnessAdapter {`,
+			`	return { startSession() {}, streamEvents() {} } as HarnessAdapter;`,
+			`}`,
+		].join("\n");
+		expect(isStubDirty(multiLine)).toBe(true);
+	});
+
+	test("single-line factory returning HarnessAdapter → dirty", () => {
+		expect(isStubDirty(`function makeBrokenStreamAdapter(): HarnessAdapter {`)).toBe(true);
+	});
+
+	test("arrow factory returning HarnessAdapter → dirty", () => {
+		expect(isStubDirty(`const make = (): HarnessAdapter => ({ startSession() {} });`)).toBe(true);
+	});
+
+	test("a PARAMETER annotated : HarnessAdapter is NOT dirty (no false positive)", () => {
+		// `adapter: HarnessAdapter` is a parameter type, not a return-type factory —
+		// the `)`-anchor before the colon must keep this clean.
+		const src = [
+			`import { requireHarness } from "./require-harness.js";`,
+			`requireHarness("claude");`,
+			`function register(adapter: HarnessAdapter): void { pool.register("local", adapter); }`,
+			`test("x", async () => {});`,
+		].join("\n");
+		expect(isStubDirty(src)).toBe(false);
+	});
+
+	test("a type IMPORT of HarnessAdapter is NOT dirty (no false positive)", () => {
+		expect(isStubDirty(`import type { HarnessAdapter } from "../harness-adapter.js";`)).toBe(false);
+	});
+
 	test("import of mock-harness-adapter → dirty", () => {
 		expect(
 			isStubDirty(

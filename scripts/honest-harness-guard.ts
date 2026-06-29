@@ -55,6 +55,16 @@ const STUB_PATTERNS: readonly RegExp[] = [
 	/new\s+ScriptedHarness\b/,
 	// a hand-rolled HarnessAdapter implementation
 	/class\s+\w+\s+implements\s+HarnessAdapter\b/,
+	// a factory function / arrow whose RETURN TYPE is HarnessAdapter — i.e. it
+	// hand-builds and returns a fake adapter object (the dominant in-repo stub
+	// idiom: `function makeStubAdapter(...): HarnessAdapter { return {...} }`,
+	// `const make = (): HarnessAdapter => ({...})`). The `)` anchor before the
+	// colon scopes this to a RETURN-TYPE annotation, so a parameter annotation
+	// (`adapter: HarnessAdapter`) and a type import do NOT match. AC5: stub-the-seam
+	// via a factory must fail the build just like `new ScriptedAdapter` /
+	// `implements HarnessAdapter`. (AR1 finding 3 — AL6-return-gate +
+	// ah5-gates-on-broken-stream evaded the old set with this exact shape.)
+	/\)\s*:\s*HarnessAdapter\b/,
 	// importing a mock harness adapter module
 	/import\s+[^;]*mock-harness-adapter/,
 	// vi.mock of the harness seam / the llm-client / a callLlm module
