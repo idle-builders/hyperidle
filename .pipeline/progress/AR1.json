@@ -1,7 +1,7 @@
 {
   "id": "AR1",
   "status": "in_progress",
-  "currentStep": "3-write-code",
+  "currentStep": "4-review",
   "resetNote": "Founder halted build: implementation baked a WRONG harness/key model. Reverted ALL code/tests/plan artifacts on branch; kept ONLY strict-harness-model concept (plans/AR/concept.md) + workpackage spec (TRACK-AR.md). Greenlit 2026-06-29: restart from corrected concept.",
   "architectureScore": 8.5,
   "reworkReason": "Founder correction: requireHarness baked a WRONG harness/key model (anthropic-key, openai-key-for-builtin). CLIs (claude/codex/opencode) are keychain binaries with NO API key; builtin uses OpenRouter from .env; NO anthropic key exists anywhere. Architecture must lock the harness model strictly; code/tests reverted.",
