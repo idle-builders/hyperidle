@@ -12,17 +12,20 @@
  *
  * @lore AM2: These probes are cheap and harmless ("say OK" / "reply with OK").
  * They never read CLI auth files, never copy secrets, run with hard-coded arg
- * arrays (no shell). skipIf guards are only for genuinely-absent/unauthed binaries.
+ * arrays (no shell). Each test calls requireHarness(<name>) first, which HARD-FAILS
+ * (never skips) when the binary is absent (AR1). The inner ctx.skip() remains only
+ * for the binary-present-but-not-authed case.
  * On this machine (codex/claude/opencode all installed+authed per dossier) they MUST
  * execute and capture fixtures.
  */
 
-import { execFile, execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { probeHarnessSession } from "../harness-session-probe.js";
+import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -49,19 +52,6 @@ async function writeFixtureIfMissing(filePath: string, content: string): Promise
 	}
 }
 
-function binaryPresent(name: string): boolean {
-	try {
-		// execFileSync("which") is the lightweight check
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const codexInstalled = binaryPresent("codex");
-const claudeInstalled = binaryPresent("claude");
-const opencodeInstalled = binaryPresent("opencode");
 
 // Check auth by running `codex login status` — logged in = starts with "Logged in"
 async function codexAuthed(): Promise<boolean> {
@@ -102,9 +92,10 @@ async function opencodeAuthed(): Promise<boolean> {
 }
 
 describe("AM2 real harness session probe", () => {
-	test.skipIf(!codexInstalled)(
+	test(
 		"codex session probe: executes real codex exec and captures usage-bearing turn.completed fixture",
 		async (ctx) => {
+			requireHarness("codex");
 			// Verify authed state — skip if binary present but not logged in
 			const authed = await codexAuthed();
 			if (!authed) {
@@ -136,9 +127,10 @@ describe("AM2 real harness session probe", () => {
 		120_000,
 	);
 
-	test.skipIf(!claudeInstalled)(
+	test(
 		"claude session probe: executes real claude -p and captures usage-bearing result fixture",
 		async (ctx) => {
+			requireHarness("claude");
 			const authed = await claudeAuthed();
 			if (!authed) {
 				ctx.skip();
@@ -170,9 +162,10 @@ describe("AM2 real harness session probe", () => {
 		120_000,
 	);
 
-	test.skipIf(!opencodeInstalled)(
+	test(
 		"opencode session probe: executes real opencode run and captures event line",
 		async (ctx) => {
+			requireHarness("opencode");
 			const authed = await opencodeAuthed();
 			if (!authed) {
 				ctx.skip();

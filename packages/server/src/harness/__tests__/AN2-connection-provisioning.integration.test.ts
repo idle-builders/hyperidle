@@ -1,7 +1,8 @@
 /**
  * AN2 — Connection provisioning real-harness live-proof tests (AC2, AC3).
  *
- * ⚠️  LOCAL-ONLY LANE — NOT IN CI / NOT IN test:all / NOT IN test:integration
+ * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project; the
+ *     signed attestation carries the result. No test suite runs in GitHub Actions.
  *
  * Proves that the provisioned config files actually enable agent authentication
  * to a real MCP server. Each carrier path is tested separately:
@@ -17,10 +18,11 @@
  * Each carrier test asserts AN2_PROBE_OK appears in the agent's output.
  *
  * Per project rule: "live-LLM/real-binary tests run locally only; never a GitHub
- * Actions job." Run on demand: npm run test:real-harness
+ * Actions job." Runs via npm run test:integration (serial harness project)
  *
- * Skip discipline: if a binary is not installed, the test SKIPS WITH A LOUD LOGGED
- * REASON. WP is not `done` until each carrier has at least one real run.
+ * Gate discipline: each carrier's describe is gated by requireHarness(<name>), which
+ * HARD-FAILS (never skips) when the binary is absent — a missing harness means the work
+ * is not done (AR1). The inner auth checks remain only for binary-present-but-unauthed.
  *
  * @lore AN2 live-proof: The real-harness tests require:
  *   1. A real in-proc MCP server over a real transport (streamable HTTP via SDK).
@@ -55,22 +57,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, test } from "vitest";
 import { applyProvisioningPlan } from "../../services/connection-provisioning.js";
-
-// ── Binary detection ──────────────────────────────────────────────────────────
-
-function binaryPresent(name: string): boolean {
-	try {
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const claudeInstalled = binaryPresent("claude");
-const codexInstalled = binaryPresent("codex");
-const opencodeInstalled = binaryPresent("opencode");
-const ghInstalled = binaryPresent("gh");
+import { requireHarness } from "./require-harness.js";
 
 // ── Clean env for headless binary spawning ────────────────────────────────────
 // Same recipe as AL7 — zero CC session-detection vars, keep keychain auth.
@@ -265,18 +252,13 @@ describe("builtin: scoped out of AN2 connection provisioning (C1)", () => {
 
 // ── CLAUDE-CODE: real .mcp.json bearer MCP ────────────────────────────────────
 
-describe.skipIf(!claudeInstalled)(
+describe(
 	"claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.json Bearer",
 	() => {
+		requireHarness("claude");
 		test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async ({
 			skip,
 		}) => {
-			if (!claudeInstalled) {
-				process.stdout.write("[AN2 real-harness claude] SKIP: claude binary not installed\n");
-				skip();
-				return;
-			}
-
 			// Check claude auth
 			try {
 				execFileSync("claude", ["auth", "status"], { stdio: "ignore", timeout: 10_000 });
@@ -451,17 +433,13 @@ describe.skipIf(!claudeInstalled)(
 
 // ── CODEX: real config.toml bearer MCP ────────────────────────────────────────
 
-describe.skipIf(!codexInstalled)(
+describe(
 	"codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer",
 	() => {
+		requireHarness("codex");
 		test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async ({
 			skip,
 		}) => {
-			if (!codexInstalled) {
-				process.stdout.write("[AN2 real-harness codex] SKIP: codex binary not installed\n");
-				skip();
-				return;
-			}
 
 			// Check codex auth
 			try {
@@ -616,18 +594,13 @@ describe.skipIf(!codexInstalled)(
 
 // ── OPENCODE: real opencode.json inline header ────────────────────────────────
 
-describe.skipIf(!opencodeInstalled)(
+describe(
 	"opencode: real CLI connects to AN2-provisioned MCP server via opencode.json inline header",
 	() => {
+		requireHarness("opencode");
 		test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async ({
 			skip,
 		}) => {
-			if (!opencodeInstalled) {
-				process.stdout.write("[AN2 real-harness opencode] SKIP: opencode binary not installed\n");
-				skip();
-				return;
-			}
-
 			// Check opencode auth
 			try {
 				const authResult = await spawnDetached("opencode", ["providers", "list"], {
@@ -749,16 +722,11 @@ describe.skipIf(!opencodeInstalled)(
 
 // ── CLI-KEY: GH_TOKEN env injection ──────────────────────────────────────────
 
-describe.skipIf(!ghInstalled)("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
+describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
+	requireHarness("gh");
 	test("github token → GH_TOKEN in envInjections; real gh auth status succeeds when GH_TOKEN set", async ({
 		skip,
 	}) => {
-		if (!ghInstalled) {
-			process.stdout.write("[AN2 real-harness gh] SKIP: gh binary not installed\n");
-			skip();
-			return;
-		}
-
 		// Use GH_TOKEN/GITHUB_TOKEN from env, or retrieve from gh keyring.
 		let ghToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
 		if (!ghToken) {

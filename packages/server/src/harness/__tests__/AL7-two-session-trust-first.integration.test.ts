@@ -24,7 +24,7 @@
  *     - Assert: work continues — agent emits another tool call or text after the op.
  *
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a GitHub
- * Actions job." Run on demand: npm run test:real-harness
+ * Actions job." Runs via npm run test:integration (serial harness project)
  *
  * @lore AL7 real-harness: The MCP bridge uses the same wiring as AL6's real-harness
  * test (createMcpRoute + local Hono server). The capturing router wraps registry.invoke
@@ -72,6 +72,7 @@ import { serve } from "@hono/node-server";
 import { normalizeHarnessEvent } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { requireHarness } from "./require-harness.js";
 import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
@@ -89,18 +90,6 @@ const execFileAsync = promisify(execFile);
 
 // ── Binary detection (same pattern as AM2 + AL6) ─────────────────────────────
 
-function binaryPresent(name: string): boolean {
-	try {
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const claudeInstalled = binaryPresent("claude");
-const codexInstalled = binaryPresent("codex");
-const opencodeInstalled = binaryPresent("opencode");
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -518,7 +507,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// with a fresh token between sessions.
 
 	describe("claude-code CLI (real binary, MCP-routed two-session loop)", () => {
-		test.skipIf(!claudeInstalled)(
+		requireHarness("claude");
+		test(
 			"FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -619,7 +609,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			90_000,
 		);
 
-		test.skipIf(!claudeInstalled)(
+		test(
 			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -765,7 +755,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			180_000,
 		);
 
-		test.skipIf(!claudeInstalled)(
+		test(
 			"MCP bridge wiring: commit_file exposed via MCP schema + real server reachable",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -851,7 +841,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// — that message is just informational, not a hang indicator.
 
 	describe("codex CLI (real binary, MCP-routed two-session loop)", () => {
-		test.skipIf(!codexInstalled)(
+		requireHarness("codex");
+		test(
 			"FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -967,7 +958,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			90_000,
 		);
 
-		test.skipIf(!codexInstalled)(
+		test(
 			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -1128,7 +1119,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
 
 	describe("opencode CLI (real binary, MCP-routed two-session loop)", () => {
-		test.skipIf(!opencodeInstalled)(
+		requireHarness("opencode");
+		test(
 			"FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();
@@ -1218,7 +1210,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			90_000,
 		);
 
-		test.skipIf(!opencodeInstalled)(
+		test(
 			"FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();

@@ -16,7 +16,7 @@
  * and are the DoD artifact for AL6 v4-final §9.1. They have already been run
  * and proved enforcement (callCount >= 1 confirmed for claude, codex, opencode).
  *
- * Run on demand: npm run test:real-harness
+ * Runs via npm run test:integration (serial harness project)
  *
  * Deterministic real-loop coverage (route/registry/injected-spawn/builtin) stays in
  * test:all via AL6-real-harness-return-enforcement.integration.test.ts. Those tests
@@ -60,7 +60,7 @@
  * contains ONLY auth.json + config.toml + hooks.json. Verified end-to-end: callCount >= 1.
  */
 
-import { execFile, execFileSync, spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -69,6 +69,7 @@ import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { requireHarness } from "./require-harness.js";
 import { provisionReturnHook } from "../../harness/provision-return-hook.js";
 import {
 	createEnforcementRegistry,
@@ -82,18 +83,6 @@ const execFileAsync = promisify(execFile);
 
 // ── Binary detection (mirror of AM2 pattern) ───────────────────────────────
 
-function binaryPresent(name: string): boolean {
-	try {
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const claudeInstalled = binaryPresent("claude");
-const codexInstalled = binaryPresent("codex");
-const opencodeInstalled = binaryPresent("opencode");
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -383,7 +372,8 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// it before the hook fires. Proven end-to-end in vitest: bridge callCount=1.
 
 	describe("claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
-		test.skipIf(!claudeInstalled)(
+		requireHarness("claude");
+		test(
 			"FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -490,7 +480,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			60_000,
 		);
 
-		test.skipIf(!claudeInstalled)(
+		test(
 			"LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -594,7 +584,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			30_000,
 		);
 
-		test.skipIf(!claudeInstalled)(
+		test(
 			"provision .claude/settings.json → hook file structure correct, injection-safe",
 			async ({ skip }) => {
 				const authed = await claudeAuthed();
@@ -679,7 +669,8 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// Trust: --dangerously-bypass-hook-trust bypasses hash-check for automation.
 
 	describe("codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
-		test.skipIf(!codexInstalled)(
+		requireHarness("codex");
+		test(
 			"LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -778,7 +769,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			30_000,
 		);
 
-		test.skipIf(!codexInstalled)(
+		test(
 			"provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -851,7 +842,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			120_000,
 		);
 
-		test.skipIf(!codexInstalled)(
+		test(
 			"WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -877,7 +868,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			},
 		);
 
-		test.skipIf(!codexInstalled)(
+		test(
 			"FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1",
 			async ({ skip }) => {
 				const authed = await codexAuthed();
@@ -1015,7 +1006,8 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// Use `opencode models` to list valid IDs for the configured provider.
 
 	describe("opencode CLI (process-reengage channel)", () => {
-		test.skipIf(!opencodeInstalled)(
+		requireHarness("opencode");
+		test(
 			"FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();
@@ -1070,7 +1062,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			60_000,
 		);
 
-		test.skipIf(!opencodeInstalled)(
+		test(
 			"provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();
@@ -1113,7 +1105,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			120_000,
 		);
 
-		test.skipIf(!opencodeInstalled)(
+		test(
 			"WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();
@@ -1141,7 +1133,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			},
 		);
 
-		test.skipIf(!opencodeInstalled)(
+		test(
 			"LIVE: opencode binary is reachable, auth present, and version is valid",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();
@@ -1175,7 +1167,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			30_000,
 		);
 
-		test.skipIf(!opencodeInstalled)(
+		test(
 			"LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes",
 			async ({ skip }) => {
 				const authed = await opencodeAuthed();

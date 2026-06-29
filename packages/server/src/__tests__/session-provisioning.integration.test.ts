@@ -1,12 +1,12 @@
 /**
  * Session Provisioning — AC2 integration test (real claude CLI adapter).
  *
- * This test is gated on `ANTHROPIC_API_KEY` env as a proxy for "claude is
- * configured" (see test.skipIf gate below). Note: the new CLI adapter uses
- * inherited login (not API key), so this proxy is imperfect. The authoritative
- * live proof for the claude CLI path is the real-harness lane
- * (`*.real-harness.test.ts`, AL6/AL7). This integration test remains gated on
- * ANTHROPIC_API_KEY for historical compatibility.
+ * Harness-facing: drives the REAL installed `claude` binary via
+ * `CliHarnessAdapter(CLAUDE_CLI_CONFIG)` (the claude CLI uses inherited keychain
+ * login — NO API key). The test is gated by `requireHarness("claude")`, which
+ * HARD-FAILS (never skips) when the binary is absent: a missing harness means the
+ * work is not done, not that the suite passes.
+ *
  * It proves AC2 of D5:
  *   "Claude integration test: provision real session → agent runs → session
  *    completes."
@@ -15,9 +15,8 @@
  * and `LocalSandboxAdapter` (D3).
  *
  * @lore claude-cli-adapter: Previously used ClaudeAgentSdkAdapter (now deleted).
- * The claude CLI adapter spawns the `claude` binary directly (same as AL6
- * real-harness tests). The test is gated on `ANTHROPIC_API_KEY` env presence
- * as a proxy for "claude is configured" in the test environment.
+ * The claude CLI adapter spawns the `claude` binary directly. Gate the binary
+ * with requireHarness("claude") — never a key proxy (AR1).
  */
 
 import * as fs from "node:fs";
@@ -41,6 +40,7 @@ import { CliHarnessAdapter } from "../harness/cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
+import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-16T00:00:00.000Z";
@@ -98,6 +98,8 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
+	requireHarness("claude");
+
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -114,7 +116,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		}
 	});
 
-	test.skipIf(!process.env.ANTHROPIC_API_KEY)(
+	test(
 		"provisions a real Claude session and completes with cost > 0",
 		async ({ db, eventBus }) => {
 			await seedDomain(db);

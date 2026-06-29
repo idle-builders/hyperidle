@@ -1,7 +1,8 @@
 /**
  * cli-adapter-real-binary — LIVE real-binary CliHarnessAdapter integration tests.
  *
- * ⚠️  LOCAL-ONLY LANE — NOT IN CI / NOT IN test:all / NOT IN test:integration
+ * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project; the
+ *     signed attestation carries the result. No test suite runs in GitHub Actions.
  *
  * These tests close the test-coverage seam: the existing real-harness lane (AL6/AL7)
  * proves the real binaries behave, but spawns them DIRECTLY (hand-rolled spawn).
@@ -18,10 +19,10 @@
  *      with each installed binary.
  *
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a GitHub
- * Actions job." Run on demand: npm run test:real-harness
+ * Actions job." Runs via `npm run test:integration` (serial harness project).
  *
- * @lore cli-adapter-real-binary: This test mirrors the AL6/AL7 binary gating pattern
- * (binaryPresent + auth check → skip-with-log). The key difference: instead of spawning
+ * @lore cli-adapter-real-binary: This test gates each binary with requireHarness(<name>)
+ * (hard-fail, never skip) + an inner auth check. The key difference vs AL6/AL7: instead of spawning
  * `claude -p ...` directly, we drive `new CliHarnessAdapter(CLAUDE_CLI_CONFIG)` so every
  * line of the production adapter (parseStdoutLine, buildResult, wireStdout) is exercised
  * against real binary output.
@@ -47,6 +48,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
+import { requireHarness } from "./require-harness.js";
 import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 
@@ -54,18 +56,6 @@ const execFileAsync = promisify(execFile);
 
 // ── Binary detection (same pattern as AL6/AL7) ────────────────────────────────
 
-function binaryPresent(name: string): boolean {
-	try {
-		execFileSync("which", [name], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-const claudeInstalled = binaryPresent("claude");
-const codexInstalled = binaryPresent("codex");
-const opencodeInstalled = binaryPresent("opencode");
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -91,7 +81,8 @@ async function codexAuthed(): Promise<boolean> {
 
 async function opencodeAuthed(): Promise<boolean> {
 	try {
-		const key = process.env.ANTHROPIC_API_KEY ?? process.env.OPENROUTER_API_KEY;
+		// The builtin/OpenRouter key is the only key in the strict harness model.
+		const key = process.env.OPENROUTER_API_KEY;
 		if (!key) return false;
 		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
 		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
@@ -163,7 +154,8 @@ function provisionCodexHome(sandboxPath: string): boolean {
 // when this test runs inside Claude Code.
 
 describe("claude-code CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!claudeInstalled)(
+	requireHarness("claude");
+	test(
 		"drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real cost + no error pollution",
 		async ({ skip }) => {
 			const authed = await claudeAuthed();
@@ -447,7 +439,8 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 }
 
 describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!codexInstalled)(
+	requireHarness("codex");
+	test(
 		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.codex) against real codex → completion + outcome completed",
 		async ({ skip }) => {
 			await runCodexAdapterTest({ skip });
@@ -458,22 +451,24 @@ describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", (
 
 // ── OPENCODE CLI adapter (production path, real binary) ───────────────────────
 //
-// OpenCode requires ANTHROPIC_API_KEY (or another provider key) in the environment,
-// AND a provider-prefixed model id. CLI_TOOL_CONFIGS.opencode.envMap injects
-// ANTHROPIC_API_KEY:{{apiKey}} — so we set config.resolvedModel.apiKey from the env.
-// If no key is present, skip-with-log.
+// opencode is driven through its OpenRouter (openai-compatible) provider — the only
+// key in the strict harness model is OPENROUTER_API_KEY. The model id is provider-
+// prefixed for OpenRouter.
 //
 // @lore cli-adapter-real-binary opencode: Uses CLI_TOOL_CONFIGS.opencode which has
 // args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--pure",
 // "--model", "{{model}}"]. The model must be provider-prefixed.
-// envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" } — the adapter injects the resolved key.
+// @lore AR1 opencode-key: the strict harness model forbids ANTHROPIC_API_KEY entirely;
+// opencode here is keyed from OPENROUTER_API_KEY (the single allowed key) through the
+// openai-compatible OpenRouter endpoint.
 
 describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)", () => {
-	test.skipIf(!opencodeInstalled)(
+	requireHarness("opencode");
+	test(
 		"drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed",
 		async ({ skip }) => {
-			// Check for provider key in env — do NOT fabricate a key.
-			const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+			// The builtin/OpenRouter key is the only key — do NOT fabricate a key.
+			const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 			if (!apiKey) {
 				skip();
 				return;
@@ -501,12 +496,12 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 					modelTier: "workhorse" as const,
 					tools: [],
 					resolvedModel: {
-						provider: "anthropic" as const,
-						// Provider-prefixed model id required by opencode.
+						provider: "openai-compatible" as const,
+						// Provider-prefixed model id required by opencode (OpenRouter route).
 						// @lore AL6 opencode-model-format: opencode uses provider-prefixed model IDs.
-						model: "anthropic/claude-haiku-4-5",
+						model: "openrouter/openai/gpt-4o-mini",
 						apiKey,
-						baseUrl: "https://api.anthropic.com",
+						baseUrl: "https://openrouter.ai/api",
 					},
 					mcpConnectionInfo: undefined,
 				};
