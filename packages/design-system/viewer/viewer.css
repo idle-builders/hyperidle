@@ -28,7 +28,7 @@
   --color-error: #dc4a3a;
   --color-error-content: #ffffff;
   --radius-box: 16px;
-  --radius-field: 9999px;
+  --radius-field: 16px;
   --radius-selector: 9999px;
 }
 
@@ -57,7 +57,7 @@
   --color-error: #ee6a5a;
   --color-error-content: #ffffff;
   --radius-box: 16px;
-  --radius-field: 9999px;
+  --radius-field: 16px;
   --radius-selector: 9999px;
 }
 

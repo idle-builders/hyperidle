@@ -27,7 +27,7 @@
   --color-error: #dc4a3a;
   --color-error-content: #ffffff;
   --radius-box: 16px;
-  --radius-field: 9999px;
+  --radius-field: 16px;
   --radius-selector: 9999px;
 }
 
@@ -56,7 +56,7 @@
   --color-error: #ee6a5a;
   --color-error-content: #ffffff;
   --radius-box: 16px;
-  --radius-field: 9999px;
+  --radius-field: 16px;
   --radius-selector: 9999px;
 }
 
@@ -77,6 +77,15 @@
 
 @source "../../design-system/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
+
+/*
+ * @lore upgrade-deferred-majors — DaisyUI v5 changed `.input` from
+ * `display: block; width: 100%` (v4) to `display: inline-flex;
+ * width: clamp(3rem, 20rem, 100%)` (v5). Raw `.input` usages without our DS
+ * Input component must add `w-full` explicitly (DaisyUI v5 sublayers beat
+ * @layer base so a global override would not work). Affected: AgentAddDialog,
+ * AgentEditDialog — fixed by adding w-full at the call sites.
+ */
 
 /* L23 — KnowledgeBody scoped heading hierarchy.
  *
