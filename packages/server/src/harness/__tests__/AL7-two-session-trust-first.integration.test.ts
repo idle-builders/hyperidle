@@ -63,11 +63,10 @@
  * on disk (the sandbox is not torn down between sessions in this test).
  */
 
-import { execFile, execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import { normalizeHarnessEvent } from "@hyperidle/shared";
 import { Hono } from "hono";
@@ -85,43 +84,6 @@ import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
 import type { ToolResult } from "../../tools/tool-result.js";
 import { err } from "../../tools/tool-result.js";
 import { requireHarness } from "./require-harness.js";
-
-const execFileAsync = promisify(execFile);
-
-// ── Binary detection (same pattern as AM2 + AL6) ─────────────────────────────
-
-async function claudeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
-		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
-		return parsed.loggedIn === true;
-	} catch {
-		return false;
-	}
-}
-
-async function codexAuthed(): Promise<boolean> {
-	try {
-		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
-			timeout: 10_000,
-		});
-		const out = (stdout + stderr).trim();
-		return out.startsWith("Logged in");
-	} catch {
-		return false;
-	}
-}
-
-async function opencodeAuthed(): Promise<boolean> {
-	try {
-		const { stdout } = await execFileAsync("opencode", ["providers", "list"], {
-			timeout: 10_000,
-		});
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
-	} catch {
-		return false;
-	}
-}
 
 // ── In-memory capturing router ────────────────────────────────────────────────
 //
@@ -505,17 +467,9 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// within sandboxBasePath. The MCP server is reused but the bridge is rebuilt
 	// with a fresh token between sessions.
 
-	describe("claude-code CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:claude] claude-code CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("claude");
-		test("FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s1-"));
 			const testSessionId = `al7-rh-s1-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -606,15 +560,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			}
 		}, 90_000);
 
-		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written", async () => {
 			// This test extends session-1 to prove the full two-session loop.
 			// It runs session 1 (capture), approves in-process, then runs session 2
 			// (grant-bearing) and asserts the real file is written to disk.
@@ -750,15 +696,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			}
 		}, 180_000);
 
-		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async ({
-			skip,
-		}) => {
-			const authed = await claudeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "wiring-"));
 			const testSessionId = `al7-rh-wiring-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -833,17 +771,9 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// Both pipe+close and /dev/null redirect produce "Reading additional input from stdin..."
 	// — that message is just informational, not a hang indicator.
 
-	describe("codex CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:codex] codex CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("codex");
-		test("FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
 			// do not exist yet (T4). This test will fail at the import/call site
 			// until T4+T5+T6 land.
@@ -949,15 +879,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			}
 		}, 90_000);
 
-		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)", async ({
-			skip,
-		}) => {
-			const authed = await codexAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC3, AC8, AC10)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-s2loop-"));
 			const testSessionId = `al7-rh-codex-s2-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -1086,6 +1008,22 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 		}, 180_000);
 	});
 
+	// ── BUILTIN (OpenRouter in-process, MCP bridge wiring) ───────────────────
+	//
+	// The builtin harness uses the in-process BuiltinHarnessAdapter driven by
+	// OPENROUTER_API_KEY. The builtin lane proves the MCP bridge is correctly wired:
+	//   - createMcpBridge creates a bridge (token, sessionId, mcpServer, transport)
+	//   - bridgeRegistry.register + bridgeRegistry.lookup work correctly
+	//   - The real /api/mcp/:token route responds to MCP initialize request
+	//
+	// The full two-session loop (session-1 capture → approve → session-2 grant-bearing)
+	// is proved by the claude/codex/opencode lanes above. The builtin lane focuses on
+	// bridge wiring (same as the claude "MCP bridge wiring" test) gated on OPENROUTER_API_KEY.
+	//
+	// @lore AR6 AL7-builtin-lane: no vi.mock(llm-client) — uses requireHarness("builtin")
+	// which hard-fails if OPENROUTER_API_KEY is absent. The bridge wiring test does not
+	// spawn a real LLM call — it proves the HTTP transport is reachable via fetch.
+
 	// ── OPENCODE CLI (real binary, MCP-routed two-session loop) ──────────────
 	//
 	// @lore AL7 T3 opencode (COMPLETE): Mirrors the codex lane. Uses a plain sandbox (no git
@@ -1107,17 +1045,9 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 sanity-break opencode: Wrong token in opencode.json → 401 from
 	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
 
-	describe("opencode CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("opencode");
-		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
 			const testSessionId = `al7-rh-oc-s1-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -1197,15 +1127,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			}
 		}, 90_000);
 
-		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)", async ({
-			skip,
-		}) => {
-			const authed = await opencodeAuthed();
-			if (!authed) {
-				skip();
-				return;
-			}
-
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s2loop-"));
 			const testSessionId = `al7-rh-oc-s2-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -1343,5 +1265,66 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				await testServer.close();
 			}
 		}, 180_000);
+	});
+
+	// ── BUILTIN (in-process, bridge wiring proof) ─────────────────────────────
+
+	describe("[harness:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {
+		requireHarness("builtin");
+
+		test("MCP bridge wiring: commit_file exposed via production bridge + real server reachable via HTTP (builtin lane)", async () => {
+			// Same wiring proof as the claude lane's "MCP bridge wiring" test, but gated
+			// on OPENROUTER_API_KEY (builtin harness requirement) instead of claude binary.
+			// Proves the production bridge is correctly wired for the builtin harness path.
+			//
+			// @lore AR6 AL7-builtin-lane: The builtin harness goes through BuiltinHarnessAdapter
+			// which calls LLM in-process (no binary spawn). The bridge wiring test proves the
+			// HTTP transport layer is functional — the same path the adapter uses to receive
+			// MCP tool responses from the production bridge.
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "builtin-wiring-"));
+			const testSessionId = `al7-builtin-wiring-${Math.random().toString(36).slice(2, 10)}`;
+
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+
+				// The production MCP bridge responds to an MCP initialize request via HTTP.
+				// This proves the bridge registry wiring is correct — the same path the
+				// builtin adapter uses to communicate with the MCP server.
+				const initResponse = await fetch(mcpUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+						Accept: "application/json, text/event-stream",
+					},
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2025-03-26",
+							capabilities: {},
+							clientInfo: { name: "al7-builtin-test", version: "1.0" },
+						},
+					}),
+				});
+
+				// The MCP server should respond 200 to initialize (transport is connected).
+				expect(initResponse.status).toBe(200);
+
+				// The capturing router exposes exactly 1 tool (commit_file).
+				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
+				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
+
+				// The bridge registry is correctly wired: lookup by token returns the bridge.
+				const bridge = testServer.bridgeRegistry.lookup(testServer.token);
+				expect(bridge).toBeDefined();
+				expect(bridge?.sessionId).toBe(testSessionId);
+			} finally {
+				await testServer.close();
+			}
+		}, 30_000);
 	});
 });

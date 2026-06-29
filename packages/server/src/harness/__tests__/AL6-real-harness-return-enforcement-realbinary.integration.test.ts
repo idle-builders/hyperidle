@@ -467,7 +467,12 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					expect(hooks).toHaveProperty("Stop");
 					// The hook script file must be referenced (no shell chars in JSON).
 					const hookStr = JSON.stringify(hooks.Stop);
-					expect(hookStr).not.toMatch(/[`$<>|;&]/);
+					// Use new RegExp() to avoid a backtick literal in the regex,
+					// which confuses the honest-harness-guard's string-parsing state machine.
+					// @lore AR6 guard-backtick: /[`$<>|;&]/ uses a backtick in a regex literal;
+					// the guard parser misidentifies it as a template literal start → subsequent
+					// requireHarness() calls are treated as "inside a string" and ignored.
+					expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 					// The hook script must exist.
 					const scriptPath = path.join(sandboxPath, ".claude", "return-check.sh");
@@ -565,7 +570,8 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 				// settings.json hook command must NOT contain shell expansion chars.
 				const hookStr = JSON.stringify(hooks.Stop);
-				expect(hookStr).not.toMatch(/[`$<>|;&]/);
+				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
+				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
 				const gate = { returned: false };
@@ -731,7 +737,8 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				const stopHooks = hooksObj.Stop as unknown[];
 				const hookStr = JSON.stringify(stopHooks);
 				// No shell expansion chars in JSON config.
-				expect(hookStr).not.toMatch(/[`$<>|;&]/);
+				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
+				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				// The shell script must exist and reference the bridge URL.
 				const scriptPath = path.join(codexDir, "return-check.sh");

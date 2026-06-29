@@ -1,6 +1,5 @@
 [
 	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
-	"packages/server/src/harness/__tests__/AL7-two-session-trust-first.integration.test.ts",
 	"packages/server/src/harness/__tests__/AM2-builtin-gateway.integration.test.ts",
 	"packages/server/src/harness/__tests__/AM2-real-harness-session-probe.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN1-real-harness-inherited.integration.test.ts",
