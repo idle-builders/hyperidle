@@ -430,7 +430,22 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			);
 		}
 	} finally {
-		fs.rmSync(sandboxPath, { recursive: true, force: true });
+		// @lore codex-cleanup: codex spawns background plugin-clone threads that may
+		// still hold file handles on .codex-home/.tmp/ when the test completes.
+		// rmSync with recursive+force can fail with ENOTEMPTY on macOS when a process
+		// still holds a handle in a subdirectory. Retry once after 200ms; if still
+		// failing, swallow ENOTEMPTY (the OS cleans up /tmp at reboot).
+		try {
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code !== "ENOTEMPTY") throw e;
+			await new Promise((r) => setTimeout(r, 200));
+			try {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			} catch {
+				// Swallow persistent ENOTEMPTY — temp dir will be OS-cleaned.
+			}
+		}
 	}
 }
 
