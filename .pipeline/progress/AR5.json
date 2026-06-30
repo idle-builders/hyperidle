@@ -1,0 +1,29 @@
+{
+  "id": "AR5",
+  "title": "Strategy and bet decomposition: real agent or honest demotion",
+  "status": "blocked",
+  "blockedReason": "openrouter-credits-exhausted",
+  "currentStep": "ship",
+  "branch": "feat/AR5-decomposition-honest-tests",
+  "pr": 388,
+  "worktree": ".worktrees/AR5",
+  "complexity": "M",
+  "dependsOn": ["AR1", "AR2"],
+  "startedAt": "2026-06-30",
+  "blockedAt": "2026-06-30",
+  "codeComplete": true,
+  "reviewVerdict": "DONE",
+  "notes": "Backend / test-honesty WP, no UI. All 6 phases complete through retro; ALL 4 acceptance criteria PASS at code+honesty level (reviewer Verdict: DONE after 3 review rounds). SHIP BLOCKED on OpenRouter 0-credits (account-level, same blocker as AR3/#386): /ship runs `npm run verify` -> integration suite -> builtin+opencode real-agent decomposition lanes route through OpenRouter and 402 on 0 credits; claude+codex lanes (keychain) pass. Cannot reach CI-green without a funded account. RESUME when credits restored: builder runs `/ship AR5` (no code changes needed; merge origin/main first).",
+  "shipBlocker": {
+    "reason": "OpenRouter account at 0 credits",
+    "affectedLanes": ["builtin", "opencode"],
+    "passingLanes": ["claude", "codex"],
+    "resumeAction": "fund OpenRouter account, then builder runs /ship AR5"
+  },
+  "delivered": {
+    "converted": ["AK2-contributor-scenario.integration.test.ts (4-lane runThroughHarness)", "AK2-minimal-strategy.integration.test.ts (4-lane)", "AK3-real-decomposition.integration.test.ts (NEW, 4-lane via decompositionDepsForLane / runBetDecomposition Branch 3)"],
+    "demoted": ["AK3-bet-decomposition AC5 tools:[] + override asserts -> AK3-bet-decomposition.test.ts unit", "AK2-minimal inertness -> unit"],
+    "confirmedHonest": ["AK3-bet-decomposition-subscriber.integration.test.ts (service-integration, no harness stub)", "AK8-strategy-decomposition.integration.test.ts (service-integration)"],
+    "productBugsFixed": ["drainForCompletion: return LAST non-empty completion (was first/empty init event)", "strip markdown json code fences before JSON.parse", "write AGENTS.md+CLAUDE.md into scratch sandbox so CLI harnesses receive bet context", "opencode text->part.text event normalization"]
+  }
+}
