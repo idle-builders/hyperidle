@@ -379,6 +379,10 @@ export interface HarnessLane {
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
 
+// @lore AR5: default OpenRouter model for harness-integration lanes (builtin + opencode).
+// User directive 2026-06-30. Verified slug on OpenRouter; supports tools + tool_choice, 1M ctx.
+export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-pro";
+
 /**
  * The canonical four-harness lane table. Importing this and iterating
  * `for (const lane of SUPPORTED_HARNESS_LANES)` is AC4's deliverable for AR3–AR6:
@@ -430,7 +434,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible",
-						model: "openai/gpt-4o-mini",
+						model: DEFAULT_OPENROUTER_MODEL,
 						apiKey,
 						baseUrl: OPENROUTER_BASE_URL,
 					},
@@ -534,7 +538,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "openrouter/openai/gpt-4o-mini",
+						model: `openrouter/${DEFAULT_OPENROUTER_MODEL}`,
 						apiKey,
 						baseUrl: "https://openrouter.ai/api",
 					},

@@ -29,6 +29,7 @@ import { type CliAdapterConfig, CliHarnessAdapter } from "../cli-harness-adapter
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import type { HarnessLane } from "./provision-real-session.js";
 import {
+	DEFAULT_OPENROUTER_MODEL,
 	initGitRepo,
 	provisionClaudeSandbox,
 	provisionCodexHome,
@@ -170,7 +171,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			);
 			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
 				provider: "openai-compatible",
-				model: "openai/gpt-4o-mini",
+				model: DEFAULT_OPENROUTER_MODEL,
 				apiKey,
 				baseUrl: OPENROUTER_BASE_URL,
 			});
@@ -296,7 +297,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			});
 			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
 				provider: "openai-compatible",
-				model: "openrouter/openai/gpt-4o-mini",
+				model: `openrouter/${DEFAULT_OPENROUTER_MODEL}`,
 				apiKey,
 				baseUrl: "https://openrouter.ai/api",
 			});
