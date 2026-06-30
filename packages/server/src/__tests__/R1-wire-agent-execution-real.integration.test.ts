@@ -55,9 +55,17 @@ async function seedDomain(
 		taskId: string;
 		taskDescription: string;
 		doneCondition: string;
+		/** Override the workhorse model ID in serverConfig (default: "openai/gpt-4o-mini").
+		 * @lore AR4 R1-real opencode-model: opencode requires a provider-prefixed model ID
+		 * (e.g. "openrouter/openai/gpt-4o-mini") when spawned via `opencode run --model <id>`.
+		 * A bare "openai/gpt-4o-mini" (without the openrouter/ prefix) causes opencode to
+		 * crash at startup. The builtin/claude/codex harnesses use the model ID differently
+		 * and are unaffected. Pass "openrouter/openai/gpt-4o-mini" for the opencode lane. */
+		workhorseModel?: string;
 	},
 ): Promise<void> {
-	const { agentId, taskId, taskDescription, doneCondition } = opts;
+	const { agentId, taskId, taskDescription, doneCondition, workhorseModel } = opts;
+	const model = workhorseModel ?? "openai/gpt-4o-mini";
 
 	// @lore AR4 R1-real: configure openrouter as the workhorse tier so the route's
 	// resolveAgentModel (which falls to resolveModelTier when agent has no per-agent model)
@@ -68,9 +76,9 @@ async function seedDomain(
 		id: "default",
 		config: JSON.stringify({
 			modelGateway: {
-				reasoning: { provider: "openrouter", model: "openai/gpt-4o-mini" },
-				workhorse: { provider: "openrouter", model: "openai/gpt-4o-mini" },
-				fast: { provider: "openrouter", model: "openai/gpt-4o-mini" },
+				reasoning: { provider: "openrouter", model },
+				workhorse: { provider: "openrouter", model },
+				fast: { provider: "openrouter", model },
 			},
 		}),
 		updatedAt: NOW,
@@ -500,6 +508,11 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 				"Create a file named 'answer.txt' in the current working directory containing " +
 				"exactly the number 4. Do NOT hand off or submit a review.",
 			doneCondition: "Agent creates answer.txt with the number 4.",
+			// @lore AR4 R1-real opencode-model: opencode requires provider-prefixed model ID.
+			// The route resolves {{model}} from resolvedModel.model and passes it as
+			// `opencode run --model <model>`. Without the "openrouter/" prefix, opencode
+			// fails to resolve the model and crashes at startup. See lore in seedDomain JSDoc.
+			workhorseModel: "openrouter/openai/gpt-4o-mini",
 		});
 
 		const { pool } = OPENCODE_LANE.prepFn({ db, eventBus, tmpDir, bridge });
