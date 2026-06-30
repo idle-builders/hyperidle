@@ -75,7 +75,7 @@ export function decompositionDepsForLane(
 ): BetDecompositionDeps {
 	// Delegate to the lane-specific setup, building only the pool + auth prep
 	// (no MCP bridge needed for tools:[] decomposition turn).
-	const { pool, resolveModel } = buildPoolForLane(lane, ctx.tmpDir);
+	const { pool, resolveModel, prepSandbox } = buildPoolForLane(lane, ctx.tmpDir);
 
 	return {
 		db: ctx.db,
@@ -85,6 +85,13 @@ export function decompositionDepsForLane(
 		sandboxBasePath: ctx.tmpDir,
 		resolveModel,
 		// Deliberately no runDecompositionTurn override → forces Branch 3 (runRealPmTurn).
+		// @lore AR5: prepSandbox provisions CLI harness config into the SCRATCH sandbox
+		// (decomp-<betId>/) AFTER it is created by runBetDecomposition. CLI harnesses
+		// (claude/codex/opencode) need config files (.mcp.json, .codex-home/, etc.)
+		// in their cwd (= scratchSandboxPath), not in ctx.tmpDir. buildPoolForLane
+		// does general one-time setup (git init, global provisioning) in ctx.tmpDir;
+		// prepSandbox handles the per-invocation scratch-sandbox provisioning.
+		prepSandbox,
 	};
 }
 
@@ -95,6 +102,16 @@ export function decompositionDepsForLane(
 interface PoolSetup {
 	readonly pool: AdapterPool;
 	readonly resolveModel: (tier: string) => Promise<ResolvedModel | undefined>;
+	/**
+	 * Optional hook to provision harness-specific files into the scratch sandbox
+	 * (decomp-<betId>/) created by runBetDecomposition. CLI harnesses (claude/codex/opencode)
+	 * need config files in their cwd; this hook fires after mkdirSync(scratchSandboxPath).
+	 *
+	 * @lore AR5: buildPoolForLane does general one-time setup (git init, global codex auth)
+	 * in ctx.tmpDir. This hook handles per-invocation scratch-sandbox provisioning — it is
+	 * called with the actual scratch sandbox path so files land in the right cwd.
+	 */
+	readonly prepSandbox?: (sandboxPath: string) => Promise<void>;
 }
 
 /**
@@ -162,9 +179,15 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 
 		case "claude": {
 			// Claude CLI needs a placeholder .mcp.json + .claude/settings.json for
-			// CLAUDE_CLI_CONFIG args. The decomposition turn is tools:[] so no live
-			// MCP bridge is needed — the placeholder dead URL suffices.
-			provisionClaudeSandbox(sandboxDir);
+			// CLAUDE_CLI_CONFIG args (--mcp-config .mcp.json --settings .claude/settings.json
+			// are resolved relative to cwd = scratchSandboxPath). The decomposition turn is
+			// tools:[] so no live MCP bridge is needed — the placeholder dead URL suffices.
+			//
+			// @lore AR5: provisionClaudeSandbox is called via prepSandbox (NOT here) because
+			// the files must land in the SCRATCH sandbox cwd (scratchSandboxPath = decomp-<betId>/)
+			// created by runBetDecomposition AFTER buildPoolForLane runs. Provisioning into
+			// sandboxDir (ctx.tmpDir) was the pre-AR5 bug: claude's cwd is scratchSandboxPath,
+			// not sandboxDir, so --mcp-config .mcp.json could not find the file → crash.
 			const pool = new AdapterPool();
 			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
 				name: "local-claude",
@@ -180,12 +203,24 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				apiKey: "keychain-auth-unused",
 				baseUrl: "https://api.anthropic.com",
 			});
-			return { pool, resolveModel };
+			const prepSandbox = async (scratchPath: string): Promise<void> => {
+				provisionClaudeSandbox(scratchPath);
+			};
+			return { pool, resolveModel, prepSandbox };
 		}
 
 		case "codex": {
+			// Git repo init lives in sandboxDir (ctx.tmpDir) — git traverses parent dirs so
+			// codex exec in scratchSandboxPath (a subdirectory) finds the repo.
+			// provisionCodexHome is called via prepSandbox because the adapter looks for
+			// .codex-home/ at config.sandboxPath (= scratchSandboxPath), not sandboxDir.
+			//
+			// @lore AR5: The cli-harness-adapter injects CODEX_HOME=path.join(config.sandboxPath,
+			// ".codex-home"). That path is scratchSandboxPath/.codex-home — so auth must be
+			// provisioned there (not in ctx.tmpDir/.codex-home). Check auth in sandboxDir
+			// first to give a clear error if codex isn't installed/logged in.
 			initGitRepo(sandboxDir);
-			const authFound = provisionCodexHome(sandboxDir);
+			const authFound = provisionCodexHome(sandboxDir); // preliminary check only
 			if (!authFound) {
 				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
 			}
@@ -206,13 +241,23 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				apiKey: "",
 				baseUrl: "https://api.openai.com",
 			});
-			return { pool, resolveModel };
+			const prepSandbox = async (scratchPath: string): Promise<void> => {
+				// Initialize git repo in scratch sandbox too (codex exec requires git).
+				// The parent sandboxDir already has git, but codex may not traverse past
+				// the scratch dir boundary depending on its git-detection implementation.
+				initGitRepo(scratchPath);
+				provisionCodexHome(scratchPath); // writes .codex-home/ into cwd
+			};
+			return { pool, resolveModel, prepSandbox };
 		}
 
 		case "opencode": {
+			// @lore AR5: provisionOpencodeHome is called via prepSandbox so auth lands in
+			// scratchSandboxPath/.opencode-data/opencode/auth.json — matching the XDG_DATA_HOME
+			// pattern used by the adapter. Provisioning in sandboxDir (ctx.tmpDir) would put
+			// auth in the wrong place relative to the scratch sandbox cwd.
 			const apiKey = process.env.OPENROUTER_API_KEY;
 			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
-			provisionOpencodeHome(sandboxDir);
 			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
 			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
 			const pool = new AdapterPool();
@@ -230,7 +275,10 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				apiKey,
 				baseUrl: "https://openrouter.ai/api",
 			});
-			return { pool, resolveModel };
+			const prepSandbox = async (scratchPath: string): Promise<void> => {
+				provisionOpencodeHome(scratchPath);
+			};
+			return { pool, resolveModel, prepSandbox };
 		}
 
 		default: {

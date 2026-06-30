@@ -74,6 +74,17 @@ export interface BetDecompositionDeps {
 		betId: string;
 		pmAgentId: string;
 	}) => Promise<DecompositionTaskInput[]>;
+	/**
+	 * Optional hook called after the scratch sandbox directory is created and before
+	 * the real PM turn starts. Use this to provision harness-specific files into the
+	 * scratch sandbox (e.g. .mcp.json for claude, .codex-home/ for codex).
+	 *
+	 * @lore AR5: CLI harnesses (claude/codex/opencode) require per-sandbox config files
+	 * in their cwd. The decomposition scratch sandbox (decomp-<betId>/) is created by
+	 * runBetDecomposition itself — callers cannot provision it ahead of time because the
+	 * betId is unknown. This hook fires after mkdirSync so the caller can write the files.
+	 */
+	readonly prepSandbox?: (sandboxPath: string) => Promise<void>;
 }
 
 // -----------------------------------------------------------------------------
@@ -419,6 +430,19 @@ export async function runBetDecomposition(
 		return;
 	}
 
+	// Provision harness-specific files into the scratch sandbox (e.g. .mcp.json for
+	// claude). Called AFTER mkdirSync so the hook can write files into the sandbox.
+	// @lore AR5: CLI harnesses need per-sandbox config in their cwd (the scratch dir).
+	// decompositionDepsForLane provides this hook for each CLI harness.
+	if (deps.prepSandbox) {
+		try {
+			await deps.prepSandbox(scratchSandboxPath);
+		} catch {
+			await markTerminal(db, betId, "blocked", "failed");
+			return;
+		}
+	}
+
 	try {
 		let taskList: DecompositionTaskInput[];
 
@@ -561,12 +585,22 @@ async function runRealPmTurn(
 		.filter(Boolean)
 		.join("\n");
 
-	// @lore AR5: CLI harnesses (claude/codex/opencode) use {{prompt}} = assembledPrompt.slice(0,200)
-	// as the user message — they IGNORE SessionConfig.messages. The builtin adapter uses
-	// SessionConfig.messages for its chat turn. To support all harnesses, embed the full
-	// bet context in assembledPrompt (CLI harnesses read it) AND in messages (builtin reads it).
+	// Full system prompt with bet context — written to AGENTS.md for CLI harnesses and
+	// used as assembledPrompt for the adapter's seed.
 	const systemPrompt = `${baseSystemPrompt}\n\n${betContext}`;
 
+	// @lore AR5: CLI harnesses (claude/codex/opencode) read their system prompt from
+	// AGENTS.md in the sandbox cwd. The decomposition scratch sandbox has no AGENTS.md
+	// (FirstCandidateStrategy.assembleContext only writes minimal dirs). Without AGENTS.md,
+	// CLI harnesses run with a generic default system prompt and have no knowledge of the
+	// bet goal — they cannot produce valid JSON. Write the full system prompt + bet context
+	// to AGENTS.md before starting the session so CLI harnesses receive the full instruction.
+	// The builtin adapter ignores AGENTS.md (it uses SessionConfig.messages instead).
+	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), systemPrompt, "utf-8");
+
+	// @lore AR5: assembledPrompt is sliced to 200 chars as {{prompt}} for CLI harnesses.
+	// The bet context is now in AGENTS.md (system prompt); {{prompt}} just triggers the turn.
+	// messages carries the bet context for the builtin adapter's runChatTurn.
 	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
 		sessionId: crypto.randomUUID(),
 		assembledPrompt: systemPrompt,
