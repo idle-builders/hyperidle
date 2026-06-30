@@ -167,46 +167,55 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 
 ---
 
-### AR4 — Assistant turn, agent execution, and dispatcher: real harness integration
+### AR4 — The assistant is a normal agent: harness-agnostic chat, strategy-shaped, settings-configurable
 
-**Work package.** As someone trusting that a user message and a dispatched task actually drive a real agent, I want `AH3-assistant-turn`, `AK4-assistant-draft`, `AH6-lane-gates-broken-turn`, `assistant-turn-per-agent-seam`, `R1-wire-agent-execution`, and `AD2-task-dispatcher` to prove their behavior against a **real harness**, with the **dispatch→provision seam flowed through a real agent** (not a directly-seeded `in_progress` task), so that the path from intake/dispatch to a real agent turn is verified end-to-end instead of by a `vi.mock("../harness/llm-client")` or an `EchoHarnessAdapter`.
+**Work package.** As a user who runs my own harness, I want my assistant to chat with me through **whatever harness I have connected** — builtin, Claude, Codex, or OpenCode — configured from Settings like any other agent, with its persona and tools decided by the active strategy rather than hardcoded, so that the assistant is no different from any other agent and I am never forced to add a separate OpenRouter subscription just to talk to it. Today the assistant chat is a special builtin-only in-process path (`runAssistantTurn`), hardwired to `harnessType:"builtin"` and posting a `missing_key` notice for any user without an OpenRouter key; this work package dissolves that special-casing so the assistant flows through the same harness + strategy machinery every other agent uses.
 
-**Why this matters.** These are the heart of the agentic journey and today every one stubs the model reply, so "the assistant answered" / "the dispatched task ran" is proven by a hardcoded echo. The dispatch→provision seam has never flowed a real agent — tests seed `in_progress` tasks directly, so the handoff that matters most is unverified. The founder's core loop (message → agent → result; task → agent → result) must be proven real.
+**Why this matters.** A user who is all-in on Codex (or Claude, or OpenCode) via their CLI login currently cannot chat with their assistant at all — they get a `missing_key` notice because the chat is hardwired to the OpenRouter-backed builtin harness, even though their connected CLI harness is sitting right there. That is a broken first-run for exactly the self-reliant, fast-moving users HyperIdle is built for. Beyond the immediate hole: the builtin-only special-case is an architectural seam that contradicts "the assistant is just the individual agent" — it bypasses the strategy split (persona/tools hardcoded at the turn, not strategy-decided) and the harness machinery, which is why its honest-harness tests could only ever run builtin-only and broke AT1's four-harness symmetry floor. Making the assistant a normal agent fixes the user-facing hole, restores the strategy boundary, and lets the assistant's real-harness tests run symmetric across all four harnesses like every other agent's.
 
-**Type.** backend.
+**Type.** application (backend + frontend; reshapes the assistant primitive).
 
-**What exists today.** `runAssistantTurn()` and the dispatcher are real code; the six tests drive them but `vi.mock` `callLlm` / inject `CapturingHarnessAdapter` so the model output is scripted. `R5-agent-work-loop` proves tool→review→cost with a real loop in pieces. No test flows dispatch→provision through a real agent.
+**What exists today.** The assistant is a `users` row (`ast-${userId}`) created on two paths, both **hardcoding** `harnessType:"builtin"` / `modelId` / `modelProvider`: the route lazy-create via `getActiveStrategy().scaffoldAgents({trigger:"user_assistant"})` → Kernel `persistScaffoldedAgents` (`scaffold-agents.ts:99-101`), and a lazy-create inside the turn service (`assistant-turn.ts:270-288`). The chat reply runs through `runAssistantTurn` (`assistant-turn.ts`) — a deliberately **task-free, in-process builtin path** that never calls `getActiveStrategy()` at turn time: it reads persona/harness/model straight off the `users` row, builds a `SessionConfig` with `sandboxPath:""` + `messages:transcript`, injects a 2-tool draft registry via `setSessionToolRegistry` (a method **only on `BuiltinHarnessAdapter`, not the `HarnessAdapter` interface**), and the **builtin adapter alone** branches on `config.messages` to run a single chat turn. The Strategy Port (`strategy-port.ts`) decides agent **persona only** (`scaffoldAgents` returns role/name/systemPrompt — "a Strategy that sets harnessType or modelId is doing Kernel work"); harness/model are Kernel-attached. A full Settings surface exists (`packages/web/src/settings/`, ~14 sections) — `SettingsAgents` edits harness/model/persona for team agents but **explicitly excludes the assistant** (`role!=="assistant"` filter); `SettingsAssistant` edits **systemPrompt only**. `PATCH /api/agents/:id` already validates the `(harnessType, provider, modelId)` triple. The normal `provisionSession` path runs all four harnesses but is **strictly task-oriented** (required `taskId`, sandbox-based, no conversational/message-seeded mode). The CLI adapters ignore `config.messages` and read only a truncated `assembledPrompt` + `sandboxPath`. **Already shipped on this branch (keep):** AD2/R1 dispatch→provision tests converted to real harness via `provisionSession` with `minimalStrategy` + the dispatcher `onBeforeTeardown` capture seam.
 
-**What's genuinely missing.** Real-model assistant turns and a real dispatch→provision→agent flow asserting on genuine agent output.
+**What's genuinely missing.** (1) A conversational reply on a **CLI harness** — the chat turn is structurally builtin-only via three couplings (interface-absent `setSessionToolRegistry`, builtin-only `config.messages` branch, `sandboxPath:""` with no conversational mode on `provisionSession`). (2) A **strategy seam at turn time** so the assistant's persona/tools are strategy-decided, not read hardcoded off the row. (3) **Settings UI + storage wiring** to let a user configure the assistant's harness/model (today it is excluded from the agent config UI and hardwired at both creation sites).
 
-**Depends on.** AR1 and AR2 (reuse the production-seam real-run pattern; assert on real output via the capture seam).
+**Depends on.**
+- AR2 — reuses the real-harness `provisionSession` seam + `lockedHarnessAdapter`/`runThroughHarness` pattern for the harness-agnostic turn and its tests; cannot build the four-harness assistant turn without it.
+- AR7 — the locked per-harness test-model matrix + `assertHarnessSymmetry` floor that the assistant's now-four-harness tests must satisfy; this WP removes the assistant's `BUILTIN_ONLY_INTEGRATION` carve-out against that floor.
 
-**Complexity.** M
+**Complexity.** L
 
 **Acceptance criteria.**
-- The assistant-turn / agent-execution tests run a **real model turn** through the production path and assert on the agent's actual reply/tool-calls; no `vi.mock` of the harness/LLM client or echo adapter remains (pure-logic remnants demoted to units).
-- A test flows the **dispatch→provision seam with a real agent** — a dispatched task provisions and runs a real harness turn — rather than seeding an `in_progress` task and asserting downstream state.
-- `AH6` lane-gate behavior on a broken/real turn is proven against real harness output.
-- All converted tests hard-fail on missing harness; none skip.
+- The assistant answers a chat message through **whatever harness it is configured with** — builtin, claude, codex, or opencode — producing a real reply on each; a user who has only a CLI harness connected (no `OPENROUTER_API_KEY`) gets a working assistant reply through that harness, not a `missing_key` notice.
+- The assistant's **harness and model are configurable from Settings** (the assistant is no longer excluded from agent configuration); changing them changes which harness/model serves the next chat reply, and the change is validated against the same `(harness, provider, model)` compatibility rules other agents use.
+- The assistant's **persona and tools are decided by the active strategy** at formation/turn time through the same seam other agents use — not read from a hardcoded constant; switching the active strategy changes the assistant's form.
+- The assistant **runs through the same agent machinery as any other agent** — there is no assistant-only adapter branch or builtin-only special-case that bypasses the harness/strategy seams (the `setSessionToolRegistry`/`config.messages`/`sandboxPath:""` builtin-only couplings are replaced by a harness-agnostic conversational seam).
+- The assistant's real-harness integration tests run **symmetric across all four harnesses** (builtin+claude+codex+opencode) and the assistant is **removed from `BUILTIN_ONLY_INTEGRATION`**; the run satisfies AR7's `assertHarnessSymmetry` floor with no carve-out.
+- The **never-silent** contract is preserved: every assistant turn still ends in a persisted reply or a persisted notice, and no secret leaks into a notice.
+- The already-converted AD2/R1 dispatch→provision real-harness tests (with `minimalStrategy` + the `onBeforeTeardown` seam) are retained and still pass.
 
 **Validation scenarios.**
-- Given a user message, when the assistant turn runs against a real model, then the persisted reply is the model's actual output (empty/mocked input would fail).
-- Given a dispatched task, when the dispatcher runs, then a real agent turn is provisioned and its real output is asserted — the seam is exercised, not bypassed.
-- Given the harness binary absent, when the suite runs, then it hard-fails with the missing-harness message.
+- Given a user who connected only Codex (CLI login, no OpenRouter key) and whose assistant is set to the codex harness, when they send a chat message, then the assistant replies through codex — not a `missing_key` notice.
+- Given the user changes their assistant's harness and model in Settings, when they send the next message, then the reply is served by the newly chosen harness/model (and an incompatible triple is rejected before save).
+- Given a different active strategy, when the assistant turn runs, then the assistant's persona/tools reflect that strategy's formation rather than a hardcoded persona.
+- Given any supported harness binary is absent, when the assistant's real-harness tests run, then they hard-fail (no skip) and the four-harness symmetry floor passes with no builtin-only carve-out for the assistant.
 
-**Plan calls.** Standard architecture pass, backend. Triage the six files (convert vs demote). Build the dispatch→provision→real-agent flow on AR2's pattern. This WP carries the "one real walk through the seam" the testability review flagged as missing.
+**Plan calls.** This **reshapes a load-bearing noun (the assistant)** — run `/concept` first to lock "the assistant is a normal agent" and, critically, the **strategy ↔ kernel boundary for assistant formation**: the existing split puts persona/tools in the Strategy and harness/model in the Kernel/user-config, while the founder's framing is "the strategy decides what the assistant is formed like (persona, tools, model, harness)" — concept must settle whether harness/model stay user-configured (Settings, Kernel) with the strategy shaping persona/tools, or move into the strategy, and define the formation **event/seam** the assistant emits. The WP has a **UI surface** → run `/design` for the assistant configuration in Settings (likely un-excluding the assistant from `SettingsAgents` and/or extending `SettingsAssistant` with harness+model). It spans **multiple subsystems** (harness adapters, the conversational-turn path, the strategy port, Settings UI, the `users`/agent config storage) — expect `/architecture` to **split this into smaller work packages** (e.g. harness-agnostic conversational seam; strategy formation seam; settings config), which is the encouraged outcome.
 
 **Contracts / constraints.**
-- Real model, zero stubs; hard-fail on absence.
-- Each test that remains a harness-facing `*.integration.test.ts` covers the **full `SUPPORTED_HARNESSES` matrix** (`builtin`+`claude`+`codex`+`opencode`) — one `requireHarness(<name>)`-gated lane per harness, equal coverage, NOT a single harness — mechanically enforced by the AR1/AR2 honest-harness-guard coverage rule + the per-harness attestation floor (`agenticExecutedByHarness`); a file stays on `coverage-debt.allowlist.json` only until its conversion reaches full coverage. Reuse `SUPPORTED_HARNESS_LANES` + `runThroughHarness` (AR2).
-- Reuse `provisionSession`/AR2 seam; no bespoke rigs.
-- Preserve the dispatcher's existing contracts; this changes the test fidelity, not the dispatch API.
+- **Never-silent preserved:** every turn ends in a persisted reply or one of the existing notice classes (`missing_key`/`missing_harness`/`provider_error`); no secret in a notice.
+- **Strategy/Kernel boundary respected:** a Strategy must not write `harnessType`/`modelId` (existing `@lore`); harness/model are user/Kernel config. Reconcile the founder's "strategy decides … model, harness" as: the strategy decides persona/tools (the WHO) and **emits the formation request**, while harness/model are resolved from the user's Settings config — unless `/concept` explicitly relocates that boundary.
+- **Four-harness conversational turn must be real:** the transcript actually reaches the model on each harness and the assistant's tools (draft actions) work on each — the CLI path must not silently drop `messages` as it does today.
+- **Honest harness testing (AR1/AR2/AR7) holds:** real binary, zero stubs, `requireHarness` hard-fail, no `skipIf`; the assistant tests use the locked `HARNESS_TEST_MODELS` matrix and satisfy `assertHarnessSymmetry`; remove the assistant files from `BUILTIN_ONLY_INTEGRATION`.
+- **Keep** the already-shipped AD2/R1 real-harness conversion, `minimalStrategy` usage, and the dispatcher `onBeforeTeardown` seam on this branch.
+- Preserve the existing `(harness, provider, model)` validation when the assistant config is saved.
 
 **Out of scope.**
-- Strategy/decomposition tests (AR5).
-- MCP bridge/enforcement consolidation (AR6).
+- Reworking the **team-agent** configuration UI or the strategy port's other methods (`assembleContext`/`decomposeBet`/`selectAgent`) beyond what assistant formation needs.
+- The rest of the honest-harness track (AR1–AR3, AR5–AR7 already shipped).
+- Multi-assistant / per-thread assistant overrides — one configurable assistant per user.
 
-**Effort.** M (~1d)
+**Effort.** L (~4d)
 
 ---
 

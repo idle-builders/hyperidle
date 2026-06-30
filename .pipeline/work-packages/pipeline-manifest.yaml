@@ -1335,10 +1335,10 @@ stories:
     depends: [AR1, AR2]
     complexity: L
   - id: AR4
-    title: "Assistant turn, agent execution, and dispatcher: real harness integration"
+    title: "The assistant is a normal agent: harness-agnostic chat, strategy-shaped, settings-configurable"
     track: AR
-    depends: [AR1, AR2]
-    complexity: M
+    depends: [AR2]
+    complexity: L
   - id: AR5
     title: "Strategy and bet decomposition: real agent or honest demotion"
     track: AR
