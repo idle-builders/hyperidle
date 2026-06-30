@@ -348,7 +348,16 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// seed prompt is provided, "proceed" is used as the default so codex runs with
 		// the system prompt context from AGENTS.md. The CODEX_HOME injection (see
 		// CliHarnessAdapter.startSession) also appends --dangerously-bypass-hook-trust.
-		args: ["exec", "{{prompt}}", "--json"],
+		//
+		// @lore AR7: `--model {{model}}` passes the gateway-resolved model to codex
+		// (`codex exec -m/--model <MODEL>`), making codex consistent with claude and
+		// opencode (all three receive the model as an explicit CLI argument from
+		// config.resolvedModel?.model, cli-harness-adapter.ts:365). This is a
+		// deliberate production-adapter change: codex runs now pass the locked model
+		// from HARNESS_TEST_MODELS explicitly rather than relying on the inherited
+		// CODEX_HOME config default. The {{prompt}} / AGENTS.md / stdin-wait lore
+		// above remains valid — only the model is newly argument-enforced.
+		args: ["exec", "--model", "{{model}}", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
