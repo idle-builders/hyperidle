@@ -4,7 +4,7 @@ Close the feedback loop between work and learning. Today, HyperIdle tracks wheth
 
 **Inspiration:** Anthropic's Outcomes feature (separate-context evaluator with rubrics), the CLEAR framework (5-dimension enterprise scoring), Paperclip's false-success problem (agents self-certifying "done"), and the Agent Learning Flywheel (Execute → Coach → Distill → Improve).
 
-**Concept:** This track introduces "Outcome" and "Rubric" as new primitives. Run `/concept` per workpackage at pipeline time.
+**Refinement:** This track introduces "Outcome" and "Rubric" as new primitives. Run `/pipeline:refine` per workpackage at pipeline time.
 
 **Constraint:** Measurement is progressive — workpackages add optional scoring that enhances but never blocks the existing bet/task/session lifecycle. A bet can still ship without a score; the score adds signal, not a gate (unless the team opts into verification gates via AC5). `npm run verify` must pass after each workpackage merges.
 
@@ -174,7 +174,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a team with a custom rubric, when a matching task is evaluated, then the custom dimensions are used.
 - Given 20 evaluated tasks, when a team lead views quality trends, then they can see which dimensions are consistently low.
 
-**Plan calls.** /design needed for rubric score display and rubric editor. Architecture pass should design: the rubric schema, how rubric assignment works (task type matching), and how X7's existing rubric model can be reused or adapted.
+**Plan calls.** /pipeline:design needed for rubric score display and rubric editor. Architecture pass should design: the rubric schema, how rubric assignment works (task type matching), and how X7's existing rubric model can be reused or adapted.
 
 **Contracts / constraints.**
 - Rubrics are strategy-layer configuration.
@@ -306,7 +306,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given validation rate was 40% last quarter and 60% this quarter, then Learning Velocity shows a positive trend.
 - Given cost data across 50 tasks, then cost efficiency shows average cost per successful outcome and whether it's improving.
 
-**Plan calls.** /design needed — metrics dashboard is a new page. Architecture pass should design: aggregate queries, time-range filtering, Learning Velocity computation.
+**Plan calls.** /pipeline:design needed — metrics dashboard is a new page. Architecture pass should design: aggregate queries, time-range filtering, Learning Velocity computation.
 
 **Contracts / constraints.**
 - All metrics derived from existing data — no pre-aggregation.

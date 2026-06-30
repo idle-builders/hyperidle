@@ -254,7 +254,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a link `[[Nonexistent Item]]`, when the item is rendered, then the link is visually distinct as broken.
 - Given an agent writes a knowledge item via `write_memory` containing `[[Security Policy]]`, then the link is navigable and the backlink appears on "Security Policy."
 
-**Plan calls.** Architecture pass should design: how links are parsed (regex vs AST extension), how backlinks are computed (on-the-fly scan vs cached index — evaluate whether a separate table is needed for performance or if body scanning suffices), duplicate title handling, and broken link detection. /design needed for how backlinks and broken links are displayed.
+**Plan calls.** Architecture pass should design: how links are parsed (regex vs AST extension), how backlinks are computed (on-the-fly scan vs cached index — evaluate whether a separate table is needed for performance or if body scanning suffices), duplicate title handling, and broken link detection. /pipeline:design needed for how backlinks and broken links are displayed.
 
 **Contracts / constraints.**
 - Wiki-link syntax is plain text in markdown bodies — no new content dialect.
