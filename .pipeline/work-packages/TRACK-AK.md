@@ -379,3 +379,56 @@ AK1 rename ─┬─► AK2 split ─┬─► AK3 commit→work ─────
 **Out of scope.** Reorganizing the Strategy's own content — the responsibility-3 "autonomous background knowledge work" services (routines, schedulers, promotion-pipeline, practice-meeting, git-export, builtin-routines) — which is blocked on the Strategy-contract `/concept` (flagged separately). Redefining the Strategy port surface. The notifications feature itself (only its physical location moves).
 
 **Effort.** L (~3–5d)
+
+---
+
+### AK10 — De-role the Kernel decomposition turn: the Strategy owns the decomposer's persona
+
+**Workpackage.** As a contributor building a Strategy on top of the Kernel, I want the Kernel's bet-decomposition turn to carry no hardcoded persona or role — the active Strategy supplies both the decomposer agent *and* what that agent is told (its system prompt / role), and the Kernel only runs whatever the Strategy hands it — so that decomposition behaviour is genuinely a Strategy response to a Kernel event, not a Kernel-baked "product manager." Today the Kernel injects a default `"You are a product manager. Break down the provided bet into a task list."` prompt and names its turn after that role; this WP moves the decomposer's instruction to the Strategy (minimal supplies the simplest fallback, fabric the knowledge-enriched one) and makes the Kernel path role-agnostic.
+
+**Why this matters.** The kernel/strategy boundary (`docs/architecture/kernel-strategy-split.md`) is explicit: "the Kernel hard-codes no persona" (AK6 hard-rule #1) and "Decomposition is a Strategy response to a Kernel event, not a Kernel-hardcoded PM" (:55). The doc itself flags the `bet_decomposer` surface "now dead at production" (:340) — the Strategy picks *who* decomposes but never supplies *what they're told*, so the Kernel fills the gap with its own PM persona literal. That is a live contract violation: every Strategy silently inherits a Kernel-imposed PM role, and the Minimal Strategy (the contributor template) teaches the violation by example. AR5 demonstrated the leak is real and spreading (it propagated the literal into per-harness context files). The beneficiary is every contributor authoring a Strategy and the integrity of the boundary itself; the cost of not doing it is a permanent lie in the one doc that defines the split.
+
+**What exists today.** AK6/AK7/AK8 (all shipped) established the Strategy port (`assembleContext` / `selectAgent` / `decomposeBet`) and made decomposition event-driven: `runBetDecomposition` (`packages/server/src/services/bet-decomposition.ts`) emits `work_decompose_requested` and calls `getActiveStrategy().decomposeBet()`; when the Strategy returns `{ decomposerAgentId, tasks: [] }` the Kernel runs its own turn (currently `runRealPmTurn`, with `pmAgentId` naming and the hardcoded `"You are a product manager…"` default prompt). Both `minimalStrategy` (`packages/strategy-minimal`) and `fabricStrategy` (`packages/fabric`) return `{ decomposerAgentId: PM-match-else-first-candidate, tasks: [] }` — they pick the agent but supply no instruction. The `decomposeBet` contract returns only *who*, not *what they're told*. AK6 already ships a persona-in-Kernel lint guard, but it is scoped to creation surfaces, not the decomposition path.
+
+**What's genuinely missing.** A seam by which the active Strategy supplies the decomposer's instruction/role (not just the agent id) for the decomposition turn, the removal of the Kernel-hardcoded persona literal and PM-flavoured naming so the Kernel turn is genuinely role-agnostic, and an extension of the persona guard to cover the decomposition path. The currently-dead `bet_decomposer` surface becomes the live carrier of the Strategy-supplied instruction.
+
+**Depends on.** AK8 (`done`) — established the `decomposeBet` seam and the retained Kernel turn this WP de-roles; the seam must exist before it can be reshaped. (Already `done`, so not a scheduling blocker — listed for lineage.)
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — reuses nouns already locked in `docs/architecture/kernel-strategy-split.md` (Kernel, Strategy, decompose, persona); no new or reshaped load-bearing noun.
+- **Design:** Not required — backend / contract change with no rendered surface; skip `/design`.
+
+**Human design review.** No — backend de-roling, no user-facing surface.
+
+**Acceptance criteria.**
+- The Kernel's decomposition turn contains no hardcoded persona or role text; the decomposer's instruction originates from the active Strategy.
+- Running decomposition under two different active Strategies yields two different decomposer instructions with no Kernel code change (the instruction is Strategy-supplied, observable in the turn).
+- Under the minimal strategy, committing a bet with an eligible agent still produces a valid task breakdown — the minimal strategy supplies the simplest decomposer instruction as its fallback.
+- Under the fabric strategy, decomposition behaves as before (knowledge-enriched), with no regression in the produced breakdown.
+- A lint/architecture guard fails the build if Kernel decomposition code reintroduces a hardcoded persona/role string (the AK6 persona guard now covers the decomposition path).
+- No role-specific ("PM" / "product manager") identifiers remain in the Kernel decomposition path; the turn is named for its function, not a role.
+- Kernel-feature tests for decomposition run against the real minimal strategy (no bespoke test-local strategy, no fabric); fabric-strategy decomposition correctness is exercised by evals, not tests.
+
+**Validation scenarios.**
+- Given the minimal strategy active and a bet with one eligible agent, when decomposition runs, then a valid task breakdown is produced and no "product manager" persona string originates from Kernel source.
+- Given a strategy that supplies a distinct decomposer instruction, when decomposition runs, then the decomposer turn uses that strategy-supplied instruction (a different instruction produces an observably different turn) with no Kernel change.
+- Given Kernel decomposition code containing a hardcoded persona string, when the guard runs, then the build fails.
+- Given the fabric strategy active, when decomposition runs, then the breakdown matches the pre-WP knowledge-enriched behaviour.
+
+**Plan calls.** Standard backend `/architecture` pass — skip `/design`. Plan the seam by which the active Strategy supplies the decomposer's instruction (the "dead at production" `bet_decomposer` surface is the natural carrier), the removal of the Kernel persona literal, the role-agnostic renaming of the decomposition turn, the extension of the AK6 persona guard to the decomposition path, and where minimal vs fabric own their respective prompts. Expect the `decomposeBet` seam contract to change (carry the decomposer's instruction, not just the agent id) across the port and both shipped strategies.
+
+**Contracts / constraints.**
+- The Kernel hard-codes no persona/role — the invariant from `docs/architecture/kernel-strategy-split.md` (AK6 hard-rule #1); guarded mechanically, not just documented.
+- Decomposition behaviour is unchanged for a given active Strategy (no regression); only the *source* of the decomposer's instruction moves from Kernel to Strategy.
+- The minimal strategy remains the simplest working baseline — it must keep producing a valid breakdown and stays the contributor template.
+- Kernel-feature tests run against the real minimal strategy; fabric correctness is exercised by evals (per `.claude/rules/testing.md`).
+- Any contract change to the `decompose` seam is forward-only and updates both shipped strategies (minimal, fabric) in lockstep.
+
+**Out of scope.**
+- The physical Kernel package extraction (AK9).
+- AR5's test conversions (separate WP; AR5's only obligation is to not widen the leak).
+- Reworking the Strategy port beyond the decompose-instruction seam.
+
+**Effort.** M (~1d)

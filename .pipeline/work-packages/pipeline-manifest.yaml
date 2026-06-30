@@ -1155,6 +1155,11 @@ stories:
     track: AK
     depends: [AK2]
     complexity: L
+  - id: AK10
+    title: "De-role the Kernel decomposition turn: the Strategy owns the decomposer's persona"
+    track: AK
+    depends: [AK8]
+    complexity: M
 
   # Track AL: Review Experience
   - id: AL1
