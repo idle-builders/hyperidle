@@ -206,6 +206,12 @@ async function seedDomain(
 		betId: "b-ak2c",
 		teamId: productId,
 		title: "AK2 Contributor Task",
+		// @lore AR5: doneCondition drives the assembled prompt's completion instruction.
+		// Without it, opencode has no termination signal and may run >240s. With it,
+		// the agent writes answer.txt and returns. Mirrors AK2-minimal's task seed.
+		description:
+			"Write a file named answer.txt in the current directory containing the word 'done'. Then call submit_review or handoff_to to return.",
+		doneCondition: "answer.txt exists with content 'done'",
 		state: "accepted",
 		createdAt: NOW,
 		updatedAt: NOW,
@@ -219,16 +225,37 @@ async function seedDomain(
 function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void {
 	let tmpDir: string;
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+	/**
+	 * @lore AR5 opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db
+	 * (global SQLite). Without XDG_DATA_HOME isolation, rapid sequential opencode processes
+	 * in AK2-contributor's 4 tests can hit a write-lock → the second process hangs indefinitely.
+	 * Mirrors the AR2 provision-real-session.integration.test.ts isolation pattern.
+	 * Only needed for opencode lane; set for all lanes for uniformity (no-op on non-opencode).
+	 */
+	let xdgDataHomeBefore: string | undefined;
 
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ak2-contributor-${lane.harnessName}-`));
 		if (lane.harnessName !== "builtin") {
 			bridge = await startMcpBridgeServer();
 		}
+		if (lane.harnessName === "opencode") {
+			// Isolate opencode's SQLite DB per-test to prevent write-lock hangs.
+			xdgDataHomeBefore = process.env.XDG_DATA_HOME;
+			process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
+		}
 	});
 
 	afterEach(async () => {
 		clearActiveStrategy();
+		if (lane.harnessName === "opencode") {
+			// Restore XDG_DATA_HOME to its pre-test value.
+			if (xdgDataHomeBefore !== undefined) {
+				process.env.XDG_DATA_HOME = xdgDataHomeBefore;
+			} else {
+				delete process.env.XDG_DATA_HOME;
+			}
+		}
 		if (bridge) {
 			await bridge.close();
 			bridge = undefined;
