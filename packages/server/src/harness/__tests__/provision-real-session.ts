@@ -386,10 +386,10 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
  * + seam-captured file (best-effort). Stub-distinguishing: a stub/crashed run has no
  * sandbox → seam can't fire → no file captured; a real run ends non-crash + may write.
  *
- * @lore AR6 canonical-models: builtin=deepseek/deepseek-v4-pro (OpenRouter, openai-compatible),
- * opencode=openrouter/moonshotai/kimi-k2.7-code (OpenRouter via opencode's openrouter/ prefix),
- * claude=claude-opus-4-8 (keychain/subscription auth, no API cost),
- * codex=codex-mini-latest (inherited OpenAI login, founder-default, unchanged).
+ * @lore AR6 canonical-models: builtin=deepseek/deepseek-v4-flash (OpenRouter, openai-compatible),
+ * opencode=openrouter/z-ai/glm-5-turbo (OpenRouter via opencode's openrouter/ prefix),
+ * claude=claude-sonnet-4-6 (keychain/subscription auth, no API cost),
+ * codex=gpt-5.4-mini (inherited OpenAI login, bare OpenAI form — no openai/ prefix, targets api.openai.com).
  *
  * @lore AR2 codex-cost-zero: codex emits `turn.completed` with a `usage` block, NOT the
  * claude-stream-json `result` event with `total_cost_usd`. The cli-harness-adapter cost
@@ -423,7 +423,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible",
-						model: "deepseek/deepseek-v4-pro",
+						model: "deepseek/deepseek-v4-flash",
 						apiKey,
 						baseUrl: OPENROUTER_BASE_URL,
 					},
@@ -453,7 +453,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "anthropic" as const,
-						model: "claude-opus-4-8",
+						model: "claude-sonnet-4-6",
 						apiKey: "keychain-auth-unused",
 						baseUrl: "https://api.anthropic.com",
 					},
@@ -491,7 +491,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "codex-mini-latest",
+						model: "gpt-5.4-mini",
 						apiKey: "",
 						baseUrl: "https://api.openai.com",
 					},
@@ -527,7 +527,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "openrouter/moonshotai/kimi-k2.7-code",
+						model: "openrouter/z-ai/glm-5-turbo",
 						apiKey,
 						baseUrl: "https://openrouter.ai/api",
 					},
