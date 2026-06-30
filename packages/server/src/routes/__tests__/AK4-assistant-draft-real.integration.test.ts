@@ -123,7 +123,7 @@ describe("[harness:builtin] AK4-real AC2 — real agent may draft a bet (honest 
 				status: "active",
 				harnessType: "builtin",
 				modelProvider: "openrouter",
-				modelId: "deepseek/deepseek-v4-pro",
+				modelId: "deepseek/deepseek-v4-flash",
 				systemPrompt: "You are a helpful assistant that helps users plan their work.",
 				maxConcurrentSessions: 1,
 				createdAt: NOW,
