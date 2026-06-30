@@ -600,25 +600,19 @@ async function runRealPmTurn(
 	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), systemPrompt, "utf-8");
 	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), systemPrompt, "utf-8");
 
-	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars) for CLI harnesses.
-	// For opencode: opencode does NOT read AGENTS.md/CLAUDE.md for project context, so the
-	//   entire instruction must fit within the 200-char {{prompt}} slot. Construct a compact
-	//   self-contained prompt with the bet goal and the "Return ONLY JSON" instruction.
-	//   The cli-harness-adapter slices assembledPrompt to 200 chars — if betContext is used
-	//   directly it truncates mid-sentence, leaving opencode without the JSON instruction.
-	//   @lore AR5 opencode-prompt-length: betContext is ~220+ chars; 200-char truncation drops
-	//   "Return ONLY the JSON array, no other text." → opencode treats it as a real task and
-	//   uses web search tools → no completion text in the stream. Fix: compact prompt ≤200 chars.
-	// For codex/claude: context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
+	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars by the adapter)
+	// for CLI harnesses that carry it as a positional argument.
+	// For codex/claude: bet context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
 	// For builtin: assembledPrompt is unused; it uses messages[] with the full betContext.
-	const triggerPrompt =
+	// @lore AR5 opencode-context-gap: opencode does NOT read AGENTS.md/CLAUDE.md automatically
+	// from the sandbox cwd (unlike codex/claude), so it receives only this trigger prompt
+	// without the full bet goal. This is a known constraint of the opencode harness — it cannot
+	// receive file-based project context the same way. The honest fix is to document the gap
+	// rather than truncate the bet description to fake a compact self-contained prompt.
+	// A full-context opencode path (e.g. via MCP or a writable instruction file opencode reads)
+	// would require researching opencode's project-context mechanism — out of scope for AR5.
+	const assembledPrompt =
 		"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text.";
-
-	// opencode: compact self-contained prompt ≤200 chars. Truncate bet description to 80 chars
-	// so the JSON instruction always fits. codex/claude use AGENTS.md/CLAUDE.md instead.
-	const opencodePrompt = `Return ONLY a JSON array [{title,description?,doneCondition?,ownerRole?}] for: ${bet.description.slice(0, 80)}. No other text.`;
-
-	const assembledPrompt = pm.harnessType === "opencode" ? opencodePrompt : triggerPrompt;
 
 	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
 		sessionId: crypto.randomUUID(),
