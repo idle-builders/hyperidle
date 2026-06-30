@@ -24,6 +24,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type {
+	ContextAssemblyOutcome,
+	ContextAssemblyRequest,
+	DecomposeBetRequest,
+	DecompositionPlan,
+	IngestionHandle,
+	IngestionRequest,
+	ScaffoldRequest,
+	SelectAgentOutcome,
+	SelectAgentRequest,
+	Strategy,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
@@ -36,6 +48,64 @@ import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+
+// ---------------------------------------------------------------------------
+// Inline strategy for AK3 real-decomposition tests.
+//
+// The active strategy must return a valid decomposerAgentId so runBetDecomposition
+// reaches Branch 3 (runRealPmTurn). minimalStrategy returns decomposerAgentId=null,
+// which causes blocked/no_eligible_agent at step 4 — Branch 3 is never reached.
+//
+// This strategy picks the first candidate from the seeded domain (the PM agent)
+// so the Kernel advances to Branch 3. assembleContext writes the minimal scaffold
+// required for the decomposition scratch sandbox.
+//
+// @lore AR5: minimalStrategy is wrong for this test — its decomposeBet returns null
+// which short-circuits before Branch 3. Use FirstCandidateStrategy to delegate PM
+// selection to the seeded eligible agent, allowing runRealPmTurn to fire.
+// ---------------------------------------------------------------------------
+
+class FirstCandidateStrategy implements Strategy<HyperIdleDb> {
+	async assembleContext(req: ContextAssemblyRequest<HyperIdleDb>): Promise<ContextAssemblyOutcome> {
+		// Minimal scaffold so post-admission invariants hold for the decomposition scratch sandbox.
+		fs.mkdirSync(path.join(req.sandboxPath, "context"), { recursive: true });
+		fs.mkdirSync(path.join(req.sandboxPath, "knowledge"), { recursive: true });
+		fs.mkdirSync(path.join(req.sandboxPath, "work"), { recursive: true });
+		fs.mkdirSync(path.join(req.sandboxPath, ".fabric"), { recursive: true });
+		fs.writeFileSync(
+			path.join(req.sandboxPath, ".fabric", "manifest.json"),
+			JSON.stringify({
+				session_id: req.sessionId,
+				assembled_at: new Date().toISOString(),
+				items: [],
+			}),
+		);
+		return { itemCount: 0, durationMs: 0 };
+	}
+
+	beginLearningIngestion(_req: IngestionRequest<HyperIdleDb>): IngestionHandle {
+		return { dispose(): void {} };
+	}
+
+	async scaffoldAgents(
+		_req: ScaffoldRequest<HyperIdleDb>,
+	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
+		return [];
+	}
+
+	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
+		return { agentId: null };
+	}
+
+	/**
+	 * Picks the first candidate as the decomposer so Branch 3 (runRealPmTurn)
+	 * is reached. minimalStrategy returns null here → blocked/no_eligible_agent.
+	 */
+	async decomposeBet(req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> {
+		const first = req.candidates[0];
+		return { decomposerAgentId: first?.agentId ?? null, tasks: [] };
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3)
@@ -151,8 +221,10 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		db,
 		eventBus,
 	}) => {
-		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
-		setActiveStrategy(minimalStrategy);
+		// @lore AR5: FirstCandidateStrategy picks the seeded PM agent as decomposer so
+		// runBetDecomposition reaches Branch 3 (runRealPmTurn). minimalStrategy returns
+		// decomposerAgentId=null which short-circuits at step 4 → blocked/no_eligible_agent.
+		setActiveStrategy(new FirstCandidateStrategy());
 
 		const { betId } = await seedDecompositionDomain(db, lane.harnessName, lane);
 
