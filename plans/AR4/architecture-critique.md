@@ -189,3 +189,135 @@ lands; it does not block the design.
 3. **WARN-2** — name the AR4a→AR4b draft-tool-surface seam so AR4a doesn't bake a shape AR4b unpicks.
 
 Design ships as-is (fold WARN-1 symbol fix into AR4c).
+
+---
+
+# ROUND 2 — re-critique of the revised architecture (CRITICAL-fix verification)
+
+**Reviewer:** evaluator (same persona, fresh code re-read). **Date:** 2026-06-30.
+**Scope:** verify the round-1 CRITICAL (reply has no return channel) + WARN-1 + WARN-2 are really
+fixed against live code — not cosmetically. Design already APPROVED (8/10), not re-reviewed.
+
+## VERDICT (round 2)
+
+| Skill | Round-1 | Round-2 | Gate (≥7 + no CRITICAL) | Result |
+|---|---|---|---|---|
+| **architecture-critique** | 5/10 (1 CRITICAL) | **7/10 (0 CRITICAL, 1 WARNING)** | met | **APPROVED** |
+
+The round-1 CRITICAL is **genuinely fixed**, not cosmetic: the reply-return channel is now designed
+concretely against the real code, every cited line number checks out, and the mechanism is provably
+inert for the task/routine path. **Build can start with AR4a.** One WARNING remains — the accumulation
+strategy (`+=`) double-counts on the claude stream-json dialect — but it is a build-time correctness
+detail with a clear fix, not an architectural blocker. Two NITs.
+
+## CRITICAL-1 (round 1) — VERIFIED FIXED
+
+Every claim in §4a re-checked against the branch:
+
+- **(a) `completion` event exists and falls through unmatched.** CONFIRMED. Emitted by all four harness
+  paths — builtin (`builtin-harness-adapter.ts:589,601,656,757,795,906`) and cli
+  (`cli-harness-adapter.ts:808,860` + `preMapClaudeEvent`). The drain loop
+  (`session-provisioning.ts:1056-1108`) branches on `cost_update`/`token_usage`/`tool_call`/`error` only,
+  after `returnGate.observe(event)` at `:1058`. **No `completion` branch today** — it is consumed solely
+  by the gate and discarded. The plan's premise is real.
+- **(b) Guard byte-for-byte inert for task/routine.** CONFIRMED. The new branch is gated on
+  `isConversational`; false for task/routine → nothing accumulates → existing four branches untouched.
+  The completion event is *currently unmatched*, so adding a guarded branch after the existing ladder
+  cannot perturb cost/token/tool/error handling. No AD2/R1 regression path.
+- **(c) `:1283` is the completed-outcome return site; failure sites carry no reply.** CONFIRMED. The four
+  return sites are `:1204` (crashed), `:1224` (budget_exhausted), `:1265` (not_returned), `:1283`
+  (`outcome:"completed"`, last in `runSession`). Threading `conversationalReply` onto **only `:1283`**
+  means a crashed/budget/not_returned conversational turn leaves it `undefined` → maps to a never-silent
+  notice, not a fake reply. Exactly right.
+- **(d) AR4a's first red test has a designed path to green + carve-out gated AFTER green.** CONFIRMED in
+  §5 AR4a tests + the Constraints block (`architecture.md:51-53`): the four-lane persisted-reply-row
+  assertion is the gate; `BUILTIN_ONLY_INTEGRATION` removal (`honest-harness-predicate.ts:70`) is
+  explicitly sequenced **only after** that assertion is green on all four harnesses. The carve-out's own
+  `@lore` precondition (real sandbox + MCP) is named as necessary-but-not-sufficient; reply-return is the
+  added sufficiency condition.
+
+**Gate/capture interaction — no conflict.** `returnGate.observe` (`return-gate.ts:34-38`) inspects
+**only `tool_call`** events; it never reads, mutates, or consumes `completion` events. A new completion
+accumulator observes an orthogonal event type. **No double-count, no ordering issue** between the gate and
+the capture — the plan's placement (capture *after* `observe`, alongside the existing four branches) is
+sound. The "does capturing completion text conflict with returnGate.observe" question resolves cleanly: it
+does not.
+
+## WARNING-3 (NEW) — `+=` accumulation double-counts on the claude stream-json dialect
+
+**architecture.md:162-168 / §4a step (2); concept.md:216.**
+
+The plan accumulates: `conversationalReplyText += event.text` across **all** completion events to
+stream-exhaust. This diverges from **both** existing completion-text consumers, which first-capture-and-
+return: `drainStreamEvents` (`assistant-turn.ts:690-697`, the deleted path's own reply capture) and
+`drainForCompletion` (`bet-decomposition.ts:634`). The divergence is **correct for the CLI text lane**
+(cli emits one `completion` per stdout line — `cli-harness-adapter.ts:808,860` — so multi-line replies
+MUST be concatenated; first-capture would truncate to line 1). Good instinct.
+
+But it is **wrong for the claude stream-json dialect.** `preMapClaudeEvent`
+(`harness-event-normalization.ts:85-117`) maps each `assistant` line → `completion{text: block.text}`
+(the answer **as deltas**, `:104`) AND the terminal `result` line → `completion{text: input.result}`
+(the **full final answer restated**, `:111-112`). Naive `+=` over both yields **duplicated reply text**
+(every delta + the full result re-stating them). The intervening `system`/lifecycle lines map to empty
+completions (`:117,206`) which are harmless (`+= ""`), but the delta+result double-emission is a real
+double-count — the exact hazard the sanity-check probed, located not in the gate but in the accumulation
+strategy itself.
+
+**Why WARNING not CRITICAL:** it does not block AR4a starting and has a bounded, well-understood fix —
+the mechanism must be dialect-aware: prefer the terminal `result`/final completion text (or capture the
+last non-empty completion) rather than blind concatenation. AR4a's first red test (persisted reply ==
+real completion text on the **claude** lane) will catch a doubled reply immediately, so the gate that
+proves the channel also proves this. But the plan currently *specifies* the wrong accumulation and should
+name the dialect-aware capture before the builder bakes `+=`. Builtin is unaffected (`runChatTurn`
+emits exactly one completion — `:601`, with the AK4 force-return exemption `:576` preventing intermediate
+`AL6_FORCE_RETURN_MESSAGE` completions for the task-free 2-tool registry).
+
+## WARNING-1 (round 1) — VERIFIED FIXED (one residual cross-artifact NIT)
+
+`validateAgentConfig` is the real validator (`routes/agents.ts:109`, called `:262,385,454`) and is
+**un-exported** (`function validateAgentConfig(`, no `export`). Confirmed. AR4c step 2
+(`architecture.md:305-306`) adds an explicit **export** step. `validateHarnessModelTriple` is purged from
+`architecture.md` (only corrective "does not exist" mentions remain). Fix is real.
+
+**Residual NIT-3:** the revised `concept.md:50` and `design/design.md:86` **still cite
+`validateHarnessModelTriple`** as if it were the real symbol. The build contract for AR4c is
+`architecture.md` (which is correct), so this does not gate — but the symbol fix is incomplete across the
+artifact set. Sweep both before AR4c lands.
+
+## WARNING-2 (round 1) — VERIFIED FIXED
+
+The AR4a→AR4b draft-tool seam is now named (§3b, `architecture.md:103-117`). `buildAssistantDraftRegistry`
+(`tools/assistant-draft-registry.ts:196`, called inline at `assistant-turn.ts:425`) is the provisional
+source. AR4a passes the draft surface as a **caller-supplied discriminator value**
+(`conversational:{…,draftRegistry}`); `provisionSession` forwards it to `buildToolRegistry` without
+reaching into the builder; AR4b reroutes the **single call site** (where `runAssistantTurn` computes the
+surface) from the inline builder to the formation answer, discriminator + plumbing untouched. AR4a bakes
+nothing AR4b must unpick. Clean seam. Fixed.
+
+## NITs (round 2)
+
+- **NIT-3** (above): `validateHarnessModelTriple` still in `concept.md:50` + `design.md:86`.
+- **NIT-4 (builtin dispatch is `messages`-gated).** Builtin routes to `runChatTurn` **only when
+  `config.messages` is non-empty** (`builtin-harness-adapter.ts:397-398`); otherwise it falls to
+  `runPlanningTurn`→`runExecuteTurn` (the task path, multiple completions). The plan treats
+  `config.messages` as an optional builtin convenience (§5 AR4a item 3, "Builtin may additionally
+  receive `config.messages`") while the **contract** is the assembled prompt. That is fine for CLI, but
+  the **builtin lane must still set `config.messages`** to hit `runChatTurn` — if the conversational mode
+  delivers transcript via prompt only and drops `messages`, builtin falls into the task planning path and
+  `+=` concatenates plan text + final answer into a garbled reply. Not a blocker (the existing path
+  already sets `messages`; AR4a's builtin reply-row test catches a garbled reply), but make
+  `messages`-for-builtin load-bearing in AR4a scope, not "additionally."
+
+## SCORE RATIONALE (architecture 5 → 7)
+
+- Dim 2 (concept soundness) 3 → **8**: the reply-return mechanism is now designed against real code; the
+  one residual is the dialect-accumulation detail (WARNING-3), not a missing mechanism.
+- Dim 4 (carve-out honesty) 4 → **8**: removal explicitly gated after the four-lane reply-row green.
+- Dim 7 (symbol accuracy) 5 → **7**: `validateAgentConfig` corrected + export step added; −points for the
+  residual concept/design `validateHarnessModelTriple` NIT.
+- Dim 8 (risk honesty) 6 → **8**: the OUTPUT (reply-return) risk is now named the primary unknown and
+  front-loaded ahead of carve-out removal.
+
+**Overall architecture: 7/10 — APPROVED (0 CRITICAL).** Build can start with AR4a. Fold WARNING-3
+(dialect-aware capture, not blind `+=`) into AR4a's reply-return scope before the builder writes the
+drain edit; sweep NIT-3/NIT-4 alongside.
