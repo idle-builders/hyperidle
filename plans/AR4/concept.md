@@ -203,10 +203,21 @@ mode flag). The conversational mode is the same move:
 
 The **never-silent** contract maps cleanly onto the shared path's existing outcomes: a completed turn →
 persisted reply; a `MissingCredentialError` / no-eligible-harness / provider-timeout → the existing
-notice classes. The architecture phase reconciles the turn's reply-persistence + notice mapping with the
-shared path's `ProvisionSessionResult` (which today carries `returnVerdict`/`forceReturnCount` for task
-sessions and is documented to be *absent* for assistant turns — that prose updates when the turn rides
-the shared path).
+notice classes.
+
+**Reply-return reconciliation (resolved — was deferred, now designed in `architecture.md` §4a).** One
+gap had to be closed before the conversational mode is real: the shared path **drains the harness stream
+internally and returns a cost/verdict struct** (`ProvisionSessionResult` = `{sessionId, outcome,
+totalCostCents, taskId, returnVerdict?, forceReturnCount}`), and the agent's `completion` text is observed
+by the return gate then **discarded** — the task path never needs it (deliverables land as sandbox files
+read back via `onBeforeTeardown`; a chat reply writes no file). So the conversational mode **adds a
+reply-return channel**: an optional `conversationalReply?: string` on `ProvisionSessionResult` (present
+only in conversational mode, absent for task/routine — mirroring the existing `returnVerdict?`
+optionality), populated by a new guarded `completion` branch in `runSession`'s drain loop
+(session-provisioning.ts:1054-1108) that accumulates the text and threads it onto the normal-completion
+return. The task/routine result contract is byte-for-byte unchanged. The architecture plan specifies the
+exact field, drain edit, and the four-harness reply-row test that proves it (see `architecture.md` §4a /
+§5 AR4a).
 
 ---
 
