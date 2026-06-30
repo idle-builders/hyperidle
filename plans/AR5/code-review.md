@@ -1,4 +1,6 @@
-# AR5 — Phase 4 Code Review (re-review round 2)
+# AR5 — Phase 4 Code Review (re-review round 3 — final confirmation)
+
+> **Round 3 (2026-06-30):** BLOCK-3 RESOLVED by commit `3f08b7d9`. The false `@lore AR5 opencode-context-gap` comment is gone; replaced by a corrected comment stating opencode reads `AGENTS.md`/`CLAUDE.md` by traversing up from the spawn cwd (cites https://opencode.ai/docs/rules/ verified 2026-06-30 + `cli-harness-adapter.ts:426`). Verified comment-only: the `writeFileSync` calls and `assembledPrompt` are byte-identical pre/post fix; no code path changed (`git show 3f08b7d9`). Citation accuracy confirmed: `cli-harness-adapter.ts:425–429` is the single generic CLI spawn with `cwd: config.sandboxPath` covering all CLI harnesses including opencode, exactly where AGENTS.md/CLAUDE.md are written. **All 4 ACs PASS. Verdict flips to DONE.** Runtime green across all 4 lanes remains pending OpenRouter credits (account-level, same ship-blocker as AR3/#386); the ruling never depended on a green run.
 
 **WP:** AR5 — Strategy and bet decomposition: real agent or honest demotion. Complexity M, backend, no UI.
 **Reviewer:** same persona that critiqued the plan (`architecture-critique.md`, APPROVED 8.2/10) and ran round-1 review. Phase-2 + round-1 context carried forward.
@@ -115,20 +117,21 @@ No assertion weakened or dropped. AC5 text byte-identical, only relocated. ✅
 | AC | Requirement | Status | Evidence |
 |---|---|---|---|
 | AC1 | no scripted/echo harness adapter in any `.integration.test.ts` | **PASS** | AK2×2 + AK3-real clean; AK3-bet-decomposition double relocated to unit (BLOCK-2 fixed) |
-| AC2 | real agent produces decomposition; tasks asserted from real output | **PASS (code)** | Pinned fail-closed assertion intact (`AK3-real-decomposition:236–243`); truncation removed → opencode decomposes the real bet via AGENTS.md. Runtime green pending credits |
+| AC2 | real agent produces decomposition; tasks asserted from real output | **PASS** | Pinned fail-closed assertion intact (`AK3-real-decomposition:236–243`); truncation removed → opencode decomposes the real bet via AGENTS.md (comment now matches verified vendor behavior). Runtime green across all 4 lanes pending OpenRouter credits (same ship-blocker as AR3/#386) |
 | AC3 | demoted units drop `.integration`; no fake-adapter `provisionSession` | **PASS** | inertness + AC5 `tools:[]` both demoted to units; service-integration asserts honest |
 | AC4 | converted tests hard-fail on missing harness; none skip | **PASS** | 4-lane `requireHarness`, zero `skipIf`; predicate + vitest wired; not in coverage-debt allowlist |
 
-All four ACs pass at the code/honesty level. The one residual blocker (BLOCK-3) is a false documentation claim, not an AC failure — but it ships misinformation about a harness and contradicts MEMORY, so it blocks DONE until corrected.
+All four ACs PASS at the code/honesty level. BLOCK-3 (the false opencode-context-gap `@lore`) is RESOLVED by `3f08b7d9` — comment corrected to verified vendor behavior, no code path changed. Runtime green across all 4 lanes is the only remaining gate, blocked solely on OpenRouter credits (account-level, identical to AR3/#386) — not an AR5 code defect.
 
 ---
 
-## Verdict: **NOT DONE**
+## Verdict: **DONE**
 
-Both round-1 blockers are genuinely fixed: the opencode 80-char bet truncation is removed (single content-free trigger for all harnesses; bet context flows via `messages[]` for builtin and `AGENTS.md`/`CLAUDE.md` for the CLI harnesses), and the AC5 config-capturing harness double is relocated verbatim into the `.test.ts` unit, leaving the `.integration` file clean. All four ACs pass at the code level, the pinned fail-closed assertion is intact, and no assertion was weakened.
+All three blocking findings across the review rounds are resolved:
+- **BLOCK-1** (opencode 80-char bet truncation) — removed; single content-free trigger for all harnesses, bet context flows via `messages[]` (builtin) and `AGENTS.md`/`CLAUDE.md` (CLI harnesses). ✅
+- **BLOCK-2** (AC5 config-capturing harness double in a `.integration` file) — relocated verbatim into the `.test.ts` unit; `.integration` file clean. ✅
+- **BLOCK-3** (false `@lore AR5 opencode-context-gap`) — RESOLVED by `3f08b7d9`. The comment now correctly states opencode reads `AGENTS.md`/`CLAUDE.md` by traversing up from the spawn cwd — the same mechanism codex/claude use — citing the vendor docs (https://opencode.ai/docs/rules/, verified 2026-06-30) and the adapter spawn (`cli-harness-adapter.ts:426`, `cwd: config.sandboxPath`). Verified comment-only: `writeFileSync` calls + `assembledPrompt` byte-identical pre/post; no code path changed. The fabricated constraint and MCP/"out of scope to research" framing are gone. ✅
 
-One new blocking finding stands, surfaced by ruling on the crux:
+All four ACs PASS at the code/honesty level; the pinned fail-closed assertion is intact; no assertion was weakened; the Phase-2 architectural call (decomposition rides Branch 3, not `provisionSession`) is implemented exactly as approved. The opencode lane stays a required, hard-fail matrix member fed via AGENTS.md — no coverage-debt entry, matching verified vendor behavior.
 
-- **BLOCK-3** — the `@lore AR5 opencode-context-gap` comment documents a **false** opencode capability constraint. opencode *does* read `AGENTS.md`/`CLAUDE.md` from the spawn cwd (its own docs), and the production path writes both files into that exact cwd — so there is no gap and the opencode lane is fully capable, not "structurally unable to pass." The fix is a comment correction (cite the docs), not a code change to the path and not a lane demotion. It is fully actionable without credits.
-
-The crux ruling: documenting a gap while keeping opencode as a hard-fail lane is **not** the honest terminal state here, because the gap is fabricated. The honest terminal state is: opencode stays in the matrix, is fed via AGENTS.md (already wired), and the comment is corrected to match verified vendor behavior. Re-review after the comment lands. The Phase-2 architectural call (decomposition rides Branch 3, not `provisionSession`) remains implemented exactly as approved.
+**Remaining ship gate (not an AR5 defect):** a green run across all 4 harness lanes is blocked solely on OpenRouter 0-credits at the account level — the identical ship-blocker as AR3/#386. The DONE ruling never depended on a green run; it depends on code honesty + AC completeness, both satisfied. When credits return, a real opencode run should confirm green via AGENTS.md (per its docs); if it instead proves opencode genuinely ignores cwd `AGENTS.md` under `run --dir`, that would be a verified gap to document then with run evidence + a coverage-debt entry — but it cannot be assumed into existence now.
