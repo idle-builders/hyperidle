@@ -707,6 +707,11 @@ export async function runAssistantTurnThroughHarness(
 	}
 
 	// Real builtin adapter pool — same construction as SUPPORTED_HARNESS_LANES builtin lane.
+	// @lore AR4: `type: "builtin"` is required because assistant-turn.ts:301 reads
+	// `agentRow.harnessType ?? "builtin"` = "builtin" and passes it to adapterPool.select().
+	// Without type="builtin" the pool's entry.meta.type is undefined, which != "builtin",
+	// so select() skips the entry and returns null → NoEligibleHarnessError → notice persisted.
+	// Also "openrouter" must be included: agentRow.modelProvider="openrouter" → modelProviders:["openrouter"].
 	const pool = new AdapterPool();
 	pool.register(
 		"builtin-local",
@@ -714,7 +719,8 @@ export async function runAssistantTurnThroughHarness(
 		{
 			name: "builtin-local",
 			kind: "local",
-			modelProviders: ["openai-compatible"],
+			type: "builtin",
+			modelProviders: ["openrouter", "openai-compatible", "anthropic"],
 			maxConcurrent: 1,
 		},
 	);

@@ -520,7 +520,9 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 				expect(s).toBeDefined();
 				expect(s?.state).toBe("done");
 			},
-			{ timeout: 240_000 },
+			// @lore AR4: opencode has a longer startup time (process-reengage model) and
+			// may take >240s on slower machines. 420s ceiling keeps pace with AR2's pattern.
+			{ timeout: 420_000 },
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
@@ -536,5 +538,5 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 					"non-crash outcome is the load-bearing proof.\n",
 			);
 		}
-	}, 240_000);
+	}, 480_000);
 });
