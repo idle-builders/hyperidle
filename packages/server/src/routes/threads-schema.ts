@@ -35,9 +35,9 @@ export const entityRefSchema = z.object({
  * T4: blockRefSchema validates block refs (kind, blockId, hostKind, hostId).
  * Exported for testing.
  *
- * @lore T4: z.discriminatedUnion requires the discriminator key to be shared
- * by all members. Both entityRefSchema (z.enum) and blockRefSchema (z.literal)
- * use "kind". Zod v3 handles z.enum as a set of literals in discriminatedUnion.
+ * @lore T4: z.discriminatedUnion takes its options as a TUPLE (typed [A, B, ...]),
+ * not a plain array — each member carries its own literal discriminator prop.
+ * Both entityRefSchema (z.enum) and blockRefSchema (z.literal) use "kind".
  */
 export const blockRefSchema = z.object({
 	kind: z.literal("block"),

@@ -23,8 +23,7 @@ type RouteItemInput = z.infer<typeof routeItemInputSchema>;
 
 interface RouteItemData {
 	readonly itemId: string;
-	// @lore AD8a: "rail" in the type union renamed in AD8b.
-	readonly view: "conversations" | "rail" | "work" | "knowledge";
+	readonly view: "conversations" | "work" | "knowledge";
 	readonly riskTier: string | null;
 	readonly kind: string | null;
 	readonly verb: string | null;
@@ -70,7 +69,7 @@ async function handler(
 export const routeItemTool: ToolDefinition<RouteItemInput> = {
 	name: "route_item",
 	description:
-		"Route an existing item to its correct view (conversations | rail | work | knowledge) based on risk tier and kind. Accepts optional overrides for riskTier, kind, or verb; returns the resolved view.",
+		"Route an existing item to its correct view (conversations | work | knowledge) based on risk tier and kind. Accepts optional overrides for riskTier, kind, or verb; returns the resolved view.",
 	inputSchema: routeItemInputSchema,
 	handler,
 	// @lore G3 may add an `item_routed` event when other subscribers need it;

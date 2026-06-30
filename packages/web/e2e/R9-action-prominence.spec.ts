@@ -737,7 +737,7 @@ test.describe("R9 — Portfolio page", () => {
 	}) => {
 		await seedEmpty(page);
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// AC-1: "New bet" button must be visible and clickable
 		const newBetBtn = page.getByTestId("new-bet-btn");
@@ -757,7 +757,7 @@ test.describe("R9 — Portfolio page", () => {
 	test("portfolio-open-bet: clicking BetCard navigates to /work/bet/:id", async ({ page }) => {
 		await seedFirstBet(page);
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// Bet grid should show the bet
 		const betGrid = page.getByTestId("bet-grid");
@@ -792,7 +792,7 @@ test.describe("R9 — Portfolio page", () => {
 		});
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// Team pill filter group must be visible
 		const pillFilters = page.getByTestId("team-pill-filters");
@@ -923,7 +923,7 @@ test.describe("R9 — Bet detail page", () => {
 	});
 
 	// bet-open-task: Click task row → TaskSheet opens
-	// @lore R9: Task rows use data-testid="bet-task-row". The text "Implement OAuth"
+	// @lore R9: Task rows use data-testid="task-row". The text "Implement OAuth"
 	// may be obscured by the ArtifactSection overlay — click via testid instead.
 	// @lore R9: Playwright's force click doesn't reliably trigger React's synthetic
 	// onClick on table rows/cells because force-dispatched events bypass the pointer
@@ -934,12 +934,12 @@ test.describe("R9 — Bet detail page", () => {
 		await expect(page.getByTestId("work-bet-page")).toBeVisible();
 
 		// Tasks must be visible in the bet detail — use data-testid to avoid overlap
-		const taskRows = page.getByTestId("bet-task-row");
+		const taskRows = page.getByTestId("task-row");
 		await expect(taskRows.first()).toBeVisible({ timeout: 5_000 });
 
 		// Fire a real bubbling click through JS — React's event delegation picks this up
 		await page.evaluate(() => {
-			const row = document.querySelector("[data-testid='bet-task-row']");
+			const row = document.querySelector("[data-testid='task-row']");
 			if (row) row.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 		});
 
@@ -1052,9 +1052,9 @@ test.describe("R9 — Bet detail page", () => {
 		const editor = page.locator('[data-testid="bet-description-editor"]');
 		await expect(editor).toBeVisible({ timeout: 5_000 });
 
-		// @lore R9: TipTap's contenteditable responds to pressSequentially() (not .type()
-		// or .fill()). Start waitForRequest() BEFORE typing so the debounced PATCH
-		// (1500ms after last keystroke) is captured at the network layer.
+		// @lore R9: .fill() silently no-ops on ProseMirror (not a form element); drive
+		// TipTap via keyboard input (pressSequentially). Start waitForRequest() BEFORE
+		// typing so the debounced PATCH (1500ms after last keystroke) is captured.
 		const contentEditable = editor.locator('[contenteditable="true"]').first();
 		await contentEditable.click();
 

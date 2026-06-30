@@ -189,13 +189,12 @@ class WsClient {
 	/**
 	 * Determine whether an incoming WS message belongs to a subscribed topic.
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
-	 * or are global names (`conversations`, `work`, `rail`). @lore AD8a: "rail" topic renamed in AD8b.
+	 * or are global names (`conversations`, `work`).
 	 * We match by inspecting the message's event type and id fields.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
 		// Global topics: any event from the server goes to matching subscribers
-		// @lore AD8a: WebSocket topic "rail" stays — renamed in AD8b.
-		if (topic === "conversations" || topic === "work" || topic === "rail") {
+		if (topic === "conversations" || topic === "work") {
 			// Server only broadcasts to subscribed topics — all messages received
 			// on this socket are for our subscribed topics. Match all for global topics.
 			return true;
