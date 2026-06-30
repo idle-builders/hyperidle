@@ -6,27 +6,30 @@
  *   AC3 — ToolResult success/failure correctly maps to CallToolResult
  *   AC4 — Role-based filtering: facilitator-only tools return FORBIDDEN for builder role
  *
- * These tests import from paths that don't exist yet — they will fail with
- * module-not-found errors until the green phase implementation is written.
+ * Demoted from mcp-bridge.integration.test.ts (AR6): pure bridge/registry unit,
+ * no harness, no agent. Real integration proof is T0b (mcp-bridge-stateful) +
+ * AL7-two-session (real binaries).
  *
- * @lore X2 red phase: `toolResultToCallToolResult` is a pure mapping function
- * that must be exported separately from `createMcpBridge` so unit tests can
- * exercise the mapping without spinning up a real McpServer/transport.
+ * @lore AR6 demotion: Moved from src/__tests__ to mcp/__tests__ as a .test.ts unit.
+ * Uses { db } fixture from test-fixtures (not createTestDb() directly).
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "../../test-fixtures.js";
+import {
+	buildToolRegistry,
+	type ToolContext,
+	type ToolRegistry,
+} from "../../tools/tool-registry.js";
+import type { ToolResult } from "../../tools/tool-result.js";
 import {
 	type CreateMcpBridgeOptions,
 	createMcpBridge,
 	type McpBridgeInstance,
 	toolResultToCallToolResult,
-} from "../mcp/mcp-bridge.js";
-import { buildToolRegistry, type ToolContext, type ToolRegistry } from "../tools/tool-registry.js";
-import type { ToolResult } from "../tools/tool-result.js";
+} from "../mcp-bridge.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,7 +52,7 @@ function makeContext(db: import("@hyperidle/db").HyperIdleDb, eventBus: EventBus
 // ---------------------------------------------------------------------------
 
 describe("toolResultToCallToolResult (AC3)", () => {
-	it("maps success=true with data to content text array", () => {
+	test("maps success=true with data to content text array", () => {
 		const result: ToolResult = { success: true, data: { id: "abc", value: 42 } };
 		const callResult = toolResultToCallToolResult(result);
 
@@ -62,7 +65,7 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		}
 	});
 
-	it("maps success=true with null data to content text 'null'", () => {
+	test("maps success=true with null data to content text 'null'", () => {
 		const result: ToolResult = { success: true, data: null };
 		const callResult = toolResultToCallToolResult(result);
 
@@ -73,7 +76,7 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		}
 	});
 
-	it("maps success=false to isError=true with JSON error body", () => {
+	test("maps success=false to isError=true with JSON error body", () => {
 		const result: ToolResult = {
 			success: false,
 			error: "Resource not found",
@@ -92,7 +95,7 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		}
 	});
 
-	it("maps FORBIDDEN error code to isError=true with FORBIDDEN in text", () => {
+	test("maps FORBIDDEN error code to isError=true with FORBIDDEN in text", () => {
 		const result: ToolResult = {
 			success: false,
 			error: "Tool not available to this role: route_item",
@@ -108,7 +111,7 @@ describe("toolResultToCallToolResult (AC3)", () => {
 		}
 	});
 
-	it("maps success=true with array data to JSON-stringified array", () => {
+	test("maps success=true with array data to JSON-stringified array", () => {
 		const result: ToolResult = { success: true, data: [1, 2, 3] };
 		const callResult = toolResultToCallToolResult(result);
 
@@ -127,10 +130,11 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 	let bridge: McpBridgeInstance;
 	let registry: ToolRegistry;
 
-	beforeEach(async () => {
-		const handle = await createTestDb();
+	test("returns a McpBridgeInstance with token, sessionId, mcpServer, transport", async ({
+		db,
+	}) => {
 		const eventBus = new EventBus();
-		const ctx = makeContext(handle.db, eventBus);
+		const ctx = makeContext(db, eventBus);
 		registry = buildToolRegistry(ctx, { role: "assistant" });
 
 		const options: CreateMcpBridgeOptions = {
@@ -138,14 +142,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 			registry,
 		};
 		bridge = await createMcpBridge(options);
-	});
 
-	afterEach(async () => {
-		// Clean up transport
-		await bridge.transport.close();
-	});
-
-	it("returns a McpBridgeInstance with token, sessionId, mcpServer, transport", () => {
 		expect(bridge.token).toBeDefined();
 		expect(typeof bridge.token).toBe("string");
 		// token is a 64-char hex string (32 bytes)
@@ -154,30 +151,36 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		expect(bridge.sessionId).toBe("session-ac1");
 		expect(bridge.mcpServer).toBeDefined();
 		expect(bridge.transport).toBeDefined();
+
+		await bridge.transport.close();
 	});
 
-	it("generates a unique token each time createMcpBridge is called", async () => {
-		const handle = await createTestDb();
+	test("generates a unique token each time createMcpBridge is called", async ({ db }) => {
 		const eventBus = new EventBus();
-		const ctx = makeContext(handle.db, eventBus);
-		const reg = buildToolRegistry(ctx, { role: "assistant" });
+		const ctx = makeContext(db, eventBus);
+		const reg1 = buildToolRegistry(ctx, { role: "assistant" });
+		const reg2 = buildToolRegistry(ctx, { role: "assistant" });
 
-		const bridge2 = await createMcpBridge({ sessionId: "session-ac1-b", registry: reg });
+		const bridge1 = await createMcpBridge({ sessionId: "session-ac1-a", registry: reg1 });
+		const bridge2 = await createMcpBridge({ sessionId: "session-ac1-b", registry: reg2 });
 
-		expect(bridge.token).not.toBe(bridge2.token);
+		expect(bridge1.token).not.toBe(bridge2.token);
 
+		await bridge1.transport.close();
 		await bridge2.transport.close();
 	});
 
-	it("registers exactly 22 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 commit_file)", () => {
-		// The McpServer's internal _registeredTools is private; we verify via
-		// the registry definitions count. AC1 acceptance: all definitions from
-		// the registry are registered.
+	test("registers exactly 22 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 commit_file)", async ({
+		db,
+	}) => {
+		const eventBus = new EventBus();
+		const ctx = makeContext(db, eventBus);
+		registry = buildToolRegistry(ctx, { role: "assistant" });
+
+		bridge = await createMcpBridge({ sessionId: "session-ac1-count", registry });
+
 		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) + 1 (AL7 commit_file) = 22
 		expect(registry.definitions).toHaveLength(22);
-		// The bridge was created with this registry, so it must have 20 tools.
-		// We'll verify via a tools/list MCP request in the integration test;
-		// here we assert the registry shape is correct.
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toContain("route_item");
 		expect(names).toContain("log_task");
@@ -189,9 +192,17 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		expect(names).toContain("create_bet");
 		expect(names).toContain("create_routine");
 		expect(names).toContain("update_routine");
+
+		await bridge.transport.close();
 	});
 
-	it("each registered tool has the expected name from the registry", () => {
+	test("each registered tool has the expected name from the registry", async ({ db }) => {
+		const eventBus = new EventBus();
+		const ctx = makeContext(db, eventBus);
+		registry = buildToolRegistry(ctx, { role: "assistant" });
+
+		bridge = await createMcpBridge({ sessionId: "session-ac1-names", registry });
+
 		// Verify the registry definition names are the 22 canonical tools (15 pre-AE3 + 5 AE3 + 1 AK4 + 1 AL7)
 		const expectedNames = [
 			"read_inbox",
@@ -223,6 +234,8 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 
 		const actualNames = registry.definitions.map((d) => d.name).sort();
 		expect(actualNames).toEqual(expectedNames);
+
+		await bridge.transport.close();
 	});
 });
 
@@ -231,10 +244,11 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 // ---------------------------------------------------------------------------
 
 describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () => {
-	it("registry.invoke returns FORBIDDEN for facilitator-only tool when role=builder", async () => {
-		const handle = await createTestDb();
+	test("registry.invoke returns FORBIDDEN for facilitator-only tool when role=builder", async ({
+		db,
+	}) => {
 		const eventBus = new EventBus();
-		const ctx = makeContext(handle.db, eventBus);
+		const ctx = makeContext(db, eventBus);
 
 		// Builder registry — does NOT include route_item (facilitator-only)
 		const registry = buildToolRegistry(ctx, { role: "builder" });
@@ -254,10 +268,11 @@ describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () =
 		await bridge.transport.close();
 	});
 
-	it("builder registry exposes 11 tools (no 4 facilitator-only tools)", async () => {
-		const handle = await createTestDb();
+	test("builder registry exposes 12 tools (no 4 facilitator-only tools, but commit_file included)", async ({
+		db,
+	}) => {
 		const eventBus = new EventBus();
-		const ctx = makeContext(handle.db, eventBus);
+		const ctx = makeContext(db, eventBus);
 		const registry = buildToolRegistry(ctx, { role: "builder" });
 
 		const bridge = await createMcpBridge({ sessionId: "session-ac4-b", registry });
@@ -281,10 +296,9 @@ describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () =
 // ---------------------------------------------------------------------------
 
 describe("createMcpBridge (AC3: handler invokes registry and maps ToolResult)", () => {
-	it("bridge has a mcpServer that is connected (can be closed)", async () => {
-		const handle = await createTestDb();
+	test("bridge has a mcpServer that is connected (can be closed)", async ({ db }) => {
 		const eventBus = new EventBus();
-		const ctx = makeContext(handle.db, eventBus);
+		const ctx = makeContext(db, eventBus);
 		const registry = buildToolRegistry(ctx, { role: "assistant" });
 
 		const bridge = await createMcpBridge({ sessionId: "session-ac3", registry });

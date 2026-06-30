@@ -1,0 +1,12 @@
+{
+  "id": "AR6",
+  "status": "done",
+  "currentStep": "shipped",
+  "track": "AR",
+  "complexity": "M",
+  "branch": "feat/AR6-mcp-enforcement-consolidation",
+  "worktree": ".worktrees/AR6",
+  "startedAt": "2026-06-30T00:18:00+02:00",
+  "completedAt": "2026-06-30T00:00:00Z",
+  "note": "MCP bridge/routing + capabilities + enforcement consolidation onto AR1/AR2 honest-harness lane. No UI -> skip /design. Depends AR1(#381)+AR2(#382), both on main. | Builder#1 added a dishonest credit-skip-guard (reverted by #2). Applying user model mapping: builtin=deepseek-v4-pro, opencode=kimi-k2.7-code, claude=opus, codex=default gpt. | Models final: builtin=deepseek-v4-flash claude=sonnet codex=gpt-5.4-mini opencode=glm-5-turbo (proven). Full-verify-green deferred to ship (machine load 11+ from 3 sibling verifies; integration leg JSON crashes under load; floor correctly fails-closed)."
+}
