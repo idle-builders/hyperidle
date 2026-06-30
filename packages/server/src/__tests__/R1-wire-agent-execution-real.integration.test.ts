@@ -57,11 +57,15 @@ async function seedDomain(
 		taskDescription: string;
 		doneCondition: string;
 		/** Override the workhorse model ID in serverConfig (default: "deepseek/deepseek-v4-pro").
-		 * @lore AR4 R1-real opencode-model: opencode requires a provider-prefixed model ID
-		 * (e.g. "openrouter/moonshotai/kimi-k2.7-code") when spawned via `opencode run --model <id>`.
-		 * A bare model ID (without the openrouter/ prefix) causes opencode to
-		 * crash at startup. The builtin/claude/codex harnesses use the model ID differently
-		 * and are unaffected. Pass the openrouter/-prefixed form for the opencode lane. */
+		 * @lore AR4 R1-real model-routing: the route's resolveAgentModel falls to
+		 * resolveModelTier(serverConfig.modelGateway.workhorse) when the agent has no per-agent
+		 * model set. Pass the correct per-lane model here so the right model reaches `--model`:
+		 *   - builtin: "deepseek/deepseek-v4-flash" (OpenRouter, no prefix needed)
+		 *   - claude: unaffected (CLI uses keychain auth; model flag goes to claude CLI)
+		 *   - codex: "gpt-5.4-mini" (OpenAI model ID, no prefix)
+		 *   - opencode: "openrouter/z-ai/glm-5-turbo" (provider-prefixed, opencode requires it)
+		 * A bare model ID without the openrouter/ prefix causes opencode to crash at startup.
+		 * An OpenRouter slug (deepseek/deepseek-v4-pro) causes codex to crash with 400. */
 		workhorseModel?: string;
 	},
 ): Promise<void> {
@@ -398,6 +402,12 @@ describe(`${CODEX_LANE.describeTag} AR4 R1-real — POST /api/sessions → real 
 				"Create a file named 'answer.txt' in the current working directory containing " +
 				"exactly the number 4. Do NOT hand off or submit a review.",
 			doneCondition: "Agent creates answer.txt with the number 4.",
+			// @lore AR4 codex-model: codex lane uses gpt-5.4-mini (cost reduction, 2026-06-30).
+			// The route's resolveAgentModel falls to resolveModelTier(serverConfig.modelGateway.workhorse)
+			// when the agent has no per-agent model. Without setting workhorseModel here, the default
+			// "deepseek/deepseek-v4-pro" (an OpenAI-incompatible slug) reaches `codex exec --model`
+			// → 400 invalid_request_error → crashed. gpt-5.4-mini is a valid OpenAI model ID.
+			workhorseModel: "gpt-5.4-mini",
 		});
 
 		const { pool } = CODEX_LANE.prepFn({ db, eventBus, tmpDir, bridge });
@@ -512,8 +522,12 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 			// @lore AR4 R1-real opencode-model: opencode requires provider-prefixed model ID.
 			// The route resolves {{model}} from resolvedModel.model and passes it as
 			// `opencode run --model <model>`. Without the "openrouter/" prefix, opencode
-			// fails to resolve the model and crashes at startup. See lore in seedDomain JSDoc.
-			workhorseModel: "openrouter/moonshotai/kimi-k2.7-code",
+			// fails to resolve the model and crashes at startup.
+			// @lore AR4 opencode-model-update: glm-5-turbo (z-ai/glm-5-turbo via OpenRouter)
+			// replaces kimi-k2.7-code for cost reduction (2026-06-30). Must be the SAME model
+			// as SUPPORTED_HARNESS_LANES opencode lane (provision-real-session.ts) to avoid
+			// inconsistency between the route path and the direct lane path.
+			workhorseModel: "openrouter/z-ai/glm-5-turbo",
 		});
 
 		const { pool } = OPENCODE_LANE.prepFn({ db, eventBus, tmpDir, bridge });
