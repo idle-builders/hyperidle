@@ -68,9 +68,11 @@ The lint check gates the source; the attestation gates execution. Together, a su
 
 ---
 
-## The 4-harness matrix test
+## The 4-harness matrix tests
 
 `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` is the first test that satisfies both gates for all four harnesses. It drives each through production `provisionSession()` and is the reference implementation for AR3–AR6.
+
+`packages/server/src/harness/__tests__/AK3-real-decomposition.integration.test.ts` (AR5) drives each harness through the production **decomposition** path — `runBetDecomposition` Branch 3 → `runRealPmTurn` — not through `provisionSession`. This is a distinct seam; the two test files prove complementary things: AR2 proves "a real session runs to completion under each harness," AR5 proves "a real agent decomposes a bet and the tasks land in the DB."
 
 ### Reusable matrix helpers
 
@@ -108,11 +110,39 @@ for (const lane of SUPPORTED_HARNESS_LANES) {
 }
 ```
 
+**Decomposition pattern (AR5) — use `decompositionDepsForLane`, not `runThroughHarness`:**
+
+For tests that drive the real decomposition path (`runBetDecomposition` Branch 3 / `runRealPmTurn`), use `provision-real-decomposition.ts` instead. The two helpers are for different seams — do not unify them.
+
+```ts
+import { SUPPORTED_HARNESS_LANES } from "./provision-real-session.js";
+import { decompositionDepsForLane } from "./provision-real-decomposition.js";
+import { requireHarness } from "./require-harness.js";
+
+for (const lane of SUPPORTED_HARNESS_LANES) {
+  describe(`${lane.describeTag} Suite name`, () => {
+    requireHarness(lane.harnessName);
+    test("real agent decomposes bet", async ({ db, eventBus }) => {
+      const tmpDir = /* per-test scratch dir */;
+      await seedDomain(db, { agentId, teamId, betId });
+      const deps = await decompositionDepsForLane(lane, { db, eventBus, tmpDir });
+      await runBetDecomposition(betId, deps);
+      const bet = await db.query.bets.findFirst({ where: eq(bets.id, betId) });
+      expect(bet?.decompositionStatus).toBe("done");
+      const tasks = await db.query.tasks.findMany({ where: eq(tasks.betId, betId) });
+      expect(tasks.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+}
+```
+
+The assertion is fail-closed: an empty or unparseable model response → `blocked/empty` → the `"done"` check fails.
+
 ---
 
 ## Known honest behavior differences across harnesses
 
-Both findings were surfaced by the AR2 real matrix run:
+Findings surfaced by real matrix runs (AR2 + AR5):
 
 ### `builtin` + `claude` → `completed`; `codex` + `opencode` → `not_returned` (on file-write tasks)
 
@@ -133,6 +163,14 @@ Codex emits `turn.completed` with a `usage` block, not the claude-stream-json `r
 
 opencode emits tool calls on a `tool_use` event that `harness-event-normalization.ts` was not mapping to the `tool_call` harness event. AR2 ships the fix: the normalizer now maps `tool_use` → `tool_call` for opencode so `isReturnAction` receives the tool name and the return gate fires correctly.
 
+### opencode completion event carries `part.text`, not top-level `text` (fixed in AR5)
+
+opencode's stream emits completion events where the text lives in `event.part.text`, not `event.text`. `harness-event-normalization.ts` was reading `event.text` (undefined for opencode) — so every opencode completion normalized to an empty string. AR5 ships the fix: the normalizer now reads `event.part?.text ?? event.text` for opencode completion events. Surfaced by the AR5 real-harness decomposition run (`AK3-real-decomposition`).
+
+### CLI harnesses emit multiple completion events per session (surfaced in AR5)
+
+During a CLI session, adapters emit several completion events in sequence: init/system lifecycle events produce empty completions, intermediate streaming blocks carry partial text, and the final `result` event carries the full response. Code that returns on the first `completion` event receives `""` and triggers `blocked/empty`. Always collect the **last non-empty** completion text across the stream. `drainForCompletion` in `bet-decomposition.ts` implements this correctly; the `runThroughHarness` session path drains the MCP return action instead and is not affected.
+
 ---
 
 ## Files at a glance
@@ -147,5 +185,7 @@ opencode emits tool calls on a `tool_use` event that `harness-event-normalizatio
 | `scripts/verify-attest.ts` | Writes `agenticExecutedByHarness` into signed attestation |
 | `scripts/check-attestation.ts` | Calls `assertPerHarnessFloor` on `agenticExecutedByHarness` |
 | `packages/server/src/harness/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES` |
-| `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + helpers |
-| `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` | Reference 4-harness matrix test |
+| `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + helpers (session path) |
+| `packages/server/src/harness/__tests__/provision-real-decomposition.ts` | `decompositionDepsForLane` — builds `BetDecompositionDeps` with a real `AdapterPool` for each harness lane, forces Branch 3 by omitting the `runDecompositionTurn` override (AR5) |
+| `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` | Reference 4-harness session matrix test |
+| `packages/server/src/harness/__tests__/AK3-real-decomposition.integration.test.ts` | 4-harness decomposition matrix test (AR5) — asserts ≥1 persisted task + `decompositionStatus=done` from a real agent |
