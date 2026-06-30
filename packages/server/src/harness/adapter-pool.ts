@@ -348,7 +348,14 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// seed prompt is provided, "proceed" is used as the default so codex runs with
 		// the system prompt context from AGENTS.md. The CODEX_HOME injection (see
 		// CliHarnessAdapter.startSession) also appends --dangerously-bypass-hook-trust.
-		args: ["exec", "{{prompt}}", "--json"],
+		// AR4: added --model {{model}} so the lane's resolvedModel.model is injected at
+		// session-start. codex exec -m/--model sets the model (verified: `codex exec --help`
+		// shows -m,--model <MODEL>). Before AR4 this field was absent and codex used its
+		// CLI default. Now the lane config controls which model codex runs.
+		// @lore AR4 codex-model-flag: codex exec supports -m/--model; {{model}} resolves
+		// from resolvedModel.model in cli-harness-adapter.ts:365. Production change: codex
+		// now runs the model declared in the harness lane, not the CLI default.
+		args: ["exec", "{{prompt}}", "--model", "{{model}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
