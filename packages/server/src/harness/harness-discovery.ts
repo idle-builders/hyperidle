@@ -497,8 +497,9 @@ export async function probeCodexMcpList(
 			// When no servers: "No MCP servers configured yet. Try `codex mcp add ...`"
 			// We detect the table by looking for a header row starting with "Name ";
 			// if absent, stdout is a message (no servers) → fall through to config.toml.
-			// @lore AN1: codex mcp list emits a prose message (not a table) when empty,
-			// and a space-aligned table with a "Name" header when servers exist.
+			// @lore AN1: we parse config.toml directly rather than relying solely on
+			// codex mcp list (whose output columns/format vary across codex versions);
+			// we never read token values. mcp list is tried first as a fast path.
 			const lines = result.stdout.split("\n");
 			const hasTableHeader = lines.some((l) => stripAnsi(l).trimStart().startsWith("Name "));
 			if (hasTableHeader) {

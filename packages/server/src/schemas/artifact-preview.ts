@@ -30,8 +30,9 @@ const kindSchemaEntries = ARTIFACT_KINDS.map((kind) => {
 	return def.previewSchema as z.ZodObject<{ kind: z.ZodLiteral<string> }>;
 });
 
-// @lore AE6 F3: z.discriminatedUnion requires at least 2 elements as a typed tuple.
-// We assert the array as the required tuple type because:
+// @lore AE6 F3: z.discriminatedUnion takes its options as a TUPLE (typed [A, B, ...]),
+// not a plain array — annotate the tuple so TS infers the union; each member carries
+// its own literal discriminator prop. We assert the array as the required tuple type:
 // 1. We know ARTIFACT_KINDS has exactly 6 members (verified by tests).
 // 2. All schemas are ZodObject instances with a `kind` literal discriminant.
 // 3. The type assertion is the narrowest possible form — no `any`, just tuple shape.

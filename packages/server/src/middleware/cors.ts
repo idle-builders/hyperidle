@@ -38,8 +38,10 @@ function parseConfiguredOrigins(): ReadonlyArray<string> {
  *   headers added (correct; same-origin requests do not require CORS).
  * - All other origins: denied (return undefined).
  *
- * @lore N2: Hono cors() calls this function only when an Origin header is
- * present. Same-origin requests (HYPERIDLE_STATIC_DIR mode) never reach here.
+ * @lore N2: Hono sets the `Access-Control-Allow-Origin` response header only
+ * when an `Origin` is present and matches; the origin function itself is evaluated
+ * on every request. Same-origin requests (HYPERIDLE_STATIC_DIR mode) send no Origin
+ * header → no CORS headers added (correct).
  * See architecture section 2.4 for the full CORS strategy.
  */
 function resolveOrigin(origin: string, _c: Context): string | undefined {

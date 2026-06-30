@@ -34,20 +34,19 @@ describe("routeItem", () => {
 		expect(routeItem({ kind: "chat" })).toBe("conversations");
 	});
 
-	it("routes default (no matching rules) to rail", () => {
-		// @lore AD8a: "rail" return value renamed in AD8b.
-		expect(routeItem({})).toBe("rail");
+	it("routes default (no matching rules) to conversations", () => {
+		expect(routeItem({})).toBe("conversations");
 	});
 
-	it("routes null values to rail", () => {
-		expect(routeItem({ riskTier: null, kind: null, verb: null })).toBe("rail");
+	it("routes null values to conversations", () => {
+		expect(routeItem({ riskTier: null, kind: null, verb: null })).toBe("conversations");
 	});
 
 	it("risk tier takes priority over kind", () => {
 		expect(routeItem({ riskTier: "high", kind: "knowledge" })).toBe("conversations");
 	});
 
-	it("routes low risk with no kind to rail", () => {
-		expect(routeItem({ riskTier: "low" })).toBe("rail");
+	it("routes low risk with no kind to conversations", () => {
+		expect(routeItem({ riskTier: "low" })).toBe("conversations");
 	});
 });

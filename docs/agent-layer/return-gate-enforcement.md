@@ -228,9 +228,9 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 ## 11. Real-Harness Integration Tests
 
-`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` (live spawns) + `…/AL6-real-harness-return-enforcement.integration.test.ts` (the deterministic in-process builtin/cursor anchor).
+`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` covers all four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
 
-The realbinary file spawns each real binary headless, gated per-binary by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. The anchor file drives the in-process `BuiltinHarnessAdapter` deterministically (no binary dependency). Both run locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
+Each harness lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
 
 | Harness | Test | Proof |
 |---|---|---|

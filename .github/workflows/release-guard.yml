@@ -70,6 +70,12 @@ jobs:
           echo "sha256=$(jq -r .sha256 "$MF")" >> "$GITHUB_OUTPUT"
           echo "dmg=$(jq -r .dmgName "$MF")" >> "$GITHUB_OUTPUT"
 
+      - name: Require full-scope attestation on version bump
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
+        run: npx tsx scripts/check-attestation.ts --require-scope=full
+
       - name: Staged DMG exists with matching sha256
         if: steps.bump.outputs.bumped == 'true'
         env:

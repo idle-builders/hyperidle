@@ -73,6 +73,10 @@ scripts/lib/attestation-floor.js
 scripts/lib/attestation-floor.js.map
 scripts/lib/attestation-floor.d.ts
 scripts/lib/attestation-floor.d.ts.map
+scripts/lib/attestation-scope.js
+scripts/lib/attestation-scope.js.map
+scripts/lib/attestation-scope.d.ts
+scripts/lib/attestation-scope.d.ts.map
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
 packages/design-system/viewer/*.js

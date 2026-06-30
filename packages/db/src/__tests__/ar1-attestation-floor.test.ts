@@ -176,6 +176,24 @@ describe("assertAgenticFloor — fails on zero-executed / empty set", () => {
 		const v = assertAgenticFloor({});
 		expect(v).toBeNull();
 	});
+
+	// AT1: scope="affected" + empty set is a valid empty slice (no harness files changed)
+	test("empty set + scope=affected → null (valid empty affected slice)", () => {
+		const v = assertAgenticFloor({ agenticExecuted: 0, agenticSkipped: 0 }, "affected");
+		expect(v).toBeNull();
+	});
+
+	test("empty set + scope=full → violation string (full run must have agentic coverage)", () => {
+		const v = assertAgenticFloor({ agenticExecuted: 0, agenticSkipped: 0 }, "full");
+		expect(typeof v).toBe("string");
+		expect(v).not.toBeNull();
+	});
+
+	test("empty set + scope undefined (legacy) → violation string", () => {
+		const v = assertAgenticFloor({ agenticExecuted: 0, agenticSkipped: 0 }, undefined);
+		expect(typeof v).toBe("string");
+		expect(v).not.toBeNull();
+	});
 });
 
 // ── floor over extractor output (integration of the two pure fns) ─────────────

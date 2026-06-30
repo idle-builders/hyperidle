@@ -73,10 +73,9 @@ test.describe("N2 — apiFetch injects X-API-Key on /api/teams (AC-7b)", () => {
 		// WorkPortfolio calls useProducts() → apiFetch("/api/teams") on mount,
 		// which must inject the key from VITE_HYPERIDLE_API_KEY (set in playwright.config.ts).
 		//
-		// @lore N2: Route handler registered as catch-all to avoid Playwright's FIFO
-		// route-matching behaviour — specific patterns like **/api/teams can be
-		// skipped in favour of earlier-registered patterns depending on glob resolution.
-		// A single catch-all handler with URL discrimination is the most reliable pattern.
+		// @lore N2: Playwright evaluates route handlers in REVERSE registration order
+		// (last-registered wins / LIFO); register the catch-all/default route FIRST
+		// and specific overrides AFTER so the specific one wins.
 		// See: https://playwright.dev/docs/network#handle-requests
 		let capturedApiKey: string | null = null;
 
