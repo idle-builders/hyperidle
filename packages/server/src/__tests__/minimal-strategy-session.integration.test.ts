@@ -1,5 +1,5 @@
 /**
- * AK2 — Minimal Strategy end-to-end integration tests.
+ * Minimal strategy end-to-end integration tests.
  * AR5 CONVERSION: replaced EchoHarnessAdapter with real 4-lane matrix via
  * `runThroughHarness`. The thing under test is "a real session runs to
  * completion under the minimal Strategy" — the harness IS the integration
@@ -177,22 +177,22 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 // finds literal requireHarness("...") call expressions in the source.
 // ---------------------------------------------------------------------------
 
-describe(`${BUILTIN_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+describe(`${BUILTIN_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
 	requireHarness("builtin");
 	makeLaneDescribe(BUILTIN_LANE);
 });
 
-describe(`${CLAUDE_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+describe(`${CLAUDE_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
 	requireHarness("claude");
 	makeLaneDescribe(CLAUDE_LANE);
 });
 
-describe(`${CODEX_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+describe(`${CODEX_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
 	requireHarness("codex");
 	makeLaneDescribe(CODEX_LANE);
 });
 
-describe(`${OPENCODE_LANE.describeTag} AK2 — Minimal Strategy`, () => {
+describe(`${OPENCODE_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
 	requireHarness("opencode");
 	makeLaneDescribe(OPENCODE_LANE);
 });

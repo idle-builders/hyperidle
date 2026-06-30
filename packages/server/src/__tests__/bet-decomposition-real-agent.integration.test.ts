@@ -1,5 +1,5 @@
 /**
- * AR5 NEW — AK3 real-agent bet decomposition integration tests.
+ * Real-agent bet decomposition integration tests.
  *
  * Proves AC2: a real strategy agent produces the decomposition; tasks/edges
  * are asserted from that real output.
@@ -143,7 +143,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	 * @lore AR5 opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db
 	 * (global SQLite). Without XDG_DATA_HOME isolation, rapid sequential opencode processes
 	 * in AK3's 4 tests can hit a write-lock → the second process hangs indefinitely.
-	 * Mirrors the AK2-contributor-scenario.integration.test.ts isolation pattern (AR5/AR7).
+	 * Mirrors the custom-strategy-session.integration.test.ts isolation pattern (AR5/AR7).
 	 * Only needed for opencode lane — gated on harnessName.
 	 */
 	let xdgDataHomeBefore: string | undefined;
@@ -217,22 +217,22 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 // finds literal requireHarness("...") call expressions in the source.
 // ---------------------------------------------------------------------------
 
-describe(`${BUILTIN_LANE.describeTag} AK3 — real-agent bet decomposition`, () => {
+describe(`${BUILTIN_LANE.describeTag} Bet decomposition — real agent turns a bet into tasks`, () => {
 	requireHarness("builtin");
 	makeLaneDescribe(BUILTIN_LANE);
 });
 
-describe(`${CLAUDE_LANE.describeTag} AK3 — real-agent bet decomposition`, () => {
+describe(`${CLAUDE_LANE.describeTag} Bet decomposition — real agent turns a bet into tasks`, () => {
 	requireHarness("claude");
 	makeLaneDescribe(CLAUDE_LANE);
 });
 
-describe(`${CODEX_LANE.describeTag} AK3 — real-agent bet decomposition`, () => {
+describe(`${CODEX_LANE.describeTag} Bet decomposition — real agent turns a bet into tasks`, () => {
 	requireHarness("codex");
 	makeLaneDescribe(CODEX_LANE);
 });
 
-describe(`${OPENCODE_LANE.describeTag} AK3 — real-agent bet decomposition`, () => {
+describe(`${OPENCODE_LANE.describeTag} Bet decomposition — real agent turns a bet into tasks`, () => {
 	requireHarness("opencode");
 	makeLaneDescribe(OPENCODE_LANE);
 });

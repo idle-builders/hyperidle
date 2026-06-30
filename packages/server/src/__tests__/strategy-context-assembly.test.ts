@@ -1,7 +1,7 @@
 /**
- * AK2 — Contributor Strategy: context assembly unit test.
+ * Custom strategy: context assembly unit test.
  *
- * AR5 TEST-COST REFACTOR: Test #4 from AK2-contributor-scenario was demoted
+ * AR5 TEST-COST REFACTOR: Test #4 from custom-strategy-session.integration.test.ts was demoted
  * here from the real-LLM × 4-harness matrix. It asserts on the ContributorStrategy's
  * own `assembleContext` side-effect (writing a custom context file into the sandbox).
  * This is a property of the Strategy object, not the agent — provable by calling
@@ -12,7 +12,7 @@
  *   when assembleContext is called with a sandbox path,
  *   then the file is present with the expected content.
  *
- * @lore AK2: sandbox is deleted by endSession in the integration tests; we capture
+ * @lore context assembly lifecycle: sandbox is deleted by endSession in the integration tests; we capture
  * the path + content in-memory during assembly and assert on those. In this unit
  * test there is no session lifecycle — the tmp sandbox is cleaned up by afterEach.
  */
@@ -31,7 +31,7 @@ import type {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Minimal ContributorStrategy — same shape as AK2-contributor-scenario.
+// Minimal ContributorStrategy — same shape as custom-strategy-session.integration.test.ts.
 // Writes a custom context file during assembleContext; the test asserts on it.
 // ---------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AK2 — Contributor Strategy: context assembly (unit, direct port call)", () => {
+describe("Custom strategy: context assembly (unit, direct port call)", () => {
 	let sandboxPath: string;
 
 	beforeEach(() => {
@@ -109,7 +109,7 @@ describe("AK2 — Contributor Strategy: context assembly (unit, direct port call
 		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	// Test #4 (demoted from AK2-contributor-scenario): context file in sandbox.
+	// Test #4 (demoted from custom-strategy-session.integration.test.ts): context file in sandbox.
 	// Asserts on capturedContextPath/capturedContextContent — values the Strategy
 	// itself wrote during assembleContext. This is a property of the Strategy object.
 	it("contributor Strategy's custom context assembly writes the expected file to the sandbox", async () => {
@@ -126,7 +126,7 @@ describe("AK2 — Contributor Strategy: context assembly (unit, direct port call
 			isRoutine: false,
 		});
 
-		// Assertions match AK2-contributor-scenario test #4 exactly.
+		// Assertions match custom-strategy-session.integration.test.ts test #4 exactly.
 		expect(strategy.capturedContextPath).toContain("contributor-context.md");
 		expect(strategy.capturedContextContent).toContain("Custom knowledge for session");
 

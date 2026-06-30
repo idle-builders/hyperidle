@@ -7,8 +7,8 @@
 ## What AR5 did
 
 Converted 5 dishonest bet-decomposition harness "integration" tests into honest ones:
-- 3 real-agent integration tests across the full `builtin/claude/codex/opencode` matrix (AK2-contributor, AK2-minimal, new AK3-real-decomposition), hard-fail on missing harness, zero `skipIf`.
-- Pure-logic assertions demoted to units (inertness → `minimal-strategy.test.ts`; AC5 `tools:[]` → `AK3-bet-decomposition.test.ts`), dropping the `.integration` label they didn't earn.
+- 3 real-agent integration tests across the full `builtin/claude/codex/opencode` matrix (custom-strategy-session, minimal-strategy-session, new bet-decomposition-real-agent), hard-fail on missing harness, zero `skipIf`.
+- Pure-logic assertions demoted to units (inertness → `minimal-strategy.test.ts`; AC5 `tools:[]` → `bet-decomposition.test.ts`), dropping the `.integration` label they didn't earn.
 
 The first real CLI-harness decomposition run surfaced and fixed 3 genuine production bugs the prior stubbed tests had masked.
 

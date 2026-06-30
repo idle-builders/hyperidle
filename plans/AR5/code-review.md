@@ -19,8 +19,8 @@
 (124 chars — fits the adapter's 200-char `{{prompt}}` slot without truncation). No `bet.description.slice` remains anywhere in the file (grep-confirmed). No per-harness prompt gating remains. Bet context reaches builtin via `messages:[{role:"user",content:betContext}]` (`:626`) and codex/claude via `AGENTS.md`/`CLAUDE.md` written to `scratchSandboxPath` (`:600–601`). The 200-char adapter cap is untouched (correctly out of scope). **The round-1 production-degrading, test-driven truncation is removed. Resolved.**
 
 ### BLOCK-2 (AC5 relocation) — FIX CONFIRMED ✅
-The entire AC5 `tools:[]` describe block moved verbatim to the unit file `AK3-bet-decomposition.test.ts:228–332` (`configCapturer` + `mockAdapterPool` + fixtures + the `SessionConfig`/`SessionHandle`/`HarnessCapabilities`/`AdapterPool` imports). The assertion is byte-identical: `expect(cfg.tools).toEqual([])` over every captured config (`:328–330`).
-`AK3-bet-decomposition.integration.test.ts` now contains **ZERO** constructed harness adapters — grep for `startSession|streamEvents|stopSession|getCapabilities|HarnessAdapter` returns nothing; the only `as unknown as` is the legitimate non-harness `sandbox` stub in `makeTestDeps` (`:196`), and the harness-type imports are gone from its import block. It is a clean service-integration file (real DB/eventBus + `runDecompositionTurn` override). **Resolved.**
+The entire AC5 `tools:[]` describe block moved verbatim to the unit file `bet-decomposition.test.ts:228–332` (`configCapturer` + `mockAdapterPool` + fixtures + the `SessionConfig`/`SessionHandle`/`HarnessCapabilities`/`AdapterPool` imports). The assertion is byte-identical: `expect(cfg.tools).toEqual([])` over every captured config (`:328–330`).
+`bet-decomposition-service.integration.test.ts` now contains **ZERO** constructed harness adapters — grep for `startSession|streamEvents|stopSession|getCapabilities|HarnessAdapter` returns nothing; the only `as unknown as` is the legitimate non-harness `sandbox` stub in `makeTestDeps` (`:196`), and the harness-type imports are gone from its import block. It is a clean service-integration file (real DB/eventBus + `runDecompositionTurn` override). **Resolved.**
 
 ---
 
@@ -67,23 +67,23 @@ And the production wiring delivers it: the decomposition turn writes `AGENTS.md`
 ## Test-honesty audit — updated
 
 ### AC1 — no scripted/echo harness adapter in any `.integration.test.ts`
-- AK2-contributor / AK2-minimal — Echo deleted, real 4-lane. ✅
-- AK3-real-decomposition — no adapter constructed; drives Branch 3 via `decompositionDepsForLane` over a real `AdapterPool`. ✅
-- AK3-bet-decomposition.integration — **NOW CLEAN** (BLOCK-2 resolved; config-capturer relocated to unit). ✅
+- custom-strategy-session / minimal-strategy-session — Echo deleted, real 4-lane. ✅
+- bet-decomposition-real-agent — no adapter constructed; drives Branch 3 via `decompositionDepsForLane` over a real `AdapterPool`. ✅
+- bet-decomposition-service.integration — **NOW CLEAN** (BLOCK-2 resolved; config-capturer relocated to unit). ✅
 - AK3-subscriber, AK8 — unchanged, never had an adapter. ✅
 **AC1 PASS.**
 
 ### AC2 — real agent produces decomposition; tasks asserted from real output
-Pinned assertion verbatim from W-2 (`AK3-real-decomposition:236–243`): `decompositionStatus==="done"` + `tasks.length>=1` + `tasks.every(t=>t.title.trim().length>=3)`. Fail-closed verified: empty/non-array → `runRealPmTurn` returns `[]` → `markTerminal("blocked","empty")` → `done` assert fails. Tasks asserted as DB rows. The round-1 compromise (opencode asserting on a truncated bet) is **gone** — opencode now decomposes the full bet via AGENTS.md. **AC2 PASS in code** (runtime green pending credits; the assertion cannot pass on fake/empty output). The only residue is the false comment (BLOCK-3), which does not weaken the assertion but misdocuments the path.
+Pinned assertion verbatim from W-2 (`bet-decomposition-real-agent:236–243`): `decompositionStatus==="done"` + `tasks.length>=1` + `tasks.every(t=>t.title.trim().length>=3)`. Fail-closed verified: empty/non-array → `runRealPmTurn` returns `[]` → `markTerminal("blocked","empty")` → `done` assert fails. Tasks asserted as DB rows. The round-1 compromise (opencode asserting on a truncated bet) is **gone** — opencode now decomposes the full bet via AGENTS.md. **AC2 PASS in code** (runtime green pending credits; the assertion cannot pass on fake/empty output). The only residue is the false comment (BLOCK-3), which does not weaken the assertion but misdocuments the path.
 
 ### AC3 — demoted units drop `.integration`; no fake-adapter `provisionSession`
 - Inertness → `minimal-strategy.test.ts` (no `.integration`, direct Strategy calls). ✅
-- AC5 `tools:[]` → now in `AK3-bet-decomposition.test.ts` unit (BLOCK-2 resolved). ✅
+- AC5 `tools:[]` → now in `bet-decomposition.test.ts` unit (BLOCK-2 resolved). ✅
 - AK8/subscriber/AK3-DB asserts kept as honest service-integration (need `db`). ✅
 **AC3 PASS.**
 
 ### AC4 — converted tests hard-fail on missing harness; none skip
-All three converts iterate the 4 lanes with literal `requireHarness("builtin"|"claude"|"codex"|"opencode")` at describe scope; zero `skipIf`/`.skip`. `AK3-real-decomposition` declares all four lanes as explicit `describe` blocks (`:253–271`) so the coverage guard finds the literal call expressions. Wired into `EXPLICIT_HARNESS_INTEGRATION` (predicate `:50`) + `HARNESS_INCLUDE` (vitest). Not in `coverage-debt.allowlist.json` → opencode is a hard-required lane (no excused subset). **AC4 PASS.**
+All three converts iterate the 4 lanes with literal `requireHarness("builtin"|"claude"|"codex"|"opencode")` at describe scope; zero `skipIf`/`.skip`. `bet-decomposition-real-agent` declares all four lanes as explicit `describe` blocks (`:253–271`) so the coverage guard finds the literal call expressions. Wired into `EXPLICIT_HARNESS_INTEGRATION` (predicate `:50`) + `HARNESS_INCLUDE` (vitest). Not in `coverage-debt.allowlist.json` → opencode is a hard-required lane (no excused subset). **AC4 PASS.**
 
 ### Over-demotion
 No assertion weakened or dropped. AC5 text byte-identical, only relocated. ✅
@@ -108,7 +108,7 @@ No assertion weakened or dropped. AC5 text byte-identical, only relocated. ✅
 
 ### NOTE (non-blocking)
 - **N-1** — `prepSandbox`'s only current consumer is the test helper; `@lore` justifies the seam. Keep.
-- **N-2** — override-driven `runBetDecomposition` asserts in `AK3-bet-decomposition.integration.test.ts` stay service-integration rather than demoted to units. Acceptable (need `db`).
+- **N-2** — override-driven `runBetDecomposition` asserts in `bet-decomposition-service.integration.test.ts` stay service-integration rather than demoted to units. Acceptable (need `db`).
 
 ---
 
@@ -116,8 +116,8 @@ No assertion weakened or dropped. AC5 text byte-identical, only relocated. ✅
 
 | AC | Requirement | Status | Evidence |
 |---|---|---|---|
-| AC1 | no scripted/echo harness adapter in any `.integration.test.ts` | **PASS** | AK2×2 + AK3-real clean; AK3-bet-decomposition double relocated to unit (BLOCK-2 fixed) |
-| AC2 | real agent produces decomposition; tasks asserted from real output | **PASS** | Pinned fail-closed assertion intact (`AK3-real-decomposition:236–243`); truncation removed → opencode decomposes the real bet via AGENTS.md (comment now matches verified vendor behavior). Runtime green across all 4 lanes pending OpenRouter credits (same ship-blocker as AR3/#386) |
+| AC1 | no scripted/echo harness adapter in any `.integration.test.ts` | **PASS** | custom-strategy-session + minimal-strategy-session + bet-decomposition-real-agent clean; bet-decomposition-service double relocated to unit (BLOCK-2 fixed) |
+| AC2 | real agent produces decomposition; tasks asserted from real output | **PASS** | Pinned fail-closed assertion intact (`bet-decomposition-real-agent:236–243`); truncation removed → opencode decomposes the real bet via AGENTS.md (comment now matches verified vendor behavior). Runtime green across all 4 lanes pending OpenRouter credits (same ship-blocker as AR3/#386) |
 | AC3 | demoted units drop `.integration`; no fake-adapter `provisionSession` | **PASS** | inertness + AC5 `tools:[]` both demoted to units; service-integration asserts honest |
 | AC4 | converted tests hard-fail on missing harness; none skip | **PASS** | 4-lane `requireHarness`, zero `skipIf`; predicate + vitest wired; not in coverage-debt allowlist |
 

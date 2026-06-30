@@ -1,7 +1,7 @@
 /**
- * AK2 — Contributor Strategy: Kernel→port plumbing assertions.
+ * Custom strategy: Kernel→port plumbing assertions.
  *
- * AR5 TEST-COST REFACTOR: Tests #2 and #3 from AK2-contributor-scenario were
+ * AR5 TEST-COST REFACTOR: Tests #2 and #3 from custom-strategy-session were
  * demoted here from the real-LLM × 4-harness matrix. Both assertions fire in
  * `admitSession` (phases 6-7 of session-provisioning.ts) BEFORE the harness
  * runs any LLM turn — they are deterministic Kernel plumbing, not agent behavior.
@@ -42,7 +42,7 @@ import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-reg
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Same ContributorStrategy definition as AK2-contributor-scenario (in-test).
+// Same ContributorStrategy definition as custom-strategy-session.integration.test.ts (in-test).
 // Duplicated deliberately: this file must stand alone without importing from
 // a harness-facing test file. The shape is intentionally minimal — only what
 // the two assertions here need.
@@ -203,7 +203,7 @@ function buildDeps(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AK2 — Contributor Strategy: Kernel plumbing (service-integration, no real LLM)", () => {
+describe("Custom strategy: Kernel→port plumbing (service-integration, no real LLM)", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -217,7 +217,7 @@ describe("AK2 — Contributor Strategy: Kernel plumbing (service-integration, no
 		}
 	});
 
-	// Test #2 (demoted from AK2-contributor-scenario): assembleContext request fields.
+	// Test #2 (demoted from custom-strategy-session): assembleContext request fields.
 	// Asserts on assembleContextCalls[0] fields (taskId/agentId/teamId/sandboxPath/sessionId).
 	// These fields are set in admitSession (session-provisioning.ts:538-546) BEFORE the harness.
 	test("Kernel passes correct assembleContext request fields to the contributor Strategy", async ({
@@ -248,7 +248,7 @@ describe("AK2 — Contributor Strategy: Kernel plumbing (service-integration, no
 		expect(req.sessionId.length).toBeGreaterThan(0);
 	});
 
-	// Test #3 (demoted from AK2-contributor-scenario): beginLearningIngestion + dispose.
+	// Test #3 (demoted from custom-strategy-session): beginLearningIngestion + dispose.
 	// Asserts ingestionCalls.length===1 + disposeCallCount===1.
 	// beginLearningIngestion fires at session-provisioning.ts:555; dispose at teardown.
 	// Both are independent of LLM output.

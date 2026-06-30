@@ -236,7 +236,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			// `<tmpDir>/.opencode-data` (the stock opencode config forwards XDG_DATA_HOME from
 			// the env allowlist). Auth is provisioned into that same dir here. opencode reads
 			// XDG_DATA_HOME from the env regardless of its cwd (= scratch sandbox), so auth is
-			// found. See AK3-real-decomposition.integration.test.ts beforeEach/afterEach.
+			// found. See bet-decomposition-real-agent.integration.test.ts beforeEach/afterEach.
 			if (!process.env.OPENROUTER_API_KEY) {
 				throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
 			}

@@ -1,5 +1,5 @@
 /**
- * AK2 — Contributor Strategy: register and run with zero Kernel changes.
+ * Custom strategy: register and run with zero Kernel changes.
  * AR5 CONVERSION: replaced EchoHarnessAdapter with real 4-lane matrix via
  * `runThroughHarness`. The thing under test is "a real session runs to
  * completion under a custom ContributorStrategy" — the harness IS the
@@ -23,10 +23,10 @@
  * AR5 TEST-COST REFACTOR: This file retains only test #1 (session runs to
  * completion) × 4 harness lanes. Tests #2/#3 (assembleContext request fields,
  * beginLearningIngestion/dispose lifecycle) are demoted to
- * AK2-contributor-kernel-plumbing.integration.test.ts (service-integration,
+ * strategy-port-kernel-wiring.integration.test.ts (service-integration,
  * deterministic MockHarnessAdapter — harness is NOT under test there).
  * Test #4 (context file in sandbox) is demoted to
- * AK2-contributor-context-assembly.test.ts (unit — direct port call, no DB).
+ * strategy-context-assembly.test.ts (unit — direct port call, no DB).
  * Net: 4 real sessions instead of 16. The 3 genuinely-harness-agnostic
  * plumbing assertions are preserved exactly in their new homes.
  */
@@ -71,7 +71,7 @@ interface ContributorRecord {
 	 * end, so post-session disk assertions would fail. We capture the path and content
 	 * in-memory during assembly and assert on those instead.
 	 *
-	 * @lore AK2: sandbox is deleted by endSession; capture disk state during assembly.
+	 * @lore context assembly lifecycle: sandbox is deleted by endSession; capture disk state during assembly.
 	 */
 	readonly capturedContextPath: string;
 	readonly capturedContextContent: string;
@@ -217,7 +217,7 @@ async function seedDomain(
 		title: "AK2 Contributor Task",
 		// @lore AR5: doneCondition drives the assembled prompt's completion instruction.
 		// Without it, opencode has no termination signal and may run >240s. With it,
-		// the agent writes answer.txt and returns. Mirrors AK2-minimal's task seed.
+		// the agent writes answer.txt and returns. Mirrors minimal-strategy-session task seed.
 		description:
 			"Write a file named answer.txt in the current directory containing the word 'done'. Then call submit_review or handoff_to to return.",
 		doneCondition: "answer.txt exists with content 'done'",
@@ -237,7 +237,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	/**
 	 * @lore AR5 opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db
 	 * (global SQLite). Without XDG_DATA_HOME isolation, rapid sequential opencode processes
-	 * in AK2-contributor's 4 tests can hit a write-lock → the second process hangs indefinitely.
+	 * in custom-strategy-session's 4 tests can hit a write-lock → the second process hangs indefinitely.
 	 * Mirrors the AR2 provision-real-session.integration.test.ts isolation pattern.
 	 * Only needed for opencode lane; set for all lanes for uniformity (no-op on non-opencode).
 	 */
@@ -278,8 +278,8 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	// This is the ONLY test that genuinely needs a real harness binary — it proves
 	// the open Strategy-Port seam carries a real session through to completion.
 	// Tests #2/#3/#4 (Kernel plumbing assertions independent of LLM output) are in
-	// AK2-contributor-kernel-plumbing.integration.test.ts and
-	// AK2-contributor-context-assembly.test.ts respectively.
+	// strategy-port-kernel-wiring.integration.test.ts and
+	// strategy-context-assembly.test.ts respectively.
 	test("contributor Strategy runs session to completion without modifying Kernel code", async ({
 		db,
 		eventBus,
@@ -314,22 +314,22 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 // finds literal requireHarness("...") call expressions in the source.
 // ---------------------------------------------------------------------------
 
-describe(`${BUILTIN_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+describe(`${BUILTIN_LANE.describeTag} Custom strategy — real agent session runs to completion`, () => {
 	requireHarness("builtin");
 	makeLaneDescribe(BUILTIN_LANE);
 });
 
-describe(`${CLAUDE_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+describe(`${CLAUDE_LANE.describeTag} Custom strategy — real agent session runs to completion`, () => {
 	requireHarness("claude");
 	makeLaneDescribe(CLAUDE_LANE);
 });
 
-describe(`${CODEX_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+describe(`${CODEX_LANE.describeTag} Custom strategy — real agent session runs to completion`, () => {
 	requireHarness("codex");
 	makeLaneDescribe(CODEX_LANE);
 });
 
-describe(`${OPENCODE_LANE.describeTag} AK2 — Contributor Strategy`, () => {
+describe(`${OPENCODE_LANE.describeTag} Custom strategy — real agent session runs to completion`, () => {
 	requireHarness("opencode");
 	makeLaneDescribe(OPENCODE_LANE);
 });

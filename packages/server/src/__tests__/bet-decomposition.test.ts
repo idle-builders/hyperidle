@@ -1,5 +1,5 @@
 /**
- * AK3 RED — Bet decomposition unit tests (pure logic, no DB/LLM).
+ * Bet decomposition unit tests (pure logic, no DB/LLM).
  *
  * Tests cover:
  *   - DECOMPOSITION_TURN_TIMEOUT_MS constant (AC6, shared with ASSISTANT_TURN_TIMEOUT_MS magnitude)
@@ -155,7 +155,7 @@ function makeFabricLikeStrategy() {
 // Type-level / pure-logic tests (no DB needed)
 // ---------------------------------------------------------------------------
 
-describe("AK3: DECOMPOSITION_TURN_TIMEOUT_MS constant", () => {
+describe("Bet decomposition — timeout constant", () => {
 	test("is a positive finite number", () => {
 		expect(typeof DECOMPOSITION_TURN_TIMEOUT_MS).toBe("number");
 		expect(Number.isFinite(DECOMPOSITION_TURN_TIMEOUT_MS)).toBe(true);
@@ -167,7 +167,7 @@ describe("AK3: DECOMPOSITION_TURN_TIMEOUT_MS constant", () => {
 	});
 });
 
-describe("AK3: DecompositionStatus type", () => {
+describe("Bet decomposition — DecompositionStatus type", () => {
 	test("accepts valid status values", () => {
 		// Type-level check via assignment — fails at compile time if the type is missing.
 		const running: DecompositionStatus = "running";
@@ -179,7 +179,7 @@ describe("AK3: DecompositionStatus type", () => {
 	});
 });
 
-describe("AK3: DecompositionBlockerReason type", () => {
+describe("Bet decomposition — DecompositionBlockerReason type", () => {
 	test("accepts valid blocker reason values", () => {
 		const noAgent: DecompositionBlockerReason = "no_eligible_agent";
 		const empty: DecompositionBlockerReason = "empty";
@@ -190,7 +190,7 @@ describe("AK3: DecompositionBlockerReason type", () => {
 	});
 });
 
-describe("AK3: DecompositionTaskInput type", () => {
+describe("Bet decomposition — DecompositionTaskInput type", () => {
 	test("accepts a minimal task with title only", () => {
 		const task: DecompositionTaskInput = { title: "Write tests" };
 		expect(task.title).toBe("Write tests");
@@ -220,19 +220,19 @@ describe("AK3: DecompositionTaskInput type", () => {
 // eventBus; no real harness binary), confirming a STATIC behavioral property
 // of runRealPmTurn — that it always passes tools:[] to startSession.
 //
-// Moved here from AK3-bet-decomposition.integration.test.ts per W-5 mandate:
+// Moved here from bet-decomposition-service.integration.test.ts per W-5 mandate:
 // a config-capturing harness double is not a real integration point and must
 // not live in a *.integration.test.ts file. The assertion is verbatim.
 // ---------------------------------------------------------------------------
 
-describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
+describe("Bet decomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
 	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
 	// and the PM pick (bet_decomposer) returns the seeded agent.
 	// AK7 Phase-4: runBetDecomposition now routes the PM pick through selectOwner →
 	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
 	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
 	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
-	// @lore AK3: The real PM turn path is only reached when selectOwner resolves a PM.
+	// @lore bet decomposition: The real PM turn path is only reached when selectOwner resolves a PM.
 	// Under AK7, selectAgent(bet_decomposer) must return a non-null agentId here.
 	beforeEach(() => {
 		setActiveStrategy(makeFabricLikeStrategy());
@@ -284,7 +284,7 @@ describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sove
 
 		// Minimal structural adapterPool: select() returns a SelectedEntry wrapping the capturer.
 		// release() is a no-op. No real AdapterPool instantiated.
-		// @lore AK3: We use a structural mock here (not an AdapterPool instance) because
+		// @lore bet decomposition: We use a structural mock here (not an AdapterPool instance) because
 		// AdapterPool.register() requires AdapterMeta fields we don't care about in this test.
 		// The BetDecompositionDeps type expects AdapterPool but uses only select() + release().
 		const mockAdapterPool = {

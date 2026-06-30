@@ -72,7 +72,7 @@ The lint check gates the source; the attestation gates execution. Together, a su
 
 `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` is the first test that satisfies both gates for all four harnesses. It drives each through production `provisionSession()` and is the reference implementation adopted by AR3–AR6 (conversion complete as of AR6).
 
-`packages/server/src/harness/__tests__/AK3-real-decomposition.integration.test.ts` (AR5) drives each harness through the production **decomposition** path — `runBetDecomposition` Branch 3 → `runRealPmTurn` — not through `provisionSession`. This is a distinct seam; the two test files prove complementary things: AR2 proves "a real session runs to completion under each harness," AR5 proves "a real agent decomposes a bet and the tasks land in the DB."
+`packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts` (AR5) drives each harness through the production **decomposition** path — `runBetDecomposition` Branch 3 → `runRealPmTurn` — not through `provisionSession`. This is a distinct seam; the two test files prove complementary things: AR2 proves "a real session runs to completion under each harness," AR5 proves "a real agent decomposes a bet and the tasks land in the DB."
 
 ### Reusable matrix helpers
 
@@ -165,7 +165,7 @@ opencode emits tool calls on a `tool_use` event that `harness-event-normalizatio
 
 ### opencode completion event carries `part.text`, not top-level `text` (fixed in AR5)
 
-opencode's stream emits completion events where the text lives in `event.part.text`, not `event.text`. `harness-event-normalization.ts` was reading `event.text` (undefined for opencode) — so every opencode completion normalized to an empty string. AR5 ships the fix: the normalizer now reads `event.part?.text ?? event.text` for opencode completion events. Surfaced by the AR5 real-harness decomposition run (`AK3-real-decomposition`).
+opencode's stream emits completion events where the text lives in `event.part.text`, not `event.text`. `harness-event-normalization.ts` was reading `event.text` (undefined for opencode) — so every opencode completion normalized to an empty string. AR5 ships the fix: the normalizer now reads `event.part?.text ?? event.text` for opencode completion events. Surfaced by the AR5 real-harness decomposition run (`bet-decomposition-real-agent`).
 
 ### CLI harnesses emit multiple completion events per session (surfaced in AR5)
 
@@ -188,4 +188,4 @@ During a CLI session, adapters emit several completion events in sequence: init/
 | `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + helpers (session path) |
 | `packages/server/src/harness/__tests__/provision-real-decomposition.ts` | `decompositionDepsForLane` — builds `BetDecompositionDeps` with a real `AdapterPool` for each harness lane, forces Branch 3 by omitting the `runDecompositionTurn` override (AR5) |
 | `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` | Reference 4-harness session matrix test |
-| `packages/server/src/harness/__tests__/AK3-real-decomposition.integration.test.ts` | 4-harness decomposition matrix test (AR5) — asserts ≥1 persisted task + `decompositionStatus=done` from a real agent |
+| `packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts` | 4-harness decomposition matrix test (AR5) — asserts ≥1 persisted task + `decompositionStatus=done` from a real agent |

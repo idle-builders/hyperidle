@@ -1,5 +1,5 @@
 /**
- * AK3 RED — Bet decomposition integration tests.
+ * Bet decomposition integration tests (service).
  *
  * Tests cover:
  *   AC1  — Committing a bet produces ≥1 task breakdown (via runDecompositionTurn override)
@@ -203,7 +203,7 @@ function makeTestDeps(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AK3: findEligibleTeamAgents", () => {
+describe("Bet decomposition — eligible team agents", () => {
 	test("returns active AI team-category agents for the bet team (AC2)", async ({ db }) => {
 		const { teamId, membershipId } = await seedTeamWithAgent(db);
 		const eligible = await findEligibleTeamAgents(db, teamId);
@@ -255,7 +255,7 @@ describe("AK3: findEligibleTeamAgents", () => {
 	});
 });
 
-describe("AK3: insertProposedBetTasks", () => {
+describe("Bet decomposition — proposed task insertion", () => {
 	// AK7 Phase-4: insertProposedBetTasks now routes through selectOwner →
 	// getActiveStrategy(). Register the Fabric-equivalent strategy so calls resolve.
 	// Assertions below are FROZEN (setup-only change per AK7 code-review ruling).
@@ -338,7 +338,7 @@ describe("AK3: insertProposedBetTasks", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — no-eligible-agent path (AC4)", () => {
+describe("Bet decomposition — no eligible agent blocks decomposition (AC4)", () => {
 	test("sets decomposition_status=blocked, reason=no_eligible_agent, zero tasks inserted", async ({
 		db,
 		eventBus,
@@ -364,7 +364,7 @@ describe("AK3: runBetDecomposition — no-eligible-agent path (AC4)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
+describe("Bet decomposition — happy path produces tasks (AC1, AC2)", () => {
 	// AK7 Phase-4: runBetDecomposition routes PM pick + per-task owner through selectOwner.
 	// Register Fabric-equivalent strategy; assertions below are FROZEN.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
@@ -406,7 +406,7 @@ describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — timeout/error path (AC6)", () => {
+describe("Bet decomposition — timeout and error handling (AC6)", () => {
 	// AK7 Phase-4: PM pick goes through selectOwner; register strategy so it resolves.
 	// Assertions frozen — setup only.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
@@ -462,7 +462,7 @@ describe("AK3: runBetDecomposition — timeout/error path (AC6)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — idempotency / CAS guard (AC7)", () => {
+describe("Bet decomposition — idempotency CAS guard (AC7)", () => {
 	test("runBetDecomposition with status already 'running' does NOT produce duplicate tasks", async ({
 		db,
 		eventBus,
@@ -496,7 +496,7 @@ describe("AK3: runBetDecomposition — idempotency / CAS guard (AC7)", () => {
 	});
 });
 
-describe("AK3: resolveOrphanedDecompositions — boot-time crash recovery (CRITICAL-3, AC3)", () => {
+describe("Bet decomposition — orphan recovery on boot (AC3)", () => {
 	test("flips any 'running' bet to blocked/failed", async ({ db }) => {
 		await db.insert(teams).values(makeTeam("team-orphan"));
 		await db.insert(teamMembers).values(makeMembership("tm-orphan", "team-orphan"));
@@ -547,7 +547,7 @@ describe("AK3: resolveOrphanedDecompositions — boot-time crash recovery (CRITI
 	});
 });
 
-describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
+describe("Bet decomposition — GET /bets/:id returns decomposition fields (API shape)", () => {
 	test("response includes decompositionStatus and decompositionBlockerReason fields", async ({
 		db,
 		app,

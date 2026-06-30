@@ -45,9 +45,9 @@ export type SupportedHarness = (typeof SUPPORTED_HARNESSES)[number];
 export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
 	"__tests__/session-provisioning.integration.test.ts",
 	// AR5: converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
-	"__tests__/AK2-contributor-scenario.integration.test.ts",
-	"__tests__/AK2-minimal-strategy.integration.test.ts",
-	"__tests__/AK3-real-decomposition.integration.test.ts",
+	"__tests__/custom-strategy-session.integration.test.ts",
+	"__tests__/minimal-strategy-session.integration.test.ts",
+	"__tests__/bet-decomposition-real-agent.integration.test.ts",
 ];
 
 /** Harness-dir integration suffix: `…/harness/__tests__/<anything>.integration.test.ts`. */
