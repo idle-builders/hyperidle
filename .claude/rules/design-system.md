@@ -7,26 +7,31 @@ paths:
 
 # Design System
 
-Components live in `packages/design-system` (Foundation/Primitives/Blocks). Shell/region components stay in `packages/web/src/shell/`.
+Components live in `packages/design-system` (Foundation / Primitives / Blocks). Shell / region components stay in `packages/web/src/shell/`.
 
-**Single source of truth:** Each component has exactly one `.tsx` (production, Tailwind). TSX is the design source of truth — there are no `.html` reference files. The `.tsx` story IS the design artifact. (AJ1 inverted HTML-as-truth; the `html/` tree was deleted.)
+**Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the design source of truth — there are no `.html` reference files; the `.tsx` story IS the design artifact. Every custom component must have a `.stories.tsx` — stories are a required deliverable, not optional documentation.
 
-**Story format:** default export `{ title: "Name", group?: GroupName }`, named exports are React components each rendering one variant. `group` is optional — most stories are classified automatically from their path; use it only for area-less page stories that have no folder signal (e.g. `group: "Work"`). Auto-discovered via `import.meta.glob` — stories in `packages/design-system/src/` (including `src/kinds/`), `packages/web/src/components/`, `packages/web/src/shell/`, `packages/web/src/pages/` (flat + nested), `packages/web/src/settings/`, and `packages/web/src/layouts/` all appear in the viewer at `:8098`.
+**Story format.** default export `{ title: "Name", group?: GroupName }`; named exports are React components, one variant each. `group` is optional — most stories classify automatically from their path; use it only for area-less page stories that have no folder signal (e.g. `group: "Work"`).
 
-**Catalog groups (AJ6):** the viewer organizes stories into two axes — **Tier groups** (Foundation, Primitives, Blocks — domain-agnostic reuse vocabulary) then **Domain groups** (Work, Knowledge, Conversations, Artifacts, Settings, System — product areas). Classification is derived from the story's source path; the central `DS_COMPONENT_GROUPS` registry in `discovery.ts` handles the flat `design-system/src/` root where path carries no axis signal. A `group` field in the story's default export is the escape hatch for area-less stories that can't be derived from path or title. See `packages/design-system/viewer/discovery.ts`.
+## Reuse before build (CRITICAL)
 
-**Data attributes on components:** `data-ds-component`, `data-ds-shell` (shell components use `data-ds-shell` instead of `data-ds-component`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on outermost element. Inner sub-components also carry `data-ds-component` + `data-ds-tier`. These DOM markers are a separate component-identity concern from catalog grouping — they drive the AJ5 annotation overlay and the visual regression snapshot net.
+Before adding any component, hook, or helper, read `packages/design-system/src/index.ts` (and the `@hyperidle/shared` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
 
-**Token source of truth:** `packages/design-system/DESIGN.md` and `packages/design-system/src/tokens.css`.
+## Component budget & promotion
 
-**Design principles:** `packages/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
+- **Budget.** Only the components catalogued in `packages/design-system/DESIGN.md`. Any addition needs a written reason.
+- **Promotion.** A component consumed by 2+ pages belongs in `packages/design-system/`, not page-local.
 
-**Theme variants:** Two theme modes: Hearth Dark + Hearth Light. Theme tokens live in `packages/design-system/src/tokens.css`. The viewer at `:8098` has a Dark/Light toggle in the toolbar. Hearth is light-first: default is `hearth-light`.
+## Tokens
 
-**Design critique:** runs in-session inside `/design` (Phase 2) — evaluates components on 9 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish) with a 0-10 score. The previously separate `/design-critique` skill was collapsed into `/design` in block-1b.
+- **Source of truth:** `packages/design-system/DESIGN.md` + `packages/design-system/src/tokens.css`. Two theme modes (Hearth Dark + Hearth Light); Hearth is light-first, default `hearth-light`.
+- Every `var(--…)` a component references MUST exist in `tokens.css`. A dangling token reference renders as silent breakage — CRITICAL.
+- **Design principles:** `packages/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
 
-**Visual feedback:** The live TSX viewer at `:8098` is the primary feedback surface. Run `npm run ds:serve` to start it. The **first-party annotation overlay** (AJ7 devtools-style inspector) is the primary feedback tool — a rail docked at the right edge of every component page. Click "Inspect", hover the canvas (each element highlights with a tracked overlay box), click to select, refine via the ancestor breadcrumb, write a note, Save (`Cmd/Ctrl+Enter`). Saved notes list in the rail; hover a note row to re-highlight its element. Notes land in `.annotations/annotations.json` (canonical, rounds + per-note anchors) and `.annotations/annotations.md` (agent-readable). "New iteration" starts a new review round. The inspector never mutates the inspected DOM and never ships in a production bundle. Fallback: bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
+## Visual review & annotation
 
-**Visual regression gate:** The vitest DOM-snapshot net (`packages/design-system/src/__tests__/catalog-snapshot.test.tsx`, runs in `npm run test`) renders every catalogued story and snapshots normalized DOM+class text. An intended component change → review the text diff → re-bless with `vitest -u` (or `npm run ds:bless`). See `.claude/rules/visual-regression.md`.
+Live story rendering + browser annotation is provided by the **`/pipeline:human-concept-review` skill's component viewer**. For a high-stakes change the founder annotates the live render there and the planner revises the real TSX until approval. Design critique (9 dimensions — hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish, 0–10) runs in `/pipeline:design-critique`. For the visual-regression policy, see `visual-regression.md`.
 
-Every custom component must have a `.stories.tsx` file. Stories are a required deliverable, not optional documentation.
+**Data attributes** on components — `data-ds-component` (shell components use `data-ds-shell`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry `data-ds-component` + `data-ds-tier`. These DOM markers carry component identity and drive the skill's annotation overlay.
+
+**Layout** must match the approved design and the app-shell structure in `docs/information-architecture/`.
