@@ -102,20 +102,7 @@ import {
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "./provision-real-session.js";
-import { requireHarness } from "./require-harness.js";
-
-// ─── Shared constants ────────────────────────────────────────────────────────
-
-/**
- * Closed, bounded model list for the builtin lane. Mirrors the AM2 pattern:
- * auth error (401/403) → FAIL immediately; model-not-found → try next;
- * all fail → throw. Never an unbounded fallback.
- *
- * @lore AR2: `openai/gpt-4o-mini` supports tool use (function calling) and is
- * cheap. `openai/gpt-3.5-turbo` is the fallback. The list is bounded so catalog
- * churn does not silently succeed with an unbounded model list.
- */
-const BUILTIN_MODEL_CANDIDATES = ["openai/gpt-4o-mini", "openai/gpt-3.5-turbo"] as const;
+import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 
 const NOW = "2026-06-29T00:00:00.000Z";
 
@@ -240,87 +227,28 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 		});
 
 		// AC4 (M-1): drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
-		// Builtin uses a candidate-model retry loop because cheap OpenRouter models
-		// may not all be available. Override the model per candidate attempt.
-		// The lane table carries the primary model (gpt-4o-mini); we retry with the
-		// fallback (gpt-3.5-turbo) if the primary is unavailable — test-level concern,
-		// not a lane-table concern.
-		let lastError: unknown = null;
-		let succeeded = false;
-
-		for (const candidate of BUILTIN_MODEL_CANDIDATES) {
-			// Build a fresh lane ctx with the candidate model patched in via env override.
-			// The builtin lane's prepFn reads OPENROUTER_API_KEY from process.env.
-			// We override the model by building a thin lane wrapper with the candidate.
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
-
-			// Import AdapterPool + BuiltinHarnessAdapter inline for the candidate retry.
-			// This is the only builtin-lane test concern that doesn't fit the general loop:
-			// the general lane table uses the primary model; candidate retry is local here.
-			const { AdapterPool: AP } = await import("../adapter-pool.js");
-			const { BuiltinHarnessAdapter: BHA } = await import("../builtin-harness-adapter.js");
-			const pool = new AP();
-			pool.register("builtin-local", new BHA({ maxIterations: 8, maxOutputTokens: 1024 }), {
-				name: "builtin-local",
-				kind: "local",
-				modelProviders: ["openai-compatible"],
-				maxConcurrent: 1,
-			});
-
-			const { createSandboxCapture } = await import("./provision-real-session.js");
-			const { LocalSandboxAdapter: LSA } = await import("../local-sandbox-adapter.js");
-			const { provisionSession } = await import("../../services/session-provisioning.js");
-
-			const cap = createSandboxCapture();
-			const result = await provisionSession(
-				{
-					db,
-					eventBus,
-					adapterPool: pool,
-					workspace: new LSA(),
-					onBeforeTeardown: cap.onBeforeTeardown,
+		// AR7: model is LOCKED — HARNESS_TEST_MODELS.builtin.model (deepseek/deepseek-v4-flash).
+		// No candidate retry loop: the matrix is founder-set, not a runtime choice.
+		// lockedHarnessAdapter inside BUILTIN_LANE.prepFn supplies the correct adapter+model.
+		const { result } = await runThroughHarness(
+			{
+				...BUILTIN_LANE!,
+				prepFn: (ctx) => {
+					const base = BUILTIN_LANE!.prepFn(ctx);
+					return {
+						...base,
+						params: { ...base.params, taskId, agentId },
+					};
 				},
-				{
-					taskId,
-					agentId,
-					productId: "p1",
-					sandboxBasePath: tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible",
-						model: candidate,
-						apiKey,
-						baseUrl: "https://openrouter.ai/api",
-					},
-				},
-			).then(
-				(r) => r,
-				(err: unknown) => {
-					const msg = err instanceof Error ? err.message : String(err);
-					if (/401|403|Unauthorized|Forbidden/i.test(msg)) {
-						throw new Error(
-							`AR2 Lane 1 FAIL: builtin key present but got auth error for model "${candidate}": ${msg}`,
-						);
-					}
-					lastError = err;
-					return null;
-				},
-			);
+			},
+			{ db, eventBus, tmpDir },
+		);
 
-			if (result !== null) {
-				// AC1: real cost > 0 — a stub/echo run yields 0. Primary AC1 proof.
-				// W6: UNCONDITIONAL — fires whenever the turn completes.
-				expect(result.totalCostCents).toBeGreaterThan(0);
-				succeeded = true;
-				break;
-			}
-		}
-
-		if (!succeeded) {
-			throw new Error(
-				`AR2 Lane 1: all candidates in bounded list ${JSON.stringify(BUILTIN_MODEL_CANDIDATES)} failed. ` +
-					`Final error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-			);
-		}
+		// AC1: real cost > 0 — a stub/echo run yields 0. Primary AC1 proof.
+		// W6: UNCONDITIONAL — fires whenever the turn completes.
+		// The locked model is HARNESS_TEST_MODELS.builtin.model.
+		expect(result.totalCostCents).toBeGreaterThan(0);
+		expect(HARNESS_TEST_MODELS.builtin.model).toBe("deepseek/deepseek-v4-flash");
 	}, 240_000);
 });
 
