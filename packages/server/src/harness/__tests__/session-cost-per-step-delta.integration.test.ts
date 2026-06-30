@@ -61,17 +61,17 @@ import type { SessionHandle } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import type { HarnessLane } from "../harness/__tests__/provision-real-session.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import { AdapterPool } from "../adapter-pool.js";
+import type { HarnessLane } from "./provision-real-session.js";
 import {
 	lockedHarnessAdapter,
 	runThroughHarness,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
+} from "./provision-real-session.js";
+import { requireHarness } from "./require-harness.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared constants
@@ -150,125 +150,224 @@ async function seedCostDomain(
 
 // ────────────────────────────────────────────────────────────────────────────
 // Matrix: 1 test × 4 harness lanes (equal per-harness count by construction)
+//
+// Four explicit describe blocks — literal requireHarness("<name>") per lane so
+// the honest-harness-guard AR7 static coverage check sees all four harnesses.
+// Shared test body factored into runCostDeltaLane() to avoid logic duplication.
+// Lane is looked up by name from SUPPORTED_HARNESS_LANES via laneFor().
 // ────────────────────────────────────────────────────────────────────────────
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-	describe(`${lane.describeTag} per-step cost delta accumulates correctly in provisionSession`, () => {
-		// Hard-fail if this harness is not available — never skipIf to green.
-		requireHarness(lane.harnessName);
-
-		let tmpDir: string;
-		// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-		let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
-			null;
-		let xdgDataHomeBefore: string | undefined;
-
-		beforeEach(async () => {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `cost-delta-${lane.harnessName}-`));
-			clearDeduplicationCache();
-			setActiveStrategy(minimalStrategy);
-			// Start a bridge for all lanes — CLI lanes require it; builtin ignores ctx.bridge.
-			bridge = await startMcpBridgeServer();
-			// Isolate opencode's global SQLite DB per-test via XDG_DATA_HOME.
-			// @lore AR2 opencode-xdg-isolation: concurrent or rapid sequential opencode processes
-			// share ~/.local/share/opencode/opencode.db → SQLite write-lock → second process hangs.
-			// Fix: point XDG_DATA_HOME at a per-test dir so each subprocess has its own DB.
-			if (lane.harnessName === "opencode") {
-				xdgDataHomeBefore = process.env.XDG_DATA_HOME;
-				const xdgDataHome = path.join(tmpDir, ".opencode-data");
-				process.env.XDG_DATA_HOME = xdgDataHome;
-			}
-		});
-
-		afterEach(async () => {
-			clearActiveStrategy();
-			if (lane.harnessName === "opencode") {
-				if (xdgDataHomeBefore !== undefined) {
-					process.env.XDG_DATA_HOME = xdgDataHomeBefore;
-				} else {
-					delete process.env.XDG_DATA_HOME;
-				}
-			}
-			if (bridge) {
-				await bridge.close();
-				bridge = null;
-			}
-			if (fs.existsSync(tmpDir)) {
-				fs.rmSync(tmpDir, { recursive: true, force: true });
-			}
-		});
-
-		test("costActual in DB equals result.totalCostCents after a real session", async ({
-			db,
-			eventBus,
-		}) => {
-			if (!bridge) throw new Error("bridge not set up");
-
-			const ts = Date.now();
-			const teamId = `cost-probe-team-${lane.harnessName}-${ts}`;
-			const tmId = `cost-probe-tm-${lane.harnessName}-${ts}`;
-			const betId = `cost-probe-bet-${lane.harnessName}-${ts}`;
-			const agentId = `cost-probe-agent-${lane.harnessName}-${ts}`;
-			const taskId = `cost-probe-task-${lane.harnessName}-${ts}`;
-
-			await seedCostDomain(db, { taskId, agentId, teamId, tmId, betId });
-
-			// Patch the lane's prepFn to use our pre-seeded taskId/agentId.
-			// The lane table generates its own IDs; we override them so the session
-			// joins the domain rows we just inserted.
-			const patchedLane: HarnessLane = {
-				...lane,
-				prepFn: (ctx) => {
-					const base = lane.prepFn(ctx);
-					return {
-						...base,
-						params: { ...base.params, taskId, agentId, productId: teamId },
-					};
-				},
-			};
-
-			const { result } = await runThroughHarness(patchedLane, {
-				db,
-				eventBus,
-				tmpDir,
-				bridge,
-			});
-
-			// Real session must reach a terminal (non-crashed) state.
-			expect(result.outcome).not.toBe("crashed");
-
-			// Read back the DB-accumulated cost.
-			const [agentRow] = await db
-				.select({ costActual: users.costActual })
-				.from(users)
-				.where(eq(users.id, agentId))
-				.limit(1);
-
-			const costActual = agentRow?.costActual ?? 0;
-
-			// Harness-agnostic invariant: costActual === result.totalCostCents.
-			//
-			// On builtin/claude: both accumulate real cents; equality catches the
-			//   running-total bug (if session-provisioning.ts:1074 passes the running
-			//   total instead of the delta, costActual inflates to Σ(running totals)
-			//   while result.totalCostCents stays Σ deltas → DIVERGE → RED).
-			//
-			// On codex/opencode: both are legitimately 0 (those CLIs emit no
-			//   total_cost_usd event, so no cost extraction fires). 0 === 0 is correct:
-			//   the invariant still holds and would catch a regression if cost events
-			//   were added to those adapters while the bug existed.
-			expect(costActual).toBe(result.totalCostCents);
-
-			// Verify the session row reached a terminal state.
-			const [sessionRow] = await db
-				.select({ state: sessions.state })
-				.from(sessions)
-				.where(eq(sessions.id, result.sessionId))
-				.limit(1);
-			expect(sessionRow?.state).toBe("done");
-		}, 240_000);
-	});
+/** Look up a lane from the SUPPORTED_HARNESS_LANES table by harness name. */
+function laneFor(name: string): HarnessLane {
+	const found = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === name);
+	if (!found) throw new Error(`laneFor: no lane for harness "${name}" in SUPPORTED_HARNESS_LANES`);
+	return found;
 }
+
+/**
+ * Shared test body for the cost-delta matrix.
+ * Runs a real provisionSession through the given lane and asserts:
+ *   - outcome is not "crashed"
+ *   - costActual in DB equals result.totalCostCents (delta accumulation invariant)
+ *   - session row reaches state "done"
+ */
+async function runCostDeltaLane(
+	lane: HarnessLane,
+	ctx: Parameters<typeof runThroughHarness>[1] & { bridge: NonNullable<Parameters<typeof runThroughHarness>[1]["bridge"]> },
+): Promise<void> {
+	const { db, eventBus, tmpDir, bridge } = ctx;
+
+	const ts = Date.now();
+	const teamId = `cost-probe-team-${lane.harnessName}-${ts}`;
+	const tmId = `cost-probe-tm-${lane.harnessName}-${ts}`;
+	const betId = `cost-probe-bet-${lane.harnessName}-${ts}`;
+	const agentId = `cost-probe-agent-${lane.harnessName}-${ts}`;
+	const taskId = `cost-probe-task-${lane.harnessName}-${ts}`;
+
+	await seedCostDomain(db, { taskId, agentId, teamId, tmId, betId });
+
+	// Patch the lane's prepFn to use our pre-seeded taskId/agentId.
+	// The lane table generates its own IDs; we override them so the session
+	// joins the domain rows we just inserted.
+	const patchedLane: HarnessLane = {
+		...lane,
+		prepFn: (c) => {
+			const base = lane.prepFn(c);
+			return {
+				...base,
+				params: { ...base.params, taskId, agentId, productId: teamId },
+			};
+		},
+	};
+
+	const { result } = await runThroughHarness(patchedLane, {
+		db,
+		eventBus,
+		tmpDir,
+		bridge,
+	});
+
+	// Real session must reach a terminal (non-crashed) state.
+	expect(result.outcome).not.toBe("crashed");
+
+	// Read back the DB-accumulated cost.
+	const [agentRow] = await db
+		.select({ costActual: users.costActual })
+		.from(users)
+		.where(eq(users.id, agentId))
+		.limit(1);
+
+	const costActual = agentRow?.costActual ?? 0;
+
+	// Harness-agnostic invariant: costActual === result.totalCostCents.
+	//
+	// On builtin/claude: both accumulate real cents; equality catches the
+	//   running-total bug (if session-provisioning.ts:1074 passes the running
+	//   total instead of the delta, costActual inflates to Σ(running totals)
+	//   while result.totalCostCents stays Σ deltas → DIVERGE → RED).
+	//
+	// On codex/opencode: both are legitimately 0 (those CLIs emit no
+	//   total_cost_usd event, so no cost extraction fires). 0 === 0 is correct:
+	//   the invariant still holds and would catch a regression if cost events
+	//   were added to those adapters while the bug existed.
+	expect(costActual).toBe(result.totalCostCents);
+
+	// Verify the session row reached a terminal state.
+	const [sessionRow] = await db
+		.select({ state: sessions.state })
+		.from(sessions)
+		.where(eq(sessions.id, result.sessionId))
+		.limit(1);
+	expect(sessionRow?.state).toBe("done");
+}
+
+// ── Lane 1: [harness:builtin] ─────────────────────────────────────────────────
+
+describe(`[harness:builtin] per-step cost delta accumulates correctly in provisionSession`, () => {
+	requireHarness("builtin");
+
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cost-delta-builtin-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runCostDeltaLane(laneFor("builtin"), { db, eventBus, tmpDir, bridge });
+	}, 240_000);
+});
+
+// ── Lane 2: [harness:claude] ──────────────────────────────────────────────────
+
+describe(`[harness:claude] per-step cost delta accumulates correctly in provisionSession`, () => {
+	requireHarness("claude");
+
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cost-delta-claude-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runCostDeltaLane(laneFor("claude"), { db, eventBus, tmpDir, bridge });
+	}, 240_000);
+});
+
+// ── Lane 3: [harness:codex] ───────────────────────────────────────────────────
+
+describe(`[harness:codex] per-step cost delta accumulates correctly in provisionSession`, () => {
+	requireHarness("codex");
+
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cost-delta-codex-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runCostDeltaLane(laneFor("codex"), { db, eventBus, tmpDir, bridge });
+	}, 240_000);
+});
+
+// ── Lane 4: [harness:opencode] ────────────────────────────────────────────────
+
+describe(`[harness:opencode] per-step cost delta accumulates correctly in provisionSession`, () => {
+	requireHarness("opencode");
+
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	let xdgDataHomeBefore: string | undefined;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cost-delta-opencode-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+		// Isolate opencode's global SQLite DB per-test via XDG_DATA_HOME.
+		// @lore AR2 opencode-xdg-isolation: concurrent or rapid sequential opencode processes
+		// share ~/.local/share/opencode/opencode.db → SQLite write-lock → second process hangs.
+		// Fix: point XDG_DATA_HOME at a per-test dir so each subprocess has its own DB.
+		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
+		process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (xdgDataHomeBefore !== undefined) {
+			process.env.XDG_DATA_HOME = xdgDataHomeBefore;
+		} else {
+			delete process.env.XDG_DATA_HOME;
+		}
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runCostDeltaLane(laneFor("opencode"), { db, eventBus, tmpDir, bridge });
+	}, 240_000);
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // Magnitude + sanity-break proof (builtin only, NO [harness:X] tag)

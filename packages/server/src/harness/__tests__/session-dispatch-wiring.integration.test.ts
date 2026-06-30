@@ -61,18 +61,18 @@ import { clearProvisionSessionFn } from "@hyperidle/fabric";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { createServer } from "../../server-factory.js";
+import { encryptCredentialValue } from "../../services/credential-encryption.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	lockedHarnessAdapter,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { harnessTestResolvedModel, requireHarness } from "../harness/__tests__/require-harness.js";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import { createServer } from "../server-factory.js";
-import { encryptCredentialValue } from "../services/credential-encryption.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
+} from "./provision-real-session.js";
+import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -313,206 +313,217 @@ describe("dispatch-queue endpoint is reachable on a booted server", () => {
 });
 
 // ─── Harness matrix (4 × 1) ──────────────────────────────────────────────────
-// One describe per supported harness; identical test shape per lane.
-// Equal counts: 1 agentic test per lane = 4 total.
+// Four explicit describe blocks — literal requireHarness("<name>") per lane so
+// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// Shared test body factored into runDispatchMatrixLane() to avoid duplication.
+// Lane is looked up from SUPPORTED_HARNESS_LANES via laneFor().
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-	describe(`${lane.describeTag} dispatcher auto-provisions a session for an accepted task`, () => {
-		// Hard-fail if the harness is absent — never skip.
-		requireHarness(lane.harnessName);
+/** Look up a lane from SUPPORTED_HARNESS_LANES by harness name. */
+function laneFor(name: string): import("./provision-real-session.js").HarnessLane {
+	const found = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === name);
+	if (!found) throw new Error(`laneFor: no lane for "${name}" in SUPPORTED_HARNESS_LANES`);
+	return found;
+}
 
-		let sandboxBasePath: string;
-		let dbDir: string;
-		let bridge: {
-			// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
-			mcpBridgeRegistry: any;
-			mcpBaseUrl: string;
-			close: () => Promise<void>;
-		} | null = null;
+async function runDispatchMatrixLane(
+	lane: import("./provision-real-session.js").HarnessLane,
+	db: Parameters<typeof createServer>[1]["db"],
+	sandboxBasePath: string,
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,
+): Promise<void> {
+	// Map harness name to the canonical harnessType matching the adapter pool registration.
+	// @lore dispatch-wiring: -cli suffixes are NOT canonical — corrected to match adapter-pool.ts.
+	const harnessType =
+		lane.harnessName === "builtin"
+			? "builtin"
+			: lane.harnessName === "claude"
+				? "claude-code"
+				: lane.harnessName === "codex"
+					? "codex"
+					: "opencode";
 
-		beforeEach(async () => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			dbDir = fs.mkdtempSync(path.join(os.tmpdir(), `dispatch-${lane.harnessName}-db-`));
-			vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
-			clearProvisionSessionFn();
-			sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), `dispatch-${lane.harnessName}-`));
-			// CLI lanes need a real MCP bridge so provisionSession can write .mcp.json.
-			if (lane.harnessName !== "builtin") {
-				bridge = await startMcpBridgeServer();
-			}
+	const { taskId } = await seedDispatchDomain(db, {
+		prefix: `dispatch-${lane.harnessName}`,
+		harnessType,
+	});
+
+	// Per-lane gateway seeding.
+	if (lane.harnessName === "claude") {
+		await seedAnthropicGatewayConfig(db);
+	} else {
+		await seedOpenrouterGatewayConfig(db);
+	}
+
+	// Build the adapter pool for this lane.
+	// @lore AR7-seam: adapters via lockedHarnessAdapter() — import-ban satisfied.
+	let pool: AdapterPool;
+	if (lane.harnessName === "builtin") {
+		pool = new AdapterPool();
+		pool.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
+			name: "builtin-local", kind: "local", type: "builtin",
+			modelProviders: ["anthropic", "openrouter", "openai-compatible"], maxConcurrent: 4,
 		});
-
-		afterEach(async () => {
-			clearActiveStrategy();
-			vi.unstubAllEnvs();
-			clearProvisionSessionFn();
-			if (bridge) {
-				await bridge.close();
-				bridge = null;
-			}
-			fs.rmSync(sandboxBasePath, { recursive: true, force: true });
-			fs.rmSync(dbDir, { recursive: true, force: true });
+	} else if (lane.harnessName === "claude") {
+		pool = new AdapterPool();
+		pool.register("local-claude", lockedHarnessAdapter("claude").adapter, {
+			name: "local-claude", kind: "local", type: "claude-code",
+			modelProviders: ["anthropic"], maxConcurrent: 4,
 		});
+	} else if (lane.harnessName === "codex") {
+		pool = new AdapterPool();
+		pool.register("local-codex", lockedHarnessAdapter("codex").adapter, {
+			name: "local-codex", kind: "local", type: "codex",
+			modelProviders: ["openai-compatible"], maxConcurrent: 2,
+		});
+	} else {
+		pool = new AdapterPool();
+		pool.register("local-opencode", lockedHarnessAdapter("opencode").adapter, {
+			name: "local-opencode", kind: "local", type: "opencode",
+			modelProviders: ["openai-compatible"], maxConcurrent: 2,
+		});
+	}
 
-		test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
-			db,
-		}) => {
-			// ── Arrange ──────────────────────────────────────────────────────────
+	const serverDeps: Parameters<typeof createServer>[1] = {
+		db,
+		adapterPool: pool,
+		workspaceAdapter: new LocalSandboxAdapter(),
+		sandboxBasePath,
+		...(bridge ? { mcpBridgeRegistry: bridge.mcpBridgeRegistry, mcpBaseUrl: bridge.mcpBaseUrl } : {}),
+	};
 
-			// Map harness name to the canonical harnessType that matches the adapter
-			// pool registration's `type` field (adapter-pool.ts createLocalAdapterPool).
-			// builtin → "builtin", claude-code CLI → "claude-code", codex CLI → "codex",
-			// opencode CLI → "opencode". The dispatcher passes agent.harnessType into
-			// adapterPool.select({ harnessType }) which filters `entry.meta.type !== harnessType`.
-			// @lore dispatch-wiring: -cli suffixes ("claude-cli", "codex-cli") are NOT the
-			// canonical values — they never matched any registered adapter type and caused
-			// all CLI lanes to get NoEligibleHarnessError. Corrected to match adapter-pool.ts.
-			const harnessType =
-				lane.harnessName === "builtin"
-					? "builtin"
-					: lane.harnessName === "claude"
-						? "claude-code"
-						: lane.harnessName === "codex"
-							? "codex"
-							: "opencode";
+	const server = await createServer(0, serverDeps);
+	setActiveStrategy(minimalStrategy);
 
-			const { taskId } = await seedDispatchDomain(db, {
-				prefix: `dispatch-${lane.harnessName}`,
-				harnessType,
-			});
+	try {
+		const addr = server.httpServer.address() as AddressInfo;
+		const base = `http://127.0.0.1:${addr.port}`;
 
-			// Per-lane gateway seeding: all lanes need a credential so the
-			// dispatcher's resolveModel(tier) call doesn't throw MissingCredentialError
-			// and silently remove the task from the queue.
-			//
-			// - claude: anthropic provider + dummy anthropic_api_key (CLI uses keychain).
-			//   resolvedModel.model = "sonnet" → --model sonnet passed to the binary.
-			// - builtin/codex/opencode: openai-compatible (OpenRouter key from env).
-			//   builtin uses resolvedModel for the actual LLM call; codex/opencode
-			//   use config.toml / own auth; the OpenRouter key is in the env allowlist.
-			//
-			// @lore AR3 dispatch-gateway-seed-per-lane: see seedAnthropicGatewayConfig
-			// JSDoc for the claude-specific rationale.
-			if (lane.harnessName === "claude") {
-				await seedAnthropicGatewayConfig(db);
-			} else {
-				await seedOpenrouterGatewayConfig(db);
-			}
+		const transitionRes = await fetch(`${base}/api/tasks/${taskId}/transition`, {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ state: "accepted" }),
+		});
+		expect(transitionRes.status).toBe(200);
 
-			// Build the adapter pool for this lane.
-			// @lore AR7-seam: adapters obtained via lockedHarnessAdapter() so the
-			// honest-harness-guard import-ban is satisfied (no direct adapter imports).
-			let pool: AdapterPool;
-			if (lane.harnessName === "builtin") {
-				pool = new AdapterPool();
-				pool.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
-					name: "builtin-local",
-					kind: "local",
-					type: "builtin",
-					modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-					maxConcurrent: 4,
-				});
-			} else if (lane.harnessName === "claude") {
-				pool = new AdapterPool();
-				pool.register("local-claude", lockedHarnessAdapter("claude").adapter, {
-					name: "local-claude",
-					kind: "local",
-					// @lore dispatch-wiring: type MUST match the canonical value from
-					// createLocalAdapterPool (adapter-pool.ts:583). select() filters
-					// `entry.meta.type !== harnessType` — missing type → no match → NoEligibleHarnessError.
-					type: "claude-code",
-					modelProviders: ["anthropic"],
-					maxConcurrent: 4,
-				});
-			} else if (lane.harnessName === "codex") {
-				pool = new AdapterPool();
-				pool.register("local-codex", lockedHarnessAdapter("codex").adapter, {
-					name: "local-codex",
-					kind: "local",
-					// @lore dispatch-wiring: canonical type is the CLI_TOOL_CONFIGS key ("codex"),
-					// matching registerCliAdaptersIfAvailable which uses `type: name`.
-					type: "codex",
-					modelProviders: ["openai-compatible"],
-					maxConcurrent: 2,
-				});
-			} else {
-				// opencode
-				pool = new AdapterPool();
-				pool.register("local-opencode", lockedHarnessAdapter("opencode").adapter, {
-					name: "local-opencode",
-					kind: "local",
-					// @lore dispatch-wiring: canonical type is the CLI_TOOL_CONFIGS key ("opencode"),
-					// matching registerCliAdaptersIfAvailable which uses `type: name`.
-					type: "opencode",
-					modelProviders: ["openai-compatible"],
-					maxConcurrent: 2,
-				});
-			}
-
-			// ── Act ───────────────────────────────────────────────────────────────
-
-			const serverDeps: Parameters<typeof createServer>[1] = {
-				db,
-				adapterPool: pool,
-				workspaceAdapter: new LocalSandboxAdapter(),
-				sandboxBasePath,
-				...(bridge
-					? {
-							mcpBridgeRegistry: bridge.mcpBridgeRegistry,
-							mcpBaseUrl: bridge.mcpBaseUrl,
-						}
-					: {}),
-			};
-
-			const server = await createServer(0, serverDeps);
-			// createServer sets fabricStrategy; override to minimalStrategy so provisions
-			// are cost-clean (no fabric LLM context-assembly calls during this test).
-			setActiveStrategy(minimalStrategy);
-
-			try {
-				const addr = server.httpServer.address() as AddressInfo;
-				const base = `http://127.0.0.1:${addr.port}`;
-
-				// Drive the task to accepted — this emits task_state_changed(toState=accepted),
-				// the event the dispatcher listens on.
-				const transitionRes = await fetch(`${base}/api/tasks/${taskId}/transition`, {
-					method: "POST",
-					headers: authHeaders(),
-					body: JSON.stringify({ state: "accepted" }),
-				});
-				expect(transitionRes.status).toBe(200);
-
-				// ── Assert ────────────────────────────────────────────────────────────
-
-				// The dispatcher wired by createServer should auto-provision a session.
-				// Real agent turns are slow — allow up to 120s for a row to appear.
-				await vi.waitFor(
-					async () => {
-						const rows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
-						expect(rows.length).toBeGreaterThanOrEqual(1);
-					},
-					{ timeout: 120_000 },
-				);
-
+		await vi.waitFor(
+			async () => {
 				const rows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
 				expect(rows.length).toBeGreaterThanOrEqual(1);
+			},
+			{ timeout: 120_000 },
+		);
 
-				// Session must not have crashed — any terminal state other than crashed
-				// proves the real adapter ran a turn.
-				const firstSession = rows[0];
-				expect(firstSession).toBeDefined();
-				expect(firstSession!.state).not.toBe("crashed");
+		const rows = await db.select().from(sessions).where(eq(sessions.taskId, taskId));
+		expect(rows.length).toBeGreaterThanOrEqual(1);
+		const firstSession = rows[0];
+		expect(firstSession).toBeDefined();
+		expect(firstSession!.state).not.toBe("crashed");
 
-				// Dispatch surface is still reachable after the turn completes.
-				const queueRes = await fetch(`${base}/api/dispatch-queue`, {
-					headers: authHeaders(),
-				});
-				expect(queueRes.status).toBe(200);
-				const snapshot = (await queueRes.json()) as { entries: unknown[] };
-				expect(Array.isArray(snapshot.entries)).toBe(true);
-			} finally {
-				server.dispose();
-			}
-		}, 120_000);
-	});
+		const queueRes = await fetch(`${base}/api/dispatch-queue`, { headers: authHeaders() });
+		expect(queueRes.status).toBe(200);
+		const snapshot = (await queueRes.json()) as { entries: unknown[] };
+		expect(Array.isArray(snapshot.entries)).toBe(true);
+	} finally {
+		server.dispose();
+	}
 }
+
+describe("[harness:builtin] dispatcher auto-provisions a session for an accepted task", () => {
+	requireHarness("builtin");
+	let sandboxBasePath: string;
+	let dbDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-builtin-db-"));
+		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
+		clearProvisionSessionFn();
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-builtin-"));
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
+		if (bridge) { await bridge.close(); bridge = null; }
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		fs.rmSync(dbDir, { recursive: true, force: true });
+	});
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+		await runDispatchMatrixLane(laneFor("builtin"), db, sandboxBasePath, bridge);
+	}, 120_000);
+});
+
+describe("[harness:claude] dispatcher auto-provisions a session for an accepted task", () => {
+	requireHarness("claude");
+	let sandboxBasePath: string;
+	let dbDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-claude-db-"));
+		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
+		clearProvisionSessionFn();
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-claude-"));
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
+		if (bridge) { await bridge.close(); bridge = null; }
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		fs.rmSync(dbDir, { recursive: true, force: true });
+	});
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+		await runDispatchMatrixLane(laneFor("claude"), db, sandboxBasePath, bridge);
+	}, 120_000);
+});
+
+describe("[harness:codex] dispatcher auto-provisions a session for an accepted task", () => {
+	requireHarness("codex");
+	let sandboxBasePath: string;
+	let dbDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-codex-db-"));
+		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
+		clearProvisionSessionFn();
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-codex-"));
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
+		if (bridge) { await bridge.close(); bridge = null; }
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		fs.rmSync(dbDir, { recursive: true, force: true });
+	});
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+		await runDispatchMatrixLane(laneFor("codex"), db, sandboxBasePath, bridge);
+	}, 120_000);
+});
+
+describe("[harness:opencode] dispatcher auto-provisions a session for an accepted task", () => {
+	requireHarness("opencode");
+	let sandboxBasePath: string;
+	let dbDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-opencode-db-"));
+		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
+		clearProvisionSessionFn();
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-opencode-"));
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
+		if (bridge) { await bridge.close(); bridge = null; }
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		fs.rmSync(dbDir, { recursive: true, force: true });
+	});
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+		await runDispatchMatrixLane(laneFor("opencode"), db, sandboxBasePath, bridge);
+	}, 120_000);
+});

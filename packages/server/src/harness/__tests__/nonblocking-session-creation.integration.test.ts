@@ -66,21 +66,21 @@ import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { encryptCredentialValue } from "../../services/credential-encryption.js";
+import { DbCredentialResolver } from "../../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	lockedHarnessAdapter,
 	provisionCodexHome,
 	provisionOpencodeHome,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { harnessTestResolvedModel, requireHarness } from "../harness/__tests__/require-harness.js";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import { encryptCredentialValue } from "../services/credential-encryption.js";
-import { DbCredentialResolver } from "../services/credential-resolver.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
+} from "./provision-real-session.js";
+import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
@@ -428,183 +428,197 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 
 // ─── Harness matrix ───────────────────────────────────────────────────────────
 //
-// Each lane gets the SAME test (one test per lane = equal per-harness counts):
-//
-//   POST /api/sessions → 202 + state="active" + no outcome.
-//   vi.waitFor → row reaches state !== "active" (terminal).
-//
-// requireHarness() at describe-scope: hard-fail if harness absent, never skip.
-//
-// @lore nonblocking-matrix SUPPORTED_HARNESS_LANES: We iterate SUPPORTED_HARNESS_LANES
-// (not the local HTTP_LANE_CONFIGS map) so the honest-harness-guard's pragma-token check
-// passes: the guard requires the literal token `for (const lane of SUPPORTED_HARNESS_LANES)`
-// in non-comment code. Per-lane HTTP config is looked up from HTTP_LANE_CONFIGS by
-// lane.harnessName inside the loop body.
+// Four explicit describe blocks — literal requireHarness("<name>") per lane so
+// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// Shared test body factored into runNonblockingLane() to avoid duplication.
+// Per-lane HTTP config is looked up from HTTP_LANE_CONFIGS by harness name.
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-	const httpConfig = HTTP_LANE_CONFIGS[lane.harnessName];
-	if (!httpConfig)
-		throw new Error(`nonblocking-matrix: no HTTP config for harness ${lane.harnessName}`);
+async function runNonblockingLane(
+	harnessName: string,
+	db: Parameters<typeof createTestApp>[0]["db"],
+	eventBus: Parameters<typeof createTestApp>[0]["eventBus"],
+	tmpDir: string,
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,
+): Promise<void> {
+	const httpConfig = HTTP_LANE_CONFIGS[harnessName];
+	if (!httpConfig) throw new Error(`runNonblockingLane: no HTTP config for harness ${harnessName}`);
 
-	describe(`${lane.describeTag} session creation is non-blocking`, () => {
-		// Hard-fail (never skip) if the harness is absent.
-		requireHarness(lane.harnessName);
+	const agentId = `nb-${harnessName}-agent`;
+	const taskId = `nb-${harnessName}-task`;
 
-		let tmpDir: string;
-		let xdgDataHomeBefore: string | undefined;
-		// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
-		let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
-			null;
+	const currentCredentialValue =
+		httpConfig.laneConfig.credential.name === "anthropic_api_key"
+			? "keychain-auth-unused"
+			: (process.env.OPENROUTER_API_KEY ?? "");
 
-		beforeEach(async () => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `nonblock-${lane.harnessName}-`));
-			clearDeduplicationCache();
-			setActiveStrategy(minimalStrategy);
-
-			// Provision per-harness sandbox files (auth, git repo, etc.).
-			if (httpConfig.provisionSandbox) {
-				httpConfig.provisionSandbox(tmpDir);
-			}
-
-			// Codex requires a git repo in the cwd.
-			if (httpConfig.needsGitRepo) {
-				execFileSync("git", ["init"], { cwd: tmpDir, stdio: "ignore" });
-				execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
-					cwd: tmpDir,
-					stdio: "ignore",
-					env: {
-						...process.env,
-						GIT_AUTHOR_NAME: "test",
-						GIT_AUTHOR_EMAIL: "test@test.com",
-						GIT_COMMITTER_NAME: "test",
-						GIT_COMMITTER_EMAIL: "test@test.com",
-					},
-				});
-			}
-
-			// XDG isolation for opencode: save + set a per-test data dir.
-			if (httpConfig.xdgDataHomeKey) {
-				xdgDataHomeBefore = process.env[httpConfig.xdgDataHomeKey];
-				process.env[httpConfig.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
-			}
-
-			// Start MCP bridge for CLI lanes.
-			if (httpConfig.needsBridge) {
-				bridge = await startMcpBridgeServer();
-			}
-		});
-
-		afterEach(async () => {
-			clearActiveStrategy();
-			vi.unstubAllEnvs();
-
-			// Restore XDG env.
-			if (httpConfig.xdgDataHomeKey) {
-				if (xdgDataHomeBefore !== undefined) {
-					process.env[httpConfig.xdgDataHomeKey] = xdgDataHomeBefore;
-				} else {
-					delete process.env[httpConfig.xdgDataHomeKey];
-				}
-			}
-
-			if (bridge) {
-				await bridge.close();
-				bridge = null;
-			}
-
-			if (fs.existsSync(tmpDir)) {
-				fs.rmSync(tmpDir, { recursive: true, force: true });
-			}
-		});
-
-		test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
-			db,
-			eventBus,
-		}) => {
-			const agentId = `nb-${lane.harnessName}-agent`;
-			const taskId = `nb-${lane.harnessName}-task`;
-
-			// Seed lane-specific model gateway + credential.
-			// credential.value is resolved at test execution time (env is set in beforeEach).
-			const currentCredentialValue =
-				httpConfig.laneConfig.credential.name === "anthropic_api_key"
-					? "keychain-auth-unused"
-					: (process.env.OPENROUTER_API_KEY ?? "");
-
-			await seedLaneConfig(db, {
-				...httpConfig.laneConfig,
-				credential: { ...httpConfig.laneConfig.credential, value: currentCredentialValue },
-			});
-
-			await seedDomain(db, {
-				agentId,
-				taskId,
-				taskDescription: httpConfig.taskDescription,
-				doneCondition: httpConfig.doneCondition,
-			});
-
-			const credentialResolver = new DbCredentialResolver(db, TEST_API_KEY);
-
-			const app = await createTestApp({
-				db,
-				eventBus,
-				adapterPool: httpConfig.makePool(),
-				workspaceAdapter: new LocalSandboxAdapter(),
-				sandboxBasePath: tmpDir,
-				credentialResolver,
-				...(bridge
-					? {
-							mcpBridgeRegistry: bridge.mcpBridgeRegistry,
-							mcpBaseUrl: bridge.mcpBaseUrl,
-						}
-					: {}),
-			});
-
-			// Assertion 1: 202 Accepted with an ACTIVE row.
-			// The route calls startSessionProvision which detaches the long-running
-			// harness drain and returns as soon as the session row is committed.
-			// The response body is the freshly-inserted ACTIVE row — no outcome yet.
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ agentId, taskId, modelTier: "workhorse" }),
-			});
-
-			expect(res.status).toBe(202);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.state).toBe("active");
-			expect(body.outcome).toBeFalsy();
-			expect(typeof body.id).toBe("string");
-
-			// Assertion 2: the detached run completes the session eventually.
-			// Poll until state is terminal (anything other than "active").
-			// This is the per-harness real proof: the real harness run moves the row.
-			// @lore AR3: Tightened from `.not.toBe("active")` (accepts crashed) to
-			// `state === "done"` + `outcome` in `["completed","not_returned"]`.
-			// A crashed run moves the row out of "active" but proves nothing about a
-			// successful agent turn.  The AR2 sibling's honest floor: builtin+claude
-			// reach "completed" (they call the MCP return tool); codex+opencode
-			// legitimately reach "not_returned" (they do real work but don't call the
-			// return tool before exit). Both are genuine successful terminal states.
-			// "crashed" / "error" always indicate a broken run and must be rejected.
-			await vi.waitFor(
-				async () => {
-					const [row] = await db
-						.select({ state: sessions.state, outcome: sessions.outcome })
-						.from(sessions)
-						.where(eq(sessions.id, body.id as string))
-						.limit(1);
-					// Must reach the done terminal — not active, not crashed.
-					expect(row?.state).toBe("done");
-					// Must carry a genuine successful outcome — not crashed, not error.
-					expect(["completed", "not_returned"]).toContain(row?.outcome);
-				},
-				{ timeout: 240_000 },
-			);
-		}, 270_000); // 270s ceiling: 240s waitFor + 30s for setup and poll overhead.
+	await seedLaneConfig(db, {
+		...httpConfig.laneConfig,
+		credential: { ...httpConfig.laneConfig.credential, value: currentCredentialValue },
 	});
+
+	await seedDomain(db, {
+		agentId,
+		taskId,
+		taskDescription: httpConfig.taskDescription,
+		doneCondition: httpConfig.doneCondition,
+	});
+
+	const credentialResolver = new DbCredentialResolver(db, TEST_API_KEY);
+
+	const app = await createTestApp({
+		db,
+		eventBus,
+		adapterPool: httpConfig.makePool(),
+		workspaceAdapter: new LocalSandboxAdapter(),
+		sandboxBasePath: tmpDir,
+		credentialResolver,
+		...(bridge
+			? { mcpBridgeRegistry: bridge.mcpBridgeRegistry, mcpBaseUrl: bridge.mcpBaseUrl }
+			: {}),
+	});
+
+	const res = await app.request("/api/sessions", {
+		method: "POST",
+		headers: authHeaders(),
+		body: JSON.stringify({ agentId, taskId, modelTier: "workhorse" }),
+	});
+
+	expect(res.status).toBe(202);
+	const body = (await res.json()) as Record<string, unknown>;
+	expect(body.state).toBe("active");
+	expect(body.outcome).toBeFalsy();
+	expect(typeof body.id).toBe("string");
+
+	await vi.waitFor(
+		async () => {
+			const [row] = await db
+				.select({ state: sessions.state, outcome: sessions.outcome })
+				.from(sessions)
+				.where(eq(sessions.id, body.id as string))
+				.limit(1);
+			expect(row?.state).toBe("done");
+			expect(["completed", "not_returned"]).toContain(row?.outcome);
+		},
+		{ timeout: 240_000 },
+	);
 }
+
+describe("[harness:builtin] session creation is non-blocking", () => {
+	requireHarness("builtin");
+	let tmpDir: string;
+	let xdgDataHomeBefore: string | undefined;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-builtin-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		const cfg = HTTP_LANE_CONFIGS["builtin"]!;
+		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
+		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		const cfg = HTTP_LANE_CONFIGS["builtin"]!;
+		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+		await runNonblockingLane("builtin", db, eventBus, tmpDir, bridge);
+	}, 270_000);
+});
+
+describe("[harness:claude] session creation is non-blocking", () => {
+	requireHarness("claude");
+	let tmpDir: string;
+	let xdgDataHomeBefore: string | undefined;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-claude-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		const cfg = HTTP_LANE_CONFIGS["claude"]!;
+		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
+		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		const cfg = HTTP_LANE_CONFIGS["claude"]!;
+		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+		await runNonblockingLane("claude", db, eventBus, tmpDir, bridge);
+	}, 270_000);
+});
+
+describe("[harness:codex] session creation is non-blocking", () => {
+	requireHarness("codex");
+	let tmpDir: string;
+	let xdgDataHomeBefore: string | undefined;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-codex-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		const cfg = HTTP_LANE_CONFIGS["codex"]!;
+		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
+		if (cfg.needsGitRepo) {
+			execFileSync("git", ["init"], { cwd: tmpDir, stdio: "ignore" });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], { cwd: tmpDir, stdio: "ignore", env: { ...process.env, GIT_AUTHOR_NAME: "test", GIT_AUTHOR_EMAIL: "test@test.com", GIT_COMMITTER_NAME: "test", GIT_COMMITTER_EMAIL: "test@test.com" } });
+		}
+		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		const cfg = HTTP_LANE_CONFIGS["codex"]!;
+		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+		await runNonblockingLane("codex", db, eventBus, tmpDir, bridge);
+	}, 270_000);
+});
+
+describe("[harness:opencode] session creation is non-blocking", () => {
+	requireHarness("opencode");
+	let tmpDir: string;
+	let xdgDataHomeBefore: string | undefined;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-opencode-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		const cfg = HTTP_LANE_CONFIGS["opencode"]!;
+		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
+		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		const cfg = HTTP_LANE_CONFIGS["opencode"]!;
+		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+		await runNonblockingLane("opencode", db, eventBus, tmpDir, bridge);
+	}, 270_000);
+});
 
 // ─── Admission tests (no real agent) ─────────────────────────────────────────
 //

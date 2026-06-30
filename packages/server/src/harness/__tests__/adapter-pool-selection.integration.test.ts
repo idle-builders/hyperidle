@@ -38,20 +38,20 @@ import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import type { ProvisionSessionDeps } from "../../services/session-provisioning.js";
+import { provisionSession } from "../../services/session-provisioning.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import type { AdapterMeta } from "../adapter-pool.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	createSandboxCapture,
 	lockedHarnessAdapter,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
-import type { AdapterMeta } from "../harness/adapter-pool.js";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
-import { provisionSession } from "../services/session-provisioning.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
+} from "./provision-real-session.js";
+import { requireHarness } from "./require-harness.js";
 
 const NOW = "2026-05-29T00:00:00.000Z";
 
@@ -117,91 +117,146 @@ async function seedPoolDomain(db: HyperIdleDb, agentId: string, taskId: string):
 
 // ── SECTION 1: MATRIX — real provisionSession through the pool ────────────────
 //
-// One test per harness lane. Each lane drives a REAL agent through
-// `provisionSession()`, routed via an `AdapterPool`. Assertions are
-// harness-agnostic: outcome must not be "crashed", the pool slot must be
-// released, and the session row must reach state "done".
-//
-// The bridge is started once per describe (not per-test) because the MCP
-// server is stateless between sessions. CLI lanes throw in prepFn when bridge
-// is absent, so starting it unconditionally covers all four lanes cheaply.
+// Four explicit describe blocks — literal requireHarness("<name>") per lane so
+// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// Shared test body factored into runPoolMatrixLane() to avoid logic duplication.
+// Lane is looked up by name from SUPPORTED_HARNESS_LANES via laneFor().
 // ─────────────────────────────────────────────────────────────────────────────
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-	describe(`${lane.describeTag} pool provisions a real session through the selected adapter`, () => {
-		requireHarness(lane.harnessName); // hard-fail, never skipIf
-
-		let tmpDir: string;
-		let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
-
-		beforeEach(async () => {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-matrix-"));
-			clearDeduplicationCache();
-			setActiveStrategy(minimalStrategy);
-			bridge = await startMcpBridgeServer();
-		});
-
-		afterEach(async () => {
-			clearActiveStrategy();
-			await bridge?.close();
-			bridge = undefined;
-			if (fs.existsSync(tmpDir)) {
-				fs.rmSync(tmpDir, { recursive: true, force: true });
-			}
-			// @lore PGLite: NOT calling dbHandle.close() intentionally. close() would
-			// TRUNCATE after provisionSession leaves async state (file watchers, open
-			// async generators) that can deadlock the TRUNCATE under load. Fresh PGlite
-			// per worker; GC'd with the worker. No resource leak. Follows the pattern
-			// established in session-provisioning.integration.test.ts.
-		});
-
-		test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({
-			db,
-			eventBus,
-		}) => {
-			// Step 1: call prepFn to learn the taskId/agentId the lane will use.
-			// We DON'T start the session yet — we just extract the params.
-			const ctx = { db, eventBus, tmpDir, bridge };
-			const { pool, params, capturePaths } = lane.prepFn(ctx);
-
-			// Step 2: seed the DB with the IDs the lane chose.
-			await seedPoolDomain(db, params.agentId, params.taskId);
-
-			// Slot must start at zero.
-			expect(pool.list()[0]?.currentLoad).toBe(0);
-
-			// Step 3: build the capture seam + deps and run provisionSession.
-			const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
-			const deps: ProvisionSessionDeps = {
-				db,
-				eventBus,
-				adapterPool: pool,
-				workspace: new LocalSandboxAdapter(),
-				...(bridge
-					? {
-							mcpBridgeRegistry: bridge.mcpBridgeRegistry,
-							mcpBaseUrl: bridge.mcpBaseUrl,
-						}
-					: {}),
-				onBeforeTeardown: cap.onBeforeTeardown,
-			};
-
-			const result = await provisionSession(deps, params);
-
-			// Step 4: harness-agnostic assertions.
-			// "crashed" means the harness process failed before any LLM call — that
-			// is always a hard failure regardless of harness or task outcome.
-			expect(result.outcome).not.toBe("crashed");
-
-			// The pool must release the slot after completion (slot back to 0).
-			expect(pool.list()[0]?.currentLoad).toBe(0);
-
-			// The session row must reach state "done" in the DB.
-			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
-			expect(session?.state).toBe("done");
-		}, 120_000);
-	});
+/** Look up a lane from SUPPORTED_HARNESS_LANES by harness name. */
+function laneFor(name: string): import("./provision-real-session.js").HarnessLane {
+	const found = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === name);
+	if (!found) throw new Error(`laneFor: no lane for "${name}" in SUPPORTED_HARNESS_LANES`);
+	return found;
 }
+
+async function runPoolMatrixLane(
+	lane: import("./provision-real-session.js").HarnessLane,
+	db: Parameters<typeof provisionSession>[0]["db"],
+	eventBus: Parameters<typeof provisionSession>[0]["eventBus"],
+	tmpDir: string,
+	bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined,
+): Promise<void> {
+	// Step 1: call prepFn to learn the taskId/agentId the lane will use.
+	const ctx = { db, eventBus, tmpDir, bridge };
+	const { pool, params, capturePaths } = lane.prepFn(ctx);
+
+	// Step 2: seed the DB with the IDs the lane chose.
+	await seedPoolDomain(db, params.agentId, params.taskId);
+
+	// Slot must start at zero.
+	expect(pool.list()[0]?.currentLoad).toBe(0);
+
+	// Step 3: build the capture seam + deps and run provisionSession.
+	const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
+	const deps: ProvisionSessionDeps = {
+		db,
+		eventBus,
+		adapterPool: pool,
+		workspace: new LocalSandboxAdapter(),
+		...(bridge
+			? {
+					mcpBridgeRegistry: bridge.mcpBridgeRegistry,
+					mcpBaseUrl: bridge.mcpBaseUrl,
+				}
+			: {}),
+		onBeforeTeardown: cap.onBeforeTeardown,
+	};
+
+	const result = await provisionSession(deps, params);
+
+	// Step 4: harness-agnostic assertions.
+	expect(result.outcome).not.toBe("crashed");
+	// The pool must release the slot after completion (slot back to 0).
+	expect(pool.list()[0]?.currentLoad).toBe(0);
+	// The session row must reach state "done" in the DB.
+	const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
+	expect(session?.state).toBe("done");
+}
+
+describe("[harness:builtin] pool provisions a real session through the selected adapter", () => {
+	requireHarness("builtin");
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-matrix-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		await bridge?.close();
+		bridge = undefined;
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+		await runPoolMatrixLane(laneFor("builtin"), db, eventBus, tmpDir, bridge);
+	}, 120_000);
+});
+
+describe("[harness:claude] pool provisions a real session through the selected adapter", () => {
+	requireHarness("claude");
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-matrix-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		await bridge?.close();
+		bridge = undefined;
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+		await runPoolMatrixLane(laneFor("claude"), db, eventBus, tmpDir, bridge);
+	}, 120_000);
+});
+
+describe("[harness:codex] pool provisions a real session through the selected adapter", () => {
+	requireHarness("codex");
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-matrix-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		await bridge?.close();
+		bridge = undefined;
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+		await runPoolMatrixLane(laneFor("codex"), db, eventBus, tmpDir, bridge);
+	}, 120_000);
+});
+
+describe("[harness:opencode] pool provisions a real session through the selected adapter", () => {
+	requireHarness("opencode");
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-matrix-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		await bridge?.close();
+		bridge = undefined;
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+		await runPoolMatrixLane(laneFor("opencode"), db, eventBus, tmpDir, bridge);
+	}, 120_000);
+});
 
 // ── SECTION 2: LOGIC — pure pool-selection math (untagged, no real agent) ────
 //
@@ -323,7 +378,7 @@ describe("pool capacity: all adapters at capacity → provisioning throws before
 describe("pool registration: createLocalAdapterPool registers at least claude-code and builtin adapters", () => {
 	requireHarness("claude"); // hard-fail: claude-code adapter is only registered when the claude binary is on PATH
 	test("pool has at least two local adapters and includes both claude-code and builtin types", async () => {
-		const { createLocalAdapterPool } = await import("../harness/adapter-pool.js");
+		const { createLocalAdapterPool } = await import("../adapter-pool.js");
 
 		const pool = await createLocalAdapterPool();
 		const entries = pool.list();

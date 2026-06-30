@@ -58,20 +58,20 @@ import type { DomainEvent } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { encryptCredentialValue } from "../../services/credential-encryption.js";
+import { DbCredentialResolver } from "../../services/credential-resolver.js";
+import { crashSession, endSession, type SessionContext } from "../../services/session-lifecycle.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import {
 	lockedHarnessAdapter,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { harnessTestResolvedModel, requireHarness } from "../harness/__tests__/require-harness.js";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import { encryptCredentialValue } from "../services/credential-encryption.js";
-import { DbCredentialResolver } from "../services/credential-resolver.js";
-import { crashSession, endSession, type SessionContext } from "../services/session-lifecycle.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
+} from "./provision-real-session.js";
+import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 // ─── Shared constants ────────────────────────────────────────────────────────
 
@@ -429,197 +429,185 @@ async function seedAnthropicGatewayConfig(db: HyperIdleDb, serverSecret: string)
 
 // ─── B) HARNESS MATRIX TESTS ─────────────────────────────────────────────────
 //
-// One describe per supported harness. All describes are structurally identical:
-// same test body shape, same assertion set, same requireHarness gate.
-// The only harness-specific variation is in the adapter setup carried by `lane`.
-//
-// @lore session-state-sync harness-matrix: The builtin lane uses a full
-// createTestApp() so the route layer (POST /api/sessions) is real. CLI lanes
-// do the same but additionally start an MCP bridge server because the CLI
-// adapter configs pass `--mcp-config .mcp.json --strict-mcp-config` and
-// provisionSession requires a live bridge URL to write the config file.
+// Four explicit describe blocks — literal requireHarness("<name>") per lane so
+// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// Shared test body factored into runStateSyncLane() to avoid duplication.
+// Lane is looked up from SUPPORTED_HARNESS_LANES via laneFor().
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-	describe(`${lane.describeTag} session state stays in sync through its lifecycle`, () => {
-		// Hard-fail on missing harness — never skipIf to green.
-		requireHarness(lane.harnessName);
-
-		let tmpDir: string;
-		let bridge: {
-			// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
-			mcpBridgeRegistry: any;
-			mcpBaseUrl: string;
-			close: () => Promise<void>;
-		} | null = null;
-		let xdgDataHomeBefore: string | undefined;
-		let xdgConfigHomeBefore: string | undefined;
-
-		beforeEach(async () => {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ss-matrix-${lane.harnessName}-`));
-			clearDeduplicationCache();
-			setActiveStrategy(minimalStrategy);
-			vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
-
-			// CLI lanes require a live MCP bridge.
-			if (lane.harnessName !== "builtin") {
-				bridge = await startMcpBridgeServer();
-			}
-
-			// opencode: isolate its global SQLite DB via XDG_DATA_HOME.
-			// @lore session-state-sync opencode-xdg: opencode uses
-			// ~/.local/share/opencode/opencode.db; concurrent processes hit the
-			// write-lock and hang. Per-test XDG_DATA_HOME (provisioned by the lane's
-			// prepFn via provisionOpencodeHome) gives each subprocess its own DB.
-			if (lane.harnessName === "opencode") {
-				xdgDataHomeBefore = process.env.XDG_DATA_HOME;
-				process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
-
-				// Also isolate config dir to prevent stale global MCP entries.
-				// @lore AR3 opencode-config-isolation: see provisionOpencodeHome JSDoc.
-				xdgConfigHomeBefore = process.env.XDG_CONFIG_HOME;
-				process.env.XDG_CONFIG_HOME = path.join(tmpDir, ".opencode-config");
-			}
-		});
-
-		afterEach(async () => {
-			clearActiveStrategy();
-			vi.unstubAllEnvs();
-
-			if (lane.harnessName === "opencode") {
-				if (xdgDataHomeBefore !== undefined) {
-					process.env.XDG_DATA_HOME = xdgDataHomeBefore;
-				} else {
-					delete process.env.XDG_DATA_HOME;
-				}
-				if (xdgConfigHomeBefore !== undefined) {
-					process.env.XDG_CONFIG_HOME = xdgConfigHomeBefore;
-				} else {
-					delete process.env.XDG_CONFIG_HOME;
-				}
-			}
-
-			if (bridge) {
-				await bridge.close();
-				bridge = null;
-			}
-			if (fs.existsSync(tmpDir)) {
-				fs.rmSync(tmpDir, { recursive: true, force: true });
-			}
-		});
-
-		test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({
-			db,
-			eventBus,
-		}) => {
-			const agentId = `ss-${lane.harnessName}-agent-${Date.now()}`;
-			const taskId = `ss-${lane.harnessName}-task-${Date.now()}`;
-			const threadId = `ss-${lane.harnessName}-thread-${Date.now()}`;
-
-			// Canonical harnessType for the agent row — must match the adapter's
-			// registered `type` so AdapterPool.select({ harnessType }) finds a match.
-			// "claude" lane → adapter type "claude-code" (CLI binary name vs pool type).
-			// "codex"/"opencode" → identical; "builtin" → identical.
-			//
-			// @lore AR3 harnessType-canonical: lane.harnessName is the abstract harness
-			// name; the adapter pool uses the canonical `type` from createLocalAdapterPool.
-			// "claude" and "claude-code" differ: "claude" is the binary-keyed harness
-			// name; "claude-code" is the canonical pool type. Seeding the wrong value
-			// causes AdapterPool.select() to return null → NoEligibleHarnessError → 422.
-			const canonicalHarnessType = lane.harnessName === "claude" ? "claude-code" : lane.harnessName;
-
-			// Seed the domain rows and (for all lanes) the gateway config.
-			await seedMatrixDomain(db, {
-				agentId,
-				taskId,
-				threadId,
-				harnessType: canonicalHarnessType,
-			});
-
-			// All lanes: seed a gateway config so POST /api/sessions can resolve
-			// the model via the credential pre-flight in sessions-routes.ts.
-			// Without seeding, BUILT_IN_GATEWAY_CONFIG (anthropic) is used →
-			// MissingCredentialError("anthropic_api_key") → 500 for all lanes.
-			//
-			// Per-lane strategy:
-			// - builtin/codex/opencode: openai-compatible (OpenRouter key from env).
-			// - claude: anthropic + dummy anthropic_api_key. The claude CLI uses
-			//   keychain auth; resolvedModel.apiKey is injected via envMap but the
-			//   binary ignores it. resolvedModel.model = "sonnet" → --model sonnet.
-			//
-			// @lore AR3 gateway-seed-all-lanes: see seedAnthropicGatewayConfig JSDoc.
-			if (lane.harnessName === "claude") {
-				await seedAnthropicGatewayConfig(db, MATRIX_API_KEY);
-			} else {
-				await seedOpenRouterGatewayConfig(db, MATRIX_API_KEY);
-			}
-
-			// Build the adapter pool for this lane and construct a real app
-			// that includes the production sessions route and credential resolver.
-			// @lore AR7-seam: builtin adapter via lockedHarnessAdapter (import-ban).
-			const { pool } =
-				lane.harnessName === "builtin"
-					? (() => {
-							const p = new AdapterPool();
-							p.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
-								name: "builtin-local",
-								kind: "local",
-								type: "builtin",
-								modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-								maxConcurrent: 4,
-							});
-							return { pool: p };
-						})()
-					: lane.prepFn({ db, eventBus, tmpDir, bridge: bridge! });
-
-			const credentialResolver = new DbCredentialResolver(db, MATRIX_API_KEY);
-			const app = await createTestApp({
-				db,
-				eventBus,
-				adapterPool: pool,
-				workspaceAdapter: new LocalSandboxAdapter(),
-				sandboxBasePath: tmpDir,
-				credentialResolver,
-			});
-
-			const endedEvents: DomainEvent[] = [];
-			eventBus.on("session_ended", (e) => endedEvents.push(e));
-
-			// POST /api/sessions — returns 202 + active row as soon as startSession fires.
-			const postRes = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(MATRIX_API_KEY),
-				body: JSON.stringify({ agentId, taskId, modelTier: "workhorse" }),
-			});
-			expect(postRes.status).toBe(202);
-			const postBody = (await postRes.json()) as Record<string, unknown>;
-			const sessionId = postBody.id as string;
-			expect(postBody.state).toBe("active");
-			expect(typeof sessionId).toBe("string");
-
-			// PATCH-abort while the session may still be live in sessionRunRegistry.
-			// Race-safe: 202 aborting (still live) or 409 (already terminal) are both valid.
-			const patchRes = await app.request(`/api/sessions/${sessionId}`, {
-				method: "PATCH",
-				headers: authHeaders(MATRIX_API_KEY),
-				body: JSON.stringify({ state: "done" }),
-			});
-			expect([202, 409]).toContain(patchRes.status);
-
-			// Either way, the session must converge to a terminal DB state.
-			await vi.waitFor(
-				async () => {
-					const [row] = await db
-						.select({ state: sessions.state })
-						.from(sessions)
-						.where(eq(sessions.id, sessionId))
-						.limit(1);
-					expect(["done", "crashed"]).toContain(row?.state);
-				},
-				{ timeout: 120_000 },
-			);
-
-			// CAS guarantees a single session_ended regardless of PATCH timing.
-			expect(endedEvents).toHaveLength(1);
-		}, 150_000);
-	});
+/** Look up a lane from SUPPORTED_HARNESS_LANES by harness name. */
+function laneFor(name: string): import("./provision-real-session.js").HarnessLane {
+	const found = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === name);
+	if (!found) throw new Error(`laneFor: no lane for "${name}" in SUPPORTED_HARNESS_LANES`);
+	return found;
 }
+
+async function runStateSyncLane(
+	lane: import("./provision-real-session.js").HarnessLane,
+	db: Parameters<typeof createTestApp>[0]["db"],
+	eventBus: Parameters<typeof createTestApp>[0]["eventBus"],
+	tmpDir: string,
+	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
+	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,
+): Promise<void> {
+	const agentId = `ss-${lane.harnessName}-agent-${Date.now()}`;
+	const taskId = `ss-${lane.harnessName}-task-${Date.now()}`;
+	const threadId = `ss-${lane.harnessName}-thread-${Date.now()}`;
+
+	// Canonical harnessType: "claude" lane → adapter type "claude-code".
+	// @lore AR3 harnessType-canonical: "claude" is the binary name; "claude-code" is the pool type.
+	const canonicalHarnessType = lane.harnessName === "claude" ? "claude-code" : lane.harnessName;
+
+	await seedMatrixDomain(db, { agentId, taskId, threadId, harnessType: canonicalHarnessType });
+
+	if (lane.harnessName === "claude") {
+		await seedAnthropicGatewayConfig(db, MATRIX_API_KEY);
+	} else {
+		await seedOpenRouterGatewayConfig(db, MATRIX_API_KEY);
+	}
+
+	// Build the adapter pool for this lane.
+	// @lore AR7-seam: builtin adapter via lockedHarnessAdapter (import-ban).
+	const { pool } =
+		lane.harnessName === "builtin"
+			? (() => {
+					const p = new AdapterPool();
+					p.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
+						name: "builtin-local", kind: "local", type: "builtin",
+						modelProviders: ["anthropic", "openrouter", "openai-compatible"], maxConcurrent: 4,
+					});
+					return { pool: p };
+				})()
+			: lane.prepFn({ db, eventBus, tmpDir, bridge: bridge! });
+
+	const credentialResolver = new DbCredentialResolver(db, MATRIX_API_KEY);
+	const app = await createTestApp({
+		db, eventBus,
+		adapterPool: pool,
+		workspaceAdapter: new LocalSandboxAdapter(),
+		sandboxBasePath: tmpDir,
+		credentialResolver,
+	});
+
+	const endedEvents: DomainEvent[] = [];
+	eventBus.on("session_ended", (e) => endedEvents.push(e));
+
+	const postRes = await app.request("/api/sessions", {
+		method: "POST",
+		headers: authHeaders(MATRIX_API_KEY),
+		body: JSON.stringify({ agentId, taskId, modelTier: "workhorse" }),
+	});
+	expect(postRes.status).toBe(202);
+	const postBody = (await postRes.json()) as Record<string, unknown>;
+	const sessionId = postBody.id as string;
+	expect(postBody.state).toBe("active");
+	expect(typeof sessionId).toBe("string");
+
+	const patchRes = await app.request(`/api/sessions/${sessionId}`, {
+		method: "PATCH",
+		headers: authHeaders(MATRIX_API_KEY),
+		body: JSON.stringify({ state: "done" }),
+	});
+	expect([202, 409]).toContain(patchRes.status);
+
+	await vi.waitFor(
+		async () => {
+			const [row] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+			expect(["done", "crashed"]).toContain(row?.state);
+		},
+		{ timeout: 120_000 },
+	);
+
+	expect(endedEvents).toHaveLength(1);
+}
+
+describe("[harness:builtin] session state stays in sync through its lifecycle", () => {
+	requireHarness("builtin");
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-builtin-"));
+		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+		await runStateSyncLane(laneFor("builtin"), db, eventBus, tmpDir, bridge);
+	}, 150_000);
+});
+
+describe("[harness:claude] session state stays in sync through its lifecycle", () => {
+	requireHarness("claude");
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-claude-"));
+		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+		await runStateSyncLane(laneFor("claude"), db, eventBus, tmpDir, bridge);
+	}, 150_000);
+});
+
+describe("[harness:codex] session state stays in sync through its lifecycle", () => {
+	requireHarness("codex");
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-codex-"));
+		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+		await runStateSyncLane(laneFor("codex"), db, eventBus, tmpDir, bridge);
+	}, 150_000);
+});
+
+describe("[harness:opencode] session state stays in sync through its lifecycle", () => {
+	requireHarness("opencode");
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let xdgDataHomeBefore: string | undefined;
+	let xdgConfigHomeBefore: string | undefined;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-opencode-"));
+		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		bridge = await startMcpBridgeServer();
+		// opencode: isolate its global SQLite DB via XDG_DATA_HOME.
+		// @lore session-state-sync opencode-xdg: opencode uses
+		// ~/.local/share/opencode/opencode.db; concurrent processes hit the
+		// write-lock and hang.
+		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
+		process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
+		// @lore AR3 opencode-config-isolation: isolate config dir to prevent stale global MCP entries.
+		xdgConfigHomeBefore = process.env.XDG_CONFIG_HOME;
+		process.env.XDG_CONFIG_HOME = path.join(tmpDir, ".opencode-config");
+	});
+	afterEach(async () => {
+		clearActiveStrategy(); vi.unstubAllEnvs();
+		if (xdgDataHomeBefore !== undefined) { process.env.XDG_DATA_HOME = xdgDataHomeBefore; } else { delete process.env.XDG_DATA_HOME; }
+		if (xdgConfigHomeBefore !== undefined) { process.env.XDG_CONFIG_HOME = xdgConfigHomeBefore; } else { delete process.env.XDG_CONFIG_HOME; }
+		if (bridge) { await bridge.close(); bridge = null; }
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+		await runStateSyncLane(laneFor("opencode"), db, eventBus, tmpDir, bridge);
+	}, 150_000);
+});

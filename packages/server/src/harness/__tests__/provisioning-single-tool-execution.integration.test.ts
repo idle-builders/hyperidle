@@ -69,15 +69,15 @@ import { clearDeduplicationCache } from "@hyperidle/fabric";
 import type { ToolCallRecordedEvent } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import type { McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+import { test } from "../../test-fixtures.js";
 import {
 	runThroughHarness,
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
-} from "../harness/__tests__/provision-real-session.js";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
-import { test } from "../test-fixtures.js";
+} from "./provision-real-session.js";
+import { requireHarness } from "./require-harness.js";
 
 const NOW = "2026-06-30T00:00:00.000Z";
 
