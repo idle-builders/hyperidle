@@ -940,6 +940,41 @@ export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 // The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/shared — see §1.
 
+/**
+ * AO2 — Per-capture provenance. One row per captureBack call; source-agnostic.
+ * `capturePath` points at a git bundle (.bundle) or snapshot dir; AO3 consumes it.
+ *
+ * @lore AO2: Capture is NOT an Artifact (L3) — it is a filesystem op record.
+ * Separated so AO3 can locate the durable artifact without touching the L3 table.
+ * `capturePath` is "none" when writeback==='none' (no-op capture).
+ */
+export const filesystemCaptures = pgTable(
+	"filesystem_captures",
+	{
+		id: text("id").primaryKey(),
+		sessionId: text("session_id")
+			.notNull()
+			.references(() => sessions.id, { onDelete: "cascade" }),
+		filesystemId: text("filesystem_id")
+			.notNull()
+			.references(() => filesystems.id, { onDelete: "cascade" }),
+		/** Snapshot of writeback mode at capture time: git | file | none */
+		writeback: text("writeback").notNull(),
+		/** Durable bundle path (.bundle) | snapshot dir path | "none" */
+		capturePath: text("capture_path").notNull(),
+		/** git writeback only: the commit SHA that was bundled. */
+		commitSha: text("commit_sha"),
+		createdAt: text("created_at").notNull(),
+	},
+	(t) => [
+		index("filesystem_captures_session_idx").on(t.sessionId),
+		index("filesystem_captures_filesystem_idx").on(t.filesystemId),
+	],
+);
+
+export type FilesystemCaptureRow = typeof filesystemCaptures.$inferSelect;
+export type NewFilesystemCaptureRow = typeof filesystemCaptures.$inferInsert;
+
 // --- P3: Server-side credential storage (shared mode) ---
 
 /**

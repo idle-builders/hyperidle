@@ -143,6 +143,14 @@ describe("git-export routes", () => {
 				lsFiles: async () => [],
 				statusPorcelain: async () => [],
 				lsRemote: async () => ({ reachable: true }),
+				// ── AO2 inbound-git stubs (not subject of git-export-routes tests) ──
+				clone: async () => {},
+				bundle: async () => {},
+				worktreeAdd: async () => {},
+				worktreeRemove: async () => {},
+				fetch: async () => {},
+				checkout: async () => {},
+				restoreStaged: async () => {},
 			};
 			const stubFs: FsAdapter = {
 				existsSync: () => true,

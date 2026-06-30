@@ -9,10 +9,16 @@ import {
 	type HyperIdleDb,
 	resolveProfile,
 } from "@hyperidle/db";
-import { bootstrapFabric, fabricStrategy, setProvisionSessionFn } from "@hyperidle/fabric";
+import {
+	bootstrapFabric,
+	createGitRunner,
+	fabricStrategy,
+	setProvisionSessionFn,
+} from "@hyperidle/fabric";
 import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
+import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
@@ -262,6 +268,16 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		process.env.HYPERIDLE_WORKSPACES_DIR ??
 		path.join(os.tmpdir(), "hyperidle-workspaces");
 
+	// AO2: Build the production filesystem mounter. capturesDir lives alongside the
+	// sandboxBasePath so captures survive server restarts.
+	const capturesDir = path.join(sandboxBasePath, ".ao2-captures");
+	fs.mkdirSync(capturesDir, { recursive: true });
+	const mounter = new RegistryFilesystemMounter({
+		gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+		capturesDir,
+		db,
+	});
+
 	// AF7 §1 (Z8-004 / dispatch-half of Z8-010): register provisionSession into the
 	// runtime registry so the task dispatcher can resolve it across the
 	// fabric→server boundary. This is the only legal way to cross that boundary
@@ -355,6 +371,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 					resolveModel: makeResolveModel(db, credentialResolver),
 					mcpBridgeRegistry,
 					mcpBaseUrl,
+					// AO2: pass the production mounter so routine-dispatched sessions mount.
+					mounter,
 				},
 			}),
 		adapterPool,
@@ -363,6 +381,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		credentialResolver,
 		mcpBridgeRegistry,
 		mcpBaseUrl,
+		// AO2: wire the production mounter so session-route and routine-route sessions mount.
+		mounter,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics. The authorizer reads the threads

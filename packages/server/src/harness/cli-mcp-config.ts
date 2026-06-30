@@ -63,6 +63,17 @@ export interface WriteCliMcpConfigResult {
  * - opencode-json: writes `<sandbox>/opencode.json` with the `mcp.hyperidle`
  *   remote block. Token is inline in `headers.Authorization`. Returns `{}`.
  */
+/**
+ * Root-level files emitted by writeCliMcpConfig, indexed by dialect.
+ * - codex-toml: writes .codex-home/config.toml (covered by .codex-home root).
+ * - opencode-json: writes opencode.json in the sandbox root.
+ * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ *
+ * @lore AO2: .codex-home is already listed in EMITTED_ROOTS_CODEX_HOME (from
+ * provisionCodexHome). opencode.json is a new root not covered elsewhere.
+ */
+export const EMITTED_ROOTS_CLI_MCP_CONFIG = ["opencode.json"] as const;
+
 export function writeCliMcpConfig(params: WriteCliMcpConfigParams): WriteCliMcpConfigResult {
 	const { dialect, sandboxPath, mcpUrl, token } = params;
 

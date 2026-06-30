@@ -85,20 +85,49 @@ function cleanDirectory(dirPath: string): void {
 	fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
+/**
+ * The canonical list of directories created by createDirectoryStructure.
+ * EMITTED_ROOTS_CONTEXT_ASSEMBLY is DERIVED from this — do NOT maintain a
+ * separate list. Add new dirs here; the drift-guard automatically goes red.
+ *
+ * @lore AO2 W-C2: Originally EMITTED_ROOTS_CONTEXT_ASSEMBLY was a
+ * hand-maintained literal decoupled from the real `dirs` array. A reviewer
+ * proved the gap by adding "logs/agent-output" to dirs and watching the guard
+ * stay green. Fix: EMITTED_ROOTS_CONTEXT_ASSEMBLY is now derived via
+ * CONTEXT_ASSEMBLY_DIRS.map(d => d.split('/')[0]) — the const and the writer
+ * are the same source, so they cannot drift.
+ */
+const CONTEXT_ASSEMBLY_DIRS = [
+	".fabric",
+	"context/product",
+	"context/practices",
+	"context/factory",
+	"knowledge/practices",
+	"knowledge/decisions",
+	"knowledge/failures",
+	"work/artifacts",
+] as const;
+
+/**
+ * Root-level directory roots emitted by context-assembly (createDirectoryStructure).
+ * Exported so the AO2 scaffolding-drift-guard can import the real writer surface.
+ *
+ * DERIVED from CONTEXT_ASSEMBLY_DIRS — never a separate literal. If you add
+ * a new directory to CONTEXT_ASSEMBLY_DIRS, this const automatically updates
+ * and the scaffolding-drift-guard goes red until SANDBOX_SCAFFOLDING_PATHS covers
+ * the new root.
+ *
+ * @lore AO2 W-C2: derive, don't restate. The original literal approach let the
+ * guard stay green when dirs changed without updating the const. Derivation
+ * closes the gap permanently.
+ */
+export const EMITTED_ROOTS_CONTEXT_ASSEMBLY = [
+	...new Set(CONTEXT_ASSEMBLY_DIRS.map((d) => d.split("/")[0] as string)),
+] as const;
+
 /** Create the workspace directory structure. */
 function createDirectoryStructure(sandboxPath: string): void {
-	const dirs = [
-		".fabric",
-		"context/product",
-		"context/practices",
-		"context/factory",
-		"knowledge/practices",
-		"knowledge/decisions",
-		"knowledge/failures",
-		"work/artifacts",
-	];
-
-	for (const dir of dirs) {
+	for (const dir of CONTEXT_ASSEMBLY_DIRS) {
 		fs.mkdirSync(path.join(sandboxPath, dir), { recursive: true });
 	}
 
