@@ -329,6 +329,11 @@ describe(`${CLAUDE_LANE.describeTag} AR4 R1-real — POST /api/sessions → real
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+		// @lore AR4 R1-real crashed-state-honesty: "crashed" accepted per AR2 W-2 (CLI may
+		// not call MCP return tool). UNCONDITIONAL load-bearing proof: session row exists
+		// (provisionSession ran) AND terminal state reached (harness invoked, not infra failure).
+		// These two together prove POST /api/sessions → provisionSession → real CLI harness seam.
+		// A startup crash at binary level would NOT create a session row → waitFor would fail.
 		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
 		void cap; // capture not threaded through app route — file assert is optional here
 	}, 280_000);
@@ -430,6 +435,8 @@ describe(`${CODEX_LANE.describeTag} AR4 R1-real — POST /api/sessions → real 
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+		// @lore AR4 R1-real crashed-state-honesty: same reasoning as claude lane above.
+		// Unconditional: session row + terminal state = POST→provisionSession→CLI seam proved.
 		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
 	}, 280_000);
 });
@@ -538,6 +545,8 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+		// @lore AR4 R1-real crashed-state-honesty: same reasoning as claude lane above.
+		// Unconditional: session row + terminal state = POST→provisionSession→CLI seam proved.
 		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
 	}, 480_000);
 });

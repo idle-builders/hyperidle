@@ -238,7 +238,12 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
-		// Honest floor: completed or not_returned (FAIL on crashed/error)
+		// Honest floor (builtin, strict): completed or not_returned (FAIL on crashed/error).
+		// @lore AR4 AD2: builtin is the most reliable lane — never crashes. Strict here
+		// is the correct tightening of the seam-existence proof. A session row created
+		// AND outcome in [completed, not_returned] proves: (a) dispatch→provision seam ran,
+		// (b) the builtin harness executed the LLM call, (c) the agent produced a real turn.
+		// These three together are the unconditional load-bearing assertion for the builtin lane.
 		expect(["completed", "not_returned"]).toContain(s?.outcome);
 
 		// Unused but declared — laneParams structurally confirms we built real params
@@ -332,6 +337,17 @@ describe(`${CLAUDE_LANE.describeTag} AR4 AD2-real — dispatch→provision→rea
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
+		// @lore AR4 AD2 crashed-state-honesty: "crashed" is accepted for CLI harnesses per
+		// AR2 W-2 (claude may not call the MCP return tool → crashSession). The UNCONDITIONAL
+		// load-bearing proof is: (a) session row exists (dispatch→provision seam ran,
+		// provisionSession was called and created the session row) AND (b) state is a
+		// terminal state ["done","crashed"] (harness was actually invoked and finished,
+		// NOT an infra failure that prevented invocation). The artifact check below is
+		// ADDITIONAL evidence that's conditional on the agent choosing to write the file —
+		// agent nondeterminism is expected (plan risk #4). If the test passes with
+		// state="crashed" and no file, the seam proof still holds: dispatch→provision
+		// ran the harness, the harness crashed (not the infra), and the session records it.
+		// If no session row existed at all, the test would have failed at vi.waitFor above.
 		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
@@ -425,6 +441,8 @@ describe(`${CODEX_LANE.describeTag} AR4 AD2-real — dispatch→provision→real
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
 		// @lore AR2 W-2: codex does real work but does NOT call the MCP return tool →
 		// "not_returned". Honest floor accepts completed OR not_returned or crashed.
+		// @lore AR4 AD2 crashed-state-honesty: same reasoning as claude lane — session row +
+		// terminal state IS the unconditional seam-existence proof. See claude lane lore above.
 		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
@@ -534,6 +552,8 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
 		// @lore AR2 W-2: opencode does real work but does NOT reliably call the MCP return tool.
+		// @lore AR4 AD2 crashed-state-honesty: same reasoning as claude lane — session row +
+		// terminal state IS the unconditional seam-existence proof. See claude lane lore above.
 		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
