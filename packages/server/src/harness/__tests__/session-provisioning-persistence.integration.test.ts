@@ -220,15 +220,29 @@ async function runSystemPromptSetTest(
 	const { db, eventBus, tmpDir } = ctx;
 	const agentId = `sp-sys-${lane.harnessName}-${Date.now()}`;
 	const taskId = `sp-sys-task-${Date.now()}`;
-	await seedDomain(db, { agentId, taskId, agentOverrides: { systemPrompt: "# Test Persona\n\nYou are a test agent for {{product}}." } });
+	await seedDomain(db, {
+		agentId,
+		taskId,
+		agentOverrides: { systemPrompt: "# Test Persona\n\nYou are a test agent for {{product}}." },
+	});
 	const { result } = await runThroughHarness(
-		{ ...lane, prepFn: (c) => { const b = lane.prepFn(c); return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } }; } },
+		{
+			...lane,
+			prepFn: (c) => {
+				const b = lane.prepFn(c);
+				return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } };
+			},
+		},
 		{ db, eventBus, tmpDir, bridge: ctx.bridge },
 	);
 	expect(result.outcome).not.toBe("crashed");
 	expect(result.outcome).not.toBe("error");
 	expect(result.sessionId).toBeTruthy();
-	const [row] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, result.sessionId)).limit(1);
+	const [row] = await db
+		.select({ state: sessions.state })
+		.from(sessions)
+		.where(eq(sessions.id, result.sessionId))
+		.limit(1);
 	expect(row?.state).toBe("done");
 }
 
@@ -241,13 +255,23 @@ async function runSystemPromptNullTest(
 	const taskId = `sp-null-task-${Date.now()}`;
 	await seedDomain(db, { agentId, taskId, agentOverrides: { systemPrompt: null } });
 	const { result } = await runThroughHarness(
-		{ ...lane, prepFn: (c) => { const b = lane.prepFn(c); return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } }; } },
+		{
+			...lane,
+			prepFn: (c) => {
+				const b = lane.prepFn(c);
+				return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } };
+			},
+		},
 		{ db, eventBus, tmpDir, bridge: ctx.bridge },
 	);
 	expect(result.outcome).not.toBe("crashed");
 	expect(result.outcome).not.toBe("error");
 	expect(result.sessionId).toBeTruthy();
-	const [row] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, result.sessionId)).limit(1);
+	const [row] = await db
+		.select({ state: sessions.state })
+		.from(sessions)
+		.where(eq(sessions.id, result.sessionId))
+		.limit(1);
 	expect(row?.state).toBe("done");
 }
 
@@ -260,7 +284,13 @@ async function runHarnessTypeNullTest(
 	const taskId = `sp-nullht-task-${Date.now()}`;
 	await seedDomain(db, { agentId, taskId, agentOverrides: { harnessType: null } });
 	const { result } = await runThroughHarness(
-		{ ...lane, prepFn: (c) => { const b = lane.prepFn(c); return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } }; } },
+		{
+			...lane,
+			prepFn: (c) => {
+				const b = lane.prepFn(c);
+				return { ...b, params: { ...b.params, taskId, agentId, productId: "sp-team-1" } };
+			},
+		},
 		{ db, eventBus, tmpDir, bridge: ctx.bridge },
 	);
 	expect(result.sessionId).toBeTruthy();
@@ -270,7 +300,9 @@ async function runHarnessTypeNullTest(
 
 async function runModelTierPreferenceTest(
 	lane: import("./provision-real-session.js").HarnessLane,
-	ctx: Parameters<typeof runThroughHarness>[1] & { bridge: NonNullable<Parameters<typeof runThroughHarness>[1]["bridge"]> },
+	ctx: Parameters<typeof runThroughHarness>[1] & {
+		bridge: NonNullable<Parameters<typeof runThroughHarness>[1]["bridge"]>;
+	},
 ): Promise<void> {
 	const { db, eventBus, tmpDir, bridge } = ctx;
 	const agentId = `sp-tier-${lane.harnessName}-${Date.now()}`;
@@ -280,25 +312,67 @@ async function runModelTierPreferenceTest(
 	await seedDomain(db, { agentId, taskId: taskId1, agentOverrides: { modelTierPreference: null } });
 
 	await runThroughHarness(
-		{ ...lane, prepFn: (c) => { const b = lane.prepFn(c); return { ...b, params: { ...b.params, taskId: taskId1, agentId, productId: "sp-team-1" } }; } },
+		{
+			...lane,
+			prepFn: (c) => {
+				const b = lane.prepFn(c);
+				return { ...b, params: { ...b.params, taskId: taskId1, agentId, productId: "sp-team-1" } };
+			},
+		},
 		{ db, eventBus, tmpDir, bridge },
 	);
 
-	const session1Rows = await db.select({ modelTier: sessions.modelTier }).from(sessions).where(eq(sessions.agentId, agentId)).orderBy(sessions.startedAt).limit(1);
+	const session1Rows = await db
+		.select({ modelTier: sessions.modelTier })
+		.from(sessions)
+		.where(eq(sessions.agentId, agentId))
+		.orderBy(sessions.startedAt)
+		.limit(1);
 	expect(session1Rows[0]?.modelTier).toBe("workhorse");
 
 	await db.update(users).set({ modelTierPreference: "fast" }).where(eq(users.id, agentId));
 
 	const threadId2 = `sp-tier-thr2-${Date.now()}`;
-	await db.insert(threads).values({ id: threadId2, hostKind: "task", hostId: taskId2, initiatorId: agentId, participants: JSON.stringify([agentId]), lastActiveAt: NOW, createdAt: NOW });
-	await db.insert(tasks).values({ id: taskId2, betId: "sp-bet-1", teamId: "sp-team-1", title: "SP Tier Task 2", description: "Report the number 7 to the human owner by calling send_message with to='owner-1' and body='7'. Do not hand off or submit a review.", doneCondition: "Agent reports via send_message with body '7'.", state: "accepted", ownerAgentId: agentId, threadId: threadId2, createdAt: NOW, updatedAt: NOW });
+	await db.insert(threads).values({
+		id: threadId2,
+		hostKind: "task",
+		hostId: taskId2,
+		initiatorId: agentId,
+		participants: JSON.stringify([agentId]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	await db.insert(tasks).values({
+		id: taskId2,
+		betId: "sp-bet-1",
+		teamId: "sp-team-1",
+		title: "SP Tier Task 2",
+		description:
+			"Report the number 7 to the human owner by calling send_message with to='owner-1' and body='7'. Do not hand off or submit a review.",
+		doneCondition: "Agent reports via send_message with body '7'.",
+		state: "accepted",
+		ownerAgentId: agentId,
+		threadId: threadId2,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	await runThroughHarness(
-		{ ...lane, prepFn: (c) => { const b = lane.prepFn(c); return { ...b, params: { ...b.params, taskId: taskId2, agentId, productId: "sp-team-1" } }; } },
+		{
+			...lane,
+			prepFn: (c) => {
+				const b = lane.prepFn(c);
+				return { ...b, params: { ...b.params, taskId: taskId2, agentId, productId: "sp-team-1" } };
+			},
+		},
 		{ db, eventBus, tmpDir, bridge },
 	);
 
-	const allSessions = await db.select({ modelTier: sessions.modelTier, startedAt: sessions.startedAt }).from(sessions).where(eq(sessions.agentId, agentId)).orderBy(sessions.startedAt);
+	const allSessions = await db
+		.select({ modelTier: sessions.modelTier, startedAt: sessions.startedAt })
+		.from(sessions)
+		.where(eq(sessions.agentId, agentId))
+		.orderBy(sessions.startedAt);
 	expect(allSessions).toHaveLength(2);
 	expect(allSessions[0]?.modelTier).toBe("workhorse");
 	expect(allSessions[1]?.modelTier).toBe("fast");
@@ -310,11 +384,31 @@ describe("[harness:builtin] session completes when agent systemPrompt is set in 
 	requireHarness("builtin");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({ db, eventBus }) => {
-		await runSystemPromptSetTest(laneFor("builtin"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptSetTest(laneFor("builtin"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -322,11 +416,31 @@ describe("[harness:claude] session completes when agent systemPrompt is set in D
 	requireHarness("claude");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({ db, eventBus }) => {
-		await runSystemPromptSetTest(laneFor("claude"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptSetTest(laneFor("claude"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -334,11 +448,31 @@ describe("[harness:codex] session completes when agent systemPrompt is set in DB
 	requireHarness("codex");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({ db, eventBus }) => {
-		await runSystemPromptSetTest(laneFor("codex"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptSetTest(laneFor("codex"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -346,11 +480,31 @@ describe("[harness:opencode] session completes when agent systemPrompt is set in
 	requireHarness("opencode");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({ db, eventBus }) => {
-		await runSystemPromptSetTest(laneFor("opencode"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with a DB-column systemPrompt", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptSetTest(laneFor("opencode"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -360,11 +514,31 @@ describe("[harness:builtin] session completes when agent systemPrompt is null", 
 	requireHarness("builtin");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({ db, eventBus }) => {
-		await runSystemPromptNullTest(laneFor("builtin"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptNullTest(laneFor("builtin"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -372,11 +546,31 @@ describe("[harness:claude] session completes when agent systemPrompt is null", (
 	requireHarness("claude");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({ db, eventBus }) => {
-		await runSystemPromptNullTest(laneFor("claude"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptNullTest(laneFor("claude"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -384,11 +578,31 @@ describe("[harness:codex] session completes when agent systemPrompt is null", ()
 	requireHarness("codex");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({ db, eventBus }) => {
-		await runSystemPromptNullTest(laneFor("codex"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptNullTest(laneFor("codex"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -396,11 +610,31 @@ describe("[harness:opencode] session completes when agent systemPrompt is null",
 	requireHarness("opencode");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({ db, eventBus }) => {
-		await runSystemPromptNullTest(laneFor("opencode"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session record is terminal after provisioning an agent with no systemPrompt (empty persona)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runSystemPromptNullTest(laneFor("opencode"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -410,11 +644,31 @@ describe("[harness:builtin] session completes when agent harnessType is null", (
 	requireHarness("builtin");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({ db, eventBus }) => {
-		await runHarnessTypeNullTest(laneFor("builtin"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runHarnessTypeNullTest(laneFor("builtin"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -422,11 +676,31 @@ describe("[harness:claude] session completes when agent harnessType is null", ()
 	requireHarness("claude");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({ db, eventBus }) => {
-		await runHarnessTypeNullTest(laneFor("claude"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runHarnessTypeNullTest(laneFor("claude"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -434,11 +708,31 @@ describe("[harness:codex] session completes when agent harnessType is null", () 
 	requireHarness("codex");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({ db, eventBus }) => {
-		await runHarnessTypeNullTest(laneFor("codex"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runHarnessTypeNullTest(laneFor("codex"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -446,11 +740,31 @@ describe("[harness:opencode] session completes when agent harnessType is null", 
 	requireHarness("opencode");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({ db, eventBus }) => {
-		await runHarnessTypeNullTest(laneFor("opencode"), { db, eventBus, tmpDir, bridge: bridge ?? undefined });
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("session is provisioned when agent harnessType is null (adapter selected without type filter)", async ({
+		db,
+		eventBus,
+	}) => {
+		await runHarnessTypeNullTest(laneFor("opencode"), {
+			db,
+			eventBus,
+			tmpDir,
+			bridge: bridge ?? undefined,
+		});
 	}, 240_000);
 });
 
@@ -460,10 +774,25 @@ describe("[harness:builtin] modelTierPreference update reflected in next session
 	requireHarness("builtin");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("second session uses updated modelTierPreference from the DB without server restart", async ({ db, eventBus }) => {
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("second session uses updated modelTierPreference from the DB without server restart", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runModelTierPreferenceTest(laneFor("builtin"), { db, eventBus, tmpDir, bridge });
 	}, 480_000);
@@ -473,10 +802,25 @@ describe("[harness:claude] modelTierPreference update reflected in next session"
 	requireHarness("claude");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("second session uses updated modelTierPreference from the DB without server restart", async ({ db, eventBus }) => {
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("second session uses updated modelTierPreference from the DB without server restart", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runModelTierPreferenceTest(laneFor("claude"), { db, eventBus, tmpDir, bridge });
 	}, 480_000);
@@ -486,10 +830,25 @@ describe("[harness:codex] modelTierPreference update reflected in next session",
 	requireHarness("codex");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("second session uses updated modelTierPreference from the DB without server restart", async ({ db, eventBus }) => {
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("second session uses updated modelTierPreference from the DB without server restart", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runModelTierPreferenceTest(laneFor("codex"), { db, eventBus, tmpDir, bridge });
 	}, 480_000);
@@ -499,10 +858,25 @@ describe("[harness:opencode] modelTierPreference update reflected in next sessio
 	requireHarness("opencode");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
-	beforeEach(async () => { tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-")); setActiveStrategy(minimalStrategy); bridge = await startMcpBridgeServer(); });
-	afterEach(async () => { clearActiveStrategy(); if (bridge) { await bridge.close(); bridge = null; } if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); });
-	test("second session uses updated modelTierPreference from the DB without server restart", async ({ db, eventBus }) => {
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-persist-"));
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("second session uses updated modelTierPreference from the DB without server restart", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runModelTierPreferenceTest(laneFor("opencode"), { db, eventBus, tmpDir, bridge });
 	}, 480_000);

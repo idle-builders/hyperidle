@@ -472,8 +472,11 @@ async function runStateSyncLane(
 			? (() => {
 					const p = new AdapterPool();
 					p.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
-						name: "builtin-local", kind: "local", type: "builtin",
-						modelProviders: ["anthropic", "openrouter", "openai-compatible"], maxConcurrent: 4,
+						name: "builtin-local",
+						kind: "local",
+						type: "builtin",
+						modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+						maxConcurrent: 4,
 					});
 					return { pool: p };
 				})()
@@ -481,7 +484,8 @@ async function runStateSyncLane(
 
 	const credentialResolver = new DbCredentialResolver(db, MATRIX_API_KEY);
 	const app = await createTestApp({
-		db, eventBus,
+		db,
+		eventBus,
 		adapterPool: pool,
 		workspaceAdapter: new LocalSandboxAdapter(),
 		sandboxBasePath: tmpDir,
@@ -489,7 +493,9 @@ async function runStateSyncLane(
 	});
 
 	const endedEvents: DomainEvent[] = [];
-	eventBus.on("session_ended", (e: Extract<DomainEvent, { type: "session_ended" }>) => endedEvents.push(e));
+	eventBus.on("session_ended", (e: Extract<DomainEvent, { type: "session_ended" }>) =>
+		endedEvents.push(e),
+	);
 
 	const postRes = await app.request("/api/sessions", {
 		method: "POST",
@@ -511,7 +517,11 @@ async function runStateSyncLane(
 
 	await vi.waitFor(
 		async () => {
-			const [row] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+			const [row] = await db
+				.select({ state: sessions.state })
+				.from(sessions)
+				.where(eq(sessions.id, sessionId))
+				.limit(1);
 			expect(["done", "crashed"]).toContain(row?.state);
 		},
 		{ timeout: 120_000 },
@@ -524,17 +534,27 @@ describe("[harness:builtin] session state stays in sync through its lifecycle", 
 	requireHarness("builtin");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-builtin-"));
-		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({
+		db,
+		eventBus,
+	}) => {
 		await runStateSyncLane(laneFor("builtin"), db, eventBus, tmpDir, bridge);
 	}, 150_000);
 });
@@ -543,18 +563,28 @@ describe("[harness:claude] session state stays in sync through its lifecycle", (
 	requireHarness("claude");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-claude-"));
-		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
 		bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({
+		db,
+		eventBus,
+	}) => {
 		await runStateSyncLane(laneFor("claude"), db, eventBus, tmpDir, bridge);
 	}, 150_000);
 });
@@ -563,18 +593,28 @@ describe("[harness:codex] session state stays in sync through its lifecycle", ()
 	requireHarness("codex");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-codex-"));
-		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
 		bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({
+		db,
+		eventBus,
+	}) => {
 		await runStateSyncLane(laneFor("codex"), db, eventBus, tmpDir, bridge);
 	}, 150_000);
 });
@@ -583,12 +623,15 @@ describe("[harness:opencode] session state stays in sync through its lifecycle",
 	requireHarness("opencode");
 	let tmpDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	let xdgDataHomeBefore: string | undefined;
 	let xdgConfigHomeBefore: string | undefined;
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ss-matrix-opencode-"));
-		clearDeduplicationCache(); setActiveStrategy(minimalStrategy); vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		vi.stubEnv("HYPERIDLE_API_KEY", MATRIX_API_KEY);
 		bridge = await startMcpBridgeServer();
 		// opencode: isolate its global SQLite DB via XDG_DATA_HOME.
 		// @lore session-state-sync opencode-xdg: opencode uses
@@ -601,13 +644,28 @@ describe("[harness:opencode] session state stays in sync through its lifecycle",
 		process.env.XDG_CONFIG_HOME = path.join(tmpDir, ".opencode-config");
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
-		if (xdgDataHomeBefore !== undefined) { process.env.XDG_DATA_HOME = xdgDataHomeBefore; } else { delete process.env.XDG_DATA_HOME; }
-		if (xdgConfigHomeBefore !== undefined) { process.env.XDG_CONFIG_HOME = xdgConfigHomeBefore; } else { delete process.env.XDG_CONFIG_HOME; }
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		if (xdgDataHomeBefore !== undefined) {
+			process.env.XDG_DATA_HOME = xdgDataHomeBefore;
+		} else {
+			delete process.env.XDG_DATA_HOME;
+		}
+		if (xdgConfigHomeBefore !== undefined) {
+			process.env.XDG_CONFIG_HOME = xdgConfigHomeBefore;
+		} else {
+			delete process.env.XDG_CONFIG_HOME;
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({ db, eventBus }) => {
+	test("PATCH-abort on a live real session acknowledges in-flight or conflicts with completed; session reaches terminal state; session_ended emitted exactly once", async ({
+		db,
+		eventBus,
+	}) => {
 		await runStateSyncLane(laneFor("opencode"), db, eventBus, tmpDir, bridge);
 	}, 150_000);
 });

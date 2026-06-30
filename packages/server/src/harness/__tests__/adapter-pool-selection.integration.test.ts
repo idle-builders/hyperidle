@@ -190,7 +190,10 @@ describe("[harness:builtin] pool provisions a real session through the selected 
 		bridge = undefined;
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({
+		db,
+		eventBus,
+	}) => {
 		await runPoolMatrixLane(laneFor("builtin"), db, eventBus, tmpDir, bridge);
 	}, 120_000);
 });
@@ -211,7 +214,10 @@ describe("[harness:claude] pool provisions a real session through the selected a
 		bridge = undefined;
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({
+		db,
+		eventBus,
+	}) => {
 		await runPoolMatrixLane(laneFor("claude"), db, eventBus, tmpDir, bridge);
 	}, 120_000);
 });
@@ -232,7 +238,10 @@ describe("[harness:codex] pool provisions a real session through the selected ad
 		bridge = undefined;
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({
+		db,
+		eventBus,
+	}) => {
 		await runPoolMatrixLane(laneFor("codex"), db, eventBus, tmpDir, bridge);
 	}, 120_000);
 });
@@ -253,7 +262,10 @@ describe("[harness:opencode] pool provisions a real session through the selected
 		bridge = undefined;
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({ db, eventBus }) => {
+	test("pool selects the adapter, runs a real session, and releases the slot on completion", async ({
+		db,
+		eventBus,
+	}) => {
 		await runPoolMatrixLane(laneFor("opencode"), db, eventBus, tmpDir, bridge);
 	}, 120_000);
 });

@@ -173,7 +173,9 @@ function laneFor(name: string): HarnessLane {
  */
 async function runCostDeltaLane(
 	lane: HarnessLane,
-	ctx: Parameters<typeof runThroughHarness>[1] & { bridge: NonNullable<Parameters<typeof runThroughHarness>[1]["bridge"]> },
+	ctx: Parameters<typeof runThroughHarness>[1] & {
+		bridge: NonNullable<Parameters<typeof runThroughHarness>[1]["bridge"]>;
+	},
 ): Promise<void> {
 	const { db, eventBus, tmpDir, bridge } = ctx;
 
@@ -260,11 +262,17 @@ describe(`[harness:builtin] per-step cost delta accumulates correctly in provisi
 
 	afterEach(async () => {
 		clearActiveStrategy();
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+	test("costActual in DB equals result.totalCostCents after a real session", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runCostDeltaLane(laneFor("builtin"), { db, eventBus, tmpDir, bridge });
 	}, 240_000);
@@ -289,11 +297,17 @@ describe(`[harness:claude] per-step cost delta accumulates correctly in provisio
 
 	afterEach(async () => {
 		clearActiveStrategy();
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+	test("costActual in DB equals result.totalCostCents after a real session", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runCostDeltaLane(laneFor("claude"), { db, eventBus, tmpDir, bridge });
 	}, 240_000);
@@ -318,11 +332,17 @@ describe(`[harness:codex] per-step cost delta accumulates correctly in provision
 
 	afterEach(async () => {
 		clearActiveStrategy();
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+	test("costActual in DB equals result.totalCostCents after a real session", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runCostDeltaLane(laneFor("codex"), { db, eventBus, tmpDir, bridge });
 	}, 240_000);
@@ -359,11 +379,17 @@ describe(`[harness:opencode] per-step cost delta accumulates correctly in provis
 		} else {
 			delete process.env.XDG_DATA_HOME;
 		}
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("costActual in DB equals result.totalCostCents after a real session", async ({ db, eventBus }) => {
+	test("costActual in DB equals result.totalCostCents after a real session", async ({
+		db,
+		eventBus,
+	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runCostDeltaLane(laneFor("opencode"), { db, eventBus, tmpDir, bridge });
 	}, 240_000);

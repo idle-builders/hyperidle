@@ -508,7 +508,8 @@ describe("[harness:builtin] session creation is non-blocking", () => {
 	let tmpDir: string;
 	let xdgDataHomeBefore: string | undefined;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-builtin-"));
@@ -516,17 +517,33 @@ describe("[harness:builtin] session creation is non-blocking", () => {
 		setActiveStrategy(minimalStrategy);
 		const cfg = HTTP_LANE_CONFIGS["builtin"]!;
 		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
-		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.xdgDataHomeKey) {
+			xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey];
+			process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
+		}
 		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
 		const cfg = HTTP_LANE_CONFIGS["builtin"]!;
-		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (cfg.xdgDataHomeKey) {
+			if (xdgDataHomeBefore !== undefined) {
+				process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore;
+			} else {
+				delete process.env[cfg.xdgDataHomeKey];
+			}
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
+		db,
+		eventBus,
+	}) => {
 		await runNonblockingLane("builtin", db, eventBus, tmpDir, bridge);
 	}, 270_000);
 });
@@ -536,7 +553,8 @@ describe("[harness:claude] session creation is non-blocking", () => {
 	let tmpDir: string;
 	let xdgDataHomeBefore: string | undefined;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-claude-"));
@@ -544,17 +562,33 @@ describe("[harness:claude] session creation is non-blocking", () => {
 		setActiveStrategy(minimalStrategy);
 		const cfg = HTTP_LANE_CONFIGS["claude"]!;
 		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
-		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.xdgDataHomeKey) {
+			xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey];
+			process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
+		}
 		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
 		const cfg = HTTP_LANE_CONFIGS["claude"]!;
-		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (cfg.xdgDataHomeKey) {
+			if (xdgDataHomeBefore !== undefined) {
+				process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore;
+			} else {
+				delete process.env[cfg.xdgDataHomeKey];
+			}
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
+		db,
+		eventBus,
+	}) => {
 		await runNonblockingLane("claude", db, eventBus, tmpDir, bridge);
 	}, 270_000);
 });
@@ -564,7 +598,8 @@ describe("[harness:codex] session creation is non-blocking", () => {
 	let tmpDir: string;
 	let xdgDataHomeBefore: string | undefined;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-codex-"));
@@ -574,19 +609,45 @@ describe("[harness:codex] session creation is non-blocking", () => {
 		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
 		if (cfg.needsGitRepo) {
 			execFileSync("git", ["init"], { cwd: tmpDir, stdio: "ignore" });
-			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], { cwd: tmpDir, stdio: "ignore", env: { ...process.env, GIT_AUTHOR_NAME: "test", GIT_AUTHOR_EMAIL: "test@test.com", GIT_COMMITTER_NAME: "test", GIT_COMMITTER_EMAIL: "test@test.com" } });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+				cwd: tmpDir,
+				stdio: "ignore",
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
+			});
 		}
-		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.xdgDataHomeKey) {
+			xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey];
+			process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
+		}
 		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
 		const cfg = HTTP_LANE_CONFIGS["codex"]!;
-		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (cfg.xdgDataHomeKey) {
+			if (xdgDataHomeBefore !== undefined) {
+				process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore;
+			} else {
+				delete process.env[cfg.xdgDataHomeKey];
+			}
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
+		db,
+		eventBus,
+	}) => {
 		await runNonblockingLane("codex", db, eventBus, tmpDir, bridge);
 	}, 270_000);
 });
@@ -596,7 +657,8 @@ describe("[harness:opencode] session creation is non-blocking", () => {
 	let tmpDir: string;
 	let xdgDataHomeBefore: string | undefined;
 	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-opencode-"));
@@ -604,17 +666,33 @@ describe("[harness:opencode] session creation is non-blocking", () => {
 		setActiveStrategy(minimalStrategy);
 		const cfg = HTTP_LANE_CONFIGS["opencode"]!;
 		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
-		if (cfg.xdgDataHomeKey) { xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey]; process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data"); }
+		if (cfg.xdgDataHomeKey) {
+			xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey];
+			process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
+		}
 		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs();
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
 		const cfg = HTTP_LANE_CONFIGS["opencode"]!;
-		if (cfg.xdgDataHomeKey) { if (xdgDataHomeBefore !== undefined) { process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore; } else { delete process.env[cfg.xdgDataHomeKey]; } }
-		if (bridge) { await bridge.close(); bridge = null; }
+		if (cfg.xdgDataHomeKey) {
+			if (xdgDataHomeBefore !== undefined) {
+				process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore;
+			} else {
+				delete process.env[cfg.xdgDataHomeKey];
+			}
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
-	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({ db, eventBus }) => {
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
+		db,
+		eventBus,
+	}) => {
 		await runNonblockingLane("opencode", db, eventBus, tmpDir, bridge);
 	}, 270_000);
 });

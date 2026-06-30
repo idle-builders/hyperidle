@@ -361,26 +361,38 @@ async function runDispatchMatrixLane(
 	if (lane.harnessName === "builtin") {
 		pool = new AdapterPool();
 		pool.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
-			name: "builtin-local", kind: "local", type: "builtin",
-			modelProviders: ["anthropic", "openrouter", "openai-compatible"], maxConcurrent: 4,
+			name: "builtin-local",
+			kind: "local",
+			type: "builtin",
+			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+			maxConcurrent: 4,
 		});
 	} else if (lane.harnessName === "claude") {
 		pool = new AdapterPool();
 		pool.register("local-claude", lockedHarnessAdapter("claude").adapter, {
-			name: "local-claude", kind: "local", type: "claude-code",
-			modelProviders: ["anthropic"], maxConcurrent: 4,
+			name: "local-claude",
+			kind: "local",
+			type: "claude-code",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
 		});
 	} else if (lane.harnessName === "codex") {
 		pool = new AdapterPool();
 		pool.register("local-codex", lockedHarnessAdapter("codex").adapter, {
-			name: "local-codex", kind: "local", type: "codex",
-			modelProviders: ["openai-compatible"], maxConcurrent: 2,
+			name: "local-codex",
+			kind: "local",
+			type: "codex",
+			modelProviders: ["openai-compatible"],
+			maxConcurrent: 2,
 		});
 	} else {
 		pool = new AdapterPool();
 		pool.register("local-opencode", lockedHarnessAdapter("opencode").adapter, {
-			name: "local-opencode", kind: "local", type: "opencode",
-			modelProviders: ["openai-compatible"], maxConcurrent: 2,
+			name: "local-opencode",
+			kind: "local",
+			type: "opencode",
+			modelProviders: ["openai-compatible"],
+			maxConcurrent: 2,
 		});
 	}
 
@@ -389,7 +401,9 @@ async function runDispatchMatrixLane(
 		adapterPool: pool,
 		workspaceAdapter: new LocalSandboxAdapter(),
 		sandboxBasePath,
-		...(bridge ? { mcpBridgeRegistry: bridge.mcpBridgeRegistry, mcpBaseUrl: bridge.mcpBaseUrl } : {}),
+		...(bridge
+			? { mcpBridgeRegistry: bridge.mcpBridgeRegistry, mcpBaseUrl: bridge.mcpBaseUrl }
+			: {}),
 	};
 
 	const server = await createServer(0, serverDeps);
@@ -434,7 +448,8 @@ describe("[harness:builtin] dispatcher auto-provisions a session for an accepted
 	let sandboxBasePath: string;
 	let dbDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-builtin-db-"));
@@ -443,12 +458,19 @@ describe("[harness:builtin] dispatcher auto-provisions a session for an accepted
 		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-builtin-"));
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		clearProvisionSessionFn();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		fs.rmSync(dbDir, { recursive: true, force: true });
 	});
-	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
+		db,
+	}) => {
 		await runDispatchMatrixLane(laneFor("builtin"), db, sandboxBasePath, bridge);
 	}, 120_000);
 });
@@ -458,7 +480,8 @@ describe("[harness:claude] dispatcher auto-provisions a session for an accepted 
 	let sandboxBasePath: string;
 	let dbDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-claude-db-"));
@@ -468,12 +491,19 @@ describe("[harness:claude] dispatcher auto-provisions a session for an accepted 
 		bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		clearProvisionSessionFn();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		fs.rmSync(dbDir, { recursive: true, force: true });
 	});
-	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
+		db,
+	}) => {
 		await runDispatchMatrixLane(laneFor("claude"), db, sandboxBasePath, bridge);
 	}, 120_000);
 });
@@ -483,7 +513,8 @@ describe("[harness:codex] dispatcher auto-provisions a session for an accepted t
 	let sandboxBasePath: string;
 	let dbDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-codex-db-"));
@@ -493,12 +524,19 @@ describe("[harness:codex] dispatcher auto-provisions a session for an accepted t
 		bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		clearProvisionSessionFn();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		fs.rmSync(dbDir, { recursive: true, force: true });
 	});
-	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
+		db,
+	}) => {
 		await runDispatchMatrixLane(laneFor("codex"), db, sandboxBasePath, bridge);
 	}, 120_000);
 });
@@ -508,7 +546,8 @@ describe("[harness:opencode] dispatcher auto-provisions a session for an accepte
 	let sandboxBasePath: string;
 	let dbDir: string;
 	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
-	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null = null;
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-opencode-db-"));
@@ -518,12 +557,19 @@ describe("[harness:opencode] dispatcher auto-provisions a session for an accepte
 		bridge = await startMcpBridgeServer();
 	});
 	afterEach(async () => {
-		clearActiveStrategy(); vi.unstubAllEnvs(); clearProvisionSessionFn();
-		if (bridge) { await bridge.close(); bridge = null; }
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		clearProvisionSessionFn();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
 		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
 		fs.rmSync(dbDir, { recursive: true, force: true });
 	});
-	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({ db }) => {
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
+		db,
+	}) => {
 		await runDispatchMatrixLane(laneFor("opencode"), db, sandboxBasePath, bridge);
 	}, 120_000);
 });
