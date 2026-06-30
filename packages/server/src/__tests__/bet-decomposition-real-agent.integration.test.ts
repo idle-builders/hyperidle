@@ -142,8 +142,8 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	/**
 	 * @lore AR5 opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db
 	 * (global SQLite). Without XDG_DATA_HOME isolation, rapid sequential opencode processes
-	 * in AK3's 4 tests can hit a write-lock → the second process hangs indefinitely.
-	 * Mirrors the custom-strategy-session.integration.test.ts isolation pattern (AR5/AR7).
+	 * across this file's lanes can hit a write-lock → the second process hangs indefinitely.
+	 * Mirrors the minimal-strategy-session.integration.test.ts isolation pattern.
 	 * Only needed for opencode lane — gated on harnessName.
 	 */
 	let xdgDataHomeBefore: string | undefined;
