@@ -38,9 +38,10 @@ import {
 } from "./lib/honest-harness-predicate.js";
 import {
 	type VitestJsonResult,
-	assertPerHarnessFloor,
+	assertHarnessSymmetry,
 	extractAgenticCounts,
 } from "./lib/attestation-floor.js";
+import { resolveLegs } from "./lib/attestation-scope.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -68,15 +69,21 @@ const SECRET_PATH = join(SECRET_DIR, "verify-secret");
 
 /**
  * The slow tools CI does NOT re-run live, trusted via this attestation.
- * `ATTESTED_COMMAND`'s exit code is the single source of truth for `status`.
+ * `ATTESTED_TOOLS`'s exit codes are the single source of truth for `status`.
  * Every other (fast) tool runs live in CI and is intentionally absent here.
+ *
+ * @lore AT1: test:e2e added as a third attested leg. e2e runs locally inside verify
+ * (Playwright boots its own vite:5179); CI validates the attestation, never runs e2e.
+ * The "e2e never a GH-Actions job" rule is preserved.
  */
-const ATTESTED_TOOLS = ["test", "test:integration"];
-// @lore AR1: verify-attest runs `test:all`'s two constituent legs directly (rather
+const ATTESTED_TOOLS = ["test", "test:integration", "test:e2e"];
+// @lore AR1: verify-attest runs test:all's two constituent legs directly (rather
 // than the chained `npm run test:all`) so it can attach a JSON reporter to the
 // integration leg and read per-file executed/skipped counts for the agentic floor.
-// Combined semantics are identical to `test:all`'s `&&`-chain: BOTH legs must pass.
-const ATTESTED_COMMAND_UNIT = "npm run test";
+// Combined semantics are identical to test:all's `&&`-chain: BOTH legs must pass.
+// @lore AT1: Both legs are now scope-driven (affected vs full) via resolveLegs(VERIFY_SCOPE).
+// The resolveLegs swap and the package.json test→--changed change land in the SAME commit
+// (atomic) to prevent a full-mode verify running an affected unit leg while stamping scope:full.
 
 function getOrCreateSecret(): string {
 	if (existsSync(SECRET_PATH)) {
@@ -95,6 +102,13 @@ function getOrCreateSecret(): string {
 function main(): void {
 	const secret = getOrCreateSecret();
 
+	// AT1: resolve legs and scope from VERIFY_SCOPE env.
+	const { legs, scope } = resolveLegs(process.env["VERIFY_SCOPE"]);
+
+	process.stderr.write(
+		`verify-attest: scope="${scope}" (VERIFY_SCOPE=${process.env["VERIFY_SCOPE"] ?? "unset"}) — running ${scope === "full" ? "full" : "affected"} slice\n`,
+	);
+
 	// Capture identity + cleanliness BEFORE running tests so that gitignored
 	// test artifacts (coverage, tmp DBs) cannot flip the `dirty` flag.
 	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
@@ -104,14 +118,14 @@ function main(): void {
 	const dirty =
 		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
 
-	// Run the attested tools (unit leg + integration leg) and derive status from the
+	// Run the attested tools (unit leg + integration leg + e2e leg) and derive status from
 	// REAL exit codes. The integration leg carries a JSON reporter so the agentic floor
-	// can read per-file executed/skipped counts. Combined status = both legs pass.
+	// can read per-file executed/skipped counts. Combined status = all legs pass.
 	let status: "passed" | "failed" = "passed";
 
-	process.stderr.write("verify-attest: running attested unit leg (npm run test)...\n");
+	process.stderr.write(`verify-attest: running unit leg: ${legs.unit}\n`);
 	try {
-		execSync(ATTESTED_COMMAND_UNIT, { stdio: "inherit" });
+		execSync(legs.unit, { stdio: "inherit" });
 	} catch {
 		status = "failed";
 	}
@@ -122,35 +136,51 @@ function main(): void {
 	const tmpDir = mkdtempSync(join(tmpdir(), "ar1-attest-"));
 	const tmpJson = join(tmpDir, "integration.json");
 	const integrationCmd =
-		"npx vitest run --config vitest.integration.config.ts " +
+		`${legs.integration} ` +
 		`--reporter=dot --reporter=json --outputFile=${tmpJson}`;
-	process.stderr.write("verify-attest: running attested integration leg...\n");
+	process.stderr.write(`verify-attest: running integration leg: ${integrationCmd}\n`);
+
+	// AT1 B2: capture integration exit code separately. An affected run may select 0
+	// integration files — exit 0, JSON absent/empty = legitimate empty slice, NOT a failure.
+	let integrationExitCode = 0;
 	try {
 		execSync(integrationCmd, { stdio: "inherit" });
-	} catch {
+	} catch (err) {
+		const spawnErr = err as { status?: number };
+		integrationExitCode = spawnErr.status ?? 1;
 		status = "failed";
 	}
 
-	// Read the integration JSON and derive the agentic executed/skipped counts. A
-	// missing/unparseable JSON (integration leg crashed before writing) is itself a
-	// failure AND forces the floor to trip — never a silent `undefined`.
+	// Read the integration JSON and derive the agentic executed/skipped counts.
+	// B2: if the integration leg exited 0 but JSON is absent/empty (legitimate empty
+	// affected slice — passWithNoTests exits 0 before the reporter flushes), set
+	// agenticExecuted=0/byHarness={} without setting status=failed.
+	// Only a non-zero exit (real failure) sets status=failed above.
 	let agenticExecuted = 0;
 	let agenticSkipped = 0;
 	let agenticExecutedByHarness: Record<string, { executed: number; skipped: number }> = {};
 	try {
-		const json = JSON.parse(readFileSync(tmpJson, "utf-8")) as VitestJsonResult;
+		const raw = readFileSync(tmpJson, "utf-8");
+		const json = JSON.parse(raw) as VitestJsonResult;
 		const counts = extractAgenticCounts(json, isHarnessIntegrationPath);
 		agenticExecuted = counts.agenticExecuted;
 		agenticSkipped = counts.agenticSkipped;
 		agenticExecutedByHarness = counts.byHarness;
 	} catch {
-		status = "failed";
+		if (integrationExitCode !== 0) {
+			// Real failure: leg crashed before writing JSON.
+			process.stderr.write(
+				"verify-attest: could not read integration JSON (leg crashed) — agentic counts 0/0\n",
+			);
+		} else {
+			// Legitimate empty affected slice: passWithNoTests exits 0, reporter may not flush.
+			process.stderr.write(
+				"verify-attest: integration JSON absent (empty affected slice, exit 0) — agenticExecuted=0\n",
+			);
+		}
 		agenticExecuted = 0;
 		agenticSkipped = 0;
 		agenticExecutedByHarness = {};
-		process.stderr.write(
-			"verify-attest: could not read integration JSON — status=failed, agentic counts 0/0\n",
-		);
 	} finally {
 		try {
 			rmSync(tmpDir, { recursive: true, force: true });
@@ -171,18 +201,28 @@ function main(): void {
 		if (!(h in byHarnessWithDefaults)) byHarnessWithDefaults[h] = v;
 	}
 
-	// Fail immediately if any supported harness has zero executed — the gate
-	// runs at attest time so no status=passed attestation can be minted for a
-	// partially-covered matrix.
-	const perHarnessViolation = assertPerHarnessFloor(byHarnessWithDefaults, SUPPORTED_HARNESSES);
-	if (perHarnessViolation) {
+	// AT1 D4: assertHarnessSymmetry replaces assertPerHarnessFloor. Conditional symmetry +
+	// untagged guard — gates at attest time so no status=passed can be minted for a
+	// lopsided or untagged-only harness run.
+	const symmetryViolation = assertHarnessSymmetry(byHarnessWithDefaults, agenticExecuted, SUPPORTED_HARNESSES);
+	if (symmetryViolation) {
 		status = "failed";
-		process.stderr.write(`verify-attest: ${perHarnessViolation}\n`);
+		process.stderr.write(`verify-attest: ${symmetryViolation}\n`);
+	}
+
+	// AT1 D6: e2e as a third attested leg. Exit code folds into status.
+	// Playwright boots its own vite:5179 webServer; CI never runs this.
+	process.stderr.write(`verify-attest: running e2e leg: ${legs.e2e}\n`);
+	try {
+		execSync(legs.e2e, { stdio: "inherit" });
+	} catch {
+		status = "failed";
 	}
 
 	const payload = {
 		sha,
 		srcHash,
+		scope,
 		status,
 		dirty,
 		tools: ATTESTED_TOOLS,
@@ -212,7 +252,7 @@ function main(): void {
 	const filePath = join(dir, `${sha}.json`);
 	writeFileSync(filePath, JSON.stringify({ ...payload, hmac }, null, "\t") + "\n");
 	process.stderr.write(
-		`verify-attest: attestation (status=${status}) → ${ATTESTATION_DIR}/${sha}.json\n`,
+		`verify-attest: attestation (scope=${scope}, status=${status}) → ${ATTESTATION_DIR}/${sha}.json\n`,
 	);
 
 	if (dirty) {

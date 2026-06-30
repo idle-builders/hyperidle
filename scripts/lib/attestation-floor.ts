@@ -123,6 +123,9 @@ export function extractAgenticCounts(
  * @param supported  The supported harness set (SUPPORTED_HARNESSES mirrored into
  *                   scripts/lib — no packages/ → scripts/ cycle).
  * @returns A violation string naming the empty harness(es), or null if all pass.
+ *
+ * @deprecated since AT1 — replaced by assertHarnessSymmetry. Kept for migration
+ * compatibility; call sites use assertHarnessSymmetry instead.
  */
 export function assertPerHarnessFloor(
 	byHarness: Record<string, { executed: number; skipped: number }> | undefined,
@@ -139,6 +142,83 @@ export function assertPerHarnessFloor(
 			`(AR2: equal coverage across all supported harnesses; SUPPORTED_HARNESSES is the source of truth.)`
 		);
 	}
+	return null;
+}
+
+/**
+ * AT1 — Conditional symmetry + untagged guard (D4). Replaces assertPerHarnessFloor
+ * at both call sites (verify-attest mint + check-attestation validate).
+ *
+ * Three cases:
+ *   1. agenticExecuted === 0 → null (no harness file in the affected slice; nothing ran)
+ *   2. agenticExecuted > 0 AND byHarness has no tagged buckets → error (untagged guard:
+ *      a harness-facing test ran but emitted no [harness:X] tags — tag it before relying on it)
+ *   3. agenticExecuted > 0 AND tagged buckets present → null iff every supported harness
+ *      has count > 0 AND max === min (equal symmetric run); else error
+ *
+ * The untagged guard (case 2) prevents an affected run from silently passing with an
+ * untagged harness file as its only harness coverage — it forces tagging before the file
+ * can be relied on for coverage guarantees. See architecture.md D4 (Critique B1).
+ *
+ * @lore AT1 (D4, Critique B1): Only 2 of 14 harness integration files emit [harness:X]
+ *   buckets. The other 12 populate global agenticExecuted but zero byHarness buckets.
+ *   A naive sum(byHarness)===0 → pass would be blind to those untagged files. The
+ *   untagged guard makes that case loud instead of a silent pass — forcing the file to be
+ *   tagged before it can pass the symmetry floor.
+ *
+ * @param byHarness      Per-harness executed/skipped map from extractAgenticCounts.
+ * @param agenticExecuted Global executed count (already returned by extractAgenticCounts).
+ * @param supported      The supported harness set (SUPPORTED_HARNESSES).
+ * @returns Violation string, or null if the floor passes.
+ */
+export function assertHarnessSymmetry(
+	byHarness: Record<string, { executed: number; skipped: number }>,
+	agenticExecuted: number,
+	supported: readonly string[],
+): string | null {
+	// Case 1: nothing ran — affected slice had no harness file. Pass.
+	if (agenticExecuted === 0) return null;
+
+	// agenticExecuted > 0 from here on.
+
+	// Case 2: untagged guard — harness file ran but emitted no [harness:X] tags.
+	if (Object.keys(byHarness).length === 0) {
+		return (
+			"harness-symmetry floor (untagged guard): a harness-facing integration test ran " +
+			`(agenticExecuted=${agenticExecuted}) but emitted no [harness:X] describe tags — ` +
+			"none of the executed assertions were bucketed by harness. " +
+			"Tag the file's describe blocks with [harness:<name>] so the symmetry floor can " +
+			"verify equal coverage across all supported harnesses. " +
+			"(AT1 D4: the untagged guard makes blind affected-mode harness runs loud.)"
+		);
+	}
+
+	// Case 3: tagged buckets present — check symmetry across supported harnesses.
+	const counts = supported.map((h) => byHarness[h]?.executed ?? 0);
+	const missing = supported.filter((h) => (byHarness[h]?.executed ?? 0) === 0);
+
+	if (missing.length > 0) {
+		return (
+			`harness-symmetry floor: ${missing.join(", ")} ran ZERO executed tagged agentic ` +
+			"assertion(s) while other harnesses did run. Every supported harness must execute " +
+			"an equal number of tagged harness-facing assertions — an unequal/missing lane means " +
+			"a harness was silently dropped (the AR2 regression this floor exists to catch). " +
+			"(AT1 D4: conditional symmetry; SUPPORTED_HARNESSES is the source of truth.)"
+		);
+	}
+
+	const max = Math.max(...counts);
+	const min = Math.min(...counts);
+
+	if (max !== min) {
+		const breakdown = supported.map((h) => `${h}:${byHarness[h]?.executed ?? 0}`).join(", ");
+		return (
+			`harness-symmetry floor: executed counts are unequal across supported harnesses ` +
+			`(${breakdown}). Every harness must run the same number of tagged agentic assertions. ` +
+			"(AT1 D4: max===min symmetry; AT1 rejects lopsided lane runs.)"
+		);
+	}
+
 	return null;
 }
 

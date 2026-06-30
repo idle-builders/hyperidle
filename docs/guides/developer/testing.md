@@ -3,13 +3,27 @@
 ### Test Commands
 
 ```bash
-npm run test                     # unit + component tests only (fast, excludes *.integration.test.ts)
+npm run test                     # affected unit + component tests (--changed=origin/main, fast)
+npm run test:full                # ALL unit + component tests (no changed-file filter)
 npm run test:integration         # DB/API integration tests only (vitest fixtures, PGlite)
-npm run test:all                 # unit + component + integration sequentially
-npm run test:e2e                 # Playwright E2E (Chromium)
-npm run verify                   # check + lint + knip + test:all + build + attestation
+npm run test:all                 # ALL unit + component + integration sequentially (test:full + test:integration)
+npm run test:e2e                 # affected Playwright E2E (--only-changed=origin/main)
+npm run test:e2e:full            # ALL Playwright E2E specs (no changed-file filter)
+npm run verify                   # check + lint + knip + build + attestation (affected slice)
+npm run verify:release           # same but VERIFY_SCOPE=full — runs all three legs fully (required at release)
 npm run verify:quick             # check + lint + knip only
 ```
+
+#### Affected vs full
+
+`npm run verify` now selects the **affected** slice of the test suite vs `origin/main`:
+- Unit/component: `vitest --changed=origin/main` — only tests whose import-closure intersects the diff.
+- Integration: `vitest --changed=origin/main` on the integration config — a branch that doesn't touch harness/DB code skips the real-LLM harness suite.
+- E2E: `playwright test --only-changed=origin/main` — only specs whose file changed (black-box, so app-only changes select 0 specs; the full e2e run at release is the backstop).
+
+**Before releasing a version bump**, run `npm run verify:release` (not just `verify`). The Release Guard rejects an `affected`-scope attestation on a version bump.
+
+> **E2E under-selection caveat (R3 from AT1):** Playwright `--only-changed` selects by changed *spec files + their import graph*. Every e2e spec imports only `./fixtures` + Node builtins — zero imports from `packages/web/src` — so a pure app-code change selects no e2e specs. This is not a coverage hole: the affected unit/component leg catches the component (white-box, imports it). Affected-e2e = "specs you edited"; full e2e at release covers all journeys.
 
 Run a specific file: `npm run test -- packages/server/src/__tests__/my.test.ts`
 

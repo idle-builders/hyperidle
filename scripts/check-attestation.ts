@@ -22,8 +22,10 @@ import { execSync } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { assertAgenticFloor, assertPerHarnessFloor } from "./lib/attestation-floor.js";
+import { assertAgenticFloor, assertHarnessSymmetry } from "./lib/attestation-floor.js";
 import { SUPPORTED_HARNESSES } from "./lib/honest-harness-predicate.js";
+import { assertScope } from "./lib/attestation-scope.js";
+import type { VerifyScope } from "./lib/attestation-scope.js";
 
 const ATTESTATION_DIR = ".verify-attestations";
 
@@ -60,6 +62,13 @@ interface Attestation {
 	 * run executed against. Robust to squash-merge AND to committing the
 	 * attestation file itself. See sourceHash(). */
 	srcHash?: string;
+	/**
+	 * AT1: scope is REQUIRED on all new attestations. "affected" = changed-file
+	 * selection; "full" = whole suite. Absent scope fails validation (no back-compat).
+	 * Typed as optional here because legacy attestation files may not carry it;
+	 * assertScope() rejects absent/invalid scope.
+	 */
+	scope?: VerifyScope;
 	status: string;
 	dirty: boolean;
 	tools: string[];
@@ -110,7 +119,7 @@ function findAttestation(): string {
 			}
 		}
 		if (files.length > 0) {
-			return readFileSync(join(dir, files[0]), "utf-8");
+			return readFileSync(join(dir, files[0] as string), "utf-8");
 		}
 	}
 
@@ -126,9 +135,22 @@ function findAttestation(): string {
 }
 
 function main(): void {
-	const secret = process.env.VERIFY_SECRET;
+	const secret = process.env["VERIFY_SECRET"];
 	if (!secret) {
 		fail("VERIFY_SECRET env var not set — add it as a GitHub Actions secret");
+	}
+
+	// AT1 D2: parse --require-scope=<affected|full> from argv.
+	// Normal CI calls this flag-less (scope-agnostic); release-guard calls --require-scope=full.
+	let requireScope: VerifyScope | undefined;
+	for (const arg of process.argv.slice(2)) {
+		if (arg.startsWith("--require-scope=")) {
+			const val = arg.slice("--require-scope=".length);
+			if (val !== "affected" && val !== "full") {
+				fail(`--require-scope value must be "affected" or "full", got: "${val}"`);
+			}
+			requireScope = val;
+		}
 	}
 
 	const raw = findAttestation();
@@ -161,6 +183,13 @@ function main(): void {
 		fail("verify ran with uncommitted changes — commit all changes, then re-run verify");
 	}
 
+	// AT1 D7: scope is REQUIRED — fail on absent or invalid scope.
+	// assertScope handles: invalid scope → error; absent + required → error; absent + no req → error.
+	const scopeValidation = assertScope(attestation.scope, requireScope);
+	if (scopeValidation) {
+		fail(scopeValidation);
+	}
+
 	// AR1 agentic floor: a green cannot be minted while EVERY harness-facing
 	// integration test skipped. Optional fields ⇒ legacy attestations validate (the
 	// floor returns null on undefined/undefined). New attestations always carry both.
@@ -172,16 +201,18 @@ function main(): void {
 		fail(floorViolation);
 	}
 
-	// AR2 per-harness floor: every supported harness must have at least one executed
-	// agentic assertion. Optional field ⇒ legacy attestations validate (back-compat).
-	// A fresh verify-attest run always populates all four keys; the floor returns null
-	// on undefined (the only way the floor can be skipped is a pre-AR2 attestation).
-	const perHarnessViolation = assertPerHarnessFloor(
-		attestation.agenticExecutedByHarness,
-		SUPPORTED_HARNESSES,
-	);
-	if (perHarnessViolation) {
-		fail(perHarnessViolation);
+	// AT1 D4: assertHarnessSymmetry replaces assertPerHarnessFloor at this call site.
+	// Legacy attestations without agenticExecutedByHarness skip the floor (back-compat).
+	// A fresh verify-attest run always populates all four keys.
+	if (attestation.agenticExecutedByHarness !== undefined) {
+		const symmetryViolation = assertHarnessSymmetry(
+			attestation.agenticExecutedByHarness,
+			attestation.agenticExecuted ?? 0,
+			SUPPORTED_HARNESSES,
+		);
+		if (symmetryViolation) {
+			fail(symmetryViolation);
+		}
 	}
 
 	// Source-integrity: the attested tests must correspond to the source CI is
@@ -229,7 +260,7 @@ function main(): void {
 			? `, smart-skipped: ${attestation.smartSkipped.join(", ")}`
 			: "";
 	process.stdout.write(
-		`check-attestation: verified (${attestation.tools.join(", ")}${smartNote}) at ${attestation.timestamp}\n`,
+		`check-attestation: verified (${attestation.tools.join(", ")}${smartNote}) at ${attestation.timestamp} [scope=${attestation.scope}]\n`,
 	);
 }
 
