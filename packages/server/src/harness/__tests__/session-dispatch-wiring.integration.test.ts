@@ -327,7 +327,7 @@ function laneFor(name: string): import("./provision-real-session.js").HarnessLan
 
 async function runDispatchMatrixLane(
 	lane: import("./provision-real-session.js").HarnessLane,
-	db: Parameters<typeof createServer>[1]["db"],
+	db: HyperIdleDb,
 	sandboxBasePath: string,
 	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
 	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,

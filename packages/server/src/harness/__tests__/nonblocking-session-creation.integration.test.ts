@@ -77,7 +77,6 @@ import {
 	lockedHarnessAdapter,
 	provisionCodexHome,
 	provisionOpencodeHome,
-	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "./provision-real-session.js";
 import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
@@ -435,8 +434,8 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 
 async function runNonblockingLane(
 	harnessName: string,
-	db: Parameters<typeof createTestApp>[0]["db"],
-	eventBus: Parameters<typeof createTestApp>[0]["eventBus"],
+	db: HyperIdleDb,
+	eventBus: import("@hyperidle/shared").EventBus,
 	tmpDir: string,
 	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
 	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,

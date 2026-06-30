@@ -443,8 +443,8 @@ function laneFor(name: string): import("./provision-real-session.js").HarnessLan
 
 async function runStateSyncLane(
 	lane: import("./provision-real-session.js").HarnessLane,
-	db: Parameters<typeof createTestApp>[0]["db"],
-	eventBus: Parameters<typeof createTestApp>[0]["eventBus"],
+	db: HyperIdleDb,
+	eventBus: import("@hyperidle/shared").EventBus,
 	tmpDir: string,
 	// biome-ignore lint/suspicious/noExplicitAny: server handle — only close() used
 	bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null,
@@ -489,7 +489,7 @@ async function runStateSyncLane(
 	});
 
 	const endedEvents: DomainEvent[] = [];
-	eventBus.on("session_ended", (e) => endedEvents.push(e));
+	eventBus.on("session_ended", (e: Extract<DomainEvent, { type: "session_ended" }>) => endedEvents.push(e));
 
 	const postRes = await app.request("/api/sessions", {
 		method: "POST",
