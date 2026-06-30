@@ -581,12 +581,23 @@ describe("[harness:codex] AO2 Lane 3 — gpt-5.4-mini writes FILE.txt in mounted
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(`[ao2-codex] token: ${token}`);
 
+		// @lore AO2 codex-framing: gpt-5.4-mini via codex tends to produce a text
+		// response instead of calling the shell tool when given a vague "create a file"
+		// instruction. An explicit shell command in the task title forces codex's
+		// shell_exec tool path and produces a reliable FILE.txt write.
+		// Investigated 2026-06-30: outcome=not_returned + 0 captures was traced to
+		// the model generating text rather than using the file-write tool. The
+		// promptSeed (first 200 chars of assembled prompt) cuts off mid-sentence before
+		// the UUID token, so the positional arg to codex exec is incomplete. AGENTS.md
+		// carries the full task but gpt-5.4-mini doesn't reliably act on it without an
+		// explicit shell command. Simpler imperative = model uses shell tool = file write.
 		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
 			repoPath,
 			harnessType: "codex",
 			idPrefix: "ao2x",
-			agentSystemPrompt: "You are a test agent for AO2. Complete the task precisely as instructed.",
-			taskTitle: `Create a file named FILE.txt in the current directory containing EXACTLY this token and nothing else: ${token}`,
+			agentSystemPrompt:
+				"You are a test agent. Execute the shell command in the task. Use your shell tool.",
+			taskTitle: `Run this shell command: printf '%s' '${token}' > FILE.txt`,
 		});
 
 		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);

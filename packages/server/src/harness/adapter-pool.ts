@@ -357,7 +357,17 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// from HARNESS_TEST_MODELS explicitly rather than relying on the inherited
 		// CODEX_HOME config default. The {{prompt}} / AGENTS.md / stdin-wait lore
 		// above remains valid — only the model is newly argument-enforced.
-		args: ["exec", "--model", "{{model}}", "{{prompt}}", "--json"],
+		//
+		// @lore AO2 codex-workspace-write: `--sandbox workspace-write` allows codex's
+		// shell tool to write files in the working directory (the mounted worktree).
+		// Without this flag, codex defaults to `read-only` sandbox mode and refuses
+		// ALL file writes (including `printf > FILE.txt`). The worktree IS the
+		// sandboxPath — codex must be able to write into it. This is a production fix:
+		// a codex agent that cannot write its mounted filesystem is useless.
+		// Verified against codex-cli: `codex exec --help` lists three values:
+		// read-only (default), workspace-write, danger-full-access.
+		// workspace-write = writable within the cwd tree; no full-disk access.
+		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",
 		},
