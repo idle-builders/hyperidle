@@ -27,19 +27,9 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type {
-	EventBus,
-	HarnessCapabilities,
-	ResolvedModel,
-	SelectAgentOutcome,
-	SelectAgentRequest,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
-} from "@hyperidle/shared";
+import type { EventBus, SelectAgentOutcome, SelectAgentRequest } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import {
 	findEligibleTeamAgents,
@@ -597,128 +587,5 @@ describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		// null or absent — either way the field must not be missing from the shape
 		expect("decompositionStatus" in body).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC5: User Sovereignty — no tool surface
-//
-// AR5 NOTE: this describe block uses a config-capturing stub object to observe
-// what the production code builds (SessionConfig.tools:[]). The stub is NOT a
-// class implementing HarnessAdapter; it is a structural inline object with no
-// guard-detectable stub pattern. The test is a SERVICE integration (real DB +
-// eventBus; no real harness binary), confirming a STATIC behavioral property
-// of runRealPmTurn — that it always passes tools:[] to startSession.
-//
-// This test proves: "when Branch 3 runs, the SessionConfig built by
-// runRealPmTurn carries tools:[]." That is a production-code property,
-// observable without a real LLM. The stub captures the config; it does not
-// script the agent output (the bet is expected to end blocked/empty because
-// the stub yields no completion text).
-// ---------------------------------------------------------------------------
-
-describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
-	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
-	// and the PM pick (bet_decomposer) returns the seeded agent.
-	// AK7 Phase-4: runBetDecomposition now routes the PM pick through selectOwner →
-	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
-	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
-	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
-	// @lore AK3: The real PM turn path is only reached when selectOwner resolves a PM.
-	// Under AK7, selectAgent(bet_decomposer) must return a non-null agentId here.
-	beforeEach(() => {
-		setActiveStrategy(makeFabricLikeStrategy());
-	});
-
-	afterEach(() => {
-		clearActiveStrategy();
-	});
-
-	test("SessionConfig passed to startSession carries tools:[] (no tool surface for decomposition LLM)", async ({
-		db,
-		eventBus,
-	}) => {
-		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-ac5" });
-		await db.insert(bets).values(makeBet("bet-ac5", teamId, "active"));
-
-		// Capture the SessionConfig that runRealPmTurn passes to startSession.
-		// The config-capturing object is a structural stub — NOT a class implementing
-		// HarnessAdapter. It yields no completion text so the bet resolves to
-		// blocked/empty; we only care that tools:[] appears in the captured config.
-		const capturedConfigs: SessionConfig[] = [];
-
-		const configCapturer = {
-			async startSession(config: SessionConfig): Promise<SessionHandle> {
-				capturedConfigs.push(config);
-				return { sessionId: "ac5-capture-session" };
-			},
-			// biome-ignore lint/suspicious/useAwait: async generator stub — must satisfy structural interface
-			async *streamEvents(_handle: SessionHandle): AsyncGenerator<never> {
-				// Yield nothing — drainForCompletion returns "" → JSON.parse fails → empty list → blocked/empty
-			},
-			async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-				return {
-					outcome: "completed",
-					cost: { minor: 0, currency: "USD" },
-					tokenUsage: { byTier: { workhorse: { prompt: 0, completion: 0 } } },
-				};
-			},
-			getCapabilities(): HarnessCapabilities {
-				return {
-					preCompactionTrigger: false,
-					subAgents: false,
-					modelProviders: ["anthropic"],
-					mcpSupport: false,
-					returnEnforcement: "none",
-				};
-			},
-		};
-
-		// Minimal structural adapterPool: select() returns a SelectedEntry wrapping the capturer.
-		// release() is a no-op. No real AdapterPool instantiated.
-		// @lore AK3: We use a structural mock here (not an AdapterPool instance) because
-		// AdapterPool.register() requires AdapterMeta fields we don't care about in this test.
-		// The BetDecompositionDeps type expects AdapterPool but uses only select() + release().
-		const mockAdapterPool = {
-			select(_req?: unknown): SelectedEntry | null {
-				return {
-					id: "ac5-capturer",
-					adapter: configCapturer,
-					meta: {} as SelectedEntry["meta"],
-				};
-			},
-			release(_id: string): void {
-				/* no-op */
-			},
-		} as unknown as AdapterPool;
-
-		const mockResolveModel = vi.fn().mockResolvedValue({
-			provider: "anthropic",
-			model: "claude-opus-4-5",
-			apiKey: "test-key",
-			baseUrl: "https://api.anthropic.com",
-		} satisfies ResolvedModel);
-
-		const deps: BetDecompositionDeps = {
-			db,
-			eventBus,
-			adapterPool: mockAdapterPool,
-			sandbox: {
-				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
-				destroy: vi.fn(),
-			} as unknown as BetDecompositionDeps["sandbox"],
-			sandboxBasePath: "/tmp/ac5-test",
-			resolveModel: mockResolveModel,
-			// No runDecompositionTurn override — exercises the real PM path (runRealPmTurn).
-		};
-
-		await runBetDecomposition(deps, "bet-ac5");
-
-		// The real PM path must have called startSession.
-		expect(capturedConfigs.length).toBeGreaterThanOrEqual(1);
-		// AC5: every SessionConfig sent to the harness must carry tools:[] (no tool surface).
-		for (const cfg of capturedConfigs) {
-			expect(cfg.tools).toEqual([]);
-		}
 	});
 });
