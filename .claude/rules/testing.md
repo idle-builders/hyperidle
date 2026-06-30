@@ -77,10 +77,12 @@ An integration test exercises a **real integration point**, with no stub standin
 
 Models are **founder-set** in `HARNESS_TEST_MODELS` (`packages/server/src/harness/__tests__/require-harness.ts`). A test cannot override the model — it obtains one only via the seam (`runThroughHarness` or `lockedHarnessAdapter` from `provision-real-session.ts`).
 
-| Harness | Locked model | Auth |
+**TINY-MODEL BASELINE:** every entry is deliberately the **smallest/cheapest** model its harness's auth allows. A harness integration test **must pass on these tiny models** — that is the baseline. If a test only works on a bigger model, the feature is wrong, not the model. **Never bump an entry to a larger model to make a flaky test go green** (tests must not drive behavior); a larger model is a separate founder-approved decision. (codex's floor is `gpt-5.4-mini`, not nano — a ChatGPT-account codex login rejects `gpt-5.4-nano`/`gpt-5-codex-mini`; nano is API-key-only.)
+
+| Harness | Locked model (smallest tier) | Auth |
 |---------|-------------|------|
 | `builtin` | `deepseek/deepseek-v4-flash` | `OPENROUTER_API_KEY` (OpenRouter) |
-| `claude` | `sonnet` | keychain (inherited CLI login, no key) |
+| `claude` | `haiku` | keychain (inherited CLI login, no key) |
 | `codex` | `gpt-5.4-mini` | keychain (inherited CLI login, no key) |
 | `opencode` | `openrouter/z-ai/glm-4.7-flash` | `OPENROUTER_API_KEY` (OpenRouter) |
 

@@ -91,6 +91,18 @@ export function requireHarness(...names: HarnessName[]): void {
 /**
  * FOUNDER-SET. DO NOT EDIT THE VALUES BELOW WITHOUT FOUNDER SIGN-OFF.
  *
+ * ════════════════════════════════════════════════════════════════════════════
+ * TINY-MODEL BASELINE — READ THIS BEFORE TOUCHING ANY VALUE.
+ * Every entry is DELIBERATELY the SMALLEST/cheapest model its harness's actual
+ * auth allows (claude → `haiku`, codex → `gpt-5.4-mini` — the floor under a
+ * ChatGPT-account codex login, since nano is API-key-only and rejected there;
+ * builtin → deepseek `…-flash`, opencode → glm `…-flash`). A harness integration test MUST pass on these tiny
+ * models. That is the whole point: if the feature only works on a bigger model,
+ * the feature — not the model — is wrong. NEVER bump an entry to a larger model
+ * to make a flaky test go green (that is "tests must not drive behavior"). A
+ * genuinely larger model is a separate, founder-approved decision.
+ * ════════════════════════════════════════════════════════════════════════════
+ *
  * The single, locked source of truth for which model every real-harness
  * integration test runs against — one fixed entry per supported harness. A test
  * implementer can pick the call-path (full `provisionSession` via
@@ -115,9 +127,11 @@ export function requireHarness(...names: HarnessName[]): void {
  * OpenRouter (shared credit pool, `OPENROUTER_API_KEY`). claude + codex use the
  * inherited keychain login of the installed CLI — no key, the `apiKey` field is
  * an empty string (the CLI ignores it; injecting a non-empty placeholder would
- * feed the subprocess a garbage env var and risk overriding native auth). `sonnet`
- * is the claude CLI tier alias that resolves to the latest Sonnet; `gpt-5.4-mini`
- * is the enforced codex model tier (argument-enforced via `--model {{model}}`).
+ * feed the subprocess a garbage env var and risk overriding native auth). `haiku`
+ * is the claude CLI tier alias resolving to the latest Haiku (smallest tier);
+ * `gpt-5.4-mini` is the smallest codex tier our ChatGPT-account login accepts
+ * (nano/codex-mini are rejected there), argument-enforced via `--model {{model}}`.
+ * Both are the TINY baseline — see the header block.
  *
  * @lore AR7: All four harnesses are now argument/request-enforced on the model:
  * builtin passes it in the OpenRouter request body; claude, codex, and opencode
@@ -154,13 +168,20 @@ export const HARNESS_TEST_MODELS = {
 	},
 	claude: {
 		provider: "anthropic",
-		model: "sonnet",
+		// TINY-BASELINE: `haiku` (smallest claude tier), NOT sonnet/opus. See header.
+		model: "haiku",
 		baseUrl: "https://api.anthropic.com",
 		apiKeyEnv: null,
 	},
 	codex: {
 		provider: "openai-compatible",
-		model: "gpt-5.4-mini", // enforced: CLI_TOOL_CONFIGS.codex.args passes --model {{model}} to codex exec.
+		// TINY-BASELINE: `gpt-5.4-mini` is the SMALLEST codex tier usable here. nano is
+		// NOT it — codex with a ChatGPT-account login rejects `gpt-5.4-nano` and
+		// `gpt-5-codex-mini` (400 "not supported when using Codex with a ChatGPT
+		// account"; verified live 2026-06-30). nano is API-key-only; our codex auth is
+		// the inherited ChatGPT/keychain login, so mini is the floor. Enforced via
+		// CLI_TOOL_CONFIGS.codex.args `--model {{model}}` on codex exec. See header.
+		model: "gpt-5.4-mini",
 		baseUrl: "https://api.openai.com",
 		apiKeyEnv: null,
 	},

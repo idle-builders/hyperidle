@@ -30,11 +30,11 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 		expect(HARNESS_TEST_MODELS.builtin.model).toBe("deepseek/deepseek-v4-flash");
 	});
 
-	test("claude → locked model sonnet", () => {
-		expect(HARNESS_TEST_MODELS.claude.model).toBe("sonnet");
+	test("claude → locked model haiku (tiny baseline)", () => {
+		expect(HARNESS_TEST_MODELS.claude.model).toBe("haiku");
 	});
 
-	test("codex → locked model gpt-5.4-mini", () => {
+	test("codex → locked model gpt-5.4-mini (tiny baseline; nano rejected by ChatGPT-account codex)", () => {
 		expect(HARNESS_TEST_MODELS.codex.model).toBe("gpt-5.4-mini");
 	});
 
@@ -77,9 +77,9 @@ describe("harnessTestResolvedModel — resolves locked model for a harness", () 
 		expect(resolved.apiKey).toBe("test-openrouter-key-abc123");
 	});
 
-	test("claude resolves to sonnet + empty apiKey (keychain auth, no key env)", () => {
+	test("claude resolves to haiku + empty apiKey (keychain auth, no key env)", () => {
 		const resolved = harnessTestResolvedModel("claude");
-		expect(resolved.model).toBe("sonnet");
+		expect(resolved.model).toBe("haiku");
 		expect(resolved.provider).toBe("anthropic");
 		// apiKeyEnv is null for claude — the CLI uses keychain auth, not an injected key.
 		// "" preserves proven behavior; a non-empty placeholder would feed a garbage env var.
