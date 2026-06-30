@@ -6,7 +6,7 @@ export function routeItem(item: {
 	riskTier?: string | null;
 	kind?: string | null;
 	verb?: string | null;
-}): "conversations" | "rail" | "work" | "knowledge" {
+}): "conversations" | "work" | "knowledge" {
 	if (item.riskTier === "medium" || item.riskTier === "high") {
 		return "conversations";
 	}
@@ -22,6 +22,5 @@ export function routeItem(item: {
 	if (item.kind === "chat") {
 		return "conversations";
 	}
-	// @lore AD8a: return value "rail" renamed in AD8b — behavioral change.
-	return "rail";
+	return "conversations";
 }

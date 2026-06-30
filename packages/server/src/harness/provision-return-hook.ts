@@ -27,8 +27,9 @@
  * The bridge URL and token are server-minted — no agent-authored value enters the
  * shell command (no injection surface).
  *
- * @lore AL6 codex-codex-home: Codex reads hooks ONLY from CODEX_HOME/hooks.json
- * (default: ~/.codex/hooks.json). Project-local .codex/hooks.json is silently ignored.
+ * @lore AL6 codex-codex-home: Codex reads hooks from CODEX_HOME/hooks.json
+ * (default: ~/.codex/hooks.json); a project-local .codex/hooks.json is only
+ * honored in *trusted* projects, so our per-session CODEX_HOME is the reliable channel.
  * CODEX_HOME redirect works when we copy ONLY auth.json + config.toml (not the SQLite
  * database files) — those lock and cause codex to exit before making an LLM call.
  * Per-session CODEX_HOME is created at <sandboxPath>/.codex-home/ for isolation.
@@ -184,10 +185,10 @@ async function provisionClaudeSettings(
  * NOT a top-level "Stop" key. The old flat format `{ "Stop": { "command": "..." } }`
  * is WRONG and silently ignored by codex.
  *
- * @lore AL6 WARN-F1 (codex decision:block): Codex Stop hooks use JSON stdout semantics:
- * stdout `{"decision":"block","reason":"..."}` blocks the stop and re-prompts with the reason.
+ * @lore AL6 WARN-F1 (codex decision:block): Codex Stop hooks accept JSON-on-stdout
+ * (`{"decision":"block","reason":"..."}` blocks+re-prompts); recent codex also accepts
+ * exit-2+stderr like Claude, but we use the JSON form.
  * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
- * This is DIFFERENT from Claude Code which uses exit 2 + stderr for blocking.
  */
 async function provisionCodexHome(
 	sandboxPath: string,

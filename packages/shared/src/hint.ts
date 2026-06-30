@@ -16,8 +16,6 @@ export type HintId =
 	| "add-credential"
 	| "knowledge-empty"
 	| "review-verdict"
-	// @lore AD8a: hint ID "rail-indicators" renamed in AD8b when Rail is removed from hint system.
-	| "rail-indicators"
 	| "review-agents"; // AB3: agent customization first-time hint
 
 /** Static definition of a single hint. */
@@ -50,11 +48,6 @@ export const HINT_CATALOG: readonly HintCatalogEntry[] = [
 		id: "review-verdict",
 		copy: "Approve, request changes, or reject. Your verdict tells the agent what to do next.",
 		testId: "hint-review-verdict",
-	},
-	{
-		id: "rail-indicators",
-		copy: "Active bets, blockers, and cost alerts appear here. Red means something needs your attention.",
-		testId: "hint-rail",
 	},
 	// AB3: agent customization first-time hint
 	{
