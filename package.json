@@ -27,7 +27,7 @@
 		"test:e2e:ah5": "npm run -w @hyperidle/web test:e2e:ah5",
 		"test:e2e:ah6": "npm run -w @hyperidle/web test:e2e:ah6",
 		"check": "npx tsx scripts/typecheck-gate.ts",
-		"lint": "biome check . --reporter=summary && npx eslint . --quiet && npx tsx scripts/ag7-no-divergent-classes.ts && npx tsx scripts/honest-harness-guard.ts --check",
+		"lint": "biome check . --reporter=summary && npx eslint . --quiet && npx tsx scripts/ag7-no-divergent-classes.ts && npx tsx scripts/honest-harness-guard.ts --check && npx tsx scripts/test-naming-guard.ts --check",
 		"check:ag7-consistency": "npx tsx scripts/ag7-no-divergent-classes.ts",
 		"lint:biome": "biome check . --reporter=summary",
 		"lint:eslint": "npx eslint . --quiet",
