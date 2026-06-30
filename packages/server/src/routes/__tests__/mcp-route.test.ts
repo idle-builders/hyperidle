@@ -4,8 +4,9 @@
  * Tests the Hono sub-router in isolation — delegates to registry.handleRequest,
  * forwards the token from the URL, and passes through the raw Response.
  *
- * Integration tests (session lifecycle, .mcp.json, bridge registration) live in
- * packages/server/src/__tests__/mcp-route.integration.test.ts
+ * Integration tests (real MCP tool calls through the production bridge) live in
+ * packages/server/src/harness/__tests__/AL7-two-session-trust-first.integration.test.ts
+ * and packages/server/src/mcp/__tests__/mcp-bridge-stateful.integration.test.ts (T0b).
  */
 
 import { Hono } from "hono";
