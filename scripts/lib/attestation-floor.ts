@@ -226,11 +226,24 @@ export function assertHarnessSymmetry(
  * Return a violation string when the agentic surface ran nothing, or null when it
  * is healthy. Legacy attestations minted before AR1 carry no agentic fields
  * (`undefined`/`undefined`) ⇒ null (back-compat — never fail a pre-AR1 green).
+ *
+ * @param scope  Optional scope from the attestation. When "affected", an empty
+ *   agentic set (executed + skipped === 0) is a valid outcome — no harness-facing
+ *   integration files were in the changed slice. assertHarnessSymmetry's Case 1
+ *   already covers this path. For "full" (or absent scope = legacy) the floor
+ *   enforces that at least one agentic assertion was collected.
+ *
+ * @lore AT1: CI was failing because assertAgenticFloor treated agenticExecuted=0
+ *   in an "affected" attestation as a violation. The fix passes scope so the floor
+ *   can distinguish a legitimately empty affected slice from a broken full run.
  */
-export function assertAgenticFloor(counts: {
-	agenticExecuted?: number;
-	agenticSkipped?: number;
-}): string | null {
+export function assertAgenticFloor(
+	counts: {
+		agenticExecuted?: number;
+		agenticSkipped?: number;
+	},
+	scope?: string,
+): string | null {
 	const { agenticExecuted, agenticSkipped } = counts;
 
 	// Back-compat: a legacy attestation with neither field validates.
@@ -240,6 +253,10 @@ export function assertAgenticFloor(counts: {
 	const skipped = agenticSkipped ?? 0;
 
 	if (executed + skipped === 0) {
+		// AT1: an "affected" scope with zero agentic assertions is a valid empty
+		// slice — no harness-facing integration files were changed. assertHarnessSymmetry
+		// Case 1 already handles this. Only enforce the floor on "full" runs.
+		if (scope === "affected") return null;
 		return (
 			"agentic floor: the harness-facing integration set is EMPTY — zero agentic " +
 			"assertions were collected. The agentic surface must run; check the predicate " +

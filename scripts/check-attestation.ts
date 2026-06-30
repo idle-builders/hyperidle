@@ -207,10 +207,11 @@ function main(): void {
 	// AR1 agentic floor: a green cannot be minted while EVERY harness-facing
 	// integration test skipped. Optional fields ⇒ legacy attestations validate (the
 	// floor returns null on undefined/undefined). New attestations always carry both.
+	// AT1: pass scope so the floor can exempt a legitimately empty "affected" slice.
 	const floorViolation = assertAgenticFloor({
 		agenticExecuted: attestation.agenticExecuted,
 		agenticSkipped: attestation.agenticSkipped,
-	});
+	}, attestation.scope);
 	if (floorViolation) {
 		fail(floorViolation);
 	}
