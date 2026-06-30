@@ -370,7 +370,31 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		};
 
 		// Resolve args
-		const resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
+		let resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
+
+		// @lore AR4 WARNING-D1 conditional-model: When resolvedModel is absent or model is
+		// empty (e.g. builtin adapter path, or a CLI lane provisioned without a model), the
+		// {{model}} template resolves to "". Passing --model "" to codex sends an empty string
+		// to the OpenAI API → 400 invalid_request_error. Before AR4 codex had no --model flag
+		// and used its CLI default. Preserve pre-AR4 behavior: drop --model + the following
+		// empty-string arg when the resolved model is empty. Only --model flag pairs are
+		// stripped (not arbitrary empty args) — the flag name is the sentinel.
+		// The non-empty path is unchanged: --model gpt-5.4-mini is injected as before.
+		if (!templateVars["{{model}}"]) {
+			const filtered: string[] = [];
+			for (let j = 0; j < resolvedArgs.length; j++) {
+				if (
+					resolvedArgs[j] === "--model" &&
+					j + 1 < resolvedArgs.length &&
+					resolvedArgs[j + 1] === ""
+				) {
+					j++; // skip "--model" + "" pair
+				} else {
+					filtered.push(resolvedArgs[j] as string);
+				}
+			}
+			resolvedArgs = filtered;
+		}
 
 		// Resolve envMap
 		const resolvedEnvMap: Record<string, string> = {};
