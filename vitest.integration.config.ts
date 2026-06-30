@@ -20,6 +20,14 @@ const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.w
 const HARNESS_INCLUDE = [
 	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
 	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
+	// @lore AR4 harness-serial: *-real.integration.test.ts files in src/__tests__ and
+	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
+	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions
+	// collide on .codex-home/.tmp/plugins-clone dirs → ENOTEMPTY teardown errors.
+	// The service project's 4-worker parallel pool caused this regression when AR4 added
+	// AD2-real + R1-real alongside the existing AR2/cli-adapter harness tests.
+	"packages/server/src/__tests__/*-real.integration.test.ts",
+	"packages/server/src/routes/__tests__/*-real.integration.test.ts",
 ];
 
 export default defineConfig({
