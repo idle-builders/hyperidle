@@ -29,8 +29,11 @@ import { type CliAdapterConfig, CliHarnessAdapter } from "../cli-harness-adapter
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import type { HarnessLane } from "./provision-real-session.js";
 import {
+	CLAUDE_LANE_MODEL,
+	CODEX_LANE_MODEL,
 	DEFAULT_OPENROUTER_MODEL,
 	initGitRepo,
+	OPENCODE_MODEL,
 	provisionClaudeSandbox,
 	provisionCodexHome,
 	provisionOpencodeHome,
@@ -200,7 +203,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			});
 			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
 				provider: "anthropic",
-				model: "claude-haiku-4-5",
+				model: CLAUDE_LANE_MODEL,
 				apiKey: "keychain-auth-unused",
 				baseUrl: "https://api.anthropic.com",
 			});
@@ -238,7 +241,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			});
 			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
 				provider: "openai-compatible",
-				model: "codex-mini-latest",
+				model: CODEX_LANE_MODEL,
 				apiKey: "",
 				baseUrl: "https://api.openai.com",
 			});
@@ -297,7 +300,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			});
 			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
 				provider: "openai-compatible",
-				model: `openrouter/${DEFAULT_OPENROUTER_MODEL}`,
+				model: `openrouter/${OPENCODE_MODEL}`,
 				apiKey,
 				baseUrl: "https://openrouter.ai/api",
 			});

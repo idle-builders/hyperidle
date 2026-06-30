@@ -383,6 +383,15 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
 // User directive 2026-06-30. Verified slug on OpenRouter; supports tools + tool_choice, 1M ctx.
 export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-pro";
 
+// @lore AR5: per-harness test-lane models (2026-06-30). Verified:
+//   OPENCODE_MODEL  — moonshotai/kimi-k2.7-code is a tool-capable OpenRouter model; opencode
+//                     requires the "openrouter/" provider prefix → final string openrouter/moonshotai/...
+//   CLAUDE_LANE_MODEL  — claude-opus-4-8 = current Opus 4.8 in MODEL_CATALOG; keychain auth.
+//   CODEX_LANE_MODEL   — gpt-5.1-codex-max = codex-cli 0.141.0 default_model marker confirmed.
+export const OPENCODE_MODEL = "moonshotai/kimi-k2.7-code";
+export const CLAUDE_LANE_MODEL = "claude-opus-4-8";
+export const CODEX_LANE_MODEL = "gpt-5.1-codex-max";
+
 /**
  * The canonical four-harness lane table. Importing this and iterating
  * `for (const lane of SUPPORTED_HARNESS_LANES)` is AC4's deliverable for AR3–AR6:
@@ -464,7 +473,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "anthropic" as const,
-						model: "claude-haiku-4-5",
+						model: CLAUDE_LANE_MODEL,
 						apiKey: "keychain-auth-unused",
 						baseUrl: "https://api.anthropic.com",
 					},
@@ -502,7 +511,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "codex-mini-latest",
+						model: CODEX_LANE_MODEL,
 						apiKey: "",
 						baseUrl: "https://api.openai.com",
 					},
@@ -538,7 +547,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: `openrouter/${DEFAULT_OPENROUTER_MODEL}`,
+						model: `openrouter/${OPENCODE_MODEL}`,
 						apiKey,
 						baseUrl: "https://openrouter.ai/api",
 					},
