@@ -22,7 +22,7 @@
 
 import { messages, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
@@ -118,11 +118,12 @@ const GATE_API_KEY = "ah6-gate-test-key";
 
 describe("AH6 §7 — negative proof: broken trigger fails the lane (service-integration)", () => {
 	beforeEach(() => {
-		// no mock setup needed — Term 1 uses the real app fixture with no assistantTurnDeps
+		// Set the API key so the app fixture accepts requests with GATE_API_KEY
+		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});
 
 	afterEach(() => {
-		// nothing to restore
+		vi.unstubAllEnvs();
 	});
 
 	// -------------------------------------------------------------------------

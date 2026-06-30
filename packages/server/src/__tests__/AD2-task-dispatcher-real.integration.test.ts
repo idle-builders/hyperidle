@@ -277,7 +277,14 @@ describe(`${CLAUDE_LANE.describeTag} AR4 AD2-real — dispatch→provision→rea
 			await bridge.close();
 			bridge = null;
 		}
-		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		// @lore AR4 AD2 cli-cleanup: CLI process may still hold files open when dispose()
+		// stops the dispatcher. Brief settle + try/catch prevents ENOTEMPTY in afterEach.
+		await new Promise((r) => setTimeout(r, 500));
+		try {
+			if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Best-effort cleanup — lingering CLI process may hold files open briefly
+		}
 	});
 
 	test("accepted task provisions + runs a real claude CLI harness turn (dispatch→provision seam)", async ({
@@ -383,7 +390,14 @@ describe(`${CODEX_LANE.describeTag} AR4 AD2-real — dispatch→provision→real
 			await bridge.close();
 			bridge = null;
 		}
-		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		// @lore AR4 AD2 codex-cleanup: codex process may still hold files open when dispose()
+		// stops the dispatcher. Brief settle + try/catch prevents ENOTEMPTY in afterEach.
+		await new Promise((r) => setTimeout(r, 500));
+		try {
+			if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Best-effort cleanup — lingering codex process may hold files open briefly
+		}
 	});
 
 	test("accepted task provisions + runs a real codex CLI harness turn (dispatch→provision seam, honest floor)", async ({
@@ -492,7 +506,14 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 			await bridge.close();
 			bridge = null;
 		}
-		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		// @lore AR4 AD2 cli-cleanup: opencode process may still hold files open when dispose()
+		// stops the dispatcher. Brief settle + try/catch prevents ENOTEMPTY in afterEach.
+		await new Promise((r) => setTimeout(r, 500));
+		try {
+			if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Best-effort cleanup — lingering opencode process may hold files open briefly
+		}
 	});
 
 	test("accepted task provisions + runs a real opencode CLI harness turn (dispatch→provision seam, honest floor)", async ({
@@ -546,8 +567,9 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 				expect(["done", "crashed"]).toContain(s?.state);
 			},
 			// @lore AR4: opencode has a longer startup time (process-reengage model) and
-			// may take >240s on slower machines. 420s ceiling keeps pace with AR2's pattern.
-			{ timeout: 420_000 },
+			// may take >240s on slower machines. 600s ceiling for the dispatch→provision path
+			// (AD2 is slower than R1 due to task dispatch overhead + sandbox setup).
+			{ timeout: 600_000 },
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
@@ -565,5 +587,5 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 					"non-crash outcome is the load-bearing proof.\n",
 			);
 		}
-	}, 480_000);
+	}, 660_000);
 });
