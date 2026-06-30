@@ -155,7 +155,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 R1-real — POST /api/sessions → rea
 		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("POST /api/sessions → real builtin provisionSession → session done, real cost > 0", async ({
+	test("POST /api/sessions → real builtin provisionSession → non-crash outcome (AC1)", async ({
 		db,
 		eventBus,
 	}) => {
@@ -179,8 +179,6 @@ describe(`${BUILTIN_LANE.describeTag} AR4 R1-real — POST /api/sessions → rea
 				return null;
 			},
 		};
-
-		const cap = createSandboxCapture();
 
 		const app = await createTestApp({
 			db,
@@ -208,17 +206,24 @@ describe(`${BUILTIN_LANE.describeTag} AR4 R1-real — POST /api/sessions → rea
 		expect(sessionId).toBeTruthy();
 		expect(body.state).toBe("active");
 
+		// Accept "crashed" in waitFor so the test fails fast on crash (not slow timeout).
+		// The strict outcome assertion below then FAILS if state="crashed" — exposing
+		// the real bug rather than masking it with a 240s timeout.
 		await vi.waitFor(
 			async () => {
 				const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-				expect(row?.state).toBe("done");
+				expect(["done", "crashed"]).toContain(row?.state);
 			},
 			{ timeout: 240_000 },
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+		// Strict floor (AR2 reference): FAIL on crashed. Non-crash outcome proves a real LLM
+		// turn ran. "crashed" = startup failure with zero real work = false green.
+		// @lore AR4 R1-real W-1: route-based tests poll the sessions DB row; the sessions
+		// table has no cost column (cost lives in ProvisionSessionResult, not persisted to sessions).
+		// Non-crash outcome is the honest load-bearing proof here (same as AR2 codex/opencode lanes).
 		expect(["completed", "not_returned"]).toContain(row?.outcome);
-		void cap; // capture handle declared but not used in builtin lane (no sandbox file task)
 	}, 240_000);
 });
 
@@ -319,22 +324,21 @@ describe(`${CLAUDE_LANE.describeTag} AR4 R1-real — POST /api/sessions → real
 		const body = (await res.json()) as Record<string, unknown>;
 		const sessionId = body.id as string;
 
-		// @lore AR4 R1-real: wait for any terminal state (done OR crashed)
+		// Strict floor (AR2 reference): wait for "done" only — FAIL on "crashed".
+		// AR2 Lane 2 proves claude CLI reaches non-crash outcome on a real run.
+		// Accepting "crashed" here would paper over a binary-level crash with zero real work.
 		await vi.waitFor(
 			async () => {
 				const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-				expect(["done", "crashed"]).toContain(row?.state);
+				expect(row?.state).toBe("done");
 			},
 			{ timeout: 240_000 },
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		// @lore AR4 R1-real crashed-state-honesty: "crashed" accepted per AR2 W-2 (CLI may
-		// not call MCP return tool). UNCONDITIONAL load-bearing proof: session row exists
-		// (provisionSession ran) AND terminal state reached (harness invoked, not infra failure).
-		// These two together prove POST /api/sessions → provisionSession → real CLI harness seam.
-		// A startup crash at binary level would NOT create a session row → waitFor would fail.
-		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
+		// Strict floor (AR2 reference): outcome ∈ {completed, not_returned}. FAIL on crashed.
+		// "crashed" = startup failure with zero real work = false green (re-opens CC-004).
+		expect(["completed", "not_returned"]).toContain(row?.outcome);
 		void cap; // capture not threaded through app route — file assert is optional here
 	}, 280_000);
 });
@@ -425,19 +429,19 @@ describe(`${CODEX_LANE.describeTag} AR4 R1-real — POST /api/sessions → real 
 		const body = (await res.json()) as Record<string, unknown>;
 		const sessionId = body.id as string;
 
-		// @lore AR4 R1-real: wait for any terminal state (done OR crashed)
+		// Strict floor (AR2 reference): wait for "done" only — FAIL on "crashed".
+		// AR2 Lane 3 proves codex CLI reaches non-crash outcome on a real run.
 		await vi.waitFor(
 			async () => {
 				const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-				expect(["done", "crashed"]).toContain(row?.state);
+				expect(row?.state).toBe("done");
 			},
 			{ timeout: 240_000 },
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		// @lore AR4 R1-real crashed-state-honesty: same reasoning as claude lane above.
-		// Unconditional: session row + terminal state = POST→provisionSession→CLI seam proved.
-		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
+		// Strict floor (AR2 reference): outcome ∈ {completed, not_returned}. FAIL on crashed.
+		expect(["completed", "not_returned"]).toContain(row?.outcome);
 	}, 280_000);
 });
 
@@ -534,19 +538,18 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 		const body = (await res.json()) as Record<string, unknown>;
 		const sessionId = body.id as string;
 
-		// @lore AR4 R1-real: waitFor terminal state (done OR crashed) — opencode may crash
-		// on first run due to startup/auth issues but that is still a valid terminal state.
+		// Strict floor (AR2 reference): wait for "done" only — FAIL on "crashed".
+		// AR2 Lane 4 proves opencode CLI reaches non-crash outcome on a real run.
 		await vi.waitFor(
 			async () => {
 				const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-				expect(["done", "crashed"]).toContain(row?.state);
+				expect(row?.state).toBe("done");
 			},
 			{ timeout: 420_000 },
 		);
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		// @lore AR4 R1-real crashed-state-honesty: same reasoning as claude lane above.
-		// Unconditional: session row + terminal state = POST→provisionSession→CLI seam proved.
-		expect(["completed", "not_returned", "crashed"]).toContain(row?.outcome);
+		// Strict floor (AR2 reference): outcome ∈ {completed, not_returned}. FAIL on crashed.
+		expect(["completed", "not_returned"]).toContain(row?.outcome);
 	}, 480_000);
 });

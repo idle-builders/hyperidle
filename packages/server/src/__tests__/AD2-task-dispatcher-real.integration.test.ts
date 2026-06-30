@@ -202,10 +202,9 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 				"Agent reports the answer to the human owner (id 'owner-ar4-dispatch') via send_message.",
 		});
 
-		// Build the builtin pool via the lane (same as AR2 reference pattern)
-		const { pool, params } = BUILTIN_LANE.prepFn({ db, eventBus, tmpDir });
-		// Override lane-generated IDs with our seeded domain IDs
-		const laneParams = { ...params, taskId, agentId, productId: teamId };
+		// Build the builtin pool via the lane (same as AR2 reference pattern).
+		// params not used — dispatcher resolves model via resolveModel callback.
+		const { pool } = BUILTIN_LANE.prepFn({ db, eventBus, tmpDir });
 
 		const cap = createSandboxCapture();
 
@@ -227,7 +226,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		// REAL trigger — NOT a seeded in_progress row (the key anti-pattern AC2 forbids)
 		await transitionTask(db, eventBus, taskId, "accepted");
 
-		// Wait for the real session to land and reach a terminal outcome
+		// Strict floor (AR2 reference): wait for "done" only. Crash = real bug, surface it.
 		await vi.waitFor(
 			async () => {
 				const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
@@ -238,16 +237,11 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
-		// Honest floor (builtin, strict): completed or not_returned (FAIL on crashed/error).
-		// @lore AR4 AD2: builtin is the most reliable lane — never crashes. Strict here
-		// is the correct tightening of the seam-existence proof. A session row created
-		// AND outcome in [completed, not_returned] proves: (a) dispatch→provision seam ran,
-		// (b) the builtin harness executed the LLM call, (c) the agent produced a real turn.
-		// These three together are the unconditional load-bearing assertion for the builtin lane.
+		// Strict floor (AR2 reference): FAIL on crashed. completed or not_returned proves:
+		// (a) dispatch→provision seam ran, (b) builtin harness executed the LLM call,
+		// (c) agent produced a real turn. "crashed" at this point is a real bug.
+		// @lore AR4 AD2: matches AR2-provision-real-session.integration.test.ts:499,606 floor.
 		expect(["completed", "not_returned"]).toContain(s?.outcome);
-
-		// Unused but declared — laneParams structurally confirms we built real params
-		void laneParams;
 	}, 240_000);
 });
 
@@ -332,30 +326,24 @@ describe(`${CLAUDE_LANE.describeTag} AR4 AD2-real — dispatch→provision→rea
 
 		await transitionTask(db, eventBus, taskId, "accepted");
 
+		// AR2 reference floor: wait for "done" only. Crash = real bug, surface it.
+		// @lore AR4 AD2: claude calls send_message (non-aborting return path) → "completed".
+		// If the CLI crashes at startup, no real agent work happened — FAIL (C-1 AR2 floor).
 		await vi.waitFor(
 			async () => {
 				const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
 				expect(s).toBeDefined();
-				// @lore AR4: claude CLI sessions may crashSession (state="crashed") when agent
-				// does not call the MCP return tool. Accept either terminal state.
-				expect(["done", "crashed"]).toContain(s?.state);
+				expect(s?.state).toBe("done");
 			},
 			{ timeout: 240_000 },
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
-		// @lore AR4 AD2 crashed-state-honesty: "crashed" is accepted for CLI harnesses per
-		// AR2 W-2 (claude may not call the MCP return tool → crashSession). The UNCONDITIONAL
-		// load-bearing proof is: (a) session row exists (dispatch→provision seam ran,
-		// provisionSession was called and created the session row) AND (b) state is a
-		// terminal state ["done","crashed"] (harness was actually invoked and finished,
-		// NOT an infra failure that prevented invocation). The artifact check below is
-		// ADDITIONAL evidence that's conditional on the agent choosing to write the file —
-		// agent nondeterminism is expected (plan risk #4). If the test passes with
-		// state="crashed" and no file, the seam proof still holds: dispatch→provision
-		// ran the harness, the harness crashed (not the infra), and the session records it.
-		// If no session row existed at all, the test would have failed at vi.waitFor above.
-		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
+		// Strict floor (AR2 reference): FAIL on crashed. completed or not_returned only.
+		// @lore AR4 AD2: matches AR2-provision-real-session.integration.test.ts:499 — claude
+		// CLI fires send_message → "completed". "not_returned" is also valid (no MCP call).
+		// "crashed" is NOT acceptable — a startup crash with zero real work mints false green.
+		expect(["completed", "not_returned"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
 		if (answerContent !== undefined) {
@@ -441,23 +429,25 @@ describe(`${CODEX_LANE.describeTag} AR4 AD2-real — dispatch→provision→real
 
 		await transitionTask(db, eventBus, taskId, "accepted");
 
+		// AR2 reference floor: wait for "done" only. Crash = real bug, surface it.
+		// @lore AR2 codex-cost-zero: codex does real work but does NOT call the MCP return tool
+		// → outcome "not_returned". Forcing "completed" triggers the re-prompt loop → timeout.
+		// The honest floor accepts "completed" OR "not_returned" — FAIL on "crashed".
 		await vi.waitFor(
 			async () => {
 				const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
 				expect(s).toBeDefined();
-				// @lore AR4: codex CLI sessions may crashSession (state="crashed") when agent
-				// does not call the MCP return tool. Accept either terminal state.
-				expect(["done", "crashed"]).toContain(s?.state);
+				expect(s?.state).toBe("done");
 			},
 			{ timeout: 240_000 },
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
-		// @lore AR2 W-2: codex does real work but does NOT call the MCP return tool →
-		// "not_returned". Honest floor accepts completed OR not_returned or crashed.
-		// @lore AR4 AD2 crashed-state-honesty: same reasoning as claude lane — session row +
-		// terminal state IS the unconditional seam-existence proof. See claude lane lore above.
-		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
+		// Strict floor (AR2 reference): FAIL on crashed.
+		// @lore AR4 AD2: matches AR2-provision-real-session.integration.test.ts:499 codex floor.
+		// codex does real billable work on a file-write task but does NOT call the MCP return
+		// tool → "not_returned". "crashed" = startup crash with zero real work = false green.
+		expect(["completed", "not_returned"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
 		if (answerContent !== undefined) {
@@ -557,26 +547,27 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 
 		await transitionTask(db, eventBus, taskId, "accepted");
 
+		// AR2 reference floor: wait for "done" only. Crash = real bug, surface it.
+		// @lore AR2 W-2 opencode: does real work but does NOT reliably call the MCP return tool
+		// → "not_returned". The process-reengage re-prompt loop re-spawns opencode if "completed"
+		// is forced → timeout. Honest floor: "completed" OR "not_returned" — FAIL on "crashed".
+		// @lore AR4 AD2 opencode-startup: longer startup time (process-reengage model) than
+		// other CLIs — 600s ceiling for the dispatch→provision path.
 		await vi.waitFor(
 			async () => {
 				const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
 				expect(s).toBeDefined();
-				// @lore AR4: opencode sessions may crashSession (state="crashed") when agent does
-				// not call the MCP return tool — this is an expected outcome; the load-bearing
-				// proof is the session's existence (dispatch→provision seam worked).
-				expect(["done", "crashed"]).toContain(s?.state);
+				expect(s?.state).toBe("done");
 			},
-			// @lore AR4: opencode has a longer startup time (process-reengage model) and
-			// may take >240s on slower machines. 600s ceiling for the dispatch→provision path
-			// (AD2 is slower than R1 due to task dispatch overhead + sandbox setup).
 			{ timeout: 600_000 },
 		);
 
 		const [s] = await db.select().from(sessions).where(eq(sessions.taskId, taskId)).limit(1);
-		// @lore AR2 W-2: opencode does real work but does NOT reliably call the MCP return tool.
-		// @lore AR4 AD2 crashed-state-honesty: same reasoning as claude lane — session row +
-		// terminal state IS the unconditional seam-existence proof. See claude lane lore above.
-		expect(["completed", "not_returned", "crashed"]).toContain(s?.outcome);
+		// Strict floor (AR2 reference): FAIL on crashed.
+		// @lore AR4 AD2: matches AR2-provision-real-session.integration.test.ts:616 opencode floor.
+		// opencode does real work on a file-write task but does NOT call the MCP return tool
+		// → "not_returned". "crashed" = startup crash with zero real work = false green.
+		expect(["completed", "not_returned"]).toContain(s?.outcome);
 
 		const answerContent = cap.files.get("answer.txt");
 		if (answerContent !== undefined) {

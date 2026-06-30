@@ -18,7 +18,7 @@
 
 import { messages as messagesTable } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import {
 	runAssistantTurnThroughHarness,
 	seedAssistantTurnDomain,
@@ -65,54 +65,38 @@ describe("[harness:builtin] AH3-real H1 — real builtin turn → ast-* reply pe
 		const astReply = msgs.find((m) => m.senderId === assistantId && m.type === "plain");
 
 		expect(astReply).toBeDefined();
-
-		if (astReply) {
-			const payload = JSON.parse(astReply.payload) as Record<string, unknown>;
-			// Must not be a notice (notice has payload.notice, not payload.text)
-			expect(payload.notice).toBeUndefined();
-			const text = payload.text as string | undefined;
-			expect(typeof text).toBe("string");
-			expect((text ?? "").length).toBeGreaterThan(0);
-		}
+		// N-1 fix: no redundant if-guard after toBeDefined — inline the assertions.
+		const payload = JSON.parse(astReply!.payload) as Record<string, unknown>;
+		// Must not be a notice (notice has payload.notice, not payload.text)
+		expect(payload.notice).toBeUndefined();
+		const text = payload.text as string | undefined;
+		expect(typeof text).toBe("string");
+		expect((text ?? "").length).toBeGreaterThan(0);
 	}, 240_000);
 });
 
 // ─── H3: User message reaches the model ──────────────────────────────────────
 //
-// Canonical CC-004 proof: the real model responds to the user's seeded question,
+// CC-004 proof: the real model responds to the seeded "Reply with PONG" instruction,
 // proving the transcript (SessionConfig.messages) actually reached the model.
+// seedAssistantTurnDomain seeds the trigger message with "Reply with the word PONG
+// and nothing else" so a PONG response confirms end-to-end message delivery.
 
 describe("[harness:builtin] AH3-real H3 — user message reaches the model (AC1 transcript proof)", () => {
 	const userId = `ah3-real-h3-${Date.now()}`;
 	const threadId = `ah3-real-h3-thread-${Date.now()}`;
 	const triggerMessageId = `ah3-real-h3-msg-${Date.now()}`;
 
-	// A unique sentinel word the model must echo back — proves it received the question
-	const SENTINEL = "PONG-AR4-H3";
-
-	beforeEach(async () => {});
-	afterEach(() => {});
-
 	test("real builtin turn replies responsively — unique question payload reaches the model", async ({
 		db,
 		eventBus,
 	}) => {
-		// Seed with the sentinel question as the trigger message
 		await seedAssistantTurnDomain(db, {
 			userId,
 			threadId,
 			triggerMessageId,
 			now: NOW,
-			// Override: the trigger message asks the model to respond with the sentinel
 		});
-
-		// Update the trigger message text to include the sentinel instruction
-		// (seedAssistantTurnDomain seeds a default message; we insert a custom one)
-		// The seed already inserts the trigger message with a generic payload.
-		// Since we cannot update the seeded message, we assert the model at minimum
-		// produces a non-empty response (CC-004: user message reaches model).
-		// The key proof is: a real response exists (non-empty ast-* reply, no notice).
-		// A stronger proof (sentinel in reply) would require a custom seed.
 
 		await runAssistantTurnThroughHarness({ db, eventBus }, { userId, threadId, triggerMessageId });
 
@@ -122,22 +106,17 @@ describe("[harness:builtin] AH3-real H3 — user message reaches the model (AC1 
 		const astReply = msgs.find((m) => m.senderId === assistantId && m.type === "plain");
 
 		expect(astReply).toBeDefined();
+		// N-1 fix: inline assertions after toBeDefined — no redundant if-guard.
+		const payload = JSON.parse(astReply!.payload) as Record<string, unknown>;
+		// Non-notice reply: proves a real turn completed, not an error
+		expect(payload.notice).toBeUndefined();
+		const text = payload.text as string | undefined;
+		expect(typeof text).toBe("string");
+		expect((text ?? "").length).toBeGreaterThan(0);
 
-		if (astReply) {
-			const payload = JSON.parse(astReply.payload) as Record<string, unknown>;
-			// Non-notice reply: proves a real turn completed, not an error
-			expect(payload.notice).toBeUndefined();
-			const text = payload.text as string | undefined;
-			expect(typeof text).toBe("string");
-			expect((text ?? "").length).toBeGreaterThan(0);
-
-			// CC-004: the model produced content — transcript reached it.
-			// We use the response containing "PONG" as the sentinel response
-			// (the seeded trigger message asks to "Reply with the word PONG and nothing else").
-			expect(text?.toUpperCase()).toContain("PONG");
-		}
-
-		// Silence unused sentinel variable
-		void SENTINEL;
+		// CC-004: the model produced content — transcript reached it.
+		// The seeded trigger message asks to "Reply with the word PONG and nothing else".
+		// A PONG response proves the message reached the model.
+		expect(text?.toUpperCase()).toContain("PONG");
 	}, 240_000);
 });
