@@ -446,6 +446,17 @@ export interface BuildToolRegistryOptions {
 	readonly role: UserRole;
 	readonly extraTools?: readonly RegisteredTool[];
 	readonly sessionWorkflow?: RegistrySessionWorkflow;
+	/**
+	 * When true, skip roleFiltered tools entirely — registry is built ONLY from extraTools.
+	 *
+	 * @lore AR4a: Used for conversational mode registries where role tools (including all-role
+	 * tools like submit_review) must not appear in toolDefs. The builtin adapter's
+	 * force-return check (hasReturnActionInRegistry in runChatTurn) sees submit_review as a
+	 * return action when it's in role tools, re-seeding toolIterations past MAX_TOOL_ITERATIONS.
+	 * Conversational turns are compliant-by-construction; submit_review is irrelevant and
+	 * harmful to include. `role` is still required (caller makes an explicit decision).
+	 */
+	readonly useOnlyExtraTools?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -560,7 +571,7 @@ export function buildToolRegistry(
 	ctx: ToolContext,
 	options: BuildToolRegistryOptions,
 ): ToolRegistry {
-	const roleFiltered = toolsForRole(options.role);
+	const roleFiltered = options.useOnlyExtraTools ? [] : toolsForRole(options.role);
 	const definitions: readonly RegisteredTool[] = options.extraTools?.length
 		? [...roleFiltered, ...options.extraTools]
 		: roleFiltered;

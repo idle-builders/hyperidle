@@ -18,12 +18,14 @@
 
 import { messages, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { runAssistantTurn } from "../services/assistant-turn.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -78,10 +80,14 @@ describe("AH6: per-agent model seam (resolveAgentModel, not resolveModelTier)", 
 	beforeEach(() => {
 		capturedCallLlmModels.length = 0;
 		vi.unstubAllEnvs();
+		// AR4a: runAssistantTurn now delegates to provisionSession which calls getActiveStrategy().
+		// The test uses {db} only (not {app}), so the fixture doesn't set strategy — set it here.
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		clearActiveStrategy();
 	});
 
 	test("runAssistantTurn routes through resolveAgentModel when agent has modelProvider:openrouter + modelId", async ({

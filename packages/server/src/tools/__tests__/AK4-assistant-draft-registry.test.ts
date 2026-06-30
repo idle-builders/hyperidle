@@ -39,6 +39,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
@@ -47,6 +48,7 @@ import type { LlmResponse } from "../../harness/llm-types.js";
 import type { AssistantTurnDeps } from "../../services/assistant-turn.js";
 import { runAssistantTurn } from "../../services/assistant-turn.js";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 
 // @lore AR4 AK4: vi.mock seam used by demoted AC3a/AC4/AC4-loop tests.
 // Existing registry/tool-handler tests don't call callLlm, so the mock is harmless.
@@ -465,10 +467,14 @@ async function seedThreadAndTrigger(
 describe("AK4 AC3a (demoted): bet stays draft after create_bet turn — no autonomous commit", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: runAssistantTurn now delegates to provisionSession which calls getActiveStrategy().
+		// The app fixture (which normally sets it) is not requested here — set it explicitly.
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.clearAllMocks();
+		clearActiveStrategy();
 	});
 
 	test("after create_bet tool_use, bet remains status=draft — no bet_state_changed(active)", async ({
@@ -524,10 +530,13 @@ describe("AK4 AC3a (demoted): bet stays draft after create_bet turn — no auton
 describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet count stays 1", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: same as AC3a — strategy required for provisionSession.
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.clearAllMocks();
+		clearActiveStrategy();
 	});
 
 	test("turn1=create_bet, turn2=edit_bet (no client betId) → same bet mutated, count=1", async ({
@@ -561,9 +570,12 @@ describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet co
 			triggerMessageId: trigger1,
 		});
 
-		const betsAfterTurn1 = await db.select().from(bets);
-		expect(betsAfterTurn1).toHaveLength(1);
-		const originalBetId = betsAfterTurn1[0]!.id;
+		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
+		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
+		const allBetsAfterTurn1 = await db.select().from(bets);
+		const userBetsAfterTurn1 = allBetsAfterTurn1.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBetsAfterTurn1).toHaveLength(1);
+		const originalBetId = userBetsAfterTurn1[0]!.id;
 
 		// Turn 2: edit_bet (no betId from model — server must inject from transcript)
 		vi.clearAllMocks();
@@ -591,9 +603,11 @@ describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet co
 			triggerMessageId: trigger2,
 		});
 
-		const betsAfterTurn2 = await db.select().from(bets);
-		expect(betsAfterTurn2).toHaveLength(1);
-		const mutatedBet = betsAfterTurn2[0]!;
+		// @lore AR4a: filter out the system stub bet (same as turn 1 filter above).
+		const allBetsAfterTurn2 = await db.select().from(bets);
+		const userBetsAfterTurn2 = allBetsAfterTurn2.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBetsAfterTurn2).toHaveLength(1);
+		const mutatedBet = userBetsAfterTurn2[0]!;
 		expect(mutatedBet.id).toBe(originalBetId);
 		expect(mutatedBet.doneCondition).toBe("Updated done condition via edit");
 	});
@@ -604,10 +618,13 @@ describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet co
 describe("AK4 AC4-loop-bound (demoted): tool-use cap at MAX_TOOL_ITERATIONS=3, never-silent", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: same as AC3a — strategy required for provisionSession.
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.clearAllMocks();
+		clearActiveStrategy();
 	});
 
 	test("callLlm always returns tool_use → ≤3 create_bet rows created + non-empty reply persisted", async ({
@@ -636,8 +653,11 @@ describe("AK4 AC4-loop-bound (demoted): tool-use cap at MAX_TOOL_ITERATIONS=3, n
 		});
 
 		// (a) loop was capped: ≤ MAX_TOOL_ITERATIONS (3) bets created
+		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
+		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
 		const allBets = await db.select().from(bets);
-		expect(allBets.length).toBeLessThanOrEqual(3);
+		const userBets = allBets.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBets.length).toBeLessThanOrEqual(3);
 
 		// (b) a plain reply IS persisted (never-silent invariant)
 		const { messages: messagesDb } = await import("@hyperidle/db");
