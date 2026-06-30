@@ -101,3 +101,72 @@ Blocking: **C-1** (CRITICAL). AC2 and AC3 are not honestly proven; AC1 carries t
 2. **W-1:** assert real cost > 0 on the R1-real builtin lane (or, at minimum, correct the title — but asserting is the right fix and the cheapest unconditional real-work proof).
 3. **W-2:** make AH6 AC3 honest — either assert a real production lane-gate predicate, or drop the `s1DistinctReplyPredicate` ceremony and state plainly that the real leg proves "a real builtin turn persists a distinct non-empty reply." The current verdict unit is a tautology.
 4. **W-3 / NITs:** relabel the AH3 H3 transcript-assembly remnant; clean the slop (dead sentinel, empty hooks, `void laneParams`, redundant `if (astReply)`).
+
+---
+
+# AR4 — Code Review · Round 2
+
+**Reviewer:** single evaluator persona (carried from Round 1).
+**Verdict: DONE.** The Round-1 CRITICAL (C-1) is genuinely resolved at the code level, not papered over; W-1 and W-2 are addressed; the founder-directed model change is honest and does not break the shared AR2 lane table. All 5 ACs evidenced. No CRITICAL remains.
+
+## C-1 (was CRITICAL) — RESOLVED. CLI lanes now assert the strict AR2 floor; the opencode root cause was actually fixed.
+
+Re-read both files line-by-line, not the report.
+
+- **AD2-real** (`AD2-task-dispatcher-real.integration.test.ts`): all 3 CLI lanes now `expect(s?.state).toBe("done")` in the waitFor and `expect(["completed","not_returned"]).toContain(s?.outcome)` (claude :336/:346, codex :440/:450, opencode :560/:570). `crashed` is **gone** from every state+outcome assertion. The artifact check stays best-effort (`if (answerContent !== undefined)`); the non-crash outcome is the load-bearing proof, matching AR2.
+- **R1-real** (`R1-wire-agent-execution-real.integration.test.ts`): all 3 CLI lanes wait for `"done"` only and assert `["completed","not_returned"]` (claude :341/:349, codex :445/:451, opencode :559/:566). The **one** remaining `crashed` token (`:223`) is the **builtin** lane's fail-fast waitFor — `expect(["done","crashed"]).toContain(row?.state)` — whose only purpose is to break out of the 240 s wait fast; the strict outcome assertion at `:234` then FAILS if it crashed. That is the correct fail-fast pattern, not crashed-acceptance. Verified: grep for `crashed` in any `toContain` across both files returns exactly that one fail-fast line.
+- **Sanity-break (mental):** a CLI binary that crashes at startup now sets `state=crashed, outcome=crashed` → `expect(state).toBe("done")` fails (or for builtin, the `:234` outcome assertion fails). Green can no longer be minted by a startup crash. Correct.
+- **Real wiring gap closed, not papered.** The opencode model-prefix root cause is fixed at its source: `R1-real :511-516` seeds `workhorseModel: "openrouter/moonshotai/kimi-k2.7-code"` with lore explaining that opencode's `--model` flag (`adapter-pool.ts:401-402`, which DOES carry `{{model}}`) requires the `openrouter/` provider prefix or the CLI crashes at startup. The lanes pass strict **because** the agents now genuinely reach `done`/non-crash — proven by the passing runs (builder evidence + my AR2 Lane-2 re-run below).
+- **N-5 lore cleaned.** No lore arguing FOR accepting crashed remains; the surviving `crashed` comments now argue the strict direction (AD2-real :345 "crashed is NOT acceptable…mints false green", :435 "FAIL on crashed").
+
+## W-1 — RESOLVED. The misleading "real cost > 0" title is corrected; no false proof claimed.
+
+`R1-real :166` test title is now `"…→ non-crash outcome (AC1)"` — the `cost > 0` claim is gone. Lore at `:231-233` honestly states the sessions DB row has no cost column (cost lives in `ProvisionSessionResult`, not persisted), so a route-based test that polls the row cannot assert cost; the non-crash outcome is the honest load-bearing proof here, same as AR2's codex/opencode lanes. The test no longer claims a proof it doesn't make. Acceptable resolution (the builtin real-work proof is carried independently by AH3-real/AK4-real/AH6-real asserting real non-empty model output).
+
+## W-2 — ADDRESSED (downgraded to NIT). AC3 now has two genuine real proofs; the tautology no longer carries AC3's weight.
+
+The `s1DistinctReplyPredicate` test-local function is **gone**. AC3 is now proven by two real, system-level legs:
+1. **Valid lane (`AH6-lane-gates-broken-turn-real.integration.test.ts`):** runs a real builtin turn via `runAssistantTurnThroughHarness`, reads the persisted reply, asserts `length > 0` and `!== WELCOME_TEXT` over **real** model output (:75,:83,:84). I ran it: green, real deepseek turn in ~4.4 s. Genuine real-harness proof.
+2. **Broken-trigger lane (`AH6-lane-gates-broken-turn.integration.test.ts` Term-1):** POSTs a human message through the real route WITHOUT `assistantTurnDeps`, asserts **no** assistant reply appears (:187) — a real system-level negative proof that the trigger is load-bearing. Green.
+
+**Residual NIT (was W-2):** `AH6-lane-gate-verdict.test.ts` still inlines the literal expression `lastReply.length > 0 && lastReply !== WELCOME_TEXT` against literal inputs (`""`, `WELCOME_TEXT`, `"Hello…"`, `" "`). With no production lane-gate predicate to import (confirmed by grep — only a doc-comment at `builtin-harness-adapter.ts:558`; `teams-routes.ts:580` is the unrelated onboarding welcome text), this file proves JS `&&`/`.length` semantics, not HyperIdle behavior. It is now harmless — the file's own header and lore honestly state the real proof is the harness leg, and it no longer carries AC3 — but it remains test-theater. **Not blocking** (AC3 has two real proofs); a future cleanup could delete it or fold its 4 crafted cases into a documented note. Flagged, not gating.
+
+## Model change (founder directive) — HONEST, and does not break the shared AR2 lane table.
+
+Commit `49dc8c64` touches only test files + the shared `provision-real-session.ts` lane helper — no production model-resolution code, no production seed. Per-harness models:
+- **builtin** → `deepseek/deepseek-v4-pro` (OpenRouter slug); seed default `modelId` also → `deepseek/deepseek-v4-pro` (`:615,:628`), and AK4-real seed `:126`. Proven real: AH6-real, AK4-real (12 s), AH3-real all ran green with it.
+- **opencode** → `openrouter/moonshotai/kimi-k2.7-code` (provider-prefixed OpenRouter slug, passed via the real `--model` flag). Real run proven via the passing R1-real/AD2-real opencode lanes (builder evidence).
+- **claude** → `claude-opus-4-8` (passed via the claude CLI `--model`). **I re-ran AR2 Lane 2 myself** — green in ~14 s, opus resolves on the installed binary. The AR4 model change to the shared table did NOT break AR2's claude lane.
+- **codex** → `gpt-4o` is **metadata-only and honest**: codex's args template is `["exec","{{prompt}}","--json"]` (`adapter-pool.ts:351`) with **no `{{model}}` placeholder**, so the field is never passed to the CLI; codex genuinely runs its native default gpt model from `~/.codex/auth.json`. This is NOT a silent no-op that means codex isn't running a model — codex IS running its real default model; the lane just can't pin it via flag. Lore at `:491` states this plainly.
+
+**Shared-table coupling — noted, not blocking.** AR2's claude/codex/opencode CLI lanes inherit these models via `runThroughHarness(SUPPORTED_HARNESS_LANES[N])`. Changing them in an AR4 commit means AR4 now owns AR2's CLI-lane green. I verified the claude path (re-ran AR2 Lane 2 green); builtin in AR2 uses its own candidate-retry model (`gpt-4o-mini`/`gpt-3.5-turbo`), unaffected. The coupling is a maintenance hazard for future model swaps (one edit moves two tracks' lanes) but the current state is green and proven.
+
+## Independently verified this round
+
+- `npm run check` — PASS (all 12 packages).
+- `npx tsx scripts/honest-harness-guard.ts --check` — clean.
+- AH6-real (real builtin) — green, 1/1, ~4.4 s.
+- AH6-lane-gate-verdict unit — green, 4/4.
+- AH6 broken-trigger service-integration (Term-1) — green, 1/1.
+- AK4-real (real builtin) — green, 2/2, ~12 s.
+- AH3-real (real builtin) — green, 2/2, ~4.2 s.
+- AR2 Lane 2 (real claude CLI, opus model) — green, 1/1, ~14 s (confirms model change didn't break AR2).
+- Code-read confirmed: NITs N-1..N-4 cleaned (no SENTINEL, no redundant `if (astReply)`, no empty hooks, `void laneParams` gone — `laneParams` is now genuinely used via `resolveModel`).
+
+CLI lanes for AD2-real / R1-real (codex/opencode, 3-4 min each) trusted from builder pass evidence + strict-floor code read + the proven opencode root-cause fix + the proven AR2 claude lane.
+
+## AC completeness — Round 2
+
+| AC | Status | Evidence |
+|---|---|---|
+| AC1 — real model turn through production path; no `vi.mock`/echo of harness/LLM remains; pure-logic demoted to units | **MET** | No `vi.mock`/named-fake adapter in any selected `-real` file (Round-1 grep + guard clean). AH3-real (PONG/text), AK4-real, AH6-real assert real non-empty model output via real OpenRouter (deepseek). W-1 title fixed (no false cost claim). Demotions honest. |
+| AC2 — dispatch→provision seam with a real agent (not seeded `in_progress`) | **MET** | AD2-real drives `transitionTask(…,"accepted")` → real `drainQueue` → real `provisionSession` (registry-wired). All 4 lanes now assert the strict AR2 floor (`done` + `["completed","not_returned"]`, FAIL on crashed). C-1 resolved — a startup crash can no longer mint green. |
+| AC3 — lane-gate on broken/real turn vs real harness output | **MET** | Valid lane (AH6-real) asserts real builtin output is non-empty + distinct-from-welcome. Broken-trigger lane (AH6 Term-1 service-integration) asserts no reply when the trigger is removed. The `s1DistinctReplyPredicate` tautology is gone; verdict-unit file downgraded to a harmless residual NIT that no longer carries AC3. |
+| AC4 — all converted tests hard-fail on missing harness; none skip | **MET** | `requireHarness` throws (never skips); no `skipIf` in the AR4 set; guard skipIf-check clean. |
+| Matrix / per-harness floor / coverage-debt / reuse seam | **MET** | AD2-real + R1-real declare all 4 lanes via `SUPPORTED_HARNESS_LANES` + `runThroughHarness`; AH3/AK4/AH6-real declare builtin via the carve-out; guard coverage check + per-harness attestation floor satisfied; no coverage-debt entries (atomic). Reuses `provisionSession`/AR2 seam — no bespoke rigs. The strict floor now also closes the Round-1 caveat (floor counted executed-not-crashed; the test bodies themselves now FAIL on crashed, so a crashed lane can't satisfy the floor with a passing assertion). |
+
+## Verdict: DONE
+
+C-1 (CRITICAL) genuinely resolved — strict AR2 floor restored on all 6 CLI lanes, opencode root cause fixed at source, sanity-break holds. W-1 and W-2 addressed. Founder model change honest (codex metadata-only is real-default, not a no-op) and verified non-breaking against AR2 (claude lane re-run green). All 5 ACs MET. One residual NIT (the `AH6-lane-gate-verdict.test.ts` literal-expression unit — harmless, no longer load-bearing; optional future cleanup) and one maintenance note (shared lane-table model coupling across AR2/AR4). Neither blocks.
+
+WP proceeds to docs + retro + ship.
