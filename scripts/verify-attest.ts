@@ -187,11 +187,12 @@ function main(): void {
 		} catch {}
 	}
 
-	// AR2 W5: a fresh verify-attest run ALWAYS populates agenticExecutedByHarness
+	// @lore AR2: a fresh verify-attest run ALWAYS populates agenticExecutedByHarness
 	// with all four supported-harness keys, defaulting absent buckets to 0.
-	// This ensures the per-harness floor in check-attestation can never be
-	// permanently inert because the field was missing. Back-compat path (legacy
-	// attestations without this field) is in check-attestation.ts only.
+	// check-attestation validates these via assertHarnessSymmetry — which checks that
+	// (a) every supported harness appears with ≥1 executed assertion, and (b) the
+	// sum of per-harness executed counts equals the total agenticExecuted (symmetry).
+	// Back-compat path (legacy attestations without this field) is in check-attestation.ts only.
 	const byHarnessWithDefaults: Record<string, { executed: number; skipped: number }> = {};
 	for (const h of SUPPORTED_HARNESSES) {
 		byHarnessWithDefaults[h] = agenticExecutedByHarness[h] ?? { executed: 0, skipped: 0 };

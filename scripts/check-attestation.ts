@@ -63,12 +63,14 @@ interface Attestation {
 	 * attestation file itself. See sourceHash(). */
 	srcHash?: string;
 	/**
-	 * AT1: scope is REQUIRED on all new attestations. "affected" = changed-file
-	 * selection; "full" = whole suite. Absent scope fails validation (no back-compat).
-	 * Typed as optional here because legacy attestation files may not carry it;
-	 * assertScope() rejects absent/invalid scope.
+	 * AT1: scope is strictly required on all attestations — no back-compat.
+	 * "affected" = changed-file selection; "full" = whole suite.
+	 * An absent or invalid scope fails validation on every check-attestation call,
+	 * independent of --require-scope. The presence/validity guard runs first
+	 * (before assertScope's requirement comparison), so a flag-less CI path
+	 * cannot slip through with a missing scope field.
 	 */
-	scope?: VerifyScope;
+	scope: VerifyScope;
 	status: string;
 	dirty: boolean;
 	tools: string[];
@@ -183,8 +185,20 @@ function main(): void {
 		fail("verify ran with uncommitted changes — commit all changes, then re-run verify");
 	}
 
-	// AT1 D7: scope is REQUIRED — fail on absent or invalid scope.
-	// assertScope handles: invalid scope → error; absent + required → error; absent + no req → error.
+	// AT1 F2: scope is strictly present and valid on ALL attestations — no back-compat,
+	// independent of --require-scope. This guard runs before assertScope's requirement
+	// comparison so a flag-less CI call cannot slip through with a missing or invalid scope.
+	const VALID_SCOPES = new Set(["affected", "full"]);
+	if (attestation.scope === undefined || attestation.scope === null || !VALID_SCOPES.has(attestation.scope as string)) {
+		fail(
+			`attestation scope is ${attestation.scope === undefined || attestation.scope === null ? "absent" : `"${attestation.scope}"`} — ` +
+			`scope must be "affected" or "full" on every attestation (no back-compat). ` +
+			`Re-run \`npm run verify\` to mint a scoped attestation.`,
+		);
+	}
+
+	// AT1 D7: scope requirement comparison (scope-agnostic when --require-scope absent).
+	// The presence/validity check above has already ensured scope is a valid VerifyScope.
 	const scopeValidation = assertScope(attestation.scope, requireScope);
 	if (scopeValidation) {
 		fail(scopeValidation);
