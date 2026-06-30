@@ -301,10 +301,10 @@ describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sove
 		} as unknown as AdapterPool;
 
 		const mockResolveModel = vi.fn().mockResolvedValue({
-			provider: "anthropic",
-			model: "claude-opus-4-5",
+			provider: "openrouter",
+			model: "deepseek/deepseek-v4-pro",
 			apiKey: "test-key",
-			baseUrl: "https://api.anthropic.com",
+			baseUrl: "https://openrouter.ai/api",
 		} satisfies ResolvedModel);
 
 		const deps: BetDecompositionDeps = {
