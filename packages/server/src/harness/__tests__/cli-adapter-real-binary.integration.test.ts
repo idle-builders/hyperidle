@@ -348,7 +348,10 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 				// CLI_TOOL_CONFIGS.codex.envMap injects OPENAI_API_KEY from apiKey.
 				// The codex binary reads its own auth from CODEX_HOME/auth.json (not apiKey).
 				provider: "openai-compatible" as const,
-				model: "codex-mini-latest",
+				// AR7: codex now receives --model {{model}}, so this must be a model the
+				// ChatGPT-account codex login accepts. "codex-mini-latest" is rejected (400);
+				// gpt-5.4-mini is the valid floor (matches HARNESS_TEST_MODELS.codex).
+				model: "gpt-5.4-mini",
 				apiKey: "",
 				baseUrl: "https://api.openai.com",
 			},

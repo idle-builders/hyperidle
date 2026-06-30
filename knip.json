@@ -19,6 +19,8 @@
 		"packages/server/src/harness/__tests__/provision-real-decomposition.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
+		"packages/web/src/pages/**/__fixtures__/**",
+		"packages/web/src/preview/**",
 		"packages/server/src/middleware/response-validator.ts",
 		"packages/server/src/services/service-connection-resolver.ts",
 		"packages/server/src/harness/re-engage.ts",
@@ -27,6 +29,9 @@
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
+	"ignoreIssues": {
+		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
+	},
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
@@ -54,16 +59,8 @@
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {
-			"entry": [
-				"src/**/*.stories.tsx",
-				"scripts/*.ts!",
-				"viewer/discovery.ts!",
-				"viewer/tailwind.config.ts!",
-				"viewer/postcss.config.ts!",
-				"viewer/annotations/vite-plugin-annotations.ts!"
-			],
-			"ignoreBinaries": ["vite"],
-			"ignoreDependencies": ["autoprefixer", "postcss", "@tiptap/pm"]
+			"entry": ["src/**/*.stories.tsx", "scripts/*.ts!"],
+			"ignoreDependencies": ["@tiptap/pm"]
 		},
 		"packages/web": {
 			"entry": [

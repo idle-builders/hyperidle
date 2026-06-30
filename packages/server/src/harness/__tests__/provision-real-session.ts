@@ -25,7 +25,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, HarnessAdapter } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
@@ -41,7 +41,12 @@ import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { enforcementRegistry } from "../return-enforcement-registry.js";
-import type { HarnessName } from "./require-harness.js";
+import {
+	type HarnessName,
+	harnessTestResolvedModel,
+	type ResolvedTestModel,
+	type SupportedHarnessName,
+} from "./require-harness.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // createSandboxCapture
@@ -319,18 +324,6 @@ export interface HarnessRunCtx {
 		readonly mcpBaseUrl: string;
 		readonly close: () => Promise<void>;
 	};
-	/**
-	 * Optional async callback invoked with the generated `ProvisionSessionParams`
-	 * AFTER `prepFn` but BEFORE `provisionSession`. Use to seed the DB with the
-	 * params' agentId/taskId AFTER the lane has generated them (params carry
-	 * timestamp-based IDs that cannot be predicted in advance).
-	 *
-	 * @lore AR5: `prepFn` generates agentId/taskId via `Date.now()` — callers
-	 * cannot know them before calling `runThroughHarness`. This seam lets tests
-	 * seed the DB with the ACTUAL generated IDs rather than a fixed constant that
-	 * never matches what the lane will request from `admitSession`.
-	 */
-	readonly onBeforeSession?: (params: ProvisionSessionParams) => Promise<void>;
 }
 
 /**
@@ -377,24 +370,54 @@ export interface HarnessLane {
 	};
 }
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
-
-// @lore AR5: builtin harness-integration lane model (OpenRouter, openai-compatible).
-// User directive 2026-06-30 — switched to the cheaper deepseek-v4-flash to cut test cost.
-// Verified on OpenRouter: tool-capable.
-export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
-
-// @lore AR5: per-harness test-lane models (2026-06-30, cost-reduction directive). Verified:
-//   OPENCODE_MODEL  — z-ai/glm-5-turbo is a tool-capable OpenRouter model; opencode requires
-//                     the "openrouter/" provider prefix → final string openrouter/z-ai/glm-5-turbo.
-//   CLAUDE_LANE_MODEL  — claude-sonnet-4-6 = current Sonnet in MODEL_CATALOG; keychain auth.
-//   CODEX_LANE_MODEL   — gpt-5.4-mini = codex-cli model (cheaper than the codex-max default).
-export const OPENCODE_MODEL = "z-ai/glm-5-turbo";
-export const CLAUDE_LANE_MODEL = "claude-sonnet-4-6";
-export const CODEX_LANE_MODEL = "gpt-5.4-mini";
+/**
+ * AR7 — construct the real harness adapter for `harness`, paired with its LOCKED
+ * resolved model from `HARNESS_TEST_MODELS`. The factory bakes the locked model so
+ * a test using it does not choose a model; the guard removes the import/construction
+ * override paths (`cli-harness-adapter` / `builtin-harness-adapter` / `llm-client` /
+ * `new (Cli|Builtin)HarnessAdapter` are banned in harness-facing integration tests).
+ * A hand-written raw `resolvedModel` object literal passed directly to `provisionSession`
+ * is an accepted residual gap — catching it would require brittle model-id string-matching
+ * (rejected). It is an obvious isolated red flag in code review absent any imported model
+ * source.
+ *
+ * @lore AR7: The seam owns the import of the concrete adapter classes. A
+ * harness-facing integration test must NOT import `cli-harness-adapter` /
+ * `builtin-harness-adapter` / `llm-client` directly nor `new` a `*HarnessAdapter`
+ * — `honest-harness-guard` fails the build for that. Routing every adapter
+ * construction through here is the load-bearing structural lock; string-matching
+ * model ids is explicitly NOT done (brittle on rename, evadable via variable).
+ */
+export function lockedHarnessAdapter(harness: SupportedHarnessName): {
+	adapter: HarnessAdapter;
+	resolvedModel: ResolvedTestModel;
+} {
+	const resolvedModel = harnessTestResolvedModel(harness);
+	switch (harness) {
+		case "builtin":
+			return {
+				adapter: new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
+				resolvedModel,
+			};
+		case "claude":
+			return { adapter: new CliHarnessAdapter(CLAUDE_CLI_CONFIG), resolvedModel };
+		case "codex": {
+			const codexConfig = CLI_TOOL_CONFIGS.codex;
+			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			return { adapter: new CliHarnessAdapter(codexConfig), resolvedModel };
+		}
+		case "opencode": {
+			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
+			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			return { adapter: new CliHarnessAdapter(opencodeConfig), resolvedModel };
+		}
+	}
+}
 
 /**
- * The canonical four-harness lane table. Importing this and iterating
+ * The canonical four-harness lane table. Each lane's model is LOCKED in
+ * `HARNESS_TEST_MODELS` (require-harness.ts) and baked in via `lockedHarnessAdapter`
+ * — a lane consumer cannot pick a model. Importing this and iterating
  * `for (const lane of SUPPORTED_HARNESS_LANES)` is AC4's deliverable for AR3–AR6:
  * each lane carries its own `requireHarness` gate name, `[harness:X]` tag,
  * adapter setup, and per-harness prep — the consumer gets all four gates by
@@ -423,18 +446,14 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		harnessName: "builtin",
 		describeTag: "[harness:builtin]",
 		prepFn: (ctx) => {
+			const { adapter, resolvedModel } = lockedHarnessAdapter("builtin");
 			const pool = new AdapterPool();
-			pool.register(
-				"builtin-local",
-				new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
-				{
-					name: "builtin-local",
-					kind: "local",
-					modelProviders: ["openai-compatible"],
-					maxConcurrent: 1,
-				},
-			);
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
+			pool.register("builtin-local", adapter, {
+				name: "builtin-local",
+				kind: "local",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 1,
+			});
 			return {
 				pool,
 				params: {
@@ -442,12 +461,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-builtin-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible",
-						model: DEFAULT_OPENROUTER_MODEL,
-						apiKey,
-						baseUrl: OPENROUTER_BASE_URL,
-					},
+					resolvedModel,
 				},
 			};
 		},
@@ -458,8 +472,9 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		prepFn: (ctx) => {
 			if (!ctx.bridge)
 				throw new Error("claude lane requires a live MCP bridge from startMcpBridgeServer()");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("claude");
 			const pool = new AdapterPool();
-			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			pool.register("local-claude", adapter, {
 				name: "local-claude",
 				kind: "local",
 				modelProviders: ["anthropic"],
@@ -472,12 +487,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-claude-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "anthropic" as const,
-						model: CLAUDE_LANE_MODEL,
-						apiKey: "keychain-auth-unused",
-						baseUrl: "https://api.anthropic.com",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -494,10 +504,9 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 			if (!authFound) {
 				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
 			}
-			const codexConfig = CLI_TOOL_CONFIGS.codex;
-			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("codex");
 			const pool = new AdapterPool();
-			pool.register("local-codex", new CliHarnessAdapter(codexConfig), {
+			pool.register("local-codex", adapter, {
 				name: "local-codex",
 				kind: "local",
 				modelProviders: ["openai-compatible"],
@@ -510,12 +519,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-codex-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible" as const,
-						model: CODEX_LANE_MODEL,
-						apiKey: "",
-						baseUrl: "https://api.openai.com",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -527,13 +531,12 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		prepFn: (ctx) => {
 			if (!ctx.bridge)
 				throw new Error("opencode lane requires a live MCP bridge from startMcpBridgeServer()");
-			const apiKey = process.env.OPENROUTER_API_KEY;
-			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
+			if (!process.env.OPENROUTER_API_KEY)
+				throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
 			provisionOpencodeHome(ctx.tmpDir);
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("opencode");
 			const pool = new AdapterPool();
-			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
+			pool.register("local-opencode", adapter, {
 				name: "local-opencode",
 				kind: "local",
 				modelProviders: ["openai-compatible"],
@@ -546,12 +549,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-opencode-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible" as const,
-						model: `openrouter/${OPENCODE_MODEL}`,
-						apiKey,
-						baseUrl: "https://openrouter.ai/api",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -590,16 +588,6 @@ export async function runThroughHarness(
 	ctx: HarnessRunCtx,
 ): Promise<{ result: ProvisionSessionResult; cap: SandboxCapture }> {
 	const { pool, params, capturePaths } = lane.prepFn(ctx);
-
-	// @lore AR5: `onBeforeSession` fires after `prepFn` generates timestamp-based
-	// agentId/taskId and BEFORE `provisionSession` calls `admitSession`. Tests use
-	// it to seed the DB with the ACTUAL generated IDs. Without this seam,
-	// `admitSession` throws "Agent not found: ar-<harness>-agent-<ts>" because the
-	// seed ran before the IDs were known.
-	if (ctx.onBeforeSession) {
-		await ctx.onBeforeSession(params);
-	}
-
 	const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
 
 	const deps: ProvisionSessionDeps = {

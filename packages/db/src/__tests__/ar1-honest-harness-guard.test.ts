@@ -30,6 +30,7 @@
 
 import { describe, expect, test } from "vitest";
 import {
+	bannedModelToolImports,
 	checkGuardRules,
 	type GuardFile,
 	hasAbsentSkipIf,
@@ -195,9 +196,12 @@ const DIRTY_SRC = [
 // AR2: a "clean" harness-facing integration file must declare ALL four SUPPORTED_HARNESSES.
 // A file with only "claude" is now coverage-dirty (incomplete matrix) — CLEAN_SRC must cover
 // the full matrix to pass the coverage check added in honest-harness-guard.ts §1.
+// AR7: CLEAN_SRC must NOT import raw model-callers (cli-harness-adapter / builtin-harness-adapter
+// / llm-client) — a file that does so is model-import-dirty even if stub-clean. The canonical
+// honest test imports only the seam (provision-real-session.ts / require-harness.ts).
 const CLEAN_SRC = [
 	`import { requireHarness } from "./require-harness.js";`,
-	`import { CliHarnessAdapter } from "../cli-harness-adapter.js";`,
+	`import { runThroughHarness, SUPPORTED_HARNESS_LANES } from "./provision-real-session.js";`,
 	`requireHarness("builtin");`,
 	`requireHarness("claude");`,
 	`requireHarness("codex");`,
@@ -289,5 +293,151 @@ describe("guard re-exports the single-sourced path predicate", () => {
 		expect(
 			isHarnessIntegrationPath("packages/server/src/harness/__tests__/adapter-pool.test.ts"),
 		).toBe(false);
+	});
+});
+
+// ── bannedModelToolImports (AR7) ──────────────────────────────────────────────
+
+describe("bannedModelToolImports — detects raw model-caller imports in harness integration tests", () => {
+	// TRUE cases: these patterns MUST be detected
+
+	test("import of cli-harness-adapter → detected", () => {
+		const src = `import { CliHarnessAdapter } from "../cli-harness-adapter.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("import of builtin-harness-adapter → detected", () => {
+		const src = `import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("import of llm-client → detected", () => {
+		const src = `import { callLlm } from "../../harness/llm-client.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("new CliHarnessAdapter( construction → detected (catches re-export / aliased import)", () => {
+		const src = `const adapter = new CliHarnessAdapter(cfg);`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("new BuiltinHarnessAdapter( construction → detected", () => {
+		const src = `const adapter = new BuiltinHarnessAdapter({ maxIterations: 8 });`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	// FALSE cases: these patterns MUST NOT be detected
+
+	test("import of provision-real-session.js → clean (seam is sanctioned)", () => {
+		const src = `import { runThroughHarness, lockedHarnessAdapter } from "./provision-real-session.js";`;
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("import of session-provisioning.js (provisionSession) → clean", () => {
+		const src = `import { provisionSession } from "../../services/session-provisioning.js";`;
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("import of adapter-pool.js (AdapterPool) → clean", () => {
+		const src = `import { AdapterPool } from "../adapter-pool.js";`;
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("import of require-harness.js → clean", () => {
+		const src = `import { requireHarness, HARNESS_TEST_MODELS } from "./require-harness.js";`;
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("cli-harness-adapter in a // line comment only → clean (not an import)", () => {
+		const src = [
+			`// The seam owns the import of cli-harness-adapter — do NOT import it here.`,
+			`import { runThroughHarness } from "./provision-real-session.js";`,
+		].join("\n");
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("cli-harness-adapter in a /* block comment */ only → clean", () => {
+		const src = [
+			`/* @lore: uses cli-harness-adapter internally */`,
+			`import { lockedHarnessAdapter } from "./provision-real-session.js";`,
+		].join("\n");
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("bare side-effect import of cli-harness-adapter → detected (Fix E / W2)", () => {
+		// `import "..."` with no `from` clause must also be caught — a test that
+		// imports the adapter purely for its side-effects still violates the ban.
+		const src = `import "../cli-harness-adapter.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("bare side-effect import of builtin-harness-adapter → detected", () => {
+		const src = `import "../builtin-harness-adapter.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("bare side-effect import of llm-client → detected", () => {
+		const src = `import "../../harness/llm-client.js";`;
+		expect(bannedModelToolImports(src)).not.toHaveLength(0);
+	});
+
+	test("bare side-effect import in a // line comment only → clean", () => {
+		const src = `// import "../cli-harness-adapter.js";\nimport { runThroughHarness } from "./provision-real-session.js";`;
+		expect(bannedModelToolImports(src)).toHaveLength(0);
+	});
+
+	test("empty source → clean", () => {
+		expect(bannedModelToolImports("")).toHaveLength(0);
+	});
+});
+
+// ── checkGuardRules: model-import allowlist (AR7) ─────────────────────────────
+
+describe("checkGuardRules — AR7 model-import allowlist rules", () => {
+	const MODEL_IMPORT_DIRTY_SRC = [
+		`import { requireHarness } from "./require-harness.js";`,
+		`import { CliHarnessAdapter } from "../cli-harness-adapter.js";`,
+		`requireHarness("builtin");`,
+		`requireHarness("claude");`,
+		`requireHarness("codex");`,
+		`requireHarness("opencode");`,
+		`test("x", async () => { const a = new CliHarnessAdapter(cfg); });`,
+	].join("\n");
+
+	test("banned-import file on model-import allowlist → no violation (staged debt)", () => {
+		const p = HARNESS_INT("model-import-debt");
+		const results = checkGuardRules(
+			[file(p, MODEL_IMPORT_DIRTY_SRC)],
+			[], // stub allowlist
+			[], // coverage allowlist
+			[p], // model-import allowlist — staged debt
+		);
+		expect(results.find((r: GuardResult) => r.path === p)?.violation).toBeNull();
+	});
+
+	test("banned-import file NOT on model-import allowlist → violation", () => {
+		const p = HARNESS_INT("model-import-new-offender");
+		const results = checkGuardRules(
+			[file(p, MODEL_IMPORT_DIRTY_SRC)],
+			[], // stub allowlist
+			[], // coverage allowlist
+			[], // model-import allowlist — empty
+		);
+		const v = results.find((r: GuardResult) => r.path === p)?.violation;
+		expect(v).toBeTruthy();
+		expect(v).toContain("provision-real-session.ts");
+	});
+
+	test("clean file (no banned imports) + on model-import allowlist → violation (debt paid)", () => {
+		const p = HARNESS_INT("model-import-converted");
+		const results = checkGuardRules(
+			[file(p, CLEAN_SRC)],
+			[], // stub allowlist
+			[], // coverage allowlist
+			[p], // model-import allowlist — debt already paid
+		);
+		const v = results.find((r: GuardResult) => r.path === p)?.violation;
+		expect(v).toBeTruthy();
+		expect(v).toContain("model-import debt paid");
 	});
 });

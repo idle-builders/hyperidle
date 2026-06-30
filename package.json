@@ -44,8 +44,6 @@
 		"db:seed:pg": "npx tsx packages/db/src/seed-pg-cli.ts",
 		"setup": "tsx packages/db/src/setup-cli.ts",
 		"test:pg": "npx tsx packages/db/src/pg-test-runner.ts",
-		"ds:serve": "npm run -w @hyperidle/design-system serve",
-		"ds:bless": "vitest run -u packages/design-system/src/__tests__/catalog-snapshot.test.tsx",
 		"ds:inspect": "npx tsx packages/design-system/scripts/inspect-page.ts",
 		"obs:env": "npx tsx scripts/obs.ts env",
 		"obs:smoke": "npx tsx scripts/obs.ts smoke",
