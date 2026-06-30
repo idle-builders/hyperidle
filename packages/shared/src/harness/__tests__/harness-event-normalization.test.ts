@@ -88,12 +88,12 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		// drainForCompletion sees only empty completions → blocked/empty.
 		const input = {
 			type: "text",
-			part: { type: "text", text: "[{\"title\":\"Task 1\"}]" },
+			part: { type: "text", text: '[{"title":"Task 1"}]' },
 		};
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
 		expect((result as import("../harness-events.js").CompletionEvent).text).toBe(
-			"[{\"title\":\"Task 1\"}]",
+			'[{"title":"Task 1"}]',
 		);
 	});
 
