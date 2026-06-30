@@ -276,3 +276,56 @@ This track records the **19 confirmed findings** as cleanup work packages, group
 **Out of scope.** Actually building the inactive knowledge layers (L0–L2). Redesigning the artifact system. Changing the component set to fit a budget (this WP reconciles the *rule and the docs*, not the components).
 
 **Effort.** M (~3h)
+
+---
+
+### AP7 — Challenge tradeoffs the ethos no longer justifies
+
+**Work package.** As a maintainer, I want the preemptive gates, belt-and-suspenders ceremony, and forward-compat surface that a tradeoff-lore audit confirmed earn nothing today to be removed, so the codebase stops carrying defenses for threats no one has hit and API surface for features that haven't landed — the exact patterns ETHOS §1/§2/§3 say to cut. A pass over every decision-with-a-cost `@lore` (judged against the four principles) surfaced seven items that were reasonable to question: a runtime access-boundary layer that duplicates the lint rule its own comment calls "the real gate"; a `@mention` cap that contradicts its own concept's "0..N, no upper bound"; three web guards/props defending hypothetical futures or a redundant visibility rule; and two lint/script guards that may duplicate existing tooling. Removing each leaves the *actual* gate intact (the lint rule, a query-layer cost bound, the design ESLint plugin, code review) while deleting the ceremony layered on top. The build phase re-confirms each item against current `origin/main` before removing it.
+
+**Why this matters.** The maintainer and every agent that reads this code benefit: ceremony that reads as load-bearing gets extended, reasoned about, and trusted as a real gate when it is not — the access-boundary layer's own comment admits the lint rule is the real gate and its host-scope "returns true for any authenticated principal" (gates nothing today). The end user benefits directly from one item: the `@mention` cap silently truncates a user's mentions at 20 despite the concept promising no upper bound. Cost of not doing this: the codebase keeps accreting preemptive defenses for threats no one has hit (the precise anti-pattern ETHOS §2 names), and a user-facing feature stays quietly capped against its own spec. This is removal, not a feature — simplicity is the goal.
+
+**Type.** backend + tooling (one minor web-UI removal with no rendered change).
+
+**What exists today.** Seven confirmed tradeoffs, each with a live `@lore` justification the audit judged no-longer-earned: (1) the **runtime access-boundary assertion layer** — `packages/server/src/middleware/access-boundary-middleware.ts` + `packages/server/src/auth/access-boundary.ts` + `authorize.ts` — a default-deny assertion layered on 41+ routes on top of the `eslint-plugin-design`/access-boundary **lint rule** that the lore itself names as the real gate; host-scope returns true for any authenticated principal. (2) `packages/shared/src/mention.ts` `MAX_MENTIONS_PER_MESSAGE = 20` — a hard cap contradicting the mention concept's stated "0..N, no upper bound", justified by *anticipated* abuse. (3) `packages/web/src/shell/NotificationPopover.tsx` — rejects a `sourceLink` not starting with `/` as "defense-in-depth against **future** agent-authored content"; the data is system-authored today. (4) `packages/web/src/settings/SettingsWorker.tsx` — the component self-gates (non-electron/non-shared) **in addition to** the AppShell nav gate that already hides it. (5) `packages/web/src/shell/AssistantOverlay.tsx` — an `anchorRef` prop "reserved for future dynamic positioning" with no caller. (6) `eslint.config.ts` (AK6/AK7 blocks) — two narrow AST guards defending one already-fixed pattern (`eligible[i % eligible.length]`, now routed through `selectOwner`). (7) `scripts/ag7-no-divergent-classes.ts` — a standalone tsx guard that may duplicate `eslint-plugin-design`'s off-grid/off-scale rules over the same `.tsx` files.
+
+**What's genuinely missing.** Nothing is missing — this is removal and one cap-relaxation. The delta is: deleting the runtime access-boundary layer and the three web items, relaxing the mention cap with the cost moved to the query/resolve layer, and removing the two duplicative guards **only** where the existing tooling is confirmed to cover the gap. Each removal must leave the audit-confirmed *real* gate (lint rule, query-layer bound, ESLint plugin, code review) in place.
+
+**Depends on.** None. (Independent of AP1–AP6 and AK9, like the rest of the track.)
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — removal/relaxation; no nouns reshaped.
+- **Design:** Not required — no rendered surface (items 3–5 are guard/prop removals with no visual change).
+
+**Human concept review.** No — backend/tooling removals plus one non-visual cap change; no new component, no guide rewrite.
+
+**Acceptance criteria.**
+- The runtime access-boundary assertion layer no longer exists, the lint rule that is the actual boundary gate still enforces it, and `npm run verify` proves no route lost protection (the static gate still fails a boundary violation).
+- `@mention` extraction no longer hard-caps at 20: a message with more than 20 mentions resolves all of them, and resolve cost stays bounded by batching at the query layer (proven by a test), with no silent truncation reintroduced.
+- The three web items (the `sourceLink` `/`-prefix guard, the `SettingsWorker` self-gate, the `AssistantOverlay` `anchorRef` prop) are removed with no change to rendered behavior — the notification still renders, `SettingsWorker` stays hidden for non-electron/non-shared via the nav gate, and the overlay still positions correctly.
+- The AK6/AK7 dual guards and `ag7-no-divergent-classes.ts` are each removed **only** after confirming the existing tooling (code review / `selectOwner` routing; `eslint-plugin-design`) already covers the gap; any item found still load-bearing is left in place and documented as a surfaced finding, not forced.
+- No removal weakens an actual gate — every audit-confirmed "real gate" (lint rule, query-layer bound, ESLint plugin) remains, and no guard is disabled to make removal pass.
+- `npm run verify` (check + lint + knip + test:all + build) is green after the removals.
+
+**Validation scenarios.**
+- Given the branch with the access-boundary layer removed, when `npm run verify` runs and a deliberately boundary-violating route is introduced, then the lint gate still fails — proving the real gate survived the removal.
+- Given a message authored with 30 `@mentions`, when it is processed, then all 30 resolve and the resolve issues a bounded (batched) number of queries — no truncation at 20.
+- Given the web build after items 3–5 are removed, when the notification popover, Settings worker section, and assistant overlay render, then each behaves identically to before (no visual or visibility change).
+- Given AK6/AK7 and `ag7-no-divergent-classes.ts`, when their coverage is checked against `selectOwner` routing and `eslint-plugin-design`, then each is removed only where the existing tool catches the same case, and any uncovered case is surfaced and left guarded.
+
+**Plan calls.** Backend/tooling cleanup — skip `/design`. Standard `/architecture` pass to re-confirm each item's caller-set/justification against current `origin/main` and identify orphaned references; expect deletions plus small lint/guard edits and one query-layer change (item 2). Treat each item independently — an item that turns out load-bearing is a finding to surface, not a blocker for the others.
+
+**Contracts / constraints.**
+- Removal/relaxation only — do **NOT** weaken the lint rule that is the real access-boundary gate when removing the runtime layer.
+- Item 2 (`@mention` cap) is the only behavior change — bound resolve cost at the query/resolve layer (batch), never reintroduce a silent cap; the founder reviews this one closest.
+- Re-confirm each item's justification is genuinely absent against current `origin/main` before removing it; a load-bearing item is surfaced, not removed.
+- For items 6–7, confirm the existing tooling truly covers the gap before deleting; otherwise leave in place and surface the finding.
+- No guard is disabled or weakened to make removal pass.
+
+**Out of scope.**
+- The **security-audit-driven hardening cluster** (`fts` query caps, `git-export` `sanitizeRepoPath` allow-list, `ntfy`/`connections` SSRF re-checks, IP-literal blocks before any real connector or multi-user deployment). These sit in an ETHOS §2 tension worth a separate decision: fixes tracing to a concrete vector in our own code stay (e.g. the `git-export` env that actually leaked `HYPERIDLE_API_KEY`); walls guarding a hypothetical leaked-key or future-multi-user scenario are deferral candidates. That judgment is founder-flagged separately, **not** part of AP7's removals (mirrors the track's existing Part-4 carve-out).
+- Any tradeoff the audit judged JUSTIFIED or NUANCED — the no-caching/no-SWR hook family, in-process `setInterval` schedulers, FK/CAS data-integrity rules, and security fixes that trace to a real review finding.
+
+**Effort.** M (~4h)
