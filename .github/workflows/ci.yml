@@ -14,11 +14,15 @@ concurrency:
 
 # CI re-runs EVERY fast check live (typecheck gate, lint, knip, mock-inventory,
 # web + desktop build) so none of them can be bypassed. Only the slow test
-# suite (test:all — unit + component + DB integration) is trusted via a
-# locally-generated, HMAC-signed attestation that RECORDS the real test exit
-# code (scripts/verify-attest.ts runs the tests and derives status). CI then
-# validates that signed attestation (scripts/check-attestation.ts) — including
-# that the source has not changed since the attested run.
+# suite (unit + integration + e2e) is trusted via a locally-generated,
+# HMAC-signed attestation that RECORDS the real test exit code
+# (scripts/verify-attest.ts runs the affected slice and derives status). CI
+# then validates that signed attestation (scripts/check-attestation.ts) —
+# including that the source has not changed since the attested run.
+# @lore AT1: `npm run test` now runs vitest --changed=origin/main (affected slice
+# only); `npm run test:full` runs the whole suite. verify-attest uses the affected
+# slice by default (scope:"affected") and full at release (VERIFY_SCOPE=full →
+# scope:"full"). E2e is now a third attested leg — still local-only, never a CI job.
 #
 # @lore Z8-166: the previous workflow ran ONLY check-attestation and re-ran
 # nothing, while verify-attest hardcoded status="passed". A red gate could ship
