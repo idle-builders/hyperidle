@@ -17,6 +17,13 @@
  * `blocked/empty`, which makes `decompositionStatus === "done"` fail.
  * If a harness cannot produce parseable JSON for a tiny bet, that is a real
  * production-prompt fragility finding, not a reason to loosen the assert.
+ *
+ * @lore AR5 — Uses the real `minimalStrategy` from @hyperidle/strategy-minimal.
+ * minimalStrategy.decomposeBet picks `candidates.find(c => c.role ===
+ * "product_manager") ?? candidates[0]` — with a seeded PM agent it returns a
+ * valid decomposerAgentId and the Kernel reaches Branch 3 (runRealPmTurn).
+ * The earlier belief that minimalStrategy returns null was FALSE — it only returns
+ * null when candidates is empty, which cannot happen with a seeded eligible PM agent.
  */
 
 import * as fs from "node:fs";
@@ -24,18 +31,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type {
-	ContextAssemblyOutcome,
-	ContextAssemblyRequest,
-	DecomposeBetRequest,
-	DecompositionPlan,
-	IngestionHandle,
-	IngestionRequest,
-	ScaffoldRequest,
-	SelectAgentOutcome,
-	SelectAgentRequest,
-	Strategy,
-} from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
@@ -48,64 +44,6 @@ import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
-
-// ---------------------------------------------------------------------------
-// Inline strategy for AK3 real-decomposition tests.
-//
-// The active strategy must return a valid decomposerAgentId so runBetDecomposition
-// reaches Branch 3 (runRealPmTurn). minimalStrategy returns decomposerAgentId=null,
-// which causes blocked/no_eligible_agent at step 4 — Branch 3 is never reached.
-//
-// This strategy picks the first candidate from the seeded domain (the PM agent)
-// so the Kernel advances to Branch 3. assembleContext writes the minimal scaffold
-// required for the decomposition scratch sandbox.
-//
-// @lore AR5: minimalStrategy is wrong for this test — its decomposeBet returns null
-// which short-circuits before Branch 3. Use FirstCandidateStrategy to delegate PM
-// selection to the seeded eligible agent, allowing runRealPmTurn to fire.
-// ---------------------------------------------------------------------------
-
-class FirstCandidateStrategy implements Strategy<HyperIdleDb> {
-	async assembleContext(req: ContextAssemblyRequest<HyperIdleDb>): Promise<ContextAssemblyOutcome> {
-		// Minimal scaffold so post-admission invariants hold for the decomposition scratch sandbox.
-		fs.mkdirSync(path.join(req.sandboxPath, "context"), { recursive: true });
-		fs.mkdirSync(path.join(req.sandboxPath, "knowledge"), { recursive: true });
-		fs.mkdirSync(path.join(req.sandboxPath, "work"), { recursive: true });
-		fs.mkdirSync(path.join(req.sandboxPath, ".fabric"), { recursive: true });
-		fs.writeFileSync(
-			path.join(req.sandboxPath, ".fabric", "manifest.json"),
-			JSON.stringify({
-				session_id: req.sessionId,
-				assembled_at: new Date().toISOString(),
-				items: [],
-			}),
-		);
-		return { itemCount: 0, durationMs: 0 };
-	}
-
-	beginLearningIngestion(_req: IngestionRequest<HyperIdleDb>): IngestionHandle {
-		return { dispose(): void {} };
-	}
-
-	async scaffoldAgents(
-		_req: ScaffoldRequest<HyperIdleDb>,
-	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
-		return [];
-	}
-
-	async selectAgent(_req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> {
-		return { agentId: null };
-	}
-
-	/**
-	 * Picks the first candidate as the decomposer so Branch 3 (runRealPmTurn)
-	 * is reached. minimalStrategy returns null here → blocked/no_eligible_agent.
-	 */
-	async decomposeBet(req: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan> {
-		const first = req.candidates[0];
-		return { decomposerAgentId: first?.agentId ?? null, tasks: [] };
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3)
@@ -133,6 +71,11 @@ const NOW = "2026-06-15T00:00:00.000Z";
  * pool registers adapters with `type: "builtin"/"claude"/"codex"/"opencode"` and matching
  * `modelProviders`. A harnessType mismatch → `adapterPool.select()` returns null →
  * "No eligible harness adapter" → blocked/failed → `decompositionStatus !== "done"`.
+ *
+ * @lore AR5: The PM agent must have `role: "product_manager"` so that
+ * minimalStrategy.decomposeBet's role-match (`candidates.find(c => c.role ===
+ * "product_manager")`) succeeds and returns a valid decomposerAgentId. This
+ * is the real strategy's selection logic — no bespoke stand-in needed.
  */
 async function seedDecompositionDomain(
 	db: HyperIdleDb,
@@ -160,6 +103,8 @@ async function seedDecompositionDomain(
 	});
 	// PM agent — eligible, kind=ai, agentCategory=team, role=product_manager.
 	// harnessType/modelProvider set per-lane so adapterPool.select() finds the adapter.
+	// role=product_manager ensures minimalStrategy.decomposeBet returns this agent
+	// via candidates.find(c => c.role === "product_manager").
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -217,14 +162,15 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	// Fail-closed: a fake/empty/non-array model output → runRealPmTurn returns []
 	// → Branch-3 empty-guard → decompositionStatus "blocked"/"empty", so BOTH
 	// asserts below fail. This test cannot pass on fake/empty agent output.
+	//
+	// minimalStrategy.decomposeBet: candidates.find(c => c.role === "product_manager")
+	// returns the seeded PM agent → decomposerAgentId is non-null → Kernel reaches
+	// Branch 3 (runRealPmTurn) → real harness produces the task list.
 	test("real agent decomposes a real bet — ≥1 persisted task with non-trivial title, bet done", async ({
 		db,
 		eventBus,
 	}) => {
-		// @lore AR5: FirstCandidateStrategy picks the seeded PM agent as decomposer so
-		// runBetDecomposition reaches Branch 3 (runRealPmTurn). minimalStrategy returns
-		// decomposerAgentId=null which short-circuits at step 4 → blocked/no_eligible_agent.
-		setActiveStrategy(new FirstCandidateStrategy());
+		setActiveStrategy(minimalStrategy);
 
 		const { betId } = await seedDecompositionDomain(db, lane.harnessName, lane);
 
