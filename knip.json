@@ -16,6 +16,7 @@
 		"**/__tests__/_helpers.ts",
 		"packages/server/src/harness/__tests__/require-harness.ts",
 		"packages/server/src/harness/__tests__/provision-real-session.ts",
+		"packages/server/src/harness/__tests__/provision-real-decomposition.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/server/src/middleware/response-validator.ts",

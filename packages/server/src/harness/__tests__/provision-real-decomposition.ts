@@ -17,9 +17,6 @@
  * session running to completion.
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 import type { BetDecompositionDeps } from "../../services/bet-decomposition.js";
@@ -317,17 +314,4 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			throw new Error(`Unsupported harness for decomposition: ${lane.harnessName}`);
 		}
 	}
-}
-
-/**
- * Create a fresh per-test tmpDir under os.tmpdir(), returning the path.
- * Caller is responsible for cleanup (rmSync in afterEach).
- *
- * @lore AR5: Decomposition uses `sandboxBasePath/decomp-<betId>` as the scratch
- * sandbox internally. The outer tmpDir is the container — we pass it as
- * `sandboxBasePath`. runBetDecomposition creates the `decomp-*` subdirectory
- * itself and cleans it up in its `finally` block.
- */
-export function makeTmpDir(prefix: string): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
