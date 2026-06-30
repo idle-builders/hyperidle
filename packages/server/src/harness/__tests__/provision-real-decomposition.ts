@@ -25,7 +25,7 @@ import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 import type { BetDecompositionDeps } from "../../services/bet-decomposition.js";
 import { AdapterPool, CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
-import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { type CliAdapterConfig, CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import type { HarnessLane } from "./provision-real-session.js";
 import {
@@ -256,10 +256,35 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			// scratchSandboxPath/.opencode-data/opencode/auth.json — matching the XDG_DATA_HOME
 			// pattern used by the adapter. Provisioning in sandboxDir (ctx.tmpDir) would put
 			// auth in the wrong place relative to the scratch sandbox cwd.
+			//
+			// XDG_DATA_HOME isolation via envMap override (not process.env):
+			// The base CLI_TOOL_CONFIGS.opencode has XDG_DATA_HOME in the envAllowlist —
+			// forwarded from process.env at spawn time. But this test never sets
+			// process.env.XDG_DATA_HOME (unlike AK2 which sets it in beforeEach). Without
+			// XDG_DATA_HOME pointing at scratchPath/.opencode-data, the subprocess uses the
+			// global ~/.local/share/opencode/ instead of the isolated dir where auth.json was
+			// provisioned. Fix: override envMap to inject XDG_DATA_HOME = "{{sandbox}}/.opencode-data"
+			// (resolves to scratchSandboxPath/.opencode-data at session start). envMap entries
+			// are applied AFTER the allowlist so they override any process.env value.
+			//
+			// @lore AR5 opencode-xdg-decomposition: Unlike the AK2 session lane (which sets
+			// process.env.XDG_DATA_HOME in beforeEach), the decomposition lane has no beforeEach
+			// cleanup frame. Using the {{sandbox}} template var is safer: it always resolves to
+			// the exact scratch sandbox cwd, is per-invocation-isolated, and requires no cleanup.
 			const apiKey = process.env.OPENROUTER_API_KEY;
 			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			const baseOpencodeConfig = CLI_TOOL_CONFIGS.opencode;
+			if (!baseOpencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			// Override envMap to inject XDG_DATA_HOME via {{sandbox}} template var.
+			const opencodeConfig: CliAdapterConfig = {
+				...baseOpencodeConfig,
+				envMap: {
+					...baseOpencodeConfig.envMap,
+					// XDG_DATA_HOME resolves to scratchSandboxPath/.opencode-data at session
+					// start — the exact dir provisionOpencodeHome(scratchPath) writes auth to.
+					XDG_DATA_HOME: "{{sandbox}}/.opencode-data",
+				},
+			};
 			const pool = new AdapterPool();
 			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
 				name: "local-opencode",
