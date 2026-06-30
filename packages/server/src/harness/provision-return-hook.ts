@@ -252,6 +252,15 @@ async function provisionCodexHome(
 	// locked when a second codex process tries to open them → codex exits immediately.
 	// Absent auth.json/config.toml: codex falls back to env-based auth (OPENAI_API_KEY)
 	// which still works. Copy them when present to preserve user's model config.
+	//
+	// @lore AO2 codex-approvals-strip: config.toml may contain `approvals_reviewer = "user"`
+	// which causes codex to wait for interactive user approval before running any tool (shell
+	// command or MCP call). In a non-interactive spawned process (no TTY, stdio pipes), codex
+	// hangs indefinitely waiting for input. Fix: after copying config.toml, strip the
+	// approvals_reviewer line so codex uses its built-in default for the exec subcommand
+	// (which runs headless by design without interactive approval). "auto_review" was tried
+	// but still caused extra LLM call overhead; "never" is not a valid value (0.141.0 supports
+	// only "user", "auto_review", "guardian_subagent"). Omitting the key = headless exec default.
 	const userCodexDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? "/root", ".codex");
 	for (const file of ["auth.json", "config.toml"]) {
 		const src = path.join(userCodexDir, file);
@@ -261,6 +270,21 @@ async function provisionCodexHome(
 		} catch {
 			// File absent — fine; codex will use env-based auth.
 		}
+	}
+
+	// Override approvals_reviewer to "never" in the per-session config.toml.
+	// The user's ~/.codex/config.toml may have `approvals_reviewer = "user"` which causes
+	// codex to prompt for interactive approval — a hang in non-interactive test/agent spawns.
+	const perSessionConfigPath = path.join(codexHomeDir, "config.toml");
+	try {
+		let tomlContent = fs.readFileSync(perSessionConfigPath, "utf-8");
+		// Replace any existing approvals_reviewer setting with "never".
+		// Strip approvals_reviewer entirely — let codex use its built-in default for
+		// non-interactive exec mode (the `exec` subcommand runs headless by design).
+		tomlContent = tomlContent.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, "");
+		fs.writeFileSync(perSessionConfigPath, tomlContent, "utf-8");
+	} catch {
+		// config.toml absent — nothing to strip.
 	}
 
 	// Write per-session hooks.json in CODEX_HOME — this is what codex actually reads.
