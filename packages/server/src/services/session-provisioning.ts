@@ -335,6 +335,17 @@ export interface ProvisionSessionParams {
 		 * planning loop and produces garbled output.
 		 */
 		readonly messages: import("@hyperidle/shared").ConversationMessage[];
+		/**
+		 * AR4b: Strategy formation answer — persona override for this turn.
+		 * null = no override; use the agent row's systemPrompt as-is.
+		 * undefined = not set by caller (pre-AR4b callers; treated as no override).
+		 *
+		 * @lore AR4b: The persona at turn time comes from the active strategy's
+		 * formAssistant() answer (concept §4 formation seam). It overrides the
+		 * agent row's systemPrompt for the assembled prompt / AGENTS.md of this
+		 * turn ONLY — the row is not mutated. null = "Minimal strategy: no override."
+		 */
+		readonly systemPromptOverride?: string | null;
 	};
 }
 
@@ -863,14 +874,22 @@ export async function runSession(
 		// every harness reads it. The builtin adapter additionally receives `messages`
 		// so it routes to `runChatTurn` (NIT-4 — load-bearing for builtin correctness).
 		//
-		// @lore AR4a: composeAssistantPrompt wraps the agent's systemPrompt into the
-		// canonical assistant format. The nudge (draft-bet guidance) is not added here
-		// (AR4b adds formation at turn time); the base persona is correct for AR4a.
+		// @lore AR4b: composeAssistantPrompt uses the strategy formation persona when
+		// provided (systemPromptOverride), falling back to the agent row's systemPrompt.
+		// null override = "Minimal Strategy, no persona knowledge" = use agent row default.
+		// The formation answer shapes the assembled prompt (AGENTS.md) at TURN TIME without
+		// mutating the users row. This satisfies AC3: switching the strategy changes the
+		// assistant's form on the NEXT turn.
 		//
 		// @lore AR4a: The toolSummaries passed here are for the role tools summary section.
 		// Draft tool summaries are not explicitly listed in the prompt here — the agent
 		// discovers them via the MCP bridge tool list (CLI) or the injected registry (builtin).
-		const { composedPrompt } = composeAssistantPrompt(systemPromptText);
+		const effectivePersona =
+			params.conversational.systemPromptOverride !== undefined &&
+			params.conversational.systemPromptOverride !== null
+				? params.conversational.systemPromptOverride
+				: systemPromptText;
+		const { composedPrompt } = composeAssistantPrompt(effectivePersona);
 		// Use the caller-supplied messages (already loaded from DB by runAssistantTurn)
 		conversationalMessages = params.conversational.messages;
 		// Append conversation to the composed prompt for CLI harnesses (AGENTS.md channel)

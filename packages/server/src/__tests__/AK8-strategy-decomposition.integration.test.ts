@@ -165,6 +165,8 @@ function makeFabricLikeStrategyWithDecompose(_pmAgentId?: string) {
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
+		// AR4b: formAssistant stub — AK8 tests are not about assistant formation.
+		formAssistant: vi.fn().mockResolvedValue({ persona: null, assistantDraftSurface: "standard" }),
 	};
 }
 
@@ -211,6 +213,8 @@ function makeDivergentDecomposerStrategy() {
 				return { decomposerAgentId: first?.agentId ?? null, tasks: [] };
 			},
 		),
+		// AR4b: formAssistant stub — AK8 tests are not about assistant formation.
+		formAssistant: vi.fn().mockResolvedValue({ persona: null, assistantDraftSurface: "standard" }),
 	};
 }
 
@@ -249,6 +253,8 @@ function makeMinimalStrategyWithDecomposeSpy() {
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
+		// AR4b: formAssistant stub — AK8 tests are not about assistant formation.
+		formAssistant: vi.fn().mockResolvedValue({ persona: null, assistantDraftSurface: "standard" }),
 	};
 }
 
@@ -508,6 +514,10 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 				decomposerAgentId: offTeamAgentId, // off-team — not in candidates
 				tasks: [],
 			}),
+			// AR4b: formAssistant stub — AK8 tests are not about assistant formation.
+			formAssistant: vi
+				.fn()
+				.mockResolvedValue({ persona: null, assistantDraftSurface: "standard" }),
 		};
 		setActiveStrategy(badStrategy);
 
@@ -540,6 +550,10 @@ describe("AK8 AC3: AK3 guarantees hold under Strategy (no regression)", () => {
 			scaffoldAgents: vi.fn().mockResolvedValue([]),
 			selectAgent: vi.fn().mockResolvedValue({ agentId: null }),
 			decomposeBet: vi.fn().mockRejectedValue(new Error("Knowledge service unavailable")),
+			// AR4b: formAssistant stub — AK8 tests are not about assistant formation.
+			formAssistant: vi
+				.fn()
+				.mockResolvedValue({ persona: null, assistantDraftSurface: "standard" }),
 		};
 		setActiveStrategy(throwingStrategy);
 

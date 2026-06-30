@@ -968,17 +968,23 @@ export async function runConversationalTurnThroughHarness(
 		},
 	};
 
-	// The rewritten runAssistantTurn delegates to provisionSession(conversational mode)
-	// and uses the pool + resolvedModel we supply via credentialResolver / agent row.
-	// We pass resolvedModel via the deps so the provisioning path reads it correctly.
-	// The agent row's modelId/modelProvider drive resolveAgentModel internally —
-	// we seeded them in seedConversationalTurnDomain to match the locked model.
+	// @lore AR4a: Pass the locked resolved model directly so runAssistantTurn skips
+	// resolveAgentModel. CLI harnesses (codex/opencode) use native keychain/OpenRouter
+	// CLI auth — their modelProvider ("openai-compatible") is not supported by
+	// resolveAgentModel's per-agent path (throws UnsupportedAgentProviderError).
+	// harnessTestResolvedModel returns the HARNESS_TEST_MODELS entry with apiKey=""
+	// for keychain harnesses (codex) or OPENROUTER_API_KEY for OpenRouter harnesses.
+	const resolvedModel = harnessTestResolvedModel(harnessName);
+
+	// The rewritten runAssistantTurn delegates to provisionSession(conversational mode).
+	// resolvedModel is supplied via deps.resolvedModel (bypasses resolveAgentModel).
 	await runAssistantTurn(
 		{
 			db: ctx.db,
 			eventBus: ctx.eventBus,
 			adapterPool: pool,
 			credentialResolver,
+			resolvedModel,
 			mcpBridgeRegistry: ctx.bridge?.mcpBridgeRegistry,
 			mcpBaseUrl: ctx.bridge?.mcpBaseUrl,
 			sandboxBasePath: ctx.tmpDir,

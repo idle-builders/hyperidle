@@ -52,6 +52,7 @@ import {
 import { readServerConfig } from "../services/server-config.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import { provisionSession } from "../services/session-provisioning.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import {
 	buildAssistantDraftRegistry,
 	resolveCurrentDraftBetId,
@@ -509,10 +510,30 @@ async function runTurnInternal(
 	const transcriptRows = await loadRawTranscript(db, threadId);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
 
+	// --- Step 3.5: Formation seam — consult the active strategy for persona + draft surface ---
+	// @lore AR4b: The formation seam is the missing piece this step adds. Before AR4b,
+	// runAssistantTurn read BUILTIN_SYSTEM_PROMPT as a hardcoded constant and called
+	// buildAssistantDraftRegistry directly. After AR4b, both come from the active strategy's
+	// formAssistant() answer — AC3: switching the strategy changes the assistant's form.
+	//
+	// @lore AR4b: We call getActiveStrategy() at TURN TIME (not at boot/creation). This is the
+	// correct moment for the formation seam: the active strategy may change between turns, and
+	// the turn's assembled prompt must reflect the strategy active AT THAT MOMENT.
+	//
+	// @lore AR4b: The formation answer is a per-turn decision, NOT persisted to the users row.
+	// persona:null means "Minimal strategy: no override, use agent row's systemPrompt."
+	// The systemPromptOverride field on params.conversational carries it to provisionSession.
+	const formation = await getActiveStrategy().formAssistant({
+		db,
+		userId,
+		threadId,
+	});
+
 	// --- Step 4: Resolve draft tool binding ---
 	// @lore AK4: resolve team + draft binding BEFORE the session. Both are cheap single-row DB lookups.
-	// @lore AR4a §3b seam: buildAssistantDraftRegistry is the provisional source here (AR4b reroutes
-	// this one call site to the strategy formation answer).
+	// @lore AR4b: draftRegistry source is now the strategy formation answer (§3b seam rerouted).
+	// formation.assistantDraftSurface === "standard" → buildAssistantDraftRegistry (the canonical 2-tool builder).
+	// A future Fabric strategy returning a different surface marker maps to a different builder here.
 	const resolvedTeamId = await resolveDraftTeamId(db, userId);
 	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId);
 
@@ -536,10 +557,13 @@ async function runTurnInternal(
 
 	// @lore AK4 CRITICAL-2: NEVER inject buildToolRegistry(ctx,{role:'assistant'}) here —
 	// the dedicated 2-tool builder is the authority boundary (AC3b).
-	const draftRegistry = buildAssistantDraftRegistry(toolCtx, {
-		resolvedTeamId,
-		currentDraftBetId,
-	});
+	// @lore AR4b: §3b seam rerouted — source is now the strategy's formation answer.
+	// "standard" maps to the canonical buildAssistantDraftRegistry; other markers (future)
+	// would map to their respective builders.
+	const draftRegistry =
+		formation.assistantDraftSurface === "standard"
+			? buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId })
+			: buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId }); // future: other surfaces
 
 	// --- Step 5: Delegate to provisionSession (conversational mode) ---
 	//
@@ -602,6 +626,11 @@ async function runTurnInternal(
 				assistantAgentId,
 				draftRegistry,
 				messages: conversationMessages,
+				// AR4b: strategy formation persona override — null = "no override; use agent row".
+				// @lore AR4b: systemPromptOverride carries the strategy's per-turn persona decision
+				// to provisionSession, which uses it in composeAssistantPrompt(effectivePersona).
+				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
+				systemPromptOverride: formation.persona,
 			},
 		});
 

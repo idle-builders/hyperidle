@@ -132,6 +132,13 @@ class FabricStrategySpy implements Strategy<HyperIdleDb> {
 	): Promise<import("@hyperidle/shared").DecompositionPlan> {
 		return { decomposerAgentId: null, tasks: [] };
 	}
+
+	// AR4b: formAssistant stub — FabricStrategySpy test is not about assistant formation.
+	async formAssistant(
+		_req: import("@hyperidle/shared").AssistantFormationRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").AssistantFormation> {
+		return { persona: null, assistantDraftSurface: "standard" };
+	}
 }
 
 // ---------------------------------------------------------------------------

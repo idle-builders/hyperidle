@@ -34,6 +34,8 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentScaffoldSpec,
+	AssistantFormation,
+	AssistantFormationRequest,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	DecomposeBetRequest,
@@ -189,5 +191,21 @@ export const minimalStrategy: Strategy<HyperIdleDb> = {
 		// AK3 fallback: role-match PM else first candidate; NO knowledge task list.
 		const pm = req.candidates.find((c) => c.role === "product_manager") ?? req.candidates[0];
 		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
+
+	/**
+	 * AR4b: Provide the assistant's formation at turn time.
+	 *
+	 * Minimal = no injected knowledge, no persona override.
+	 * - persona: null — "use the agent row's systemPrompt as-is".
+	 * - assistantDraftSurface: "standard" — the canonical 2-tool surface (create_bet +
+	 *   edit_bet), built by buildAssistantDraftRegistry in the Kernel.
+	 *
+	 * @lore AR4b: persona:null is the Minimal default, mirroring systemPrompt:null on
+	 * AgentScaffoldSpec for team agents — "no formation knowledge, use Kernel defaults."
+	 * The Fabric strategy returns a non-null persona shaped from the team/user context.
+	 */
+	async formAssistant(_req: AssistantFormationRequest<HyperIdleDb>): Promise<AssistantFormation> {
+		return { persona: null, assistantDraftSurface: "standard" };
 	},
 };

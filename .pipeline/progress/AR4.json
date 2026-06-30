@@ -1,7 +1,8 @@
 {
   "id": "AR4",
   "status": "in_progress",
-  "currentStep": "3-build-AR4a",
+  "currentStep": "3-build-AR4b",
+  "ar4aStatus": "green — conversational mode on provisionSession; 4-lane reply tests pass; carve-out removed; AD2/R1 green; opencode text-event bug fixed. REVIEW-FLAG: confirm AH3/AK4/AH6 coverage-debt-allowlist move is honest.",
   "buildStructure": "one PR on #387, build AR4a->AR4b->AR4c in order, each green before next (founder choice)",
   "architectureApproved": 7,
   "track": "AR",

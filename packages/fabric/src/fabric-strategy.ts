@@ -25,6 +25,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentScaffoldSpec,
+	AssistantFormation,
+	AssistantFormationRequest,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	DecomposeBetRequest,
@@ -140,5 +142,20 @@ export const fabricStrategy: Strategy<HyperIdleDb> = {
 		const pm = req.candidates.find((c) => c.role === "product_manager") ?? req.candidates[0];
 		// tasks:[] → Kernel runs PM turn (assembleContext already feeds the knowledge edge).
 		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
+
+	/**
+	 * AR4b: Fabric formation — persona + draft tool surface for the assistant turn.
+	 *
+	 * Fabric v1: returns persona:null (no formation knowledge yet — the Fabric's
+	 * strategy for the assistant persona is a future concern that requires real
+	 * eval data). assistantDraftSurface:"standard" = canonical 2-tool surface.
+	 *
+	 * @lore AR4b: The Fabric can enrich the assistant persona in the future by
+	 * reading factorySettings or team context here — the seam is in place.
+	 * For now, null matches the Minimal Strategy and preserves existing behavior.
+	 */
+	async formAssistant(_req: AssistantFormationRequest<HyperIdleDb>): Promise<AssistantFormation> {
+		return { persona: null, assistantDraftSurface: "standard" };
 	},
 };
