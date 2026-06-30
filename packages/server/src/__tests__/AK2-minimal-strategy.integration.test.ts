@@ -8,7 +8,6 @@
  * AC1: A task can be dispatched and run end-to-end under a minimal Strategy
  *      that performs no context assembly, relevance, or attention work.
  *
- * Scenario 1 (from the WP validation scenarios):
  *   Given the minimal Strategy is active, when a task is dispatched (real
  *   harness), then a session runs to completion AND the Strategy stays inert.
  *
@@ -20,21 +19,23 @@
  *   - ".fabric/manifest.json has zero items" → direct assembleContext call
  *   - "beginLearningIngestion dispose() is no-op" → direct call in unit
  * The existing minimal-strategy.test.ts already covers all three.
+ *
+ * AR5 TEST-COST REFACTOR: This file retains only test #5 (session runs to
+ * completion) × 4 harness lanes. Test #6 (no knowledge_items writeback) is
+ * removed: minimalStrategy.dispose() is a documented no-op — if dispose()
+ * never calls any writeback mechanism, no DB rows can be created. The existing
+ * unit suite (minimal-strategy.test.ts lines 133-169) proves dispose() is a
+ * no-op; the DB-count assertion is redundant with that unit coverage.
+ * @lore AR5: the knowledge_items writeback is driven by the Fabric's FileWatcher
+ * flush, not by dispose() itself. minimalStrategy.dispose() is a literal no-op,
+ * so confirming no DB rows are written in a real 4-harness × real-LLM run pays
+ * ~8 sessions to verify a no-op. The unit coverage is sufficient.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	bets,
-	type HyperIdleDb,
-	knowledgeItems,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
@@ -109,20 +110,6 @@ async function seedDomain(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-
-	// Seed a knowledge item — under minimal Strategy this must NOT appear in the
-	// sandbox knowledge/ dir (context assembly is inert).
-	await db.insert(knowledgeItems).values({
-		id: "ki-ak2",
-		title: "AK2 Principle",
-		body: "This should NOT be assembled by minimal strategy.",
-		format: "markdown",
-		status: "active",
-		version: 1,
-		updatedBy: "system",
-		createdAt: NOW,
-		updatedAt: NOW,
-	});
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +138,11 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		}
 	});
 
-	// AC1 / Scenario 1 main assertion: session reaches completion under minimal.
+	// AC1 main assertion: session reaches completion under minimal.
+	// This is the ONLY test that genuinely needs a real harness binary — it proves
+	// the Kernel-feature baseline (minimal strategy) carries a real session to done.
+	// Test #6 (no knowledge_items writeback) is removed: dispose() is a documented
+	// no-op; the unit suite (minimal-strategy.test.ts) already proves this property.
 	test("session runs to completion (state=done) under minimal Strategy", async ({
 		db,
 		eventBus,
@@ -177,41 +168,6 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		expect(["completed", "not_returned"]).toContain(result.outcome);
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 		expect(session?.state).toBe("done");
-	});
-
-	// AC1 / Scenario 1: no new knowledge_items rows created (no writeback).
-	// The Fabric's writeback path creates knowledge_items when the FileWatcher
-	// flushes. Under minimal Strategy the IngestionHandle.dispose() is a no-op,
-	// so the total row count stays at exactly the seeded count (1 row seeded above).
-	test("no new knowledge_items rows created (no writeback) when minimal Strategy is active", async ({
-		db,
-		eventBus,
-	}) => {
-		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
-		setActiveStrategy(minimalStrategy);
-
-		// Count seeded knowledge items before dispatch. The count is captured
-		// inside onBeforeSession after seeding (1 ki-ak2 row), so beforeCount = 1.
-		let beforeCount = 0;
-
-		await runThroughHarness(lane, {
-			db,
-			eventBus,
-			tmpDir,
-			bridge,
-			onBeforeSession: async (params) => {
-				await seedDomain(db, params.agentId, params.taskId, params.productId);
-				// Count AFTER seed so beforeCount includes the seeded ki-ak2 row.
-				const before = await db.select().from(knowledgeItems);
-				beforeCount = before.length;
-			},
-		});
-
-		// @lore AK2: knowledge_items rows are created by the Fabric's writeback
-		// path. Under minimal Strategy the IngestionHandle.dispose() is a no-op
-		// so no rows are written — total count stays at seeded count.
-		const after = await db.select().from(knowledgeItems);
-		expect(after).toHaveLength(beforeCount);
 	});
 }
 

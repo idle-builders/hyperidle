@@ -9,7 +9,6 @@
  *      only registering a different Strategy; the Kernel imports no specific
  *      Strategy.
  *
- * Scenario 3 (from the WP validation scenarios):
  *   Given a contributor implements the port in a new module and registers it,
  *   then it runs with zero changes to Kernel code.
  *
@@ -20,6 +19,16 @@
  * - The Strategy Port seam is open — any conforming object can run.
  * - ZERO changes to Kernel code are needed (the test only registers + dispatches).
  * - The contributor's Strategy can observe what it received from the Kernel.
+ *
+ * AR5 TEST-COST REFACTOR: This file retains only test #1 (session runs to
+ * completion) × 4 harness lanes. Tests #2/#3 (assembleContext request fields,
+ * beginLearningIngestion/dispose lifecycle) are demoted to
+ * AK2-contributor-kernel-plumbing.integration.test.ts (service-integration,
+ * deterministic MockHarnessAdapter — harness is NOT under test there).
+ * Test #4 (context file in sandbox) is demoted to
+ * AK2-contributor-context-assembly.test.ts (unit — direct port call, no DB).
+ * Net: 4 real sessions instead of 16. The 3 genuinely-harness-agnostic
+ * plumbing assertions are preserved exactly in their new homes.
  */
 
 import * as fs from "node:fs";
@@ -265,7 +274,12 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		}
 	});
 
-	// AC4 / Scenario 3: contributor registers their Strategy and it runs to completion.
+	// AC4: contributor registers their Strategy and it runs to completion.
+	// This is the ONLY test that genuinely needs a real harness binary — it proves
+	// the open Strategy-Port seam carries a real session through to completion.
+	// Tests #2/#3/#4 (Kernel plumbing assertions independent of LLM output) are in
+	// AK2-contributor-kernel-plumbing.integration.test.ts and
+	// AK2-contributor-context-assembly.test.ts respectively.
 	test("contributor Strategy runs session to completion without modifying Kernel code", async ({
 		db,
 		eventBus,
@@ -291,91 +305,6 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		expect(["completed", "not_returned"]).toContain(result.outcome);
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 		expect(session?.state).toBe("done");
-	});
-
-	// AC4 / Scenario 3: the Kernel passed the correct request fields to the contributor.
-	test("Kernel passes correct assembleContext request fields to the contributor Strategy", async ({
-		db,
-		eventBus,
-	}) => {
-		const contributorStrategy = new ContributorStrategy();
-		setActiveStrategy(contributorStrategy);
-
-		// Capture the generated params so we can assert on the ACTUAL agentId/taskId
-		// and productId that the lane will use (not fixed constants that would never match).
-		let capturedAgentId = "";
-		let capturedTaskId = "";
-		let capturedProductId = "";
-
-		await runThroughHarness(lane, {
-			db,
-			eventBus,
-			tmpDir,
-			bridge,
-			onBeforeSession: async (params) => {
-				capturedAgentId = params.agentId;
-				capturedTaskId = params.taskId;
-				capturedProductId = params.productId;
-				await seedDomain(db, params.agentId, params.taskId, params.productId);
-			},
-		});
-
-		expect(contributorStrategy.assembleContextCalls).toHaveLength(1);
-		const req = contributorStrategy.assembleContextCalls[0]!;
-		expect(req.taskId).toBe(capturedTaskId);
-		expect(req.agentId).toBe(capturedAgentId);
-		// assembleContext.teamId is params.productId (session-provisioning.ts line 545)
-		expect(req.teamId).toBe(capturedProductId);
-		expect(typeof req.sandboxPath).toBe("string");
-		expect(req.sandboxPath.length).toBeGreaterThan(0);
-		expect(typeof req.sessionId).toBe("string");
-		expect(req.sessionId.length).toBeGreaterThan(0);
-	});
-
-	// AC4 / Scenario 3: the Kernel called beginLearningIngestion and disposed the handle.
-	test("Kernel calls beginLearningIngestion and disposes the handle on session end", async ({
-		db,
-		eventBus,
-	}) => {
-		const contributorStrategy = new ContributorStrategy();
-		setActiveStrategy(contributorStrategy);
-
-		await runThroughHarness(lane, {
-			db,
-			eventBus,
-			tmpDir,
-			bridge,
-			onBeforeSession: async (params) => {
-				await seedDomain(db, params.agentId, params.taskId, params.productId);
-			},
-		});
-
-		expect(contributorStrategy.ingestionCalls).toHaveLength(1);
-		expect(contributorStrategy.disposeCallCount).toBe(1);
-	});
-
-	// AC4 / Scenario 3: the contributor's custom context file is in the sandbox.
-	// @lore AK2: sandbox deleted by endSession; use in-memory capture for disk assertions.
-	test("contributor Strategy's custom context assembly appears in the sandbox", async ({
-		db,
-		eventBus,
-	}) => {
-		const contributorStrategy = new ContributorStrategy();
-		setActiveStrategy(contributorStrategy);
-
-		await runThroughHarness(lane, {
-			db,
-			eventBus,
-			tmpDir,
-			bridge,
-			onBeforeSession: async (params) => {
-				await seedDomain(db, params.agentId, params.taskId, params.productId);
-			},
-		});
-
-		const record = contributorStrategy.toRecord();
-		expect(record.capturedContextPath).toContain("contributor-context.md");
-		expect(record.capturedContextContent).toContain("Custom knowledge for session");
 	});
 }
 
