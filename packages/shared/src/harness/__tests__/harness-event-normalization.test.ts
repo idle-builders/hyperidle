@@ -81,12 +81,28 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		expect(result.type).toBe("completion");
 	});
 
-	it("text → benign empty completion (not an error — streaming chunk, AR2 fix)", () => {
-		// @lore AR2 opencode-events: text events are streaming text chunks emitted by
-		// opencode between step_start and step_finish. Mapped to benign completion.
+	it("text → completion with part.text (real opencode event shape, AR5 fix)", () => {
+		// @lore AR5 opencode-text-event: real opencode --format json text event carries
+		// content in part.text, NOT at the top level. Verified 2026-06-30 by running
+		// `opencode run ... --format json` manually. Without part.text extraction,
+		// drainForCompletion sees only empty completions → blocked/empty.
+		const input = {
+			type: "text",
+			part: { type: "text", text: "[{\"title\":\"Task 1\"}]" },
+		};
+		const result = normalizeHarnessEvent(input);
+		expect(result.type).toBe("completion");
+		expect((result as import("../harness-events.js").CompletionEvent).text).toBe(
+			"[{\"title\":\"Task 1\"}]",
+		);
+	});
+
+	it("text without part.text → benign empty completion (legacy shape)", () => {
+		// Input without part.text (legacy/unknown shape) still maps to empty completion.
 		const input = { type: "text", content: "hello" };
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
+		expect((result as import("../harness-events.js").CompletionEvent).text).toBe("");
 	});
 
 	it("tool_use → tool_call (actual opencode --format json event shape, AR2 fix)", () => {
