@@ -243,16 +243,10 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 		expect(body).toEqual({ ok: true });
 	});
 
-	// AC4: All 5 valid hint IDs can be dismissed
-	test("accepts all 5 valid hint IDs", async ({ db, app }) => {
+	// AC4: All 4 valid hint IDs can be dismissed
+	test("accepts all 4 valid hint IDs", async ({ db, app }) => {
 		await seedUser(db);
-		const hintIds = [
-			"create-bet",
-			"add-credential",
-			"knowledge-empty",
-			"review-verdict",
-			"rail-indicators",
-		];
+		const hintIds = ["create-bet", "add-credential", "knowledge-empty", "review-verdict"];
 
 		for (const hintId of hintIds) {
 			const res = await app.request(`/api/hint-progress/${hintId}/dismiss`, {
@@ -328,27 +322,21 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 		const ctxB = await makeIsolatedApp("user-y");
 
 		try {
-			// User A dismisses all 5 hints
-			for (const hintId of [
-				"create-bet",
-				"add-credential",
-				"knowledge-empty",
-				"review-verdict",
-				"rail-indicators",
-			]) {
+			// User A dismisses all 4 hints
+			for (const hintId of ["create-bet", "add-credential", "knowledge-empty", "review-verdict"]) {
 				await ctxA.app.request(`/api/hint-progress/${hintId}/dismiss`, {
 					method: "POST",
 					headers: authHeaders(),
 				});
 			}
 
-			// User A has all 5 dismissed
+			// User A has all 4 dismissed
 			const resA = await ctxA.app.request("/api/hint-progress", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			const bodyA = await resA.json();
-			expect(bodyA.dismissed).toHaveLength(5);
+			expect(bodyA.dismissed).toHaveLength(4);
 
 			// User B still has none dismissed
 			const resB = await ctxB.app.request("/api/hint-progress", {

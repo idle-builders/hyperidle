@@ -130,25 +130,6 @@ describe("R6 AC7: WsBroadcaster forwards artifact_created to 'work' topic", () =
 		expect(client.messages).toHaveLength(0);
 	});
 
-	// @lore AD8a: "rail" WS topic name stays — AD8b renames it.
-	it("does NOT forward artifact_created to clients subscribed only to 'rail'", async () => {
-		// @lore AD8a: "rail" WS topic renamed in AD8b
-		const client = createMockClient();
-		broadcaster.addClient(client);
-		await broadcaster.subscribe(client, "rail"); // @lore AD8a: "rail" WS topic renamed in AD8b
-
-		eventBus.emit({
-			type: "artifact_created",
-			streamId: "artifact-rail-1", // @lore AD8a: test data ID
-			artifactId: "artifact-rail-1", // @lore AD8a: test data ID
-			taskId: "task-rail-1", // @lore AD8a: test data ID
-			kind: "deck",
-			timestamp: Date.now(),
-		} satisfies ArtifactCreatedEvent);
-
-		expect(client.messages).toHaveLength(0);
-	});
-
 	it("broadcasts to all clients subscribed to 'work'", async () => {
 		const client1 = createMockClient();
 		const client2 = createMockClient();

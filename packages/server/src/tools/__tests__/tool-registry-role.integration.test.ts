@@ -136,8 +136,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("AE3 AC-5: practice_facilitator registry excludes all 5 management tools", ({ db }) => {
-		const registry = buildToolRegistry(makeContext(db), { role: "practice_facilitator" });
+	test("AE3 AC-5: facilitator registry excludes all 5 management tools", ({ db }) => {
+		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of MANAGEMENT_TOOLS) {
 			expect(names.has(t), `practice_facilitator must NOT see management tool ${t}`).toBe(false);
