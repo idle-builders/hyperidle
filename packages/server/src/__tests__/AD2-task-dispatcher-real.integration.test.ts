@@ -38,10 +38,10 @@ import {
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
-	fabricStrategy,
 	registerTaskDispatcher,
 	setProvisionSessionFn,
 } from "@hyperidle/fabric";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
@@ -170,7 +170,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ar4-ad2-builtin-"));
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(() => {
@@ -259,7 +259,7 @@ describe(`${CLAUDE_LANE.describeTag} AR4 AD2-real — dispatch→provision→rea
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ar4-ad2-claude-"));
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 	});
 
@@ -366,7 +366,7 @@ describe(`${CODEX_LANE.describeTag} AR4 AD2-real — dispatch→provision→real
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ar4-ad2-codex-"));
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 	});
 
@@ -476,7 +476,7 @@ describe(`${OPENCODE_LANE.describeTag} AR4 AD2-real — dispatch→provision→r
 	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ar4-ad2-opencode-"));
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 		// @lore AR2 opencode-xdg-isolation: isolate XDG_DATA_HOME per test session.
 		xdgDataHomeBefore = process.env.XDG_DATA_HOME;

@@ -4,7 +4,7 @@
  *
  * **Canonical four-step recipe (reuse in AR3–AR6):**
  * 1. `requireHarness(<name>)` at describe scope (hard-fail, never skip).
- * 2. Seed domain rows; `setActiveStrategy(fabricStrategy)`; register the real
+ * 2. Seed domain rows; `setActiveStrategy(minimalStrategy)`; register the real
  *    adapter in an `AdapterPool`; `LocalSandboxAdapter`; (CLI only) `startMcpBridgeServer()`.
  * 3. `const cap = createSandboxCapture()`; pass `onBeforeTeardown: cap.onBeforeTeardown`
  *    into `ProvisionSessionDeps`; call `await provisionSession(...)`.

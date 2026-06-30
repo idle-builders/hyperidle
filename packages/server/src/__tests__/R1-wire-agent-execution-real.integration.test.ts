@@ -26,7 +26,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
+import { clearDeduplicationCache } from "@hyperidle/fabric";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
@@ -154,7 +155,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 R1-real — POST /api/sessions → rea
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-real-builtin-"));
 		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(() => {
@@ -251,7 +252,7 @@ describe(`${CLAUDE_LANE.describeTag} AR4 R1-real — POST /api/sessions → real
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-real-claude-"));
 		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 	});
 
@@ -367,7 +368,7 @@ describe(`${CODEX_LANE.describeTag} AR4 R1-real — POST /api/sessions → real 
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-real-codex-"));
 		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 	});
 
@@ -470,7 +471,7 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-real-opencode-"));
 		workspaceAdapter = new LocalSandboxAdapter();
 		clearDeduplicationCache();
-		setActiveStrategy(fabricStrategy);
+		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 		// @lore AR2 opencode-xdg-isolation
 		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
