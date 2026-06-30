@@ -216,7 +216,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 			sandboxBasePath: tmpDir,
 			resolveModel: async (_tier) => ({
 				provider: "openai-compatible" as const,
-				model: "openai/gpt-4o-mini",
+				model: "deepseek/deepseek-v4-pro",
 				apiKey,
 				baseUrl: "https://openrouter.ai/api",
 			}),

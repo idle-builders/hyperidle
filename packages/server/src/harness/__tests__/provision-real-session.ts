@@ -420,7 +420,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible",
-						model: "openai/gpt-4o-mini",
+						model: "deepseek/deepseek-v4-pro",
 						apiKey,
 						baseUrl: OPENROUTER_BASE_URL,
 					},
@@ -450,7 +450,10 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "anthropic" as const,
-						model: "claude-haiku-4-5",
+						// claude-opus-4-8 is the current opus model; "opus" alias resolves to it via the
+						// claude CLI's --model flag. Using full model ID for reproducibility.
+						// @lore AR4 models: claude lane uses opus (not haiku) — recharged credits allow it.
+						model: "claude-opus-4-8",
 						apiKey: "keychain-auth-unused",
 						baseUrl: "https://api.anthropic.com",
 					},
@@ -488,7 +491,10 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "codex-mini-latest",
+						// codex args template has NO {{model}} — model is not passed via CLI flag.
+						// codex uses its default gpt model from ~/.codex/auth.json + OpenAI defaults.
+						// @lore AR4 models: codex lane uses its native default gpt (no --model injection).
+						model: "gpt-4o",
 						apiKey: "",
 						baseUrl: "https://api.openai.com",
 					},
@@ -524,7 +530,9 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "openrouter/openai/gpt-4o-mini",
+						// opencode requires "openrouter/" provider prefix in --model flag.
+						// @lore AR4 models: kimi-k2.7-code chosen for opencode lane (recharged credits).
+						model: "openrouter/moonshotai/kimi-k2.7-code",
 						apiKey,
 						baseUrl: "https://openrouter.ai/api",
 					},
@@ -607,7 +615,7 @@ export interface AssistantTurnSeedOpts {
 	readonly userId: string;
 	readonly threadId: string;
 	readonly triggerMessageId: string;
-	/** OpenRouter model id to seed on the ast-* agent row. Defaults to "openai/gpt-4o-mini". */
+	/** OpenRouter model id to seed on the ast-* agent row. Defaults to "deepseek/deepseek-v4-pro". */
 	readonly modelId?: string;
 	readonly now?: string;
 }
@@ -620,7 +628,7 @@ export async function seedAssistantTurnDomain(
 		userId,
 		threadId,
 		triggerMessageId,
-		modelId = "openai/gpt-4o-mini",
+		modelId = "deepseek/deepseek-v4-pro",
 		now = new Date().toISOString(),
 	} = opts;
 	const assistantId = `ast-${userId}`;

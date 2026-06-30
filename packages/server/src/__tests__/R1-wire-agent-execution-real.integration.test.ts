@@ -55,17 +55,17 @@ async function seedDomain(
 		taskId: string;
 		taskDescription: string;
 		doneCondition: string;
-		/** Override the workhorse model ID in serverConfig (default: "openai/gpt-4o-mini").
+		/** Override the workhorse model ID in serverConfig (default: "deepseek/deepseek-v4-pro").
 		 * @lore AR4 R1-real opencode-model: opencode requires a provider-prefixed model ID
-		 * (e.g. "openrouter/openai/gpt-4o-mini") when spawned via `opencode run --model <id>`.
-		 * A bare "openai/gpt-4o-mini" (without the openrouter/ prefix) causes opencode to
+		 * (e.g. "openrouter/moonshotai/kimi-k2.7-code") when spawned via `opencode run --model <id>`.
+		 * A bare model ID (without the openrouter/ prefix) causes opencode to
 		 * crash at startup. The builtin/claude/codex harnesses use the model ID differently
-		 * and are unaffected. Pass "openrouter/openai/gpt-4o-mini" for the opencode lane. */
+		 * and are unaffected. Pass the openrouter/-prefixed form for the opencode lane. */
 		workhorseModel?: string;
 	},
 ): Promise<void> {
 	const { agentId, taskId, taskDescription, doneCondition, workhorseModel } = opts;
-	const model = workhorseModel ?? "openai/gpt-4o-mini";
+	const model = workhorseModel ?? "deepseek/deepseek-v4-pro";
 
 	// @lore AR4 R1-real: configure openrouter as the workhorse tier so the route's
 	// resolveAgentModel (which falls to resolveModelTier when agent has no per-agent model)
@@ -512,7 +512,7 @@ describe(`${OPENCODE_LANE.describeTag} AR4 R1-real — POST /api/sessions → re
 			// The route resolves {{model}} from resolvedModel.model and passes it as
 			// `opencode run --model <model>`. Without the "openrouter/" prefix, opencode
 			// fails to resolve the model and crashes at startup. See lore in seedDomain JSDoc.
-			workhorseModel: "openrouter/openai/gpt-4o-mini",
+			workhorseModel: "openrouter/moonshotai/kimi-k2.7-code",
 		});
 
 		const { pool } = OPENCODE_LANE.prepFn({ db, eventBus, tmpDir, bridge });
