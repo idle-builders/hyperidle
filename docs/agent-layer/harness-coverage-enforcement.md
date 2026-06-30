@@ -28,7 +28,7 @@ export const SUPPORTED_HARNESSES = ["builtin", "claude", "codex", "opencode"] as
 
 A file that declares only a subset of the harnesses fails lint with a message naming the missing members. This makes "subset coverage is still a false green" a build error, not a code-review concern.
 
-**Staged debt:** files not yet converted to the full matrix are listed in `scripts/coverage-debt.allowlist.json`. Both allowlists shrink monotonically as AR3–AR6 convert the remaining stubbed tests. The allowlist is a safety valve — adding a new file to it requires a deliberate edit.
+**Staged debt:** files not yet converted to the full matrix are listed in `scripts/coverage-debt.allowlist.json`. AR3–AR6 converted the AL6/AL7 enforcement and MCP-bridge tests to full-matrix coverage (complete as of AR6). Remaining allowlisted files cover non-enforcement integration tests not yet migrated. The allowlist is a safety valve — adding a new file to it requires a deliberate edit.
 
 ---
 
@@ -70,7 +70,7 @@ The lint check gates the source; the attestation gates execution. Together, a su
 
 ## The 4-harness matrix tests
 
-`packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` is the first test that satisfies both gates for all four harnesses. It drives each through production `provisionSession()` and is the reference implementation for AR3–AR6.
+`packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` is the first test that satisfies both gates for all four harnesses. It drives each through production `provisionSession()` and is the reference implementation adopted by AR3–AR6 (conversion complete as of AR6).
 
 `packages/server/src/harness/__tests__/AK3-real-decomposition.integration.test.ts` (AR5) drives each harness through the production **decomposition** path — `runBetDecomposition` Branch 3 → `runRealPmTurn` — not through `provisionSession`. This is a distinct seam; the two test files prove complementary things: AR2 proves "a real session runs to completion under each harness," AR5 proves "a real agent decomposes a bet and the tasks land in the DB."
 
@@ -89,7 +89,7 @@ The lint check gates the source; the attestation gates execution. Together, a su
 | `provisionOpencodeHome()` | Copies `auth.json` into `.opencode-data/opencode/` for XDG isolation |
 | `initGitRepo()` | Creates an empty git repo in the sandbox (codex requires a git repo in cwd) |
 
-**AR3–AR6 adoption pattern:**
+**Adoption pattern (AR3–AR6, complete):**
 
 ```ts
 import { SUPPORTED_HARNESS_LANES, runThroughHarness, startMcpBridgeServer } from "./provision-real-session.js";

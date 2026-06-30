@@ -11,8 +11,9 @@ export interface ViewIconEntry {
 }
 
 /**
- * @lore SVG icons instead of emoji — emoji cannot be styled with CSS (color, size)
- * and violate the "avoid AI aesthetic" rule. These are minimal 16x16 SVGs.
+ * @lore SVG icons instead of emoji — color-emoji glyphs ignore CSS `color` (and most
+ * font styling); use an SVG icon when you need to recolor it precisely.
+ * These are minimal 16x16 SVGs.
  */
 const svgProps = { width: 16, height: 16, viewBox: "0 0 16 16", fill: "currentColor" };
 

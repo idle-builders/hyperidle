@@ -8,10 +8,10 @@
  *   4. Conflict banner: edit → simulate 409 response → conflict banner appears
  *
  * @lore T2 E2E: BodyEditor (TipTap) requires a real browser DOM, so the real
- * component runs in Playwright. TipTap's contenteditable is not a standard form
- * element — typing requires locator.pressSequentially(), not .fill(). TipTap's
- * placeholder is a CSS pseudo-element, not a native placeholder attribute, so
- * Playwright's getByPlaceholder() cannot find it.
+ * component runs in Playwright. .fill() silently no-ops on ProseMirror (not a
+ * form element); drive TipTap via keyboard input (page.keyboard.type /
+ * pressSequentially). TipTap's placeholder is a CSS pseudo-element, not a native
+ * placeholder attribute, so Playwright's getByPlaceholder() cannot find it.
  *
  * Scenarios 2 and 4 type into the editor via pressSequentially(). Scenario 1
  * verifies the structural shell behaviour (panel shows/hides, save indicator
