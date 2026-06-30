@@ -1283,6 +1283,11 @@ stories:
     track: AP
     depends: []
     complexity: M
+  - id: AP7
+    title: Challenge tradeoffs the ethos no longer justifies
+    track: AP
+    depends: []
+    complexity: M
 
   # Track AO: Self-Hosting Build Loop
   - id: AO1
