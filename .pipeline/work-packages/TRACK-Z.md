@@ -158,7 +158,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a user who wants to create their first bet, when they read the work tracking docs, then they can create a bet with tasks and trigger an agent session.
 - Given a new feature doc, when it references another doc, then the link resolves correctly.
 
-**Plan calls.** Skip /design, skip /architecture. Research the actual implemented features (read routes, UI components, and existing architecture docs) before writing. Each feature doc must describe what actually works today — run the dev server and verify claims.
+**Plan calls.** Skip /pipeline:design, skip /pipeline:architecture. Research the actual implemented features (read routes, UI components, and existing architecture docs) before writing. Each feature doc must describe what actually works today — run the dev server and verify claims.
 
 **Contracts / constraints.**
 - Feature docs describe implemented behavior only.
@@ -233,7 +233,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a developer familiar with CrewAI or LangGraph, when they read the architecture story, then they understand why HyperIdle chose persistent teams over crew-per-task and materialization over FUSE.
 - Given a reader who wants more detail on any section, when they follow links, then every linked architecture doc exists and is consistent.
 
-**Plan calls.** Skip /design, skip /architecture. Narrative writing informed by `docs/architecture/` and decision records. The writer must understand the "why" deeply before writing.
+**Plan calls.** Skip /pipeline:design, skip /pipeline:architecture. Narrative writing informed by `docs/architecture/` and decision records. The writer must understand the "why" deeply before writing.
 
 **Contracts / constraints.**
 - The architecture story is an interpretation of the architecture docs, not a replacement. Conflicts → update the story.
@@ -271,7 +271,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a reader who finishes the three worked examples, when asked "when do humans need to be involved?", then they can answer with the judgment gradient.
 - Given a reader familiar with Paperclip, when they finish the positioning section, then they understand the specific differences in philosophy.
 
-**Plan calls.** Skip /design, skip /architecture. Vision writing informed by ETHOS.md (User Sovereignty), knowledge architecture docs (attention scoring, human validation gates), and process layer docs.
+**Plan calls.** Skip /pipeline:design, skip /pipeline:architecture. Vision writing informed by ETHOS.md (User Sovereignty), knowledge architecture docs (attention scoring, human validation gates), and process layer docs.
 
 **Contracts / constraints.**
 - Worked examples use realistic scenarios, not toy examples.
@@ -307,7 +307,7 @@ See `CLAUDE.md` for tech stack and `.pipeline/work-packages/pipeline-manifest.ya
 - Given a developer who wants to add a new agent runtime, when they read the extensibility doc, then they can follow the example to understand what interface to implement.
 - Given a product evaluator comparing HyperIdle to Paperclip, when they read the extensibility section, then they understand the architectural difference (kernel/strategy vs plugin workers).
 
-**Plan calls.** Skip /design, skip /architecture. Research the actual adapter interface, skill-tool registry, MCP bridge, and knowledge strategy fabric before writing. The harness adapter example must reference real code.
+**Plan calls.** Skip /pipeline:design, skip /pipeline:architecture. Research the actual adapter interface, skill-tool registry, MCP bridge, and knowledge strategy fabric before writing. The harness adapter example must reference real code.
 
 **Contracts / constraints.**
 - The example references the actual HarnessAdapter interface from the codebase — no pseudocode.

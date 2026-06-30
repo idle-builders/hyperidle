@@ -37,7 +37,7 @@ Tests are for application logic. A test imports code and asserts on its behavior
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
 
 ### Which command to use when
 
@@ -73,7 +73,7 @@ You can only say that something is done if you looked at the actual output of yo
 
 ## Capture Lore
 
-When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
+When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/pipeline:lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
 
 ---
 
@@ -100,17 +100,17 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 - `system-prompts/` — agent system prompt templates
 - `archive/` — superseded docs
 
-Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
+Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipeline:architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
 - `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`)
 - `progress/` — per-workpackage progress JSON files
-- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
+- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/pipeline:compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
 
-**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/write-docs`):
+**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/pipeline:write-docs`):
 
-- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (a concept spanning a whole track uses the track folder `plans/<track>/`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
+- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `requirements.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (the track's strategic frame lives in `docs/` ground truth, settled in `/pipeline:work-planning`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/pipeline:write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
 - `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 
 ---
@@ -137,11 +137,15 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 When you call multiple tools and there are no dependencies between them, make all the independent tool calls in parallel. Reading three files to spot a pattern is three Read calls in one parallel batch, not three sequential ones. `git status` + `git diff` + `git log` is one batch of three Bash calls. Call tools sequentially only when a later call needs the result of an earlier one (read file A → decide what to read next from A's contents; edit file → re-read to verify; build → only run tests on green).
 
+Grep can misreport files with control characters as binary and skip them — never conclude "no matches" or "dead code" from grep alone; confirm with `rg -a` or by reading the file.
+
 ---
 
 ## Git
 
 **Strict isolation — non-negotiable.** ALWAYS work in a dedicated git worktree on a feature branch cut from fresh `origin/main`. Never edit, commit, or build in the primary checkout; never work directly on `main`. `git fetch origin && git worktree add .worktrees/<id> -b <type>/<id>-<desc> origin/main`, then work there. One worktree+branch per unit of work — no sharing, no reuse across tasks.
+
+**Worktree hygiene.** Verify `pwd` before writing — artifacts belong in the worktree, never the primary checkout. Run lint/check from the host project root, not a worktree cwd. Before committing, reject stray build artifacts (`*.d.ts`/`*.js` in source dirs, native binaries, core dumps).
 
 Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected and clean by default (npm run verify succeeds required for merge). Always use a pull request to add features to main. Always push your changes after commit. **Every feature branch must be based on `origin/main` and every PR must target `main`.** No stacked PRs — never target another feature branch. Also you are not an admin user and cannot bypass any branch protication.
 
@@ -149,7 +153,7 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ## Explore Agent
 
-Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/retro` (Phase 6) and any read-heavy research tasks.
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/pipeline:retro` (Phase 6) and any read-heavy research tasks.
 
 ---
 

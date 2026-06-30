@@ -9,7 +9,7 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 
 **What's actually missing (this track):** the build-loop middle — a filesystem for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, the output→review→land wiring (pending AL7), and **product** as a first-class scope so one instance can build several things.
 
-**Gating concept — LOCKED `/concept AO0` (2026-06-26).** Full concept: `plans/AO/concept.md` + decision-rule research `plans/AO/research-filesystem-vs-tool.md`. Outcomes that bind AO1/AO2:
+**Gating concept — LOCKED `/pipeline:refine AO0` (2026-06-26).** Full concept: `plans/AO/requirements.md` + decision-rule research `plans/AO/research-filesystem-vs-tool.md`. Outcomes that bind AO1/AO2:
 - **Filesystem** = the durable file-like artifacts an agent **authors** and accrues history on, materialized into its session sandbox, **attached to an agent within a team** (team-scoped). **OPEN `kind`** — initial `code` (git repo) + `doc_set` (markdown/Obsidian authoring folder).
 - **Filesystem↔Tool↔Knowledge decision rule (research-grounded).** A filesystem is **only** an authored, file-like, version-controlled corpus (**code + document authoring**). **Systems of record** (email inbox, ticket queue, CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge — not "does an API exist." So AO does **not** materialize inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox sync engine.
 - **Connected like any connector.** Account once in Settings = a **Connection** (Track AN — held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (a GitHub repo+branch, an Obsidian/Drive folder) is the filesystem. Filesystem ⟂ Connection = files vs auth/tools; compose.
@@ -120,13 +120,13 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 ### AO3 — Agent output becomes reviewable and landable — NEEDS RESEARCH (post-AL7)
 
-**Status: NEEDS RESEARCH + CONCEPT, gated on AL7.** Do not architect or build until AL7 has shipped (merged to main) and `/concept AO3` has re-checked whether a genuine gap remains. This WP records a *problem*, not yet a committed solution.
+**Status: NEEDS RESEARCH + CONCEPT, gated on AL7.** Do not architect or build until AL7 has shipped (merged to main) and `/pipeline:refine AO3` has re-checked whether a genuine gap remains. This WP records a *problem*, not yet a committed solution.
 
 **Problem identified (deep review, 2026-06-25).** The build loop's final stages — an agent's output becoming a real review a human can act on, and approval **landing** the change — do not work on real output today: `GET /api/reviews/:id` is a hardcoded fixture (reviews.ts:4-61), there is no reviews table or POST, only a *knowledge*-review factory exists (no task/artifact/bet), and **AL7 (the approve→execute loop) is unmerged**. So even a correct verdict lands nothing. Note: the review *experience* itself — threads, verdicts (founder-verdict, self-verdict block, first-verdict-wins), proof-family canvases — **is** real (threads.ts); the founder constraint holds that we review **outputs/results, not code diffs**.
 
 **Why it is parked.** AL7 is built (on `concept/AL7-review-execution-loop`) and is the staged-operation execute-on-approve seam. It very likely supplies most or all of "generate a review subject from work → verdict → execute on approve." Speccing a solution now would almost certainly duplicate or contradict AL7. The honest move is to let AL7 land, then re-measure.
 
-**What `/concept AO3` must re-check after AL7 ships.**
+**What `/pipeline:refine AO3` must re-check after AL7 ships.**
 - Does AL7 already generate review subjects from *agent output across kinds* (task/artifact/code), or only from the cases it shipped? If general, this WP closes with no new scope.
 - Does AL7's execute-on-approve cover **landing a filesystem change** (push/PR/merge/publish via the connected target), or is a filesystem-specific landing step still missing?
 - Is the fixture `GET /api/reviews` replaced by real generation as part of AL7, or still outstanding?
@@ -137,22 +137,22 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 **Complexity.** Unknown until researched (placeholder L).
 
 **Pre-build gates.**
-- **Concept:** `Required — /concept AO3 AFTER AL7 merges: re-check whether any gap remains beyond AL7; if none, close this WP.`
-- **Design:** `Deferred — decided in /concept AO3; outputs render through existing proof-family canvases regardless, so likely Light or none.`
+- **Refinement:** `Required — /pipeline:refine AO3 AFTER AL7 merges: re-check whether any gap remains beyond AL7; if none, close this WP.`
+- **Design:** `Deferred — decided in /pipeline:refine AO3; outputs render through existing proof-family canvases regardless, so likely Light or none.`
 
-**Human design review.** No (expected) — reuses the existing review experience; reassess in `/concept AO3`.
+**Human concept review.** No (expected) — reuses the existing review experience; reassess in `/pipeline:refine AO3`.
 
-**Acceptance criteria.** *Deferred to `/concept AO3`* — the problem to keep in view: an agent's real output (code or otherwise) generates a real review subject (not a fixture) rendered through the existing canvases, and approval lands the change performed by the system (never the agent), inheriting AL7's at-most-once/outcome semantics. Whether any of this remains unmet after AL7 is exactly what the concept pass determines.
+**Acceptance criteria.** *Deferred to `/pipeline:refine AO3`* — the problem to keep in view: an agent's real output (code or otherwise) generates a real review subject (not a fixture) rendered through the existing canvases, and approval lands the change performed by the system (never the agent), inheriting AL7's at-most-once/outcome semantics. Whether any of this remains unmet after AL7 is exactly what the concept pass determines.
 
-**Validation scenarios.** *Deferred to `/concept AO3`.*
+**Validation scenarios.** *Deferred to `/pipeline:refine AO3`.*
 
-**Plan calls.** No `/architecture` yet. After AL7 merges, run `/concept AO3` to determine if a residual gap exists; only then scope and size the real WP (or close it).
+**Plan calls.** No `/architecture` yet. After AL7 merges, run `/pipeline:refine AO3` to determine if a residual gap exists; only then scope and size the real WP (or close it).
 
 **Contracts / constraints.** We review **outputs/results, not raw diffs** — render through the existing proof-family canvases. The agent never executes the landing; the system triggers the connected target. No duplication of AL7 — this WP only addresses what AL7 demonstrably does not.
 
 **Out of scope.** The review experience/surface (Track AL). The AL7 loop itself (dep). Materializing the filesystem (AO2).
 
-**Effort.** TBD — re-size in `/concept AO3` after AL7.
+**Effort.** TBD — re-size in `/pipeline:refine AO3` after AL7.
 
 ---
 
