@@ -386,6 +386,11 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
  * + seam-captured file (best-effort). Stub-distinguishing: a stub/crashed run has no
  * sandbox → seam can't fire → no file captured; a real run ends non-crash + may write.
  *
+ * @lore AR6 canonical-models: builtin=deepseek/deepseek-v4-pro (OpenRouter, openai-compatible),
+ * opencode=openrouter/moonshotai/kimi-k2.7-code (OpenRouter via opencode's openrouter/ prefix),
+ * claude=claude-opus-4-8 (keychain/subscription auth, no API cost),
+ * codex=codex-mini-latest (inherited OpenAI login, founder-default, unchanged).
+ *
  * @lore AR2 codex-cost-zero: codex emits `turn.completed` with a `usage` block, NOT the
  * claude-stream-json `result` event with `total_cost_usd`. The cli-harness-adapter cost
  * extraction only fires on `type === "result"` → totalCostCents is always 0 for codex.
@@ -418,7 +423,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible",
-						model: "openai/gpt-4o-mini",
+						model: "deepseek/deepseek-v4-pro",
 						apiKey,
 						baseUrl: OPENROUTER_BASE_URL,
 					},
@@ -448,7 +453,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "anthropic" as const,
-						model: "claude-haiku-4-5",
+						model: "claude-opus-4-8",
 						apiKey: "keychain-auth-unused",
 						baseUrl: "https://api.anthropic.com",
 					},
@@ -522,7 +527,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel: {
 						provider: "openai-compatible" as const,
-						model: "openrouter/openai/gpt-4o-mini",
+						model: "openrouter/moonshotai/kimi-k2.7-code",
 						apiKey,
 						baseUrl: "https://openrouter.ai/api",
 					},
