@@ -199,3 +199,43 @@ Reviewed only the delta since the DONE sign-off `2955dbe8`: `git diff 2955dbe8..
 ### Verdict: DELTA-OK
 
 The delta is honest: no assertion weakened, the strict fail-on-crashed floor intact on all CLI lanes, lint/check green, honest-harness-guard clean. The codex `--model` wiring is correct on the production server path (always-present credentialResolver → non-empty model; happy path positively proven by the codex lanes). WARNING-D1 (empty-`--model` on the off-normal degraded-config path, with a `builtin`-only presence guard that doesn't cover CLI adapters) is a real but narrow latent gap that does not block ship — recommend a follow-up to extend the guard to CLI `{{model}}` templates or make `--model` conditional on a non-empty value. Ship can proceed.
+
+---
+
+## AR7 merge review
+
+Scope: `git diff 4cbbadcb...HEAD` — merge `bfdc1d55` (origin/main incl. AR7 #391) + follow-up `92c2f204`. Verifies the locked-model-matrix adoption did not regress AR4 or mis-adopt AR7. Code read + guard + check; slow 4-lane suite NOT re-run (builder already proved all lanes pass on the locked tiny models).
+
+### 1. AR7 matrix adopted, no model literals leaked — CONFIRMED
+- Locked matrix in `require-harness.ts` HARNESS_TEST_MODELS matches AR7 exactly: builtin=`deepseek/deepseek-v4-flash`, claude=`haiku`, codex=`gpt-5.4-mini`, opencode=`openrouter/z-ai/glm-4.7-flash` (old `glm-5-turbo` gone). `satisfies Record<…>` makes a missing/extra harness a `check` error.
+- AR4 harness-facing real tests obtain models ONLY via the seam:
+  - AD2-real: `HARNESS_TEST_MODELS.builtin.{model,baseUrl}` (builtin lane); claude/codex/opencode lanes go through `runThroughHarness`/`SUPPORTED_HARNESS_LANES` → `lockedHarnessAdapter` → `harnessTestResolvedModel`.
+  - R1-real: each lane feeds `HARNESS_TEST_MODELS.<h>.model` into `serverConfig.modelGateway.{reasoning,workhorse,fast}`; the production route's `resolveAgentModel`→`resolveModelTier` resolves it through real `provisionSession`. No literal.
+  - AH3-real / AK4-real (builtin-only): route via `runAssistantTurnThroughHarness`; AK4 uses `HARNESS_TEST_MODELS.builtin.model` for its seed; AH3 takes the seam default.
+- The three `deepseek/deepseek-v4-flash` / `gpt-5.4-mini` string literals remaining in AR4-touched files are all OUT of guard scope and legitimate: `AH6-lane-gates-broken-turn.integration.test.ts` (service-integration only, NOT in EXPLICIT_HARNESS_INTEGRATION — model id is a DB seed field, no harness runs), `assistant-turn-per-agent-seam.test.ts` (demoted `.test.ts` unit, `vi.mock` on llm-client), `X5-cli-harness-adapter.test.ts` (`.test.ts` unit asserting arg passthrough). None run a real harness; none are governed by the AR7 rule.
+- `provision-real-session.ts` lane configs carry NO hardcoded model — all derive from `harnessTestResolvedModel`/`HARNESS_TEST_MODELS`.
+
+### 2. AR4 core preserved — CONFIRMED
+- 6 conversions present: AD2-real + R1-real (4-harness), AH3-real + AK4-real + AH6-real (builtin-only).
+- `minimalStrategy` preserved: `setActiveStrategy(minimalStrategy)` in every lane's beforeEach of AD2-real and R1-real (founder directive `de01d7c6` survived the merge).
+- `BUILTIN_ONLY_INTEGRATION` carve-out intact (AH3-real/AK4-real declare `requireHarness("builtin")`, header cites the carve-out).
+- Strict fail-on-crashed floor intact on every CLI lane: AD2-real lines 245/346/451/571 and R1-real 241/358/466/581 — `expect(["completed","not_returned"]).toContain(...)`. NO lane accepts `crashed` in a final assertion (the `["done","crashed"]` in waitFor is a fail-fast poll predicate, immediately followed by the strict outcome assert that fails on crashed).
+- Dispatcher `onBeforeTeardown` seam present (`task-dispatcher.ts:115` field, `:386` forward).
+- Demoted units present (`assistant-turn-per-agent-seam.test.ts`, `AH6-lane-gate-verdict.test.ts`, `AK4-assistant-draft-registry.test.ts`).
+
+### 3. AR7 guard compliance — CONFIRMED
+- `npx tsx scripts/honest-harness-guard.ts --check` → `clean` (exit 0). No AR4 `*.integration.test.ts` imports `cli-harness-adapter`/`builtin-harness-adapter`/`llm-client` or constructs `new (Cli|Builtin)HarnessAdapter`.
+- `scripts/model-import-debt.allowlist.json` contains only pre-existing AR3-AR6/AM2/X5 debt files — NO AR4 file dumped in.
+
+### 4. adapter-pool.ts codex `--model` — CONFIRMED
+- Exactly one codex `--model`: `CLI_TOOL_CONFIGS.codex.args = ["exec","--model","{{model}}","{{prompt}}","--json"]` (line 360, AR7 canonical form). AR4's old `["exec","{{prompt}}","--model",...]` form was correctly dropped in favor of AR7's. Other `--model` hits (410 opencode, 494 claude) are the other harness configs — expected.
+
+### 5. provision-real-session `maxOutputTokens: 512` vs lockedHarnessAdapter 1024 — ACCEPTABLE, non-blocking
+The assistant-turn helper's `new BuiltinHarnessAdapter({ maxOutputTokens: 512 })` does NOT pick the model. In this path the model is resolved INTERNALLY by `runAssistantTurn`→`resolveAgentModel` from the seeded `ast-*` agent row's `modelId` (defaulting to `HARNESS_TEST_MODELS.builtin.model`). `maxOutputTokens` is only the response-length cap. So the locked model IS honored; 512-vs-1024 is a per-helper length budget, not model-config drift, and cannot cause a correctness divergence on the locked-model assertion. Seam-helper detail — guard-permitted (seam module, not a test file). Recommend (non-blocking) the two seam builtin adapters share one constant for tidiness.
+
+### Carry-forward (unchanged by this merge)
+- NIT: `task-dispatcher.ts:115` `onBeforeTeardown?: (ctx: any)` — `any` is from AR4's original task `4b033390`, justified with a biome-ignore (the `BeforeTeardownContext` type lives in `packages/server`; fabric cannot import upward without a layering violation, so it passes the ctx opaquely). Defensible layering tradeoff, not a merge regression.
+
+### Verdict: MERGE-OK
+
+The merge cleanly adopted AR7's locked matrix and dropped AR4's superseded model-config literals. All four verification points pass: no model literal leaked through the seam, all six conversions + minimalStrategy + the builtin-only carve-out + the strict fail-on-crashed floor + the dispatcher seam survived, the honest-harness-guard is clean, codex `--model` appears exactly once in AR7 canonical form. `npm run check` PASS (12 packages). Point-5 inconsistency is a benign seam-helper length-budget detail, not a model-config or correctness issue. Ship can proceed.
