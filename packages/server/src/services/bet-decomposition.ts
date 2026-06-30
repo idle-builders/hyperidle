@@ -548,10 +548,10 @@ async function runRealPmTurn(
 		throw new Error("No model resolved for PM decomposition");
 	}
 
-	const systemPrompt =
+	const baseSystemPrompt =
 		pm.systemPrompt ?? "You are a product manager. Break down the provided bet into a task list.";
 
-	const userMessage = [
+	const betContext = [
 		`**Bet goal:** ${bet.description}`,
 		bet.doneCondition ? `**Done condition:** ${bet.doneCondition}` : "",
 		"",
@@ -561,6 +561,12 @@ async function runRealPmTurn(
 		.filter(Boolean)
 		.join("\n");
 
+	// @lore AR5: CLI harnesses (claude/codex/opencode) use {{prompt}} = assembledPrompt.slice(0,200)
+	// as the user message — they IGNORE SessionConfig.messages. The builtin adapter uses
+	// SessionConfig.messages for its chat turn. To support all harnesses, embed the full
+	// bet context in assembledPrompt (CLI harnesses read it) AND in messages (builtin reads it).
+	const systemPrompt = `${baseSystemPrompt}\n\n${betContext}`;
+
 	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
 		sessionId: crypto.randomUUID(),
 		assembledPrompt: systemPrompt,
@@ -569,7 +575,8 @@ async function runRealPmTurn(
 		modelTier: "workhorse",
 		tools: [],
 		resolvedModel,
-		messages: [{ role: "user", content: userMessage }],
+		// messages carries the bet context for the builtin adapter's runChatTurn.
+		messages: [{ role: "user", content: betContext }],
 	};
 
 	const handle = await selected.adapter.startSession(sessionConfig);
@@ -598,8 +605,14 @@ async function runRealPmTurn(
 	}
 
 	// Parse the structured task list from the completion text.
+	// @lore AR5: Models often wrap JSON in markdown code fences even when instructed not to.
+	// Strip ``` ... ``` or ```json ... ``` wrappers before parsing.
+	const stripped = completionText
+		.replace(/^```(?:json)?\s*/i, "")
+		.replace(/\s*```\s*$/, "")
+		.trim();
 	try {
-		const parsed = JSON.parse(completionText) as unknown;
+		const parsed = JSON.parse(stripped) as unknown;
 		if (Array.isArray(parsed)) {
 			return parsed as DecompositionTaskInput[];
 		}
