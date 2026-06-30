@@ -21,7 +21,7 @@
  *      findEligibleTeamAgents, insertProposedBetTasks, resolveOrphanedDecompositions, BetDecompositionDeps
  *   5. packages/server/src/routes/bets.ts returns decompositionStatus + decompositionBlockerReason
  *
- * @lore AK3: The imports below reference modules that don't exist yet.
+ * @lore: The imports below reference modules that don't exist yet.
  * "Cannot find module" is the correct failure mode for the TDD red phase.
  * Once green-phase creates these modules, the imports resolve and tests assert behavior.
  */
@@ -41,15 +41,15 @@ import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-reg
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Fabric-equivalent strategy fixture (AK7 Phase-4 fix)
+// Fabric-equivalent strategy fixture
 //
 // insertProposedBetTasks and runBetDecomposition now route per-task owner
 // selection through selectOwner → getActiveStrategy().selectAgent. These
 // describe blocks register a Fabric-equivalent selectAgent that reproduces
-// the AK3 round-robin behaviour byte-identically:
+// round-robin behaviour byte-identically:
 //   - bet_task: roleHint match → spread (candidates[spreadIndex % len])
 //   - bet_decomposer: roleHint match → candidates[0]
-// Assertions are frozen — only setup changes (AK7 code-review ruling).
+// Assertions are frozen — only setup changes per code-review ruling.
 // ---------------------------------------------------------------------------
 
 function makeFabricLikeStrategy() {
@@ -80,11 +80,11 @@ function makeFabricLikeStrategy() {
 			},
 		),
 		/**
-		 * AK8 T1/W3: decomposeBet added to satisfy Strategy<TDb> 5-method interface.
+		 * decomposeBet added to satisfy Strategy<TDb> 5-method interface.
 		 * Returns role-match PM and tasks:[] so tests land on override branch
 		 * (turn-source precedence branch 2 — protected assertions stay byte-identical).
 		 *
-		 * @lore AK8: fixture shape grows; frozen assertions byte-identical.
+		 * @lore: fixture shape grows; frozen assertions byte-identical.
 		 */
 		decomposeBet: vi.fn(
 			async (
@@ -100,7 +100,7 @@ function makeFabricLikeStrategy() {
 	};
 }
 
-// AK3 red phase: DecompositionTaskInput lives in @hyperidle/shared once exported.
+// DecompositionTaskInput lives in @hyperidle/shared once exported.
 // Declared locally so tests compile now; the import will replace this in the green phase.
 type DecompositionTaskInput = {
 	title: string;
@@ -256,9 +256,9 @@ describe("Bet decomposition — eligible team agents", () => {
 });
 
 describe("Bet decomposition — proposed task insertion", () => {
-	// AK7 Phase-4: insertProposedBetTasks now routes through selectOwner →
+	// insertProposedBetTasks now routes through selectOwner →
 	// getActiveStrategy(). Register the Fabric-equivalent strategy so calls resolve.
-	// Assertions below are FROZEN (setup-only change per AK7 code-review ruling).
+	// Assertions below are FROZEN (setup-only change per code-review ruling).
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
 
@@ -365,7 +365,7 @@ describe("Bet decomposition — no eligible agent blocks decomposition (AC4)", (
 });
 
 describe("Bet decomposition — happy path produces tasks (AC1, AC2)", () => {
-	// AK7 Phase-4: runBetDecomposition routes PM pick + per-task owner through selectOwner.
+	// runBetDecomposition routes PM pick + per-task owner through selectOwner.
 	// Register Fabric-equivalent strategy; assertions below are FROZEN.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
@@ -407,7 +407,7 @@ describe("Bet decomposition — happy path produces tasks (AC1, AC2)", () => {
 });
 
 describe("Bet decomposition — timeout and error handling (AC6)", () => {
-	// AK7 Phase-4: PM pick goes through selectOwner; register strategy so it resolves.
+	// PM pick goes through selectOwner; register strategy so it resolves.
 	// Assertions frozen — setup only.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
@@ -469,8 +469,8 @@ describe("Bet decomposition — idempotency CAS guard (AC7)", () => {
 	}) => {
 		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-idem" });
 		// Pre-set the bet as already 'running' (CAS should block a second decomposition)
-		// AK3 red phase: decompositionStatus column added in green phase; explicit any needed to insert new column before schema migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds this column; test pre-seeds it to test CAS guard
+		// Pre-seeds decompositionStatus="running" via explicit any — column exists in the schema migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds this column; test pre-seeds it to test CAS guard
 		const idemBetRow: any = {
 			...makeBet("bet-idem", teamId, "active"),
 			decompositionStatus: "running",
@@ -500,8 +500,8 @@ describe("Bet decomposition — orphan recovery on boot (AC3)", () => {
 	test("flips any 'running' bet to blocked/failed", async ({ db }) => {
 		await db.insert(teams).values(makeTeam("team-orphan"));
 		await db.insert(teamMembers).values(makeMembership("tm-orphan", "team-orphan"));
-		// Bet stuck on 'running' — simulates a crash. AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decompositionStatus; test pre-seeds it
+		// Bet stuck on 'running' — simulates a crash. decompositionStatus column added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decompositionStatus; test pre-seeds it
 		const orphanBetRow: any = {
 			...makeBet("bet-orphan", "team-orphan", "active"),
 			decompositionStatus: "running",
@@ -521,8 +521,8 @@ describe("Bet decomposition — orphan recovery on boot (AC3)", () => {
 	test("leaves bets with terminal status untouched", async ({ db }) => {
 		await db.insert(teams).values(makeTeam("team-clean"));
 		await db.insert(teamMembers).values(makeMembership("tm-clean", "team-clean"));
-		// AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decompositionStatus; test pre-seeds it
+		// decompositionStatus column added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decompositionStatus; test pre-seeds it
 		const doneBetRow: any = {
 			...makeBet("bet-done", "team-clean", "active"),
 			decompositionStatus: "done",
@@ -554,8 +554,8 @@ describe("Bet decomposition — GET /bets/:id returns decomposition fields (API 
 	}) => {
 		await db.insert(teams).values(makeTeam());
 		await db.insert(teamMembers).values(makeMembership());
-		// AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decomposition columns; test pre-seeds them
+		// decomposition columns added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decomposition columns; test pre-seeds them
 		const apiBetRow: any = {
 			...makeBet("bet-api", "team-1", "active"),
 			decompositionStatus: "blocked",

@@ -79,21 +79,21 @@ async function seedDomain(
 	const memberId = "tm-ak2";
 	await db
 		.insert(teams)
-		.values({ id: productId, name: "AK2 Test Team", phase: "build", createdAt: NOW });
+		.values({ id: productId, name: "Test Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: memberId, teamId: productId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b-ak2",
 		teamId: productId,
-		description: "AK2 test bet",
+		description: "test bet",
 		appetite: "small",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
 		id: agentId,
-		name: "AK2 Builder",
+		name: "Builder",
 		role: "builder",
 		status: "active",
 		teamId: memberId,
@@ -105,7 +105,7 @@ async function seedDomain(
 		id: taskId,
 		betId: "b-ak2",
 		teamId: productId,
-		title: "AK2 Test Task",
+		title: "Test Task",
 		state: "accepted",
 		createdAt: NOW,
 		updatedAt: NOW,

@@ -102,7 +102,7 @@ async function seedTeamWithAgent(
 	return { teamId, membershipId, agentId };
 }
 
-// Fabric-equivalent strategy fixture (mirrors AK7 Phase-4 setup in integration tests)
+// Fabric-equivalent strategy fixture (mirrors integration test setup)
 function makeFabricLikeStrategy() {
 	return {
 		assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
@@ -131,11 +131,11 @@ function makeFabricLikeStrategy() {
 			},
 		),
 		/**
-		 * AK8 T1/W3: decomposeBet added to satisfy Strategy<TDb> 5-method interface.
+		 * decomposeBet added to satisfy Strategy<TDb> 5-method interface.
 		 * Returns role-match PM and tasks:[] so tests land on override branch
 		 * (turn-source precedence branch 2 — protected assertions stay byte-identical).
 		 *
-		 * @lore AK8: fixture shape grows; frozen assertions byte-identical.
+		 * @lore: fixture shape grows; frozen assertions byte-identical.
 		 */
 		decomposeBet: vi.fn(
 			async (
@@ -228,12 +228,12 @@ describe("Bet decomposition — DecompositionTaskInput type", () => {
 describe("Bet decomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
 	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
 	// and the PM pick (bet_decomposer) returns the seeded agent.
-	// AK7 Phase-4: runBetDecomposition now routes the PM pick through selectOwner →
+	// runBetDecomposition now routes the PM pick through selectOwner →
 	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
 	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
 	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
 	// @lore bet decomposition: The real PM turn path is only reached when selectOwner resolves a PM.
-	// Under AK7, selectAgent(bet_decomposer) must return a non-null agentId here.
+	// selectAgent(bet_decomposer) must return a non-null agentId here.
 	beforeEach(() => {
 		setActiveStrategy(makeFabricLikeStrategy());
 	});
