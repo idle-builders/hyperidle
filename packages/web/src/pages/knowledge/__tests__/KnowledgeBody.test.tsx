@@ -165,8 +165,8 @@ describe("KnowledgeBody — T4 html block sanitizer pass-through", () => {
 		// DOMPurify-safe HTML — will not be stripped
 		const body = "<div>Hello from raw HTML</div>";
 		// deriveBlocks parses raw HTML as kind:html
-		// @lore remarkGfm parses raw HTML blocks at the top level as mdast `html` nodes.
-		// KnowledgeBody must pass sanitizeHtml to Block so HtmlPayload renders correctly.
+		// @lore Core remark/mdast parses raw top-level HTML as mdast `html` nodes
+		// (not a remark-gfm feature). KnowledgeBody must pass sanitizeHtml to Block so HtmlPayload renders correctly.
 		const { container } = render(<KnowledgeBody body={body} hostId="k-html" />);
 		// Should render a block with ds-kind=html, not ds-kind=unknown
 		const htmlBlock = container.querySelector('[data-ds-component="block"][data-ds-kind="html"]');

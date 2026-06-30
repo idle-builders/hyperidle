@@ -716,8 +716,8 @@ export const knowledgeStrategyFabric = pgTable(
  * Stores strategy-layer data computed for tasks. Each row maps 1:1 to a tasks
  * row (task_id UNIQUE). Cascade DELETE keeps orphan rows impossible.
  *
- * @lore O2: kernel/strategy separation. All strategy signals that were inline
- * on tasks (riskTier, attentionScore, durability, crossTeam) are moved here.
+ * @lore O2: kernel/strategy separation. The strategy signal that was inline
+ * on tasks (riskTier) is moved here.
  * The kernel tasks table retains only identity + work columns.
  */
 export const taskStrategyFabric = pgTable(

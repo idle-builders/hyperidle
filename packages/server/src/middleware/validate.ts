@@ -58,7 +58,7 @@ export type ValidatedJson<T extends z.ZodTypeAny> = {
  * Request body validator using Zod.
  * Returns 400 with VALIDATION_ERROR code on failure.
  *
- * @lore AF4/§4a: `@hono/zod-validator@0.7.6` typechecks against its own deduped
+ * @lore AF4/§4a: `@hono/zod-validator@0.8.0` typechecks against its own deduped
  * zod 3.25.76, while server schemas are zod 4.4.3 — the two `zod/v4/core`
  * `$ZodType` brands are nominally distinct, so the validator's inferring
  * overload (`T extends ZodSchema`) is UNREACHABLE for server schemas. We keep
