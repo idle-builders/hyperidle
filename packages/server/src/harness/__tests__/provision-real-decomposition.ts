@@ -20,23 +20,22 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ResolvedModel } from "@hyperidle/shared";
 import type { BetDecompositionDeps } from "../../services/bet-decomposition.js";
-import { AdapterPool, CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
-import { type CliAdapterConfig, CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { AdapterPool } from "../adapter-pool.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
-import type { HarnessLane } from "./provision-real-session.js";
 import {
-	CLAUDE_LANE_MODEL,
-	CODEX_LANE_MODEL,
-	DEFAULT_OPENROUTER_MODEL,
+	type HarnessLane,
 	initGitRepo,
-	OPENCODE_MODEL,
+	lockedHarnessAdapter,
 	provisionClaudeSandbox,
 	provisionCodexHome,
 	provisionOpencodeHome,
 } from "./provision-real-session.js";
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
+// @lore AR5/AR7: models + adapters come ONLY from the locked seam
+// (`lockedHarnessAdapter`, which reads `HARNESS_TEST_MODELS`). This file constructs
+// no adapter and imports no raw model-caller — required by the tightened
+// honest-harness-guard (AR7). The per-harness model is founder-locked in
+// `HARNESS_TEST_MODELS` (require-harness.ts); a test cannot pick or override it.
 
 /**
  * Context for a decomposition run. Consumers provide the live db + eventBus
@@ -155,26 +154,19 @@ export function decompositionLaneMeta(lane: HarnessLane): DecompositionLaneMeta 
 function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 	switch (lane.harnessName) {
 		case "builtin": {
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
+			// Adapter + locked model come from the sanctioned seam (HARNESS_TEST_MODELS).
+			const { adapter, resolvedModel } = lockedHarnessAdapter("builtin");
 			const pool = new AdapterPool();
-			pool.register(
-				"builtin-local",
-				new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
-				{
-					name: "builtin-local",
-					kind: "local",
-					// type must match pm.harnessType so adapterPool.select() finds this adapter.
-					type: "builtin",
-					modelProviders: ["openai-compatible"],
-					maxConcurrent: 1,
-				},
-			);
-			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
-				provider: "openai-compatible",
-				model: DEFAULT_OPENROUTER_MODEL,
-				apiKey,
-				baseUrl: OPENROUTER_BASE_URL,
+			pool.register("builtin-local", adapter, {
+				name: "builtin-local",
+				kind: "local",
+				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				type: "builtin",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 1,
 			});
+			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> =>
+				resolvedModel;
 			return { pool, resolveModel };
 		}
 
@@ -186,11 +178,10 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			//
 			// @lore AR5: provisionClaudeSandbox is called via prepSandbox (NOT here) because
 			// the files must land in the SCRATCH sandbox cwd (scratchSandboxPath = decomp-<betId>/)
-			// created by runBetDecomposition AFTER buildPoolForLane runs. Provisioning into
-			// sandboxDir (ctx.tmpDir) was the pre-AR5 bug: claude's cwd is scratchSandboxPath,
-			// not sandboxDir, so --mcp-config .mcp.json could not find the file → crash.
+			// created by runBetDecomposition AFTER buildPoolForLane runs.
+			const { adapter, resolvedModel } = lockedHarnessAdapter("claude");
 			const pool = new AdapterPool();
-			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			pool.register("local-claude", adapter, {
 				name: "local-claude",
 				kind: "local",
 				// type must match pm.harnessType so adapterPool.select() finds this adapter.
@@ -198,12 +189,8 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				modelProviders: ["anthropic"],
 				maxConcurrent: 4,
 			});
-			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
-				provider: "anthropic",
-				model: CLAUDE_LANE_MODEL,
-				apiKey: "keychain-auth-unused",
-				baseUrl: "https://api.anthropic.com",
-			});
+			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> =>
+				resolvedModel;
 			const prepSandbox = async (scratchPath: string): Promise<void> => {
 				provisionClaudeSandbox(scratchPath);
 			};
@@ -212,23 +199,18 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 
 		case "codex": {
 			// Git repo init lives in sandboxDir (ctx.tmpDir) — git traverses parent dirs so
-			// codex exec in scratchSandboxPath (a subdirectory) finds the repo.
-			// provisionCodexHome is called via prepSandbox because the adapter looks for
-			// .codex-home/ at config.sandboxPath (= scratchSandboxPath), not sandboxDir.
-			//
-			// @lore AR5: The cli-harness-adapter injects CODEX_HOME=path.join(config.sandboxPath,
-			// ".codex-home"). That path is scratchSandboxPath/.codex-home — so auth must be
-			// provisioned there (not in ctx.tmpDir/.codex-home). Check auth in sandboxDir
+			// codex exec in scratchSandboxPath (a subdirectory) finds the repo. The adapter
+			// injects CODEX_HOME=path.join(config.sandboxPath, ".codex-home") = scratchSandboxPath/
+			// .codex-home, so auth is provisioned there via prepSandbox. Check auth in sandboxDir
 			// first to give a clear error if codex isn't installed/logged in.
 			initGitRepo(sandboxDir);
 			const authFound = provisionCodexHome(sandboxDir); // preliminary check only
 			if (!authFound) {
 				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
 			}
-			const codexConfig = CLI_TOOL_CONFIGS.codex;
-			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("codex");
 			const pool = new AdapterPool();
-			pool.register("local-codex", new CliHarnessAdapter(codexConfig), {
+			pool.register("local-codex", adapter, {
 				name: "local-codex",
 				kind: "local",
 				// type must match pm.harnessType so adapterPool.select() finds this adapter.
@@ -236,16 +218,10 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
-			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
-				provider: "openai-compatible",
-				model: CODEX_LANE_MODEL,
-				apiKey: "",
-				baseUrl: "https://api.openai.com",
-			});
+			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> =>
+				resolvedModel;
 			const prepSandbox = async (scratchPath: string): Promise<void> => {
 				// Initialize git repo in scratch sandbox too (codex exec requires git).
-				// The parent sandboxDir already has git, but codex may not traverse past
-				// the scratch dir boundary depending on its git-detection implementation.
 				initGitRepo(scratchPath);
 				provisionCodexHome(scratchPath); // writes .codex-home/ into cwd
 			};
@@ -253,41 +229,21 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 		}
 
 		case "opencode": {
-			// @lore AR5: provisionOpencodeHome is called via prepSandbox so auth lands in
-			// scratchSandboxPath/.opencode-data/opencode/auth.json — matching the XDG_DATA_HOME
-			// pattern used by the adapter. Provisioning in sandboxDir (ctx.tmpDir) would put
-			// auth in the wrong place relative to the scratch sandbox cwd.
-			//
-			// XDG_DATA_HOME isolation via envMap override (not process.env):
-			// The base CLI_TOOL_CONFIGS.opencode has XDG_DATA_HOME in the envAllowlist —
-			// forwarded from process.env at spawn time. But this test never sets
-			// process.env.XDG_DATA_HOME (unlike AK2 which sets it in beforeEach). Without
-			// XDG_DATA_HOME pointing at scratchPath/.opencode-data, the subprocess uses the
-			// global ~/.local/share/opencode/ instead of the isolated dir where auth.json was
-			// provisioned. Fix: override envMap to inject XDG_DATA_HOME = "{{sandbox}}/.opencode-data"
-			// (resolves to scratchSandboxPath/.opencode-data at session start). envMap entries
-			// are applied AFTER the allowlist so they override any process.env value.
-			//
-			// @lore AR5 opencode-xdg-decomposition: Unlike the AK2 session lane (which sets
-			// process.env.XDG_DATA_HOME in beforeEach), the decomposition lane has no beforeEach
-			// cleanup frame. Using the {{sandbox}} template var is safer: it always resolves to
-			// the exact scratch sandbox cwd, is per-invocation-isolated, and requires no cleanup.
-			const apiKey = process.env.OPENROUTER_API_KEY;
-			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
-			const baseOpencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!baseOpencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
-			// Override envMap to inject XDG_DATA_HOME via {{sandbox}} template var.
-			const opencodeConfig: CliAdapterConfig = {
-				...baseOpencodeConfig,
-				envMap: {
-					...baseOpencodeConfig.envMap,
-					// XDG_DATA_HOME resolves to scratchSandboxPath/.opencode-data at session
-					// start — the exact dir provisionOpencodeHome(scratchPath) writes auth to.
-					XDG_DATA_HOME: "{{sandbox}}/.opencode-data",
-				},
-			};
+			// @lore AR5/AR7: the adapter comes from the locked seam (stock opencode config),
+			// so XDG_DATA_HOME isolation can NOT be injected via a custom envMap (the guard
+			// forbids constructing a custom-config adapter here). Instead — exactly like the
+			// AK2 session lanes — the TEST sets `process.env.XDG_DATA_HOME` in beforeEach to
+			// `<tmpDir>/.opencode-data` (the stock opencode config forwards XDG_DATA_HOME from
+			// the env allowlist). Auth is provisioned into that same dir here. opencode reads
+			// XDG_DATA_HOME from the env regardless of its cwd (= scratch sandbox), so auth is
+			// found. See AK3-real-decomposition.integration.test.ts beforeEach/afterEach.
+			if (!process.env.OPENROUTER_API_KEY) {
+				throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
+			}
+			provisionOpencodeHome(sandboxDir);
+			const { adapter, resolvedModel } = lockedHarnessAdapter("opencode");
 			const pool = new AdapterPool();
-			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
+			pool.register("local-opencode", adapter, {
 				name: "local-opencode",
 				kind: "local",
 				// type must match pm.harnessType so adapterPool.select() finds this adapter.
@@ -295,16 +251,9 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
-			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> => ({
-				provider: "openai-compatible",
-				model: `openrouter/${OPENCODE_MODEL}`,
-				apiKey,
-				baseUrl: "https://openrouter.ai/api",
-			});
-			const prepSandbox = async (scratchPath: string): Promise<void> => {
-				provisionOpencodeHome(scratchPath);
-			};
-			return { pool, resolveModel, prepSandbox };
+			const resolveModel = async (_tier: string): Promise<ResolvedModel | undefined> =>
+				resolvedModel;
+			return { pool, resolveModel };
 		}
 
 		default: {
