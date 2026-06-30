@@ -585,25 +585,35 @@ async function runRealPmTurn(
 		.filter(Boolean)
 		.join("\n");
 
-	// Full system prompt with bet context — written to AGENTS.md for CLI harnesses and
-	// used as assembledPrompt for the adapter's seed.
+	// Full system prompt with bet context — written to AGENTS.md (codex) and CLAUDE.md
+	// (claude) for CLI harnesses. Each CLI harness reads its own project context file.
 	const systemPrompt = `${baseSystemPrompt}\n\n${betContext}`;
 
-	// @lore AR5: CLI harnesses (claude/codex/opencode) read their system prompt from
-	// AGENTS.md in the sandbox cwd. The decomposition scratch sandbox has no AGENTS.md
-	// (FirstCandidateStrategy.assembleContext only writes minimal dirs). Without AGENTS.md,
-	// CLI harnesses run with a generic default system prompt and have no knowledge of the
-	// bet goal — they cannot produce valid JSON. Write the full system prompt + bet context
-	// to AGENTS.md before starting the session so CLI harnesses receive the full instruction.
-	// The builtin adapter ignores AGENTS.md (it uses SessionConfig.messages instead).
+	// @lore AR5: Each CLI harness reads its project context from a different file:
+	// - codex reads AGENTS.md from the sandbox cwd.
+	// - claude reads CLAUDE.md from the sandbox cwd (not AGENTS.md).
+	// - opencode uses `run <prompt>` where <prompt> = {{prompt}} = assembledPrompt.slice(0,200)
+	//   and does NOT read project context files automatically.
+	// Write AGENTS.md (codex) and CLAUDE.md (claude) with the full system prompt so those
+	// harnesses have the bet context as system-level instructions.
+	// The builtin adapter ignores these files (it uses SessionConfig.messages instead).
 	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), systemPrompt, "utf-8");
+	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), systemPrompt, "utf-8");
 
-	// @lore AR5: assembledPrompt is sliced to 200 chars as {{prompt}} for CLI harnesses.
-	// The bet context is now in AGENTS.md (system prompt); {{prompt}} just triggers the turn.
-	// messages carries the bet context for the builtin adapter's runChatTurn.
+	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars) for CLI harnesses.
+	// For opencode: assembledPrompt is the ENTIRE user message — the bet context must be here
+	//   because opencode does NOT read AGENTS.md/CLAUDE.md for project context.
+	// For codex/claude: context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
+	// For builtin: assembledPrompt is unused; it uses messages[] with the full betContext.
+	const triggerPrompt =
+		"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text.";
+
+	// opencode needs the full betContext in assembledPrompt; codex/claude use AGENTS.md/CLAUDE.md.
+	const assembledPrompt = pm.harnessType === "opencode" ? betContext : triggerPrompt;
+
 	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
 		sessionId: crypto.randomUUID(),
-		assembledPrompt: systemPrompt,
+		assembledPrompt,
 		sandboxPath: scratchSandboxPath,
 		systemPromptPath: "",
 		modelTier: "workhorse",
