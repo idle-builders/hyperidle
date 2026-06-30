@@ -66,7 +66,9 @@ const NOW = "2026-05-29T00:00:00.000Z";
  * between what provisionSession looks up and what is in the DB.
  */
 async function seedPoolDomain(db: HyperIdleDb, agentId: string, taskId: string): Promise<void> {
-	const teamId = "pool-team-1";
+	// productId from SUPPORTED_HARNESS_LANES is "p1" — teamId must match.
+	// buildSessionContextData looks up teams.id === productId; seed "p1" so it finds the row.
+	const teamId = "p1";
 	const tmId = "pool-tm-1";
 	const betId = "pool-bet-1";
 
