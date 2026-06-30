@@ -34,8 +34,10 @@
 
 import * as os from "node:os";
 import { messages as messagesTable } from "@hyperidle/db";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
 import {
 	runConversationalTurnThroughHarness,
@@ -64,6 +66,11 @@ describe("[harness:builtin] AR4a — conversational reply row (AC1)", () => {
 
 	beforeEach(() => {
 		tmpDir = os.tmpdir();
+		setActiveStrategy(minimalStrategy);
+	});
+
+	afterEach(() => {
+		clearActiveStrategy();
 	});
 
 	test("builtin conversational turn → persists non-empty ast-* reply row (real model, conversationalReply channel)", async ({
@@ -112,9 +119,11 @@ describe("[harness:claude] AR4a — conversational reply row (AC1)", () => {
 	beforeEach(async () => {
 		tmpDir = os.tmpdir();
 		bridge = await startMcpBridgeServer();
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(async () => {
+		clearActiveStrategy();
 		await bridge?.close();
 	});
 
@@ -164,9 +173,11 @@ describe("[harness:codex] AR4a — conversational reply row (AC1)", () => {
 	beforeEach(async () => {
 		tmpDir = os.tmpdir();
 		bridge = await startMcpBridgeServer();
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(async () => {
+		clearActiveStrategy();
 		await bridge?.close();
 	});
 
@@ -216,9 +227,11 @@ describe("[harness:opencode] AR4a — conversational reply row (AC1)", () => {
 	beforeEach(async () => {
 		tmpDir = os.tmpdir();
 		bridge = await startMcpBridgeServer();
+		setActiveStrategy(minimalStrategy);
 	});
 
 	afterEach(async () => {
+		clearActiveStrategy();
 		await bridge?.close();
 	});
 
@@ -232,7 +245,11 @@ describe("[harness:opencode] AR4a — conversational reply row (AC1)", () => {
 			triggerMessageId,
 			harnessType: "opencode",
 			modelId: HARNESS_TEST_MODELS.opencode.model,
-			modelProvider: "openai-compatible",
+			// @lore AR4a: opencode's modelProvider in the DB row is "openai-compatible"
+			// (per HARNESS_TEST_MODELS). runConversationalTurnThroughHarness bypasses
+			// resolveAgentModel by passing deps.resolvedModel directly (the locked
+			// harnessTestResolvedModel), so this value is not used for model resolution.
+			modelProvider: HARNESS_TEST_MODELS.opencode.provider,
 			now: NOW,
 		});
 

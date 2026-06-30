@@ -110,6 +110,21 @@ export interface AssistantTurnDeps {
 	 * Defaults to os.tmpdir() when absent.
 	 */
 	readonly sandboxBasePath?: string;
+	/**
+	 * AR4a: Pre-resolved model override. When provided, `resolveAgentModel` is skipped
+	 * and this model is used directly. Required for CLI harnesses (codex/opencode) whose
+	 * native keychain auth is not expressible as a supported modelProvider in the DB row
+	 * ("openai-compatible" is rejected by resolveAgentModel on the per-agent path).
+	 *
+	 * @lore AR4a: CLI harnesses (codex = ChatGPT keychain, opencode = OpenRouter via CLI)
+	 * cannot use resolveAgentModel's per-agent path ("openai-compatible" throws
+	 * UnsupportedAgentProviderError). The test seam supplies a pre-resolved model via
+	 * lockedHarnessAdapter/harnessTestResolvedModel so the CLI adapter receives the correct
+	 * model string without forcing resolveAgentModel to handle native-auth harnesses.
+	 * Production callers (assistant-dispatcher.ts) do not set this — they rely on the
+	 * DB row's modelProvider (always "openrouter" or "anthropic" in production agents).
+	 */
+	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
 export interface AssistantTurnParams {
@@ -417,10 +432,30 @@ async function runTurnInternal(
 	// "resolvedModel is required" when it is missing.
 	// @lore AH3 M3: CredentialResolver.resolve() returns null (not throw) for missing
 	// keys. resolveAgentModel throws MissingCredentialError when resolve() returns null.
+	// @lore AR4a: deps.resolvedModel is a test seam for CLI harnesses (codex/opencode)
+	// whose native keychain auth can't be expressed as a supported modelProvider ("openai-compatible"
+	// throws UnsupportedAgentProviderError on the per-agent path). When provided, skip
+	// resolveAgentModel entirely.
 	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
 	let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
 
-	if (deps.credentialResolver) {
+	if (deps.resolvedModel) {
+		// Pre-resolved model supplied (CLI harness test seam — see AR4a lore above)
+		resolvedModel = deps.resolvedModel;
+		if (deps.credentialResolver) {
+			// Still try to resolve fast model for builtin tier (non-fatal)
+			try {
+				const serverCfg = await readServerConfig(db);
+				resolvedFastModel = await resolveModelTier(
+					"fast",
+					serverCfg.modelGateway,
+					deps.credentialResolver,
+				);
+			} catch {
+				// fast tier optional
+			}
+		}
+	} else if (deps.credentialResolver) {
 		try {
 			const serverCfg = await readServerConfig(db);
 			resolvedModel = await resolveAgentModel(
@@ -492,7 +527,11 @@ async function runTurnInternal(
 		sessionId: syntheticSessionId,
 		taskId: "", // placeholder — shared path creates real task via stub
 		sandboxPath: "", // placeholder — shared path creates real sandbox
-		ingestion: { dispose: () => {} }, // no-op — bet tools don't use ingestion
+		ingestion: {
+			dispose: () => {
+				/* no-op — bet tools don't use ingestion */
+			},
+		}, // no-op placeholder
 	};
 
 	// @lore AK4 CRITICAL-2: NEVER inject buildToolRegistry(ctx,{role:'assistant'}) here —
