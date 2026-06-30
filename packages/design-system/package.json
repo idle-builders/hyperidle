@@ -9,10 +9,7 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
-		"test": "vitest run",
-		"clean:viewer": "rm -f viewer/*.js viewer/*.d.ts viewer/*.js.map viewer/*.d.ts.map",
-		"preserve": "npm run clean:viewer",
-		"serve": "vite --config vite.config.ts"
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@hyperidle/fabric": "*",
@@ -57,12 +54,7 @@
 		"tippy.js": "^6.3.0",
 		"@floating-ui/dom": "^1.6.0",
 		"jsdom": "^29.0.2",
-		"@vitejs/plugin-react": "^6.0.3",
-		"@tailwindcss/vite": "^4.3.1",
-		"daisyui": "^5.6.3",
 		"react-dom": "^19.2.7",
-		"tailwindcss": "^4.3.1",
-		"vite": "^8.1.0",
 		"@testing-library/react": "^16.0.0",
 		"@testing-library/jest-dom": "^6.0.0"
 	}

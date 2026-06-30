@@ -763,9 +763,8 @@ export default [
 	// `no-restricted-syntax`) is used so it does not clobber the other
 	// no-restricted-syntax blocks above on overlapping files.
 	//
-	// Production-only: tests, stories, specs, fixtures, e2e, and the live TSX
-	// viewer build dir are exempt — mock/fixture construction legitimately
-	// fabricates partial shapes.
+	// Production-only: tests, stories, specs, fixtures, e2e, and _dev dirs are
+	// exempt — mock/fixture construction legitimately fabricates partial shapes.
 	{
 		files: ["packages/*/src/**/*.{ts,tsx}"],
 		ignores: [
@@ -789,22 +788,10 @@ export default [
 		},
 	},
 
-	// AJ6 AC8a — No import cycle: @hyperidle/design-system (src/**) must NEVER
-	// import @hyperidle/web or any web/** path.
-	// Only viewer/main.tsx and other viewer/** files are the legal cross-importers
-	// (dev-only build target via Vite workspace symlinks).
-	//
-	// @lore AJ6 no-cycle: cross-package globs live ONLY in viewer/main.tsx.
-	// design-system/src/ never imports @hyperidle/web.
-	// A violation here is an import cycle: web → design-system → web would break
-	// the acyclic dependency direction that the monorepo depends on.
-	//
-	// @lore AJ6 AC8 flat-config split: In ESLint flat config a file matching a
-	// config object's own `ignores` is excluded from THAT object — `files` does
-	// NOT override `ignores`. The original single block had
-	// `ignores: ["packages/design-system/viewer/**"]` which excluded
-	// viewer/discovery.ts even though it was listed in `files`. Split into two
-	// separate objects so each file set gets an unambiguous scope.
+	// AJ6 AC8 — No import cycle: @hyperidle/design-system (src/**) must NEVER
+	// import @hyperidle/web or any web/** path. A violation is an import cycle
+	// (web → design-system → web) that breaks the acyclic dependency direction
+	// the monorepo depends on. design-system/src/ never imports @hyperidle/web.
 	{
 		files: ["packages/design-system/src/**/*.{ts,tsx}"],
 		languageOptions: {
@@ -821,52 +808,14 @@ export default [
 						{
 							name: "@hyperidle/web",
 							message:
-								"AJ6 AC8: design-system/src must not import @hyperidle/web. Only viewer/main.tsx (the dev-only build target) may cross-import web. An import here creates an import cycle: web → design-system → web.",
+								"AJ6 AC8: design-system/src must not import @hyperidle/web. An import here creates an import cycle: web → design-system → web.",
 						},
 					],
 					patterns: [
 						{
 							group: ["../../web/**", "../../web/src/**", "**/web/src/**"],
 							message:
-								"AJ6 AC8: design-system/src must not import web source files. Only viewer/main.tsx (the dev-only build target) may cross-import web via build-time globs.",
-						},
-					],
-				},
-			],
-		},
-	},
-
-	// AJ6 AC8b — No import cycle: viewer/discovery.ts (the discovery contract
-	// used by tests and the catalog) must NOT import @hyperidle/web.
-	//
-	// Separate block from AC8a because ESLint flat config's `ignores` within a
-	// config object excludes files matching those patterns even if they also match
-	// `files`. viewer/discovery.ts cannot be scoped together with viewer/** ignored
-	// in one block — it would be silently excluded. Two blocks is the correct shape.
-	{
-		files: ["packages/design-system/viewer/discovery.ts"],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "@hyperidle/web",
-							message:
-								"AJ6 AC8: viewer/discovery.ts must not import @hyperidle/web. Only viewer/main.tsx (the dev-only build target) may cross-import web. An import here creates an import cycle: web → design-system → web.",
-						},
-					],
-					patterns: [
-						{
-							group: ["../../web/**", "../../web/src/**", "**/web/src/**"],
-							message:
-								"AJ6 AC8: viewer/discovery.ts must not import web source files. Only viewer/main.tsx (the dev-only build target) may cross-import web via build-time globs.",
+								"AJ6 AC8: design-system/src must not import web source files. This creates an import cycle: web → design-system → web.",
 						},
 					],
 				},
@@ -877,7 +826,7 @@ export default [
 	// AJ3: the isolation harness (packages/web/src/preview/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/server or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
-	// in the viewer/jsdom with no server, db, or real data. Static "must not
+	// in jsdom with no server, db, or real data. Static "must not
 	// import X" property → lint rule, not a test (CLAUDE.md). Shape copied from
 	// the __fixtures__ no-restricted-imports block.
 	//
