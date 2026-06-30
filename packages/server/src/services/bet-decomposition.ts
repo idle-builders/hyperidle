@@ -670,22 +670,37 @@ async function runRealPmTurn(
  * tool-less turn. The exemption is a PROPERTY (concept §1.5 three-property
  * predicate), not a file-list carve-out. Any future tool-less extraction drain
  * is covered by the same predicate.
+ *
+ * @lore AR5: CLI harnesses (claude/codex/opencode) emit multiple completion events
+ * during a session: init/system events pre-map to empty completions, intermediate
+ * text blocks emit partial completions, and the final `result` event carries the
+ * full response text. Returning on the FIRST completion event would return ""
+ * (from an init event), causing blocked/empty. Collect the LAST non-empty
+ * completion text across the full stream — that is always the agent's actual
+ * response. The builtin adapter emits a single completion event with the full text,
+ * so last-non-empty is a no-op for it.
  */
 async function drainForCompletion(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
 ): Promise<string> {
 	const stream = adapter.streamEvents(handle);
+	let lastNonEmpty = "";
 	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
 	for await (const event of stream) {
 		if (event.type === "completion") {
-			return event.text;
-		}
-		if (event.type === "error") {
+			// @lore AR5: Accumulate the last non-empty completion text. CLI adapters emit
+			// empty completions from init/system/lifecycle events; the final result event
+			// carries the actual response. Returning on the first completion would catch
+			// an empty init event and return "" → blocked/empty.
+			if (event.text.trim().length > 0) {
+				lastNonEmpty = event.text;
+			}
+		} else if (event.type === "error") {
 			throw new Error(event.message);
 		}
 	}
-	return "";
+	return lastNonEmpty;
 }
 
 // -----------------------------------------------------------------------------
