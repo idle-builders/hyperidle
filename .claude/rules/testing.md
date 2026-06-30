@@ -57,6 +57,7 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 - `beforeEach`/`afterEach` only for non-DB setup (e.g. `vi.stubEnv`).
 - Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
 - Design system: every UI component must have a `.stories.tsx` file.
+- Prefer a polling watcher over `fs.watch` in tests — `fs.watch` flakes. Gate any real `fs.watch` test behind an env flag, excluded from the default run.
 
 ## Integration tests: two archetypes
 
@@ -74,6 +75,25 @@ An integration test exercises a **real integration point**, with no stub standin
 **Builtin-only-by-construction paths (AR4):** Some production paths cannot run a CLI harness regardless of test configuration (e.g. `runAssistantTurn` — no sandbox `cwd`, no `.mcp.json` bridge). Files that test such a path are registered in `BUILTIN_ONLY_INTEGRATION` (`scripts/lib/honest-harness-predicate.ts`) and are **exempted from the 4-harness coverage rule** — but still must declare `requireHarness("builtin")`, contain zero stubs, and use no `skipIf`. This is not a weakening: the 4-harness obligation stays fully enforced by the files that genuinely flow through `provisionSession`. Do not add a file to `BUILTIN_ONLY_INTEGRATION` unless the production path itself (not just the test) structurally cannot run the CLI harnesses; if it can, it must cover all four.
 
 **Harness integration tests observe real output via `createSandboxCapture` + the `onBeforeTeardown` seam** (AR2). The seam fires after drain, before teardown deletes the sandbox — the only window to capture pure-sandbox files with no DB row. The seam is also available through the dispatcher path via `TaskDispatcherDeps.onBeforeTeardown` (AR4 — same pattern, additive-optional field). Import from `packages/server/src/harness/__tests__/provision-real-session.ts`; follow the four-step recipe in that module's JSDoc.
+
+### Locked per-harness test-model matrix (AR7)
+
+Models are **founder-set** in `HARNESS_TEST_MODELS` (`packages/server/src/harness/__tests__/require-harness.ts`). A test cannot override the model — it obtains one only via the seam (`runThroughHarness` or `lockedHarnessAdapter` from `provision-real-session.ts`).
+
+**TINY-MODEL BASELINE:** every entry is deliberately the **smallest/cheapest** model its harness's auth allows. A harness integration test **must pass on these tiny models** — that is the baseline. If a test only works on a bigger model, the feature is wrong, not the model. **Never bump an entry to a larger model to make a flaky test go green** (tests must not drive behavior); a larger model is a separate founder-approved decision. (codex's floor is `gpt-5.4-mini`, not nano — a ChatGPT-account codex login rejects `gpt-5.4-nano`/`gpt-5-codex-mini`; nano is API-key-only.)
+
+| Harness | Locked model (smallest tier) | Auth |
+|---------|-------------|------|
+| `builtin` | `deepseek/deepseek-v4-flash` | `OPENROUTER_API_KEY` (OpenRouter) |
+| `claude` | `haiku` | keychain (inherited CLI login, no key) |
+| `codex` | `gpt-5.4-mini` | keychain (inherited CLI login, no key) |
+| `opencode` | `openrouter/z-ai/glm-4.7-flash` | `OPENROUTER_API_KEY` (OpenRouter) |
+
+**Enforcement rule:** harness-facing `*.integration.test.ts` files must NOT import the raw model-callers (`cli-harness-adapter` / `builtin-harness-adapter` / `llm-client`) directly, and must NOT construct `new (Cli|Builtin)HarnessAdapter(` — `honest-harness-guard` fails the build for that. The only sanctioned source of a real adapter or resolved model for a test is the seam (`runThroughHarness` / `lockedHarnessAdapter`), whose factories read `HARNESS_TEST_MODELS`. The guard removes the import/construction override paths so a test reaches a model only through these locked factories; a hand-written raw `resolvedModel` object literal passed directly to `provisionSession` is an accepted residual gap (model-id string-matching was rejected as brittle).
+
+All four harnesses are argument/request-enforced on the model: `builtin` passes it in the OpenRouter request body; `claude`, `codex`, and `opencode` all receive it via `--model {{model}}` in `CLI_TOOL_CONFIGS.<harness>.args`. `HARNESS_TEST_MODELS` is load-bearing for every harness — not just the OpenRouter ones.
+
+Existing files that import raw model-callers are staged as shrinking debt in `scripts/model-import-debt.allowlist.json` (monotonic shrink, same pattern as stub + coverage allowlists). New or changed harness-facing integration tests must go through the seam — the guard hard-enforces this for any file not on the allowlist.
 
 ## Fixture pattern (integration tests)
 

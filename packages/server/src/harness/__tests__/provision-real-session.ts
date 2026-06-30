@@ -25,7 +25,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, HarnessAdapter } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
@@ -43,7 +43,12 @@ import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { enforcementRegistry } from "../return-enforcement-registry.js";
-import type { HarnessName } from "./require-harness.js";
+import {
+	type HarnessName,
+	harnessTestResolvedModel,
+	type ResolvedTestModel,
+	type SupportedHarnessName,
+} from "./require-harness.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // createSandboxCapture
@@ -367,10 +372,54 @@ export interface HarnessLane {
 	};
 }
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
+/**
+ * AR7 — construct the real harness adapter for `harness`, paired with its LOCKED
+ * resolved model from `HARNESS_TEST_MODELS`. The factory bakes the locked model so
+ * a test using it does not choose a model; the guard removes the import/construction
+ * override paths (`cli-harness-adapter` / `builtin-harness-adapter` / `llm-client` /
+ * `new (Cli|Builtin)HarnessAdapter` are banned in harness-facing integration tests).
+ * A hand-written raw `resolvedModel` object literal passed directly to `provisionSession`
+ * is an accepted residual gap — catching it would require brittle model-id string-matching
+ * (rejected). It is an obvious isolated red flag in code review absent any imported model
+ * source.
+ *
+ * @lore AR7: The seam owns the import of the concrete adapter classes. A
+ * harness-facing integration test must NOT import `cli-harness-adapter` /
+ * `builtin-harness-adapter` / `llm-client` directly nor `new` a `*HarnessAdapter`
+ * — `honest-harness-guard` fails the build for that. Routing every adapter
+ * construction through here is the load-bearing structural lock; string-matching
+ * model ids is explicitly NOT done (brittle on rename, evadable via variable).
+ */
+export function lockedHarnessAdapter(harness: SupportedHarnessName): {
+	adapter: HarnessAdapter;
+	resolvedModel: ResolvedTestModel;
+} {
+	const resolvedModel = harnessTestResolvedModel(harness);
+	switch (harness) {
+		case "builtin":
+			return {
+				adapter: new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
+				resolvedModel,
+			};
+		case "claude":
+			return { adapter: new CliHarnessAdapter(CLAUDE_CLI_CONFIG), resolvedModel };
+		case "codex": {
+			const codexConfig = CLI_TOOL_CONFIGS.codex;
+			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			return { adapter: new CliHarnessAdapter(codexConfig), resolvedModel };
+		}
+		case "opencode": {
+			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
+			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			return { adapter: new CliHarnessAdapter(opencodeConfig), resolvedModel };
+		}
+	}
+}
 
 /**
- * The canonical four-harness lane table. Importing this and iterating
+ * The canonical four-harness lane table. Each lane's model is LOCKED in
+ * `HARNESS_TEST_MODELS` (require-harness.ts) and baked in via `lockedHarnessAdapter`
+ * — a lane consumer cannot pick a model. Importing this and iterating
  * `for (const lane of SUPPORTED_HARNESS_LANES)` is AC4's deliverable for AR3–AR6:
  * each lane carries its own `requireHarness` gate name, `[harness:X]` tag,
  * adapter setup, and per-harness prep — the consumer gets all four gates by
@@ -399,18 +448,14 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		harnessName: "builtin",
 		describeTag: "[harness:builtin]",
 		prepFn: (ctx) => {
+			const { adapter, resolvedModel } = lockedHarnessAdapter("builtin");
 			const pool = new AdapterPool();
-			pool.register(
-				"builtin-local",
-				new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 1024 }),
-				{
-					name: "builtin-local",
-					kind: "local",
-					modelProviders: ["openai-compatible"],
-					maxConcurrent: 1,
-				},
-			);
-			const apiKey = process.env.OPENROUTER_API_KEY as string;
+			pool.register("builtin-local", adapter, {
+				name: "builtin-local",
+				kind: "local",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 1,
+			});
 			return {
 				pool,
 				params: {
@@ -418,12 +463,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-builtin-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible",
-						model: "deepseek/deepseek-v4-flash",
-						apiKey,
-						baseUrl: OPENROUTER_BASE_URL,
-					},
+					resolvedModel,
 				},
 			};
 		},
@@ -434,8 +474,9 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		prepFn: (ctx) => {
 			if (!ctx.bridge)
 				throw new Error("claude lane requires a live MCP bridge from startMcpBridgeServer()");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("claude");
 			const pool = new AdapterPool();
-			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+			pool.register("local-claude", adapter, {
 				name: "local-claude",
 				kind: "local",
 				modelProviders: ["anthropic"],
@@ -448,15 +489,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-claude-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "anthropic" as const,
-						// claude-sonnet-4-6 is the cost-optimised sonnet model; "sonnet" alias resolves to it
-						// via the claude CLI's --model flag. Using full model ID for reproducibility.
-						// @lore AR4 models: claude lane uses sonnet (cost reduction directive, 2026-06-30).
-						model: "claude-sonnet-4-6",
-						apiKey: "keychain-auth-unused",
-						baseUrl: "https://api.anthropic.com",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -473,10 +506,9 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 			if (!authFound) {
 				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
 			}
-			const codexConfig = CLI_TOOL_CONFIGS.codex;
-			if (!codexConfig) throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("codex");
 			const pool = new AdapterPool();
-			pool.register("local-codex", new CliHarnessAdapter(codexConfig), {
+			pool.register("local-codex", adapter, {
 				name: "local-codex",
 				kind: "local",
 				modelProviders: ["openai-compatible"],
@@ -489,16 +521,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-codex-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible" as const,
-						// codex exec supports -m/--model flag (AR4 cost-reduction directive, 2026-06-30).
-						// The codex args template was updated to include "--model","{{model}}" so this
-						// value is now injected via {{model}} substitution at session start.
-						// @lore AR4 models: codex lane uses gpt-5.4-mini (cost reduction; --model wired).
-						model: "gpt-5.4-mini",
-						apiKey: "",
-						baseUrl: "https://api.openai.com",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -510,13 +533,12 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		prepFn: (ctx) => {
 			if (!ctx.bridge)
 				throw new Error("opencode lane requires a live MCP bridge from startMcpBridgeServer()");
-			const apiKey = process.env.OPENROUTER_API_KEY;
-			if (!apiKey) throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
+			if (!process.env.OPENROUTER_API_KEY)
+				throw new Error("opencode lane: OPENROUTER_API_KEY not set.");
 			provisionOpencodeHome(ctx.tmpDir);
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("opencode");
 			const pool = new AdapterPool();
-			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
+			pool.register("local-opencode", adapter, {
 				name: "local-opencode",
 				kind: "local",
 				modelProviders: ["openai-compatible"],
@@ -529,16 +551,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 					agentId: `ar-opencode-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
-					resolvedModel: {
-						provider: "openai-compatible" as const,
-						// opencode requires "openrouter/" provider prefix in --model flag.
-						// @lore AR4 models: glm-5-turbo (z-ai/glm-5-turbo via OpenRouter) replaces kimi-k2.7-code
-						// for the opencode lane (cost reduction directive, 2026-06-30). OpenRouter slug:
-						// z-ai/glm-5-turbo; opencode --model prefix makes it openrouter/z-ai/glm-5-turbo.
-						model: "openrouter/z-ai/glm-5-turbo",
-						apiKey,
-						baseUrl: "https://openrouter.ai/api",
-					},
+					resolvedModel,
 				},
 				capturePaths: ["answer.txt"],
 			};
@@ -618,7 +631,7 @@ export interface AssistantTurnSeedOpts {
 	readonly userId: string;
 	readonly threadId: string;
 	readonly triggerMessageId: string;
-	/** OpenRouter model id to seed on the ast-* agent row. Defaults to "deepseek/deepseek-v4-flash". */
+	/** OpenRouter model id to seed on the ast-* agent row. Defaults to HARNESS_TEST_MODELS.builtin.model. */
 	readonly modelId?: string;
 	readonly now?: string;
 }
@@ -631,7 +644,7 @@ export async function seedAssistantTurnDomain(
 		userId,
 		threadId,
 		triggerMessageId,
-		modelId = "deepseek/deepseek-v4-flash",
+		modelId = harnessTestResolvedModel("builtin").model,
 		now = new Date().toISOString(),
 	} = opts;
 	const assistantId = `ast-${userId}`;

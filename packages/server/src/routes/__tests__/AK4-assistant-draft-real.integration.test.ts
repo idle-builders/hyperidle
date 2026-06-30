@@ -20,7 +20,7 @@ import {
 	runAssistantTurnThroughHarness,
 	seedAssistantTurnDomain,
 } from "../../harness/__tests__/provision-real-session.js";
-import { requireHarness } from "../../harness/__tests__/require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "../../harness/__tests__/require-harness.js";
 import { test } from "../../test-fixtures.js";
 
 requireHarness("builtin");
@@ -123,7 +123,7 @@ describe("[harness:builtin] AK4-real AC2 — real agent may draft a bet (honest 
 				status: "active",
 				harnessType: "builtin",
 				modelProvider: "openrouter",
-				modelId: "deepseek/deepseek-v4-flash",
+				modelId: harnessTestResolvedModel("builtin").model,
 				systemPrompt: "You are a helpful assistant that helps users plan their work.",
 				maxConcurrentSessions: 1,
 				createdAt: NOW,

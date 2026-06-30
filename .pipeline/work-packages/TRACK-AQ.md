@@ -10,15 +10,15 @@
 
 **Concept status — split decided (2026-06-27).** Research into the sandboxing landscape (OS-native harness sandboxes, Apple `container` microVMs, Firecracker, the credential-proxy doorway — see `plans/AQ2/research-sandboxing.md`) reshaped the original single-WP plan. The founder split the track:
 
-- **AQ1 — run on the computer (remove the sandbox).** The word "sandbox" lied: the agent already runs as a host process with the user's environment. AQ1 makes that the honest, only path — a working directory on the host, no isolation built or claimed — to get things running simply. **Concept LOCKED** (`plans/AQ1/concept.md`).
-- **AQ2 — add an opt-in sandbox (per-agent).** Real isolation as a property of the agent, designed from the research: lean on the harness's own OS sandbox / Apple `container` locally, Firecracker remotely, and the **credential doorway** (egress injection proxy / outside tool-server) so tools keep working under isolation without the secret entering the box. This **dissolves** the "isolation vs inherited OAuth" tradeoff. **Concept SEED** (`plans/AQ2/concept.md`); run `/concept AQ2` to lock before any build.
+- **AQ1 — run on the computer (remove the sandbox).** The word "sandbox" lied: the agent already runs as a host process with the user's environment. AQ1 makes that the honest, only path — a working directory on the host, no isolation built or claimed — to get things running simply. **Concept LOCKED** (`plans/AQ1/requirements.md`).
+- **AQ2 — add an opt-in sandbox (per-agent).** Real isolation as a property of the agent, designed from the research: lean on the harness's own OS sandbox / Apple `container` locally, Firecracker remotely, and the **credential doorway** (egress injection proxy / outside tool-server) so tools keep working under isolation without the secret entering the box. This **dissolves** the "isolation vs inherited OAuth" tradeoff. **Concept SEED** (`plans/AQ2/requirements.md`); run `/pipeline:refine AQ2` to lock before any build.
 - **AQ3 — make remote scheduling work end-to-end.** The distribution axis: run a task on a desktop joined to this instance, which executes it **host-local** (the implemented transport behind today's stub). AQ1 realigns the remote subsystem to this model and leaves the seam coherent; AQ3 makes it actually run across machines, live-proven. Not started.
 
 The original "isolation and inherited OAuth are mutually exclusive past L1" framing is **superseded** — it only holds if the credential must live with the agent; the doorway keeps it out.
 
 **Scope rules.** Ground every claim in the real adapters in `packages/server/src/harness/` — never aspirational architecture. Reconcile vocabulary with the harness-vocabulary lock (the AK1 `workspace → sandbox` rename) and with AN1/AN2's Connection model (held vs inherited). ETHOS-aligned: isolation is **opt-in for genuine cases** (shared server, untrusted code), never a preemptive wall held down by default. `npm run verify` is not relevant to a concept-only WP.
 
-**Reference.** `packages/server/src/harness/sandbox-adapter.ts`, `local-sandbox-adapter.ts`, `docker-sandbox-adapter.ts`, `cli-harness-adapter.ts`, `isolated-harness-adapter.ts`, `remote-harness-adapter.ts`, `adapter-pool.ts` (`CLI_TOOL_CONFIGS`, `envAllowlist`); `docs/architecture/connection-model.md` (held vs inherited); `plans/AN2/concept.md` (the local-free vs remote-carry-in split this sharpens); `ETHOS.md` §2 (trust; no preemptive gating).
+**Reference.** `packages/server/src/harness/sandbox-adapter.ts`, `local-sandbox-adapter.ts`, `docker-sandbox-adapter.ts`, `cli-harness-adapter.ts`, `isolated-harness-adapter.ts`, `remote-harness-adapter.ts`, `adapter-pool.ts` (`CLI_TOOL_CONFIGS`, `envAllowlist`); `docs/architecture/connection-model.md` (held vs inherited); `plans/AN2/requirements.md` (the local-free vs remote-carry-in split this sharpens); `ETHOS.md` §2 (trust; no preemptive gating).
 
 ---
 
@@ -74,7 +74,7 @@ The original "isolation and inherited OAuth are mutually exclusive past L1" fram
 
 ### AQ2 — Add an opt-in sandbox
 
-**Concept:** SEED — `plans/AQ2/concept.md` + research `plans/AQ2/research-sandboxing.md`. Run `/concept AQ2` to lock before architecture.
+**Refinement:** SEED — `plans/AQ2/requirements.md` + research `plans/AQ2/research-sandboxing.md`. Run `/pipeline:refine AQ2` to lock before architecture.
 
 **Workpackage.** As a user with a genuine isolation need (shared server, running untrusted code), I want to **opt into a real sandbox** for an agent session — layered on the AQ1 host run-unit — while my connected tools keep working, so that I gain isolation from my computer without losing my tools and without the secret ever entering the box.
 
@@ -89,12 +89,12 @@ The original "isolation and inherited OAuth are mutually exclusive past L1" fram
 **Complexity.** L
 
 **Pre-build gates.**
-- **Concept:** Required — run `/concept AQ2` (nouns to lock: **isolation level** as an opt-in dimension; **credential doorway**).
+- **Refinement:** Required — run `/pipeline:refine AQ2` (nouns to lock: **isolation level** as an opt-in dimension; **credential doorway**).
 - **Design:** Likely — any user-facing opt-in surface (choosing isolation for a session/team).
 
-**Human design review.** Forecast: maybe (new opt-in surface) — `/design` `DESIGN-CLASS` decides.
+**Human concept review.** Forecast: maybe (new opt-in surface) — `/pipeline:design` `DESIGN-CLASS` decides.
 
-**Acceptance criteria (provisional — refine at `/concept AQ2`).**
+**Acceptance criteria (provisional — refine at `/pipeline:refine AQ2`).**
 - A user can opt a session into a real isolation level; the agent is isolated from the rest of the host yet a connected tool still works via the credential doorway, proven by a live run.
 - The secret never enters the sandbox (proven: placeholder visible inside, real value only outside); no keychain extraction (AN1 hard-rule 4).
 - Isolation is opt-in only — never imposed by default (ETHOS §2).
@@ -120,7 +120,7 @@ The original "isolation and inherited OAuth are mutually exclusive past L1" fram
 
 **Complexity.** L
 
-**Pre-build gates.** Concept: likely a short `/concept AQ3` (the scheduler nouns: joined desktop / worker, dispatch, host-local run). Design: the `SettingsWorker` surface may need work — `/design` decides.
+**Pre-build gates.** Concept: likely a short `/pipeline:refine AQ3` (the scheduler nouns: joined desktop / worker, dispatch, host-local run). Design: the `SettingsWorker` surface may need work — `/pipeline:design` decides.
 
 **Acceptance criteria (provisional).**
 - A task dispatched to a joined desktop runs **host-local** on that desktop and returns results to the originating instance — **live-proven across two machines** (per the e2e-is-local-only rule, a local two-process/two-host proof).

@@ -49,7 +49,7 @@ import {
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "../harness/__tests__/provision-real-session.js";
-import { requireHarness } from "../harness/__tests__/require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "../harness/__tests__/require-harness.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -189,7 +189,6 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		const taskId = `ar4-builtin-task-${Date.now()}`;
 		const threadId = `ar4-builtin-thread-${Date.now()}`;
 
-		const apiKey = process.env.OPENROUTER_API_KEY as string;
 		await seedDispatchDomain(db, {
 			teamId,
 			agentId,
@@ -206,6 +205,8 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		// params not used — dispatcher resolves model via resolveModel callback.
 		const { pool } = BUILTIN_LANE.prepFn({ db, eventBus, tmpDir });
 
+		// Locked model from HARNESS_TEST_MODELS (AR7 matrix) — do NOT hardcode a model id here.
+		const builtinResolvedModel = harnessTestResolvedModel("builtin");
 		const cap = createSandboxCapture();
 
 		dispose = registerTaskDispatcher({
@@ -214,12 +215,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 			adapterPool: pool,
 			workspace: new LocalSandboxAdapter(),
 			sandboxBasePath: tmpDir,
-			resolveModel: async (_tier) => ({
-				provider: "openai-compatible" as const,
-				model: "deepseek/deepseek-v4-pro",
-				apiKey,
-				baseUrl: "https://openrouter.ai/api",
-			}),
+			resolveModel: async (_tier) => builtinResolvedModel,
 			onBeforeTeardown: cap.onBeforeTeardown,
 		});
 
