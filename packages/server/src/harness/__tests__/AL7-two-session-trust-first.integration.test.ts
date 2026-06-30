@@ -83,7 +83,7 @@ import type { RegisteredTool, ToolContext, ToolRegistry } from "../../tools/tool
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
 import type { ToolResult } from "../../tools/tool-result.js";
 import { err } from "../../tools/tool-result.js";
-import { requireHarness } from "./require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 // ── In-memory capturing router ────────────────────────────────────────────────
 //
@@ -504,6 +504,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
+				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
 				const result = await spawnDetached(
 					"claude",
 					[
@@ -518,7 +519,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						"claude-haiku-4-5",
+						harnessTestResolvedModel("claude").model,
 					],
 					{
 						cwd: s1SandboxPath,
@@ -594,6 +595,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
+				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
 				const s1Result = await spawnDetached(
 					"claude",
 					[
@@ -608,7 +610,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						"claude-haiku-4-5",
+						harnessTestResolvedModel("claude").model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -647,6 +649,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned (it should say the file was written).";
 
+				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
 				const s2Result = await spawnDetached(
 					"claude",
 					[
@@ -661,7 +664,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						"claude-haiku-4-5",
+						harnessTestResolvedModel("claude").model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -836,9 +839,18 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
+				// @lore AR7: --model added per AR7 rule (codex now argument-enforced on model).
+				// harnessTestResolvedModel("codex").model → gpt-5.4-mini (tiny baseline).
 				const result = await spawnDetached(
 					"codex",
-					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					[
+						"exec",
+						prompt,
+						"--json",
+						"--dangerously-bypass-approvals-and-sandbox",
+						"--model",
+						harnessTestResolvedModel("codex").model,
+					],
 					{
 						cwd: s1SandboxPath,
 						env: cleanEnv,
@@ -929,9 +941,17 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
+				// @lore AR7: --model added per AR7 rule → gpt-5.4-mini.
 				const s1Result = await spawnDetached(
 					"codex",
-					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					[
+						"exec",
+						prompt,
+						"--json",
+						"--dangerously-bypass-approvals-and-sandbox",
+						"--model",
+						harnessTestResolvedModel("codex").model,
+					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000, closeStdin: true },
 				);
 
@@ -982,9 +1002,17 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				const s2Env = { ...cleanEnv };
 				if (s2TokenEnv) Object.assign(s2Env, s2TokenEnv);
 
+				// @lore AR7: --model added per AR7 rule → gpt-5.4-mini.
 				const s2Result = await spawnDetached(
 					"codex",
-					["exec", prompt, "--json", "--dangerously-bypass-approvals-and-sandbox"],
+					[
+						"exec",
+						prompt,
+						"--json",
+						"--dangerously-bypass-approvals-and-sandbox",
+						"--model",
+						harnessTestResolvedModel("codex").model,
+					],
 					{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000, closeStdin: true },
 				);
 
@@ -1029,8 +1057,10 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 opencode (COMPLETE): Mirrors the codex lane. Uses a plain sandbox (no git
 	// required). writeCliMcpConfig writes opencode.json to the sandbox cwd.
 	// The spawn recipe: opencode run <prompt> --format json --pure
-	//   --dir <sandbox> --model openrouter/~anthropic/claude-haiku-latest
+	//   --dir <sandbox> --model <AR7-locked> (harnessTestResolvedModel("opencode").model)
 	// (W4 closure: --model is required; provider-prefixed form per plan §1a.)
+	// @lore AR7: model was openrouter/~anthropic/claude-haiku-latest; now AR7-locked to
+	//   openrouter/z-ai/glm-4.7-flash (harnessTestResolvedModel("opencode")). Never hardcode.
 	//
 	// Hits PRODUCTION createMcpBridge (stateful) via createMcpRoute at
 	// ${server.url}/api/mcp/${token}. buildStatefulMcpServer and /mcp/:token override deleted.
@@ -1068,8 +1098,8 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				const cleanEnv = buildCleanEnv();
 
-				// W4: --model must be provider-prefixed (openrouter/~anthropic/claude-haiku-latest).
-				// This is the real-harness hardcoded known-good model id (AL6 recipe).
+				// @lore AR7: model AR7-locked via harnessTestResolvedModel("opencode") →
+				// openrouter/z-ai/glm-4.7-flash (replaces openrouter/~anthropic/claude-haiku-latest).
 				const prompt =
 					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
 					"You MUST use the commit_file tool — no other tools are available. " +
@@ -1086,7 +1116,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						s1SandboxPath,
 						"--model",
-						"openrouter/~anthropic/claude-haiku-latest",
+						harnessTestResolvedModel("opencode").model,
 					],
 					{
 						cwd: s1SandboxPath,
@@ -1152,6 +1182,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
+				// @lore AR7: model AR7-locked → openrouter/z-ai/glm-4.7-flash.
 				const s1Result = await spawnDetached(
 					"opencode",
 					[
@@ -1163,7 +1194,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						sandboxPath,
 						"--model",
-						"openrouter/~anthropic/claude-haiku-latest",
+						harnessTestResolvedModel("opencode").model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -1200,6 +1231,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					token: testServer.token,
 				});
 
+				// @lore AR7: model AR7-locked → openrouter/z-ai/glm-4.7-flash.
 				const s2Result = await spawnDetached(
 					"opencode",
 					[
@@ -1211,7 +1243,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						sandboxPath,
 						"--model",
-						"openrouter/~anthropic/claude-haiku-latest",
+						harnessTestResolvedModel("opencode").model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);

@@ -77,7 +77,7 @@ import {
 import type { McpBridgeInstance } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
-import { requireHarness } from "./require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -379,13 +379,14 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// Spawn the REAL claude binary headless.
 					// --dangerously-skip-permissions: required for non-interactive mode.
 					// --output-format json: machine-readable; no TTY required.
-					// --model claude-haiku-4-5: cheapest fast model for trivial prompt.
+					// --model: locked to AR7 matrix (harnessTestResolvedModel("claude").model → haiku).
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
 					// @lore AL6 real-claude-full-binary: The prompt MUST be short and
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
+					// @lore AR7: model is AR7-locked via harnessTestResolvedModel("claude") — never hardcode.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -395,7 +396,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 							"--output-format",
 							"json",
 							"--model",
-							"claude-haiku-4-5",
+							harnessTestResolvedModel("claude").model,
 						],
 						{
 							cwd: sandboxPath,
@@ -914,10 +915,10 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore AL6 opencode-full-binary: Uses openrouter/~anthropic/claude-haiku-latest
-			// (fastest available via OpenRouter). The session completes in ~3s. Pure mode
-			// (--pure) skips external plugin loading for speed. JSON output is streamed
-			// per-event; we look for a step_finish event proving the turn completed.
+			// @lore AL6 opencode-full-binary: Uses AR7-locked model (harnessTestResolvedModel("opencode").model
+			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
+			// output streamed per-event; step_finish proves turn completed.
+			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
 			const result = await spawnDetached(
 				"opencode",
 				[
@@ -927,7 +928,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					"json",
 					"--pure",
 					"--model",
-					"openrouter/~anthropic/claude-haiku-latest",
+					harnessTestResolvedModel("opencode").model,
 				],
 				{
 					cwd: os.tmpdir(),
@@ -1048,7 +1049,9 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			const MODEL = "openrouter/~anthropic/claude-haiku-latest";
+			// @lore AR7: model AR7-locked via harnessTestResolvedModel("opencode") → openrouter/z-ai/glm-4.7-flash.
+			// Old value was openrouter/~anthropic/claude-haiku-latest (hardcoded, demoted by AR7).
+			const MODEL = harnessTestResolvedModel("opencode").model;
 
 			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
 			// We detect step_finish and treat it as a no-return turn.
