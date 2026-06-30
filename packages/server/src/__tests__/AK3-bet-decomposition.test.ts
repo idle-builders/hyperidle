@@ -302,7 +302,7 @@ describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sove
 
 		const mockResolveModel = vi.fn().mockResolvedValue({
 			provider: "openrouter",
-			model: "deepseek/deepseek-v4-pro",
+			model: "deepseek/deepseek-v4-flash",
 			apiKey: "test-key",
 			baseUrl: "https://openrouter.ai/api",
 		} satisfies ResolvedModel);

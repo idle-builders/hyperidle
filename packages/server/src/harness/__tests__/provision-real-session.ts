@@ -379,18 +379,19 @@ export interface HarnessLane {
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api";
 
-// @lore AR5: default OpenRouter model for harness-integration lanes (builtin + opencode).
-// User directive 2026-06-30. Verified slug on OpenRouter; supports tools + tool_choice, 1M ctx.
-export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-pro";
+// @lore AR5: builtin harness-integration lane model (OpenRouter, openai-compatible).
+// User directive 2026-06-30 — switched to the cheaper deepseek-v4-flash to cut test cost.
+// Verified on OpenRouter: tool-capable.
+export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
 
-// @lore AR5: per-harness test-lane models (2026-06-30). Verified:
-//   OPENCODE_MODEL  — moonshotai/kimi-k2.7-code is a tool-capable OpenRouter model; opencode
-//                     requires the "openrouter/" provider prefix → final string openrouter/moonshotai/...
-//   CLAUDE_LANE_MODEL  — claude-opus-4-8 = current Opus 4.8 in MODEL_CATALOG; keychain auth.
-//   CODEX_LANE_MODEL   — gpt-5.1-codex-max = codex-cli 0.141.0 default_model marker confirmed.
-export const OPENCODE_MODEL = "moonshotai/kimi-k2.7-code";
-export const CLAUDE_LANE_MODEL = "claude-opus-4-8";
-export const CODEX_LANE_MODEL = "gpt-5.1-codex-max";
+// @lore AR5: per-harness test-lane models (2026-06-30, cost-reduction directive). Verified:
+//   OPENCODE_MODEL  — z-ai/glm-5-turbo is a tool-capable OpenRouter model; opencode requires
+//                     the "openrouter/" provider prefix → final string openrouter/z-ai/glm-5-turbo.
+//   CLAUDE_LANE_MODEL  — claude-sonnet-4-6 = current Sonnet in MODEL_CATALOG; keychain auth.
+//   CODEX_LANE_MODEL   — gpt-5.4-mini = codex-cli model (cheaper than the codex-max default).
+export const OPENCODE_MODEL = "z-ai/glm-5-turbo";
+export const CLAUDE_LANE_MODEL = "claude-sonnet-4-6";
+export const CODEX_LANE_MODEL = "gpt-5.4-mini";
 
 /**
  * The canonical four-harness lane table. Importing this and iterating
