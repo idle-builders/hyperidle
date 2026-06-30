@@ -420,7 +420,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/threads", createThreadRoutes(options.db, eventBus, options.assistantTurnDeps));
-		api.route("/users", createUserRoutes(options.db, eventBus));
+		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route(
 			"/routines",

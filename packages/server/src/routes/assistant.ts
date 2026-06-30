@@ -29,14 +29,16 @@ import {
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona moves to the Fabric Strategy.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call the Strategy port (scaffoldAgents) + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
+import type { AdapterPool } from "../harness/adapter-pool.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { getActiveStrategy } from "../services/strategy-registry.js";
+import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
@@ -46,7 +48,11 @@ import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js"
 const SYSTEM_PROMPT_MAX_LENGTH = 50_000;
 
 const patchSoulPromptSchema = z.object({
-	systemPrompt: z.string().max(SYSTEM_PROMPT_MAX_LENGTH),
+	systemPrompt: z.string().max(SYSTEM_PROMPT_MAX_LENGTH).optional(),
+	// AR4c: optional harness+model triple — validated by validateAgentConfig on save
+	harnessType: z.string().nullable().optional(),
+	modelId: z.string().nullable().optional(),
+	modelProvider: z.string().nullable().optional(),
 });
 
 function rowToThread(row: {
@@ -261,7 +267,10 @@ export function createAssistantThreadRoute(
  *   GET  — returns { id, name, systemPrompt }
  *   PATCH — updates systemPrompt; 400 for >50_000 chars; 403 for other user
  */
-export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createAssistantSoulRoutes(
+	db: HyperIdleDb,
+	adapterPool: AdapterPool | null,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// Row 6: GET /api/users/:userId/assistant — S (principal-self: self-only guard below)
@@ -367,7 +376,10 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		// Check length limit explicitly (Zod .max() gives a nice error but we
 		// also re-check to ensure 400 even if Zod fails differently)
-		if (parsed.data.systemPrompt.length > SYSTEM_PROMPT_MAX_LENGTH) {
+		if (
+			parsed.data.systemPrompt !== undefined &&
+			parsed.data.systemPrompt.length > SYSTEM_PROMPT_MAX_LENGTH
+		) {
 			return c.json(
 				{
 					error: `systemPrompt must be at most ${SYSTEM_PROMPT_MAX_LENGTH} characters`,
@@ -375,6 +387,26 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				},
 				400,
 			);
+		}
+
+		// AR4c: validate harness+model triple BEFORE touching the DB — fail fast.
+		// @lore AR4c: We validate BEFORE creating/loading the agent row to ensure a
+		// bad triple never contaminates the row (422 = validation error, no side effect).
+		const harnessType = parsed.data.harnessType !== undefined ? parsed.data.harnessType : undefined;
+		const modelProvider =
+			parsed.data.modelProvider !== undefined ? parsed.data.modelProvider : undefined;
+		const modelId = parsed.data.modelId !== undefined ? parsed.data.modelId : undefined;
+
+		if (harnessType !== undefined || modelProvider !== undefined || modelId !== undefined) {
+			const validationError = validateAgentConfig(
+				harnessType ?? null,
+				modelProvider ?? null,
+				modelId,
+				adapterPool,
+			);
+			if (validationError) {
+				return c.json({ error: validationError.error, code: validationError.code }, 422);
+			}
 		}
 
 		// Verify the target user exists
@@ -414,15 +446,45 @@ export function createAssistantSoulRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			);
 		}
 
-		await db
-			.update(users)
-			.set({ systemPrompt: parsed.data.systemPrompt })
-			.where(eq(users.id, assistantAgentId));
+		// Build the update set — only include fields explicitly provided in the request.
+		// systemPrompt: if omitted, preserve existing value.
+		// harness/model: if provided, update; if omitted, preserve existing.
+		const updateSet: {
+			systemPrompt?: string | null;
+			harnessType?: string | null;
+			modelId?: string | null;
+			modelProvider?: string | null;
+		} = {};
+
+		if (parsed.data.systemPrompt !== undefined) {
+			updateSet.systemPrompt = parsed.data.systemPrompt;
+		}
+		if (harnessType !== undefined) {
+			updateSet.harnessType = harnessType;
+		}
+		if (modelId !== undefined) {
+			updateSet.modelId = modelId;
+		}
+		if (modelProvider !== undefined) {
+			updateSet.modelProvider = modelProvider;
+		}
+
+		await db.update(users).set(updateSet).where(eq(users.id, assistantAgentId));
+
+		// Re-read the updated row to return accurate values
+		const [updatedRow] = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, assistantAgentId))
+			.limit(1);
 
 		return c.json({
 			id: agentRow.id,
 			name: agentRow.name,
-			systemPrompt: parsed.data.systemPrompt,
+			systemPrompt: updatedRow?.systemPrompt ?? null,
+			harnessType: updatedRow?.harnessType ?? null,
+			modelId: updatedRow?.modelId ?? null,
+			modelProvider: updatedRow?.modelProvider ?? null,
 		});
 	});
 
