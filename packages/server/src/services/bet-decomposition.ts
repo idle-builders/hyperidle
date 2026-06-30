@@ -572,9 +572,22 @@ async function runRealPmTurn(
 		throw new Error("No model resolved for PM decomposition");
 	}
 
-	const baseSystemPrompt =
-		pm.systemPrompt ?? "You are a product manager. Break down the provided bet into a task list.";
-
+	// betContext carries the decomposition instruction — what the agent needs to DO
+	// the job. Written to AGENTS.md and CLAUDE.md so CLI harnesses receive it as
+	// project-context instructions. The PM persona string is NOT written here:
+	// if the selected agent has its own systemPrompt, that is the agent's real
+	// identity and is handled via SessionConfig.systemPromptPath (the kernel's
+	// existing path). The kernel-default "You are a product manager…" literal is
+	// a pre-existing single-location default in the SessionConfig path (AK WP will
+	// remove it) — this write must NOT copy it into these files (AK6: kernel
+	// hard-codes no persona; writing the kernel-default PM string into AGENTS.md/
+	// CLAUDE.md would widen that violation into the scratch sandbox filesystem).
+	//
+	// @lore AR5 / AK6: Do NOT include `pm.systemPrompt ?? "You are a product
+	// manager..."` here. The agent-identity layer (who the agent IS) belongs to
+	// the Strategy; the bet-context layer (what the agent must DO for this bet)
+	// belongs here. Mix them and the kernel leaks its hardcoded PM persona into
+	// every decomposition sandbox on disk.
 	const betContext = [
 		`**Bet goal:** ${bet.description}`,
 		bet.doneCondition ? `**Done condition:** ${bet.doneCondition}` : "",
@@ -585,18 +598,14 @@ async function runRealPmTurn(
 		.filter(Boolean)
 		.join("\n");
 
-	// Full system prompt with bet context — written to AGENTS.md (codex) and CLAUDE.md
-	// (claude) for CLI harnesses. Each CLI harness reads its own project context file.
-	const systemPrompt = `${baseSystemPrompt}\n\n${betContext}`;
-
 	// @lore AR5: Each CLI harness reads its project context from a different file:
 	// - codex reads AGENTS.md from the sandbox cwd.
 	// - claude reads CLAUDE.md from the sandbox cwd (not AGENTS.md).
-	// Write AGENTS.md (codex/opencode) and CLAUDE.md (claude/opencode) with the full system
-	// prompt so CLI harnesses have the bet context as system-level instructions.
-	// The builtin adapter ignores these files (it uses SessionConfig.messages instead).
-	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), systemPrompt, "utf-8");
-	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), systemPrompt, "utf-8");
+	// Write AGENTS.md (codex/opencode) and CLAUDE.md (claude/opencode) with the bet
+	// context so CLI harnesses have the decomposition instructions as project-level
+	// context. The builtin adapter ignores these files (it uses SessionConfig.messages).
+	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), betContext, "utf-8");
+	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), betContext, "utf-8");
 
 	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars by the adapter)
 	// for CLI harnesses that carry it as a positional argument.
