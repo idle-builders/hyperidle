@@ -1,0 +1,23 @@
+{
+  "id": "AR4",
+  "status": "done",
+  "currentStep": "shipped",
+  "track": "AR",
+  "complexity": "M",
+  "worktree": ".worktrees/AR4",
+  "branch": "feat/AR4-assistant-turn-dispatcher-real-harness",
+  "baseSha": "fd46daa5826577b6fdf09beac29bceb47b8256c2",
+  "prNumber": 387,
+  "startedAt": "2026-06-30T00:18:00Z",
+  "completedAt": "2026-06-30T03:50:00Z",
+  "architectureScore": 8,
+  "reviewVerdict": "DONE",
+  "dependsOn": ["AR1", "AR2"],
+  "models": {
+    "builtin": "deepseek/deepseek-v4-pro",
+    "claude": "claude-opus-4-8",
+    "codex": "default-gpt",
+    "opencode": "openrouter/moonshotai/kimi-k2.7-code"
+  },
+  "notes": "Converted AH3-assistant-turn, AK4-assistant-draft, AH6-lane-gates-broken-turn, assistant-turn-per-agent-seam, R1-wire-agent-execution, AD2-task-dispatcher to real harness via provisionSession. AD2/R1 = full 4-harness matrix; AH3/AK4/AH6 = builtin-only-by-construction (BUILTIN_ONLY_INTEGRATION carve-out). Dispatch->provision flowed through real agent via onBeforeTeardown capture seam. Review CRITICAL caught + fixed a crashed-state assertion weakening (CC-004 recurrence); opencode lane root cause = missing openrouter/ model prefix. Per-harness models set per founder directive."
+}
