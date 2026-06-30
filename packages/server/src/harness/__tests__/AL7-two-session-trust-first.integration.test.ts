@@ -83,6 +83,7 @@ import type { RegisteredTool, ToolContext, ToolRegistry } from "../../tools/tool
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
 import type { ToolResult } from "../../tools/tool-result.js";
 import { err } from "../../tools/tool-result.js";
+import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import { requireHarness } from "./require-harness.js";
 
 // ── In-memory capturing router ────────────────────────────────────────────────
@@ -1047,7 +1048,12 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	describe("[harness:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("opencode");
-		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
+		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async ({
+			skip,
+		}) => {
+			// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+			if (!(await requireOpenRouterCredits(skip, "[AL7 opencode session-1]"))) return;
+
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
 			const testSessionId = `al7-rh-oc-s1-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -1127,7 +1133,12 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			}
 		}, 90_000);
 
-		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)", async () => {
+		test("FULL BINARY PROOF session-2: approve → session-2 executes grant → real file written (AC4, AC8, AC10)", async ({
+			skip,
+		}) => {
+			// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+			if (!(await requireOpenRouterCredits(skip, "[AL7 opencode session-2]"))) return;
+
 			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s2loop-"));
 			const testSessionId = `al7-rh-oc-s2-${Math.random().toString(36).slice(2, 10)}`;
 

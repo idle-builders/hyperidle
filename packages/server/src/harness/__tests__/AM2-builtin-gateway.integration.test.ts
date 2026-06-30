@@ -23,6 +23,7 @@
 import type { HarnessEvent, ResolvedModel } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
+import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import { requireHarness } from "./require-harness.js";
 
 // OpenRouter is OpenAI-compatible: same chat/completions endpoint shape at
@@ -173,7 +174,12 @@ async function tryModelCall(
 describe("AM2 builtin gateway — real openai-compatible call", () => {
 	requireHarness("builtin");
 
-	test("drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text", async () => {
+	test("drives a real call through BuiltinHarnessAdapter with openai-compatible provider and asserts non-echoed completion text", async ({
+		skip,
+	}) => {
+		// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+		if (!(await requireOpenRouterCredits(skip, "[AM2 builtin gateway]"))) return;
+
 		// Guaranteed by requireHarness("builtin"): OPENROUTER_API_KEY is present.
 		const apiKey = process.env.OPENROUTER_API_KEY as string;
 

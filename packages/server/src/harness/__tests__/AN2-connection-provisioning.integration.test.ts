@@ -57,6 +57,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, test } from "vitest";
 import { applyProvisioningPlan } from "../../services/connection-provisioning.js";
+import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import { requireHarness } from "./require-harness.js";
 
 // ── Clean env for headless binary spawning ────────────────────────────────────
@@ -605,6 +606,9 @@ describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode
 			skip();
 			return;
 		}
+
+		// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+		if (!(await requireOpenRouterCredits(skip, "[AN2 real-harness opencode]"))) return;
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-opencode-"));
 		let mcpServer: McpTestServer | null = null;

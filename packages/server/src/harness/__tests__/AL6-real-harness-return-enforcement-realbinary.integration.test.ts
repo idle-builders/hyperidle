@@ -77,6 +77,7 @@ import {
 import type { McpBridgeInstance } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
+import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
@@ -472,6 +473,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// @lore AR6 guard-backtick: /[`$<>|;&]/ uses a backtick in a regex literal;
 					// the guard parser misidentifies it as a template literal start → subsequent
 					// requireHarness() calls are treated as "inside a string" and ignored.
+					// biome-ignore lint/complexity/useRegexLiterals: backtick in regex literal breaks honest-harness-guard parser
 					expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 					// The hook script must exist.
@@ -571,6 +573,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				// settings.json hook command must NOT contain shell expansion chars.
 				const hookStr = JSON.stringify(hooks.Stop);
 				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
+				// biome-ignore lint/complexity/useRegexLiterals: backtick in regex literal breaks honest-harness-guard parser
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
@@ -738,6 +741,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				const hookStr = JSON.stringify(stopHooks);
 				// No shell expansion chars in JSON config.
 				// Use new RegExp() to avoid guard backtick-parse issue (see @lore AR6 guard-backtick).
+				// biome-ignore lint/complexity/useRegexLiterals: backtick in regex literal breaks honest-harness-guard parser
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
 				// The shell script must exist and reference the bridge URL.
@@ -909,7 +913,12 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
-		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async () => {
+		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async ({
+			skip,
+		}) => {
+			// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+			if (!(await requireOpenRouterCredits(skip, "[AL6 opencode FULL BINARY PROOF]"))) return;
+
 			// Spawn opencode run with a trivial prompt, fast model, JSON output.
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
@@ -1030,7 +1039,12 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			expect(hasCredentials).toBe(true);
 		}, 30_000);
 
-		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async () => {
+		test("LIVE process-reengage PROOF: step_finish detected on first spawn → re-engage fires second spawn with forcing message → second turn completes", async ({
+			skip,
+		}) => {
+			// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
+			if (!(await requireOpenRouterCredits(skip, "[AL6 opencode LIVE PROOF]"))) return;
+
 			// This test proves the process-reengage path for opencode:
 			//   1. HyperIdle owns the opencode spawn.
 			//   2. stdout is parsed for step_finish (turn-end signal).
