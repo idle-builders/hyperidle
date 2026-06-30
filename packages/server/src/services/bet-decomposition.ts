@@ -592,25 +592,21 @@ async function runRealPmTurn(
 	// @lore AR5: Each CLI harness reads its project context from a different file:
 	// - codex reads AGENTS.md from the sandbox cwd.
 	// - claude reads CLAUDE.md from the sandbox cwd (not AGENTS.md).
-	// - opencode uses `run <prompt>` where <prompt> = {{prompt}} = assembledPrompt.slice(0,200)
-	//   and does NOT read project context files automatically.
-	// Write AGENTS.md (codex) and CLAUDE.md (claude) with the full system prompt so those
-	// harnesses have the bet context as system-level instructions.
+	// Write AGENTS.md (codex/opencode) and CLAUDE.md (claude/opencode) with the full system
+	// prompt so CLI harnesses have the bet context as system-level instructions.
 	// The builtin adapter ignores these files (it uses SessionConfig.messages instead).
 	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), systemPrompt, "utf-8");
 	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), systemPrompt, "utf-8");
 
 	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars by the adapter)
 	// for CLI harnesses that carry it as a positional argument.
-	// For codex/claude: bet context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
+	// For codex/claude/opencode: bet context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
 	// For builtin: assembledPrompt is unused; it uses messages[] with the full betContext.
-	// @lore AR5 opencode-context-gap: opencode does NOT read AGENTS.md/CLAUDE.md automatically
-	// from the sandbox cwd (unlike codex/claude), so it receives only this trigger prompt
-	// without the full bet goal. This is a known constraint of the opencode harness — it cannot
-	// receive file-based project context the same way. The honest fix is to document the gap
-	// rather than truncate the bet description to fake a compact self-contained prompt.
-	// A full-context opencode path (e.g. via MCP or a writable instruction file opencode reads)
-	// would require researching opencode's project-context mechanism — out of scope for AR5.
+	// @lore AR5: opencode DOES read AGENTS.md/CLAUDE.md automatically by traversing up from the
+	// cwd on startup — the same mechanism codex and claude use (https://opencode.ai/docs/rules/,
+	// verified 2026-06-30). The adapter spawns opencode with cwd: config.sandboxPath
+	// (cli-harness-adapter.ts:426), exactly where we write both files above. So opencode
+	// receives the full bet context via AGENTS.md/CLAUDE.md — no gap, no special-casing needed.
 	const assembledPrompt =
 		"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text.";
 
