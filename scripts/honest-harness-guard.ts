@@ -248,6 +248,195 @@ export function hasAbsentSkipIf(source: string): boolean {
 	return ABSENT_SKIPIF_PATTERNS.some((re) => re.test(source));
 }
 
+// ── AR7: banned model-caller import detection ─────────────────────────────────
+
+/**
+ * Strip block and line comments from TypeScript source while correctly skipping
+ * string/template literal contents. Used so that an import path that appears
+ * only in a comment does not trigger the banned-import check.
+ *
+ * Strategy mirrors `stripCodeSoOnlyRealCallsRemain` but is simpler: we DO NOT
+ * blank in-string text (we need the import specifier strings themselves to be
+ * intact so the import regex can match them). Instead we only erase comment
+ * regions — the import statement inside a comment is gone; the import statement
+ * outside a comment still contains its specifier string.
+ */
+function stripComments(source: string): string {
+	let result = "";
+	let i = 0;
+	const len = source.length;
+
+	while (i < len) {
+		// Block comment: /* … */
+		if (source[i] === "/" && source[i + 1] === "*") {
+			i += 2;
+			while (i < len && !(source[i] === "*" && source[i + 1] === "/")) {
+				i++;
+			}
+			i += 2; // consume closing */
+			continue;
+		}
+		// Line comment: // … \n
+		if (source[i] === "/" && source[i + 1] === "/") {
+			i += 2;
+			while (i < len && source[i] !== "\n") {
+				i++;
+			}
+			continue;
+		}
+		// String/template literals — keep verbatim (specifiers live inside strings)
+		if (source[i] === '"' || source[i] === "'" || source[i] === "`") {
+			const quote = source[i];
+			result += source[i];
+			i++;
+			while (i < len && source[i] !== quote) {
+				if (source[i] === "\\" && i + 1 < len) {
+					result += source[i] + source[i + 1];
+					i += 2;
+					continue;
+				}
+				if (quote === "`" && source[i] === "$" && source[i + 1] === "{") {
+					result += source[i] + source[i + 1];
+					i += 2;
+					let depth = 1;
+					while (i < len && depth > 0) {
+						if (source[i] === "{") depth++;
+						else if (source[i] === "}") depth--;
+						result += source[i];
+						i++;
+					}
+					continue;
+				}
+				result += source[i];
+				i++;
+			}
+			if (i < len) {
+				result += source[i]; // closing quote
+				i++;
+			}
+			continue;
+		}
+		result += source[i];
+		i++;
+	}
+	return result;
+}
+
+/**
+ * Specifier substrings that identify the raw model-callers. A harness-facing
+ * integration test must NOT import these directly — it must get adapters from
+ * the seam (provision-real-session.ts / require-harness.ts) instead.
+ *
+ * @lore AR7: import-ban (not model-id string-matching) is the lock because
+ * model-id matching is brittle: it breaks on every model rename/addition and
+ * can be evaded by assigning the id to a variable. The true enforcement
+ * invariant is structural: if a test cannot import the raw adapter classes or
+ * the llm-client, it cannot construct an adapter at all, so there is no path
+ * left to supply a custom model. The ban is on the specifier strings that
+ * identify each raw model-caller module; `provision-real-session.ts` is the
+ * only file allowed to import them (it's a `.ts` support module, not a
+ * `.integration.test.ts`, so `isHarnessIntegrationPath` never selects it).
+ */
+const BANNED_IMPORT_SPECIFIERS: readonly RegExp[] = [
+	/\/cli-harness-adapter/,
+	/\/builtin-harness-adapter/,
+	/\/llm-client/,
+];
+
+/** Adapter construction patterns that indicate a test bypassed the seam. */
+const BANNED_CONSTRUCTION_PATTERNS: readonly RegExp[] = [
+	/new\s+CliHarnessAdapter\s*\(/,
+	/new\s+BuiltinHarnessAdapter\s*\(/,
+];
+
+/** Regex matching static named/default imports: `import ... from "..."`. */
+const IMPORT_STMT = /import\s[^;]*from\s*["']([^"']+)["']/g;
+/** Regex matching dynamic imports: `import("...")` or `await import("...")`. */
+const DYNAMIC_IMPORT = /(?:await\s+)?import\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+/**
+ * Banned model-caller import specifiers + raw-adapter construction in a
+ * harness-facing integration test. Returns the offending evidence strings
+ * (empty = clean).
+ *
+ * Detects (over comment-stripped source):
+ *   - any `import … from "…"` whose specifier matches `/cli-harness-adapter/`,
+ *     `/builtin-harness-adapter/`, or `/llm-client/`
+ *   - any bare side-effect `import "…"` (no `from`) matching those specifiers
+ *   - any `import("…")` dynamic import matching those specifiers
+ *   - any `new (Cli|Builtin)HarnessAdapter(` construction
+ *
+ * Does NOT match `provision-real-session`, `adapter-pool`, `session-provisioning`/
+ * `provisionSession`, or `require-harness` — those remain importable.
+ *
+ * @lore AR7: import-ban (not model-id string-matching) is the structural lock
+ * for the per-harness test-model matrix. Model-id matching is brittle (breaks
+ * on rename, evadable via variable indirection). Banning the import of the raw
+ * model-caller modules (named, side-effect, and dynamic) leaves no sanctioned
+ * path to construct an adapter with a custom model: the only remaining path is
+ * the seam (provision-real-session.ts / require-harness.ts), whose factories
+ * read the locked HARNESS_TEST_MODELS map.
+ */
+export function bannedModelToolImports(source: string): string[] {
+	const stripped = stripComments(source);
+	const found = new Set<string>();
+
+	// Check static named/default imports: import ... from "..."
+	for (const match of stripped.matchAll(IMPORT_STMT)) {
+		const specifier = match[1];
+		if (specifier === undefined) continue;
+		for (const pattern of BANNED_IMPORT_SPECIFIERS) {
+			if (pattern.test(specifier)) {
+				found.add(`import "${specifier}"`);
+				break;
+			}
+		}
+	}
+
+	// Check bare side-effect imports: `import "..."` (no `from`, no binding).
+	// A named import (`import { x } from "..."`) has its specifier captured by
+	// IMPORT_STMT above. The side-effect form starts with `import` followed
+	// directly (optional whitespace) by a quote. We detect it by splitting on
+	// lines and checking each line independently — the `/g` statefulness issue
+	// cannot arise on single-line matches.
+	for (const line of stripped.split("\n")) {
+		const trimmed = line.trim();
+		// A bare side-effect import starts with `import "` or `import '` (no `{`, no `*`, no name before the quote)
+		const sideEffectMatch = /^import\s*(["'])([^"']+)\1/.exec(trimmed);
+		if (!sideEffectMatch) continue;
+		const specifier = sideEffectMatch[2];
+		if (specifier === undefined) continue;
+		for (const pattern of BANNED_IMPORT_SPECIFIERS) {
+			if (pattern.test(specifier)) {
+				found.add(`import "${specifier}"`);
+				break;
+			}
+		}
+	}
+
+	// Check dynamic imports (used in AR2 Lane 1 candidate retry loop)
+	for (const match of stripped.matchAll(DYNAMIC_IMPORT)) {
+		const specifier = match[1];
+		if (specifier === undefined) continue;
+		for (const pattern of BANNED_IMPORT_SPECIFIERS) {
+			if (pattern.test(specifier)) {
+				found.add(`import("${specifier}")`);
+				break;
+			}
+		}
+	}
+
+	// Check construction patterns (catches re-export / aliased imports)
+	for (const pattern of BANNED_CONSTRUCTION_PATTERNS) {
+		const m = stripped.match(pattern);
+		if (m) {
+			found.add(m[0].trim());
+		}
+	}
+
+	return [...found];
+}
+
 // ── Guard rules over (already-read) files ─────────────────────────────────────
 
 export interface GuardFile {
@@ -265,25 +454,29 @@ export interface GuardResult {
 }
 
 /**
- * Apply the lane/skipIf/stub-content/coverage rules to a set of pre-read files
- * against the allowlists. Returns one result per input file plus one per stale
- * allowlist entry. The coverage-debt allowlist (AR2) stages files that cover only
- * a subset — they pass the coverage check until their conversion lands.
+ * Apply the lane/skipIf/stub-content/coverage/model-import rules to a set of
+ * pre-read files against the allowlists. Returns one result per input file plus
+ * one per stale allowlist entry. The coverage-debt allowlist (AR2) stages files
+ * that cover only a subset — they pass the coverage check until their conversion
+ * lands. The model-import-debt allowlist (AR7) stages files that import raw
+ * model-callers directly — they pass until converted to use the seam.
  */
 export function checkGuardRules(
 	files: GuardFile[],
 	allowlist: string[],
 	coverageAllowlist?: string[],
+	modelImportAllowlist?: string[],
 ): GuardResult[] {
 	const allow = new Set(allowlist.map((p) => p.replace(/\\/g, "/")));
 	const coverageAllow = new Set((coverageAllowlist ?? []).map((p) => p.replace(/\\/g, "/")));
+	const modelImportAllow = new Set((modelImportAllowlist ?? []).map((p) => p.replace(/\\/g, "/")));
 	const results: GuardResult[] = [];
 	const seen = new Set<string>();
 
 	for (const f of files) {
 		const p = f.path.replace(/\\/g, "/");
 		seen.add(p);
-		results.push({ path: p, violation: ruleFor(f, p, allow, coverageAllow) });
+		results.push({ path: p, violation: ruleFor(f, p, allow, coverageAllow, modelImportAllow) });
 	}
 
 	// Rule 4 (stale): an allowlisted path that never appeared as an existing file.
@@ -305,12 +498,14 @@ function ruleFor(
 	p: string,
 	allow: Set<string>,
 	coverageAllow: Set<string>,
+	modelImportAllow: Set<string> = new Set(),
 ): string | null {
 	// Only harness-facing integration files are subject to the guard.
 	if (!isHarnessIntegrationPath(p)) return null;
 
 	const allowlisted = allow.has(p);
 	const coverageAllowlisted = coverageAllow.has(p);
+	const modelImportAllowlisted = modelImportAllow.has(p);
 
 	// Rule 4 (stale): allowlisted but the file is gone.
 	if (!f.exists) {
@@ -324,6 +519,12 @@ function ruleFor(
 			return (
 				`stale coverage-debt entry — ${p} no longer exists. ` +
 				`Remove it from scripts/coverage-debt.allowlist.json.`
+			);
+		}
+		if (modelImportAllowlisted) {
+			return (
+				`stale model-import-debt entry — ${p} no longer exists. ` +
+				`Remove it from scripts/model-import-debt.allowlist.json.`
 			);
 		}
 		return null;
@@ -375,6 +576,24 @@ function ruleFor(
 		);
 	}
 
+	// AR7: Model-import rule — no direct imports of raw model-callers.
+	const bannedImports = bannedModelToolImports(f.source);
+	if (bannedImports.length > 0) {
+		if (modelImportAllowlisted) return null; // staged debt — monotonic shrink.
+		return (
+			`${p} must not import the raw model-callers (cli-harness-adapter/builtin-harness-adapter/llm-client) — ` +
+			`drive the harness via provision-real-session.ts (runThroughHarness / lockedHarnessAdapter); ` +
+			`the model is locked in HARNESS_TEST_MODELS. Offending evidence: ${bannedImports.join(", ")}.`
+		);
+	}
+	// Debt paid: clean of banned imports but still on model-import allowlist.
+	if (bannedImports.length === 0 && modelImportAllowlisted) {
+		return (
+			`model-import debt paid — ${p} no longer imports raw model-callers but is still on the allowlist. ` +
+			`Remove it from scripts/model-import-debt.allowlist.json.`
+		);
+	}
+
 	return null; // clean + not allowlisted — the honest case.
 }
 
@@ -385,6 +604,9 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 const ALLOWLIST_PATH = path.join(SCRIPT_DIR, "honest-harness-guard.allowlist.json");
 /** AR2: parallel coverage-debt allowlist — stages subset-covered files until their conversion. */
 const COVERAGE_DEBT_PATH = path.join(SCRIPT_DIR, "coverage-debt.allowlist.json");
+
+/** AR7: model-import-debt allowlist — stages files that import raw model-callers directly. */
+const MODEL_IMPORT_DEBT_PATH = path.join(SCRIPT_DIR, "model-import-debt.allowlist.json");
 
 const SCAN_DIRS = [
 	"packages/server/src/harness/__tests__",
@@ -430,6 +652,14 @@ function readCoverageAllowlist(): string[] {
 	if (!fs.existsSync(COVERAGE_DEBT_PATH)) return [];
 	const parsed: unknown = JSON.parse(fs.readFileSync(COVERAGE_DEBT_PATH, "utf8"));
 	if (!Array.isArray(parsed)) throw new Error("coverage-debt allowlist must be a JSON array of paths");
+	return parsed.map((p) => String(p));
+}
+
+/** AR7: read the model-import-debt allowlist (parallel to stub + coverage allowlists). */
+function readModelImportAllowlist(): string[] {
+	if (!fs.existsSync(MODEL_IMPORT_DEBT_PATH)) return [];
+	const parsed: unknown = JSON.parse(fs.readFileSync(MODEL_IMPORT_DEBT_PATH, "utf8"));
+	if (!Array.isArray(parsed)) throw new Error("model-import-debt allowlist must be a JSON array of paths");
 	return parsed.map((p) => String(p));
 }
 
@@ -510,19 +740,42 @@ function writeCoverageAllowlist(): void {
 	for (const d of withMissing) process.stdout.write(`  ${d}\n`);
 }
 
+/**
+ * AR7: --write-model-import-allowlist — COMPUTES the model-import-debt seed from
+ * the actual `bannedModelToolImports()` predicate over all repo harness-facing files.
+ * Never hand-copied from the stub or coverage allowlists (each debt axis retires
+ * independently — see AR2 W1 lore in `writeCoverageAllowlist`).
+ */
+function writeModelImportAllowlist(): void {
+	const files = collectSelectedFiles();
+	const withBanned = files
+		.filter((f) => bannedModelToolImports(f.source).length > 0)
+		.map((f) => f.path)
+		.sort();
+	fs.writeFileSync(MODEL_IMPORT_DEBT_PATH, `${JSON.stringify(withBanned, null, "\t")}\n`);
+	process.stdout.write(
+		`honest-harness-guard: wrote ${withBanned.length} model-import-debt entries.\n`,
+	);
+	for (const d of withBanned) process.stdout.write(`  ${d}\n`);
+}
+
 // ── --check ───────────────────────────────────────────────────────────────────
 
 function runCheck(): { ok: boolean; violations: GuardResult[]; lane: string[] } {
 	const lane = laneViolations();
 	const allowlist = readAllowlist();
 	const coverageAllowlist = readCoverageAllowlist();
+	const modelImportAllowlist = readModelImportAllowlist();
 	const selectedFiles = collectSelectedFiles();
-	// Stale-entry detection for BOTH allowlists.
+	// Stale-entry detection for ALL three allowlists.
 	const files = withStaleEntries(
-		withStaleEntries(selectedFiles, allowlist),
-		coverageAllowlist,
+		withStaleEntries(
+			withStaleEntries(selectedFiles, allowlist),
+			coverageAllowlist,
+		),
+		modelImportAllowlist,
 	);
-	const results = checkGuardRules(files, allowlist, coverageAllowlist).filter(
+	const results = checkGuardRules(files, allowlist, coverageAllowlist, modelImportAllowlist).filter(
 		(r) => r.violation !== null,
 	);
 	return { ok: lane.length === 0 && results.length === 0, violations: results, lane };
@@ -544,6 +797,14 @@ if (isEntrypoint) {
 		writeCoverageAllowlist();
 		process.exit(0);
 	}
+	if (process.argv.includes("--write-model-import-allowlist")) {
+		// AR7: Compute and write the model-import-debt allowlist from actual
+		// bannedModelToolImports() predicate. The seam (provision-real-session.ts) and
+		// require-harness.ts are NOT selected by isHarnessIntegrationPath (.ts suffix,
+		// not .integration.test.ts) so they will never appear in the output.
+		writeModelImportAllowlist();
+		process.exit(0);
+	}
 	if (process.argv.includes("--check")) {
 		const { ok, violations, lane } = runCheck();
 		if (ok) {
@@ -562,7 +823,7 @@ if (isEntrypoint) {
 		process.exit(1);
 	}
 	process.stderr.write(
-		"Usage: npx tsx scripts/honest-harness-guard.ts [--check | --write-allowlist | --write-coverage-allowlist]\n",
+		"Usage: npx tsx scripts/honest-harness-guard.ts [--check | --write-allowlist | --write-coverage-allowlist | --write-model-import-allowlist]\n",
 	);
 	process.exit(1);
 }
