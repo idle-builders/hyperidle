@@ -319,6 +319,18 @@ export interface HarnessRunCtx {
 		readonly mcpBaseUrl: string;
 		readonly close: () => Promise<void>;
 	};
+	/**
+	 * Optional async callback invoked with the generated `ProvisionSessionParams`
+	 * AFTER `prepFn` but BEFORE `provisionSession`. Use to seed the DB with the
+	 * params' agentId/taskId AFTER the lane has generated them (params carry
+	 * timestamp-based IDs that cannot be predicted in advance).
+	 *
+	 * @lore AR5: `prepFn` generates agentId/taskId via `Date.now()` — callers
+	 * cannot know them before calling `runThroughHarness`. This seam lets tests
+	 * seed the DB with the ACTUAL generated IDs rather than a fixed constant that
+	 * never matches what the lane will request from `admitSession`.
+	 */
+	readonly onBeforeSession?: (params: ProvisionSessionParams) => Promise<void>;
 }
 
 /**
@@ -564,6 +576,16 @@ export async function runThroughHarness(
 	ctx: HarnessRunCtx,
 ): Promise<{ result: ProvisionSessionResult; cap: SandboxCapture }> {
 	const { pool, params, capturePaths } = lane.prepFn(ctx);
+
+	// @lore AR5: `onBeforeSession` fires after `prepFn` generates timestamp-based
+	// agentId/taskId and BEFORE `provisionSession` calls `admitSession`. Tests use
+	// it to seed the DB with the ACTUAL generated IDs. Without this seam,
+	// `admitSession` throws "Agent not found: ar-<harness>-agent-<ts>" because the
+	// seed ran before the IDs were known.
+	if (ctx.onBeforeSession) {
+		await ctx.onBeforeSession(params);
+	}
+
 	const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
 
 	const deps: ProvisionSessionDeps = {

@@ -26,7 +26,11 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { decompositionDepsForLane } from "../harness/__tests__/provision-real-decomposition.js";
+import {
+	decompositionDepsForLane,
+	decompositionLaneMeta,
+} from "../harness/__tests__/provision-real-decomposition.js";
+import type { HarnessLane } from "../harness/__tests__/provision-real-session.js";
 import { SUPPORTED_HARNESS_LANES } from "../harness/__tests__/provision-real-session.js";
 import { requireHarness } from "../harness/__tests__/require-harness.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
@@ -48,19 +52,28 @@ const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]!;
 const NOW = "2026-06-15T00:00:00.000Z";
 
 /**
- * Seed a minimal team + eligible agent + bet.
- * The PM agent is kind=ai, status=active, agentCategory=team — eligible for
- * decomposition. No harnessType/modelProvider set → defaults to
- * builtin/anthropic which `decompositionDepsForLane` accommodates.
+ * Seed a minimal team + eligible PM agent + bet for the given lane.
+ *
+ * The PM agent's harnessType and modelProvider are set from `decompositionLaneMeta(lane)`
+ * so that `adapterPool.select({ harnessType, modelProviders })` in `runRealPmTurn`
+ * matches the adapter registered by `decompositionDepsForLane`.
+ *
+ * @lore AR5: Without explicit harnessType/modelProvider on the PM agent, `runRealPmTurn`
+ * defaults to `harnessType: "builtin"` + `modelProvider: "anthropic"`. The per-lane
+ * pool registers adapters with `type: "builtin"/"claude"/"codex"/"opencode"` and matching
+ * `modelProviders`. A harnessType mismatch → `adapterPool.select()` returns null →
+ * "No eligible harness adapter" → blocked/failed → `decompositionStatus !== "done"`.
  */
 async function seedDecompositionDomain(
 	db: HyperIdleDb,
 	suffix: string,
+	lane: HarnessLane,
 ): Promise<{ betId: string; teamId: string; agentId: string }> {
 	const teamId = `team-ar5-${suffix}`;
 	const memberId = `tm-ar5-${suffix}`;
 	const agentId = `agent-ar5-${suffix}`;
 	const betId = `bet-ar5-${suffix}`;
+	const { harnessType, modelProvider } = decompositionLaneMeta(lane);
 
 	await db.insert(teams).values({
 		id: teamId,
@@ -76,6 +89,7 @@ async function seedDecompositionDomain(
 		formedAt: NOW,
 	});
 	// PM agent — eligible, kind=ai, agentCategory=team, role=product_manager.
+	// harnessType/modelProvider set per-lane so adapterPool.select() finds the adapter.
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -86,6 +100,8 @@ async function seedDecompositionDomain(
 		status: "active",
 		maxConcurrentSessions: 2,
 		costActual: 0,
+		harnessType,
+		modelProvider,
 		createdAt: NOW,
 	});
 	// Active bet awaiting decomposition.
@@ -138,7 +154,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		const { minimalStrategy } = await import("@hyperidle/strategy-minimal");
 		setActiveStrategy(minimalStrategy);
 
-		const { betId } = await seedDecompositionDomain(db, lane.harnessName);
+		const { betId } = await seedDecompositionDomain(db, lane.harnessName, lane);
 
 		const deps = decompositionDepsForLane(lane, { db, eventBus, tmpDir });
 

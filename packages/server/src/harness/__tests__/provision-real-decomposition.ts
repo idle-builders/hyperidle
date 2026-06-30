@@ -97,6 +97,43 @@ interface PoolSetup {
 	readonly resolveModel: (tier: string) => Promise<ResolvedModel | undefined>;
 }
 
+/**
+ * Per-lane adapter metadata for the PM agent seed.
+ * The PM agent's harnessType/modelProvider columns must match the adapter
+ * registration so `adapterPool.select(harnessType, modelProviders)` finds it.
+ *
+ * @lore AR5: `runRealPmTurn` calls `adapterPool.select({ harnessType: pm.harnessType ?? "builtin",
+ * modelProviders: [pm.modelProvider ?? "anthropic"] })`. The adapter registered in the pool
+ * must carry the matching `type` and `modelProviders` or `select` returns null → "No eligible
+ * harness adapter" → blocked/failed. Seed the PM agent with these values so the select
+ * matches the lane's adapter.
+ */
+export interface DecompositionLaneMeta {
+	/** Value to store in `users.harnessType` for the PM agent. */
+	readonly harnessType: string;
+	/** Value to store in `users.modelProvider` for the PM agent. */
+	readonly modelProvider: string;
+}
+
+/**
+ * Returns the harnessType and modelProvider the PM agent must carry for the
+ * given lane so that `adapterPool.select` finds the lane's adapter.
+ */
+export function decompositionLaneMeta(lane: HarnessLane): DecompositionLaneMeta {
+	switch (lane.harnessName) {
+		case "builtin":
+			return { harnessType: "builtin", modelProvider: "openai-compatible" };
+		case "claude":
+			return { harnessType: "claude", modelProvider: "anthropic" };
+		case "codex":
+			return { harnessType: "codex", modelProvider: "openai-compatible" };
+		case "opencode":
+			return { harnessType: "opencode", modelProvider: "openai-compatible" };
+		default:
+			throw new Error(`Unsupported harness for decomposition meta: ${lane.harnessName}`);
+	}
+}
+
 function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 	switch (lane.harnessName) {
 		case "builtin": {
@@ -108,6 +145,8 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 				{
 					name: "builtin-local",
 					kind: "local",
+					// type must match pm.harnessType so adapterPool.select() finds this adapter.
+					type: "builtin",
 					modelProviders: ["openai-compatible"],
 					maxConcurrent: 1,
 				},
@@ -130,6 +169,8 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-claude", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
 				name: "local-claude",
 				kind: "local",
+				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				type: "claude",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 4,
 			});
@@ -154,6 +195,8 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-codex", new CliHarnessAdapter(codexConfig), {
 				name: "local-codex",
 				kind: "local",
+				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				type: "codex",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
@@ -176,6 +219,8 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-opencode", new CliHarnessAdapter(opencodeConfig), {
 				name: "local-opencode",
 				kind: "local",
+				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				type: "opencode",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
