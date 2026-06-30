@@ -73,6 +73,10 @@ An integration test exercises a **real integration point**, with no stub standin
 
 **Harness integration tests observe real output via `createSandboxCapture` + the `onBeforeTeardown` seam** (AR2). The seam fires after drain, before teardown deletes the sandbox — the only window to capture pure-sandbox files with no DB row. Import from `packages/server/src/harness/__tests__/provision-real-session.ts`; follow the four-step recipe in that module's JSDoc.
 
+## Kernel features test against the minimal strategy
+
+**Kernel-feature tests run against the minimal strategy.** Both fabric and minimal ship as defaults (the user picks full vs minimal at setup). When building or testing **Kernel features**, assume fabric does not exist — the **real `minimalStrategy`** (`@hyperidle/strategy-minimal`) is what we build against and test for. All tests, templates, and the raw setup run against minimal: it is the simplest strategy that makes the product work, the port-floor every other strategy is built on, and the contributor template. Register the real `minimalStrategy` in kernel-feature integration tests — never a bespoke test-local strategy, never fabric. **Bet decomposition is an essential Kernel event that needs coverage in every strategy**; its baseline coverage is the minimal strategy. **Evals are the exception:** fabric-strategy correctness is exercised by evals with the fabric strategy, not by tests.
+
 ## Fixture pattern (integration tests)
 
 ```typescript
