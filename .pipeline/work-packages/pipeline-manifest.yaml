@@ -1156,7 +1156,7 @@ stories:
     depends: [AK2]
     complexity: L
   - id: AK10
-    title: "De-role the Kernel decomposition turn: the Strategy owns the decomposer's persona"
+    title: "Final kernel/strategy de-roling sweep: no hardcoded personas in any seam; all integration tests on minimal"
     track: AK
     depends: [AK8]
     complexity: M
