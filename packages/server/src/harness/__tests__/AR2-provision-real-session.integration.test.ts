@@ -97,7 +97,6 @@ import { clearDeduplicationCache, fabricStrategy } from "@hyperidle/fabric";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
 import { test } from "../../test-fixtures.js";
-import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import {
 	runThroughHarness,
 	SUPPORTED_HARNESS_LANES,
@@ -227,10 +226,7 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 	test("provisions a real builtin session; real cost > 0; onBeforeTeardown seam fires (AC1/AC4)", async ({
 		db,
 		eventBus,
-		skip,
 	}) => {
-		// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
-		if (!(await requireOpenRouterCredits(skip, "[AR2 builtin lane]"))) return;
 		const agentId = "ar2-builtin-agent";
 		const taskId = "ar2-builtin-task";
 
@@ -572,11 +568,7 @@ describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionS
 	test("provisions a real opencode CLI session through provisionSession; real work observed (non-crash outcome); seam fires (W-2 honest floor)", async ({
 		db,
 		eventBus,
-		skip,
 	}) => {
-		// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
-		if (!(await requireOpenRouterCredits(skip, "[AR2 opencode lane]"))) return;
-
 		if (!bridge) throw new Error("bridge not set up");
 
 		const agentId = "ar2-opencode-agent";

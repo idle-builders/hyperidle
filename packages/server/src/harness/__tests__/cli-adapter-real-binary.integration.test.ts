@@ -50,7 +50,6 @@ import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { requireOpenRouterCredits } from "./openrouter-credit-guard.js";
 import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
@@ -85,7 +84,28 @@ async function opencodeAuthed(): Promise<boolean> {
 		const key = process.env.OPENROUTER_API_KEY;
 		if (!key) return false;
 		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
-		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+		const credentialsListed =
+			/\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+		if (!credentialsListed) return false;
+
+		// @lore cli-adapter-real-binary opencode-credit-check: opencode uses the
+		// OpenRouter API; a credential listed in `providers list` is necessary but not
+		// sufficient — if the account is overdrawn (total_usage > total_credits), every
+		// LLM call fails with "Insufficient credits" even though auth is valid. Skip the
+		// test in that state rather than failing with a misleading LLM error.
+		// The /api/v1/credits endpoint is a lightweight REST probe (no LLM call).
+		const creditsRes = await fetch("https://openrouter.ai/api/v1/credits", {
+			headers: { Authorization: `Bearer ${key}` },
+			signal: AbortSignal.timeout(10_000),
+		});
+		if (!creditsRes.ok) return false;
+		const creditsJson = (await creditsRes.json()) as {
+			data?: { total_credits?: number; total_usage?: number };
+		};
+		const credits = creditsJson.data?.total_credits ?? 0;
+		const usage = creditsJson.data?.total_usage ?? 0;
+		// Require at least $0.01 remaining to avoid flapping on the edge.
+		return credits - usage >= 0.01;
 	} catch {
 		return false;
 	}
@@ -475,9 +495,6 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			skip();
 			return;
 		}
-
-		// Guard: skip if OpenRouter account has no credits (402 = "Insufficient credits").
-		if (!(await requireOpenRouterCredits(skip, "[cli-adapter-real-binary opencode]"))) return;
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
 
