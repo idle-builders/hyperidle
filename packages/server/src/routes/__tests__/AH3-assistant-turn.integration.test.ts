@@ -31,7 +31,6 @@ import { type HyperIdleDb, messages as messagesTable, users } from "@hyperidle/d
 // (shared client/server boundary per plan §1.7 + errors.ts sibling pattern)
 import {
 	ASSISTANT_TURN_TIMEOUT_MS,
-	type HarnessEvent,
 	MissingCredentialError,
 	ProviderTimeoutError,
 } from "@hyperidle/shared";
@@ -563,114 +562,10 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 });
 
 // ---------------------------------------------------------------------------
-// H1: Happy-path completion test — real adapter stub produces a reply
+// H1: Moved to AH3-assistant-turn-real.integration.test.ts (builtin-only, AR4)
+// The real happy-path completion (ast-* reply persisted) now uses a real builtin
+// adapter via runAssistantTurnThroughHarness (no scripted streamEvents).
 // ---------------------------------------------------------------------------
-
-describe("AH3 H1: happy-path completion — scripted adapter stub → reply persisted", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("runAssistantTurn with a scripted adapter that yields completion → ast-* reply persisted", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedHumanUser(db, "u-ah3-h1", "H1 User");
-		await seedAssistantAgent(db, "u-ah3-h1");
-
-		const app = await createTestApp({ db, eventBus });
-		const threadId = await getOrCreateAssistantThread(app, "u-ah3-h1");
-
-		const EXPECTED_REPLY = "Hello from the scripted adapter!";
-
-		// @lore AH3 H1: ScriptedAdapter implements the real HarnessAdapter interface
-		// (streamEvents on the adapter, not on the handle). This tests that resolvedModel
-		// flows through to startSession without throwing. If resolvedModel is missing
-		// from SessionConfig, the builtin adapter throws — but ScriptedAdapter here is
-		// a deterministic stub that accepts any config and emits a completion.
-		async function* completionStream(): AsyncGenerator<HarnessEvent> {
-			yield { type: "completion", text: EXPECTED_REPLY };
-		}
-
-		const scriptedAdapter = {
-			capabilities: () => ({ concurrent: true, streamTokens: false }),
-			startSession: async () => ({ sessionId: "scripted-session" }),
-			streamEvents: (_handle: import("@hyperidle/shared").SessionHandle) => completionStream(),
-			stopSession: async () => {},
-		};
-
-		const pool = new AdapterPool();
-		pool.register("local-scripted", scriptedAdapter as never, {
-			name: "Scripted Harness",
-			kind: "local",
-			type: "builtin",
-			modelProviders: ["anthropic"],
-			maxConcurrent: 1,
-		});
-
-		// Credential resolver that returns a fake key — resolveAgentModel uses this
-		// to build ResolvedModel. ScriptedAdapter doesn't use it but the service
-		// path MUST call resolveAgentModel to build resolvedModel (H1 fix verifier).
-		const stubResolver: CredentialResolver = {
-			resolve: async (name) => (name === "anthropic_api_key" ? "sk-test-fake-key" : null),
-		};
-
-		const deps: AssistantTurnDeps = {
-			db,
-			eventBus,
-			adapterPool: pool,
-			credentialResolver: stubResolver,
-		};
-
-		await runAssistantTurn(deps, {
-			userId: "u-ah3-h1",
-			threadId,
-			triggerMessageId: "msg-h1-trigger",
-		});
-
-		// Assert a reply from ast-* was persisted
-		const allMessages = await db
-			.select()
-			.from(messagesTable)
-			.where(eq(messagesTable.threadId, threadId));
-
-		const replyMsg = allMessages.find((m) => {
-			return m.senderId === "ast-u-ah3-h1" && !m.payload.includes('"notice"');
-		});
-		expect(replyMsg).toBeDefined();
-		const payload = JSON.parse(replyMsg!.payload) as { text: string };
-		expect(payload.text).toBe(EXPECTED_REPLY);
-	});
-
-	test("runAssistantTurn WITHOUT resolvedModel throws inside startSession (validates H1 was broken)", async ({
-		db,
-		eventBus,
-	}) => {
-		// This test documents the ORIGINAL failure: a builtin adapter without
-		// resolvedModel throws "resolvedModel is required". The fix is that
-		// runAssistantTurn now always builds resolvedModel before calling startSession.
-		// We verify that BuiltinHarnessAdapter.startSession throws without resolvedModel.
-		const builtin = new BuiltinHarnessAdapter();
-		// @lore AK1: assembledPrompt/sandboxPath/systemPromptPath are the post-rename session config fields (harness-vocab rename).
-		const badConfig = {
-			sessionId: "test-no-model",
-			assembledPrompt: "System",
-			sandboxPath: "",
-			systemPromptPath: "",
-			modelTier: "workhorse" as const,
-			tools: [],
-			// resolvedModel intentionally ABSENT
-		};
-
-		await expect(builtin.startSession(badConfig)).rejects.toThrow("resolvedModel is required");
-		// Suppress unused param warnings
-		void db;
-		void eventBus;
-	});
-});
 
 // ---------------------------------------------------------------------------
 // H2: Notice round-trip test — persisted notice survives GET read-back

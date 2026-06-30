@@ -36,13 +36,13 @@ export type HarnessName = "claude" | "codex" | "opencode" | "gh" | "builtin";
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = ["builtin", "claude", "codex", "opencode"] as const;
-type _SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
+type SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
 // Each supported name must be a valid HarnessName (→):
-type _AssertSupportedInHarness = _SupportedHarness extends HarnessName ? true : never;
+type AssertSupportedInHarness = SupportedHarness extends HarnessName ? true : never;
 // Each mirror member must be a SupportedHarness — both directions enforced (←):
-type _AssertHarnessCoversSupported = HarnessName extends _SupportedHarness | "gh" ? true : never;
+type AssertHarnessCoversSupported = HarnessName extends SupportedHarness | "gh" ? true : never;
 // Compile-time proof that both asserts hold (any `never` in the union = error):
-declare const _lockstepCheck: [_AssertSupportedInHarness, _AssertHarnessCoversSupported];
+declare const _lockstepCheck: [AssertSupportedInHarness, AssertHarnessCoversSupported];
 
 /** Binary name on PATH for each binary-backed harness. */
 const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
