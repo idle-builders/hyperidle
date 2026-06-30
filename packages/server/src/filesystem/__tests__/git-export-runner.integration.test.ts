@@ -1,0 +1,143 @@
+/**
+ * AO2 — GitRunner new verbs: REAL on-disk round-trip.
+ *
+ * N1 (plan §6): This file exercises the REAL git runner (createGitRunner) against
+ * real on-disk state. A Fake-only test cannot prove the real argv shape and git
+ * semantics are correct — that is what this test provides.
+ *
+ * Tests: worktreeAdd / worktreeRemove / clone / bundle using real git processes
+ * on a temp bare repo or a temp clone.
+ */
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { createGitRunner } from "@hyperidle/fabric";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+// Helper: create a minimal bare git repo with one commit for use as a remote.
+async function createBareRepo(dir: string): Promise<string> {
+	const bareDir = path.join(dir, "bare.git");
+	fs.mkdirSync(bareDir, { recursive: true });
+	const runner = createGitRunner(bareDir);
+	await runner.init("main");
+	// Create an initial commit so the repo is non-empty.
+	const tmpFile = path.join(bareDir, "README.md");
+	fs.writeFileSync(tmpFile, "# test\n");
+	await runner.add([]);
+	await runner.commit("initial", "test-bot", "bot@example.com");
+	return bareDir;
+}
+
+// Helper: create a non-bare clone of a bare repo for worktree testing.
+async function createWorkingClone(bareDir: string, parentDir: string): Promise<string> {
+	const workDir = path.join(parentDir, "clone");
+	fs.mkdirSync(workDir, { recursive: true });
+	const runner = createGitRunner(workDir);
+	await runner.clone(bareDir, "main");
+	return workDir;
+}
+
+describe("GitRunner — real on-disk round-trip (AO2 inbound verbs)", () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-git-runner-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	it("clone: shallow-clones a local bare repo into the working dir", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const cloneDir = path.join(tmpDir, "cloned");
+		fs.mkdirSync(cloneDir, { recursive: true });
+
+		const runner = createGitRunner(cloneDir);
+		await runner.clone(bareDir, "main", { depth: 1 });
+
+		expect(fs.existsSync(path.join(cloneDir, "README.md"))).toBe(true);
+		const isGit = await runner.revParseIsInsideWorkTree();
+		expect(isGit).toBe(true);
+	});
+
+	it("bundle: creates a valid git bundle file", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const cloneDir = path.join(tmpDir, "cloned-for-bundle");
+		fs.mkdirSync(cloneDir, { recursive: true });
+
+		const runner = createGitRunner(cloneDir);
+		await runner.clone(bareDir, "main");
+
+		const bundlePath = path.join(tmpDir, "captured.bundle");
+		await runner.bundle(bundlePath, "refs/heads/main");
+
+		expect(fs.existsSync(bundlePath)).toBe(true);
+		// A valid git bundle starts with "# v2 git bundle\n".
+		const header = fs.readFileSync(bundlePath, "utf-8").slice(0, 20);
+		expect(header).toMatch(/^# v\d git bundle/);
+	});
+
+	it("worktreeAdd / worktreeRemove: creates and removes a worktree", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const mainClone = await createWorkingClone(bareDir, tmpDir);
+
+		// worktreeAdd — creates a new branch 'agent/test-sess' from HEAD.
+		const worktreePath = path.join(tmpDir, "worktree-out");
+		const hostRunner = createGitRunner(mainClone);
+		await hostRunner.worktreeAdd(worktreePath, "agent/test-sess", { createBranch: true });
+
+		expect(fs.existsSync(worktreePath)).toBe(true);
+		expect(fs.existsSync(path.join(worktreePath, "README.md"))).toBe(true);
+
+		// The worktree is a proper git repo.
+		const wtRunner = createGitRunner(worktreePath);
+		expect(await wtRunner.revParseIsInsideWorkTree()).toBe(true);
+
+		// worktreeRemove — cleans up the worktree.
+		await hostRunner.worktreeRemove(worktreePath, { force: true });
+
+		// After remove, the directory should be gone.
+		expect(fs.existsSync(worktreePath)).toBe(false);
+	});
+
+	it("worktreeAdd + commit + bundle: full capture round-trip", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const mainClone = await createWorkingClone(bareDir, tmpDir);
+
+		const sessionId = "sess-roundtrip";
+		const branch = `agent/${sessionId}`;
+		const worktreePath = path.join(tmpDir, "wt-capture");
+
+		// 1. Add worktree on a new branch.
+		const hostRunner = createGitRunner(mainClone);
+		await hostRunner.worktreeAdd(worktreePath, branch, { createBranch: true });
+
+		// 2. Edit a file in the worktree.
+		fs.writeFileSync(path.join(worktreePath, "agent-output.txt"), "authored change\n");
+
+		// 3. Stage + commit via the worktree runner.
+		const wtRunner = createGitRunner(worktreePath);
+		await wtRunner.add([]);
+		const sha = await wtRunner.commit("agent output", "agent-bot", "agent@example.com");
+		expect(sha).toHaveLength(40);
+
+		// 4. Bundle the session branch.
+		const bundlePath = path.join(tmpDir, `${sessionId}.bundle`);
+		await wtRunner.bundle(bundlePath, `refs/heads/${branch}`);
+		expect(fs.existsSync(bundlePath)).toBe(true);
+
+		// 5. Verify the bundle can be cloned and contains the commit.
+		const verifyDir = path.join(tmpDir, "verify");
+		fs.mkdirSync(verifyDir, { recursive: true });
+		const verifyRunner = createGitRunner(verifyDir);
+		await verifyRunner.clone(bundlePath, branch);
+		expect(fs.existsSync(path.join(verifyDir, "agent-output.txt"))).toBe(true);
+		const content = fs.readFileSync(path.join(verifyDir, "agent-output.txt"), "utf-8");
+		expect(content).toBe("authored change\n");
+
+		// 6. Worktree remove.
+		await hostRunner.worktreeRemove(worktreePath, { force: true });
+		expect(fs.existsSync(worktreePath)).toBe(false);
+	});
+});

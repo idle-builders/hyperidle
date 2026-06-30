@@ -274,6 +274,17 @@ export async function assemblePrompt(
  * @lore AK1 TODO: Once a later WP positively verifies every registered adapter auto-discovers
  * AGENTS.md, the CLAUDE.md write can be dropped. Until then, dual-write stays.
  */
+/**
+ * Root-level files emitted by writeSandboxAgentsMd (dual-write: AGENTS.md + CLAUDE.md).
+ * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ *
+ * @lore AO2: These tracked files are critical for the self-host case: this repo
+ * itself tracks AGENTS.md and CLAUDE.md. Assembly overwrites them with the assembled
+ * system prompt. Without scaffolding-exclusion the authored commit would carry
+ * a clobbered CLAUDE.md / AGENTS.md — making it look like the agent modified them.
+ */
+export const EMITTED_ROOTS_AGENTS_MD = ["AGENTS.md", "CLAUDE.md"] as const;
+
 export function writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void {
 	fs.writeFileSync(path.join(sandboxPath, "AGENTS.md"), assembledPrompt, "utf8");
 	fs.writeFileSync(path.join(sandboxPath, "CLAUDE.md"), assembledPrompt, "utf8");

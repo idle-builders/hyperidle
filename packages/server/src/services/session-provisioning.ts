@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, routines, sessions, tasks, users } from "@hyperidle/db";
+import {
+	bets,
+	filesystemInjections,
+	filesystems,
+	type HyperIdleDb,
+	routines,
+	sessions,
+	tasks,
+	users,
+} from "@hyperidle/db";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,
@@ -17,6 +26,8 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
+	type Filesystem,
+	type FilesystemMounter,
 	type HarnessAdapter,
 	type IngestionHandle,
 	isInternalExtractionDrain,
@@ -31,7 +42,7 @@ import {
 	type TierTokenCount,
 	type UserRole,
 } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, inArray as drizzleInArray, eq, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
@@ -185,6 +196,121 @@ export interface BeforeTeardownContext {
 	readonly sandboxPath: string;
 }
 
+/**
+ * Root-level files emitted by session-provisioning into the sandbox.
+ * Currently: .mcp.json (Claude MCP auto-discovery config).
+ * Exported so the AO2 scaffolding-drift-guard can assert coverage.
+ *
+ * @lore AO2 §8: .mcp.json is written at session-provisioning.ts:752 inside
+ * runSession Phase 8b. It must be excluded from authored commits so the agent
+ * working on a repo that tracks .mcp.json does not overwrite the real config.
+ */
+export const EMITTED_ROOTS_MCP_JSON = [".mcp.json"] as const;
+
+// ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
+
+/**
+ * AO2 Hook A: Resolve the agent's injected filesystems and mount each into sandboxPath.
+ *
+ * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
+ * Returns the list of successfully-mounted Filesystem records — stored on AdmittedSession
+ * so the teardown helper (Hook B) can capture them without a second DB query.
+ *
+ * Mount failures are best-effort: a failed mount logs a warning and is EXCLUDED from
+ * the returned list. The session continues without that filesystem (degrade-to-today).
+ *
+ * @lore AO2 §9: Mount BEFORE context assembly so .git/info/exclude is written before
+ * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
+ * no mounts, no capture rows — purely non-breaking for existing sessions.
+ */
+export async function mountFilesystemsForAgent(
+	db: HyperIdleDb,
+	agentId: string,
+	sandboxPath: string,
+	mounter: FilesystemMounter,
+): Promise<Filesystem[]> {
+	// Resolve injected filesystems: sessions.agentId → filesystem_injections → filesystems.
+	const injections = await db
+		.select({ filesystemId: filesystemInjections.filesystemId })
+		.from(filesystemInjections)
+		.where(eq(filesystemInjections.agentUserId, agentId));
+
+	if (injections.length === 0) return [];
+
+	const fsIds = injections.map((i) => i.filesystemId);
+	const rows = await db.select().from(filesystems).where(drizzleInArray(filesystems.id, fsIds));
+
+	if (rows.length === 0) return [];
+
+	// Parse DB rows into Filesystem domain objects.
+	const fsList: Filesystem[] = rows.map((row) => ({
+		id: row.id,
+		teamId: row.teamId,
+		source: row.source,
+		kind: row.kind,
+		connectionId: row.connectionId ?? null,
+		resourceRef: JSON.parse(row.resourceRef) as Filesystem["resourceRef"],
+		writeback: row.writeback as Filesystem["writeback"],
+		state: row.state as Filesystem["state"],
+		createdAt: row.createdAt,
+	}));
+
+	// Mount each filesystem; collect the ones that succeed.
+	const mounted: Filesystem[] = [];
+	for (const filesystem of fsList) {
+		try {
+			const result = await mounter.mount({ filesystem, sandboxPath, auth: null });
+			if (result.success) {
+				mounted.push(filesystem);
+			} else {
+				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+				console.warn(
+					`[session-provisioning] AO2 mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
+				);
+			}
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(
+				`[session-provisioning] AO2 mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	return mounted;
+}
+
+/**
+ * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
+ *
+ * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
+ * on the in-runSession crash path. Best-effort: a capture failure is logged but
+ * never blocks teardown (uncommitted-but-failed = same loss as today).
+ *
+ * @lore AO2 §9: The delete lives in endSession (session-lifecycle.ts:341),
+ * NOT workspace.destroy (adapter-map cleanup only, runs after the delete).
+ * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
+ * Must be called BEFORE endSession.
+ */
+export async function captureMountedFilesystems(
+	sessionId: string,
+	sandboxPath: string,
+	mountedFilesystems: Filesystem[],
+	mounter: FilesystemMounter,
+): Promise<void> {
+	if (mountedFilesystems.length === 0) return;
+
+	for (const filesystem of mountedFilesystems) {
+		try {
+			await mounter.captureBack({ filesystem, sandboxPath, sessionId });
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+			console.warn(
+				`[session-provisioning] AO2 captureBack threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+}
+
 export interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
@@ -234,6 +360,17 @@ export interface ProvisionSessionDeps {
 	 * the ONLY pre-deletion window.
 	 */
 	readonly onBeforeTeardown?: (ctx: BeforeTeardownContext) => void | Promise<void>;
+	/**
+	 * AO2: Optional mounter for filesystem placement + capture-back.
+	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
+	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
+	 * each endSession/crashSession call.
+	 *
+	 * @lore AO2 §9: mount BEFORE context assembly (so .git/info/exclude is written before
+	 * assembly drops scaffolding); captureBack BEFORE endSession (which holds the rm -rf),
+	 * not before workspace.destroy (adapter-map cleanup only, after the delete).
+	 */
+	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
 }
 
 export interface ProvisionSessionParams {
@@ -343,6 +480,16 @@ export interface AdmittedSession {
 	readonly harness: HarnessAdapter;
 	readonly adapterId: string;
 	readonly routinePerRunCap: number | null;
+	/**
+	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
+	 * Empty when no mounter is configured or no filesystems are injected for the agent.
+	 * Consumed by the Hook B capture-back helper before each endSession/crashSession call.
+	 *
+	 * @lore AO2 §9: Resolved at admit time to avoid a second DB query at teardown.
+	 * Only successfully-mounted filesystems are included — failed mounts (cloud-not-built,
+	 * malformed) are logged as warnings and excluded; the session continues without them.
+	 */
+	readonly mountedFilesystems: import("@hyperidle/shared").Filesystem[];
 }
 
 /**
@@ -508,6 +655,7 @@ export async function admitSession(
 	let sandboxHandle: SandboxHandle;
 	let sandboxPath: string;
 	let ingestion: IngestionHandle;
+	let mountedFilesystems: Filesystem[] = [];
 	try {
 		// ── Phase 4: spawn sandbox via adapter.
 		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
@@ -527,6 +675,20 @@ export async function admitSession(
 			// AA2: populate routineId when this is a routine session.
 			...(params.routineId ? { routineId: params.routineId } : {}),
 		});
+
+		// ── Phase 4.5: mount injected filesystems (AO2).
+		// Runs AFTER sandbox spawn (sandboxPath known) and BEFORE context assembly
+		// so .git/info/exclude is written before assembly drops scaffolding into the dir.
+		// A filesystem-less session (no mounter, no injections) → empty list, no-op.
+		// @lore AO2 §9: mount before assembleContext (scaffolding-exclusion order).
+		if (deps.mounter) {
+			mountedFilesystems = await mountFilesystemsForAgent(
+				db,
+				params.agentId,
+				sandboxPath,
+				deps.mounter,
+			);
+		}
 
 		// ── Phase 6: assemble context into the sandbox (via Strategy Port).
 		// @lore AK2 §5a: was `assembleContext(db, {...})` hard-imported from
@@ -615,6 +777,7 @@ export async function admitSession(
 		harness,
 		adapterId,
 		routinePerRunCap,
+		mountedFilesystems,
 	};
 }
 
@@ -668,6 +831,7 @@ export async function runSession(
 		harness,
 		adapterId,
 		routinePerRunCap,
+		mountedFilesystems,
 	} = admitted;
 
 	// AF7 §5: cooperative abort flag for non-builtin adapters (the provisioning
@@ -797,6 +961,17 @@ export async function runSession(
 	//
 	// The bridge is created BEFORE harness.startSession() so the token is written
 	// to .mcp.json before the harness reads it at startup.
+	//
+	// @lore AO2 Lane-b: write an empty .mcp.json before the bridge block so that
+	// harnesses using `--mcp-config .mcp.json --strict-mcp-config` (CLAUDE_CLI_CONFIG)
+	// don't crash when no MCP bridge is configured. The bridge block overwrites it with
+	// the real config when a bridge is available. An empty mcpServers object is safe:
+	// claude accepts it and registers no MCP servers.
+	const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
+	if (!fs.existsSync(mcpJsonPath)) {
+		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
+	}
+
 	let mcpBridgeToken: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
@@ -807,8 +982,7 @@ export async function runSession(
 			mcpBridgeToken = bridge.token;
 			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
 
-			// Write .mcp.json to sandbox for claude auto-discovery.
-			const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
+			// Write .mcp.json to sandbox for claude auto-discovery (overwrites the empty stub).
 			const mcpJsonConfig = {
 				mcpServers: {
 					hyperidle: {
@@ -1195,6 +1369,10 @@ export async function runSession(
 	}
 
 	if (crashed) {
+		// ── Hook B: capture-back before crash teardown (AO2 §9).
+		if (deps.mounter && mountedFilesystems.length > 0) {
+			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+		}
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		// AL6: crashed → exempt from return enforcement (agent was prevented from
@@ -1215,6 +1393,10 @@ export async function runSession(
 	// Pass "budget_exhausted" directly to endSession so updateRoutineRunOnSessionEnd
 	// writes the correct outcome in a single write (avoids write-then-overwrite window).
 	if (budgetExhausted) {
+		// ── Hook B: capture-back before budget_exhausted teardown (AO2 §9).
+		if (deps.mounter && mountedFilesystems.length > 0) {
+			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+		}
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, "budget_exhausted");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
@@ -1257,6 +1439,10 @@ export async function runSession(
 		// row and the session_ended bus event carry the correct outcome (not the
 		// hardcoded "completed" that v1 emitted). This is the AC1 teeth at the
 		// persistence layer: a not-returned turn is never recorded as "completed".
+		// ── Hook B: capture-back before not_returned teardown (AO2 §9).
+		if (deps.mounter && mountedFilesystems.length > 0) {
+			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+		}
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 		await workspace.destroy(sandboxHandle);
@@ -1272,6 +1458,10 @@ export async function runSession(
 		};
 	}
 
+	// ── Hook B: capture-back before normal teardown (AO2 §9).
+	if (deps.mounter && mountedFilesystems.length > 0) {
+		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+	}
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
 	await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
 	// Also destroy the workspace via the adapter to keep its internal map

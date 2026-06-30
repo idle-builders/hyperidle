@@ -116,11 +116,13 @@ export interface CaptureResult {
 
 /** The contract AO2 implements. AO1 ships the type only — no implementation.
  *  Hooks into session-provisioning.ts Phase 4.5 (mount) + teardown (captureBack).
- *  @lore AO1 §5: Mount between sandbox spawn (Phase 4) and context assembly (Phase 6).
- *  captureBack after endSession, before workspace.destroy. */
+ *  @lore AO1 §5 / AO2 §9: Mount AFTER sandbox spawn (Phase 4) and BEFORE context
+ *  assembly (Phase 6) so .git/info/exclude is written before scaffolding lands.
+ *  captureBack runs BEFORE each endSession/crashSession call (endSession holds the
+ *  rm -rf at session-lifecycle.ts:341; workspace.destroy is adapter-map cleanup only). */
 export interface FilesystemMounter {
-	/** Place the filesystem's working set into the session sandbox at its branch/folder,
-	 *  and provision the bound Connection's auth INTO the sandbox. Idempotent per sandbox. */
+	/** Place the filesystem's working set into the session sandbox at its branch/folder.
+	 *  auth is null for local/inherited sessions (no Connection needed). Idempotent per sandbox. */
 	mount(input: {
 		filesystem: Filesystem;
 		sandboxPath: string;
@@ -128,6 +130,11 @@ export interface FilesystemMounter {
 	}): Promise<MountResult>;
 
 	/** Capture authored changes back out of the sandbox after the session.
-	 *  git → commit (+ push/PR is a LANDING op, AL7/AO3, not here); file → write/snapshot; none → no-op. */
-	captureBack(input: { filesystem: Filesystem; sandboxPath: string }): Promise<CaptureResult>;
+	 *  git → commit (+ push/PR is a LANDING op, AL7/AO3, not here); file → write/snapshot; none → no-op.
+	 *  @param sessionId — written into filesystem_captures for provenance. */
+	captureBack(input: {
+		filesystem: Filesystem;
+		sandboxPath: string;
+		sessionId: string;
+	}): Promise<CaptureResult>;
 }

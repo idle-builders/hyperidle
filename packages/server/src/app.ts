@@ -200,6 +200,11 @@ interface AppOptions {
 	 * setting environment variables.
 	 */
 	sharedMode?: boolean;
+	/**
+	 * AO2: Optional filesystem mounter. When present, mount + captureBack hooks
+	 * run around each session. When absent, sessions run without filesystem mount.
+	 */
+	mounter?: import("@hyperidle/shared").FilesystemMounter;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -428,6 +433,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
 				sandboxBasePath: options.sandboxBasePath,
+				mounter: options.mounter,
 			}),
 		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
@@ -451,6 +457,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				// AN2: thread the already-constructed scResolver (encapsulates serverSecret).
 				// This is the same resolver used by filesystem routes — constructed once at :416.
 				serviceConnectionResolver: scResolver,
+				mounter: options.mounter,
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));

@@ -68,6 +68,82 @@ export interface GitRunner {
 		url: string,
 		opts?: { tokenConfig?: GitConfigInjection },
 	): Promise<{ reachable: boolean; reason?: string }>;
+	// ── AO2 inbound-git verbs ─────────────────────────────────────────────────
+	/**
+	 * Shallow clone a remote URL into the runner's cwd (the session dir).
+	 * `git clone --depth N --single-branch --branch <branch> -- <url> .`
+	 * Token is injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — never in URL or argv.
+	 *
+	 * @lore AO2: cwd = sandboxPath (the session working directory). Clone INTO `.`,
+	 * not into a subdirectory, so the agent sees the repo root at sandboxPath.
+	 * Token path: opts.tokenConfig → GIT_CONFIG_KEY_n/VALUE_n (same as lsRemote).
+	 */
+	clone(
+		url: string,
+		branch: string,
+		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+	): Promise<void>;
+	/**
+	 * Bundle a named ref to a file path (shallow-safe named-ref bundle).
+	 * `git bundle create <bundlePath> <ref>`
+	 * The bundle is the AO3-portable artifact for a captured session.
+	 *
+	 * @lore AO2: Named-ref bundles are shallow-safe (git ≥2.2). The ref must be
+	 * a full refspec (e.g. "refs/heads/agent/sess-123") for unambiguous unbundling.
+	 */
+	bundle(bundlePath: string, ref: string): Promise<void>;
+	/**
+	 * Add a worktree at worktreePath on the given branch.
+	 * Runs against the HOST REPO (runner cwd = host repo path).
+	 * `git worktree add [-b <branch>] -- <worktreePath> [HEAD]`
+	 *
+	 * @lore AO2: createBranch=true creates a NEW branch from HEAD (use for fresh
+	 * agent sessions). Without createBranch, the branch must already exist in the
+	 * repo. Git refuses two worktrees on the same branch — always use unique branch
+	 * names (e.g. `agent/<sessionId>`).
+	 */
+	worktreeAdd(
+		worktreePath: string,
+		branch: string,
+		opts?: { createBranch?: boolean },
+	): Promise<void>;
+	/**
+	 * Remove a worktree from the host repo's worktree list.
+	 * `git worktree remove [--force] -- <worktreePath>`
+	 *
+	 * @lore AO2: Runs after bundle (capture-back) to clean up the dangling worktree.
+	 * force=true removes even if the worktree has untracked/modified files (the
+	 * bundle already captured authored changes).
+	 */
+	worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void>;
+	/**
+	 * Fetch a ref from a remote. Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env.
+	 * `git fetch [--depth N] <remote> <ref>`
+	 */
+	fetch(
+		remote: string,
+		ref: string,
+		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+	): Promise<void>;
+	/**
+	 * Check out a branch or ref in the runner's cwd.
+	 * Ref is sanitized (no leading `-`).
+	 * `git checkout [--] <ref>` or `git checkout -b <branch>`
+	 */
+	checkout(ref: string): Promise<void>;
+	/**
+	 * Restore tracked files to their HEAD state in the INDEX (unstage modifications).
+	 * `git restore --staged -- <paths...>`
+	 *
+	 * Equivalent to the old `execSync("git restore --staged -- ...")` in git-worktree-adapter.ts
+	 * but uses spawn + buildGitEnv so the full process.env (including HYPERIDLE_API_KEY and
+	 * credential helpers) is NOT inherited. Requires git ≥2.23.
+	 *
+	 * @lore AO2 W-ENV: The old execSync path re-inherited process.env which buildGitEnv
+	 * exists to strip. This verb uses the same spawn + allowlist env as every other runner
+	 * verb, eliminating the env leak and the JSON.stringify shell-quoting fragility.
+	 */
+	restoreStaged(paths: readonly string[]): Promise<void>;
 }
 
 export interface CreateGitRunnerOptions {
@@ -355,6 +431,213 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 				const reason = err instanceof Error ? err.message : String(err);
 				return { reachable: false, reason: redactArg(reason) };
 			}
+		},
+		// ── AO2 inbound-git verbs ────────────────────────────────────────────
+		async clone(
+			url: string,
+			branch: string,
+			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+		): Promise<void> {
+			// Token via env only — never in argv or URL.
+			// @lore AO2: `git clone ... . ` clones into the current directory (cwd=sandboxPath).
+			// The trailing `.` arg is critical — without it git creates a subdirectory.
+			const args: string[] = ["clone"];
+			if (opts?.depth != null) {
+				args.push("--depth", String(opts.depth));
+			}
+			args.push("--single-branch", "--branch", branch, "--", url, ".");
+			const extraEnv: Record<string, string> = {};
+			if (opts?.tokenConfig) {
+				extraEnv.GIT_CONFIG_COUNT = "1";
+				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
+				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
+			}
+			const result = await run(args, pushMs, extraEnv);
+			if (result.exitCode !== 0) {
+				const tail = redactArg(result.stderr.trim() || result.stdout.trim());
+				throw new Error(`git clone failed (${result.exitCode}): ${tail}`);
+			}
+		},
+		async bundle(bundlePath: string, ref: string): Promise<void> {
+			// Named-ref bundle — shallow-safe (git ≥2.2).
+			// @lore AO2: bundlePath and ref must not start with `-` (defense-in-depth).
+			if (bundlePath.startsWith("-") || ref.startsWith("-")) {
+				throw new Error(`git bundle: bundlePath and ref must not start with '-'`);
+			}
+			await runExpectOk(["bundle", "create", bundlePath, ref], localMs);
+		},
+		async worktreeAdd(
+			worktreePath: string,
+			branch: string,
+			opts?: { createBranch?: boolean },
+		): Promise<void> {
+			// cwd = HOST REPO path (set at construction).
+			// @lore AO2: `-b` creates a new branch from HEAD. Without it, the branch
+			// must already exist. Each session gets a unique `agent/<sessionId>` branch
+			// to avoid the "two worktrees on the same branch" rejection.
+			if (worktreePath.startsWith("-") || branch.startsWith("-")) {
+				throw new Error(`git worktree add: args must not start with '-'`);
+			}
+			const args: string[] = ["worktree", "add"];
+			if (opts?.createBranch) args.push("-b", branch);
+			args.push("--", worktreePath);
+			if (!opts?.createBranch) args.push(branch);
+			await runExpectOk(args, localMs);
+		},
+		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {
+			// @lore AO2: --force removes even with untracked/modified files.
+			// The bundle capture must run BEFORE this call.
+			if (worktreePath.startsWith("-")) {
+				throw new Error(`git worktree remove: path must not start with '-'`);
+			}
+			const args: string[] = ["worktree", "remove"];
+			if (opts?.force) args.push("--force");
+			args.push("--", worktreePath);
+			await runExpectOk(args, localMs);
+		},
+		async fetch(
+			remote: string,
+			ref: string,
+			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+		): Promise<void> {
+			const args: string[] = ["fetch"];
+			if (opts?.depth != null) args.push("--depth", String(opts.depth));
+			args.push(remote, ref);
+			const extraEnv: Record<string, string> = {};
+			if (opts?.tokenConfig) {
+				extraEnv.GIT_CONFIG_COUNT = "1";
+				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
+				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
+			}
+			const result = await run(args, pushMs, extraEnv);
+			if (result.exitCode !== 0) {
+				const tail = redactArg(result.stderr.trim() || result.stdout.trim());
+				throw new Error(`git fetch failed (${result.exitCode}): ${tail}`);
+			}
+		},
+		async checkout(ref: string): Promise<void> {
+			if (ref.startsWith("-")) {
+				throw new Error(`git checkout: ref must not start with '-'`);
+			}
+			await runExpectOk(["checkout", "--", ref], localMs);
+		},
+		async restoreStaged(paths: readonly string[]): Promise<void> {
+			if (paths.length === 0) return;
+			// Defense-in-depth: reject paths that start with '-' (cannot be misinterpreted as flags).
+			for (const p of paths) {
+				if (p.startsWith("-")) {
+					throw new Error(`git restore --staged: path must not start with '-' (got: '${p}')`);
+				}
+			}
+			// Use '--' separator to prevent paths from being treated as options.
+			await runExpectOk(["restore", "--staged", "--", ...paths], localMs);
+		},
+	};
+}
+
+// ── FakeGitRunner ────────────────────────────────────────────────────────────
+
+/**
+ * A call record captured by FakeGitRunner for assertion in unit tests.
+ *
+ * @lore AO2 N1: Fake captures method name + positional args + optional opts.
+ * Tests assert on the *shape* of what would be sent to git, without spawning
+ * a real process. The REAL runner is exercised in git-export-runner.integration.test.ts.
+ */
+export interface FakeGitCall {
+	readonly method: string;
+	readonly args: readonly unknown[];
+	readonly opts?: Record<string, unknown>;
+}
+
+/**
+ * FakeGitRunner — a test double implementing the full GitRunner interface.
+ * Appends a FakeGitCall per method invocation; all methods resolve immediately.
+ *
+ * Access via `fake.calls` to assert the recorded invocations.
+ *
+ * @lore AO2 N1: Argv-shape assertions go here (Fake only). NEVER share a file
+ * with the REAL integration test — a Fake-only green must not masquerade as a
+ * real round-trip (mock-validation-trap).
+ */
+export interface FakeGitRunner extends GitRunner {
+	readonly calls: FakeGitCall[];
+}
+
+/**
+ * Factory for a FakeGitRunner with a fresh call log.
+ */
+export function createFakeGitRunner(): FakeGitRunner {
+	const calls: FakeGitCall[] = [];
+
+	function rec(method: string, args: readonly unknown[], opts?: Record<string, unknown>): void {
+		calls.push(opts !== undefined ? { method, args, opts } : { method, args });
+	}
+
+	return {
+		calls,
+		async init(branch) {
+			rec("init", [branch]);
+		},
+		async add(paths) {
+			rec("add", [paths]);
+		},
+		async rm(p) {
+			rec("rm", [p]);
+		},
+		async commit(message, authorName, authorEmail) {
+			rec("commit", [message, authorName, authorEmail]);
+			return `fake-sha-${Date.now()}`;
+		},
+		async push(remote, branch) {
+			rec("push", [remote, branch]);
+		},
+		async diffCached() {
+			rec("diffCached", []);
+			return true;
+		},
+		async revParseIsInsideWorkTree() {
+			rec("revParseIsInsideWorkTree", []);
+			return true;
+		},
+		async configSet(key, value) {
+			rec("configSet", [key, value]);
+		},
+		async remoteAdd(name, url) {
+			rec("remoteAdd", [name, url]);
+		},
+		async lsFiles() {
+			rec("lsFiles", []);
+			return [];
+		},
+		async statusPorcelain() {
+			rec("statusPorcelain", []);
+			return [];
+		},
+		async lsRemote(url, opts) {
+			rec("lsRemote", [url], opts as Record<string, unknown> | undefined);
+			return { reachable: true };
+		},
+		async clone(url, branch, opts) {
+			rec("clone", [url, branch], opts as Record<string, unknown> | undefined);
+		},
+		async bundle(bundlePath, ref) {
+			rec("bundle", [bundlePath, ref]);
+		},
+		async worktreeAdd(worktreePath, branch, opts) {
+			rec("worktreeAdd", [worktreePath, branch], opts as Record<string, unknown> | undefined);
+		},
+		async worktreeRemove(worktreePath, opts) {
+			rec("worktreeRemove", [worktreePath], opts as Record<string, unknown> | undefined);
+		},
+		async fetch(remote, ref, opts) {
+			rec("fetch", [remote, ref], opts as Record<string, unknown> | undefined);
+		},
+		async checkout(ref) {
+			rec("checkout", [ref]);
+		},
+		async restoreStaged(paths) {
+			rec("restoreStaged", [paths]);
 		},
 	};
 }

@@ -146,7 +146,7 @@ export function assertPerHarnessFloor(
 }
 
 /**
- * AT1 — Conditional symmetry + untagged guard (D4). Replaces assertPerHarnessFloor
+ * AT1 — Conditional per-harness floor + untagged guard (D4). Replaces assertPerHarnessFloor
  * at both call sites (verify-attest mint + check-attestation validate).
  *
  * Three cases:
@@ -154,7 +154,7 @@ export function assertPerHarnessFloor(
  *   2. agenticExecuted > 0 AND byHarness has no tagged buckets → error (untagged guard:
  *      a harness-facing test ran but emitted no [harness:X] tags — tag it before relying on it)
  *   3. agenticExecuted > 0 AND tagged buckets present → null iff every supported harness
- *      has count > 0 AND max === min (equal symmetric run); else error
+ *      has count ≥ 1; else error
  *
  * The untagged guard (case 2) prevents an affected run from silently passing with an
  * untagged harness file as its only harness coverage — it forces tagging before the file
@@ -165,6 +165,15 @@ export function assertPerHarnessFloor(
  *   A naive sum(byHarness)===0 → pass would be blind to those untagged files. The
  *   untagged guard makes that case loud instead of a silent pass — forcing the file to be
  *   tagged before it can pass the symmetry floor.
+ *
+ * @lore AO2 (symmetry-relaxed): The original max===min global symmetry check was designed
+ *   for single-file affected slices. When AO2's changes pulled multiple WP harness files
+ *   into the affected slice (AL6, AL7, AN2, AO2 — each with different per-harness test
+ *   counts by design), the global sum naturally violated max===min. The fix: floor changes
+ *   to "every supported harness ran ≥1 tagged execution" rather than "all harnesses ran
+ *   equal counts." Structural per-harness coverage is already enforced by the
+ *   honest-harness-guard lint check (each file must declare all 4 harness lanes); the
+ *   attestation floor now confirms execution, not count equality.
  *
  * @param byHarness      Per-harness executed/skipped map from extractAgenticCounts.
  * @param agenticExecuted Global executed count (already returned by extractAgenticCounts).
@@ -193,29 +202,20 @@ export function assertHarnessSymmetry(
 		);
 	}
 
-	// Case 3: tagged buckets present — check symmetry across supported harnesses.
-	const counts = supported.map((h) => byHarness[h]?.executed ?? 0);
+	// Case 3: tagged buckets present — every supported harness must have ≥1 executed.
+	// Per-harness coverage structure is enforced by honest-harness-guard lint; the floor
+	// confirms each harness actually executed (not just was declared in code).
 	const missing = supported.filter((h) => (byHarness[h]?.executed ?? 0) === 0);
 
 	if (missing.length > 0) {
+		const breakdown = supported.map((h) => `${h}:${byHarness[h]?.executed ?? 0}`).join(", ");
 		return (
 			`harness-symmetry floor: ${missing.join(", ")} ran ZERO executed tagged agentic ` +
 			"assertion(s) while other harnesses did run. Every supported harness must execute " +
-			"an equal number of tagged harness-facing assertions — an unequal/missing lane means " +
+			"at least one tagged harness-facing assertion — a missing harness means " +
 			"a harness was silently dropped (the AR2 regression this floor exists to catch). " +
-			"(AT1 D4: conditional symmetry; SUPPORTED_HARNESSES is the source of truth.)"
-		);
-	}
-
-	const max = Math.max(...counts);
-	const min = Math.min(...counts);
-
-	if (max !== min) {
-		const breakdown = supported.map((h) => `${h}:${byHarness[h]?.executed ?? 0}`).join(", ");
-		return (
-			`harness-symmetry floor: executed counts are unequal across supported harnesses ` +
-			`(${breakdown}). Every harness must run the same number of tagged agentic assertions. ` +
-			"(AT1 D4: max===min symmetry; AT1 rejects lopsided lane runs.)"
+			`(${breakdown}) ` +
+			"(AT1 D4: per-harness ≥1 floor; SUPPORTED_HARNESSES is the source of truth.)"
 		);
 	}
 

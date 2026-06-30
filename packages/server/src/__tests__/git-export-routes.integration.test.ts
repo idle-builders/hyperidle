@@ -112,6 +112,28 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 			calls.push("lsRemote");
 			return { reachable: true };
 		},
+		// ── AO2 inbound-git stubs (not the subject of git-export-routes tests) ──
+		async clone(): Promise<void> {
+			calls.push("clone");
+		},
+		async bundle(): Promise<void> {
+			calls.push("bundle");
+		},
+		async worktreeAdd(): Promise<void> {
+			calls.push("worktreeAdd");
+		},
+		async worktreeRemove(): Promise<void> {
+			calls.push("worktreeRemove");
+		},
+		async fetch(): Promise<void> {
+			calls.push("fetch");
+		},
+		async checkout(): Promise<void> {
+			calls.push("checkout");
+		},
+		async restoreStaged(): Promise<void> {
+			calls.push("restoreStaged");
+		},
 	};
 }
 
@@ -450,6 +472,28 @@ describe("Git Export HTTP routes", () => {
 				): Promise<{ reachable: boolean; reason?: string }> {
 					runner.calls.push("lsRemote");
 					return { reachable: true };
+				},
+				// ── AO2 inbound-git stubs ──────────────────────────────────────────────
+				async clone(): Promise<void> {
+					runner.calls.push("clone");
+				},
+				async bundle(): Promise<void> {
+					runner.calls.push("bundle");
+				},
+				async worktreeAdd(): Promise<void> {
+					runner.calls.push("worktreeAdd");
+				},
+				async worktreeRemove(): Promise<void> {
+					runner.calls.push("worktreeRemove");
+				},
+				async fetch(): Promise<void> {
+					runner.calls.push("fetch");
+				},
+				async checkout(): Promise<void> {
+					runner.calls.push("checkout");
+				},
+				async restoreStaged(): Promise<void> {
+					runner.calls.push("restoreStaged");
 				},
 			};
 			const app = buildApp(db, { createRunner: () => runner, fs: createMemFs() });
