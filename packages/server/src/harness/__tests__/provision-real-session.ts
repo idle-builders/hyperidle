@@ -44,6 +44,7 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { enforcementRegistry } from "../return-enforcement-registry.js";
 import {
+	HARNESS_TEST_MODELS,
 	type HarnessName,
 	harnessTestResolvedModel,
 	type ResolvedTestModel,
@@ -631,7 +632,11 @@ export interface AssistantTurnSeedOpts {
 	readonly userId: string;
 	readonly threadId: string;
 	readonly triggerMessageId: string;
-	/** OpenRouter model id to seed on the ast-* agent row. Defaults to HARNESS_TEST_MODELS.builtin.model. */
+	/**
+	 * OpenRouter model id to seed on the ast-* agent row.
+	 * Defaults to HARNESS_TEST_MODELS.builtin.model (deepseek-v4-flash) — the locked
+	 * AR7 matrix model for the builtin harness. Change only via the matrix.
+	 */
 	readonly modelId?: string;
 	readonly now?: string;
 }
@@ -644,7 +649,7 @@ export async function seedAssistantTurnDomain(
 		userId,
 		threadId,
 		triggerMessageId,
-		modelId = harnessTestResolvedModel("builtin").model,
+		modelId = HARNESS_TEST_MODELS.builtin.model,
 		now = new Date().toISOString(),
 	} = opts;
 	const assistantId = `ast-${userId}`;

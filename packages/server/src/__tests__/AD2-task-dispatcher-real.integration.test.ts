@@ -49,7 +49,7 @@ import {
 	SUPPORTED_HARNESS_LANES,
 	startMcpBridgeServer,
 } from "../harness/__tests__/provision-real-session.js";
-import { harnessTestResolvedModel, requireHarness } from "../harness/__tests__/require-harness.js";
+import { HARNESS_TEST_MODELS, requireHarness } from "../harness/__tests__/require-harness.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { provisionSession } from "../services/session-provisioning.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
@@ -205,8 +205,7 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 		// params not used — dispatcher resolves model via resolveModel callback.
 		const { pool } = BUILTIN_LANE.prepFn({ db, eventBus, tmpDir });
 
-		// Locked model from HARNESS_TEST_MODELS (AR7 matrix) — do NOT hardcode a model id here.
-		const builtinResolvedModel = harnessTestResolvedModel("builtin");
+		const apiKey = process.env.OPENROUTER_API_KEY as string;
 		const cap = createSandboxCapture();
 
 		dispose = registerTaskDispatcher({
@@ -215,7 +214,13 @@ describe(`${BUILTIN_LANE.describeTag} AR4 AD2-real — dispatch→provision→re
 			adapterPool: pool,
 			workspace: new LocalSandboxAdapter(),
 			sandboxBasePath: tmpDir,
-			resolveModel: async (_tier) => builtinResolvedModel,
+			// Locked model from HARNESS_TEST_MODELS (AR7 matrix) — do NOT hardcode a model id here.
+			resolveModel: async (_tier) => ({
+				provider: "openai-compatible" as const,
+				model: HARNESS_TEST_MODELS.builtin.model,
+				apiKey,
+				baseUrl: HARNESS_TEST_MODELS.builtin.baseUrl,
+			}),
 			onBeforeTeardown: cap.onBeforeTeardown,
 		});
 
