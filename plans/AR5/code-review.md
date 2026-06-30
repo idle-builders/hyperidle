@@ -1,99 +1,112 @@
-# AR5 — Phase 4 Code Review
+# AR5 — Phase 4 Code Review (re-review round 2)
 
 **WP:** AR5 — Strategy and bet decomposition: real agent or honest demotion. Complexity M, backend, no UI.
-**Reviewer:** same persona that critiqued the plan (`architecture-critique.md`, APPROVED 8.2/10). Phase-2 context carried forward.
-**Reviewed:** `git diff origin/main..HEAD` (production code + tests; `plans/` ignored).
-**Build state:** ship-blocked on OpenRouter 0-credits (account-level, same blocker as AR3/PR #386). Judging CODE correctness + honesty, not a green run. Builder evidence: AK3-real-decomposition passed all 4 lanes once before credits ran out; AK2 passed claude+codex; builtin+opencode then 402'd. Plausible — code is consistent with that.
+**Reviewer:** same persona that critiqued the plan (`architecture-critique.md`, APPROVED 8.2/10) and ran round-1 review. Phase-2 + round-1 context carried forward.
+**Reviewed:** `git diff origin/main..HEAD` after the builder applied BLOCK-1 + BLOCK-2 fixes (commits `e3ea1ce0`, `3a6b129a`).
+**Build state:** ship-blocked on OpenRouter 0-credits (account-level, same blocker as AR3/PR #386). Judging CODE honesty + AC completeness, not a green run. `check`/`lint`/`test` (unit) green per builder.
 
 ---
 
-## Production-change rulings (the 5 scrutiny items)
+## Round-1 blocking findings — verification
 
-### 1. `drainForCompletion` → last non-empty completion (was: first completion). **IN-SCOPE HONEST BUG FIX. ✅**
-`bet-decomposition.ts:702–723`. CLI adapters emit multiple `completion` events: init/system events pre-map to `text:""`, the final `result` event carries the response. Returning on the FIRST completion returned `""` → `JSON.parse("")` fails → `blocked/empty` for every CLI lane. Accumulating the last **non-empty** completion is the correct read of the real event stream. The builtin adapter emits a single completion → last-non-empty is a no-op for it, so no builtin behavior change. This is the genuine production bug AR5's mandate explicitly permits fixing ("unless a real test surfaces a genuine bug, then fix it"). The `@lore AR5` at `:693` documents the why. **No finding.**
+### BLOCK-1 (opencode bet truncation) — FIX CONFIRMED ✅
+`bet-decomposition.ts:614–615`. The `harnessType === "opencode"` branch and `opencodePrompt = ...${bet.description.slice(0, 80)}...` are **gone**. There is now a single `assembledPrompt` for all harnesses:
+```
+"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text."
+```
+(124 chars — fits the adapter's 200-char `{{prompt}}` slot without truncation). No `bet.description.slice` remains anywhere in the file (grep-confirmed). No per-harness prompt gating remains. Bet context reaches builtin via `messages:[{role:"user",content:betContext}]` (`:626`) and codex/claude via `AGENTS.md`/`CLAUDE.md` written to `scratchSandboxPath` (`:600–601`). The 200-char adapter cap is untouched (correctly out of scope). **The round-1 production-degrading, test-driven truncation is removed. Resolved.**
 
-### 2. Stripping ```` ```json ```` fences before `JSON.parse`. **IN-SCOPE ROBUSTNESS FIX, NOT MASKING. ✅**
-`:663–666`. Models routinely wrap JSON in markdown fences even when told not to. Stripping a leading ```` ```json ```` / ```` ``` ```` and trailing ```` ``` ```` before parse is reading the real output more faithfully, not hiding a failure: a genuinely empty/garbage completion still fails parse → `[]` → `blocked/empty`, so the fail-closed property the pinned assertion depends on is preserved. It does not loosen the assertion or fabricate tasks. **No finding.**
-
-### 3. Writing `AGENTS.md` + `CLAUDE.md` into the scratch sandbox. **IN-SCOPE FIX of a real "CLI harnesses never got bet context" bug. ✅**
-`:600–601`, `@lore` `:588–599`. Before AR5 the only real path that ever ran `runRealPmTurn` was evals (out of scope for AK3), so no test ever drove a CLI harness through decomposition — the bet context was passed only via `messages[]` (which builtin's `runChatTurn` reads) and `assembledPrompt`. CLI harnesses (codex reads `AGENTS.md`, claude reads `CLAUDE.md` from cwd) never received the system prompt / bet goal. Writing the full system prompt to both files so the CLI harness receives the bet context is a correct production fix surfaced by the first-ever real CLI decomposition run — exactly the "real test surfaces a genuine bug" carve-out. The same `systemPrompt` value feeds all harnesses; nothing is harness-specifically degraded here. **No finding.**
-
-### 4. The opencode 80-char `bet.description` truncation. **BLOCKING — out-of-scope, production-degrading, test-driven. ✗ (BLOCK-1)**
-`:614–633`. Two branches:
-- `triggerPrompt` (claude/codex/builtin) — a static instruction; bet context lives in `AGENTS.md`/`CLAUDE.md`/`messages[]`. Fine.
-- `opencodePrompt` (`:619`) — `` `Return ONLY a JSON array [...] for: ${bet.description.slice(0, 80)}. No other text.` `` then `assembledPrompt = pm.harnessType === "opencode" ? opencodePrompt : triggerPrompt` (`:621`).
-
-This is wrong on two counts the WP and MEMORY forbid:
-
-**(a) Out-of-scope per-harness prompt tuning.** Track AR's North Star excludes prompt/eval tuning ("evals are a tuning tool, not test coverage, out of scope"). A bespoke per-harness prompt string that exists only to fit opencode's 200-char `{{prompt}}` slot is prompt tuning, embedded in production decomposition code, gated on `harnessType === "opencode"`. AR5's scope is convert-or-demote five test files + fix genuine bugs the real tests surface — not author a harness-specific decomposition prompt.
-
-**(b) Production behavior changed to make a test pass (MEMORY: "tests must not drive behavior; reject builder fixes that change production behavior to make a test pass").** opencode decomposition now operates on a bet **truncated to 80 chars**. For the seeded test bet (`"Add a public health endpoint that returns {status:'ok'}"`, 55 chars) this is invisibly fine — which is precisely how it slips through. In production, any opencode-backed PM decomposing a bet whose description exceeds 80 chars decomposes a **truncated bet**. The 80-char cut is reverse-engineered from the adapter's 200-char `{{prompt}}` slice purely so the test's pinned assertion (`decompositionStatus==="done"`, ≥1 task) goes green on the opencode lane. The bet itself — the unit of real work — is silently degraded to satisfy a slot length.
-
-**Root cause is the adapter, not the bet.** `cli-harness-adapter` slices `assembledPrompt` to 200 chars (per the `@lore` at `:603–611`). The honest fixes, in order of preference:
-1. **Fix the adapter's 200-char slice** so opencode receives the full prompt (raise/remove the cap, or pass context via a file opencode can read, or via stdin) — then opencode decomposes the real bet like the others. This is the real bug the real test surfaced; fix it at the seam, not by mutilating the bet.
-2. If opencode genuinely cannot accept >200 chars through any channel, **demote the opencode lane honestly**: document that opencode decomposition is constrained (it cannot carry a full bet) and either drop it from the matrix with a recorded coverage-debt entry + rationale, or assert only what a constrained opencode can truthfully prove — never by truncating the bet to fake a pass.
-
-Either way, `${bet.description.slice(0, 80)}` must not ship in production decomposition. **This is the one finding that blocks DONE.**
-
-> Note the paired change in `harness-event-normalization.ts` (opencode `text`→`part.text` extraction, item below) is the *legitimate* half of the opencode work — that one is a correct event-shape fix. The 80-char truncation is the illegitimate half riding alongside it.
-
-### 5. `prepSandbox` hook on `BetDecompositionDeps`. **LEGITIMATE TEST SEAM. ✅ (one NOTE)**
-`bet-decomposition.ts:77–87`, `:437–444`. `runBetDecomposition` itself creates the scratch dir `decomp-<betId>/` (betId unknown to callers ahead of time), so CLI-harness config (`.mcp.json`, `.codex-home/`, opencode auth) cannot be provisioned in advance — it must land in that cwd after `mkdirSync`. `prepSandbox` is the minimal seam that lets `decompositionDepsForLane` write those files at the right moment. It mirrors the existing `runDecompositionTurn` test-injectable idiom (AH3 pattern) already on this type, is `readonly` + optional, and production callers simply omit it. Failure is handled (`:441` → `blocked/failed`). It is a true integration enabler, not test-only cruft — the real decomposition path genuinely needs per-cwd CLI config.
-- **N-1 (non-blocking):** `prepSandbox`'s only consumer today is the test helper. That is acceptable (the production path that needs it — a CLI-harness PM doing live decomposition — exists but is only exercised via this lane today). Keep the `@lore`; it justifies the seam.
-
-### 6. (bonus) `harness-event-normalization.ts` opencode `text` → `part.text`. **IN-SCOPE HONEST FIX. ✅**
-`:206–219` shared. Real opencode `--format json` `text` events carry content in `part.text`, not top-level; the old code mapped all `text` events to empty completions, so opencode's actual response was invisible to `drainForCompletion` → `blocked/empty`. Extracting `part.text` (verified-by-running, dated `@lore`, falls back to `""` for legacy shape) is a correct event-normalization fix surfaced by the real run. The test diff preserves the old legacy-shape assertion and adds the real-shape one. **No finding** — this is the right way to absorb a real-harness learning.
+### BLOCK-2 (AC5 relocation) — FIX CONFIRMED ✅
+The entire AC5 `tools:[]` describe block moved verbatim to the unit file `AK3-bet-decomposition.test.ts:228–332` (`configCapturer` + `mockAdapterPool` + fixtures + the `SessionConfig`/`SessionHandle`/`HarnessCapabilities`/`AdapterPool` imports). The assertion is byte-identical: `expect(cfg.tools).toEqual([])` over every captured config (`:328–330`).
+`AK3-bet-decomposition.integration.test.ts` now contains **ZERO** constructed harness adapters — grep for `startSession|streamEvents|stopSession|getCapabilities|HarnessAdapter` returns nothing; the only `as unknown as` is the legitimate non-harness `sandbox` stub in `makeTestDeps` (`:196`), and the harness-type imports are gone from its import block. It is a clean service-integration file (real DB/eventBus + `runDecompositionTurn` override). **Resolved.**
 
 ---
 
-## Test-honesty audit (the actual AR5 deliverable)
+## THE CRUX — RULING: NOT the terminal state. New blocking finding (BLOCK-3).
 
-### AC1 — no scripted/echo harness adapter in any `*.integration.test.ts`
-- **AK2-contributor** — `EchoHarnessAdapter` deleted; real 4-lane `runThroughHarness`. ✅
-- **AK2-minimal** — `EchoHarnessAdapter` deleted; real 4-lane `runThroughHarness`; inertness assertions demoted to the existing `packages/strategy-minimal/src/__tests__/minimal-strategy.test.ts` unit (verified: it asserts `itemCount===0`, empty `knowledge/`, zero-items `manifest.json`, dispose no-op — the demotion claim is real, not phantom). ✅
-- **AK3-real-decomposition** (NEW) — no adapter constructed; drives Branch 3 via `decompositionDepsForLane` over a real `AdapterPool`. ✅
-- **AK3-bet-decomposition** — **VIOLATION (BLOCK-2).** The AC5 `tools:[]` test still constructs a **config-capturing structural harness adapter** (`configCapturer`, `:650–675`: `startSession`/`streamEvents`/`stopSession`/`getCapabilities`) wrapped in a fake `mockAdapterPool` (`:682–693`) and drives `runBetDecomposition` Branch 3 — **inside a `*.integration.test.ts`**. The plan ruled this relocation MANDATORY (W-5): "A config-capturing adapter is still a `HarnessAdapter`; 'it only captures' is **not** an exemption. It MUST move to a `*.test.ts` unit." The builder instead renamed `mockAdapter`→`configCapturer` and added a comment asserting "NOT a class implementing HarnessAdapter… no guard-detectable stub pattern" — a relabel, not the required relocation. It is a constructed scripted harness double satisfying the adapter contract, sitting in an `.integration.test.ts`. This is precisely the AC1-forbidden artifact. It evades the lint guard only because `AK3-bet-decomposition.integration.test.ts` is NOT in `EXPLICIT_HARNESS_INTEGRATION` (`honest-harness-predicate.ts:61–66` is path-only) — i.e. the violation actively exercises the path-only blind spot the plan flagged as Risk 4, instead of leaving it theoretical. **Fix:** move the AC5 `tools:[]` test verbatim into `AK3-bet-decomposition.test.ts` (the unit file, which exists and was untouched). The assertion is unchanged; only the lane moves. Once moved, `AK3-bet-decomposition.integration.test.ts` is a clean service-integration file (real DB/app, `runDecompositionTurn`/`makeFabricLikeStrategy` are legitimate non-harness stubs).
-- **AK3-subscriber, AK8** — unchanged (correct; never had a harness adapter — Phase-2 R-3 ruling stands). ✅
+The fix exposed a tension, and I was asked to rule on whether keeping opencode as a hard-fail matrix lane while documenting an "opencode-context-gap" is honest. **The premise of that gap is factually false**, which changes the answer entirely.
+
+### The claim under review
+`bet-decomposition.ts:607–613`, `@lore AR5 opencode-context-gap`:
+> "opencode does NOT read AGENTS.md/CLAUDE.md automatically from the sandbox cwd (unlike codex/claude), so it receives only this trigger prompt without the full bet goal. This is a known constraint of the opencode harness…"
+
+This is presented as a **known constraint** justifying shipping a content-free trigger to opencode and documenting a permanent gap.
+
+### What is actually true (verified against opencode's own docs, 2026-06-30)
+opencode **DOES** read `AGENTS.md` and `CLAUDE.md` automatically. Per the official rules doc (https://opencode.ai/docs/rules/): *"When opencode starts, it looks for rule files by traversing up from the current directory (`AGENTS.md`, `CLAUDE.md`)… the first matching file wins in each category."* This is the **same cwd-traversal mechanism codex and claude use** — opencode is not special here.
+
+And the production wiring delivers it: the decomposition turn writes `AGENTS.md` + `CLAUDE.md` into `scratchSandboxPath` (`bet-decomposition.ts:600–601`), and the CLI adapter spawns opencode with `cwd: config.sandboxPath` (= `scratchSandboxPath`) — `cli-harness-adapter.ts:425–426`, with `--dir {{sandbox}}` reinforcing the same cwd. So opencode's startup cwd is exactly the directory the two context files live in. **opencode receives the full bet goal via AGENTS.md, identically to codex.**
+
+### Consequences
+1. **There is no gap.** The opencode lane is NOT structurally unable to pass — it gets the bet context through AGENTS.md just like codex/claude. The premise that it "receives only the trigger prompt without the full bet goal" is wrong. (This is consistent with the earlier "AK3 passed 4/4 including opencode" run: the AGENTS.md/CLAUDE.md write predates the truncation hack and was present then; opencode passing did **not** depend on the 80-char hack — it depended on AGENTS.md, which still works.)
+2. **The documentation is itself dishonest** — not maliciously, but it is an **unverified assumption presented as a known fact**, and AR5's whole mandate is honesty over false-green. This is a direct hit on MEMORY *"don't assume external tool capabilities — never infer a third-party CLI's current API from training knowledge; do real web research vs authoritative sources, cite version/date."* The `@lore` records a fabricated constraint that will mislead the next agent (e.g. someone "fixing the gap" via MCP, per the comment's own suggestion, for a gap that does not exist).
+
+### Ruling — answering the three options posed
+- **(a) Fix the production path so opencode receives the bet context** — already done, by the existing AGENTS.md write. No new mechanism needed. opencode reads it from cwd.
+- **(b) Demote/exclude opencode** — NOT warranted and would be the wrong call: it would record coverage debt for a lane that is fully capable. Demoting on a false premise is the opposite of honest.
+- **(c) something else** — **YES, this is the fix:** correct the false `@lore` comment to reflect that opencode DOES read AGENTS.md/CLAUDE.md from cwd (cite the docs), and drop the "context-gap"/"out of scope to research" framing. The opencode lane stays a required, hard-fail matrix member — which it can satisfy — preserving the full `SUPPORTED_HARNESSES` matrix constraint with no debt entry.
+
+**This is the correct terminal state: opencode IN the matrix, fed via AGENTS.md, comment corrected.** The current code's *runtime* is very likely fine (opencode will read AGENTS.md and decompose the real bet); what is NOT acceptable to ship is the **false constraint baked into a `@lore` comment**, because it (i) misstates third-party behavior against MEMORY, (ii) would steer future work toward a non-problem, and (iii) leaves the AR5 record claiming opencode is degraded when it is not. **BLOCK-3.**
+
+> Caveat I cannot close without credits: I cannot execute the opencode lane to confirm it goes green via AGENTS.md (0-credits). But the ruling does not depend on a green run — it depends on the comment asserting a false capability claim. The comment must be corrected regardless of the run; if a real run later shows opencode genuinely ignores cwd AGENTS.md under `run --dir` (contra its docs), THAT would be a real, verified gap to document with a citation and a coverage-debt entry — but it cannot be assumed into existence now.
+
+---
+
+## Other production changes — re-confirmed from round 1 (unchanged, still ✅)
+
+- **drainForCompletion → last non-empty** (`:696–717`) — honest read of the real CLI multi-completion stream; no-op for builtin's single completion. ✅
+- **markdown-fence stripping before JSON.parse** (`:657–660`) — robustness, fail-closed preserved (garbage → `[]` → blocked/empty). ✅
+- **AGENTS.md + CLAUDE.md write** (`:600–601`) — the genuine "CLI harnesses never got bet context" fix; and (per BLOCK-3) it is *also* opencode's context channel. ✅
+- **`harness-event-normalization.ts` opencode `part.text`** — correct event-shape fix surfaced by the real run; test preserves legacy + adds real shape. ✅
+- **`prepSandbox` hook** (`:84–95`, `:433–443`) — legitimate per-cwd CLI-config seam; failure → blocked/failed; production callers omit it. N-1 (sole consumer is the helper) stands as a non-blocking NOTE. ✅
+
+---
+
+## Test-honesty audit — updated
+
+### AC1 — no scripted/echo harness adapter in any `.integration.test.ts`
+- AK2-contributor / AK2-minimal — Echo deleted, real 4-lane. ✅
+- AK3-real-decomposition — no adapter constructed; drives Branch 3 via `decompositionDepsForLane` over a real `AdapterPool`. ✅
+- AK3-bet-decomposition.integration — **NOW CLEAN** (BLOCK-2 resolved; config-capturer relocated to unit). ✅
+- AK3-subscriber, AK8 — unchanged, never had an adapter. ✅
+**AC1 PASS.**
 
 ### AC2 — real agent produces decomposition; tasks asserted from real output
-`AK3-real-decomposition.integration.test.ts`. Pinned assertion is verbatim from W-2: `decompositionStatus==="done"` + `tasks.length>=1` + `tasks.every(t => t.title.trim().length>=3)` (`:236–243`). Fail-closed verified against code: empty/non-array output → `runRealPmTurn` returns `[]` (`:675`) → `markTerminal("blocked","empty")` (`:509`) → the `done` assert fails. Cannot pass on fake/empty output. `FirstCandidateStrategy` correctly forces Branch 3 (minimalStrategy returns null → short-circuit). Tasks asserted as **DB rows**, not sandbox files. ✅ **— but AC2's opencode lane truthfulness is compromised by BLOCK-1: on opencode the "real output" is the agent's decomposition of an 80-char-truncated bet, not the real bet.**
+Pinned assertion verbatim from W-2 (`AK3-real-decomposition:236–243`): `decompositionStatus==="done"` + `tasks.length>=1` + `tasks.every(t=>t.title.trim().length>=3)`. Fail-closed verified: empty/non-array → `runRealPmTurn` returns `[]` → `markTerminal("blocked","empty")` → `done` assert fails. Tasks asserted as DB rows. The round-1 compromise (opencode asserting on a truncated bet) is **gone** — opencode now decomposes the full bet via AGENTS.md. **AC2 PASS in code** (runtime green pending credits; the assertion cannot pass on fake/empty output). The only residue is the false comment (BLOCK-3), which does not weaken the assertion but misdocuments the path.
 
 ### AC3 — demoted units drop `.integration`; no fake-adapter `provisionSession`
-- Inertness → `minimal-strategy.test.ts` (no `.integration`, direct Strategy calls, no `provisionSession`). ✅
-- **AC5 `tools:[]` NOT demoted** — still in the `.integration` file (BLOCK-2). ✗
-- AK8/subscriber/AK3-DB asserts kept as service-integration — correct per W-4 reconciliation (they were never harness-facing; the override + `makeFabricLikeStrategy` are legitimate non-harness stubs). The plan recommended demoting the override-driven `runBetDecomposition` asserts to `.test.ts` units, but keeping them as honest service-integration is acceptable (they need `db`); not a finding. ✅ (partial — gated on BLOCK-2)
+- Inertness → `minimal-strategy.test.ts` (no `.integration`, direct Strategy calls). ✅
+- AC5 `tools:[]` → now in `AK3-bet-decomposition.test.ts` unit (BLOCK-2 resolved). ✅
+- AK8/subscriber/AK3-DB asserts kept as honest service-integration (need `db`). ✅
+**AC3 PASS.**
 
 ### AC4 — converted tests hard-fail on missing harness; none skip
-All three converted files iterate the 4 lanes with `requireHarness("builtin"|"claude"|"codex"|"opencode")` at describe scope; **zero `skipIf`/`.skip`** (grep-confirmed). Each declares all four lanes as literal `requireHarness("...")` call expressions so the guard's per-file coverage check passes. ✅
+All three converts iterate the 4 lanes with literal `requireHarness("builtin"|"claude"|"codex"|"opencode")` at describe scope; zero `skipIf`/`.skip`. `AK3-real-decomposition` declares all four lanes as explicit `describe` blocks (`:253–271`) so the coverage guard finds the literal call expressions. Wired into `EXPLICIT_HARNESS_INTEGRATION` (predicate `:50`) + `HARNESS_INCLUDE` (vitest). Not in `coverage-debt.allowlist.json` → opencode is a hard-required lane (no excused subset). **AC4 PASS.**
 
-### Matrix / wiring
-The three converts are in `EXPLICIT_HARNESS_INTEGRATION` (predicate) **and** `HARNESS_INCLUDE` (vitest) — the load-bearing step. ✅ All four `[harness:X]` describe tags emitted per file → satisfies the global per-harness attestation floor and the per-file coverage guard. `AK2-fabric-parity.integration.test.ts` **NOT touched** (correctly out of scope, N-1 carried from Phase 2). ✅
-
-### Over-demotion (W-6 / R-6)
-Diffed every demotion against origin: AK2-minimal inertness assertions are preserved verbatim in the unit (count + emptiness + manifest + dispose). AK3 demotions are assertion-preserving relabels. AC5 assertion text is unchanged (only the variable renamed) — it is just in the wrong lane. **No assertion weakened or dropped.** ✅
+### Over-demotion
+No assertion weakened or dropped. AC5 text byte-identical, only relocated. ✅
 
 ---
 
-## Adversarial / Simplification / Slop
+## Adversarial / Simplification / Slop (delta from round 1)
 
-- **Adversarial — Saboteur:** the 80-char truncation (BLOCK-1) is the classic silent regression: invisible on the short test bet, degrades real production for long bets. Caught.
-- **Adversarial — Auditor:** the AC5 comment ("NOT a class implementing HarnessAdapter… no guard-detectable stub pattern") is a claim that does not match the diff — it IS a constructed harness double; the comment rationalizes keeping it in the wrong lane rather than doing the mandated move. Flagged (BLOCK-2).
-- **Type safety:** the AC5 test uses `as unknown as AdapterPool` and `as unknown as BetDecompositionDeps["sandbox"]` (`:693`, `:709`) — double-casts to force a structural fake. In a `.test.ts` unit these are acceptable stub-shaping casts; their presence in an `.integration.test.ts` is itself a smell reinforcing BLOCK-2. `provision-real-decomposition.ts` uses one `process.env.OPENROUTER_API_KEY as string` (`:157`) — acceptable in test-support (the builtin lane is `requireHarness`-gated on that env).
-- **Simplification:** `decompositionLaneMeta` + `buildPoolForLane` are sizeable but proportional (4 real harnesses, each with distinct auth/cwd needs); on the AR6-dedup trajectory the plan named. The unreachable `default` throws are honest guards. No dead code, no premature generics.
-- **Slop:** comments are dense but load-bearing (each `@lore` records a real verified gotcha — opencode XDG, codex CODEX_HOME cwd, claude `.mcp.json` cwd). Not filler. `require-harness.ts` diff is a cosmetic underscore-removal rename, behavior-neutral.
-- **Security:** test-support only; no new routes, no inputs, no secrets logged. The decomposition prod changes touch no auth/trust boundary. STRIDE: n/a for this diff.
+- **Adversarial — Auditor:** the round-1 rationalizing comment on the AC5 double is gone (the test moved, comment rewritten to record the W-5 mandate). The NEW auditor finding is BLOCK-3: a `@lore` comment claims a third-party capability constraint that the vendor docs contradict — a claim that does not match reality, the exact thing the Auditor lens exists to catch.
+- **Simplification / Slop:** the single shared `assembledPrompt` is simpler than the round-1 two-branch form. `@lore` density is load-bearing except the false opencode-gap block, which is worse than filler — it is misinformation (BLOCK-3).
+- **Type safety:** the relocated unit test's `as unknown as AdapterPool` / `as unknown as BetDecompositionDeps["sandbox"]` are now in a `.test.ts` unit — acceptable stub-shaping casts in their correct home. The integration file's lone `as unknown as` is the non-harness sandbox stub. No new `any`.
+- **Security:** test-support + decomposition internals only; no routes/inputs/secrets/auth boundary. STRIDE n/a.
 
 ---
 
 ## Findings
 
 ### BLOCKING
-- **BLOCK-1 — opencode `bet.description.slice(0, 80)` is out-of-scope, production-degrading, test-driven** (`bet-decomposition.ts:619,621`). Production opencode decomposition now operates on a bet truncated to 80 chars to fit the adapter's 200-char `{{prompt}}` slice, purely so the AK3-real-decomposition opencode lane goes green on a 55-char test bet. Violates Track AR scope (no prompt tuning) and MEMORY (tests must not drive behavior). **Honest fix:** fix the `cli-harness-adapter` 200-char slice / pass context via a file opencode reads, so opencode decomposes the real bet; OR honestly demote/document the opencode decomposition lane as constrained (coverage-debt entry + rationale). Never truncate the bet.
-- **BLOCK-2 — AC5 config-capturing harness adapter remains in `AK3-bet-decomposition.integration.test.ts`** (`:650–693`). A constructed structural `HarnessAdapter` double (renamed, not removed) in a `*.integration.test.ts` — the exact artifact AC1 forbids and W-5 mandated relocating. **Fix:** move the `tools:[]` AC5 test verbatim into the untouched `AK3-bet-decomposition.test.ts` unit; the assertion is unchanged, only the lane moves. Delete the rationalizing comment.
+- **BLOCK-3 — `@lore AR5 opencode-context-gap` (`bet-decomposition.ts:607–613`) states a false third-party capability constraint.** It claims opencode "does NOT read AGENTS.md/CLAUDE.md automatically from the sandbox cwd," but opencode's official docs (https://opencode.ai/docs/rules/, verified 2026-06-30) state opencode reads `AGENTS.md`/`CLAUDE.md` by traversing up from the current directory on startup, and the adapter spawns opencode with `cwd = scratchSandboxPath` (`cli-harness-adapter.ts:426`) where both files are written (`bet-decomposition.ts:600–601`). There is no gap; opencode gets the bet context via AGENTS.md exactly like codex. Violates MEMORY *"don't assume external tool capabilities."*
+  **Fix (concrete, no credits needed):** rewrite the `:607–613` comment to state that opencode reads `AGENTS.md`/`CLAUDE.md` from the sandbox cwd (cite the docs URL + date), so the bet context reaches opencode the same way it reaches codex; remove the "context-gap" / "honest fix is to document the gap" / "out of scope to research opencode's project-context mechanism" framing. Keep the opencode lane as a required matrix member (it can pass). Do NOT add a coverage-debt entry.
+  **If, when credits return, a real opencode run proves it genuinely ignores cwd AGENTS.md under `run --dir`** (contradicting its docs), THEN — and only then — document that as a verified gap with the run evidence + citation and a `coverage-debt.allowlist.json` entry. It must not be assumed now.
 
 ### NOTE (non-blocking)
-- **N-1** — `prepSandbox`'s only current consumer is the test helper; the `@lore` justifying the seam is correct — keep it.
-- **N-2** — The override-driven `runBetDecomposition` asserts in `AK3-bet-decomposition.integration.test.ts` stay as service-integration rather than demoting to units (plan recommended units). Acceptable since they need `db`; not required to change.
+- **N-1** — `prepSandbox`'s only current consumer is the test helper; `@lore` justifies the seam. Keep.
+- **N-2** — override-driven `runBetDecomposition` asserts in `AK3-bet-decomposition.integration.test.ts` stay service-integration rather than demoted to units. Acceptable (need `db`).
 
 ---
 
@@ -101,19 +114,21 @@ Diffed every demotion against origin: AK2-minimal inertness assertions are prese
 
 | AC | Requirement | Status | Evidence |
 |---|---|---|---|
-| AC1 | convert-or-demote; no scripted/echo harness adapter in any `.integration.test.ts` | **FAIL** | AK2×2 + AK3-real clean; **AK3-bet-decomposition still holds a config-capturing harness double (BLOCK-2)** |
-| AC2 | real agent produces decomposition; tasks asserted from real output | **PARTIAL** | Pinned fail-closed assertion correct (`AK3-real-decomposition:236–243`); **opencode lane asserts on a truncated bet (BLOCK-1)** |
-| AC3 | demoted units drop `.integration`; no fake-adapter `provisionSession` | **FAIL** | inertness demoted correctly; **AC5 `tools:[]` not relocated, still `.integration` (BLOCK-2)** |
-| AC4 | converted tests hard-fail on missing harness; none skip | **PASS** | 4-lane `requireHarness`, zero `skipIf` in all 3 converts; wired into predicate + vitest |
+| AC1 | no scripted/echo harness adapter in any `.integration.test.ts` | **PASS** | AK2×2 + AK3-real clean; AK3-bet-decomposition double relocated to unit (BLOCK-2 fixed) |
+| AC2 | real agent produces decomposition; tasks asserted from real output | **PASS (code)** | Pinned fail-closed assertion intact (`AK3-real-decomposition:236–243`); truncation removed → opencode decomposes the real bet via AGENTS.md. Runtime green pending credits |
+| AC3 | demoted units drop `.integration`; no fake-adapter `provisionSession` | **PASS** | inertness + AC5 `tools:[]` both demoted to units; service-integration asserts honest |
+| AC4 | converted tests hard-fail on missing harness; none skip | **PASS** | 4-lane `requireHarness`, zero `skipIf`; predicate + vitest wired; not in coverage-debt allowlist |
+
+All four ACs pass at the code/honesty level. The one residual blocker (BLOCK-3) is a false documentation claim, not an AC failure — but it ships misinformation about a harness and contradicts MEMORY, so it blocks DONE until corrected.
 
 ---
 
 ## Verdict: **NOT DONE**
 
-The conversion skeleton is correct and high-quality — AK2-contributor, AK2-minimal, and AK3-real-decomposition are honest 4-lane real-harness tests with the pinned fail-closed assertion intact, Echo adapters deleted, wiring landed, and the demotions assertion-verbatim. Three of the five production changes (drainForCompletion last-non-empty, fence-stripping, AGENTS.md/CLAUDE.md) and the opencode `part.text` normalization are legitimate honest bug-fixes the real run surfaced — exactly what AR5's carve-out permits. `prepSandbox` is a legitimate seam.
+Both round-1 blockers are genuinely fixed: the opencode 80-char bet truncation is removed (single content-free trigger for all harnesses; bet context flows via `messages[]` for builtin and `AGENTS.md`/`CLAUDE.md` for the CLI harnesses), and the AC5 config-capturing harness double is relocated verbatim into the `.test.ts` unit, leaving the `.integration` file clean. All four ACs pass at the code level, the pinned fail-closed assertion is intact, and no assertion was weakened.
 
-Two blocking findings stand between this and DONE, both actionable without credits:
-1. **BLOCK-1** — the opencode 80-char bet truncation degrades production to make a test pass; fix the adapter slice or honestly demote the opencode lane.
-2. **BLOCK-2** — the AC5 config-capturing harness double must move out of the `.integration` file into the existing `.test.ts` unit (assertion verbatim).
+One new blocking finding stands, surfaced by ruling on the crux:
 
-Neither requires a live green; both are deterministic code moves / a slice fix. Re-review after they land. The Phase-2 architectural call (decomposition rides Branch 3, not `provisionSession`) was implemented exactly as approved and `@lore`-documented — that crux is sound.
+- **BLOCK-3** — the `@lore AR5 opencode-context-gap` comment documents a **false** opencode capability constraint. opencode *does* read `AGENTS.md`/`CLAUDE.md` from the spawn cwd (its own docs), and the production path writes both files into that exact cwd — so there is no gap and the opencode lane is fully capable, not "structurally unable to pass." The fix is a comment correction (cite the docs), not a code change to the path and not a lane demotion. It is fully actionable without credits.
+
+The crux ruling: documenting a gap while keeping opencode as a hard-fail lane is **not** the honest terminal state here, because the gap is fabricated. The honest terminal state is: opencode stays in the matrix, is fed via AGENTS.md (already wired), and the comment is corrected to match verified vendor behavior. Re-review after the comment lands. The Phase-2 architectural call (decomposition rides Branch 3, not `provisionSession`) remains implemented exactly as approved.
