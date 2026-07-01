@@ -202,20 +202,69 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnEnv["MCP_URL"]).toBe("");
 	});
 
-	it("resolves {{model}} to empty string when resolvedModel is absent", async () => {
+	it("drops --model flag when resolvedModel is absent (WARNING-D1 conditional-model fix)", async () => {
+		// @lore AR4 WARNING-D1: When resolvedModel is absent, {{model}} resolves to "".
+		// Passing --model "" to codex sends an empty model string to the OpenAI API →
+		// 400 invalid_request_error. The fix: strip --model + "" pairs when model is empty,
+		// preserving pre-AR4 behavior (codex falls back to its CLI default).
+		// This test proves the conditional strip: --model "" must NOT appear in the final args.
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		const adapter = new CliHarnessAdapter(
-			makeConfig({ args: ["--model", "{{model}}"], envMap: {}, envAllowlist: [] }),
+			makeConfig({
+				args: ["exec", "{{prompt}}", "--model", "{{model}}", "--json"],
+				envMap: {},
+				envAllowlist: [],
+			}),
 			{ spawnFn: spawnSpy },
 		);
 		await adapter.startSession(makeSessionConfig({ resolvedModel: undefined }));
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
-		expect(spawnCall[1]).toContain("");
-		expect(spawnCall[1]).not.toContain("{{model}}");
+		const spawnArgs: string[] = spawnCall[1];
+		// The --model flag and its empty-string value must be stripped
+		expect(spawnArgs).not.toContain("--model");
+		// Other args must be preserved
+		expect(spawnArgs).toContain("exec");
+		expect(spawnArgs).toContain("--json");
+		// No unresolved template vars
+		expect(spawnArgs).not.toContain("{{model}}");
+	});
+
+	it("keeps --model flag with non-empty resolved model (WARNING-D1 non-empty path)", async () => {
+		// @lore AR4 WARNING-D1: Non-empty model must still inject --model <value>.
+		// Proves the conditional strip only fires on empty string, not on valid model IDs.
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({
+				args: ["exec", "{{prompt}}", "--model", "{{model}}", "--json"],
+				envMap: {},
+				envAllowlist: [],
+			}),
+			{ spawnFn: spawnSpy },
+		);
+		await adapter.startSession(
+			makeSessionConfig({
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "gpt-5.4-mini",
+					apiKey: "",
+					baseUrl: "https://api.openai.com",
+				},
+			}),
+		);
+
+		const spawnCall = spawnSpy.mock.calls[0]!;
+		const spawnArgs: string[] = spawnCall[1];
+		// --model gpt-5.4-mini must appear in args
+		const modelIdx = spawnArgs.indexOf("--model");
+		expect(modelIdx).toBeGreaterThan(-1);
+		expect(spawnArgs[modelIdx + 1]).toBe("gpt-5.4-mini");
 	});
 });
 

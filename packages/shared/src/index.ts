@@ -377,8 +377,11 @@ export type {
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──
+// ── AR4b: AssistantFormationRequest / AssistantFormation / formAssistant added ──
 export type {
 	AgentScaffoldSpec,
+	AssistantFormation,
+	AssistantFormationRequest,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	DecomposeBetRequest,

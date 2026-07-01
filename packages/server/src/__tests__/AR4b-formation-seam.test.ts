@@ -1,0 +1,291 @@
+/**
+ * AR4b — Formation seam: the assistant's persona + tool surface are decided by
+ * the active strategy at turn time, NOT read from a hardcoded constant.
+ *
+ * Verifies AC3: switching the active strategy changes the assistant's form.
+ *
+ * This is a unit test (*.test.ts) — it mocks provisionSession to capture the
+ * conversational parameters (systemPromptOverride + draftRegistry) handed to it
+ * by runAssistantTurn after the formation seam consultation.
+ *
+ * Two strategies are exercised:
+ *   - minimalStrategy     → persona: null (no override), surface: "standard"
+ *   - testStrategy (alpha) → persona: "AR4b-test-persona-alpha", surface: "standard" (same tools, different persona)
+ *
+ * The key observable: runAssistantTurn now calls getActiveStrategy().formAssistant()
+ * BEFORE calling provisionSession. The captured systemPromptOverride must differ
+ * between strategies, proving the formation seam is consulted at turn time.
+ *
+ * @lore AR4b: We observe via the provisionSession call-site capture rather than
+ * by reading the DB or the AGENTS.md file on disk, because:
+ *   1. The persona lands in the assembled prompt (not the DB row) at turn time.
+ *   2. provisionSession receives it as params.conversational.systemPromptOverride.
+ *   3. Mocking the whole provisionSession lets us capture that field without
+ *      running a real harness (unit test scope).
+ */
+
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import type { AssistantFormation, AssistantFormationRequest, Strategy } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+import { runAssistantTurn } from "../services/assistant-turn.js";
+import type { CredentialResolver } from "../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
+import { test } from "../test-fixtures.js";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const FOUNDER_ID = "founder-ar4b-formation";
+const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
+const THREAD_ID = "thread-ar4b-formation";
+const TRIGGER_MSG_ID = "msg-trigger-ar4b-formation";
+
+// ─── Captured provisionSession calls ─────────────────────────────────────────
+
+type CapturedConversational = {
+	systemPromptOverride?: string | null;
+	draftRegistryToolNames?: string[];
+};
+
+const capturedConversational: CapturedConversational[] = [];
+
+/**
+ * Mock provisionSession to capture the conversational parameters.
+ * The mock resolves immediately with a completed outcome + a stub reply
+ * so runAssistantTurn persists a reply row (not a notice).
+ *
+ * @lore AR4b: We capture params.conversational.systemPromptOverride to prove the
+ * formation seam consulted the active strategy at turn time. The mock never runs
+ * a real harness — this is a unit test of the call-site wiring, not the turn itself.
+ */
+vi.mock("../services/session-provisioning.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+	return {
+		...original,
+		provisionSession: vi.fn(
+			async (
+				_deps: unknown,
+				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+			) => {
+				if (params.conversational) {
+					capturedConversational.push({
+						systemPromptOverride: params.conversational.systemPromptOverride,
+						draftRegistryToolNames: params.conversational.draftRegistry.definitions.map(
+							(d) => d.name,
+						),
+					});
+				}
+				// Resolve with a completed outcome + stub reply text
+				const stubResult: import("../services/session-provisioning.js").ProvisionSessionResult = {
+					sessionId: "stub-session-ar4b",
+					outcome: "completed",
+					totalCostCents: 0,
+					taskId: "stub-task-ar4b",
+					forceReturnCount: 0,
+					conversationalReply: "AR4b formation seam stub reply",
+				};
+				return stubResult;
+			},
+		),
+	};
+});
+
+// ─── Test strategy (alpha) — different persona ────────────────────────────────
+
+const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assistant.";
+
+/**
+ * Alpha test strategy: returns a distinct persona for formAssistant.
+ * All other methods delegate to minimalStrategy.
+ */
+const alphaStrategy: Strategy<HyperIdleDb> = {
+	...minimalStrategy,
+	formAssistant(_req: AssistantFormationRequest<HyperIdleDb>): Promise<AssistantFormation> {
+		return Promise.resolve({
+			persona: ALPHA_PERSONA,
+			assistantDraftSurface: "standard",
+		});
+	},
+};
+
+// ─── Credential resolver ──────────────────────────────────────────────────────
+
+const credentialResolver: CredentialResolver = {
+	async resolve(name: string): Promise<string | null> {
+		if (name === "openrouter_api_key") return "sk-or-test-ar4b-seam";
+		return null;
+	},
+};
+
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
+
+async function seedFixtures(db: HyperIdleDb): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(users).values({
+		id: FOUNDER_ID,
+		name: "AR4b Formation Founder",
+		role: "founder",
+		status: "active",
+		kind: "human",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: ASSISTANT_ID,
+		name: "Assistant",
+		role: "assistant",
+		kind: "ai",
+		agentCategory: "individual",
+		status: "active",
+		harnessType: "builtin",
+		modelId: "deepseek/deepseek-v4-flash",
+		modelProvider: "openrouter",
+		systemPrompt: "Original row persona — should be overridden at turn time",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
+	await db.insert(threads).values({
+		id: THREAD_ID,
+		hostKind: "user",
+		hostId: FOUNDER_ID,
+		initiatorId: FOUNDER_ID,
+		participants: JSON.stringify([FOUNDER_ID, ASSISTANT_ID]),
+		pinned: false,
+		createdAt: now,
+		lastActiveAt: now,
+	});
+	await db.insert(messages).values({
+		id: TRIGGER_MSG_ID,
+		threadId: THREAD_ID,
+		senderId: FOUNDER_ID,
+		type: "plain",
+		payload: JSON.stringify({ text: "AR4b formation seam test" }),
+		clientKey: `ck-${TRIGGER_MSG_ID}`,
+		createdAt: now,
+	});
+}
+
+function makeAdapterPool(): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("builtin-ar4b", new BuiltinHarnessAdapter(), {
+		name: "Builtin AR4b Test",
+		kind: "local",
+		type: "builtin",
+		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+		maxConcurrent: 5,
+	});
+	return pool;
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe("AR4b: formation seam — active strategy decides persona + tools at turn time", () => {
+	beforeEach(() => {
+		capturedConversational.length = 0;
+		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		clearActiveStrategy();
+	});
+
+	test("minimalStrategy formAssistant: persona is null (no override)", async ({ db }) => {
+		setActiveStrategy(minimalStrategy);
+		await seedFixtures(db);
+
+		const eventBus = new EventBus();
+		await runAssistantTurn(
+			{
+				db,
+				eventBus,
+				adapterPool: makeAdapterPool(),
+				credentialResolver,
+			},
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+		);
+
+		expect(capturedConversational).toHaveLength(1);
+		const captured = capturedConversational[0]!;
+		// minimalStrategy.formAssistant returns persona: null → no override
+		expect(captured.systemPromptOverride).toBeNull();
+		// Draft surface is "standard" → two draft tools present
+		expect(captured.draftRegistryToolNames).toEqual(
+			expect.arrayContaining(["create_bet", "edit_bet"]),
+		);
+	});
+
+	test("alphaStrategy formAssistant: persona is the strategy's persona (distinct from minimal)", async ({
+		db,
+	}) => {
+		setActiveStrategy(alphaStrategy);
+		await seedFixtures(db);
+
+		const eventBus = new EventBus();
+		await runAssistantTurn(
+			{
+				db,
+				eventBus,
+				adapterPool: makeAdapterPool(),
+				credentialResolver,
+			},
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+		);
+
+		expect(capturedConversational).toHaveLength(1);
+		const captured = capturedConversational[0]!;
+		// alphaStrategy.formAssistant returns persona: ALPHA_PERSONA → override present
+		expect(captured.systemPromptOverride).toBe(ALPHA_PERSONA);
+	});
+
+	test("switching strategy changes the assistant's form (AC3): persona differs between strategies", async ({
+		db,
+	}) => {
+		await seedFixtures(db);
+		const eventBus = new EventBus();
+		const pool = makeAdapterPool();
+
+		// Turn 1: minimalStrategy
+		setActiveStrategy(minimalStrategy);
+		await runAssistantTurn(
+			{ db, eventBus, adapterPool: pool, credentialResolver },
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+		);
+		const minimalCapture = capturedConversational[0]!;
+
+		capturedConversational.length = 0;
+		clearActiveStrategy();
+
+		// Turn 2: alphaStrategy
+		setActiveStrategy(alphaStrategy);
+		await runAssistantTurn(
+			{ db, eventBus, adapterPool: pool, credentialResolver },
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+		);
+		const alphaCapture = capturedConversational[0]!;
+
+		// The key assertion: switching the strategy changed the persona (AC3)
+		expect(minimalCapture.systemPromptOverride).toBeNull();
+		expect(alphaCapture.systemPromptOverride).toBe(ALPHA_PERSONA);
+		expect(minimalCapture.systemPromptOverride).not.toBe(alphaCapture.systemPromptOverride);
+	});
+
+	test("runAssistantTurn calls getActiveStrategy() at turn time (not a hardcoded constant)", async ({
+		db,
+	}) => {
+		// Set strategy AFTER seeding but BEFORE runAssistantTurn — verifies turn-time consultation
+		await seedFixtures(db);
+		setActiveStrategy(alphaStrategy);
+
+		const eventBus = new EventBus();
+		await runAssistantTurn(
+			{ db, eventBus, adapterPool: makeAdapterPool(), credentialResolver },
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+		);
+
+		// The active strategy at TURN TIME was alphaStrategy → persona must be ALPHA_PERSONA
+		expect(capturedConversational).toHaveLength(1);
+		expect(capturedConversational[0]!.systemPromptOverride).toBe(ALPHA_PERSONA);
+	});
+});

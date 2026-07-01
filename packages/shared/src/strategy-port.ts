@@ -285,6 +285,63 @@ export interface DecompositionPlan {
 }
 
 /**
+ * AR4b: The occasion handed to the active Strategy when the assistant turn is about
+ * to run. The Strategy returns the assistant's formation (persona + draft tool surface)
+ * for THIS turn — not a persistent mutation of the agent row.
+ *
+ * The Kernel calls formAssistant at turn time so switching the active strategy changes
+ * the assistant's form without requiring a DB row update (AC3).
+ *
+ * @lore AR4b: This is a TURN-TIME consultation, not a creation-time one. The result
+ * is applied per-turn (overrides systemPromptText in the assembled prompt assembly) and
+ * is NOT persisted to the users row. The row is the Settings-configured harness/model/
+ * baseline persona; the formation answer may override it for the turn.
+ *
+ * @lore AR4b: Strategy/Kernel boundary: the formation answer MUST NOT set harnessType
+ * or modelId — those are Kernel/Settings. The formation carries only persona + tool
+ * surface (the WHO), never the HOW. See concept §4 (FOUNDER-LOCKED boundary).
+ */
+export interface AssistantFormationRequest<TDb> {
+	readonly db: TDb;
+	/** The human user's id — drives the assistant id (ast-${userId}). */
+	readonly userId: string;
+	/** The thread the assistant is replying in. */
+	readonly threadId: string;
+}
+
+/**
+ * AR4b: The active Strategy's answer to a formation consultation.
+ *
+ * - `persona`: the system prompt for this turn. null = "use the agent row's systemPrompt
+ *   as-is" (Minimal Strategy default). A non-null value overrides the row's systemPrompt
+ *   for this turn's assembled prompt.
+ * - `assistantDraftSurface`: which draft tool surface to build. "standard" = the
+ *   canonical 2-tool surface (create_bet + edit_bet, via buildAssistantDraftRegistry).
+ *   A future Fabric Strategy may return a different marker.
+ *
+ * @lore AR4b: `assistantDraftSurface` is a server-interpretable marker rather than
+ * a ToolRegistry instance so @hyperidle/shared stays db-agnostic (ToolRegistry is a
+ * server type that would invert the dependency direction). The Kernel (server-side)
+ * resolves the marker to the actual ToolRegistry at turn time.
+ */
+export interface AssistantFormation {
+	/**
+	 * Turn-time persona override. null = no override; use the agent row's systemPrompt.
+	 * The Minimal Strategy returns null (no knowledge, no persona override).
+	 */
+	readonly persona: string | null;
+	/**
+	 * Which draft tool surface to hand the assistant for this turn.
+	 * "standard" = canonical 2-tool surface (create_bet + edit_bet).
+	 *
+	 * @lore AR4b: A marker rather than a ToolRegistry keeps @hyperidle/shared
+	 * db-agnostic. The server-side assistant-turn.ts maps this to the actual
+	 * ToolRegistry (buildAssistantDraftRegistry for "standard").
+	 */
+	readonly assistantDraftSurface: "standard";
+}
+
+/**
  * The Strategy Port. Exactly one Strategy is active per process.
  *
  * The Kernel calls this surface and NEVER imports a concrete Strategy
@@ -304,6 +361,10 @@ export interface DecompositionPlan {
  * Strategy which agent should own a unit of work. The Strategy returns the chosen
  * agent's users.id (or null = no agent); the Kernel resolves + attaches.
  *
+ * AR4b adds formAssistant: at turn time the Kernel asks the active Strategy for the
+ * assistant's persona + draft tool surface. The Strategy returns the formation answer;
+ * the Kernel applies it to the assembled prompt and tool registry.
+ *
  * Error semantics:
  * - assembleContext may throw; the Kernel's Phase-6 try/catch reverts the task
  *   to `accepted` and rethrows (existing behaviour preserved).
@@ -312,6 +373,7 @@ export interface DecompositionPlan {
  * - scaffoldAgents may throw for invalid input (e.g. agent_added with role null);
  *   the route's error handler surfaces a 400.
  * - selectAgent returns null to signal "no agent" — never throws for missing candidates.
+ * - formAssistant MUST NOT throw (turn-time consultation; failure → missing formation).
  */
 export interface Strategy<TDb> {
 	assembleContext(req: ContextAssemblyRequest<TDb>): Promise<ContextAssemblyOutcome>;
@@ -353,4 +415,26 @@ export interface Strategy<TDb> {
 	 * []-from-turn means blocked/empty. Same value, opposite meaning — see DecompositionPlan.
 	 */
 	decomposeBet(req: DecomposeBetRequest<TDb>): Promise<DecompositionPlan>;
+
+	/**
+	 * AR4b: The Strategy decides the assistant's persona + draft tool surface at turn time.
+	 *
+	 * Called by the Kernel once per assistant turn, BEFORE provisionSession. The Strategy
+	 * returns an AssistantFormation: persona (null = no override; use agent row's systemPrompt)
+	 * + assistantDraftSurface marker ("standard" = canonical 2-tool surface).
+	 *
+	 * The Kernel applies the persona as systemPromptOverride in the conversational assembly
+	 * and builds the ToolRegistry from the surface marker. Switching the active strategy
+	 * changes the assistant's form for the NEXT turn (AC3).
+	 *
+	 * MUST NOT throw — a formation failure leaves the turn without a persona/surface.
+	 * The Minimal Strategy returns { persona: null, assistantDraftSurface: "standard" }
+	 * so existing behavior is preserved.
+	 *
+	 * @lore AR4b: This is the "thin addition" alongside scaffoldAgents (creation-time).
+	 * scaffoldAgents fires at creation; formAssistant fires at EVERY turn. The Minimal
+	 * Strategy's null-persona means "no formation knowledge, use agent row defaults" —
+	 * the same pattern as scaffoldAgents returning systemPrompt:null for team agents.
+	 */
+	formAssistant(req: AssistantFormationRequest<TDb>): Promise<AssistantFormation>;
 }

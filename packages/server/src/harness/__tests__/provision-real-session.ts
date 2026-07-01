@@ -4,7 +4,7 @@
  *
  * **Canonical four-step recipe (reuse in AR3–AR6):**
  * 1. `requireHarness(<name>)` at describe scope (hard-fail, never skip).
- * 2. Seed domain rows; `setActiveStrategy(fabricStrategy)`; register the real
+ * 2. Seed domain rows; `setActiveStrategy(minimalStrategy)`; register the real
  *    adapter in an `AdapterPool`; `LocalSandboxAdapter`; (CLI only) `startMcpBridgeServer()`.
  * 3. `const cap = createSandboxCapture()`; pass `onBeforeTeardown: cap.onBeforeTeardown`
  *    into `ProvisionSessionDeps`; call `await provisionSession(...)`.
@@ -24,11 +24,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { EventBus, HarnessAdapter } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "../../routes/mcp-route.js";
+import { runAssistantTurn } from "../../services/assistant-turn.js";
+import type { CredentialResolver } from "../../services/credential-resolver.js";
 import type {
 	BeforeTeardownContext,
 	ProvisionSessionDeps,
@@ -42,6 +44,7 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { enforcementRegistry } from "../return-enforcement-registry.js";
 import {
+	HARNESS_TEST_MODELS,
 	type HarnessName,
 	harnessTestResolvedModel,
 	type ResolvedTestModel,
@@ -606,4 +609,386 @@ export async function runThroughHarness(
 
 	const result = await provisionSession(deps, params);
 	return { result, cap };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// runAssistantTurnThroughHarness (AR4 — builtin-only assistant-turn runner)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Seed the minimal DB rows for a builtin assistant turn test.
+ *
+ * Creates: human user + ast-* agent (with openrouter modelProvider/modelId so
+ * resolveAgentModel yields a runnable model) + assistant thread + trigger message.
+ *
+ * @lore AR4 W-1: The agent row MUST carry modelProvider:"openrouter" + a real
+ * modelId so assistant-turn.ts:329 (resolveAgentModel) takes the per-agent branch
+ * and produces an openai-compatible resolved model. Without these fields the
+ * else-branch at :352-366 fires and requires ANTHROPIC_API_KEY (which never exists
+ * per the strict harness-key model) — persisting a missing_key notice instead of a
+ * real turn.
+ */
+export interface AssistantTurnSeedOpts {
+	readonly userId: string;
+	readonly threadId: string;
+	readonly triggerMessageId: string;
+	/**
+	 * OpenRouter model id to seed on the ast-* agent row.
+	 * Defaults to HARNESS_TEST_MODELS.builtin.model (deepseek-v4-flash) — the locked
+	 * AR7 matrix model for the builtin harness. Change only via the matrix.
+	 */
+	readonly modelId?: string;
+	readonly now?: string;
+}
+
+export async function seedAssistantTurnDomain(
+	db: HyperIdleDb,
+	opts: AssistantTurnSeedOpts,
+): Promise<void> {
+	const {
+		userId,
+		threadId,
+		triggerMessageId,
+		modelId = HARNESS_TEST_MODELS.builtin.model,
+		now = new Date().toISOString(),
+	} = opts;
+	const assistantId = `ast-${userId}`;
+
+	// Human user
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: "AR4 Test User",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+
+	// Assistant agent — modelProvider + modelId are load-bearing (W-1)
+	await db.insert(users).values({
+		id: assistantId,
+		kind: "ai",
+		name: "AR4 Test Assistant",
+		role: "assistant",
+		status: "active",
+		harnessType: "builtin",
+		modelProvider: "openrouter",
+		modelId,
+		systemPrompt: "You are a helpful assistant. Be concise.",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
+
+	// Assistant thread (hostKind="user" = the assistant thread pattern)
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: userId,
+		initiatorId: userId,
+		participants: JSON.stringify([userId, assistantId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	// The trigger message (human → assistant)
+	await db.insert(messages).values({
+		id: triggerMessageId,
+		threadId,
+		senderId: userId,
+		type: "plain",
+		payload: JSON.stringify({ text: "Reply with the word PONG and nothing else." }),
+		clientKey: `ck-${triggerMessageId}`,
+		createdAt: now,
+	});
+}
+
+/**
+ * Run a real builtin assistant turn through `runAssistantTurn`.
+ *
+ * Builds a real builtin AdapterPool + a real OpenRouter CredentialResolver
+ * (OPENROUTER_API_KEY from env) + seeds the agent row with modelProvider/modelId
+ * so resolveAgentModel yields a runnable model. Calls runAssistantTurn and
+ * returns after the turn completes (reply or notice persisted to DB).
+ *
+ * **No `lane` param.** `runAssistantTurn` is builtin-only by construction
+ * (no sandbox cwd, no .mcp.json bridge → CLI harnesses cannot start). This runner
+ * is the honest vehicle for the genuinely builtin-only production path.
+ *
+ * @lore AR4 W-1: Must supply a real CredentialResolver resolving openrouter_api_key
+ * from OPENROUTER_API_KEY. Without it, assistant-turn.ts:352-366 fires (ANTHROPIC_API_KEY
+ * else-branch) and persists a missing_key notice — no real model runs.
+ *
+ * @lore AR4 Q2b: The agent row must carry modelProvider:"openrouter" + modelId so
+ * resolveAgentModel (assistant-turn.ts:329) produces an openai-compatible model
+ * the builtin adapter calls. The lane table's prepFn.resolvedModel is a field
+ * runAssistantTurn never reads — model resolution is internal, not external.
+ */
+export async function runAssistantTurnThroughHarness(
+	ctx: { db: HyperIdleDb; eventBus: EventBus },
+	params: { userId: string; threadId: string; triggerMessageId: string },
+): Promise<void> {
+	const apiKey = process.env.OPENROUTER_API_KEY;
+	if (!apiKey) {
+		throw new Error(
+			"runAssistantTurnThroughHarness: OPENROUTER_API_KEY not set — " +
+				"builtin assistant turn requires this key (requireHarness('builtin') should have caught this).",
+		);
+	}
+
+	// Real builtin adapter pool — same construction as SUPPORTED_HARNESS_LANES builtin lane.
+	// @lore AR4: `type: "builtin"` is required because assistant-turn.ts:301 reads
+	// `agentRow.harnessType ?? "builtin"` = "builtin" and passes it to adapterPool.select().
+	// Without type="builtin" the pool's entry.meta.type is undefined, which != "builtin",
+	// so select() skips the entry and returns null → NoEligibleHarnessError → notice persisted.
+	// Also "openrouter" must be included: agentRow.modelProvider="openrouter" → modelProviders:["openrouter"].
+	const pool = new AdapterPool();
+	pool.register(
+		"builtin-local",
+		new BuiltinHarnessAdapter({ maxIterations: 8, maxOutputTokens: 512 }),
+		{
+			name: "builtin-local",
+			kind: "local",
+			type: "builtin",
+			modelProviders: ["openrouter", "openai-compatible", "anthropic"],
+			maxConcurrent: 1,
+		},
+	);
+
+	// Real OpenRouter CredentialResolver — resolves openrouter_api_key from env.
+	// This is the load-bearing W-1 fix: takes the resolveAgentModel branch (not the
+	// ANTHROPIC_API_KEY else-branch) so a real model runs.
+	const credentialResolver: CredentialResolver = {
+		async resolve(name: string): Promise<string | null> {
+			if (name === "openrouter_api_key") return apiKey;
+			return null;
+		},
+	};
+
+	await runAssistantTurn(
+		{ db: ctx.db, eventBus: ctx.eventBus, adapterPool: pool, credentialResolver },
+		params,
+	);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// seedConversationalTurnDomain + runConversationalTurnThroughHarness (AR4a)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Options for seeding the minimal domain rows for an AR4a conversational turn test.
+ */
+export interface ConversationalTurnSeedOpts {
+	readonly userId: string;
+	readonly threadId: string;
+	readonly triggerMessageId: string;
+	/** harnessType to seed on the ast-* agent row (builtin | claude-code | codex | opencode). */
+	readonly harnessType: string;
+	/** modelId to seed on the ast-* agent row (from HARNESS_TEST_MODELS). */
+	readonly modelId: string;
+	/** modelProvider to seed on the ast-* agent row. */
+	readonly modelProvider: string;
+	readonly now?: string;
+}
+
+/**
+ * Seed the minimal DB rows for an AR4a conversational turn test.
+ *
+ * Creates: human user + ast-* agent (harnessType/modelId per lane) + assistant
+ * thread + trigger message ("Reply with PONG and nothing else").
+ *
+ * @lore AR4a: The agent row MUST carry the correct harnessType so the pool's
+ * adapter-selection uses the right adapter when runConversationalTurnThroughHarness
+ * calls provisionSession in conversational mode. For CLI harnesses the harnessType
+ * matches the adapter pool's registered meta.type (e.g. "claude-code", "codex", "opencode").
+ */
+export async function seedConversationalTurnDomain(
+	db: HyperIdleDb,
+	opts: ConversationalTurnSeedOpts,
+): Promise<void> {
+	const {
+		userId,
+		threadId,
+		triggerMessageId,
+		harnessType,
+		modelId,
+		modelProvider,
+		now = new Date().toISOString(),
+	} = opts;
+	const assistantId = `ast-${userId}`;
+
+	// Human user
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: "AR4a Test User",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+
+	// Assistant agent — harnessType is load-bearing for adapter selection
+	await db.insert(users).values({
+		id: assistantId,
+		kind: "ai",
+		name: "AR4a Test Assistant",
+		role: "assistant",
+		status: "active",
+		harnessType,
+		modelProvider,
+		modelId,
+		systemPrompt: "You are a helpful assistant. Be concise.",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
+
+	// Assistant thread (hostKind="user" = the assistant thread pattern)
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: userId,
+		initiatorId: userId,
+		participants: JSON.stringify([userId, assistantId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+
+	// The trigger message (human → assistant)
+	await db.insert(messages).values({
+		id: triggerMessageId,
+		threadId,
+		senderId: userId,
+		type: "plain",
+		payload: JSON.stringify({ text: "Reply with the word PONG and nothing else." }),
+		clientKey: `ck-conv-${triggerMessageId}`,
+		createdAt: now,
+	});
+}
+
+/**
+ * Options for running a conversational turn through the shared provisionSession path.
+ */
+export interface ConversationalRunParams {
+	readonly userId: string;
+	readonly threadId: string;
+	readonly triggerMessageId: string;
+	/** Which harness lane to use. */
+	readonly harnessName: SupportedHarnessName;
+}
+
+/**
+ * Run a real conversational turn through production `provisionSession(conversational mode)`.
+ *
+ * This is the AR4a test vehicle: it calls `runAssistantTurn` (which delegates to
+ * the shared provisioning path in conversational mode), then returns after the turn
+ * completes (reply or notice persisted to DB).
+ *
+ * Callers assert on the persisted reply row in the DB after this returns.
+ *
+ * @lore AR4a: This calls the REWRITTEN runAssistantTurn (not the old builtin-only path).
+ * The rewritten turn uses provisionSession(conversational) which runs all four harnesses.
+ * The pool is built here using lockedHarnessAdapter so the locked HARNESS_TEST_MODELS matrix
+ * is respected. A real CredentialResolver (OPENROUTER_API_KEY) is supplied for builtin/opencode.
+ */
+export async function runConversationalTurnThroughHarness(
+	ctx: {
+		db: HyperIdleDb;
+		eventBus: EventBus;
+		tmpDir: string;
+		bridge?: { mcpBridgeRegistry: McpBridgeRegistry; mcpBaseUrl: string };
+	},
+	params: ConversationalRunParams,
+): Promise<void> {
+	const { harnessName } = params;
+
+	// Build adapter pool with the locked harness adapter.
+	// resolvedModel is NOT passed here — runAssistantTurn resolves it internally
+	// via credentialResolver + the seeded agent row (modelId/modelProvider).
+	const { adapter } = lockedHarnessAdapter(harnessName);
+	const pool = new AdapterPool();
+
+	// Register the adapter with appropriate meta based on harness
+	switch (harnessName) {
+		case "builtin":
+			pool.register("builtin-local", adapter, {
+				name: "builtin-local",
+				kind: "local",
+				type: "builtin",
+				modelProviders: ["openrouter", "openai-compatible", "anthropic"],
+				maxConcurrent: 1,
+			});
+			break;
+		case "claude":
+			pool.register("local-claude", adapter, {
+				name: "local-claude",
+				kind: "local",
+				type: "claude-code",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 4,
+			});
+			break;
+		case "codex":
+			pool.register("local-codex", adapter, {
+				name: "local-codex",
+				kind: "local",
+				type: "codex",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 2,
+			});
+			break;
+		case "opencode":
+			pool.register("local-opencode", adapter, {
+				name: "local-opencode",
+				kind: "local",
+				type: "opencode",
+				modelProviders: ["openai-compatible"],
+				maxConcurrent: 2,
+			});
+			break;
+	}
+
+	// Per-harness sandbox prep
+	if (harnessName === "codex") {
+		initGitRepo(ctx.tmpDir);
+		const authFound = provisionCodexHome(ctx.tmpDir);
+		if (!authFound) {
+			throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
+		}
+	} else if (harnessName === "opencode") {
+		provisionOpencodeHome(ctx.tmpDir);
+	} else if (harnessName === "claude") {
+		provisionClaudeSandbox(ctx.tmpDir);
+	}
+
+	// Real CredentialResolver for OpenRouter-backed harnesses (builtin + opencode)
+	const apiKey = process.env.OPENROUTER_API_KEY;
+	const credentialResolver: CredentialResolver = {
+		async resolve(name: string): Promise<string | null> {
+			if (name === "openrouter_api_key") return apiKey ?? null;
+			return null;
+		},
+	};
+
+	// @lore AR4a: Pass the locked resolved model directly so runAssistantTurn skips
+	// resolveAgentModel. CLI harnesses (codex/opencode) use native keychain/OpenRouter
+	// CLI auth — their modelProvider ("openai-compatible") is not supported by
+	// resolveAgentModel's per-agent path (throws UnsupportedAgentProviderError).
+	// harnessTestResolvedModel returns the HARNESS_TEST_MODELS entry with apiKey=""
+	// for keychain harnesses (codex) or OPENROUTER_API_KEY for OpenRouter harnesses.
+	const resolvedModel = harnessTestResolvedModel(harnessName);
+
+	// The rewritten runAssistantTurn delegates to provisionSession(conversational mode).
+	// resolvedModel is supplied via deps.resolvedModel (bypasses resolveAgentModel).
+	await runAssistantTurn(
+		{
+			db: ctx.db,
+			eventBus: ctx.eventBus,
+			adapterPool: pool,
+			credentialResolver,
+			resolvedModel,
+			mcpBridgeRegistry: ctx.bridge?.mcpBridgeRegistry,
+			mcpBaseUrl: ctx.bridge?.mcpBaseUrl,
+			sandboxBasePath: ctx.tmpDir,
+		},
+		{ userId: params.userId, threadId: params.threadId, triggerMessageId: params.triggerMessageId },
+	);
 }

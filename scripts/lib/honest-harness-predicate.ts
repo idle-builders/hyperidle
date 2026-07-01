@@ -44,7 +44,36 @@ export type SupportedHarness = (typeof SUPPORTED_HARNESSES)[number];
  */
 export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
 	"__tests__/session-provisioning.integration.test.ts",
+	// AR4 — real-harness converted files (4-harness matrix: AD2 + R1)
+	"__tests__/AD2-task-dispatcher-real.integration.test.ts",
+	"__tests__/R1-wire-agent-execution-real.integration.test.ts",
+	// AR4a — service-level assistant-turn tests (builtin only; 4-harness coverage
+	// lives in harness/__tests__/AR4a-conversational-reply-row.integration.test.ts)
+	"routes/__tests__/AH3-assistant-turn-real.integration.test.ts",
+	"routes/__tests__/AK4-assistant-draft-real.integration.test.ts",
+	"__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts",
 ];
+
+/**
+ * Files whose production path is GENUINELY builtin-only — the assistant turn
+ * cannot run a CLI harness (no sandbox cwd, no .mcp.json bridge, Q2 in AR4 plan).
+ * Files listed here are exempted from the 4-harness coverage rule but MUST still:
+ *   (a) declare requireHarness("builtin")
+ *   (b) contain zero stubs / vi.mock of harness seams
+ *   (c) use no skipIf-on-absent gate
+ *
+ * @lore AR4a: EMPTY — The `runAssistantTurn` path has been rewritten (AR4a) to
+ * delegate to `provisionSession(conversational mode)`, which runs all 4 harnesses.
+ * The 4-harness obligation is proven in `AR4a-conversational-reply-row.integration.test.ts`.
+ * The service-level tests (AH3/AK4/AH6) are in `coverage-debt.allowlist.json` because
+ * they test service behavior (route wiring, error surfaces), not harness capability —
+ * they only cover builtin, which is correct for their purpose. The carve-out is now empty.
+ *
+ * @lore AR4a: Previously contained AH3/AK4/AH6 (assistant-turn path was builtin-only
+ * before AR4a). Removed when the 4-lane reply-row test (AR4a-conversational-reply-row)
+ * went green on all 4 harnesses, proving the shared path works end-to-end.
+ */
+export const BUILTIN_ONLY_INTEGRATION: readonly string[] = [];
 
 /** Harness-dir integration suffix: `…/harness/__tests__/<anything>.integration.test.ts`. */
 const HARNESS_DIR_INTEGRATION = /\/harness\/__tests__\/[^/]*\.integration\.test\.ts$/;

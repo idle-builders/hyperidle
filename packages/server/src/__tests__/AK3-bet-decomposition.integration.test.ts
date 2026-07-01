@@ -108,6 +108,13 @@ function makeFabricLikeStrategy() {
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
+		// AR4b: formAssistant stub — AK3 tests are not about assistant formation.
+		formAssistant: vi.fn(
+			async (): Promise<import("@hyperidle/shared").AssistantFormation> => ({
+				persona: null,
+				assistantDraftSurface: "standard",
+			}),
+		),
 	};
 }
 

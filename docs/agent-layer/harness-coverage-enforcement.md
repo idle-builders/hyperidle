@@ -135,6 +135,79 @@ opencode emits tool calls on a `tool_use` event that `harness-event-normalizatio
 
 ---
 
+## `BUILTIN_ONLY_INTEGRATION` carve-out (AR4)
+
+Some production paths are **builtin-only by construction** — the path cannot run a CLI harness regardless of test configuration. The canonical case is `runAssistantTurn`:
+
+- It builds `SessionConfig` internally with `sandboxPath: ""` (hardcoded, `assistant-turn.ts:466`). `CliHarnessAdapter.startSession` spawns with `cwd: config.sandboxPath` — an empty `cwd` crashes the CLI at startup.
+- It writes no `.mcp.json` MCP bridge file. `claude` and other CLI harnesses require one (`--mcp-config .mcp.json`); `provisionSession` is what writes it; `runAssistantTurn` does not call `provisionSession`.
+
+Forcing CLI lanes onto `runAssistantTurn` would test a path that does not exist in production. That is the exact "phantom gate" the track header warns against.
+
+**The `BUILTIN_ONLY_INTEGRATION` list** in `scripts/lib/honest-harness-predicate.ts` registers these genuinely-builtin-only files. A file on this list:
+
+- Is **exempted** from the 4-harness coverage rule (Gate 1).
+- **Still enforced** for: (a) zero stubs / no `vi.mock` of harness seams, (b) no `skipIf`-on-absent gates, (c) must declare `requireHarness("builtin")` — a builtin-only file that declares _no_ harness is still a violation.
+
+The carve-out is not a weakening. The 4-harness obligation stays fully enforced via the files that genuinely flow through `provisionSession` (AD2-real + R1-real). The `BUILTIN_ONLY_INTEGRATION` exemption only removes the CLI lanes that the production code path cannot run.
+
+**Why not the coverage-debt allowlist?** `coverage-debt.allowlist.json` means "below 4 harnesses _temporarily_, will reach 4." A builtin-only path will _never_ reach 4 — using it would be a permanent lie ("debt to be paid"). The carve-out states the truth: this path is builtin-only by construction.
+
+**Attestation floor — unaffected.** The per-harness floor (`assertPerHarnessFloor`) checks whether each supported harness had ≥1 executed assertion across the whole selected set. The 4-harness files (AD2-real + R1-real) loop all four lanes; each satisfies claude/codex/opencode. The builtin-only files add builtin executions. No floor change is needed.
+
+### Files in `BUILTIN_ONLY_INTEGRATION` (AR4)
+
+| File | Path home | Why builtin-only |
+|---|---|---|
+| `AH3-assistant-turn-real.integration.test.ts` | `routes/__tests__/` | `runAssistantTurn` — no sandbox / no MCP bridge |
+| `AK4-assistant-draft-real.integration.test.ts` | `routes/__tests__/` | same |
+| `AH6-lane-gates-broken-turn-real.integration.test.ts` | `__tests__/` | same |
+
+---
+
+## Dispatch → provision → real-agent seam (AR4)
+
+AR4 converted the task-dispatcher and session-route tests from stubbed adapters to real-harness integration, exercising the full `provisionSession` path through the dispatcher:
+
+`transitionTask(db, eventBus, taskId, "accepted")` → `drainQueue` → `resolveProvisionSession()` (registry-injected `provisionSession`) → real `HarnessAdapter` → `endSession` teardown.
+
+**Production touch:** `TaskDispatcherDeps` gained an optional `onBeforeTeardown` field (additive, preserves the existing API). `drainQueue` threads it into the `provisionSession` deps so the dispatched agent's sandbox is observable via `createSandboxCapture` — the same seam AR2 added to `ProvisionSessionDeps`. The capture fires after drain, before teardown deletes the sandbox.
+
+**Real trigger, not seeded `in_progress`:** the AC2 keystone test uses `transitionTask(..., "accepted")` as the real dispatcher entry. No `state:"in_progress"` seed inside the converted assertion — that seam-bypass is what the AR track exists to kill.
+
+**Honest floor (matches AR2):** `builtin` + `claude` reliably reach `outcome="completed"` (fire `send_message`); `codex` + `opencode` reach `outcome="not_returned"` (real billable work, no MCP return call). `"crashed"` on any lane is an unconditional hard fail — a startup crash producing zero real agent work must not mint green.
+
+**Per-harness real models (AR4 founder defaults):**
+
+| Harness | Model | Notes |
+|---|---|---|
+| builtin | `deepseek/deepseek-v4-pro` | OpenRouter slug; seeded as `modelId` in agent row |
+| claude | `claude-opus-4-8` | Passed via `--model` flag |
+| codex | _(native default gpt)_ | No `{{model}}` placeholder in codex args template; field is metadata-only |
+| opencode | `openrouter/moonshotai/kimi-k2.7-code` | Provider-prefixed; opencode's `--model` flag requires the `openrouter/` prefix |
+
+### 4-harness matrix tests (AR4)
+
+| File | Path | Role |
+|---|---|---|
+| `AD2-task-dispatcher-real.integration.test.ts` | `__tests__/` | Dispatcher → provision → real agent; AC2 keystone |
+| `R1-wire-agent-execution-real.integration.test.ts` | `__tests__/` | POST `/api/sessions` → real `provisionSession`; AC1 |
+
+Both loop `SUPPORTED_HARNESS_LANES` via `runThroughHarness` (no bespoke rig). Both are in `EXPLICIT_HARNESS_INTEGRATION` — not in `BUILTIN_ONLY_INTEGRATION`.
+
+### Builtin assistant-turn runner (AR4)
+
+`runAssistantTurnThroughHarness(ctx, params)` in `provision-real-session.ts` is the vehicle for the builtin-only files. It:
+
+1. Builds a **real builtin `AdapterPool`**.
+2. Constructs a **real OpenRouter `CredentialResolver`** from `OPENROUTER_API_KEY` — the builtin harness's only key (never Anthropic, per the harness-key model).
+3. Seeds the agent row with `modelProvider: "openrouter"` + a real `modelId` so `resolveAgentModel` yields a runnable model.
+4. Calls `runAssistantTurn({db, eventBus, adapterPool, credentialResolver}, params)`.
+
+The credential step is load-bearing: without a real resolver, `runAssistantTurn` falls to the else-branch that requires `ANTHROPIC_API_KEY` — which never exists — and persists a `missing_key` notice instead of running a real turn.
+
+---
+
 ## Files at a glance
 
 | File | Role |
@@ -147,5 +220,11 @@ opencode emits tool calls on a `tool_use` event that `harness-event-normalizatio
 | `scripts/verify-attest.ts` | Writes `agenticExecutedByHarness` into signed attestation |
 | `scripts/check-attestation.ts` | Calls `assertPerHarnessFloor` on `agenticExecutedByHarness` |
 | `packages/server/src/harness/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES` |
-| `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + helpers |
+| `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + `runAssistantTurnThroughHarness` + helpers |
 | `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` | Reference 4-harness matrix test |
+| `packages/server/src/__tests__/AD2-task-dispatcher-real.integration.test.ts` | AR4: dispatcher → provision → real agent (4-harness matrix) |
+| `packages/server/src/__tests__/R1-wire-agent-execution-real.integration.test.ts` | AR4: POST `/api/sessions` → real `provisionSession` (4-harness matrix) |
+| `packages/server/src/routes/__tests__/AH3-assistant-turn-real.integration.test.ts` | AR4: real builtin assistant turn (builtin-only) |
+| `packages/server/src/routes/__tests__/AK4-assistant-draft-real.integration.test.ts` | AR4: real builtin assistant draft (builtin-only) |
+| `packages/server/src/__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts` | AR4: real builtin lane-gate valid-lane proof (builtin-only) |
+| `packages/fabric/src/services/task-dispatcher.ts` | AR4: `TaskDispatcherDeps.onBeforeTeardown` (additive optional field) |

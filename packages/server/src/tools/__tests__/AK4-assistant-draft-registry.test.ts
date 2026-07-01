@@ -19,14 +19,46 @@
  * resolveDraftTeamId unit:
  *   - two-hop resolution: users.teamId → teamMembers.teamId = teams.id
  *   - null users.teamId → undefined
+ *
+ * AC3a (demoted from AK4 integration — AR4):
+ *   - after create_bet tool_use, bet status=draft, no autonomous commit
+ *
+ * AC4 (demoted from AK4 integration — AR4):
+ *   - second turn edit_bet → same betId mutated, bet count stays 1
+ *
+ * AC4-loop-bound (demoted from AK4 integration — AR4):
+ *   - infinite tool_use mock → ≤MAX_TOOL_ITERATIONS (3) executions + non-empty reply
+ *
+ * @lore AR4 AK4: AC3a/AC4/AC4-loop were in AK4-assistant-draft.integration.test.ts
+ * with vi.mock("harness/llm-client.js"). Demoted to this unit file in AR4 because
+ * they test deterministic tool-handler logic (draft guard, transcript resolution,
+ * iteration cap), not real LLM behavior. vi.mock is acceptable in .test.ts.
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AdapterPool } from "../../harness/adapter-pool.js";
+import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
+import type { LlmResponse } from "../../harness/llm-types.js";
+import type { AssistantTurnDeps } from "../../services/assistant-turn.js";
+import { runAssistantTurn } from "../../services/assistant-turn.js";
+import type { CredentialResolver } from "../../services/credential-resolver.js";
+import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";
+
+// @lore AR4 AK4: vi.mock seam used by demoted AC3a/AC4/AC4-loop tests.
+// Existing registry/tool-handler tests don't call callLlm, so the mock is harmless.
+vi.mock("../../harness/llm-client.js", () => ({
+	callLlm: vi.fn(),
+}));
+
+const { callLlm } = await import("../../harness/llm-client.js");
+const callLlmMock = vi.mocked(callLlm);
+
 import { test } from "../../test-fixtures.js";
 // These imports will FAIL until the green phase creates these symbols:
 import {
@@ -310,5 +342,337 @@ describe("AK4 team-inject unit: create_bet wrapper hard-injects resolvedTeamId",
 		});
 
 		expect(result.success).toBe(false);
+	});
+});
+
+// ── Demoted from AK4 integration: callLlm-mocked runAssistantTurn tests ──────
+//
+// AC3a, AC4, AC4-loop-bound test deterministic loop logic in runAssistantTurn
+// (draft guard, transcript resolution, iteration cap). They use vi.mock to
+// control callLlm without a real network. Demoted to this unit in AR4.
+
+const AK4_UNIT_TEAM_ID = "team-ak4-unit-loop";
+const AK4_UNIT_TM_ID = "tm-ak4-unit-loop";
+const AK4_UNIT_NOW = "2026-06-15T00:00:00.000Z";
+
+function makePoolForLoopTests(): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local-builtin-loop", new BuiltinHarnessAdapter(), {
+		name: "Built-in Harness",
+		kind: "local",
+		type: "builtin",
+		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+		maxConcurrent: 4,
+	});
+	return pool;
+}
+
+const loopStubResolver: CredentialResolver = {
+	resolve: async (name) => (name === "anthropic_api_key" ? "sk-test-ak4-unit" : null),
+};
+
+function makeTextResp(text: string): LlmResponse {
+	return {
+		stopReason: "end_turn",
+		content: [{ type: "text", text }],
+		usage: { inputTokens: 100, outputTokens: 50 },
+	};
+}
+
+function makeToolResp(toolName: string, toolInput: Record<string, unknown>): LlmResponse {
+	return {
+		stopReason: "tool_use",
+		content: [{ type: "tool_use", id: "tool-unit-001", name: toolName, input: toolInput }],
+		usage: { inputTokens: 500, outputTokens: 100 },
+	};
+}
+
+async function seedLoopUser(
+	db: import("@hyperidle/db").HyperIdleDb,
+	userId: string,
+): Promise<void> {
+	await db
+		.insert(teams)
+		.values({
+			id: AK4_UNIT_TEAM_ID,
+			name: "AK4 Loop Team",
+			phase: "build",
+			createdAt: AK4_UNIT_NOW,
+		})
+		.onConflictDoNothing();
+	await db
+		.insert(teamMembers)
+		.values({
+			id: AK4_UNIT_TM_ID,
+			teamId: AK4_UNIT_TEAM_ID,
+			capacity: 5,
+			activeBets: 0,
+			formedAt: AK4_UNIT_NOW,
+		})
+		.onConflictDoNothing();
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: "AK4 Loop User",
+		role: "founder",
+		status: "active",
+		teamId: AK4_UNIT_TM_ID,
+		createdAt: AK4_UNIT_NOW,
+	});
+	await db.insert(users).values({
+		id: `ast-${userId}`,
+		kind: "ai",
+		name: "Assistant",
+		role: "assistant",
+		status: "active",
+		harnessType: "builtin",
+		modelId: "claude-sonnet-4-6",
+		modelProvider: "anthropic",
+		systemPrompt: "You are a helpful assistant.",
+		maxConcurrentSessions: 1,
+		createdAt: AK4_UNIT_NOW,
+	});
+}
+
+async function seedThreadAndTrigger(
+	db: import("@hyperidle/db").HyperIdleDb,
+	userId: string,
+	threadId: string,
+	triggerMsgId: string,
+	triggerText: string,
+): Promise<void> {
+	const { threads, messages: messagesDb } = await import("@hyperidle/db");
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: userId,
+		initiatorId: userId,
+		participants: JSON.stringify([userId, `ast-${userId}`]),
+		lastActiveAt: AK4_UNIT_NOW,
+		createdAt: AK4_UNIT_NOW,
+	});
+	await db.insert(messagesDb).values({
+		id: triggerMsgId,
+		threadId,
+		senderId: userId,
+		type: "plain",
+		payload: JSON.stringify({ text: triggerText }),
+		clientKey: `ck-${triggerMsgId}`,
+		createdAt: AK4_UNIT_NOW,
+	});
+}
+
+// ── AC3a: bet stays draft after turn, no autonomous commit ───────────────────
+
+describe("AK4 AC3a (demoted): bet stays draft after create_bet turn — no autonomous commit", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: runAssistantTurn now delegates to provisionSession which calls getActiveStrategy().
+		// The app fixture (which normally sets it) is not requested here — set it explicitly.
+		setActiveStrategy(minimalStrategy);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.clearAllMocks();
+		clearActiveStrategy();
+	});
+
+	test("after create_bet tool_use, bet remains status=draft — no bet_state_changed(active)", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedLoopUser(db, "u-ak4-unit-ac3a");
+		const threadId = "thread-ak4-unit-ac3a";
+		const triggerMsgId = "msg-ak4-unit-ac3a";
+		await seedThreadAndTrigger(db, "u-ak4-unit-ac3a", threadId, triggerMsgId, "Draft a bet");
+
+		callLlmMock
+			.mockResolvedValueOnce(
+				makeToolResp("create_bet", {
+					description: "Stay draft bet",
+					doneCondition: "Done when shipped",
+				}),
+			)
+			.mockResolvedValueOnce(makeTextResp("Drafted!"));
+
+		const stateChangedEvents: unknown[] = [];
+		eventBus.on("bet_state_changed", (evt) => {
+			stateChangedEvents.push(evt);
+		});
+
+		const deps: AssistantTurnDeps = {
+			db,
+			eventBus,
+			adapterPool: makePoolForLoopTests(),
+			credentialResolver: loopStubResolver,
+		};
+
+		await runAssistantTurn(deps, {
+			userId: "u-ak4-unit-ac3a",
+			threadId,
+			triggerMessageId: triggerMsgId,
+		});
+
+		const allBets = await db.select().from(bets);
+		const bet = allBets.find((b) => b.description === "Stay draft bet");
+		expect(bet).toBeDefined();
+		expect(bet!.status).toBe("draft");
+
+		const activeChanges = stateChangedEvents.filter(
+			(e) => (e as { status?: string }).status === "active",
+		);
+		expect(activeChanges).toHaveLength(0);
+	});
+});
+
+// ── AC4: second turn edit_bet → same betId mutated, count stays 1 ─────────────
+
+describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet count stays 1", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: same as AC3a — strategy required for provisionSession.
+		setActiveStrategy(minimalStrategy);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.clearAllMocks();
+		clearActiveStrategy();
+	});
+
+	test("turn1=create_bet, turn2=edit_bet (no client betId) → same bet mutated, count=1", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedLoopUser(db, "u-ak4-unit-ac4");
+		const threadId = "thread-ak4-unit-ac4";
+		const trigger1 = "msg-ak4-unit-ac4-t1";
+		await seedThreadAndTrigger(db, "u-ak4-unit-ac4", threadId, trigger1, "Draft a bet for me");
+
+		callLlmMock
+			.mockResolvedValueOnce(
+				makeToolResp("create_bet", {
+					description: "Initial bet description",
+					doneCondition: "Initial done condition",
+				}),
+			)
+			.mockResolvedValueOnce(makeTextResp("I drafted the bet!"));
+
+		const deps: AssistantTurnDeps = {
+			db,
+			eventBus,
+			adapterPool: makePoolForLoopTests(),
+			credentialResolver: loopStubResolver,
+		};
+
+		await runAssistantTurn(deps, {
+			userId: "u-ak4-unit-ac4",
+			threadId,
+			triggerMessageId: trigger1,
+		});
+
+		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
+		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
+		const allBetsAfterTurn1 = await db.select().from(bets);
+		const userBetsAfterTurn1 = allBetsAfterTurn1.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBetsAfterTurn1).toHaveLength(1);
+		const originalBetId = userBetsAfterTurn1[0]!.id;
+
+		// Turn 2: edit_bet (no betId from model — server must inject from transcript)
+		vi.clearAllMocks();
+		callLlmMock
+			.mockResolvedValueOnce(
+				makeToolResp("edit_bet", { doneCondition: "Updated done condition via edit" }),
+			)
+			.mockResolvedValueOnce(makeTextResp("I updated the done condition!"));
+
+		const { messages: messagesDb } = await import("@hyperidle/db");
+		const trigger2 = "msg-ak4-unit-ac4-t2";
+		await db.insert(messagesDb).values({
+			id: trigger2,
+			threadId,
+			senderId: "u-ak4-unit-ac4",
+			type: "plain",
+			payload: JSON.stringify({ text: "Update the done condition" }),
+			clientKey: `ck-${trigger2}`,
+			createdAt: new Date().toISOString(),
+		});
+
+		await runAssistantTurn(deps, {
+			userId: "u-ak4-unit-ac4",
+			threadId,
+			triggerMessageId: trigger2,
+		});
+
+		// @lore AR4a: filter out the system stub bet (same as turn 1 filter above).
+		const allBetsAfterTurn2 = await db.select().from(bets);
+		const userBetsAfterTurn2 = allBetsAfterTurn2.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBetsAfterTurn2).toHaveLength(1);
+		const mutatedBet = userBetsAfterTurn2[0]!;
+		expect(mutatedBet.id).toBe(originalBetId);
+		expect(mutatedBet.doneCondition).toBe("Updated done condition via edit");
+	});
+});
+
+// ── AC4-loop-bound: infinite tool_use → ≤MAX_TOOL_ITERATIONS + non-empty reply ──
+
+describe("AK4 AC4-loop-bound (demoted): tool-use cap at MAX_TOOL_ITERATIONS=3, never-silent", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-ak4-unit");
+		// AR4a: same as AC3a — strategy required for provisionSession.
+		setActiveStrategy(minimalStrategy);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.clearAllMocks();
+		clearActiveStrategy();
+	});
+
+	test("callLlm always returns tool_use → ≤3 create_bet rows created + non-empty reply persisted", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedLoopUser(db, "u-ak4-unit-loop");
+		const threadId = "thread-ak4-unit-loop";
+		const triggerMsgId = "msg-ak4-unit-loop";
+		await seedThreadAndTrigger(db, "u-ak4-unit-loop", threadId, triggerMsgId, "Draft bets forever");
+
+		// Always return tool_use (never end_turn) — tests the iteration cap
+		callLlmMock.mockResolvedValue(makeToolResp("create_bet", { description: "Loop test bet" }));
+
+		const deps: AssistantTurnDeps = {
+			db,
+			eventBus,
+			adapterPool: makePoolForLoopTests(),
+			credentialResolver: loopStubResolver,
+		};
+
+		await runAssistantTurn(deps, {
+			userId: "u-ak4-unit-loop",
+			threadId,
+			triggerMessageId: triggerMsgId,
+		});
+
+		// (a) loop was capped: ≤ MAX_TOOL_ITERATIONS (3) bets created
+		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
+		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
+		const allBets = await db.select().from(bets);
+		const userBets = allBets.filter((b) => b.id !== "conv-stub-bet");
+		expect(userBets.length).toBeLessThanOrEqual(3);
+
+		// (b) a plain reply IS persisted (never-silent invariant)
+		const { messages: messagesDb } = await import("@hyperidle/db");
+		const allMsgs = await db.select().from(messagesDb).where(eq(messagesDb.threadId, threadId));
+
+		const replyMsg = allMsgs.find(
+			(m) =>
+				m.senderId === "ast-u-ak4-unit-loop" &&
+				!(JSON.parse(m.payload) as { notice?: unknown }).notice,
+		);
+		expect(replyMsg).toBeDefined();
+
+		// (c) reply text is non-empty
+		const payload = JSON.parse(replyMsg!.payload) as { text: string };
+		expect(typeof payload.text).toBe("string");
+		expect(payload.text.length).toBeGreaterThan(0);
 	});
 });

@@ -139,6 +139,13 @@ class ContributorStrategy implements Strategy<HyperIdleDb> {
 		return { decomposerAgentId: null, tasks: [] };
 	}
 
+	// AR4b: formAssistant stub — ContributorStrategy test is not about assistant formation.
+	async formAssistant(
+		_req: import("@hyperidle/shared").AssistantFormationRequest<HyperIdleDb>,
+	): Promise<import("@hyperidle/shared").AssistantFormation> {
+		return { persona: null, assistantDraftSurface: "standard" };
+	}
+
 	toRecord(): ContributorRecord {
 		const call = this.assembleContextCalls[0];
 		return {

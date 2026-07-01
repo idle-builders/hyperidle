@@ -193,17 +193,29 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 			return { type: "tool_call", toolName, args };
 		}
 		case "step_start":
-		case "text":
-			// Lifecycle / streaming events with no actionable content — produce a benign
-			// empty completion so they don't fall through to unknownEvent (→ error).
+			// Lifecycle event with no content — produce a benign empty completion.
 			//
 			// @lore AR2 opencode-events: opencode `--format json` emits step_start (turn-start
-			// lifecycle) and text (streaming text chunk) events alongside step_finish.
-			// Verified opencode 1.17.11: a simple `run` turn yields step_start → text → step_finish.
-			// Without these branches, step_start and text hit the default path → unknownEvent
-			// → { type: "error", code: "UnknownHarnessEvent" } → provisionSession crashed = true.
-			// The fix: map them to a benign empty completion (same pattern as codex thread.started).
+			// lifecycle) alongside step_finish. Without this branch it hits the default path
+			// → unknownEvent → { type: "error" } → provisionSession crashed = true.
 			return { type: "completion", text: "" };
+		case "text": {
+			// Streaming text chunk — extract the content from part.text.
+			//
+			// @lore AR4a opencode-text-event: opencode `--format json` emits `text` events as
+			// streaming text deltas. Previously treated as lifecycle (empty), but they carry the
+			// actual reply text in `part.text`. The session drain uses last-non-empty capture, so
+			// emitting these with the real text causes `conversationalReplyText` to hold the
+			// assembled reply (last non-empty = the last text chunk, which is the full text for
+			// single-shot responses like PONG).
+			//
+			// Verified opencode JSONL structure:
+			//   step_start → { type:"text", part:{ text:"PONG" } } → step_finish
+			// The `step_finish` event does NOT carry the text; `text` events do.
+			const textPart = isRecord(input.part) ? input.part : {};
+			const textContent = typeof textPart.text === "string" ? textPart.text : "";
+			return { type: "completion", text: textContent };
+		}
 		default:
 			return input;
 	}
