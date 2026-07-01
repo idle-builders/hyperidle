@@ -1,5 +1,5 @@
 /**
- * AO2 — Live-proof (hard rule 9, §12).
+ * Filesystem live proof (hard rule 9, §12).
  *
  * Exercises the REAL GitWorktreeAdapter end-to-end on THIS repo:
  * 1. git worktree add a throwaway branch off origin/main into a temp dir.
@@ -103,7 +103,7 @@ async function seedFilesystem(
 
 // ── Live-proof suite ──────────────────────────────────────────────────────────
 
-describe("AO2 live-proof (real git worktree on THIS repo)", () => {
+describe("Git worktree live proof on this repo", () => {
 	let tmpDir: string;
 	let capturesDir: string;
 
@@ -127,7 +127,7 @@ describe("AO2 live-proof (real git worktree on THIS repo)", () => {
 		try {
 			execSync("git rev-parse origin/main", { cwd: REPO_ROOT, stdio: "ignore" });
 		} catch {
-			skip("[ao2-live-proof] origin/main not reachable from REPO_ROOT");
+			skip("[git-worktree-live-proof] origin/main not reachable from REPO_ROOT");
 			return; // unreachable at runtime; satisfies TypeScript skip() void return
 		}
 

@@ -427,7 +427,7 @@ function makePoolC1(harness: HarnessAdapter, meta?: Partial<AdapterMeta>): Adapt
 
 // ── C1-GAP tests ──────────────────────────────────────────────────────────────
 
-describe("C1-GAP: capture-before-endSession ordering (REAL runSession teardown)", () => {
+describe("capture-before-endSession ordering during real runSession teardown", () => {
 	let sandboxBasePath: string;
 
 	beforeEach(() => {

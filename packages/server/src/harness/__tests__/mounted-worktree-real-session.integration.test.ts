@@ -275,7 +275,7 @@ function buildMounterDeps(
 // Lane 1 [harness:claude] — haiku writes FILE.txt in mounted worktree
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:claude] AO2 Lane 1 — haiku writes FILE.txt in mounted worktree", () => {
+describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", () => {
 	requireHarness("claude");
 
 	let tmpDir: string;
@@ -413,7 +413,7 @@ describe("[harness:claude] AO2 Lane 1 — haiku writes FILE.txt in mounted workt
 // Lane 2 [harness:builtin] — deepseek/deepseek-v4-flash writes FILE.txt via commit_file
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:builtin] AO2 Lane 2 — deepseek-v4-flash writes FILE.txt via commit_file in mounted worktree", () => {
+describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in mounted worktree", () => {
 	requireHarness("builtin");
 
 	let tmpDir: string;
@@ -433,7 +433,7 @@ describe("[harness:builtin] AO2 Lane 2 — deepseek-v4-flash writes FILE.txt via
 		}
 	});
 
-	test("real deepseek-v4-flash calls commit_file → FILE.txt lands in mounted worktree → captureBack bundles it", {
+	test("real builtin model calls commit_file so FILE.txt lands in mounted worktree and captureBack bundles it", {
 		timeout: 300_000,
 	}, async ({ db, eventBus }) => {
 		const token = randomUUID();
@@ -544,7 +544,7 @@ describe("[harness:builtin] AO2 Lane 2 — deepseek-v4-flash writes FILE.txt via
 // Lane 3 [harness:codex] — gpt-5.4-mini writes FILE.txt in mounted worktree
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:codex] AO2 Lane 3 — gpt-5.4-mini writes FILE.txt in mounted worktree", () => {
+describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 	requireHarness("codex");
 
 	let tmpDir: string;
@@ -720,7 +720,7 @@ describe("[harness:codex] AO2 Lane 3 — gpt-5.4-mini writes FILE.txt in mounted
 // Lane 4 [harness:opencode] — glm-4.7-flash writes FILE.txt
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:opencode] AO2 Lane 4 — glm-4.7-flash writes FILE.txt in mounted worktree", () => {
+describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () => {
 	requireHarness("opencode");
 
 	let tmpDir: string;
@@ -733,7 +733,7 @@ describe("[harness:opencode] AO2 Lane 4 — glm-4.7-flash writes FILE.txt in mou
 		setActiveStrategy(fabricStrategy);
 		bridge = await startMcpBridgeServer();
 		// XDG isolation: prevent opencode DB lock contention across rapid test runs.
-		// @lore AO2 / AR2 opencode-xdg-isolation: see AR2 Lane 4 beforeEach for full rationale.
+		// @lore mounted-worktree opencode-xdg-isolation: see AR2 Lane 4 beforeEach for full rationale.
 		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
 		process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
 	});
