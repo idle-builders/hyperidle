@@ -1372,3 +1372,10 @@ stories:
     track: AS
     depends: [AS1, AS2]
     complexity: L
+
+  # Track AU: Event-Driven Agent Runtime Boundary
+  - id: AU1
+    title: "Event-driven session requests between collaboration domains and the agent runtime"
+    track: AU
+    depends: [AR2, AR4]
+    complexity: L

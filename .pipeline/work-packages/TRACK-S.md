@@ -112,8 +112,6 @@ _Process isolation (server-side):_
 - Adapter pool is in-memory. Server restart = workers reconnect and re-register.
 - No queue persistence. Tasks re-trigger via their existing lifecycle.
 - Process isolation applies to server-side execution only. Desktop workers manage their own resources.
-- Architecture learning from the AR harness-test consolidation: the eventual remote-provisioning boundary should be a domain-level session request, not every Work/Conversation/Knowledge/Routine caller invoking a local `provisionSession` function directly. The agent runtime proof boundary is session request/provisioning -> adapter selection -> harness start/stream/stop -> tool/MCP invocation -> lifecycle persistence/writeback/events. Higher domains should prove they emit the right session request and react to session events. Current code still requires `taskId` for provisioning (`sessions.taskId` non-null), causing stub tasks for assistant/routine sessions and a direct `adapter.startSession` path in bet decomposition; S2 should account for this as it designs remote execution, even if the full task-optional `SessionRequested` event split lands in a dedicated follow-on.
-
 **Out of scope.** Desktop-as-worker (S4). Container/Docker isolation (later hardening). Cloud worker auto-provisioning (E2B). Worker affinity. Priority routing.
 
 **Effort.** L (~4d)
