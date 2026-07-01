@@ -562,9 +562,8 @@ describe("AH3 AC5: assistant agent defaults at registration", () => {
 });
 
 // ---------------------------------------------------------------------------
-// H1: Moved to AH3-assistant-turn-real.integration.test.ts (builtin-only, AR4)
-// The real happy-path completion (ast-* reply persisted) now uses a real builtin
-// adapter via runAssistantTurnThroughHarness (no scripted streamEvents).
+// H1: Real happy-path completion (ast-* reply persisted) is covered by the
+// full-matrix AR4a-conversational-reply-row.integration.test.ts harness journey.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------

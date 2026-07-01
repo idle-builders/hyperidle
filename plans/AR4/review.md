@@ -17,7 +17,7 @@ Track AR exists to kill and should be fixed before this pattern is copied.
 
 ## Findings
 
-### WARNING-1 — AH3/AK4/AH6 parked on `coverage-debt.allowlist.json` is a mislabel (the flagged concern, confirmed)
+### WARNING-1 — AH3/AK4/AH6 parked on `coverage-debt.allowlist.json` was a mislabel (resolved in consolidation)
 `scripts/lib/honest-harness-predicate.ts:76` empties `BUILTIN_ONLY_INTEGRATION`; the three assistant
 real files are instead listed in `EXPLICIT_HARNESS_INTEGRATION` (:52-54) **and** on
 `scripts/coverage-debt.allowlist.json`. `coverage-debt` is documented as *"stages subset-covered files
@@ -30,12 +30,9 @@ to prevent.
 The builder's own lore (honest-harness-predicate.ts:66-74) says these "test service behavior … not harness
 capability." If true, they should not be harness-facing integration at all (drop from
 `EXPLICIT_HARNESS_INTEGRATION` + coverage-debt; fold their unique assertions into deterministic service
-`.integration.test.ts`). But `AH3-assistant-turn-real` H3 actually drives a real OpenRouter model and
-asserts `PONG` (lines 90-121) — so they ARE real-builtin harness tests, just a deliberate subset.
-**Fix (pick one, honestly):** (a) demote the three to deterministic service tests (no real model) and let
-`AR4a-conversational-reply-row` be the sole harness-capability proof; or (b) introduce a distinct
-"covered-elsewhere / permanent-builtin-subset" category instead of the monotonic-shrink debt list. Do not
-leave permanent residents on `coverage-debt.allowlist.json`.
+`.integration.test.ts`). Resolved in the consolidated branch by deleting the three builtin-only real files
+from the harness-facing set and letting `AR4a-conversational-reply-row.integration.test.ts` be the sole
+assistant harness-capability proof.
 
 ### WARNING-2 — `AR4a-conversational-reply-row` asserts only non-empty/non-notice, not the real completion text
 `packages/server/src/harness/__tests__/AR4a-conversational-reply-row.integration.test.ts` — all four lanes
@@ -81,7 +78,7 @@ Two comments assert the OPPOSITE of what AR4a shipped (runAssistantTurn now dele
 `provisionSession`, which provisions a real sandbox + `.mcp.json` bridge and runs all four harnesses):
 - `packages/server/src/harness/__tests__/provision-real-session.ts:713-714` — *"runAssistantTurn is
   builtin-only by construction (no sandbox cwd, no .mcp.json bridge → CLI harnesses cannot start)."*
-- `packages/server/src/routes/__tests__/AH3-assistant-turn-real.integration.test.ts:4-7` — same claim,
+- `packages/server/src/harness/__tests__/AR4a-conversational-reply-row.integration.test.ts` — consolidated full-matrix coverage,
   citing the now-empty `BUILTIN_ONLY_INTEGRATION` carve-out as load-bearing.
 A new-hire reading these would believe the carve-out is still real. **Fix:** reword to "this runner
 *chooses* builtin; the path itself runs all four (proven by AR4a-conversational-reply-row)."
@@ -138,4 +135,4 @@ set." The UI always sends fields, so latent. Guard with an early return when `up
 | AC4 — same machinery; no assistant-only adapter branch / builtin couplings | MET | `runAssistantTurn` delegates to `provisionSession`; `setSessionToolRegistry`/`sandboxPath:""` removed from the turn; `messages` kept as builtin convenience only |
 | AC5 — assistant real-harness tests symmetric across 4; removed from `BUILTIN_ONLY_INTEGRATION`; satisfies `assertHarnessSymmetry`, no carve-out | MET | `BUILTIN_ONLY_INTEGRATION` empty; AR4a 4 lanes; symmetry satisfied. Debt-list mislabel + stale lore (WARNING-1/5) |
 | AC6 — never-silent; no secret in a notice | MET | reply-or-notice on every branch (assistant-turn.ts:637-699); secret-free `mapErrorToNotice` |
-| AC7 — AD2/R1 + minimalStrategy + onBeforeTeardown retained and passing | MET | `AD2-task-dispatcher-real` / `R1-wire-agent-execution-real` present; `onBeforeTeardown` seam intact; conversational branch inert for task/routine |
+| AC7 — AD2/R1 + minimalStrategy + onBeforeTeardown retained and passing | MET | Consolidated into `session-dispatch-wiring`, `nonblocking-session-creation`, and `minimal-strategy-session`; `onBeforeTeardown` seam intact; conversational branch inert for task/routine |

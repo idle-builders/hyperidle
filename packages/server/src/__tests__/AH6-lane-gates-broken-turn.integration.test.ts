@@ -13,8 +13,8 @@
  *   AH3 AC2 via persistTurnFailure (no harness needed). Demoted.
  * Term 2b (empty-content → S1 false): mock-scripted degenerate output.
  *   Moved to AH6-lane-gate-verdict.test.ts unit (W-2 honest decomposition).
- * Sanity (normal run → S1 true): converted to real builtin harness in
- *   AH6-lane-gates-broken-turn-real.integration.test.ts.
+ * Sanity (normal run → S1 true): covered by the full-matrix conversational
+ *   harness path in AR4a-conversational-reply-row.integration.test.ts.
  *
  * No mocks, no harness doubles in this file.
  * Guard: this file is NOT in EXPLICIT_HARNESS_INTEGRATION (service-integration only).

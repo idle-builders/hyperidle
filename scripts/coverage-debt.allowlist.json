@@ -4,8 +4,5 @@
 	"packages/server/src/harness/__tests__/AM2-real-harness-session-probe.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN2-connection-provisioning.integration.test.ts",
-	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts",
-	"packages/server/src/routes/__tests__/AH3-assistant-turn-real.integration.test.ts",
-	"packages/server/src/routes/__tests__/AK4-assistant-draft-real.integration.test.ts",
-	"packages/server/src/__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts"
+	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts"
 ]

@@ -7,7 +7,7 @@
  * entries, not harness behavior.
  *
  * The real-harness happy-path (dispatch→provision→real agent, 4-harness matrix)
- * lives in AD2-task-dispatcher-real.integration.test.ts.
+ * lives in `harness/__tests__/session-dispatch-wiring.integration.test.ts`.
  *
  *   AC1  — Negative: no session when ownerAgentId is null
  *   AC2  — Auto-provisioning on handoff (session_ended triggers new session for agentB)
@@ -85,7 +85,7 @@ setProvisionSessionFn(provisionSession);
 // not select this service-integration file. The adapter is retained because
 // queue-arithmetic (cost cap, concurrency, sweep, idempotency) tests legitimately
 // use a fast fake — the harness is NOT the subject in these tests. The happy-path
-// (task→provision→real-agent) moved to AD2-task-dispatcher-real.integration.test.ts.
+// (task→provision→real-agent) lives in session-dispatch-wiring.integration.test.ts.
 // ---------------------------------------------------------------------------
 
 class StubDispatchAdapter implements HarnessAdapter {
@@ -247,7 +247,7 @@ function makeDispatcherDeps(
 
 // ---------------------------------------------------------------------------
 // AC1: Negative proof — no session when ownerAgentId is null
-// (Happy-path: task accepted → real session created → moved to AD2-task-dispatcher-real)
+// Happy-path task accepted → real session created lives in session-dispatch-wiring.
 // ---------------------------------------------------------------------------
 
 describe("AD2 AC1: no session when task accepted but ownerAgentId is null", () => {

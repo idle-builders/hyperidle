@@ -149,7 +149,7 @@ async function seedOpenrouterGatewayConfig(db: HyperIdleDb): Promise<void> {
  * --model sonnet in CLAUDE_CLI_CONFIG args (correct, founder-set 2026-06-30).
  *
  * @lore AR3 dispatch-claude-gateway: same pattern as seedAnthropicGatewayConfig
- * in session-state-sync.integration.test.ts. The dispatcher resolveModel path
+ * used by the shared matrix setup. The dispatcher resolveModel path
  * goes through makeResolveModel→resolveModelTier→resolveProvider("anthropic").
  * Without a dummy anthropic_api_key, the task is removed from the queue on
  * first dispatch attempt → session never provisioned → 120s timeout.

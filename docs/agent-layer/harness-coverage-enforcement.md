@@ -187,25 +187,21 @@ Forcing CLI lanes onto `runAssistantTurn` would test a path that does not exist 
 - Is **exempted** from the 4-harness coverage rule (Gate 1).
 - **Still enforced** for: (a) zero stubs / no `vi.mock` of harness seams, (b) no `skipIf`-on-absent gates, (c) must declare `requireHarness("builtin")` — a builtin-only file that declares _no_ harness is still a violation.
 
-The carve-out is not a weakening. The 4-harness obligation stays fully enforced via the files that genuinely flow through `provisionSession` (AD2-real + R1-real). The `BUILTIN_ONLY_INTEGRATION` exemption only removes the CLI lanes that the production code path cannot run.
+The carve-out is not a weakening. The 4-harness obligation stays fully enforced via files that genuinely flow through `provisionSession` or another real harness seam. During AR3/AR4/AR5 consolidation, the builtin-only assistant real files were removed: assistant service behavior remains in deterministic service/unit tests, and real conversational harness capability is proven by the full-matrix `AR4a-conversational-reply-row.integration.test.ts`.
 
 **Why not the coverage-debt allowlist?** `coverage-debt.allowlist.json` means "below 4 harnesses _temporarily_, will reach 4." A builtin-only path will _never_ reach 4 — using it would be a permanent lie ("debt to be paid"). The carve-out states the truth: this path is builtin-only by construction.
 
-**Attestation floor — unaffected.** The per-harness floor (`assertPerHarnessFloor`) checks whether each supported harness had ≥1 executed assertion across the whole selected set. The 4-harness files (AD2-real + R1-real) loop all four lanes; each satisfies claude/codex/opencode. The builtin-only files add builtin executions. No floor change is needed.
+**Attestation floor — unaffected.** The per-harness floor (`assertPerHarnessFloor`) checks whether each supported harness had ≥1 executed assertion across the selected set. The retained full-matrix files loop all four lanes, so no builtin-only file is needed to satisfy the floor.
 
-### Files in `BUILTIN_ONLY_INTEGRATION` (AR4)
+### Files in `BUILTIN_ONLY_INTEGRATION`
 
-| File | Path home | Why builtin-only |
-|---|---|---|
-| `AH3-assistant-turn-real.integration.test.ts` | `routes/__tests__/` | `runAssistantTurn` — no sandbox / no MCP bridge |
-| `AK4-assistant-draft-real.integration.test.ts` | `routes/__tests__/` | same |
-| `AH6-lane-gates-broken-turn-real.integration.test.ts` | `__tests__/` | same |
+None. Keep this list empty unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration.
 
 ---
 
 ## Dispatch → provision → real-agent seam (AR4)
 
-AR4 converted the task-dispatcher and session-route tests from stubbed adapters to real-harness integration, exercising the full `provisionSession` path through the dispatcher:
+AR4 converted task-dispatcher and session-route happy paths from stubbed adapters to real-harness integration. AR3/AR4/AR5 consolidation then removed duplicate per-workpackage files and kept the shared journey tests:
 
 `transitionTask(db, eventBus, taskId, "accepted")` → `drainQueue` → `resolveProvisionSession()` (registry-injected `provisionSession`) → real `HarnessAdapter` → `endSession` teardown.
 
@@ -224,14 +220,17 @@ AR4 converted the task-dispatcher and session-route tests from stubbed adapters 
 | codex | _(native default gpt)_ | No `{{model}}` placeholder in codex args template; field is metadata-only |
 | opencode | `openrouter/moonshotai/kimi-k2.7-code` | Provider-prefixed; opencode's `--model` flag requires the `openrouter/` prefix |
 
-### 4-harness matrix tests (AR4)
+### Consolidated AR3/AR4/AR5 matrix tests
 
-| File | Path | Role |
-|---|---|---|
-| `AD2-task-dispatcher-real.integration.test.ts` | `__tests__/` | Dispatcher → provision → real agent; AC2 keystone |
-| `R1-wire-agent-execution-real.integration.test.ts` | `__tests__/` | POST `/api/sessions` → real `provisionSession`; AC1 |
-
-Both loop `SUPPORTED_HARNESS_LANES` via `runThroughHarness` (no bespoke rig). Both are in `EXPLICIT_HARNESS_INTEGRATION` — not in `BUILTIN_ONLY_INTEGRATION`.
+| File | Role |
+|---|---|
+| `session-dispatch-wiring.integration.test.ts` | Accepted task → dispatcher → real session row |
+| `nonblocking-session-creation.integration.test.ts` | `POST /api/sessions` returns 202 and the real run reaches terminal state |
+| `provisioning-single-tool-execution.integration.test.ts` | Real agent tool call executes exactly once |
+| `session-cost-per-step-delta.integration.test.ts` | Real session cost delta is persisted correctly |
+| `AR4a-conversational-reply-row.integration.test.ts` | Conversational assistant path persists a non-empty assistant reply across all harnesses |
+| `minimal-strategy-session.integration.test.ts` | Real session runs under the real minimal strategy |
+| `bet-decomposition-real-agent.integration.test.ts` | Real agent decomposes a bet and persists tasks |
 
 ### Builtin assistant-turn runner (AR4)
 
@@ -260,11 +259,6 @@ The credential step is load-bearing: without a real resolver, `runAssistantTurn`
 | `packages/server/src/harness/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES` |
 | `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + `runAssistantTurnThroughHarness` + helpers |
 | `packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts` | Reference 4-harness matrix test |
-| `packages/server/src/__tests__/AD2-task-dispatcher-real.integration.test.ts` | AR4: dispatcher → provision → real agent (4-harness matrix) |
-| `packages/server/src/__tests__/R1-wire-agent-execution-real.integration.test.ts` | AR4: POST `/api/sessions` → real `provisionSession` (4-harness matrix) |
-| `packages/server/src/routes/__tests__/AH3-assistant-turn-real.integration.test.ts` | AR4: real builtin assistant turn (builtin-only) |
-| `packages/server/src/routes/__tests__/AK4-assistant-draft-real.integration.test.ts` | AR4: real builtin assistant draft (builtin-only) |
-| `packages/server/src/__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts` | AR4: real builtin lane-gate valid-lane proof (builtin-only) |
 | `packages/fabric/src/services/task-dispatcher.ts` | AR4: `TaskDispatcherDeps.onBeforeTeardown` (additive optional field) |
 | `packages/server/src/harness/__tests__/provision-real-decomposition.ts` | `decompositionDepsForLane` — builds `BetDecompositionDeps` with a real `AdapterPool` for each harness lane, forces Branch 3 by omitting the `runDecompositionTurn` override (AR5) |
 | `packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts` | 4-harness decomposition matrix test (AR5) — asserts ≥1 persisted task + `decompositionStatus=done` from a real agent |

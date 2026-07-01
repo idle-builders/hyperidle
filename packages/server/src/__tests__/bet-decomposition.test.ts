@@ -148,6 +148,9 @@ function makeFabricLikeStrategy() {
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		),
+		formAssistant: vi.fn(async (): Promise<import("@hyperidle/shared").AssistantFormation> => {
+			return { persona: null, assistantDraftSurface: "standard" };
+		}),
 	};
 }
 
@@ -225,7 +228,7 @@ describe("Bet decomposition — DecompositionTaskInput type", () => {
 // not live in a *.integration.test.ts file. The assertion is verbatim.
 // ---------------------------------------------------------------------------
 
-describe("Bet decomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
+describe("bet decomposition real agent turn runs with no tools", () => {
 	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
 	// and the PM pick (bet_decomposer) returns the seeded agent.
 	// runBetDecomposition now routes the PM pick through selectOwner →

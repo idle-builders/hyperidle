@@ -8,7 +8,7 @@
  * retaining the DB fixture so assertions match the original file's shape.
  *
  * "message persisted" assertion (test-2 in the original) migrates to
- * AH3-assistant-turn-real.integration.test.ts H1 (real builtin turn, W-3).
+ * AR4a-conversational-reply-row.integration.test.ts (real full-matrix turn, W-3).
  *
  * @lore AR4: Full demotion is correct — the callLlm capture is a model-routing
  *   probe, not harness behavior. Forcing 4 real LLMs to prove "model id X was
@@ -76,7 +76,7 @@ vi.mock("../harness/llm-client.js", async (importOriginal) => {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("AH6: per-agent model seam (resolveAgentModel, not resolveModelTier)", () => {
+describe("per-agent model seam uses resolveAgentModel, not resolveModelTier", () => {
 	beforeEach(() => {
 		capturedCallLlmModels.length = 0;
 		vi.unstubAllEnvs();

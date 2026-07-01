@@ -3,7 +3,8 @@
  *
  * Tests the error paths, back-compat, and pre-flight checks via POST /api/sessions.
  * The real-harness happy-path (AC2/AC3/AC4 done/crashed) lives in
- * R1-wire-agent-execution-real.integration.test.ts (4-harness matrix).
+ * `harness/__tests__/nonblocking-session-creation.integration.test.ts`
+ * (4-harness matrix).
  *
  *   AC6 — Credential resolution (pre-flight check)
  *   AC7 — Missing credential returns clear error (no session row created)
