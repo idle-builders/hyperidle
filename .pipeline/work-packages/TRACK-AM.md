@@ -124,8 +124,6 @@ The hard direction forks the founder decides by **seeing rendered variants** in 
 - Existing HyperIdle harness interaction code is presumed unproven until AM2 tests it against real installed harnesses or real gateway credentials.
 - The reviewer must check that the research was actually done and that architecture/implementation decisions cite it. Missing research is a blocking review failure.
 
-**Follow-on architecture note.** AM2's live proof boundary should be the agent runtime boundary, not every consumer journey: session request/provisioning, adapter selection, harness start/stream/stop, tool/MCP invocation, session lifecycle persistence, writeback/capture, and emitted session events. Work, Conversation, Knowledge, and Routine flows should be able to test that they create the correct session request and react to session events without rerunning a real harness journey each time. The current implementation still treats `taskId` as required for provisioning (`sessions.taskId` is non-null), so assistant and routine sessions use stub tasks and bet decomposition has a direct `adapter.startSession` path. A future agent-session split should make session requests task-optional and event/message based (`SessionRequested` -> provisioner -> session events), which also enables remote provisioners without coupling Work/Conversation/Knowledge domains to a local `provisionSession` function.
-
 **Out of scope.** The dial-in UI that consumes the descriptor (AM3). The detection/onboarding UI (AM4). The conversation (AM1). Arbitrary third-party marketplace/plugin loading. Full Cursor implementation if no usable documented/local CLI surface exists; Cursor still must be researched via `t3code` and documented.
 
 **Effort.** L (~5d)
