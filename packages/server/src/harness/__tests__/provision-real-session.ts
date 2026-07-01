@@ -319,6 +319,17 @@ export interface HarnessRunCtx {
 	/** Per-test scratch directory — caller creates and cleans up. */
 	readonly tmpDir: string;
 	/**
+	 * Optional seam to seed the DB AFTER `prepFn` generates timestamp-based agentId/taskId
+	 * and BEFORE `provisionSession` calls `admitSession`. Tests use it to seed with the
+	 * ACTUAL generated IDs. Without this, `admitSession` throws "Agent not found: ar-<harness>-agent-<ts>".
+	 *
+	 * @lore AR5: `prepFn` generates agentId/taskId via `Date.now()` — callers cannot know
+	 * them before calling `runThroughHarness`. This seam lets tests seed the DB with the
+	 * ACTUAL generated IDs rather than a fixed constant that never matches what the lane
+	 * will request from `admitSession`. AR7 merge accidentally dropped this field — restored.
+	 */
+	readonly onBeforeSession?: (params: ProvisionSessionParams) => Promise<void>;
+	/**
 	 * Live MCP bridge from `startMcpBridgeServer()`. Required for CLI lanes;
 	 * optional for builtin (which doesn't spawn an external process).
 	 */
@@ -591,6 +602,16 @@ export async function runThroughHarness(
 	ctx: HarnessRunCtx,
 ): Promise<{ result: ProvisionSessionResult; cap: SandboxCapture }> {
 	const { pool, params, capturePaths } = lane.prepFn(ctx);
+
+	// @lore AR5: `onBeforeSession` fires after `prepFn` generates timestamp-based
+	// agentId/taskId and BEFORE `provisionSession` calls `admitSession`. Tests use
+	// it to seed the DB with the ACTUAL generated IDs. Without this seam,
+	// `admitSession` throws "Agent not found: ar-<harness>-agent-<ts>" because the
+	// seed ran before the IDs were known. AR7 merge accidentally dropped this — restored.
+	if (ctx.onBeforeSession) {
+		await ctx.onBeforeSession(params);
+	}
+
 	const cap = createSandboxCapture(capturePaths ? { paths: capturePaths } : undefined);
 
 	const deps: ProvisionSessionDeps = {

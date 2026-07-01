@@ -11,8 +11,8 @@
  * These tests FAIL until:
  *   packages/fabric/src/services/agent-selection.ts exports `selectAgentFabric`
  *
- * The protected AK3 baselines (AK3-bet-decomposition.test.ts,
- * AK3-bet-decomposition.integration.test.ts, routine-coalescing.integration.test.ts)
+ * The protected baselines (bet-decomposition.test.ts,
+ * bet-decomposition-service.integration.test.ts, routine-coalescing.integration.test.ts)
  * are NOT modified here — they are the no-regression oracles.
  *
  * @lore AK7: selectAgentFabric is a pure function for bet_* surfaces (takes

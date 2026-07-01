@@ -193,28 +193,28 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 			return { type: "tool_call", toolName, args };
 		}
 		case "step_start":
-			// Lifecycle event with no content — produce a benign empty completion.
+			// Lifecycle event with no actionable content — produce a benign empty completion
+			// so it doesn't fall through to unknownEvent (→ error).
 			//
-			// @lore AR2 opencode-events: opencode `--format json` emits step_start (turn-start
-			// lifecycle) alongside step_finish. Without this branch it hits the default path
-			// → unknownEvent → { type: "error" } → provisionSession crashed = true.
+			// @lore AR2 opencode-events: opencode `--format json` emits step_start at turn-start.
+			// Verified opencode 1.17.11: a simple `run` turn yields step_start → text → step_finish.
+			// Without this branch, step_start hits the default path → unknownEvent
+			// → { type: "error", code: "UnknownHarnessEvent" } → provisionSession crashed = true.
 			return { type: "completion", text: "" };
 		case "text": {
-			// Streaming text chunk — extract the content from part.text.
+			// opencode `text` events carry streaming text chunks in `part.text`.
+			// Real event shape (verified opencode 1.17.11):
+			//   { type:"text", part:{ type:"text", text:"<actual content>" } }
 			//
-			// @lore AR4a opencode-text-event: opencode `--format json` emits `text` events as
-			// streaming text deltas. Previously treated as lifecycle (empty), but they carry the
-			// actual reply text in `part.text`. The session drain uses last-non-empty capture, so
-			// emitting these with the real text causes `conversationalReplyText` to hold the
-			// assembled reply (last non-empty = the last text chunk, which is the full text for
-			// single-shot responses like PONG).
-			//
-			// Verified opencode JSONL structure:
-			//   step_start → { type:"text", part:{ text:"PONG" } } → step_finish
-			// The `step_finish` event does NOT carry the text; `text` events do.
-			const textPart = isRecord(input.part) ? input.part : {};
-			const textContent = typeof textPart.text === "string" ? textPart.text : "";
-			return { type: "completion", text: textContent };
+			// @lore AR5 opencode-text-event: The actual LLM response arrives in `text` events
+			// (part.text), NOT in `step_finish`. step_finish carries only metadata (reason, tokens,
+			// cost). Without extracting part.text here, drainForCompletion sees only empty completions
+			// and returns "" → JSON.parse fails → blocked/empty. Verified 2026-06-30 by running
+			// `opencode run ... --format json` manually: step_start → text[part.text="..."] →
+			// step_finish[no output field]. Extract part.text so lastNonEmpty captures the response.
+			const part = isRecord(input.part) ? input.part : {};
+			const text = typeof part.text === "string" ? part.text : "";
+			return { type: "completion", text };
 		}
 		default:
 			return input;

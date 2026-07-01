@@ -52,6 +52,9 @@ export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
 	"routes/__tests__/AH3-assistant-turn-real.integration.test.ts",
 	"routes/__tests__/AK4-assistant-draft-real.integration.test.ts",
 	"__tests__/AH6-lane-gates-broken-turn-real.integration.test.ts",
+	// AR5: converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
+	"__tests__/minimal-strategy-session.integration.test.ts",
+	"__tests__/bet-decomposition-real-agent.integration.test.ts",
 ];
 
 /**

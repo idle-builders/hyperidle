@@ -1,5 +1,5 @@
 /**
- * AK3 RED — Bet decomposition integration tests.
+ * Bet decomposition integration tests (service).
  *
  * Tests cover:
  *   AC1  — Committing a bet produces ≥1 task breakdown (via runDecompositionTurn override)
@@ -21,26 +21,15 @@
  *      findEligibleTeamAgents, insertProposedBetTasks, resolveOrphanedDecompositions, BetDecompositionDeps
  *   5. packages/server/src/routes/bets.ts returns decompositionStatus + decompositionBlockerReason
  *
- * @lore AK3: The imports below reference modules that don't exist yet.
+ * @lore: The imports below reference modules that don't exist yet.
  * "Cannot find module" is the correct failure mode for the TDD red phase.
  * Once green-phase creates these modules, the imports resolve and tests assert behavior.
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type {
-	EventBus,
-	HarnessAdapter,
-	HarnessCapabilities,
-	ResolvedModel,
-	SelectAgentOutcome,
-	SelectAgentRequest,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
-} from "@hyperidle/shared";
+import type { EventBus, SelectAgentOutcome, SelectAgentRequest } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import {
 	findEligibleTeamAgents,
@@ -52,15 +41,15 @@ import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-reg
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Fabric-equivalent strategy fixture (AK7 Phase-4 fix)
+// Fabric-equivalent strategy fixture
 //
 // insertProposedBetTasks and runBetDecomposition now route per-task owner
 // selection through selectOwner → getActiveStrategy().selectAgent. These
 // describe blocks register a Fabric-equivalent selectAgent that reproduces
-// the AK3 round-robin behaviour byte-identically:
+// round-robin behaviour byte-identically:
 //   - bet_task: roleHint match → spread (candidates[spreadIndex % len])
 //   - bet_decomposer: roleHint match → candidates[0]
-// Assertions are frozen — only setup changes (AK7 code-review ruling).
+// Assertions are frozen — only setup changes per code-review ruling.
 // ---------------------------------------------------------------------------
 
 function makeFabricLikeStrategy() {
@@ -91,11 +80,11 @@ function makeFabricLikeStrategy() {
 			},
 		),
 		/**
-		 * AK8 T1/W3: decomposeBet added to satisfy Strategy<TDb> 5-method interface.
+		 * decomposeBet added to satisfy Strategy<TDb> 5-method interface.
 		 * Returns role-match PM and tasks:[] so tests land on override branch
 		 * (turn-source precedence branch 2 — protected assertions stay byte-identical).
 		 *
-		 * @lore AK8: fixture shape grows; frozen assertions byte-identical.
+		 * @lore: fixture shape grows; frozen assertions byte-identical.
 		 */
 		decomposeBet: vi.fn(
 			async (
@@ -118,7 +107,7 @@ function makeFabricLikeStrategy() {
 	};
 }
 
-// AK3 red phase: DecompositionTaskInput lives in @hyperidle/shared once exported.
+// DecompositionTaskInput lives in @hyperidle/shared once exported.
 // Declared locally so tests compile now; the import will replace this in the green phase.
 type DecompositionTaskInput = {
 	title: string;
@@ -221,7 +210,7 @@ function makeTestDeps(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AK3: findEligibleTeamAgents", () => {
+describe("Bet decomposition — eligible team agents", () => {
 	test("returns active AI team-category agents for the bet team (AC2)", async ({ db }) => {
 		const { teamId, membershipId } = await seedTeamWithAgent(db);
 		const eligible = await findEligibleTeamAgents(db, teamId);
@@ -273,10 +262,10 @@ describe("AK3: findEligibleTeamAgents", () => {
 	});
 });
 
-describe("AK3: insertProposedBetTasks", () => {
-	// AK7 Phase-4: insertProposedBetTasks now routes through selectOwner →
+describe("Bet decomposition — proposed task insertion", () => {
+	// insertProposedBetTasks now routes through selectOwner →
 	// getActiveStrategy(). Register the Fabric-equivalent strategy so calls resolve.
-	// Assertions below are FROZEN (setup-only change per AK7 code-review ruling).
+	// Assertions below are FROZEN (setup-only change per code-review ruling).
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
 
@@ -356,7 +345,7 @@ describe("AK3: insertProposedBetTasks", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — no-eligible-agent path (AC4)", () => {
+describe("Bet decomposition — no eligible agent blocks decomposition (AC4)", () => {
 	test("sets decomposition_status=blocked, reason=no_eligible_agent, zero tasks inserted", async ({
 		db,
 		eventBus,
@@ -382,8 +371,8 @@ describe("AK3: runBetDecomposition — no-eligible-agent path (AC4)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
-	// AK7 Phase-4: runBetDecomposition routes PM pick + per-task owner through selectOwner.
+describe("Bet decomposition — happy path produces tasks (AC1, AC2)", () => {
+	// runBetDecomposition routes PM pick + per-task owner through selectOwner.
 	// Register Fabric-equivalent strategy; assertions below are FROZEN.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
@@ -424,8 +413,8 @@ describe("AK3: runBetDecomposition — happy path (AC1, AC2)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — timeout/error path (AC6)", () => {
-	// AK7 Phase-4: PM pick goes through selectOwner; register strategy so it resolves.
+describe("Bet decomposition — timeout and error handling (AC6)", () => {
+	// PM pick goes through selectOwner; register strategy so it resolves.
 	// Assertions frozen — setup only.
 	beforeEach(() => setActiveStrategy(makeFabricLikeStrategy()));
 	afterEach(() => clearActiveStrategy());
@@ -480,15 +469,15 @@ describe("AK3: runBetDecomposition — timeout/error path (AC6)", () => {
 	});
 });
 
-describe("AK3: runBetDecomposition — idempotency / CAS guard (AC7)", () => {
+describe("Bet decomposition — idempotency CAS guard (AC7)", () => {
 	test("runBetDecomposition with status already 'running' does NOT produce duplicate tasks", async ({
 		db,
 		eventBus,
 	}) => {
 		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-idem" });
 		// Pre-set the bet as already 'running' (CAS should block a second decomposition)
-		// AK3 red phase: decompositionStatus column added in green phase; explicit any needed to insert new column before schema migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds this column; test pre-seeds it to test CAS guard
+		// Pre-seeds decompositionStatus="running" via explicit any — column exists in the schema migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds this column; test pre-seeds it to test CAS guard
 		const idemBetRow: any = {
 			...makeBet("bet-idem", teamId, "active"),
 			decompositionStatus: "running",
@@ -514,12 +503,12 @@ describe("AK3: runBetDecomposition — idempotency / CAS guard (AC7)", () => {
 	});
 });
 
-describe("AK3: resolveOrphanedDecompositions — boot-time crash recovery (CRITICAL-3, AC3)", () => {
+describe("Bet decomposition — orphan recovery on boot (AC3)", () => {
 	test("flips any 'running' bet to blocked/failed", async ({ db }) => {
 		await db.insert(teams).values(makeTeam("team-orphan"));
 		await db.insert(teamMembers).values(makeMembership("tm-orphan", "team-orphan"));
-		// Bet stuck on 'running' — simulates a crash. AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decompositionStatus; test pre-seeds it
+		// Bet stuck on 'running' — simulates a crash. decompositionStatus column added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decompositionStatus; test pre-seeds it
 		const orphanBetRow: any = {
 			...makeBet("bet-orphan", "team-orphan", "active"),
 			decompositionStatus: "running",
@@ -539,8 +528,8 @@ describe("AK3: resolveOrphanedDecompositions — boot-time crash recovery (CRITI
 	test("leaves bets with terminal status untouched", async ({ db }) => {
 		await db.insert(teams).values(makeTeam("team-clean"));
 		await db.insert(teamMembers).values(makeMembership("tm-clean", "team-clean"));
-		// AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decompositionStatus; test pre-seeds it
+		// decompositionStatus column added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decompositionStatus; test pre-seeds it
 		const doneBetRow: any = {
 			...makeBet("bet-done", "team-clean", "active"),
 			decompositionStatus: "done",
@@ -565,15 +554,15 @@ describe("AK3: resolveOrphanedDecompositions — boot-time crash recovery (CRITI
 	});
 });
 
-describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
+describe("Bet decomposition — GET /bets/:id returns decomposition fields (API shape)", () => {
 	test("response includes decompositionStatus and decompositionBlockerReason fields", async ({
 		db,
 		app,
 	}) => {
 		await db.insert(teams).values(makeTeam());
 		await db.insert(teamMembers).values(makeMembership());
-		// AK3 red phase: column added in green phase migration.
-		// biome-ignore lint/suspicious/noExplicitAny: AK3 schema migration adds decomposition columns; test pre-seeds them
+		// decomposition columns added via migration.
+		// biome-ignore lint/suspicious/noExplicitAny: schema migration adds decomposition columns; test pre-seeds them
 		const apiBetRow: any = {
 			...makeBet("bet-api", "team-1", "active"),
 			decompositionStatus: "blocked",
@@ -605,113 +594,5 @@ describe("AK3: GET /bets/:id returns decomposition fields (API shape)", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		// null or absent — either way the field must not be missing from the shape
 		expect("decompositionStatus" in body).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC5: User Sovereignty — no tool surface (AC5)
-// The real PM turn builds a SessionConfig with tools:[] — the LLM has no tool
-// surface during decomposition. CRITICAL-2 v1 inserts tasks server-side, never
-// via a harness tool call from the LLM.
-// ---------------------------------------------------------------------------
-
-describe("AK3: runBetDecomposition — real PM turn uses tools:[] (AC5 User Sovereignty)", () => {
-	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
-	// and the PM pick (bet_decomposer) returns the seeded agent.
-	// AK7 Phase-4: runBetDecomposition now routes the PM pick through selectOwner →
-	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
-	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
-	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
-	// @lore AK3: The real PM turn path is only reached when selectOwner resolves a PM.
-	// Under AK7, selectAgent(bet_decomposer) must return a non-null agentId here.
-	beforeEach(() => {
-		setActiveStrategy(makeFabricLikeStrategy());
-	});
-
-	afterEach(() => {
-		clearActiveStrategy();
-	});
-
-	test("SessionConfig passed to startSession carries tools:[] (no tool surface for decomposition LLM)", async ({
-		db,
-		eventBus,
-	}) => {
-		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-ac5" });
-		await db.insert(bets).values(makeBet("bet-ac5", teamId, "active"));
-
-		// Capture the SessionConfig that runRealPmTurn passes to startSession.
-		// The mock adapter yields a non-JSON completion so the bet resolves to
-		// blocked/empty — we only care that tools:[] appears in the config.
-		const capturedConfigs: SessionConfig[] = [];
-
-		const mockAdapter: HarnessAdapter = {
-			async startSession(config: SessionConfig): Promise<SessionHandle> {
-				capturedConfigs.push(config);
-				return { sessionId: "mock-ac5-session" };
-			},
-			// biome-ignore lint/suspicious/useAwait: async generator stub — must satisfy HarnessAdapter interface
-			async *streamEvents(_handle: SessionHandle): AsyncGenerator<never> {
-				// Yield nothing — drainForCompletion returns "" → JSON.parse fails → empty list → blocked/empty
-			},
-			async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-				return {
-					outcome: "completed",
-					cost: { minor: 0, currency: "USD" },
-					tokenUsage: { byTier: { workhorse: { prompt: 0, completion: 0 } } },
-				};
-			},
-			getCapabilities(): HarnessCapabilities {
-				return {
-					preCompactionTrigger: false,
-					subAgents: false,
-					modelProviders: ["anthropic"],
-					mcpSupport: false,
-					returnEnforcement: "none",
-				};
-			},
-		};
-
-		// Minimal mock adapterPool: select() returns a SelectedEntry wrapping the mock adapter.
-		// release() is a no-op. No real AdapterPool instantiated.
-		// @lore AK3: We use a structural mock here (not an AdapterPool instance) because
-		// AdapterPool.register() requires AdapterMeta fields we don't care about in this test.
-		// The BetDecompositionDeps type expects AdapterPool but uses only select() + release().
-		const mockAdapterPool = {
-			select(_req?: unknown): SelectedEntry | null {
-				return { id: "mock-adapter", adapter: mockAdapter, meta: {} as SelectedEntry["meta"] };
-			},
-			release(_id: string): void {
-				/* no-op */
-			},
-		} as unknown as AdapterPool;
-
-		const mockResolveModel = vi.fn().mockResolvedValue({
-			provider: "anthropic",
-			model: "claude-opus-4-5",
-			apiKey: "test-key",
-			baseUrl: "https://api.anthropic.com",
-		} satisfies ResolvedModel);
-
-		const deps: BetDecompositionDeps = {
-			db,
-			eventBus,
-			adapterPool: mockAdapterPool,
-			sandbox: {
-				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
-				destroy: vi.fn(),
-			} as unknown as BetDecompositionDeps["sandbox"],
-			sandboxBasePath: "/tmp/ac5-test",
-			resolveModel: mockResolveModel,
-			// No runDecompositionTurn override — exercises the real PM path (runRealPmTurn).
-		};
-
-		await runBetDecomposition(deps, "bet-ac5");
-
-		// The real PM path must have called startSession.
-		expect(capturedConfigs.length).toBeGreaterThanOrEqual(1);
-		// AC5: every SessionConfig sent to the harness must carry tools:[] (no tool surface).
-		for (const cfg of capturedConfigs) {
-			expect(cfg.tools).toEqual([]);
-		}
 	});
 });

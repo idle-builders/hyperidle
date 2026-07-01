@@ -28,6 +28,9 @@ const HARNESS_INCLUDE = [
 	// AD2-real + R1-real alongside the existing AR2/cli-adapter harness tests.
 	"packages/server/src/__tests__/*-real.integration.test.ts",
 	"packages/server/src/routes/__tests__/*-real.integration.test.ts",
+	// AR5: converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
+	"packages/server/src/__tests__/minimal-strategy-session.integration.test.ts",
+	"packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts",
 ];
 
 export default defineConfig({

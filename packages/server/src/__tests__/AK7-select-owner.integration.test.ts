@@ -11,8 +11,8 @@
  *   Scenario 3 (unattachable guard) — Strategy returns null/inactive/unknown → selectOwner returns null
  *
  * Protected baselines (NOT modified):
- *   AK3-bet-decomposition.test.ts
- *   AK3-bet-decomposition.integration.test.ts
+ *   bet-decomposition.test.ts
+ *   bet-decomposition-service.integration.test.ts
  *   routine-scheduler-related integration tests
  *
  * These tests FAIL until:
@@ -722,7 +722,7 @@ describe("AK7: selectOwner — new flow uses seam, no eligibility re-impl (AC4)"
 // ---------------------------------------------------------------------------
 // AC5 — dispatch path reused (no second provisioning route)
 // This AC is proven by the Protected baseline:
-//   AK3-bet-decomposition.integration.test.ts (commit→tasks→accepted→dispatch)
+//   bet-decomposition-service.integration.test.ts (commit→tasks→accepted→dispatch)
 // The protected tests run as part of the no-regression gate.
 //
 // We add a structural assertion here: selectOwner returns a user-id that, when
