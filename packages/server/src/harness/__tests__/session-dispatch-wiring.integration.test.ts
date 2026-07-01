@@ -95,7 +95,7 @@ function authHeaders(): Record<string, string> {
  * openai_compatible_api_key lets the builtin adapter run via OpenRouter without
  * needing an Anthropic key (which does not exist in this system's env model).
  *
- * @lore AR3 dispatch-gateway-seed-all-lanes: The dispatcher's resolveModel(tier)
+ * @lore dispatch-gateway-seed-all-lanes: The dispatcher's resolveModel(tier)
  * call reads gateway config from readServerConfig(db). Without seeding, all lanes
  * use BUILT_IN_GATEWAY_CONFIG (anthropic) → MissingCredentialError("anthropic_api_key")
  * → dispatcher removes task from queue → no session provisioned → timeout.
@@ -148,7 +148,7 @@ async function seedOpenrouterGatewayConfig(db: HyperIdleDb): Promise<void> {
  * call without affecting the actual CLI spawn. The model "sonnet" maps to
  * --model sonnet in CLAUDE_CLI_CONFIG args (correct, founder-set 2026-06-30).
  *
- * @lore AR3 dispatch-claude-gateway: same pattern as seedAnthropicGatewayConfig
+ * @lore dispatch-claude-gateway: same pattern as seedAnthropicGatewayConfig
  * used by the shared matrix setup. The dispatcher resolveModel path
  * goes through makeResolveModel→resolveModelTier→resolveProvider("anthropic").
  * Without a dummy anthropic_api_key, the task is removed from the queue on
@@ -158,7 +158,7 @@ async function seedAnthropicGatewayConfig(db: HyperIdleDb): Promise<void> {
 	const serverSecret = TEST_API_KEY;
 	const configJson = JSON.stringify({
 		modelGateway: {
-			// AR7-locked: haiku is the tiny-model baseline for the claude lane.
+			// locked model: haiku is the tiny-model baseline for the claude lane.
 			reasoning: { provider: "anthropic", model: harnessTestResolvedModel("claude").model },
 			workhorse: { provider: "anthropic", model: harnessTestResolvedModel("claude").model },
 			fast: { provider: "anthropic", model: harnessTestResolvedModel("claude").model },
@@ -278,7 +278,7 @@ describe("dispatch-queue endpoint is reachable on a booted server", () => {
 	}) => {
 		// Boot with the builtin pool so createServer has a valid adapter — we only
 		// test the endpoint reachability here, not a full agent turn.
-		// @lore AR7-seam: lockedHarnessAdapter("builtin").adapter replaces direct
+		// @lore locked-harness-adapter-seam: lockedHarnessAdapter("builtin").adapter replaces direct
 		// new BuiltinHarnessAdapter(...) (banned by honest-harness-guard import-ban).
 		const pool = new AdapterPool();
 		pool.register("builtin-local", lockedHarnessAdapter("builtin").adapter, {
@@ -314,7 +314,7 @@ describe("dispatch-queue endpoint is reachable on a booted server", () => {
 
 // ─── Harness matrix (4 × 1) ──────────────────────────────────────────────────
 // Four explicit describe blocks — literal requireHarness("<name>") per lane so
-// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// the honest-harness-guard coverage check sees all four harnesses.
 // Shared test body factored into runDispatchMatrixLane() to avoid duplication.
 // Lane is looked up from SUPPORTED_HARNESS_LANES via laneFor().
 
@@ -356,7 +356,7 @@ async function runDispatchMatrixLane(
 	}
 
 	// Build the adapter pool for this lane.
-	// @lore AR7-seam: adapters via lockedHarnessAdapter() — import-ban satisfied.
+	// @lore locked-harness-adapter-seam: adapters via lockedHarnessAdapter() — import-ban satisfied.
 	let pool: AdapterPool;
 	if (lane.harnessName === "builtin") {
 		pool = new AdapterPool();

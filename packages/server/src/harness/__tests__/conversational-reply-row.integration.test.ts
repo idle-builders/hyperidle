@@ -1,16 +1,11 @@
 /**
- * AR4a — Four-harness conversational reply-row test (the CRITICAL gate).
+ * Four-harness conversational reply-row test.
  *
- * This is the load-bearing test that gates the carve-out removal. It proves:
+ * This is the load-bearing test for conversational assistant replies. It proves:
  *
- *   AC1 — A conversational turn through provisionSession (conversational mode)
- *         persists a non-empty assistant reply row on the DB, equal to the
- *         model's real completion text, on ALL FOUR harnesses.
- *
- * Per §5 AR4a: remove the assistant files from BUILTIN_ONLY_INTEGRATION
- * (scripts/lib/honest-harness-predicate.ts:70) ONLY AFTER this test is green
- * on all four lanes. Premature removal relocates the AT1 symmetry failure
- * instead of fixing it.
+ *   A conversational turn through provisionSession (conversational mode)
+ *   persists a non-empty assistant reply row on the DB, equal to the
+ *   model's real completion text, on ALL FOUR harnesses.
  *
  * Lanes:
  *   Lane 1 [harness:builtin]  — builtin adapter + OpenRouter deepseek-flash
@@ -18,17 +13,17 @@
  *   Lane 3 [harness:codex]    — real `codex` binary + gpt-5.4-mini
  *   Lane 4 [harness:opencode] — real `opencode` binary + glm-4.7-flash
  *
- * All four lanes use HARNESS_TEST_MODELS (locked tiny-baseline, AR7) and
+ * All four lanes use HARNESS_TEST_MODELS (locked tiny-baseline) and
  * requireHarness hard-fail (never skipIf).
  *
- * @lore AR4a: The test seeds a minimal conversational context: a human user,
+ * @lore conversational-reply-row: The test seeds a minimal conversational context: a human user,
  * an ast-* assistant agent row (harnessType per lane), an assistant thread,
  * and one trigger message ("Reply with PONG and nothing else"). After calling
  * runConversationalTurnThroughHarness (defined below), we assert the persisted
  * DB reply row is non-empty, non-notice, and contains the model's real answer.
  *
- * @lore AR4a: The stub taskId ("conv-stub-task") is the expected conversational-mode
- * stub. Callers ignore it (architecture §5 AR4a NIT — documented with @lore AR4a
+ * @lore conversational-reply-row: The stub taskId ("conv-stub-task") is the expected conversational-mode
+ * stub. Callers ignore it (conversational-mode note — documented with @lore conversational-reply-row
  * in the implementation). This test does not assert on it.
  */
 
@@ -47,7 +42,7 @@ import {
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 
 // ──────────────────────────────────────────────────────────────────────────────
-// All four harnesses required — hard-fail, never skip (AR1 rule)
+// All four harnesses required — hard-fail, never skip.
 // ──────────────────────────────────────────────────────────────────────────────
 
 requireHarness("builtin", "claude", "codex", "opencode");
@@ -58,10 +53,10 @@ const NOW = new Date().toISOString();
 // Lane 1 — [harness:builtin]
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:builtin] AR4a — conversational reply row (AC1)", () => {
-	const userId = `ar4a-builtin-user-${Date.now()}`;
-	const threadId = `ar4a-builtin-thread-${Date.now()}`;
-	const triggerMessageId = `ar4a-builtin-msg-${Date.now()}`;
+describe("[harness:builtin] conversational reply row", () => {
+	const userId = `conversation-builtin-user-${Date.now()}`;
+	const threadId = `conversation-builtin-thread-${Date.now()}`;
+	const triggerMessageId = `conversation-builtin-msg-${Date.now()}`;
 	let tmpDir: string;
 
 	beforeEach(() => {
@@ -109,10 +104,10 @@ describe("[harness:builtin] AR4a — conversational reply row (AC1)", () => {
 // Lane 2 — [harness:claude]
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:claude] AR4a — conversational reply row (AC1)", () => {
-	const userId = `ar4a-claude-user-${Date.now()}`;
-	const threadId = `ar4a-claude-thread-${Date.now()}`;
-	const triggerMessageId = `ar4a-claude-msg-${Date.now()}`;
+describe("[harness:claude] conversational reply row", () => {
+	const userId = `conversation-claude-user-${Date.now()}`;
+	const threadId = `conversation-claude-thread-${Date.now()}`;
+	const triggerMessageId = `conversation-claude-msg-${Date.now()}`;
 	let tmpDir: string;
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
@@ -163,10 +158,10 @@ describe("[harness:claude] AR4a — conversational reply row (AC1)", () => {
 // Lane 3 — [harness:codex]
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:codex] AR4a — conversational reply row (AC1)", () => {
-	const userId = `ar4a-codex-user-${Date.now()}`;
-	const threadId = `ar4a-codex-thread-${Date.now()}`;
-	const triggerMessageId = `ar4a-codex-msg-${Date.now()}`;
+describe("[harness:codex] conversational reply row", () => {
+	const userId = `conversation-codex-user-${Date.now()}`;
+	const threadId = `conversation-codex-thread-${Date.now()}`;
+	const triggerMessageId = `conversation-codex-msg-${Date.now()}`;
 	let tmpDir: string;
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
@@ -217,10 +212,10 @@ describe("[harness:codex] AR4a — conversational reply row (AC1)", () => {
 // Lane 4 — [harness:opencode]
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("[harness:opencode] AR4a — conversational reply row (AC1)", () => {
-	const userId = `ar4a-opencode-user-${Date.now()}`;
-	const threadId = `ar4a-opencode-thread-${Date.now()}`;
-	const triggerMessageId = `ar4a-opencode-msg-${Date.now()}`;
+describe("[harness:opencode] conversational reply row", () => {
+	const userId = `conversation-opencode-user-${Date.now()}`;
+	const threadId = `conversation-opencode-thread-${Date.now()}`;
+	const triggerMessageId = `conversation-opencode-msg-${Date.now()}`;
 	let tmpDir: string;
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
@@ -245,7 +240,7 @@ describe("[harness:opencode] AR4a — conversational reply row (AC1)", () => {
 			triggerMessageId,
 			harnessType: "opencode",
 			modelId: HARNESS_TEST_MODELS.opencode.model,
-			// @lore AR4a: opencode's modelProvider in the DB row is "openai-compatible"
+			// @lore conversational-reply-row: opencode's modelProvider in the DB row is "openai-compatible"
 			// (per HARNESS_TEST_MODELS). runConversationalTurnThroughHarness bypasses
 			// resolveAgentModel by passing deps.resolvedModel directly (the locked
 			// harnessTestResolvedModel), so this value is not used for model resolution.

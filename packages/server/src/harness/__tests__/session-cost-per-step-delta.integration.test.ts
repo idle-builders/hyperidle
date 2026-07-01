@@ -29,7 +29,7 @@
  * runs on all four lanes including codex/opencode where both sides are 0. The 0===0 case
  * is correct: codex emits turn.completed (not the claude-stream result event with
  * total_cost_usd) so no cost extraction fires. Asserting > 0 for codex would always fail
- * and is wrong. See @lore AR2 codex-cost-zero in provision-real-session.ts.
+ * and is wrong. See @lore codex-cost-zero in provision-real-session.ts.
  *
  * @lore magnitude-proof-untagged: The magnitude proof (≥2 deltas, > 0, sanity-break) only
  * works where cost is non-zero, so it lives in a builtin-only describe with no [harness:X]
@@ -40,7 +40,7 @@
  * @lore cost-count-instrumentation: We count cost_update events by monkey-patching
  * streamEvents on the HarnessAdapter instance returned by lockedHarnessAdapter("builtin").
  * This avoids importing BuiltinHarnessAdapter directly (banned by honest-harness-guard's
- * AR7 import-ban). streamEvents is on the HarnessAdapter interface so the patch works.
+ * import-ban). streamEvents is on the HarnessAdapter interface so the patch works.
  * The real adapter is unmodified; only one method on the instance is replaced with a
  * counting wrapper that yields every event from the original before incrementing.
  *
@@ -152,7 +152,7 @@ async function seedCostDomain(
 // Matrix: 1 test × 4 harness lanes (equal per-harness count by construction)
 //
 // Four explicit describe blocks — literal requireHarness("<name>") per lane so
-// the honest-harness-guard AR7 static coverage check sees all four harnesses.
+// the honest-harness-guard static coverage check sees all four harnesses.
 // Shared test body factored into runCostDeltaLane() to avoid logic duplication.
 // Lane is looked up by name from SUPPORTED_HARNESS_LANES via laneFor().
 // ────────────────────────────────────────────────────────────────────────────
@@ -365,7 +365,7 @@ describe(`[harness:opencode] per-step cost delta accumulates correctly in provis
 		setActiveStrategy(minimalStrategy);
 		bridge = await startMcpBridgeServer();
 		// Isolate opencode's global SQLite DB per-test via XDG_DATA_HOME.
-		// @lore AR2 opencode-xdg-isolation: concurrent or rapid sequential opencode processes
+		// @lore opencode-xdg-isolation: concurrent or rapid sequential opencode processes
 		// share ~/.local/share/opencode/opencode.db → SQLite write-lock → second process hangs.
 		// Fix: point XDG_DATA_HOME at a per-test dir so each subprocess has its own DB.
 		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
@@ -445,7 +445,7 @@ describe("per-step cost delta magnitude and sanity-break proof (builtin harness)
 
 		await seedCostDomain(db, { taskId, agentId, teamId, tmId, betId });
 
-		// Obtain the real adapter via the locked seam so the model is AR7-enforced.
+		// Obtain the real adapter via the locked seam so the model is locked-model enforced.
 		// @lore cost-count-instrumentation: lockedHarnessAdapter returns a HarnessAdapter
 		// (interface). streamEvents lives on the interface, so the monkey-patch below
 		// works without importing or subclassing BuiltinHarnessAdapter directly.
@@ -479,7 +479,7 @@ describe("per-step cost delta magnitude and sanity-break proof (builtin harness)
 		});
 
 		// Build a custom lane that uses our instrumented pool and the seeded domain.
-		// resolvedModel comes from lockedHarnessAdapter so the model is AR7-enforced.
+		// resolvedModel comes from lockedHarnessAdapter so the model is locked-model enforced.
 		const instrumentedLane: HarnessLane = {
 			harnessName: "builtin",
 			describeTag: "[harness:builtin]",

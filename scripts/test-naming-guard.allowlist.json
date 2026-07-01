@@ -238,7 +238,6 @@
 	"packages/server/src/harness/__tests__/AM4-adapter-pool-disabled.test.ts",
 	"packages/server/src/harness/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN2-connection-provisioning.integration.test.ts",
-	"packages/server/src/harness/__tests__/AR2-provision-real-session.integration.test.ts",
 	"packages/server/src/harness/__tests__/X3-adapter-pool-type.test.ts",
 	"packages/server/src/harness/__tests__/X5-adapter-pool-multi.test.ts",
 	"packages/server/src/harness/__tests__/X5-builtin-harness-adapter.test.ts",

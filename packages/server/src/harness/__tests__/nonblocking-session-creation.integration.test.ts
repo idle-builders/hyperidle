@@ -37,7 +37,7 @@
  * @lore nonblocking-matrix harnessType: User rows are seeded WITHOUT a
  * harnessType (null).  AdapterPool.select() then picks by modelProviders alone.
  * Each lane's pool has exactly one adapter so there is no ambiguity.  This
- * mirrors the AR2 provision-real-session pattern (provision-real-session.ts
+ * mirrors the real-session provisioning pattern (provision-real-session.ts
  * seedDomain also omits harnessType).
  *
  * @lore nonblocking-matrix opencode-xdg-isolation: opencode uses a single
@@ -219,7 +219,7 @@ async function seedLaneConfig(db: HyperIdleDb, lane: LaneConfig): Promise<void> 
  * modelProviders: ["openai-compatible"] — pool selects this when the serverConfig
  * resolves to an openai-compatible model and the user harnessType is null.
  */
-// @lore AR7-seam: all pool factories use lockedHarnessAdapter() rather than
+// @lore locked-harness-adapter-seam: all pool factories use lockedHarnessAdapter() rather than
 // importing adapter classes directly (banned by honest-harness-guard import-ban).
 function makeBuiltinPool(): AdapterPool {
 	const pool = new AdapterPool();
@@ -332,7 +332,7 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 			harnessName: "claude",
 			modelGateway: {
 				provider: "anthropic",
-				// AR7-locked: "haiku" (smallest claude tier). The sessions route passes this
+				// locked model: "haiku" (smallest claude tier). The sessions route passes this
 				// to the CLI as --model haiku. The dummy anthropic_api_key satisfies the pre-flight.
 				model: harnessTestResolvedModel("claude").model,
 			},
@@ -373,7 +373,7 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 			harnessName: "codex",
 			modelGateway: {
 				provider: "openai-compatible",
-				// AR7-locked: "gpt-5.4-mini" (tiny baseline, ChatGPT-account codex login).
+				// locked model: "gpt-5.4-mini" (tiny baseline, ChatGPT-account codex login).
 				model: harnessTestResolvedModel("codex").model,
 				baseUrl: harnessTestResolvedModel("codex").baseUrl,
 			},
@@ -403,7 +403,7 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 			harnessName: "opencode",
 			modelGateway: {
 				provider: "openai-compatible",
-				// AR7-locked: "openrouter/z-ai/glm-4.7-flash" (tiny baseline via OpenRouter).
+				// locked model: "openrouter/z-ai/glm-4.7-flash" (tiny baseline via OpenRouter).
 				// opencode requires a provider-prefixed model id (openrouter/<model>).
 				model: harnessTestResolvedModel("opencode").model,
 				baseUrl: OPENROUTER_BASE_URL,
@@ -428,7 +428,7 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 // ─── Harness matrix ───────────────────────────────────────────────────────────
 //
 // Four explicit describe blocks — literal requireHarness("<name>") per lane so
-// the honest-harness-guard AR7 coverage check sees all four harnesses.
+// the honest-harness-guard coverage check sees all four harnesses.
 // Shared test body factored into runNonblockingLane() to avoid duplication.
 // Per-lane HTTP config is looked up from HTTP_LANE_CONFIGS by harness name.
 

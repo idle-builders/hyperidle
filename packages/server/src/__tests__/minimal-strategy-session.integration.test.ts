@@ -1,11 +1,11 @@
 /**
  * Minimal strategy end-to-end integration tests.
- * AR5 CONVERSION: replaced EchoHarnessAdapter with real 4-lane matrix via
+ * Replaced EchoHarnessAdapter with real 4-lane matrix via
  * `runThroughHarness`. The thing under test is "a real session runs to
  * completion under the minimal Strategy" — the harness IS the integration
  * point, so `runThroughHarness` is the correct entry point here.
  *
- * AC1: A task can be dispatched and run end-to-end under a minimal Strategy
+ * A task can be dispatched and run end-to-end under a minimal Strategy
  *      that performs no context assembly, relevance, or attention work.
  *
  *   Given the minimal Strategy is active, when a task is dispatched (real
@@ -13,20 +13,20 @@
  *
  * Inertness assertions (no knowledge files, no knowledge_items writeback) are
  * demoted to packages/strategy-minimal/src/__tests__/minimal-strategy.test.ts
- * (AR5 / architecture-critique N-2) because those properties are about the
+ *  because those properties are about the
  * Strategy object itself, not the harness:
  *   - "no files under knowledge/" → direct assembleContext call in unit
  *   - ".fabric/manifest.json has zero items" → direct assembleContext call
  *   - "beginLearningIngestion dispose() is no-op" → direct call in unit
  * The existing minimal-strategy.test.ts already covers all three.
  *
- * AR5 TEST-COST REFACTOR: This file retains only test #5 (session runs to
+ * Test-cost refactor: This file retains only test #5 (session runs to
  * completion) × 4 harness lanes. Test #6 (no knowledge_items writeback) is
  * removed: minimalStrategy.dispose() is a documented no-op — if dispose()
  * never calls any writeback mechanism, no DB rows can be created. The existing
  * unit suite (minimal-strategy.test.ts lines 133-169) proves dispose() is a
  * no-op; the DB-count assertion is redundant with that unit coverage.
- * @lore AR5: the knowledge_items writeback is driven by the Fabric's FileWatcher
+ * @lore minimal-strategy-session: the knowledge_items writeback is driven by the Fabric's FileWatcher
  * flush, not by dispose() itself. minimalStrategy.dispose() is a literal no-op,
  * so confirming no DB rows are written in a real 4-harness × real-LLM run pays
  * ~8 sessions to verify a no-op. The unit coverage is sufficient.
@@ -66,7 +66,7 @@ const NOW = "2026-06-15T00:00:00.000Z";
  * the lane's `prepFn`. Called inside `onBeforeSession` so the ACTUAL generated
  * IDs are known before `admitSession` looks them up.
  *
- * @lore AR5: `prepFn` generates agentId/taskId via `Date.now()` and uses a fixed
+ * @lore minimal-strategy-session: `prepFn` generates agentId/taskId via `Date.now()` and uses a fixed
  * `productId: "p1"`. `fabric/session-context.ts` looks up `teams.id = productId`,
  * so the seeded team must use `productId` as its ID (not a hardcoded string).
  */
@@ -76,7 +76,7 @@ async function seedDomain(
 	taskId: string,
 	productId: string,
 ): Promise<void> {
-	const memberId = "tm-ak2";
+	const memberId = "minimal-member";
 	await db
 		.insert(teams)
 		.values({ id: productId, name: "Test Team", phase: "build", createdAt: NOW });
@@ -84,7 +84,7 @@ async function seedDomain(
 		.insert(teamMembers)
 		.values({ id: memberId, teamId: productId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
-		id: "b-ak2",
+		id: "minimal-bet",
 		teamId: productId,
 		description: "test bet",
 		appetite: "small",
@@ -103,7 +103,7 @@ async function seedDomain(
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId: "b-ak2",
+		betId: "minimal-bet",
 		teamId: productId,
 		title: "Test Task",
 		state: "accepted",
@@ -121,7 +121,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
 
 	beforeEach(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ak2-minimal-${lane.harnessName}-`));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `minimal-strategy-${lane.harnessName}-`));
 		if (lane.harnessName !== "builtin") {
 			bridge = await startMcpBridgeServer();
 		}
@@ -138,7 +138,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 		}
 	});
 
-	// AC1 main assertion: session reaches completion under minimal.
+	// Main assertion: session reaches completion under minimal.
 	// This is the ONLY test that genuinely needs a real harness binary — it proves
 	// the Kernel-feature baseline (minimal strategy) carries a real session to done.
 	// Test #6 (no knowledge_items writeback) is removed: dispose() is a documented
@@ -155,7 +155,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 			eventBus,
 			tmpDir,
 			bridge,
-			// @lore AR5: seed AFTER prepFn generates agentId/taskId/productId so we use
+			// @lore minimal-strategy-session: seed AFTER prepFn generates agentId/taskId/productId so we use
 			// the ACTUAL IDs. productId is always "p1" from SUPPORTED_HARNESS_LANES but
 			// we read it dynamically in case lane config changes.
 			onBeforeSession: async (params) => {
@@ -163,7 +163,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 			},
 		});
 
-		// AR2 lore: builtin+claude fire MCP return tool → "completed";
+		// Real-session baseline: builtin+claude fire MCP return tool → "completed";
 		// codex+opencode do real work but may not return → "not_returned".
 		expect(["completed", "not_returned"]).toContain(result.outcome);
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
@@ -172,7 +172,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 }
 
 // ---------------------------------------------------------------------------
-// Tests — 4-lane harness matrix (AR5 conversion)
+// Tests — four-lane harness matrix
 // Explicit per-lane describe blocks so the honest-harness-guard coverage check
 // finds literal requireHarness("...") call expressions in the source.
 // ---------------------------------------------------------------------------

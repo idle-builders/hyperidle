@@ -562,7 +562,7 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 		process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
 
 		// Isolate opencode's config directory per-test to prevent stale global MCP entries.
-		// @lore AR3 opencode-config-isolation: ~/.config/opencode/opencode.jsonc may contain
+		// @lore opencode-config-isolation: ~/.config/opencode/opencode.jsonc may contain
 		// a stale `hyperidle` MCP entry from a previous session. Without XDG_CONFIG_HOME
 		// isolation, opencode loads this global config BEFORE the per-sandbox opencode.json,
 		// and the stale entry overrides the live bridge URL → tools/call never hits the bridge.

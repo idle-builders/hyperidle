@@ -1,25 +1,25 @@
 /**
- * AR2 — Full supported-harness matrix through production `provisionSession()`.
+ * Full supported-harness matrix through production `provisionSession()`.
  *
- * Proves all four AR2 acceptance criteria across ALL FOUR supported harnesses
+ * Proves all four real-session acceptance criteria across ALL FOUR supported harnesses
  * (builtin + claude + codex + opencode):
  *
- *   AC1: A real agent run through production `provisionSession()` (not a bespoke
+ *   A real agent run through production `provisionSession()` (not a bespoke
  *        test rig) — real adapter, real model, real `admitSession`/`runSession`/
  *        teardown — asserts on actual produced output.
  *
- *   AC2: The capture-before-teardown seam (`onBeforeTeardown` on
+ *   The capture-before-teardown seam (`onBeforeTeardown` on
  *        `ProvisionSessionDeps`) observes the real sandbox contents AFTER the
  *        agent finishes writing AND BEFORE `endSession` deletes them. The captured
  *        bytes are the load-bearing proof (the sandbox is gone after
  *        `provisionSession` returns — there is NO other observation channel for
  *        pure-sandbox files).
  *
- *   AC3: ALL FOUR LANES are gated by `requireHarness(...)` — HARD-FAIL, never skip.
+ *   ALL FOUR LANES are gated by `requireHarness(...)` — HARD-FAIL, never skip.
  *        A missing harness means the work is not done.
  *
- *   AC4: All lanes drive through `SUPPORTED_HARNESS_LANES` + `runThroughHarness` —
- *        the reusable matrix AR3–AR6 import. The lane table carries each lane's
+ *   All lanes drive through `SUPPORTED_HARNESS_LANES` + `runThroughHarness`.
+ *        The lane table carries each lane's
  *        `requireHarness` name, `[harness:X]` tag, adapter config, and per-harness
  *        prep — consumers iterate the table without hand-rebuilding wiring.
  *
@@ -27,13 +27,13 @@
  *
  *   Lane 1 [harness:builtin] — BuiltinHarnessAdapter + cheap OpenRouter model.
  *   Gate: requireHarness("builtin") (OPENROUTER_API_KEY present).
- *   Real cost > 0 is the load-bearing AC1 proof (stub yields 0). onBeforeTeardown
- *   wired via createSandboxCapture. Cheap model file-write nondeterminism: not
- *   asserting a specific file (W2 posture — see W2 lore in original AR2 plan).
+ *   Real cost > 0 is the load-bearing proof (stub yields 0). onBeforeTeardown
+ *   is wired via createSandboxCapture. Cheap model file-write nondeterminism means
+ *   this lane does not assert a specific file.
  *
  *   Lane 2 [harness:claude] — real `claude` binary + native Write tool.
  *   Gate: requireHarness("claude").
- *   Native Write → answer.txt is the load-bearing AC2 proof (real file, no DB row,
+ *   Native Write → answer.txt is the load-bearing proof (real file, no DB row,
  *   deleted at teardown). Requires production MCP bridge (startMcpBridgeServer).
  *
  *   Lane 3 [harness:codex] — real `codex` binary + native file edit.
@@ -53,13 +53,13 @@
  *   loop to fire until 240s timeout. Opencode has no costField → totalCostCents stays 0;
  *   non-crash outcome + seam-fired capture is the load-bearing proof. See @lore below.
  *
- * @lore AR2: builtin + claude lanes use `tasks` with `doneCondition` phrased toward
- * `send_message` (the non-aborting return path — matches AR1 baseline lore: handoff
- * aborts before the cost line is emitted). codex + opencode lanes use a plain file-write
- * task without send_message (see W-2 round-3 lore: these CLIs don't call the return
- * tool on file tasks, so prompting send_message still yields "not_returned").
+ * @lore real-session: builtin + claude lanes use `tasks` with `doneCondition` phrased toward
+ * `send_message` because handoff/review actions can terminate before the cost line is emitted.
+ * codex + opencode lanes use a plain file-write task without send_message because these CLIs
+ * do not reliably call the return tool on file tasks, so prompting send_message still yields
+ * "not_returned".
  *
- * @lore AR2 W-2 (round-3 REVERT of over-tightening): builtin + claude fire the MCP
+ * @lore real-session-outcomes: builtin + claude fire the MCP
  * return tool (send_message) → outcome "completed". codex + opencode do REAL billable
  * work on a file-write task but do NOT call the MCP return tool → outcome is reliably
  * "not_returned", not "completed". Forcing "completed" for CLI lanes triggers the
@@ -67,17 +67,17 @@
  * floor for CLI lanes accepts "completed" OR "not_returned" (FAIL on "crashed"/"error"),
  * PLUS real cost (codex: totalCostCents > 0) and/or the capture seam firing. This is
  * stub-distinguishing: a stub/echo adapter yields cost=0, outcome="crashed", no files.
- * The round-2 W-2 tightening to "completed"-only was wrong for CLI harnesses that don't
+ * A "completed"-only assertion is wrong for CLI harnesses that don't
  * call the return tool on plain file-write tasks.
  *
- * @lore AR2 M-1 (round-2 fix): All four lanes now drive through SUPPORTED_HARNESS_LANES
- * + runThroughHarness (AC4 deliverable). Each describe block calls
+ * @lore real-session-matrix: All four lanes drive through SUPPORTED_HARNESS_LANES
+ * + runThroughHarness. Each describe block calls
  * `runThroughHarness(lane, ctx)` instead of hand-building adapter + deps.
  *
- * @lore AR2: [harness:X] tags in describe titles are MECHANICAL — they feed the
+ * @lore real-session: [harness:X] tags in describe titles are MECHANICAL — they feed the
  * attestation per-harness floor (scripts/lib/attestation-floor.ts HARNESS_TAG regex).
  * Missing/misspelled tag → that harness buckets to 0 → check-attestation FAILS.
- * With M-1, the tag is `lane.describeTag` — derived from `lane.harnessName`, not
+ * The tag is `lane.describeTag` — derived from `lane.harnessName`, not
  * hand-typed — so the gate name and attestation tag are always consistent.
  */
 
@@ -113,7 +113,7 @@ const NOW = "2026-06-29T00:00:00.000Z";
  * The `doneCondition` steers the agent toward `send_message` (non-aborting
  * return path) so the terminal cost line is emitted before the process exits.
  *
- * @lore AR1 cost-capture: `handoff_to`/`submit_review` abort the run on handoff
+ * @lore real-session-cost-capture: `handoff_to`/`submit_review` abort the run on handoff
  * (handoff-protocol.ts:339 sends SIGTERM before the cost line is printed).
  * `send_message` has no abort — the run completes and totalCostCents > 0.
  */
@@ -123,14 +123,14 @@ async function seedDomain(
 ): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "p1", name: "AR2 Integration Team", phase: "build", createdAt: NOW });
+		.values({ id: "p1", name: "Real Session Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",
-		description: "AR2 integration bet",
+		description: "real session bet",
 		appetite: "small",
 		status: "active",
 		doneCondition: opts.doneCondition,
@@ -138,7 +138,7 @@ async function seedDomain(
 	});
 	await db.insert(users).values({
 		id: opts.agentId,
-		name: "AR2 Integration Agent",
+		name: "Real Session Agent",
 		role: "builder",
 		status: "active",
 		teamId: "t1",
@@ -148,7 +148,7 @@ async function seedDomain(
 	});
 	await db.insert(users).values({
 		id: "owner-1",
-		name: "AR2 Integration Owner",
+		name: "Real Session Owner",
 		role: "founder",
 		status: "active",
 		teamId: "t1",
@@ -160,7 +160,7 @@ async function seedDomain(
 		id: opts.taskId,
 		betId: "b1",
 		teamId: "p1",
-		title: "AR2 capture seam proof",
+		title: "real-session capture seam proof",
 		description: opts.taskDescription,
 		state: "accepted",
 		createdAt: NOW,
@@ -168,8 +168,8 @@ async function seedDomain(
 	});
 	await db.insert(knowledgeItems).values({
 		id: "ki-ar2-1",
-		title: "AR2 test principle",
-		body: "AR2 integration body.",
+		title: "real-session test principle",
+		body: "real session body.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -179,11 +179,11 @@ async function seedDomain(
 	});
 }
 
-// ─── Lane reference (M-1 — AC4) ──────────────────────────────────────────────
+// ─── Lane reference (M-1 — ) ──────────────────────────────────────────────
 // Each describe drives through SUPPORTED_HARNESS_LANES[N] + runThroughHarness.
 // The lane table is the single source of truth for harnessName, describeTag,
 // adapter config, and per-harness prep. These are the reference consumers for
-// AR3–AR6 to follow.
+// Reused by the converted harness suites.
 
 const BUILTIN_LANE = SUPPORTED_HARNESS_LANES[0]; // harnessName: "builtin"
 const CLAUDE_LANE = SUPPORTED_HARNESS_LANES[1]; // harnessName: "claude"
@@ -192,7 +192,7 @@ const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]; // harnessName: "opencode"
 
 // ─── Lane 1: builtin + cheap OpenRouter model ─────────────────────────────────
 
-describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real model (AC1/AC2/AC3/AC4)`, () => {
+describe(`${BUILTIN_LANE!.describeTag} builtin harness + real model `, () => {
 	requireHarness("builtin");
 
 	let tmpDir: string;
@@ -210,7 +210,7 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 		}
 	});
 
-	test("provisions a real builtin session; real cost > 0; onBeforeTeardown seam fires (AC1/AC4)", async ({
+	test("provisions a real builtin session; real cost > 0; onBeforeTeardown seam fires ", async ({
 		db,
 		eventBus,
 	}) => {
@@ -226,8 +226,8 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 			doneCondition: "Agent reports the answer to the human owner (id 'owner-1') via send_message.",
 		});
 
-		// AC4 (M-1): drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
-		// AR7: model is LOCKED — HARNESS_TEST_MODELS.builtin.model (deepseek/deepseek-v4-flash).
+		// drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
+		// Model is locked — HARNESS_TEST_MODELS.builtin.model (deepseek/deepseek-v4-flash).
 		// No candidate retry loop: the matrix is founder-set, not a runtime choice.
 		// lockedHarnessAdapter inside BUILTIN_LANE.prepFn supplies the correct adapter+model.
 		const { result } = await runThroughHarness(
@@ -244,7 +244,7 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 			{ db, eventBus, tmpDir },
 		);
 
-		// AC1: real cost > 0 — a stub/echo run yields 0. Primary AC1 proof.
+		// real cost > 0 — a stub/echo run yields 0. Primary proof.
 		// W6: UNCONDITIONAL — fires whenever the turn completes.
 		// The locked model is HARNESS_TEST_MODELS.builtin.model.
 		expect(result.totalCostCents).toBeGreaterThan(0);
@@ -254,7 +254,7 @@ describe(`${BUILTIN_LANE!.describeTag} AR2 Lane 1 — builtin harness + real mod
 
 // ─── Lane 2: real claude CLI + native Write tool ──────────────────────────────
 
-describe(`${CLAUDE_LANE!.describeTag} AR2 Lane 2 — claude CLI + native Write (AC1/AC2/AC3/AC4)`, () => {
+describe(`${CLAUDE_LANE!.describeTag} claude CLI + native Write `, () => {
 	requireHarness("claude");
 
 	let tmpDir: string;
@@ -303,7 +303,7 @@ describe(`${CLAUDE_LANE!.describeTag} AR2 Lane 2 — claude CLI + native Write (
 			doneCondition: "Agent creates answer.txt and reports to the human owner via send_message.",
 		});
 
-		// AC4 (M-1): drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
+		// drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
 		// Patch taskId/agentId into the lane's params via runThroughHarness.
 		// The lane table uses generated IDs; we override with the seeded IDs here
 		// by building the ctx with the seeded IDs matched via task + agent insert above.
@@ -328,11 +328,11 @@ describe(`${CLAUDE_LANE!.describeTag} AR2 Lane 2 — claude CLI + native Write (
 			{ db, eventBus, tmpDir, bridge },
 		);
 
-		// AC1: real cost > 0 — a stub/echo run yields 0.
+		// real cost > 0 — a stub/echo run yields 0.
 		// W6: UNCONDITIONAL — fires whenever the turn completes.
 		expect(result.totalCostCents).toBeGreaterThan(0);
 
-		// AC2 (load-bearing): the seam fired and captured real bytes the native
+		// (load-bearing): the seam fired and captured real bytes the native
 		// Write tool produced. This file has NO other observation channel — it is
 		// purely a sandbox artifact, deleted at teardown. If `onBeforeTeardown`
 		// was never wired, `cap.files` is empty → this assertion fails.
@@ -344,7 +344,7 @@ describe(`${CLAUDE_LANE!.describeTag} AR2 Lane 2 — claude CLI + native Write (
 
 // ─── Lane 3: real codex CLI ───────────────────────────────────────────────────
 
-describe(`${CODEX_LANE!.describeTag} AR2 Lane 3 — codex CLI + provisionSession (AC1/AC3/AC4)`, () => {
+describe(`${CODEX_LANE!.describeTag} codex CLI + provisionSession `, () => {
 	requireHarness("codex");
 
 	let tmpDir: string;
@@ -392,7 +392,7 @@ describe(`${CODEX_LANE!.describeTag} AR2 Lane 3 — codex CLI + provisionSession
 			doneCondition: "Agent creates answer.txt with the number 4.",
 		});
 
-		// AC4 (M-1): drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
+		// drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
 		const { result, cap } = await runThroughHarness(
 			{
 				...CODEX_LANE!,
@@ -410,13 +410,13 @@ describe(`${CODEX_LANE!.describeTag} AR2 Lane 3 — codex CLI + provisionSession
 		// Honest floor: terminal non-crash outcome — proves a real turn ran.
 		// "completed" or "not_returned" are both valid; "crashed" / "error" are FAIL.
 		//
-		// @lore AR2 W-2 (round-3 honest floor): builtin + claude fire the MCP return
+		// @lore real-session W-2 (round-3 honest floor): builtin + claude fire the MCP return
 		// tool (send_message) → "completed". codex does REAL billable work on a
 		// file-write task but does NOT call the MCP return tool → "not_returned".
 		// Forcing "completed" triggers the return-gate re-prompt loop until 240s timeout.
 		// The honest floor accepts "completed" OR "not_returned" — FAIL on "crashed".
 		//
-		// @lore AR2 codex-cost-zero: codex emits `turn.completed` with a `usage` block
+		// @lore real-session codex-cost-zero: codex emits `turn.completed` with a `usage` block
 		// (input_tokens / output_tokens), NOT the claude-stream-json `result` event with
 		// `total_cost_usd`. The cli-harness-adapter cost extraction only fires on
 		// `type === "result"` (line 807) — so totalCostCents is always 0 for codex.
@@ -437,7 +437,7 @@ describe(`${CODEX_LANE!.describeTag} AR2 Lane 3 — codex CLI + provisionSession
 			// Model ran (non-crash) but did not write the file — still passes.
 			// Non-crash outcome alone is the honest floor for this harness.
 			process.stdout.write(
-				"[AR2 Lane 3 codex] INFO: answer.txt not captured — model did not write file in this run. " +
+				"[real-session lane codex] INFO: answer.txt not captured — model did not write file in this run. " +
 					"non-crash outcome is the load-bearing proof. File-write is best-effort.\n",
 			);
 		}
@@ -446,7 +446,7 @@ describe(`${CODEX_LANE!.describeTag} AR2 Lane 3 — codex CLI + provisionSession
 
 // ─── Lane 4: real opencode CLI ────────────────────────────────────────────────
 
-describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionSession (AC1/AC3/AC4)`, () => {
+describe(`${OPENCODE_LANE!.describeTag} opencode CLI + provisionSession `, () => {
 	requireHarness("opencode");
 
 	let tmpDir: string;
@@ -462,7 +462,7 @@ describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionS
 		setActiveStrategy(fabricStrategy);
 		bridge = await startMcpBridgeServer();
 		// Provision per-test opencode data dir to isolate the global SQLite DB.
-		// @lore AR2 opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db.
+		// @lore real-session opencode-xdg-isolation: opencode uses ~/.local/share/opencode/opencode.db.
 		// Concurrent or rapid sequential opencode processes share that DB → SQLite write-lock
 		// → the second process hangs indefinitely. Fix: point XDG_DATA_HOME at a per-test dir
 		// with auth.json copied in. The opencode CLI_TOOL_CONFIGS includes XDG_DATA_HOME in
@@ -515,7 +515,7 @@ describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionS
 			doneCondition: "Agent creates answer.txt with the number 4.",
 		});
 
-		// AC4 (M-1): drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
+		// drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
 		const { result, cap } = await runThroughHarness(
 			{
 				...OPENCODE_LANE!,
@@ -533,7 +533,7 @@ describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionS
 		// Honest floor: terminal non-crash outcome — proves a real turn ran.
 		// "completed" or "not_returned" are both valid; "crashed" / "error" are FAIL.
 		//
-		// @lore AR2 W-2 (round-3 honest floor): builtin + claude fire the MCP return
+		// @lore real-session W-2 (round-3 honest floor): builtin + claude fire the MCP return
 		// tool (send_message) → "completed". opencode does REAL work on a file-write
 		// task but does NOT call the MCP return tool on a simple file task →
 		// "not_returned". The process-reengage re-prompt loop (opencode's return
@@ -551,7 +551,7 @@ describe(`${OPENCODE_LANE!.describeTag} AR2 Lane 4 — opencode CLI + provisionS
 			expect(answerContent).toContain("4");
 		} else {
 			process.stdout.write(
-				"[AR2 Lane 4 opencode] INFO: answer.txt not captured — model did not write file in this run. " +
+				"[real-session lane opencode] INFO: answer.txt not captured — model did not write file in this run. " +
 					"non-crash outcome is the load-bearing proof. File-write is best-effort for opencode.\n",
 			);
 		}
