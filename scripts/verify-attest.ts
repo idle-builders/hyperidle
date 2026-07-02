@@ -190,8 +190,7 @@ function main(): void {
 	// @lore AR2: a fresh verify-attest run ALWAYS populates agenticExecutedByHarness
 	// with all four supported-harness keys, defaulting absent buckets to 0.
 	// check-attestation validates these via assertHarnessSymmetry — which checks that
-	// every supported harness appears with ≥1 executed assertion (AO2 relaxed from max===min:
-	// multi-file affected slices naturally have unequal per-harness counts by WP design).
+	// every supported harness appears with the same positive executed assertion count.
 	// Back-compat path (legacy attestations without this field) is in check-attestation.ts only.
 	const byHarnessWithDefaults: Record<string, { executed: number; skipped: number }> = {};
 	for (const h of SUPPORTED_HARNESSES) {
@@ -202,9 +201,9 @@ function main(): void {
 		if (!(h in byHarnessWithDefaults)) byHarnessWithDefaults[h] = v;
 	}
 
-	// AT1 D4: assertHarnessSymmetry replaces assertPerHarnessFloor. Per-harness ≥1 floor +
+	// AT1 D4: assertHarnessSymmetry replaces assertPerHarnessFloor. Equal-count floor +
 	// untagged guard — gates at attest time so no status=passed can be minted when a harness
-	// ran zero tagged executions or an untagged harness file ran without [harness:X] tags.
+	// ran zero/unequal tagged executions or an untagged harness file ran without [harness:X] tags.
 	const symmetryViolation = assertHarnessSymmetry(byHarnessWithDefaults, agenticExecuted, SUPPORTED_HARNESSES);
 	if (symmetryViolation) {
 		status = "failed";

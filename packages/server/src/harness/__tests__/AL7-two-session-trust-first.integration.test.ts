@@ -467,7 +467,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// within sandboxBasePath. The MCP server is reused but the bridge is rebuilt
 	// with a fresh token between sessions.
 
-	describe("[harness:claude] claude-code CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[transport:claude] claude-code CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("claude");
 		test("FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s1-"));
@@ -774,7 +774,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// Both pipe+close and /dev/null redirect produce "Reading additional input from stdin..."
 	// — that message is just informational, not a hang indicator.
 
-	describe("[harness:codex] codex CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[transport:codex] codex CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("codex");
 		test("FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
@@ -1075,7 +1075,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 sanity-break opencode: Wrong token in opencode.json → 401 from
 	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
 
-	describe("[harness:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[transport:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("opencode");
 		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
@@ -1301,7 +1301,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 	// ── BUILTIN (in-process, bridge wiring proof) ─────────────────────────────
 
-	describe("[harness:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {
+	describe("[transport:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {
 		requireHarness("builtin");
 
 		test("MCP bridge wiring: commit_file exposed via production bridge + real server reachable via HTTP (builtin lane)", async () => {
