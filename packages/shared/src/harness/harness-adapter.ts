@@ -154,6 +154,21 @@ export interface SessionHandle {
 	readonly sessionId: string;
 }
 
+export interface SessionMetrics {
+	readonly modelTurns?: number;
+	readonly processStarts?: number;
+	readonly toolCalls?: number;
+	readonly completionEvents?: number;
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
+	readonly cachedInputTokens?: number;
+	readonly cacheCreationInputTokens?: number;
+	readonly reasoningOutputTokens?: number;
+	readonly durationMs?: number;
+	readonly apiDurationMs?: number;
+	readonly nativeCostUsd?: number;
+}
+
 /**
  * L17: SessionResult now returns structured cost (WireMoney) and token usage
  * (TokenUsage with per-tier breakdown) instead of raw numbers.
@@ -167,6 +182,7 @@ export interface SessionResult {
 	readonly outcome: "completed" | "crashed" | "stopped";
 	readonly cost: WireMoney;
 	readonly tokenUsage: TokenUsage;
+	readonly metrics?: SessionMetrics;
 }
 
 /**

@@ -54,6 +54,7 @@ export interface McpBridgeInstance {
 export interface CreateMcpBridgeOptions {
 	readonly sessionId: string;
 	readonly registry: ToolRegistry;
+	readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 }
 
 /**
@@ -145,6 +146,7 @@ export async function createMcpBridge(options: CreateMcpBridgeOptions): Promise<
 			},
 			async (args: unknown) => {
 				const result = await registry.invoke(def.name, args);
+				options.onToolCall?.({ toolName: def.name, args });
 				return toolResultToCallToolResult(result);
 			},
 		);

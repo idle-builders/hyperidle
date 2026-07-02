@@ -262,7 +262,14 @@ function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknow
 				typeof usage.output_tokens === "number" && Number.isFinite(usage.output_tokens)
 					? usage.output_tokens
 					: 0;
-			return { type: "token_usage", inputTokens, outputTokens };
+			const event: Record<string, unknown> = { type: "token_usage", inputTokens, outputTokens };
+			if (isFiniteNumber(usage.cached_input_tokens) && usage.cached_input_tokens >= 0) {
+				event.cachedInputTokens = usage.cached_input_tokens;
+			}
+			if (isFiniteNumber(usage.reasoning_output_tokens) && usage.reasoning_output_tokens >= 0) {
+				event.reasoningOutputTokens = usage.reasoning_output_tokens;
+			}
+			return event;
 		}
 		case "thread.started":
 		case "turn.started":
@@ -357,10 +364,20 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 				inputTokens: n.inputTokens as number,
 				outputTokens: n.outputTokens as number,
 			};
-			if (isModelTier(n.tier)) {
-				return { ...event, tier: n.tier };
-			}
-			return event;
+			const enriched: TokenUsageEvent = {
+				...event,
+				...(isFiniteNumber(n.cachedInputTokens) && n.cachedInputTokens >= 0
+					? { cachedInputTokens: n.cachedInputTokens }
+					: {}),
+				...(isFiniteNumber(n.cacheCreationInputTokens) && n.cacheCreationInputTokens >= 0
+					? { cacheCreationInputTokens: n.cacheCreationInputTokens }
+					: {}),
+				...(isFiniteNumber(n.reasoningOutputTokens) && n.reasoningOutputTokens >= 0
+					? { reasoningOutputTokens: n.reasoningOutputTokens }
+					: {}),
+				...(isModelTier(n.tier) ? { tier: n.tier } : {}),
+			};
+			return enriched;
 		}
 		case "pre_compaction": {
 			if (!(isFiniteNumber(n.contextTokens) && isFiniteNumber(n.maxTokens))) {

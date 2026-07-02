@@ -6,6 +6,9 @@ export interface TokenUsageEvent {
 	readonly type: "token_usage";
 	readonly inputTokens: number;
 	readonly outputTokens: number;
+	readonly cachedInputTokens?: number;
+	readonly cacheCreationInputTokens?: number;
+	readonly reasoningOutputTokens?: number;
 	/** L17: optional tier identifying which model tier produced these tokens. */
 	readonly tier?: ModelTier;
 }

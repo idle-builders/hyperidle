@@ -1,64 +1,29 @@
 /**
- * AO2 — Full multi-harness proof: real agents edit the mounted worktree and
+ * Full multi-harness proof: real agents edit a mounted git worktree and
  * captureBack commits their changes.
  *
- * **Four lanes, same proof shape:**
- * 1. [harness:claude]    — `haiku` (smallest claude tier, AR7 TINY baseline).
- *                          Native Write tool writes FILE.txt into mounted worktree.
- * 2. [harness:builtin]   — deepseek/deepseek-v4-flash via OpenRouter.
- *                          commit_file MCP tool (in-process registry, no AL7) writes
- *                          FILE.txt into mounted worktree.
- * 3. [harness:codex]     — gpt-5.4-mini (OpenAI native; codex CLI → api.openai.com).
- *                          Codex writes FILE.txt into mounted worktree.
- * 4. [harness:opencode]  — openrouter/z-ai/glm-4.7-flash via OpenRouter (AR7 matrix).
- *                          Opencode writes FILE.txt into mounted worktree.
+ * Each lane creates a fixture git repo, seeds team / bet / agent / task /
+ * filesystem rows, mounts the repo into the session sandbox, asks the real
+ * harness to write FILE.txt with a UUID token, then clones the resulting bundle
+ * and asserts FILE.txt still contains that token.
  *
- * **Proof shape per lane:**
- * 1. Create a fixture git repo (the filesystem "source").
- * 2. Seed domain rows: team / bet / agent / task / filesystem / injection.
- * 3. Run provisionSession with RegistryFilesystemMounter as deps.mounter.
- *    Mount causes git worktree add at sandboxPath; the agent works in the worktree.
- * 4. The real binary / loop writes FILE.txt containing a UUID token.
- * 5. captureBack commits the change and bundles it.
- * 6. Clone the bundle and assert FILE.txt === token.
+ * Models and adapters come from the shared harness test matrix. Direct imports
+ * of concrete adapters remain banned by the honest-harness guard.
  *
- * **AR7 model convention:**
- * Models are taken from the LOCKED MATRIX via `harnessTestResolvedModel(harness)` and
- * adapters via `lockedHarnessAdapter(harness)` from provision-real-session.ts.
- * Direct imports of `cli-harness-adapter` / `builtin-harness-adapter` / `llm-client`
- * and `new (Cli|Builtin)HarnessAdapter(` are BANNED (honest-harness-guard enforces).
+ * The review workflow is intentionally absent here: this test verifies mounted
+ * worktree writeback, not approval routing.
  *
- * **Why no AL7 workflow in this test:**
- * ProvisionSessionParams.sessionWorkflow is absent → the tool registry invoke
- * executes commit_file directly (no AL7 review gate). This is correct for
- * AO2's proof: we are testing that WRITES LAND IN THE WORKTREE, not that AL7
- * routing works (that is AL7's own track).
- *
- * @lore AO2 AR7-model-swap: claude lane was claude-sonnet-4-6; after AR7 it uses
- * `haiku` (the TINY baseline per HARNESS_TEST_MODELS). opencode lane was
- * `openrouter/z-ai/glm-5-turbo`; after AR7 it uses `openrouter/z-ai/glm-4.7-flash`.
- * Both models are the smallest tier their harness's auth allows. These changes were
- * made to conform to the locked matrix — NOT to make a test pass (tests must not
- * drive behavior). The mounter proof is model-agnostic: any real LLM call that
- * writes FILE.txt proves the worktree mount path is wired.
- *
- * @lore AO2 coverage-debt: AO2 was previously allowlisted in coverage-debt.allowlist.json
- * because it covered only [harness:claude]. This full-coverage rewrite exits that debt.
- * AO2's filesystem-mount proof is distinct from the generic AR2 per-harness floor
- * (which proves session lifecycle). AO2 proves that writes land in the MOUNTED
- * WORKTREE and captureBack bundles them — an orthogonal proof.
- *
- * @lore AO2 builtin lane: The builtin adapter's tool registry includes commit_file
- * (from ALL_TOOL_DEFINITIONS). Without sessionWorkflow, invoke() executes it
- * immediately. The worktree IS the sandboxPath after mount. So commit_file with
- * relative path "FILE.txt" writes into the worktree root → captureBack picks it up.
- *
- * @lore AO2 multi-lane auth: claude = $HOME keychain; builtin = OPENROUTER_API_KEY;
- * codex = $HOME/.codex/auth.json; opencode = OPENROUTER_API_KEY + XDG_DATA_HOME
- * isolation (same pattern as AR2 Lane 4).
- *
- * @lore AO2 Lane (b) timeout: Real LLM calls take 30–120s. testTimeout 300s
- * for the capture-and-clone step. Tasks are trivially simple (one file, exact content).
+ * @lore mounted-worktree model-selection: Use the smallest configured real model
+ * per harness so the proof remains about mount/writeback wiring, not model choice.
+ * @lore mounted-worktree builtin lane: The builtin adapter's tool registry includes
+ * commit_file. Without a session workflow, invoke() executes it immediately, and
+ * because the worktree is the sandbox path, relative path "FILE.txt" lands in
+ * the mounted repo root for captureBack.
+ * @lore mounted-worktree auth: claude = $HOME keychain; builtin = OPENROUTER_API_KEY;
+ * codex = $HOME/.codex/auth.json; opencode = OPENROUTER_API_KEY plus isolated
+ * XDG_DATA_HOME.
+ * @lore mounted-worktree timeout: Real LLM calls take 30-120s. testTimeout 300s
+ * covers the capture-and-clone step. Tasks are trivially simple.
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -119,15 +84,15 @@ function createFixtureGitRepo(tmpDir: string): string {
 	fs.mkdirSync(repoPath, { recursive: true });
 
 	execFileSync("git", ["init", "-b", "main"], { cwd: repoPath, stdio: "ignore" });
-	execFileSync("git", ["config", "user.email", "ao2-mount@hyperidle.local"], {
+	execFileSync("git", ["config", "user.email", "mounted-worktree@hyperidle.local"], {
 		cwd: repoPath,
 		stdio: "ignore",
 	});
-	execFileSync("git", ["config", "user.name", "AO2 Mount Test"], {
+	execFileSync("git", ["config", "user.name", "Mounted Worktree Test"], {
 		cwd: repoPath,
 		stdio: "ignore",
 	});
-	fs.writeFileSync(path.join(repoPath, "README.txt"), "AO2 mounted repo.\n", "utf-8");
+	fs.writeFileSync(path.join(repoPath, "README.txt"), "Mounted worktree repo.\n", "utf-8");
 	execFileSync("git", ["add", "README.txt"], { cwd: repoPath, stdio: "ignore" });
 	execFileSync("git", ["commit", "-m", "initial commit"], { cwd: repoPath, stdio: "ignore" });
 
@@ -162,17 +127,21 @@ async function seedDomain(
 
 	await db
 		.insert(teams)
-		.values({ id: teamId, name: `AO2 ${p} Team`, phase: "build", createdAt: NOW });
+		.values({ id: teamId, name: `Mounted worktree ${p} Team`, phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: memberId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	await db
-		.insert(bets)
-		.values({ id: betId, teamId, description: `AO2 ${p} bet`, status: "active", createdAt: NOW });
+	await db.insert(bets).values({
+		id: betId,
+		teamId,
+		description: `Mounted worktree ${p} bet`,
+		status: "active",
+		createdAt: NOW,
+	});
 
 	await db.insert(users).values({
 		id: agentId,
-		name: `AO2 ${p} Agent`,
+		name: `Mounted worktree ${p} Agent`,
 		role: "builder",
 		status: "active",
 		teamId: memberId,
@@ -282,7 +251,7 @@ describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", ()
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | null = null;
 
 	beforeEach(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-claude-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mounted-claude-"));
 		clearDeduplicationCache();
 		setActiveStrategy(fabricStrategy);
 		bridge = await startMcpBridgeServer();
@@ -309,7 +278,7 @@ describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", ()
 		const authed = await claudeAuthed();
 		if (!authed) {
 			// biome-ignore lint/suspicious/noConsole: test diagnostic
-			console.warn("[ao2-claude] claude not authed — skipping (run `claude login` first)");
+			console.warn("[mounted-claude] claude not authed — skipping (run `claude login` first)");
 			return;
 		}
 
@@ -317,19 +286,20 @@ describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", ()
 		const repoPath = createFixtureGitRepo(tmpDir);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-claude] token: ${token}`);
+		console.info(`[mounted-claude] token: ${token}`);
 
 		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
 			repoPath,
 			harnessType: "claude-code",
-			idPrefix: "ao2c",
-			agentSystemPrompt: "You are a test agent for AO2. Complete the task precisely as instructed.",
+			idPrefix: "mountc",
+			agentSystemPrompt:
+				"You are a test agent for mounted worktree verification. Complete the task precisely as instructed.",
 			taskTitle: `Create a file named FILE.txt containing EXACTLY this token and nothing else: ${token}`,
 		});
 
 		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);
 
-		// AR7: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
+		// locked-model: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
 		const { adapter: claudeAdapter, resolvedModel } = lockedHarnessAdapter("claude");
 		const pool = new AdapterPool();
 		pool.register("local-claude-code", claudeAdapter, {
@@ -359,13 +329,13 @@ describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", ()
 		};
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-claude] Starting session (model=${resolvedModel.model})…`);
+		console.info(`[mounted-claude] Starting session (model=${resolvedModel.model})…`);
 		const startTs = Date.now();
 		const result = await provisionSession(deps, params);
 		const durationSec = ((Date.now() - startTs) / 1000).toFixed(1);
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-claude] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
+			`[mounted-claude] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
 		);
 
 		expect(["completed", "not_returned"]).toContain(result.outcome);
@@ -384,28 +354,30 @@ describe("[harness:claude] claude haiku writes FILE.txt in mounted worktree", ()
 
 		const bundlePath = captureRow.capturePath;
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-claude] bundle: ${bundlePath}`);
+		console.info(`[mounted-claude] bundle: ${bundlePath}`);
 
 		if (!fs.existsSync(bundlePath)) {
 			expect(
 				fs.existsSync(bundlePath),
-				"[ao2-claude] bundle does not exist — agent made no changes",
+				"[mounted-claude] bundle does not exist — agent made no changes",
 			).toBe(true);
 			return;
 		}
 
 		const capturedContent = verifyBundleContainsToken(bundlePath, tmpDir, "verify-claude");
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-claude] FILE.txt content: "${capturedContent}"`);
+		console.info(`[mounted-claude] FILE.txt content: "${capturedContent}"`);
 		expect(capturedContent).not.toBeNull();
 		expect(capturedContent).toBe(token);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-claude] PROOF: haiku wrote FILE.txt="${token}"; captureBack bundled it.`);
+		console.info(
+			`[mounted-claude] PROOF: haiku wrote FILE.txt="${token}"; captureBack bundled it.`,
+		);
 
 		// No dangling worktree in fixture repo.
 		const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-		expect(worktreeList).not.toContain("ao2c");
+		expect(worktreeList).not.toContain("mountc");
 	});
 });
 
@@ -419,7 +391,7 @@ describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in 
 	let tmpDir: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-builtin-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mounted-builtin-"));
 		clearDeduplicationCache();
 		setActiveStrategy(fabricStrategy);
 	});
@@ -440,14 +412,14 @@ describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in 
 		const repoPath = createFixtureGitRepo(tmpDir);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-builtin] token: ${token}`);
+		console.info(`[mounted-builtin] token: ${token}`);
 
 		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
 			repoPath,
 			harnessType: "builtin",
-			idPrefix: "ao2b",
+			idPrefix: "mountb",
 			agentSystemPrompt:
-				"You are a test agent for AO2. You have access to a commit_file tool. " +
+				"You are a test agent for mounted worktree verification. You have access to a commit_file tool. " +
 				"Use it to complete the task precisely as instructed. " +
 				"The commit_file tool takes {path, content} and writes a file into your working directory.",
 			taskTitle:
@@ -458,7 +430,7 @@ describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in 
 
 		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);
 
-		// AR7: adapter and resolvedModel via the locked matrix (no direct BuiltinHarnessAdapter import).
+		// locked-model: adapter and resolvedModel via the locked matrix (no direct BuiltinHarnessAdapter import).
 		const { adapter: builtinAdapter, resolvedModel } = lockedHarnessAdapter("builtin");
 		const pool = new AdapterPool();
 		pool.register("local-builtin", builtinAdapter, {
@@ -488,13 +460,13 @@ describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in 
 		};
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-builtin] Starting session (model=${resolvedModel.model})…`);
+		console.info(`[mounted-builtin] Starting session (model=${resolvedModel.model})…`);
 		const startTs = Date.now();
 		const result = await provisionSession(deps, params);
 		const durationSec = ((Date.now() - startTs) / 1000).toFixed(1);
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-builtin] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
+			`[mounted-builtin] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
 		);
 
 		expect(["completed", "not_returned"]).toContain(result.outcome);
@@ -513,30 +485,30 @@ describe("[harness:builtin] builtin deepseek writes FILE.txt via commit_file in 
 
 		const bundlePath = captureRow.capturePath;
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-builtin] bundle: ${bundlePath}`);
+		console.info(`[mounted-builtin] bundle: ${bundlePath}`);
 
 		if (!fs.existsSync(bundlePath)) {
 			expect(
 				fs.existsSync(bundlePath),
-				"[ao2-builtin] bundle does not exist — agent made no changes",
+				"[mounted-builtin] bundle does not exist — agent made no changes",
 			).toBe(true);
 			return;
 		}
 
 		const capturedContent = verifyBundleContainsToken(bundlePath, tmpDir, "verify-builtin");
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-builtin] FILE.txt content: "${capturedContent}"`);
+		console.info(`[mounted-builtin] FILE.txt content: "${capturedContent}"`);
 		expect(capturedContent).not.toBeNull();
 		expect(capturedContent).toBe(token);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-builtin] PROOF: deepseek wrote FILE.txt="${token}" via commit_file; captureBack bundled it.`,
+			`[mounted-builtin] PROOF: deepseek wrote FILE.txt="${token}" via commit_file; captureBack bundled it.`,
 		);
 
 		// No dangling worktree in fixture repo.
 		const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-		expect(worktreeList).not.toContain("ao2b");
+		expect(worktreeList).not.toContain("mountb");
 	});
 });
 
@@ -551,7 +523,7 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | null = null;
 
 	beforeEach(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-codex-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mounted-codex-"));
 		clearDeduplicationCache();
 		setActiveStrategy(fabricStrategy);
 		bridge = await startMcpBridgeServer();
@@ -579,9 +551,9 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 		const repoPath = createFixtureGitRepo(tmpDir);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-codex] token: ${token}`);
+		console.info(`[mounted-codex] token: ${token}`);
 
-		// @lore AO2 codex-framing: gpt-5.4-mini via codex tends to produce a text
+		// @lore mounted-worktree codex-framing: gpt-5.4-mini via codex tends to produce a text
 		// response instead of calling the shell tool when given a vague "create a file"
 		// instruction. An explicit shell command in the task title forces codex's
 		// shell_exec tool path and produces a reliable FILE.txt write.
@@ -594,7 +566,7 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
 			repoPath,
 			harnessType: "codex",
-			idPrefix: "ao2x",
+			idPrefix: "mountx",
 			agentSystemPrompt:
 				"You are a test agent. Execute the shell command in the task. Use your shell tool.",
 			taskTitle: `Run this shell command: printf '%s' '${token}' > FILE.txt`,
@@ -602,11 +574,11 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 
 		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);
 
-		// AR7: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
+		// locked-model: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
 		const { adapter: codexAdapter, resolvedModel } = lockedHarnessAdapter("codex");
 		const authFound = provisionCodexHome(sandboxBasePath);
 		if (!authFound) {
-			throw new Error("ao2-codex: auth.json not found in ~/.codex — install and log in.");
+			throw new Error("mounted-codex: auth.json not found in ~/.codex — install and log in.");
 		}
 
 		const pool = new AdapterPool();
@@ -637,20 +609,20 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 		};
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-codex] Starting session (model=${resolvedModel.model})…`);
+		console.info(`[mounted-codex] Starting session (model=${resolvedModel.model})…`);
 		const startTs = Date.now();
 		const result = await provisionSession(deps, params);
 		const durationSec = ((Date.now() - startTs) / 1000).toFixed(1);
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-codex] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
+			`[mounted-codex] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
 		);
 
 		// Full honest bar for gpt-5.4-mini: this model is more capable than codex-mini-latest
 		// and MUST produce a captured FILE.txt. If codex crashes (usage-limit or binary error)
 		// that is still acceptable as a real infrastructure result, but a non-crash outcome
 		// without FILE.txt is a FINDING — do NOT silently floor it.
-		// @lore AO2 codex-gpt-5.4-mini: codex uses OpenAI Pro native auth (not an API key)
+		// @lore mounted-worktree codex-gpt-5.4-mini: codex uses OpenAI Pro native auth (not an API key)
 		// and has a rolling usage quota. When exhausted, codex returns outcome="crashed"
 		// with "You've hit your usage limit." in turn.failed. Accepting "crashed" here is
 		// honest — it is NOT a fake green; the crash comes from OpenAI infrastructure.
@@ -661,12 +633,12 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 			// Codex crashed (likely usage-limit or binary error) — no capture expected.
 			// biome-ignore lint/suspicious/noConsole: test diagnostic
 			console.info(
-				`[ao2-codex] INFO: codex crashed (outcome=crashed, duration=${durationSec}s). ` +
+				`[mounted-codex] INFO: codex crashed (outcome=crashed, duration=${durationSec}s). ` +
 					`Likely usage-limit or binary error. Mount path proven by lanes 1+2; codex lane = honest crash pass.`,
 			);
 			// Verify no dangling worktree even on crash.
 			const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-			expect(worktreeList).not.toContain("ao2x");
+			expect(worktreeList).not.toContain("mountx");
 			return;
 		}
 
@@ -680,7 +652,7 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 		// this is a hard fail — report for founder decision (no silent floor).
 		expect(
 			captureRows.length,
-			`[ao2-codex] FINDING: gpt-5.4-mini ran (outcome=${result.outcome}) but produced no capture row. ` +
+			`[mounted-codex] FINDING: gpt-5.4-mini ran (outcome=${result.outcome}) but produced no capture row. ` +
 				`Either the model did not write FILE.txt or captureBack missed the write. ` +
 				`Report to founder — do NOT weaken the assertion.`,
 		).toBeGreaterThan(0);
@@ -693,26 +665,26 @@ describe("[harness:codex] codex writes FILE.txt in mounted worktree", () => {
 
 		const bundlePath = captureRow.capturePath;
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-codex] bundle: ${bundlePath}`);
+		console.info(`[mounted-codex] bundle: ${bundlePath}`);
 
-		expect(fs.existsSync(bundlePath), `[ao2-codex] bundle file missing at ${bundlePath}`).toBe(
+		expect(fs.existsSync(bundlePath), `[mounted-codex] bundle file missing at ${bundlePath}`).toBe(
 			true,
 		);
 
 		const capturedContent = verifyBundleContainsToken(bundlePath, tmpDir, "verify-codex");
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-codex] FILE.txt content: "${capturedContent}"`);
+		console.info(`[mounted-codex] FILE.txt content: "${capturedContent}"`);
 		expect(capturedContent).not.toBeNull();
 		expect(capturedContent).toBe(token);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-codex] PROOF: gpt-5.4-mini wrote FILE.txt="${token}"; captureBack bundled it.`,
+			`[mounted-codex] PROOF: gpt-5.4-mini wrote FILE.txt="${token}"; captureBack bundled it.`,
 		);
 
 		// No dangling worktree in fixture repo.
 		const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-		expect(worktreeList).not.toContain("ao2x");
+		expect(worktreeList).not.toContain("mountx");
 	});
 });
 
@@ -728,12 +700,12 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 	let xdgDataHomeBefore: string | undefined;
 
 	beforeEach(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-opencode-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mounted-opencode-"));
 		clearDeduplicationCache();
 		setActiveStrategy(fabricStrategy);
 		bridge = await startMcpBridgeServer();
 		// XDG isolation: prevent opencode DB lock contention across rapid test runs.
-		// @lore mounted-worktree opencode-xdg-isolation: see AR2 Lane 4 beforeEach for full rationale.
+		// @lore mounted-worktree opencode-xdg-isolation: see other OpenCode harness tests for full rationale.
 		xdgDataHomeBefore = process.env.XDG_DATA_HOME;
 		process.env.XDG_DATA_HOME = path.join(tmpDir, ".opencode-data");
 	});
@@ -762,25 +734,28 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 		if (!bridge) throw new Error("bridge not set up");
 
 		if (!process.env.OPENROUTER_API_KEY)
-			throw new Error("[ao2-opencode] OPENROUTER_API_KEY not set.");
+			throw new Error("[mounted-opencode] OPENROUTER_API_KEY not set.");
 
 		const token = randomUUID();
 		const repoPath = createFixtureGitRepo(tmpDir);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-opencode] token: ${token}`);
+		console.info(`[mounted-opencode] token: ${token}`);
 
 		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
 			repoPath,
 			harnessType: "opencode",
-			idPrefix: "ao2o",
-			agentSystemPrompt: "You are a test agent for AO2. Complete the task precisely as instructed.",
-			taskTitle: `Create a file named FILE.txt in the current directory containing EXACTLY this token and nothing else: ${token}`,
+			idPrefix: "mounto",
+			agentSystemPrompt:
+				"You are a test agent for mounted worktree verification. Complete the task precisely as instructed.",
+			taskTitle:
+				`Create a file named FILE.txt in the current directory containing EXACTLY this token and nothing else: ${token}. ` +
+				"Then call submit_review exactly once with title='done' and reasoning=['FILE.txt written'].",
 		});
 
 		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);
 
-		// AR7: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
+		// locked-model: adapter and resolvedModel via the locked matrix (no direct CliHarnessAdapter import).
 		const { adapter: opencodeAdapter, resolvedModel } = lockedHarnessAdapter("opencode");
 		provisionOpencodeHome(sandboxBasePath);
 
@@ -812,25 +787,17 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 		};
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-opencode] Starting session (model=${resolvedModel.model})…`);
+		console.info(`[mounted-opencode] Starting session (model=${resolvedModel.model})…`);
 		const startTs = Date.now();
 		const result = await provisionSession(deps, params);
 		const durationSec = ((Date.now() - startTs) / 1000).toFixed(1);
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-opencode] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
+			`[mounted-opencode] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
 		);
 
-		// Honest floor: opencode succeeds when the machine has capacity, but crashes when
-		// concurrent harness verify runs saturate the local HTTP bridge (MCP init hangs).
-		// @lore AO2 opencode-mcp-init-hang: opencode with a remote MCP config hangs
-		// indefinitely when the local MCP bridge (Hono HTTP server) is slow to respond
-		// under concurrent system load. The test timeout (300s) kills opencode, producing
-		// outcome="crashed". This is a machine-load crash, not a logic failure.
-		// The mount path IS proven on a clear machine (previous session: token 0dc4daeb-...
-		// captured). "crashed" here is an honest-floor pass — the worktree+captureBack
-		// path is wired; the crash is from infrastructure, not from our code.
-		expect(["completed", "not_returned", "crashed"]).toContain(result.outcome);
+		// Honest floor: opencode must return via the HyperIdle MCP bridge after writing.
+		expect(result.outcome).toBe("completed");
 
 		// Check for filesystem_captures row — best-effort (opencode may crash before writing).
 		const captureRows = await db
@@ -843,13 +810,13 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 			// ran but did not call the file-write tool). Honest floor pass.
 			// biome-ignore lint/suspicious/noConsole: test diagnostic
 			console.info(
-				`[ao2-opencode] INFO: no capture row — outcome=${result.outcome} duration=${durationSec}s. ` +
+				`[mounted-opencode] INFO: no capture row — outcome=${result.outcome} duration=${durationSec}s. ` +
 					`Opencode did not write FILE.txt (MCP init hang or no-write). ` +
 					`Mount path wired; file write is best-effort under concurrent load.`,
 			);
 			// Verify no dangling worktree.
 			const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-			expect(worktreeList).not.toContain("ao2o");
+			expect(worktreeList).not.toContain("mounto");
 			return;
 		}
 
@@ -862,29 +829,29 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 
 		const bundlePath = captureRow.capturePath;
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-opencode] bundle: ${bundlePath}`);
+		console.info(`[mounted-opencode] bundle: ${bundlePath}`);
 
 		if (!fs.existsSync(bundlePath)) {
 			expect(
 				fs.existsSync(bundlePath),
-				"[ao2-opencode] bundle does not exist — agent made no changes",
+				"[mounted-opencode] bundle does not exist — agent made no changes",
 			).toBe(true);
 			return;
 		}
 
 		const capturedContent = verifyBundleContainsToken(bundlePath, tmpDir, "verify-opencode");
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
-		console.info(`[ao2-opencode] FILE.txt content: "${capturedContent}"`);
+		console.info(`[mounted-opencode] FILE.txt content: "${capturedContent}"`);
 		expect(capturedContent).not.toBeNull();
 		expect(capturedContent).toBe(token);
 
 		// biome-ignore lint/suspicious/noConsole: test diagnostic
 		console.info(
-			`[ao2-opencode] PROOF: glm-4.7-flash wrote FILE.txt="${token}"; captureBack bundled it.`,
+			`[mounted-opencode] PROOF: glm-4.7-flash wrote FILE.txt="${token}"; captureBack bundled it.`,
 		);
 
 		// No dangling worktree in fixture repo.
 		const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
-		expect(worktreeList).not.toContain("ao2o");
+		expect(worktreeList).not.toContain("mounto");
 	});
 });

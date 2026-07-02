@@ -33,11 +33,14 @@ import {
 	type HarnessAdapter,
 	type IngestionHandle,
 	isInternalExtractionDrain,
+	isReturnAction,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
 	NoEligibleHarnessError,
+	type SessionConfig,
 	type SessionHandle,
+	type SessionMetrics,
 	type SessionOutcome,
 	scaleForCurrency,
 	type TaskState,
@@ -196,6 +199,23 @@ async function accumulateSessionTokensOnBet(
 export interface BeforeTeardownContext {
 	readonly sessionId: string;
 	readonly sandboxPath: string;
+}
+
+/**
+ * Read-only pre-start observation point after session files are written and
+ * before the external harness process is spawned.
+ *
+ * @lore session-setup proof: The harness-suite needs to prove AGENTS.md,
+ * CLAUDE.md, MCP config, and return hooks are produced in the exact production
+ * shape each binary reads, without spending an LLM call. This seam observes the
+ * already-built SessionConfig and sandbox after Phase 8b/8b-enforce. Returning
+ * "abort" stops before `harness.startSession` and lets normal teardown continue.
+ */
+export interface BeforeHarnessStartContext {
+	readonly sessionId: string;
+	readonly sandboxPath: string;
+	readonly adapter: SelectedEntry;
+	readonly sessionConfig: SessionConfig;
 }
 
 /**
@@ -363,6 +383,23 @@ export interface ProvisionSessionDeps {
 	 */
 	readonly onBeforeTeardown?: (ctx: BeforeTeardownContext) => void | Promise<void>;
 	/**
+	 * Optional observation hook fired after prompt/context/MCP/hook files are written
+	 * and before `harness.startSession`. Returning "abort" stops before spawning
+	 * the external harness and continues through normal teardown. Production callers
+	 * omit this; it exists for harness-facing integration tests that validate the
+	 * prepared sandbox and binary config surfaces without making an LLM call.
+	 */
+	readonly onBeforeHarnessStart?: (
+		ctx: BeforeHarnessStartContext,
+	) => void | "abort" | Promise<void | "abort">;
+	/**
+	 * Optional observer fired after `harness.startSession` succeeds.
+	 * Production callers use the explicit `runSession` callback path; this dep-level
+	 * hook lets provisionSession-based integration tests prove an abort stopped
+	 * before the external harness session started.
+	 */
+	readonly onHarnessStarted?: () => void;
+	/**
 	 * AO2: Optional mounter for filesystem placement + capture-back.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
@@ -515,6 +552,7 @@ export interface ProvisionSessionResult {
 	 * Zero when no forcing was needed (agent returned on the first run).
 	 */
 	readonly forceReturnCount: number;
+	readonly metrics?: SessionMetrics;
 	/**
 	 * AR4a: The agent's reply text for a CONVERSATIONAL-mode turn — the last
 	 * non-empty `completion` event text from the drain. Present ONLY when
@@ -1130,7 +1168,27 @@ export async function runSession(
 	let mcpTokenEnv: Record<string, string> | undefined;
 	if (mcpBridgeRegistry && mcpBaseUrl) {
 		try {
-			const bridge = await createMcpBridge({ sessionId, registry });
+			const bridge = await createMcpBridge({
+				sessionId,
+				registry,
+				onToolCall: ({ toolName, args }) => {
+					if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
+
+					returnGate.observe({
+						type: "tool_call",
+						toolName,
+						args: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
+					});
+					if (selectedAdapter.meta.type === "opencode") {
+						aborted = true;
+						setTimeout(() => {
+							void sessionRunRegistry.abort(sessionId).catch(() => {
+								// The harness may already have exited after the return action.
+							});
+						}, 0);
+					}
+				},
+			});
 			mcpBridgeRegistry.register(bridge);
 			mcpBridgeToken = bridge.token;
 			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
@@ -1357,7 +1415,24 @@ export async function runSession(
 	// adapterCapabilities already retrieved above for provisionReturnHook.
 	const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
 
+	let beforeHarnessStartError: unknown;
+	try {
+		const beforeHarnessStartResult = await deps.onBeforeHarnessStart?.({
+			sessionId,
+			sandboxPath,
+			adapter: selectedAdapter,
+			sessionConfig: sessionStartConfig,
+		});
+		if (beforeHarnessStartResult === "abort") {
+			aborted = true;
+		}
+	} catch (err) {
+		beforeHarnessStartError = err;
+		aborted = true;
+	}
+
 	let harnessHandle: SessionHandle | null = null;
+	let metrics: SessionMetrics | undefined;
 	// AR4a: hoisted outside the try/finally so the completed return site (line ~1418)
 	// can reference it. Stays "" for task/routine sessions (isConversational=false).
 	let conversationalReplyText = "";
@@ -1378,13 +1453,15 @@ export async function runSession(
 	// re-engage (cli-harness-adapter.ts). The drain-gate floor catches any escape.
 	try {
 		// ── Phase 9: start the harness session (exactly ONCE in v4).
-		try {
-			// Role-based tool authorization: facilitator-only tools are stripped
-			// from builder/growth/brand_voice sessions. See G1 AC6.
-			harnessHandle = await harness.startSession(sessionStartConfig);
-		} catch {
-			// startSession failed — treat as crash.
-			crashed = true;
+		if (!aborted) {
+			try {
+				// Role-based tool authorization: facilitator-only tools are stripped
+				// from builder/growth/brand_voice sessions. See G1 AC6.
+				harnessHandle = await harness.startSession(sessionStartConfig);
+			} catch {
+				// startSession failed — treat as crash.
+				crashed = true;
+			}
 		}
 
 		if (harnessHandle) {
@@ -1488,7 +1565,7 @@ export async function runSession(
 			// Stop the harness session.
 			if (crashed) {
 				try {
-					await harness.stopSession(harnessHandle);
+					metrics = (await harness.stopSession(harnessHandle))?.metrics;
 				} catch (stopErr) {
 					// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 					console.warn(
@@ -1497,7 +1574,7 @@ export async function runSession(
 					);
 				}
 			} else {
-				await harness.stopSession(harnessHandle);
+				metrics = (await harness.stopSession(harnessHandle))?.metrics;
 			}
 		}
 	} finally {
@@ -1587,6 +1664,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1611,6 +1689,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1664,6 +1743,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: notReturnedForceCount,
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1679,6 +1759,10 @@ export async function runSession(
 	await workspace.destroy(sandboxHandle);
 	enforcementRegistry.unregister(sessionId);
 
+	if (beforeHarnessStartError) {
+		throw beforeHarnessStartError;
+	}
+
 	return {
 		sessionId,
 		outcome: "completed",
@@ -1686,6 +1770,7 @@ export async function runSession(
 		taskId: params.taskId,
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),
+		...(metrics ? { metrics } : {}),
 		// AR4a: thread the captured reply text + tool calls onto the completed return ONLY.
 		// Absent (undefined) for task/routine sessions (isConversational=false →
 		// conversationalReplyText stays ""). Absent for crashed/budget/not_returned
@@ -1775,5 +1860,5 @@ export async function provisionSession(
 	params: ProvisionSessionParams,
 ): Promise<ProvisionSessionResult> {
 	const admitted = await admitSession(deps, params);
-	return runSession(deps, params, admitted);
+	return runSession(deps, params, admitted, deps.onHarnessStarted);
 }

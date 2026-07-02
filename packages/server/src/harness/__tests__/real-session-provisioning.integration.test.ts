@@ -502,17 +502,17 @@ describe(`${OPENCODE_LANE!.describeTag} opencode CLI + provisionSession `, () =>
 		const agentId = "ar2-opencode-agent";
 		const taskId = "ar2-opencode-task";
 
-		// Opencode does a real file-write. No send_message prompt because opencode
-		// does not reliably call the MCP return tool on plain file-write tasks →
-		// outcome is "not_returned". Forcing "completed" causes the re-prompt loop
-		// (process-reengage channel) to re-spawn opencode until 240s → timeout.
+		// Opencode does real file work, then returns through HyperIdle's MCP bridge.
+		// The bridge observes return actions directly because opencode does not surface
+		// every MCP tool call as a canonical stdout event.
 		await seedDomain(db, {
 			taskId,
 			agentId,
 			taskDescription:
 				"Create a file named 'answer.txt' in the current working directory containing " +
-				"exactly the number 4. Do NOT hand off or submit a review.",
-			doneCondition: "Agent creates answer.txt with the number 4.",
+				"exactly the number 4. Then call submit_review exactly once with title='done' " +
+				"and reasoning=['answer.txt written'].",
+			doneCondition: "Agent creates answer.txt with the number 4 and submits a review.",
 		});
 
 		// drive through SUPPORTED_HARNESS_LANES + runThroughHarness.
@@ -531,17 +531,10 @@ describe(`${OPENCODE_LANE!.describeTag} opencode CLI + provisionSession `, () =>
 		);
 
 		// Honest floor: terminal non-crash outcome — proves a real turn ran.
-		// "completed" or "not_returned" are both valid; "crashed" / "error" are FAIL.
-		//
-		// @lore real-session W-2 (round-3 honest floor): builtin + claude fire the MCP return
-		// tool (send_message) → "completed". opencode does REAL work on a file-write
-		// task but does NOT call the MCP return tool on a simple file task →
-		// "not_returned". The process-reengage re-prompt loop (opencode's return
-		// enforcement channel) re-spawns opencode if we forced "completed" → 240s timeout.
-		// The honest floor accepts "completed" OR "not_returned" — FAIL on "crashed".
+		// The return action is observed at the MCP bridge boundary for opencode.
 		// Opencode has no costField → totalCostCents stays 0; the non-crash outcome +
 		// seam-fired capture is the load-bearing proof (a stub/crashed run has no files).
-		expect(["completed", "not_returned"]).toContain(result.outcome);
+		expect(result.outcome).toBe("completed");
 
 		// Best-effort file assertion: opencode native file edit → answer.txt contains 4.
 		// If model nondeterminism causes the file not to be written, the non-crash

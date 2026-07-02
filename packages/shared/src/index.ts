@@ -219,6 +219,7 @@ export type {
 	ServerToWorkerMessage,
 	SessionConfig,
 	SessionHandle,
+	SessionMetrics,
 	SessionResult,
 	// AL7: session workflow for route-to-review gate
 	SessionWorkflow,

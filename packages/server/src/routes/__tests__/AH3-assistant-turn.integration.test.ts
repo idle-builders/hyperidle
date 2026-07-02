@@ -214,6 +214,7 @@ describe("AH3 AC1: trigger path — POST message → assistant reply persisted",
 describe("AH3 AC2: error surface — notice classes, no secret leak", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
@@ -359,19 +360,15 @@ describe("AH3 AC2: error surface — notice classes, no secret leak", () => {
 
 		const pool = new AdapterPool();
 
-		// biome-ignore lint/correctness/noConstantCondition: intentional never-ending generator for test timeout simulation
 		async function* neverStream(): AsyncGenerator<import("@hyperidle/shared").HarnessEvent> {
-			// Never yields — simulates a hung provider
-			// biome-ignore lint/correctness/noConstantCondition: while(true) is intentional here
-			while (true) {
-				await new Promise<void>((r) => setTimeout(r, 10_000));
-			}
+			await new Promise<void>((r) => setTimeout(r, SHORT_TIMEOUT_MS));
+			throw new ProviderTimeoutError();
 		}
 
 		// @lore AH3 S7: Adapter stub must implement streamEvents on the adapter object
 		// (not embedded on the handle). The prior duck-typed pattern is removed.
 		const neverEmittingAdapter = {
-			capabilities: () => ({ concurrent: true, streamTokens: false }),
+			getCapabilities: () => ({ concurrent: true, streamTokens: false }),
 			startSession: () => Promise.resolve({ sessionId: "hung-session" }),
 			streamEvents: (_handle: import("@hyperidle/shared").SessionHandle) => neverStream(),
 			stopSession: () => Promise.resolve(),
@@ -831,6 +828,7 @@ describe("AH3 loop-guard: ast-* sender message does NOT re-trigger turn", () => 
 describe("AH3 H3: user message reaches the model — SessionConfig.messages carries the transcript", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		setActiveStrategy(minimalStrategy);
 	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
@@ -865,7 +863,7 @@ describe("AH3 H3: user message reaches the model — SessionConfig.messages carr
 		const capturedConfigs = new Map<string, import("@hyperidle/shared").SessionConfig>();
 
 		const capturingAdapter = {
-			capabilities: () => ({ concurrent: true, streamTokens: false }),
+			getCapabilities: () => ({ concurrent: true, streamTokens: false }),
 			startSession: async (
 				config: import("@hyperidle/shared").SessionConfig,
 			): Promise<import("@hyperidle/shared").SessionHandle> => {
@@ -975,7 +973,7 @@ describe("AH3 H3: user message reaches the model — SessionConfig.messages carr
 		const validatingConfigs = new Map<string, import("@hyperidle/shared").SessionConfig>();
 
 		const validatingAdapter = {
-			capabilities: () => ({ concurrent: true, streamTokens: false }),
+			getCapabilities: () => ({ concurrent: true, streamTokens: false }),
 			startSession: async (
 				config: import("@hyperidle/shared").SessionConfig,
 			): Promise<import("@hyperidle/shared").SessionHandle> => {

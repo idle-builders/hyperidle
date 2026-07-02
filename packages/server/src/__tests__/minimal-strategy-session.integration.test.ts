@@ -105,7 +105,11 @@ async function seedDomain(
 		id: taskId,
 		betId: "minimal-bet",
 		teamId: productId,
-		title: "Test Task",
+		title: "Write answer.txt and submit review",
+		description:
+			"Create answer.txt containing exactly minimal-strategy-ok, then call submit_review exactly once. If your harness shows a namespaced tool, use hyperidle.submit_review, mcp__hyperidle__submit_review, or hyperidle_submit_review. Do not inspect configuration. Do not do anything else.",
+		doneCondition:
+			"answer.txt exists with exactly minimal-strategy-ok and the session returns through submit_review.",
 		state: "accepted",
 		createdAt: NOW,
 		updatedAt: NOW,

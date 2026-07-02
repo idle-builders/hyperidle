@@ -32,6 +32,7 @@ import { createMcpRoute } from "../../routes/mcp-route.js";
 import { runAssistantTurn } from "../../services/assistant-turn.js";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
 import type {
+	BeforeHarnessStartContext,
 	BeforeTeardownContext,
 	ProvisionSessionDeps,
 	ProvisionSessionParams,
@@ -268,12 +269,37 @@ export function initGitRepo(sandboxPath: string): void {
 export async function startMcpBridgeServer(): Promise<{
 	mcpBridgeRegistry: McpBridgeRegistry;
 	mcpBaseUrl: string;
+	observedMethods: string[];
 	close: () => Promise<void>;
 }> {
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
+	const observedMethods: string[] = [];
+	const observingRegistry: McpBridgeRegistry = {
+		get size() {
+			return mcpBridgeRegistry.size;
+		},
+		register: (instance) => mcpBridgeRegistry.register(instance),
+		lookup: (token) => mcpBridgeRegistry.lookup(token),
+		unregister: (token) => mcpBridgeRegistry.unregister(token),
+		handleRequest: async (token, request) => {
+			request
+				.clone()
+				.json()
+				.then((body: unknown) => {
+					if (body !== null && typeof body === "object") {
+						const method = (body as Record<string, unknown>).method;
+						if (typeof method === "string") observedMethods.push(method);
+					}
+				})
+				.catch(() => {
+					// Non-JSON probe or streaming request; not a JSON-RPC method.
+				});
+			return mcpBridgeRegistry.handleRequest(token, request);
+		},
+	};
 	const app = new Hono();
 	const api = new Hono();
-	api.route("/", createMcpRoute(mcpBridgeRegistry, enforcementRegistry));
+	api.route("/", createMcpRoute(observingRegistry, enforcementRegistry));
 	app.route("/api", api);
 
 	let resolvePort: (port: number) => void;
@@ -288,6 +314,7 @@ export async function startMcpBridgeServer(): Promise<{
 	return {
 		mcpBridgeRegistry,
 		mcpBaseUrl: `http://127.0.0.1:${port}`,
+		observedMethods,
 		close: async () => {
 			await new Promise<void>((resolve, reject) => {
 				server.close((err) => (err ? reject(err) : resolve()));
@@ -338,6 +365,20 @@ export interface HarnessRunCtx {
 		readonly mcpBaseUrl: string;
 		readonly close: () => Promise<void>;
 	};
+	/**
+	 * Optional pre-start observer. Used by session setup tests to inspect the
+	 * production-prepared sandbox and stop before an LLM call.
+	 */
+	readonly onBeforeHarnessStart?: (
+		ctx: BeforeHarnessStartContext,
+	) => void | "abort" | Promise<void | "abort">;
+	readonly onHarnessStarted?: () => void;
+	/**
+	 * Session setup inspection tests abort before any harness process starts. They need
+	 * production config files, but not copied user auth or git prep required only
+	 * for a real LLM subprocess.
+	 */
+	readonly skipHarnessAuthPrep?: boolean;
 }
 
 /**
@@ -465,6 +506,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 			pool.register("builtin-local", adapter, {
 				name: "builtin-local",
 				kind: "local",
+				type: "builtin",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 1,
 			});
@@ -491,6 +533,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 			pool.register("local-claude", adapter, {
 				name: "local-claude",
 				kind: "local",
+				type: "claude-code",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 4,
 			});
@@ -513,16 +556,21 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 		prepFn: (ctx) => {
 			if (!ctx.bridge)
 				throw new Error("codex lane requires a live MCP bridge from startMcpBridgeServer()");
-			initGitRepo(ctx.tmpDir);
-			const authFound = provisionCodexHome(ctx.tmpDir);
-			if (!authFound) {
-				throw new Error("codex lane: auth.json not found in ~/.codex — install codex and log in.");
+			if (!ctx.skipHarnessAuthPrep) {
+				initGitRepo(ctx.tmpDir);
+				const authFound = provisionCodexHome(ctx.tmpDir);
+				if (!authFound) {
+					throw new Error(
+						"codex lane: auth.json not found in ~/.codex — install codex and log in.",
+					);
+				}
 			}
 			const { adapter, resolvedModel } = lockedHarnessAdapter("codex");
 			const pool = new AdapterPool();
 			pool.register("local-codex", adapter, {
 				name: "local-codex",
 				kind: "local",
+				type: "codex",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
@@ -553,6 +601,7 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 			pool.register("local-opencode", adapter, {
 				name: "local-opencode",
 				kind: "local",
+				type: "opencode",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
 			});
@@ -626,6 +675,8 @@ export async function runThroughHarness(
 				}
 			: {}),
 		onBeforeTeardown: cap.onBeforeTeardown,
+		...(ctx.onBeforeHarnessStart ? { onBeforeHarnessStart: ctx.onBeforeHarnessStart } : {}),
+		...(ctx.onHarnessStarted ? { onHarnessStarted: ctx.onHarnessStarted } : {}),
 	};
 
 	const result = await provisionSession(deps, params);

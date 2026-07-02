@@ -10,9 +10,8 @@
  *
  * CLI harnesses (claude / codex / opencode) — MCP bridge invocation count:
  *   CLI harnesses route every tool call through the MCP bridge via HTTP
- *   JSON-RPC (`POST /api/mcp/:token`, `method: "tools/call"`). The test wraps
- *   `McpBridgeRegistry.handleRequest` to clone each incoming request and count
- *   requests whose body contains `"tools/call"`. This count equals the number of
+ *   JSON-RPC (`POST /api/mcp/:token`, `method: "tools/call"`). The test bridge
+ *   records JSON-RPC methods at the Hono route boundary. This count equals the number of
  *   times the agent actually invoked a tool through the bridge — regardless of
  *   whether the CLI adapter surfaces a `tool_call` stream event (some don't).
  *   Floor: bridge invocation count >= 1 (non-vacuous — proves real work happened).
@@ -33,19 +32,12 @@
  * (b) two `tools/call` HTTP requests to the MCP bridge for one logical tool call
  * on CLI lanes. Both are caught by the respective count assertions.
  *
- * @lore mcp-bridge-invocation-count: `countingMcpBridgeRegistry` wraps the real
- * registry's `handleRequest`. It clones each incoming `Request` before forwarding
- * to the real handler (cloning is required — consuming the body on the original
- * would break the downstream transport). The clone reads the body asynchronously
- * to detect `"method":"tools/call"` in the JSON-RPC envelope. Clone-and-read is
- * safe here: the MCP transport reads the original (not the clone). The count
- * is accumulated per lane.
- *
- * @lore cli-lanes-bridge-floor: on CLI lanes, `bridge.mcpBridgeRegistry` is
- * wrapped with `countingMcpBridgeRegistry` before passing to `runThroughHarness`.
- * The counting wrapper delegates every method to the real registry unchanged —
- * only `handleRequest` adds the clone-and-count side effect. The `mcpBaseUrl`
- * and `close` are forwarded unmodified.
+ * @lore mcp-bridge-invocation-count: request observation must live at the Hono
+ * route boundary in `startMcpBridgeServer()`. Wrapping only the registry passed
+ * into `provisionSession()` does NOT observe real CLI calls, because the HTTP
+ * route closes over the registry object created when the test server starts.
+ * The bridge records JSON-RPC methods from cloned requests while forwarding the
+ * original body to the real MCP transport.
  *
  * @lore tool-call-recorded-builtin: builtin emits one `tool_call_recorded` per
  * in-process tool call event from the SDK stream. The provisioner's stream loop
@@ -80,59 +72,6 @@ import {
 import { requireHarness } from "./require-harness.js";
 
 const NOW = "2026-06-30T00:00:00.000Z";
-
-// ────────────────────────────────────────────────────────────────────────────
-// MCP bridge invocation counter
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Wrap a `McpBridgeRegistry` to count `tools/call` JSON-RPC requests.
- *
- * Every MCP tool invocation arrives as a POST with JSON-RPC body
- * `{"method":"tools/call",...}`. The wrapper clones the request before
- * forwarding so the downstream transport can still read the original body.
- *
- * @lore mcp-bridge-invocation-count: clone is required. `Request.clone()`
- * produces an independent copy with its own readable body stream; reading the
- * clone does not drain the original. The real transport handler reads the
- * original — unaffected by the clone read. Async body inspection is fire-and-
- * forget (we increment the count before the clone resolves) to avoid adding
- * latency on the critical path.
- */
-function countingMcpBridgeRegistry(
-	real: McpBridgeRegistry,
-	counts: { toolsCalled: number },
-): McpBridgeRegistry {
-	return {
-		get size(): number {
-			return real.size;
-		},
-		register: (instance) => real.register(instance),
-		lookup: (token) => real.lookup(token),
-		unregister: (token) => real.unregister(token),
-		handleRequest: async (token: string, request: Request): Promise<Response> => {
-			// Clone before forwarding — the real transport must read the original.
-			const clone = request.clone();
-			// Async: peek at the body to detect tools/call. Do not await here —
-			// the forwarding must not block on body inspection.
-			clone
-				.json()
-				.then((body: unknown) => {
-					if (
-						body !== null &&
-						typeof body === "object" &&
-						(body as Record<string, unknown>).method === "tools/call"
-					) {
-						counts.toolsCalled += 1;
-					}
-				})
-				.catch(() => {
-					// Non-JSON body (e.g. SSE stream) — not a tools/call; ignore.
-				});
-			return real.handleRequest(token, request);
-		},
-	};
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Domain seeding
@@ -205,10 +144,13 @@ async function seedDomain(
 		id: opts.taskId,
 		betId: "b1",
 		teamId: "p1",
-		title: "Submit a review",
+		title: "Call submit_review exactly once",
 		description:
-			"Call submit_review with title='done' and reasoning=['task complete']. " +
-			"Do this exactly once and do not call any other tool before it.",
+			"Use the available MCP tool submit_review exactly once. If your harness shows " +
+			"a namespaced tool, use hyperidle.submit_review or mcp__hyperidle__submit_review. " +
+			"Call it with JSON arguments " +
+			'{"title":"done","reasoning":["task complete"]}. ' +
+			"Do not answer with text only. Do not call any other tool.",
 		state: "accepted",
 		doneCondition: "Agent submits a review.",
 		createdAt: NOW,
@@ -344,7 +286,7 @@ describe(`${BUILTIN_LANE.describeTag} agent tool calls execute exactly once`, ()
 		process.stdout.write(
 			`[single-tool-execution builtin] tool_call_recorded: ` +
 				`${JSON.stringify(toolCallRecordedEvents.map((e) => e.toolName))} ` +
-				`outcome=${result.outcome}\n`,
+				`outcome=${result.outcome} metrics=${JSON.stringify(result.metrics ?? {})}\n`,
 		);
 	}, 120_000);
 });
@@ -360,6 +302,7 @@ describe(`${CLAUDE_LANE.describeTag} agent tool calls execute exactly once`, () 
 	let bridge: {
 		mcpBridgeRegistry: McpBridgeRegistry;
 		mcpBaseUrl: string;
+		observedMethods: string[];
 		close: () => Promise<void>;
 	} | null = null;
 
@@ -396,9 +339,7 @@ describe(`${CLAUDE_LANE.describeTag} agent tool calls execute exactly once`, () 
 		// The claude CLI routes tool calls via HTTP JSON-RPC to the MCP bridge.
 		// We wrap the bridge registry to count `tools/call` requests regardless
 		// of whether the CLI adapter surfaces `tool_call` stream events.
-		const bridgeCounts = { toolsCalled: 0 };
-		const countingRegistry = countingMcpBridgeRegistry(bridge.mcpBridgeRegistry, bridgeCounts);
-		const countingBridge = { ...bridge, mcpBridgeRegistry: countingRegistry };
+		const methodStart = bridge.observedMethods.length;
 
 		const { result } = await runThroughHarness(
 			{
@@ -408,8 +349,13 @@ describe(`${CLAUDE_LANE.describeTag} agent tool calls execute exactly once`, () 
 					return { ...base, params: { ...base.params, taskId, agentId } };
 				},
 			},
-			{ db, eventBus, tmpDir, bridge: countingBridge },
+			{ db, eventBus, tmpDir, bridge },
 		);
+		const methods = bridge.observedMethods.slice(methodStart);
+		const bridgeCounts = {
+			toolsCalled: methods.filter((method) => method === "tools/call").length,
+			methods,
+		};
 
 		// Primary anti-stub proof: session must not crash.
 		expect(result.outcome).not.toBe("crashed");
@@ -422,7 +368,7 @@ describe(`${CLAUDE_LANE.describeTag} agent tool calls execute exactly once`, () 
 		// task prompt was ignored or the MCP bridge wiring is broken. Both are failures.
 		expect(
 			bridgeCounts.toolsCalled,
-			"claude: no tools/call requests observed on MCP bridge — agent invoked no tools",
+			`claude: no tools/call requests observed on MCP bridge — methods seen: ${JSON.stringify(bridgeCounts.methods)}`,
 		).toBeGreaterThanOrEqual(1);
 
 		// No duplicate: the agent should call the tool exactly once.
@@ -435,7 +381,8 @@ describe(`${CLAUDE_LANE.describeTag} agent tool calls execute exactly once`, () 
 
 		process.stdout.write(
 			`[single-tool-execution claude] bridge.toolsCalled=${bridgeCounts.toolsCalled} ` +
-				`outcome=${result.outcome}\n`,
+				`methods=${JSON.stringify(bridgeCounts.methods)} ` +
+				`outcome=${result.outcome} metrics=${JSON.stringify(result.metrics ?? {})}\n`,
 		);
 	}, 240_000);
 });
@@ -451,6 +398,7 @@ describe(`${CODEX_LANE.describeTag} agent tool calls execute exactly once`, () =
 	let bridge: {
 		mcpBridgeRegistry: McpBridgeRegistry;
 		mcpBaseUrl: string;
+		observedMethods: string[];
 		close: () => Promise<void>;
 	} | null = null;
 
@@ -491,9 +439,7 @@ describe(`${CODEX_LANE.describeTag} agent tool calls execute exactly once`, () =
 		// @lore codex-cost-zero: codex emits `turn.completed` not a `result` event
 		// with `total_cost_usd`. The adapter's cost extraction never fires → totalCostCents
 		// is always 0. Do not assert cost > 0 for codex.
-		const bridgeCounts = { toolsCalled: 0 };
-		const countingRegistry = countingMcpBridgeRegistry(bridge.mcpBridgeRegistry, bridgeCounts);
-		const countingBridge = { ...bridge, mcpBridgeRegistry: countingRegistry };
+		const methodStart = bridge.observedMethods.length;
 
 		const { result } = await runThroughHarness(
 			{
@@ -503,8 +449,13 @@ describe(`${CODEX_LANE.describeTag} agent tool calls execute exactly once`, () =
 					return { ...base, params: { ...base.params, taskId, agentId } };
 				},
 			},
-			{ db, eventBus, tmpDir, bridge: countingBridge },
+			{ db, eventBus, tmpDir, bridge },
 		);
+		const methods = bridge.observedMethods.slice(methodStart);
+		const bridgeCounts = {
+			toolsCalled: methods.filter((method) => method === "tools/call").length,
+			methods,
+		};
 
 		// Honest floor: codex does real work but does NOT call the MCP return tool
 		// → outcome is "not_returned". "crashed" is FAIL.
@@ -515,7 +466,7 @@ describe(`${CODEX_LANE.describeTag} agent tool calls execute exactly once`, () =
 		// Floor (non-vacuous): at least one tools/call request must have hit the bridge.
 		expect(
 			bridgeCounts.toolsCalled,
-			"codex: no tools/call requests observed on MCP bridge — agent invoked no tools",
+			`codex: no tools/call requests observed on MCP bridge — methods seen: ${JSON.stringify(bridgeCounts.methods)}`,
 		).toBeGreaterThanOrEqual(1);
 
 		// No duplicate: the agent should call the tool exactly once.
@@ -526,7 +477,8 @@ describe(`${CODEX_LANE.describeTag} agent tool calls execute exactly once`, () =
 
 		process.stdout.write(
 			`[single-tool-execution codex] bridge.toolsCalled=${bridgeCounts.toolsCalled} ` +
-				`outcome=${result.outcome}\n`,
+				`methods=${JSON.stringify(bridgeCounts.methods)} ` +
+				`outcome=${result.outcome} metrics=${JSON.stringify(result.metrics ?? {})}\n`,
 		);
 	}, 240_000);
 });
@@ -542,6 +494,7 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 	let bridge: {
 		mcpBridgeRegistry: McpBridgeRegistry;
 		mcpBaseUrl: string;
+		observedMethods: string[];
 		close: () => Promise<void>;
 	} | null = null;
 
@@ -613,9 +566,7 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 		// @lore opencode-zero-stream-events: opencode does not emit `tool_call` JSON
 		// lines to stdout for MCP calls, so `tool_call_recorded` event count is always
 		// 0 on the opencode lane. The bridge invocation count bypasses this gap.
-		const bridgeCounts = { toolsCalled: 0 };
-		const countingRegistry = countingMcpBridgeRegistry(bridge.mcpBridgeRegistry, bridgeCounts);
-		const countingBridge = { ...bridge, mcpBridgeRegistry: countingRegistry };
+		const methodStart = bridge.observedMethods.length;
 
 		const { result } = await runThroughHarness(
 			{
@@ -625,8 +576,13 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 					return { ...base, params: { ...base.params, taskId, agentId } };
 				},
 			},
-			{ db, eventBus, tmpDir, bridge: countingBridge },
+			{ db, eventBus, tmpDir, bridge },
 		);
+		const methods = bridge.observedMethods.slice(methodStart);
+		const bridgeCounts = {
+			toolsCalled: methods.filter((method) => method === "tools/call").length,
+			methods,
+		};
 
 		// Honest floor: opencode does real work but does NOT reliably call the MCP
 		// return tool → outcome is typically "not_returned". "crashed" is FAIL.
@@ -641,7 +597,7 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 		// from "agent ran but produced only text, no tool call at all".
 		expect(
 			bridgeCounts.toolsCalled,
-			"opencode: no tools/call requests observed on MCP bridge — agent invoked no tools",
+			`opencode: no tools/call requests observed on MCP bridge — methods seen: ${JSON.stringify(bridgeCounts.methods)}`,
 		).toBeGreaterThanOrEqual(1);
 
 		// No duplicate: the agent should call the tool exactly once.
@@ -652,7 +608,8 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 
 		process.stdout.write(
 			`[single-tool-execution opencode] bridge.toolsCalled=${bridgeCounts.toolsCalled} ` +
-				`outcome=${result.outcome}\n`,
+				`methods=${JSON.stringify(bridgeCounts.methods)} ` +
+				`outcome=${result.outcome} metrics=${JSON.stringify(result.metrics ?? {})}\n`,
 		);
 	}, 240_000);
 });

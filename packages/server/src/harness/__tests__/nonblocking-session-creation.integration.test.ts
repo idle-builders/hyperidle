@@ -388,8 +388,11 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 		makePool: makeCodexPool,
 		needsBridge: true,
 		taskDescription:
-			"Create a file named 'answer.txt' in the current working directory containing exactly the number 4.",
-		doneCondition: "Agent creates answer.txt with the number 4.",
+			"Do only these two steps. First, create a file named answer.txt in the current working " +
+			"directory containing exactly the single character 4. Second, call submit_review exactly " +
+			"once with title='done' and reasoning=['answer.txt written']. Do not inspect Codex, " +
+			"app-server, sockets, MCP internals, environment variables, or documentation.",
+		doneCondition: "Agent creates answer.txt with the number 4 and calls submit_review.",
 		needsGitRepo: true,
 		provisionSandbox: (sandboxPath: string) => {
 			const authFound = provisionCodexHome(sandboxPath);
@@ -416,8 +419,10 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 		makePool: makeOpencodePool,
 		needsBridge: true,
 		taskDescription:
-			"Create a file named 'answer.txt' in the current working directory containing exactly the number 4.",
-		doneCondition: "Agent creates answer.txt with the number 4.",
+			"Create a file named 'answer.txt' in the current working directory containing exactly the number 4. " +
+			"Then call hyperidle_submit_review exactly once with title='done' and reasoning=['answer.txt written'].",
+		doneCondition: "Agent creates answer.txt with the number 4 and calls hyperidle_submit_review.",
+		needsGitRepo: true,
 		provisionSandbox: (sandboxPath: string) => {
 			provisionOpencodeHome(sandboxPath);
 		},
