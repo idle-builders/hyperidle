@@ -134,6 +134,17 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 		async restoreStaged(): Promise<void> {
 			calls.push("restoreStaged");
 		},
+		async cloneBundle(): Promise<void> {
+			calls.push("cloneBundle");
+		},
+		async show(): Promise<string> {
+			calls.push("show");
+			return "";
+		},
+		async bundleListHeads(): Promise<Array<{ ref: string; sha: string }>> {
+			calls.push("bundleListHeads");
+			return [];
+		},
 	};
 }
 
@@ -494,6 +505,17 @@ describe("Git Export HTTP routes", () => {
 				},
 				async restoreStaged(): Promise<void> {
 					runner.calls.push("restoreStaged");
+				},
+				async cloneBundle(): Promise<void> {
+					runner.calls.push("cloneBundle");
+				},
+				async show(): Promise<string> {
+					runner.calls.push("show");
+					return "";
+				},
+				async bundleListHeads(): Promise<Array<{ ref: string; sha: string }>> {
+					runner.calls.push("bundleListHeads");
+					return [];
 				},
 			};
 			const app = buildApp(db, { createRunner: () => runner, fs: createMemFs() });

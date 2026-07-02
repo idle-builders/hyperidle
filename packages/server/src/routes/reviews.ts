@@ -1,14 +1,17 @@
 import {
 	artifacts,
+	filesystemCaptures,
 	type HyperIdleDb,
 	messages,
 	operationOutcomes,
 	proposedCalls,
 } from "@hyperidle/db";
-import { relativeLong } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { createGitRunner } from "@hyperidle/fabric";
+import { API_ERROR_CODES, relativeLong } from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { loadCaptureCodeDiff } from "../reviews/capture-code-diff.js";
 
 /**
  * AL7 trust-first — Reviews route: GET /api/reviews/:reviewMessageId
@@ -113,6 +116,8 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 				toolId: proposedCalls.toolId,
 				args: proposedCalls.args,
 				artifactId: proposedCalls.artifactId,
+				// AO3: needed to resolve the filesystem_captures row for land_change.
+				originSessionId: proposedCalls.originSessionId,
 				// outcome fields (null when no outcome yet)
 				outcomeStatus: operationOutcomes.status,
 				outcomeReceipt: operationOutcomes.receipt,
@@ -162,6 +167,62 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			.where(eq(artifacts.id, opRow.artifactId))
 			.limit(1);
 
+		// AO3: for land_change Proposed Calls, load the captured multi-file diff and
+		// attach it as a `code_diff` artifact to the review payload.
+		//
+		// Resolution: loader uses proposedCalls.originSessionId (the session that produced
+		// the capture) — IDENTICAL to the handler's resolution path in land-change.ts.
+		// This makes "reviewed diff A / loader shows diff B" structurally impossible.
+		//
+		let captureArtifact: Record<string, unknown> | null = null;
+		if (opRow.toolId === "land_change" && opRow.originSessionId) {
+			try {
+				const [captureRow] = await db
+					.select()
+					.from(filesystemCaptures)
+					.where(
+						and(
+							eq(filesystemCaptures.sessionId, opRow.originSessionId),
+							eq(filesystemCaptures.writeback, "git"),
+						),
+					)
+					.limit(1);
+
+				if (captureRow) {
+					const codeDiffPayload = await loadCaptureCodeDiff(captureRow, createGitRunner);
+					if (codeDiffPayload) {
+						captureArtifact = {
+							id: `code_diff:${captureRow.id}`,
+							kind: "code_diff",
+							tool: "git",
+							app: "Git",
+							sourceHref: "",
+							title: codeDiffPayload.prTitle,
+							payload: codeDiffPayload,
+						};
+					}
+				}
+			} catch {
+				return c.json(
+					{
+						error: "land_change review proof unavailable",
+						code: API_ERROR_CODES.CONFLICT,
+					},
+					409,
+				);
+			}
+
+			if (captureArtifact === null) {
+				return c.json(
+					{
+						error: "land_change review proof unavailable",
+						code: API_ERROR_CODES.CONFLICT,
+					},
+					409,
+				);
+			}
+		}
+
 		// Build the artifacts array: one artifact with proposedCall attached.
 		const existingArtifacts = Array.isArray(reviewPayload.artifacts)
 			? (reviewPayload.artifacts as Array<Record<string, unknown>>)
@@ -186,6 +247,11 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 				payload: {},
 				proposedCall: proposedCallView,
 			});
+		}
+
+		// Append the code_diff artifact if we loaded one (land_change only).
+		if (captureArtifact !== null) {
+			artifactsWithOp.push(captureArtifact);
 		}
 
 		return c.json({

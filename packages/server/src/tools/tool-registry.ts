@@ -21,6 +21,7 @@ import { createTaskTool } from "./create-task.js";
 import { createTeamTool } from "./create-team.js";
 import { editBetTool } from "./edit-bet.js";
 import { handoffToTool } from "./handoff-to.js";
+import { landChangeTool } from "./land-change.js";
 import { logTaskTool } from "./log-task.js";
 import { promoteKnowledgeTool } from "./promote-knowledge.js";
 import { queryPracticeTool } from "./query-practice.js";
@@ -72,6 +73,12 @@ export interface ToolContext {
 	 * call still captures (WARNING-5.1) before the process dies.
 	 */
 	readonly onAbortSession?: (sessionId: string) => void;
+	/**
+	 * AO3/AL7: present only while executing an exact claimed tailored grant.
+	 * Tools that must bind side effects to the reviewed Proposed Call use this
+	 * instead of re-discovering a grant by task/agent/tool recency.
+	 */
+	readonly approvedProposedCallId?: string;
 }
 
 /**
@@ -385,6 +392,9 @@ export const ALL_TOOL_DEFINITIONS: readonly RegisteredTool[] = [
 	// Wired BEFORE Tasks 5-11 (topological order per architecture Task 4).
 	// Proves the trust-first loop mechanics without external credentials (AC12).
 	toRegistered(commitFileTool),
+	// AO3: land_change — push captured filesystem change to connected git target.
+	// Irreversible — rides AL7's router/grant/Outcome spine unchanged.
+	toRegistered(landChangeTool),
 ];
 
 /**
@@ -622,24 +632,45 @@ export function buildToolRegistry(
 						wf.approvedCall.identityHash;
 
 				if (argsMatch) {
-					// CAS-consume the tailored grant (single-statement atomic consume)
-					const [claimed] = await ctx.db
-						.update(tailoredGrants)
-						.set({ consumed: true, consumedAt: nowIso() })
-						.where(
-							and(
-								eq(tailoredGrants.taskScope, ctx.taskId),
-								eq(tailoredGrants.agentScope, ctx.agentId),
-								eq(tailoredGrants.approvedToolId, name),
-								eq(tailoredGrants.consumed, false),
-							),
-						)
-						.returning();
+					const approvedProposedCallId = wf.approvedCall.proposedCallId;
+					// CAS-consume the tailored grant (single-statement atomic consume).
+					// AO3: when sessionWorkflow carries the reviewed proposedCallId,
+					// consume that exact grant by PK so parallel grants for the same
+					// task/agent/tool cannot cross-bind review A to execution B.
+					const [claimed] = approvedProposedCallId
+						? await ctx.db
+								.update(tailoredGrants)
+								.set({ consumed: true, consumedAt: nowIso() })
+								.where(
+									and(
+										eq(tailoredGrants.proposedCallId, approvedProposedCallId),
+										eq(tailoredGrants.taskScope, ctx.taskId),
+										eq(tailoredGrants.agentScope, ctx.agentId),
+										eq(tailoredGrants.approvedToolId, name),
+										eq(tailoredGrants.consumed, false),
+									),
+								)
+								.returning()
+						: await ctx.db
+								.update(tailoredGrants)
+								.set({ consumed: true, consumedAt: nowIso() })
+								.where(
+									and(
+										eq(tailoredGrants.taskScope, ctx.taskId),
+										eq(tailoredGrants.agentScope, ctx.agentId),
+										eq(tailoredGrants.approvedToolId, name),
+										eq(tailoredGrants.consumed, false),
+									),
+								)
+								.returning();
 
 					if (claimed) {
 						// Grant consumed: run the agent's own handler
 						try {
-							const result = await def.handler(parsed.data, ctx);
+							const result = await def.handler(parsed.data, {
+								...ctx,
+								approvedProposedCallId: claimed.proposedCallId,
+							});
 							await recordOutcome(ctx.db, claimed.proposedCallId, result);
 							return result;
 						} catch (e) {

@@ -35,6 +35,7 @@ export interface SessionWorkflow {
 	 * where a harness expresses arg-level scope).
 	 */
 	readonly approvedCall?: {
+		readonly proposedCallId?: string;
 		readonly toolId: string;
 		readonly args: Record<string, unknown>; // recorded approved args (used by the optional arg-pin)
 		readonly argPinned: boolean; // true ⇒ pin to these exact args where arg-level scope exists

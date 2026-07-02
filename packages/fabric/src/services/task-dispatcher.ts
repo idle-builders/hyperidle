@@ -351,6 +351,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 								subjectThreadId: pcRow.subjectThreadId,
 								artifactId: pcRow.artifactId,
 								approvedCall: {
+									proposedCallId: entry.proposedCallId,
 									toolId: grantRow.approvedToolId,
 									args: approvedArgs,
 									argPinned: grantRow.argPinned,

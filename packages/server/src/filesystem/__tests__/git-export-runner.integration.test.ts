@@ -141,3 +141,91 @@ describe("GitRunner — real on-disk round-trip (AO2 inbound verbs)", () => {
 		expect(fs.existsSync(worktreePath)).toBe(false);
 	});
 });
+
+// ─── AO3: cloneBundle / show / bundleListHeads ───────────────────────────
+
+describe("GitRunner — AO3 read verbs (cloneBundle / show / bundleListHeads)", () => {
+	let tmpDir3: string;
+
+	beforeEach(() => {
+		tmpDir3 = fs.mkdtempSync(path.join(os.tmpdir(), "ao3-git-runner-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir3, { recursive: true, force: true });
+	});
+
+	async function makeBundleWithCommit(
+		dir: string,
+		ref: string,
+	): Promise<{ bundlePath: string; sha: string }> {
+		// Create a repo, make a commit, bundle it.
+		const repoDir = path.join(dir, "repo");
+		fs.mkdirSync(repoDir, { recursive: true });
+		const runner = createGitRunner(repoDir);
+		await runner.init("main");
+		fs.writeFileSync(path.join(repoDir, "file.txt"), "content\n");
+		await runner.add([]);
+		const sha = await runner.commit("first commit", "bot", "bot@test.com");
+		// Edit a file to get a diff.
+		fs.writeFileSync(path.join(repoDir, "file.txt"), "changed content\n");
+		await runner.add([]);
+		const sha2 = await runner.commit("second commit", "bot", "bot@test.com");
+		const bundlePath = path.join(dir, "capture.bundle");
+		await runner.bundle(bundlePath, ref);
+		void sha;
+		return { bundlePath, sha: sha2 };
+	}
+
+	it("cloneBundle: clones a bundle into the runner's cwd", async () => {
+		const { bundlePath, sha } = await makeBundleWithCommit(tmpDir3, "refs/heads/main");
+
+		const cloneDir = path.join(tmpDir3, "cloned");
+		fs.mkdirSync(cloneDir, { recursive: true });
+		const runner = createGitRunner(cloneDir);
+		await runner.cloneBundle(bundlePath);
+
+		// The cloned bundle exposes the captured objects; AO3 only needs to read
+		// the captured commit's patch, not rely on bundle clone checkout semantics.
+		const headResult = await runner.show(sha);
+		expect(typeof headResult).toBe("string");
+		expect(headResult.length).toBeGreaterThan(0);
+		expect(headResult).toContain("+changed content");
+	});
+
+	it("show: returns raw unified diff for a commit sha", async () => {
+		const { bundlePath, sha } = await makeBundleWithCommit(tmpDir3, "refs/heads/main");
+
+		const cloneDir = path.join(tmpDir3, "show-test");
+		fs.mkdirSync(cloneDir, { recursive: true });
+		const runner = createGitRunner(cloneDir);
+		await runner.cloneBundle(bundlePath);
+
+		const patch = await runner.show(sha);
+		// Should contain diff lines.
+		expect(patch).toContain("diff --git");
+		expect(patch).toContain("+changed content");
+	});
+
+	it("bundleListHeads: returns exactly one ref from a single-ref bundle", async () => {
+		const { bundlePath } = await makeBundleWithCommit(tmpDir3, "refs/heads/main");
+		const reader = createGitRunner(tmpDir3);
+		const heads = await reader.bundleListHeads(bundlePath);
+
+		expect(heads).toHaveLength(1);
+		expect(heads[0]?.ref).toBe("refs/heads/main");
+		expect(heads[0]?.sha).toHaveLength(40);
+	});
+
+	it("bundleListHeads: rejects leading dash in bundlePath", async () => {
+		const reader = createGitRunner(tmpDir3);
+		await expect(reader.bundleListHeads("-malicious")).rejects.toThrow();
+	});
+
+	it("cloneBundle: rejects leading dash in bundlePath", async () => {
+		const cloneDir = path.join(tmpDir3, "reject-dash");
+		fs.mkdirSync(cloneDir, { recursive: true });
+		const runner = createGitRunner(cloneDir);
+		await expect(runner.cloneBundle("-malicious")).rejects.toThrow();
+	});
+});

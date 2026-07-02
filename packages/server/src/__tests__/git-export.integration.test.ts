@@ -56,7 +56,10 @@ type GitCall =
 	| { cmd: "configSet"; key: string; value: string }
 	| { cmd: "remoteAdd"; name: string; url: string }
 	| { cmd: "lsFiles" }
-	| { cmd: "statusPorcelain" };
+	| { cmd: "statusPorcelain" }
+	| { cmd: "cloneBundle"; bundlePath: string }
+	| { cmd: "show"; sha: string }
+	| { cmd: "bundleListHeads"; bundlePath: string };
 
 interface FakeGitRunnerOptions {
 	/** Whether git thinks cwd is already a worktree. Defaults to true. */
@@ -179,6 +182,20 @@ class FakeGitRunner implements GitRunner {
 	}
 	async restoreStaged(_paths: readonly string[]): Promise<void> {
 		await this.wait();
+	}
+	async cloneBundle(bundlePath: string): Promise<void> {
+		await this.wait();
+		this.calls.push({ cmd: "cloneBundle", bundlePath });
+	}
+	async show(sha: string): Promise<string> {
+		await this.wait();
+		this.calls.push({ cmd: "show", sha });
+		return "";
+	}
+	async bundleListHeads(bundlePath: string): Promise<Array<{ ref: string; sha: string }>> {
+		await this.wait();
+		this.calls.push({ cmd: "bundleListHeads", bundlePath });
+		return [];
 	}
 }
 

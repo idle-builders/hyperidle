@@ -144,6 +144,44 @@ export interface GitRunner {
 	 * verb, eliminating the env leak and the JSON.stringify shell-quoting fragility.
 	 */
 	restoreStaged(paths: readonly string[]): Promise<void>;
+
+	// ── AO3 capture-read verbs ────────────────────────────────────────────────
+
+	/**
+	 * Clone a git bundle into the runner's cwd.
+	 * `git clone -- <bundlePath> .`
+	 *
+	 * @lore AO3: Clones a bundle created by AO2's captureBack into a fresh temp dir
+	 * so the loader can run `git show <sha>` against the captured objects. The trailing `.`
+	 * clones INTO cwd — not a subdirectory (same pattern as the AO2 `clone` verb).
+	 * Rejects a leading `-` in bundlePath to prevent option injection.
+	 */
+	cloneBundle(bundlePath: string): Promise<void>;
+
+	/**
+	 * Return the raw unified diff of a single commit.
+	 * `git show --no-color --format= <sha>`
+	 *
+	 * @lore AO3: The captured commit's diff vs its first parent. `--format=` suppresses
+	 * the commit header so the output is pure patch text — ready for parseUnifiedDiff.
+	 * Rejects a leading `-` in sha to prevent option injection.
+	 */
+	show(sha: string): Promise<string>;
+
+	/**
+	 * List the named refs in a git bundle file.
+	 * `git bundle list-heads <bundlePath>`
+	 * Returns an array of `{ ref, sha }` pairs.
+	 *
+	 * @lore AO3: The two AO2 adapters bundle DIFFERENT refs:
+	 *   git-worktree-adapter → refs/heads/agent/<basename(sandboxPath)>
+	 *   git-clone-adapter    → refs/heads/<resourceRef.branch>
+	 * The filesystem_captures row stores NEITHER. Reading the ref from the bundle
+	 * itself (this verb) is the only safe way — never derive it by convention.
+	 * Callers MUST assert exactly one head; >1 = malformed foreign bundle → error.
+	 * Rejects a leading `-` in bundlePath to prevent option injection.
+	 */
+	bundleListHeads(bundlePath: string): Promise<Array<{ ref: string; sha: string }>>;
 }
 
 export interface CreateGitRunnerOptions {
@@ -532,6 +570,65 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			// Use '--' separator to prevent paths from being treated as options.
 			await runExpectOk(["restore", "--staged", "--", ...paths], localMs);
 		},
+
+		// ── AO3 capture-read verbs ─────────────────────────────────────────────
+
+		async cloneBundle(bundlePath: string): Promise<void> {
+			// Reject leading `-` to prevent option injection.
+			if (bundlePath.startsWith("-")) {
+				throw new Error(`git cloneBundle: bundlePath must not start with '-'`);
+			}
+			const heads = await runExpectOk(["bundle", "list-heads", "--", bundlePath], localMs);
+			const headLines = heads.stdout
+				.split(/\r?\n/)
+				.map((l) => l.trim())
+				.filter((l) => l.length > 0);
+			// Clone the bundle into cwd (`.`). `--local` speeds up same-host bundle clones
+			// by linking objects instead of copying — safe for a throw-away temp dir.
+			// `--` prevents bundlePath from being interpreted as an option even without leading `-`.
+			// @lore AO3: bundlePath is a .bundle file; cloneBundle always clones into runner's cwd.
+			await runExpectOk(["clone", "--", bundlePath, "."], pushMs);
+			if (headLines.length === 1) {
+				const onlyHead = headLines[0];
+				if (!onlyHead) return;
+				const [sha, ref] = onlyHead.split(/\s+/, 2);
+				if (sha && ref?.startsWith("refs/heads/")) {
+					const branch = ref.slice("refs/heads/".length);
+					await runExpectOk(["checkout", "-B", branch, sha], localMs);
+				}
+			}
+		},
+
+		async show(sha: string): Promise<string> {
+			// Reject leading `-` to prevent option injection.
+			if (sha.startsWith("-")) {
+				throw new Error(`git show: sha must not start with '-'`);
+			}
+			// `--format=` suppresses the commit header → pure patch text.
+			// `--no-color` ensures portable ASCII output for parseUnifiedDiff.
+			const result = await runExpectOk(["show", "--no-color", "--format=", sha], localMs);
+			return result.stdout;
+		},
+
+		async bundleListHeads(bundlePath: string): Promise<Array<{ ref: string; sha: string }>> {
+			// Reject leading `-` to prevent option injection.
+			if (bundlePath.startsWith("-")) {
+				throw new Error(`git bundle list-heads: bundlePath must not start with '-'`);
+			}
+			// `git bundle list-heads <bundlePath>` prints lines: "<sha> <ref>"
+			// @lore AO3: Each writer bundles one ref. >1 head = malformed foreign bundle.
+			// Callers must assert exactly one head.
+			const result = await runExpectOk(["bundle", "list-heads", "--", bundlePath], localMs);
+			const lines = result.stdout
+				.split(/\r?\n/)
+				.map((l) => l.trim())
+				.filter((l) => l.length > 0);
+			return lines.map((line) => {
+				const spaceIdx = line.indexOf(" ");
+				if (spaceIdx < 0) throw new Error(`git bundle list-heads: unexpected line format: ${line}`);
+				return { sha: line.slice(0, spaceIdx), ref: line.slice(spaceIdx + 1) };
+			});
+		},
 	};
 }
 
@@ -638,6 +735,17 @@ export function createFakeGitRunner(): FakeGitRunner {
 		},
 		async restoreStaged(paths) {
 			rec("restoreStaged", [paths]);
+		},
+		async cloneBundle(bundlePath) {
+			rec("cloneBundle", [bundlePath]);
+		},
+		async show(sha) {
+			rec("show", [sha]);
+			return "";
+		},
+		async bundleListHeads(bundlePath) {
+			rec("bundleListHeads", [bundlePath]);
+			return [];
 		},
 	};
 }

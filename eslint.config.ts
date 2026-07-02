@@ -530,6 +530,29 @@ export default [
 		},
 	},
 
+	// AO3 AC5 — no-unbrokered-git-push (AL7 hard-rule 2).
+	// HyperIdle's own code must not call GitRunner.push outside the two authorized modules.
+	// Scoped to server + fabric source (where all git operations live); tests excluded.
+	{
+		files: ["packages/server/src/**/*.ts", "packages/fabric/src/**/*.ts"],
+		ignores: [
+			"packages/server/src/**/__tests__/**",
+			"packages/server/src/**/*.test.ts",
+			"packages/server/src/**/*.integration.test.ts",
+			"packages/server/src/**/*.spec.ts",
+			"packages/fabric/src/**/__tests__/**",
+			"packages/fabric/src/**/*.test.ts",
+			"packages/fabric/src/**/*.integration.test.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		plugins: { authz },
+		rules: {
+			"authz/no-unbrokered-git-push": "error",
+		},
+	},
+
 	// api-typesafety Rule 8 (error): Ban unsafe type casts in web package.
 	// Patterns like `as Promise<`, `as any`, and `res.json() as` hide type errors
 	// that the hono/client already prevents — using them defeats the purpose of typed API calls.

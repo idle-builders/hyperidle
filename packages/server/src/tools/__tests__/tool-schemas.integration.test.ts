@@ -35,6 +35,8 @@ const EXPECTED_TOOL_NAMES = [
 	"edit_bet",
 	// AL7: commit_file — live-proof tool; declared reversibility:"irreversible" for the checkpoint
 	"commit_file",
+	// AO3: land_change — reviewable code capture landing tool; reversibility:"irreversible"
+	"land_change",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {

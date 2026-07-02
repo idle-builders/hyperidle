@@ -170,7 +170,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 		await bridge2.transport.close();
 	});
 
-	test("registers exactly 22 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 commit_file)", async ({
+	test("registers exactly 23 tools (all tools for assistant role, including AE3 management tools + AK4 edit_bet + AL7 commit_file + AO3 land_change)", async ({
 		db,
 	}) => {
 		const eventBus = new EventBus();
@@ -179,8 +179,8 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 
 		bridge = await createMcpBridge({ sessionId: "session-ac1-count", registry });
 
-		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) + 1 (AL7 commit_file) = 22
-		expect(registry.definitions).toHaveLength(22);
+		// 15 (pre-AE3) + 5 (AE3 management tools) + 1 (AK4 edit_bet) + 1 (AL7 commit_file) + 1 (AO3 land_change) = 23
+		expect(registry.definitions).toHaveLength(23);
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toContain("route_item");
 		expect(names).toContain("log_task");
@@ -203,7 +203,7 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 
 		bridge = await createMcpBridge({ sessionId: "session-ac1-names", registry });
 
-		// Verify the registry definition names are the 22 canonical tools (15 pre-AE3 + 5 AE3 + 1 AK4 + 1 AL7)
+		// Verify the registry definition names are the 23 canonical tools (15 pre-AE3 + 5 AE3 + 1 AK4 + 1 AL7 + 1 AO3)
 		const expectedNames = [
 			"read_inbox",
 			"send_message",
@@ -230,6 +230,8 @@ describe("createMcpBridge (AC1: tool registration)", () => {
 			"edit_bet",
 			// AL7: commit_file — live-proof tool; reversibility:"irreversible"
 			"commit_file",
+			// AO3: land_change — live-proof tool; reversibility:"irreversible"
+			"land_change",
 		].sort();
 
 		const actualNames = registry.definitions.map((d) => d.name).sort();
@@ -268,7 +270,7 @@ describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () =
 		await bridge.transport.close();
 	});
 
-	test("builder registry exposes 12 tools (no 4 facilitator-only tools, but commit_file included)", async ({
+	test("builder registry exposes 13 tools (no 4 facilitator-only tools, but irreversible land tools included)", async ({
 		db,
 	}) => {
 		const eventBus = new EventBus();
@@ -277,9 +279,9 @@ describe("createMcpBridge (AC4: role-based FORBIDDEN via registry.invoke)", () =
 
 		const bridge = await createMcpBridge({ sessionId: "session-ac4-b", registry });
 
-		// Builder gets 15 - 4 facilitator tools + 1 AL7 commit_file = 12 tools
-		// (commit_file has no role restriction — available to all)
-		expect(registry.definitions).toHaveLength(12);
+		// Builder gets 15 - 4 facilitator tools + AL7 commit_file + AO3 land_change = 13 tools.
+		// (irreversible land tools have no role restriction — available to all)
+		expect(registry.definitions).toHaveLength(13);
 
 		const names = registry.definitions.map((d) => d.name);
 		expect(names).not.toContain("route_item");
