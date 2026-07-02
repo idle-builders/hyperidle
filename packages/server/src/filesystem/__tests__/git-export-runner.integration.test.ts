@@ -142,9 +142,9 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 	});
 });
 
-// ─── AO3: cloneBundle / show / bundleListHeads ───────────────────────────
+// ─── Git bundle read verbs ────────────────────────────────────────────────
 
-describe("GitRunner — AO3 read verbs (cloneBundle / show / bundleListHeads)", () => {
+describe("GitRunner bundle read verbs", () => {
 	let tmpDir3: string;
 
 	beforeEach(() => {
@@ -185,7 +185,7 @@ describe("GitRunner — AO3 read verbs (cloneBundle / show / bundleListHeads)", 
 		const runner = createGitRunner(cloneDir);
 		await runner.cloneBundle(bundlePath);
 
-		// The cloned bundle exposes the captured objects; AO3 only needs to read
+		// The cloned bundle exposes the captured objects; landing only needs to read
 		// the captured commit's patch, not rely on bundle clone checkout semantics.
 		const headResult = await runner.show(sha);
 		expect(typeof headResult).toBe("string");

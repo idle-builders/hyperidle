@@ -1,10 +1,7 @@
 /**
- * AO3 RED — land_change tool integration tests (AC1, AC3, AC4, AC6).
+ * land_change tool integration tests.
  *
- * AC1: land_change is registered + irreversible → captured in session 1, grant consumed in session 2.
- * AC3: approve → grant → session-2 land_change → real push to local bare remote.
- * AC4: at-most-once: second land_change after consumed grant routes to review, remote unchanged.
- * AC6: non-approve → no push; failed push → failed Outcome.
+ * Covers review routing, approved landing, at-most-once behavior, and failed outcomes.
  *
  * Real git + real DB — zero stubs of GitRunner.
  */
@@ -235,9 +232,9 @@ function makeCtx(
 	};
 }
 
-// ─── AC1: land_change is registered + captured in session 1 ───────────────
+// ─── Registered + captured in session 1 ───────────────────────────────────
 
-describe("AC1: land_change is registered and routes to review in session 1", () => {
+describe("land_change registration and review routing", () => {
 	test("invoking land_change in open-work session captures it with status:captured", async ({
 		db,
 		eventBus,
@@ -278,9 +275,9 @@ describe("AC1: land_change is registered and routes to review in session 1", () 
 	});
 });
 
-// ─── AC3: approve → grant → session-2 land_change pushes to bare remote ──
+// ─── Approve → grant → session-2 land_change pushes to bare remote ───────
 
-describe("AC3: session-2 land_change pushes captured commit to bare remote (zero stubs)", () => {
+describe("session-2 land_change pushes captured commit to bare remote", () => {
 	test("grant-bearing session-2 land_change advances bare remote ref to commitSha", async ({
 		db,
 		eventBus,
@@ -437,9 +434,9 @@ describe("AC3: session-2 land_change pushes captured commit to bare remote (zero
 	});
 });
 
-// ─── AC4: at-most-once idempotent ─────────────────────────────────────────
+// ─── At-most-once idempotent landing ──────────────────────────────────────
 
-describe("AC4: second land_change after consumed grant routes to review (no second push)", () => {
+describe("second land_change after consumed grant routes to review", () => {
 	test("already-consumed grant → second invoke returns AWAITING_REVIEW, remote sha unchanged", async ({
 		db,
 		eventBus,
@@ -515,9 +512,9 @@ describe("AC4: second land_change after consumed grant routes to review (no seco
 	});
 });
 
-// ─── AC6: non-approve → no push; failed push → failed Outcome ─────────────
+// ─── Non-approve → no push; failed push → failed Outcome ─────────────────
 
-describe("AC6: non-approve → no push; failed push → failed Outcome", () => {
+describe("land_change non-approve and failed push behavior", () => {
 	test("session 1 with held-status grant → no push, no Outcome", async ({ db, eventBus }) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const s1Id = `s1-ac6-hold-${crypto.randomUUID()}`;

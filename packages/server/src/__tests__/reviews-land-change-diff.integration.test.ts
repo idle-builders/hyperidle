@@ -1,5 +1,5 @@
 /**
- * AO3 RED — Reviews loader hook integration test (AC2 route-level).
+ * Reviews loader hook integration test for land_change route-level diff proof.
  *
  * Validates that GET /api/reviews/:reviewMessageId for a land_change Proposed Call
  * includes a code_diff artifact whose files match the captured bundle's diff.
