@@ -69,12 +69,22 @@ describe("normalizeHarnessEvent — codex pre-map (preMapCodexEvent branches)", 
 
 	it("turn.completed with usage.input_tokens + usage.output_tokens → token_usage (Fix B regression lock)", () => {
 		// Real codex JSONL shape: { type: "turn.completed", usage: { input_tokens: N, output_tokens: M } }
-		const input = { type: "turn.completed", usage: { input_tokens: 10, output_tokens: 5 } };
+		const input = {
+			type: "turn.completed",
+			usage: {
+				input_tokens: 10,
+				cached_input_tokens: 7,
+				output_tokens: 5,
+				reasoning_output_tokens: 2,
+			},
+		};
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("token_usage");
 		if (result.type === "token_usage") {
 			expect(result.inputTokens).toBe(10);
 			expect(result.outputTokens).toBe(5);
+			expect(result.cachedInputTokens).toBe(7);
+			expect(result.reasoningOutputTokens).toBe(2);
 		}
 	});
 

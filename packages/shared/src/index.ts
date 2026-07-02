@@ -219,6 +219,7 @@ export type {
 	ServerToWorkerMessage,
 	SessionConfig,
 	SessionHandle,
+	SessionMetrics,
 	SessionResult,
 	// AL7: session workflow for route-to-review gate
 	SessionWorkflow,
@@ -377,8 +378,11 @@ export type {
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──
+// ── AR4b: AssistantFormationRequest / AssistantFormation / formAssistant added ──
 export type {
 	AgentScaffoldSpec,
+	AssistantFormation,
+	AssistantFormationRequest,
 	ContextAssemblyOutcome,
 	ContextAssemblyRequest,
 	DecomposeBetRequest,

@@ -140,6 +140,13 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		expect(isReturnAction("mcp__hyper_idle__submit_review")).toBe(true);
 		expect(isReturnAction("mcp__hyper_idle__read_inbox")).toBe(false);
 	});
+
+	it("opencode hyperidle_ tool names are recognised as return actions", () => {
+		expect(isReturnAction("hyperidle_send_message")).toBe(true);
+		expect(isReturnAction("hyperidle_submit_review")).toBe(true);
+		expect(isReturnAction("hyperidle_handoff_to")).toBe(true);
+		expect(isReturnAction("hyperidle_commit_file")).toBe(false);
+	});
 });
 
 describe("isInternalExtractionDrain — AC4: exemption predicate", () => {

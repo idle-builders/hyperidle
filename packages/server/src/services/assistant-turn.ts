@@ -1,24 +1,23 @@
 /**
- * AH3: runAssistantTurn — task-free assistant conversational turn service.
+ * AR4a: runAssistantTurn — harness-agnostic conversational turn service.
  *
- * Handles one complete message→reply cycle:
- *   1. Load assistant agent (lazy-create with defaults if absent)
- *   2. Resolve model + credential (MissingCredentialError → missing_key notice)
- *   3. Select adapter (NoEligibleHarnessError → missing_harness notice)
- *   4. Build conversational context (no task/bet, no sandbox context assembly)
- *   5. Compose persona via composeAssistantPrompt (byte-equal across both adapter paths)
- *   6. Start harness session + drain events under ASSISTANT_TURN_TIMEOUT_MS
- *      - completion → persist plain reply message
- *      - error event → persist provider_error notice
- *      - timeout (hung provider, §1.7a) → abort, persist provider_error notice
- *   7. Emit thread_message_appended so the overlay live-updates via WS
+ * Handles one complete message→reply cycle by delegating to the shared
+ * `provisionSession` path in CONVERSATIONAL MODE (the third assembly branch,
+ * beside task and routine). This replaces the builtin-only path (AH3) that
+ * hardwired harnessType:"builtin" and bypassed the harness machinery.
+ *
+ * AR4a changes:
+ *   - Removed: `setSessionToolRegistry` coupling (builtin-only concrete class method)
+ *   - Removed: `sandboxPath:""` no-mode SessionConfig
+ *   - Removed: parallel adapter selection + drain logic (now in runSession)
+ *   - Added: provisionSession(conversational mode) — real sandbox, MCP bridge, 4 harnesses
+ *   - Added: conversationalReply field on result → persisted reply row
+ *   - Kept: persistTurnFailure, never-silent, lazy-create, inFlight guard
  *
  * NEVER silent: every branch ends in a persisted reply or a persisted notice.
  *
- * @lore AH3: Task-free is the KEY architectural decision (design-it-twice §A).
- * Using provisionSession would pollute tasks/bets with fake rows and couple the
- * chat lifecycle to the task state machine. This service reuses only AdapterPool
- * + harness + streamEvents + model resolution.
+ * @lore AR4a: The stub `taskId` (sessions.taskId NOT NULL FK) is meaningless in
+ * conversational mode — this caller ignores it. Mirror the routine path (@lore AA2).
  *
  * @lore AH3 §1.7: The in-memory inFlight set prevents concurrent stacked turns
  * within one process lifetime. After a crash it is empty → a user-initiated Retry
@@ -26,10 +25,8 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
-import { type HyperIdleDb, messages, users } from "@hyperidle/db";
-import { composeAssistantPrompt } from "@hyperidle/fabric";
+import { bets, type HyperIdleDb, messages, tasks, teams, users } from "@hyperidle/db";
 import {
-	ASSISTANT_TURN_TIMEOUT_MS,
 	type ConversationMessage,
 	createLogger,
 	type EventBus,
@@ -37,24 +34,25 @@ import {
 	NoEligibleHarnessError,
 	type PlainPayload,
 	ProviderTimeoutError,
-	type SessionConfig,
 	type ThreadMessageAppendedEvent,
-	type ToolCallSummary,
 } from "@hyperidle/shared";
 import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 // AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
 // Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
 import { CassetteMissError } from "../harness/llm-cassette.js";
-import { createReturnGate } from "../harness/return-gate.js";
+import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	resolveAgentModel,
 	resolveModelTier,
 } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
+import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
+import { provisionSession } from "../services/session-provisioning.js";
+import { getActiveStrategy } from "../services/strategy-registry.js";
 import {
 	buildAssistantDraftRegistry,
 	resolveCurrentDraftBetId,
@@ -78,6 +76,16 @@ const BUILTIN_SYSTEM_PROMPT =
  * logic with a stub. When present, the trigger fires but no real LLM call is made.
  * This satisfies the integration test's need to assert the trigger fires without
  * a real provider. turnTimeoutMs overrides the constant for fast-timeout hung-provider tests.
+ *
+ * @lore AR4a: mcpBridgeRegistry + mcpBaseUrl are required for CLI harnesses (claude/codex/opencode)
+ * to receive the draft tool surface via the MCP bridge. Production callers (assistant-dispatcher.ts)
+ * supply these when CLI harnesses are expected. When absent, CLI harnesses run without tool access
+ * (no bridge = no MCP tool delivery; builtin still works via the in-process registry).
+ *
+ * @lore AR4a: sandboxBasePath is the base directory for the conversational turn's sandbox.
+ * The shared path provisions a real sandbox (required for CLI harnesses to start).
+ * Defaults to os.tmpdir() when absent (production convenience; the sandbox is torn down at
+ * the end of the turn regardless).
  */
 export interface AssistantTurnDeps {
 	readonly db: HyperIdleDb;
@@ -88,6 +96,36 @@ export interface AssistantTurnDeps {
 	readonly runTurn?: (params: AssistantTurnParams) => Promise<void>;
 	/** Override the turn timeout (ms). Defaults to ASSISTANT_TURN_TIMEOUT_MS. Used in tests. */
 	readonly turnTimeoutMs?: number;
+	/**
+	 * AR4a: MCP bridge registry for CLI harness tool delivery. Absent → no bridge → CLI harnesses
+	 * run without tool access (builtin still uses in-process registry).
+	 */
+	readonly mcpBridgeRegistry?: McpBridgeRegistry;
+	/**
+	 * AR4a: Base URL for the MCP bridge server (e.g., "http://localhost:3001").
+	 * Required when mcpBridgeRegistry is set.
+	 */
+	readonly mcpBaseUrl?: string;
+	/**
+	 * AR4a: Base directory for the conversational turn sandbox.
+	 * Defaults to os.tmpdir() when absent.
+	 */
+	readonly sandboxBasePath?: string;
+	/**
+	 * AR4a: Pre-resolved model override. When provided, `resolveAgentModel` is skipped
+	 * and this model is used directly. Required for CLI harnesses (codex/opencode) whose
+	 * native keychain auth is not expressible as a supported modelProvider in the DB row
+	 * ("openai-compatible" is rejected by resolveAgentModel on the per-agent path).
+	 *
+	 * @lore AR4a: CLI harnesses (codex = ChatGPT keychain, opencode = OpenRouter via CLI)
+	 * cannot use resolveAgentModel's per-agent path ("openai-compatible" throws
+	 * UnsupportedAgentProviderError). The test seam supplies a pre-resolved model via
+	 * lockedHarnessAdapter/harnessTestResolvedModel so the CLI adapter receives the correct
+	 * model string without forcing resolveAgentModel to handle native-auth harnesses.
+	 * Production callers (assistant-dispatcher.ts) do not set this — they rely on the
+	 * DB row's modelProvider (always "openrouter" or "anthropic" in production agents).
+	 */
+	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
 export interface AssistantTurnParams {
@@ -205,6 +243,101 @@ export async function persistTurnFailure(
 }
 
 /**
+ * Create an ephemeral conversational stub task to satisfy sessions.taskId NOT NULL FK.
+ *
+ * sessions.taskId → tasks.betId → bets.teamId must all reference real rows.
+ * This mirrors the create-routine.ts AA2 pattern exactly: find any existing bet,
+ * fall back to any bet in the DB, fall back to creating a system team+bet.
+ *
+ * @lore AR4a: Mirrors create-routine.ts AA2 pattern (stubTaskId). The stub task is
+ * invisible in task lists (title prefix "conv-stub-" identifies system-generated tasks).
+ * The per-turn unique task id prevents session FK collisions across concurrent turns.
+ * Finding an existing bet (rather than always creating a system one) avoids polluting
+ * the bets table in environments where bets already exist (e.g. test fixtures that
+ * assert on bets.length).
+ */
+async function createConversationalStubTask(
+	db: HyperIdleDb,
+	opts: {
+		taskId: string;
+		agentId: string;
+		now: string;
+	},
+): Promise<void> {
+	const { taskId, agentId, now } = opts;
+	const SYSTEM_TEAM_ID = "conv-stub-team";
+	const SYSTEM_BET_ID = "conv-stub-bet";
+
+	// Find any existing bet (same pattern as create-routine.ts:90-92)
+	const [anyBet] = await db.select({ id: bets.id, teamId: bets.teamId }).from(bets).limit(1);
+
+	let stubBetId: string;
+	let stubTeamId: string;
+
+	if (anyBet) {
+		// Reuse an existing bet — the stub task is invisible in task lists so this is safe.
+		// @lore AR4a: Reusing an existing bet avoids polluting the bets table (same as routine path).
+		stubBetId = anyBet.id;
+		stubTeamId = anyBet.teamId;
+	} else {
+		// No bet exists at all — create a system team + bet (same as create-routine.ts:94-115).
+		// @lore AR4a: "conv-stub-team" / "conv-stub-bet" are created once and reused across all
+		// conversational turns. They are system rows invisible in team/bet lists.
+		const [existingTeam] = await db
+			.select({ id: teams.id })
+			.from(teams)
+			.where(eq(teams.id, SYSTEM_TEAM_ID))
+			.limit(1);
+		if (!existingTeam) {
+			try {
+				await db.insert(teams).values({
+					id: SYSTEM_TEAM_ID,
+					name: "Conversational Sessions (system)",
+					phase: "discovery",
+					createdAt: now,
+				});
+			} catch {
+				// Concurrent insert race — team was created by another turn, continue
+			}
+		}
+
+		const [existingBet] = await db
+			.select({ id: bets.id })
+			.from(bets)
+			.where(eq(bets.id, SYSTEM_BET_ID))
+			.limit(1);
+		if (!existingBet) {
+			try {
+				await db.insert(bets).values({
+					id: SYSTEM_BET_ID,
+					teamId: SYSTEM_TEAM_ID,
+					description: "Conversational Sessions (system)",
+					status: "active",
+					createdAt: now,
+				});
+			} catch {
+				// Concurrent insert race — bet was created by another turn, continue
+			}
+		}
+
+		stubBetId = SYSTEM_BET_ID;
+		stubTeamId = SYSTEM_TEAM_ID;
+	}
+
+	// Insert the per-turn stub task (unique task id per turn)
+	await db.insert(tasks).values({
+		id: taskId,
+		betId: stubBetId,
+		teamId: stubTeamId,
+		title: "Conversational turn (stub)",
+		state: "accepted",
+		ownerAgentId: agentId,
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+/**
  * Run one assistant conversational turn.
  *
  * Resolves without throwing — all errors are mapped to persisted notices.
@@ -220,7 +353,6 @@ export async function runAssistantTurn(
 ): Promise<void> {
 	const { db, eventBus, adapterPool } = deps;
 	const { userId, threadId } = params;
-	const timeoutMs = deps.turnTimeoutMs ?? ASSISTANT_TURN_TIMEOUT_MS;
 
 	// Re-entrancy guard: skip if a turn is already in-flight for this thread
 	const inFlightKey = `${userId}:${threadId}`;
@@ -244,7 +376,6 @@ export async function runAssistantTurn(
 			userId,
 			threadId,
 			params.triggerMessageId,
-			timeoutMs,
 			deps,
 		);
 	} finally {
@@ -259,7 +390,6 @@ async function runTurnInternal(
 	userId: string,
 	threadId: string,
 	_triggerMessageId: string,
-	timeoutMs: number,
 	deps: AssistantTurnDeps,
 ): Promise<void> {
 	const assistantAgentId = `ast-${userId}`;
@@ -298,32 +428,35 @@ async function runTurnInternal(
 		return;
 	}
 
-	const harnessType = agentRow.harnessType ?? "builtin";
-	const modelProvider = agentRow.modelProvider ?? "anthropic";
-	// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-	const systemPromptText = agentRow.systemPrompt ?? BUILTIN_SYSTEM_PROMPT;
-
 	// --- Step 2: Resolve model + credential ---
-	// resolveAgentModel handles both credential resolution and per-agent model selection.
-	// When credentialResolver is absent (local env-based mode), we skip resolution and
-	// let the adapter read from process.env directly — builtin adapter still requires
-	// resolvedModel, so we fall back to BUILT_IN_GATEWAY_CONFIG without a key.
-	//
-	// @lore AH3 H1: resolveAgentModel MUST be called here. The builtin adapter's
-	// startSession throws "resolvedModel is required" when it is missing. The
-	// `as unknown` cast that shipped before masked this type error at compile time.
-	// resolvedModel is optional in SessionConfig but the builtin adapter validates it
-	// at runtime — this is the canonical fix.
-	//
+	// @lore AH3 H1: resolveAgentModel MUST be called. The builtin adapter throws
+	// "resolvedModel is required" when it is missing.
 	// @lore AH3 M3: CredentialResolver.resolve() returns null (not throw) for missing
-	// keys in local mode. resolveAgentModel already throws MissingCredentialError when
-	// resolve() returns null (see model-gateway.ts resolveProvider). So calling
-	// resolveAgentModel is the correct way to detect missing_key — do NOT check
-	// resolve() directly and fall through to null.
+	// keys. resolveAgentModel throws MissingCredentialError when resolve() returns null.
+	// @lore AR4a: deps.resolvedModel is a test seam for CLI harnesses (codex/opencode)
+	// whose native keychain auth can't be expressed as a supported modelProvider ("openai-compatible"
+	// throws UnsupportedAgentProviderError on the per-agent path). When provided, skip
+	// resolveAgentModel entirely.
 	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
 	let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
 
-	if (deps.credentialResolver) {
+	if (deps.resolvedModel) {
+		// Pre-resolved model supplied (CLI harness test seam — see AR4a lore above)
+		resolvedModel = deps.resolvedModel;
+		if (deps.credentialResolver) {
+			// Still try to resolve fast model for builtin tier (non-fatal)
+			try {
+				const serverCfg = await readServerConfig(db);
+				resolvedFastModel = await resolveModelTier(
+					"fast",
+					serverCfg.modelGateway,
+					deps.credentialResolver,
+				);
+			} catch {
+				// fast tier optional
+			}
+		}
+	} else if (deps.credentialResolver) {
 		try {
 			const serverCfg = await readServerConfig(db);
 			resolvedModel = await resolveAgentModel(
@@ -352,7 +485,6 @@ async function runTurnInternal(
 	} else {
 		// No resolver: attempt to use env-based ANTHROPIC_API_KEY directly.
 		// This path only exists in test environments and local-no-DB mode.
-		// The builtin adapter will fail at startSession if the key is absent from env.
 		const apiKey = process.env.ANTHROPIC_API_KEY;
 		if (!apiKey) {
 			await persistTurnFailure(
@@ -372,194 +504,198 @@ async function runTurnInternal(
 		};
 	}
 
-	// --- Step 3: Select adapter ---
-	const selected = adapterPool.select({
-		harnessType,
-		modelProviders: [modelProvider],
+	// --- Step 3: Build conversational context from thread transcript ---
+	// @lore AH3 H3: Load the thread's plain messages in chronological order.
+	// The triggering user message was just inserted before runAssistantTurn was called.
+	const transcriptRows = await loadRawTranscript(db, threadId);
+	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
+
+	// --- Step 3.5: Formation seam — consult the active strategy for persona + draft surface ---
+	// @lore AR4b: The formation seam is the missing piece this step adds. Before AR4b,
+	// runAssistantTurn read BUILTIN_SYSTEM_PROMPT as a hardcoded constant and called
+	// buildAssistantDraftRegistry directly. After AR4b, both come from the active strategy's
+	// formAssistant() answer — AC3: switching the strategy changes the assistant's form.
+	//
+	// @lore AR4b: We call getActiveStrategy() at TURN TIME (not at boot/creation). This is the
+	// correct moment for the formation seam: the active strategy may change between turns, and
+	// the turn's assembled prompt must reflect the strategy active AT THAT MOMENT.
+	//
+	// @lore AR4b: The formation answer is a per-turn decision, NOT persisted to the users row.
+	// persona:null means "Minimal strategy: no override, use agent row's systemPrompt."
+	// The systemPromptOverride field on params.conversational carries it to provisionSession.
+	const formation = await getActiveStrategy().formAssistant({
+		db,
+		userId,
+		threadId,
 	});
 
-	if (!selected) {
-		await persistTurnFailure(
-			db,
-			eventBus,
-			userId,
-			threadId,
-			new NoEligibleHarnessError(harnessType),
-		);
-		return;
-	}
-
-	// --- Step 4: Build conversational message history from thread transcript ---
-	// @lore AH3 H3: This is the core fix for "user's message never reaches the model."
-	// We load the thread's plain messages in chronological order and map them to
-	// ConversationMessage[]. The triggering user message was just inserted before
-	// runAssistantTurn was called, so loading the full thread up to now includes it.
-	// The builtin adapter branches on config.messages: when non-empty it runs a single
-	// chat completion seeded with these messages instead of the task-planning loop.
-	const transcriptRows = await loadRawTranscript(db, threadId);
-	const conversationMessages = mapTranscriptToMessages(transcriptRows, `ast-${userId}`);
-
-	// --- Step 4a: Resolve tool registry params (AK4) ---
-	// @lore AK4: resolve team + draft binding BEFORE startSession so the registry
-	// is ready for injection. Both resolutions are cheap single-row DB lookups.
-	// Task-free ToolContext: synthetic sessionId, empty taskId/sandboxPath.
-	// teamId is NOT set on ctx — it is hard-injected by the create_bet wrapper.
-	const sessionId = crypto.randomUUID();
+	// --- Step 4: Resolve draft tool binding ---
+	// @lore AK4: resolve team + draft binding BEFORE the session. Both are cheap single-row DB lookups.
+	// @lore AR4b: draftRegistry source is now the strategy formation answer (§3b seam rerouted).
+	// formation.assistantDraftSurface === "standard" → buildAssistantDraftRegistry (the canonical 2-tool builder).
+	// A future Fabric strategy returning a different surface marker maps to a different builder here.
 	const resolvedTeamId = await resolveDraftTeamId(db, userId);
-	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, `ast-${userId}`);
+	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId);
 
-	const toolContext: ToolContext = {
+	// Synthetic tool context for building the draft registry — sessionId/taskId/sandboxPath
+	// are placeholders (the shared path provisions real values; the draft registry only needs
+	// db/eventBus/agentId for its handlers).
+	const syntheticSessionId = crypto.randomUUID();
+	const toolCtx: ToolContext = {
 		db,
 		eventBus,
 		agentId: assistantAgentId,
-		sessionId,
-		taskId: "", // task-free conversational turn
-		sandboxPath: "", // no sandbox IO
-		ingestion: { dispose: () => {} }, // no-op — bet tools don't use ingestion
+		sessionId: syntheticSessionId,
+		taskId: "", // placeholder — shared path creates real task via stub
+		sandboxPath: "", // placeholder — shared path creates real sandbox
+		ingestion: {
+			dispose: () => {
+				/* no-op — bet tools don't use ingestion */
+			},
+		}, // no-op placeholder
 	};
 
-	// Build a 2-tool-only registry and inject via setSessionToolRegistry BEFORE startSession.
 	// @lore AK4 CRITICAL-2: NEVER inject buildToolRegistry(ctx,{role:'assistant'}) here —
-	// it yields the full assistant role surface (create_team, add_agent, submit_review, ...).
-	// The dedicated 2-tool builder is the authority boundary (AC3b).
-	const draftRegistry = buildAssistantDraftRegistry(toolContext, {
-		resolvedTeamId,
-		currentDraftBetId,
+	// the dedicated 2-tool builder is the authority boundary (AC3b).
+	// @lore AR4b: §3b seam rerouted — source is now the strategy's formation answer.
+	// "standard" maps to the canonical buildAssistantDraftRegistry; other markers (future)
+	// would map to their respective builders.
+	const draftRegistry =
+		formation.assistantDraftSurface === "standard"
+			? buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId })
+			: buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId }); // future: other surfaces
+
+	// --- Step 5: Delegate to provisionSession (conversational mode) ---
+	//
+	// AR4a: This is the key change — replace the builtin-only parallel path with a
+	// real provisionSession run. The conversational mode:
+	//   - Provisions a real sandbox (CLI harnesses need cwd + .mcp.json)
+	//   - Builds the MCP bridge (CLI harnesses receive tools via MCP)
+	//   - Assembles the transcript into AGENTS.md (every harness reads it)
+	//   - Returns the reply via conversationalReply on the result
+	//
+	// The stub taskId ("conv-stub-<time>") satisfies the sessions.taskId NOT NULL FK.
+	// This caller ignores the result's taskId (AR4a @lore stub-taskId).
+	//
+	// @lore AR4a: Coupling #1 (setSessionToolRegistry on BuiltinHarnessAdapter) is
+	// removed — the shared path's Phase 8.5a does this for the builtin lane.
+	// Coupling #2 (config.messages builtin branch) is preserved in sessionStartConfig
+	// via params.conversational.messages (NIT-4: load-bearing for builtin correctness).
+	// Coupling #3 (sandboxPath:"" no-mode) is removed — the shared path provides a real sandbox.
+
+	const sandboxBasePath = deps.sandboxBasePath ?? (await import("node:os")).default.tmpdir();
+
+	const convStubTaskId = `conv-stub-task-${crypto.randomUUID()}`;
+	const now = new Date().toISOString();
+
+	// Create an ephemeral stub task to satisfy the sessions.taskId NOT NULL FK.
+	// sessions.taskId → tasks.betId → bets.teamId must all reference real rows.
+	// @lore AR4a: Mirrors the routine stub-task pattern (create-routine.ts, AA2 lore).
+	// createConversationalStubTask reuses any existing bet (avoiding bets table pollution).
+	await createConversationalStubTask(db, {
+		taskId: convStubTaskId,
+		agentId: assistantAgentId,
+		now,
 	});
 
-	// Inject registry into the adapter BEFORE startSession.
-	// @lore AK4: Only BuiltinHarnessAdapter has setSessionToolRegistry (on the concrete
-	// class, not on HarnessAdapter interface). Narrow via meta.type === "builtin" and cast.
-	// This follows the same X6 provisioning pattern in session-provisioning.ts ~L586.
-	if (selected.meta.type === "builtin" && selected.adapter instanceof BuiltinHarnessAdapter) {
-		selected.adapter.setSessionToolRegistry(sessionId, draftRegistry);
-	}
+	const CONV_STUB_TASK_ID = convStubTaskId;
+	// productId is used as teamId in session row — use a sentinel since conversational
+	// turns are not team-scoped. The stub task's teamId (from createConversationalStubTask)
+	// is the actual FK target; productId is metadata only.
+	const CONV_STUB_PRODUCT_ID = "conv-stub-product";
 
-	// When a draft exists, nudge the model toward edit_bet; else toward create_bet.
-	// @lore AK4 Task 4: system nudge prevents the model from creating a second draft
-	// when one already exists. The server FORCES betId regardless (edit_bet wrapper),
-	// but the nudge reduces unnecessary create_bet calls.
-	const { composedPrompt: basePrompt } = composeAssistantPrompt(systemPromptText);
-	const nudge = currentDraftBetId
-		? `\n\n[CONTEXT: You previously drafted bet ${currentDraftBetId}. Use edit_bet to refine it; do not create a new bet unless the user explicitly asks for one.]`
-		: `\n\n[CONTEXT: No draft bet exists yet. If the user wants to shape a bet, use create_bet to draft one.]`;
-	const composedPrompt = basePrompt + nudge;
-
-	// --- Step 5: (persona composed above) ---
-
-	// --- Step 6: Start session + drain under timeout ---
-	let sessionHandle: import("@hyperidle/shared").SessionHandle | null = null;
+	const sessionDeps: ProvisionSessionDeps = {
+		db,
+		eventBus,
+		adapterPool,
+		workspace: new LocalSandboxAdapter(),
+		...(deps.mcpBridgeRegistry ? { mcpBridgeRegistry: deps.mcpBridgeRegistry } : {}),
+		...(deps.mcpBaseUrl ? { mcpBaseUrl: deps.mcpBaseUrl } : {}),
+	};
 
 	try {
-		// @lore AH3: SessionConfig sandboxPath/systemPromptPath are required by the interface
-		// but not used by the builtin adapter during a conversational turn (no task sandbox).
-		// We pass empty strings — the adapter uses assembledPrompt + messages instead.
-		// resolvedModel is REQUIRED by the builtin adapter (throws if missing — H1 fix).
-		// No `as unknown` cast: the type system now guards all required fields.
-		// messages carries the thread transcript so the adapter delivers the user's question.
-		// @lore AK1: assembledPrompt/sandboxPath/systemPromptPath are the post-rename session config fields (harness-vocab rename).
-		// @lore AK4: SessionConfig.tools stays [] — the builtin adapter ignores it and uses
-		// session.toolDefs (populated by setSessionToolRegistry). Dead field; documented.
-		const sessionConfig: SessionConfig = {
-			sessionId,
-			assembledPrompt: composedPrompt,
-			sandboxPath: "",
-			systemPromptPath: "",
-			modelTier: "workhorse",
-			tools: [], // dead field — adapter uses session.toolDefs from setSessionToolRegistry
+		const result = await provisionSession(sessionDeps, {
+			taskId: CONV_STUB_TASK_ID,
+			agentId: assistantAgentId,
+			productId: CONV_STUB_PRODUCT_ID,
+			sandboxBasePath,
 			resolvedModel,
 			resolvedFastModel,
-			messages: conversationMessages,
-		};
+			conversational: {
+				threadId,
+				assistantAgentId,
+				draftRegistry,
+				messages: conversationMessages,
+				// AR4b: strategy formation persona override — null = "no override; use agent row".
+				// @lore AR4b: systemPromptOverride carries the strategy's per-turn persona decision
+				// to provisionSession, which uses it in composeAssistantPrompt(effectivePersona).
+				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
+				systemPromptOverride: formation.persona,
+			},
+		});
 
-		const rawResult = await selected.adapter.startSession(sessionConfig);
-		sessionHandle = rawResult;
-
-		// AL6: one gate per assistant turn — compliant-by-construction (concept §4.4,
-		// always persists a reply), but observed for uniformity (AC4).
-		const assistantReturnGate = createReturnGate();
-
-		// Drain stream events under the timeout
-		const drainRace = await Promise.race([
-			drainStreamEvents(selected.adapter, rawResult, assistantReturnGate),
-			timeoutPromise(timeoutMs),
-		]);
-
-		if (drainRace === TIMEOUT_SENTINEL) {
-			// Hung provider — abort and persist provider_error
-			try {
-				await selected.adapter.stopSession(rawResult);
-			} catch {
-				// best-effort stop
-			}
-			await persistTurnFailure(db, eventBus, userId, threadId, new ProviderTimeoutError());
-			return;
-		}
-
-		const drainResult = drainRace;
-
-		if (drainResult.type === "error") {
+		// Map result to persisted reply or notice
+		if (result.outcome === "completed" && result.conversationalReply !== undefined) {
+			// Normal completion — persist the reply
+			const replyText = result.conversationalReply;
+			const messageId = crypto.randomUUID();
+			const now = new Date().toISOString();
+			// @lore AR4a: persist toolCalls on the reply message so resolveCurrentDraftBetId
+			// can rebind the draft betId on subsequent turns (transcript-based binding, AK4 §C).
+			// ToolCallSummary and CapturedToolCall are structurally identical; map directly.
+			const replyPayload: PlainPayload = {
+				text: replyText,
+				...(result.conversationalToolCalls && result.conversationalToolCalls.length > 0
+					? {
+							toolCalls: result.conversationalToolCalls.map((tc) => ({
+								name: tc.name,
+								input: tc.input,
+								output: tc.output,
+								status: tc.status,
+							})),
+						}
+					: {}),
+			};
+			await db.insert(messages).values({
+				id: messageId,
+				senderId: assistantAgentId,
+				threadId,
+				type: "plain",
+				payload: JSON.stringify(replyPayload),
+				clientKey: `ast-reply-${messageId}`,
+				createdAt: now,
+			});
+			const appendedEvent: ThreadMessageAppendedEvent = {
+				type: "thread_message_appended",
+				streamId: threadId,
+				threadId,
+				messageId,
+				messageType: "plain",
+				senderId: assistantAgentId,
+				timestamp: Date.now(),
+			};
+			eventBus.emit(appendedEvent);
+		} else if (result.outcome === "completed" && !result.conversationalReply) {
+			// Completed but no reply captured (empty response from model) — treat as provider_error
 			await persistTurnFailure(
 				db,
 				eventBus,
 				userId,
 				threadId,
-				new Error(drainResult.message ?? "Provider returned an error"),
+				new ProviderTimeoutError(), // best-fit notice class for empty/missing reply
 			);
-			return;
+		} else {
+			// crashed / budget_exhausted / not_returned — map to notice
+			await persistTurnFailure(
+				db,
+				eventBus,
+				userId,
+				threadId,
+				new Error(`Conversational turn ended with outcome: ${result.outcome}`),
+			);
 		}
-
-		// completion — persist the assistant reply
-		const replyText = drainResult.text;
-		const messageId = crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// Map CapturedToolCall[] → ToolCallSummary[] for the persisted payload
-		const toolCallSummaries: ToolCallSummary[] | undefined =
-			drainResult.toolCalls && drainResult.toolCalls.length > 0
-				? drainResult.toolCalls.map((tc) => ({
-						name: tc.name,
-						input: tc.input,
-						output: tc.output,
-						status: tc.status,
-					}))
-				: undefined;
-
-		const replyPayload: PlainPayload = {
-			text: replyText,
-			...(toolCallSummaries ? { toolCalls: toolCallSummaries } : {}),
-		};
-		await db.insert(messages).values({
-			id: messageId,
-			senderId: assistantAgentId,
-			threadId,
-			type: "plain",
-			payload: JSON.stringify(replyPayload),
-			clientKey: `ast-reply-${messageId}`,
-			createdAt: now,
-		});
-
-		const appendedEvent: ThreadMessageAppendedEvent = {
-			type: "thread_message_appended",
-			streamId: threadId,
-			threadId,
-			messageId,
-			messageType: "plain",
-			senderId: assistantAgentId,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(appendedEvent);
 	} catch (err) {
 		await persistTurnFailure(db, eventBus, userId, threadId, err);
-	} finally {
-		if (sessionHandle) {
-			try {
-				await selected.adapter.stopSession(sessionHandle);
-			} catch {
-				// best-effort
-			}
-		}
-		adapterPool.release(selected.id);
 	}
 }
 
@@ -630,88 +766,4 @@ function mapTranscriptToMessages(
 		result.push({ role, content: parsed.text });
 	}
 	return result;
-}
-
-// ---------------------------------------------------------------------------
-// Stream drain helpers
-// ---------------------------------------------------------------------------
-
-const TIMEOUT_SENTINEL = Symbol("TIMEOUT_SENTINEL");
-
-type DrainResult =
-	| {
-			type: "completion";
-			text: string;
-			toolCalls?: import("@hyperidle/shared").CapturedToolCall[];
-	  }
-	| { type: "error"; message: string };
-
-/**
- * Drain stream events from the adapter's streamEvents method.
- *
- * @lore AH3 S7: The prior implementation duck-typed the startSession result to
- * support test stubs that embedded streamEvents on the handle. That coupling masked
- * H1 (missing resolvedModel went unnoticed because stub adapters bypassed startSession
- * validation). Test stubs must now implement the real HarnessAdapter interface —
- * implement `streamEvents` on the adapter object, not on the session handle.
- *
- * @lore AK4: Returns CapturedToolCall[] from CompletionEvent.toolCalls when present
- * (populated by runChatTurn's bounded loop). Maps them to payload.toolCalls on the
- * persisted reply. No change for task-session completions (toolCalls is undefined there).
- */
-/**
- * AL6: drainStreamEvents threads a ReturnGate so site B is uniformly observed.
- *
- * @lore AL6: The assistant path is compliant-by-construction (concept §4.4) —
- * it ALWAYS persists a reply to a human-attended thread via the NEVER-silent
- * invariant. The gate is wired here for uniformity (AC4) and future-proofing:
- * a future assistant tool that suppressed the reply would be caught. We do NOT
- * emit session_not_returned on the assistant path because the structural return
- * (persisted reply) already satisfies the concept's intent.
- */
-async function drainStreamEvents(
-	adapter: import("@hyperidle/shared").HarnessAdapter,
-	handle: import("@hyperidle/shared").SessionHandle,
-	gate: ReturnType<typeof createReturnGate>,
-): Promise<DrainResult> {
-	const stream = adapter.streamEvents(handle);
-	let completionText = "";
-
-	try {
-		// AL6-observe-only: assistant turn compliant-by-construction; verdict deferred to caller (concept §4.4).
-		// The assistant path ALWAYS persists a reply (NEVER-silent invariant) so no session_not_returned
-		// verdict is ever emitted here. gate.observe() is wired for harness-uniform enforcement and
-		// future-proofing — a future assistant tool that suppressed the reply would be caught.
-		// evaluateReturn() is intentionally absent: the caller (runChatTurn) owns the verdict.
-		for await (const event of stream) {
-			// AL6: Observe every event — gate is read-only, never blocks events.
-			gate.observe(event);
-
-			if (event.type === "completion") {
-				completionText = event.text;
-				return {
-					type: "completion",
-					text: completionText,
-					...(event.toolCalls ? { toolCalls: [...event.toolCalls] } : {}),
-				};
-			}
-			if (event.type === "error") {
-				return {
-					type: "error",
-					message: event.message,
-				};
-			}
-		}
-	} catch {
-		return { type: "error", message: "Stream error" };
-	}
-
-	// Generator exhausted without explicit completion — treat as empty completion
-	return { type: "completion", text: completionText };
-}
-
-function timeoutPromise(ms: number): Promise<typeof TIMEOUT_SENTINEL> {
-	return new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-		setTimeout(() => resolve(TIMEOUT_SENTINEL), ms);
-	});
 }

@@ -157,6 +157,7 @@ async function provisionClaudeSettings(
 	// for observability/audit (Claude Code ignores unknown fields).
 	const settings = {
 		enableAllProjectMcpServers: true,
+		enabledMcpjsonServers: ["hyperidle"],
 		hooks: {
 			Stop: [
 				{
@@ -266,6 +267,10 @@ async function provisionCodexHome(
 		const src = path.join(userCodexDir, file);
 		const dst = path.join(codexHomeDir, file);
 		try {
+			// Preserve config already written by Phase 8b (notably the per-session
+			// [mcp_servers.hyperidle] block from writeCliMcpConfig). Auth can be
+			// refreshed, but config.toml is append/merge state by this point.
+			if (file === "config.toml" && fs.existsSync(dst)) continue;
 			fs.copyFileSync(src, dst);
 		} catch {
 			// File absent — fine; codex will use env-based auth.

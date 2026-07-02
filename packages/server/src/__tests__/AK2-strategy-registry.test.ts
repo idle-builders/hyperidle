@@ -58,6 +58,10 @@ function makeInertStrategy(): Strategy<HyperIdleDb> {
 		async decomposeBet(_req) {
 			return { decomposerAgentId: null, tasks: [] };
 		},
+		// AR4b: formAssistant stub — not implemented in registry tests (not under test here)
+		async formAssistant(_req) {
+			return { persona: null, assistantDraftSurface: "standard" as const };
+		},
 	};
 }
 

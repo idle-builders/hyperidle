@@ -193,17 +193,29 @@ function preMapOpencodeEvent(input: Record<string, unknown>): Record<string, unk
 			return { type: "tool_call", toolName, args };
 		}
 		case "step_start":
-		case "text":
-			// Lifecycle / streaming events with no actionable content — produce a benign
-			// empty completion so they don't fall through to unknownEvent (→ error).
+			// Lifecycle event with no actionable content — produce a benign empty completion
+			// so it doesn't fall through to unknownEvent (→ error).
 			//
-			// @lore AR2 opencode-events: opencode `--format json` emits step_start (turn-start
-			// lifecycle) and text (streaming text chunk) events alongside step_finish.
+			// @lore AR2 opencode-events: opencode `--format json` emits step_start at turn-start.
 			// Verified opencode 1.17.11: a simple `run` turn yields step_start → text → step_finish.
-			// Without these branches, step_start and text hit the default path → unknownEvent
+			// Without this branch, step_start hits the default path → unknownEvent
 			// → { type: "error", code: "UnknownHarnessEvent" } → provisionSession crashed = true.
-			// The fix: map them to a benign empty completion (same pattern as codex thread.started).
 			return { type: "completion", text: "" };
+		case "text": {
+			// opencode `text` events carry streaming text chunks in `part.text`.
+			// Real event shape (verified opencode 1.17.11):
+			//   { type:"text", part:{ type:"text", text:"<actual content>" } }
+			//
+			// @lore AR5 opencode-text-event: The actual LLM response arrives in `text` events
+			// (part.text), NOT in `step_finish`. step_finish carries only metadata (reason, tokens,
+			// cost). Without extracting part.text here, drainForCompletion sees only empty completions
+			// and returns "" → JSON.parse fails → blocked/empty. Verified 2026-06-30 by running
+			// `opencode run ... --format json` manually: step_start → text[part.text="..."] →
+			// step_finish[no output field]. Extract part.text so lastNonEmpty captures the response.
+			const part = isRecord(input.part) ? input.part : {};
+			const text = typeof part.text === "string" ? part.text : "";
+			return { type: "completion", text };
+		}
 		default:
 			return input;
 	}
@@ -250,7 +262,14 @@ function preMapCodexEvent(input: Record<string, unknown>): Record<string, unknow
 				typeof usage.output_tokens === "number" && Number.isFinite(usage.output_tokens)
 					? usage.output_tokens
 					: 0;
-			return { type: "token_usage", inputTokens, outputTokens };
+			const event: Record<string, unknown> = { type: "token_usage", inputTokens, outputTokens };
+			if (isFiniteNumber(usage.cached_input_tokens) && usage.cached_input_tokens >= 0) {
+				event.cachedInputTokens = usage.cached_input_tokens;
+			}
+			if (isFiniteNumber(usage.reasoning_output_tokens) && usage.reasoning_output_tokens >= 0) {
+				event.reasoningOutputTokens = usage.reasoning_output_tokens;
+			}
+			return event;
 		}
 		case "thread.started":
 		case "turn.started":
@@ -345,10 +364,20 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 				inputTokens: n.inputTokens as number,
 				outputTokens: n.outputTokens as number,
 			};
-			if (isModelTier(n.tier)) {
-				return { ...event, tier: n.tier };
-			}
-			return event;
+			const enriched: TokenUsageEvent = {
+				...event,
+				...(isFiniteNumber(n.cachedInputTokens) && n.cachedInputTokens >= 0
+					? { cachedInputTokens: n.cachedInputTokens }
+					: {}),
+				...(isFiniteNumber(n.cacheCreationInputTokens) && n.cacheCreationInputTokens >= 0
+					? { cacheCreationInputTokens: n.cacheCreationInputTokens }
+					: {}),
+				...(isFiniteNumber(n.reasoningOutputTokens) && n.reasoningOutputTokens >= 0
+					? { reasoningOutputTokens: n.reasoningOutputTokens }
+					: {}),
+				...(isModelTier(n.tier) ? { tier: n.tier } : {}),
+			};
+			return enriched;
 		}
 		case "pre_compaction": {
 			if (!(isFiniteNumber(n.contextTokens) && isFiniteNumber(n.maxTokens))) {

@@ -30,15 +30,41 @@ function mockFetchSuccess(systemPrompt = MOCK_SOUL_PROMPT): void {
 		const urlStr = typeof url === "string" ? url : url.toString();
 
 		if (urlStr.includes("/assistant") && method === "GET") {
-			return new Response(JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt }), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
+			return new Response(
+				JSON.stringify({
+					id: "ast-agent-1",
+					name: "Assistant",
+					systemPrompt,
+					harnessType: "builtin",
+					modelId: null,
+					modelProvider: "openrouter",
+				}),
+				{
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
 		}
 		if (urlStr.includes("/assistant") && method === "PATCH") {
 			const body = JSON.parse(opts?.body as string);
 			return new Response(
-				JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: body.systemPrompt }),
+				JSON.stringify({
+					id: "ast-agent-1",
+					name: "Assistant",
+					systemPrompt: body.systemPrompt,
+					harnessType: body.harnessType ?? null,
+					modelId: body.modelId ?? null,
+					modelProvider: body.modelProvider ?? null,
+				}),
+				{ status: 200, headers: { "Content-Type": "application/json" } },
+			);
+		}
+		// AR4c: mock GET /api/harnesses for the harness options
+		if (urlStr.includes("/harnesses") && method === "GET") {
+			return new Response(
+				JSON.stringify([
+					{ type: "builtin", name: "Built-in Harness", modelProviders: ["openrouter"] },
+				]),
 				{ status: 200, headers: { "Content-Type": "application/json" } },
 			);
 		}
@@ -52,13 +78,27 @@ function mockFetchError(): void {
 		const urlStr = typeof url === "string" ? url : url.toString();
 		if (urlStr.includes("/assistant") && method === "GET") {
 			return new Response(
-				JSON.stringify({ id: "ast-agent-1", name: "Assistant", systemPrompt: MOCK_SOUL_PROMPT }),
+				JSON.stringify({
+					id: "ast-agent-1",
+					name: "Assistant",
+					systemPrompt: MOCK_SOUL_PROMPT,
+					harnessType: null,
+					modelId: null,
+					modelProvider: null,
+				}),
 				{ status: 200, headers: { "Content-Type": "application/json" } },
 			);
 		}
 		if (urlStr.includes("/assistant") && method === "PATCH") {
 			return new Response(JSON.stringify({ error: "Internal error" }), {
 				status: 500,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		// AR4c: mock harnesses — return empty list for error test
+		if (urlStr.includes("/harnesses") && method === "GET") {
+			return new Response(JSON.stringify([]), {
+				status: 200,
 				headers: { "Content-Type": "application/json" },
 			});
 		}
@@ -174,13 +214,13 @@ describe("AD8b — SettingsAssistant component", () => {
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument();
 	});
 
-	it("shows helper text about system prompt usage", async () => {
+	it("shows helper text about assistant configuration", async () => {
 		mockFetchSuccess();
 		render(<SettingsAssistant userId="u-founder" />);
 
-		// Helper text is visible (may appear even before load)
+		// AR4c: description changed to the harness-config framing
 		await waitFor(() => {
-			expect(screen.getByText(/system prompt/i)).toBeInTheDocument();
+			expect(screen.getByText(/configure your personal assistant/i)).toBeInTheDocument();
 		});
 	});
 

@@ -1,0 +1,17 @@
+{
+  "id": "AR4",
+  "status": "in_progress",
+  "currentStep": "3-build-AR4b",
+  "ar4aStatus": "green — conversational mode on provisionSession; 4-lane reply tests pass; carve-out removed; AD2/R1 green; opencode text-event bug fixed. REVIEW-FLAG: confirm AH3/AK4/AH6 coverage-debt-allowlist move is honest.",
+  "buildStructure": "one PR on #387, build AR4a->AR4b->AR4c in order, each green before next (founder choice)",
+  "architectureApproved": 7,
+  "track": "AR",
+  "complexity": "L",
+  "worktree": ".worktrees/AR4",
+  "branch": "feat/AR4-assistant-turn-dispatcher-real-harness",
+  "prNumber": 387,
+  "startedAt": "2026-06-30T00:18:00Z",
+  "dependsOn": ["AR2"],
+  "scope": "REWRITTEN to product refactor: the assistant is a normal agent (harness-agnostic chat, strategy-shaped via formation event, settings-configurable). Boundary locked: Settings/Kernel owns harness+model; strategy owns persona+tools. AD2/R1 real-harness conversion + minimalStrategy + onBeforeTeardown seam already done on branch (keep); AH3/AK4/AH6 builtin-only assistant work to be replaced by the refactor.",
+  "notes": "Spec rewritten in TRACK-AR.md (M->L). Planning phase: concept (lock assistant-as-normal-agent) -> design (Settings assistant config UI) -> architecture (plan + likely split into sub-WPs: harness-agnostic conversational seam / strategy formation seam / settings config)."
+}

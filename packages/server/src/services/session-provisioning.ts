@@ -17,6 +17,7 @@ import {
 	buildRoutineSessionContextData,
 	buildSessionContextData,
 	checkCostCap,
+	composeAssistantPrompt,
 	recordCostAndCheck,
 	type ToolSummary,
 	writeSandboxAgentsMd,
@@ -24,6 +25,7 @@ import {
 import {
 	AL6_MAX_FORCE_RETURNS,
 	ConcurrencyLimitError,
+	type ConversationMessage,
 	CostCapExceededError,
 	type EventBus,
 	type Filesystem,
@@ -31,11 +33,14 @@ import {
 	type HarnessAdapter,
 	type IngestionHandle,
 	isInternalExtractionDrain,
+	isReturnAction,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
 	NoEligibleHarnessError,
+	type SessionConfig,
 	type SessionHandle,
+	type SessionMetrics,
 	type SessionOutcome,
 	scaleForCurrency,
 	type TaskState,
@@ -194,6 +199,23 @@ async function accumulateSessionTokensOnBet(
 export interface BeforeTeardownContext {
 	readonly sessionId: string;
 	readonly sandboxPath: string;
+}
+
+/**
+ * Read-only pre-start observation point after session files are written and
+ * before the external harness process is spawned.
+ *
+ * @lore session-setup proof: The harness-suite needs to prove AGENTS.md,
+ * CLAUDE.md, MCP config, and return hooks are produced in the exact production
+ * shape each binary reads, without spending an LLM call. This seam observes the
+ * already-built SessionConfig and sandbox after Phase 8b/8b-enforce. Returning
+ * "abort" stops before `harness.startSession` and lets normal teardown continue.
+ */
+export interface BeforeHarnessStartContext {
+	readonly sessionId: string;
+	readonly sandboxPath: string;
+	readonly adapter: SelectedEntry;
+	readonly sessionConfig: SessionConfig;
 }
 
 /**
@@ -361,6 +383,23 @@ export interface ProvisionSessionDeps {
 	 */
 	readonly onBeforeTeardown?: (ctx: BeforeTeardownContext) => void | Promise<void>;
 	/**
+	 * Optional observation hook fired after prompt/context/MCP/hook files are written
+	 * and before `harness.startSession`. Returning "abort" stops before spawning
+	 * the external harness and continues through normal teardown. Production callers
+	 * omit this; it exists for harness-facing integration tests that validate the
+	 * prepared sandbox and binary config surfaces without making an LLM call.
+	 */
+	readonly onBeforeHarnessStart?: (
+		ctx: BeforeHarnessStartContext,
+	) => void | "abort" | Promise<void | "abort">;
+	/**
+	 * Optional observer fired after `harness.startSession` succeeds.
+	 * Production callers use the explicit `runSession` callback path; this dep-level
+	 * hook lets provisionSession-based integration tests prove an abort stopped
+	 * before the external harness session started.
+	 */
+	readonly onHarnessStarted?: () => void;
+	/**
 	 * AO2: Optional mounter for filesystem placement + capture-back.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
@@ -427,6 +466,61 @@ export interface ProvisionSessionParams {
 	 * harness interface (concept rejection #8).
 	 */
 	readonly sessionWorkflow?: RegistrySessionWorkflow;
+	/**
+	 * AR4a: When set, this session is a CONVERSATIONAL-mode turn (the assistant
+	 * replying to a thread message). Context assembly switches to the conversation
+	 * branch — thread transcript is delivered via the assembled prompt / AGENTS.md
+	 * so every harness receives it. The stub `taskId` satisfies the sessions.taskId
+	 * NOT NULL FK but is ignored by the caller (mirrors the `routineId` precedent).
+	 *
+	 * `draftRegistry` is the caller-supplied draft tool surface (AR4a↔AR4b seam —
+	 * §3b). AR4a's caller (`runAssistantTurn`) populates it directly from
+	 * `buildAssistantDraftRegistry`; AR4b later reroutes that one call site to the
+	 * strategy formation answer. `provisionSession` forwards it to `buildToolRegistry`
+	 * without reaching into the builder — the seam is isolated to the caller.
+	 *
+	 * @lore AR4a: The result's stub `taskId` is meaningless in conversational mode —
+	 * the caller (`runAssistantTurn`) ignores it and reads only `conversationalReply`
+	 * + `sessionId` + `outcome` for notice mapping. Mirror the routine `@lore AA2`.
+	 *
+	 * @lore AR4a NIT-4: `messages` in the builtin sessionStartConfig is load-bearing
+	 * for the builtin path — builtin routes to `runChatTurn` only when `messages` is
+	 * non-empty (builtin-harness-adapter.ts:397). CLI harnesses receive the transcript
+	 * via the assembled prompt (AGENTS.md) and ignore `messages`. Both channels are
+	 * populated; the builtin channel is the correctness gate for the builtin lane.
+	 */
+	readonly conversational?: {
+		/** The thread the assistant is replying in. */
+		readonly threadId: string;
+		/** The assistant agent id (ast-${userId}). */
+		readonly assistantAgentId: string;
+		/**
+		 * Caller-supplied draft tool surface (AR4a↔AR4b seam, §3b).
+		 * Populated by `buildAssistantDraftRegistry` in AR4a; rerouted to the
+		 * strategy formation answer in AR4b. Forwarded to `buildToolRegistry`
+		 * as `extraDraftTools`; the registry forwards them alongside the role tools.
+		 * When absent, no draft tools are added (non-conversational sessions).
+		 */
+		readonly draftRegistry: import("../tools/tool-registry.js").ToolRegistry;
+		/**
+		 * Conversation messages for the builtin adapter's `runChatTurn` path.
+		 * Load-bearing for builtin (NIT-4): builtin routes to runChatTurn only
+		 * when messages is non-empty; if absent builtin falls into the task
+		 * planning loop and produces garbled output.
+		 */
+		readonly messages: import("@hyperidle/shared").ConversationMessage[];
+		/**
+		 * AR4b: Strategy formation answer — persona override for this turn.
+		 * null = no override; use the agent row's systemPrompt as-is.
+		 * undefined = not set by caller (pre-AR4b callers; treated as no override).
+		 *
+		 * @lore AR4b: The persona at turn time comes from the active strategy's
+		 * formAssistant() answer (concept §4 formation seam). It overrides the
+		 * agent row's systemPrompt for the assembled prompt / AGENTS.md of this
+		 * turn ONLY — the row is not mutated. null = "Minimal strategy: no override."
+		 */
+		readonly systemPromptOverride?: string | null;
+	};
 }
 
 export interface ProvisionSessionResult {
@@ -458,6 +552,35 @@ export interface ProvisionSessionResult {
 	 * Zero when no forcing was needed (agent returned on the first run).
 	 */
 	readonly forceReturnCount: number;
+	readonly metrics?: SessionMetrics;
+	/**
+	 * AR4a: The agent's reply text for a CONVERSATIONAL-mode turn — the last
+	 * non-empty `completion` event text from the drain. Present ONLY when
+	 * `params.conversational` was set AND the session outcome is "completed".
+	 * Absent (undefined) for task/routine sessions (byte-for-byte unchanged
+	 * result contract) and for crashed/budget_exhausted/not_returned conversational
+	 * turns (those map to a never-silent notice, not a fake reply).
+	 *
+	 * Mirrors the `returnVerdict?` optionality precedent.
+	 *
+	 * @lore AR4a WARNING-3: Blind `+=` accumulation DOUBLE-COUNTS on the claude
+	 * stream-json dialect: `preMapClaudeEvent` emits assistant blocks as deltas
+	 * AND restates the full answer in the terminal `result` line. We capture the
+	 * LAST NON-EMPTY completion text instead of concatenating — the terminal
+	 * `result` line overwrites the accumulated deltas with the correct full answer,
+	 * which is correct for claude (last = final) and safe for all other dialects
+	 * (builtin emits exactly one completion; codex/opencode emit the last reply
+	 * as the final stdout line / step_finish).
+	 */
+	readonly conversationalReply?: string;
+	/**
+	 * AR4a: captured tool calls from the conversational turn (builtin: from the
+	 * runChatTurn loop; CLI: not yet captured). Present only when the completion
+	 * event carries toolCalls (i.e. the agent made tool calls). Absent for text-only
+	 * replies and for task/routine sessions. Used by runAssistantTurn to persist
+	 * toolCalls on the reply message so resolveCurrentDraftBetId can rebind on turn 2.
+	 */
+	readonly conversationalToolCalls?: readonly import("@hyperidle/shared").CapturedToolCall[];
 }
 
 /**
@@ -871,17 +994,47 @@ export async function runSession(
 				}
 			: undefined,
 	};
-	const registry = buildToolRegistry(toolContext, {
-		role: agentRole,
-		// AL6 v4-final: inject hyperidle_return_status as a per-session tool.
-		// The tool reads ctx.sessionId → enforcementRegistry → { returned, exempt, forceCount, budgetLeft, forceMessage }.
-		extraTools: [returnStatusTool.forRegistry(enforcementRegistry)],
-		// AL7 Task 6: thread the session workflow into the registry so the invoke
-		// router classifies reversibility, routes irreversible calls to review, and
-		// permits the approved op (CAS-consume grant) on the grant-bearing session.
-		// Absent for sessions without a workflow (normal sessions, routines, drains).
-		sessionWorkflow: params.sessionWorkflow,
-	});
+	// AR4a §3b seam: in conversational mode, forward the caller-supplied draft tool
+	// surface into the registry. The draft tools (create_bet, edit_bet) are extracted
+	// from the caller-built ToolRegistry and injected as extraTools alongside the
+	// return-status tool. The seam is isolated to the call site — provisionSession
+	// never reaches into the builder directly (AR4b reroutes this in runAssistantTurn).
+	const conversationalDraftTools = params.conversational?.draftRegistry.definitions ?? [];
+	// @lore AR4a: Conversational mode uses ONLY [draftTools + return-status] — no role tools.
+	// Role tools for "assistant" include submit_review (an all-role tool registered without
+	// a roles filter). submit_review is a return action; the builtin adapter's force-return
+	// check (hasReturnActionInRegistry in runChatTurn) fires when it is in toolDefs, re-seeding
+	// toolIterations past MAX_TOOL_ITERATIONS and creating extra bets/side-effects.
+	// Fix: pass role:"__conversational__" — a sentinel that matches NO entry in
+	// ALL_TOOL_DEFINITIONS (UserRole is an open string). roleFiltered = []. Only
+	// conversationalDraftTools + returnStatusTool appear in definitions/toolDefs.
+	// Task/routine sessions are unaffected (they don't pass params.conversational).
+	const registry = params.conversational
+		? buildToolRegistry(toolContext, {
+				role: agentRole,
+				// @lore AR4a: useOnlyExtraTools=true suppresses roleFiltered so submit_review
+				// (and all other all-role tools) are excluded from conversational toolDefs.
+				// Without this, the builtin adapter's force-return check sees submit_review
+				// (a return action) in toolDefs, re-seeding toolIterations past MAX_TOOL_ITERATIONS.
+				// Conversational turns are compliant-by-construction; submit_review is irrelevant.
+				useOnlyExtraTools: true,
+				// @lore AR4a: returnStatusTool first (return gate bridge), draft tools after.
+				// The builtin adapter reads toolDefs for force-return check + callLlm tool specs.
+				extraTools: [
+					returnStatusTool.forRegistry(enforcementRegistry),
+					...conversationalDraftTools,
+				],
+				// No sessionWorkflow for conversational turns (AR4a: no review gate for chat).
+			})
+		: buildToolRegistry(toolContext, {
+				role: agentRole,
+				// AL6 v4-final: inject hyperidle_return_status as a per-session tool.
+				extraTools: [returnStatusTool.forRegistry(enforcementRegistry)],
+				// AL7 Task 6: thread the session workflow into the registry so the invoke
+				// router classifies reversibility, routes irreversible calls to review, and
+				// permits the approved op (CAS-consume grant) on the grant-bearing session.
+				sessionWorkflow: params.sessionWorkflow,
+			});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
 	//
@@ -911,8 +1064,46 @@ export async function runSession(
 		description: d.description,
 	}));
 
+	/** AR4a: true only in conversational mode — gates the reply-capture drain branch. */
+	const isConversational = !!params.conversational;
+	/** AR4a NIT-4: messages for the builtin chat path (load-bearing for builtin). */
+	let conversationalMessages: ConversationMessage[] | undefined;
+
 	let assembledPrompt: string;
-	if (params.routineId) {
+	if (params.conversational) {
+		// AR4a: Conversational mode — assemble thread transcript as the system prompt.
+		// The transcript reaches the model via the assembled prompt / AGENTS.md so
+		// every harness reads it. The builtin adapter additionally receives `messages`
+		// so it routes to `runChatTurn` (NIT-4 — load-bearing for builtin correctness).
+		//
+		// @lore AR4b: composeAssistantPrompt uses the strategy formation persona when
+		// provided (systemPromptOverride), falling back to the agent row's systemPrompt.
+		// null override = "Minimal Strategy, no persona knowledge" = use agent row default.
+		// The formation answer shapes the assembled prompt (AGENTS.md) at TURN TIME without
+		// mutating the users row. This satisfies AC3: switching the strategy changes the
+		// assistant's form on the NEXT turn.
+		//
+		// @lore AR4a: The toolSummaries passed here are for the role tools summary section.
+		// Draft tool summaries are not explicitly listed in the prompt here — the agent
+		// discovers them via the MCP bridge tool list (CLI) or the injected registry (builtin).
+		const effectivePersona =
+			params.conversational.systemPromptOverride !== undefined &&
+			params.conversational.systemPromptOverride !== null
+				? params.conversational.systemPromptOverride
+				: systemPromptText;
+		const { composedPrompt } = composeAssistantPrompt(effectivePersona);
+		// Use the caller-supplied messages (already loaded from DB by runAssistantTurn)
+		conversationalMessages = params.conversational.messages;
+		// Append conversation to the composed prompt for CLI harnesses (AGENTS.md channel)
+		const transcriptSection =
+			conversationalMessages.length > 0
+				? "\n\n## Conversation\n" +
+					conversationalMessages
+						.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+						.join("\n")
+				: "";
+		assembledPrompt = composedPrompt + transcriptSection;
+	} else if (params.routineId) {
 		// Routine session: read routine + agent + team context (no task/bet).
 		const routineContextData = await buildRoutineSessionContextData(db, {
 			sessionId,
@@ -977,7 +1168,27 @@ export async function runSession(
 	let mcpTokenEnv: Record<string, string> | undefined;
 	if (mcpBridgeRegistry && mcpBaseUrl) {
 		try {
-			const bridge = await createMcpBridge({ sessionId, registry });
+			const bridge = await createMcpBridge({
+				sessionId,
+				registry,
+				onToolCall: ({ toolName, args }) => {
+					if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
+
+					returnGate.observe({
+						type: "tool_call",
+						toolName,
+						args: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
+					});
+					if (selectedAdapter.meta.type === "opencode") {
+						aborted = true;
+						setTimeout(() => {
+							void sessionRunRegistry.abort(sessionId).catch(() => {
+								// The harness may already have exited after the return action.
+							});
+						}, 0);
+					}
+				},
+			});
 			mcpBridgeRegistry.register(bridge);
 			mcpBridgeToken = bridge.token;
 			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
@@ -1138,8 +1349,17 @@ export async function runSession(
 
 	// AL6 v4-final: register this session in the enforcement registry now that the
 	// real gate exists. The returnStatusTool reads from this registry (ctx.sessionId → entry).
-	// Exempt = internal-extraction drain (empty tools list → structurally cannot return).
-	const exempt = isInternalExtractionDrain({ tools: toolsForRole(agentRole).map((d) => d.name) });
+	// Exempt = internal-extraction drain (empty tools list → structurally cannot return)
+	// OR conversational mode (compliant-by-construction: the reply IS the return artifact).
+	//
+	// @lore AR4a: Conversational turns are compliant-by-construction (concept §4.4) —
+	// the turn's return is the persisted assistant reply row, not a tool call. The
+	// return gate is exempt for conversational mode to prevent a spurious `not_returned`
+	// outcome from the session drain (which evaluates the gate after the drain completes).
+	// This mirrors the AL6 lore in the old assistant-turn.ts @lore AL6 comment.
+	const exempt =
+		isConversational ||
+		isInternalExtractionDrain({ tools: toolsForRole(agentRole).map((d) => d.name) });
 	enforcementRegistry.register(sessionId, { gate: returnGate, forceCount: 0, exempt });
 
 	let totalCostCents = 0;
@@ -1184,6 +1404,10 @@ export async function runSession(
 		// AL7 delta: thread per-session MCP token env var (codex: HYPERIDLE_MCP_TOKEN)
 		// into SessionConfig so startSession can inject it outside the envAllowlist (N6).
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+		// AR4a NIT-4: messages is load-bearing for the builtin chat path — builtin
+		// routes to runChatTurn only when messages is non-empty (builtin-harness-adapter.ts:397).
+		// CLI harnesses ignore messages; they receive the transcript via AGENTS.md.
+		...(conversationalMessages ? { messages: conversationalMessages } : {}),
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.
@@ -1191,7 +1415,33 @@ export async function runSession(
 	// adapterCapabilities already retrieved above for provisionReturnHook.
 	const interceptToolCalls = !(adapterCapabilities.mcpSupport && mcpBridgeToken);
 
+	let beforeHarnessStartError: unknown;
+	try {
+		const beforeHarnessStartResult = await deps.onBeforeHarnessStart?.({
+			sessionId,
+			sandboxPath,
+			adapter: selectedAdapter,
+			sessionConfig: sessionStartConfig,
+		});
+		if (beforeHarnessStartResult === "abort") {
+			aborted = true;
+		}
+	} catch (err) {
+		beforeHarnessStartError = err;
+		aborted = true;
+	}
+
 	let harnessHandle: SessionHandle | null = null;
+	let metrics: SessionMetrics | undefined;
+	// AR4a: hoisted outside the try/finally so the completed return site (line ~1418)
+	// can reference it. Stays "" for task/routine sessions (isConversational=false).
+	let conversationalReplyText = "";
+	// AR4a: tool calls captured from the last non-empty completion event.
+	// Used to persist toolCalls on the reply message so resolveCurrentDraftBetId
+	// can rebind on subsequent turns (transcript-based draft binding, AK4 §C).
+	let conversationalToolCallsCapture:
+		| readonly import("@hyperidle/shared").CapturedToolCall[]
+		| undefined;
 
 	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
 	// on errors. Released after the single run.
@@ -1203,13 +1453,15 @@ export async function runSession(
 	// re-engage (cli-harness-adapter.ts). The drain-gate floor catches any escape.
 	try {
 		// ── Phase 9: start the harness session (exactly ONCE in v4).
-		try {
-			// Role-based tool authorization: facilitator-only tools are stripped
-			// from builder/growth/brand_voice sessions. See G1 AC6.
-			harnessHandle = await harness.startSession(sessionStartConfig);
-		} catch {
-			// startSession failed — treat as crash.
-			crashed = true;
+		if (!aborted) {
+			try {
+				// Role-based tool authorization: facilitator-only tools are stripped
+				// from builder/growth/brand_voice sessions. See G1 AC6.
+				harnessHandle = await harness.startSession(sessionStartConfig);
+			} catch {
+				// startSession failed — treat as crash.
+				crashed = true;
+			}
 		}
 
 		if (harnessHandle) {
@@ -1226,6 +1478,18 @@ export async function runSession(
 			onHarnessStarted?.();
 
 			// ── Phase 10: drain the event stream (single pass in v4).
+			//
+			// AR4a: conversational reply accumulator — track the LAST non-empty
+			// completion text (not blind +=). See WARNING-3: the claude stream-json
+			// dialect emits assistant deltas AND restates the full answer in the
+			// terminal `result` line via preMapClaudeEvent. Blind `+=` double-counts.
+			// Taking the last non-empty completion means the terminal `result` line
+			// (full answer) overwrites the intermediate delta fragments — correct for
+			// claude. For builtin (one completion) and codex/opencode (last stdout
+			// line / step_finish), last-non-empty is identical to the reply text.
+			// Guarded by `isConversational` — zero cost for task/routine sessions.
+			// (conversationalReplyText declared at outer scope — hoisted for the
+			// completed return site after the try/finally block.)
 			try {
 				for await (const event of harness.streamEvents(harnessHandle)) {
 					// AL6: Observe every event FIRST — the gate is read-only.
@@ -1275,6 +1539,20 @@ export async function runSession(
 						if (interceptToolCalls && selectedAdapter.meta.type !== "builtin") {
 							await registry.invoke(event.toolName, event.args);
 						}
+					} else if (event.type === "completion") {
+						// AR4a: capture the last non-empty completion text (WARNING-3).
+						// Also capture tool calls from the same completion for transcript binding.
+						// Guard on isConversational — inert for task/routine sessions.
+						if (isConversational && event.text.length > 0) {
+							conversationalReplyText = event.text;
+							// @lore AR4a: capture toolCalls with the completion text so
+							// resolveCurrentDraftBetId can rebind the draft bet on turn 2.
+							// The last non-empty completion carries the accumulated tool calls
+							// from the entire tool-use loop (builtin: CapturedToolCall[] per
+							// runChatTurn; CLI: not yet captured, undefined is safe).
+							conversationalToolCallsCapture =
+								event.toolCalls && event.toolCalls.length > 0 ? event.toolCalls : undefined;
+						}
 					} else if (event.type === "error") {
 						crashed = true;
 						break;
@@ -1287,7 +1565,7 @@ export async function runSession(
 			// Stop the harness session.
 			if (crashed) {
 				try {
-					await harness.stopSession(harnessHandle);
+					metrics = (await harness.stopSession(harnessHandle))?.metrics;
 				} catch (stopErr) {
 					// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 					console.warn(
@@ -1296,7 +1574,7 @@ export async function runSession(
 					);
 				}
 			} else {
-				await harness.stopSession(harnessHandle);
+				metrics = (await harness.stopSession(harnessHandle))?.metrics;
 			}
 		}
 	} finally {
@@ -1386,6 +1664,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1410,6 +1689,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1420,7 +1700,15 @@ export async function runSession(
 	// teardown branch for abort. We must check `aborted` here to correctly map
 	// an intentional handoff-abort to the "stopped" (exempt) end-reason and avoid
 	// spuriously flagging a handoff-abort as `not_returned`.
-	const returnEndReason = aborted ? "stopped" : "completed";
+	//
+	// @lore AR4a: Conversational turns are compliant-by-construction (concept §4.4)
+	// — the reply IS the return artifact. Map to "stopped" so evaluateReturn returns
+	// "returned" without observing a return-action tool call. Using "stopped" is
+	// honest: the session ended normally at the agent's natural completion boundary
+	// (no external abort), and the return verdict is correctly "returned".
+	// The enforcementRegistry.exempt flag only guards the returnStatusTool path;
+	// this mapping guards the evaluateReturn path at teardown.
+	const returnEndReason = aborted || isConversational ? "stopped" : "completed";
 	const returnVerdict = evaluateReturn(returnGate, returnEndReason);
 
 	if (returnVerdict === "not_returned") {
@@ -1455,6 +1743,7 @@ export async function runSession(
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: notReturnedForceCount,
+			...(metrics ? { metrics } : {}),
 		};
 	}
 
@@ -1470,6 +1759,10 @@ export async function runSession(
 	await workspace.destroy(sandboxHandle);
 	enforcementRegistry.unregister(sessionId);
 
+	if (beforeHarnessStartError) {
+		throw beforeHarnessStartError;
+	}
+
 	return {
 		sessionId,
 		outcome: "completed",
@@ -1477,6 +1770,15 @@ export async function runSession(
 		taskId: params.taskId,
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),
+		...(metrics ? { metrics } : {}),
+		// AR4a: thread the captured reply text + tool calls onto the completed return ONLY.
+		// Absent (undefined) for task/routine sessions (isConversational=false →
+		// conversationalReplyText stays ""). Absent for crashed/budget/not_returned
+		// (those fall through the other return sites above; callers map them to notices).
+		...(isConversational ? { conversationalReply: conversationalReplyText } : {}),
+		...(isConversational && conversationalToolCallsCapture
+			? { conversationalToolCalls: conversationalToolCallsCapture }
+			: {}),
 	};
 }
 
@@ -1558,5 +1860,5 @@ export async function provisionSession(
 	params: ProvisionSessionParams,
 ): Promise<ProvisionSessionResult> {
 	const admitted = await admitSession(deps, params);
-	return runSession(deps, params, admitted);
+	return runSession(deps, params, admitted, deps.onHarnessStarted);
 }

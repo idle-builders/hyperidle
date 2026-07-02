@@ -39,7 +39,7 @@ function makeFs(overrides: Partial<Filesystem>): Filesystem {
 	};
 }
 
-describe("selectMountAdapter — W4 selection precedence", () => {
+describe("selectMountAdapter chooses the correct filesystem adapter", () => {
 	it("code + connectionId present → GitCloneAdapter (id='git-clone')", () => {
 		const fs = makeFs({ connectionId: "conn-123" });
 		const adapter = selectMountAdapter(fs, makeDeps());
@@ -146,7 +146,7 @@ describe("selectMountAdapter — W4 selection precedence", () => {
 		expect(adapter.id).toBe("cloud-not-built:dropbox");
 	});
 
-	it("doc_set + s3 source → CloudNotBuiltAdapter", () => {
+	it("document set with cloud object storage source uses CloudNotBuiltAdapter", () => {
 		const fs = makeFs({
 			kind: "doc_set",
 			source: "s3",

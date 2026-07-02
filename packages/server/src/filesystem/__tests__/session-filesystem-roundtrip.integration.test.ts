@@ -1,5 +1,5 @@
 /**
- * AO2 — Lane (a): CI-able real end-to-end session roundtrip (§12 Lane a).
+ * Filesystem Lane (a): CI-able real end-to-end session roundtrip (§12 Lane a).
  *
  * Drives the REAL admitSession → runSession → teardown chain with:
  * - REAL RegistryFilesystemMounter + REAL GitWorktreeAdapter wired into ProvisionSessionDeps
@@ -218,7 +218,7 @@ async function seedDomain(
 
 // ── Lane (a) test ─────────────────────────────────────────────────────────────
 
-describe("AO2 Lane (a) — real session roundtrip (real mounter + edit-stub harness)", () => {
+describe("real session roundtrip uses the filesystem mounter and edit harness", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {

@@ -37,7 +37,7 @@ async function createWorkingClone(bareDir: string, parentDir: string): Promise<s
 	return workDir;
 }
 
-describe("GitRunner — real on-disk round-trip (AO2 inbound verbs)", () => {
+describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {

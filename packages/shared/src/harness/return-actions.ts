@@ -31,11 +31,13 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
 /**
  * Strip a leading MCP namespace prefix from a tool name.
  *
- * CLI harnesses (claude/codex/opencode) route HyperIdle tools through the MCP
- * bridge, where they arrive NAMESPACED as `mcp__<server>__<bare-name>` (e.g.
- * `mcp__hyperidle__send_message`). The bare name is `send_message`. The builtin
- * harness calls bare names directly (no namespace). This helper normalises both
- * forms to the bare name so callers can do a single set lookup.
+ * CLI harnesses route HyperIdle tools through the MCP bridge, where they arrive
+ * namespaced by client dialect. Claude/Codex use `mcp__<server>__<bare-name>`
+ * (e.g. `mcp__hyperidle__send_message`). OpenCode exposes tools as
+ * `<server>_<bare-name>` (e.g. `hyperidle_send_message`). The bare name is
+ * `send_message`. The builtin harness calls bare names directly (no namespace).
+ * This helper normalises all forms to the bare name so callers can do a single
+ * set lookup.
  *
  * Pattern: `mcp__<server>__<name>` → `<name>`. Any string not matching the
  * pattern is returned unchanged (idempotent for bare names and unknown forms).
@@ -48,7 +50,9 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
 function stripMcpNamespace(toolName: string): string {
 	// `mcp__<server>__<bare>` — two leading double-underscore-delimited segments.
 	const match = /^mcp__.+?__(.+)$/.exec(toolName);
-	return match?.[1] ?? toolName;
+	if (match?.[1]) return match[1];
+	const opencodeMatch = /^hyperidle_(.+)$/.exec(toolName);
+	return opencodeMatch?.[1] ?? toolName;
 }
 
 /**
