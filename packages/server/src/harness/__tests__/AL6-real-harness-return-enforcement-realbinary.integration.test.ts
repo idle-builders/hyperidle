@@ -335,7 +335,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// puts the child in its own process group so CC's SIGTERM cascade doesn't kill
 	// it before the hook fires. Proven end-to-end in vitest: bridge callCount=1.
 
-	describe("[transport:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
+	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
 		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-fb-"));
@@ -587,6 +587,21 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
 		}, 120_000);
+
+		test("claude adapter config carries prompt and return-enforcement channel", async () => {
+			const { CLAUDE_CLI_CONFIG } = await import("../../harness/adapter-pool.js");
+			const args = CLAUDE_CLI_CONFIG.args;
+
+			expect(args).toContain("{{prompt}}");
+			expect(CLAUDE_CLI_CONFIG.returnEnforcementChannel).toBe("settings-claude");
+		});
+
+		test("LIVE: claude binary is reachable and version is valid", async () => {
+			const { stderr, stdout } = await execFileAsync("claude", ["--version"], {
+				timeout: 10_000,
+			});
+			expect(`${stdout}${stderr}`.trim().length).toBeGreaterThan(0);
+		}, 30_000);
 	});
 
 	// ── CODEX CLI (binary+auth gated, LIVE ENFORCEMENT) ──────────────────────
@@ -609,7 +624,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// The hook format uses decision:block JSON on stdout (not exit 2 + stderr).
 	// Trust: --dangerously-bypass-hook-trust bypasses hash-check for automation.
 
-	describe("[transport:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
+	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
 		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-live-"));
@@ -879,6 +894,23 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
 		}, 60_000);
+
+		test("LIVE: codex binary is reachable, auth present, and version is valid", async () => {
+			const { stdout: versionOut } = await execFileAsync("codex", ["--version"], {
+				timeout: 10_000,
+			});
+			expect(versionOut.trim()).toMatch(/\d+\.\d+/);
+
+			const { stdout: authOut, stderr: authErr } = await execFileAsync(
+				"codex",
+				["login", "status"],
+				{
+					timeout: 10_000,
+				},
+			);
+			const authText = `${authOut}\n${authErr}`.toLowerCase();
+			expect(authText).toMatch(/authenticated|logged in|login|account/);
+		}, 30_000);
 	});
 
 	// ── OPENCODE CLI (binary+auth gated) ────────────────────────────────────
@@ -908,7 +940,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// OpenRouter models: "openrouter/~anthropic/claude-haiku-latest".
 	// Use `opencode models` to list valid IDs for the configured provider.
 
-	describe("[transport:opencode] opencode CLI (process-reengage channel)", () => {
+	describe("[harness:opencode] opencode CLI (process-reengage channel)", () => {
 		requireHarness("opencode");
 		test("FULL BINARY PROOF: spawn real opencode run headless → LLM turn completes → JSON output received", async () => {
 			// Spawn opencode run with a trivial prompt, fast model, JSON output.
@@ -1130,7 +1162,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	// file (not a shell script). The adapter polls it between turns. The OS hook path
 	// (settings-claude/settings-codex/process-reengage) is not used for builtin.
 
-	describe("[transport:builtin] builtin in-process (builtin-loop channel, real route)", () => {
+	describe("[harness:builtin] builtin in-process (builtin-loop channel, real route)", () => {
 		requireHarness("builtin");
 
 		test("provisionReturnHook dispatches builtin-loop channel → no-op (no file artifact, in-process enforcement)", async () => {
@@ -1200,6 +1232,58 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
 			} finally {
 				await realServer.close();
+			}
+		});
+
+		test("registered builtin harness capabilities declare builtin-loop return enforcement", async () => {
+			const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
+			const pool = await createLocalAdapterPool();
+			const caps = pool.getCapabilitiesByType("builtin");
+
+			expect(caps?.returnEnforcement).toBe("builtin-loop");
+			expect(caps?.mcpSupport).toBe(false);
+		});
+
+		test("real enforcement route rejects missing bearer token before accepting bearer token", async () => {
+			const bridgeToken = `builtin-auth-token-${Math.random().toString(36).slice(2)}`;
+			const testSessionId = `builtin-auth-session-${Math.random().toString(36).slice(2)}`;
+			const realServer = await startRealServer(bridgeToken, testSessionId);
+
+			try {
+				const returnStatusUrl = `${realServer.url}/api/mcp/${bridgeToken}/return-status`;
+				const rejected = await fetch(returnStatusUrl, { method: "POST" });
+				expect(rejected.status).toBe(401);
+
+				const accepted = await fetch(returnStatusUrl, {
+					method: "POST",
+					headers: { Authorization: `Bearer ${bridgeToken}` },
+				});
+				expect(accepted.status).toBe(200);
+			} finally {
+				await realServer.close();
+			}
+		});
+
+		test("builtin-loop provisioning is idempotent and leaves no filesystem hook artifact", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-builtin-idem-"));
+
+			try {
+				const bridgeToken = `builtin-idem-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+				const opts = {
+					sandboxPath,
+					channel: "builtin-loop" as const,
+					bridgeToken,
+					mcpUrl,
+					forceBudget: 2,
+				};
+
+				await provisionReturnHook(opts);
+				await provisionReturnHook(opts);
+
+				expect(fs.readdirSync(sandboxPath)).toHaveLength(0);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
 		});
 	});

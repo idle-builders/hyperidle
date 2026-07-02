@@ -467,7 +467,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// within sandboxBasePath. The MCP server is reused but the bridge is rebuilt
 	// with a fresh token between sessions.
 
-	describe("[transport:claude] claude-code CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:claude] claude-code CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("claude");
 		test("FULL BINARY PROOF session-1: real claude calls commit_file → MCP bridge → capturing router (callCount>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "s1-"));
@@ -774,7 +774,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// Both pipe+close and /dev/null redirect produce "Reading additional input from stdin..."
 	// — that message is just informational, not a hang indicator.
 
-	describe("[transport:codex] codex CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:codex] codex CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("codex");
 		test("FULL BINARY PROOF session-1: real codex calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			// @lore AL7 T3 codex: writeCliMcpConfig and CLI_TOOL_CONFIGS.codex.mcpConfig
@@ -1034,6 +1034,40 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				await testServer.close();
 			}
 		}, 180_000);
+
+		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "codex-wiring-"));
+			const testSessionId = `al7-codex-wiring-${Math.random().toString(36).slice(2, 10)}`;
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const initResponse = await fetch(mcpUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+						Accept: "application/json, text/event-stream",
+					},
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2025-03-26",
+							capabilities: {},
+							clientInfo: { name: "al7-codex-test", version: "1.0" },
+						},
+					}),
+				});
+
+				expect(initResponse.status).toBe(200);
+				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
+				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
+			} finally {
+				await testServer.close();
+			}
+		}, 30_000);
 	});
 
 	// ── BUILTIN (OpenRouter in-process, MCP bridge wiring) ───────────────────
@@ -1075,7 +1109,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 sanity-break opencode: Wrong token in opencode.json → 401 from
 	// bridge registry → opencode gets a tool error → captured stays 0 → assertion fails.
 
-	describe("[transport:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
+	describe("[harness:opencode] opencode CLI (real binary, MCP-routed two-session loop)", () => {
 		requireHarness("opencode");
 		test("FULL BINARY PROOF session-1: real opencode calls commit_file → MCP bridge → capturing router (captured>=1)", async () => {
 			const s1SandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-s1-"));
@@ -1297,11 +1331,45 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				await testServer.close();
 			}
 		}, 180_000);
+
+		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "opencode-wiring-"));
+			const testSessionId = `al7-opencode-wiring-${Math.random().toString(36).slice(2, 10)}`;
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const initResponse = await fetch(mcpUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+						Accept: "application/json, text/event-stream",
+					},
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2025-03-26",
+							capabilities: {},
+							clientInfo: { name: "al7-opencode-test", version: "1.0" },
+						},
+					}),
+				});
+
+				expect(initResponse.status).toBe(200);
+				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
+				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
+			} finally {
+				await testServer.close();
+			}
+		}, 30_000);
 	});
 
 	// ── BUILTIN (in-process, bridge wiring proof) ─────────────────────────────
 
-	describe("[transport:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {
+	describe("[harness:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {
 		requireHarness("builtin");
 
 		test("MCP bridge wiring: commit_file exposed via production bridge + real server reachable via HTTP (builtin lane)", async () => {
@@ -1358,5 +1426,46 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				await testServer.close();
 			}
 		}, 30_000);
+
+		test("session-1 capture path: commit_file is held for review and does not write file", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "builtin-capture-"));
+			try {
+				const router = createCapturingRouter(sandboxPath);
+				const result = await router.registry.invoke("commit_file", {
+					path: "proof.txt",
+					content: "al7-proof",
+				});
+
+				expect(result.success).toBe(false);
+				if (result.success) throw new Error("commit_file unexpectedly executed in capture mode");
+				expect(result.code).toBe("AWAITING_REVIEW");
+				expect(router.captured).toHaveLength(1);
+				expect(fs.existsSync(path.join(sandboxPath, "proof.txt"))).toBe(false);
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		});
+
+		test("session-2 grant path: approved commit_file executes and writes the real file", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "builtin-grant-"));
+			try {
+				const router = createCapturingRouter(sandboxPath);
+				const args = {
+					path: "proof.txt",
+					content: "al7-proof",
+				};
+				const captured = await router.registry.invoke("commit_file", args);
+				expect(captured.success).toBe(false);
+				const capturedCall = router.captured[0]!;
+				router.approvedCall = capturedCall;
+				router.setMode("grant-bearing");
+
+				const granted = await router.registry.invoke("commit_file", args);
+				expect(granted.success).toBe(true);
+				expect(fs.readFileSync(path.join(sandboxPath, "proof.txt"), "utf-8")).toBe("al7-proof");
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		});
 	});
 });
