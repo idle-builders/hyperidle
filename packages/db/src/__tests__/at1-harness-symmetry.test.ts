@@ -2,17 +2,15 @@
  * AT1 — assertHarnessSymmetry unit tests (AC3).
  *
  * Ports every adversarial case from ar2-per-harness-floor.test.ts onto the new
- * assertHarnessSymmetry function (D4: per-harness ≥1 floor + untagged guard).
+ * assertHarnessSymmetry function (D4: equal-count floor + untagged guard).
  * All ported cases must still FAIL (return a violation string) for the same inputs,
- * EXCEPT the "unequal positives" case — relaxed in AO2 to allow multi-file affected
- * slices where different WP files have different per-harness test counts by design.
  *
  * assertHarnessSymmetry(byHarness, agenticExecuted, supported): string | null
  *   agenticExecuted === 0                       → null (nothing ran)
  *   agenticExecuted > 0 && no tagged buckets     → string (untagged guard)
- *   agenticExecuted > 0 && all ≥1 per harness   → null (every harness ran)
+ *   agenticExecuted > 0 && equal positive buckets → null (every harness ran same matrix)
  *   agenticExecuted > 0 && one zero, others pos  → string
- *   agenticExecuted > 0 && unequal positives     → null (all ≥1; count equality not required)
+ *   agenticExecuted > 0 && unequal positives     → string
  */
 
 import { describe, expect, test } from "vitest";
@@ -78,18 +76,18 @@ describe("assertHarnessSymmetry — D4 conditional symmetry + untagged guard", (
 		expect(v).toMatch(/codex/);
 	});
 
-	test("unequal positives → null (all ≥1; AO2 relaxed — multi-file slices naturally vary)", () => {
-		// When multiple WP harness files land in the same affected slice, each file
-		// has its own per-harness test count by design (e.g., AL6 has 2/3/4/5 per harness).
-		// As long as every harness has ≥1 executed assertion, the floor passes.
-		// Structural per-harness coverage is enforced by honest-harness-guard lint.
+	test("unequal positives → violation (same supported feature surface must run same count)", () => {
 		const byHarness = {
 			builtin: { executed: 3, skipped: 0 },
 			claude: { executed: 2, skipped: 0 },
 			codex: { executed: 2, skipped: 0 },
 			opencode: { executed: 2, skipped: 0 },
 		};
-		expect(assertHarnessSymmetry(byHarness, 9, SUPPORTED)).toBeNull();
+		const v = assertHarnessSymmetry(byHarness, 9, SUPPORTED);
+		expect(v).not.toBeNull();
+		expect(v).toMatch(/UNEQUAL|same HyperIdle-facing feature surface/i);
+		expect(v).toMatch(/builtin:3/);
+		expect(v).toMatch(/claude:2/);
 	});
 });
 

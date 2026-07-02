@@ -106,7 +106,11 @@ function buildPatchUpdateSet(data: PatchAgentData): Record<string, unknown> {
  * @param modelId — the model ID to validate (only for anthropic; null = no per-agent model)
  * @param pool — the adapter pool (null = no pool, skip registry checks)
  */
-function validateAgentConfig(
+/**
+ * AR4c: Exported so the assistant PATCH route can reuse the same triple validator
+ * without a copy. The assistant row is an AI user with agent semantics.
+ */
+export function validateAgentConfig(
 	effectiveHarnessType: string | null,
 	effectiveProvider: string | null,
 	modelId: string | null | undefined,

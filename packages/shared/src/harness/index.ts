@@ -7,6 +7,7 @@ export type {
 	ReturnHookConfig,
 	SessionConfig,
 	SessionHandle,
+	SessionMetrics,
 	SessionResult,
 	SessionWorkflow,
 } from "./harness-adapter.js";

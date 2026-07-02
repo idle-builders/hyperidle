@@ -342,6 +342,18 @@ Same PM role-match, `tasks: []`. The Fabric's knowledge edge enters at `assemble
 - **Turn-source precedence.** `plan.tasks` beats the override (test seam), which beats the real turn. The override never beats `plan.tasks` — that would let a test mask a Strategy decision.
 - **Empty-list asymmetry.** `plan.tasks === []` means "Strategy authored no breakdown → fall through to override/turn." An empty `taskList` produced by the turn means `blocked/empty`. Same `[]` value, opposite meaning depending on origin. `@lore AK8` comments at both sites.
 
+### `runRealPmTurn` — Branch 3 production path (AR5 as-built)
+
+Branch 3 runs `runRealPmTurn` (`bet-decomposition.ts:546`). Four things are true of this path that are not obvious from the flow diagram:
+
+**Does NOT go through `provisionSession`.** `runRealPmTurn` calls `deps.adapterPool.select()` directly — it is a scratch-sandbox PM turn, not a task session. Driving `provisionSession` here would prove "a real agent ran a session," not "a real agent decomposed a bet." They are different seams and must not be unified.
+
+**CLI harnesses receive bet context via AGENTS.md and CLAUDE.md.** Before spawning the adapter, `runRealPmTurn` writes the full system prompt (base + bet goal + done condition) to both `<scratchSandboxPath>/AGENTS.md` and `<scratchSandboxPath>/CLAUDE.md`. The adapter spawns all CLI harnesses (codex, claude, opencode) with `cwd: config.sandboxPath` pointing at the scratch sandbox, so each harness reads its own project-context file on startup. All three harnesses receive identical bet context by this mechanism — there is no harness-specific truncation or fallback.
+
+**`drainForCompletion` returns the LAST non-empty completion.** CLI adapters emit multiple completion events during a session: init/system events map to empty strings, intermediate blocks carry partial text, and the final event carries the full response. `drainForCompletion` collects the last non-empty completion text across the full stream. Returning on the first completion would capture an empty init event and cause `blocked/empty` on every real CLI run.
+
+**JSON code fences are stripped before `JSON.parse`.** Models often wrap their response in ` ```json … ``` ` fences even when instructed not to. `runRealPmTurn` strips leading ` ``` ` or ` ```json ` and trailing ` ``` ` before parsing. Malformed JSON after stripping → empty list → `blocked/empty` (fail-closed; no partial parse).
+
 ---
 
 ## 4. As-built — AK3 (shipped 2026-06-15, superseded by §3c AK8)

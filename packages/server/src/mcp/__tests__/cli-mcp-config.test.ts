@@ -9,7 +9,7 @@
  *
  *   opencode: opencode.json contains
  *             mcp.hyperidle = { type:"remote", url, headers:{Authorization:"Bearer <tok>"},
- *             enabled:true }.
+ *             enabled:true } and returns OPENCODE_CONFIG pointing to that file.
  *
  * This test MUST BE RED today:
  *   The `writeCliMcpConfig` function does not exist yet.
@@ -193,7 +193,7 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			expect(hyperidle?.enabled).toBe(true);
 		});
 
-		test("returns empty tokenEnv (token is inline in the json, no env var needed)", () => {
+		test("returns OPENCODE_CONFIG pointing at the generated config file", () => {
 			// Act
 			const { tokenEnv } = writeCliMcpConfig({
 				dialect: "opencode-json",
@@ -202,9 +202,11 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 				token: TEST_TOKEN,
 			});
 
-			// opencode embeds the token inline; no tokenEnv needed.
-			// The return value must either omit tokenEnv or have it as undefined/empty.
-			expect(tokenEnv ?? {}).toEqual({});
+			// opencode embeds the token inline, but OPENCODE_CONFIG forces the binary
+			// to load the per-session config path regardless of project-root discovery.
+			expect(tokenEnv).toEqual({
+				OPENCODE_CONFIG: path.join(sandboxPath, "opencode.json"),
+			});
 		});
 
 		test("produces valid JSON (parseable without error)", () => {

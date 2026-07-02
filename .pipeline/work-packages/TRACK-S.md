@@ -112,7 +112,6 @@ _Process isolation (server-side):_
 - Adapter pool is in-memory. Server restart = workers reconnect and re-register.
 - No queue persistence. Tasks re-trigger via their existing lifecycle.
 - Process isolation applies to server-side execution only. Desktop workers manage their own resources.
-
 **Out of scope.** Desktop-as-worker (S4). Container/Docker isolation (later hardening). Cloud worker auto-provisioning (E2B). Worker affinity. Priority routing.
 
 **Effort.** L (~4d)

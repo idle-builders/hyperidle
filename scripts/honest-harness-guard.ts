@@ -40,6 +40,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+	BUILTIN_ONLY_INTEGRATION,
 	SUPPORTED_HARNESSES,
 	type SupportedHarness,
 	isHarnessIntegrationPath,
@@ -47,6 +48,7 @@ import {
 
 export { isHarnessIntegrationPath } from "./lib/honest-harness-predicate.js";
 export { SUPPORTED_HARNESSES, type SupportedHarness } from "./lib/honest-harness-predicate.js";
+export { BUILTIN_ONLY_INTEGRATION } from "./lib/honest-harness-predicate.js";
 
 // ── Pure detection ────────────────────────────────────────────────────────────
 
@@ -554,6 +556,24 @@ function ruleFor(
 		);
 	}
 
+	// AR4: BUILTIN_ONLY_INTEGRATION carve-out — skip the 4-harness coverage rule for
+	// files whose production path is genuinely builtin-only (runAssistantTurn cannot run
+	// a CLI harness: no sandbox cwd, no .mcp.json bridge). These files MUST still declare
+	// requireHarness("builtin") — a builtin-only file that declares NO harness is a violation.
+	// stub + skipIf rules already fired above; only the coverage rule is exempted here.
+	const isBuiltinOnly = BUILTIN_ONLY_INTEGRATION.some((suffix) => p.endsWith(suffix));
+	if (isBuiltinOnly) {
+		const declared = declaredHarnesses(f.source);
+		if (!declared.has("builtin")) {
+			return (
+				`builtin-only harness-facing integration test must declare requireHarness("builtin"). ` +
+				`Declared: { ${[...declared].join(", ") || "none"} }. ` +
+				`(AR4: BUILTIN_ONLY_INTEGRATION carve-out still requires builtin to be declared.)`
+			);
+		}
+		return null; // builtin declared — passes the carve-out
+	}
+
 	// AR2: Coverage rule — every selected file must declare all SUPPORTED_HARNESSES.
 	// W3: use the EXACT isHarnessIntegrationPath predicate (already applied above).
 	// This check runs on clean (non-stub) files; stub-allowlisted files already exited.
@@ -611,6 +631,10 @@ const MODEL_IMPORT_DEBT_PATH = path.join(SCRIPT_DIR, "model-import-debt.allowlis
 const SCAN_DIRS = [
 	"packages/server/src/harness/__tests__",
 	"packages/server/src/__tests__",
+	// AR4: AH3/AK4 real files live here — add to SCAN_DIRS so the guard lints them.
+	// NOTE: SCAN_DIRS is guard-lint-only; attestation floor selects via isHarnessIntegrationPath
+	// on vitest JSON paths (EXPLICIT_HARNESS_INTEGRATION suffix), independent of SCAN_DIRS (N-1).
+	"packages/server/src/routes/__tests__",
 ];
 
 /** Collect every existing harness-facing integration file as a GuardFile. */

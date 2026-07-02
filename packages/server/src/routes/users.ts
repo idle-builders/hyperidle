@@ -15,6 +15,7 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
@@ -179,7 +180,11 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
  * are preserved under /api/users (was /api/agents). The function name and file
  * are the only changes — behavior is identical.
  */
-export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+export function createUserRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	adapterPool?: AdapterPool | null,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List all users with active session counts
@@ -429,7 +434,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// In this router the /:id handler is a GET, so we mount /:userId/assistant
 	// explicitly. Hono routes by registration order — the more specific path
 	// /:id/assistant is registered before /:id to avoid swallowing.
-	router.route("/:userId/assistant", createAssistantSoulRoutes(db));
+	router.route("/:userId/assistant", createAssistantSoulRoutes(db, adapterPool ?? null));
 
 	return router;
 }

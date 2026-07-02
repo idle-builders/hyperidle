@@ -25,6 +25,7 @@ import type {
 	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
+	SessionMetrics,
 	SessionResult,
 } from "@hyperidle/shared";
 import {
@@ -238,8 +239,27 @@ interface CliSession {
 	 * Undefined until a result line with a valid cost field is seen.
 	 */
 	totalCostUsd?: number;
+	pendingCostUsd?: number;
 	/** True once the terminal cost_update has been yielded (prevents double-emit). */
 	costEmitted: boolean;
+	metricsProcessedLineCount: number;
+	inputTokens: number;
+	outputTokens: number;
+	cachedInputTokens: number;
+	cacheCreationInputTokens: number;
+	reasoningOutputTokens: number;
+	pendingInputTokens: number;
+	pendingOutputTokens: number;
+	pendingCachedInputTokens: number;
+	pendingCacheCreationInputTokens: number;
+	pendingReasoningOutputTokens: number;
+	modelTurns: number;
+	processStarts: number;
+	toolCalls: number;
+	completionEvents: number;
+	durationMs?: number;
+	apiDurationMs?: number;
+	readonly modelTier: SessionConfig["modelTier"];
 	/**
 	 * AL6 CRIT-3: True once a return action (submit_review, handoff_to, send_message)
 	 * has been observed in the event stream. Used to skip re-engage when the agent
@@ -324,6 +344,92 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	return "none";
 }
 
+function finiteNonNegative(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function recordTokenUsage(
+	session: CliSession,
+	usage: {
+		inputTokens?: number;
+		outputTokens?: number;
+		cachedInputTokens?: number;
+		cacheCreationInputTokens?: number;
+		reasoningOutputTokens?: number;
+	},
+	opts?: { pending?: boolean },
+): void {
+	const inputTokens = usage.inputTokens ?? 0;
+	const outputTokens = usage.outputTokens ?? 0;
+	const cachedInputTokens = usage.cachedInputTokens ?? 0;
+	const cacheCreationInputTokens = usage.cacheCreationInputTokens ?? 0;
+	const reasoningOutputTokens = usage.reasoningOutputTokens ?? 0;
+
+	session.inputTokens += inputTokens;
+	session.outputTokens += outputTokens;
+	session.cachedInputTokens += cachedInputTokens;
+	session.cacheCreationInputTokens += cacheCreationInputTokens;
+	session.reasoningOutputTokens += reasoningOutputTokens;
+
+	if (opts?.pending) {
+		session.pendingInputTokens += inputTokens;
+		session.pendingOutputTokens += outputTokens;
+		session.pendingCachedInputTokens += cachedInputTokens;
+		session.pendingCacheCreationInputTokens += cacheCreationInputTokens;
+		session.pendingReasoningOutputTokens += reasoningOutputTokens;
+	}
+}
+
+function extractClaudeResultMetrics(obj: Record<string, unknown>): {
+	costUsd?: number;
+	durationMs?: number;
+	apiDurationMs?: number;
+	modelTurns?: number;
+	inputTokens?: number;
+	outputTokens?: number;
+	cachedInputTokens?: number;
+	cacheCreationInputTokens?: number;
+} {
+	const usage =
+		obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : {};
+	return {
+		costUsd: finiteNonNegative(obj.total_cost_usd),
+		durationMs: finiteNonNegative(obj.duration_ms),
+		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
+		modelTurns: finiteNonNegative(obj.num_turns),
+		inputTokens: finiteNonNegative(usage.input_tokens),
+		outputTokens: finiteNonNegative(usage.output_tokens),
+		cachedInputTokens: finiteNonNegative(usage.cache_read_input_tokens),
+		cacheCreationInputTokens: finiteNonNegative(usage.cache_creation_input_tokens),
+	};
+}
+
+function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
+	costUsd?: number;
+	inputTokens?: number;
+	outputTokens?: number;
+	cachedInputTokens?: number;
+	cacheCreationInputTokens?: number;
+	reasoningOutputTokens?: number;
+} {
+	const part =
+		obj.part && typeof obj.part === "object" ? (obj.part as Record<string, unknown>) : {};
+	const tokens =
+		part.tokens && typeof part.tokens === "object" ? (part.tokens as Record<string, unknown>) : {};
+	const cache =
+		tokens.cache && typeof tokens.cache === "object"
+			? (tokens.cache as Record<string, unknown>)
+			: {};
+	return {
+		costUsd: finiteNonNegative(part.cost),
+		inputTokens: finiteNonNegative(tokens.input),
+		outputTokens: finiteNonNegative(tokens.output),
+		cachedInputTokens: finiteNonNegative(cache.read),
+		cacheCreationInputTokens: finiteNonNegative(cache.write),
+		reasoningOutputTokens: finiteNonNegative(tokens.reasoning),
+	};
+}
+
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
@@ -370,7 +476,31 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		};
 
 		// Resolve args
-		const resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
+		let resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
+
+		// @lore AR4 WARNING-D1 conditional-model: When resolvedModel is absent or model is
+		// empty (e.g. builtin adapter path, or a CLI lane provisioned without a model), the
+		// {{model}} template resolves to "". Passing --model "" to codex sends an empty string
+		// to the OpenAI API → 400 invalid_request_error. Before AR4 codex had no --model flag
+		// and used its CLI default. Preserve pre-AR4 behavior: drop --model + the following
+		// empty-string arg when the resolved model is empty. Only --model flag pairs are
+		// stripped (not arbitrary empty args) — the flag name is the sentinel.
+		// The non-empty path is unchanged: --model gpt-5.4-mini is injected as before.
+		if (!templateVars["{{model}}"]) {
+			const filtered: string[] = [];
+			for (let j = 0; j < resolvedArgs.length; j++) {
+				if (
+					resolvedArgs[j] === "--model" &&
+					j + 1 < resolvedArgs.length &&
+					resolvedArgs[j + 1] === ""
+				) {
+					j++; // skip "--model" + "" pair
+				} else {
+					filtered.push(resolvedArgs[j] as string);
+				}
+			}
+			resolvedArgs = filtered;
+		}
 
 		// Resolve envMap
 		const resolvedEnvMap: Record<string, string> = {};
@@ -454,6 +584,22 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolveStop: null,
 			killTimer: null,
 			costEmitted: false,
+			metricsProcessedLineCount: 0,
+			inputTokens: 0,
+			outputTokens: 0,
+			cachedInputTokens: 0,
+			cacheCreationInputTokens: 0,
+			reasoningOutputTokens: 0,
+			pendingInputTokens: 0,
+			pendingOutputTokens: 0,
+			pendingCachedInputTokens: 0,
+			pendingCacheCreationInputTokens: 0,
+			pendingReasoningOutputTokens: 0,
+			modelTurns: 0,
+			processStarts: 1,
+			toolCalls: 0,
+			completionEvents: 0,
+			modelTier: config.modelTier,
 			returnSeen: false,
 			reEngageCount: 0,
 			sandboxPath: config.sandboxPath,
@@ -474,8 +620,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// @lore AF10: process all remaining stdout lines before building the
 			// result so that any terminal result line (with total_cost_usd) is
 			// captured into session.totalCostUsd BEFORE buildResult reads it.
-			for (const bufferedLine of session.stdoutLines) {
-				this.parseStdoutLine(bufferedLine, session);
+			for (let i = 0; i < session.stdoutLines.length; i++) {
+				const bufferedLine = session.stdoutLines[i];
+				if (bufferedLine !== undefined) {
+					this.parseStdoutLine(bufferedLine, session, i);
+				}
 			}
 			session.exitCode = code;
 			session.exitSignal = signal;
@@ -485,7 +634,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				session.killTimer = null;
 			}
 			session.notifyStream?.();
-			const result = this.buildResult(code, signal, session.totalCostUsd);
+			const result = this.buildResult(session, code, signal);
 			session.resolveStop?.(result);
 		});
 
@@ -558,9 +707,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			while (true) {
 				// Yield buffered stdout events
 				while (stdoutCursor < session.stdoutLines.length) {
+					const lineIndex = stdoutCursor;
 					const line = session.stdoutLines[stdoutCursor++];
 					if (line !== undefined) {
-						yield adapter.parseStdoutLine(line, session);
+						yield adapter.parseStdoutLine(line, session, lineIndex);
 					}
 				}
 
@@ -577,20 +727,52 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
+				if (
+					session.done &&
+					(session.pendingInputTokens > 0 ||
+						session.pendingOutputTokens > 0 ||
+						session.pendingCachedInputTokens > 0 ||
+						session.pendingCacheCreationInputTokens > 0 ||
+						session.pendingReasoningOutputTokens > 0)
+				) {
+					yield {
+						type: "token_usage",
+						inputTokens: session.pendingInputTokens,
+						outputTokens: session.pendingOutputTokens,
+						...(session.pendingCachedInputTokens > 0
+							? { cachedInputTokens: session.pendingCachedInputTokens }
+							: {}),
+						...(session.pendingCacheCreationInputTokens > 0
+							? { cacheCreationInputTokens: session.pendingCacheCreationInputTokens }
+							: {}),
+						...(session.pendingReasoningOutputTokens > 0
+							? { reasoningOutputTokens: session.pendingReasoningOutputTokens }
+							: {}),
+						tier: session.modelTier,
+					};
+					session.pendingInputTokens = 0;
+					session.pendingOutputTokens = 0;
+					session.pendingCachedInputTokens = 0;
+					session.pendingCacheCreationInputTokens = 0;
+					session.pendingReasoningOutputTokens = 0;
+				}
+
 				// @lore AF10 (Z8-049): Emit one terminal cost_update when the CLI
 				// result line carried a total_cost_usd (or configured costField).
 				// Done here (not in parseStdoutLine) so the event is yielded AFTER
 				// all stdout lines have been emitted, consistent with the SDK adapter.
-				// deltaCost == totalCostUsd: the whole session is one delta (§4 plan).
-				if (session.done && session.totalCostUsd !== undefined && !session.costEmitted) {
+				// deltaCost is the pending native cost since the last child finished;
+				// totalCost is cumulative for the whole logical session.
+				if (session.done && session.pendingCostUsd !== undefined && !session.costEmitted) {
 					session.costEmitted = true;
 					const costEvent: HarnessEvent = {
 						type: "cost_update",
-						deltaCost: session.totalCostUsd,
-						totalCost: session.totalCostUsd,
+						deltaCost: session.pendingCostUsd,
+						totalCost: session.totalCostUsd ?? session.pendingCostUsd,
 						currency: "USD",
 					};
 					yield costEvent;
+					session.pendingCostUsd = undefined;
 				}
 
 				if (session.done) {
@@ -624,6 +806,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
 								enforcementRegistry.incrementForce(session.configSessionId);
 								session.reEngageCount++;
+								session.processStarts++;
 
 								// Build re-engage args.
 								//
@@ -687,8 +870,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 								// Wire exit for the new child.
 								reEngageChild.on("exit", (code, signal) => {
-									for (const bufferedLine of session.stdoutLines.slice(stdoutCursor)) {
-										adapter.parseStdoutLine(bufferedLine, session);
+									for (let i = stdoutCursor; i < session.stdoutLines.length; i++) {
+										const bufferedLine = session.stdoutLines[i];
+										if (bufferedLine !== undefined) {
+											adapter.parseStdoutLine(bufferedLine, session, i);
+										}
 									}
 									session.exitCode = code;
 									session.exitSignal = signal;
@@ -698,7 +884,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 										session.killTimer = null;
 									}
 									session.notifyStream?.();
-									const result = adapter.buildResult(code, signal, session.totalCostUsd);
+									const result = adapter.buildResult(session, code, signal);
 									session.resolveStop?.(result);
 								});
 
@@ -732,8 +918,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		}
 
 		if (session.done) {
+			const result = this.buildResult(session, session.exitCode, session.exitSignal);
 			this.sessions.delete(handle.sessionId);
-			return this.buildResult(session.exitCode, session.exitSignal, session.totalCostUsd);
+			return result;
 		}
 
 		// Send SIGTERM first (graceful shutdown)
@@ -779,8 +966,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
-	private parseStdoutLine(line: string, session?: CliSession): HarnessEvent {
+	private parseStdoutLine(line: string, session?: CliSession, lineIndex?: number): HarnessEvent {
 		if (this.config.eventFormat === "text") {
+			if (session) session.completionEvents++;
 			return { type: "completion", text: line };
 		}
 
@@ -794,6 +982,9 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				typeof (parsed as Record<string, unknown>)["type"] === "string"
 			) {
 				const obj = parsed as Record<string, unknown>;
+				const shouldRecordMetrics =
+					session !== undefined &&
+					(lineIndex === undefined || lineIndex >= session.metricsProcessedLineCount);
 
 				// @lore AF10 (Z8-049/Z8-088): If this is a terminal result line from
 				// the CLI, capture the total cost. The CLI reports the full session
@@ -804,12 +995,47 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// Cost capture runs on the ORIGINAL parsed object (before any dialect
 				// pre-map) because the "result" type and "total_cost_usd" field are
 				// present on the raw claude stream-json line.
-				if (obj["type"] === "result" && session) {
+				if (obj["type"] === "result" && session && shouldRecordMetrics) {
 					const costField = this.config.costField ?? "total_cost_usd";
 					const rawCost = obj[costField];
 					if (typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0) {
 						session.totalCostUsd = rawCost;
+						session.pendingCostUsd = rawCost;
 					}
+					const metrics = extractClaudeResultMetrics(obj);
+					session.durationMs = metrics.durationMs ?? session.durationMs;
+					session.apiDurationMs = metrics.apiDurationMs ?? session.apiDurationMs;
+					session.modelTurns = metrics.modelTurns ?? session.modelTurns;
+					recordTokenUsage(
+						session,
+						{
+							inputTokens: metrics.inputTokens,
+							outputTokens: metrics.outputTokens,
+							cachedInputTokens: metrics.cachedInputTokens,
+							cacheCreationInputTokens: metrics.cacheCreationInputTokens,
+						},
+						{ pending: true },
+					);
+				}
+
+				if (obj["type"] === "step_finish" && session && shouldRecordMetrics) {
+					const metrics = extractOpencodeStepMetrics(obj);
+					if (metrics.costUsd !== undefined) {
+						session.totalCostUsd = (session.totalCostUsd ?? 0) + metrics.costUsd;
+						session.pendingCostUsd = (session.pendingCostUsd ?? 0) + metrics.costUsd;
+					}
+					session.modelTurns++;
+					recordTokenUsage(
+						session,
+						{
+							inputTokens: metrics.inputTokens,
+							outputTokens: metrics.outputTokens,
+							cachedInputTokens: metrics.cachedInputTokens,
+							cacheCreationInputTokens: metrics.cacheCreationInputTokens,
+							reasoningOutputTokens: metrics.reasoningOutputTokens,
+						},
+						{ pending: true },
+					);
 				}
 
 				// claude-cli-adapter: Apply dialect pre-map if configured.
@@ -819,6 +1045,31 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					this.config.eventDialect === "claude-stream-json" ? preMapClaudeEvent(parsed) : parsed;
 
 				const event = normalizeHarnessEvent(toNormalize);
+
+				if (session && shouldRecordMetrics) {
+					if (event.type === "token_usage") {
+						recordTokenUsage(session, {
+							inputTokens: event.inputTokens,
+							outputTokens: event.outputTokens,
+							cachedInputTokens: event.cachedInputTokens,
+							cacheCreationInputTokens: event.cacheCreationInputTokens,
+							reasoningOutputTokens: event.reasoningOutputTokens,
+						});
+						if (obj.type === "turn.completed") {
+							session.modelTurns++;
+						}
+					} else if (event.type === "tool_call") {
+						session.toolCalls++;
+					} else if (event.type === "completion") {
+						session.completionEvents++;
+					}
+					if (lineIndex !== undefined) {
+						session.metricsProcessedLineCount = Math.max(
+							session.metricsProcessedLineCount,
+							lineIndex + 1,
+						);
+					}
+				}
 
 				// AL6 CRIT-3: track return actions for process-reengage decisions.
 				// When the agent calls a return action, mark returnSeen so we skip
@@ -833,13 +1084,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// Fall through to completion event
 		}
 
+		if (session) session.completionEvents++;
 		return { type: "completion", text: line };
 	}
 
 	private buildResult(
+		session: CliSession,
 		code: number | null,
 		signal: string | null,
-		totalCostUsd?: number,
 	): SessionResult {
 		let outcome: SessionResult["outcome"];
 		if (signal !== null) {
@@ -852,11 +1104,42 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// @lore AF10 (Z8-049): Return the captured CLI cost from the terminal
 		// result line (total_cost_usd → minor cents). 0 when the CLI reported
 		// nothing — honest absent, not a silent drop (§4 plan constraint).
-		const minor = totalCostUsd !== undefined ? Math.round(totalCostUsd * 100) : 0;
+		const minor = session.totalCostUsd !== undefined ? Math.round(session.totalCostUsd * 100) : 0;
+		const tokenUsage =
+			session && (session.inputTokens > 0 || session.outputTokens > 0)
+				? {
+						byTier: {
+							[session.modelTier]: {
+								prompt: session.inputTokens,
+								completion: session.outputTokens,
+								...(session.cachedInputTokens > 0
+									? { cachedPrompt: session.cachedInputTokens }
+									: {}),
+							},
+						},
+					}
+				: { byTier: {} };
+		const metrics: SessionMetrics | undefined = session
+			? {
+					modelTurns: session.modelTurns,
+					processStarts: session.processStarts,
+					toolCalls: session.toolCalls,
+					completionEvents: session.completionEvents,
+					inputTokens: session.inputTokens,
+					outputTokens: session.outputTokens,
+					cachedInputTokens: session.cachedInputTokens,
+					cacheCreationInputTokens: session.cacheCreationInputTokens,
+					reasoningOutputTokens: session.reasoningOutputTokens,
+					...(session.durationMs !== undefined ? { durationMs: session.durationMs } : {}),
+					...(session.apiDurationMs !== undefined ? { apiDurationMs: session.apiDurationMs } : {}),
+					...(session.totalCostUsd !== undefined ? { nativeCostUsd: session.totalCostUsd } : {}),
+				}
+			: undefined;
 		return {
 			outcome,
 			cost: { minor, currency: "USD" },
-			tokenUsage: { byTier: {} },
+			tokenUsage,
+			...(metrics ? { metrics } : {}),
 		};
 	}
 

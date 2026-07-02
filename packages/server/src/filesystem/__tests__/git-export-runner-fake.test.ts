@@ -10,7 +10,7 @@
 import { createFakeGitRunner, type FakeGitRunner } from "@hyperidle/fabric";
 import { describe, expect, it } from "vitest";
 
-describe("FakeGitRunner — new AO2 verbs (argv-shape only)", () => {
+describe("FakeGitRunner records filesystem git operation argv", () => {
 	it("clone records args and resolves", async () => {
 		const fake: FakeGitRunner = createFakeGitRunner();
 		await fake.clone("https://github.com/org/repo.git", "main");

@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
  *            REAL LLM. Runs SERIALLY (fileParallelism:false) so concurrent real-LLM
  *            calls never race on rate limits / auth contention.
  *
- * @lore AR1: the `.real-harness.test.ts` lane was collapsed into `.integration.test.ts`.
+ * @lore harness-lane-collapse: the `.real-harness.test.ts` lane was collapsed into `.integration.test.ts`.
  *   The serial real-LLM requirement that justified the dead lane is now met by the
  *   `harness` project's `fileParallelism:false` — the vitest-4 supported per-project
  *   serial knob (`poolOptions.threads.singleThread` is deprecated in v4). The harness
@@ -20,6 +20,17 @@ const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.w
 const HARNESS_INCLUDE = [
 	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
 	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
+	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
+	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
+	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions
+	// collide on .codex-home/.tmp/plugins-clone dirs → ENOTEMPTY teardown errors.
+	// The service project's 4-worker parallel pool caused this regression when real route-dispatch tests added
+	// route-dispatch real tests alongside the existing real-session/cli-adapter harness tests.
+	"packages/server/src/__tests__/*-real.integration.test.ts",
+	"packages/server/src/routes/__tests__/*-real.integration.test.ts",
+	// converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
+	"packages/server/src/__tests__/minimal-strategy-session.integration.test.ts",
+	"packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts",
 ];
 
 export default defineConfig({
@@ -39,7 +50,7 @@ export default defineConfig({
 					include: ["packages/**/*.integration.test.{ts,tsx}"],
 					exclude: [...SHARED_EXCLUDE, ...HARNESS_INCLUDE],
 					pool: "threads",
-					// @lore AD8a: isolate:true fixes ES-module mock leakage in the threads pool
+					// @lore integration-isolation: isolate:true fixes ES-module mock leakage in the threads pool
 					// (vi.mock("./llm-client") was non-deterministically bypassed with isolate:false
 					// because builtin-harness-adapter was pre-loaded by other files before the mock
 					// could hoist). The PGlite pool lives on globalThis so it survives reloads.
@@ -51,15 +62,15 @@ export default defineConfig({
 				extends: true,
 				test: {
 					name: "harness",
-					// @lore AR1: 240s ceiling — the session-provisioning real claude run can
-					// hit the AL6 re-prompt loop (the MCP-namespace return-action bug delays
+					// @lore harness-timeout-ceiling: 240s ceiling — the session-provisioning real claude run can
+					// hit the return-enforcement re-prompt loop (the MCP-namespace return-action bug delays
 					// gate recognition), pushing a single honest run past 120s. Per-test args
 					// can lower this; the project default must not cap below the slowest honest run.
 					hookTimeout: 240_000,
 					testTimeout: 240_000,
 					// Real-LLM serial: never run two real-binary harness files in parallel.
 					fileParallelism: false,
-					// @lore AR1: retry:2 (3 attempts) on the HARNESS project ONLY. Real-LLM
+					// @lore harness-retry: retry:2 (3 attempts) on the HARNESS project ONLY. Real-LLM
 					// agentic-loop tests are nondeterministic — a multi-turn model run can
 					// transiently fail to complete a tool action (e.g. "proof.txt not written"
 					// in session 2) and pass on re-run. Lane-level retry absorbs that transient

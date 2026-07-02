@@ -7,7 +7,7 @@
  *   codex-toml  — appends `[mcp_servers.hyperidle]` to .codex-home/config.toml;
  *                 token delivered via env var (HYPERIDLE_MCP_TOKEN).
  *   opencode-json — writes opencode.json to sandbox cwd; token inline in
- *                   headers.Authorization.
+ *                   headers.Authorization; path delivered via OPENCODE_CONFIG.
  *
  * The registry/router are transport-agnostic and untouched. This writer is the
  * ONLY per-binary difference: it teaches each binary how to find the bridge URL
@@ -20,7 +20,9 @@
  *     because bearer_token_env_var is codex's API; injected outside envAllowlist
  *     (per-session-generated, not forwarded from process.env — mirror CODEX_HOME).
  *   - opencode: token is inline in headers.Authorization; written via JSON.stringify
- *     which escapes any metacharacters (token is hex so none expected).
+ *     which escapes any metacharacters (token is hex so none expected). The config
+ *     path is also injected via OPENCODE_CONFIG so OpenCode loads it even when the
+ *     session sandbox is not detected as a project root.
  *   - Both files live in the per-session sandbox (already isolated).
  *
  * @lore AL7 cli-mcp-config N6: codex token injection MUST be outside-allowlist
@@ -48,7 +50,7 @@ export interface WriteCliMcpConfigResult {
 	/**
 	 * For codex-toml: { HYPERIDLE_MCP_TOKEN: token } — must be injected onto
 	 * the spawn env OUTSIDE the envAllowlist (per-session, not from process.env).
-	 * For opencode-json: undefined (token is inline in the JSON).
+	 * For opencode-json: { OPENCODE_CONFIG: <sandbox>/opencode.json }.
 	 */
 	readonly tokenEnv?: Record<string, string>;
 }
@@ -61,7 +63,9 @@ export interface WriteCliMcpConfigResult {
  *   Returns `{ tokenEnv: { HYPERIDLE_MCP_TOKEN: token } }` for the spawn env.
  *
  * - opencode-json: writes `<sandbox>/opencode.json` with the `mcp.hyperidle`
- *   remote block. Token is inline in `headers.Authorization`. Returns `{}`.
+ *   remote block. Token is inline in `headers.Authorization`. Returns
+ *   `{ tokenEnv: { OPENCODE_CONFIG: <sandbox>/opencode.json } }` so the spawn
+ *   loads the generated config deterministically.
  */
 /**
  * Root-level files emitted by writeCliMcpConfig, indexed by dialect.
@@ -110,7 +114,8 @@ function writeCodexToml(params: {
 	const mcpBlock =
 		"\n[mcp_servers.hyperidle]\n" +
 		`url = "${mcpUrl}"\n` +
-		`bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"\n`;
+		`bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"\n` +
+		'default_tools_approval_mode = "approve"\n';
 
 	// Append to existing config.toml (AL6 provisioning may have written model/auth
 	// blocks already). Create the file if absent.
@@ -153,6 +158,7 @@ function writeOpencodeJson(params: {
 
 	fs.writeFileSync(opencodeJsonPath, JSON.stringify(config, null, 2), "utf-8");
 
-	// Token is inline; no tokenEnv needed.
-	return {};
+	// Token is inline. OPENCODE_CONFIG forces this per-session config to load even
+	// when OpenCode does not consider the sandbox a project root.
+	return { tokenEnv: { OPENCODE_CONFIG: opencodeJsonPath } };
 }

@@ -74,6 +74,17 @@ export interface BetDecompositionDeps {
 		betId: string;
 		pmAgentId: string;
 	}) => Promise<DecompositionTaskInput[]>;
+	/**
+	 * Optional hook called after the scratch sandbox directory is created and before
+	 * the real PM turn starts. Use this to provision harness-specific files into the
+	 * scratch sandbox (e.g. .mcp.json for claude, .codex-home/ for codex).
+	 *
+	 * @lore AR5: CLI harnesses (claude/codex/opencode) require per-sandbox config files
+	 * in their cwd. The decomposition scratch sandbox (decomp-<betId>/) is created by
+	 * runBetDecomposition itself — callers cannot provision it ahead of time because the
+	 * betId is unknown. This hook fires after mkdirSync so the caller can write the files.
+	 */
+	readonly prepSandbox?: (sandboxPath: string) => Promise<void>;
 }
 
 // -----------------------------------------------------------------------------
@@ -419,6 +430,19 @@ export async function runBetDecomposition(
 		return;
 	}
 
+	// Provision harness-specific files into the scratch sandbox (e.g. .mcp.json for
+	// claude). Called AFTER mkdirSync so the hook can write files into the sandbox.
+	// @lore AR5: CLI harnesses need per-sandbox config in their cwd (the scratch dir).
+	// decompositionDepsForLane provides this hook for each CLI harness.
+	if (deps.prepSandbox) {
+		try {
+			await deps.prepSandbox(scratchSandboxPath);
+		} catch {
+			await markTerminal(db, betId, "blocked", "failed");
+			return;
+		}
+	}
+
 	try {
 		let taskList: DecompositionTaskInput[];
 
@@ -548,10 +572,23 @@ async function runRealPmTurn(
 		throw new Error("No model resolved for PM decomposition");
 	}
 
-	const systemPrompt =
-		pm.systemPrompt ?? "You are a product manager. Break down the provided bet into a task list.";
-
-	const userMessage = [
+	// betContext carries the decomposition instruction — what the agent needs to DO
+	// the job. Written to AGENTS.md and CLAUDE.md so CLI harnesses receive it as
+	// project-context instructions. The PM persona string is NOT written here:
+	// if the selected agent has its own systemPrompt, that is the agent's real
+	// identity and is handled via SessionConfig.systemPromptPath (the kernel's
+	// existing path). The kernel-default "You are a product manager…" literal is
+	// a pre-existing single-location default in the SessionConfig path (AK WP will
+	// remove it) — this write must NOT copy it into these files (AK6: kernel
+	// hard-codes no persona; writing the kernel-default PM string into AGENTS.md/
+	// CLAUDE.md would widen that violation into the scratch sandbox filesystem).
+	//
+	// @lore AR5 / AK6: Do NOT include `pm.systemPrompt ?? "You are a product
+	// manager..."` here. The agent-identity layer (who the agent IS) belongs to
+	// the Strategy; the bet-context layer (what the agent must DO for this bet)
+	// belongs here. Mix them and the kernel leaks its hardcoded PM persona into
+	// every decomposition sandbox on disk.
+	const betContext = [
 		`**Bet goal:** ${bet.description}`,
 		bet.doneCondition ? `**Done condition:** ${bet.doneCondition}` : "",
 		"",
@@ -561,15 +598,37 @@ async function runRealPmTurn(
 		.filter(Boolean)
 		.join("\n");
 
+	// @lore AR5: Each CLI harness reads its project context from a different file:
+	// - codex reads AGENTS.md from the sandbox cwd.
+	// - claude reads CLAUDE.md from the sandbox cwd (not AGENTS.md).
+	// Write AGENTS.md (codex/opencode) and CLAUDE.md (claude/opencode) with the bet
+	// context so CLI harnesses have the decomposition instructions as project-level
+	// context. The builtin adapter ignores these files (it uses SessionConfig.messages).
+	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), betContext, "utf-8");
+	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), betContext, "utf-8");
+
+	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars by the adapter)
+	// for CLI harnesses that carry it as a positional argument.
+	// For codex/claude/opencode: bet context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
+	// For builtin: assembledPrompt is unused; it uses messages[] with the full betContext.
+	// @lore AR5: opencode DOES read AGENTS.md/CLAUDE.md automatically by traversing up from the
+	// cwd on startup — the same mechanism codex and claude use (https://opencode.ai/docs/rules/,
+	// verified 2026-06-30). The adapter spawns opencode with cwd: config.sandboxPath
+	// (cli-harness-adapter.ts:426), exactly where we write both files above. So opencode
+	// receives the full bet context via AGENTS.md/CLAUDE.md — no gap, no special-casing needed.
+	const assembledPrompt =
+		"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text.";
+
 	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
 		sessionId: crypto.randomUUID(),
-		assembledPrompt: systemPrompt,
+		assembledPrompt,
 		sandboxPath: scratchSandboxPath,
 		systemPromptPath: "",
 		modelTier: "workhorse",
 		tools: [],
 		resolvedModel,
-		messages: [{ role: "user", content: userMessage }],
+		// messages carries the bet context for the builtin adapter's runChatTurn.
+		messages: [{ role: "user", content: betContext }],
 	};
 
 	const handle = await selected.adapter.startSession(sessionConfig);
@@ -598,8 +657,14 @@ async function runRealPmTurn(
 	}
 
 	// Parse the structured task list from the completion text.
+	// @lore AR5: Models often wrap JSON in markdown code fences even when instructed not to.
+	// Strip ``` ... ``` or ```json ... ``` wrappers before parsing.
+	const stripped = completionText
+		.replace(/^```(?:json)?\s*/i, "")
+		.replace(/\s*```\s*$/, "")
+		.trim();
 	try {
-		const parsed = JSON.parse(completionText) as unknown;
+		const parsed = JSON.parse(stripped) as unknown;
 		if (Array.isArray(parsed)) {
 			return parsed as DecompositionTaskInput[];
 		}
@@ -623,22 +688,37 @@ async function runRealPmTurn(
  * tool-less turn. The exemption is a PROPERTY (concept §1.5 three-property
  * predicate), not a file-list carve-out. Any future tool-less extraction drain
  * is covered by the same predicate.
+ *
+ * @lore AR5: CLI harnesses (claude/codex/opencode) emit multiple completion events
+ * during a session: init/system events pre-map to empty completions, intermediate
+ * text blocks emit partial completions, and the final `result` event carries the
+ * full response text. Returning on the FIRST completion event would return ""
+ * (from an init event), causing blocked/empty. Collect the LAST non-empty
+ * completion text across the full stream — that is always the agent's actual
+ * response. The builtin adapter emits a single completion event with the full text,
+ * so last-non-empty is a no-op for it.
  */
 async function drainForCompletion(
 	adapter: import("@hyperidle/shared").HarnessAdapter,
 	handle: import("@hyperidle/shared").SessionHandle,
 ): Promise<string> {
 	const stream = adapter.streamEvents(handle);
+	let lastNonEmpty = "";
 	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
 	for await (const event of stream) {
 		if (event.type === "completion") {
-			return event.text;
-		}
-		if (event.type === "error") {
+			// @lore AR5: Accumulate the last non-empty completion text. CLI adapters emit
+			// empty completions from init/system/lifecycle events; the final result event
+			// carries the actual response. Returning on the first completion would catch
+			// an empty init event and return "" → blocked/empty.
+			if (event.text.trim().length > 0) {
+				lastNonEmpty = event.text;
+			}
+		} else if (event.type === "error") {
 			throw new Error(event.message);
 		}
 	}
-	return "";
+	return lastNonEmpty;
 }
 
 // -----------------------------------------------------------------------------
