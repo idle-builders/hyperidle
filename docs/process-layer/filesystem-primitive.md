@@ -1,6 +1,6 @@
 # Filesystem primitive (Track AO)
 
-A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (mount), AO3 (land). Grounded in [System Boundary](../architecture/system-boundary.md).
+A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (mount), and AN4 (provider-native PR/MR sync for code). Grounded in [System Boundary](../architecture/system-boundary.md).
 
 ## Why it exists
 
@@ -67,7 +67,7 @@ FilesystemInjection {
 }
 ```
 
-> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate (AL7) checkpoints *irreversible landing*, not access.
+> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate (AL7) checkpoints chosen consequential provider actions, not access.
 
 ## What it is not
 
@@ -115,7 +115,7 @@ Durable record; ephemeral mount. Registration and per-bot injection are independ
 - **Mutability.** Registration settable/updatable; **per-bot injections added/removed independently** (inject/eject). The working tree is authored and captured back.
 - **Identity.** Opaque filesystem id; for `code`, `(connection + repo + branch)`. An injection is `(agent_user_id, filesystem_id)` — UNIQUE.
 - **Hard rules.**
-  1. **Agents work with their credentials** in the sandbox; no withholding, no broker-only path, no design against a rogue agent. The review gate (AL7) checkpoints irreversible *landing*, never access.
+  1. **Agents work with their credentials** in the sandbox; no withholding, no broker-only path, no design against a rogue agent. The review gate (AL7) checkpoints chosen consequential provider actions, never access.
   2. **No OAuth app** — auth arrives via the Connection (held token or inherited).
   3. Filesystem ⟂ Connection — files vs auth/tools; compose, never merge.
   4. **Filesystem = authored corpus only** — SoRs and retrieval indexes are excluded.

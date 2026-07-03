@@ -1,20 +1,20 @@
 {
   "id": "AO3",
-  "status": "in_progress",
-  "currentStep": "build",
+  "status": "done",
+  "currentStep": "wont_do",
   "track": "AO",
   "complexity": "M",
   "dependsOn": [
     "AO2",
     "AL7"
   ],
-  "depsSatisfied": "AO2 merged (#376), AL7 merged (#351) \u2014 both on origin/main",
-  "scopeLock": "SCOPE-RESIDUAL. Single AL7-faithful loop: captured multi-file diff (AO2 filesystem_captures) = proof pane of a land_change Proposed Call on the messages/proposedCalls.reviewMessageId path; approve composes real tailored grant (threads.ts composeTailoredGrant); session 2 land_change CAS-consumes + authenticated push + records Outcome. items/session-review-creator scoped OUT. 6 ACs: AC1 land_change registered irreversible routes to AL7 router; AC2 review payload carries code_diff from real capture; AC3 approve->grant->session2 real push to bare remote (zero-stub); AC4 at-most-once idempotent landing; AC5 ESLint HyperIdle-own-code-never-pushes (allowlist git-export.ts:478 + handler); AC6 non-approve/failed-push semantics. DESIGN none (code_diff multi-file canvas exists). DOC light. No human-concept-review. Refine APPROVED round 2.",
+  "depsSatisfied": "N/A — WONT DO",
+  "scopeLock": "Closed as WONT DO. Replacement scope is AN4 provider-native PR/MR sync.",
   "startedAt": "2026-07-01T00:00:00Z",
-  "completedAt": null,
-  "branch": "concept/AO3-reviewable-landable",
-  "prNumber": null,
+  "completedAt": "2026-07-03T00:00:00Z",
+  "branch": "plan/pr-sync-workpackage",
+  "prNumber": 398,
   "blockedAt": null,
   "blockedReason": null,
-  "notes": "Refine VERDICT=SCOPE-RESIDUAL (re-sized L->M). Gap: AO2 filesystem_captures has 0 readers; session-end reviews proofless; no landing of captured FS change (commit_file writes sandbox-only; only push=knowledge-export). 6 ACs: AC1/2 render captured diff as review subject; AC3 land_change tool rides AL7 router; AC4 real push via GitRunner to bare remote (integration); AC5 ESLint no-system-push-outside-handler; AC6 non-approve/failed-push semantics. DESIGN-CLASS none (skip design). DOC-CLASS light. Reviewer critiquing refine verdict before architecture. | ARCH APPROVED. Build directive: handler resolves capture via consumed grant proposedCall.originSessionId (NOT task-recency). 8 tasks, zero migrations, 3 new GitRunner verbs, parseUnifiedDiff, land_change tool, reviews.ts loader, ESLint no-unbrokered-git-push."
+  "notes": "WONT DO by founder decision on 2026-07-03. The direct land_change concept duplicated/bypassed provider-native PR/MR review, CI, branch protection, conflict handling, and merge. Replacement scope is AN4: Sync provider-native code review flows. Valuable remnants: AO2 capture-back as provenance/recovery evidence, AL7 as generic review→grant→agent-act loop, review canvases for output proof. Do not build AO3 direct push/merge semantics."
 }

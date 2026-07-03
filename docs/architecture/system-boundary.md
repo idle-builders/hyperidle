@@ -16,7 +16,7 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 
 | GitHub/GitLab cluster | Verdict | HyperIdle stance |
 |---|---|---|
-| Git hosting (repos, commits, protocol) | **RIDE** | code lives in a **local git repo, forge-optional**; we read diffs, route landing — never host repos |
+| Git hosting (repos, commits, protocol) | **RIDE** | code lives in a **local git repo, forge-optional**; we read diffs and sync provider PR/MR state — never host repos |
 | Code review (PR/MR, approvals, comments) | **SYNC / INTEGRATE** | Provider-native PR/MR review remains source of truth for code; HyperIdle links it to work, agents, sessions, and AL7-gated actions |
 | CI/CD (Actions, runners, pipelines) | **INTEGRATE** | trigger/observe via API/MCP; never host runners |
 | Deploy / registries / environments | **INTEGRATE** | a deploy is a Proposed Call the agent runs with its own tools once approved; registries integrated |
