@@ -7,19 +7,19 @@ The genuinely-missing work to let a flat team of humans + AI agents build real s
 - **Boot-migration crash is a bugfix, not a WP** — fix it directly, don't track it here.
 - The live "decomposition `blocked/0 tasks`" is downstream of the un-onboarded DB — a *verify-once-onboarded* item, not net-new WP scope.
 
-**What's actually missing (this track):** the build-loop middle — a filesystem for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, the output→review→land wiring (pending AL7), and **product** as a first-class scope so one instance can build several things.
+**What's actually missing (this track):** the build-loop middle — a filesystem for an agent's output (code or otherwise), its materialization into the session sandbox so agents do real work, provider-native sync for external review/publish flows (now owned by AN4, not AO3), and **product** as a first-class scope so one instance can build several things.
 
 **Gating concept — LOCKED `/pipeline:refine AO0` (2026-06-26).** Full concept: `plans/AO/requirements.md` + decision-rule research `plans/AO/research-filesystem-vs-tool.md`. Outcomes that bind AO1/AO2:
 - **Filesystem** = the durable file-like artifacts an agent **authors** and accrues history on, materialized into its session sandbox, **attached to an agent within a team** (team-scoped). **OPEN `kind`** — initial `code` (git repo) + `doc_set` (markdown/Obsidian authoring folder).
 - **Filesystem↔Tool↔Knowledge decision rule (research-grounded).** A filesystem is **only** an authored, file-like, version-controlled corpus (**code + document authoring**). **Systems of record** (email inbox, ticket queue, CRM) are **live tools** (Track AN) — never materialized. **Reference corpora** (drive lookup) are **retrieval** (knowledge fabric). Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge — not "does an API exist." So AO does **not** materialize inboxes/CRMs/ticket queues and does **not** build a Drive/Dropbox sync engine.
 - **Connected like any connector.** Account once in Settings = a **Connection** (Track AN — held token or inherited, **never a HyperIdle OAuth app**); then per-agent select **which resource** (a GitHub repo+branch, an Obsidian/Drive folder) is the filesystem. Filesystem ⟂ Connection = files vs auth/tools; compose.
-- **Agents work *with* their credentials in the sandbox.** The bound Connection's auth is provisioned into the sandbox so the agent's own tools push/PR. **No credential withholding, no broker-only path** (the reverted-broker model is dead — PR #364). The review gate (AL7) checkpoints irreversible *landing*, never access.
+- **Agents work *with* their credentials in the sandbox.** The bound Connection's auth is provisioned into the sandbox so the agent's own tools push/PR. **No credential withholding, no broker-only path** (the reverted-broker model is dead — PR #364). The review gate (AL7) checkpoints chosen consequential provider actions, never access.
 - **Write-back rides the host** — `git` (commit→push/PR) for code; `file` (last-write + snapshot) for a folder; **no custom sync/conflict engine.**
 - **Product is NOT modelled (for now).** Scope is the **Team**. The earlier "product↔team coupling" exploration is set aside; multi-instance/per-product isolation is **deferred (AO4)**.
 
-**Adjacent, not owned here (deps/cross-track):** AL7 = review→act execution loop (built, **unmerged**; AO3 is gated on it and may be largely subsumed by it — see AO3). AN2/AN3 = outbound MCP client + broker (Track AN; required for apps that touch external services + forge-based landing). Strategy **dynamic skill/tool injection** (agents get only `systemPrompt` + role-filtered tools; `AgentScaffoldSpec` has no skills field) = a real **major** extensibility gap belonging to the AK/Strategy family.
+**Adjacent, not owned here (deps/cross-track):** AL7 = review→act execution loop. AN2/AN3 = outbound MCP client + inherited-tool visibility (Track AN; required for apps that touch external services). AN4 = provider-native PR/MR sync for code review/merge state. Strategy **dynamic skill/tool injection** (agents get only `systemPrompt` + role-filtered tools; `AgentScaffoldSpec` has no skills field) = a real **major** extensibility gap belonging to the AK/Strategy family.
 
-**Scope rules.** The build-loop middle only: filesystem, its materialization, output→review→land wiring, and product scope. Out of frame: onboarding/credentials (AH1/AM4/AN — done), the review experience/surface (Track AL), the AL7 execution loop (dep), outbound connectivity (Track AN), dynamic skill injection (AK). `npm run verify` must pass after each WP merges.
+**Scope rules.** The build-loop middle only: filesystem, its materialization, provider sync handoff, and product scope. Out of frame: onboarding/credentials (AH1/AM4/AN — done), the review experience/surface (Track AL), the AL7 execution loop (dep), outbound connectivity/provider sync (Track AN), dynamic skill injection (AK). `npm run verify` must pass after each WP merges.
 
 **Reference:** `.pipeline/audits/product/DEEP-REVIEW-2026-06-25.md`, `plans/AN/boundary-concept.md`. Code seams: `packages/server/src/services/session-provisioning.ts`, `packages/fabric/src/context-assembly.ts`, `packages/server/src/routes/{reviews,artifacts}.ts`, `packages/fabric/src/services/{git-export,promotion-pipeline}.ts`.
 
@@ -68,7 +68,7 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 **Contracts / constraints.** Filesystem (files) and Connection (auth/tools) are distinct and compose; the filesystem references a Connection + resource, **no credential stored on the filesystem record** — but the Connection's auth **is provisioned into the sandbox** so the agent works with it (no withholding). Local-first: a filesystem functions with no forge. The filesystem is an authored corpus only — not a system of record, not a knowledge item, not the knowledge-export target. Write-back rides the host (`git`/`file`); no custom sync engine. Forward-only migration.
 
-**Out of scope.** Materializing the filesystem into a sandbox (AO2). Review/land (AO3). Product scope itself (AO4). The forge auth mechanism (Track AN).
+**Out of scope.** Materializing the filesystem into a sandbox (AO2). Provider-native review/merge sync (AN4). Product scope itself (AO4). The forge auth mechanism (Track AN).
 
 **Effort.** L (~5d)
 
@@ -98,7 +98,7 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 **Acceptance criteria.**
 - For a **`code`** filesystem the **session working directory** contains its working tree at its branch (via the **worktree** adapter when the repo is local on host, the **clone** adapter when remote), and the agent (running host-local) can read, edit, and run its build/test commands; for a **`doc_set`** filesystem the working directory contains the folder's files (the **local-folder** adapter, work-in-place + snapshot). **Mount dispatches per-source behind one `FilesystemMounter` contract; the provisioning flow never branches on source.**
-- The agent's changes to the working tree are captured rather than lost when the **working directory is `rm -rf`'d** on destroy. **Capture-back is source-aware, routed through the mount adapter:** git → commit (+ bundle); local folder → snapshot; (cloud → push, deferred). Capture-back is commit/snapshot only; **push/PR/publish to an external target is landing (AL7/AO3), not AO2**.
+- The agent's changes to the working tree are captured rather than lost when the **working directory is `rm -rf`'d** on destroy. **Capture-back is source-aware, routed through the mount adapter:** git → commit (+ bundle); local folder → snapshot; (cloud → push, deferred). Capture-back is commit/snapshot only; **push/PR/publish to an external target is provider sync / provider action (AN4/AL7), not AO2**.
 - A session for a unit of work with no filesystem still provisions and runs (no working tree), rather than failing.
 - A session for a `code` filesystem can run a real authenticated `git fetch`/push against the repo **using the agent's inherited host auth** (`$HOME` — `gh`/`git`/`~/.ssh`, free under AQ1). AO2 builds **no** auth-into-sandbox mechanism: inherited auth is ambient (AQ1); held-connection provisioning is **AN2's** job and composes later without changing AO2's mount. The filesystem row stores no secret; AO2 never extracts inherited auth (AN1 hard-rule 4).
 - Mount is implemented as a **registry of mount adapters** selected by `(kind, source)` behind the single `FilesystemMounter` seam. **v1 ships:** a **local-git worktree** adapter, a **remote-git clone** adapter, and a **thin local-folder** adapter (`doc_set` — work-in-place + snapshot). **Cloud-sync adapters (GDrive/Dropbox/S3) are NOT built in AO2** — they are named in the registry and selecting one yields an explicit `needs_attention` ("adapter not built"), never a silent failure; they are built in their connector WPs. A `switch (source)` in `session-provisioning` is a defect — all source differences live inside an adapter.
@@ -112,49 +112,31 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 **Plan calls.** Skip `/design`. Standard `/architecture` for the **adapter-dispatched mount** into the host working directory (AQ1 — no isolation): worktree for local git, clone for remote git, in-place for local folder; one extended `GitRunner` for both git adapters; cloud-sync adapters deferred. Covers the inbound-git capability (`clone`/`worktree`/`fetch`/`checkout` on `GitRunner`), the mounter registry + three v1 adapters, the agent's file/build/git tool surface, and capture-back. **Live-proof:** a real session checks out a real repo, the agent edits + runs tests, and the change is captured — before `done` (inherited `$HOME` auth is sufficient; no AN2 dependency).
 
-**Contracts / constraints.** **One uniform `mount`/`captureBack` contract; per-source mount adapters behind a mounter registry** (worktree/clone/local-folder in v1; cloud deferred) — the provisioning flow is source-agnostic. For `code`: a **local** repo (on host, `connectionId` null / local path) mounts via **`git worktree add`** on a per-session branch (`agent/<sessionId>`) — instant, shared object store, no network, mirroring the human worktree flow; a **remote** repo mounts via shallow **`git clone`**. For `doc_set`: a **local folder** mounts **in place** (no copy — no boundary under AQ1; concurrency on the same vault is last-write-wins + snapshot, never merged). The one extended `GitRunner` serves both git adapters (`clone`/`worktree`/`fetch`/`checkout` reusing `buildGitEnv`). Inherited host auth is ambient and free; held-connection auth is AN2's provisioning, composed later — AO2 implements **no** auth path and **never extracts inherited auth** (AN1 hard-rule 4). Capture-back (commit/bundle/snapshot) runs **after `endSession`, before `rm -rf`**; landing (push/PR/publish) is AL7/AO3, never AO2. Mount is driven by the bot's `FilesystemInjection` (AO1), never a global path; a no-filesystem session degrades to today's behavior. No custom sync engine (`git` for `code`; last-write + snapshot for `doc_set`/`file`). The `filesystem_captures` provenance row (source-agnostic: `sessionId`, `filesystemId`, `capturePath`, `commitSha`) is created per capture for AO3 handoff.
+**Contracts / constraints.** **One uniform `mount`/`captureBack` contract; per-source mount adapters behind a mounter registry** (worktree/clone/local-folder in v1; cloud deferred) — the provisioning flow is source-agnostic. For `code`: a **local** repo (on host, `connectionId` null / local path) mounts via **`git worktree add`** on a per-session branch (`agent/<sessionId>`) — instant, shared object store, no network, mirroring the human worktree flow; a **remote** repo mounts via shallow **`git clone`**. For `doc_set`: a **local folder** mounts **in place** (no copy — no boundary under AQ1; concurrency on the same vault is last-write-wins + snapshot, never merged). The one extended `GitRunner` serves both git adapters (`clone`/`worktree`/`fetch`/`checkout` reusing `buildGitEnv`). Inherited host auth is ambient and free; held-connection auth is AN2's provisioning, composed later — AO2 implements **no** auth path and **never extracts inherited auth** (AN1 hard-rule 4). Capture-back (commit/bundle/snapshot) runs **after `endSession`, before `rm -rf`**; provider publish/review/merge state is AN4/AL7, never AO2. Mount is driven by the bot's `FilesystemInjection` (AO1), never a global path; a no-filesystem session degrades to today's behavior. No custom sync engine (`git` for `code`; last-write + snapshot for `doc_set`/`file`). The `filesystem_captures` provenance row (source-agnostic: `sessionId`, `filesystemId`, `capturePath`, `commitSha`) is created per capture for provenance/recovery and provider-sync handoff.
 
-**Out of scope.** Turning captured output into review/landing (AO3). Product scope (AO4). The filesystem binding (AO1). Harness selection (Track AM). **Held-connection auth provisioning (AN2). Per-agent isolation / any sandbox boundary (AQ2).**
+**Out of scope.** Provider-native review/merge sync (AN4). Product scope (AO4). The filesystem binding (AO1). Harness selection (Track AM). **Held-connection auth provisioning (AN2). Per-agent isolation / any sandbox boundary (AQ2).**
 
 **Effort.** M (~2-3d) — shrunk from L (~5d) at concept re-lock (auth mooted by AQ1's host model, isolation deferred to AQ2).
 
 ---
 
-### AO3 — Agent output becomes reviewable and landable — NEEDS RESEARCH (post-AL7)
+### AO3 — Agent output becomes reviewable and landable — WONT DO
 
-**Status: NEEDS RESEARCH + CONCEPT, gated on AL7.** Do not architect or build until AL7 has shipped (merged to main) and `/pipeline:refine AO3` has re-checked whether a genuine gap remains. This WP records a *problem*, not yet a committed solution.
+**Status: WONT DO (founder, 2026-07-03).** AO3's direct `land_change` concept is rejected. It tried to make HyperIdle "land" captured code by pushing a git ref after a HyperIdle review, which duplicates and bypasses the provider-native flow that already owns code review, CI, branch protection, conflict handling, and merge. Code work should ride the host/provider mechanism: agents use normal git/gh tools to create branches and PRs; GitHub/GitLab own review and merge; HyperIdle syncs the external PR/MR into Work/Conversations and gates only consequential agent actions through AL7 when the founder chooses that. The replacement scope is **AN4 — Sync provider-native code review flows**, under Track AN because it is external-tool/provider synchronization, not filesystem landing.
 
-**Problem identified (deep review, 2026-06-25).** The build loop's final stages — an agent's output becoming a real review a human can act on, and approval **landing** the change — do not work on real output today: `GET /api/reviews/:id` is a hardcoded fixture (reviews.ts:4-61), there is no reviews table or POST, only a *knowledge*-review factory exists (no task/artifact/bet), and **AL7 (the approve→execute loop) is unmerged**. So even a correct verdict lands nothing. Note: the review *experience* itself — threads, verdicts (founder-verdict, self-verdict block, first-verdict-wins), proof-family canvases — **is** real (threads.ts); the founder constraint holds that we review **outputs/results, not code diffs**.
+**What remains valuable.** AO2 capture-back still matters as provenance and recovery evidence; AL7 still matters as the generic review→grant→agent-act loop; review canvases can still render captured output. Those are not a reason to build a HyperIdle-specific merge or sync engine.
 
-**Why it is parked.** AL7 is built (on `concept/AL7-review-execution-loop`) and is the staged-operation execute-on-approve seam. It very likely supplies most or all of "generate a review subject from work → verdict → execute on approve." Speccing a solution now would almost certainly duplicate or contradict AL7. The honest move is to let AL7 land, then re-measure.
+**Replacement.** AN4 owns provider-native code review sync: GitHub first, GitLab later. HyperIdle links provider PR/MR state to tasks/sessions/agents and records outcomes; it does not host git, run CI, implement conflict resolution, bypass branch protection, or merge code through a custom executor.
 
-**What `/pipeline:refine AO3` must re-check after AL7 ships.**
-- Does AL7 already generate review subjects from *agent output across kinds* (task/artifact/code), or only from the cases it shipped? If general, this WP closes with no new scope.
-- Does AL7's execute-on-approve cover **landing a filesystem change** (push/PR/merge/publish via the connected target), or is a filesystem-specific landing step still missing?
-- Is the fixture `GET /api/reviews` replaced by real generation as part of AL7, or still outstanding?
-- Only the residual that AL7 does **not** cover becomes the (re-scoped) AO3 WP — or this WP is closed as subsumed.
+**Depends on.** None — closed by product decision.
 
-**Depends on.** AL7 (must be merged before this is even researched). AO2 (there must be real captured output to review/land).
+**Complexity.** WONT DO.
 
-**Complexity.** Unknown until researched (placeholder L).
+**Pre-build gates.** None — do not run `/refine`, `/architecture`, or `/pipeline` for AO3.
 
-**Pre-build gates.**
-- **Refinement:** `Required — /pipeline:refine AO3 AFTER AL7 merges: re-check whether any gap remains beyond AL7; if none, close this WP.`
-- **Design:** `Deferred — decided in /pipeline:refine AO3; outputs render through existing proof-family canvases regardless, so likely Light or none.`
+**Acceptance criteria.** None — superseded by AN4.
 
-**Human concept review.** No (expected) — reuses the existing review experience; reassess in `/pipeline:refine AO3`.
-
-**Acceptance criteria.** *Deferred to `/pipeline:refine AO3`* — the problem to keep in view: an agent's real output (code or otherwise) generates a real review subject (not a fixture) rendered through the existing canvases, and approval lands the change performed by the system (never the agent), inheriting AL7's at-most-once/outcome semantics. Whether any of this remains unmet after AL7 is exactly what the concept pass determines.
-
-**Validation scenarios.** *Deferred to `/pipeline:refine AO3`.*
-
-**Plan calls.** No `/architecture` yet. After AL7 merges, run `/pipeline:refine AO3` to determine if a residual gap exists; only then scope and size the real WP (or close it).
-
-**Contracts / constraints.** We review **outputs/results, not raw diffs** — render through the existing proof-family canvases. The agent never executes the landing; the system triggers the connected target. No duplication of AL7 — this WP only addresses what AL7 demonstrably does not.
-
-**Out of scope.** The review experience/surface (Track AL). The AL7 loop itself (dep). Materializing the filesystem (AO2).
-
-**Effort.** TBD — re-size in `/pipeline:refine AO3` after AL7.
+**Out of scope.** Direct `land_change`, custom merge/landing, custom sync/conflict engine, and any HyperIdle-owned replacement for provider-native code review.
 
 ---
 
@@ -198,6 +180,6 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 **Contracts / constraints.** One load-bearing **product** identifier; the three legacy scope keys reconcile onto it (no new fourth key). "Product" is durable (not the time-bound "project"). Promotion + knowledge context are product-scoped — no cross-product validation/injection. Per-product isolation of filesystem, connections, and cost. Forward-only migration; back-compatible single-product default.
 
-**Out of scope.** The filesystem model (AO1) and materialization (AO2). Review/land (AO3). Outbound connectivity (Track AN). Multi-node/horizontal scale.
+**Out of scope.** The filesystem model (AO1) and materialization (AO2). Provider-native review/merge sync (AN4). Outbound connectivity (Track AN). Multi-node/horizontal scale.
 
 **Effort.** L (~6d)

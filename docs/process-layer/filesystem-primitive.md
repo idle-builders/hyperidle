@@ -1,6 +1,6 @@
 # Filesystem primitive (Track AO)
 
-A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (mount), AO3 (land). Grounded in [System Boundary](../architecture/system-boundary.md).
+A **registered, team-scoped file source** — durable file-like working artifacts agents **author** and accrue history on, of a `source` (local / GitHub / GDrive …) and a `kind` (a git **code repository** for code work, a **document-authoring set** (markdown/Obsidian folder) for writing work). A filesystem is **registered once** under a Team and **injected per-bot** via the `FilesystemInjection` mapping — it is **not owned by a single agent**. Concept + decision rule locked in `plans/AO/concept.md` (+ `plans/AO/research-filesystem-vs-tool.md`); consumed by AO1 (model + registry/injection surface), AO2 (mount), and AN4 (provider-native PR/MR sync for code). Grounded in [System Boundary](../architecture/system-boundary.md).
 
 ## Why it exists
 
@@ -67,7 +67,7 @@ FilesystemInjection {
 }
 ```
 
-> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate (AL7) checkpoints *irreversible landing*, not access.
+> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate (AL7) checkpoints chosen consequential provider actions, not access.
 
 ## What it is not
 
@@ -115,7 +115,7 @@ Durable record; ephemeral mount. Registration and per-bot injection are independ
 - **Mutability.** Registration settable/updatable; **per-bot injections added/removed independently** (inject/eject). The working tree is authored and captured back.
 - **Identity.** Opaque filesystem id; for `code`, `(connection + repo + branch)`. An injection is `(agent_user_id, filesystem_id)` — UNIQUE.
 - **Hard rules.**
-  1. **Agents work with their credentials** in the sandbox; no withholding, no broker-only path, no design against a rogue agent. The review gate (AL7) checkpoints irreversible *landing*, never access.
+  1. **Agents work with their credentials** in the sandbox; no withholding, no broker-only path, no design against a rogue agent. The review gate (AL7) checkpoints chosen consequential provider actions, never access.
   2. **No OAuth app** — auth arrives via the Connection (held token or inherited).
   3. Filesystem ⟂ Connection — files vs auth/tools; compose, never merge.
   4. **Filesystem = authored corpus only** — SoRs and retrieval indexes are excluded.
@@ -134,7 +134,7 @@ Durable record; ephemeral mount. Registration and per-bot injection are independ
 | **Filesystem kind** | The class of authored files (`code`, `doc_set`, …). Open vocabulary. Distinct from `source`. | filesystem type, repo type |
 | **Resource selection** | Which sub-resource of a Connection the filesystem is (repo+branch; folder). | path, target |
 | **Write-back capability** | How authored changes leave the sandbox: `git` / `file` / `none`. | sync, save |
-| **Land** | Make an approved change real via the connected target (push/PR/merge/publish) — the agent's own tool call, routed through review (AO3/AL7). | deploy, commit (capture ≠ land) |
+| **Provider sync** | Keep the filesystem's native external workflow linked to HyperIdle work — for code, a provider PR/MR with checks/reviews/merge state; for other sources, that source's native publish/revision flow. | custom sync engine, HyperIdle merge |
 
 ## Scope note
 
@@ -142,4 +142,4 @@ The build scope is the **Team** — a filesystem is **registered** at the team l
 
 ## Rationale
 
-The filesystem is Track AO's keystone — an agent without a durable home for its authored output stays doc-only. Research (`plans/AO/research-filesystem-vs-tool.md`) settles the boundary: **mount a filesystem only for authored, version-controlled corpora (code, documents); reach live systems of record (inbox/CRM/ticket) through discrete API tools (AN); read reference corpora through retrieval (fabric).** So a filesystem is narrow and connected like any connector — **registered** (account in Settings → team registry, each row stamped with its **`source`**) and **injected per-bot** (the bot's config selects which filesystems it receives) — with write-back riding the host's native mechanism (git for code; file-write for a folder; nothing custom). It is **not owned by a single agent**: registration and per-bot injection are separate axes (the `FilesystemInjection` mapping), mirroring "connect once, inject per agent" — many bots may share a filesystem, a bot may have many. The agent works **with its credentials**, like a real employee ([System Boundary](../architecture/system-boundary.md); [Proposed Call](./staged-operation.md); the no-credential/broker model was reverted in PR #364).
+The filesystem is Track AO's keystone — an agent without a durable home for its authored output stays doc-only. Research (`plans/AO/research-filesystem-vs-tool.md`) settles the boundary: **mount a filesystem only for authored, version-controlled corpora (code, documents); reach live systems of record (inbox/CRM/ticket) through discrete API tools (AN); read reference corpora through retrieval (fabric).** So a filesystem is narrow and connected like any connector — **registered** (account in Settings → team registry, each row stamped with its **`source`**) and **injected per-bot** (the bot's config selects which filesystems it receives) — with write-back riding the host's native mechanism (git for code; file-write for a folder; nothing custom). For code, provider-native PR/MR review and merge are synced by AN rather than replaced by a HyperIdle landing engine. It is **not owned by a single agent**: registration and per-bot injection are separate axes (the `FilesystemInjection` mapping), mirroring "connect once, inject per agent" — many bots may share a filesystem, a bot may have many. The agent works **with its credentials**, like a real employee ([System Boundary](../architecture/system-boundary.md); [Proposed Call](./staged-operation.md); the no-credential/broker model was reverted in PR #364).
