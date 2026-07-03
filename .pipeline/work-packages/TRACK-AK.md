@@ -379,3 +379,62 @@ AK1 rename ─┬─► AK2 split ─┬─► AK3 commit→work ─────
 **Out of scope.** Reorganizing the Strategy's own content — the responsibility-3 "autonomous background knowledge work" services (routines, schedulers, promotion-pipeline, practice-meeting, git-export, builtin-routines) — which is blocked on the Strategy-contract `/concept` (flagged separately). Redefining the Strategy port surface. The notifications feature itself (only its physical location moves).
 
 **Effort.** L (~3–5d)
+
+
+---
+
+### AK10 — Final kernel/strategy de-roling sweep: no hardcoded personas in any seam; all integration tests on minimal
+
+**Workpackage.** As a contributor building a Strategy on top of the Kernel, I want a **final hygiene sweep** that guarantees no Kernel seam hard-codes a persona/role and that every harness integration test runs against the real minimal strategy — so the kernel/strategy boundary is *actually* clean, not just clean at the seams we happened to notice. The concrete known leak is the bet-decomposition turn (the Kernel injects `"You are a product manager. Break down the provided bet into a task list."` and names its turn `runRealPmTurn`/`pmAgentId`); this WP de-roles it by moving the decomposer's instruction to the Strategy (minimal supplies the simplest fallback, fabric the knowledge-enriched one). But the WP's defining job is the **sweep**: actively search every Kernel seam for further such leaks and fix them, and audit every harness integration test so they all run on the minimal strategy. This runs **late** — after the per-WP reworks (which each already target minimal) have landed — so by the time it runs most of the surface should already be clean; **discovering exactly what remains is this WP's task**, not something pre-enumerated here.
+
+**Why this matters.** The kernel/strategy boundary (`docs/architecture/kernel-strategy-split.md`) is explicit: "the Kernel hard-codes no persona" (AK6 hard-rule #1) and "Decomposition is a Strategy response to a Kernel event, not a Kernel-hardcoded PM" (:55). The doc itself flags the `bet_decomposer` surface "now dead at production" (:340) — the Strategy picks *who* decomposes but never supplies *what they're told*, so the Kernel fills the gap with its own PM persona literal. That is a live contract violation: every Strategy silently inherits a Kernel-imposed PM role, and the Minimal Strategy (the contributor template) teaches the violation by example. AR5 demonstrated the leak is real and spreading (it propagated the literal into per-harness context files). The beneficiary is every contributor authoring a Strategy and the integrity of the boundary itself; the cost of not doing it is a permanent lie in the one doc that defines the split.
+
+**What exists today.** AK6/AK7/AK8 (all shipped) established the Strategy port (`assembleContext` / `selectAgent` / `decomposeBet`) and made decomposition event-driven: `runBetDecomposition` (`packages/server/src/services/bet-decomposition.ts`) emits `work_decompose_requested` and calls `getActiveStrategy().decomposeBet()`; when the Strategy returns `{ decomposerAgentId, tasks: [] }` the Kernel runs its own turn (currently `runRealPmTurn`, with `pmAgentId` naming and the hardcoded `"You are a product manager…"` default prompt). Both `minimalStrategy` (`packages/strategy-minimal`) and `fabricStrategy` (`packages/fabric`) return `{ decomposerAgentId: PM-match-else-first-candidate, tasks: [] }` — they pick the agent but supply no instruction. The `decomposeBet` contract returns only *who*, not *what they're told*. AK6 already ships a persona-in-Kernel lint guard, but it is scoped to creation surfaces, not the decomposition path.
+
+**What's genuinely missing.** Three things: (1) a seam by which the active Strategy supplies the decomposer's instruction/role (not just the agent id) for the decomposition turn, plus removal of the Kernel-hardcoded persona literal and PM-flavoured naming; (2) a **completed search of the whole Kernel surface** for any other seam that hard-codes a persona, role, or strategy decision — and the fix for each one found; (3) a **completed audit of every harness integration test** confirming they all run against the real minimal strategy (no fabric, no bespoke test-local strategy). The persona guard (AK6) must be extended so the cleaned state is mechanically held. The set of "further leaks" and "non-minimal tests" is deliberately not enumerated here — the WP discovers it against the real codebase at the time it runs.
+
+**Depends on.** AK8 (`done`) — established the `decomposeBet` seam and the retained Kernel turn this WP de-roles; the seam must exist before it can be reshaped. (Already `done`, so not a scheduling blocker — listed for lineage.)
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Concept:** Not required — reuses nouns already locked in `docs/architecture/kernel-strategy-split.md` (Kernel, Strategy, decompose, persona); no new or reshaped load-bearing noun.
+- **Design:** Not required — backend / contract change with no rendered surface; skip `/design`.
+
+**Human design review.** No — backend de-roling, no user-facing surface.
+
+**Acceptance criteria.**
+- The Kernel's decomposition turn contains no hardcoded persona or role text; the decomposer's instruction originates from the active Strategy.
+- Running decomposition under two different active Strategies yields two different decomposer instructions with no Kernel code change (the instruction is Strategy-supplied, observable in the turn).
+- Under the minimal strategy, committing a bet with an eligible agent still produces a valid task breakdown — the minimal strategy supplies the simplest decomposer instruction as its fallback.
+- Under the fabric strategy, decomposition behaves as before (knowledge-enriched), with no regression in the produced breakdown.
+- A lint/architecture guard fails the build if Kernel decomposition code reintroduces a hardcoded persona/role string (the AK6 persona guard now covers the decomposition path).
+- No role-specific ("PM" / "product manager") identifiers remain in the Kernel decomposition path; the turn is named for its function, not a role.
+- The whole Kernel surface has been searched for further persona/role/strategy-decision leaks; every genuine leak found is fixed (or, if any is deliberately deferred, it is named with a reason). At the end, no Kernel seam hard-codes a persona/role.
+- Every harness integration test runs against the real minimal strategy — none uses fabric or a bespoke test-local strategy. Any test that genuinely needs fabric behaviour has been moved to an eval, not left as a test.
+- Kernel-feature tests for decomposition run against the real minimal strategy (no bespoke test-local strategy, no fabric); fabric-strategy decomposition correctness is exercised by evals, not tests.
+
+**Validation scenarios.**
+- Given the minimal strategy active and a bet with one eligible agent, when decomposition runs, then a valid task breakdown is produced and no "product manager" persona string originates from Kernel source.
+- Given a strategy that supplies a distinct decomposer instruction, when decomposition runs, then the decomposer turn uses that strategy-supplied instruction (a different instruction produces an observably different turn) with no Kernel change.
+- Given Kernel decomposition code containing a hardcoded persona string, when the guard runs, then the build fails.
+- Given the fabric strategy active, when decomposition runs, then the breakdown matches the pre-WP knowledge-enriched behaviour.
+- Given the completed sweep, when the Kernel surface is searched for hardcoded persona/role strings, then none is found (or any deferred one is explicitly named with a reason), and when every harness integration test's active strategy is listed, then all are the real minimal strategy.
+
+**Plan calls.** Standard backend `/architecture` pass — skip `/design`. The plan **begins with a discovery sweep**: search the whole Kernel surface for persona/role/strategy-decision leaks and audit every harness integration test's active strategy, producing the concrete worklist (this is the WP's job, run against the real codebase at execution time, not pre-enumerated). Then plan: the decomposition de-roling seam (the "dead at production" `bet_decomposer` surface is the natural carrier for the Strategy-supplied instruction; expect the `decomposeBet`/`DecompositionPlan` contract to change across the port + both shipped strategies), role-agnostic renaming, the fix for each further leak found, the switch of each non-minimal test to the minimal strategy (or relocation to an eval), and the extension of the AK6 persona guard to cover the swept surface. Because it is a sweep, size is discovery-driven — re-confirm S/M/L after the sweep and split if the worklist is large.
+
+**Contracts / constraints.**
+- The Kernel hard-codes no persona/role — the invariant from `docs/architecture/kernel-strategy-split.md` (AK6 hard-rule #1); guarded mechanically, not just documented.
+- Decomposition behaviour is unchanged for a given active Strategy (no regression); only the *source* of the decomposer's instruction moves from Kernel to Strategy.
+- The minimal strategy remains the simplest working baseline — it must keep producing a valid breakdown and stays the contributor template.
+- Kernel-feature tests run against the real minimal strategy; fabric correctness is exercised by evals (per `.claude/rules/testing.md`).
+- Any contract change to the `decompose` seam is forward-only and updates both shipped strategies (minimal, fabric) in lockstep.
+
+**Out of scope.**
+- The physical Kernel package extraction (AK9).
+- Redoing the per-WP reworks (AR3–AR6 etc.) that each already target the minimal strategy — this WP is the *final net* that catches what they missed, not a re-run of their conversions.
+- Reworking the Strategy port beyond what the decompose-instruction seam + the found leaks require.
+
+**Sequencing.** Runs late — after the per-WP reworks that target minimal have landed — so the residual surface is small. It is the closing sweep of the kernel/strategy de-roling effort; the proportion already clean is itself an output of the WP's discovery step.
+
+**Effort.** M (~1d) — discovery-driven; re-confirm and split after the sweep if the worklist is large.
