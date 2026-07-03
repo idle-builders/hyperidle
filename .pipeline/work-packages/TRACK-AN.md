@@ -151,3 +151,64 @@ Also: the credential model (`docs/architecture/credential-model.md`, `packages/s
 **Out of scope.** Using inherited tools in a session (AN2 / native harness use). Connecting new services (AN1).
 
 **Effort.** M (~6h)
+
+---
+
+### AN4 — Sync provider-native code review flows
+
+**Work package.** As a founder managing agent-built code work, I want HyperIdle to track the GitHub pull request an agent creates for a task — branch, PR URL, review state, checks, conflicts, and merge outcome — so that code work moves through the same provider-native review and merge flow the team already trusts. Agents still use their normal git/gh tools and credentials to create or update branches and PRs; HyperIdle links that external PR back to the task/session/agent and keeps its state visible in Work and Conversations. When an action is consequential, such as marking a PR ready or merging it, AL7 can route the agent's own provider action through approval, but GitHub remains the system that evaluates CI, branch protection, review requirements, conflict state, and merge. GitLab and other forges follow later behind the same provider-sync concept, not a custom HyperIdle merge engine.
+
+**Why this matters.** The fast-moving founder benefits because agent code work becomes legible without leaving HyperIdle, while the actual code-review machinery stays where it belongs: GitHub/GitLab. The cost of not building this is either blind external drift (agents open PRs but HyperIdle has no idea) or the worse mistake AO3 exposed: HyperIdle reinvents direct landing and bypasses branch protection, CI, and provider review. This work keeps HyperIdle as the operating layer that coordinates agents and work, not a second forge.
+
+**Type.** application
+
+**What exists today.** AN1/AN2 define connected services and session provisioning for external tools; AN3 makes inherited tools visible. AO1/AO2 define authored filesystems and mount/capture code repos into session working directories. AL7 defines the Proposed Call / tailored grant / Outcome loop for consequential agent tool calls. The process docs already say agents work with their own credentials and write-back rides the host: git means commit → push/PR, not a custom sync engine. What does not exist is a first-class PR/MR artifact synced from the forge and attached to work.
+
+**What's genuinely missing.** HyperIdle does not know when an agent opens or updates a GitHub PR for a task, does not show provider review/check/merge state on the task, and does not record the merge outcome as part of the work history. There is no provider-native sync loop that treats GitHub as source of truth for code review while HyperIdle remains the coordinator.
+
+**Depends on.**
+- AN1 — the GitHub account/connection must be represented before a provider sync can resolve auth and ownership.
+- AN2 — sessions need connected tools/credentials so agents can use normal git/gh or MCP provider tools in their working directory.
+- AO2 — agents need mounted code filesystems so a PR represents real code work produced in a session.
+- AL7 — approval for consequential provider actions, such as merge, rides the existing review→act loop rather than a new gate.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run `/refine` first (reshapes the code-output handoff around provider-native PR/MR sync and retires AO3's direct-land framing).
+- **Design:** Light — extends existing Work/Conversations artifact and review surfaces with provider PR status; single-variant `/design`.
+
+**Human concept review.** Yes — this changes the user-facing meaning of code review/landing and needs the founder-facing guide wording to be precise.
+
+**Acceptance criteria.**
+- A GitHub PR created or updated by an agent for a mounted code filesystem is linked to the producing task/session/agent and appears as the code-work artifact in HyperIdle.
+- HyperIdle displays provider-native PR state from GitHub as source of truth: branch, PR URL, draft/ready state, review state, checks, conflict/mergeability state, and merged/closed outcome.
+- HyperIdle never bypasses provider merge rules: branch protection, required checks, provider reviews, conflicts, and merge queues remain enforced by GitHub.
+- If an agent attempts a consequential provider action that the founder has chosen to gate, such as merging a PR, the action routes through AL7 and the approved session executes the provider action with the agent's own credentials.
+- When a PR changes outside HyperIdle, a refresh/sync updates the linked task/artifact state without overwriting provider data.
+- The model is provider-extensible: GitHub ships first, while GitLab is deferred behind the same PR/MR sync boundary rather than baked into GitHub-only nouns.
+- AO3-style direct push/merge is absent: HyperIdle does not implement a custom code merge, conflict resolver, or "land captured commit" executor.
+
+**Validation scenarios.**
+- Given an agent opens a GitHub PR for a task, when HyperIdle syncs provider state, then the task shows the PR URL, branch, checks, review state, and current mergeability.
+- Given GitHub checks fail or the branch has conflicts, when the task is viewed in HyperIdle, then the provider state is visible and HyperIdle does not offer a fake successful landing.
+- Given a gated merge action is approved through AL7, when the agent re-runs the provider merge action, then GitHub performs or rejects the merge according to its own rules and HyperIdle records that outcome.
+- Given a PR is merged or closed directly on GitHub, when HyperIdle refreshes, then the linked task/artifact reflects the external outcome.
+
+**Plan calls.** Run `/refine AN4` first to lock the provider-native review/merge vocabulary and explicitly retire AO3's direct-land semantics. Then a light `/design` pass for how PR status appears on task/session/review surfaces, followed by a standard architecture pass for provider sync contracts, persistence, refresh triggers, and AL7 integration for gated provider actions.
+
+**Contracts / constraints.**
+- GitHub/GitLab remain the source of truth for code review, CI, branch protection, conflict state, and merge.
+- HyperIdle syncs, links, routes, and records; it does not host git, run CI, or implement merge/conflict semantics.
+- Agents use their own configured tools/credentials (`git`, `gh`, provider MCP/API) rather than a HyperIdle broker-only path.
+- Provider actions that require approval use AL7's existing Proposed Call / grant / Outcome loop; no new review gate.
+- GitHub-first implementation must leave a clean PR/MR provider boundary for GitLab.
+
+**Out of scope.**
+- GitLab implementation (provider boundary only; GitLab follows later).
+- Replacing GitHub/GitLab review UI or approval rules.
+- Custom merge queues, conflict resolution, or CI orchestration.
+- Non-code providers such as Figma, Drive, or Obsidian; those need their own provider-native sync packages.
+- AO3 direct `land_change` push/merge semantics.
+
+**Effort.** L (~4d)

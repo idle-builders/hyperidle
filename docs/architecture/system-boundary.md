@@ -17,7 +17,7 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 | GitHub/GitLab cluster | Verdict | HyperIdle stance |
 |---|---|---|
 | Git hosting (repos, commits, protocol) | **RIDE** | code lives in a **local git repo, forge-optional**; we read diffs, route landing — never host repos |
-| Code review (PR/MR, approvals, comments) | **REPLACE** | Subject + 5-verdict + proof canvases + anchored comments; agents are first-class |
+| Code review (PR/MR, approvals, comments) | **SYNC / INTEGRATE** | Provider-native PR/MR review remains source of truth for code; HyperIdle links it to work, agents, sessions, and AL7-gated actions |
 | CI/CD (Actions, runners, pipelines) | **INTEGRATE** | trigger/observe via API/MCP; never host runners |
 | Deploy / registries / environments | **INTEGRATE** | a deploy is a Proposed Call the agent runs with its own tools once approved; registries integrated |
 | Project management (Issues, Projects, Epics) | **REPLACE** | bets/tasks supersede tickets |
@@ -29,8 +29,8 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 ## Code: where it lives, how it lands
 
 - **The system needs no git.** Most agent work — a refund, an email, a metric, a doc — touches no git. Git is **one connected system**, not a foundation.
-- **Code work uses a local git repo, forge-optional.** The agent edits a working copy that is a plain git repo (history + real diffs). A solo founder needs **no GitHub**. Connect a forge and we push / PR / merge through its API/MCP. Git is our working ground, never a product we host. The code artifact is **derived** from the repo, never our store of record.
-- **Landing sits behind a review.** The code diff is **descriptive** (approve = "this change is good"); **merge / push / deploy is an operative artifact** carrying a Proposed Call — the irreversible call the trusted agent attempted, routed to a human as a collaboration checkpoint. Approve lets the agent's own session run it through the forge/CI tool with its own creds, with the result returning. HyperIdle is the **gate + bookkeeper**; the agent's own tools are the **executor** (HyperIdle executes nothing of its own). The checkpoint fades as trust grows. → see [Review-gated execution: the Proposed Call](../process-layer/staged-operation.md).
+- **Code work uses a local git repo, forge-optional.** The agent edits a working copy that is a plain git repo (history + real diffs). A solo founder needs **no GitHub**. Connect a forge and agents use normal git/gh or provider MCP/API flows to push branches and open PRs; the forge owns code review, CI, branch protection, conflicts, and merge. HyperIdle syncs that provider-native PR/MR state back into Work/Conversations and may route consequential provider actions through AL7, but it does not replace the forge's merge semantics. Git is our working ground, never a product we host. The code artifact is **derived** from the repo / PR, never our store of record.
+- **Consequential provider actions can sit behind a review.** The code diff / PR state is **descriptive** (approve = "this change is good"); **merge / deploy / mark-ready** can be an operative artifact carrying a Proposed Call — the irreversible call the trusted agent attempted, routed to a human as a collaboration checkpoint. Approve lets the agent's own session run it through the provider/CI tool with its own creds, with the provider result returning. HyperIdle is the **gate + bookkeeper**; the provider and agent's own tools are the **executor** (HyperIdle executes nothing of its own). The checkpoint fades as trust grows. → see [Review-gated execution: the Proposed Call](../process-layer/staged-operation.md).
 
 ## Hard rules
 
@@ -41,6 +41,6 @@ Source: founder boundary act 2026-06-22 (`plans/AN/boundary-concept.md`), ground
 
 ## Why this is the opportunity, not just a boundary
 
-Both GitHub Copilot's coding agent and GitLab Duo retrofit AI as a **PR-author inside a human workflow** — the agent opens a *draft PR a human must merge*. Neither makes the agent a first-class participant in a different primitive. HyperIdle inverts it: agents are first-class, humans are reviewers/gates, and "review for anything" spans non-code work git hosts never touch.
+Both GitHub Copilot's coding agent and GitLab Duo retrofit AI as a **PR-author inside a human workflow** — the agent opens a *draft PR a human must merge*. HyperIdle does not need to replace that provider-native code flow. It adds the operating layer around it: agents are first-class participants in HyperIdle work, PRs are synced artifacts of that work, humans can gate consequential provider actions through AL7, and "review for anything" still spans non-code work git hosts never touch.
 
 See also: [What This Architecture Does Not Include](./what-this-architecture-does-not-include.md).

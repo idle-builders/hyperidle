@@ -1247,6 +1247,11 @@ stories:
     track: AN
     depends: [AN1, AM2]
     complexity: M
+  - id: AN4
+    title: Sync provider-native code review flows
+    track: AN
+    depends: [AN1, AN2, AO2, AL7]
+    complexity: L
   # Track AP: Overengineering Audit Cleanup (19 adversarially-confirmed findings)
   - id: AP1
     title: Remove dead infrastructure that has no consumers

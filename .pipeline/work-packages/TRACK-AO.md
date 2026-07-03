@@ -120,9 +120,11 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 
 ---
 
-### AO3 — Agent output becomes reviewable and landable — NEEDS RESEARCH (post-AL7)
+### AO3 — Agent output becomes reviewable and landable — WONT DO
 
-**Status: NEEDS RESEARCH + CONCEPT, gated on AL7.** Do not architect or build until AL7 has shipped (merged to main) and `/pipeline:refine AO3` has re-checked whether a genuine gap remains. This WP records a *problem*, not yet a committed solution.
+**Status: WONT DO (founder, 2026-07-03).** AO3's direct `land_change` concept is rejected. It tried to make HyperIdle "land" captured code by pushing a git ref after a HyperIdle review, which duplicates and bypasses the provider-native flow that already owns code review, CI, branch protection, conflict handling, and merge. Code work should ride the host/provider mechanism: agents use normal git/gh tools to create branches and PRs; GitHub/GitLab own review and merge; HyperIdle syncs the external PR/MR into Work/Conversations and gates only consequential agent actions through AL7 when the founder chooses that. The replacement scope is **AN4 — Sync provider-native code review flows**, under Track AN because it is external-tool/provider synchronization, not filesystem landing.
+
+**What remains valuable.** AO2 capture-back still matters as provenance and recovery evidence; AL7 still matters as the generic review→grant→agent-act loop; review canvases can still render captured output. Those are not a reason to build a HyperIdle-specific merge or sync engine.
 
 **Problem identified (deep review, 2026-06-25).** The build loop's final stages — an agent's output becoming a real review a human can act on, and approval **landing** the change — do not work on real output today: `GET /api/reviews/:id` is a hardcoded fixture (reviews.ts:4-61), there is no reviews table or POST, only a *knowledge*-review factory exists (no task/artifact/bet), and **AL7 (the approve→execute loop) is unmerged**. So even a correct verdict lands nothing. Note: the review *experience* itself — threads, verdicts (founder-verdict, self-verdict block, first-verdict-wins), proof-family canvases — **is** real (threads.ts); the founder constraint holds that we review **outputs/results, not code diffs**.
 
