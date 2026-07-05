@@ -14,6 +14,11 @@
 appId: com.hyperidle.app
 productName: HyperIdle
 copyright: Copyright © 2025-2026 HyperIdle
+# @lore release: electron is hoisted to the workspace root and package.json keeps
+# a semver range. electron-builder runs from packages/desktop and cannot resolve
+# a ranged Electron version without a local node_modules/electron, so pin the
+# exact downloaded Electron release here for deterministic desktop packaging.
+electronVersion: "42.5.0"
 
 # @lore N5: electron-builder defaults output to dist/, which overlaps with the
 # esbuild output (dist/main.cjs). This causes a circular inclusion — the
