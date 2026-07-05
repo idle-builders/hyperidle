@@ -397,7 +397,7 @@ test("AG1 AC-4 — clicking add-agent-btn opens add-agent dialog", async ({ page
 // for the AG1 spec context. L13 itself must also stay green.)
 // ---------------------------------------------------------------------------
 
-test("AG1 AC-4 regression — breadcrumb back navigates to /work/portfolio", async ({ page }) => {
+test("AG1 AC-4 regression — breadcrumb back navigates to /work", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await mockTeamRoute(page, makePopulatedTeam());
 
@@ -413,5 +413,5 @@ test("AG1 AC-4 regression — breadcrumb back navigates to /work/portfolio", asy
 	await page.waitForSelector("[data-testid='work-team-page']");
 
 	await page.getByTestId("team-breadcrumb-back").click();
-	await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+	await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
 });

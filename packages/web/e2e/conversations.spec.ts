@@ -21,7 +21,7 @@ test.describe("Conversations — canonical routes (L9)", () => {
 	test("/conversations renders the queue empty state", async ({ page }) => {
 		await page.goto("/conversations");
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
-		await expect(page.getByTestId("conversations-empty")).toBeVisible();
+		await expect(page.getByTestId("thread-sections-empty")).toBeVisible();
 	});
 
 	test("/conversations/review redirects to /conversations (AC-1)", async ({ page }) => {

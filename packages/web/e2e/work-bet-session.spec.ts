@@ -1,10 +1,10 @@
 /**
- * L19 — WorkBet session metadata Playwright e2e tests.
+ * L19/W3 — WorkBet task list Playwright e2e tests.
  *
  * AC coverage:
- *  - Bet detail with task that has session metadata → outcome chip visible, jump-out link visible
- *  - Jump-out link has correct href (opens in new tab)
- *  - Task without session has no outcome chip and no jump-out link
+ *  - Bet detail renders flat task rows, not the retired task table.
+ *  - Task rows navigate to task detail.
+ *  - Session metadata/jump-out links are not exposed in the bet task list.
  *
  * Strategy: hermetic page.route() mock for GET /api/bets/:id and all
  * side-effect API calls the AppShell and WorkBet components fire on load.
@@ -103,49 +103,32 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 
 		await page.goto(`/work/bet/${BET_ID}`);
 
-		// Wait for the bet page to be mounted (data-testid is set immediately on render).
-		// Then wait for at least one task row to appear (requires the bet fetch to complete).
-		await expect(page.getByTestId("work-bet-page")).toBeVisible();
-		await expect(page.getByRole("table")).toBeVisible();
+			// Wait for the bet page and current flat task rows to render.
+			await expect(page.getByTestId("work-bet-page")).toBeVisible();
+			await expect(page.getByTestId("task-row")).toHaveCount(2);
+		});
+
+		test("task list renders flat rows and no retired task table", async ({ page }) => {
+			await expect(page.getByRole("table")).toHaveCount(0);
+
+			const taskWithSessionRow = page.getByTestId("task-row").filter({ hasText: "Task with session" });
+			await expect(taskWithSessionRow).toBeVisible();
+			await expect(taskWithSessionRow).toContainText("In progress");
+		});
+
+		test("task row navigates to task detail", async ({ page }) => {
+			const taskWithSessionRow = page.getByRole("button", { name: "Task with session" });
+			await expect(taskWithSessionRow).toBeVisible();
+
+			await taskWithSessionRow.click();
+			await expect(page).toHaveURL(new RegExp(`/work/bet/${BET_ID}/task/${TASK_WITH_SESSION_ID}`));
+		});
+
+		test("bet task list does not expose session metadata or harness jump-out links", async ({ page }) => {
+			const taskWithoutSessionRow = page.getByTestId("task-row").filter({ hasText: "Task without session" });
+			await expect(taskWithoutSessionRow).toBeVisible();
+
+			await expect(page.getByTestId("task-session-metadata")).toHaveCount(0);
+			await expect(page.getByRole("link", { name: /open session in harness/i })).toHaveCount(0);
+		});
 	});
-
-	test("outcome chip is visible in the task table row for task with session", async ({ page }) => {
-		const table = page.getByRole("table");
-		await expect(table).toBeVisible();
-
-		// The outcome chip for "completed" → "done" → "DONE" should be visible
-		const taskWithSessionRow = page.getByRole("row").filter({ hasText: "Task with session" });
-		await expect(taskWithSessionRow).toBeVisible();
-
-		// Outcome chip text (StatusChip renders status.toUpperCase())
-		await expect(taskWithSessionRow.getByText(/done/i)).toBeVisible();
-	});
-
-	test("jump-out link is visible and has correct href", async ({ page }) => {
-		const taskWithSessionRow = page.getByRole("row").filter({ hasText: "Task with session" });
-		await expect(taskWithSessionRow).toBeVisible();
-
-		// Query the jump-out link from the page — scoping to the row via within() is
-		// unreliable for table row links in Playwright; the global query is correct
-		// because only one task in this fixture has a harness URL.
-		const link = page.getByRole("link", { name: /open session in harness/i });
-		await expect(link).toBeVisible();
-
-		const href = await link.getAttribute("href");
-		expect(href).toBe(HARNESS_URL);
-
-		// Link opens in new tab
-		const target = await link.getAttribute("target");
-		expect(target).toBe("_blank");
-	});
-
-	test("task without session has no outcome chip and no jump-out link", async ({ page }) => {
-		const taskWithoutSessionRow = page.getByRole("row").filter({ hasText: "Task without session" });
-		await expect(taskWithoutSessionRow).toBeVisible();
-
-		// No jump-out link
-		await expect(taskWithoutSessionRow.getByRole("link", { name: /open in harness/i })).toHaveCount(
-			0,
-		);
-	});
-});

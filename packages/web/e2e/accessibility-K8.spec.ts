@@ -22,12 +22,12 @@ const MOBILE = { width: 1024, height: 900 };
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
-	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
 	// @lore L13: /work/team was removed in L13; the route now redirects to
 	// /work/portfolio. We replace it with a product drilldown to keep route
 	// coverage. The /api/teams/p1 mock is registered in beforeEach so this
 	// test is hermetic on CI (no real DB needed).
-	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
+	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
 	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
 	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
@@ -80,14 +80,14 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					product: {
+					team: {
 						id: "p1",
 						name: "Alpha",
 						phase: "build",
 						status: "healthy",
 						leadAgentId: "agent-1",
 					},
-					team: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
+					teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 					roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
 					burn: {
 						costActual: { minor: 10000, currency: "USD" },
@@ -98,9 +98,9 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 					activeBets: [
 						{
 							id: "b1",
-							pitchTitle: "User auth flow",
+							descriptionTitle: "User auth flow",
 							costAppetite: { minor: 100000, currency: "USD" },
-							status: "committed",
+							status: "active",
 							progressDone: 3,
 							progressTotal: 8,
 						},

@@ -52,7 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 			type={rest.type ?? "button"}
 			disabled={disabled}
 			className={[
-				"inline-flex items-center justify-center gap-[6px] rounded-full border-[1.5px] font-medium cursor-pointer",
+				"inline-flex min-h-[44px] items-center justify-center gap-[6px] rounded-full border-[1.5px] font-medium cursor-pointer",
 				"active:scale-[0.97]",
 				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
 				"disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",

@@ -13,7 +13,7 @@
  *    → team header / roster / active-bets / burn-vs-cap all visible.
  * 2. Empty state: team with zero active bets shows product-active-bets-empty.
  * 3. Roster + bets visible: seeded team has roster rows + bet cards.
- * 4. Breadcrumb: click breadcrumb chip → URL returns to /work/portfolio.
+ * 4. Breadcrumb: click breadcrumb chip → URL returns to /work.
  * 5. Legacy redirect: /work/product/:id → /work/team/:id.
  * 6. Unknown team: /work/team/does-not-exist → product-not-found empty state.
  * 7. No-Kanban: negative assertion — no Kanban region on the Team page.
@@ -38,23 +38,49 @@ function makeProductsListResponse() {
 				shipRate: "67%",
 				progress: { done: 1, total: 3 },
 			},
+			{
+				id: "p2",
+				name: "Second Team",
+				phase: "build",
+				status: "healthy",
+				leadAgentId: null,
+				activeBets: 0,
+				shipped: 0,
+				shipRate: "—",
+				progress: { done: 0, total: 0 },
+			},
 		],
 	};
 }
 
 function makeProductDetailResponse() {
 	return {
-		product: {
+		team: {
 			id: PRODUCT_ID,
 			name: "HyperIdle Core",
 			phase: "build",
 			status: "healthy",
 			leadAgentId: "agent-lead",
+			formedAt: NOW,
+			dissolvedAt: null,
 		},
-		team: { id: "t1", formedAt: NOW, dissolvedAt: null },
 		roster: [
-			{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
-			{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
+			{
+				agentId: "agent-lead",
+				name: "Lead Agent",
+				role: "Lead",
+				isLead: true,
+				healthLevel: "healthy",
+				operationalStatus: "idle",
+			},
+			{
+				agentId: "agent-member",
+				name: "Alice Agent",
+				role: "member",
+				isLead: false,
+				healthLevel: "healthy",
+				operationalStatus: "idle",
+			},
 		],
 		burn: {
 			costActual: { minor: 420000, currency: "USD" },
@@ -65,13 +91,14 @@ function makeProductDetailResponse() {
 		activeBets: [
 			{
 				id: "b1",
-				pitchTitle: "Auth migration",
+				descriptionTitle: "Auth migration",
 				costAppetite: { minor: 100000, currency: "USD" },
-				status: "committed",
+				status: "active",
 				progressDone: 1,
 				progressTotal: 2,
 			},
 		],
+		routines: [],
 	};
 }
 
@@ -127,7 +154,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Product header (name) visible
-		await expect(page.getByText("HyperIdle Core")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "HyperIdle Core" })).toBeVisible();
 
 		// Roster region visible
 		await expect(page.getByTestId("team-agents")).toBeVisible();
@@ -168,20 +195,20 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(rosterRows.first()).toBeVisible();
 
 		// At least one bet in the active-bets region
-		const betsRegion = page.getByTestId("product-active-bets");
+		const betsRegion = page.getByTestId("team-active-bets");
 		await expect(betsRegion).toBeVisible();
 		await expect(betsRegion.getByText("Auth migration")).toBeVisible();
 	});
 
-	test("(4) breadcrumb click returns to /work/portfolio", async ({ page }) => {
+	test("(4) breadcrumb click returns to /work", async ({ page }) => {
 		await page.goto(`/work/team/${PRODUCT_ID}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Click the breadcrumb chip
-		await page.getByTestId("team-breadcrumb-back").click();
+		await page.getByRole("link", { name: /^Work$/ }).click();
 
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
-		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+		await expect(page).toHaveURL(/\/work$/, { timeout: 5000 });
+		await expect(page.getByTestId("work-overview-page")).toBeVisible();
 	});
 
 	test("(5) legacy /work/product/:id redirects to /work/team/:id", async ({ page }) => {

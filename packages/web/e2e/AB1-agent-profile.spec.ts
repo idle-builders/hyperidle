@@ -115,6 +115,7 @@ const MOCK_AGENT_PROFILE_DEGRADED = {
 const MOCK_AGENTS_LIST = [
 	{
 		id: MOCK_AGENT_ID,
+		agentId: MOCK_AGENT_ID,
 		name: "E2E Builder Bot",
 		role: "builder",
 		agentCategory: "team",
@@ -128,11 +129,23 @@ const MOCK_AGENTS_LIST = [
 ];
 
 const MOCK_TEAM_DATA = {
-	id: "e2e-team-1",
-	name: "E2E Test Team",
-	phase: "build",
+	team: {
+		id: "e2e-team-1",
+		name: "E2E Test Team",
+		phase: "build",
+		status: "healthy",
+		leadAgentId: MOCK_AGENT_ID,
+	},
+	teamMembers: { id: "e2e-team-members-1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 	roster: MOCK_AGENTS_LIST,
-	bets: [],
+	burn: {
+		costActual: { minor: 0, currency: "USD" },
+		costCap: null,
+		capacity: 1,
+		activeBets: 0,
+	},
+	activeBets: [],
+	routines: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -142,8 +155,9 @@ const MOCK_TEAM_DATA = {
 test.describe("AB1 AC-1: Navigate to agent profile from team page", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock the team detail endpoint
-		await page.route("**/api/teams/e2e-team-1", async (route) => {
-			if (route.request().method() === "GET") {
+		await page.route("**/api/teams/**", async (route) => {
+			const url = new URL(route.request().url());
+			if (route.request().method() === "GET" && url.pathname === "/api/teams/e2e-team-1") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -169,11 +183,11 @@ test.describe("AB1 AC-1: Navigate to agent profile from team page", () => {
 	});
 
 	test("clicking agent name on team page navigates to agent profile", async ({ page }) => {
-		await page.goto("/work/teams/e2e-team-1");
+		await page.goto("/work/team/e2e-team-1");
 		await page.waitForSelector("[data-testid='main-content']");
 
 		// Find the agent card name link and click it
-		await page.getByRole("link", { name: /E2E Builder Bot/i }).click();
+		await page.getByRole("button", { name: /E2E Builder Bot/i }).click();
 
 		// Should navigate to the agent profile page
 		await expect(page).toHaveURL(/\/agents\/e2e-agent-builder/);

@@ -1,6 +1,5 @@
 /**
- * E2E tests for the Work section: Portfolio canvas, Team kanban board,
- * bet cards, and pitch selector.
+ * E2E tests for the Work section: current Teams overview.
  *
  * @lore M3: Teams now come from /api/teams. Tests that need team data
  * must mock the endpoint with fixture data.
@@ -14,14 +13,31 @@ const TEAMS_FIXTURE = {
 			id: "t1",
 			name: "HyperIdle Core",
 			phase: "build",
-			active: true,
+			status: "healthy",
+			leadAgentId: "agent-lead",
+			activeBets: 2,
+			shipped: 1,
+			shipRate: "50%",
+			progress: { done: 1, total: 2 },
+		},
+		{
+			id: "t2",
+			name: "HyperIdle Ops",
+			phase: "build",
+			status: "behind",
+			leadAgentId: "agent-ops",
+			activeBets: 1,
+			shipped: 0,
+			shipRate: "0%",
+			progress: { done: 0, total: 1 },
 		},
 	],
 };
 
-test.describe("Work Portfolio", () => {
+test.describe("Work Overview", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/teams so team pill filters render deterministically in e2e.
+		// Mock /api/teams with multiple teams so /work/portfolio renders overview
+		// instead of taking the solo-team drill-in path.
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -30,29 +46,20 @@ test.describe("Work Portfolio", () => {
 			});
 		});
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 	});
 
-	test("Portfolio page renders a portfolio overview heading (I4 P1)", async ({ page }) => {
-		// No longer "Portfolio Canvas" — the portfolio is now a product
-		// overview.
-		await expect(page.getByRole("heading", { name: /^portfolio$/i })).toBeVisible();
+	test("Work overview renders the Teams heading", async ({ page }) => {
+		await expect(page.getByRole("heading", { name: /^teams$/i })).toBeVisible();
 	});
 
-	test("Portfolio page renders bet-grid container (I4 P4)", async ({ page }) => {
-		// @lore U11: product-card testid was removed in U9 (WorkPortfolio now renders
-		// a flat BetCard grid). The bet-grid container is the structural assertion.
-		// Empty state (no bets) or populated state (bet cards) — either shows bet-grid
-		// in the loaded state. We check work-portfolio-page is visible (from beforeEach).
-		const portfolioPage = page.getByTestId("work-portfolio-page");
-		await expect(portfolioPage).toBeVisible();
+	test("Work overview renders team rows", async ({ page }) => {
+		await expect(page.getByTestId("work-overview-content")).toBeVisible();
+		await expect(page.getByTestId("team-row")).toHaveCount(2);
+		await expect(page.getByRole("button", { name: /HyperIdle Core 2 active bets HEALTHY/i })).toBeVisible();
 	});
 });
 
-// @lore L13: The "Work Team Board" describe block was removed here. WorkTeam
-// (the Kanban surface, team canvas, and pitch selector mounted at /work/team)
-// was deleted in L13 when the Product = Team 1:1 redesign removed the
-// dedicated team route. /work/team now redirects to /work/portfolio.
-// The Kanban, team canvas, and pitch-selector surfaces no longer exist — their
-// tests cannot be migrated because the surface itself is gone.
-// New coverage for the product drilldown lives in e2e/L13-product-drilldown.spec.ts.
+// @lore W3: Portfolio canvas, bet-grid, team pills, Kanban, team canvas, and
+// pitch-selector assertions were retired. Current Work arrival is the Teams
+// overview; product drilldown coverage lives in e2e/L13-product-drilldown.spec.ts.

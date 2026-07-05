@@ -179,26 +179,25 @@
 		 */
 		--text-secondary: #675f56; /* 5.88:1 page, 5.54:1 container, 6.27:1 elevated */
 		/*
-		 * @lore U3 — text-tertiary is decorative/hint-only in light mode (large
-		 * labels, timestamps, icons; NOT body text; WCAG AA-exempt in this role).
-		 * @lore CP1 — de-browned #9a8d7e (C0.027) → #958e85 (C0.016), holding
-		 * L0.65. Round-2 lifted the page so it reads ~3.04:1 — still decorative/
-		 * hint-only (large labels, timestamps, icons), cleaner tone.
+		 * @lore release-v0.6.0 — text-tertiary is used for real 11-13px labels
+		 * (keyboard hints, empty states, metadata), not only decorative icons.
+		 * Darken it to clear AA on the full light surface ladder while keeping it
+		 * quieter than secondary.
 		 */
-		--text-tertiary: #958e85; /* ~3.04:1 on lifted page — decorative/hint only */
+		--text-tertiary: #6b645d; /* 5.46:1 page, 5.14:1 container, 5.82:1 elevated */
 		/* @lore CP1 — placeholder de-browned #bfb5a5 (C0.025) → #bcb7ae (C0.014). */
 		--text-placeholder: #bcb7ae; /* placeholder-only, exempt from AA */
 		--text-on-accent: #ffffff; /* 5.62:1 on accent-primary */
 
 		/* Accents — forest green */
-		--accent-primary: #16764f;
+		--accent-primary: #105e3f;
 		--accent-primary-dim: rgba(22, 118, 79, 0.08);
-		--accent-primary-hover: #105e3f;
-		--accent-secondary: #d97706;
+		--accent-primary-hover: #0d5638;
+		--accent-secondary: #92400e;
 
 		/* Status — see @lore: light mode values are icon/badge only */
-		--status-success: #16764f;
-		--status-warning: #d97706;
+		--status-success: #105e3f;
+		--status-warning: #92400e;
 		--status-error: #dc4a3a;
 		--status-info: #2e7dba;
 

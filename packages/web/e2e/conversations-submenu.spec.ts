@@ -2,8 +2,8 @@
  * L8 — Conversations Submenu thread sections E2E.
  *
  * Covers the design contract end-to-end with a mocked GET /api/threads
- * endpoint. Asserts list loads, click updates main pane, counts match list,
- * and network failure surfaces ErrorState with retry.
+ * endpoint. Asserts list loads, click updates main pane, and network failure
+ * surfaces ErrorState with retry.
  */
 import { expect, test } from "./fixtures";
 
@@ -51,7 +51,7 @@ const SEVEN_THREADS: MockListRow[] = [
 ];
 
 test.describe("L8 — Conversations Submenu list", () => {
-	test("loads thread list and renders rows by section", async ({ page }) => {
+	test("loads thread list and renders rows", async ({ page }) => {
 		await page.route("**/api/threads?**", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -63,12 +63,6 @@ test.describe("L8 — Conversations Submenu list", () => {
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		const rows = page.locator("[data-ds-component='ThreadRow']");
 		await expect(rows).toHaveCount(SEVEN_THREADS.length);
-		// Active section header has count=5 (assistant thread + a1..a4)
-		const active = page.locator("[data-thread-section='active']");
-		await expect(active).toBeVisible();
-		// Resolved section header has count=2
-		const resolved = page.locator("[data-thread-section='resolved']");
-		await expect(resolved).toBeVisible();
 	});
 
 	// L9: clicking a thread row now navigates to /conversations/:threadId
@@ -115,11 +109,8 @@ test.describe("L8 — Conversations Submenu list", () => {
 		await row.click();
 		// L9: URL must now include the thread id path segment.
 		await expect(page).toHaveURL(/\/conversations\/.+/);
-		await expect(page.locator("[data-ds-component='ThreadRow'][aria-current='true']")).toHaveCount(
-			1,
-		);
-		// Main pane must mount ThreadShell (thread detail loaded).
-		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible();
+		// Main pane must mount the conversation detail surface.
+		await expect(page.getByRole("textbox", { name: /message/i })).toBeVisible();
 	});
 
 	test("network failure renders ErrorState", async ({ page }) => {
@@ -130,9 +121,7 @@ test.describe("L8 — Conversations Submenu list", () => {
 		await expect(page.locator("[data-testid='thread-sections-error']")).toBeVisible();
 	});
 
-	test("counts at every section level equal that section's rendered row count", async ({
-		page,
-	}) => {
+	test("flat list renders every returned thread exactly once", async ({ page }) => {
 		await page.route("**/api/threads?**", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -142,14 +131,9 @@ test.describe("L8 — Conversations Submenu list", () => {
 		});
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
-		for (const sectionId of ["active", "resolved"]) {
-			const section = page.locator(`[data-thread-section='${sectionId}']`);
-			if ((await section.count()) === 0) continue;
-			const rows = await section.locator("[data-ds-component='ThreadRow']").count();
-			const countText = (
-				await section.locator("[data-thread-section-count]").textContent()
-			)?.trim();
-			expect(Number(countText)).toBe(rows);
-		}
+		await expect(page.locator("[data-ds-component='ThreadRow']")).toHaveCount(
+			SEVEN_THREADS.length,
+		);
+		await expect(page.locator("[data-thread-section]")).toHaveCount(0);
 	});
 });

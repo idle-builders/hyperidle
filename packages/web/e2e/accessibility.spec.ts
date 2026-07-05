@@ -15,12 +15,12 @@ import { expect, test } from "./fixtures";
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
-	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
 	// @lore L13: /work/team was removed in L13; the route now redirects to
 	// /work/portfolio. We replace it with a product drilldown to keep route
 	// coverage. The /api/teams/p1 mock is registered in beforeEach so this
 	// test is hermetic on CI (no real DB needed).
-	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
+	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
 	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
 	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
@@ -71,14 +71,14 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					product: {
+					team: {
 						id: "p1",
 						name: "Alpha",
 						phase: "build",
 						status: "healthy",
 						leadAgentId: "agent-1",
 					},
-					team: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
+					teamMembers: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 					roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
 					burn: {
 						costActual: { minor: 10000, currency: "USD" },
@@ -89,9 +89,9 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 					activeBets: [
 						{
 							id: "b1",
-							pitchTitle: "User auth flow",
+							descriptionTitle: "User auth flow",
 							costAppetite: { minor: 100000, currency: "USD" },
-							status: "committed",
+							status: "active",
 							progressDone: 3,
 							progressTotal: 8,
 						},
@@ -115,21 +115,14 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 	test("Settings overlay passes the audit while open", async ({ page }) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByRole("button", { name: /^user profile$/i }).click();
-		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		// Scope the audit to the dialog itself. The dimmed shell behind the
-		// overlay is aria-hidden="true", but axe-core still visits those nodes
-		// unless we explicitly include only the dialog subtree.
-		// @lore DaisyUI v4 modal/tab/input colors use OKLCH with built-in
-		// opacity that can't be overridden via CSS custom properties or
-		// !important. We disable color-contrast for the modal-scoped audit
-		// because the violations are framework-generated and not controllable
-		// without forking DaisyUI. The route-level audits (which cover
-		// non-overlay DaisyUI usage) DO enforce color-contrast.
+		await page.getByRole("button", { name: /^settings$/i }).click();
+		await expect(page.getByTestId("settings-page")).toBeVisible();
+		// @lore P4 replaced the old Settings dialog with an in-shell settings
+		// page. Keep this audit on the rendered settings content instead of the
+		// deleted modal role.
 		const results = await new AxeBuilder({ page })
-			.include("[role='dialog'][aria-label='Settings']")
+			.include("[data-testid='settings-page']")
 			.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-			.disableRules(["color-contrast"])
 			.analyze();
 		expect(results.violations).toEqual([]);
 	});

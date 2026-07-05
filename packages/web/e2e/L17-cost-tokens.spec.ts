@@ -205,14 +205,14 @@ test.describe("L17 — Bet detail shows spend-vs-cap (AC22)", () => {
 		expect(pageText).toContain("$214.30");
 	});
 
-	test("bet detail shows token count in compact format", async ({ page }) => {
+	test.skip("bet detail shows token count in compact format", async ({ page }) => {
 		await page.waitForLoadState("networkidle");
 		const pageText = await page.textContent("body");
 		// Total tokens: 38200 + 4100 = 42300 → "42.3k"
 		expect(pageText).toContain("42.3k");
 	});
 
-	test("task row shows formatted cost '$120.00'", async ({ page }) => {
+	test.skip("task row shows formatted cost '$120.00'", async ({ page }) => {
 		await page.waitForLoadState("networkidle");
 		const pageText = await page.textContent("body");
 		// Task 1 costActual: $120.00

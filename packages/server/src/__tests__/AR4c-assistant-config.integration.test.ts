@@ -9,12 +9,14 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
 // ---------------------------------------------------------------------------
+
+const TEST_API_KEY = "ar4c-test-api-key";
 
 async function seedUser(db: HyperIdleDb, userId: string): Promise<void> {
 	const now = new Date().toISOString();
@@ -32,7 +34,7 @@ function authHeaders(userId: string): Record<string, string> {
 	return {
 		"Content-Type": "application/json",
 		"X-Identity": userId,
-		Authorization: `Bearer test-token-${userId}`,
+		"X-API-Key": TEST_API_KEY,
 	};
 }
 
@@ -41,6 +43,10 @@ function authHeaders(userId: string): Record<string, string> {
 // ---------------------------------------------------------------------------
 
 describe("AR4c: PATCH /api/users/:userId/assistant — harness+model config", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
 	test("PATCH valid harness+model → 200 + row updated", async ({ db, app }) => {
 		const userId = "ar4c-valid-triple-user";
 		await seedUser(db, userId);
@@ -160,7 +166,7 @@ describe("AR4c: PATCH /api/users/:userId/assistant — harness+model config", ()
 
 		const getRes = await app.request(`/api/users/${userId}/assistant`, {
 			method: "GET",
-			headers: { "X-Identity": userId, Authorization: `Bearer test-token-${userId}` },
+			headers: authHeaders(userId),
 		});
 		expect(getRes.status).toBe(200);
 		const body = (await getRes.json()) as {

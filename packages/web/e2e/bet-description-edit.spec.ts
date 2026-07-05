@@ -80,6 +80,7 @@ async function setupBetRoute(
 			: never
 		: never,
 	fixture: ReturnType<typeof makeActiveBetFixture>,
+	onPatch?: (body: Record<string, unknown>) => void,
 ) {
 	await page.route(`**/api/bets/${BET_ID}`, (route) => {
 		if (route.request().method() === "GET") {
@@ -89,7 +90,15 @@ async function setupBetRoute(
 				body: JSON.stringify(fixture),
 			});
 		}
-		return route.continue();
+		if (route.request().method() === "PATCH") {
+			onPatch?.(JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>);
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true }),
+			});
+		}
+		return route.fallback();
 	});
 
 	// Mock threads
@@ -164,19 +173,8 @@ test.describe("T3 — Bet description WYSIWYG editing (E2E)", () => {
 	}) => {
 		let patchBody: Record<string, unknown> | null = null;
 
-		await setupBetRoute(page, makeActiveBetFixture());
-
-		// Intercept the PATCH call
-		await page.route(`**/api/bets/${BET_ID}`, (route) => {
-			if (route.request().method() === "PATCH") {
-				patchBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
-				return route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ ok: true }),
-				});
-			}
-			return route.continue();
+		await setupBetRoute(page, makeActiveBetFixture(), (body) => {
+			patchBody = body;
 		});
 
 		await page.goto(`/work/bet/${BET_ID}`);

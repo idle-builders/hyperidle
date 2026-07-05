@@ -2,7 +2,7 @@
  * W3 — Knowledge Edit Mode E2E tests: AC-44 through AC-46.
  *
  * AC-44: Clicking "Edit" transitions to edit mode — "Done" replaces "Edit",
- *        formatting toolbar appears, body gets editor border, save indicator.
+ *        selected editor text shows formatting toolbar, body gets editor panel, save indicator.
  * AC-45: Clicking "Done" returns to read mode.
  * AC-46: Metadata aside stays read-only during editing.
  */
@@ -82,27 +82,29 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 	test("edit mode shows a formatting toolbar", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		// Toolbar should appear with Bold, Italic etc.
-		const toolbar = page.locator(
-			"[data-testid='formatting-toolbar'], .formatting-toolbar, [role='toolbar']",
-		);
+		const editor = page.locator(".ProseMirror").first();
+		await expect(editor).toBeVisible();
+		await editor.click();
+		await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+
+		// BodyEditor uses TipTap's BubbleMenu, so formatting controls appear only
+		// when text is selected.
+		const toolbar = page.getByRole("toolbar", { name: /text formatting/i });
 		await expect(toolbar).toBeVisible();
 	});
 
 	test("edit mode wraps editor in a bordered area", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const editorArea = page.locator(
-			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
-		);
+		const editorArea = page.getByTestId("knowledge-edit-panel");
 		await expect(editorArea).toBeVisible();
 	});
 
 	test("edit mode shows save indicator in header", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const saveIndicator = page.locator("[data-testid='save-indicator'], [data-save-status]");
-		await expect(saveIndicator).toBeVisible();
+		const saveIndicator = page.getByTestId("save-indicator");
+		await expect(saveIndicator).toHaveAttribute("data-save-status");
 	});
 });
 
@@ -154,10 +156,7 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 		await page.getByRole("button", { name: /^done$/i }).click();
 
-		const editorArea = page.locator(
-			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
-		);
-		await expect(editorArea).not.toBeVisible();
+		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
 	});
 });
 

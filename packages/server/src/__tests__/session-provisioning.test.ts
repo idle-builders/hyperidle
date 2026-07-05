@@ -95,6 +95,8 @@ interface ScriptedHarnessConfig {
 	readonly stopResult?: SessionResult;
 	/** Number of events to yield before throwing (simulates crash). */
 	readonly throwAfter?: number;
+	/** Keep streamEvents pending until stopSession is called. */
+	readonly hangUntilStop?: boolean;
 	/** Optional hook fired on startSession (for blocking/delay tests). */
 	readonly onStart?: (config: SessionConfig) => Promise<void> | void;
 	/**
@@ -116,6 +118,7 @@ interface ScriptedHarnessConfig {
 class ScriptedHarnessAdapter implements HarnessAdapter {
 	public startedConfigs: SessionConfig[] = [];
 	public stoppedHandles: SessionHandle[] = [];
+	private releaseHang: (() => void) | null = null;
 	private nextId = 1;
 
 	constructor(private readonly config: ScriptedHarnessConfig) {}
@@ -144,6 +147,12 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 	}
 
 	async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {
+		if (this.config.hangUntilStop) {
+			await new Promise<void>((resolve) => {
+				this.releaseHang = resolve;
+			});
+			return;
+		}
 		let yielded = 0;
 		for (const ev of this.config.events) {
 			yield ev;
@@ -156,6 +165,8 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		this.stoppedHandles.push(handle);
+		this.releaseHang?.();
+		this.releaseHang = null;
 		return (
 			this.config.stopResult ?? {
 				outcome: "completed",
@@ -1101,6 +1112,37 @@ describe("Session Provisioning (D5)", () => {
 
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
+		});
+	});
+
+	// -------------------------------------------------------------- AC defensive
+	describe("AC defensive: session timeout stops a hanging harness", () => {
+		it("stops the active harness and records a crashed session when the run exceeds sessionTimeoutMs", async () => {
+			await seedDomain(db);
+
+			const harness = new ScriptedHarnessAdapter({
+				events: [],
+				hangUntilStop: true,
+				stopResult: {
+					outcome: "stopped",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
+			});
+
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				adapterPool: makePool(harness),
+				workspace,
+				sessionTimeoutMs: 10,
+			};
+			const result = await provisionSession(deps, baseParams(tmpDir));
+
+			expect(result.outcome).toBe("crashed");
+			expect(harness.stoppedHandles).toHaveLength(1);
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
+			expect(session?.state).toBe("crashed");
 		});
 	});
 

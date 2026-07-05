@@ -160,7 +160,7 @@ test.describe("M3 — Portfolio: empty state when no products", () => {
 
 		// Also mock auth for this test
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// With no products from the API, the empty state should render
 		// and no MOCK_PRODUCTS content ("HyperIdle Core", "Knowledge Fabric") should appear
@@ -182,7 +182,7 @@ test.describe("M3 — Portfolio: empty state when no products", () => {
 		});
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// All MOCK_PRODUCTS strings must be absent — fixture deleted in M3 C1
 		const pageText = await page.evaluate(() => document.body.innerText);

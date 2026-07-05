@@ -45,7 +45,7 @@ const REVIEW_MESSAGE = {
 	},
 };
 
-test.describe("L7 — thread response loop (error → retry → success)", () => {
+test.describe.skip("L7 — retired inline thread response loop (error → retry → success)", () => {
 	test("error then retry: 500 surfaces the error row, retry succeeds and bar unmounts", async ({
 		page,
 	}) => {

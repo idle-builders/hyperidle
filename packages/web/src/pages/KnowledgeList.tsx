@@ -357,7 +357,7 @@ function KnowledgeListContent({
 	}, [filteredTriageItems.length]);
 
 	return (
-		<div className="max-w-[800px] mx-auto w-full">
+		<div className="max-w-[800px] mx-auto w-full" data-testid="knowledge-list-content">
 			{/*
 			 * AD6: Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
@@ -1032,7 +1032,10 @@ export function KnowledgeList({
 
 			<div className="flex-1 overflow-y-auto">
 				{systemEmpty ? (
-					<div className="flex items-center justify-center p-[48px_24px] h-full">
+					<div
+						className="max-w-[800px] mx-auto w-full h-full flex items-center justify-center p-[48px_24px]"
+						data-testid="knowledge-list-content"
+					>
 						<EmptyState
 							title="Your knowledge base is empty"
 							description="Knowledge items capture patterns, decisions, and lessons learned. As your agents work, they will start indexing insights here automatically. You can also add items manually."

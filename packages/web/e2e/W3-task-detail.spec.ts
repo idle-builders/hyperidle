@@ -64,7 +64,7 @@ test.describe("W3 AC-26 — Task detail route", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -95,7 +95,7 @@ test.describe("W3 AC-27 — Breadcrumb", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -143,7 +143,7 @@ test.describe("W3 AC-28 — Metadata strip", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -185,7 +185,7 @@ test.describe("W3 AC-29 — Sessions section", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -227,7 +227,7 @@ test.describe("W3 AC-32 — Task detail max-width 800px", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -264,7 +264,7 @@ test.describe("W3 — Task detail from bet detail click-through", () => {
 				body: JSON.stringify(BET_FIXTURE),
 			});
 		});
-		await page.route("**/api/sessions*", async (route) => {
+		await page.route("**/api/tasks/*/sessions", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",

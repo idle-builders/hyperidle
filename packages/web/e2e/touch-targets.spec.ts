@@ -27,10 +27,9 @@ const MIN_TOUCH_PX = 44;
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
 	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
-	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
-	// @lore L13: /work/team was removed; route redirects to /work/portfolio.
-	// Replaced with the product drilldown (hermetic via /api/teams/p1 mock).
-	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-overview-page']" },
+	// @lore U6: /work/product/:id is legacy and renders the WorkTeam page marker.
+	{ path: "/work/product/p1", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
 	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
 	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },

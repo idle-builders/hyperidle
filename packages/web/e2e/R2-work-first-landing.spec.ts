@@ -6,9 +6,9 @@
  * AC-2: Backend mode selection is removed from setup flow.
  * AC-3: Email field is removed from setup.
  * AC-4: Product is created silently (no visible "First Product" section).
- * AC-5: After setup, app routes to /work/portfolio.
+ * AC-5: After setup, app routes to /work.
  * AC-6: BetCreateDialog requires only title and pitch. Product picker hidden for single product.
- * AC-7: "Create bet" CTA is the most prominent action on WorkPortfolio when no bets exist.
+ * AC-7: "New bet" is the primary action on the Work overview.
  */
 
 import { expect, test } from "./fixtures";
@@ -18,11 +18,13 @@ import { expect, test } from "./fixtures";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MOCK_CREATE_USER_RESPONSE = {
-	id: "u-r2-founder",
-	name: "Alice R2",
-	kind: "human",
-	role: "founder",
-	status: "active",
+	user: {
+		id: "u-r2-founder",
+		name: "Alice R2",
+		kind: "human",
+		role: "founder",
+		status: "active",
+	},
 };
 
 const MOCK_CREATE_PRODUCT_RESPONSE = {
@@ -86,7 +88,7 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — renders name and API key fields as required fields", async ({ page }) => {
 			await page.goto("/setup");
 
-			await expect(page.getByLabel(/^name/i)).toBeVisible();
+			await expect(page.getByLabel(/your name/i)).toBeVisible();
 			await expect(page.getByLabel(/anthropic api key/i)).toBeVisible();
 		});
 
@@ -125,7 +127,7 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — Start button disabled when name filled but no API key", async ({ page }) => {
 			await page.goto("/setup");
 
-			await page.getByLabel(/^name/i).fill("Alice");
+			await page.getByLabel(/your name/i).fill("Alice");
 
 			await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeDisabled();
 		});
@@ -134,14 +136,14 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — Start button enabled when name and API key are filled", async ({ page }) => {
 			await page.goto("/setup");
 
-			await page.getByLabel(/^name/i).fill("Alice");
+			await page.getByLabel(/your name/i).fill("Alice");
 			await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 			await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeEnabled();
 		});
 
-		// AC-5: After setup, navigates to /work/portfolio
-		test("AC5 — navigates to /work/portfolio after successful setup", async ({ page }) => {
+		// AC-5: After setup, navigates to /work
+		test("AC5 — navigates to /work after successful setup", async ({ page }) => {
 			// After setup, mock auth/me to return user + products to exist
 			await page.route("**/api/auth/me", async (route) => {
 				await route.fulfill({
@@ -174,21 +176,21 @@ test.describe("R2 — Work-First Landing", () => {
 
 			await page.goto("/setup");
 
-			await page.getByLabel(/^name/i).fill("Alice R2");
+			await page.getByLabel(/your name/i).fill("Alice R2");
 			await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 			await page.getByRole("button", { name: /start hyperidle/i }).click();
 
-			// Must land on /work/portfolio, not /conversations
-			await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
+			// Must land on Work, not Conversations.
+			await expect(page).toHaveURL(/\/work(?:\?onboarding=true)?$/, { timeout: 10_000 });
 		});
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// WorkPortfolio CTA tests
+	// Work overview create-bet action tests
 	// ─────────────────────────────────────────────────────────────────────────
 
-	test.describe("WorkPortfolio — Create bet CTA (R2 AC7)", () => {
+	test.describe("Work overview — New bet action (R2 AC7)", () => {
 		test.beforeEach(async ({ page }) => {
 			// Canvas returns empty (no bets)
 			await page.route("**/api/bets/canvas", async (route) => {
@@ -213,30 +215,29 @@ test.describe("R2 — Work-First Landing", () => {
 			});
 		});
 
-		// AC-7: "Create bet" CTA visible when no bets
-		test("AC7 — 'Create bet' CTA is visible when no bets exist", async ({ page }) => {
+		// AC-7: "New bet" action visible on populated Work overview
+		test("AC7 — 'New bet' action is visible on Work overview", async ({ page }) => {
 			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.waitForSelector("[data-testid='work-overview-page']");
 
-			const cta = page.getByTestId("create-bet-cta");
-			await expect(cta).toBeVisible();
+			await expect(page.getByRole("button", { name: /new bet/i })).toBeVisible();
 		});
 
-		// AC-7: "Create bet" button is present and prominent in CTA
-		test("AC7 — 'Create bet' button is inside the CTA", async ({ page }) => {
+		// AC-7: Work overview is the launch point for new bet authoring
+		test("AC7 — 'New bet' button is in the page header", async ({ page }) => {
 			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.waitForSelector("[data-testid='work-overview-page']");
 
-			const createBetBtn = page.getByRole("button", { name: /create bet/i });
-			await expect(createBetBtn).toBeVisible();
+			const newBetBtn = page.getByRole("button", { name: /new bet/i });
+			await expect(newBetBtn).toBeVisible();
 		});
 
-		// AG3: "Create bet" CTA navigates to /work/bet/new (full-page authoring, not dialog)
-		test("AC7 — Clicking 'Create bet' CTA navigates to /work/bet/new", async ({ page }) => {
+		// AG3: "New bet" action navigates to /work/bet/new (full-page authoring, not dialog)
+		test("AC7 — Clicking 'New bet' navigates to /work/bet/new", async ({ page }) => {
 			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.waitForSelector("[data-testid='work-overview-page']");
 
-			await page.getByRole("button", { name: /create bet/i }).click();
+			await page.getByRole("button", { name: /new bet/i }).click();
 
 			// AG3: navigates to full-page route, no dialog
 			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
@@ -245,12 +246,28 @@ test.describe("R2 — Work-First Landing", () => {
 
 		// AG3: Full-page create has no team picker for single-team (auto-resolved in aside)
 		test("AC6 — Full-page bet create has no team picker when single team", async ({ page }) => {
-			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.route("**/api/teams", async (route) => {
+				if (route.request().method() === "GET") {
+					await route.fulfill({
+						status: 200,
+						contentType: "application/json",
+						body: JSON.stringify({
+							teams: [
+								{
+									id: "test-team-1",
+									name: "Test Team",
+									status: "healthy",
+									activeBets: 0,
+								},
+							],
+						}),
+					});
+				} else {
+					await route.continue();
+				}
+			});
 
-			const createBetBtn = page.getByRole("button", { name: /create bet/i });
-			await createBetBtn.click();
-
+			await page.goto("/work/bet/new");
 			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
 
 			// Single team → no team combobox (auto-resolved)
@@ -262,9 +279,9 @@ test.describe("R2 — Work-First Landing", () => {
 			page,
 		}) => {
 			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.waitForSelector("[data-testid='work-overview-page']");
 
-			await page.getByRole("button", { name: /create bet/i }).click();
+			await page.getByRole("button", { name: /new bet/i }).click();
 			await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
 
 			// AG3 AC4: appetite returns to create (was removed from dialog in R2)
@@ -272,8 +289,8 @@ test.describe("R2 — Work-First Landing", () => {
 			await expect(page.getByTestId("bet-create-commitments")).toBeVisible();
 		});
 
-		// AC-7: CTA is hidden when bets exist
-		test("AC7 — 'Create bet' CTA is hidden when bets already exist", async ({ page }) => {
+		// AC-7: Header action remains available when bets already exist
+		test("AC7 — 'New bet' action remains available when bets already exist", async ({ page }) => {
 			// Override canvas to have a bet
 			await page.route("**/api/bets/canvas", async (route) => {
 				if (route.request().method() === "GET") {
@@ -301,20 +318,19 @@ test.describe("R2 — Work-First Landing", () => {
 			});
 
 			await page.goto("/work/portfolio");
-			await page.waitForSelector("[data-testid='work-portfolio-page']");
+			await page.waitForSelector("[data-testid='work-overview-page']");
 
-			// CTA must not be present when bets exist
-			await expect(page.getByTestId("create-bet-cta")).toHaveCount(0);
+			await expect(page.getByRole("button", { name: /new bet/i })).toBeVisible();
 		});
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// FirstRunRedirect to /work/portfolio
+	// FirstRunRedirect to /work
 	// ─────────────────────────────────────────────────────────────────────────
 
-	test.describe("FirstRunRedirect — /work/portfolio (R2 AC5)", () => {
-		// AC-5: existing user with products → /work/portfolio
-		test("AC5 — redirects to /work/portfolio (not /conversations) when setup is complete", async ({
+	test.describe("FirstRunRedirect — /work (R2 AC5)", () => {
+		// AC-5: existing user with teams → /work
+		test("AC5 — redirects to /work (not /conversations) when setup is complete", async ({
 			page,
 		}) => {
 			// User exists + products exist
@@ -348,8 +364,8 @@ test.describe("R2 — Work-First Landing", () => {
 
 			await page.goto("/");
 
-			// Must land on /work/portfolio, not /conversations
-			await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
+			// Must land on /work, not /conversations.
+			await expect(page).toHaveURL(/\/work$/, { timeout: 10_000 });
 		});
 	});
 });

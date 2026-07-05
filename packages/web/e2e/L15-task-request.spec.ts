@@ -8,14 +8,11 @@
  * Flow:
  * 1. Navigate to /work/bet/b1 (bet detail page)
  * 2. Positive drag-absence guards (structural assertions, not behavior)
- * 3. Click a task row [data-testid="bet-task-row"] → TaskSheet opens
- * 4. Select "Move to BLOCKED" intent → Send request → Sent. feedback → sheet closes
- * 5. Navigate to /conversations/:threadId → assert the message text is rendered (L9)
- * 6. Re-open task row → Open thread → URL navigates to /conversations/:threadId (L9)
+ * 3. Click a task row [data-testid="task-row"] → task detail page opens
  *
- * @lore L13: WorkTeam.tsx is deleted. TaskSheet is now mounted on WorkBet.
- * All L15 flows navigate through /work/bet/:id → [data-testid="bet-task-row"]
- * instead of /work/team → task card.
+ * @lore W3: WorkBet task rows no longer open TaskSheet. Rows are flat buttons
+ * with data-testid="task-row" and navigate to /work/bet/:betId/task/:taskId.
+ * TaskSheet request-thread behavior remains covered by component tests.
  */
 import { expect, test } from "./fixtures";
 
@@ -196,7 +193,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 					body: JSON.stringify(makeBetDetailResponse()),
 				});
 			} else {
-				await route.continue();
+				await route.fallback();
 			}
 		});
 
@@ -260,7 +257,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 					body: JSON.stringify(makeThreadDetailResponse()),
 				});
 			} else {
-				await route.continue();
+				await route.fallback();
 			}
 		});
 	});
@@ -277,22 +274,18 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		await expect(page.locator('[aria-roledescription="draggable"]')).toHaveCount(0);
 	});
 
-	test("(step 3) clicking a task row opens the TaskSheet (role=dialog)", async ({ page }) => {
+	test("(step 3) clicking a task row navigates to task detail", async ({ page }) => {
 		await page.goto(`/work/bet/${BET_ID}`);
 		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Click the first task row
-		const taskRow = page.getByTestId("bet-task-row").first();
+		const taskRow = page.getByTestId("task-row").first();
 		await expect(taskRow).toBeVisible();
 		await taskRow.click();
 
-		const dialog = page.getByRole("dialog");
-		await expect(dialog).toBeVisible();
-		// Sheet shows the task title
-		await expect(dialog.getByText("Implement login endpoint")).toBeVisible();
+		await expect(page).toHaveURL(new RegExp(`/work/bet/${BET_ID}/task/${TASK_ID}`));
 	});
 
-	test("(steps 4–5) select BLOCKED intent → Send request → Sent. → sheet closes → message in thread", async ({
+	test.skip("(steps 4–5) select BLOCKED intent → Send request → Sent. → sheet closes → message in thread", async ({
 		page,
 	}) => {
 		let capturedMessageText: string | null = null;
@@ -328,7 +321,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 					body: JSON.stringify(makeThreadDetailResponse()),
 				});
 			} else {
-				await route.continue();
+				await route.fallback();
 			}
 		});
 
@@ -336,7 +329,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		await page.waitForSelector("[data-testid='work-bet-page']");
 
 		// Open the sheet via task row click
-		await page.getByTestId("bet-task-row").first().click();
+		await page.getByTestId("task-row").first().click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		// Select "Move to BLOCKED" radio
@@ -357,7 +350,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 	});
 
 	// L9: TaskSheet now navigates to /conversations/:threadId (canonical path, no ?thread= param)
-	test("(step 6) Open thread navigates to /conversations/:threadId (L9)", async ({ page }) => {
+	test.skip("(step 6) Open thread navigates to /conversations/:threadId (L9)", async ({ page }) => {
 		// For this test, mock GET threads to return an existing thread
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
@@ -377,7 +370,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 					body: JSON.stringify(makeThreadDetailResponse()),
 				});
 			} else {
-				await route.continue();
+				await route.fallback();
 			}
 		});
 
@@ -385,7 +378,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		await page.waitForSelector("[data-testid='work-bet-page']");
 
 		// Open the sheet via task row click
-		await page.getByTestId("bet-task-row").first().click();
+		await page.getByTestId("task-row").first().click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		// Click Open thread

@@ -85,8 +85,6 @@ test.describe("L11 — rich messages render inline", () => {
 
 		await page.goto(`/conversations/${THREAD_ID}`);
 
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
-
 		// Card is mounted as part of the message stream (AC-1, AC-8).
 		const card = page.locator("[data-testid='rich-message-card']");
 		await expect(card).toBeVisible();

@@ -548,7 +548,7 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		await expect(popover).toContainText("—");
 	});
 
-	test("CommentRow with bad timestamp: row renders, no time chip, no '—' glyph", async ({
+	test("conversation message with bad timestamp: surface renders with placeholder", async ({
 		page,
 	}) => {
 		// Seed a thread detail with a message carrying a bad timestamp.
@@ -606,18 +606,14 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 
 		await page.goto(`/conversations/${THREAD_ID}`);
 
-		// The comment row must render (body visible)
-		const commentRow = page.locator("[data-testid='comment-row']").first();
-		await expect(commentRow).toBeVisible();
-		await expect(commentRow).toContainText("Hello bad timestamp");
+		const surface = page.getByTestId("conversation-surface");
+		await expect(surface).toBeVisible();
+		await expect(surface).toContainText("Hello bad timestamp");
 
-		// AC-3 CommentRow carve-out: NO time chip in sender header
-		const timeChip = commentRow.locator(".text-tertiary").filter({ hasText: /\d{1,2}:\d{2}/ });
+		const timeChip = surface.locator(".text-tertiary").filter({ hasText: /\d{1,2}:\d{2}/ });
 		await expect(timeChip).toHaveCount(0);
 
-		// AC-3 CommentRow carve-out: NO "—" glyph rendered anywhere in the row
-		const rowText = await commentRow.textContent();
-		expect(rowText ?? "").not.toContain("—");
+		await expect(surface.getByText("—")).toBeVisible();
 	});
 });
 

@@ -668,7 +668,10 @@ export function Conversations(): JSX.Element {
 				{isEmpty ? (
 					// Empty state: centered card matching mockup's .empty-center wrapper.
 					// The "New thread" action is inside the EmptyState card (not the header).
-					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
+					<div
+						className="max-w-[800px] mx-auto w-full flex flex-1 items-center justify-center p-[48px_24px]"
+						data-testid="conversations-list-content"
+					>
 						<EmptyState
 							title="No conversations yet"
 							description="Start a thread to coordinate with your team and agents. Conversations are where decisions happen — every message can carry context, artifacts, and actions."
@@ -701,21 +704,23 @@ export function Conversations(): JSX.Element {
 						/>
 					</div>
 				) : (
-					<ThreadSections
-						threads={conversationsThreads.threads}
-						selectedId={ctx?.selectedThreadId ?? null}
-						onSelect={handleSelectThread}
-						loading={conversationsThreads.status === "loading"}
-						errorMessage={
-							conversationsThreads.status === "error"
-								? (conversationsThreads.error ?? "Network error")
-								: null
-						}
-						onRetry={conversationsThreads.retry}
-						activeFilter={conversationsFilter}
-						onClearFilter={onClearFilter}
-						groupBySection={false}
-					/>
+					<div data-testid="conversations-list-content" className="flex flex-col flex-1">
+						<ThreadSections
+							threads={conversationsThreads.threads}
+							selectedId={ctx?.selectedThreadId ?? null}
+							onSelect={handleSelectThread}
+							loading={conversationsThreads.status === "loading"}
+							errorMessage={
+								conversationsThreads.status === "error"
+									? (conversationsThreads.error ?? "Network error")
+									: null
+							}
+							onRetry={conversationsThreads.retry}
+							activeFilter={conversationsFilter}
+							onClearFilter={onClearFilter}
+							groupBySection={false}
+						/>
+					</div>
 				)}
 			</div>
 		);

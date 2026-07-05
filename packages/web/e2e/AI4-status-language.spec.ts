@@ -396,7 +396,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 	test("AC1b-portfolio: bet active status chip on BetCard (portfolio)", async ({ page }) => {
 		await setupPortfolioRoutes(page);
 		await page.goto("/work/portfolio");
-		await expect(page.locator('[data-testid="work-portfolio-page"]')).toBeVisible();
+		await expect(page.locator('[data-testid="work-overview-page"]')).toBeVisible();
 
 		// Wait for bet grid to render
 		const betGrid = page.locator('[data-testid="bet-grid"]').first();
@@ -474,7 +474,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 			return route.continue();
 		});
 		await page.goto("/work/portfolio");
-		await expect(page.locator('[data-testid="work-portfolio-page"]')).toBeVisible();
+		await expect(page.locator('[data-testid="work-overview-page"]')).toBeVisible();
 
 		// Filter to "Completed" to see the completed bet
 		// (portfolio may default to "All" which shows everything — just find the BetCard)

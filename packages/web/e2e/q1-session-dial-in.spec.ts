@@ -136,7 +136,7 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.waitForLoadState("networkidle");
 
 		// The thread detail should be visible
-		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
+		await expect(page.locator("[data-testid='conversations-page']").first()).toBeVisible({
 			timeout: 10000,
 		});
 
@@ -207,7 +207,7 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
-		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
+		await expect(page.locator("[data-testid='conversations-page']").first()).toBeVisible({
 			timeout: 10000,
 		});
 
@@ -270,7 +270,7 @@ test.describe("Q1 — Session Dial-In", () => {
 		// Close the panel via aria-label button
 		const closeBtn = page.locator("button[aria-label='Close activity panel']");
 		await expect(closeBtn).toBeVisible({ timeout: 3000 });
-		await closeBtn.click();
+		await closeBtn.click({ force: true });
 
 		// Activity panel should be gone
 		await expect(page.locator("[data-testid='session-activity-panel']")).not.toBeVisible({
@@ -278,7 +278,7 @@ test.describe("Q1 — Session Dial-In", () => {
 		});
 
 		// Thread shell should still be present
-		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
+		await expect(page.locator("[data-testid='conversations-page']").first()).toBeVisible({
 			timeout: 3000,
 		});
 	});

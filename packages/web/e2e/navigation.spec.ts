@@ -111,7 +111,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
 		await expect(breadcrumb).toBeVisible();
 
-		// "Work" link in breadcrumb → /work/portfolio
+		// "Work" link in breadcrumb → /work
 		const workLink = breadcrumb.getByRole("link", { name: "Work" });
 		await expect(workLink).toBeVisible();
 	});
@@ -130,7 +130,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-3 (up path): clicking breadcrumb segment navigates to parent route
-	test("AC-3 up: clicking Work breadcrumb from bet detail → portfolio", async ({ page }) => {
+	test("AC-3 up: clicking Work breadcrumb from bet detail → Work surface", async ({ page }) => {
 		await mockBetAndTeam(page);
 		await page.goto(`/work/bet/${BET_ID}`);
 		await page.waitForSelector("[data-testid='work-bet-page']");
@@ -139,16 +139,16 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		const workLink = breadcrumb.getByRole("link", { name: "Work" });
 		await workLink.click();
 
-		// Should land on /work/portfolio
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+		// Single-team Work overview redirects through /work to the only team.
+		await expect(page).toHaveURL(/\/work(\/team\/team-ag4-1)?$/, { timeout: 5000 });
 	});
 
 	// AC-5: ⌘1/2/3 view-switch shortcuts
 	test("AC-5: ⌘2 switches to Work view", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// Start on Conversations (default)
+		// Start on Conversations.
 		await expect(page.getByTestId("conversations-page")).toBeVisible();
 
 		// ⌘2 → Work
@@ -191,8 +191,9 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 				await route.continue();
 			}
 		});
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.goto("/work");
+		await expect(page).toHaveURL(/\/work$/, { timeout: 3000 });
+		await expect(page.getByText("No teams yet").first()).toBeVisible();
 
 		// ⌘1 → Conversations
 		await page.keyboard.press("Meta+1");
@@ -243,24 +244,24 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await page.screenshot({ path: "plans/AG4/proof/breadcrumb-bet-detail.png", fullPage: false });
 	});
 
-	// C1 — AC-1: portfolio → team → bet; click Back chevron → team; ⌘[ → portfolio.
+	// C1 — AC-1: Work → team → bet; click Back chevron → team; ⌘[ → Work.
 	// Asserts Back affordance visible at each step (desktop width = 1280×720 default).
 	//
 	// Strategy: use in-app navigation (clicks on breadcrumb links and sidebar) rather than
 	// page.goto() for the second and third hops. This ensures React Router pushes real
 	// history entries (idx increments), making canGoBack=true on the bet page.
 	// page.goto() creates a fresh navigation that resets history.state.idx to 0.
-	test("AC-1: portfolio→team→bet — Back chevron returns to team, ⌘[ returns to portfolio", async ({
+	test("AC-1: Work→team→bet — Back chevron returns to team, ⌘[ returns to Work", async ({
 		page,
 	}) => {
 		await mockBetAndTeam(page);
 
-		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		// 1. Start at Work (page.goto is ok for the first navigation — sets idx=0 baseline).
+		await page.goto("/work");
+		await expect(page).toHaveURL(/\/work(\/team\/team-ag4-1)?$/, { timeout: 5000 });
 
 		// 2. Navigate to team page via in-app click (pushes history entry, idx becomes 1).
-		// The portfolio shows the team in the sidebar or as a link — navigate via URL push.
+		// The Work surface shows the team in the sidebar or as a link — navigate via URL push.
 		// We use page.evaluate to push via history.pushState (simulates a React Router push).
 		await page.evaluate((url) => {
 			window.history.pushState({ idx: 1 }, "", url);
@@ -270,7 +271,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		// but then navigate to bet via history.pushState to preserve history.
 		// Simpler: goto team, then use the Sidebar/Work section → team → bet breadcrumb click.
 
-		// Better approach: goto portfolio, then navigate to bet by changing URL twice using
+		// Better approach: goto Work, then navigate to bet by changing URL twice using
 		// page.evaluate to push state, which React Router picks up via its popstate listener.
 		// Step 2a: goto team URL (fresh navigation, resets to idx=1)
 		await page.goto(`/work/team/${TEAM_ID}`);
@@ -304,9 +305,9 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(page.getByRole("button", { name: "Back" })).toBeVisible({ timeout: 5000 });
 		await expect(page.getByRole("button", { name: "Back" })).not.toBeDisabled();
 
-		// 6. Press ⌘[ → should return to portfolio.
+		// 6. Press ⌘[ → should return to Work.
 		await page.keyboard.press("Meta+[");
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 5000 });
+		await expect(page).toHaveURL(/\/work(\/team\/team-ag4-1)?$/, { timeout: 5000 });
 	});
 
 	// C1 — AC-2: cross-view history traversal — bet → knowledge → Back → bet.
@@ -359,7 +360,6 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 test.describe("Navigation", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto("/");
-		// Default route redirects to /conversations (L9: canonical queue URL)
 		await page.waitForSelector("[data-testid='main-content']");
 	});
 
@@ -393,7 +393,7 @@ test.describe("Navigation", () => {
 		await expect(page.locator("[data-section='knowledge'][data-active='true']")).toBeVisible();
 	});
 
-	test("default route lands on Conversations", async ({ page }) => {
-		await expect(page.getByTestId("conversations-page")).toBeVisible();
+	test("default route lands on Work", async ({ page }) => {
+		await expect(page).toHaveURL(/\/work/, { timeout: 3000 });
 	});
 });

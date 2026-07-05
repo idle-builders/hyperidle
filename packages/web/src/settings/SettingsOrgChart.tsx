@@ -94,8 +94,8 @@ export function SettingsOrgChart(): JSX.Element {
 		try {
 			const res = await apiFetch("/api/org");
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const json = (await res.json()) as OrgData;
-			setData(json);
+			const json = (await res.json()) as Partial<OrgData>;
+			setData({ edges: json.edges ?? [], users: json.users ?? [], teams: json.teams ?? [] });
 			setStatus("ready");
 		} catch {
 			setStatus("error");

@@ -19,12 +19,12 @@
  *
  * Coverage (AC-13: "at least one thread renders correctly with each shipping
  * rich message type inline"):
- *   - review-shape:   ThreadHead + ReviewVerdictBar + plain CommentRow.
+ *   - review-shape:   compact review Part + plain message.
  *   - plain-shape:    no head, plain CommentRow renders inline.
  *   - back-compat:    legacy `subject + body` collapsed into `payload.text`
  *                     reads through the new endpoint.
  *   - composer:       plain-message round-trip via POST.
- *   - verdict click:  Approve → verdict CommentRow with APPROVED label.
+ *   - verdict click:  skipped; AM1 moved decisions out of conversations.
  *
  * Deferred to L1b: questionnaire UI (T1), thread re-open via UI affordance
  * (no shipping button in L1a — verdict-only flow), WorkBet/ConversationsChat
@@ -215,8 +215,8 @@ function legacyBackCompatThreadFixture(): {
 
 // ---------------------------------------------------------------------------
 
-test.describe("L11 — review-shape thread renders RichMessageCard inline", () => {
-	test("card mounts inline; 5 verdict buttons in card footer; plain follow-up renders in stream", async ({
+test.describe("L11 — review-shape thread renders compact review Part inline", () => {
+	test("review Part mounts inline; no inline verdict toolbar; plain follow-up renders in stream", async ({
 		page,
 	}) => {
 		const fixture = reviewThreadFixture();
@@ -231,21 +231,20 @@ test.describe("L11 — review-shape thread renders RichMessageCard inline", () =
 
 		await page.goto("/conversations/t-review-1");
 
-		// ThreadShell mounted via the new fetch path.
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
+		// ConversationSurface mounted via the current fetch path.
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
 
-		// L11: the in-stream RichMessageCard carries the review title.
-		const card = page.locator("[data-testid='rich-message-card']");
-		await expect(card).toBeVisible();
-		await expect(card).toContainText("Approve copy update");
+		// AM1: review decisions moved to the review page. Conversations render a
+		// compact review Part with one navigation action and no inline verdicts.
+		const reviewPart = page.locator("[data-ds-component='ReviewRequestPart']");
+		await expect(reviewPart).toBeVisible();
+		await expect(reviewPart).toContainText("Approve copy update");
+		await expect(reviewPart.getByRole("button", { name: /open review/i })).toBeVisible();
 
-		// All 5 binding verdicts live in the card's action toolbar.
-		const toolbar = card.getByRole("toolbar", { name: /verdict actions/i });
-		await expect(toolbar.getByRole("button", { name: /^approve$/i })).toBeVisible();
-		await expect(toolbar.getByRole("button", { name: /approve with comments/i })).toBeVisible();
-		await expect(toolbar.getByRole("button", { name: /request changes/i })).toBeVisible();
-		await expect(toolbar.getByRole("button", { name: /^edit$/i })).toBeVisible();
-		await expect(toolbar.getByRole("button", { name: /reject/i })).toBeVisible();
+		await expect(page.getByTestId("rich-message-card")).toHaveCount(0);
+		await expect(page.getByRole("button", { name: /^approve$/i })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: /request changes/i })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: /reject/i })).toHaveCount(0);
 
 		// The plain follow-up message renders in the stream as a CommentRow.
 		await expect(page.getByText("Looking at this now.")).toBeVisible();
@@ -268,21 +267,19 @@ test.describe("L1a — plain-shape thread (chat-only)", () => {
 
 		await page.goto("/conversations/t-plain-1");
 
-		// Shell mounts.
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
+		// Conversation surface mounts.
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
 
 		// Head is absent (head=null when no unresolved review/questionnaire).
 		// ThreadShell does not render a <ThreadHead> when headMessageId is null,
 		// so the testid count is zero.
 		await expect(page.locator("[data-testid='thread-head']")).toHaveCount(0);
 
-		// The plain message renders as a CommentRow.
-		const rows = page.locator("[data-testid='comment-row']");
-		await expect(rows).toHaveCount(1);
-		await expect(rows.first()).toContainText("Quick question for the team.");
+		// The plain message renders in the stream.
+		await expect(page.getByText("Quick question for the team.")).toBeVisible();
 
 		// Composer is mounted (chat-shape always has a composer at the floor).
-		await expect(page.getByPlaceholder(/reply to thread/i)).toBeVisible();
+		await expect(page.getByPlaceholder(/^Message /)).toBeVisible();
 	});
 });
 
@@ -300,15 +297,13 @@ test.describe("L1a — back-compat (legacy review/chat collapse projection)", ()
 
 		await page.goto("/conversations/t-legacy-1");
 
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
 
 		// The migration concatenates subject+body into payload.text. We assert
 		// both halves are visible, proving the projection round-trips through
 		// the new endpoint and renders inline.
-		const rows = page.locator("[data-testid='comment-row']");
-		await expect(rows).toHaveCount(1);
-		await expect(rows.first()).toContainText("Legacy subject");
-		await expect(rows.first()).toContainText("Legacy body content.");
+		await expect(page.getByText("Legacy subject")).toBeVisible();
+		await expect(page.getByText("Legacy body content.")).toBeVisible();
 	});
 });
 
@@ -366,18 +361,18 @@ test.describe("L1a — composer round-trips a plain message", () => {
 		});
 
 		await page.goto("/conversations/t-plain-1");
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
 
-		const composer = page.getByPlaceholder(/reply to thread/i);
+		const composer = page.getByPlaceholder(/^Message /);
 		await composer.fill(composedText);
-		await page.getByRole("button", { name: /^send$/i }).click();
+		await page.getByRole("button", { name: /^send message$/i }).click();
 
 		// The new message appears in the stream after the page re-fetches.
 		await expect(page.getByText(composedText)).toBeVisible();
 	});
 });
 
-test.describe("L1a — verdict click resolves the review and renders APPROVED", () => {
+test.describe.skip("L1a — verdict click resolves the review and renders APPROVED", () => {
 	test("clicking Approve POSTs a verdict and the verdict CommentRow + RESOLVED status appear", async ({
 		page,
 	}) => {

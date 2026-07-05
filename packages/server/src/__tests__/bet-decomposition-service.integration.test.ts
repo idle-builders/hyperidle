@@ -40,6 +40,12 @@ import {
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
+const TEST_API_KEY = "bet-decomposition-service-test-key";
+
+function authHeaders(): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY };
+}
+
 // ---------------------------------------------------------------------------
 // Fabric-equivalent strategy fixture
 //
@@ -555,6 +561,10 @@ describe("Bet decomposition — orphan recovery on boot (AC3)", () => {
 });
 
 describe("Bet decomposition — GET /bets/:id returns decomposition fields (API shape)", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+
 	test("response includes decompositionStatus and decompositionBlockerReason fields", async ({
 		db,
 		app,
@@ -570,7 +580,7 @@ describe("Bet decomposition — GET /bets/:id returns decomposition fields (API 
 		};
 		await db.insert(bets).values(apiBetRow);
 
-		const res = await app.request("/api/bets/bet-api");
+		const res = await app.request("/api/bets/bet-api", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 
@@ -589,7 +599,7 @@ describe("Bet decomposition — GET /bets/:id returns decomposition fields (API 
 		await db.insert(teamMembers).values(makeMembership("tm-null", "team-null"));
 		await db.insert(bets).values(makeBet("bet-null", "team-null", "draft"));
 
-		const res = await app.request("/api/bets/bet-null");
+		const res = await app.request("/api/bets/bet-null", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		// null or absent — either way the field must not be missing from the shape

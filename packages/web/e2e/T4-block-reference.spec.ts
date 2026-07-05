@@ -38,12 +38,12 @@ const BET_FIXTURE = {
 	title: "Block Reference Bet",
 	product: "TestProduct",
 	team: "Core Team",
-	status: "active",
+	status: "completed",
 	costAppetite: null,
 	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 1 },
-	pitch: "First paragraph of the pitch.\n\nSecond paragraph with more details.",
+	description: "First paragraph of the pitch.\n\nSecond paragraph with more details.",
 	tasks: [],
 };
 
@@ -184,9 +184,8 @@ test.describe("T4 — Block Reference E2E", () => {
 		const betPitch = page.getByTestId("bet-pitch");
 		await expect(betPitch).toBeVisible();
 
-		// The CocAttachButton should appear (renders when overlayOpen=true)
-		// data-testid="coc-attach-button"
-		const attachButtons = page.getByTestId("coc-attach-button");
+		// The AssistantAttachButton should appear (renders when overlayOpen=true)
+		const attachButtons = page.getByTestId("assistant-attach-button");
 		await expect(attachButtons.first()).toBeVisible();
 	});
 
@@ -202,14 +201,14 @@ test.describe("T4 — Block Reference E2E", () => {
 		await expect(dialog).toBeVisible();
 
 		// Wait for attach buttons to appear
-		const attachButton = page.getByTestId("coc-attach-button").first();
+		const attachButton = page.getByTestId("assistant-attach-button").first();
 		await expect(attachButton).toBeVisible();
 
 		// Click the attach button
 		await attachButton.click();
 
 		// A chip for the block should appear in the overlay
-		const chipsArea = dialog.getByTestId("coc-context-chips");
+		const chipsArea = dialog.getByTestId("assistant-context-chips");
 		await expect(chipsArea).toBeVisible();
 		// The chip kind should show "block"
 		await expect(chipsArea.getByText("block")).toBeVisible();

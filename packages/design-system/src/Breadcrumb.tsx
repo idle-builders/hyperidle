@@ -50,7 +50,7 @@ export interface BreadcrumbProps {
 }
 
 const LINK_CLASS =
-	"text-[color:var(--text-secondary)] hover:text-[color:var(--accent-primary)] " +
+	"inline-flex min-h-[44px] min-w-[44px] xl:min-h-0 xl:min-w-0 items-center text-[color:var(--text-secondary)] hover:text-[color:var(--accent-primary)] " +
 	"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] " +
 	"focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[color:var(--accent-primary)] focus-visible:outline-offset-[2px]";
 

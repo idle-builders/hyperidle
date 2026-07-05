@@ -5,7 +5,7 @@
  *  AC-1: legacy URLs redirect; never 404
  *  AC-2: detail surface renders whichever thread the user picked
  *  AC-4: unknown thread id → not-found EmptyState
- *  AC-5: Work → click bet's thread → /conversations/:threadId renders ThreadShell
+ *  AC-5: Work → click bet's thread → /conversations/:threadId renders conversation surface
  *
  * History-preservation contract: when the user visits a legacy URL and is
  * redirected, pressing back must go to whatever was before — NOT bounce into
@@ -77,7 +77,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 			});
 		});
 		await page.goto("/conversations");
-		await expect(page.getByTestId("conversations-empty")).toBeVisible();
+		await expect(page.getByTestId("thread-sections-empty")).toBeVisible();
 		// URL must stay at /conversations
 		expect(page.url()).toMatch(/\/conversations$/);
 	});
@@ -93,7 +93,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 		await page.goto("/conversations/review");
 		await expect(page).toHaveURL(/\/conversations$/);
 		// The queue empty state should render (since no threads)
-		await expect(page.getByTestId("conversations-empty")).toBeVisible();
+		await expect(page.getByTestId("thread-sections-empty")).toBeVisible();
 	});
 
 	test("AC-1: legacy /conversations/chat redirects to /conversations", async ({ page }) => {
@@ -106,7 +106,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 		});
 		await page.goto("/conversations/chat");
 		await expect(page).toHaveURL(/\/conversations$/);
-		await expect(page.getByTestId("conversations-empty")).toBeVisible();
+		await expect(page.getByTestId("thread-sections-empty")).toBeVisible();
 	});
 
 	test("AC-1: legacy /conversations/review?id=X redirects to /conversations/X", async ({
@@ -171,20 +171,20 @@ test.describe("L9 — single Conversations detail surface", () => {
 			});
 		});
 
-		// Start on work/portfolio
+		// Start on work. Legacy /work/portfolio now redirects to the current Work overview.
 		await page.goto("/work/portfolio");
-		await expect(page).toHaveURL(/\/work\/portfolio/);
+		await expect(page).toHaveURL(/\/work$/);
 
-		// Navigate to legacy URL (it will redirect with replace, so history stays at /work/portfolio → /conversations)
+		// Navigate to legacy URL (it will redirect with replace, so history stays at /work → /conversations)
 		await page.goto("/conversations/chat");
 		await expect(page).toHaveURL(/\/conversations$/);
 
-		// Press back — should land at /work/portfolio, NOT /conversations/chat
+		// Press back — should land at /work, NOT /conversations/chat
 		await page.goBack();
-		await expect(page).toHaveURL(/\/work\/portfolio/);
+		await expect(page).toHaveURL(/\/work$/);
 	});
 
-	test("AC-2: direct visit to /conversations/:threadId renders ThreadShell", async ({ page }) => {
+	test("AC-2: direct visit to /conversations/:threadId renders conversation surface", async ({ page }) => {
 		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -202,7 +202,8 @@ test.describe("L9 — single Conversations detail surface", () => {
 
 		await page.goto(`/conversations/${THREAD_ID}`);
 		await expect(page).toHaveURL(new RegExp(`/conversations/${THREAD_ID}`));
-		await expect(page.getByTestId("thread-shell")).toBeVisible();
+		await expect(page.getByTestId("conversation-surface")).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /message/i })).toBeVisible();
 	});
 
 	test("AC-4: unknown thread id (404) shows 'Thread not found' EmptyState — no ThreadShell", async ({
@@ -221,8 +222,8 @@ test.describe("L9 — single Conversations detail surface", () => {
 
 		await page.goto("/conversations/unknown-id-l9");
 		await expect(page.getByTestId("thread-not-found")).toBeVisible();
-		// Must NOT mount ThreadShell — no message list, no composer
-		await expect(page.getByTestId("thread-shell")).toHaveCount(0);
+		// Must NOT mount the conversation surface — no message list, no composer.
+		await expect(page.getByTestId("conversation-surface")).toHaveCount(0);
 		// Back-to-inbox link must be present
 		await expect(page.getByRole("link", { name: /back to inbox/i })).toBeVisible();
 	});
@@ -230,7 +231,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 	// -----------------------------------------------------------------------
 	// AC-5: Work → click bet's thread → /conversations/:threadId
 	// -----------------------------------------------------------------------
-	test("AC-5: Work → click a bet's thread → /conversations/:threadId renders ThreadShell", async ({
+	test("AC-5: Work → click a bet's thread → /conversations/:threadId renders conversation surface", async ({
 		page,
 	}) => {
 		const BET_THREAD_ID = "t-bet-l9";
@@ -333,7 +334,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 			// For now, directly navigate to the canonical URL to prove it renders.
 			await page.goto(`/conversations/${BET_THREAD_ID}`);
 			await expect(page).toHaveURL(new RegExp(`/conversations/${BET_THREAD_ID}`));
-			await expect(page.getByTestId("thread-shell")).toBeVisible();
+			await expect(page.getByTestId("conversation-surface")).toBeVisible();
 		}
 	});
 });

@@ -61,6 +61,18 @@ export function GlobalSearchPanel({
 		layer: "dialog",
 	});
 
+	useEffect(() => {
+		if (!open) return;
+		const handleDocumentKeyDown = (event: KeyboardEvent): void => {
+			if (event.key !== "Escape") return;
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			onClose();
+		};
+		document.addEventListener("keydown", handleDocumentKeyDown, true);
+		return () => document.removeEventListener("keydown", handleDocumentKeyDown, true);
+	}, [open, onClose]);
+
 	// Clear search state when panel closes and reopens
 	useEffect(() => {
 		if (open && !prevOpenRef.current) {
@@ -118,11 +130,12 @@ export function GlobalSearchPanel({
 
 	const overlayProps = behavior.getOverlayProps();
 
-	// @lore AI2: nav.onKeyDown handles Escape (→ onClose) and ArrowUp/Down/Enter navigation.
-	// We do NOT also call overlayProps.onKeyDown here because isDirty=false always for the
-	// command palette, so both handlers would call onClose on Escape (double-fire).
-	// behavior.requestDismiss is used only for the Close button (confirmations not relevant here).
 	const handleKeyDown = (e: React.KeyboardEvent): void => {
+		if (e.key === "Escape") {
+			e.preventDefault();
+			onClose();
+			return;
+		}
 		nav.onKeyDown(e.nativeEvent);
 	};
 
@@ -147,7 +160,7 @@ export function GlobalSearchPanel({
 				style={{
 					position: "fixed",
 					inset: 0,
-					zIndex: "var(--z-scrim)",
+					zIndex: "var(--z-scrim, 50)",
 					background: "var(--scrim)",
 				}}
 				onClick={onClose}
@@ -177,7 +190,7 @@ export function GlobalSearchPanel({
 						top: "10vh",
 						left: "50%",
 						transform: "translateX(-50%)",
-						zIndex: overlayProps.style.zIndex,
+						zIndex: "var(--z-dialog, 60)",
 					}}
 					className="max-w-[640px] w-full p-3 flex flex-col gap-2 max-h-[80vh] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)]"
 				>

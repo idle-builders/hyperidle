@@ -22,6 +22,7 @@
  * All spec files import from "./fixtures" instead of "@playwright/test".
  */
 
+import type { Route } from "@playwright/test";
 import { test as base, expect } from "@playwright/test";
 
 /** Default mock response for GET /api/auth/me */
@@ -60,9 +61,113 @@ const DEFAULT_TEAMS = {
 			name: "Test Team",
 			phase: "build",
 			active: true,
+			status: "healthy",
+			activeBets: 0,
+			shipped: 0,
+			shipRate: "—",
+			progress: { done: 0, total: 0 },
+			routineCount: 0,
+			agentCount: 0,
+			activeAgentCount: 0,
+			agentHealthWarning: false,
+		},
+		{
+			id: "test-team-2",
+			name: "Second Test Team",
+			phase: "build",
+			active: true,
+			status: "healthy",
+			activeBets: 0,
+			shipped: 0,
+			shipRate: "—",
+			progress: { done: 0, total: 0 },
+			routineCount: 0,
+			agentCount: 0,
+			activeAgentCount: 0,
+			agentHealthWarning: false,
 		},
 	],
 };
+
+const DEFAULT_HARNESSES = [
+	{
+		type: "builtin",
+		name: "Built-in",
+		kind: "local",
+		accessMode: "api-gateway",
+		authAction: { kind: "none", label: "Built in" },
+		discovery: { state: "ready", disabled: false },
+		models: [],
+		runtime: {
+			preCompactionTrigger: false,
+			subAgents: false,
+			mcpSupport: false,
+			modelProviders: ["anthropic", "openrouter"],
+			fileEditing: true,
+			toolUse: true,
+		},
+		modelProviders: ["anthropic", "openrouter"],
+	},
+	{
+		type: "claude-code",
+		name: "Claude Code",
+		kind: "local",
+		accessMode: "provider-subscription-cli",
+		authAction: {
+			kind: "native_cli_login",
+			label: "Log in to Claude Code",
+			command: ["claude", "auth", "login"],
+		},
+		discovery: { state: "ready", version: "2.1.178", disabled: false },
+		models: [],
+		runtime: {
+			preCompactionTrigger: false,
+			subAgents: true,
+			mcpSupport: true,
+			modelProviders: ["anthropic"],
+			fileEditing: true,
+			toolUse: true,
+		},
+		modelProviders: ["anthropic"],
+	},
+] as const;
+
+function jsonResponse(body: unknown, status = 200): Parameters<Route["fulfill"]>[0] {
+	return {
+		status,
+		contentType: "application/json",
+		body: JSON.stringify(body),
+	};
+}
+
+function fallbackBodyForApi(pathname: string): unknown {
+	if (pathname === "/api/auth/ws-token") return { token: "e2e-ws-token" };
+	if (pathname.endsWith("/artifact-thread-summary")) {
+		return { summaries: [], totalCount: 0, truncated: false };
+	}
+	if (pathname === "/api/notifications/inbox") return { unseenCount: 0, rows: [] };
+	if (pathname.startsWith("/api/notifications/")) return { ok: true };
+	if (pathname === "/api/hint-progress") return { dismissed: [] };
+	if (pathname.startsWith("/api/hint-progress/")) return { ok: true };
+	if (pathname === "/api/knowledge/triage-count") return { count: 0 };
+	if (pathname === "/api/knowledge") return { items: [] };
+	if (pathname.startsWith("/api/knowledge/")) return { error: "Not found" };
+	if (pathname === "/api/artifacts") return { items: [], nextCursor: null };
+	if (pathname.startsWith("/api/artifacts/")) return { error: "Not found" };
+	if (pathname === "/api/threads") return DEFAULT_THREADS;
+	if (pathname.startsWith("/api/threads/assistant")) {
+		return { thread: null, messages: [] };
+	}
+	if (pathname.startsWith("/api/threads/")) return { thread: null, messages: [] };
+	if (pathname === "/api/agents") return [];
+	if (pathname.startsWith("/api/agents/")) return { error: "Not found" };
+	if (pathname === "/api/harnesses") return DEFAULT_HARNESSES;
+	if (pathname === "/api/org") return { users: [], teams: [], edges: [] };
+	if (pathname === "/api/connections") return { connections: [] };
+	if (pathname === "/api/credentials") return { credentials: [] };
+	if (pathname.startsWith("/api/users/")) return { error: "Not found" };
+	return { ok: true };
+}
 
 type CoreApiFixtures = {
 	/** Auto-use fixture: registers default M3 API mocks before every test. */
@@ -82,6 +187,26 @@ export const test = base.extend<CoreApiFixtures>({
 			// Register default handlers before the test body runs.
 			// These are fallbacks — test-specific route registrations take precedence
 			// because Playwright matches routes LIFO (last registered first matched).
+			//
+			// @lore release-v0.6.0: Main E2E boots Vite only, not the API server.
+			// AppShell background hooks keep adding lightweight /api/* reads. This
+			// low-priority fallback prevents unowned shell calls from escaping to
+			// Vite's localhost:3001 proxy while still allowing test-specific mocks
+			// registered later to win.
+			await page.route("**/api/**", async (route) => {
+				const url = new URL(route.request().url());
+				const method = route.request().method();
+				if (method === "GET" || method === "POST" || method === "PUT" || method === "PATCH") {
+					const notFound =
+						url.pathname.startsWith("/api/knowledge/") ||
+						url.pathname.startsWith("/api/artifacts/") ||
+						url.pathname.startsWith("/api/agents/") ||
+						url.pathname.startsWith("/api/users/");
+					await route.fulfill(jsonResponse(fallbackBodyForApi(url.pathname), notFound ? 404 : 200));
+					return;
+				}
+				await route.fulfill(jsonResponse({ ok: true }));
+			});
 
 			// GET /api/auth/me — identity for useCurrentUser hook
 			await page.route("**/api/auth/me", async (route) => {
@@ -92,7 +217,7 @@ export const test = base.extend<CoreApiFixtures>({
 						body: JSON.stringify(DEFAULT_AUTH_ME),
 					});
 				} else {
-					await route.continue();
+					await route.fallback();
 				}
 			});
 
@@ -112,7 +237,7 @@ export const test = base.extend<CoreApiFixtures>({
 						body: JSON.stringify(DEFAULT_SETTINGS),
 					});
 				} else {
-					await route.continue();
+					await route.fallback();
 				}
 			});
 
@@ -127,7 +252,7 @@ export const test = base.extend<CoreApiFixtures>({
 						body: JSON.stringify(DEFAULT_THREADS),
 					});
 				} else {
-					await route.continue();
+					await route.fallback();
 				}
 			});
 
@@ -140,7 +265,7 @@ export const test = base.extend<CoreApiFixtures>({
 						body: JSON.stringify(DEFAULT_TEAMS),
 					});
 				} else {
-					await route.continue();
+					await route.fallback();
 				}
 			});
 
@@ -159,6 +284,20 @@ export { expect };
  * own contexts must call this to get the same /api/* fallbacks.
  */
 export async function registerCoreMocks(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/**", async (route) => {
+		const url = new URL(route.request().url());
+		const method = route.request().method();
+		if (method === "GET" || method === "POST" || method === "PUT" || method === "PATCH") {
+			const notFound =
+				url.pathname.startsWith("/api/knowledge/") ||
+				url.pathname.startsWith("/api/artifacts/") ||
+				url.pathname.startsWith("/api/agents/") ||
+				url.pathname.startsWith("/api/users/");
+			await route.fulfill(jsonResponse(fallbackBodyForApi(url.pathname), notFound ? 404 : 200));
+			return;
+		}
+		await route.fulfill(jsonResponse({ ok: true }));
+	});
 	await page.route("**/api/auth/me", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
@@ -167,7 +306,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 				body: JSON.stringify(DEFAULT_AUTH_ME),
 			});
 		} else {
-			await route.continue();
+			await route.fallback();
 		}
 	});
 	await page.route("**/api/settings", async (route) => {
@@ -179,7 +318,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 				body: JSON.stringify(DEFAULT_SETTINGS),
 			});
 		} else {
-			await route.continue();
+			await route.fallback();
 		}
 	});
 	await page.route("**/api/threads", async (route) => {
@@ -190,7 +329,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 				body: JSON.stringify(DEFAULT_THREADS),
 			});
 		} else {
-			await route.continue();
+			await route.fallback();
 		}
 	});
 	await page.route("**/api/teams", async (route) => {
@@ -201,7 +340,7 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 				body: JSON.stringify(DEFAULT_TEAMS),
 			});
 		} else {
-			await route.continue();
+			await route.fallback();
 		}
 	});
 }

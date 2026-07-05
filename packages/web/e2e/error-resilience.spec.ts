@@ -11,12 +11,13 @@ test.describe("Error resilience", () => {
 
 	test("NotFound page provides a Go home link back to the app", async ({ page }) => {
 		await page.goto("/another-random-url");
-		const homeLink = page.getByRole("link", { name: /home|back|dashboard/i }).first();
-		await expect(homeLink).toBeVisible();
+		await expect(page.getByRole("button", { name: /go to conversations/i })).toBeVisible();
+		await expect(page.getByRole("button", { name: /go back/i })).toBeVisible();
 	});
 
-	test("IconRail remains visible on NotFound so users can navigate away", async ({ page }) => {
+	test("NotFound is standalone outside the app shell", async ({ page }) => {
 		await page.goto("/totally-bogus");
-		await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+		await expect(page.getByTestId("not-found-page")).toBeVisible();
+		await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
 	});
 });

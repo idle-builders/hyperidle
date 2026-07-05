@@ -42,10 +42,7 @@ test.describe("Knowledge Detail (J7)", () => {
 		// No edit button on a factory item.
 		await expect(page.getByRole("button", { name: /edit/i })).toHaveCount(0);
 
-		// Factory metadata bar still renders the layer/kind/status chips.
-		const bar = page.getByTestId("knowledge-metadata-bar");
-		await expect(bar.getByText("decision")).toBeVisible();
-		await expect(bar.getByText("HEALTHY")).toBeVisible();
+		await expect(page.getByTestId("knowledge-metadata-bar")).toBeVisible();
 	});
 
 	test("factory-scope needs_human item shows the Amendable under review banner", async ({

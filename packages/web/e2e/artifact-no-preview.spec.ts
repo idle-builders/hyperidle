@@ -1,4 +1,4 @@
-// L3 — Playwright: protected — preview=null renders the placeholder, never a fake thumbnail.
+// L3 — Playwright: protected — preview=null renders the no-preview affordance, never a fake thumbnail.
 // AC-9 + concept §4.5 hard rule #4.
 import { expect, type Route, test } from "./fixtures";
 
@@ -13,7 +13,7 @@ const NO_PREVIEW_FIXTURE = {
 	createdAt: "2026-04-28T13:00:00.000Z",
 };
 
-test("artifact with preview=null shows the PREVIEW PENDING placeholder, not a fake thumbnail", async ({
+test("artifact with preview=null shows the no-preview affordance, not a fake thumbnail", async ({
 	page,
 }) => {
 	await page.route("**/api/threads?**participant_id=**", async (route: Route) => {
@@ -45,7 +45,7 @@ test("artifact with preview=null shows the PREVIEW PENDING placeholder, not a fa
 		});
 	});
 	await page.goto("/artifacts/art-no-preview-fixture");
-	const placeholder = page.getByText(/PREVIEW (PENDING|NOT YET RENDERED)/);
+	const placeholder = page.getByText(/No preview available/i);
 	await expect(placeholder).toBeVisible();
 
 	// Hard rule: no <img> may render in the placeholder area.

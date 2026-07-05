@@ -12,7 +12,7 @@ describe("SearchField", () => {
 	it("applies sizing classes to the input", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
-		expect(input).toHaveClass("w-full", "h-[32px]");
+		expect(input).toHaveClass("w-full", "h-[44px]", "xl:h-[32px]");
 		expect(input.className).toContain("bg-[var(--surface-container)]");
 	});
 

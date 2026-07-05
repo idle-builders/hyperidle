@@ -20,6 +20,12 @@ import { expect, test } from "./fixtures";
 const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
+const TEAMS_OVERVIEW_FIXTURE = {
+	teams: [
+		{ id: "t1", name: "Alpha Core", phase: "build", active: true },
+		{ id: "t2", name: "Growth Lab", phase: "explore", active: true },
+	],
+};
 const THREADS_FIXTURE = { threads: [], nextCursor: null };
 const BETS_FIXTURE = { bets: [] };
 const KNOWLEDGE_FIXTURE = { items: [] };
@@ -44,21 +50,19 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='conversations-page']");
 
-		const threadList = page
-			.locator("[data-testid='thread-list-container'], [data-testid='thread-sections']")
-			.first();
+		const threadList = page.getByTestId("conversations-list-content");
 		const box = await threadList.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(800);
 		}
 	});
 
-	test("work portfolio bet grid: content area ≤ 960px", async ({ page }) => {
+	test("work overview teams list: content area ≤ 960px", async ({ page }) => {
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
+				body: JSON.stringify(TEAMS_OVERVIEW_FIXTURE),
 			});
 		});
 		await page.route("**/api/bets", async (route) => {
@@ -69,11 +73,11 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 			});
 		});
 
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.goto("/work");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
-		const betGrid = page.getByTestId("bet-grid");
-		const box = await betGrid.boundingBox();
+		const content = page.getByTestId("work-overview-content");
+		const box = await content.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(960);
 		}
@@ -98,8 +102,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		// Knowledge list body container
-		const listBody = page.locator("[data-testid='knowledge-list-page'] > :first-child");
+		const listBody = page.getByTestId("knowledge-list-content");
 		const box = await listBody.boundingBox();
 		if (box) {
 			expect(box.width).toBeLessThanOrEqual(800);
@@ -181,7 +184,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		await expect(emptyState).toBeVisible();
 	});
 
-	test("work empty state visible when no bets", async ({ page }) => {
+	test("work empty state visible when no teams", async ({ page }) => {
 		await page.route("**/api/bets*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -193,12 +196,12 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
+				body: JSON.stringify({ teams: [] }),
 			});
 		});
 
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.goto("/work");
+		await page.waitForSelector("[data-testid='work-overview-page-empty']");
 		// Empty state should render
 		const emptyState = page.getByTestId("work-empty-state");
 		await expect(emptyState).toBeVisible();
@@ -223,7 +226,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 		// Empty state should render
-		const emptyState = page.getByTestId("knowledge-empty-state");
+		const emptyState = page.getByTestId("knowledge-curated-empty");
 		await expect(emptyState).toBeVisible();
 	});
 });

@@ -91,6 +91,15 @@ class CapturingAdapter implements HarnessAdapter {
 }
 
 const NOW = new Date().toISOString();
+const TEST_API_KEY = "al7-tailored-grant-test-key";
+
+function authHeaders(): Record<string, string> {
+	return { "Content-Type": "application/json", "X-API-Key": TEST_API_KEY };
+}
+
+beforeEach(() => {
+	vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+});
 
 async function seedCapturedCall(db: HyperIdleDb): Promise<{
 	agentId: string;
@@ -204,7 +213,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
 		});
 		expect(res.status).toBeLessThan(300);
@@ -245,7 +254,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "request-changes", rationale: "not ready" }),
 		});
 		expect(res.status).toBeLessThan(300);
@@ -334,7 +343,7 @@ describe("AC7/AC8: held Proposed Call never executes", () => {
 
 		await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "reject", rationale: "not needed" }),
 		});
 

@@ -2,7 +2,7 @@
  * W3 — Conversations filter E2E tests: AC-5, AC-6, AC-7, AC-8.
  *
  * AC-5: Thread list is flat (no Active/Resolved section headers).
- * AC-6: Filter chips are toggle-style (Blocking, Unread) — not mutually exclusive tabs.
+ * AC-6: Legacy filter chips are absent from the flat conversations list.
  * AC-7: "Blocking" badge visible on blocking thread rows.
  * AC-8: "New thread" button in header.
  */
@@ -69,7 +69,7 @@ test.describe("W3 AC-5 — Flat thread list (no section grouping)", () => {
 	});
 });
 
-test.describe("W3 AC-6 — Toggle-style filter chips", () => {
+test.describe("W3 AC-6 — Legacy filter chips removed", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.route("**/api/threads*", async (route) => {
 			await route.fulfill({
@@ -82,62 +82,15 @@ test.describe("W3 AC-6 — Toggle-style filter chips", () => {
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 	});
 
-	test("renders 'Blocking' toggle chip (aria-pressed, not role=tab)", async ({ page }) => {
-		const blockingChip = page.getByRole("button", { name: /^blocking$/i });
-		await expect(blockingChip).toBeVisible();
-		// Must have aria-pressed (toggle), not role="tab"
-		await expect(blockingChip).toHaveAttribute("aria-pressed");
-	});
-
-	test("renders 'Unread' toggle chip", async ({ page }) => {
-		const unreadChip = page.getByRole("button", { name: /^unread$/i });
-		await expect(unreadChip).toBeVisible();
-		await expect(unreadChip).toHaveAttribute("aria-pressed");
-	});
-
-	test("does NOT render 'All' tab", async ({ page }) => {
+	test("does NOT render legacy filter tabs", async ({ page }) => {
 		await expect(page.getByRole("tab", { name: /^all$/i })).not.toBeVisible();
-	});
-
-	test("does NOT render 'Async' tab", async ({ page }) => {
 		await expect(page.getByRole("tab", { name: /^async$/i })).not.toBeVisible();
 	});
 
-	test("toggling Blocking chip filters to blocking threads only", async ({ page }) => {
-		const blockingChip = page.getByRole("button", { name: /^blocking$/i });
-		await blockingChip.click();
-
-		// Only 2 blocking threads shown
-		const rows = page.locator("[data-ds-component='ThreadRow']");
-		await expect(rows).toHaveCount(2);
-		await expect(blockingChip).toHaveAttribute("aria-pressed", "true");
-	});
-
-	test("toggling Blocking chip off restores all threads", async ({ page }) => {
-		const blockingChip = page.getByRole("button", { name: /^blocking$/i });
-
-		// Toggle on
-		await blockingChip.click();
-		await expect(page.locator("[data-ds-component='ThreadRow']")).toHaveCount(2);
-
-		// Toggle off
-		await blockingChip.click();
+	test("does NOT render removed Blocking or Unread toggle chips", async ({ page }) => {
+		await expect(page.getByRole("button", { name: /^blocking$/i })).not.toBeVisible();
+		await expect(page.getByRole("button", { name: /^unread$/i })).not.toBeVisible();
 		await expect(page.locator("[data-ds-component='ThreadRow']")).toHaveCount(MIXED_THREADS.length);
-	});
-
-	test("Blocking and Unread chips are independently toggleable", async ({ page }) => {
-		const blockingChip = page.getByRole("button", { name: /^blocking$/i });
-		const unreadChip = page.getByRole("button", { name: /^unread$/i });
-
-		// Toggle both on independently
-		await blockingChip.click();
-		await expect(blockingChip).toHaveAttribute("aria-pressed", "true");
-		await expect(unreadChip).toHaveAttribute("aria-pressed", "false");
-
-		await unreadChip.click();
-		// Both can be active simultaneously
-		await expect(blockingChip).toHaveAttribute("aria-pressed", "true");
-		await expect(unreadChip).toHaveAttribute("aria-pressed", "true");
 	});
 });
 
@@ -155,32 +108,14 @@ test.describe("W3 AC-7 — Blocking badge on thread rows", () => {
 	});
 
 	test("blocking threads show a 'Blocking' text badge", async ({ page }) => {
-		// Threads t1 and t2 are blocking — they should show a badge
-		const badges = page
-			.locator("[data-badge='blocking'], .badge--blocking, [class*='blocking']")
-			.filter({
-				hasText: "Blocking",
-			});
-		// At least 2 blocking badges should be visible
-		const count = await badges.count();
-		expect(count).toBeGreaterThanOrEqual(2);
+		await expect(page.getByTestId("thread-row-blocking-badge")).toHaveCount(2);
 	});
 
 	test("non-blocking threads do NOT show a 'Blocking' text badge", async ({ page }) => {
-		// Get all thread rows and verify only blocking ones have the badge
-		const rows = page.locator("[data-ds-component='ThreadRow']");
-		const rowCount = await rows.count();
-		let nonBlockingWithBadge = 0;
-		for (let i = 0; i < rowCount; i++) {
-			const row = rows.nth(i);
-			const rowId = await row.getAttribute("data-thread-id");
-			const isBlocking = ["t1", "t2"].includes(rowId ?? "");
-			const hasBadge = (await row.locator(".badge--blocking, [data-badge='blocking']").count()) > 0;
-			if (!isBlocking && hasBadge) {
-				nonBlockingWithBadge++;
-			}
+		for (const id of ["t3", "t4", "t5"]) {
+			const row = page.locator("[data-ds-component='ThreadRow']", { hasText: `Thread ${id}` });
+			await expect(row.getByTestId("thread-row-blocking-badge")).toHaveCount(0);
 		}
-		expect(nonBlockingWithBadge).toBe(0);
 	});
 });
 

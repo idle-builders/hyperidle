@@ -102,7 +102,7 @@ test.describe
 			page,
 		}) => {
 			await page.goto("/work/portfolio");
-			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+			await expect(page.locator("[data-testid='work-overview-page']")).toBeVisible();
 
 			// Open the bet-create dialog via the "New bet" header button (requires bets.length > 0)
 			const createBtn = page.locator("[data-testid='new-bet-btn']");
@@ -145,7 +145,7 @@ test.describe
 
 		test("guard strip: focus lands on Keep editing (the safe default)", async ({ page }) => {
 			await page.goto("/work/portfolio");
-			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+			await expect(page.locator("[data-testid='work-overview-page']")).toBeVisible();
 
 			const createBtn = page.locator("[data-testid='new-bet-btn']");
 			await expect(createBtn, "New bet button must be visible").toBeVisible();
@@ -174,7 +174,7 @@ test.describe
 			page,
 		}) => {
 			await page.goto("/work/portfolio");
-			await expect(page.locator("[data-testid='work-portfolio-page']")).toBeVisible();
+			await expect(page.locator("[data-testid='work-overview-page']")).toBeVisible();
 
 			const createBtn = page.locator("[data-testid='new-bet-btn']");
 			await expect(createBtn, "New bet button must be visible").toBeVisible();

@@ -18,7 +18,7 @@
  * clickableProps bundles the correct color-mix token + focus ring + motion.
  */
 
-import { createContext, type JSX, type ReactNode, useContext } from "react";
+import { createContext, type JSX, type MouseEvent, type ReactNode, useContext } from "react";
 import { clickableProps } from "./clickable.js";
 import { dsProps } from "./ds-attrs.js";
 import type { RowTone } from "./RowDot.js";
@@ -352,13 +352,40 @@ export function Row({
 
 	// div case
 	if (onClick && hasActions) {
-		// nested-button rule: div[role=button]
-		// W2 fix: spread clickableProps directly — no hand-rolled duplicate utilities,
-		// no discarded className. commonProps className is overridden by clickableProps.
+		// @lore release-v0.6.0: A focusable role=button wrapper cannot contain
+		// the action buttons. Keep the outer row as layout only; make the content
+		// lane interactive and leave the action slot as a sibling.
+		const contentClasses = clickableProps(
+			onClick,
+			"flex min-h-[44px] flex-1 min-w-0 items-center gap-[12px]",
+		).className;
+		const handleOuterMouseUp = (event: MouseEvent<HTMLDivElement>): void => {
+			const target = event.target instanceof HTMLElement ? event.target : null;
+			if (target?.closest("button,a,input,select,textarea")) return;
+			onClick();
+		};
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>
-			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
-				{inner}
+			<div {...commonProps} onMouseUp={handleOuterMouseUp}>
+				{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] keeps row activation while action buttons remain siblings, avoiding nested interactive controls */}
+				<div {...clickableProps(onClick, "")} className={contentClasses}>
+					{lead !== undefined && lead !== null && (
+						<span className="shrink-0 inline-flex items-center">{lead}</span>
+					)}
+					<span className="flex-1 min-w-0">
+						<span className="block text-[13px] font-[500] text-[var(--text-primary)] truncate flex-1">
+							{title}
+						</span>
+						{subtitle !== undefined && subtitle !== null && (
+							<span className="block text-[12px] text-[var(--text-tertiary)] truncate">
+								{subtitle}
+							</span>
+						)}
+					</span>
+					{cells && cells.length > 0 && <>{cells.map((cell, i) => renderCell(cell, i))}</>}
+				</div>
+				{actions !== undefined && actions !== null && (
+					<span className="shrink-0 flex gap-[3px]">{actions}</span>
+				)}
 			</div>
 		);
 	}

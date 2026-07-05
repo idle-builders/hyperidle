@@ -26,10 +26,19 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
+const TEST_API_KEY = "al7-reviews-loader-test-key";
+
+function authHeaders(): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY };
+}
+
+beforeEach(() => {
+	vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+});
 
 async function seedReviewWithProposedCall(
 	db: HyperIdleDb,
@@ -157,7 +166,9 @@ describe("AC10b: loader returns verbatim proposedCall.args (not a summary string
 			status: "captured",
 		});
 
-		const res = await app.request(`/api/reviews/${reviewMessageId}`);
+		const res = await app.request(`/api/reviews/${reviewMessageId}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
@@ -204,7 +215,9 @@ describe("AC10: outcome is visible against the review; failure surfaces verbatim
 			},
 		});
 
-		const res = await app.request(`/api/reviews/${reviewMessageId}`);
+		const res = await app.request(`/api/reviews/${reviewMessageId}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
@@ -232,7 +245,9 @@ describe("AC10: outcome is visible against the review; failure surfaces verbatim
 			withOutcome: { status: "failed", error: verbatimError },
 		});
 
-		const res = await app.request(`/api/reviews/${reviewMessageId}`);
+		const res = await app.request(`/api/reviews/${reviewMessageId}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
@@ -256,7 +271,9 @@ describe("AC10: outcome is visible against the review; failure surfaces verbatim
 			status: "captured",
 		});
 
-		const res = await app.request(`/api/reviews/${reviewMessageId}`);
+		const res = await app.request(`/api/reviews/${reviewMessageId}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;

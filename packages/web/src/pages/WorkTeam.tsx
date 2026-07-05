@@ -624,7 +624,7 @@ function WorkTeamLoaded({
 										actions={
 											<button
 												type="button"
-												className="btn btn-ghost btn-xs shrink-0"
+												className="btn btn-ghost btn-xs min-h-[44px] shrink-0"
 												onClick={(e) => {
 													e.stopPropagation();
 													setEditingAgentId(member.agentId);

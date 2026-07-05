@@ -112,15 +112,21 @@ export function WorkOverviewView({
 	if (teams.length === 0) {
 		return (
 			<div className="flex flex-col h-full" data-testid="work-overview-page-empty">
-				<EmptyState
-					title="No teams yet"
-					description="Teams group your agents and bets. Finish setup to create your first team."
-					action={
-						<Button variant="primary" size="sm" onClick={onFinishSetup}>
-							Finish setup
-						</Button>
-					}
-				/>
+				<div
+					className="max-w-[800px] mx-auto w-full flex flex-1 items-center justify-center p-[48px_24px]"
+					data-testid="work-overview-content"
+				>
+					<EmptyState
+						title="No teams yet"
+						description="Teams group your agents and bets. Finish setup to create your first team."
+						dataTestId="work-empty-state"
+						action={
+							<Button variant="primary" size="sm" onClick={onFinishSetup}>
+								Finish setup
+							</Button>
+						}
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -144,7 +150,7 @@ export function WorkOverviewView({
 				}
 			/>
 			<div className="flex-1 overflow-y-auto">
-				<div className="max-w-[800px] mx-auto w-full">
+				<div className="max-w-[800px] mx-auto w-full" data-testid="work-overview-content">
 					<ItemList variant="flush" as="ul" isEmpty={false}>
 						{sorted.map((team) => {
 							const betCount = team.activeBets;

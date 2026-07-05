@@ -1,8 +1,8 @@
 /**
  * J5 — Work Surface E2E flows.
  *
- * Flow 1: Portfolio page structure — product cards carry lead avatar,
- * active-bet count, and shipped count.
+ * Flow 1: Work overview structure — team rows carry active-bet count and
+ * health status.
  *
  * @lore M3 G1: cycle-stripe was removed when MOCK_CYCLE was deleted.
  * Cycle data is not yet wired from the server (deferred follow-up).
@@ -64,12 +64,11 @@ const TEAMS_FIXTURE = {
 };
 
 test.describe("J5 — Work Surface", () => {
-	test("Portfolio renders team pill filters and bet-grid structure", async ({ page }) => {
-		// @lore U11: product-card testid removed in U9 (WorkPortfolio now renders a
-		// flat BetCard grid from useBets, not team cards from useTeams).
-		// J5 now validates that: team pills render, bet-grid container is visible.
+	test("Work overview renders team rows and no retired team pill filters", async ({ page }) => {
+		// @lore W3: WorkPortfolio/team-pill filters were retired. /work/portfolio
+		// redirects to the current Work overview, which renders team-row buttons.
 
-		// Mock /api/teams so the portfolio renders team pill filters.
+		// Mock /api/teams so the overview renders team rows.
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -79,14 +78,16 @@ test.describe("J5 — Work Surface", () => {
 		});
 
 		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-portfolio-page']");
+		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// Portfolio page structure visible
-		await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+		await expect(page.getByTestId("work-overview-page")).toBeVisible();
+		await expect(page.getByTestId("work-overview-content")).toBeVisible();
 
-		// Team pill filters render (one per team)
-		const teamPillsContainer = page.getByTestId("team-pill-filters");
-		await expect(teamPillsContainer).toBeVisible();
+		const teamRows = page.getByTestId("team-row");
+		await expect(teamRows).toHaveCount(4);
+		await expect(page.getByRole("button", { name: /Product Three 3 active bets BEHIND/i })).toBeVisible();
+		await expect(page.getByTestId("team-pill-filters")).toHaveCount(0);
 	});
 
 	// @lore L13: WorkTeam (Kanban + PitchSelector) was deleted in L13. The

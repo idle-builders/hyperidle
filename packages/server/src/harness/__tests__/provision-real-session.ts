@@ -373,6 +373,8 @@ export interface HarnessRunCtx {
 		ctx: BeforeHarnessStartContext,
 	) => void | "abort" | Promise<void | "abort">;
 	readonly onHarnessStarted?: () => void;
+	/** Optional per-run wall-clock ceiling; defaults below Vitest's harness timeout. */
+	readonly sessionTimeoutMs?: number;
 	/**
 	 * Session setup inspection tests abort before any harness process starts. They need
 	 * production config files, but not copied user auth or git prep required only
@@ -668,6 +670,10 @@ export async function runThroughHarness(
 		eventBus: ctx.eventBus,
 		adapterPool: pool,
 		workspace: new LocalSandboxAdapter(),
+		// @lore real-harness-timeout: Vitest's 240s timeout does not reliably clean up
+		// live CLI children. Keep a slightly lower provisioner-owned ceiling so the
+		// adapter stop path kills the child and returns a normal failed session.
+		sessionTimeoutMs: ctx.sessionTimeoutMs ?? 210_000,
 		...(ctx.bridge
 			? {
 					mcpBridgeRegistry: ctx.bridge.mcpBridgeRegistry,

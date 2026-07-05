@@ -58,8 +58,10 @@ const PM_TEMPLATE = {
 async function openSettings(page: import("@playwright/test").Page): Promise<void> {
 	await page.goto("/");
 	await page.waitForSelector("[data-testid='main-content']");
-	await page.getByRole("button", { name: /user profile/i }).click();
-	await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
+	// @lore W3: Settings moved from the retired user-profile dialog trigger to
+	// the icon-only sidebar settings button and in-shell settings view.
+	await page.getByTestId("sidebar-settings-btn").click();
+	await expect(page.locator("[data-testid='settings-section-agents']")).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------
@@ -88,14 +90,14 @@ test.describe("X3 AC-9: Settings Agents section renders agent table", () => {
 		await expect(page.locator("[data-testid='settings-section-agents']")).toBeVisible();
 	});
 
-	test("agents section shows table headers: Name, Role, Harness, Model Tier, Sessions, Actions", async ({
+	test("agents section shows table headers: Name, Role, Harness, Model, Sessions, Actions", async ({
 		page,
 	}) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
 		await expect(agentsSection.getByText(/name/i)).toBeVisible();
 		await expect(agentsSection.getByText(/role/i)).toBeVisible();
 		await expect(agentsSection.getByText(/harness/i)).toBeVisible();
-		await expect(agentsSection.getByText(/model tier/i)).toBeVisible();
+		await expect(agentsSection.getByText(/^model$/i)).toBeVisible();
 		await expect(agentsSection.getByText(/sessions/i)).toBeVisible();
 		await expect(agentsSection.getByText(/actions/i)).toBeVisible();
 	});
@@ -114,13 +116,12 @@ test.describe("X3 AC-9: Settings Agents section renders agent table", () => {
 		await expect(deleteButtons.first()).toBeVisible();
 	});
 
-	test("shows 'Any' for null harnessType and 'Default' for null modelTierPreference", async ({
+	test("shows 'Default' for null harnessType and null modelTierPreference", async ({
 		page,
 	}) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
 		// Builder Bot has null harnessType and null modelTierPreference
-		await expect(agentsSection.getByText("Any")).toBeVisible();
-		await expect(agentsSection.getByText("Default")).toBeVisible();
+		await expect(agentsSection.getByText("Default")).toHaveCount(3);
 	});
 });
 
@@ -348,7 +349,7 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 
 	test("first click on Delete changes button to 'Confirm?'", async ({ page }) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
-		const deleteButtons = agentsSection.getByRole("button", { name: /^delete$/i });
+		const deleteButtons = agentsSection.getByRole("button", { name: /delete e2e product manager/i });
 		await deleteButtons.first().click();
 
 		await expect(agentsSection.getByRole("button", { name: /confirm\?/i })).toBeVisible();
@@ -356,7 +357,7 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 
 	test("second click confirms deletion and shows 'Agent deleted' toast", async ({ page }) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
-		const deleteButtons = agentsSection.getByRole("button", { name: /^delete$/i });
+		const deleteButtons = agentsSection.getByRole("button", { name: /delete e2e product manager/i });
 		await deleteButtons.first().click();
 
 		await expect(agentsSection.getByRole("button", { name: /confirm\?/i })).toBeVisible();
@@ -367,7 +368,7 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 
 	test("Delete button reverts after 3 seconds without confirmation", async ({ page }) => {
 		const agentsSection = page.locator("[data-testid='settings-section-agents']");
-		const deleteButtons = agentsSection.getByRole("button", { name: /^delete$/i });
+		const deleteButtons = agentsSection.getByRole("button", { name: /delete e2e product manager/i });
 		await deleteButtons.first().click();
 
 		await expect(agentsSection.getByRole("button", { name: /confirm\?/i })).toBeVisible();
@@ -377,6 +378,8 @@ test.describe("X3 AC-12: Settings UI delete with two-click confirmation", () => 
 
 		// Should revert to "Delete"
 		await expect(agentsSection.getByRole("button", { name: /confirm\?/i })).not.toBeVisible();
-		await expect(agentsSection.getByRole("button", { name: /^delete$/i }).first()).toBeVisible();
+		await expect(
+			agentsSection.getByRole("button", { name: /delete e2e product manager/i }).first(),
+		).toBeVisible();
 	});
 });

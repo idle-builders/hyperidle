@@ -188,7 +188,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto("/conversations");
 
 		// The CoC trigger button must be visible in the sidebar.
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await expect(trigger).toBeVisible();
 	});
 
@@ -197,7 +197,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/work/portfolio");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await expect(trigger).toBeVisible();
 	});
 
@@ -208,7 +208,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toHaveCount(0);
 
 		// Click the trigger.
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		// Overlay must now be present.
@@ -220,7 +220,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		// ThreadShell is mounted inside the dialog.
@@ -239,7 +239,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto(`/work/bet/${BET_ID}`);
 
 		// Open the CoC overlay first.
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
@@ -255,7 +255,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 
 		// A context chip for the bet should now appear in the overlay.
 		await expect(dialog.getByText("Daily Digest")).toBeVisible();
-		await expect(dialog.getByTestId("coc-context-chips")).toBeVisible();
+		await expect(dialog.getByTestId("assistant-context-chips")).toBeVisible();
 	});
 
 	test("AC-E5 + AC-E6: user types a question and it appears in the thread stream", async ({
@@ -263,7 +263,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		const dialog = page.getByRole("dialog", { name: /assistant conversation/i });
@@ -283,7 +283,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	test("AC-E7: pressing Escape closes the overlay", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
@@ -298,7 +298,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	test("AC-E7: clicking the trigger again closes the overlay", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
@@ -329,7 +329,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto("/conversations");
 
 		// Open the overlay.
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();
 
@@ -344,7 +344,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	test("trigger aria-expanded reflects overlay state", async ({ page }) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 
 		// Before opening: aria-expanded=false.
 		await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -361,7 +361,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 	}) => {
 		await page.goto("/conversations");
 
-		const trigger = page.getByRole("button", { name: /assistant/i });
+		const trigger = page.getByTestId("sidebar-assistant-btn");
 		await trigger.click();
 
 		await expect(page.getByRole("dialog", { name: /assistant conversation/i })).toBeVisible();

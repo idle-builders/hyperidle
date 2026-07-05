@@ -374,10 +374,10 @@ test("U11 screenshot: work portfolio bet grid", async ({ page }) => {
 	});
 
 	await page.goto("/work/portfolio");
-	await page.waitForSelector("[data-testid='work-portfolio-page']");
+	await page.waitForSelector("[data-testid='work-overview-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("work-portfolio-page")).toBeVisible();
+	await expect(page.getByTestId("work-overview-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-04-work-portfolio.png", fullPage: false });
 });
 

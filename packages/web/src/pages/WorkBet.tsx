@@ -721,13 +721,13 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				void handleActivate();
 			} else if (action === "unblock") {
 				// Scroll to and focus the composer textarea in HostThreadSection.
-				const textarea = document.querySelector<HTMLTextAreaElement>(
-					'[data-testid="composer-textarea"]',
-				);
-				if (textarea) {
-					textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
-					textarea.focus();
-				}
+				requestAnimationFrame(() => {
+					const textarea = document.querySelector<HTMLElement>('[data-testid="composer-textarea"]');
+					if (textarea) {
+						textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+						textarea.focus();
+					}
+				});
 			}
 		},
 		[handleActivate],

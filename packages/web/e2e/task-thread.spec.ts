@@ -2,7 +2,7 @@
  * L18 — Task thread Playwright e2e tests.
  *
  * AC coverage:
- *  - open kanban → click a task → sheet opens → thread renders inline → post → reload → persists
+ *  - open task detail → thread renders inline → post → message appears
  */
 
 import { expect, test } from "./fixtures";
@@ -52,8 +52,8 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 	};
 }
 
-test.describe("L18 — Task sheet thread surface", () => {
-	test("kanban task → sheet opens → thread renders inline", async ({ page }) => {
+test.describe("L18 — Task detail thread surface", () => {
+	test("task detail renders inline thread and posts a message", async ({ page }) => {
 		const postedMessages: Array<Record<string, unknown>> = [];
 		let postObserved = false;
 		const composedText = "Task thread comment posted inline.";
@@ -107,10 +107,6 @@ test.describe("L18 — Task sheet thread surface", () => {
 			}
 		});
 
-		// @lore L13: WorkTeam (Kanban) was deleted; TaskSheet is now mounted in
-		// WorkBet. Navigate to the bet detail page and click a task row to open
-		// the sheet. The bet mock must be registered before the thread mocks so
-		// the page renders before we try to click.
 		await page.route("**/api/bets/b1", (route) =>
 			route.fulfill({
 				status: 200,
@@ -146,21 +142,19 @@ test.describe("L18 — Task sheet thread surface", () => {
 			}),
 		);
 
-		await page.goto("/work/bet/b1");
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.route(`**/api/tasks/${TASK_ID}/sessions`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ sessions: [] }),
+			}),
+		);
 
-		// Click the first task row (bet-task-row) to open the task sheet
-		const taskCards = page.locator("[data-testid='bet-task-row']");
-		await taskCards.first().click();
+		await page.goto(`/work/bet/b1/task/${TASK_ID}`);
+		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 
-		// The task sheet should open
-		await expect(page.getByRole("dialog")).toBeVisible();
-
-		// L18: Thread section renders inline in the sheet (AC §621: "Open thread" affordance
-		// also present for navigation to conversations view, per L15 compatibility requirement).
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();
 
-		// Post a message
 		const composer = page.getByPlaceholder(/reply to thread|write a message|start a discussion/i);
 		await composer.fill(composedText);
 		await page.getByRole("button", { name: /^send$/i }).click();

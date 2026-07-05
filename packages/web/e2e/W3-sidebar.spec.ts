@@ -1,8 +1,7 @@
 /**
  * W3 — Sidebar E2E tests: AC-1, AC-2, AC-3, AC-4.
  *
- * AC-1: Sidebar bottom strip has three elements: Search hint with ⌘K badge,
- *       user avatar (settings trigger), and Assistant/CoC button.
+ * AC-1: Sidebar has search hint with ⌘K badge, settings trigger, and Assistant button.
  * AC-2: Work section sub-nav shows teams from API.
  * AC-3: Knowledge section has NO sub-items (no Practices/Products/Factory).
  * AC-4: Conversations sub-nav shows recent threads.
@@ -57,22 +56,19 @@ test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
 
-	test("sidebar bottom strip has a search hint with Cmd+K badge", async ({ page }) => {
+	test("sidebar bottom strip has a search hint with shortcut badge", async ({ page }) => {
 		const searchHint = page.getByTestId("sidebar-search-hint");
 		await expect(searchHint).toBeVisible();
-		// Must contain the ⌘K shortcut
-		await expect(searchHint).toContainText(/cmd\+k/i);
+		await expect(searchHint).toContainText(/(cmd\+k|⌘k)/i);
 	});
 
-	test("sidebar bottom strip has user avatar as settings trigger", async ({ page }) => {
-		const avatarBtn = page.getByTestId("sidebar-avatar-btn");
-		await expect(avatarBtn).toBeVisible();
+	test("sidebar bottom strip has settings trigger", async ({ page }) => {
+		await expect(page.getByTestId("sidebar-settings-btn")).toBeVisible();
 	});
 
 	test("sidebar bottom strip has 'Assistant' CoC button", async ({ page }) => {
-		// Regression guard: old agent label should not be visible; 'Assistant' is the current label.
 		await expect(page.getByText("Chief of Staff")).not.toBeVisible();
-		await expect(page.getByText("Assistant")).toBeVisible();
+		await expect(page.getByTestId("sidebar-assistant-btn")).toBeVisible();
 	});
 
 	test("clicking search hint triggers search (Cmd+K behavior)", async ({ page }) => {

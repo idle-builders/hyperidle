@@ -20,7 +20,7 @@ function makeBetResponse() {
 		title: "Block Anchor Test Bet",
 		product: "Alpha",
 		team: "Alpha Core",
-		status: "in_progress",
+		status: "completed",
 		costAppetite: { minor: 100000, currency: "USD" },
 		costActual: null,
 		tokensActual: null,
@@ -168,8 +168,8 @@ test.describe("L18 — Block-anchored comment flow", () => {
 		await firstBlock.focus();
 		await page.keyboard.press(" ");
 
-		// The block actions popover should appear
-		await expect(page.getByTestId("block-actions-popover")).toBeVisible();
+		// The block actions menu should appear
+		await expect(page.getByRole("menu", { name: /block actions/i })).toBeVisible();
 
 		// Click Discuss
 		await page.getByRole("menuitem", { name: /discuss/i }).click();

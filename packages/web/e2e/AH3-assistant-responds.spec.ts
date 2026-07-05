@@ -179,7 +179,7 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 		await expect(page.getByText(WELCOME_TEXT)).toBeVisible();
 
 		// Type and send a message
-		const composer = page.getByRole("textbox");
+		const composer = page.getByTestId("composer-textarea");
 		await composer.fill("Hello, can you help me?");
 		await composer.press("Enter");
 
@@ -221,7 +221,7 @@ test.skip("AH5 lane: send message → thinking row appears → replaced by real 
 	const welcomeText = (await page.getByRole("dialog").locator("text").first().textContent()) ?? "";
 
 	// Send a message
-	const composer = page.getByRole("textbox");
+	const composer = page.getByTestId("composer-textarea");
 	await composer.fill("What is 1 + 1?");
 	await composer.press("Enter");
 
@@ -311,7 +311,24 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify([
-						{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						{
+							type: "builtin",
+							name: "Built-in Harness",
+							kind: "local",
+							accessMode: "api-gateway",
+							authAction: { kind: "none", label: "Built in" },
+							discovery: { state: "ready", disabled: false },
+							models: [],
+							runtime: {
+								preCompactionTrigger: false,
+								subAgents: false,
+								mcpSupport: false,
+								modelProviders: ["anthropic"],
+								fileEditing: true,
+								toolUse: true,
+							},
+							modelProviders: ["anthropic"],
+						},
 					]),
 				});
 			} else {
@@ -323,14 +340,11 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 	test("Settings → Assistant persona textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto("/settings");
 
-		// Open Settings and navigate to Assistant tab
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /assistant/i }).click();
-
-		// Find the persona textarea
-		const textarea = page.getByRole("textbox", { name: /persona instructions/i });
+		const assistantSection = page.getByTestId("settings-section-assistant");
+		await assistantSection.scrollIntoViewIfNeeded();
+		const textarea = assistantSection.getByRole("textbox", { name: /persona instructions/i });
 		await expect(textarea).toBeVisible();
 
 		// Assert border-radius is NOT a pill (not 9999px or > 24px)
@@ -346,14 +360,15 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 	test("Settings → Agents system prompt textarea is rectangular (border-radius ≤ --r-default, not pill)", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto("/settings");
 
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /agents/i }).click();
+		const agentsSection = page.getByTestId("settings-section-agents");
+		await agentsSection.scrollIntoViewIfNeeded();
+		await agentsSection.getByRole("button", { name: /edit builder agent/i }).click();
 
 		// There should be a system prompt textarea for the builder agent
 		// It must be rectangular
-		const systemPromptTextareas = page.locator("textarea");
+		const systemPromptTextareas = agentsSection.getByRole("textbox", { name: /system prompt/i });
 		const count = await systemPromptTextareas.count();
 		expect(count).toBeGreaterThan(0);
 
@@ -368,18 +383,18 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 	test("Settings → Agents does NOT show the assistant agent in the editable table (UI omit)", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto("/settings");
 
-		await page.getByRole("button", { name: /settings/i }).click();
-		await page.getByRole("tab", { name: /agents/i }).click();
+		const agentsSection = page.getByTestId("settings-section-agents");
+		await agentsSection.scrollIntoViewIfNeeded();
 
 		// The assistant agent (role=assistant) must not appear in the agents list
 		// Only team agents should be editable here
-		const agentRows = page.locator("[data-agent-role=assistant]");
+		const agentRows = agentsSection.locator("[data-agent-role=assistant]");
 		const assistantCount = await agentRows.count();
 		expect(assistantCount).toBe(0);
 
 		// The builder agent should still appear
-		await expect(page.getByText("Builder Agent")).toBeVisible();
+		await expect(agentsSection.getByText("Builder Agent")).toBeVisible();
 	});
 });

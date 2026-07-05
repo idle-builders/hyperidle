@@ -400,6 +400,13 @@ export interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
+	 * Optional wall-clock ceiling for the harness run. When reached, the active
+	 * harness is stopped through the adapter and the session tears down as crashed.
+	 * Production callers omit it; real-harness tests use it so a stuck CLI child
+	 * cannot outlive the release gate.
+	 */
+	readonly sessionTimeoutMs?: number;
+	/**
 	 * AO2: Optional mounter for filesystem placement + capture-back.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
@@ -1366,6 +1373,7 @@ export async function runSession(
 	let crashed = false;
 	/** AA3: set to true when per-run cost cap is hit; breaks the event loop gracefully. */
 	let budgetExhausted = false;
+	let sessionTimedOut = false;
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, TierTokenCount>> = {};
 
@@ -1433,6 +1441,8 @@ export async function runSession(
 
 	let harnessHandle: SessionHandle | null = null;
 	let metrics: SessionMetrics | undefined;
+	let sessionTimeout: ReturnType<typeof setTimeout> | null = null;
+	let timeoutAbortPromise: Promise<boolean> | null = null;
 	// AR4a: hoisted outside the try/finally so the completed return site (line ~1418)
 	// can reference it. Stays "" for task/routine sessions (isConversational=false).
 	let conversationalReplyText = "";
@@ -1473,6 +1483,21 @@ export async function runSession(
 				handle: harnessHandle,
 				adapter: harness,
 			});
+			if (deps.sessionTimeoutMs !== undefined) {
+				sessionTimeout = setTimeout(() => {
+					sessionTimedOut = true;
+					aborted = true;
+					crashed = true;
+					timeoutAbortPromise = sessionRunRegistry.abort(sessionId).catch((err) => {
+						// biome-ignore lint/suspicious/noConsole: timeout cleanup path
+						console.warn(
+							`[session-provisioning] timed out session ${sessionId}; stopSession failed:`,
+							err,
+						);
+						return false;
+					});
+				}, deps.sessionTimeoutMs);
+			}
 
 			// AF7 §2: fired exactly once — after harness starts, before drain.
 			onHarnessStarted?.();
@@ -1564,20 +1589,28 @@ export async function runSession(
 
 			// Stop the harness session.
 			if (crashed) {
-				try {
-					metrics = (await harness.stopSession(harnessHandle))?.metrics;
-				} catch (stopErr) {
-					// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-					console.warn(
-						`[session-provisioning] stopSession failed during crash teardown for ${sessionId}:`,
-						stopErr,
-					);
+				if (sessionTimedOut && timeoutAbortPromise) {
+					await timeoutAbortPromise;
+				} else {
+					try {
+						metrics = (await harness.stopSession(harnessHandle))?.metrics;
+					} catch (stopErr) {
+						// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+						console.warn(
+							`[session-provisioning] stopSession failed during crash teardown for ${sessionId}:`,
+							stopErr,
+						);
+					}
 				}
 			} else {
 				metrics = (await harness.stopSession(harnessHandle))?.metrics;
 			}
 		}
 	} finally {
+		if (sessionTimeout) {
+			clearTimeout(sessionTimeout);
+			sessionTimeout = null;
+		}
 		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
 	}
@@ -1647,6 +1680,12 @@ export async function runSession(
 	}
 
 	if (crashed) {
+		if (sessionTimedOut) {
+			// biome-ignore lint/suspicious/noConsole: timeout is a terminal runtime failure signal
+			console.warn(
+				`[session-provisioning] session ${sessionId} exceeded ${deps.sessionTimeoutMs}ms; marked crashed`,
+			);
+		}
 		// ── Hook B: capture-back before crash teardown (AO2 §9).
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);

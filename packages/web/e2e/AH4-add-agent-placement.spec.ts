@@ -56,7 +56,26 @@ function makeAgentsResponse(extra: unknown[] = []) {
 }
 
 function makeHarnessesResponse() {
-	return [{ type: "builtin", name: "Built-in", modelProviders: ["anthropic"] }];
+	return [
+		{
+			type: "builtin",
+			name: "Built-in",
+			kind: "local",
+			accessMode: "api-gateway",
+			authAction: { kind: "none", label: "Built in" },
+			discovery: { state: "ready", disabled: false },
+			models: [],
+			runtime: {
+				preCompactionTrigger: false,
+				subAgents: false,
+				mcpSupport: false,
+				modelProviders: ["anthropic"],
+				fileEditing: true,
+				toolUse: true,
+			},
+			modelProviders: ["anthropic"],
+		},
+	];
 }
 
 function makeTeamDetailResponse() {
