@@ -183,3 +183,60 @@ See `plans/AO1/architecture.md` "Reachability rework (v2)" — grounded in the r
 **Out of scope.** The filesystem model (AO1) and materialization (AO2). Provider-native review/merge sync (AN4). Outbound connectivity (Track AN). Multi-node/horizontal scale.
 
 **Effort.** L (~6d)
+
+---
+
+### AO5 — Fork a new session from a prior session's captured checkpoint
+
+**Workpackage.** As the system (or an agent supervising a bet) recovering a run that went the wrong way, I want to start a **new session seeded from a prior session's captured state** — its captured working tree checked out at the commit it left off on — instead of restarting from the base branch and discarding everything the earlier run accrued, so that a late failure or a bad path costs a fork-and-retry rather than a full redo. AO2 already **captures** a session's work (a git bundle + `commit_sha`, or a folder snapshot) at teardown, but nothing can ever read those captures back — they are write-only. This work package builds the **read half**: reconstitute a capture into a fresh working directory, start a forked session on top of it, and record the parent→child lineage. It is HyperIdle's adaptation of the Shepherd (arXiv 2605.10913) fork/rewind model to our substrate: the checkpoint granularity is the **git commit / bundle**, not an in-process model-call trace — HyperIdle harnesses are black-box CLIs, so we fork the session's filesystem state, never instrument the agent's loop.
+
+**Why this matters.** Two concrete, present costs, not a speculative bet. (1) AO2 shipped a capture **write** path with **no read** path — every `filesystem_captures` row is currently dead weight; the asymmetry is itself a defect. (2) A long agentic run that fails or diverges late today has no recovery point: `crashSession` keeps the sandbox dir for debugging but no code can resume from it, and `endSession` bundles then `rm -rf`s — the accrued work is stranded in a bundle nothing opens. The beneficiary is an operator (or a kernel/strategy supervisor agent) running a multi-hour bet: fork-from-checkpoint turns "the last turn ruined it, start over and re-burn the tokens" into "fork from the last good state and retry differently." Cost of not building it: captures stay unreadable and every late failure is a full restart. We deliberately scope this to the **foundational primitive only** and defer the speculative meta-agent auto-rewind supervisor (ETHOS: earned from a real learning, never preemptive).
+
+**Type.** backend.
+
+**What exists today.** AO2 shipped the capture **write** substrate: the `filesystem_captures` table (`sessionId, filesystemId, capturePath, commitSha, writeback` — migration 0041, `schema.ts`), `RegistryFilesystemMounter.captureBack` → `writeFilesystemCapture` (`capture-store.ts`), the `GitWorktreeAdapter.captureBack` that `git add -A` → `commit` → **`bundle(<sessionId>.bundle, refs/heads/agent/<sessionId>)`** → `worktreeRemove`, and GitRunner inbound verbs `clone`/`worktreeAdd`/`fetch`/`checkout`/`restoreStaged` (`git-export-runner.ts`). Mounting is dispatched per-source behind the single `FilesystemMounter` seam (`mounter-registry.ts` `selectMountAdapter`). The `onBeforeTeardown` hook (`session-provisioning.ts`) fires after the agent drains and before the working dir is deleted. `crashSession` preserves the sandbox dir. **No restore exists** — grep confirms `filesystem_captures` has only writers, never a reader — and there is **no checkpoint / fork / rewind / lineage** concept anywhere in `packages/` (`sessions` has no `parentSessionId`; `bets`/`tasks` carry only prose/audit history; the only "replay" is the unrelated LLM-cassette E2E mode).
+
+**What's genuinely missing.** The read half of AO2 (unbundle/checkout a capture into a new working directory), a **fork** entry into session provisioning that mounts a session from a chosen capture instead of from the filesystem's head, and a **session lineage** record (which session/capture a forked session derived from). None of these exist today.
+
+**Depends on.**
+- **AO2** — AO5 restores from the `filesystem_captures` rows AO2 writes and builds on AO2's GitRunner verbs + mount-adapter registry. Without AO2's capture write-path there is nothing to restore and no adapter seam to add a symmetric restore to; it literally cannot be built or verified until AO2 is `done`.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** `Required — run /refine first. Introduces new load-bearing nouns (session checkpoint, session fork, session lineage) and must disambiguate them from AO2's "capture" and from the unrelated LLM-cassette "replay". Sharpen fork-a-new-session vs resume-in-place before build.`
+- **Design:** `Not required — backend/runtime recovery mechanism; no rendered surface. A fork/resume UI action is a follow-on WP, not this one.`
+
+**Human concept review.** No — backend substrate mechanism that reuses AO2's provisioning path with no user-facing surface (consistent with AO2). Advisory forecast; if `/refine` marks the dev-guide `DOC-CLASS: significant` the authoritative gate still parks it.
+
+**Acceptance criteria.**
+- Given a session that produced a `filesystem_captures` row, the system reconstitutes that captured working tree into a **new** working directory at the captured `commit_sha`, proven by the restored file contents matching what the prior session committed — a real restore path that did not exist before.
+- A **forked** session can be started seeded from a chosen prior capture: its working directory holds the parent's captured state on a fresh per-session branch, and the agent reads/edits/builds on top of it rather than starting from the base branch.
+- The forked session records its **lineage** — the parent session and the capture it derived from — so the parent→child relationship is queryable.
+- Restore is **source-aware and routed through the same mount-adapter seam as AO2** (git capture → unbundle + checkout; local-folder snapshot → restore snapshot); the provisioning flow never branches on source (a `switch (source)` in provisioning is a defect, mirroring AO2's captureBack rule).
+- Forking from a **missing/corrupt/unreachable** capture surfaces as `needs_attention` rather than failing silently or starting an empty session.
+- A normal (non-forked) session start is **unchanged** — fork is opt-in and adds no cost to the default provisioning path.
+
+**Validation scenarios.**
+- Given a completed `code` session whose capture bundled changes at commit X, when a fork session is started from that capture, then the new working directory holds the tree at X on a fresh branch and the agent edits a file on top of it. *(covers restore + fork + adapter routing)*
+- Given that forked session, when its lineage is queried, then it reports the parent session and the capture it derived from. *(covers lineage)*
+- Given a capture whose bundle file is missing, when a fork is attempted, then it surfaces `needs_attention` and no empty session is started. *(covers the failure path)*
+- Given a unit of work with no fork requested, when a session starts, then it provisions exactly as today. *(covers the unchanged default)*
+
+**Plan calls.** `/refine` first (nouns: checkpoint, fork, lineage; disambiguate from AO2 capture and cassette replay). Skip `/design` (backend). Standard `/architecture` for: a GitRunner inbound **restore** verb (clone/fetch from a bundle → checkout at `commit_sha`), a **restore path on the mount adapters** symmetric with `captureBack`, a **session lineage** column + forward-only migration, and a **fork entry** into `session-provisioning` that selects a capture and mounts-from-capture instead of mount-from-filesystem-head. **Live-proof before `done`:** a real session forks from a real prior AO2 capture, the agent edits on top, and lineage is recorded — a stub/fixture is not proof (honest-harness rule).
+
+**Contracts / constraints.**
+- Reuse AO2's `filesystem_captures` rows, GitRunner, and the mount-adapter registry; restore lives **inside** the per-source adapter (mirror `captureBack`) — the provisioning flow stays source-agnostic.
+- **Internal session/sandbox recovery only** — NOT a landing/merge/sync engine and NOT a replacement for provider-native review (AO3 is WONT-DO; AN4 owns provider sync). A fork produces a working tree to run in; it never pushes, merges, or lands.
+- **No in-process model/tool-call trace.** The Shepherd Python-substrate model is explicitly not adopted — HyperIdle harnesses are opaque CLIs; the fork granularity is the git commit/bundle, not the agent's action stream.
+- v1 forks from an existing **at-teardown** capture (one checkpoint per session); no new capture cadence is introduced.
+- Forward-only migration; lineage is additive and back-compatible (null parent = an ordinary session).
+
+**Out of scope.**
+- A mid-run **checkpoint ladder** (multiple checkpoints within a single session) — a follow-on WP once single-capture fork is proven.
+- A **meta-agent / kernel supervisor that automatically picks fork points and auto-rewinds** (Shepherd's supervisory application) — deferred until a real learning demands it (ETHOS: earned, not preemptive).
+- Any **fork/resume UI** action or surface — follow-on.
+- Counterfactual replay / RL credit-assignment (Shepherd research applications) — not HyperIdle scope.
+- **Rewinding a live, running session in place** — v1 forks a new session from a completed/crashed one.
+
+**Effort.** L (~4d)
