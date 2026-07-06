@@ -1,6 +1,6 @@
 {
-	"sha": "249445cb90da6f4adb62a3864a93b79d66b8166a",
-	"srcHash": "8c137490921ac6dfa15474053f8628dbe94f36783667bd0e6757220d4048b983",
+	"sha": "408d0e179989bb66ab25dbc81fa617e5f4f8c4f9",
+	"srcHash": "37236633e0a207c48b1f0101ffe723501887d64515dae0a876e52f7bb487090e",
 	"scope": "affected",
 	"status": "passed",
 	"dirty": false,
@@ -16,26 +16,26 @@
 	],
 	"partial": false,
 	"smartSkipped": [],
-	"agenticExecuted": 0,
+	"agenticExecuted": 102,
 	"agenticSkipped": 0,
 	"agenticExecutedByHarness": {
 		"builtin": {
-			"executed": 0,
+			"executed": 18,
 			"skipped": 0
 		},
 		"claude": {
-			"executed": 0,
+			"executed": 18,
 			"skipped": 0
 		},
 		"codex": {
-			"executed": 0,
+			"executed": 18,
 			"skipped": 0
 		},
 		"opencode": {
-			"executed": 0,
+			"executed": 18,
 			"skipped": 0
 		}
 	},
-	"timestamp": "2026-07-05T21:10:01.923Z",
-	"hmac": "ef13c2ef34bda1d18efe29a8abdbf750f153c75052b3c49121857ee86efcf52f"
+	"timestamp": "2026-07-06T13:26:47.818Z",
+	"hmac": "48949ddc987a3ae59b87ebbe82bcc635070b5046e93c88e1adf8b89cf59eba47"
 }

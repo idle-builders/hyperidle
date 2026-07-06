@@ -99,6 +99,12 @@ describe("W3 AC-54 — Three fields in onboarding", () => {
 		const inputs = document.querySelectorAll("input, textarea");
 		expect(inputs.length).toBe(3);
 	});
+
+	it("name field placeholder is 'Your name' (C1)", () => {
+		renderSetupFlow();
+		const nameInput = screen.getByLabelText(/your name/i);
+		expect(nameInput).toHaveAttribute("placeholder", "Your name");
+	});
 });
 
 // ---------------------------------------------------------------------------

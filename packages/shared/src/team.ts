@@ -116,6 +116,16 @@ export interface TeamListResponse {
 	teams: TeamListItem[];
 }
 
+/**
+ * POLISH-060 B3: Optional primary harness config for team creation.
+ * When provided, all scaffolded agents use this harness/model.
+ */
+export interface PrimaryHarnessConfig {
+	readonly harnessType: string;
+	readonly modelId: string;
+	readonly modelProvider: string;
+}
+
 export interface CreateTeamRequest {
 	name: string;
 	repoPath?: string;
@@ -125,6 +135,12 @@ export interface CreateTeamRequest {
 	buildingContext?: string;
 	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */
 	userId?: string;
+	/**
+	 * POLISH-060 B3: When set, all scaffolded agents use this harness/model instead of
+	 * the builtin/sonnet-4-6 default. Supplied by the onboarding flow after the user
+	 * selects a primary harness. Omitting preserves the existing fallback behavior.
+	 */
+	primaryHarness?: PrimaryHarnessConfig;
 }
 
 export interface CreateTeamResponse {

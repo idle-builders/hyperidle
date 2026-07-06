@@ -302,44 +302,17 @@ async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryI
 	};
 }
 
-async function probeCursorAgentCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const pathResult = await runCommand(["which", "cursor-agent"], d);
-	if (pathResult.exitCode === 0) {
-		return {
-			state: "installed",
-			version: pathResult.stdout.trim().split("\n")[0]?.trim() ?? "",
-			reason: "cursor-agent binary found; auth/readiness not yet probed.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Cursor",
-				command: ["cursor-agent", "login"],
-			},
-		};
-	}
-
-	const cursorResult = await runCommand(["which", "cursor"], d);
-	if (cursorResult.exitCode === 0) {
-		return {
-			state: "unavailable",
-			reason:
-				"cursor IDE is present but Cursor Agent does not expose a documented headless local CLI surface that HyperIdle can drive.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Cursor",
-				command: ["cursor-agent", "login"],
-			},
-		};
-	}
-
+function probeCursorAgentCli(): HarnessDiscoveryInput {
+	// @lore D1 (POLISH-060): Cursor Agent is permanently inert — it does not expose
+	// a documented headless local CLI surface HyperIdle can drive. Always report
+	// "unavailable" with kind:"none" so the settings row is non-actionable: no auth
+	// CTA, no toggle, no "Log in to Cursor" button. Discovery remains in the list so
+	// users know Cursor is on the roadmap, but no false promise of auth support.
 	return {
 		state: "unavailable",
 		reason:
-			"cursor / cursor-agent CLI is not installed or not on PATH and no documented headless local CLI surface exists.",
-		authAction: {
-			kind: "native_cli_login",
-			label: "Log in to Cursor",
-			command: ["cursor-agent", "login"],
-		},
+			"Cursor Agent is not yet supported. Cursor does not expose a headless CLI surface HyperIdle can drive.",
+		authAction: { kind: "none", label: "" },
 	};
 }
 
@@ -688,7 +661,7 @@ export async function discoverLocalHarnesses(
 		probeCodexCli(d),
 		probeClaudeCodeCli(d),
 		probeOpenCodeCli(d),
-		probeCursorAgentCli(d),
+		probeCursorAgentCli(),
 		probeClaudeCodeMcpList(d),
 		probeCodexMcpList(d),
 		probeOpencodeMcpList(d),

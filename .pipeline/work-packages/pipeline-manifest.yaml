@@ -1395,3 +1395,37 @@ stories:
     track: AU
     depends: [AR2, AR4]
     complexity: L
+
+  # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
+  # Remediation of the larger v0.6.0 human-testing findings; each WP refined+built in its own session.
+  # Rides POLISH-060 (Cluster A design-system foundation + Cluster B provider/model seam) on main.
+  - id: AV1
+    title: "Onboarding actually configures the machine (harness discovery, primary harness, filesystem)"
+    track: AV
+    type: application
+    depends: []
+    complexity: L
+  - id: AV2
+    title: "Settings information architecture: rows, split-pane, assistant-as-agent, roles"
+    track: AV
+    type: frontend
+    depends: []
+    complexity: L
+  - id: AV3
+    title: "Knowledge scope reads as a name, and can be changed"
+    track: AV
+    type: application
+    depends: []
+    complexity: M
+  - id: AV4
+    title: "Work editing surfaces in the split-pane pattern"
+    track: AV
+    type: frontend
+    depends: []
+    complexity: M
+  - id: AV5
+    title: "Native window titlebar (Claude-desktop-style)"
+    track: AV
+    type: frontend
+    depends: []
+    complexity: M

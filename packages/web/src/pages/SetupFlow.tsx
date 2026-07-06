@@ -255,7 +255,7 @@ export function SetupFlow(): JSX.Element {
 							id="setup-name"
 							label="Your name"
 							type="text"
-							placeholder="Tobias Grundtner"
+							placeholder="Your name"
 							value={name}
 							onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
 							required

@@ -369,7 +369,7 @@ export function createTeamRoutes(
 			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
 		}
 
-		const { name, repoPath, functions, userId } = body as CreateTeamRequest;
+		const { name, repoPath, functions, userId, primaryHarness } = body as CreateTeamRequest;
 		if (!name || typeof name !== "string" || name.trim().length === 0) {
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
 		}
@@ -440,7 +440,13 @@ export function createTeamRoutes(
 		}
 
 		// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
-		const { agentIds, leadAgentId } = await persistScaffoldedAgents(db, teamMembersId, specs);
+		// POLISH-060 B3: Thread primaryHarness from the request so onboarding-chosen harness propagates.
+		const { agentIds, leadAgentId } = await persistScaffoldedAgents(
+			db,
+			teamMembersId,
+			specs,
+			primaryHarness,
+		);
 
 		// Set lead agent on team_members.
 		if (leadAgentId) {

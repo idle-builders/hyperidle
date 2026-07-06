@@ -265,6 +265,26 @@ export class AdapterPool {
 		return null;
 	}
 
+	/**
+	 * POLISH-060 B1: Return the registration metadata for the first adapter matching
+	 * the given harnessType. Returns null when no matching adapter is registered.
+	 *
+	 * @lore POLISH-060 B1: meta.modelProviders is the authoritative source for
+	 * provider compatibility validation (it is what select() uses). CLI adapters
+	 * set meta.modelProviders = [] (provider-agnostic), while getCapabilities()
+	 * also returns [] but for a different semantic reason (CLI brings its own
+	 * provider). Using meta avoids the two-sources-of-truth divergence caught by
+	 * validateAgentConfig. Empty meta.modelProviders = "no check" (provider-agnostic).
+	 */
+	getRegistrationMetaByType(harnessType: string): AdapterMeta | null {
+		for (const entry of this.entries.values()) {
+			if (entry.meta.type === harnessType) {
+				return entry.meta;
+			}
+		}
+		return null;
+	}
+
 	listCapabilityDescriptors(options?: {
 		readonly includeKnownMissing?: boolean;
 	}): HarnessCapabilityDescriptor[] {

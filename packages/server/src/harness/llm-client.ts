@@ -441,7 +441,17 @@ export async function callLlmDirect(options: CallLlmOptions): Promise<LlmRespons
 	throw lastError ?? new Error("callLlm: max retries exhausted");
 }
 
-class HttpError extends Error {
+/**
+ * POLISH-060 B2: Exported so assistant-turn.ts can map specific HTTP error
+ * codes (401/403 → auth notice, 400 → config notice) rather than treating
+ * all LLM HTTP errors as "usually temporary".
+ *
+ * @lore POLISH-060 B2: HttpError was previously private. 401/403 from the LLM
+ * endpoint means a bad/missing key — permanently broken, not transient. A
+ * passthrough to the generic "usually temporary" copy sent users into a futile
+ * retry loop. 400 means wrong model id or bad request config — also deterministic.
+ */
+export class HttpError extends Error {
 	constructor(
 		public readonly status: number,
 		message: string,

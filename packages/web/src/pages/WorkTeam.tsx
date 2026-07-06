@@ -369,7 +369,21 @@ function WorkTeamLoaded({
 
 					{/* R2 — Active bets */}
 					<section aria-label="Active bets" data-testid="team-active-bets">
-						<SectionLabel label="Active Bets" as="h2" />
+						<SectionLabel
+							label="Active Bets"
+							as="h2"
+							trailing={
+								<Button
+									variant="ghost"
+									size="sm"
+									type="button"
+									onClick={() => navigate("/work/bet/new")}
+									data-testid="new-bet-btn"
+								>
+									+ New bet
+								</Button>
+							}
+						/>
 						{activeBets.length === 0 ? (
 							<>
 								<EmptyState
@@ -399,7 +413,7 @@ function WorkTeamLoaded({
 								)}
 							</>
 						) : (
-							<div className="flex flex-col gap-[6px]">
+							<ItemList variant="flush" isEmpty={false}>
 								{activeBets.map((bet) => (
 									<BetRow
 										key={bet.id}
@@ -409,7 +423,7 @@ function WorkTeamLoaded({
 										}}
 									/>
 								))}
-							</div>
+							</ItemList>
 						)}
 					</section>
 
@@ -431,7 +445,7 @@ function WorkTeamLoaded({
 							}
 						/>
 						<ItemList
-							variant="contained"
+							variant="flush"
 							isEmpty={routines.length === 0}
 							empty={{
 								title: "No routines",
@@ -526,7 +540,7 @@ function WorkTeamLoaded({
 						)}
 
 						<ItemList
-							variant="contained"
+							variant="flush"
 							isEmpty={roster.length === 0}
 							empty={{
 								title: "No agents",
@@ -730,7 +744,7 @@ function StatTile({
 	return (
 		<div
 			data-testid="stat-tile"
-			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
+			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
 		>
 			<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
 				{label}
@@ -745,28 +759,26 @@ function StatTile({
 	);
 }
 
-/** Single active-bet row rendered inside R2. Clickable → navigates to Bet detail. */
+/**
+ * Single active-bet row rendered inside R2. Uses design-system Row for flush layout.
+ * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
+ * bg-[var(--surface-container)] so bets sit flush on the page, not in a grey card.
+ */
 function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => void }): JSX.Element {
 	const progressText = bet.progressTotal > 0 ? `${bet.progressDone}/${bet.progressTotal}` : "—";
 
 	return (
-		<button
-			type="button"
+		<Row
+			title={bet.descriptionTitle}
 			onClick={onNavigate}
-			className="w-full text-left rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] hover:bg-[var(--surface-elevated)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
-		>
-			<div className="flex items-center gap-[12px] flex-wrap">
-				<span className="flex-1 text-xs font-medium text-[var(--text-primary)] truncate">
-					{/* @lore U1: descriptionTitle replaces pitchTitle */}
-					{bet.descriptionTitle}
-				</span>
-				{/* C1: add label so team surface reads "ACTIVE" not "HEALTHY" */}
+			cells={[
+				{ content: formatMoney(bet.costAppetite), numeric: true },
+				{ content: progressText, numeric: true },
+			]}
+			actions={
+				/* C1: label so team surface reads "ACTIVE" not "HEALTHY" */
 				<StatusChip status={betStatusToStatus(bet.status)} label={BET_STATUS_LABEL[bet.status]} />
-				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">
-					{formatMoney(bet.costAppetite)}
-				</span>
-				<span className="text-[10px] font-mono text-[var(--text-tertiary)]">{progressText}</span>
-			</div>
-		</button>
+			}
+		/>
 	);
 }

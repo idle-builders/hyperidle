@@ -42,6 +42,7 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
 // Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
 import { CassetteMissError } from "../harness/llm-cassette.js";
+import { HttpError } from "../harness/llm-client.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import {
@@ -150,8 +151,14 @@ const inFlightTurns = new Set<string>();
  * @lore AH3 N3: unmapped causes are console.error'd before defaulting to provider_error
  * so an internal bug (e.g. context-building throw) doesn't masquerade as a provider
  * error and send the founder clicking Retry forever.
+ *
+ * @lore POLISH-060 B2: HttpError is now explicitly mapped. 401/403 → missing_key
+ * (bad/missing API key — permanent, not transient). 400 → provider_error with
+ * "model or config" copy (deterministic, not "usually temporary"). Other HTTP
+ * errors (429 rate limit, 5xx server) remain provider_error with "try again" copy.
+ * Exported for unit testing.
  */
-function mapErrorToNotice(err: unknown): {
+export function mapErrorToNotice(err: unknown): {
 	kind: NoticeKind;
 	text: string;
 	code?: string;
@@ -180,6 +187,31 @@ function mapErrorToNotice(err: unknown): {
 		// AH6 WARNING-2: Explicitly mapped so cassette misses in the replay lane don't
 		// log a spurious "unmapped error class" error. A missing cassette is a test
 		// configuration issue (not a production code bug), persisted as provider_error.
+		return {
+			kind: "provider_error",
+			text: "The model provider returned an error and I couldn't complete that. Try again in a moment.",
+		};
+	}
+
+	// POLISH-060 B2: HttpError from LLM calls — map by status code to prevent
+	// deterministic failures from masquerading as "usually temporary".
+	if (err instanceof HttpError) {
+		if (err.status === 401 || err.status === 403) {
+			// Bad or missing API key — permanently broken, not transient.
+			return {
+				kind: "missing_key",
+				text: "The model provider rejected my credentials. Check your API key in Settings → Credentials.",
+			};
+		}
+		if (err.status === 400) {
+			// Bad request — deterministic (wrong model id, bad config). Not transient.
+			return {
+				kind: "provider_error",
+				text: "The model provider rejected the request — check the model or config in Settings → Agents.",
+			};
+		}
+		// 429 rate-limit, 5xx server errors — genuinely transient, keep "try again" copy.
+		// Fall through to the generic provider_error with N3 logging omitted (HttpError is mapped).
 		return {
 			kind: "provider_error",
 			text: "The model provider returned an error and I couldn't complete that. Try again in a moment.",
