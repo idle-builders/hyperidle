@@ -58,3 +58,45 @@ Should fix:
 - **W2** — reconcile the dod's isolated-currentBranch-unit claim with reality (or add the unit).
 
 Nits (optional): N1 typo, N2 unrelated require-harness rename, N3 stub-resolver simplification.
+
+---
+
+## Round 2 (post-fix) — reviewed `f4c53227` against LIVE code
+
+Re-reviewed the three round-1 findings against the actual files + ran the tests (OPENROUTER_API_KEY exported). All resolved.
+
+### C1 — assistant-ready runtime proof + sanity-break: RESOLVED
+`packages/server/src/__tests__/AV1-assistant-ready.integration.test.ts` now exists and calls the REAL `runAssistantTurn` (no `deps.runTurn` stub, no `vi.mock` of any harness seam). Verified against the live `assistant-turn.ts` + `session-provisioning.ts:712-718`:
+- **Test-1** seeds an assistant row (`harnessType:"builtin"`, openrouter locked tiny model) + a real `EnvCredentialResolver` + `makeBuiltinPool()` (a real `AdapterPool` with `BuiltinHarnessAdapter` registered) → `provisionSession` selects the builtin adapter → real LLM turn runs → asserts NO `missing_key`/`missing_harness` notice persisted (a real reply or a `provider_error` is acceptable, neither is the burst).
+- **Test-2 (genuine sanity-break)** — same row, but an EMPTY `new AdapterPool()`. `adapterPool.select()` returns null; because `agent.harnessType` is truthy, `session-provisioning.ts:718` throws `NoEligibleHarnessError("builtin")` → `mapErrorToNotice` → `missing_harness` notice IS persisted. Asserted defined.
+- **Discriminator is genuinely the AdapterPool** (registered builtin adapter vs empty), NOT the row — confirmed by reading the select→throw path. `makeBuiltinPool()` vs `new AdapterPool()` is the real, load-bearing difference between the two tests, so Test-1's assertion cannot pass trivially: an empty-pool regression flips it red via the exact `NoEligibleHarnessError→missing_harness` path Test-2 exercises.
+- Gate: `requireHarness("builtin")` at file top (hard-fail, no skipIf). Registered in `BUILTIN_ONLY_INTEGRATION` (`scripts/lib/honest-harness-predicate.ts:73-75`) — legitimate: `runAssistantTurn` is structurally builtin-only (no sandbox cwd / .mcp.json bridge), matching testing.md's AR4 carve-out. Also added to `scripts/test-naming-guard.allowlist.json`.
+- **RAN it:** `vitest --config vitest.integration.config.ts` → **2 passed (2)**, both executed, not skipped. Test-1 made a real builtin LLM call (~2s).
+
+**Honesty caveat (NOTE, non-blocking):** Test-1 inserts the assistant row directly with `harnessType:"builtin"` rather than driving the onboarding `teams-routes.ts` stub-creation code. So it proves the *turn behavior* (configured stub → no notice burst) but would NOT go red if the AV1 production wiring that SETS `harnessType` on the onboarding stub were reverted — the test would still pass because it sets the row itself. The test's own comment (lines 218-220) acknowledges this. The stub-harness *wiring* is still covered by `team-harness-default-propagation.integration.test.ts` (DB-row assertion). This is adequate: C1's mandate was runtime proof of the notice-free turn + a sanity-break, both delivered; the wiring→row link is proven separately. Not a re-block.
+
+### W1 — client isCode decision (code vs doc_set): RESOLVED
+`setup-flow-harness-picker.test.tsx` gains 2 tests rendering the REAL `SetupFlow` (mocked `GET /api/harnesses` + `POST inspect-path` + `POST /api/filesystems`, capturing the real submit body):
+- `{isGitRepo:true, branch:"main"}` → body `kind:"code"`, `resourceRef.branch:"main"`, `writeback:"none"`.
+- `{isGitRepo:true, branch:null}` → body `kind:"doc_set"`, no branch, no 400.
+Exercises `SetupFlow.tsx:370-387`'s `isCode = info?.isGitRepo===true && branch!=null && branch!==""` decision through the component's submit path (folder typed → re-inspect on submit). Reverting the branch selection now turns a test red. **13 passed (13)** (11 original + 2 new).
+
+### W2 — currentBranch() isolated unit: RESOLVED
+`git-export-runner.integration.test.ts:146-186` adds direct `createGitRunner().currentBranch()` coverage with REAL git: init+commit → `"main"`; init/no-commit → `null`. **6 passed (6)**.
+
+### Nits
+- **N1** typo fixed: `isChoosable` used at `SetupFlow.tsx:91,501`; zero `isChooosable` anywhere in `packages/*/src`.
+- **N2** reverted: `git diff origin/main...HEAD -- require-harness.ts` is empty — the unrelated `_`-prefix rename is gone.
+
+### Regression sweep (ran myself, key exported)
+- `npm run check` → PASS (12/12 packages).
+- `npm run lint` → exit 0; honest-harness-guard + test-naming-guard + ag7-consistency all clean (503 warnings / 174 infos = pre-existing baseline).
+- `npm run test` (unit + component) → **3397 passed (346 files)**. (React error-boundary console noise inside a passing test, not a failure.)
+- `npm run test:integration` → exit 0, **3186 passed / 8 skipped (290 files)**. The 8 skips are pre-existing gated tests; the AV1-assistant-ready file executed and passed (confirmed independently, 2/2).
+- No load-flake observed; no re-run needed.
+
+## VERDICT: DONE
+
+All round-1 findings resolved against live code. C1 assistant-ready test RAN and passed for the right reason (real turn in Test-1, genuine `NoEligibleHarnessError→missing_harness` sanity-break in Test-2; discriminator is the AdapterPool, not the row). W1/W2 tests genuinely exercise the client decision + real-git branch detection. N1/N2 clean. check + lint + test + test:integration all green. Ship-ready.
+
+Remaining CRITICAL: 0 · WARNING: 0 · NOTE: 1 (Test-1 doesn't exercise the onboarding stub-creation path, only the turn behavior — wiring covered separately; non-blocking).
