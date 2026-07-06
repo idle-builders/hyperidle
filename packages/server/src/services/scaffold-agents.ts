@@ -26,13 +26,15 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { users } from "@hyperidle/db";
-import type { AgentScaffoldSpec } from "@hyperidle/shared";
+import type { AgentScaffoldSpec, PrimaryHarnessConfig } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
 export interface ScaffoldResult {
 	agentIds: string[];
 	leadAgentId: string | null;
 }
+
+export type { PrimaryHarnessConfig };
 
 /**
  * Resolve the id to assign to a scaffolded agent.
@@ -60,23 +62,33 @@ async function resolveAgentId(db: HyperIdleDb, idHint: string | undefined): Prom
 /**
  * Persist the scaffolded agent specs returned by a Strategy.
  *
- * @param db            - The database handle.
- * @param teamMembersId - teamMembers.id to set as users.teamId (null for non-team-scoped agents).
- * @param specs         - The agent specs returned by the active Strategy's scaffoldAgents().
- * @returns             { agentIds, leadAgentId } — the assigned users.id values.
+ * @param db             - The database handle.
+ * @param teamMembersId  - teamMembers.id to set as users.teamId (null for non-team-scoped agents).
+ * @param specs          - The agent specs returned by the active Strategy's scaffoldAgents().
+ * @param primaryHarness - Optional. When supplied, all agents use this harness/model instead
+ *                         of the builtin/sonnet-4-6 default. Used by onboarding (B3) to wire
+ *                         the user's chosen harness into every created agent.
+ * @returns              { agentIds, leadAgentId } — the assigned users.id values.
  *
  * Mechanism fields set here (NOT on the spec):
  *   kind: "ai", status: "active", teamId: teamMembersId,
- *   harnessType: "builtin", modelId: "claude-sonnet-4-6",
- *   modelProvider: "anthropic", maxConcurrentSessions: 3 if builder else 1,
+ *   harnessType: primaryHarness?.harnessType ?? "builtin",
+ *   modelId: primaryHarness?.modelId ?? "claude-sonnet-4-6",
+ *   modelProvider: primaryHarness?.modelProvider ?? "anthropic",
+ *   maxConcurrentSessions: 3 if builder else 1,
  *   createdAt: now.
  *
  * Lead = first product_manager in specs; else first spec.
+ *
+ * @lore POLISH-060 B3: primaryHarness is optional so all existing callers (factory
+ * bootstrap, seed paths) are unaffected. The Kernel owns mechanism fields; the
+ * caller supplies the policy (which harness to use for this team).
  */
 export async function persistScaffoldedAgents(
 	db: HyperIdleDb,
 	teamMembersId: string | null,
 	specs: readonly AgentScaffoldSpec[],
+	primaryHarness?: PrimaryHarnessConfig,
 ): Promise<ScaffoldResult> {
 	const now = new Date().toISOString();
 	const agentIds: string[] = [];
@@ -96,9 +108,10 @@ export async function persistScaffoldedAgents(
 			systemPrompt: spec.systemPrompt,
 			status: "active",
 			// Kernel-owned mechanism fields — NOT on the spec (closure contract).
-			harnessType: "builtin",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
+			// POLISH-060 B3: Use primaryHarness when supplied; fall back to builtin/sonnet-4-6.
+			harnessType: primaryHarness?.harnessType ?? "builtin",
+			modelId: primaryHarness?.modelId ?? "claude-sonnet-4-6",
+			modelProvider: primaryHarness?.modelProvider ?? "anthropic",
 			// builders can run 3 concurrent sessions; all others 1.
 			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
 			teamId: teamMembersId,

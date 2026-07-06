@@ -127,8 +127,8 @@ export function validateAgentConfig(
 
 	// 2. UNKNOWN_HARNESS — harnessType must match a registered adapter type
 	if (effectiveHarnessType && pool) {
-		const caps = pool.getCapabilitiesByType(effectiveHarnessType);
-		if (!caps) {
+		const meta = pool.getRegistrationMetaByType(effectiveHarnessType);
+		if (!meta) {
 			return {
 				error: `Harness type '${effectiveHarnessType}' is not registered. Check Settings → Agents.`,
 				code: "UNKNOWN_HARNESS",
@@ -146,12 +146,25 @@ export function validateAgentConfig(
 		}
 	}
 
-	// 4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
+	// 4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's registration metadata
+	// modelProviders list. An empty list means provider-agnostic (CLI/inherited-login harness
+	// that brings its own provider) — skip the check. Only reject when the harness declares
+	// a non-empty explicit provider list that excludes the requested provider.
+	//
+	// @lore POLISH-060 B1: Use registration metadata (meta.modelProviders) not
+	// adapter.getCapabilities().modelProviders. The two diverge: CLI adapters set
+	// meta.modelProviders = ["anthropic"] (so select() can route them) but
+	// getCapabilities() returns [] (CLI is provider-agnostic at runtime). Reading
+	// capabilities caused "Supported: ." (empty list) errors for valid claude-code combos.
 	if (effectiveHarnessType && effectiveProvider && pool) {
-		const caps = pool.getCapabilitiesByType(effectiveHarnessType);
-		if (caps && !caps.modelProviders.includes(effectiveProvider)) {
+		const meta = pool.getRegistrationMetaByType(effectiveHarnessType);
+		if (
+			meta &&
+			meta.modelProviders.length > 0 &&
+			!meta.modelProviders.includes(effectiveProvider)
+		) {
 			return {
-				error: `Harness '${effectiveHarnessType}' does not support provider '${effectiveProvider}'. Supported: ${caps.modelProviders.join(", ")}.`,
+				error: `Harness '${effectiveHarnessType}' does not support provider '${effectiveProvider}'. Supported: ${meta.modelProviders.join(", ")}.`,
 				code: "INCOMPATIBLE_HARNESS_MODEL",
 			};
 		}

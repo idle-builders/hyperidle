@@ -402,6 +402,7 @@ export type {
 	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
+	PrimaryHarnessConfig,
 	RosterMember,
 	TeamBurn,
 	TeamDetail,
