@@ -31,6 +31,15 @@ export const teams = pgTable("teams", {
 	 * design, marketing, sales, operations, support, research.
 	 */
 	functions: text("functions"),
+	/**
+	 * @lore AV1: Primary harness = PERSISTED team default consumed by every agent-creation
+	 * path. Stored on teams (agents + filesystems are team-scoped; serviceConnections is
+	 * per-user external creds, orthogonal). Null = unset → builtin/sonnet-4-6/anthropic
+	 * fallback in persistScaffoldedAgents. Migration 0042.
+	 */
+	defaultHarnessType: text("default_harness_type"),
+	defaultModelId: text("default_model_id"),
+	defaultModelProvider: text("default_model_provider"),
 });
 
 export const users = pgTable("users", {
