@@ -1,0 +1,141 @@
+/**
+ * AV4 — AgentDetailPane: RED tests.
+ *
+ * AC-3: AgentDetailPane body renders without role="dialog"; Save calls PATCH.
+ *
+ * These tests FAIL until AgentDetailPane is implemented.
+ */
+
+import type { RosterMember } from "@hyperidle/shared";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AgentConfig } from "../../settings/settings-types";
+import { AgentDetailPane } from "../work/AgentDetailPane";
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+const mockApiFetch = vi.fn();
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+}));
+
+vi.mock("../../shell/ToastRegion.js", () => ({
+	useToast: () => ({ showToast: vi.fn() }),
+}));
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+const AGENT_CONFIG: AgentConfig = {
+	id: "a1",
+	name: "Atlas Builder",
+	role: "builder",
+	systemPrompt: "You build things.",
+	harnessType: "claude-code",
+	modelTierPreference: "workhorse",
+	modelId: null,
+	modelProvider: null,
+	maxConcurrentSessions: 2,
+	status: "active",
+	activeSessions: 0,
+	agentCategory: "team",
+};
+
+const ROSTER_MEMBER: RosterMember = {
+	agentId: "a1",
+	name: "Atlas Builder",
+	role: "builder",
+	isLead: false,
+	agentCategory: "team",
+	operationalStatus: "idle",
+	healthLevel: "healthy",
+	healthDetail: "Healthy",
+	activeTaskTitle: null,
+	activeTaskId: null,
+	activeBetId: null,
+};
+
+// ---------------------------------------------------------------------------
+// Render helper
+// ---------------------------------------------------------------------------
+
+function renderAgentPane(
+	agent: AgentConfig = AGENT_CONFIG,
+	rosterMember: RosterMember = ROSTER_MEMBER,
+): ReturnType<typeof render> {
+	const onClose = vi.fn();
+	const onSaved = vi.fn();
+	return render(
+		<MemoryRouter>
+			<AgentDetailPane
+				agent={agent}
+				rosterMember={rosterMember}
+				onClose={onClose}
+				onSaved={onSaved}
+			/>
+		</MemoryRouter>,
+	);
+}
+
+afterEach(() => {
+	vi.clearAllMocks();
+	mockApiFetch.mockReset();
+});
+
+// ---------------------------------------------------------------------------
+// AC-3: AgentDetailPane has no role="dialog" + shows system prompt textarea
+// ---------------------------------------------------------------------------
+
+describe("AgentDetailPane renders as a detail pane without dialog chrome", () => {
+	it("[RED] renders without any role='dialog' element (Dialog shell stripped)", async () => {
+		const { container } = renderAgentPane();
+
+		await waitFor(() => {
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+		});
+
+		const dialogs = container.querySelectorAll('[role="dialog"]');
+		expect(dialogs.length).toBe(0);
+	});
+
+	it("[RED] shows the agent name in the pane", async () => {
+		renderAgentPane();
+
+		await waitFor(() => {
+			const matches = screen.getAllByText("Atlas Builder");
+			expect(matches.length).toBeGreaterThanOrEqual(1);
+		});
+	});
+
+	it("[RED] system prompt textarea is pre-filled with agent systemPrompt", async () => {
+		renderAgentPane();
+
+		await waitFor(() => {
+			const textarea = screen.getByRole("textbox", { name: /system prompt/i });
+			expect((textarea as HTMLTextAreaElement).value).toBe("You build things.");
+		});
+	});
+
+	it("[RED] Save button calls PATCH /api/agents/a1", async () => {
+		const user = userEvent.setup();
+		mockApiFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+		renderAgentPane();
+
+		const saveBtn = screen.getByRole("button", { name: /^save$/i });
+		await user.click(saveBtn);
+
+		await waitFor(() => {
+			const patchCall = mockApiFetch.mock.calls.find(
+				(call) => (call[1] as RequestInit)?.method === "PATCH",
+			);
+			expect(patchCall).toBeDefined();
+			expect(patchCall?.[0] as string).toContain("/api/agents/a1");
+		});
+	});
+});

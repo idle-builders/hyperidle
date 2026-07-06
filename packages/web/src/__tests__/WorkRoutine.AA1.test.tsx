@@ -79,8 +79,19 @@ vi.mock("../hooks/useRoutine", () => ({
 		data: null,
 		loading: false,
 		error: null,
+		refetch: () => undefined,
 	}),
 }));
+
+// AV4: RoutineDetailPane (now used by WorkRoutine) uses ToastContext — spread actual
+// module so ToastContext export is preserved alongside the mocked useToast.
+vi.mock(import("../shell/ToastRegion"), async (importOriginal) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		useToast: () => ({ showToast: vi.fn() }),
+	};
+});
 
 function renderPage(
 	routineId = "routine-detail-1",

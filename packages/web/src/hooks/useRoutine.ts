@@ -12,15 +12,22 @@ export interface UseRoutineResult {
 	data: RoutineDetail | null;
 	loading: boolean;
 	error: Error | null;
+	/** AV4: trigger a re-fetch of the routine — call after a PATCH save to reflect changes. */
+	refetch: () => void;
 }
 
 export function useRoutine(routineId: string | undefined): UseRoutineResult {
-	const [state, setState] = useState<UseRoutineResult>({
+	// @lore AV4: reloadKey mirrors the useTeam pattern — increment to re-trigger the
+	// useEffect fetch without unmounting/remounting the component. Called by
+	// RoutineDetailPane after a successful PATCH save (AC#2 "reflected on reload").
+	const [reloadKey, setReloadKey] = useState(0);
+	const [state, setState] = useState<Omit<UseRoutineResult, "refetch">>({
 		data: null,
 		loading: routineId !== undefined,
 		error: null,
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a re-trigger sentinel — not read in the effect body but listed to force a re-fetch on each refetch() call
 	useEffect(() => {
 		if (!routineId) {
 			setState({ data: null, loading: false, error: null });
@@ -48,7 +55,7 @@ export function useRoutine(routineId: string | undefined): UseRoutineResult {
 		return (): void => {
 			cancelled = true;
 		};
-	}, [routineId]);
+	}, [routineId, reloadKey]);
 
-	return state;
+	return { ...state, refetch: () => setReloadKey((k) => k + 1) };
 }

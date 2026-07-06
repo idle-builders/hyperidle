@@ -1,0 +1,12 @@
+{
+  "id": "AV4",
+  "track": "AV",
+  "status": "done",
+  "currentStep": "shipped",
+  "complexity": "M",
+  "type": "frontend",
+  "startedAt": "2026-07-06T15:45:00Z",
+  "notes": "Shipped after review DONE + retro. prompt editable (attachments deferred by design \u2014 no routine attachments column).",
+  "designClass": "routine",
+  "completedAt": "2026-07-06T19:10:00Z"
+}
