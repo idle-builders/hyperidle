@@ -62,6 +62,11 @@ export function ItemList({
 	isEmpty,
 	"data-testid": dataTestId,
 }: ItemListProps): JSX.Element {
+	// @lore POLISH-060 A1: The grey surface-container background belongs ONLY on
+	// real row children (contained variant). Empty/error/loading states render on
+	// the page surface (transparent) so they don't produce a grey box around a
+	// single EmptyState/ErrorState/SkeletonList. The contained style is applied
+	// only in the populated branch below.
 	const containerClass =
 		variant === "contained"
 			? "rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]"
@@ -94,7 +99,7 @@ export function ItemList({
 			<div />
 		);
 	} else {
-		// render children inside the semantic list element
+		// Populated: render children inside the semantic list element WITH the container surface.
 		return (
 			<ItemListContext.Provider value={{ variant, as: Tag }}>
 				<Tag {...dsProps("ItemList", "2")} data-testid={dataTestId} className={containerClass}>
@@ -104,10 +109,12 @@ export function ItemList({
 		);
 	}
 
-	// For error/loading/empty states, wrap in a div (not ul — no list items)
+	// For error/loading/empty states: render WITHOUT the container background.
+	// The state components (EmptyState, ErrorState, SkeletonList) paint on the page
+	// surface and do not need to be boxed inside a grey container.
 	return (
 		<ItemListContext.Provider value={{ variant, as: Tag }}>
-			<div {...dsProps("ItemList", "2")} data-testid={dataTestId} className={containerClass}>
+			<div {...dsProps("ItemList", "2")} data-testid={dataTestId}>
 				{content}
 			</div>
 		</ItemListContext.Provider>

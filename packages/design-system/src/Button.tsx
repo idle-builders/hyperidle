@@ -40,8 +40,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 	{ variant = "primary", size = "default", className = "", children, disabled, ...rest },
 	ref,
 ): JSX.Element {
+	// @lore POLISH-060 A3: AQ-015 requires touch targets ≥ 44px at ≤ 1024px.
+	// On desktop (lg: = 1024px+) we relax with a smaller min-height so settings
+	// forms don't read too tall. The 44px floor stays at smaller viewports via
+	// Tailwind's mobile-first order: min-h-[44px] is the base; lg:min-h-[N]
+	// overrides at 1024px+. No JS needed — pure responsive utility.
 	const sizeClass =
-		size === "sm" ? "text-[12px] py-[7px] px-[12px]" : "text-[13px] py-[10px] px-[18px]";
+		size === "sm"
+			? "text-[12px] py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
+			: "text-[13px] py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
 
 	const variantClass = VARIANT_CLASSES[variant];
 
