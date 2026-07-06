@@ -14,7 +14,7 @@
  *   (0.06em via SectionLabel) or the negative-em title kerning via PageHeader.
  *   The class is VALID and is used intentionally in many non-page files
  *   (ArtifactSection, ArtifactThreadsSummary, TaskSheet, BlockRefEmbed,
- *   ReasoningBlockView, ThreadSections, DesignSystem).
+ *   SessionView, ThreadSections, DesignSystem).
  *   → This arm fires ONLY when `context.filename` contains a `pages/` path segment.
  *   The eslint.config.ts warn-level web-src block for this rule never triggers
  *   the tracking-wider arm because those files are not under pages/.

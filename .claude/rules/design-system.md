@@ -2,7 +2,6 @@
 paths:
   - "packages/design-system/src/**"
   - "packages/web/src/shell/*.stories.tsx"
-  - "packages/web/src/designsystem/**"
 ---
 
 # Design System

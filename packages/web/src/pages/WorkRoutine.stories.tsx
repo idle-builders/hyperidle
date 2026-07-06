@@ -1,5 +1,5 @@
 /**
- * AA1 — WorkRoutine page stories. Renders key states at /designsystem.
+ * AA1 — WorkRoutine page stories. Renders key states for visual verification.
  */
 
 import type { RoutineDetail } from "@hyperidle/shared";

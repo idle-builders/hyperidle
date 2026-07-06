@@ -1,5 +1,5 @@
 /**
- * TaskSheet stories — key states for visual verification at /designsystem.
+ * TaskSheet stories — key states for visual verification.
  */
 import { TaskSheet } from "./TaskSheet";
 

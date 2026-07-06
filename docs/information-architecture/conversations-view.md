@@ -36,7 +36,7 @@ A review thread = reasoning → artifact → verdict. The structure is always th
 | **Thread header** | Thread title, agent name, timestamp, thread type badge | — |
 | **Agent reasoning block** [^reasoning-block-vs-primitive] | Agent's explanation of why this action is proposed. Always visible, always first. Confidence indicator (e.g., 'High confidence' / '62% confident'). | Collapsible (but expanded by default) |
 
-[^reasoning-block-vs-primitive]: The "agent reasoning block" is a UI component (rendered by `ReasoningBlockView` in the design system — see `docs/ui-design/component-budget.md` Tier 2). It is NOT the `Block` content primitive defined in [`BLOCKS.md`](BLOCKS.md); it shares the English word "block" and nothing else.
+[^reasoning-block-vs-primitive]: The "agent reasoning block" is a UI element that renders the agent's reasoning inline in the conversation surface. It is NOT the `Block` content primitive defined in [`BLOCKS.md`](BLOCKS.md); it shares the English word "block" and nothing else.
 | **ArtifactView** | Content varies by type (text_diff, content_preview, visual_comparison, action_summary, data_metrics) — see §2.3 | Inline comments, scroll, zoom |
 | **Conversation history** | Chronological messages: agent proposal, founder comments, agent revisions. Each: sender, avatar, timestamp, content | Reply |
 | **Verdict action bar** | Primary: Approve, Request Changes, Reject, Snooze. Overflow menu (⋮): Edit, Escalate, Delegate, Comment Only | Click primary button or use keyboard shortcuts (A, R, X, S). Overflow for less-common actions. |

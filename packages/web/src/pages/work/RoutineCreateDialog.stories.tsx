@@ -1,6 +1,6 @@
 /**
  * AA2 — RoutineCreateDialog stories.
- * Renders key states at /designsystem for visual verification.
+ * Renders key states for visual verification.
  */
 
 import type { JSX } from "react";

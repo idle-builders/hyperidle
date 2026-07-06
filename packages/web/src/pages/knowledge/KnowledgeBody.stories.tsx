@@ -1,5 +1,5 @@
 /**
- * KnowledgeBody stories — renders key states at /designsystem.
+ * KnowledgeBody stories — renders key states for visual verification.
  *
  * States covered:
  *  - Empty body (no content yet)

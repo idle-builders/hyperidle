@@ -1,6 +1,6 @@
 /**
  * AF8 — NotificationPopover stories.
- * Renders key states at /designsystem for visual verification.
+ * Renders key states for visual verification.
  *
  * Each story injects its own data via the `_data` prop so states are rendered
  * deterministically without relying on API calls or module mocking.

@@ -15,7 +15,7 @@
  * - `font-heading` arm fires regardless of path (it's an undefined utility).
  * - `tracking-wider` arm fires ONLY when context.filename contains `/pages/`.
  *   It must NOT fire on non-pages files (ArtifactSection, ArtifactThreadsSummary,
- *   TaskSheet, BlockRefEmbed, ReasoningBlockView, ThreadSections, DesignSystem etc.)
+ *   TaskSheet, BlockRefEmbed, SessionView, ThreadSections, DesignSystem etc.)
  * - Both arms fire at whatever severity the eslint.config.ts block configures;
  *   the rule itself does not set severity — it just reports.
  */
@@ -179,11 +179,11 @@ describe("design/no-undefined-font-heading rule (AI7 AC1)", () => {
 		});
 	});
 
-	it("does NOT flag ReasoningBlockView tracking-wider (not in pages/)", () => {
+	it("does NOT flag SessionView tracking-wider (not in pages/)", () => {
 		tester.run("no-undefined-font-heading", noUndefinedFontHeading, {
 			valid: [
 				{
-					filename: "/repo/packages/web/src/components/ReasoningBlockView.tsx",
+					filename: "/repo/packages/web/src/components/SessionView.tsx",
 					code: `const K = () => <span className="tracking-wider">text</span>;`,
 				},
 			],
