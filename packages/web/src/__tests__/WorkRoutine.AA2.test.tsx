@@ -62,6 +62,7 @@ const MOCK_DETAIL_AA2: RoutineDetail = {
 		costCapPerRun: { minor: 5000, currency: "USD" },
 		costCapMonthly: null,
 		lastRunSummary: "Sent 10 notifications successfully.",
+		silent: false,
 	},
 	budget: {
 		avgCostPerRun: { minor: 500, currency: "USD" },

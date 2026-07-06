@@ -9,17 +9,22 @@
  *  - name (input)
  *  - description / "Prompt" (textarea)
  *  - autonomyLevel (Select)
- *  - (schedule, cost caps — same contract, deferred to future polish)
+ *  - schedule / triggerConfig (SCHEDULE_PRESETS Select + custom cron input)
+ *  - costCapPerRunMinor (number input, USD → minor on save)
+ *  - costCapMonthlyMinor (number input, USD → minor on save)
+ *  - silent (checkbox toggle)
  *
  * De-grey: Configuration/Budget/LastRunSummary sections render on page surface via
  * Row/KeyValue/ItemList flush — no bg-[var(--surface-container)] wrappers.
  *
  * @lore AV4: The "prompt" IS routine.description — ground truth from
  * fabric/src/session-context.ts buildRoutineSessionContextData. No new column needed.
- * Attachments is deferred (no backing model — see plan §6 Open Risks).
  *
  * @lore AV4: overrideData prop follows the WorkRoutine/WorkTeam established pattern
  * for injecting fixture data in stories and tests without a real fetch.
+ *
+ * @lore AV4: RoutineInfo.silent was added to the shared type so we can initialize
+ * the toggle from the fetched value. Server defaults it to false for pre-AV4 routines.
  */
 
 // hearth-internal-padding
@@ -39,7 +44,7 @@ import {
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
-import { absoluteDate, absoluteDateTime, formatMoney } from "@hyperidle/shared";
+import { SCHEDULE_PRESETS, absoluteDate, absoluteDateTime, formatMoney } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";
@@ -142,10 +147,37 @@ function RoutineDetailPaneLoaded({
 	const toast = useContext(ToastContext);
 	const showToast = toast?.showToast ?? ((_msg: string) => undefined);
 
+	// Derive initial schedule state from triggerConfig
+	// @lore AV4: if the stored cron matches a preset, show that preset; else show "custom"
+	// with the stored cron pre-populated.
+	const storedCron: string = (() => {
+		try {
+			const cfg = JSON.parse(routine.triggerConfig ?? "{}") as { cron?: string };
+			return cfg.cron ?? "";
+		} catch {
+			return "";
+		}
+	})();
+	const isStoredCronPreset = SCHEDULE_PRESETS.some((p) => p.cron === storedCron);
+	const initialScheduleValue = storedCron && !isStoredCronPreset ? "custom" : (storedCron || SCHEDULE_PRESETS[0].cron);
+	const initialCustomCron = storedCron && !isStoredCronPreset ? storedCron : "";
+
 	// Editable form state
 	const [name, setName] = useState(routine.name);
 	const [description, setDescription] = useState(routine.description ?? "");
 	const [autonomyLevel, setAutonomyLevel] = useState(String(routine.autonomyLevel ?? ""));
+	// Schedule picker — "custom" is the sentinel value
+	const [scheduleValue, setScheduleValue] = useState<string>(initialScheduleValue);
+	const [customCron, setCustomCron] = useState<string>(initialCustomCron);
+	// Cost caps — stored in USD as string; converted to minor units on save
+	const [costCapPerRunRaw, setCostCapPerRunRaw] = useState<string>(
+		routine.costCapPerRun != null ? String(routine.costCapPerRun.minor / 100) : "",
+	);
+	const [costCapMonthlyRaw, setCostCapMonthlyRaw] = useState<string>(
+		routine.costCapMonthly != null ? String(routine.costCapMonthly.minor / 100) : "",
+	);
+	// Silent toggle
+	const [silent, setSilent] = useState<boolean>(routine.silent ?? false);
 	const [saving, setSaving] = useState(false);
 
 	// Action state
@@ -163,16 +195,33 @@ function RoutineDetailPaneLoaded({
 			? `${absoluteDateTime(routine.lastRunAt)}${routine.lastRunOutcome ? ` — ${routine.lastRunOutcome}` : ""}`
 			: "Never";
 
+	const isCustomSchedule = scheduleValue === "custom";
+	const resolvedCron = isCustomSchedule ? customCron.trim() : scheduleValue;
+
 	const handleSave = useCallback(async (): Promise<void> => {
 		setSaving(true);
 		try {
 			const body: Record<string, unknown> = {
 				name,
 				description: description || null,
+				silent,
 			};
 			if (autonomyLevel) {
 				body.autonomyLevel = Number(autonomyLevel);
 			}
+			// Schedule: only include if we have a resolved cron
+			if (resolvedCron) {
+				body.triggerConfig = JSON.stringify({ cron: resolvedCron });
+			}
+			// Cost cap per run: empty string → null (remove cap), value → minor units
+			body.costCapPerRunMinor = costCapPerRunRaw.trim()
+				? Math.round(Number.parseFloat(costCapPerRunRaw.trim()) * 100)
+				: null;
+			// Monthly cost cap
+			body.costCapMonthlyMinor = costCapMonthlyRaw.trim()
+				? Math.round(Number.parseFloat(costCapMonthlyRaw.trim()) * 100)
+				: null;
+
 			const res = await apiFetch(`/api/routines/${encodeURIComponent(routineId)}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
@@ -186,7 +235,7 @@ function RoutineDetailPaneLoaded({
 		} finally {
 			setSaving(false);
 		}
-	}, [name, description, autonomyLevel, routineId, refetch, showToast]);
+	}, [name, description, autonomyLevel, resolvedCron, costCapPerRunRaw, costCapMonthlyRaw, silent, routineId, refetch, showToast]);
 
 	async function handleTogglePause(): Promise<void> {
 		if (actionPending) return;
@@ -335,6 +384,69 @@ function RoutineDetailPaneLoaded({
 							/>
 						</div>
 
+						{/* Schedule picker */}
+						<div className="flex flex-col gap-[6px] mb-[9px]">
+							<label
+								className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+								htmlFor="routine-schedule-select"
+							>
+								Schedule
+							</label>
+							<Select
+								id="routine-schedule-select"
+								aria-label="Schedule"
+								size="sm"
+								value={scheduleValue}
+								onChange={(e) => setScheduleValue(e.target.value)}
+								disabled={saving}
+								options={[
+									...SCHEDULE_PRESETS.map((p) => ({ value: p.cron, label: p.label })),
+									{ value: "custom", label: "Custom…" },
+								]}
+							/>
+						</div>
+
+						{/* Custom cron input — only shown when "Custom…" is selected */}
+						{isCustomSchedule && (
+							<div className="flex flex-col gap-[6px] mb-[9px]">
+								<label
+									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									htmlFor="routine-custom-cron-input"
+								>
+									Custom cron
+								</label>
+								<input
+									id="routine-custom-cron-input"
+									aria-label="Custom cron expression"
+									type="text"
+									className="input input-sm input-bordered font-[family-name:var(--font-mono)] w-full"
+									value={customCron}
+									onChange={(e) => setCustomCron(e.target.value)}
+									disabled={saving}
+									placeholder="e.g. 30 6 * * 2"
+								/>
+							</div>
+						)}
+
+						{/* Silent toggle */}
+						<div className="flex items-center gap-[9px] mb-[9px]">
+							<input
+								id="routine-silent-toggle"
+								aria-label="Silent"
+								type="checkbox"
+								className="checkbox checkbox-sm"
+								checked={silent}
+								onChange={(e) => setSilent(e.target.checked)}
+								disabled={saving}
+							/>
+							<label
+								className="text-[12px] text-[var(--text-secondary)] cursor-pointer"
+								htmlFor="routine-silent-toggle"
+							>
+								Silent — don't post on each run
+							</label>
+						</div>
+
 						{/* Read-only metadata stack — on page surface, no grey card */}
 						<div className="flex flex-col gap-[9px] mt-[12px]">
 							<KeyValue label="Agent" value={routine.agentName} />
@@ -420,7 +532,16 @@ function RoutineDetailPaneLoaded({
 					</section>
 
 					{/* Budget section — on page surface, no grey card */}
-					{budget != null && <BudgetSection budget={budget} />}
+					{budget != null && (
+						<BudgetSection
+							budget={budget}
+							costCapPerRunRaw={costCapPerRunRaw}
+							setCostCapPerRunRaw={setCostCapPerRunRaw}
+							costCapMonthlyRaw={costCapMonthlyRaw}
+							setCostCapMonthlyRaw={setCostCapMonthlyRaw}
+							saving={saving}
+						/>
+					)}
 
 					{/* Last run summary — on page surface, no grey card */}
 					<section aria-label="Last run summary" data-testid="routine-last-run-summary">
@@ -477,8 +598,26 @@ function RoutineDetailPaneLoaded({
 	);
 }
 
-/** Budget section — on page surface, no grey card. */
-function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
+interface BudgetSectionProps {
+	budget: RoutineBudget;
+	costCapPerRunRaw: string;
+	setCostCapPerRunRaw: (v: string) => void;
+	costCapMonthlyRaw: string;
+	setCostCapMonthlyRaw: (v: string) => void;
+	saving: boolean;
+}
+
+/** Budget section — on page surface, no grey card.
+ * Cost cap inputs are editable; avg cost / cost this month remain read-only.
+ */
+function BudgetSection({
+	budget,
+	costCapPerRunRaw,
+	setCostCapPerRunRaw,
+	costCapMonthlyRaw,
+	setCostCapMonthlyRaw,
+	saving,
+}: BudgetSectionProps): JSX.Element {
 	return (
 		<section aria-label="Budget" data-testid="routine-budget">
 			<SectionLabel label="Budget" as="h2" />
@@ -488,14 +627,50 @@ function BudgetSection({ budget }: { budget: RoutineBudget }): JSX.Element {
 					value={budget.avgCostPerRun ? formatMoney(budget.avgCostPerRun) : "---"}
 				/>
 				<KeyValue label="Cost this month" value={formatMoney(budget.costThisMonth ?? null)} />
-				<KeyValue
-					label="Cost cap per run"
-					value={budget.costCapPerRun ? formatMoney(budget.costCapPerRun) : "No cap"}
-				/>
-				<KeyValue
-					label="Monthly cap"
-					value={budget.costCapMonthly ? formatMoney(budget.costCapMonthly) : "No cap"}
-				/>
+
+				{/* Editable cost cap per run */}
+				<div className="flex flex-col gap-[6px]">
+					<label
+						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+						htmlFor="routine-cost-cap-per-run"
+					>
+						Cost cap per run (USD)
+					</label>
+					<input
+						id="routine-cost-cap-per-run"
+						aria-label="Cost cap per run"
+						type="number"
+						className="input input-sm input-bordered w-full"
+						value={costCapPerRunRaw}
+						onChange={(e) => setCostCapPerRunRaw(e.target.value)}
+						disabled={saving}
+						min="0"
+						step="0.01"
+						placeholder="No cap"
+					/>
+				</div>
+
+				{/* Editable monthly cap */}
+				<div className="flex flex-col gap-[6px]">
+					<label
+						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+						htmlFor="routine-cost-cap-monthly"
+					>
+						Monthly cap (USD)
+					</label>
+					<input
+						id="routine-cost-cap-monthly"
+						aria-label="Monthly cap"
+						type="number"
+						className="input input-sm input-bordered w-full"
+						value={costCapMonthlyRaw}
+						onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
+						disabled={saving}
+						min="0"
+						step="0.01"
+						placeholder="No cap"
+					/>
+				</div>
 			</div>
 			{budget.perRunUtilizationPercent != null && (
 				<div className="mt-[9px]">

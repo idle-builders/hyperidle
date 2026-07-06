@@ -47,6 +47,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		costCapMonthly: { minor: 50000, currency: "USD" },
 		lastRunSummary:
 			"Digest sent to 4 team members. Highlighted 2 active bets, 3 completed tasks, and 1 blocker from Atlas Builder.",
+		silent: false,
 	},
 	budget: {
 		avgCostPerRun: { minor: 650, currency: "USD" },

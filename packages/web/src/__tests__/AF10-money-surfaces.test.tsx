@@ -107,6 +107,7 @@ const ROUTINE_DETAIL_JPY: RoutineDetail = {
 		costCapPerRun: null,
 		costCapMonthly: null,
 		lastRunSummary: null,
+		silent: false,
 	},
 	budget: {
 		avgCostPerRun: null,
