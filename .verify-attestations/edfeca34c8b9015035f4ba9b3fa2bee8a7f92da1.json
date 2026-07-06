@@ -1,9 +1,9 @@
 {
-	"sha": "408d0e179989bb66ab25dbc81fa617e5f4f8c4f9",
-	"srcHash": "37236633e0a207c48b1f0101ffe723501887d64515dae0a876e52f7bb487090e",
+	"sha": "edfeca34c8b9015035f4ba9b3fa2bee8a7f92da1",
+	"srcHash": "a14ce32ab40b182845e3e035d1cde85b15986b9b7ce83bc098bf1833478d3c57",
 	"scope": "affected",
 	"status": "passed",
-	"dirty": false,
+	"dirty": true,
 	"tools": [
 		"test",
 		"test:integration",
@@ -16,7 +16,7 @@
 	],
 	"partial": false,
 	"smartSkipped": [],
-	"agenticExecuted": 102,
+	"agenticExecuted": 105,
 	"agenticSkipped": 0,
 	"agenticExecutedByHarness": {
 		"builtin": {
@@ -36,6 +36,6 @@
 			"skipped": 0
 		}
 	},
-	"timestamp": "2026-07-06T13:26:47.818Z",
-	"hmac": "48949ddc987a3ae59b87ebbe82bcc635070b5046e93c88e1adf8b89cf59eba47"
+	"timestamp": "2026-07-06T18:59:42.117Z",
+	"hmac": "90edb78a968640efe9177c469b5e1d95e81e126fe1cd3ece7256fe447552efb1"
 }
