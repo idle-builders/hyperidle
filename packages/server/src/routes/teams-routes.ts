@@ -63,6 +63,7 @@ import { upsertOrgEdge } from "../services/org-edges.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { getActiveStrategy } from "../services/strategy-registry.js";
+import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import {
 	computeHealthSignals,
@@ -406,6 +407,10 @@ export function createTeamRoutes(
 			// AE2: store chosen functions as JSON for future reads.
 			functions: JSON.stringify(teamFunctions),
 			createdAt: now,
+			// AV1: persist primary harness as team default — every agent-creation path reads it.
+			defaultHarnessType: primaryHarness?.harnessType ?? null,
+			defaultModelId: primaryHarness?.modelId ?? null,
+			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
 		await db.insert(teamMembers).values({
@@ -531,6 +536,18 @@ export function createTeamRoutes(
 					.where(eq(users.id, assistantId))
 					.limit(1);
 
+				// AV1: Resolve the harness the assistant should carry.
+				// @lore AV1: The assistant stub may already exist (created by user registration
+				// via persistScaffoldedAgents WITHOUT a harness). When team creation supplies a
+				// primaryHarness, we must UPDATE the existing stub — the stub was created
+				// before the user picked a harness so it defaults to builtin. The UPDATE
+				// overwrites that with the team default so the auto-opened overlay opens READY.
+				const stubHarness = resolveTeamAgentHarness(primaryHarness, {
+					defaultHarnessType: primaryHarness?.harnessType ?? null,
+					defaultModelId: primaryHarness?.modelId ?? null,
+					defaultModelProvider: primaryHarness?.modelProvider ?? null,
+				});
+
 				if (!existingAssistant) {
 					// Lookup user name to personalise the assistant name.
 					const [userRow] = await db
@@ -545,9 +562,23 @@ export function createTeamRoutes(
 						kind: "ai",
 						name: assistantName,
 						role: "assistant",
+						harnessType: stubHarness?.harnessType ?? "builtin",
+						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
+						modelProvider: stubHarness?.modelProvider ?? "anthropic",
 						status: "active",
 						createdAt: now,
 					});
+				} else if (stubHarness !== undefined) {
+					// Assistant already exists (created at user registration with no harness).
+					// Update it with the team's harness so the overlay opens ready.
+					await db
+						.update(users)
+						.set({
+							harnessType: stubHarness.harnessType,
+							modelId: stubHarness.modelId,
+							modelProvider: stubHarness.modelProvider,
+						})
+						.where(eq(users.id, assistantId));
 				}
 
 				// Create the thread if it doesn't exist.
@@ -660,7 +691,11 @@ export function createTeamRoutes(
 			ownerUserName: null,
 		});
 
-		const { agentIds } = await persistScaffoldedAgents(db, memberGroup.id, specs);
+		// AV1: read team default so add-agent-later inherits the persisted primary harness.
+		// resolveTeamAgentHarness(undefined, team) returns the team default or undefined
+		// (→ persistScaffoldedAgents applies builtin fallback at :112-114).
+		const addAgentHarness = resolveTeamAgentHarness(undefined, team);
+		const { agentIds } = await persistScaffoldedAgents(db, memberGroup.id, specs, addAgentHarness);
 		const agentId = agentIds[0] ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 

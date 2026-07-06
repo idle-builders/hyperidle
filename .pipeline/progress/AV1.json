@@ -1,0 +1,11 @@
+{
+  "id": "AV1",
+  "status": "in_progress",
+  "currentStep": "build",
+  "track": "AV",
+  "complexity": "L",
+  "branch": "feature/AV1-onboarding-configures-machine",
+  "worktree": ".worktrees/AV1",
+  "startedAt": "2026-07-06T17:42:00+02:00",
+  "note": "Onboarding actually configures the machine: harness discovery + primary-harness choice + folder->filesystem(git) + fresh-team notification suppression. New noun 'primary harness' -> /refine required. Human concept review: YES (hard gate)."
+}

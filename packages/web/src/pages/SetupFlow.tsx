@@ -7,8 +7,9 @@
  *
  * Submits:
  * 1. POST /api/users — create human user (name only, no email)
- * 2. POST /api/teams — create first team (name derived from repo path or "My Team")
- * 3. Set credential via bridge (window.__HYPERIDLE__.credentials.set)
+ * 2. POST /api/teams — create first team + primaryHarness (from picker)
+ * 3. PUT /api/credentials/anthropic_api_key — key written before nav
+ * 4. POST /api/filesystems (best-effort, if folder picked)
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -21,11 +22,27 @@
  * spacing of 18px, design-system Input + Button components.
  * @lore AE2: Added function selector (preset pills + custom chips) and roster preview.
  * Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
+ * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
+ * derivePrimaryHarness() wired into POST /api/teams body; builtin → omit primaryHarness.
+ * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
  */
 
 import { Button, Input } from "@hyperidle/design-system";
-import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/shared";
-import { type ChangeEvent, type FormEvent, type JSX, useCallback, useState } from "react";
+import {
+	AGENT_ROLE_CATALOG,
+	defaultRoster,
+	derivePrimaryHarness,
+	type HarnessCapabilityDescriptor,
+	TEAM_FUNCTIONS,
+} from "@hyperidle/shared";
+import {
+	type ChangeEvent,
+	type FormEvent,
+	type JSX,
+	useCallback,
+	useEffect,
+	useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -60,6 +77,44 @@ function rosterPreviewLabel(functions: readonly string[]): string {
 		return entry?.label ?? role;
 	});
 	return `Creates: ${labels.join(", ")}`;
+}
+
+// ── Harness picker helpers ────────────────────────────────────────────────────
+
+/**
+ * A row is choosable (radio-selectable) when it's builtin OR state === "ready".
+ * Missing/unavailable/installed/unauthenticated non-builtin rows are greyed.
+ *
+ * @lore AV1 Decision 4: greyed rows render but are NOT choosable; the greyed
+ * affordance IS the actionable element (install hint), not a dead radio.
+ */
+function isChooosable(d: HarnessCapabilityDescriptor): boolean {
+	if (d.type === "builtin") return true;
+	return d.discovery.state === "ready";
+}
+
+/** Install-hint copy derived from authAction (greyed rows). */
+function installHintText(d: HarnessCapabilityDescriptor): string {
+	if (d.authAction.kind === "native_cli_login") return "Install to use";
+	if (d.authAction.kind === "enter_api_key") return "Add API key to use";
+	return "Not available";
+}
+
+/** State hint for choosable rows. */
+function stateHintText(d: HarnessCapabilityDescriptor): string {
+	if (d.type === "builtin") return "Built-in gateway";
+	if (d.discovery.state === "ready") return "Ready";
+	if (d.discovery.state === "unauthenticated") return "Sign in to use";
+	if (d.discovery.state === "installed") return "Installed – sign in";
+	return "Not installed";
+}
+
+// ── Folder inspection result ──────────────────────────────────────────────────
+
+interface FolderInfo {
+	path: string;
+	isGitRepo: boolean;
+	branch: string | null;
 }
 
 /** Abstract 3-card welcome illustration matching onboarding.html welcome-visual */
@@ -114,6 +169,39 @@ export function SetupFlow(): JSX.Element {
 	// Custom chips — only visible when selectedPreset === "custom".
 	const [customFunctions, setCustomFunctions] = useState<string[]>([]);
 
+	// AV1: Harness discovery — fetch on mount; degrade to builtin on failure.
+	// @lore AV1: we never block setup on discovery; graceful-degrade to builtin.
+	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
+	const [harnessLoaded, setHarnessLoaded] = useState(false);
+	// The currently selected primary harness type. "builtin" is the default.
+	const [selectedHarnessType, setSelectedHarnessType] = useState<string>("builtin");
+
+	useEffect(() => {
+		let cancelled = false;
+		apiFetch("/api/harnesses")
+			.then(async (res) => {
+				if (cancelled) return;
+				if (!res.ok) {
+					setHarnessLoaded(true);
+					return;
+				}
+				const data = (await res.json()) as HarnessCapabilityDescriptor[];
+				if (!cancelled) {
+					setDescriptors(Array.isArray(data) ? data : []);
+					setHarnessLoaded(true);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) setHarnessLoaded(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	// AV1: Folder inspection result for confirmation row.
+	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
+
 	// Resolved functions array based on current preset selection.
 	const resolvedFunctions: readonly string[] =
 		selectedPreset === "custom"
@@ -135,8 +223,35 @@ export function SetupFlow(): JSX.Element {
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
-		if (folder) setRepoPath(folder);
+		if (!folder) return;
+		setRepoPath(folder);
+		// AV1: Probe the picked folder to determine git status + branch for confirm row.
+		// Best-effort — failure just clears folderInfo (no confirmation row shown).
+		try {
+			const res = await apiFetch("/api/filesystems/inspect-path", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ path: folder }),
+			});
+			if (res.ok) {
+				const info = (await res.json()) as {
+					exists: boolean;
+					isGitRepo: boolean;
+					branch: string | null;
+				};
+				setFolderInfo({ path: folder, isGitRepo: info.isGitRepo, branch: info.branch });
+			} else {
+				setFolderInfo({ path: folder, isGitRepo: false, branch: null });
+			}
+		} catch {
+			setFolderInfo({ path: folder, isGitRepo: false, branch: null });
+		}
 	}, []);
+
+	// AV1: Derive the primaryHarness from the chosen picker row.
+	// builtin is always present; derivePrimaryHarness is called on non-builtin ready descriptors.
+	// When builtin is chosen, primaryHarness is omitted from the POST body (builtin is the default).
+	const chosenDescriptor = descriptors.find((d) => d.type === selectedHarnessType);
 
 	// AE2: Submit and navigate to /work?onboarding=true (AD9: was /work/portfolio)
 	const handleSubmit = useCallback(
@@ -176,6 +291,14 @@ export function SetupFlow(): JSX.Element {
 					? (repoPath.trim().split(/[/\\]/).filter(Boolean).pop() ?? "My Team")
 					: "My Team";
 
+				// AV1: Build primaryHarness for non-builtin choosable selections.
+				// builtin → omit (the server default is builtin; omitting avoids polluting the
+				// teams row with builtin values when users haven't explicitly picked anything).
+				const primaryHarness =
+					chosenDescriptor !== undefined && chosenDescriptor.type !== "builtin"
+						? derivePrimaryHarness(chosenDescriptor)
+						: undefined;
+
 				const teamRes = await apiFetch("/api/teams", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -185,6 +308,8 @@ export function SetupFlow(): JSX.Element {
 						// AE2: pass resolved functions and userId for welcome message seeding.
 						functions: [...resolvedFunctions],
 						userId: createdUserId,
+						// AV1: thread primaryHarness (omit when builtin so server applies builtin fallback)
+						...(primaryHarness !== undefined ? { primaryHarness } : {}),
 					}),
 				});
 
@@ -193,18 +318,76 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(body?.error ?? `Failed to create team (${teamRes.status})`);
 				}
 
+				// Capture teamId for filesystem registration below.
+				const teamBody = (await teamRes.json().catch(() => null)) as {
+					team?: { id?: string };
+				} | null;
+				const createdTeamId = teamBody?.team?.id ?? undefined;
+
 				// Step 3: Write anthropic API key via HTTP (AH1 §5).
 				// @lore AH1: Replaced bridge write (window.__HYPERIDLE__.credentials.set)
 				// with HTTP write. apiFetch works in desktop-local AND web/E2E.
 				// The DB write is the runtime + Settings truth.
 				// The bridge mirror is dropped — no surviving non-resolution reader
 				// of the safeStorage credential value after AH1 §3 resolver swap.
+				// @lore AV1 AC4b: key PUT completes BEFORE navigate — ordering guarantee.
 				if (apiKey.trim()) {
 					await apiFetch("/api/credentials/anthropic_api_key", {
 						method: "PUT",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ value: apiKey.trim() }),
 					});
+				}
+
+				// Step 4 (best-effort): Register folder as filesystem.
+				// @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
+				// writeback:"none" is the literal — WRITEBACK_MODES[0] is "git", never use index-0.
+				// Failure is swallowed: team creation already succeeded.
+				if (createdTeamId && repoPath.trim()) {
+					const path = repoPath.trim();
+					// Re-inspect if folderInfo is stale or wasn't fetched (typed path, not picked).
+					let info = folderInfo?.path === path ? folderInfo : null;
+					if (info === null) {
+						try {
+							const inspectRes = await apiFetch("/api/filesystems/inspect-path", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ path }),
+							});
+							if (inspectRes.ok) {
+								const raw = (await inspectRes.json()) as {
+									exists: boolean;
+									isGitRepo: boolean;
+									branch: string | null;
+								};
+								info = { path, isGitRepo: raw.isGitRepo, branch: raw.branch };
+							}
+						} catch {
+							// inspection failed — degrade to doc_set
+						}
+					}
+
+					try {
+						const branch = info?.branch ?? null;
+						const isCode = info?.isGitRepo === true && branch != null && branch !== "";
+						const resourceRef = isCode
+							? { kind: "code", repo: path, branch }
+							: { kind: "doc_set", folder: path };
+
+						await apiFetch("/api/filesystems", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								teamId: createdTeamId,
+								kind: isCode ? "code" : "doc_set",
+								resourceRef,
+								writeback: "none",
+								connectionId: null,
+							}),
+						});
+					} catch {
+						// filesystem registration is best-effort; swallow failure
+					}
 				}
 
 				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.
@@ -215,7 +398,7 @@ export function SetupFlow(): JSX.Element {
 				setSubmitting(false);
 			}
 		},
-		[canStart, name, repoPath, apiKey, resolvedFunctions, navigate],
+		[canStart, name, repoPath, apiKey, resolvedFunctions, navigate, chosenDescriptor, folderInfo],
 	);
 
 	return (
@@ -277,6 +460,95 @@ export function SetupFlow(): JSX.Element {
 						/>
 					</div>
 
+					{/* AV1: Harness picker — agent engine selection */}
+					<div className="mb-[18px]" role="radiogroup" aria-label="Agent harness">
+						<p className="text-[13px] font-[500] text-[var(--text-primary)] mb-[6px]">
+							Agent harness{" "}
+							<span className="font-[400] text-[var(--text-tertiary)]">
+								(the default engine for every agent on your team)
+							</span>
+						</p>
+						{/* ONE bordered container with hairline-divided rows — same as SettingsHarnesses */}
+						<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+							{/* Built-in row — always first, always choosable */}
+							<label
+								data-testid="harness-row-builtin"
+								className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer"
+							>
+								<input
+									type="radio"
+									data-testid="harness-radio-builtin"
+									name="primary-harness"
+									value="builtin"
+									checked={selectedHarnessType === "builtin"}
+									onChange={() => setSelectedHarnessType("builtin")}
+									className="shrink-0"
+								/>
+								<div className="flex-1 min-w-0">
+									<span className="text-[14px] font-[600] text-[var(--text-primary)] leading-[1.2]">
+										Built-in gateway
+									</span>
+									<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+										{apiKey.trim() ? "Ready" : "Add your API key below"}
+									</p>
+								</div>
+							</label>
+							{/* Discovered harness rows — rendered after discovery resolves */}
+							{harnessLoaded &&
+								descriptors
+									.filter((d) => d.type !== "builtin")
+									.map((d) => {
+										const choosable = isChooosable(d);
+										const isSelected = selectedHarnessType === d.type;
+										return (
+											<div key={d.type}>
+												<div className="h-px bg-[var(--border-subtle)]" />
+												{choosable ? (
+													<label
+														data-testid={`harness-row-${d.type}`}
+														className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer"
+													>
+														<input
+															type="radio"
+															data-testid={`harness-radio-${d.type}`}
+															name="primary-harness"
+															value={d.type}
+															checked={isSelected}
+															onChange={() => setSelectedHarnessType(d.type)}
+															className="shrink-0"
+														/>
+														<div className="flex-1 min-w-0">
+															<span className="text-[14px] font-[600] leading-[1.2] text-[var(--text-primary)]">
+																{d.name}
+															</span>
+															<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+																{stateHintText(d)}
+															</p>
+														</div>
+													</label>
+												) : (
+													<div
+														data-testid={`harness-row-${d.type}`}
+														aria-disabled="true"
+														className="flex items-center gap-[9px] px-[12px] py-[12px] opacity-60"
+													>
+														<span className="shrink-0 w-[16px] h-[16px]" aria-hidden="true" />
+														<div className="flex-1 min-w-0">
+															<span className="text-[14px] font-[600] leading-[1.2] text-[var(--text-secondary)]">
+																{d.name}
+															</span>
+															<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+																{installHintText(d)}
+															</p>
+														</div>
+													</div>
+												)}
+											</div>
+										);
+									})}
+						</div>
+					</div>
+
 					{/* Repo path (optional) */}
 					<div className="mb-[18px]">
 						<div className="flex flex-col gap-[6px]">
@@ -331,6 +603,21 @@ export function SetupFlow(): JSX.Element {
 							<span className="text-[12px] text-[var(--text-tertiary)]">
 								Path to a git repository for agents to work in.
 							</span>
+							{/* AV1 Step B: Folder confirm row — shows after folder picked/detected */}
+							{folderInfo && (
+								<div className="flex items-center gap-[6px] mt-[3px]">
+									<span className="font-[family-name:var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+										{folderInfo.path.split(/[/\\]/).filter(Boolean).pop() ?? folderInfo.path}
+									</span>
+									{folderInfo.isGitRepo && folderInfo.branch ? (
+										<span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--text-tertiary)]">
+											@{folderInfo.branch}
+										</span>
+									) : (
+										<span className="text-[11px] text-[var(--text-tertiary)]">folder</span>
+									)}
+								</div>
+							)}
 						</div>
 					</div>
 

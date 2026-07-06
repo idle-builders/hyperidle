@@ -144,6 +144,17 @@ export interface GitRunner {
 	 * verb, eliminating the env leak and the JSON.stringify shell-quoting fragility.
 	 */
 	restoreStaged(paths: readonly string[]): Promise<void>;
+	/**
+	 * Return the name of the currently checked-out branch, or `null` when the branch
+	 * cannot be resolved (detached HEAD, repo with no commits, or any git error).
+	 * `git rev-parse --abbrev-ref HEAD` — exits 0 with "HEAD" on detached HEAD.
+	 * Never throws.
+	 *
+	 * @lore AV1: Added for onboarding branch detection. Reuses the existing
+	 * audited spawn/env path (no parallel execFile). Returns null for detached /
+	 * no-commits so callers can fall back to doc_set instead of 400'ing on empty branch.
+	 */
+	currentBranch(): Promise<string | null>;
 }
 
 export interface CreateGitRunnerOptions {
@@ -532,6 +543,22 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			// Use '--' separator to prevent paths from being treated as options.
 			await runExpectOk(["restore", "--staged", "--", ...paths], localMs);
 		},
+		async currentBranch(): Promise<string | null> {
+			// `git rev-parse --abbrev-ref HEAD`:
+			// - prints the branch name + newline on success
+			// - prints "HEAD" when detached
+			// - exits non-zero when there are no commits (empty repo)
+			// We treat "HEAD" and any failure as null (no resolvable branch).
+			try {
+				const result = await run(["rev-parse", "--abbrev-ref", "HEAD"], localMs);
+				if (result.exitCode !== 0) return null;
+				const branch = result.stdout.trim();
+				if (branch === "" || branch === "HEAD") return null;
+				return branch;
+			} catch {
+				return null;
+			}
+		},
 	};
 }
 
@@ -638,6 +665,10 @@ export function createFakeGitRunner(): FakeGitRunner {
 		},
 		async restoreStaged(paths) {
 			rec("restoreStaged", [paths]);
+		},
+		async currentBranch() {
+			rec("currentBranch", []);
+			return null;
 		},
 	};
 }
