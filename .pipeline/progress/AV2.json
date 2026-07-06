@@ -2,8 +2,9 @@
   "id": "AV2",
   "track": "AV",
   "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
-  "status": "in_progress",
-  "currentStep": "phase3-build",
+  "status": "done",
+  "currentStep": "shipped",
+  "completedAt": "2026-07-06T23:43:00Z",
   "complexity": "L",
   "startedAt": "2026-07-06T15:42:00Z",
   "worktree": ".worktrees/AV2",
@@ -19,5 +20,22 @@
     "at": "2026-07-06T18:20:00Z",
     "tweak": "Model dropdown must offer harness-DISCOVERED models (per-harness), not hardcoded MODEL_CATALOG. builtin=gateway /models; opencode=`opencode models`; claude-code=`claude models`; codex=empty+affordance.",
     "annotation": ".annotations/AV2-concept-review.md"
+  },
+  "phase4Review": {
+    "verdict": "DONE",
+    "at": "2026-07-06T23:41:00Z",
+    "findingsFixed": [
+      "Agent Row names were visually crowded out by trailing cells in the split origin; compact subtitle now preserves names.",
+      "AgentEditor harness switch kept stale non-empty modelProvider values; it now reconciles to a supported provider or null.",
+      "Existing-agent edit did not fetch the role template through the shared editor; edit destination now enables template fetch.",
+      "SettingsAgents loaded org teams but never stored them, so add-agent team context was lost."
+    ],
+    "verification": [
+      "npm run check",
+      "npm run lint",
+      "npm run test",
+      "npm run test:integration -- packages/server/src/harness/__tests__/opencode-model-probe.integration.test.ts",
+      "Playwright paint: /tmp/av2-settings-agents.png and /tmp/av2-settings-backends.png"
+    ]
   }
 }

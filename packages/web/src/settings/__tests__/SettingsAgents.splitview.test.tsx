@@ -172,6 +172,55 @@ describe("Assistant is a row in the agents list", () => {
 			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
 		});
 	});
+
+	it("clicking an existing agent fetches its role template for the shared editor", async () => {
+		const user = userEvent.setup();
+		const fetchedTemplates: string[] = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((url: string) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/harnesses") && !urlStr.includes("redetect")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => MOCK_HARNESSES_WITH_MODELS,
+					});
+				}
+				if (urlStr.includes("/api/agents/templates/")) {
+					fetchedTemplates.push(
+						decodeURIComponent(urlStr.split("/api/agents/templates/")[1] ?? ""),
+					);
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => ({ role: "builder", content: "Build things well." }),
+					});
+				}
+				if (urlStr.includes("/api/agents")) {
+					return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_AGENTS });
+				}
+				if (urlStr.includes("/api/filesystems")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => ({ filesystems: [] }),
+					});
+				}
+				if (urlStr.includes("/api/org")) {
+					return Promise.resolve({ ok: true, status: 200, json: async () => ({ teams: [] }) });
+				}
+				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+			}),
+		);
+
+		render(<SettingsAgents />);
+
+		await waitFor(() => screen.getByText("Atlas"));
+		await user.click(screen.getByText("Atlas"));
+
+		await waitFor(() => expect(fetchedTemplates).toContain("builder"));
+	});
 });
 
 // ---------------------------------------------------------------------------

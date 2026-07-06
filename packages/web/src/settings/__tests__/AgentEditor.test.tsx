@@ -86,6 +86,40 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	},
 };
 
+const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
+	type: "claude-code",
+	name: "Claude Code",
+	kind: "local",
+	models: [
+		{
+			id: "claude-sonnet-4-6",
+			label: "Claude Sonnet 4.6",
+			provider: "anthropic",
+			contextWindow: 200000,
+			selectable: true,
+			inheritedFromGateway: false,
+			options: [],
+		},
+	],
+	modelProviders: ["anthropic"],
+	accessMode: "provider-subscription-cli",
+	discovery: { state: "ready" },
+	authAction: {
+		kind: "native_cli_login",
+		label: "Log in to Claude",
+		command: ["claude", "login"],
+	},
+	inheritedTools: [],
+	runtime: {
+		preCompactionTrigger: false,
+		subAgents: false,
+		mcpSupport: false,
+		modelProviders: [],
+		fileEditing: true,
+		toolUse: true,
+	},
+};
+
 const NORMAL_AGENT_DRAFT: AgentEditorDraft = {
 	name: "Atlas",
 	role: "builder",
@@ -350,6 +384,40 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 		// The onSave was called — the reconcile happens in the save payload
 		// which SettingsAgents builds; AgentEditor just exposes onSave callback
 		// This is verified in the SettingsAgents integration below
+	});
+
+	it("non-empty modelProviders harness: stale provider is reconciled to a supported provider", async () => {
+		const user = userEvent.setup();
+		const draftChanges: AgentEditorDraft[] = [];
+
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={{
+					...NORMAL_AGENT_DRAFT,
+					harnessType: "builtin",
+					modelProvider: "openrouter",
+				}}
+				onDraftChange={(fn) => {
+					draftChanges.push(
+						fn({ ...NORMAL_AGENT_DRAFT, harnessType: "builtin", modelProvider: "openrouter" }),
+					);
+				}}
+				harnesses={[BUILTIN_DESCRIPTOR, CLAUDE_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		await user.selectOptions(screen.getByRole("combobox", { name: /harness/i }), "claude-code");
+
+		expect(draftChanges.at(-1)).toMatchObject({
+			harnessType: "claude-code",
+			modelProvider: "anthropic",
+			modelId: "",
+		});
 	});
 });
 

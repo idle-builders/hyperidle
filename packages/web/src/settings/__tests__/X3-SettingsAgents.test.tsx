@@ -126,9 +126,8 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// AV2: role appears as subtitle + Tag cell — getAllByText handles multiple matches
-			expect(screen.getAllByText("product_manager").length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText("builder").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getByText(/product_manager/)).toBeInTheDocument();
+			expect(screen.getByText(/builder/)).toBeInTheDocument();
 		});
 	});
 
@@ -137,8 +136,8 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// Builder Bot has no harness type → shows "Default"
-			const defaults = screen.getAllByText("Default");
+			// Builder Bot has no harness type → shows "Default" in the compact subtitle.
+			const defaults = screen.getAllByText(/Default/);
 			expect(defaults.length).toBeGreaterThanOrEqual(1);
 		});
 	});
@@ -148,7 +147,7 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			const defaults = screen.getAllByText("Default");
+			const defaults = screen.getAllByText(/Default/);
 			expect(defaults.length).toBeGreaterThanOrEqual(1);
 		});
 	});

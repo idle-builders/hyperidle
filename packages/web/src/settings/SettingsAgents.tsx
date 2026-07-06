@@ -35,7 +35,6 @@ import {
 	SkeletonList,
 	SplitView,
 	StatusChip,
-	Tag,
 } from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -96,7 +95,7 @@ export function SettingsAgents(): JSX.Element {
 	const [agents, setAgents] = useState<AgentConfig[]>([]);
 	const [harnesses, setHarnesses] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [filesystems, setFilesystems] = useState<InjectableFilesystem[]>([]);
-	const [orgTeams] = useState<OrgTeam[]>([]);
+	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
 	// SplitView state
@@ -167,6 +166,7 @@ export function SettingsAgents(): JSX.Element {
 			if (orgRes.ok) {
 				const orgJson = (await orgRes.json()) as { teams?: OrgTeam[] };
 				const teamList = Array.isArray(orgJson.teams) ? orgJson.teams : [];
+				setOrgTeams(teamList);
 				const firstTeamActualId = teamList[0]?.teamActualId;
 				await loadTeamFilesystems(firstTeamActualId);
 			}
@@ -452,26 +452,8 @@ export function SettingsAgents(): JSX.Element {
 									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
 								</span>
 							}
-							subtitle={agent.role}
+							subtitle={`${agent.role} · ${agent.harnessType ?? "Default"} · ${agent.activeSessions} active`}
 							selected={isSelected}
-							cells={[
-								{
-									content: <Tag label={agent.role} />,
-									align: "start",
-									width: 100,
-								},
-								{
-									content: agent.harnessType ?? "Default",
-									align: "start",
-									width: 90,
-								},
-								{
-									content: String(agent.activeSessions),
-									numeric: true,
-									align: "end",
-									width: 48,
-								},
-							]}
 							actions={
 								<div className="flex gap-[6px]">
 									{confirmingDeleteId === agent.id ? (
@@ -551,6 +533,7 @@ export function SettingsAgents(): JSX.Element {
 				onCancel={handleEditCancel}
 				saving={saving}
 				error={editError}
+				fetchTemplateOnMount
 				filesystems={filesystems}
 			/>
 		) : (

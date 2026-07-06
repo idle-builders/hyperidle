@@ -109,6 +109,16 @@ function fsSourceLabel(source: string): string {
 	return source;
 }
 
+function reconcileModelProvider(
+	descriptor: HarnessCapabilityDescriptor | undefined,
+	currentProvider: string | null,
+): string | null {
+	const providers = descriptor?.modelProviders ?? [];
+	if (providers.length === 0) return null;
+	if (currentProvider && providers.includes(currentProvider)) return currentProvider;
+	return providers[0] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // AgentEditor
 // ---------------------------------------------------------------------------
@@ -219,12 +229,8 @@ export function AgentEditor({
 						value={draft.harnessType}
 						onChange={(e) => {
 							const newHarness = e.target.value;
-							// Anti-422 reconcile: if new harness has empty modelProviders, null modelProvider.
 							const newDescriptor = harnesses.find((h) => h.type === newHarness);
-							const newModelProvider =
-								newDescriptor && newDescriptor.modelProviders.length === 0
-									? null
-									: draft.modelProvider;
+							const newModelProvider = reconcileModelProvider(newDescriptor, draft.modelProvider);
 							onDraftChange((prev) => ({
 								...prev,
 								harnessType: newHarness,
