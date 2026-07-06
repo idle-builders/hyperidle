@@ -2,9 +2,17 @@
   "id": "AV2",
   "track": "AV",
   "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
-  "status": "done",
-  "currentStep": "shipped",
-  "completedAt": "2026-07-06T23:43:00Z",
+  "status": "blocked",
+  "currentStep": "ship-verify",
+  "blockedAt": "2026-07-06T23:47:00Z",
+  "blocker": {
+    "reason": "full verify attestation requires unavailable external harness conditions",
+    "details": [
+      "builtin harness integration tests hard-fail without OPENROUTER_API_KEY",
+      "Claude real-binary integration tests hit the local Claude session limit and returned zero cost",
+      "harness-symmetry attestation floor reported zero executed tagged assertions for builtin, claude, codex, and opencode in the affected attestation run"
+    ]
+  },
   "complexity": "L",
   "startedAt": "2026-07-06T15:42:00Z",
   "worktree": ".worktrees/AV2",
@@ -37,5 +45,20 @@
       "npm run test:integration -- packages/server/src/harness/__tests__/opencode-model-probe.integration.test.ts",
       "Playwright paint: /tmp/av2-settings-agents.png and /tmp/av2-settings-backends.png"
     ]
+  },
+  "shipVerify": {
+    "command": "npm run verify",
+    "status": "blocked",
+    "at": "2026-07-06T23:46:51Z",
+    "passedBeforeBlock": [
+      "npm run check",
+      "npm run lint",
+      "knip",
+      "knip:production",
+      "guard scripts",
+      "web build",
+      "desktop build"
+    ],
+    "blockedAt": "scripts/verify-attest.ts affected attestation"
   }
 }
