@@ -8,9 +8,6 @@ import type { RouteObject } from "react-router-dom";
  * @lore L9: /conversations/review and /conversations/chat are legacy routes;
  * they now mount RedirectLegacyConversation which redirects to the canonical
  * /conversations or /conversations/:threadId shape. See plans/L9/architecture.md §3.
- *
- * @lore I6: /designsystem is integrated into the React Router tree (DEV only)
- * instead of being routed via window.location.pathname in App.tsx.
  */
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
@@ -107,17 +104,7 @@ function buildRoutes(): RouteObject[] {
 		{ path: "*", element: <NotFound /> },
 	];
 
-	// I6: /designsystem route integrated into React Router (DEV only).
-	// Lazy-loaded to avoid bundling the component explorer in production.
 	if (import.meta.env.DEV) {
-		routes.push({
-			path: "/designsystem",
-			lazy: async () => {
-				const { DesignSystem } = await import("./designsystem/DesignSystem.js");
-				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
-				return { Component: DesignSystem };
-			},
-		});
 		// L3 throwaway: AC-10 evidence surface; permanent mounts ship in L11/L12.
 		routes.push({
 			path: "/_dev/artifacts",

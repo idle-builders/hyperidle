@@ -1,9 +1,9 @@
 /**
  * AB3 — AgentAddDialog stories.
- * Renders key states at /designsystem for visual verification.
+ * Renders key states for visual verification.
  *
  * @lore AB3: Wrapped in <ToastRegion> because AgentAddDialog calls useToast().
- * The /designsystem route does not provide <ToastRegion>, so stories that render
+ * The story viewer does not provide <ToastRegion>, so stories that render
  * dialogs must add their own wrapper to avoid a runtime crash.
  */
 

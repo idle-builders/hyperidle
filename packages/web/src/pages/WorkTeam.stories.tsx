@@ -1,5 +1,5 @@
 /**
- * L13 — WorkTeam page stories. Renders key states at /designsystem.
+ * L13 — WorkTeam page stories. Renders key states for visual verification.
  *
  * @lore U5: Renamed from WorkProduct.stories.tsx → WorkTeam.stories.tsx.
  */

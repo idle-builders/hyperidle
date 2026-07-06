@@ -23,7 +23,7 @@ Classification is derived from source path. The central `DS_COMPONENT_GROUPS` re
 
 ### Viewing Components
 
-The viewer at `:8098` (`npm run ds:serve`) is the primary design-review surface. The dev-server route at [http://localhost:5173/designsystem](http://localhost:5173/designsystem) is an older alias — use the standalone viewer for design review.
+Stories are the design-review surface. The pipeline component viewer — rendered by `/pipeline:design` and `/pipeline:human-concept-review` — discovers and renders stories from `packages/design-system` as configured in `pipeline.config.yml` (`designSystem.path: packages/design-system`).
 
 ### Creating Stories
 

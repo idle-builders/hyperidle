@@ -7,8 +7,8 @@
 
 Stories are the single demonstrable artifact for a component. Every component
 file under `packages/design-system/src/` and `packages/web/src/components/`
-must have a sibling `<Name>.stories.tsx`. The stories appear at
-`/designsystem` (auto-discovered via `import.meta.glob`).
+must have a sibling `<Name>.stories.tsx`. The stories are the design artifact
+discovered and rendered by the design-review viewer.
 
 ## Opt-out
 

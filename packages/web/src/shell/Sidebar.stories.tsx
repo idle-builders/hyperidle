@@ -1,5 +1,5 @@
 /**
- * Sidebar stories — design system playground at /designsystem.
+ * Sidebar stories — rendered for design review in the story viewer.
  * Shows key states: populated, empty sections, active view variants.
  */
 

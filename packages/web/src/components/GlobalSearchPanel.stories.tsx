@@ -4,7 +4,7 @@ import { GlobalSearchPanel } from "./GlobalSearchPanel";
 
 // I4 D1: default export with `title` so the design-system auto-discovery
 // (import.meta.glob + parseStoryModules) picks the module up. Without this
-// the file was silently dropped from /designsystem.
+// the file was silently dropped from the story catalog.
 export default { title: "GlobalSearchPanel", tier: "utility" as const };
 
 const mockConversations = [
@@ -49,7 +49,7 @@ const mockKnowledge = [
  * I4 security MED-3: swap window.fetch with a mock for the lifetime of the
  * story, then restore on unmount. Previously the stories monkey-patched
  * fetch and discarded the original reference, which corrupted every other
- * story rendered in the same /designsystem tab until page reload.
+ * story rendered in the same viewer tab until page reload.
  */
 function useMockFetch(payload: Record<string, unknown>, enabled: boolean): void {
 	useEffect(() => {

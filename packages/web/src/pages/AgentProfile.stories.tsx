@@ -1,5 +1,5 @@
 /**
- * AB1 — AgentProfile page stories. Renders key states at /designsystem.
+ * AB1 — AgentProfile page stories. Renders key states for visual verification.
  *
  * Uses overrideData/overrideLoading/overrideError to inject fixture data
  * without needing a live API. Wrapped in MemoryRouter because the component
