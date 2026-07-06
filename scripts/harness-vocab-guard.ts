@@ -151,6 +151,9 @@ const EXCLUDED_DIR_PATTERNS: string[] = [
 	// Desktop build output
 	"packages/desktop/out",
 	"packages/desktop/dist",
+	// Desktop release artifacts (Electron builder output, gitignored) — contain old DB
+	// Drizzle snapshots with historical column names. Not source; not deployed to users.
+	"packages/desktop/release",
 	// Design system compiled output
 	"packages/design-system/dist",
 ];

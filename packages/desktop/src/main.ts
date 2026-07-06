@@ -494,12 +494,21 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	const preloadPath = path.join(Dirname, "preload.js");
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
 
+	// @lore AV5: titleBarStyle:"hiddenInset" — macOS-only; insets the OS traffic-lights
+	// into the app-owned chrome instead of a separate gray bar (Windows/Linux unaffected).
+	// Design: 28px draggable inset (h-[28px]) at the top of the sidebar column only — not
+	// a full-width strip. The traffic-lights float over the sidebar; main content reaches
+	// the window top unaffected. trafficLightPosition:{x:12,y:11} centers the lights within
+	// that 28px inset. backgroundColor must stay in sync with --surface-container (#24211f);
+	// the cool "#1a1a2e" violated AQ-018. Windows/Linux titleBarOverlay is a deliberate follow-up.
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
 		width: windowState.width,
 		height: windowState.height,
-		backgroundColor: "#1a1a2e",
+		titleBarStyle: "hiddenInset",
+		trafficLightPosition: { x: 12, y: 11 },
+		backgroundColor: "#24211f",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
@@ -594,12 +603,17 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
 
+	// @lore AV5: Same hiddenInset config as bootLocalMode — both windows share the same
+	// titlebar treatment. backgroundColor matches --surface-container to avoid a flash of
+	// cool color (#1a1a2e) before the app shell paints. Windows/Linux follow-up out of scope.
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
 		width: windowState.width,
 		height: windowState.height,
-		backgroundColor: "#1a1a2e",
+		titleBarStyle: "hiddenInset",
+		trafficLightPosition: { x: 12, y: 11 },
+		backgroundColor: "#24211f",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,

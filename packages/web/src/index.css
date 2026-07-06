@@ -121,6 +121,16 @@
 }
 
 @layer components {
+	/* AV5: Drag-region utilities. -webkit-app-region has no Tailwind utility;
+	 * centralizing as two classes keeps them reusable and out of inline styles.
+	 * These are no-ops in the browser (Electron-only property). */
+	.app-region-drag {
+		-webkit-app-region: drag;
+	}
+	.app-region-no-drag {
+		-webkit-app-region: no-drag;
+	}
+
 	[data-knowledge-body] :is(h1) {
 		font-size: var(--text-2xl);
 		font-weight: 600;
