@@ -13,17 +13,20 @@
 
 // --- Section navigation ---
 
+/**
+ * AV2: Removed "worker" (folded under backend) and "models" (folded into builtin harness detail).
+ * "assistant" was never in this union (handled in SettingsAssistant, now deleted — the assistant
+ * is a row in the Agents section).
+ */
 export type SettingsSectionId =
 	| "profile"
 	| "orgchart"
 	| "credentials"
 	| "notifications"
 	| "appearance"
-	| "models"
 	| "agents"
 	| "filesystems"
-	| "backend"
-	| "worker"; // X3/AF15: worker and agent configuration sections
+	| "backend";
 
 export interface SettingsSection {
 	id: SettingsSectionId;
@@ -45,10 +48,13 @@ export interface SettingsSection {
  * "no references" verdict for any symbol in AppShell.tsx. This trap caused a
  * review false-negative (WARNING-1 in the AF15 architecture-critique).
  */
+/**
+ * AV2: "worker" removed (folded under Backend). "models" removed (folded into builtin harness
+ * detail in SettingsHarnesses). The assistant is now part of the "agents" section.
+ */
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
 	{ id: "orgchart", label: "Org chart" },
-	{ id: "models", label: "Models" },
 	{ id: "agents", label: "Agents" },
 	// AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
 	{ id: "filesystems", label: "Filesystems" },
@@ -56,8 +62,6 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "credentials", label: "Credentials" },
 	{ id: "notifications", label: "Notifications" },
 	{ id: "backend", label: "Backend" },
-	// "worker" filtered at runtime by AppShell.tsx visibleSettingsSections — shared-mode only.
-	{ id: "worker", label: "Worker" },
 ];
 
 /**

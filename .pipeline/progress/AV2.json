@@ -1,0 +1,23 @@
+{
+  "id": "AV2",
+  "track": "AV",
+  "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
+  "status": "in_progress",
+  "currentStep": "phase3-build",
+  "complexity": "L",
+  "startedAt": "2026-07-06T15:42:00Z",
+  "worktree": ".worktrees/AV2",
+  "branch": "frontend/AV2-settings-ia",
+  "gates": {
+    "refine": "required",
+    "design": "required-multivariant",
+    "humanConceptReview": "required"
+  },
+  "notes": "L frontend; expected to split into ~4 sub-areas during architecture.",
+  "conceptReview": {
+    "decision": "approve-with-tweaks",
+    "at": "2026-07-06T18:20:00Z",
+    "tweak": "Model dropdown must offer harness-DISCOVERED models (per-harness), not hardcoded MODEL_CATALOG. builtin=gateway /models; opencode=`opencode models`; claude-code=`claude models`; codex=empty+affordance.",
+    "annotation": ".annotations/AV2-concept-review.md"
+  }
+}

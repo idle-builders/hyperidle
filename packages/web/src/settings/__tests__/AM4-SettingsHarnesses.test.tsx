@@ -204,14 +204,8 @@ describe("AM4 AC1 — SettingsHarnesses renders in-scope backends with status/ve
 		});
 	});
 
-	it("renders auth zone for unauthenticated backends (AC1 + AC3)", async () => {
-		render(<SettingsHarnesses />);
-
-		await waitFor(() => {
-			// Codex is unauthenticated → auth zone shows copyable CLI command (no dead CTA button, ADV1)
-			expect(screen.getByText("codex login")).toBeInTheDocument();
-		});
-	});
+	// AV2: auth zone moved to the SplitView destination pane (shown when row is clicked).
+	// The row-list view no longer shows "codex login" inline. Covered by AV2-SettingsHarnesses tests.
 });
 
 // ── AC4: Scope — only in-scope kinds surface ─────────────────────────────────
@@ -368,34 +362,10 @@ describe("AM4 — SettingsHarnesses Re-detect (Refresh) button", () => {
 	});
 });
 
-// ── AC2-production-shape: ready row with all-false caps ───────────────────────
-
-describe("AM4 AC2-production-shape — ready row renders correctly under all-false caps", () => {
-	beforeEach(() => {
-		mockFetch();
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("renders 'confirmed after first run' for ready backends with all-false caps", async () => {
-		const user = userEvent.setup();
-		render(<SettingsHarnesses />);
-
-		await waitFor(() => expect(screen.getByText("Claude Code")).toBeInTheDocument());
-
-		// Open the models/capabilities fold for claude-code if there's a fold trigger
-		const foldTrigger = screen.queryByRole("button", { name: /models/i });
-		if (foldTrigger) {
-			await user.click(foldTrigger);
-		}
-
-		await waitFor(() => {
-			expect(screen.getByText(/confirmed after first run/i)).toBeInTheDocument();
-		});
-	});
-});
+// ── AC2-production-shape: moved to SplitView detail pane ─────────────────────
+// AV2: "confirmed after first run" text was part of HarnessCard caps display.
+// HarnessCard replaced with Row/ItemList; caps shown in the SplitView detail pane.
+// These tests are now covered by AV2-SettingsHarnesses.test.tsx.
 
 // ── Disabled row ──────────────────────────────────────────────────────────────
 
@@ -418,21 +388,6 @@ describe("AM4 — SettingsHarnesses disabled row renders correctly", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("toggle is OFF for disabled row", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: test fixture uses partial disabled shape
-		const descriptorsWithDisabled = [DISABLED_DESCRIPTOR as any, ...MOCK_DESCRIPTORS.slice(2)];
-		mockFetch(descriptorsWithDisabled);
-
-		render(<SettingsHarnesses />);
-
-		await waitFor(() => {
-			// Claude Code is the disabled one — its toggle should be unchecked
-			const switches = screen.queryAllByRole("switch");
-			// At least one switch should exist for the disabled row
-			const offSwitch = switches.find((s) => !(s as HTMLInputElement).checked);
-			expect(offSwitch).toBeDefined();
-		});
-
-		vi.restoreAllMocks();
-	});
+	// AV2: toggle removed from SettingsHarnesses — disabled state shown via Row status text.
+	// The Row component has no switch/toggle; enabled/disabled is status-only.
 });

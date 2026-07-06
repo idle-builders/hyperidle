@@ -1,19 +1,20 @@
 /**
- * X3 — SettingsAgents component unit tests (RED phase)
+ * X3 — SettingsAgents component unit tests (updated for AV2)
  *
- * AC-9: Settings UI Agents section renders agent table
- * AC-10: Settings UI edit form opens inline and saves
+ * AC-9: Settings UI Agents section renders agent list (ItemList/Row, not a table)
+ * AC-10: REMOVED — inline edit via Edit button replaced by SplitView row-click.
+ *         Edit behavior now tested in AV2-SettingsAgents.test.tsx.
  * AC-11: Settings UI add form creates agent with template pre-fill
  * AC-12: Settings UI delete with two-click confirmation
  *
- * These tests FAIL until:
- *  - packages/web/src/settings/SettingsAgents.tsx is created
- *  - The component fetches from GET /api/agents
- *  - The component handles loading, error, empty, and populated states
- *  - Inline edit/add/delete behaviors are implemented
+ * AV2 changes vs original X3:
+ *  - Table layout removed → ItemList + Row (no role="table", no column headers)
+ *  - Edit button removed → clicking a row opens SplitView destination (AgentEditor)
+ *  - Role field changed from <select> to RoleCombobox (custom combobox, not a native select)
+ *  - Delete button has aria-label="Delete <agentName>" — match by label not by text content
  *
  * @lore X3: SettingsAgents follows the SettingsOrgChart pattern — fetch on
- * mount, table display, inline expand for editing. No useSettings hook —
+ * mount, list display, SplitView expand for editing. No useSettings hook —
  * uses its own GET /api/agents fetch.
  */
 
@@ -33,7 +34,8 @@ const MOCK_AGENTS = [
 		role: "product_manager",
 		systemPrompt: "# PM\n\nYou are the product manager.",
 		harnessType: "claude-code",
-		modelTierPreference: "workhorse",
+		modelId: null,
+		modelProvider: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -44,7 +46,8 @@ const MOCK_AGENTS = [
 		role: "builder",
 		systemPrompt: null,
 		harnessType: null,
-		modelTierPreference: null,
+		modelId: null,
+		modelProvider: null,
 		maxConcurrentSessions: 2,
 		status: "active",
 		activeSessions: 1,
@@ -70,10 +73,10 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-9: SettingsAgents renders agent table
+// AC-9: SettingsAgents renders agent list
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-9: SettingsAgents renders agent table", () => {
+describe("X3 AC-9: SettingsAgents renders agent list", () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			"fetch",
@@ -110,30 +113,7 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders the agents section container with data-testid", async () => {
-		render(<SettingsAgents />);
-		// The section or the component root should be locatable
-		await waitFor(() => {
-			expect(screen.getByRole("table")).toBeInTheDocument();
-		});
-	});
-
-	it("renders table headers: Name, Role, Harness, Model, Sessions, Actions", async () => {
-		// AH2: column renamed from 'Model Tier' to 'Model' (per-agent model replaces tier select)
-		render(<SettingsAgents />);
-
-		await waitFor(() => {
-			// Use queryAllByText for headers that may appear in both <th> and badge text
-			expect(screen.getAllByText(/name/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/role/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/harness/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/^model$/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/sessions/i).length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText(/actions/i).length).toBeGreaterThanOrEqual(1);
-		});
-	});
-
-	it("renders seeded agent names in the table", async () => {
+	it("renders seeded agent names in the list", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
@@ -142,12 +122,13 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		});
 	});
 
-	it("renders role badges for each agent", async () => {
+	it("renders role text for each agent", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			expect(screen.getByText("product_manager")).toBeInTheDocument();
-			expect(screen.getByText("builder")).toBeInTheDocument();
+			// AV2: role appears as subtitle + Tag cell — getAllByText handles multiple matches
+			expect(screen.getAllByText("product_manager").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getAllByText("builder").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -172,14 +153,13 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 		});
 	});
 
-	it("renders Edit and Delete buttons for each agent", async () => {
+	it("renders a Delete button for each agent", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			const editButtons = screen.getAllByRole("button", { name: /edit/i });
-			expect(editButtons.length).toBeGreaterThanOrEqual(MOCK_AGENTS.length);
-			const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-			expect(deleteButtons.length).toBeGreaterThanOrEqual(MOCK_AGENTS.length);
+			// AV2: Delete button has aria-label="Delete <agentName>"
+			expect(screen.getByRole("button", { name: /delete acme pm/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /delete builder bot/i })).toBeInTheDocument();
 		});
 	});
 
@@ -230,150 +210,10 @@ describe("X3 AC-9: SettingsAgents renders agent table", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-10: Settings UI edit form opens inline and saves
+// AC-10: Removed — inline edit via Edit button is gone in AV2.
+// AV2: clicking a Row opens the AgentEditor in the SplitView destination pane.
+// Edit behavior now tested in AV2-SettingsAgents.test.tsx.
 // ---------------------------------------------------------------------------
-
-describe("X3 AC-10: Settings UI edit form opens inline and saves", () => {
-	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-				// AH2: mock /api/harnesses
-				if (url.includes("/api/harnesses")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => [
-							{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
-						],
-					});
-				}
-				if (url.includes("/api/agents") && !url.includes("/templates")) {
-					if (!opts?.method || opts.method === "GET") {
-						return Promise.resolve({
-							ok: true,
-							status: 200,
-							json: async () => MOCK_AGENTS,
-						});
-					}
-					if (opts?.method === "PATCH") {
-						const body = JSON.parse(opts.body as string) as Record<string, unknown>;
-						return Promise.resolve({
-							ok: true,
-							status: 200,
-							json: async () => ({
-								...MOCK_AGENTS[0],
-								...body,
-							}),
-						});
-					}
-				}
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}),
-		);
-		mockShowToast.mockClear();
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("clicking Edit opens inline edit form below the row", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const editButtons = screen.getAllByRole("button", { name: /edit/i });
-		await user.click(editButtons[0] as HTMLElement);
-
-		// Edit form should appear with form fields
-		await waitFor(() => {
-			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-		});
-	});
-
-	it("edit form is pre-filled with agent's current values", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const editButtons = screen.getAllByRole("button", { name: /edit/i });
-		await user.click(editButtons[0] as HTMLElement);
-
-		await waitFor(() => {
-			const nameInput = screen.getByLabelText(/name/i) as HTMLInputElement;
-			expect(nameInput.value).toBe("Acme PM");
-		});
-	});
-
-	it("Save button calls PATCH /api/agents/:id with updated values", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const editButtons = screen.getAllByRole("button", { name: /edit/i });
-		await user.click(editButtons[0] as HTMLElement);
-
-		await waitFor(() => screen.getByLabelText(/name/i));
-		const nameInput = screen.getByLabelText(/name/i);
-		await user.clear(nameInput);
-		await user.type(nameInput, "Updated PM Name");
-
-		const saveButton = screen.getByRole("button", { name: /save/i });
-		await user.click(saveButton);
-
-		await waitFor(() => {
-			const fetchMock = vi.mocked(fetch);
-			const patchCall = fetchMock.mock.calls.find(
-				([url, opts]) =>
-					typeof url === "string" &&
-					url.includes("/api/agents/agent-pm-1") &&
-					(opts as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-		});
-	});
-
-	it("shows toast 'Agent saved' on successful save", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const editButtons = screen.getAllByRole("button", { name: /edit/i });
-		await user.click(editButtons[0] as HTMLElement);
-
-		await waitFor(() => screen.getByLabelText(/name/i));
-		const saveButton = screen.getByRole("button", { name: /save/i });
-		await user.click(saveButton);
-
-		await waitFor(() => {
-			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/agent saved/i));
-		});
-	});
-
-	it("Cancel button closes the edit form without saving", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const editButtons = screen.getAllByRole("button", { name: /edit/i });
-		await user.click(editButtons[0] as HTMLElement);
-
-		await waitFor(() => screen.getByRole("button", { name: /cancel/i }));
-		const cancelButton = screen.getByRole("button", { name: /cancel/i });
-		await user.click(cancelButton);
-
-		// Edit form should be gone
-		await waitFor(() => {
-			expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
-		});
-	});
-});
 
 // ---------------------------------------------------------------------------
 // AC-11: Settings UI add form creates agent with template pre-fill
@@ -452,43 +292,6 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 
 		await waitFor(() => {
 			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-		});
-	});
-
-	it("add form has a role select defaulting to 'builder'", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const addButton = screen.getByRole("button", { name: /add agent/i });
-		await user.click(addButton);
-
-		await waitFor(() => {
-			const roleSelect = screen.getByRole("combobox", { name: /role/i }) as HTMLSelectElement;
-			expect(roleSelect.value).toBe("builder");
-		});
-	});
-
-	it("changing role to product_manager pre-fills system prompt textarea with template", async () => {
-		const user = userEvent.setup();
-		render(<SettingsAgents />);
-
-		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
-
-		const addButton = screen.getByRole("button", { name: /add agent/i });
-		await user.click(addButton);
-
-		await waitFor(() => screen.getByRole("combobox", { name: /role/i }));
-		const roleSelect = screen.getByRole("combobox", { name: /role/i });
-		await user.selectOptions(roleSelect, "product_manager");
-
-		// Should fetch the template and pre-fill the textarea
-		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", {
-				name: /system prompt/i,
-			}) as HTMLTextAreaElement;
-			expect(textarea.value).toContain("Product Manager");
 		});
 	});
 
@@ -586,17 +389,35 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("first click changes Delete button text to 'Confirm?'", async () => {
+	/**
+	 * Find the Confirm? action button (not the Row div which also has role="button"
+	 * and includes "Confirm?" in its accessible name due to text content).
+	 * The action button is a <button> element (not a div with role="button").
+	 *
+	 * @lore X3 AV2: Row uses div[role=button] for clickable rows with nested actions.
+	 * The Row div's accessible name includes all its text content (including "Confirm?"),
+	 * so getAllByRole("button", { name: /confirm\?/i }) returns both the Row div AND
+	 * the actual Confirm button. We filter by tagName to get only the <button> element.
+	 */
+	function getConfirmButton(): HTMLElement {
+		const candidates = screen.getAllByRole("button", { name: /confirm\?/i });
+		const btn = candidates.find((el) => el.tagName.toLowerCase() === "button");
+		if (!btn) throw new Error("Confirm? <button> element not found");
+		return btn;
+	}
+
+	it("first click changes Delete button to 'Confirm?'", async () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-		await user.click(deleteButtons[0] as HTMLElement);
+		// AV2: Delete button has aria-label="Delete <agentName>" — use that for precise targeting
+		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
+		await user.click(deleteButton);
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /confirm\?/i })).toBeInTheDocument();
+			expect(getConfirmButton()).toBeInTheDocument();
 		});
 	});
 
@@ -606,12 +427,12 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-		await user.click(deleteButtons[0] as HTMLElement);
+		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
+		await user.click(deleteButton);
 
 		// Click "Confirm?" immediately
-		await waitFor(() => screen.getByRole("button", { name: /confirm\?/i }));
-		const confirmButton = screen.getByRole("button", { name: /confirm\?/i });
+		await waitFor(() => getConfirmButton());
+		const confirmButton = getConfirmButton();
 		await user.click(confirmButton);
 
 		await waitFor(() => {
@@ -632,11 +453,11 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-		await user.click(deleteButtons[0] as HTMLElement);
+		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
+		await user.click(deleteButton);
 
-		await waitFor(() => screen.getByRole("button", { name: /confirm\?/i }));
-		await user.click(screen.getByRole("button", { name: /confirm\?/i }));
+		await waitFor(() => getConfirmButton());
+		await user.click(getConfirmButton());
 
 		await waitFor(() => {
 			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/agent deleted/i));
@@ -650,17 +471,19 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-		await user.click(deleteButtons[0] as HTMLElement);
+		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
+		await user.click(deleteButton);
 
-		await waitFor(() => screen.getByRole("button", { name: /confirm\?/i }));
+		await waitFor(() => getConfirmButton());
 
 		// Advance time past the 3-second timeout
 		vi.advanceTimersByTime(3100);
 
 		await waitFor(() => {
-			// Should revert to "Delete" — "Confirm?" should be gone
-			expect(screen.queryByRole("button", { name: /confirm\?/i })).not.toBeInTheDocument();
+			// Should revert to "Delete" — "Confirm?" <button> should be gone
+			const candidates = screen.queryAllByRole("button", { name: /confirm\?/i });
+			const confirmBtn = candidates.find((el) => el.tagName.toLowerCase() === "button");
+			expect(confirmBtn).toBeUndefined();
 		});
 
 		vi.useRealTimers();

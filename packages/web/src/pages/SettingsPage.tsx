@@ -13,15 +13,12 @@
 
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
-import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
-import { SettingsAssistant } from "../settings/SettingsAssistant.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
 import { SettingsConnections } from "../settings/SettingsConnections.js";
 import { SettingsFilesystems } from "../settings/SettingsFilesystems.js";
 import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
-import { SettingsModels } from "../settings/SettingsModels.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
@@ -37,8 +34,6 @@ function SectionTitle({ children }: { children: string }): JSX.Element {
 }
 
 export function SettingsPage(): JSX.Element {
-	const { user } = useCurrentUser();
-
 	return (
 		<div data-testid="settings-page" className="flex flex-col h-full">
 			{/* Settings header */}
@@ -75,17 +70,9 @@ export function SettingsPage(): JSX.Element {
 						<SettingsOrgChart />
 					</section>
 
-					{/* X4: Models section */}
-					<section
-						id="settings-section-models"
-						data-testid="settings-section-models"
-						className="flex flex-col gap-[18px]"
-					>
-						<SectionTitle>Models</SectionTitle>
-						<SettingsModels />
-					</section>
+					{/* AV2: Models section removed — model tiers moved into builtin harness detail in SettingsHarnesses */}
 
-					{/* AF15 AC-1: Agents section — after Models, before Assistant (design spec) */}
+					{/* AV2: Agents section (was after Models) */}
 					<section
 						id="settings-section-agents"
 						data-testid="settings-section-agents"
@@ -126,17 +113,7 @@ export function SettingsPage(): JSX.Element {
 						<SettingsConnections />
 					</section>
 
-					{/* AD8b AC-2: Assistant section — system prompt editor, between Agents and Appearance */}
-					{user && (
-						<section
-							id="settings-section-assistant"
-							data-testid="settings-section-assistant"
-							className="flex flex-col gap-[18px]"
-						>
-							<SectionTitle>Assistant</SectionTitle>
-							<SettingsAssistant userId={user.id} />
-						</section>
-					)}
+					{/* AV2: Assistant section removed — assistant is now a row in Agents (SettingsAssistant deleted). */}
 
 					{/* W3 AC-47: Appearance section */}
 					<section
@@ -168,17 +145,7 @@ export function SettingsPage(): JSX.Element {
 						<SettingsNotifications />
 					</section>
 
-					{/* AF15 AC-1: Worker section — before Backend (design spec) */}
-					<section
-						id="settings-section-worker"
-						data-testid="settings-section-worker"
-						className="flex flex-col gap-[18px]"
-					>
-						<SectionTitle>Worker</SectionTitle>
-						<SettingsWorker />
-					</section>
-
-					{/* W3 AC-47 / AC-51: Backend section */}
+					{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates). */}
 					<section
 						id="settings-section-backend"
 						data-testid="settings-section-backend"
@@ -186,6 +153,8 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Backend</SectionTitle>
 						<SettingsBackend />
+						{/* AV2 sub-area (d): Worker folded under Backend. SettingsWorker self-gates to shared-mode Electron. */}
+						<SettingsWorker />
 					</section>
 				</div>
 			</div>

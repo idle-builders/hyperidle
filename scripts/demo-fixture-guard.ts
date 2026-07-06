@@ -103,6 +103,7 @@ const EXCLUDED_DIRS: string[] = [
 	".next",
 	".pipeline",
 	"plans",
+	".worktrees",
 	"packages/desktop/out",
 	"packages/desktop/dist",
 	"packages/design-system/dist",

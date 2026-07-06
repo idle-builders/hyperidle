@@ -4,5 +4,6 @@
 	"packages/server/src/harness/__tests__/AM2-real-harness-session-probe.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"packages/server/src/harness/__tests__/AN2-connection-provisioning.integration.test.ts",
-	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts"
+	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts",
+	"packages/server/src/harness/__tests__/AV2-opencode-models.integration.test.ts"
 ]
