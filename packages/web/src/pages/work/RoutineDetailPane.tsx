@@ -646,7 +646,7 @@ function BudgetSection({
 						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
 						htmlFor="routine-cost-cap-per-run"
 					>
-						Cost cap per run (USD)
+						Cost cap per run
 					</label>
 					<input
 						id="routine-cost-cap-per-run"
@@ -668,7 +668,7 @@ function BudgetSection({
 						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
 						htmlFor="routine-cost-cap-monthly"
 					>
-						Monthly cap (USD)
+						Monthly cap
 					</label>
 					<input
 						id="routine-cost-cap-monthly"
