@@ -436,3 +436,127 @@ describe("setup submit ordering — key write before nav", () => {
 		expect(capturedTeamsBody?.["primaryHarness"]).toBeUndefined();
 	});
 });
+
+// ── W1: isCode client-side decision — code vs doc_set based on inspect-path result ──
+
+describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("__HYPERIDLE__", undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/**
+	 * Build a fetch mock that:
+	 * - GET /api/harnesses → single builtin descriptor
+	 * - POST /api/filesystems/inspect-path → the provided inspect result
+	 * - POST /api/users, POST /api/teams, PUT /api/credentials → success stubs
+	 * - POST /api/filesystems → success + captures the request body
+	 */
+	function setupFetchMockWithInspect(
+		inspectResult: { exists: boolean; isGitRepo: boolean; branch: string | null },
+		captureRef: { body: Record<string, unknown> | null },
+	): void {
+		global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+			const method = (options?.method ?? "GET").toUpperCase();
+
+			if (method === "GET" && url.includes("/api/harnesses")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => [BUILTIN_DESCRIPTOR],
+				});
+			}
+
+			if (method === "POST" && url.includes("/api/filesystems/inspect-path")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => inspectResult,
+				});
+			}
+
+			if (method === "POST" && url.includes("/api/filesystems")) {
+				try {
+					captureRef.body = JSON.parse(options?.body as string) as Record<string, unknown>;
+				} catch {
+					// ignore
+				}
+				return Promise.resolve({
+					ok: true,
+					status: 201,
+					json: async () => ({ id: "fs-1" }),
+				});
+			}
+
+			// Default stub for users, teams, credentials
+			return Promise.resolve({
+				ok: true,
+				status: 201,
+				json: async () => ({
+					user: { id: "u-1", name: "Alice" },
+					team: { id: "team-1", name: "My Team", phase: "build" },
+					teamMembers: { id: "tm-1" },
+				}),
+			});
+		}) as typeof fetch;
+	}
+
+	it("git repo with resolvable branch → POST /api/filesystems body has kind:'code' with branch", async () => {
+		const user = userEvent.setup();
+		const captureRef: { body: Record<string, unknown> | null } = { body: null };
+
+		setupFetchMockWithInspect({ exists: true, isGitRepo: true, branch: "main" }, captureRef);
+
+		renderSetupFlow();
+
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
+		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
+
+		// Type a folder path — SetupFlow re-inspects on submit if folderInfo is null/stale
+		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/myrepo");
+
+		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("work-page")).toBeInTheDocument();
+		});
+
+		// Assert: client used kind:"code" (branch was resolvable)
+		expect(captureRef.body).not.toBeNull();
+		expect(captureRef.body?.["kind"]).toBe("code");
+		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
+		expect(ref?.["branch"]).toBe("main");
+		expect(captureRef.body?.["writeback"]).toBe("none");
+	});
+
+	it("git repo with no resolvable branch (null) → POST /api/filesystems body has kind:'doc_set', not 400", async () => {
+		const user = userEvent.setup();
+		const captureRef: { body: Record<string, unknown> | null } = { body: null };
+
+		// Empty-branch case: isGitRepo=true but branch=null (no commits yet)
+		setupFetchMockWithInspect({ exists: true, isGitRepo: true, branch: null }, captureRef);
+
+		renderSetupFlow();
+
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
+		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
+
+		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/empty-repo");
+
+		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("work-page")).toBeInTheDocument();
+		});
+
+		// Assert: client degraded to kind:"doc_set" (no branch → no 400)
+		expect(captureRef.body).not.toBeNull();
+		expect(captureRef.body?.["kind"]).toBe("doc_set");
+		// Must NOT have sent kind:"code" with an empty branch (that would 400)
+		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
+		expect(ref?.["branch"]).toBeUndefined();
+		expect(captureRef.body?.["writeback"]).toBe("none");
+	});
+});

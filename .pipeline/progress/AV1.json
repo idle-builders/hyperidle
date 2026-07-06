@@ -1,7 +1,8 @@
 {
   "id": "AV1",
   "status": "in_progress",
-  "currentStep": "build",
+  "currentStep": "review-fixes",
+  "prNumber": 405,
   "track": "AV",
   "complexity": "L",
   "branch": "feature/AV1-onboarding-configures-machine",

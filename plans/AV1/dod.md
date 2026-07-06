@@ -56,9 +56,9 @@ wins; team default used when no explicit; `undefined` when both unset).
   fs). This is the empty-branch fix.
 Backed by unit `inspect-local-path.test.ts` (`createFakeGitRunner`: git output →
 branch; empty/`"HEAD"`/failure → `branch:null`; non-git → `isGitRepo:false`) +
-`inspect-local-path.integration.test.ts` (real git incl. no-commit repo) + extended
-`git-export-runner` coverage for `currentBranch()` (committed → branch string;
-no-commit → `null`).
+`inspect-local-path.integration.test.ts` (real git incl. no-commit repo) +
+`git-export-runner.integration.test.ts` direct coverage for `currentBranch()`
+(committed → branch string; no-commit → `null`).
 
 **Static (writeback default):** onboarding register calls pass the literal
 `writeback:"none"`; `WRITEBACK_MODES[0]` is `"git"` (must NOT be used). Verified by
