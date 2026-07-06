@@ -137,6 +137,7 @@
 	"packages/server/src/__tests__/AO1-filesystem-reachability.test.ts",
 	"packages/server/src/__tests__/AO1-filesystems.integration.test.ts",
 	"packages/server/src/__tests__/AO1-reachability-lane-b.integration.test.ts",
+	"packages/server/src/__tests__/AV1-assistant-ready.integration.test.ts",
 	"packages/server/src/__tests__/L17-money-wire.integration.test.ts",
 	"packages/server/src/__tests__/M3-auth-middleware.integration.test.ts",
 	"packages/server/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts",

@@ -88,7 +88,7 @@ function rosterPreviewLabel(functions: readonly string[]): string {
  * @lore AV1 Decision 4: greyed rows render but are NOT choosable; the greyed
  * affordance IS the actionable element (install hint), not a dead radio.
  */
-function isChooosable(d: HarnessCapabilityDescriptor): boolean {
+function isChoosable(d: HarnessCapabilityDescriptor): boolean {
 	if (d.type === "builtin") return true;
 	return d.discovery.state === "ready";
 }
@@ -498,7 +498,7 @@ export function SetupFlow(): JSX.Element {
 								descriptors
 									.filter((d) => d.type !== "builtin")
 									.map((d) => {
-										const choosable = isChooosable(d);
+										const choosable = isChoosable(d);
 										const isSelected = selectedHarnessType === d.type;
 										return (
 											<div key={d.type}>
