@@ -40,15 +40,16 @@ describe("AM2 real harness discovery", () => {
 		});
 	});
 
-	// cursor-agent is inert / not spawnable (no documented headless local CLI surface).
-	// This is an UNCONDITIONAL assertion that discovery reports it unavailable — not an
-	// availability gate. (AR1: the prior skipIf(cursorInstalled) skip-when-PRESENT form
-	// is removed; cursor's absence-from-discovery is asserted directly.)
-	test("cursor-agent is unavailable (no documented headless local CLI surface)", async () => {
+	// cursor-agent is inert / not spawnable. D1 (POLISH-060) reworded the discovery
+	// reason to a user-facing "not yet supported" note (settings shows no auth CTA);
+	// the UNCONDITIONAL guarantee asserted here is that discovery still reports it
+	// unavailable — not an availability gate. (AR1: the prior skipIf(cursorInstalled)
+	// skip-when-PRESENT form is removed; cursor's absence-from-discovery is asserted directly.)
+	test("cursor-agent is unavailable (not yet supported — no drivable CLI surface)", async () => {
 		const result = await discoverLocalHarnesses();
 
 		expect(result["cursor-agent"].state).toBe("unavailable");
-		expect(result["cursor-agent"].reason).toMatch(/no documented headless local CLI surface/i);
+		expect(result["cursor-agent"].reason).toMatch(/not yet supported/i);
 	});
 
 	describe("builtin", () => {
