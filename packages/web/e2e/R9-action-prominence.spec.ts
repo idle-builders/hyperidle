@@ -633,8 +633,8 @@ test.describe("R9 — Setup page", () => {
 		});
 	});
 
-	// setup-happy-path: fill name + API key + click Start → navigates to /work
-	test("setup-happy-path: complete setup navigates to /work", async ({ page }) => {
+	// setup-happy-path: fill name + API key + click Start → navigates to /work/portfolio
+	test("setup-happy-path: complete setup navigates to /work/portfolio", async ({ page }) => {
 		await page.route("**/api/users", async (route) => {
 			if (route.request().method() === "POST") {
 				await route.fulfill({
@@ -685,12 +685,12 @@ test.describe("R9 — Setup page", () => {
 		});
 
 		await page.goto("/setup");
-		await page.getByLabel(/your name/i).fill("R9 Founder");
+		await page.getByLabel(/^name/i).fill("R9 Founder");
 		await page.getByLabel(/anthropic api key/i).fill("sk-ant-r9-test");
 
 		await page.getByRole("button", { name: /start hyperidle/i }).click();
 
-		await expect(page).toHaveURL(/\/work(?:\?onboarding=true)?$/, { timeout: 10_000 });
+		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
 	});
 
 	// setup-empty-name: leave name empty, Start button is disabled
@@ -716,7 +716,7 @@ test.describe("R9 — Setup page", () => {
 		});
 
 		await page.goto("/setup");
-		await page.getByLabel(/your name/i).fill("R9 Founder");
+		await page.getByLabel(/^name/i).fill("R9 Founder");
 		await page.getByLabel(/anthropic api key/i).fill("invalid-key-format");
 
 		await page.getByRole("button", { name: /start hyperidle/i }).click();

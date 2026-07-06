@@ -86,7 +86,7 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — renders name and API key fields as required fields", async ({ page }) => {
 			await page.goto("/setup");
 
-			await expect(page.getByLabel(/your name/i)).toBeVisible();
+			await expect(page.getByLabel(/^name/i)).toBeVisible();
 			await expect(page.getByLabel(/anthropic api key/i)).toBeVisible();
 		});
 
@@ -125,7 +125,7 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — Start button disabled when name filled but no API key", async ({ page }) => {
 			await page.goto("/setup");
 
-			await page.getByLabel(/your name/i).fill("Alice");
+			await page.getByLabel(/^name/i).fill("Alice");
 
 			await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeDisabled();
 		});
@@ -134,14 +134,14 @@ test.describe("R2 — Work-First Landing", () => {
 		test("AC1 — Start button enabled when name and API key are filled", async ({ page }) => {
 			await page.goto("/setup");
 
-			await page.getByLabel(/your name/i).fill("Alice");
+			await page.getByLabel(/^name/i).fill("Alice");
 			await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 			await expect(page.getByRole("button", { name: /start hyperidle/i })).toBeEnabled();
 		});
 
-		// AC-5: After setup, navigates to /work.
-		test("AC5 — navigates to /work after successful setup", async ({ page }) => {
+		// AC-5: After setup, navigates to /work/portfolio
+		test("AC5 — navigates to /work/portfolio after successful setup", async ({ page }) => {
 			// After setup, mock auth/me to return user + products to exist
 			await page.route("**/api/auth/me", async (route) => {
 				await route.fulfill({
@@ -174,13 +174,13 @@ test.describe("R2 — Work-First Landing", () => {
 
 			await page.goto("/setup");
 
-			await page.getByLabel(/your name/i).fill("Alice R2");
+			await page.getByLabel(/^name/i).fill("Alice R2");
 			await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 			await page.getByRole("button", { name: /start hyperidle/i }).click();
 
-			// Must land on Work, not conversations.
-			await expect(page).toHaveURL(/\/work(?:\?onboarding=true)?$/, { timeout: 10_000 });
+			// Must land on /work/portfolio, not /conversations
+			await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
 		});
 	});
 
@@ -309,12 +309,12 @@ test.describe("R2 — Work-First Landing", () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// FirstRunRedirect to /work
+	// FirstRunRedirect to /work/portfolio
 	// ─────────────────────────────────────────────────────────────────────────
 
-	test.describe("FirstRunRedirect — /work (R2 AC5)", () => {
-		// AC-5: existing user with products → /work
-		test("AC5 — redirects to /work (not /conversations) when setup is complete", async ({
+	test.describe("FirstRunRedirect — /work/portfolio (R2 AC5)", () => {
+		// AC-5: existing user with products → /work/portfolio
+		test("AC5 — redirects to /work/portfolio (not /conversations) when setup is complete", async ({
 			page,
 		}) => {
 			// User exists + products exist
@@ -348,8 +348,8 @@ test.describe("R2 — Work-First Landing", () => {
 
 			await page.goto("/");
 
-			// Must land on Work, not conversations.
-			await expect(page).toHaveURL(/\/work$/, { timeout: 10_000 });
+			// Must land on /work/portfolio, not /conversations
+			await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
 		});
 	});
 });
