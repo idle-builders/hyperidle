@@ -57,7 +57,7 @@ import {
  * (TipTap fires onChange with initial content on mount).
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
-import { isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
+import { absoluteDateTime, isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
@@ -1008,7 +1008,9 @@ function KnowledgeDetailView({
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Last edited</span>
-								<span className="text-[var(--text-primary)] font-[500]">{item.timestamp}</span>
+								<span className="text-[var(--text-primary)] font-[500]">
+									{absoluteDateTime(item.timestamp)}
+								</span>
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
 								<span className="text-[var(--text-tertiary)]">Editor</span>

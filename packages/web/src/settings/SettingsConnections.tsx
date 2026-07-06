@@ -323,8 +323,11 @@ function SourceGroup({
 	connections,
 	autoDetected = false,
 	onRemove,
-}: SourceGroupProps): JSX.Element {
+}: SourceGroupProps): JSX.Element | null {
 	const sorted = [...connections].sort(bySeverity);
+	// D8 (POLISH-060): hide fully-empty groups — no bare grey box for groups with
+	// zero connections. The group header adds no value without any rows beneath it.
+	if (sorted.length === 0) return null;
 	return (
 		<section className="flex flex-col gap-[9px]">
 			<div className="flex flex-col gap-[3px]">
@@ -340,7 +343,7 @@ function SourceGroup({
 				/>
 				<p className="text-[12px] text-[var(--text-tertiary)]">{help}</p>
 			</div>
-			<ItemList variant="contained" isEmpty={sorted.length === 0}>
+			<ItemList variant="flush" isEmpty={false}>
 				{sorted.map((c) => (
 					<ConnectionRow key={c.id} connection={c} onRemove={onRemove} />
 				))}

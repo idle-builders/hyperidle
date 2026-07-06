@@ -194,6 +194,16 @@ export function SettingsOrgChart(): JSX.Element {
 	// Resolve display name for a user id
 	const userName = (id: string): string => users.find((u) => u.id === id)?.name ?? id;
 
+	// D4 (POLISH-060): resolve edge target to a human-readable label.
+	// For "team" mechanism, target is a team-<uuid> — look it up in data.teams.
+	// For other mechanisms (direct/function), target is a user id or free text — use as-is.
+	const targetLabel = (edge: OrgEdge): string => {
+		if (edge.mechanism === "team") {
+			return teams.find((t) => t.id === edge.target)?.name ?? edge.target;
+		}
+		return edge.target;
+	};
+
 	// Solo: show hint + form (mechanism defaults to "function")
 	const soloHint = isSolo ? (
 		<p className="text-[13px] text-[var(--text-secondary)]">
@@ -215,7 +225,7 @@ export function SettingsOrgChart(): JSX.Element {
 				<EmptyState
 					compact
 					title="No edges yet"
-					description="Add a reporting line, function, or team relationship to define your org chart."
+					description="Teams don't auto-create org edges. Add a reporting line, function, or team relationship to define your chart."
 				/>
 			) : (
 				<ItemList variant="flush" isEmpty={false}>
@@ -223,7 +233,7 @@ export function SettingsOrgChart(): JSX.Element {
 						<Row
 							key={edge.id}
 							title={userName(edge.fromUserId)}
-							subtitle={edge.target}
+							subtitle={targetLabel(edge)}
 							cells={[{ content: edge.mechanism }]}
 							actions={
 								<Button
