@@ -44,7 +44,7 @@ import {
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
-import { SCHEDULE_PRESETS, absoluteDate, absoluteDateTime, formatMoney } from "@hyperidle/shared";
+import { absoluteDate, absoluteDateTime, formatMoney, SCHEDULE_PRESETS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";
@@ -159,7 +159,8 @@ function RoutineDetailPaneLoaded({
 		}
 	})();
 	const isStoredCronPreset = SCHEDULE_PRESETS.some((p) => p.cron === storedCron);
-	const initialScheduleValue = storedCron && !isStoredCronPreset ? "custom" : (storedCron || SCHEDULE_PRESETS[0].cron);
+	const initialScheduleValue =
+		storedCron && !isStoredCronPreset ? "custom" : storedCron || SCHEDULE_PRESETS[0].cron;
 	const initialCustomCron = storedCron && !isStoredCronPreset ? storedCron : "";
 
 	// Editable form state
@@ -235,7 +236,18 @@ function RoutineDetailPaneLoaded({
 		} finally {
 			setSaving(false);
 		}
-	}, [name, description, autonomyLevel, resolvedCron, costCapPerRunRaw, costCapMonthlyRaw, silent, routineId, refetch, showToast]);
+	}, [
+		name,
+		description,
+		autonomyLevel,
+		resolvedCron,
+		costCapPerRunRaw,
+		costCapMonthlyRaw,
+		silent,
+		routineId,
+		refetch,
+		showToast,
+	]);
 
 	async function handleTogglePause(): Promise<void> {
 		if (actionPending) return;

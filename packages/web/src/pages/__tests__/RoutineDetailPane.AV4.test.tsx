@@ -279,7 +279,8 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 
 		const scheduleSelect = await waitFor(() => screen.getByRole("combobox", { name: /schedule/i }));
 		// Pick "Every hour" preset (cron: "0 * * * *")
-		const everyHourCron = SCHEDULE_PRESETS.find((p) => p.label === "Every hour")?.cron ?? "0 * * * *";
+		const everyHourCron =
+			SCHEDULE_PRESETS.find((p) => p.label === "Every hour")?.cron ?? "0 * * * *";
 		await user.selectOptions(scheduleSelect, everyHourCron);
 
 		const saveBtn = screen.getByRole("button", { name: /save/i });
