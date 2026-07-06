@@ -174,7 +174,7 @@ function mockApiFetch(
 // AC-2: Save routing — ast-* agent uses assistant route
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: AgentEditor save routing", () => {
+describe("AgentEditor save routing", () => {
 	beforeEach(() => {
 		mockShowToast.mockClear();
 		mockApiFetch();
@@ -230,7 +230,7 @@ describe("AV2 AC-2: AgentEditor save routing", () => {
 // AC-2: Model dropdown options = descriptor.models, never MODEL_CATALOG
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: Model dropdown uses discovered descriptor.models", () => {
+describe("Model dropdown uses discovered descriptor.models", () => {
 	beforeEach(() => {
 		mockApiFetch();
 	});
@@ -291,7 +291,7 @@ describe("AV2 AC-2: Model dropdown uses discovered descriptor.models", () => {
 // AC-2: Anti-422 save payload guard
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: Save payload anti-422 guard (modelProvider reconcile)", () => {
+describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 	beforeEach(() => {
 		mockApiFetch();
 	});
@@ -357,7 +357,7 @@ describe("AV2 AC-2: Save payload anti-422 guard (modelProvider reconcile)", () =
 // AC-2: SplitView ratio persistence (onRatioChange required)
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: SplitView ratio persistence", () => {
+describe("SplitView ratio persistence", () => {
 	it("useUiPreference hook is importable (persistence infra available)", async () => {
 		// Calling a React hook directly in a test body violates the Rules of Hooks
 		// (they must be called inside a function component body). We verify the module
@@ -372,7 +372,7 @@ describe("AV2 AC-2: SplitView ratio persistence", () => {
 // AC-3: Role template fetched on edit-open
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-3: Role template fetched when editing an existing agent", () => {
+describe("Role template fetched when editing an existing agent", () => {
 	beforeEach(() => {
 		mockShowToast.mockClear();
 	});

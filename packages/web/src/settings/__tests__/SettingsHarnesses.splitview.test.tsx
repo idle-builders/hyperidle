@@ -207,7 +207,7 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-4: SettingsHarnesses SplitView", () => {
+describe("SettingsHarnesses SplitView", () => {
 	it("renders harness rows using Row/ItemList pattern", async () => {
 		setupFetch();
 		render(<SettingsHarnesses />);

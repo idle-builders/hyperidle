@@ -38,7 +38,7 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 	return { ...actual, useToast: vi.fn(() => ({ showToast: mockShowToast })) };
 });
 
-describe("AV2 AC-5: SettingsProfile email hint is backend-aware", () => {
+describe("SettingsProfile email hint is backend-aware", () => {
 	beforeEach(() => {
 		setupFetch();
 		mockShowToast.mockClear();

@@ -142,7 +142,7 @@ function setupFetch(): void {
 // AC-1: Assistant row visible (no filter)
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-1: Assistant is a row in the agents list", () => {
+describe("Assistant is a row in the agents list", () => {
 	beforeEach(() => {
 		setupFetch();
 		mockShowToast.mockClear();
@@ -178,7 +178,7 @@ describe("AV2 AC-1: Assistant is a row in the agents list", () => {
 // AC-2: Model select shows discovered models (not MODEL_CATALOG)
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: Agent editor model dropdown uses discovered descriptor.models", () => {
+describe("Agent editor model dropdown uses discovered descriptor.models", () => {
 	beforeEach(() => {
 		setupFetch();
 		mockShowToast.mockClear();
@@ -208,7 +208,7 @@ describe("AV2 AC-2: Agent editor model dropdown uses discovered descriptor.model
 // AC-2: Ratio persistence — onRatioChange is wired
 // ---------------------------------------------------------------------------
 
-describe("AV2 AC-2: SplitView ratio persistence is wired via useUiPreference", () => {
+describe("SplitView ratio persistence is wired via useUiPreference", () => {
 	beforeEach(() => {
 		setupFetch();
 	});

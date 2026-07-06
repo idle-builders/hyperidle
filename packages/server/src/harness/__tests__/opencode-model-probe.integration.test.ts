@@ -26,7 +26,7 @@ import { describe, expect, test } from "vitest";
 import { probeOpenCodeCli } from "../harness-discovery.js";
 import { requireHarness } from "./require-harness.js";
 
-describe("AV2 opencode model discovery (real binary)", () => {
+describe("opencode model probe — real binary, non-empty when configured", () => {
 	test("probeOpenCodeCli with real binary yields non-empty models when configured", async () => {
 		// Hard-fail if opencode is not installed
 		requireHarness("opencode");
