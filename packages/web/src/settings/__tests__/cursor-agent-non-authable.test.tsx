@@ -77,7 +77,7 @@ function mockFetch(descriptors: any[] = CURSOR_UNAVAILABLE_DESCRIPTORS): void {
 	);
 }
 
-describe("D1 — cursor-agent is non-actionable", () => {
+describe("cursor-agent is non-actionable", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

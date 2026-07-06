@@ -27,7 +27,7 @@ function FakeRow({ label }: { label: string }) {
 
 // ── A1: De-grey empty/error/loading states ───────────────────────────────────
 
-describe("A1 — ItemList empty/error/loading states must not carry surface-container bg", () => {
+describe("ItemList empty/error/loading states must not carry surface-container bg", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -111,7 +111,7 @@ describe("A1 — ItemList empty/error/loading states must not carry surface-cont
 
 // ── A2: flush variant coverage ───────────────────────────────────────────────
 
-describe("A2 — variant=flush drops surface-container background", () => {
+describe("variant=flush drops surface-container background", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -159,7 +159,7 @@ describe("A2 — variant=flush drops surface-container background", () => {
 
 // ── A3: Button and Input responsive touch target ─────────────────────────────
 
-describe("A3 — Button keeps 44px touch target; relaxes min-height at desktop breakpoint", () => {
+describe("Button keeps 44px touch target; relaxes min-height at desktop breakpoint", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 
@@ -213,7 +213,7 @@ describe("A3 — Button keeps 44px touch target; relaxes min-height at desktop b
 	});
 });
 
-describe("A3 — Input keeps touch target; relaxed min-height at desktop", () => {
+describe("Input keeps touch target; relaxed min-height at desktop", () => {
 	let container: HTMLDivElement;
 	let root: Root;
 

@@ -32,7 +32,7 @@ const INHERITED_GITHUB = {
 	removable: false,
 };
 
-describe("D8 — SettingsConnections empty groups are hidden", () => {
+describe("SettingsConnections empty groups are hidden", () => {
 	let apiFetch: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {

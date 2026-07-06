@@ -31,7 +31,7 @@ function makeOrgResponse(users: OrgUser[], edges: unknown[] = [], teams: OrgTeam
 	return new Response(JSON.stringify({ edges, users, teams }), { status: 200 });
 }
 
-describe("D4 — OrgChart team edge renders team name not raw id", () => {
+describe("OrgChart team edge renders team name not raw id", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {

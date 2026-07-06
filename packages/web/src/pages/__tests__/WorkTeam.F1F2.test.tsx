@@ -102,7 +102,7 @@ function makeAgentsResponse(): Response {
 // F1 — flush variant: no grey container on routines/agents/bets
 // ---------------------------------------------------------------------------
 
-describe("F1 — WorkTeam lists use flush variant (no grey container)", () => {
+describe("WorkTeam lists use flush variant (no grey container)", () => {
 	beforeEach(() => {
 		mockApiFetch.mockImplementation(() => {
 			return Promise.resolve(makeHintResponse());
@@ -162,7 +162,7 @@ describe("F1 — WorkTeam lists use flush variant (no grey container)", () => {
 // F2 — "+ New bet" button in Active Bets section
 // ---------------------------------------------------------------------------
 
-describe("F2 — Active Bets SectionLabel has a + New bet button", () => {
+describe("Active Bets SectionLabel has a + New bet button", () => {
 	beforeEach(() => {
 		mockApiFetch.mockReturnValue(Promise.resolve(makeAgentsResponse()));
 		global.fetch = vi.fn().mockResolvedValue(makeHintResponse());

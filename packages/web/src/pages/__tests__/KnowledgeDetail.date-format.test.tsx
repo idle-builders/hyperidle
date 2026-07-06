@@ -25,7 +25,7 @@ function renderKnowledge(id: string): ReturnType<typeof render> {
 	);
 }
 
-describe("E1 — KnowledgeDetail last-edited date formatting", () => {
+describe("KnowledgeDetail last-edited date formatting", () => {
 	it("renders absoluteDateTime output, not the raw timestamp string (non-parseable → em-dash)", () => {
 		// Fixture k1 has timestamp "1d ago" (not ISO) → absoluteDateTime returns TIME_PLACEHOLDER
 		renderKnowledge("k1");
