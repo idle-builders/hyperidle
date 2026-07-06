@@ -24,6 +24,7 @@ export {
 	communityForRole,
 	defaultRoster,
 	findRoleCatalogEntry,
+	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";

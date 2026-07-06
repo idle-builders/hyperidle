@@ -3,11 +3,13 @@
  *
  * AC-1: team-scoped item returns scopeName === team name (not bucket word, not UUID).
  * AC-2: scopeName present for factory/"Factory", user/name, team/name, missing→fallback.
+ * AV3 amendment: practice→role label, filesystem→composed display name.
  *
  * Uses real DB + real Hono app fixtures.
  */
 import {
 	bets,
+	filesystems,
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
@@ -215,8 +217,14 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body.scopeName).toBe("Team");
 	});
 
-	test("practice scope (no table) returns scopeName = 'Shared'", async ({ db, app }) => {
-		const id = await createKnowledgeItem(db, { scopeKind: "practice", scopeId: "any-id" });
+	test("practice scope null scopeId → 'Shared' fallback (AV3 amendment: role-label path, no id → fallback)", async ({
+		db,
+		app,
+	}) => {
+		// @lore AV3 A1: practice + null scopeId falls back to scopeKindToLabel("practice") = "Shared".
+		// Before the amendment, "practice" always returned "Shared" (no entity table). Now it resolves
+		// scopeId as a role label; null/empty scopeId still falls back to "Shared".
+		const id = await createKnowledgeItem(db, { scopeKind: "practice", scopeId: null });
 		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
@@ -248,5 +256,105 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body).toHaveProperty("scopeId");
 		expect(body).toHaveProperty("scopeName");
 		expect(body.scopeName).toBe("Factory");
+	});
+
+	// AV3 amendment A1 — practice → role label
+	test("practice item with known role scopeId returns role label (product_manager → 'Product Manager')", async ({
+		db,
+		app,
+	}) => {
+		const id = await createKnowledgeItem(db, {
+			scopeKind: "practice",
+			scopeId: "product_manager",
+		});
+		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.scopeName).toBe("Product Manager");
+	});
+
+	test("practice item with unknown role scopeId returns title-cased label (growth_hacker → 'Growth Hacker')", async ({
+		db,
+		app,
+	}) => {
+		const id = await createKnowledgeItem(db, {
+			scopeKind: "practice",
+			scopeId: "growth_hacker",
+		});
+		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.scopeName).toBe("Growth Hacker");
+	});
+
+	// AV3 amendment A2 — filesystem → composed display name
+	test("filesystem item returns repo leaf name for code kind", async ({ db, app }) => {
+		// Need a team for filesystems.teamId FK
+		const teamId = crypto.randomUUID();
+		await db.insert(teams).values({
+			id: teamId,
+			name: "FS Team",
+			phase: "active",
+			createdAt: new Date().toISOString(),
+		});
+		const fsId = crypto.randomUUID();
+		await db.insert(filesystems).values({
+			id: fsId,
+			teamId,
+			source: "github",
+			kind: "code",
+			resourceRef: JSON.stringify({ kind: "code", repo: "owner/nimmly", branch: "main" }),
+			writeback: "git",
+			state: "attached",
+			createdAt: new Date().toISOString(),
+		});
+		const id = await createKnowledgeItem(db, {
+			scopeKind: "filesystem",
+			scopeId: fsId,
+		});
+		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.scopeName).toBe("nimmly");
+	});
+
+	test("filesystem item returns folder basename for doc_set kind", async ({ db, app }) => {
+		const teamId = crypto.randomUUID();
+		await db.insert(teams).values({
+			id: teamId,
+			name: "Docs Team",
+			phase: "active",
+			createdAt: new Date().toISOString(),
+		});
+		const fsId = crypto.randomUUID();
+		await db.insert(filesystems).values({
+			id: fsId,
+			teamId,
+			source: "obsidian",
+			kind: "doc_set",
+			resourceRef: JSON.stringify({ kind: "doc_set", folder: "/home/user/vault/my-notes" }),
+			writeback: "file",
+			state: "attached",
+			createdAt: new Date().toISOString(),
+		});
+		const id = await createKnowledgeItem(db, {
+			scopeKind: "filesystem",
+			scopeId: fsId,
+		});
+		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.scopeName).toBe("my-notes");
+	});
+
+	test("filesystem item missing row → 'Filesystem'", async ({ db, app }) => {
+		const id = await createKnowledgeItem(db, {
+			scopeKind: "filesystem",
+			scopeId: "nonexistent-fs-id",
+		});
+		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.scopeName).toBe("Filesystem");
 	});
 });

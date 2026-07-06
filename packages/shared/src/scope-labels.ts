@@ -21,6 +21,7 @@
  * factory/practice/bet/task → "Shared"
  * team/product → "Team"
  * user → "Private"
+ * filesystem → "Filesystem"
  * Anything else → "Shared" (safe fallback).
  *
  * This is the single source of truth for scope bucket labels — used by
@@ -34,6 +35,7 @@
 export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "user") return "Private";
 	if (scopeKind === "team" || scopeKind === "product") return "Team";
-	// factory, practice, bet, task → Shared
+	if (scopeKind === "filesystem") return "Filesystem";
+	// factory, practice, bet, task, unknown → Shared
 	return "Shared";
 }

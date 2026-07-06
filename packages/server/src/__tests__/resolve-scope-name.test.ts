@@ -168,9 +168,19 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 		expect(result).toBe("Team");
 	});
 
-	// ── practice (no table) ──────────────────────────────────────────────────
-	it("practice → scopeKindToLabel('practice') = 'Shared' (no entity table)", async () => {
-		const result = await resolveScopeName(emptyDb(), "practice", "some-id");
+	// ── practice → role label (AV3 amendment A1) ─────────────────────────────
+	it("practice with known role scopeId → catalog label ('product_manager' → 'Product Manager')", async () => {
+		const result = await resolveScopeName(emptyDb(), "practice", "product_manager");
+		expect(result).toBe("Product Manager");
+	});
+
+	it("practice with unknown role scopeId → title-cased ('growth_hacker' → 'Growth Hacker')", async () => {
+		const result = await resolveScopeName(emptyDb(), "practice", "growth_hacker");
+		expect(result).toBe("Growth Hacker");
+	});
+
+	it("practice with empty scopeId → scopeKindToLabel('practice') = 'Shared'", async () => {
+		const result = await resolveScopeName(emptyDb(), "practice", "");
 		expect(result).toBe(scopeKindToLabel("practice"));
 		expect(result).toBe("Shared");
 	});
@@ -178,6 +188,89 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 	it("practice null scopeId → 'Shared'", async () => {
 		const result = await resolveScopeName(emptyDb(), "practice", null);
 		expect(result).toBe("Shared");
+	});
+
+	// ── filesystem (AV3 amendment A2) ────────────────────────────────────────
+	it("filesystem code kind → repo last path segment ('owner/nimmly' → 'nimmly')", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const resourceRef = JSON.stringify({ kind: "code", repo: "owner/nimmly", branch: "main" });
+		const db = makeDb(new Map([[filesystems, [{ source: "github", kind: "code", resourceRef }]]]));
+		const result = await resolveScopeName(db, "filesystem", "fs-1");
+		expect(result).toBe("nimmly");
+	});
+
+	it("filesystem code kind bare name → last segment ('my-repo' → 'my-repo')", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const resourceRef = JSON.stringify({ kind: "code", repo: "my-repo", branch: "main" });
+		const db = makeDb(new Map([[filesystems, [{ source: "local", kind: "code", resourceRef }]]]));
+		const result = await resolveScopeName(db, "filesystem", "fs-2");
+		expect(result).toBe("my-repo");
+	});
+
+	it("filesystem doc_set kind → folder basename ('/home/user/docs/my-notes' → 'my-notes')", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const resourceRef = JSON.stringify({ kind: "doc_set", folder: "/home/user/docs/my-notes" });
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "obsidian", kind: "doc_set", resourceRef }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-3");
+		expect(result).toBe("my-notes");
+	});
+
+	it("filesystem with malformed resourceRef → source label ('github' → 'GitHub')", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "github", kind: "code", resourceRef: "not-json" }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-4");
+		expect(result).toBe("GitHub");
+	});
+
+	it("filesystem source label map: gdrive → 'Google Drive'", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "gdrive", kind: "doc_set", resourceRef: "{bad}" }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-5");
+		expect(result).toBe("Google Drive");
+	});
+
+	it("filesystem source label map: obsidian → 'Obsidian'", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "obsidian", kind: "doc_set", resourceRef: "{bad}" }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-6");
+		expect(result).toBe("Obsidian");
+	});
+
+	it("filesystem source label map: local → 'Local'", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "local", kind: "code", resourceRef: "{bad}" }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-7");
+		expect(result).toBe("Local");
+	});
+
+	it("filesystem source label map: unknown source → raw source string", async () => {
+		const { filesystems } = await import("@hyperidle/db");
+		const db = makeDb(
+			new Map([[filesystems, [{ source: "dropbox", kind: "doc_set", resourceRef: "{bad}" }]]]),
+		);
+		const result = await resolveScopeName(db, "filesystem", "fs-8");
+		expect(result).toBe("dropbox");
+	});
+
+	it("filesystem missing row → scopeKindToLabel('filesystem') = 'Filesystem'", async () => {
+		const result = await resolveScopeName(emptyDb(), "filesystem", "nonexistent");
+		expect(result).toBe(scopeKindToLabel("filesystem"));
+		expect(result).toBe("Filesystem");
+	});
+
+	it("filesystem null scopeId → 'Filesystem'", async () => {
+		const result = await resolveScopeName(emptyDb(), "filesystem", null);
+		expect(result).toBe("Filesystem");
 	});
 
 	// ── missing entity never returns UUID ────────────────────────────────────

@@ -40,9 +40,9 @@ describe("Q2 AC-9: scopeToLayer mapping", () => {
 		expect(scopeToLayer("user")).toBeNull();
 	});
 
-	it("SCOPE_TO_LAYER record covers all 7 scope kinds", () => {
+	it("SCOPE_TO_LAYER record covers all 8 scope kinds (AV3: filesystem added)", () => {
 		const keys = Object.keys(SCOPE_TO_LAYER as Record<string, unknown>);
-		expect(keys).toHaveLength(7);
+		expect(keys).toHaveLength(8);
 		expect(keys).toContain("factory");
 		expect(keys).toContain("product");
 		expect(keys).toContain("practice");
@@ -50,5 +50,10 @@ describe("Q2 AC-9: scopeToLayer mapping", () => {
 		expect(keys).toContain("bet");
 		expect(keys).toContain("task");
 		expect(keys).toContain("user");
+		expect(keys).toContain("filesystem");
+	});
+
+	it("filesystem → null (not in fabric maturity flow)", () => {
+		expect(scopeToLayer("filesystem")).toBeNull();
 	});
 });

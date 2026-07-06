@@ -15,6 +15,7 @@ import {
 	communityForRole,
 	defaultRoster,
 	findRoleCatalogEntry,
+	roleLabel,
 	TEAM_FUNCTIONS,
 	type TeamFunction,
 } from "../agent-roles.js";
@@ -266,5 +267,47 @@ describe("AGENT_CATEGORIES", () => {
 		// Type-level test
 		const cat: AgentCategory = AGENT_CATEGORIES[0];
 		expect(typeof cat).toBe("string");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// roleLabel — AV3 amendment A1
+// ---------------------------------------------------------------------------
+
+describe("roleLabel", () => {
+	it("known role → catalog label (product_manager → 'Product Manager')", () => {
+		expect(roleLabel("product_manager")).toBe("Product Manager");
+	});
+
+	it("known role → catalog label (builder → 'Builder')", () => {
+		expect(roleLabel("builder")).toBe("Builder");
+	});
+
+	it("known role → catalog label (facilitator → 'Facilitator')", () => {
+		expect(roleLabel("facilitator")).toBe("Facilitator");
+	});
+
+	it("unknown underscore role → title-cased (growth_hacker → 'Growth Hacker')", () => {
+		expect(roleLabel("growth_hacker")).toBe("Growth Hacker");
+	});
+
+	it("unknown hyphen role → title-cased (data-engineer → 'Data Engineer')", () => {
+		expect(roleLabel("data-engineer")).toBe("Data Engineer");
+	});
+
+	it("unknown single-word role → title-cased (founder → 'Founder')", () => {
+		expect(roleLabel("founder")).toBe("Founder");
+	});
+
+	it("unknown mixed-separator role → title-cased (senior_product manager → 'Senior Product Manager')", () => {
+		expect(roleLabel("senior_product manager")).toBe("Senior Product Manager");
+	});
+
+	it("empty string → returns ''", () => {
+		expect(roleLabel("")).toBe("");
+	});
+
+	it("whitespace-only → returns ''", () => {
+		expect(roleLabel("   ")).toBe("");
 	});
 });

@@ -8,6 +8,6 @@
   "worktree": ".worktrees/AV3",
   "branch": "feature/AV3-knowledge-scope-name",
   "startedAt": "2026-07-06T17:41:51+02:00",
-  "notes": "Track AV found on origin/main (#401); local main was 1 commit stale.",
-  "completedAt": "2026-07-06T18:30:00+02:00"
+  "notes": "Track AV found on origin/main (#401); local main was 1 commit stale. Founder-directed amendment added practice role labels and filesystem scope resolution.",
+  "completedAt": "2026-07-07T01:29:59+02:00"
 }
