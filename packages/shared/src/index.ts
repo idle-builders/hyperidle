@@ -1,3 +1,6 @@
+// ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
+export { scopeKindToLabel } from "./scope-labels.js";
+
 // ── AK3: Bet decomposition types + constants ──
 
 // ── AB1: Agent profile wire types ──

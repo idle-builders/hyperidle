@@ -35,6 +35,8 @@ export interface KnowledgeItemData {
 	accessCount?: number;
 	/** W3 AC-41: related items with id and title */
 	relatedItems?: ReadonlyArray<{ id: string; title: string }>;
+	/** AV3: resolved human-readable scope name — response-only, never persisted */
+	scopeName?: string;
 }
 
 export function useKnowledgeItem(id: string | undefined): FetchState<KnowledgeItemData> {

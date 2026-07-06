@@ -112,6 +112,8 @@ interface DetailItem {
 	accessCount?: number;
 	/** W3 AC-40: last editor name */
 	updatedBy?: string;
+	/** AV3: resolved human-readable scope name — from server, response-only */
+	scopeName?: string;
 }
 
 /**
@@ -150,6 +152,28 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		confidence: 0.78,
 		topic: "Architecture",
 		relatedItems: ["k1"],
+	},
+	/**
+	 * AV3: team-scoped item with a resolved scopeName — exercises the scope-name
+	 * headline state (scope row + breadcrumb segment showing "Team Nimmly").
+	 * scopeName is response-only (never persisted); story fixture inlines it directly
+	 * because the story runs without a real API and the fixture path skips resolveScopeName.
+	 */
+	// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
+	"k-team-scoped": {
+		id: "k-team-scoped",
+		title: "Team Knowledge: Nimmly Onboarding Guide",
+		layer: "L1",
+		kind: "pattern",
+		status: "active",
+		timestamp: "3d ago",
+		content: "Steps for onboarding new team members to the Nimmly workspace.",
+		scope: "practice",
+		originAgent: "Onboarding Agent",
+		confidence: 0.85,
+		topic: "Onboarding",
+		scopeKind: "team",
+		scopeName: "Team Nimmly",
 	},
 	/**
 	 * AK5: archived knowledge item fixture used by the "Promote to bet" disabled test.
@@ -292,6 +316,8 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
 			structuredRelatedItems: apiItem.relatedItems,
+			// AV3 WARNING-A3: must assign on the object, not only on the interface.
+			scopeName: apiItem.scopeName,
 		};
 	} else {
 		item = fixtureItem ?? FALLBACK_DETAIL;
@@ -376,6 +402,7 @@ function KnowledgeOverflowMenu({
 	onPromoteToBet,
 	archiving,
 	itemStatus,
+	isReadOnly,
 }: {
 	overflowOpen: boolean;
 	onToggle: () => void;
@@ -386,7 +413,20 @@ function KnowledgeOverflowMenu({
 	archiving: boolean;
 	/** AK5: used to disable "Promote to bet" when item is archived. */
 	itemStatus: string;
+	/**
+	 * AV3 WARNING-D2: gate the "Change scope" item behind !isReadOnly so the
+	 * read-only state is coherent — no scope-change affordance anywhere on a
+	 * read-only/factory item. Presentation-only; no server gate added (WARNING-A4).
+	 */
+	isReadOnly: boolean;
 }): JSX.Element {
+	const changeScopeItem: MenuItem = {
+		id: "change-scope",
+		label: "Change scope",
+		onSelect: onChangeScope,
+		dataAttrs: { "data-testid": "knowledge-change-scope" },
+	};
+
 	const items: MenuItem[] = [
 		{
 			id: "archive",
@@ -403,12 +443,8 @@ function KnowledgeOverflowMenu({
 			disabled: itemStatus === "archived",
 			dataAttrs: { "data-testid": "knowledge-promote-bet" },
 		},
-		{
-			id: "change-scope",
-			label: "Change scope",
-			onSelect: onChangeScope,
-			dataAttrs: { "data-testid": "knowledge-change-scope" },
-		},
+		// AV3: only include change-scope for editable items (WARNING-D2 coherence fix).
+		...(isReadOnly ? [] : [changeScopeItem]),
 	];
 
 	return (
@@ -750,7 +786,10 @@ function KnowledgeDetailView({
 					<Breadcrumb
 						segments={[
 							{ label: "Knowledge", to: "/knowledge" },
-							...(item.scope ? [{ label: item.scope }] : []),
+							// AV3 AC-3: replace deprecated item.scope with resolved item.scopeName.
+							// When scopeName absent (fixture/legacy path), omit the segment entirely.
+							// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
+							...(item.scopeName ? [{ label: item.scopeName }] : []),
 							...(item.topic ? [{ label: item.topic }] : []),
 						]}
 						leading={
@@ -819,6 +858,7 @@ function KnowledgeDetailView({
 								onPromoteToBet={() => void handlePromoteToBet()}
 								archiving={archiving}
 								itemStatus={item.status}
+								isReadOnly={isReadOnly}
 							/>
 						)}
 					</div>
@@ -986,14 +1026,35 @@ function KnowledgeDetailView({
 								{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
 								<span className="text-[var(--text-primary)] font-[500]">{item.kind ?? "—"}</span>
 							</div>
-							{/* AD6: Scope row — shows human-readable scope label */}
+							{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 							<div
 								className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
 								data-testid="knowledge-scope-row"
 							>
 								<span className="text-[var(--text-tertiary)]">Scope</span>
-								<span className="text-[var(--text-primary)] font-[500]">
-									{scopeKindToLabel(item.scopeKind ?? "factory")}
+								<span className="flex items-center gap-[6px]">
+									<span className="text-[var(--text-primary)] font-[500]">
+										{/* AV3: resolved name takes priority; bucket fallback only when absent */}
+										{item.scopeName ?? scopeKindToLabel(item.scopeKind ?? "factory")}
+									</span>
+									{/* AV3 AC-4: inline Change trigger (editable) or Read-only marker (read-only) */}
+									{!isReadOnly ? (
+										<Button
+											variant="ghost"
+											size="sm"
+											data-testid="knowledge-scope-change-trigger"
+											onClick={() => setScopeChangeOpen(true)}
+										>
+											Change
+										</Button>
+									) : (
+										<span
+											className="text-[12px] text-[var(--text-tertiary)]"
+											data-testid="knowledge-scope-readonly"
+										>
+											Read-only
+										</span>
+									)}
 								</span>
 							</div>
 							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">

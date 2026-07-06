@@ -9,9 +9,17 @@
  * "Team" maps to team+product (U1 renamed Products → Teams; product scope now
  * displays under the Team label). "Private" maps to user scope (only visible to
  * the creator).
+ *
+ * @lore AV3: scopeKindToLabel promoted to @hyperidle/shared as SSOT. This file
+ * re-exports it so all 4 existing web callers (KnowledgeDetail.tsx,
+ * ScopeChangeDialog.tsx, AE1-scope-labels.test.ts, KnowledgeDetail.af13.test.tsx)
+ * continue to import from this path with no churn.
  */
 
 import type { ScopeKind } from "@hyperidle/shared";
+
+// AV3: Re-export from shared SSOT — web callers import from here, function lives in shared.
+export { scopeKindToLabel } from "@hyperidle/shared";
 
 /** One entry in the knowledge list filter pill row. */
 export interface ScopePillOption {
@@ -60,21 +68,3 @@ export const SCOPE_CREATE_OPTIONS: ScopeCreateOption[] = [
 	{ label: "Team", id: "team", scopeKind: "team" },
 	{ label: "Private", id: "private", scopeKind: "user" },
 ];
-
-/**
- * Maps a raw scopeKind from the API to the user-facing label.
- * factory/practice → "Shared"
- * team/product → "Team"
- * user → "Private"
- * Anything else → "Shared" (safe fallback).
- *
- * @lore AE1: "product" maps to "Team" (not "Shared") because U1 renamed
- * Products → Teams. Items that were product-scoped are now displayed under the
- * Team label to avoid surfacing internal vocabulary to users.
- */
-export function scopeKindToLabel(scopeKind: string): string {
-	if (scopeKind === "user") return "Private";
-	if (scopeKind === "team" || scopeKind === "product") return "Team";
-	// factory, practice, bet, task → Shared
-	return "Shared";
-}
