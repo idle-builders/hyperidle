@@ -1,10 +1,10 @@
 /**
- * AV4 — AgentDetailPane stories.
- * Renders key states at /designsystem for visual verification.
+ * AV4 — AgentDetailPane stories (design artifacts for the component viewer).
  *
- * @lore AV4: Wrapped in <ToastRegion> only (not MemoryRouter) — the /designsystem
- * route already runs inside the app's BrowserRouter. No <Dialog> shell — no
- * role="dialog" anywhere (AC#3).
+ * @lore AV4: Wrapped in <ToastRegion> only — AgentDetailPane uses no router hooks,
+ * so no Router ancestor is needed. No <Dialog> shell — no role="dialog" anywhere
+ * (AC#3). (The in-app /designsystem viewer was removed in #404; stories render
+ * standalone in the component viewer.)
  */
 
 import type { RosterMember } from "@hyperidle/shared";

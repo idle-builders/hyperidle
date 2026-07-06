@@ -1,23 +1,27 @@
 /**
- * AV4 — RoutineDetailPane stories.
- * Renders key states at /designsystem for visual verification.
+ * AV4 — RoutineDetailPane stories (design artifacts for the component viewer).
  *
- * @lore AV4: Wrapped in <ToastRegion> only (not MemoryRouter) — the /designsystem
- * route already runs inside the app's BrowserRouter. Adding a second Router
- * causes "cannot render Router inside another Router" crash.
- * RoutineDetailPane uses useNavigate (for delete). This is safe since BrowserRouter
- * is the ancestor when /designsystem is the active route.
+ * @lore AV4: Self-contained — wraps in <MemoryRouter> + <ToastRegion> so the story
+ * renders standalone. The in-app /designsystem viewer that once supplied a
+ * BrowserRouter ancestor was removed in #404; page stories now self-wrap their
+ * Router (matches WorkTask/AgentProfile stories). RoutineDetailPane uses
+ * useNavigate (for delete), so a Router ancestor is required.
  */
 
 import type { RoutineDetail } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { ToastRegion } from "../../shell/ToastRegion.js";
 import { RoutineDetailPane } from "./RoutineDetailPane.js";
 
 const noop = (): void => {};
 
 function Wrapper({ children }: { children: ReactNode }): JSX.Element {
-	return <ToastRegion>{children}</ToastRegion>;
+	return (
+		<MemoryRouter>
+			<ToastRegion>{children}</ToastRegion>
+		</MemoryRouter>
+	);
 }
 
 const ROUTINE_DETAIL: RoutineDetail = {
