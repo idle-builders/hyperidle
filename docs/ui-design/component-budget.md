@@ -9,5 +9,5 @@ Token authority lives in `packages/design-system/DESIGN.md` and `packages/design
 **Custom components:** No strict count enforced. Create new components only when necessary, as decided by the designer. Prefer composition inside existing components when possible. Current baseline:
 
 - **Tier 1:** StatusChip, Tag, KeyValue, NavItem, SearchField, PageHeader, SectionLabel
-- **Tier 2:** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, ReasoningBlockView (renamed from `ReasoningBlock` to disambiguate from the L2 Block content primitive — see `docs/blocks/blockkind-the-closed-vocabulary.md`. The TSX rename is implementation work for whichever story first touches the component; the name in this list is canonical from this concept-doc pass forward.)
+- **Tier 2:** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow
 - **Tier 3:** Sidebar, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector
