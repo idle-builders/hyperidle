@@ -4,13 +4,13 @@
   "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
   "status": "blocked",
   "currentStep": "ship-verify",
-  "blockedAt": "2026-07-06T23:47:00Z",
+  "blockedAt": "2026-07-07T07:59:33Z",
   "blocker": {
-    "reason": "full verify attestation requires unavailable external harness conditions",
+    "reason": "full verify attestation requires Claude real-binary quota unavailable until reset",
     "details": [
-      "builtin harness integration tests hard-fail without OPENROUTER_API_KEY",
-      "Claude real-binary integration tests hit the local Claude session limit and returned zero cost",
-      "harness-symmetry attestation floor reported zero executed tagged assertions for builtin, claude, codex, and opencode in the affected attestation run"
+      "root .env was hoisted and exported; builtin OpenRouter harness availability is fixed",
+      "affected attestation recorded equal harness execution buckets: builtin=15, claude=15, codex=15, opencode=15",
+      "Claude real-binary tests hit the local Claude session limit: reset 10:30am Europe/Zurich; failures returned 429, zero cost, or no Claude tool call"
     ]
   },
   "complexity": "L",
@@ -49,7 +49,7 @@
   "shipVerify": {
     "command": "npm run verify",
     "status": "blocked",
-    "at": "2026-07-06T23:46:51Z",
+    "at": "2026-07-07T07:59:33Z",
     "passedBeforeBlock": [
       "npm run check",
       "npm run lint",
@@ -57,7 +57,10 @@
       "knip:production",
       "guard scripts",
       "web build",
-      "desktop build"
+      "desktop build",
+      "affected unit leg: 257 files, 2455 tests",
+      "targeted AL7-tailored-grant.integration.test.ts: 6 tests",
+      "affected integration leg progressed through all four harnesses before Claude quota failures"
     ],
     "blockedAt": "scripts/verify-attest.ts affected attestation"
   }
