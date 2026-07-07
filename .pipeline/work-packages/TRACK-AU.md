@@ -4,7 +4,7 @@ This track separates the core app from the agent layer and removes the Strategy/
 
 The point is not a new harness path. The point is one contract for every agent run: task-backed work, assistant turns, routine-triggered runs, knowledge actions, and decomposition work all become task-optional session requests consumed by the same runtime boundary. Every event that can cause an LLM call becomes triggerable. If no user or plugin trigger matches, the runtime attaches the default eligible agent with no event-specific prompt; a matching user/plugin trigger supplies the specific agent and prompt.
 
-**Reference.** `docs/architecture/runtime-simplification.md`; `plans/strategy-kernel-plugin-split/dependency-graph.md`; `plans/strategy-kernel-plugin-split/component-inventory.md`; `docs/architecture/as-implemented-domain-architecture.md`; `.pipeline/work-packages/TRACK-AR.md` (real harness proof boundary); current domain callers in Work, Conversation, Knowledge, Users, Settings, and Routines.
+**Reference.** `docs/architecture/runtime-simplification.md`; `plans/strategy-kernel-plugin-split/dependency-graph.md` (as-is); `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (target graph); `plans/strategy-kernel-plugin-split/component-inventory.md`; `docs/architecture/as-implemented-domain-architecture.md`; `.pipeline/work-packages/TRACK-AR.md` (real harness proof boundary); current domain callers in Work, Conversation, Knowledge, Users, Settings, and Routines.
 
 ---
 
@@ -48,7 +48,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given bet decomposition needs a PM agent run, when decomposition starts, then it enters through the session request/runtime boundary rather than direct adapter start.
 - Given a remote provisioner is selected, when the same session request is consumed remotely, then the caller observes the same lifecycle events as the local provisioner path.
 
-**Plan calls.** Run `/pipeline:refine` first, then standard `/pipeline:architecture`. The plan must map each current caller that starts or intends to start an agent run, define the session request/event contract, define task-optional session identity and source correlation, plan data migration/backcompat, and separate runtime-bound real-harness tests from domain-level request/event tests. No `/pipeline:design` unless a later refinement adds a visible UI surface.
+**Plan calls.** Run `/pipeline:refine` first, then standard `/pipeline:architecture`. The plan must map each current caller that starts or intends to start an agent run, define the session request/event contract, define task-optional session identity and source correlation, plan data migration/backcompat, and separate runtime-bound real-harness tests from domain-level request/event tests. Use the as-is dependency graph to enumerate current callers and the as-should Agent Layer graph as the target component boundary. No `/pipeline:design` unless a later refinement adds a visible UI surface.
 
 **Contracts / constraints.**
 - No new parallel harness execution path; the existing runtime/harness path remains the only way to call an LLM.
@@ -83,6 +83,7 @@ The point is not a new harness path. The point is one contract for every agent r
 
 **Depends on.**
 - **AU1** — this work needs the session request boundary first so Fabric-era direct provisioning and subscriber paths can be collapsed without inventing another execution path.
+- **AU3** — final Fabric removal needs built-in and plugin-provided defaults to have an app-owned configuration home before Fabric-era agent, routine, tool, MCP, and prompt defaults can be rehomed.
 
 **Complexity.** L
 
@@ -106,7 +107,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given a task, assistant message, or routine causes an agent run, when the run starts, then it goes through the agent layer and not through a Fabric/Strategy runtime object.
 - Given repository dependency checks run, when a core/server module imports a Fabric runtime package, then the check fails.
 
-**Plan calls.** Run /pipeline:refine first to lock the core app versus agent layer boundary against the live dependency audit, then standard architecture pass. This is a foundational cleanup; plan should classify each current Fabric component as core app, agent layer, plugin-seeded config, or deletion, and preserve behavior while removing the Fabric/Strategy runtime concept.
+**Plan calls.** Run /pipeline:refine first to lock the core app versus agent layer boundary against the live dependency audit, then standard architecture pass. This is a foundational cleanup; plan should classify each current Fabric component as core app, agent layer, plugin-seeded config, or deletion, using the as-is graph as the source inventory and the as-should graph as the target dependency shape. Preserve behavior while removing the Fabric/Strategy runtime concept.
 
 **Contracts / constraints.**
 - No new parallel LLM execution path.
@@ -138,7 +139,7 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no app-owned configuration model that can accept plugin defaults for agents, skills, routines, triggers, tools, MCP, and harnesses. There is also no override/provenance behavior that lets users edit seeded configuration while keeping the plugin origin visible. Without this, plugins cannot replace Strategy/Fabric cleanly.
 
 **Depends on.**
-- **AU2** — plugin contracts must target the simplified core app and agent layer, not the retired Fabric/Strategy boundary.
+- **AU1** — plugin-provided run behavior must target the session request boundary rather than direct provisioning or harness calls.
 
 **Complexity.** L
 
@@ -162,7 +163,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given a plugin is disabled, when configuration is queried, then affected defaults and overrides report an explicit disabled-origin state instead of disappearing silently.
 - Given built-in HyperIdle defaults load, when the same configuration APIs are queried, then built-in agents/routines/tools/MCP are represented the same way as plugin-provided defaults.
 
-**Plan calls.** Run /pipeline:refine first to lock plugin-default vocabulary and provenance rules, then standard architecture pass. Plan should focus on contracts and observable behavior, not marketplace/distribution.
+**Plan calls.** Run /pipeline:refine first to lock plugin-default vocabulary and provenance rules, then standard architecture pass. Plan should use the as-should Configuration And Plugin graph as the target shape and focus on contracts and observable behavior, not marketplace/distribution.
 
 **Contracts / constraints.**
 - Plugins seed configuration; users own active editable configuration.
@@ -194,7 +195,7 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no persisted trigger rule that maps an event to an agent, prompt, and execution action. There is no default attach behavior expressed as core runtime policy. There is no conflict/override model that makes user triggers beat plugin defaults and more specific triggers beat broader defaults.
 
 **Depends on.**
-- **AU1** — trigger evaluation must produce agent-layer session requests rather than direct provisioning calls.
+- **AU2** — trigger migration must run after the Fabric/Strategy runtime layer is gone so there is no hidden fallback path competing with trigger resolution.
 - **AU3** — plugin-provided triggers must arrive as editable configuration with provenance and user override behavior.
 
 **Complexity.** L
@@ -220,7 +221,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given a bet decomposition event, when trigger evaluation completes, then decomposition starts as an agent-layer session request and no Strategy/Fabric object is invoked.
 - Given trigger history is inspected for a task acceptance event, then it shows the event, matched trigger or fallback, chosen agent, prompt source, and resulting run request.
 
-**Plan calls.** Run /pipeline:refine first to lock trigger vocabulary and default/override semantics, then standard architecture pass. Plan should start from the current LLM-capable surface list in `plans/strategy-kernel-plugin-split/dependency-graph.md` and migrate one event family at a time onto one trigger path.
+**Plan calls.** Run /pipeline:refine first to lock trigger vocabulary and default/override semantics, then standard architecture pass. Plan should start from the current LLM-capable surface list in `plans/strategy-kernel-plugin-split/dependency-graph.md`, target the Trigger Flow graph in `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md`, and migrate one event family at a time onto one trigger path.
 
 **Contracts / constraints.**
 - Triggers cover every event that can call an LLM.
@@ -278,7 +279,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given a plugin is disabled, when Settings opens, then affected configuration explains what is disabled and what user-owned overrides remain active.
 - Given a user edits an MCP or tool configuration, when they save and reload, then the active configuration reflects the change and no Fabric/Strategy label is shown.
 
-**Plan calls.** Run /pipeline:refine first to sharpen the user-facing noun and guide draft, then /pipeline:design with multiple variants and human review. Architecture should plan the app/API contracts only after the design chooses how provenance, overrides, disabled origins, and trigger details are presented.
+**Plan calls.** Run /pipeline:refine first to sharpen the user-facing noun and guide draft, then /pipeline:design with multiple variants and human review. Architecture should plan the app/API contracts only after the design chooses how provenance, overrides, disabled origins, and trigger details are presented. Use the as-should Configuration And Plugin graph to keep the surface aligned with active editable configuration rather than plugin internals.
 
 **Contracts / constraints.**
 - Do not expose Fabric or Strategy as user-facing configuration concepts.
