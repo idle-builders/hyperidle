@@ -136,6 +136,8 @@ export interface RoutineInfo {
 	costCapMonthly: WireMoney | null;
 	/** AA2: last successful run's summary. Null when no successful runs. */
 	lastRunSummary: string | null;
+	/** AV4: Whether the routine runs silently (no post per run). Defaults to false. */
+	silent: boolean;
 }
 
 /**

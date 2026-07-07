@@ -276,7 +276,8 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("clicking an agent card opens the edit dialog", async () => {
+	// @lore AV4: Customize now opens AgentDetailPane in split pane (no modal).
+	it("clicking an agent card opens the agent detail pane (no dialog)", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -284,16 +285,16 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// @lore AB2: AgentRow click navigates to profile; Customize button opens edit dialog.
 		const rows = screen.getAllByTestId("agent-row");
 		const firstBtn = rows[0]?.querySelector('[data-testid="agent-customize-btn"]');
 		expect(firstBtn).toBeDefined();
 		await user.click((firstBtn as HTMLElement) ?? document.body);
 
-		// Dialog should be open — look for the dialog element
+		// AV4: pane opens — no role="dialog"; system prompt textarea present
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
+		expect(document.querySelectorAll('[role="dialog"]').length).toBe(0);
 	});
 
 	it("edit dialog contains guidance text about system prompt", async () => {
@@ -337,7 +338,8 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		});
 	});
 
-	it("edit dialog header shows agent name", async () => {
+	// @lore AV4: Agent pane (not dialog) shows agent name.
+	it("agent pane header shows agent name", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -351,8 +353,7 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		await user.click((btnForHeader as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
-			// Name appears in dialog header
+			// Name appears in pane (no dialog)
 			expect(screen.getAllByText("Atlas Builder").length).toBeGreaterThanOrEqual(1);
 		});
 	});
@@ -397,7 +398,8 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		});
 	});
 
-	it("team agent dialog does NOT show strategy management note", async () => {
+	// @lore AV4: team agent pane (no dialog) does NOT show strategy note.
+	it("team agent pane does NOT show strategy management note", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -405,7 +407,6 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click team agent (Atlas Builder) Customize button
 		const builderRow1 = screen
 			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
@@ -413,13 +414,15 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		expect(builderBtn1).toBeDefined();
 		await user.click((builderBtn1 as HTMLElement) ?? document.body);
 
+		// AV4: wait for pane to open (system prompt textarea present)
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
 		expect(screen.queryByText(/managed by your strategy/i)).not.toBeInTheDocument();
 	});
 
+	// @lore AV4: strategy agent config fields in pane (no dialog).
 	it("strategy agent config fields are disabled when config section is expanded", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
@@ -435,8 +438,9 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		expect(scoutBtn2).toBeDefined();
 		await user.click((scoutBtn2 as HTMLElement) ?? document.body);
 
+		// AV4: wait for pane (no dialog check)
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
 		// Toggle config open
@@ -450,6 +454,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		});
 	});
 
+	// @lore AV4: team agent config fields in pane (no dialog).
 	it("team agent config fields are enabled when config section is expanded", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
@@ -465,8 +470,9 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		expect(builderBtn2).toBeDefined();
 		await user.click((builderBtn2 as HTMLElement) ?? document.body);
 
+		// AV4: wait for pane (no dialog check)
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
 		const configToggle = screen.getByRole("button", { name: /show configuration/i });
@@ -523,8 +529,9 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		expect(builderBtn3).toBeDefined();
 		await user.click((builderBtn3 as HTMLElement) ?? document.body);
 
+		// AV4: pane opens (no dialog)
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
 		// Update system prompt textarea
@@ -573,8 +580,9 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		expect(builderBtn4).toBeDefined();
 		await user.click((builderBtn4 as HTMLElement) ?? document.body);
 
+		// AV4: pane opens (no dialog)
 		await waitFor(() => {
-			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
 		// Expand config

@@ -165,8 +165,9 @@ describe("WorkTeam — AA1 Routines Section", () => {
 		expect(screen.getByText("Failing routine")).toBeInTheDocument();
 	});
 
-	// Clicking routine navigates to /work/routine/:id
-	it("clicking a routine row navigates to /work/routine/:id", async () => {
+	// @lore AV4: Clicking routine row now opens split pane (SplitView + RoutineDetailPane)
+	// via ?routine search param, NOT navigate to /work/routine/:id (which is still the deep link).
+	it("clicking a routine row opens the split pane (sets ?routine search param)", async () => {
 		const user = userEvent.setup();
 		renderPage(TEAM_WITH_ROUTINES);
 
@@ -177,7 +178,8 @@ describe("WorkTeam — AA1 Routines Section", () => {
 		await user.click(routineRow as HTMLElement);
 
 		await waitFor(() => {
-			expect(screen.getByTestId("work-routine-page")).toBeInTheDocument();
+			// AV4: split view opens, not a page navigation
+			expect(document.querySelector('[data-ds-component="split-view"]')).not.toBeNull();
 		});
 	});
 });

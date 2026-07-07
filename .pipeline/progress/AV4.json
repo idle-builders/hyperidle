@@ -1,0 +1,12 @@
+{
+  "id": "AV4",
+  "track": "AV",
+  "status": "in_progress",
+  "currentStep": "build-extension",
+  "complexity": "M",
+  "type": "frontend",
+  "startedAt": "2026-07-06T15:45:00Z",
+  "notes": "Reopened: user clarified attachments=full routine editing. Adding editable schedule(triggerConfig)+cost caps+silent to RoutineDetailPane on PR #403 (all via existing PATCH).",
+  "designClass": "routine",
+  "completedAt": "2026-07-06T19:10:00Z"
+}
