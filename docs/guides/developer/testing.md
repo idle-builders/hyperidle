@@ -25,6 +25,15 @@ npm run verify:quick             # check + lint + knip only
 
 **Before releasing a version bump**, run `npm run verify:release` (not just `verify`). The Release Guard rejects an `affected`-scope attestation on a version bump.
 
+#### When to run the harness lane manually
+
+The harness project (real installed binaries + real LLM) is release-gated — per-merge `npm run verify` never executes it. That makes the manual run YOUR job during development. Run `npm run test:integration:harness` (or `-- <file>` for one file) and get it green before shipping whenever you:
+
+- change harness setup or plumbing — anything under `packages/server/src/harness/`, session provisioning, CLI adapter configs (`CLI_TOOL_CONFIGS`), `require-harness.ts`, or the honest-harness predicate/guard,
+- write a new harness-facing `*.integration.test.ts` or modify an existing one.
+
+The release `verify:release` run is the enforcement backstop, not the discovery point — a harness break found at the version bump is a break that shipped past its author.
+
 > **E2E under-selection caveat (R3 from AT1):** Playwright `--only-changed` selects by changed *spec files + their import graph*. Every e2e spec imports only `./fixtures` + Node builtins — zero imports from `packages/web/src` — so a pure app-code change selects no e2e specs. This is not a coverage hole: the affected unit/component leg catches the component (white-box, imports it). Affected-e2e = "specs you edited"; full e2e at release covers all journeys.
 
 Run a specific file: `npm run test -- packages/server/src/__tests__/my.test.ts`
