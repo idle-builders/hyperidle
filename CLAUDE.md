@@ -44,7 +44,9 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | Scenario | Command | What it does |
 |---|---|---|
 | **Unit + component tests** | `npm run test` | Fast tests only — excludes `*.integration.test.ts`. |
-| **Integration tests** | `npm run test:integration` | DB/API integration tests only (`*.integration.test.ts`). |
+| **Integration tests** | `npm run test:integration` | All integration tests (`*.integration.test.ts`): service + harness projects. |
+| **Service integration** | `npm run test:integration:service` | DB/API integration tests only (the lane per-merge verify runs). |
+| **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. Release-gated: runs in `verify:release`, not per-merge verify. |
 | **All tests** | `npm run test:all` | Unit + component + integration. |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
 | **Typecheck** | `npm run check` | `tsc --noEmit` directly. |
@@ -61,7 +63,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | `*.integration.test.ts` | Integration — a real integration point, no stub of it. **Service**: real DB + app (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed binary, zero stubs, hard-fail if absent. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via Track AR1: `requireHarness` + the `honest-harness-guard` lint check + the attestation agentic floor.
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via Track AR1: `requireHarness` + the `honest-harness-guard` lint check + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
@@ -129,7 +131,7 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React 
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + test:all + build + attestation — preferred for final check before shipping), `npm run test` (fast unit + component tests, excludes integration), `npm run test:integration` (DB/API integration tests only), `npm run test:all` (all tests), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + test:all + build + attestation — preferred for final check before shipping), `npm run test` (fast unit + component tests, excludes integration), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (all tests), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 

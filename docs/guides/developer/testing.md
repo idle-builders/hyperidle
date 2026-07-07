@@ -5,7 +5,9 @@
 ```bash
 npm run test                     # affected unit + component tests (--changed=origin/main, fast)
 npm run test:full                # ALL unit + component tests (no changed-file filter)
-npm run test:integration         # DB/API integration tests only (vitest fixtures, PGlite)
+npm run test:integration         # ALL integration tests: service + harness projects
+npm run test:integration:service # service integration only (DB/API, vitest fixtures, PGlite)
+npm run test:integration:harness # harness integration only (real binaries + real LLM, serial)
 npm run test:all                 # ALL unit + component + integration sequentially (test:full + test:integration)
 npm run test:e2e                 # affected Playwright E2E (--only-changed=origin/main)
 npm run test:e2e:full            # ALL Playwright E2E specs (no changed-file filter)
@@ -18,7 +20,7 @@ npm run verify:quick             # check + lint + knip only
 
 `npm run verify` now selects the **affected** slice of the test suite vs `origin/main`:
 - Unit/component: `vitest --changed=origin/main` — only tests whose import-closure intersects the diff.
-- Integration: `vitest --changed=origin/main` on the integration config — a branch that doesn't touch harness/DB code skips the real-LLM harness suite.
+- Integration: `vitest --project service --changed=origin/main` on the integration config — the **harness project is excluded entirely** from the affected leg. The real-LLM harness suite is release-gated: it runs only in `verify:release` (full scope), where the agentic floor + per-harness symmetry require it. Run it on demand with `npm run test:integration:harness`.
 - E2E: `playwright test --only-changed=origin/main` — only specs whose file changed (black-box, so app-only changes select 0 specs; the full e2e run at release is the backstop).
 
 **Before releasing a version bump**, run `npm run verify:release` (not just `verify`). The Release Guard rejects an `affected`-scope attestation on a version bump.
