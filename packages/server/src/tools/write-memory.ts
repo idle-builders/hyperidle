@@ -5,6 +5,7 @@ import {
 	KNOWLEDGE_STATUSES,
 	type KnowledgeLayer,
 } from "@hyperidle/fabric";
+import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
@@ -31,6 +32,8 @@ const writeMemoryInputSchema = z.object({
 	topic: z.string().optional(),
 	format: z.enum(KNOWLEDGE_FORMATS).optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+	scopeKind: z.enum(SCOPE_KINDS).optional(),
+	scopeId: z.string().optional(),
 });
 
 type WriteMemoryInput = z.infer<typeof writeMemoryInputSchema>;
@@ -60,6 +63,12 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 		return err("INVALID_INPUT", parsed.error.message);
 	}
 	const { layer, kind, title, body, topic, format, status } = parsed.data;
+	const requestedScopeKind = parsed.data.scopeKind;
+	const requestedScopeId = parsed.data.scopeId?.trim();
+
+	if (requestedScopeKind && SCOPES_REQUIRING_ID.has(requestedScopeKind) && !requestedScopeId) {
+		return err("INVALID_INPUT", `scopeId is required for scopeKind '${requestedScopeKind}'`);
+	}
 
 	// I6: restrict non-facilitator agents to L0-L2 only
 	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
@@ -75,7 +84,8 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 	// shared knowledge base. Previously defaulted to "active", which bypassed
 	// the triage queue and made agent noise indistinguishable from curated facts.
 	//
-	// scopeKind/scopeId: prefer ctx.teamId (harness-provided); fall back to
+	// scopeKind/scopeId: explicit tool input wins; otherwise prefer ctx.teamId
+	// (harness-provided); fall back to
 	// querying the task's teamId via ctx.taskId. This ensures the item is scoped
 	// to the correct product scope even when the harness omits teamId explicitly.
 	// assembleContext() filters L2 items by scopeId == productId, so the scopeId
@@ -88,8 +98,12 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 			.where(eq(tasks.id, ctx.taskId))
 			.limit(1)
 			.then((rows) => rows[0]?.teamId ?? null));
-	const scopeKind = teamId ? "product" : "factory";
-	const scopeId = teamId;
+	const defaultScopeKind: ScopeKind = teamId ? "product" : "factory";
+	const scopeKind = requestedScopeKind ?? defaultScopeKind;
+	const scopeId =
+		scopeKind === "user"
+			? (requestedScopeId ?? ctx.agentId)
+			: (requestedScopeId ?? (scopeKind === defaultScopeKind ? teamId : null));
 
 	const created = await createKnowledgeItem(ctx.db, {
 		layer,

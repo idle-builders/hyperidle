@@ -176,6 +176,7 @@ export const SCOPE_KINDS = [
 	"bet",
 	"task",
 	"user",
+	"filesystem",
 ] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
@@ -186,6 +187,7 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
  *
  * @lore Q2: Extracted to @hyperidle/shared so the web dialogs (KnowledgeCreateDialog,
  * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
+ * @lore AV3 A2: "filesystem" added — references filesystems.id.
  */
 export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"product",
@@ -193,6 +195,7 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"team",
 	"bet",
 	"task",
+	"filesystem",
 ]);
 
 /**

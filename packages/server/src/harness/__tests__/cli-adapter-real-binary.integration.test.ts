@@ -54,6 +54,23 @@ import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
+async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
+	for (let attempt = 0; attempt < 5; attempt += 1) {
+		try {
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			return;
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
+			// @lore AV3-ship: real CLI harnesses can leave a just-exited helper touching
+			// the temp sandbox for a tick on macOS. The proof already passed; cleanup retries
+			// prevent a non-product ENOTEMPTY race from failing attestation.
+			await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+		}
+	}
+	fs.rmSync(sandboxPath, { recursive: true, force: true });
+}
+
 // ── Binary detection (same pattern as AL6/AL7) ────────────────────────────────
 
 async function claudeAuthed(): Promise<boolean> {
@@ -267,7 +284,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 				"result.cost.minor must be > 0 (real session cost captured from terminal result line)",
 			).toBeGreaterThan(0);
 		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await rmSandboxWithRetry(sandboxPath);
 		}
 	}, 90_000);
 });
@@ -434,7 +451,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			);
 		}
 	} finally {
-		fs.rmSync(sandboxPath, { recursive: true, force: true });
+		await rmSandboxWithRetry(sandboxPath);
 	}
 }
 
@@ -522,7 +539,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			// Assert: result.outcome "completed".
 			expect(result.outcome).toBe("completed");
 		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			await rmSandboxWithRetry(sandboxPath);
 		}
 	}, 90_000);
 });

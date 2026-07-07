@@ -2,16 +2,24 @@
  * scope-labels — AD6: Knowledge Cleanup & Scope Simplification.
  *
  * Provides the static scope options for the knowledge list filter pills
- * and the create flow scope picker.
+ * and the create/change flow scope picker.
  *
  * @lore AD6: Scope vocabulary was collapsed from 7 SCOPE_KINDS to 3 user-facing
  * choices. "Shared" maps to factory+practice (org-wide scopes).
  * "Team" maps to team+product (U1 renamed Products → Teams; product scope now
  * displays under the Team label). "Private" maps to user scope (only visible to
  * the creator).
+ *
+ * @lore AV3: scopeKindToLabel promoted to @hyperidle/shared as SSOT. This file
+ * re-exports it so all 4 existing web callers (KnowledgeDetail.tsx,
+ * ScopeChangeDialog.tsx, AE1-scope-labels.test.ts, KnowledgeDetail.af13.test.tsx)
+ * continue to import from this path with no churn.
  */
 
 import type { ScopeKind } from "@hyperidle/shared";
+
+// AV3: Re-export from shared SSOT — web callers import from here, function lives in shared.
+export { scopeKindToLabel } from "@hyperidle/shared";
 
 /** One entry in the knowledge list filter pill row. */
 export interface ScopePillOption {
@@ -26,7 +34,7 @@ export interface ScopePillOption {
 	filterKinds: ScopeKind[] | null;
 }
 
-/** One entry in the create flow scope picker. */
+/** One entry in the create/change flow scope picker. */
 export interface ScopeCreateOption {
 	/** The label shown on the pill button. */
 	label: string;
@@ -52,29 +60,19 @@ export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
 ];
 
 /**
- * Three options for the knowledge create flow scope picker.
- * Shared → factory | Team → team | Private → user.
+ * Options for the knowledge create/change flow scope picker.
+ * Shared → factory | Team → team | Private → user | Role → practice |
+ * Filesystem → filesystem.
+ *
+ * @lore AV3 A2: AD6 collapsed routine human authoring to three common buckets,
+ * but AV3 made role/filesystem scopes first-class readable names. They must also
+ * be selectable by humans/agents, so the picker exposes them while preserving the
+ * original three bucket labels.
  */
 export const SCOPE_CREATE_OPTIONS: ScopeCreateOption[] = [
 	{ label: "Shared", id: "shared", scopeKind: "factory" },
 	{ label: "Team", id: "team", scopeKind: "team" },
 	{ label: "Private", id: "private", scopeKind: "user" },
+	{ label: "Role", id: "role", scopeKind: "practice" },
+	{ label: "Filesystem", id: "filesystem", scopeKind: "filesystem" },
 ];
-
-/**
- * Maps a raw scopeKind from the API to the user-facing label.
- * factory/practice → "Shared"
- * team/product → "Team"
- * user → "Private"
- * Anything else → "Shared" (safe fallback).
- *
- * @lore AE1: "product" maps to "Team" (not "Shared") because U1 renamed
- * Products → Teams. Items that were product-scoped are now displayed under the
- * Team label to avoid surfacing internal vocabulary to users.
- */
-export function scopeKindToLabel(scopeKind: string): string {
-	if (scopeKind === "user") return "Private";
-	if (scopeKind === "team" || scopeKind === "product") return "Team";
-	// factory, practice, bet, task → Shared
-	return "Shared";
-}

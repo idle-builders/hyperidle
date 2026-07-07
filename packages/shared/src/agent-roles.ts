@@ -205,6 +205,34 @@ export function findRoleCatalogEntry(role: string): AgentRoleCatalogEntry | unde
 }
 
 /**
+ * Map a role id to a human-readable display label.
+ *
+ * - Catalog hit → entry.label (e.g. "product_manager" → "Product Manager").
+ * - Unknown role → title-case the raw string, splitting on `_`, `-`, or whitespace
+ *   (e.g. "growth_hacker" → "Growth Hacker"). Supports open-vocab user-defined roles.
+ * - Empty/blank input → returns "" (caller handles fallback, e.g. scopeKindToLabel).
+ *
+ * Pure function, no side effects.
+ *
+ * @lore AV3 A1: Used by resolveScopeName to display the role a practice-scoped
+ * knowledge item belongs to. Supports open-vocab roles beyond the catalog.
+ */
+export function roleLabel(role: string): string {
+	const trimmed = role.trim();
+	if (!trimmed) return "";
+
+	const entry = findRoleCatalogEntry(trimmed);
+	if (entry) return entry.label;
+
+	// Title-case: split on underscore, hyphen, or whitespace; capitalize each word.
+	return trimmed
+		.split(/[_\s-]+/)
+		.filter((w) => w.length > 0)
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
+
+/**
  * Get the practice community for a role. Falls back to "ops" for unknown roles.
  *
  * @lore AB0: Replaces the old ROLE_TO_COMMUNITY Record<UserRole, string>.

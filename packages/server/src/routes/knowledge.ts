@@ -22,13 +22,18 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 import {
+	bets,
+	filesystems,
 	type HyperIdleDb,
 	knowledgeAccessLog,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	tasks,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
+	teams,
+	users,
 } from "@hyperidle/db";
 import { scopeToLayer } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
@@ -39,8 +44,10 @@ import {
 	type KnowledgeArchivedEvent,
 	type KnowledgeCreatedEvent,
 	type KnowledgeUpdatedEvent,
+	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
+	scopeKindToLabel,
 } from "@hyperidle/shared";
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -53,6 +60,155 @@ import { escapeLikePattern } from "../services/like-escape.js";
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
 const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
+
+/**
+ * Resolve a knowledge item's scopeId to a human-readable scope name.
+ * Response-only derived field — never persisted (AV3 contract).
+ *
+ * Resolution map (per AV3 §1 table):
+ * - factory → "Factory" (literal, no query)
+ * - user    → users.name (missing → "Private" via scopeKindToLabel)
+ * - team    → teams.name by direct id; two-hop via teamMembers if not found (missing → "Team")
+ * - bet     → bets.description truncated at 60 chars (empty/missing → "Shared")
+ * - task    → tasks.title (missing → "Shared")
+ * - product → no entity table → scopeKindToLabel("product")
+ * - practice → roleLabel(scopeId) for agent role ids; empty → scopeKindToLabel("practice")
+ * - filesystem → derived repo/folder/source label from filesystems.resourceRef
+ *
+ * Every fallback is scopeKindToLabel(kind) from @hyperidle/shared — single source of truth.
+ * Never returns a raw UUID.
+ *
+ * @lore AV3: Promoted scopeKindToLabel to @hyperidle/shared so server fallback === web fallback.
+ * @lore AV3 U1: team scopeId may be teams.id OR team_members.id (two-hop join). Resolve by
+ * querying teams first; on miss query teamMembers then teams on that teamId; on final miss fallback.
+ */
+export async function resolveScopeName(
+	db: HyperIdleDb,
+	scopeKind: string,
+	scopeId: string | null,
+): Promise<string> {
+	// factory always resolves to "Factory" — NOT routed through scopeKindToLabel
+	// (which would return "Shared"); factory is a deliberate override.
+	if (scopeKind === "factory") return "Factory";
+
+	// product has no entity table — fall back immediately.
+	if (scopeKind === "product") {
+		return scopeKindToLabel(scopeKind);
+	}
+
+	// practice: no entity table — resolve scopeId as an agent role id via AGENT_ROLE_CATALOG.
+	// @lore AV3 A1: practice scopeId is a role id. roleLabel() returns the catalog label or
+	// title-cases the raw role for open-vocab user-defined roles. Empty scopeId → fallback.
+	if (scopeKind === "practice") {
+		if (!scopeId) return scopeKindToLabel("practice");
+		const label = roleLabel(scopeId);
+		return label || scopeKindToLabel("practice");
+	}
+
+	// All remaining kinds need a scopeId to look anything up.
+	if (!scopeId) return scopeKindToLabel(scopeKind);
+
+	if (scopeKind === "user") {
+		const [row] = await db
+			.select({ name: users.name })
+			.from(users)
+			.where(eq(users.id, scopeId))
+			.limit(1);
+		return row?.name ?? scopeKindToLabel("user");
+	}
+
+	if (scopeKind === "team") {
+		// @lore AV3 U1: scopeId may be teams.id or team_members.id.
+		// Try teams first (direct id). On miss, try team_members then teams.
+		const [teamRow] = await db
+			.select({ name: teams.name })
+			.from(teams)
+			.where(eq(teams.id, scopeId))
+			.limit(1);
+		if (teamRow?.name) return teamRow.name;
+
+		// Two-hop: scopeId is a team_members.id — find the teamId, then look up teams.name.
+		const [memberRow] = await db
+			.select({ teamId: teamMembers.teamId })
+			.from(teamMembers)
+			.where(eq(teamMembers.id, scopeId))
+			.limit(1);
+		if (memberRow?.teamId) {
+			const [teamFromMember] = await db
+				.select({ name: teams.name })
+				.from(teams)
+				.where(eq(teams.id, memberRow.teamId))
+				.limit(1);
+			if (teamFromMember?.name) return teamFromMember.name;
+		}
+
+		return scopeKindToLabel("team");
+	}
+
+	if (scopeKind === "bet") {
+		const [row] = await db
+			.select({ description: bets.description })
+			.from(bets)
+			.where(eq(bets.id, scopeId))
+			.limit(1);
+		if (!row) return scopeKindToLabel("bet");
+		const desc = row.description?.trim() ?? "";
+		if (!desc) return scopeKindToLabel("bet");
+		// A5 rule: deterministic 60-char truncation with U+2026 ellipsis.
+		return desc.length > 60 ? `${desc.slice(0, 60)}…` : desc;
+	}
+
+	if (scopeKind === "task") {
+		const [row] = await db
+			.select({ title: tasks.title })
+			.from(tasks)
+			.where(eq(tasks.id, scopeId))
+			.limit(1);
+		return row?.title ?? scopeKindToLabel("task");
+	}
+
+	if (scopeKind === "filesystem") {
+		// @lore AV3 A2: filesystems table has no name column. Compose display name from resourceRef.
+		// For code kind: last path segment of repo (e.g. "owner/nimmly" → "nimmly").
+		// For doc_set kind: basename of folder (last non-empty path segment).
+		// On parse failure or empty result: fall back to a source label map, then "Filesystem".
+		const [row] = await db
+			.select({ source: filesystems.source, resourceRef: filesystems.resourceRef })
+			.from(filesystems)
+			.where(eq(filesystems.id, scopeId))
+			.limit(1);
+
+		if (!row) return scopeKindToLabel("filesystem");
+
+		try {
+			const ref = JSON.parse(row.resourceRef) as Record<string, unknown>;
+			if (ref.kind === "code" && typeof ref.repo === "string" && ref.repo) {
+				const segments = ref.repo.split("/").filter((s) => s.length > 0);
+				const leaf = segments[segments.length - 1];
+				if (leaf) return leaf;
+			}
+			if (ref.kind === "doc_set" && typeof ref.folder === "string" && ref.folder) {
+				const segments = ref.folder.split("/").filter((s) => s.length > 0);
+				const basename = segments[segments.length - 1];
+				if (basename) return basename;
+			}
+		} catch {
+			// resourceRef parse failed — fall through to source label
+		}
+
+		// Source label fallback map
+		const SOURCE_LABELS: Record<string, string> = {
+			github: "GitHub",
+			gdrive: "Google Drive",
+			obsidian: "Obsidian",
+			local: "Local",
+		};
+		return SOURCE_LABELS[row.source] ?? row.source ?? scopeKindToLabel("filesystem");
+	}
+
+	// Unknown scopeKind — safe fallback.
+	return scopeKindToLabel(scopeKind);
+}
 
 /**
  * Q2: Scope kinds that require a scopeId from the caller.
@@ -210,6 +366,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// pragmatic boundary compromise to avoid a second round-trip from the fabric.
 	// @lore Q2: The filter is: include item if scope_kind != 'user' OR updatedBy = userId.
 	// Using 404 (not 403) for unauthorized access prevents leaking existence.
+	// @lore AV3: scopeName is NOT resolved here — detail endpoint only (GET /:id). Intentional
+	// list carve-out: resolving scopeName per-row would require N+1 DB queries or a batch join
+	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
 
@@ -399,6 +558,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		};
 		eventBus.emit(accessedEvent);
 
+		// AV3: resolve scopeName — response-only derived field, never persisted.
+		const scopeName = await resolveScopeName(db, item.scopeKind, item.scopeId);
+
 		return c.json({
 			...item,
 			kind: row.kind ?? undefined,
@@ -407,6 +569,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// AF13 §5: computed metadata fields
 			accessCount,
 			relatedItems,
+			// AV3: resolved human-readable scope name (response-only, never persisted)
+			scopeName,
 		});
 	});
 

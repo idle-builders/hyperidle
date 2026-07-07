@@ -28,6 +28,18 @@ export const FactoryScopeNoEdit = (): JSX.Element => (
 	</MockProviders>
 );
 
+/**
+ * AV3: exercises the resolved scope-name headline state — scope row shows
+ * "Team Nimmly" and the breadcrumb carries a "Team Nimmly" segment.
+ * scopeName is set directly on the LEGACY_DETAILS fixture ("k-team-scoped")
+ * because stories run without a real API; resolveScopeName runs on the server.
+ */
+export const TeamScopedWithScopeName = (): JSX.Element => (
+	<MockProviders route="/knowledge/k-team-scoped">
+		<KnowledgeDetail overrideKnowledgeId="k-team-scoped" />
+	</MockProviders>
+);
+
 export const FactoryNeedsHumanBanner = (): JSX.Element => (
 	<MockProviders route="/knowledge/k12">
 		<KnowledgeDetail overrideKnowledgeId="k12" />

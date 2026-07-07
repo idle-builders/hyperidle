@@ -231,10 +231,10 @@ describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §4A — ScopeChangeDialog vocabulary: 3 labeled options, no raw enums
+// §4A — ScopeChangeDialog vocabulary: labeled options, no raw enums
 // ---------------------------------------------------------------------------
 
-describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enums)", () => {
+describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums)", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
@@ -248,7 +248,7 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 		vi.clearAllMocks();
 	});
 
-	it("renders 3 labeled scope pills — Shared, Team, Private — not factory/practice/bet/task", () => {
+	it("renders labeled scope pills including Role and Filesystem — not raw enums", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -272,6 +272,8 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 		expect(optionTexts).toContain("Shared");
 		expect(optionTexts).toContain("Team");
 		expect(optionTexts).toContain("Private");
+		expect(optionTexts).toContain("Role");
+		expect(optionTexts).toContain("Filesystem");
 
 		expect(optionTexts).not.toContain("factory");
 		expect(optionTexts).not.toContain("practice");
@@ -279,16 +281,15 @@ describe("AF13 §4A — ScopeChangeDialog renders 3 labeled options (not raw enu
 		expect(optionTexts).not.toContain("task");
 		expect(optionTexts).not.toContain("product");
 
-		// Exactly 3 pills (no phantom extras)
-		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(3);
+		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(5);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// §4A SUGGESTION: default-option maps BOTH factory AND practice → "Shared"
+// §4A SUGGESTION: default-option preserves exact first-class scopes
 // ---------------------------------------------------------------------------
 
-describe("AF13 §4A SUGGESTION — default-option resolution: factory and practice both map to Shared", () => {
+describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
@@ -320,7 +321,7 @@ describe("AF13 §4A SUGGESTION — default-option resolution: factory and practi
 		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
 	});
 
-	it("when currentScopeKind is practice, the Shared option is selected (no phantom practice)", () => {
+	it("when currentScopeKind is practice, the Role option is selected", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -334,10 +335,8 @@ describe("AF13 §4A SUGGESTION — default-option resolution: factory and practi
 			</MemoryRouter>,
 		);
 
-		// AI5: practice maps to "Shared" via scopeKindToLabel → Shared pill active.
-		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-change-role")).toHaveAttribute("data-active", "true");
 
-		// No phantom "practice" pill in the group.
 		const group = screen.getByRole("radiogroup", { name: "Scope kind" });
 		const optionTexts = Array.from(group.querySelectorAll('[role="radio"]')).map(
 			(o) => o.textContent ?? "",

@@ -47,12 +47,12 @@ export interface ScopeChangeDialogProps {
  * "team" and "product" map to "Team". "user" maps to "Private".
  * Any unrecognized scope defaults to "Shared".
  *
- * @lore AF13 §4A: The previous raw 7-enum select used SCOPE_KINDS directly,
- * leaking internal vocabulary to users. This helper maps current scope kind
- * to one of the 3 user-facing options, with "factory" and "practice" both
- * resolving to "Shared" so there is no phantom "practice" option.
+ * @lore AV3 A2: Prefer exact option matches before bucket fallback so first-class
+ * role/filesystem scopes stay selected instead of collapsing to Shared.
  */
 function resolveDefaultOption(scopeKind: ScopeKind): ScopeCreateOption {
+	const exact = SCOPE_CREATE_OPTIONS.find((o) => o.scopeKind === scopeKind);
+	if (exact) return exact;
 	const label = scopeKindToLabel(scopeKind); // "Shared" | "Team" | "Private"
 	return (
 		SCOPE_CREATE_OPTIONS.find((o) => o.label === label) ??
@@ -153,8 +153,7 @@ export function ScopeChangeDialog({
 			}
 		>
 			<div className="flex flex-col gap-3">
-				{/* AF13 §4A: Scope kind — 3 labeled options (Shared/Team/Private).      */}
-				{/* Previously rendered all 7 SCOPE_KINDS as raw enum values.          */}
+				{/* Scope kind — labeled options. Previously rendered raw enum values. */}
 				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
 				{/* matching the same hasTeam gate in KnowledgeCreate.                  */}
 				{/* AI5: migrated from <Select> to the canonical ScopePicker pill group
