@@ -98,7 +98,7 @@ test.describe("SetupFlow (R2)", () => {
 	test("renders name and API key fields; repo path optional", async ({ page }) => {
 		await page.goto("/setup");
 
-		await expect(page.getByLabel(/^name/i)).toBeVisible();
+		await expect(page.getByLabel(/your name/i)).toBeVisible();
 		await expect(page.getByLabel(/anthropic api key/i)).toBeVisible();
 		await expect(page.getByLabel(/project folder/i)).toBeVisible();
 	});
@@ -139,15 +139,15 @@ test.describe("SetupFlow (R2)", () => {
 	test("Start button becomes enabled when name and API key are filled", async ({ page }) => {
 		await page.goto("/setup");
 
-		await page.getByLabel(/^name/i).fill("Alice Founder");
+		await page.getByLabel(/your name/i).fill("Alice Founder");
 		await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 		const startBtn = page.getByRole("button", { name: /start hyperidle/i });
 		await expect(startBtn).toBeEnabled();
 	});
 
-	// AC-5: After completing setup, navigates to /work/portfolio
-	test("navigates to /work/portfolio after successful setup", async ({ page }) => {
+	// AC-5: After completing setup, navigates to /work.
+	test("navigates to /work after successful setup", async ({ page }) => {
 		// After setup, auth/me should return a user
 		await page.route("**/api/auth/me", async (route) => {
 			await route.fulfill({
@@ -163,12 +163,12 @@ test.describe("SetupFlow (R2)", () => {
 
 		await page.goto("/setup");
 
-		await page.getByLabel(/^name/i).fill("Alice Founder");
+		await page.getByLabel(/your name/i).fill("Alice Founder");
 		await page.getByLabel(/anthropic api key/i).fill("sk-ant-test");
 
 		await page.getByRole("button", { name: /start hyperidle/i }).click();
 
-		await expect(page).toHaveURL(/\/work\/portfolio/, { timeout: 10_000 });
+		await expect(page).toHaveURL(/\/work(?:\?onboarding=true)?$/, { timeout: 10_000 });
 	});
 
 	// AC-10: FirstRunRedirect checks both user + products

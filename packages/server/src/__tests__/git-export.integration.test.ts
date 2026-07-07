@@ -180,6 +180,10 @@ class FakeGitRunner implements GitRunner {
 	async restoreStaged(_paths: readonly string[]): Promise<void> {
 		await this.wait();
 	}
+	async currentBranch(): Promise<string | null> {
+		await this.wait();
+		return null;
+	}
 }
 
 function createMemFs(initial?: Record<string, string>): FsAdapter & {

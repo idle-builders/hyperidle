@@ -93,10 +93,11 @@ describe("W3 AC-54 — Three fields in onboarding", () => {
 		expect(folderInput).not.toHaveAttribute("required");
 	});
 
-	it("renders exactly 3 form fields (no extra fields)", () => {
+	it("renders exactly 3 text/password form fields (name, API key, folder — harness radio buttons excluded)", () => {
 		renderSetupFlow();
-		// Should have exactly 3 input/textarea fields
-		const inputs = document.querySelectorAll("input, textarea");
+		// AC-54: three text/password/file fields: name, API key, folder.
+		// Harness picker adds radio buttons — exclude them from this AC count.
+		const inputs = document.querySelectorAll("input:not([type='radio']), textarea");
 		expect(inputs.length).toBe(3);
 	});
 
