@@ -1,0 +1,59 @@
+{
+  "id": "AV2",
+  "track": "AV",
+  "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
+  "status": "shipping",
+  "currentStep": "ship-pr",
+  "complexity": "L",
+  "startedAt": "2026-07-06T15:42:00Z",
+  "worktree": ".worktrees/AV2",
+  "branch": "frontend/AV2-settings-ia",
+  "gates": {
+    "refine": "required",
+    "design": "required-multivariant",
+    "humanConceptReview": "required"
+  },
+  "notes": "L frontend; expected to split into ~4 sub-areas during architecture.",
+  "conceptReview": {
+    "decision": "approve-with-tweaks",
+    "at": "2026-07-06T18:20:00Z",
+    "tweak": "Model dropdown must offer harness-DISCOVERED models (per-harness), not hardcoded MODEL_CATALOG. builtin=gateway /models; opencode=`opencode models`; claude-code=`claude models`; codex=empty+affordance.",
+    "annotation": ".annotations/AV2-concept-review.md"
+  },
+  "phase4Review": {
+    "verdict": "DONE",
+    "at": "2026-07-06T23:41:00Z",
+    "findingsFixed": [
+      "Agent Row names were visually crowded out by trailing cells in the split origin; compact subtitle now preserves names.",
+      "AgentEditor harness switch kept stale non-empty modelProvider values; it now reconciles to a supported provider or null.",
+      "Existing-agent edit did not fetch the role template through the shared editor; edit destination now enables template fetch.",
+      "SettingsAgents loaded org teams but never stored them, so add-agent team context was lost."
+    ],
+    "verification": [
+      "npm run check",
+      "npm run lint",
+      "npm run test",
+      "npm run test:integration -- packages/server/src/harness/__tests__/opencode-model-probe.integration.test.ts",
+      "Playwright paint: /tmp/av2-settings-agents.png and /tmp/av2-settings-backends.png"
+    ]
+  },
+  "shipVerify": {
+    "command": "set -a; . ./.env; set +a; npm run verify",
+    "status": "passed",
+    "at": "2026-07-07T16:11:49Z",
+    "attestation": ".verify-attestations/fecb2c7b4274068e102624d05dc0ed55fdae8e69.json",
+    "summary": [
+      "check, lint, knip, production knip, guards, web build, and desktop build passed",
+      "affected unit leg passed",
+      "affected integration leg passed: 29 files, 232 tests",
+      "affected e2e leg passed",
+      "attestation status=passed, dirty=false, agenticExecuted=86, skipped=0"
+    ],
+    "harnessBuckets": {
+      "builtin": 15,
+      "claude": 15,
+      "codex": 15,
+      "opencode": 15
+    }
+  }
+}

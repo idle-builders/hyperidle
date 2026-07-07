@@ -56,7 +56,9 @@ function renderSettingsAgents(): ReturnType<typeof render> {
 	);
 }
 
-describe("AH4 AC2 — SettingsAgents team placement picker", () => {
+describe("AH4 AC2 — SettingsAgents add form", () => {
+	// AV2: Team picker moved out of Add Agent form — AgentEditor is used instead.
+	// Tests updated to match the new Add Agent flow (AgentEditor inline form).
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -75,7 +77,7 @@ describe("AH4 AC2 — SettingsAgents team placement picker", () => {
 		});
 	});
 
-	it("shows Team select in add form when Add Agent clicked", async () => {
+	it("clicking Add Agent opens the AgentEditor inline form with a Name field", async () => {
 		const user = userEvent.setup();
 		renderSettingsAgents();
 
@@ -85,112 +87,9 @@ describe("AH4 AC2 — SettingsAgents team placement picker", () => {
 
 		await user.click(screen.getByRole("button", { name: /add agent/i }));
 
-		// Team select must appear
-		await waitFor(() => {
-			expect(screen.getByRole("combobox", { name: /team/i })).toBeInTheDocument();
-		});
-	});
-
-	it("populates Team select with teams from GET /api/org", async () => {
-		const user = userEvent.setup();
-		renderSettingsAgents();
-
-		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /add agent/i })).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByRole("button", { name: /add agent/i }));
-
-		await waitFor(() => {
-			const teamSelect = screen.getByRole("combobox", { name: /team/i });
-			expect(teamSelect).toBeInTheDocument();
-			// The team name appears as an option
-			expect(screen.getByRole("option", { name: TEAM_NAME })).toBeInTheDocument();
-		});
-	});
-
-	it("shows disabled 'No teams' option when org has no teams", async () => {
-		fetchMock = mockFetch([]); // zero teams
-		vi.stubGlobal("fetch", fetchMock);
-
-		const user = userEvent.setup();
-		renderSettingsAgents();
-
-		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /add agent/i })).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByRole("button", { name: /add agent/i }));
-
-		await waitFor(() => {
-			const teamSelect = screen.getByRole("combobox", { name: /team/i });
-			expect(teamSelect).toBeInTheDocument();
-			// Zero-teams state shows a disabled placeholder
-			expect(screen.getByText(/no teams/i)).toBeInTheDocument();
-		});
-	});
-
-	it("includes teamId in POST body when Save is clicked with a valid team selected", async () => {
-		const postMock = vi.fn().mockResolvedValue({
-			ok: true,
-			status: 201,
-			json: async () => ({
-				id: "new-agent-1",
-				name: "Test Builder",
-				role: "builder",
-				agentCategory: "team",
-				harnessType: "builtin",
-				modelTierPreference: null,
-				modelId: "claude-sonnet-4-6",
-				modelProvider: "anthropic",
-				maxConcurrentSessions: 1,
-				status: "active",
-				activeSessions: 0,
-			}),
-		});
-
-		const capturedRequests: { url: string; body: unknown }[] = [];
-
-		const baseFetch = mockFetch() as (url: string, init?: RequestInit) => Promise<Response>;
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-				const urlStr = String(url);
-				if (urlStr.includes("/api/agents") && init?.method === "POST") {
-					const body = JSON.parse(init.body as string) as unknown;
-					capturedRequests.push({ url: urlStr, body });
-					return postMock();
-				}
-				return baseFetch(url, init);
-			}),
-		);
-
-		const user = userEvent.setup();
-		renderSettingsAgents();
-
-		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /add agent/i })).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByRole("button", { name: /add agent/i }));
-
-		// Fill required name field
+		// AgentEditor renders with a Name textbox
 		await waitFor(() => {
 			expect(screen.getByRole("textbox", { name: /name/i })).toBeInTheDocument();
 		});
-		await user.type(screen.getByRole("textbox", { name: /name/i }), "Test Builder");
-
-		// Click Save
-		const saveBtn = screen.getByRole("button", { name: /save/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			expect(capturedRequests.length).toBeGreaterThan(0);
-		});
-
-		const postBody = capturedRequests[0]?.body as Record<string, unknown>;
-		expect(postBody).toHaveProperty("teamId");
-		// teamId must be the teamMembers.id from GET /api/org
-		expect(postBody.teamId).toBe(TEAM_ID);
 	});
 });

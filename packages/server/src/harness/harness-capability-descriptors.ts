@@ -127,6 +127,14 @@ export function describeRegisteredHarness(
 	const runtime = runtimeFromCapabilities(caps);
 
 	if (type === "builtin") {
+		// @lore AV2 Build Obligation 5: builtin branch reads discoveries[builtin].models
+		// when present (populated by probeBuiltinGateway's /models fetch), NOT caps.descriptorModels.
+		// caps.descriptorModels is the legacy fallback for the static pre-AV2 path; once
+		// the async fetch populates discoveries.builtin.models, that wins.
+		const discoveredModels = discoveries?.[type]?.models;
+		const models: readonly HarnessModelDescriptor[] =
+			discoveredModels && discoveredModels.length > 0 ? discoveredModels : builtinModels(caps);
+
 		return {
 			type,
 			name: meta.name,
@@ -139,7 +147,7 @@ export function describeRegisteredHarness(
 				credentialNames: ["anthropic_api_key", "openrouter_api_key", "openai_compatible_api_key"],
 			},
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
-			models: builtinModels(caps),
+			models,
 			runtime,
 			modelProviders: meta.modelProviders,
 			// AN1: environment-level CLI tools (gh, stripe, etc.) attached via discovery probe
@@ -148,6 +156,13 @@ export function describeRegisteredHarness(
 	}
 
 	if (isKnownHarnessFamily(type)) {
+		// @lore AV2: known CLI harnesses prefer discoveries[type].models (populated by
+		// probeClaudeCodeCli / probeOpenCodeCli at probe time), falling back to
+		// caps.descriptorModels (the legacy static path). This is the "discovered wins" rule.
+		const discoveredModels = discoveries?.[type]?.models;
+		const models: readonly HarnessModelDescriptor[] =
+			discoveredModels && discoveredModels.length > 0 ? discoveredModels : cliModels(caps);
+
 		return {
 			type,
 			name: meta.name,
@@ -159,13 +174,18 @@ export function describeRegisteredHarness(
 				command: KNOWN_HARNESS_LOGIN_COMMANDS[type],
 			},
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
-			models: cliModels(caps),
+			models,
 			runtime,
 			modelProviders: meta.modelProviders,
 			// AN1: MCP server list from discovery probe; default [] for non-ready harnesses
 			inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
 		};
 	}
+
+	// External harnesses: same discovered-wins rule
+	const discoveredModels = discoveries?.[type]?.models;
+	const models: readonly HarnessModelDescriptor[] =
+		discoveredModels && discoveredModels.length > 0 ? discoveredModels : cliModels(caps);
 
 	return {
 		type,
@@ -174,7 +194,7 @@ export function describeRegisteredHarness(
 		accessMode: caps.accessMode ?? "external-byo",
 		authAction: caps.authAction ?? { kind: "none", label: "Configured externally" },
 		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
-		models: cliModels(caps),
+		models,
 		runtime,
 		modelProviders: meta.modelProviders,
 		// AN1: external harnesses have no probed inherited tools

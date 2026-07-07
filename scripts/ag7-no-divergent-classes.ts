@@ -37,7 +37,9 @@ const SETTINGS_FILES: readonly string[] = [
 	"packages/web/src/settings/SettingsNotifications.tsx",
 	"packages/web/src/settings/SettingsProfile.tsx",
 	"packages/web/src/settings/SettingsAppearance.tsx",
-	"packages/web/src/settings/SettingsAssistant.tsx",
+	// @lore AV2: SettingsAssistant.tsx removed — assistant folded into SettingsAgents (ast-* id).
+	// SettingsHarnesses.tsx added as its successor in the AG7 scan surface.
+	"packages/web/src/settings/SettingsHarnesses.tsx",
 	"packages/web/src/settings/SettingsModels.tsx",
 	"packages/web/src/settings/SettingsWorker.tsx",
 	"packages/web/src/settings/SettingsOrgChart.tsx",

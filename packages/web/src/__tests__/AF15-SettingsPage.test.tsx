@@ -167,47 +167,31 @@ describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 		});
 	});
 
-	it("renders settings-section-worker testid", async () => {
-		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
-		await waitFor(() => {
-			expect(screen.getByTestId("settings-section-worker")).toBeInTheDocument();
-		});
-	});
+	// AV2: "worker" section removed (folded under Backend) — test deleted.
+	// AV2: "models" section removed (folded into builtin harness detail) — test deleted.
 
-	it("both new sections co-exist with existing profile, models, and backend sections", async () => {
+	it("agents section co-exists with profile and backend sections", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
 		render(<SettingsPage />);
 		await waitFor(() => {
 			expect(screen.getByTestId("settings-section-profile")).toBeInTheDocument();
-			expect(screen.getByTestId("settings-section-models")).toBeInTheDocument();
 			expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
-			expect(screen.getByTestId("settings-section-worker")).toBeInTheDocument();
 			expect(screen.getByTestId("settings-section-backend")).toBeInTheDocument();
+			// AV2: worker and models sections removed
+			expect(screen.queryByTestId("settings-section-worker")).toBeNull();
+			expect(screen.queryByTestId("settings-section-models")).toBeNull();
 		});
 	});
 
-	it("Agents section appears after Models section in DOM order", async () => {
+	it("Agents section appears before Backend section in DOM order", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
 		render(<SettingsPage />);
 		await waitFor(() => {
-			const models = screen.getByTestId("settings-section-models");
 			const agents = screen.getByTestId("settings-section-agents");
-			// agents should appear after models in the DOM
-			expect(
-				models.compareDocumentPosition(agents) & Node.DOCUMENT_POSITION_FOLLOWING,
-			).toBeTruthy();
-		});
-	});
-
-	it("Worker section appears before Backend section in DOM order", async () => {
-		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
-		await waitFor(() => {
-			const worker = screen.getByTestId("settings-section-worker");
 			const backend = screen.getByTestId("settings-section-backend");
+			// agents should appear before backend in the DOM (AV2: models removed)
 			expect(
-				worker.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING,
+				agents.compareDocumentPosition(backend) & Node.DOCUMENT_POSITION_FOLLOWING,
 			).toBeTruthy();
 		});
 	});
