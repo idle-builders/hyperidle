@@ -2,17 +2,8 @@
   "id": "AV2",
   "track": "AV",
   "title": "Settings information architecture: rows, split-pane, assistant-as-agent, roles",
-  "status": "blocked",
-  "currentStep": "ship-verify",
-  "blockedAt": "2026-07-07T07:59:33Z",
-  "blocker": {
-    "reason": "full verify attestation requires Claude real-binary quota unavailable until reset",
-    "details": [
-      "root .env was hoisted and exported; builtin OpenRouter harness availability is fixed",
-      "affected attestation recorded equal harness execution buckets: builtin=15, claude=15, codex=15, opencode=15",
-      "Claude real-binary tests hit the local Claude session limit: reset 10:30am Europe/Zurich; failures returned 429, zero cost, or no Claude tool call"
-    ]
-  },
+  "status": "shipping",
+  "currentStep": "ship-pr",
   "complexity": "L",
   "startedAt": "2026-07-06T15:42:00Z",
   "worktree": ".worktrees/AV2",
@@ -47,21 +38,22 @@
     ]
   },
   "shipVerify": {
-    "command": "npm run verify",
-    "status": "blocked",
-    "at": "2026-07-07T07:59:33Z",
-    "passedBeforeBlock": [
-      "npm run check",
-      "npm run lint",
-      "knip",
-      "knip:production",
-      "guard scripts",
-      "web build",
-      "desktop build",
-      "affected unit leg: 257 files, 2455 tests",
-      "targeted AL7-tailored-grant.integration.test.ts: 6 tests",
-      "affected integration leg progressed through all four harnesses before Claude quota failures"
+    "command": "set -a; . ./.env; set +a; npm run verify",
+    "status": "passed",
+    "at": "2026-07-07T16:11:49Z",
+    "attestation": ".verify-attestations/fecb2c7b4274068e102624d05dc0ed55fdae8e69.json",
+    "summary": [
+      "check, lint, knip, production knip, guards, web build, and desktop build passed",
+      "affected unit leg passed",
+      "affected integration leg passed: 29 files, 232 tests",
+      "affected e2e leg passed",
+      "attestation status=passed, dirty=false, agenticExecuted=86, skipped=0"
     ],
-    "blockedAt": "scripts/verify-attest.ts affected attestation"
+    "harnessBuckets": {
+      "builtin": 15,
+      "claude": 15,
+      "codex": 15,
+      "opencode": 15
+    }
   }
 }
