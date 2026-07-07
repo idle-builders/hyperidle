@@ -1,28 +1,91 @@
-# Thread primitive (TRACK-L L1 — full spec at `docs/human-interface-layer/the-three-views-the-rail.md` §4.5) <!-- @lore AD8a: historical — Rail removed in U6 -->
+# Thread primitive
 
-A Thread is a *container* (no shape of its own) — an append-only chronologically-ordered sequence of typed Messages, attached to exactly one host entity. Differences between "review", "chat", "coach" <!-- @lore AD8a: "coach" ThreadConfiguration renamed to "assistant" in AD8b --> live on the *messages* (typed shapes) and on the thread's *configuration* (host + pinning + membership), never on the thread itself.
+A Thread is a *container* — an append-only, chronologically ordered sequence of typed Messages attached to exactly one host entity. The thread itself has no shape: there is no `kind` column on threads, ever. All variation lives on the *messages* (typed payloads) and on the thread's derived *configuration* (host + participants + pinning), never on the thread row.
 
 ```
 Thread {
-  id, host_kind, host_id, initiator, participants[],
-  pinned, blocking (derived), resolved_at, last_active_at, created_at
+  id, host_kind, host_id, initiator_id, participants[],
+  pinned, resolved_at, last_active_at, created_at, direct_key
 }
 
 Message {
-  id, thread_id, sender, type, payload, client_key, deleted_at, created_at
+  id, thread_id, sender_id, type, payload, client_key,
+  deleted_at, redacted_at, resolved_at, block_id, created_at
 }
 ```
 
-- **Host kinds (closed):** `bet | task | knowledge_item | artifact | agent | user | team | factory`. Adding a host kind requires a concept-doc update first (HIL §4.5). No orphan threads — assistant-style threads attach to the user themselves.
-- **Message types (closed):** `plain | review | questionnaire | verdict`. Adding a type requires a concept-doc update first. Renderer dispatches via TypeScript discriminant exhaustiveness. A `verdict` message carries `decision` (one of the 5 binding actions) AND `resolvesMessageId` pointing at the review/questionnaire message it terminates.
-- **Configurations (descriptive, not enum):** DM (host=agent/user, two participants), coach <!-- @lore AD8a: ThreadConfiguration "coach" renamed to "assistant" in AD8b --> (host=user, pinned), feed (host=team/factory, broadcast). Recognisable patterns — not a typed enum.
-- **Blocking (derived):** a thread is *blocking* iff the agent participating in the thread cannot continue to work without an answer to a message in the thread. Drives ordering (blocking threads sort first).
-- **Verdict semantics:** five verdict-grammar actions are binding verdicts that emit a `verdict`-payload message and terminate the review (`approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`). Three emit `plain` messages and do not terminate (`comment`, `inline-comment`, `reply`). Two are sidecar workflow operations and emit no message in the thread (`snooze`, `escalate`).
-- **Mutability:** thread `host_kind`/`host_id` immutable after creation, except the `user → factory` re-home on user offboarding. `pinned`, `resolved_at`, `last_active_at` mutable. Message `payload` immutable after persistence (audit invariant); soft-delete via `deleted_at` allowed; redaction allowed via structured replacement payload preserving id/sender/type/created_at.
-- **Identity / idempotency:** opaque server ids; ordering by `(created_at, id)` ascending; appends carry `client_key`; uniqueness constraint `(thread_id, sender, client_key)` to dedupe at-least-once retries.
-- **Authority:** server-authoritative; every write emits an event to the Event Bus (ARCHITECTURE.md §2.6). Agents and humans are equal participants.
-- **Migration policy (L1):** forward-only. Legacy `threads.kind`, `messages.recipient_id`, `messages.subject`, `messages.body`, `messages.file_lease_ids` columns are dropped. Existing rows project: legacy `threads.kind = 'coach'` → host_kind=`user`, host_id=initiator, pinned=true; legacy `kind = 'review' / 'chat'` → host_kind set from the referencing item or task; `recipient_id` folds into `participants`; `subject` + `body` fold into `payload.text` for `type = 'plain'`. The legacy `responses` table is dropped — verdict-payload messages replace it. Rollback: revert the migration; existing data is preserved through a snapshot taken at migration start.
+Thread columns: `packages/db/src/schema.ts:421-447`. Message columns: `schema.ts:458-484`. `blocking` is derived, never stored.
 
-Implementation stories that consume this contract: L7 (verdict commit unblocks agent), L8 (Submenu thread sections), L9 (one detail surface per thread), L11 (rich review messages), L18 (bet detail threads), L21, L26 (per-block discussion via threads on knowledge items).
+## Host kinds (closed)
 
-**Rendering (TRACK-AM AM1).** A *Conversation* is the deliberate-messaging reading of a Thread, rendered through the **Part model** — see [Conversation & the Part model](./part-model.md). That layer adds no data shape and changes nothing here: it renders within the Message types and verdict semantics above. Note the word "Block" is reserved for the L2 content primitive — the conversation rendering unit is a **Part**, never a "Block".
+`HOST_KINDS` (`packages/shared/src/thread.ts:19-28`): `bet | task | knowledge_item | artifact | agent | user | team | factory`.
+
+- Host = the entity the thread is *about* — not the creator (that is `initiator_id`); no thread has an owner.
+- No orphan threads. An assistant-style thread with no domain object attaches to the user themselves.
+- Hosts reference threads by query, never own them. A host cannot be hard-deleted while threads reference it — soft-archive only.
+
+## Message types (closed)
+
+`MESSAGE_TYPES` (`thread.ts:31`): `plain | review | questionnaire | verdict`.
+
+- Rich messages render via a typed dispatch — a TypeScript discriminant with compiler-checked exhaustiveness. No untyped HTML payloads.
+- `plain` carries text; `review` carries an artifact reference plus a verdict affordance; `questionnaire` carries a constrained answer set plus an answer slot.
+- Verdicts and questionnaire answers are themselves Messages appended to the thread — never hidden state on the review/questionnaire message. The audit trail lives in the message sequence.
+
+## Verdict grammar (five decisions)
+
+`VERDICT_DECISIONS` (`thread.ts:34-40`): `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. These are the only verdict decisions; the set is locked by `packages/shared/src/__tests__/message-types.test.ts`.
+
+- A `verdict` message carries `decision` plus `resolvesMessageId` (`thread.ts:207-209`) pointing at the review or questionnaire message it terminates. A binding verdict resolves the review.
+- Non-binding discussion — replies, comments — is `plain` messages in the same thread; they never terminate the review.
+- Display labels (`verdictDecisionLabel`, `thread.ts:395`): approve / approve-with-comments → APPROVED, reject → REJECTED, request-changes → CHANGES REQUESTED, edit → EDITED.
+- UI is buttons-only: Approve and Request changes as primary buttons, approve-with-comments / edit / reject in the ⋯ overflow menu (`packages/web/src/pages/review/ReviewComposition.tsx:128-184`). There are no verdict keyboard shortcuts; Escape is the only bound key (closes the examine pane, `ReviewComposition.tsx:717-723`).
+- The decision UI lives on the review surface — see [Review primitive](./review-primitive.md).
+
+## Configurations (derived, not an enum)
+
+A configuration is a recognisable pattern of host + participants + pinning — described, never stored. `classifyThreadConfiguration` (`thread.ts:286`):
+
+- **assistant** — host = user, pinned. (Starts unpinned → classifies as `dm` until the assistant's first response.)
+- **feed** — host = team or factory; broadcast.
+- **dm** — host = agent or user, exactly two participants.
+- **attached** — everything else (thread on a bet, task, knowledge item, artifact).
+
+Post-spec extension: `direct_key` (AF14, `schema.ts:445`) dedupes direct two-participant threads only, via a partial unique index; null for group/feed/host-scoped threads, and the assistant thread is exempt.
+
+## Blocking (derived)
+
+A thread is **blocking** iff the agent participating in the thread cannot continue to work without an answer to a message in the thread. Never stored — derived (`isBlocking`, `thread.ts:340`):
+
+- With an unresolved `review`/`questionnaire` HEAD: blocking iff the agent has a session active for this thread.
+- Without a HEAD (plain quick-question case): blocking iff the agent explicitly paused on this thread.
+
+An unanswered review whose agent finished and walked away is *not* blocking. Blocking threads sort first in any rendered list — an agent is literally waiting.
+
+## Lifecycle and mutability
+
+- Threads open with `resolved_at` null; it is set when the underlying ask settles (a verdict, an answer, a close). `resolved_at` is not terminal — re-opening clears it.
+- Thread host is **immutable** after creation. Single contracted exception: on user offboarding, that user's assistant thread re-homes to `factory` (contract only; not yet exercised in code). `pinned`, `resolved_at`, `last_active_at` are mutable.
+- Messages are **append-only**: payload is immutable after persistence (audit invariant — what a participant saw at decision time stays the same). Soft-delete via `deleted_at`; no in-place edits.
+- **Redaction** replaces the payload with a structured `{ redacted: true, redactedBy, redactedAt, reason }` payload while preserving the message's id, sender, type, and created_at (`redacted_at`, `schema.ts:472`).
+
+## Identity and idempotency
+
+- Thread and message ids are opaque and server-generated.
+- Message ordering is `(created_at, id)` ascending — the id tiebreaks same-millisecond collisions for deterministic re-render.
+- Appends carry a client-generated `client_key`; the unique constraint `(thread_id, sender_id, client_key)` (`messages_idempotency_uq`, `schema.ts:481`) dedupes at-least-once retries — a duplicate returns the canonical id, not a new row.
+
+## Authority
+
+- Server is the source of truth; every write emits an event (`packages/server/src/routes/threads.ts`; delivery guarantees documented in the `packages/shared/src/event-bus.ts` docblock).
+- Agents and humans are equal participants: either can initiate a thread to the other, and any participant can post.
+- Views never own threads. Conversations is one renderer of threads; bet detail, task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
+
+## Closure discipline
+
+Adding a new message type, a new host kind, or a new verdict decision requires updating this document first — not the schema, not the renderer.
+
+## Relationships
+
+- **Items.** The legacy `responses` table is gone — verdicts project as `verdict`-typed messages (`schema.ts:514`). `items` is the Router's derived working set, never the conversation source of truth; the Conversations queue reads `threads`. Item shape and routing rules: [Items and routing](./items-and-routing.md).
+- **Rendering.** A *Conversation* is the deliberate-messaging reading of a Thread, rendered through the Part model — see [Part model](./part-model.md). It adds no data shape. The conversation rendering unit is a **Part**, never a "Block" — that word is reserved for the content primitive ([Blocks](../blocks/definition.md)).

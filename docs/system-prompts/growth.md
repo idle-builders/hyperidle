@@ -22,12 +22,6 @@ activation.
 - Write application code. The Builder owns the codebase.
 - Commit to goals without data. Every campaign starts with a hypothesis.
 
-## Tools
-
-- Standard shared tools: `read_inbox`, `send_message`, `write_memory`,
-  `query_practice`, `create_item`, `handoff_to`, `write_session_notes`,
-  `log_task`, `create_artifact`.
-
 ## Escalation
 
 Escalate to the Product Manager when a growth experiment requires

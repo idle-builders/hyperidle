@@ -1,162 +1,178 @@
-## 3. The Five Primitives
+# The Five Primitives
 
-The process layer rests on five primitives. Everything else in this doc is mechanics on top of these.
+The process layer rests on five primitives — **Bet, Task, Session, Team, Routine**. Everything else in this folder is mechanics on top of these. This doc is the front door: why the layer exists, the two directions work flows, the five shapes as shipped, and the layer's boundaries.
 
-**Producer rule for Artifacts.** Tasks are the unique producers of Artifacts (the cross-domain primitive defined in `HUMAN_INTERFACE_LAYER.md` §4.5 — *every output an artifact*). Bets, Products, Portfolios, Teams, and Routines do **not** produce Artifacts; Bet/Product/Portfolio surfaces aggregate Artifacts from their Tasks for display. A Routine that runs work produces its Artifacts via the Task it spawns. Sessions contribute the `cost_from_session` field on the Artifact but do not own it (the producing Task does).
+---
+
+## 1. Why a dedicated process layer
+
+Two failure modes bracket the design space:
+
+- **Workflow-engine thinking.** Treat the factory as a DAG of nodes. Every transition is wired in advance; adding a step means editing the graph. Agents become DAG executors, not employees. It collapses the moment reality stops looking like the graph.
+- **Free-form agent thinking.** No structure at all. Agents are spawned, told to "work on the bet," and given everything. They duplicate work, contradict each other, never know when to stop, and burn cost without producing artifacts.
+
+The middle path this layer implements: **decentralized handoffs over a shared substrate, with explicit unit primitives and explicit done conditions.** The model decides when to hand off; the system tracks state; the work has a beginning, a middle, and a known end. No DAG engine exists anywhere in the repo — sequencing is `tasks.dependencies` plus the handoff protocol.
+
+Three commitments distinguish it, all implemented:
+
+1. **Teams persist.** A team is the durable unit, not a per-task crew. Product merged 1:1 into Team (U1: the `teams` table is the former `products` table). Successive bets pass through the same team and it accumulates muscle memory. See [teams.md](teams.md).
+2. **Decomposition is decentralized and pluggable.** No central planner service. Each bet is decomposed via a pluggable strategy (`packages/server/src/services/bet-decomposition.ts`) — the fabric strategy is knowledge-aware (practice = L3); the kernel minimal strategy is the knowledge-free floor. See [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
+3. **Change is first-class, not exceptional.** Bets are meant to change as the team learns. Revisions flow through the same review-thread mechanism humans use to approve anything else, with an audit trail.
+
+---
+
+## 2. Top-down and bottom-up at the same time
+
+Knowledge in a healthy flat company doesn't flow one way. The founders set direction; the people doing the work surface what they learn. The process layer makes both first-class.
+
+### 2.1 Top-down: vision and focus, not assignments
+
+- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. `git-export.ts` exports them to the team's git repo (`EXPORTED_KINDS`, `packages/fabric/src/services/git-export.ts:30-31`); context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox (`packages/fabric/src/context-assembly.ts`). Edited by humans through the assistant thread and approved through Conversations.
+- **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant; the assistant distills it into proposed updates that loop back through Conversations for approval.
+- **Committing a bet in the Work view** — a direct top-down signal: "this is what we're doing for the next cycle."
+
+Top-down means direction, never task assignment. Tasks emerge from the team.
+
+### 2.2 Bottom-up: learnings, data, surfaced insights
+
+- **The practice layer (L3)** is the primary channel: agents capture observations into their practice; facilitators surface the highest-attention items via the Knowledge view. See [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md) and [../knowledge-architecture/the-five-layers.md](../knowledge-architecture/the-five-layers.md).
+- **Bet retros** record the cycle's outcome and create a retro knowledge item, with an AI-assisted draft (`packages/server/src/routes/bets.ts:158`, `:929-937`). See [routines-and-retros.md](routines-and-retros.md).
+- **Agent-initiated chat** — any agent that notices something the founders should know can post a thread directly. See [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
+- **Bet revision** — when the team learns the bet's premise is wrong, it proposes a revision through the review-thread mechanism.
+
+### 2.3 The two flows meet at the bet
+
+A bet starts as a top-down commitment and evolves as the team learns. Change semantics: [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
+
+---
+
+## 3. The five primitives
+
+**Producer rule for Artifacts.** Tasks are the unique producers of Artifacts: `artifacts.producingTaskId` is a NOT NULL FK to tasks (`packages/db/src/schema.ts:848-855`). Bets, Teams, and Routines never own Artifacts; Bet surfaces aggregate their Tasks' Artifacts read-only, and a Routine's work produces Artifacts via the Task it spawns. The Artifact contract itself lives in [artifact-primitive.md](artifact-primitive.md).
+
+All shapes below reflect `packages/db/src/schema.ts` — the schema file is authoritative; this doc names the load-bearing fields and their semantics.
 
 ### 3.1 Bet
 
-A shaped, committed, time-boxed unit of work owned by a team. Has an explicit done condition. Lives on the Work view before commitment, becomes an active record after.
+A shaped, committed, time-boxed unit of work owned by a team, with an explicit done condition. A bet is *not* a workflow — it encodes no step sequence, only a *commitment* and the minimum structure to keep the team honest about it.
 
-```
-Bet {
-  id
-  product            # which product this bet belongs to
-  team               # the persistent team for that product
-  pitch              # the original shaped pitch (markdown + sketches)
-  cost_appetite      # Money — cap on total spend for this bet (see §10)
-  token_appetite?    # optional TokenUsage — cap on token spend, broken down by tier
-  done_condition     # explicit, set at commit, revisable with audit
-  hypothesis         # what we believe will be true after this
-  status         # current progress: figuring it out / making it happen
-  tasks              # list of Task IDs (decentralized, decomposition is dynamic)
-  routines_active?   # any recurring routines spawned by this bet
-  status             # shaped | committed | in_progress | shipped | killed
-  artifacts          # AGGREGATED Artifact references (read-only; the Bet does not own
-                     # Artifacts — they root on Tasks per the Artifact primitive,
-                     # `HUMAN_INTERFACE_LAYER.md` §4.5. The Bet view aggregates
-                     # Artifacts from its Tasks for display.)
-  thread             # the bet-level conversation thread (optional)
-  revision_log       # every change to done_condition or hypothesis, with reasoning
-  created_at
-  shipped_at?
-}
-```
+Shipped shape (`schema.ts:121`):
 
-A bet is *not* a workflow. It does not encode a sequence of steps. It encodes a *commitment* and the *minimum structure to keep the team honest about it*.
+- `teamId` — the owning team (Product merged into Team, U1)
+- `description` — the shaped write-up (renamed from the pre-U1 field in migration 0021)
+- `doneCondition`, `hypothesis` — explicit, revisable under review
+- `status` — **`draft | active | completed | killed`** (`BET_STATUSES`, `packages/shared/src/types.ts`); `atRisk` is a boolean sub-state, not a status
+- `revisionLog` — every change to done condition or hypothesis, with reasoning
+- `costAppetiteMinor` + `costAppetiteCurrency` — the Money appetite; `costActualMinor` accumulates from sessions
+- `tokensActualJson` — accumulated TokenUsage actuals
+- `outcomeVerdict` — `validated | refuted | partial | inconclusive` (AC1), null until evaluated
+- `decompositionStatus` (AK3), `sourceKnowledgeItemId` (AK5 promote-from-knowledge), `createdAt`, `completedAt`
 
-**No duration budget axis on a bet.** The appetite is a Money cap (and optionally a TokenUsage cap), never a wall-clock-time cap. `created_at` and `shipped_at` are recorded for telemetry and retros; their delta is informational only. See §10 for the full Appetite/Budget/Cost spec, including the rationale for why duration is not a budget axis and the anti-pattern rule that rejects any future "duration cap" proposal. The `Money` and `TokenUsage` shapes are defined in `docs/process-layer/canonical-shapes.md`.
+The appetite is a Money cap, never wall-clock time — the deprecated duration `appetite` column is rejected at the API boundary (400). Cap grammar, hierarchy, and the duration-is-not-a-budget-axis rationale live in [wip-and-cost-limits.md](wip-and-cost-limits.md); `Money`/`TokenUsage` shapes in [canonical-shapes.md](canonical-shapes.md). Full lifecycle and decomposition: [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
 
 ### 3.2 Task
 
-A unit of work picked up by an agent. First-class object with state, owner, dependencies, done condition, cost cap, **Artifact references** (Tasks are the unique producers of Artifacts — see Artifact primitive in `HUMAN_INTERFACE_LAYER.md` §4.5), and one or more agent sessions attached.
+A unit of work picked up by an agent. First-class object with state, owner, dependencies, done condition, cost cap, Artifact references, and 0..n sessions attached.
 
-```
-Task {
-  id
-  bet                # parent bet
-  product
-  team
-  owner              # the agent currently responsible (can change via handoff)
-  title
-  description        # what success looks like
-  done_condition     # task-level, explicit
-  state              # proposed | accepted | hold | in_progress | blocked | review | done | killed
-  dependencies       # list of Task IDs that must reach `done` first
-  sessions           # list of Session IDs — see §3.3
-  thread?            # optional discussion thread (only if there's something to talk about)
-  artifacts          # list of Artifact IDs the Task has produced. Tasks are the
-                     # unique producers of Artifacts (Artifact primitive,
-                     # `HUMAN_INTERFACE_LAYER.md` §4.5). Underlying file/diff
-                     # storage is a detail of the Artifact, not of the Task.
-  cost_cap           # Money — max spend on this task (see canonical-shapes.md)
-  cost_actual        # Money — running total of session costs rolled up
-  token_cap?         # optional TokenUsage — cap on tokens, broken down by tier
-  tokens_actual      # TokenUsage — running total, broken down by tier
-  durability?        # null | "checkpoint" | "temporal" | ... — opt-in per task
-  risk_tier          # low | medium | high — controls review behavior on completion
-  attention_score    # numeric, used for prioritization
-  created_at
-  updated_at
-}
-```
+Shipped shape (`schema.ts:204`):
 
-A task has no duration cap. `created_at` / `updated_at` are informational; the budget axes are Money and TokenUsage only.
+- `betId`, `teamId`, `ownerAgentId` — owner changes via handoff
+- `title`, `description`, `doneCondition`
+- `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `packages/shared/src/types.ts:10-19`)
+- `dependencies` — Task IDs that must reach `done` first; sequences emerge from these, not from a graph
+- `artifacts` — Artifact references (Tasks are the unique producers)
+- `costCap` / `costActual` — bare integer minor units
+- `threadId` — **nullable**; `notes`, `auditTrail`
+- `outcomeVerdict` — `met | met_with_rework | partially_met | not_met` (AC1)
+- `createdAt` / `updatedAt` — informational only; the budget axis is Money, never duration
 
-The thread on a task is optional. Most tasks don't need one. Threads (chat threads) exist *when there's something to discuss* — a question, a handoff conversation, a clarification, a review. The thread is *attached to* the task, not the same as it. This separates the conversation about the work from the state of the work.
+Strategy signals (`riskTier`) live in `task_strategy_fabric` (`schema.ts:723-741`), not on the kernel task — the O2 kernel/strategy split.
+
+The thread on a task is optional. Most tasks don't need one; threads exist *when there's something to discuss* — a question, a handoff, a review. The thread is attached to the task, not the same as it: the conversation about the work is separate from the state of the work. Deep mechanics: [tasks-and-sessions.md](tasks-and-sessions.md) and [handoff-and-lifecycle-propagation.md](handoff-and-lifecycle-propagation.md).
 
 ### 3.3 Session
 
-A single agent's run on a task. A task can have many sessions over its lifetime — one agent does an hour of work, hands back, another agent picks it up later, the original agent comes back, etc.
+A single agent's bounded run on a task. A task can have many sessions over its lifetime — one agent works, hands back, another picks up later. This is resumability without locking into a single long-running process: agent memory persists between sessions through the knowledge layers, not the process.
 
-```
-Session {
-  id
-  task               # parent task
-  agent              # which agent identity
-  started_at
-  ended_at?
-  state              # active | paused | done | crashed
-  sandbox_snapshot # pointer to the workspace state at session start
-  events             # event stream for this session (for durability replay if enabled)
-  cost               # Money — what this session spent (see canonical-shapes.md)
-  tokens             # TokenUsage — prompt/completion split per tier used in this session
-  outcome            # made_progress | blocked | completed | handoff | escalated
-  notes              # what the agent did, in its own words, written into its memory
-}
-```
+Shipped shape (`schema.ts:245`):
 
-Sessions are how we get **resumability without locking the model into a single long-running process**. A task can be picked up across days. The agent's memory persists between sessions through L2 (its private memory) and the practice (L3). The session is the contract between the task and the durability layer: if a task is `durability: temporal`, then each session is a Temporal workflow execution; if it's null, sessions are just bounded runs with no replay guarantee.
+- `taskId`, `agentId`
+- `modelTier` — required; tier vocabulary owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md)
+- `state` — **`active | paused | done | crashed`** (`SessionState`, `packages/shared/src/types.ts`)
+- `outcome` — **`completed | crashed | stopped | not_returned`** (`SessionOutcome`, `packages/shared/src/events.ts:48`)
+- `sandboxSnapshot` — pointer to sandbox state at session start
+- `notes` — what the agent did, in its own words
+- `routineId` — set when the routine scheduler created the session
+- `effectivenessScore` (+ recorded-at/by) — AC1 grading
+- `startedAt` / `endedAt` — telemetry only; their delta is never a budget
 
-`started_at` and `ended_at` exist for telemetry and retros; their delta is informational. The session's budget posture is Money + TokenUsage only — see §10.
+**Session cost shape (canonical statement).** Sessions have **no cost or token columns**. Session cost is computed at session end and rolled up: onto `users.costActual` and `teamMembers.costActual` (`packages/fabric/src/services/cost-cap.ts:247-256`), onto `bets.costActualMinor` (`cost-cap.ts:272`), and onto `routines.costActualMinor` for routine sessions (`packages/server/src/services/session-lifecycle.ts:111-124`). Factory cost is `SUM(users.costActual)`, written to `factory_settings.cost_actual`. Enforcement: [wip-and-cost-limits.md](wip-and-cost-limits.md).
 
 ### 3.4 Team
 
-A small group of agents bound to a **product**, not to a single bet. Teams persist for the life of the product. They pick up successive bets, accumulate muscle memory, and dissolve only when the product itself is killed.
+A persistent group of agents. Teams are the most important deviation from frameworks that form a crew per task: **teams that ship together accumulate context**, and that accumulated context is the entire reason a tenured agent beats a fresh one. Dissolving a team after one bet throws it away.
 
-```
-Team {
-  id
-  product
-  members            # list of agent identities
-  lead               # the agent that escalations route to first (typically the Product Manager)
-  capacity           # max parallel bets, max parallel tasks per member, daily_cost_cap (Money), optional daily_token_cap (TokenUsage)
-  active_bets        # list of currently active bets — usually one, sometimes more
-  bets_shipped       # history
-  formed_at
-  dissolved_at?
-}
-```
-
-This is the most important deviation from how most agent frameworks think about teams. Frameworks like CrewAI form a Crew per task. We form a Team per product, and the team picks up tasks-via-bets over its lifetime. The reason: **teams that ship together accumulate context**. The brand-voice agent on the Ambrovia team has read every Ambrovia copy artifact for six months. That context is the entire reason it's better than a fresh agent. Dissolving it after one bet throws all of that away.
-
-A team can have agents from multiple practices. The Ambrovia team might include a Product Manager, a Writer, a Copy Reviewer, a Frontend Builder, a Backend Builder, a Growth Analyst — each rooted in their own practice (L3), but operating together as the Ambrovia team. They share the bet, they share file leases on artifacts, they coordinate via threads.
+Shipped as two tables (U1): `teams` (`schema.ts:17-34`) is the domain entity — name, phase, knowledge paths, open-vocabulary `functions` that drive the default roster (AB0); `team_members` (`schema.ts:100-117`) is the agent-membership group — `members`, `leadAgentId` (escalations route there first), integer `capacity`, `activeBets` count, `costCap`/`costActual`, `formedAt`/`dissolvedAt`. Deep doc: [teams.md](teams.md).
 
 ### 3.5 Routine
 
-A recurring trigger attached to a named agent, with persistent state across runs. Calendar-shaped, event-shaped, or heartbeat-shaped.
+A recurring trigger attached to a named agent, with persistent state across runs.
 
-```
-Routine {
-  id
-  owner              # the named agent that owns this routine
-  trigger            # cron expression | event pattern | heartbeat interval
-  skill              # the skill to invoke
-  done_condition     # what counts as a successful run
-  state_key          # how the routine remembers what it did last time
-  delegation_allowed # bool — can a teammate with the right skill pick it up if owner is overloaded?
-  human_review       # bool — does each run produce a review thread, or is it autonomous?
-  autonomy_level     # L1-L4, same scale as skills
-  active             # bool
-  created_at
-  last_run_at?
-  next_run_at?
-  history            # link to past runs
-}
-```
+Shipped shape (`schema.ts:294`):
 
-The owner is a named agent with persistent state. The Growth Practice Facilitator owns "weekly metrics review." That doesn't mean the GPF runs it every time — it means the GPF holds the *thread of memory* across runs. If the GPF is overloaded and `delegation_allowed: true`, a teammate with the metrics-review skill can pick it up and write back into the GPF's memory state. The muscle memory ("the Growth PF owns metrics") is preserved; the execution can flex.
+- `ownerAgentId` — a named agent; `teamId` NOT NULL (every routine is team-scoped)
+- `triggerType` — **`heartbeat | calendar | event | continuous`** (`TriggerType`, `packages/shared/src/types.ts`) + `triggerConfig`
+- `skillId`, `doneCondition`
+- `stateKey` — how the routine remembers what it did last time
+- `delegationAllowed`, `humanReview`, `silent` booleans
+- `state` — `active | paused | error`
+- Per-routine cost caps: `costCapPerRunMinor`, `costCapMonthlyMinor`; `costActualMinor` accumulates per run
+- `stubTaskId` — dedicated stub task so routine sessions satisfy the `sessions.taskId` FK
+- `lastRunAt` / `nextRunAt`; history in the `routine_runs` audit log (`schema.ts:391`)
+
+Delegation semantics: the **owner holds the thread of memory** across runs. If the owner is overloaded and `delegationAllowed` is true, a skilled teammate can pick the run up and write back into the owner's state — muscle memory preserved, execution flexes. Builtins, triggers, and the retro loop: [routines-and-retros.md](routines-and-retros.md).
 
 ### 3.6 Why these five and not more
 
-We deliberately don't have:
+Deliberately absent:
 
-- **Workflow** — there are no DAGs. Sequences emerge from task dependencies.
-- **Plan** — plans are just the current state of a bet's task list. They change.
+- **Workflow** — no DAGs. Sequences emerge from `tasks.dependencies`.
+- **Plan** — a plan is just the current state of a bet's task list. It changes.
 - **Crew/Squad** — collapsed into Team.
 - **Job** — collapsed into Routine.
-- **Run** — collapsed into Session.
+- **Run** — collapsed into Session. `routine_runs` is only an audit log that links to sessions.
 
-If something doesn't fit one of these five primitives, the right move is usually to *not build it*, not to add a sixth primitive.
+If something doesn't fit one of these five, the right move is usually to *not build it*, not to add a sixth primitive.
 
 ---
+
+## 4. What ships at this layer
+
+The process layer's job is the primitives, the schedulers, and the helpers — **not the agent runtime, not an orchestration engine**. Sessions execute on external harnesses; the layer coordinates them. The verified component inventory (dependency watcher, task dispatcher, routine scheduler, handoff protocol, cost cap + sentinel, retro flow) lives in [../architecture/as-implemented-domain-architecture.md](../architecture/as-implemented-domain-architecture.md).
+
+---
+
+## 5. What this layer is not
+
+Scope guards, all still enforced by the code:
+
+- **Not a workflow engine.** No DAGs. Sequences emerge from task dependencies and handoffs, not a graph editor.
+- **Not a project tracker.** Tasks have state, but the goal is agents finishing work, not stakeholders watching progress. Work view and Conversations are the human surfaces.
+- **Not a backlog.** Draft bets live in the Work view; tasks exist only inside committed bets; nothing accumulates in a "later" pile.
+- **Not a planner.** Decomposition is decentralized, per-bet, strategy-pluggable. No central planner exists.
+- **Not the agent runtime.** Sessions execute on whatever harness the deployer chose (real CLI binaries via harness adapters). We coordinate; we don't run models.
+- **Not a durability substrate.** HyperIdle neither reimplements nor adapts to external workflow engines — durability is in-process `setInterval` schedulers over the primitive store.
+- **Not Jira.** If someone asks "where are the sprint reports," we've lost.
+
+---
+
+## 6. Anti-patterns
+
+Named and deliberately avoided — proposals that reintroduce them should be rejected by reference to this list:
+
+- **Centralized planner** — decomposition stays with the team, per bet.
+- **Workflow-DAG rigidity** — no pre-wired transitions.
+- **Crew-per-task amnesia** — teams persist; context compounds.
+- **Unbounded parallelism** — WIP and cost caps bound the factory ([wip-and-cost-limits.md](wip-and-cost-limits.md)).
+- **Silent rate-limiting** — breaches surface as review items, never silent throttling.
+- **Duration caps** — budget axes are Money and TokenUsage only; any future "duration cap" proposal is a named anti-pattern (rationale in [wip-and-cost-limits.md](wip-and-cost-limits.md)).

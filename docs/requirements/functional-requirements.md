@@ -1,131 +1,121 @@
-## 3. Functional Requirements
+# Functional Requirements
 
-### F-1: Agent Identity and Lifecycle
-
-**F-1.1** Agents are defined by three composable parts: system prompt (who they are), context (what they know, loaded JIT from L0–L4), and skills (what they can do — packaged scripts calling CLIs/APIs). All three are independently swappable.
-
-**F-1.2** The system supports three types of agents: team (product-scoped, does the work), strategy (knowledge-scoped, behind the scenes), and individual (user-scoped, personal operator).
-
-**F-1.3** Strategy agents: Practice Facilitators (one per community of practice — building, product, growth, ops, facilitation). Individual agents: one assistant per human user.
-
-**F-1.4** Team agents: Product Manager (team lead), Builder(s), Growth Agent, Ops Agent. The roster flexes by product lifecycle phase. Specialist capabilities (security review, brand-voice check, accessibility audit) are skills invoked within sessions — possibly via sub-agents — not separate top-level agents.
-
-**F-1.5** Agents can be paused (context persists, no active sessions) and reactivated. Agents are only dismissed when a product is sunset and its team dissolves.
-
-**F-1.6** An agent belongs to exactly one team (or is central). No multi-team membership. When a product team needs expertise from another team, cross-team tasks (F-5.4) handle it.
-
-**F-1.7** Within a session, an agent can spawn sub-agents (via harness-level primitives like Claude SDK subagents) to parallelize or specialize work. Sub-agents are internal to the session — the process layer does not see them. Their cost rolls up into the parent session.
-
-**F-1.8** Model routing is tier-based (Reasoning / Workhorse / Fast), assigned per session by the Scheduler based on task risk tier, routine type, and factory cost posture. Deployers configure which actual model each tier maps to.
-
-### F-2: The Five Process Primitives
-
-**F-2.1 Bet.** A shaped, committed, time-boxed unit of work owned by a team. Required fields: product, team, pitch, appetite (1w/2w/6w), done_condition, hypothesis, status (shaped → committed → in_progress → behind → blocked → paused → shipped → killed), revision_log with timestamped reasoning for every change. The done_condition is non-negotiable: a bet cannot enter `in_progress` without one. Bets are allowed to change as the team learns — done condition, hypothesis, and appetite revisions are first-class events, each requiring a review thread to the responsible human.
-
-**F-2.2 Task.** A unit of work picked up by an agent. Required fields: bet, product, team, owner, done_condition, state (proposed → accepted → hold → in_progress → blocked → review → done → killed), dependencies (list of Task IDs), sessions, artifacts (with file leases), cost_cap, cost_actual, risk_tier (low/medium/high), attention_score. The `hold` state is for tasks with unmet upstream dependencies — the Dependency Watcher automatically transitions them to `accepted` when all upstream tasks reach `done`. `blocked` is distinct: runtime blocks discovered during execution (human reply needed, external service, design question). Optional thread attachment (only when there's something to discuss). Optional cross_team flag for tasks owned by agents from a different team than the bet's owning team.
-
-**F-2.3 Session.** A single agent's bounded run on a task. Required fields: task, agent, started_at, ended_at, state (active → paused → done → crashed), sandbox_snapshot, cost, outcome (made_progress / blocked / completed / handoff / escalated), notes. A session's natural length is the agent's context window — **the session ends when compaction is imminent**, and the agent writes session notes back to the task before ending. This is the "working day" metaphor: the context window is the day, things not written down before compaction are forgotten.
-
-**F-2.4 Team.** A persistent group of agents bound to a product. Required fields: product, members, lead (typically the Product Manager), capacity (max parallel bets, max parallel tasks per member, max daily cost), active_bets, bets_shipped. Teams persist for the life of the product and dissolve only when the product is sunset. Team membership changes go through Conversations as review items. Agents only leave a team when their work is done.
-
-**F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs. Required fields: owner, trigger (cron / event pattern / heartbeat interval), skill, done_condition, state_key (persistent memory across runs), delegation_allowed (bool — can a teammate with the right skill pick it up?), human_review (bool), autonomy_level (L1–L4), active, silent (bool — sleep-time routines that update memory without producing items). Adding a routine always requires human approval via a review thread.
-
-### F-3: Knowledge Architecture (Five Layers + Knowledge Fabric)
-
-<!-- @source packages/fabric/src/ -->
-<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
-<!-- @source packages/web/src/utils/scope-labels.ts -->
-
-**F-3.0 Canonical store.** All knowledge lives in a single `knowledge_items` table in SQLite (see KNOWLEDGE_ARCHITECTURE.md §3). The Knowledge Fabric projects this store into two formats: rich web UI for humans (the Knowledge view) and assembled file workspaces for agents. Sync is continuous — context assembly at session start, then a file watcher writes back changes incrementally as the agent works (500ms debounce). No dependency on a clean session-end hook. Optimistic concurrency with per-field last-writer-wins for rare conflicts.
-
-**F-3.1 L0 — Session memory.** Ephemeral. Rebuilt every session by the Knowledge Fabric's context assembly engine (KNOWLEDGE_ARCHITECTURE.md §4.2). The fabric selects the relevant slice of knowledge based on task, agent role, and product, applies a context assembly budget to stay within token limits, and writes the workspace in three zones: `context/` (read-only reference), `work/` (session scratch), `knowledge/` (proposed changes). Format: TOON packs for structured data, markdown for prose. No human touch.
-
-**F-3.2 L1 — Task memory.** Per-task rows: what was tried, what happened, what differed, what broke. Failures are first-class. Session notes (written before context compaction) are the primary bridge between sessions on the same task. Humans see only generated views.
-
-**F-3.3 L2 — Product memory.** Human-authored prose (BRIEF.md, ARCHITECTURE.md, BRAND.md, PRINCIPLES.md) and agent-native structured data (tasks, decisions, handoffs, cycles, bets). Both stored as rows in `knowledge_items` with appropriate `kind` and `format` fields. Markdown files in Git become exports from SQLite, not the source of truth.
-
-**F-3.4 L3 — Practice memory.** Per community of practice (building, product, growth, ops, facilitation). Knowledge items stored with `layer='L3'`, `scope_id` per community, and `topic` as first-class grouping (e.g. 'auth', 'deployment'). Kind values: pattern, anti_pattern, decision, failure, reflection. Additional fields in `meta` JSON: summary, what_works, evidence_task_ids, last_used, tags. Assembled into agent sessions as TOON packs. Anti-patterns are first-class. Knowledge flows freely between teams without per-change approval; humans curate async via the Knowledge view.
-
-**F-3.5 L4 — Factory memory.** PRINCIPLES.md (5–10 lines, slow-changing), FOCUS.md (current monthly target), PORTFOLIO.md (which products get energy), REFLECTIONS/ (monthly reflection notes). Stored in `knowledge_items` as markdown-format rows, exported to Git for version history. The assistant proposes changes; humans approve via review threads.
-
-**F-3.6 Writeback.** The Knowledge Fabric runs a file watcher on the agent's `knowledge/` and `work/` directories throughout the session. On each file change (after 500ms debounce), modified files become updates to existing knowledge items (with version checks), new files become new items with status CAPTURED, and deleted files are flagged for facilitator review. Version conflicts trigger per-field merge for structured data, or facilitator review for prose. A final lightweight pass runs at session close to catch any trailing writes. See KNOWLEDGE_ARCHITECTURE.md §5–6.
-
-**F-3.6** Every knowledge item has a lifecycle status: CAPTURED → PROVISIONAL → NEEDS_HUMAN → VALIDATED → ACTIVE → STALE → ARCHIVED. Most items never need a human. Promotion from PROVISIONAL to VALIDATED can happen automatically via repetition (same learning in 5+ products, never contradicted).
-
-**F-3.7** Every knowledge item has an attention score computed from: novelty, impact, conflict, repetition (reduces need), confidence (reduces need), taste sensitivity, recency of review, usage frequency. Crossing a threshold puts the item in a human's queue.
-
-### F-4: Facilitator Agents
-
-**F-4.1** Three tiers: Assistant (individual agent, one per user, L4 personal operator), Practice Facilitators (L3, strategy agents, one per community of practice), Product Managers (L2, team agents, one per product team).
-
-**F-4.2** Facilitators continuously organize (merge duplicates, resolve conflicts, archive stale items, link related artifacts, tag for retrievability), score items for human attention, shape the human's queue for their layer, ask for the right kind of feedback (validation / resolution / refresh / judgment / elevation), and close the loop (write human feedback back into the knowledge store).
-
-**F-4.3** Product Managers have a dual role: coordinator (runs cycles, resolves handoffs, unblocks the team, shapes pitches, integrates the team's decomposition, drafts retros) and self-improver (watches own coordination, captures facilitation learnings, proposes process changes).
-
-**F-4.4** Product Managers watch the trajectory of bets and tasks. When trajectory shifts in a way the founder should know about, the facilitator drafts a review thread. This is a judgement call — no numerical thresholds. Certain changes always surface: done_condition, hypothesis, appetite, kill, cross-team tasks.
-
-**F-4.5** Facilitators themselves form a community of practice, with a Practice Facilitator for "facilitation itself."
-
-### F-5: Decomposition and Handoff
-
-**F-5.1** Decomposition is decentralized and practice-grounded. Each team member proposes tasks in their work stream using knowledge from their practice (L3) to identify what tasks are typical for this kind of work. The Product Manager integrates the task list (dedupes, identifies gaps, spots overlap, confirms coverage of the done condition).
-
-**F-5.2** Handoff is the coordination primitive. An agent calls `handoff_to` with the next agent and a message. The session ends, ownership transfers, the new agent is notified on the task thread.
-
-**F-5.3** Handoff to a human uses the same mechanism as handoff to another agent (thread message + state change). Humans are identities in the matrix.
-
-**F-5.4** Cross-team work uses chat threads between team leads plus cross-team tasks on the requesting bet. The providing team's agent owns the task; the requesting bet tracks completion. The goal is product teams with end-to-end ownership — a high cross-team task rate is a smell.
-
-**F-5.5** Replanning is expected. The task list evolves as the team works. Additions, removals, and dependency changes are internal to the team. The Product Manager's judgement determines when to surface changes to the human (see F-4.4).
-
-### F-6: Routing
-
-**F-6.1** Facilitators route items to views based on characteristics: risk-tier ≥ medium → Conversations (review); agent-initiated conversation → Conversations (chat); cross-product pattern / rule change → assistant's thread; order/rank-able items → Sidebar ambient indicators; shaped pitches → Work; knowledge updates → Knowledge.
-
-**F-6.2** Skill changes always route to Conversations (review) — synchronous gate. Skills are powerful and compound.
-
-**F-6.3** When in doubt, route to the less interruptive view. Conversations is the most expensive view (can interrupt the human's day).
-
-**F-6.4** Responsibility routing: the assistant and facilitators know which human to route to based on domain and org_edges configuration.
-
-### F-7: Top-Down and Bottom-Up Knowledge Flow
-
-**F-7.1** Top-down: humans set direction through PRINCIPLES.md, FOCUS.md (edited via assistant's thread → review thread → approval), and bet commitment in the Work view. Every agent reads L4 factory memory at session start.
-
-**F-7.2** Bottom-up: agents accumulate findings during sessions and contribute them to their practice at the next practice meeting. Practice Facilitators synthesize findings into knowledge items. Retros route surprises and patterns to the Practice layer and the assistant's thread. Any agent can post a chat thread to humans directly.
-
-**F-7.3** The two flows meet at the bet. Bets start as top-down commitments (humans picked them) but evolve as bottom-up learning changes the team's understanding. Revisions are logged in the bet's revision_log with reasoning.
-
-### F-8: Practice Contribution Cycle
-
-**F-8.1** Agents accumulate findings during task sessions — patterns noticed, things that worked, things that didn't, things the practice doesn't know yet but should.
-
-**F-8.2** Each practice has a regular meeting rhythm (typically weekly, configurable). At the meeting (a routine on the Practice Facilitator), every agent in that practice contributes findings since the last session. The Practice Facilitator drives discussion and decides which findings become CAPTURED practice items.
-
-**F-8.3** When a team member starts a task session, it queries its practice (L3) for relevant knowledge as part of normal L0 session setup. New knowledge the practice has decided since the last task session is automatically available — no push notification needed.
-
-**F-8.4** The Knowledge view (human surface, async) is where humans curate what practices and products produce. Agents contribute and discuss; humans prune and shape.
-
-### F-9: Retros and Learning
-
-**F-9.1** Every shipped or killed bet produces a retro (auto-fired routine on the Product Manager, cannot be skipped): original hypothesis vs. reality, surprises, practice-worthy patterns, rule-change proposals, reusable artifacts.
-
-**F-9.2** Retro outputs route to two places: Practice layer (patterns become practice items) and assistant's thread (rule-shaped insights).
-
-**F-9.3** Monthly cycle retro by the assistant (individual agent): portfolio-level patterns, cross-product obstacles, capacity observations, cost trends.
-
-### F-10: WIP and Cost Limits
-
-Cost hierarchy is strictly nested: agent < team < factory. An agent cannot exceed its cap even if the team has headroom.
-
-**F-10.1** Per-agent: WIP limit (max in-progress sessions, default 3) + cost cap (daily budget). Agent stops accepting new sessions when either limit is hit.
-
-**F-10.2** Per-team: WIP limit (max parallel tasks, default: team size × 2) + team cost cap (aggregate of agent caps + overhead). Soft preference for one active bet; multiple parallel bets tracked as a focus cost. **When team cost cap is reached, the team stops** — all agents finish in-progress sessions, no new work until budget resets or cap is raised.
-
-**F-10.3** Per-factory: factory cost cap (aggregate of team caps + overhead). The Cost Sentinel (heartbeat routine on the assistant) monitors burn rate. **When factory cap is reached, everything stops** — all teams finish in-progress sessions, no new work. Critical ops tasks are not killed mid-session but cannot start new sessions.
-
-**F-10.4** Hitting a limit produces a thread item, never a silent drop.
-
-**F-10.5** Cost caps reset on a configurable cycle (default: daily). Smart defaults: equal splits across agents, team caps derived from composition, factory cap derived from team caps. All caps editable via Settings.
+Testable, outcome-level statements of what HyperIdle does. Field lists, schemas, and mechanism depth live in the owning layer docs — each section links its owner. Shapes themselves are owned by `packages/db/src/schema.ts`.
 
 ---
+
+## F-1: Agent Identity and Lifecycle
+
+Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+
+**F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills (`users.skills`). All three are independently swappable.
+
+**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (packages/shared/src/types.ts:132).
+
+**F-1.3** Every human user gets exactly one assistant (individual agent) at registration. Strategy roles include facilitator, scout, infra, and platform.
+
+**F-1.4** A team's agent roster derives from the team's declared functions (open vocabulary) via `defaultRoster()` — not from a fixed role list. Specialist capabilities (security review, brand-voice check, accessibility audit) are skills invoked within sessions, not separate top-level agents.
+
+**F-1.5** Agents are retired (soft-delete to `status="retired"`), never hard-deleted. Retirement is available at any time.
+
+**F-1.6** An agent belongs to exactly one team (`users.teamId` is a single FK). No multi-team membership.
+
+**F-1.7** Model routing is tier-based (reasoning / workhorse / fast). Tier resolves as: explicit session parameter → agent `modelTierPreference` → `workhorse`; a per-agent `modelId`/`modelProvider` override takes precedence. Deployers map each tier to an actual model via `ModelGatewayConfig`. Vocabulary and mechanics: [agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
+
+## F-2: The Five Process Primitives
+
+Shapes and semantics: [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md).
+
+**F-2.1 Bet.** A committed, cost-boxed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (packages/shared/src/types.ts:92). Appetite is money (`costAppetiteMinor` + currency), never a duration. Every change to a mutable field (done condition, hypothesis, cost appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive) and a `decompositionStatus`. Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
+
+**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (packages/shared/src/types.ts:10). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
+
+**F-2.3 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Sessions have no cost column; spend flows through cost events into agent/team/bet counters (corrected shape owned by [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md) §Sessions).
+
+**F-2.4 Team.** A persistent group of agents. Capacity is a single integer — max parallel bets. Teams persist; agents join and leave by direct membership change. Depth: [process-layer/teams.md](../process-layer/teams.md).
+
+**F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event, continuous. Routines declare `doneCondition`, `delegationAllowed`, `humanReview`, and `silent` (sleep-time routines that update memory without producing items), and carry per-run and monthly cost caps. Lifecycle state is `active | paused | error` (`routines.state`, `packages/db/src/schema.ts:346`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`schema.ts:391-415`). Routine creation is not approval-gated. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+
+## F-3: Knowledge
+
+Layer taxonomy (L0–L4) is owned by [knowledge-architecture/the-five-layers.md](../knowledge-architecture/the-five-layers.md); store semantics by [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
+
+**F-3.1** All knowledge lives in the canonical `knowledge_items` store (PGlite locally, Postgres on a server). Kernel columns live on the base table; strategy signals (layer, kind, attentionScore, relevanceScore, confidence, citations) live in the `knowledge_strategy_fabric` extension table. The Knowledge Fabric projects the one store into two surfaces: the Knowledge view for humans and assembled file sandboxes for agents.
+
+**F-3.2** Knowledge is layered L0 (session) → L1 (task) → L2 (team) → L3 (practice) → L4 (factory). One-liners only here — the taxonomy doc owns the definitions.
+
+**F-3.3** Context assembly at session start writes a three-zone sandbox — `context/` (read-only), `knowledge/` (proposed changes), `work/` (scratch) — under a token budget, with TOON packs for structured data. Depth: [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
+
+**F-3.4** Writeback is continuous: a file watcher (500ms debounce) turns changed files into item updates with version checks, new files into items with status `captured`, and version conflicts into `knowledge_conflicts` rows for resolution. Depth: [knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
+
+**F-3.5** Every knowledge item has a lifecycle status. Kernel keeps `draft / active / archived / needs_human`; the fabric 7-state lifecycle is `captured → provisional → validated → active → stale → archived` (plus `needs_human`). Promotion from provisional to validated happens automatically at 5+ cross-scope repetitions with no contradiction and no open conflict (`AUTO_PROMOTION_REPETITION_THRESHOLD = 5`, packages/fabric/src/promotion-pipeline.ts:19).
+
+**F-3.6** Items are scored for human attention (novelty, conflict, repetition, confidence, taste, recency); crossing the 0.7 threshold creates a review item. Relevance is a separate three-signal model (recency / frequency / citation). Depth: [knowledge-architecture/relevance-and-attention.md](../knowledge-architecture/relevance-and-attention.md).
+
+**F-3.7** Git is an export target for version history — factory and team knowledge export as markdown files — never the source of truth. Structure: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
+
+## F-4: Facilitators
+
+Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md); role identity: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+
+**F-4.1** Three curation tiers map to the three agent categories — assistant (individual), facilitator (strategy), product manager (team). Full category-to-role mapping: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+
+**F-4.2** Facilitators continuously organize knowledge (promotion, conflict resolution, decay/archival, lifecycle propagation), score items for human attention, and close the loop by writing human feedback back into the store.
+
+**F-4.3** Product managers have a dual role: coordinator (decomposes bets, integrates the task list, resolves handoffs, drafts retros) and self-improver.
+
+**F-4.4** When a bet's mutable fields change (done condition, hypothesis, cost appetite), done-condition changes emit a review item to the responsible human. Beyond that, surfacing trajectory shifts is the product manager's judgement — no numerical thresholds.
+
+## F-5: Decomposition and Handoff
+
+Depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md) (decomposition), [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/handoff-and-lifecycle-propagation.md) (handoff).
+
+**F-5.1** Committed bets decompose into tasks via a pluggable decomposition strategy that inserts tasks with owners assigned by agent selection. The kernel ships a minimal strategy; the fabric ships a richer one.
+
+**F-5.2** Handoff is the coordination primitive: the `handoff_to` tool (toAgent / toRole / toHuman, contextId, status, reason, artifacts, remainingWork) ends the session, transfers ownership, and notifies on the task thread.
+
+**F-5.3** Handoff to a human uses the same mechanism as handoff to an agent — humans are `users` rows with `kind="human"`.
+
+**F-5.4** Replanning is expected: the task list evolves as the team works; surfacing changes to the human follows F-4.4.
+
+## F-6: Routing and Review
+
+Item shape and routing rules: [human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
+
+**F-6.1** `routeItem` routes every item to one of the three views by risk tier, kind, and verb: risk tier medium/high, reviews, skill changes, and chat go to Conversations; knowledge to Knowledge; work/bets to Work. The fallback when nothing matches is Conversations (packages/fabric/src/services/item-router.ts:26).
+
+**F-6.2** Human decisions on review items use the five-verdict grammar — see [human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
+
+**F-6.3** Review gating is trust-based: verdict-history approval rate × item risk tier — see [human-interface-layer/review-primitive.md](../human-interface-layer/review-primitive.md).
+
+**F-6.4** Responsibility routing uses `org_edges` (fromUserId, mechanism, target) to find the right human by domain.
+
+## F-7: Top-Down and Bottom-Up Knowledge Flow
+
+**F-7.1** Top-down: humans set direction through factory-layer knowledge and bet commitment in the Work view. Every session's assembled context includes the factory layer.
+
+**F-7.2** Bottom-up: agents contribute findings to their practice at the weekly practice meeting; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
+
+**F-7.3** The two flows meet at the bet: committed top-down, revised bottom-up, every revision logged in `revisionLog` with reasoning.
+
+## F-8: Retros and Learning
+
+Builtin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+
+**F-8.1** Every completed or killed bet produces a retro (builtin `post-bet-retro` routine on the product manager, per team): hypothesis vs. reality, surprises, practice-worthy patterns, reusable artifacts.
+
+**F-8.2** Each practice meets weekly (builtin `practice-meeting` routine on the facilitator, Monday 10:00 UTC).
+
+**F-8.3** A monthly portfolio retro runs on the assistant (first Monday, 30-day window): portfolio-level patterns, capacity observations, cost trends.
+
+## F-9: WIP and Cost Limits
+
+Cap grammar, hierarchy, and money-not-duration doctrine: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
+
+**F-9.1** Cost caps are strictly nested — agent < team < factory. Enforcement checks every level; an agent cannot exceed its cap even if the team has headroom.
+
+**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (packages/db/src/schema.ts:51). Team capacity is a single max-parallel-bets integer.
+
+**F-9.3** Hitting a cap produces a review item, never a silent drop. In-progress sessions finish; no new work starts at that level.
+
+**F-9.4** Caps can be reset per level (`resetCosts`); there is no automated daily reset cadence. The cost sentinel that monitors burn is application code, not a routine.

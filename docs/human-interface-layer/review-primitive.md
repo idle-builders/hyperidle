@@ -1,10 +1,10 @@
 # Review primitive
 
-A review is a single surface where a human judges one **Subject** — the output of a task or bet — and casts one **verdict**. It is dual-anchored: it shows *what was asked* (the intent / prompt) and *what was produced* (the Subject), so the verdict answers both “did it do the right thing?” and “is the output sound?”. The underlying data is still the [`Artifact` primitive](../process-layer/artifact-primitive.md); the review layer only owns presentation.
+A review is a single surface where a human judges one **Subject** — the output of a task or bet — and casts one **verdict**. It is dual-anchored: it shows *what was asked* (the intent / prompt) and *what was produced* (the Subject), so the verdict answers both "did it do the right thing?" and "is the output sound?". The underlying data is the [`Artifact` primitive](../process-layer/artifact-primitive.md); the review layer only owns presentation. The verdict grammar itself (five decisions, buttons-only) is owned by the [`Thread` primitive](./thread-primitive.md).
 
 ## Review canvas families
 
-AL2 ships nine proof-family canvases. Each artifact renders through the canvas selected by its `kind` via `getReviewCanvas(kind)`; unknown kinds fall back to a safe header + JSON dump.
+AL2 ships nine proof-family canvases. Each artifact renders through the canvas selected by its `kind` via `getReviewCanvas(kind)` (`packages/web/src/pages/review/canvas-registry.ts:21-29`); unknown kinds fall back to a safe header + JSON dump.
 
 | Kind | Canvas | What it shows |
 |---|---|---|
@@ -20,11 +20,11 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 
 ## Composition surface (AL3)
 
-The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` wraps the canvas families into a coherent review page:
+The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` (`packages/web/src/router.tsx:88`) wraps the canvas families into a coherent review page:
 
 ```
 ReviewComposition
-├─ Frame header    (bet › task, agent → reviewer, cost, five verdicts)
+├─ Frame header    (bet › task, agent → reviewer, cost, verdict buttons)
 ├─ The task        (the real prompt + source link)
 ├─ Result          (outcome, KPIs, visible proof, intent met-line)
 ├─ Needs you       (risks, each jump-linked to its artifact)
@@ -33,7 +33,7 @@ ReviewComposition
 └─ Right pane      (selected artifact rendered by its AL2 family canvas)
 ```
 
-Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts.
+Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts. The five verdict decisions are `VERDICT_DECISIONS` (`packages/shared/src/thread.ts:34-40`) — see [Thread primitive](./thread-primitive.md).
 
 ## Anchored comments (AL4)
 
@@ -43,33 +43,52 @@ In the global conversation, anchored comments show the spot label as a clickable
 
 ## Tool grounding and safety
 
-Every canvas carries its source tool via `ToolLogo` and a jump-off link via `CanvasSourceHeader`. `isSafeSourceHref` blocks non-HTTP(S) schemes such as `javascript:`, so agent-authored `sourceHref` values cannot become a click-through XSS vector. Unknown kinds render `ReviewUnknownCanvas`: source header, kind label, and a capped JSON preview — never a blank screen or crash.
+Every canvas carries its source tool via `ToolLogo` and a jump-off link via `CanvasSourceHeader`. `isSafeSourceHref` (`packages/web/src/pages/review/source-link-guard.ts:6`) blocks non-HTTP(S) schemes such as `javascript:`, so agent-authored `sourceHref` values cannot become a click-through XSS vector. Unknown kinds render `ReviewUnknownCanvas`: source header, kind label, and a capped JSON preview — never a blank screen or crash.
+
+## Trust gating — what reaches a human (AD4)
+
+Trust is **earned from verdict history, not assigned**. The policy engine (`packages/fabric/src/services/policy-engine.ts`) decides, per item, whether an agent's output is pushed at a human, queued quietly, or auto-resolved — based on **approval rate × riskTier**:
+
+- **Trust signal** = the agent's approval rate over a sliding window (`trust_window_days`, default 30), computed from its verdict history (`packages/fabric/src/services/approval-rate.ts`). Approval = `approve` or `approve-with-comments`.
+- **Decision order** (`policy-engine.ts:96-138`):
+  1. `riskTier = "high"` → always **push** to a human.
+  2. `kind = "skill_change"` → always **push**.
+  3. Non-blocking item from a silenced agent → **queue**.
+  4. Cold start: fewer than `trust_auto_resolve_min_verdicts` (default 10) verdicts → always **push** — new agents get maximum oversight until they accumulate history.
+  5. Approval rate ≥ `trust_auto_resolve_threshold` (default 0.9) and `riskTier = "low"` → **auto_resolve** (the engine writes an `approve` verdict as `policy_engine`).
+  6. Approval rate ≥ `trust_queue_threshold` (default 0.7) and `riskTier = "low"` → **queue**.
+  7. Otherwise → **push**.
+
+All thresholds live in factory settings with safe defaults. The effect the user sees: a new agent's every output lands in review; as its approval rate climbs, low-risk output stops interrupting and eventually resolves itself. Nothing is configured per skill — the gate fades as trust grows.
 
 ## Execution on approve (AL7)
 
-Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the **collaboration checkpoint** on the Subject's [Proposed Calls](../process-layer/staged-operation.md) — the *irreversible* calls (a refund, a merge/landing, a send) the **trusted** agent attempted and the gate routed to a human for judgment. **HyperIdle executes nothing of its own**: we trust the agent, which holds its own credentials and runs its own tools (like a real employee with broad self-permission). Approve lets that trusted agent's irreversible action **actually happen, through the agent's own tools** — HyperIdle composes a **tailored grant** (do the approved op + reversible work; route any *other* irreversible op back to review), re-engages the agent's session, and the agent **re-does the approved work itself** (re-deriving the call is fine — we trust the intent). The result returns to the review, and the agent **continues working** — closes the story, updates docs, proceeds. The review shows the **concrete proposed call** — tool id + verbatim args — so the human's judgment is grounded in the real action. Reversible calls flow at the gate without review (the auto-flow-per-trust wiring is AL8); the gate is reserved for the irreversible and **fades as trust grows**. Non-approving verdicts hold the Proposed Call un-executed. The verdict grammar is unchanged — approve gains a consequence, not a new action. The checkpoint rides the harness's **native permission mechanism** (ask/allow/deny) as a workflow, not a security boundary policing the agent. Full spec: [Review-gated execution / Proposed Call](../process-layer/staged-operation.md).
+Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the collaboration checkpoint on the Subject's **Proposed Call**: the irreversible call (a refund, a merge, a send) the agent attempted and the gate routed to a human. The review shows the **concrete proposed call** — tool id + verbatim args — so judgment is grounded in the real action. On approve, HyperIdle grants the call and re-engages the agent's own session; the agent re-does the approved work through its own tools and continues. Non-approving verdicts hold the call un-executed. Proposed Call statuses: `captured | granted | executed | failed | held` (`packages/shared/src/proposed-call.ts:17-23`).
+
+HyperIdle itself executes nothing — see [system boundary](../architecture/system-boundary.md). Full gate mechanics (grant CAS, session re-engagement, reversibility classification, auto-flow AL8): [Staged operation / Proposed Call](../process-layer/staged-operation.md).
 
 ### OutcomeBand — what the reviewer sees after approving
 
-The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **OutcomeBand** once the agent's own session runs the approved call and the Outcome is recorded. The band replaces nothing — it appears below the receipt on the same card.
+The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **OutcomeBand** once the agent's own session runs the approved call and the Outcome is recorded (`packages/web/src/pages/review/ReviewActionOperation.tsx:189-194,312-365`). The band replaces nothing — it appears below the receipt on the same card.
 
 **States:**
 
 | Band | When | Visual |
 |---|---|---|
 | *(none)* | `status = "captured"` — routed to review, not yet approved | Canvas shows the captured call (tool id + args) and the pre-commit receipt unchanged |
+| *(none)* | `status = "granted"` or `status = "held"` — approved-not-yet-run, or held by a non-approving verdict | Band-less, same as captured |
 | **Executed** (green) | `status = "executed"`, `outcome.status = "ok"` | `--accent-primary` / `--accent-primary-dim` fill; tick icon; short `receipt` identity (e.g. `abc1234… · merged`) + humanized `executedAt` |
 | **Execution failed** (red) | `status = "failed"`, `outcome.status = "failed"` | `--status-error` / `--status-error-dim` fill; ✕ icon; **verbatim, un-truncated** error text (`whitespace-pre-wrap break-words`) + humanized `executedAt` |
 
 **Design rules:**
-- The success band uses `--accent-primary-dim` (forest green), **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family.
-- The failure error is **never truncated** (hard rule #9 — a reviewer cannot be forced to miss the exact tool error). `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
-- `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it; the component never parses time.
-- There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. If session 2 ends without the approved op executing (crash/no-show), the liveness net re-provisions once, then surfaces a `failed` Outcome — a reviewer never sits on a permanent spinner.
+- The success band uses `--accent-primary-dim` (forest green), **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family (`ReviewActionOperation.tsx:307-310`).
+- The failure error is **never truncated** — a reviewer cannot be forced to miss the exact tool error. `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
+- `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it at the response boundary; the component never parses time.
+- There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. If that session ends without the approved op executing (crash/no-show), the liveness net re-provisions once, then surfaces a `failed` Outcome (`packages/server/src/services/proposed-call-workflow.ts:29-30,66-82`) — a reviewer never sits on a permanent spinner.
 - The band is **persistent** — a re-opened review shows the terminal Outcome state instead of re-prompting for a verdict on an already-executed op.
 
 ## Where it lives
 
-The registry, types, canvases, and composition component are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewId` as the Subject loader stub; the route is mounted in `packages/server/src/app.ts`.
+The registry, types, canvases, and composition component are in `packages/web/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`packages/server/src/routes/reviews.ts:14`) — a real loader querying `proposed_calls LEFT JOIN operation_outcomes` plus artifacts, humanizing `executedAt` server-side; a fixture remains only for the demo id `rev-1`. The route is mounted in `packages/server/src/app.ts`.
 
-Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container.
+Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container and verdict grammar.

@@ -1,18 +1,14 @@
 # What is HyperIdle?
 
-HyperIdle is an operating system for AI-first companies. It manages the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, budgets, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds across every product.
+HyperIdle is an operating system for AI-first companies. It manages the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, budgets, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds.
 
-| Layer | What it does | Who uses it |
-|-------|-------------|-------------|
-| **Human Interface** | Review agent work, plan bets, curate knowledge | Founders, team leads |
-| **Meta Layer** | Route work, enforce budgets, track knowledge, fire routines | The system (no model calls) |
-| **Agent Runtime** | Execute tasks via agent harnesses (Claude SDK, tools, files) | AI agents |
+It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs: `claude` (claude-code), `codex`, `opencode`, plus a builtin harness via OpenRouter. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop.
 
 ---
 
 ## Agents need an operating system, not just a harness
 
-You can wire up Claude or GPT-4 to a task. The agent does the task. But who decides what tasks matter? Who tracks whether work meets the goal? Who stops an agent from spending $400 on a feature nobody asked for? Who captures what the agent learned so the next agent starts smarter?
+You can wire up an agent to a task. The agent does the task. But who decides what tasks matter? Who tracks whether work meets the goal? Who stops an agent from spending $400 on a feature nobody asked for? Who captures what the agent learned so the next agent starts smarter?
 
 Slack, Linear, Notion, and GitHub answer these questions for human teams. They were built around humans reading everything and clicking buttons. Agents cannot participate as first-class members.
 
@@ -24,35 +20,29 @@ HyperIdle solves the organizational problem.
 
 ## Three properties that define the system
 
-**Teams persist across bets.** The Builder agent that shipped Acme's auth in January ships its payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it.
+**Teams persist across bets.** The Builder agent that shipped auth in January ships payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it. The team *is* the product — one team per product, persistent.
 
-**Humans validate, agents execute.** Agents handle execution. Humans hold judgment. A system where agents make irreversible decisions without review is not safer — it is faster at making mistakes. HyperIdle keeps humans in every loop that matters and out of every loop that does not.
+**Humans validate, agents execute.** Agents handle execution. Humans hold judgment, delivered through PR-shaped verdicts on agent work, with review gated by earned trust rather than blanket gates. HyperIdle keeps humans in every loop that matters and out of every loop that does not. See [Human-AI Collaboration](./human-ai-collaboration.md).
 
-**Knowledge compounds across products.** What an agent learns on one product is available to every agent on every other product. The Builder who discovered the right chunk size for file uploads on Ambrovia writes that into the practice. The Builder on Acme gets it for free. The tenth bet is faster than the first.
-
----
-
-## The process layer sits between agents and humans
-
-HyperIdle is an OS for your agent factory. It does not call models or execute tools — those are the agent harnesses' responsibilities. HyperIdle manages the structure: who works on what, what they know, how they coordinate, and how humans stay in the loop.
-
-The Meta Layer splits into two internal packages:
-
-- **Kernel** — stable protocols: routing, persistence, events. Never changes without careful review.
-- **Fabric** — volatile heuristics: scoring, knowledge propagation, notifications. Changes frequently as the system learns.
-
-The Kernel never imports from the Fabric. The layering is strict: Human Interface depends on Meta Layer, Meta Layer depends on Agent Runtime. No layer reaches past its neighbor.
+**Knowledge compounds.** What an agent learns on one bet is available to every later agent — captured in a shared store, layered by scope, and shared through communities of practice. The tenth bet is faster than the first. See [How Knowledge Compounds](./how-knowledge-compounds.md).
 
 ---
 
-## The Factory app: one window for human oversight
+## Kernel and Strategy
 
-The Factory is a macOS desktop application with three views and a sidebar.
+The meta layer splits into a stable **Kernel** (routing, persistence, events) and a pluggable **Strategy** layer (scoring, knowledge propagation, context assembly). The Fabric is the default Strategy implementation; third-party Strategies are possible.
 
-- **Conversations** — review threads, chat threads, founder-initiated conversations. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
-- **Work** — bets planned and tracked. The Canvas shows shaped pitches and committed bets. The task list shows what every agent is doing, what is blocked, and what it has cost.
-- **Knowledge** — the company wiki. Knowledge items organized by practice and product. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
-- **Ambient awareness** — embedded indicators within each view: Conversations filter chips surface blockers and triage state, WorkTeam health indicators show agent status, cost burn appears in the team burn-vs-cap section. Ambient awareness without interruption.
+Full boundary: [Kernel/Strategy Split](../architecture/kernel-strategy-split.md).
+
+---
+
+## The app: one window for human oversight
+
+HyperIdle ships as a macOS desktop application (Electron) with three views and a sidebar:
+
+- **Conversations** — review threads and chat threads. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
+- **Work** — bets planned and tracked. What every agent is doing, what is blocked, and what it has cost — including team burn against its cap.
+- **Knowledge** — the company wiki. Knowledge items organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
 
 ---
 

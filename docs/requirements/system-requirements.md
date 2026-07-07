@@ -1,93 +1,82 @@
-## 4. System Requirements
+# System Requirements
 
-### S-1: Deployment
+Platform constraints and standing decisions — what the system must run on and the boundaries it must respect, stated as testable outcomes. Mechanism detail lives with the owning docs (linked per section). Feature behavior is in [functional-requirements.md](functional-requirements.md).
 
-**S-1.1** The system ships as a native macOS desktop app (Electron) with the API server embedded in-process. Install via `brew install --cask hyperidle` or DMG download. No Docker, no separate server process.
+## S-1: Deployment
 
-**S-1.2** A founder must be able to install HyperIdle and reach the Factory shell in under 2 minutes — download, double-click, complete SetupFlow (name, email, first product, optional API key).
+**S-1.1** The system ships as a native macOS desktop app (Electron) with the API server embedded in the main process (`packages/desktop/src/main.ts`, `bootLocalMode`). Distributed as a signed/notarized DMG with Homebrew-cask-stable artifact names (`packages/desktop/electron-builder.yml`). No Docker, no separate server process. Install and profile detail: [../deployment/index.md](../deployment/index.md).
 
-**S-1.3** The development environment runs via `npm install && npm run dev` (Node 20+). Production uses `@hono/node-server` bundled by esbuild into the Electron main process.
+**S-1.2** A new user goes from install to a working app shell through SetupFlow (`packages/web/src/pages/SetupFlow.tsx`) — no manual config files, no env vars.
 
-### S-2: Data Storage
+**S-1.3** Node >= 24 (root `package.json` `engines.node >= 24.0.0`). Dev setup: [../guides/developer/getting-started.md](../guides/developer/getting-started.md).
 
-**S-2.1** Primary storage: SQLite via `better-sqlite3` at `~/Library/Application Support/HyperIdle/hyperidle.db`. One database file per factory instance. Swappable to Postgres for deployments exceeding ~50 agents.
+## S-2: Data Storage
 
-**S-2.2** Human-readable artifacts (briefs, principles, reflections): stored as rows in `knowledge_items` with format `markdown`. Exported to Git-versioned directories for version history and external access. Git is the backup and audit trail, not the source of truth.
+**S-2.1** Local storage is PGlite (embedded Postgres, `@electric-sql/pglite`) in the app data directory (`~/Library/Application Support/@hyperidle/desktop`). Server deployments run real Postgres (`migrate-pg.ts`, `pg-ssl.ts`). Store semantics: [../knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md); deployment recipes: [../deployment/index.md](../deployment/index.md).
 
-**S-2.3** Semantic search (optional): Postgres + pgvector for cross-product querying at scale. SQLite FTS5 on `knowledge_items` as the lightweight default.
+**S-2.2** Human-readable knowledge lives as database rows and is exported to Git-versioned directories (`packages/fabric/src/services/git-export.ts`). Git is the backup and audit trail, never the source of truth. Export structure: [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
 
-**S-2.4** Session context packs: TOON format for ~40% token savings over JSON. Assembled by the Knowledge Fabric at session start.
+**S-2.3** Session context packs use the TOON format (external spec: github.com/toon-format/toon; codec at `packages/shared/src/toon-codec.ts`), assembled by the knowledge fabric at session start (`packages/fabric/src/context-assembly.ts`).
 
-**S-2.5** Knowledge Fabric sync: context assembly at session start (SQLite → workspace files), continuous writeback via file watcher during session (workspace diffs → SQLite updates, 500ms debounce). Optimistic concurrency via `version` column. Per-field last-writer-wins for structured data conflicts; facilitator review for prose conflicts. See KNOWLEDGE_ARCHITECTURE.md §5.
+**S-2.4** Knowledge writes back continuously during a session with optimistic concurrency (`version` column, `packages/db/src/schema.ts:596`) — never a session-boundary batch. Primary implementation: `file-watcher.ts` (using `fs.watch`); `polling-watcher.ts` is the fallback for environments without native `fs.watch`. Sync mechanism: [../knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
 
-### S-3: Agent Runtime
+## S-3: Agent Runtime
 
-**S-3.1** HyperIdle is a process layer, not an agent harness. It does not contain a tool-use loop or a model-calling loop. Those live in the harness.
+**S-3.1** The system runs agents through two kinds of harness: a builtin in-process model-calling harness (`packages/server/src/harness/builtin-harness-adapter.ts`, `llm-client.ts`) and CLI harness adapters for claude/codex/opencode (`cli-harness-adapter.ts`, `adapter-pool.ts`). Capability detail: [../agent-layer/harness-capability-descriptor.md](../agent-layer/harness-capability-descriptor.md).
 
-**S-3.2** The system supports harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Current harness: Claude Agent SDK via LocalSandboxAdapter (desktop gate).
+**S-3.2** Agents run as host processes; sandboxing is opt-in, never the default. The `SandboxAdapter` surface is `spawn`/`exec`/`destroy` (`packages/server/src/harness/sandbox-adapter.ts:20-22`). See [../architecture/run-unit-model.md](../architecture/run-unit-model.md).
 
-**S-3.3** Workspaces are abstracted behind a thin interface: `spawn`, `exec`, `read`, `write`, `snapshot`, `destroy`. The desktop app uses LocalSandboxAdapter (filesystem-level isolation on the same machine).
+**S-3.3** Model tier (`reasoning | workhorse | fast`, `packages/shared/src/types.ts:108`) is assigned at session creation. The deployer maps a provider + model to each tier (`model-gateway.ts`); API keys live in the credential store, not in tier config. Tier vocabulary and routing: [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
 
-**S-3.4** Model tier assignment happens at session creation time. The Scheduler picks the tier (Reasoning / Workhorse / Fast) based on task risk tier, routine type, and cost posture. The deployer configures which actual models map to each tier.
+## S-4: Threads and Messaging
 
-### S-4: Skills System
+**S-4.1** All human↔agent and agent↔agent communication flows through the Thread primitive: append-only sequences of typed messages `plain | review | questionnaire | verdict` (`packages/shared/src/thread.ts:31`), attached to a host entity (`HOST_KINDS`).
 
-**S-4.1** Skills are packages containing a SKILL.md instruction file, bundled scripts (bash, Python, curl, CLI invocations), and resources (templates, schemas, examples). Skills call existing CLIs and APIs directly — no protocol layer, no MCP wrapper.
+**S-4.2** Binding review decisions use the five-verdict grammar `approve | approve-with-comments | request-changes | edit | reject` (`thread.ts:34`); non-binding actions append plain messages. Full grammar: [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
-**S-4.2** Progressive disclosure: metadata in system prompt (~100 tokens per skill), SKILL.md on demand, resources on demand.
+**S-4.3** Threads mount on their hosts in the UI (`useHostThread`); humans can initiate conversations with agents (`RecipientPicker`), and the Conversations view renders every thread the human participates in (`packages/web/src/pages/Conversations.tsx`).
 
-**S-4.3** Skills must be compatible with vanilla Claude Code SKILL.md format. If the process layer vanishes, skills keep working in bare Claude Code.
+## S-5: Identity and Routing
 
-**S-4.4** Skill changes (new, edit, retire) always require human approval via review thread.
+**S-5.1** One unified `users` table with `kind: 'human' | 'ai'` is the identity model (`packages/db/src/schema.ts:38`). Review routing flows through polymorphic `org_edges` (`schema.ts:548`). Item routing rules: [../human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
 
-### S-5: Threads and Messaging
+## S-6: Scheduling
 
-**S-5.1** All human↔agent and agent↔agent communication flows through the Thread primitive. Threads are append-only sequences of typed Messages (`plain`, `review`, `questionnaire`, `verdict`) attached to a host entity.
+**S-6.1** Routines support four trigger types: `heartbeat | calendar | event | continuous` (`packages/shared/src/types.ts:118`). Routine semantics: [../process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
-**S-5.2** Agents read/write threads via the API. Humans read/write threads via the Conversations view and HostThreadSection surfaces mounted on bets, tasks, knowledge items, and artifacts.
+**S-6.2** Scheduling runs as in-process `setInterval` services (`packages/fabric/src/services/`) on the Node.js event loop — no cron daemon, no background worker process. Scale to a separate worker only when measured latency demands it.
 
-**S-5.3** Humans can initiate conversations with agents (RecipientPicker), not just respond to agent-initiated threads.
+**S-6.3** No external workflow or agentic frameworks in the process layer — no Temporal, no Inngest, no Letta, no Agent Mail. All agentic integration happens through harness adapters. Confirmed by absence of any such dependency in `packages/`.
 
-**S-5.4** The human inbox (Conversations view in the Factory) renders all threads where the human is a participant, filtered by blocking/async status.
+## S-7: Observability
 
-### S-6: Scheduling and Rhythm
+**S-7.1** Every system event ships through one observability adapter with a correlating traceId (`packages/shared/src/observability/events.ts`). Console adapter is the default; OpenTelemetry is deferred, not dead.
 
-**S-6.1** The system supports four agent rhythms: heartbeat (cron), inbox-driven (event), continuous, and calendar-driven.
+## S-8: Notification Delivery
 
-**S-6.2** Scheduling interface: `schedule(agent, trigger)` where trigger is heartbeat, inbox, continuous, or calendar.
+**S-8.1** Notification adapters: console, ntfy, SMTP (`packages/fabric/src/services/notifications/`). Minimum viable delivery is ntfy or plain SMTP. Primitive behavior (queue, digest, mute): [../human-interface-layer/notification-primitive.md](../human-interface-layer/notification-primitive.md).
 
-**S-6.3** Minimum implementation: `cron` + SQLite + a background worker process. No dependency on Inngest, Temporal, or LangGraph.
+## S-9: Security and Credentials
 
-**S-6.4** Durability is per-task and opt-in. Skills declare their durability requirement. Adapters ship for: none (default), checkpoint (harness-native), temporal (Temporal/Hatchet). Risk-tier high or runtime > 30 min defaults to temporal.
+**S-9.1** Credentials are stored encrypted — AES-256-GCM in `server_credentials` on shared deployments (`packages/server/src/services/credential-encryption.ts`), Electron `safeStorage` on desktop (`packages/desktop/src/safe-credentials.ts`) — and injected at spawn so agents never handle plaintext. Depth: [../architecture/credential-model.md](../architecture/credential-model.md).
 
-**S-6.5** Sleep-time routines (silent, memory-only runs) must be supported — the Scheduler fires the routine, the session runs, writes to memory, and produces no Item.
+**S-9.2** The desktop app binds to localhost only. Auth is an auto-generated API key (`crypto.randomBytes(32)`, `packages/desktop/src/main.ts:110`) delivered over the Electron preload bridge. No public-internet exposure.
 
-### S-7: Observability
+**S-9.3** No preemptive gating. Agent review requirements come from approval-rate × riskTier trust, not blanket approval rules. See [../human-interface-layer/review-primitive.md](../human-interface-layer/review-primitive.md).
 
-**S-7.1** Every harness call, tool invocation, skill load, and inbox message emits a span through one adapter.
+## NF: Non-Functional
 
-**S-7.2** Default adapter is console for minimal installs. OpenTelemetry integration is planned for production backends.
+**NF-1** Hitting WIP or cost limits produces visible events, never silent drops — the cost sentinel emits `CostCapWarningEvent`/`CostCapBreachedEvent` on level transitions (`packages/fabric/src/services/cost-sentinel.ts`). Cap grammar: [../process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
 
-### S-8: Notification Delivery
+**NF-2** New agents are added in-app (AgentAddDialog/AgentEditDialog) against the data-driven role registry (`packages/shared/src/agent-roles.ts`) — no process-layer code changes. Adding a new role label is a code change.
 
-**S-8.1** A notification adapter hooks the review-thread stream into push services. Supported: APNs, Firebase, ntfy, plain SMTP. Deployer chooses.
+## Standing Decisions
 
-**S-8.2** Minimum viable notification: ntfy.sh or plain SMTP + a mobile email client.
+Settled boundaries. The code-verified architecture decision log is [../architecture/decisions.md](../architecture/decisions.md).
 
-### S-9: Cross-Cutting Data Model
-
-**S-9.1** The Thread primitive (§4.5 of HUMAN_INTERFACE_LAYER) is the primary interaction data model. Threads carry typed Messages; views render threads filtered by participant, host, and blocking status.
-
-**S-9.2** Human actions on review messages use the verdict grammar: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject` (binding verdicts that resolve the review), plus `comment`, `inline-comment`, `reply` (non-binding actions that append plain messages).
-
-**S-9.3** The unified `users` table (with `kind: 'human' | 'ai'`) is the identity model. Review routing flows through `org_edges` (polymorphic: direct, function, or team targeting).
-
-### S-10: Security and Isolation
-
-**S-10.1** Agent workspaces are sandboxed. Agents cannot access other agents' workspaces directly; coordination happens through threads and shared knowledge stores.
-
-**S-10.2** Credentials are stored encrypted (AES-256-GCM) in `server_credentials` for shared deployments, or via Electron `safeStorage` for desktop. Agents receive credentials injected into workspace environments; they never see or handle secrets directly.
-
-**S-10.3** The desktop app runs on localhost only. Auth is via auto-generated API key injected by the Electron preload bridge. No public-internet exposure.
-
----
+- **Practice meetings are a 3-turn workflow** — propose → react → facilitator synthesizes (`packages/fabric/src/services/practice-meeting.ts`, seeded as the `builtin:practice-meeting` routine).
+- **TOON rides the external spec** at github.com/toon-format/toon; no in-house dialect.
+- **Scheduler stays in-process and single-process** until measured latency demands a separate worker (S-6.2).
+- **No external workflow frameworks in the process layer** (S-6.3) — a standing decision, not an implementation gap.
+- **Writeback is continuous, not session-boundary** — the file watcher (`packages/fabric/src/file-watcher.ts`) syncs during the session; `polling-watcher.ts` is the fallback for environments without native `fs.watch`.
+- **Desktop distribution** — Electron shell, server embedded in the main process, signed/notarized DMG, Homebrew-cask-stable names (S-1.1).

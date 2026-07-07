@@ -1,30 +1,32 @@
-## 6. Tasks and Sessions
+# Tasks and Sessions
 
 <!-- @source packages/db/src/schema.ts -->
 <!-- @source packages/server/src/routes/tasks.ts -->
 
-### 6.1 Task lifecycle
+## 1. Task lifecycle
 
-Tasks move through a small state machine:
+Tasks move through a small state machine — the eight states of `TASK_STATES` (`packages/shared/src/types.ts:10-19`):
 
 - `proposed` — a team member has drafted this task as part of decomposition. Not yet picked up.
 - `accepted` — the team lead has accepted it. The owner is committed.
-- `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the Dependency Watcher automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
+- `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `packages/server/src/services/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
-- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in Conversations and the WorkTeam AgentRow health indicators.
-- `review` — the task has produced an artifact and is awaiting verdict. For risk-tier ≥ medium tasks, this means a review thread to the human; for low-risk tasks, this means an internal team check.
+- `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in the WorkTeam AgentRow health indicators.
+- `review` — the task has produced an artifact and is awaiting verdict. Session-end events on tasks with medium/high `riskTier` (on `taskStrategyFabric`, `packages/db/src/schema.ts:723-738`) create review items routed to recipients (`session-review-creator`); low-risk tasks close on an internal team check.
 - `done` — verdict reached, artifact accepted, task closed.
 - `killed` — abandoned. Reasoning logged.
 
 The distinction between `hold` and `blocked` is important: `hold` is structural (the task can't start because upstream work isn't done — the system knows this from the dependency graph and resolves it automatically), while `blocked` is situational (the agent started work and hit something it can't resolve alone — requires human or external action).
 
-> **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](BLOCKS.md)). They share the English word "block" and nothing else.
+> **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](../blocks/index.md)). They share the English word "block" and nothing else.
 
-Transitions are events in the audit trail. Conversations filter chips and WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
+Transitions are events in the audit trail (`tasks.auditTrail`). WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
 
-### 6.2 Sessions: many runs per task
+How task-state changes propagate to bets and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
 
-A task is not a single agent run. A session is one bounded run by one agent. Many sessions can happen per task:
+## 2. Sessions: many runs per task
+
+A task is not a single agent run. A session is one bounded run by one agent (`sessions.taskId` FK, `packages/db/src/schema.ts:245-290`). Many sessions can happen per task:
 
 - Agent A starts a session, makes progress for a while, hits a question, ends the session by writing notes back to the task.
 - A human (or another agent) replies hours later.
@@ -34,19 +36,17 @@ A task is not a single agent run. A session is one bounded run by one agent. Man
 
 Each session is bounded — it has a start, an end, an outcome, and a cost. Session-bounded execution is what keeps long-running tasks tractable: the agent isn't a daemon, it's an employee that comes back to the same desk many times.
 
-#### Session lifecycle and the Knowledge Fabric
+### Session lifecycle and the Knowledge Fabric
 
-Every session has a three-phase lifecycle managed by the Knowledge Fabric (see KNOWLEDGE_ARCHITECTURE.md §4–5):
+Every session has a three-phase lifecycle managed by the Knowledge Fabric:
 
-**1. Context assembly (session start).** The Knowledge Fabric queries `knowledge_items` for the slice of knowledge this agent needs — based on task, role, product, and relevance scoring — and writes it as files into the agent's workspace. Three zones: `context/` (read-only reference material: product docs, practices as TOON packs, factory principles), `work/` (session scratch space), `knowledge/` (where the agent can propose changes to the knowledge base). A hidden manifest tracks the version of every assembled item.
+1. **Context assembly (session start).** The fabric writes the agent's knowledge slice as files into the session sandbox: read-only `context/` (factory, product, practices), `work/` (scratch space, artifacts, notes), `knowledge/` (where the agent proposes changes), plus a hidden `.fabric/manifest.json` tracking the version of every assembled item.
+2. **Execution.** The agent works on plain files — no sync daemon, no special protocol.
+3. **Continuous writeback.** A file watcher syncs `knowledge/` and `work/` back to the canonical store throughout the session (500ms debounce, `packages/fabric/src/file-watcher.ts:23`). New files become CAPTURED knowledge items; a crash loses at most the debounce window, not the session.
 
-**2. Execution (the session).** The agent works normally — reads files, writes files, calls tools, produces artifacts. No sync daemon, no special protocol. The agent doesn't know about SQLite or versions. It just sees a directory of files.
+Watcher, debounce, writeback rules, and conflict resolution are owned by [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
 
-**3. Continuous writeback (during session).** A file watcher monitors the `knowledge/` and `work/` directories throughout the session. When a file is written (after a 500ms debounce), the Knowledge Fabric diffs it against the manifest and writes back to `knowledge_items` incrementally. New files become new knowledge items with status CAPTURED. Artifacts in `work/` are linked to the task. Session notes are persisted as they're written. If a version conflict is detected, per-field last-writer-wins applies for structured data; prose conflicts go to the relevant facilitator. When the session ends (or crashes), a final lightweight pass catches any remaining changes.
-
-This eliminates the fragility of session-end hooks — knowledge flows back to the canonical store within seconds of being written, regardless of how the session terminates. Even if the agent crashes, almost all knowledge is already synced. The worst case is losing the last 500ms debounce window, not an entire session's worth.
-
-#### Session length = the context window
+### Session length = the context window
 
 The natural length of a session is the size of the agent's context window. **A session ends when the context is about to compact.** Right before compaction, the agent writes its session notes back to the task — what it did, what it believes, what's next, what to be careful about. The next session starts fresh, reads those notes, and continues.
 
@@ -54,44 +54,28 @@ This is the closest analogy to a working day in a human organization. The contex
 
 Three consequences fall out of this:
 
-- **Session notes should be continuous, not just end-of-session.** The agent writes to `work/session-notes.md` throughout the session as it makes progress — not just at the end. This way, if the session crashes or compaction happens unexpectedly, useful notes already exist. The Knowledge Fabric's continuous file watcher picks up each write incrementally.
-- **Where the harness supports it, a pre-compaction trigger fires.** This is part of the Harness Adapter's contract: when the adapter detects context compaction is imminent (via token counting or harness-specific signals), it triggers a final note-writing pass before the session ends. Not all harnesses expose this — for those that don't, the continuous note-writing habit is the fallback.
-- **The task object is the real long-term memory of the work.** L2 (the agent's private memory) holds the agent's identity and accumulated style; the task object holds the *current state of this specific job*. Anything not written to the task before compaction is lost from this work stream.
+- **Session notes should be continuous, not just end-of-session.** The agent writes notes throughout the session as it makes progress — assembly creates `work/task-notes.md` by default (`packages/fabric/src/context-assembly.ts:134-135`), and `work/session-notes.md` is synced too (`packages/fabric/src/writeback.ts:70`). If the session crashes or compaction happens unexpectedly, useful notes already exist; the continuous file watcher picks up each write incrementally.
+- **Where the harness supports it, a pre-compaction trigger fires** — a final note-writing pass before the session ends (builtin adapter: 0.8 context fraction → `pre_compaction` event + snapshot into notes, `packages/server/src/harness/builtin-harness-adapter.ts:151`). Harnesses without the capability rely on the continuous-notes fallback. The capability flag and adapter contract are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+- **The task object is the real long-term memory of the work.** The agent's private memory holds identity and accumulated style; the task object holds the *current state of this specific job*. Anything not written to the task before compaction is lost from this work stream.
 
-**What matters in session notes is the flight level and description, not the structure.** LLMs are good at writing prose; if we use notes as text (which we do — they're assembled as markdown for the next session to read), then any reasonable way the agent writes them is fine. Don't enforce a rigid template. What matters is guiding the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about. The skill package provides defaults for this guidance, but the process layer doesn't parse the notes structurally.
+**What matters in session notes is the flight level and description, not the structure.** Notes are free-form prose, assembled as markdown for the next session to read — never structurally parsed. Don't enforce a rigid template. Guide the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about.
 
-There's no need for a session-length cap beyond the natural one: when context compaction is imminent, the session ends. Different harnesses with different context sizes will produce different natural session lengths, and that's fine.
+There's no need for a session-length cap beyond the natural one: when context compaction is imminent, the session ends. Different harnesses with different context sizes produce different natural session lengths, and that's fine.
 
-### 6.3 Memory across sessions
+## 3. Memory across sessions
 
 Three layers of memory bridge sessions on the same task, all mediated by the Knowledge Fabric:
 
-- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored in `knowledge_items` (`layer='L2'`, `scope_id` = product name). Assembled into `context/` at session start. Survives across sessions for the same agent.
-- **The task's notes** — written continuously during the session (synced back via the Knowledge Fabric's file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
+- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored as knowledge items whose layer lives on the `knowledgeStrategyFabric` extension table (`packages/db/src/schema.ts:690-714`). Assembled into `context/` at session start. Survives across sessions for the same agent.
+- **The task's notes** (`tasks.notes`) — written continuously during the session (synced back via the file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
 - **The task's thread** (when it exists) — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 
-The Knowledge Fabric's continuous writeback is what closes the memory loop: everything the agent writes in `knowledge/` (proposed practices, decisions, failures) and `work/` (session notes, artifacts) flows back into the canonical store within seconds, immediately available to the next session — whether by the same agent or a teammate.
+Continuous writeback closes the memory loop: everything the agent writes in `knowledge/` (proposed practices, decisions, failures) and `work/` (session notes, artifacts) flows back into the canonical store within seconds, immediately available to the next session — whether by the same agent or a teammate.
 
-This pairing of agent-memory + task-memory is what the Letta sleep-time pattern got right: memory is the substrate, and short bounded runs interact with it. We don't need a persistent process per agent; we need persistent memory and ephemeral sessions.
+Memory is the substrate; short bounded runs interact with it. No persistent process per agent — persistent memory and ephemeral sessions.
 
-### 6.4 Durability per task (opt-in)
+## 4. Task threads: comments, not chat
 
-Most tasks don't need event-sourced durability. A 5-second copy review doesn't need a Temporal workflow. A 4-hour deploy with twenty external API calls absolutely does.
+The thread on a task is *optional* (`tasks.threadId` nullable FK). Most tasks ship without one. When a thread exists, it's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat. The task's *state* is on the task object; the thread is the narrative around it.
 
-The skill the task uses declares whether it needs durability and which adapter to use. The process layer ships adapters for the major options (Temporal, Hatchet/Icepick, LangGraph checkpointers, plain none). The task carries the choice through to its sessions: a `durability: temporal` task means each session is a Temporal workflow execution and the agent's tool calls are durable activities.
-
-Defaults:
-
-- Risk-tier `low`, expected runtime `< 5 min` → `durability: null`
-- Risk-tier `medium`, runtime `5-30 min` → `durability: checkpoint` (whatever the harness ships)
-- Risk-tier `high` or runtime `> 30 min` → `durability: temporal` (or equivalent)
-
-Skill authors can override. This stays consistent with the EXECUTION layer's "durability is optional" position.
-
-### 6.5 Task threads: comments, not chat
-
-The thread on a task is *optional*. Most tasks ship without one. When a thread exists, it's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat. The task's *state* is on the task object; the thread is the narrative around it.
-
-When a task escalates (blocked, needs human input, needs another agent), the escalation produces a thread message and surfaces in Conversations. Blockers also appear in the WorkTeam AgentRow health indicator. The thread is the conversation; the task is the work.
-
----
+When a task escalates (blocked, needs human input, needs another agent), the escalation produces a review item routed to a thread and surfaces in Conversations. Blockers also appear in the WorkTeam AgentRow health indicator. The thread is the conversation; the task is the work.

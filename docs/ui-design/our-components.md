@@ -1,84 +1,73 @@
-## Our components
+# Our Components
 
-Built up in four tiers. Each tier composes only from tiers below it. If something seems to belong in a tier but doesn't earn its keep across at least two usage sites, it doesn't exist.
+## Tier composition
 
-### Tier 1 — Primitives (wrap DaisyUI + tokens to add semantics)
+Custom components are built in four tiers. Each tier composes only from tiers below it. A component earns its place by being needed across ≥ 2 usage sites — otherwise it stays inline.
 
-<!-- @source packages/design-system/src/ -->
-
-Seven. Anything more is scope creep.
-
-1. **StatusChip** — a `badge` coloured by state: `healthy / behind / blocked / paused / done / error`. Mono-sm caps text + 6 px dot. The single source of truth for status anywhere in the app.
-2. **Tag** — a `badge-neutral` for identity labels: product name, object kind (bet, pitch, task), knowledge category. Flat fill, no border.
-3. **KeyValue** — caps mono-sm label + body value, stacked or inline. Every detail view uses this; no freeform "label + text" rows are allowed.
-4. **NavItem** — a `menu` `<li><a>` restyled with Icon + Text + optional count badge, with a `selected` state (surface-4 fill + 2 px primary left bar). Used in the icon rail, submenu, settings rail.
-5. **SearchField** — `input input-sm` + leading search icon + trailing `kbd`. Always the same.
-6. **PageHeader** — pinned top strip of a primary page: title (h1 by default, h2 via `level={2}`) + optional `leading` row (breadcrumb/nav cluster) + optional `subtitle` meta line + optional `actions` cluster. `shrink-0`, `border-b border-[var(--border-subtle)]`, `px-[24px] py-[18px]`. Exports `pageTitleClassName` so pages with an editable title `<input>` can compose the exact treatment (20px / 600 / `tracking-[-0.01em]` / `--text-primary`) without forking the literal. See **Page anatomy rules** below and `docs/ui-design/page-anatomy.md`.
-7. **SectionLabel** — uppercase 13px section opener inside a page body. Treatment: `text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]`. Tag defaults to `h3`; pass `as="h2"` where SectionLabel is the page's top body heading (e.g. KnowledgeDetail sidebar). Optional `trailing` slot (count, "New" button) and optional `divider` border-bottom (default off). See `docs/ui-design/page-anatomy.md`.
-
-### Tier 2 — Blocks (compose Tier 1 into reusable units)
-
-> **Disambiguation.** "Tier 2 — Blocks" is a tier of design-system *components* (React widgets). These are NOT the `Block` content primitive — see [`docs/blocks/`](BLOCKS.md). The primitive's renderer components (e.g. `HeadingBlockView`, `ParagraphBlockView`) are Tier-2 components that happen to render the primitive; the primitive itself is data, not a component.
-
-Six. Each maps to a concrete recurring need.
-
-1. **ThreadRow** — Avatar + title + caption + StatusChip + relative timestamp. Used in conversation lists and activity feeds.
-2. **BetCard** — Tag(product) + title + StatusChip + ProgressTrack + owner Avatar. Appears on the bet canvas and in portfolio previews.
-3. **PitchCard** — Tag(kind) + title + appetite KeyValue + StatusChip. Appears in the pitch selector overlay.
-4. **TaskCard** — title + StatusChip + optional bet Tag + owner Avatar. Appears in the kanban.
-5. **KnowledgeRow** — title + Tag(category) + caption + timestamp. Appears in knowledge lists, backlinks, provenance.
-6. **NotificationRow** — StatusChip + summary + source Tag + timestamp + optional inline action `btn btn-ghost btn-xs`. The only shape notifications take, anywhere.
-
-No other card shapes. If a new surface needs a card, it reuses one of these or proves it isn't one of them.
-
-### Page anatomy rules (AI7)
-
-Every primary page follows these three rules. They are lint-enforced and test-backed.
-
-**1. Scroll rule — one pattern only.** Every primary page root is `flex flex-col h-full`. The `PageHeader` is `shrink-0` (pinned, never scrolls away). The body is `flex-1 overflow-y-auto`. This is the only scroll pattern consistent with the AppShell page-host, which is `overflow-hidden` — window-level scroll is impossible.
-
-**2. Heading-level contract.** Each primary page carries exactly one `<h1>`: the `PageHeader` title (default `level=1`). Section headers inside the page body are `<h3>` via `SectionLabel` (default `as="h3"`). Pass `as="h2"` to `SectionLabel` only where it is the page's top body heading (e.g. KnowledgeDetail sidebar labels where there is no SectionLabel competing with the page title).
-
-**3. No inline title or section-label treatments.** Two `eslint-plugin-design` rules enforce this:
-- `no-handrolled-page-header` (error on `packages/web/src/pages/**`, SettingsPage + SetupFlow exempt) — flags the literal combo `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any element that is not a `PageHeader`. Pages with an editable title `<input>` compose `pageTitleClassName` (an exported identifier) instead of repeating the literals.
-- `no-undefined-font-heading` (error on `packages/web/src/pages/**`, warn on the rest of `packages/web/src/**`) — flags `font-heading` (undefined utility, a silent CSS no-op) and `tracking-wider` inside `pages/**` (the 0.05em default is off the Hearth caps scale; use `tracking-[var(--tracking-caps-sm)]` = 0.06em via `SectionLabel` instead).
-
-### Tier 3 — Regions (compose Tier 2 into page sections)
-
-Six. These are the things a page is made of.
-
-1. **Sidebar** — 200 px left column: three section headers (Conversations, Work, Knowledge) with triage badge on Conversations + Settings gear at bottom. Ambient awareness via embedded badges and indicators.
-2. **ArtifactView** — polymorphic review body. Five shapes, selected by artifact kind:
-   - `text_diff` — stack of diff lines (mono, tinted bg).
-   - `content_preview` — rendered content + KeyValue header.
-   - `visual_comparison` — two surface-4 panes side by side with labels.
-   - `action_summary` — ordered list of KeyValue rows.
-   - `data_metrics` — grid of KeyValues + inline sparklines.
-
-   That's it — one organism, five data shapes. No sixth.
-3. **ReviewHeader** — title + Tag(product) + StatusChip + three `btn`s (approve / request changes / reject). Above every ArtifactView.
-4. **Canvas** — Two-column bet board (Shaped / Committed) holding BetCards. A `+` slot opens BetCreateDialog for creating new pitches.
-5. **Kanban** — four columns (Planned / Blocked / In Progress / Done) of TaskCards. Gets replaced by PitchSelector when `+` is clicked on the Canvas.
-6. **PitchSelector** — filter Tags + scrollable list of PitchCards + "Add to canvas" action. Overlay that replaces the Kanban.
-
-Detail views (bet detail, knowledge detail, settings form) don't need a dedicated region — they're just a title + KeyValues + Tier-2 rows arranged in the Main pane.
-
-### Tier 4 — Pages (just compose regions)
-
-The shell is fixed: `Sidebar | Main content`. Pages differ only in the Main pane content.
-
-| Page | Submenu | Main |
-|---|---|---|
-| Conversations / Review | ThreadList of ThreadRows | ReviewHeader + ArtifactView + composer (`textarea` + `btn`) |
-| Conversations / Chat | ThreadList | message list + composer |
-| Work / Portfolio (L1) | Product Tags | grid of BetCards grouped by product |
-| Work / Team (L2) | Product Tags | Canvas + Kanban |
-| Work / Team + Pitch | Product Tags | Canvas + PitchSelector |
-| Work / Bet (L3) | Product Tags | title + KeyValues + linked TaskCards + linked KnowledgeRows + NotificationRow feed |
-| Knowledge / List | filter Tags + SearchField | list of KnowledgeRows |
-| Knowledge / Detail | list | title + Tag row + body + backlinks (KnowledgeRows) + provenance (KeyValues) |
-| Settings | section NavItems | KeyValue rows with `input` / `toggle` / `select` values |
-
-That's the whole app.
+No strict component count. New components only when necessary; prefer composition inside existing ones.
 
 ---
+
+## Tier 1 — Primitives
+
+Wrap DaisyUI classes or token CSS vars to add semantic meaning. Live in `packages/design-system/src/`.
+
+- **StatusChip** — single source of truth for status color anywhere in the app. Six statuses: `healthy | behind | blocked | paused | done | error` (`StatusChip.tsx:4`). Also accepts `"unknown"` sentinel for call sites where absence is not an error. `status-mapping.ts` maps domain statuses into these six.
+- **Tag** — identity label (product name, object kind, knowledge category). Hand-rolled token classes — not DaisyUI badge (`Tag.tsx:13`).
+- **KeyValue** — caps mono-sm label + body value, stacked or inline. Convention: no freeform "label + text" rows allowed.
+- **NavItem** — `Icon + Text + optional count badge` with a `selected` state (surface-4 fill + 2 px primary left bar). Used in sidebar navigation.
+- **SearchField** — search input + leading icon + trailing `kbd` (`SearchField.tsx:76`).
+- **PageHeader** — pinned top strip of a primary page. See [`docs/ui-design/page-anatomy.md`](page-anatomy.md) for the full contract; exports `pageTitleClassName` for editable-title pages.
+- **SectionLabel** — uppercase 13px section opener. See [`docs/ui-design/page-anatomy.md`](page-anatomy.md) for full contract.
+
+---
+
+## Tier 2 — Blocks
+
+Compose Tier-1 primitives into reusable display units. Live in `packages/design-system/src/`.
+
+> **Naming disambiguation.** "Tier 2 — Blocks" is a tier of design-system *components* (React widgets). These are **not** the `Block` content primitive — see [`docs/blocks/`](../blocks/definition.md). The Block primitive's payload renderers (`HeadingPayload`, `ParagraphPayload`, etc. in `packages/design-system/src/block/`) are Tier-2 components that happen to render the primitive; the primitive itself is data, not a component.
+
+Current shipped set (non-exhaustive — see `packages/design-system/src/index.ts` for the authoritative export list):
+
+- **ThreadRow** — Avatar + title + caption + StatusChip + relative timestamp.
+- **BetCard** — Tag(product) + title + StatusChip + Progress + owner Avatar.
+- **TaskCard** — title + StatusChip + optional bet Tag + owner Avatar.
+- **KnowledgeRow** — title + Tag(category) + caption + timestamp.
+- **NotificationRow** — StatusChip + summary + source Tag + timestamp + optional inline `btn btn-ghost btn-xs` action.
+
+Note: `PitchCard` was deleted. The design system ships ~70 components; the list above is illustrative, not exhaustive.
+
+---
+
+## Tier 3 — Shell regions
+
+Compose Tier-2 components into major page sections. Shell regions live in `packages/web/src/shell/`.
+
+- **Sidebar** (`packages/web/src/shell/Sidebar.tsx`) — 200px fixed-width vertical navigation with three labeled sections (Conversations / Work / Knowledge) and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
+
+Other shell surfaces (AppShell, DesktopTitleBar, AssistantOverlay, TaskSheet) live in `packages/web/src/shell/`. View-specific region components live alongside their page files.
+
+Note: `ArtifactView`, `ReviewHeader`, `Canvas`, `Kanban`, and `PitchSelector` no longer exist as components. Review rendering is now handled by the canvas registry (`packages/web/src/pages/review/canvas-registry.ts`).
+
+---
+
+## Tier 4 — Pages
+
+Pages compose regions into full views. Page inventory → [`docs/information-architecture/`](../information-architecture/index.md).
+
+---
+
+## DaisyUI — as-is set
+
+Listed once here so downstream components don't redefine them. Each is used directly with the Hearth theme, no wrapping.
+
+`btn` · `input` · `textarea` · `select` · `radio` · `range` · `skeleton` · `loading` · `toast` · `alert`
+
+Everything else the design system hand-rolls on tokens: Menu, Avatar, TabBar, Dialog, Toggle, Tag, Breadcrumb, Checkbox — see `packages/design-system/src/`.
+
+**Not used:** hero, card, chat bubble, carousel, steps, timeline, rating, stat, mockup — wrong tone, redundant, or consumer-y.
+
+---
+
+Stack facts, theme names, and token authority live in [`docs/ui-design/foundation.md`](foundation.md).

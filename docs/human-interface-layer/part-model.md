@@ -1,8 +1,8 @@
-# Conversation & Session View — the Part model (TRACK-AM AM1 + AM3)
+# Conversation & Session View — the Part model
 
 Ground truth for how a **Conversation** and a **Session view** read, and the **Part model** both render through. AM1 introduced the Part vocabulary over `Thread` messages; AM3 extended it with `tool` + `reasoning` Part kinds and the `derivePartsFromSession` adapter, making the Part model the single shared renderer for both surfaces.
 
-> **Naming guard.** The rendering unit is a **Part**, never a "Block". The [Block content primitive](./block-primitive.md) (L2, derived from markdown) and the "blocked" task/thread state own the word "block"; the conversation rendering layer must avoid it. "Part" is the deliberate industry alternative (Vercel AI SDK `message.parts`; Anthropic's API uses "content block", which we do not).
+> **Naming guard.** The rendering unit is a **Part**, never a "Block". The [Block content primitive](./block-primitive.md) (derived from markdown) and the "blocked" task/thread state own the word "block"; the conversation rendering layer must avoid it. "Part" is the deliberate industry alternative (Vercel AI SDK `message.parts`; Anthropic's API uses "content block", which we do not).
 
 ## Conversation
 
@@ -15,7 +15,7 @@ Ground truth for how a **Conversation** and a **Session view** read, and the **P
 - **Not a live runtime activity stream.** Messages are deliberate; auto-emitted `HarnessEvent`s are not messages.
 - **Not a new primitive.** It renders *within* Thread/Message/verdict; it reshapes none of them.
 
-**Authority.** Derived from the Message rows, which remain server-authoritative and event-bus-emitting (the Thread primitive's rules apply unchanged).
+**Authority.** Derived from the Message rows, which remain server-authoritative and event-bus-emitting — the [Thread primitive](./thread-primitive.md)'s rules apply unchanged.
 
 ## Session View (AM3)
 
@@ -68,7 +68,7 @@ Aggregation is a **renderer grouping beside `groupParts`**, not a Part kind. The
 
 ## Composer pills (`deriveComposerPills`)
 
-Composer pills in the Session view derive declaratively from the `HarnessCapabilityDescriptor`. `deriveComposerPills(descriptor, modelId)` returns only the `HarnessModelOptionDescriptor` entries with a recognized control kind (`select | boolean | number | text`). An undeclared option is absent — no per-backend branching, no throws. Pills are launch settings (model · effort · mode), not inline tool-permission gates (HyperIdle has no per-tool allow/deny gate).
+Composer pills in the Session view derive declaratively from the [`HarnessCapabilityDescriptor`](../agent-layer/harness-capability-descriptor.md). `deriveComposerPills(descriptor, modelId)` returns only the `HarnessModelOptionDescriptor` entries with a recognized control kind (`select | boolean | number | text`). An undeclared option is absent — no per-backend branching, no throws. Pills are launch settings (model · effort · mode), not inline tool-permission gates (HyperIdle has no per-tool allow/deny gate).
 
 ## Contracts
 
@@ -82,12 +82,12 @@ Composer pills in the Session view derive declaratively from the `HarnessCapabil
   3. Session activity never renders as first-class conversation Parts; a Session appears in a Conversation only as a `session-reference` Embed.
   4. The Part model is source-agnostic and reusable — the Session view (AM3) renders through it with no duplicated renderer (AM1↔AM3 uniformity).
   5. Thread / Message / verdict semantics unchanged.
-  6. No color/token changes — Hearth palette + `AESTHETICS.md` tokens unchanged. Only `failed` uses the existing destructive token.
+  6. No color/token changes — Hearth palette + design-system tokens (`packages/design-system/DESIGN.md`, `tokens.css`) unchanged. Only `failed` uses the existing destructive token.
   7. One diff renderer: `ReviewCodeDiff`. No new per-file diff component in the session view.
 
 ## Where it renders (as built)
 
-**Conversation.** `packages/web/src/pages/Conversations.tsx` renders **`ConversationSurface`** (header · author-grouped Part column · unified-"+" composer). It calls `derivePartsFromMessages(messages, viewerId, identities)` and feeds the result to **`PartList``.
+**Conversation.** `packages/web/src/pages/Conversations.tsx` renders **`ConversationSurface`** (header · author-grouped Part column · unified-"+" composer). It calls `derivePartsFromMessages(messages, viewerId, identities)` and feeds the result to **`PartList`**.
 
 **Session view.** A `session-reference` Embed fires `onOpen({ route: "session", sessionId })`, which `open-handler.ts` resolves into `onOpenSession` → `SessionViewPanel` rendered in a split right panel. The session view calls `derivePartsFromSession(entries, agent)` and feeds the result to the same **`PartList`** renderer. New Part kinds handled in `PartList`'s exhaustive dispatch: `case "tool"` → `ToolPart`; `case "reasoning"` → `ReasoningPart`. `ActivityEntry` — the normalized, backend-agnostic union — is defined in `packages/shared/src/session-activity.ts` and re-exported from `packages/shared/src/index.ts`.
 
@@ -97,13 +97,4 @@ The everyday Conversation composer is for deliberate messages (one unified "+" t
 
 ## Open / routing (neither surface owns a viewing destination)
 
-Reference chips, embeds, and affordances carry **`OpenTarget` descriptors** — typed routing intents, not navigate calls. `PartList` takes one `onOpen: OpenHandler` prop; the page binds it via `createOpenHandler(navigate, { betId })` (`packages/web/src/services/open-handler.ts`); the story binds it to `console.info`. Neither surface owns a viewing destination — every affordance opens an existing destination.
-
-| `OpenTarget.route` | Opens | Resolved path |
-|---|---|---|
-| `host` | the entity's **host surface** (block/knowledge/bet/task/artifact/agent) | `resolveHostRoute(hostKind, hostId)` — total over `BlockHostKind`; `user` is a documented no-op |
-| `artifact` | Artifact view | `/artifacts/:id` |
-| `review` | the review page | `/work/bet/:betId/review/:reviewId` |
-| `session` | the **Session view** (AM3) | `open-handler.ts case "session"` → `onOpenSession(sessionId)` → `SessionViewPanel` in a split right panel |
-
-A **block** reference is title-only and routes to its **host surface** (the common case is a knowledge item → `/knowledge/:id`). Block-anchored navigation ("jump to §2") is deferred to AM5. Sub-agent tool rows in the Session view also carry a `session` `OpenTarget` — clicking them recursively opens the sub-agent's own Session view through the same seam.
+Reference chips, embeds, and affordances carry **`OpenTarget` descriptors** — typed routing intents, not navigate calls. `PartList` takes one `onOpen: OpenHandler` prop; the page binds it via `createOpenHandler(navigate, { betId })` (`packages/web/src/services/open-handler.ts`); the story binds it to `console.info`. Neither surface owns a viewing destination — every affordance opens an existing destination. The full route closure (`host | artifact | review | session`, which targets are no-ops, block-anchored opens) is owned by [open-contract.md](./open-contract.md). Sub-agent tool rows carry a `session` `OpenTarget` — clicking them recursively opens the sub-agent's Session view through the same seam.

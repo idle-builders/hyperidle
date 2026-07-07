@@ -1,144 +1,121 @@
-## Three Core Views
+# Three Core Views
 
-### 1. Conversations (where you spend 90% of your time)
-
-A conversation is a calm, single-column read of the messages you and your agents deliberately send. Humans and agents are equal participants, grouped by author — one avatar, name, and time per run of messages from the same sender. Your own messages carry a quiet "You" label; an agent is marked by its green avatar. No bubbles, no badge soup.
-
-#### References show inline, not as bare links
-
-When a message points at something — a code artifact, an image, a knowledge doc, a referenced block — it renders as a compact **reference chip** you can click to open the real thing. A linked session shows as a quiet "Show session" chip; clicking it opens the **Session view** in a right panel alongside the conversation. Clicking any other reference opens its own view (the artifact view, the knowledge page); the conversation never renders a viewer in place.
-
-#### Session view — watching an agent work
-
-When an agent works on a task, it runs a **session** — a bounded, streaming work run. A `session-reference` chip in the conversation gives you a window into that run. Clicking it opens the **Session view**: a calm, append-only stream of the agent's prose, tool calls, and reasoning, rendered in the same column shape as a conversation.
-
-**What you see in the session view:**
-
-- **Agent prose** — full-width markdown, streaming token-by-token. A quiet caret shows the in-progress turn.
-- **Tool rows** — compact one-liners: `[icon] verb — target · status`. Completed tool calls fold into a single "N steps" aggregate (calm by default, expand to see each step). A failed step is signalled on the aggregate header ("· 1 failed") and shows its error on expand. The only standalone tool row is the one currently running.
-- **Reasoning** — folds to "Thought for Ns" in italic. Click to expand the agent's full thinking.
-- **File diffs** — a "Changed files (N)" panel surfaces every file the agent edited in that turn. Click to open the full diff in `ReviewCodeDiff`. File diffs are always reachable even when the edit is folded into the aggregate.
-- **Sub-agent sessions** — a sub-agent tool row carries an "Open session" link. Clicking it opens the sub-agent's own session view through the same panel.
-- **Cost** — the combined session-total (`$0.71 · 48.2k tokens`) appears in the session header, not inline per-turn.
-
-**Sending a message while the agent works.** You can type and send mid-session. Your message queues (shown as a muted "sends when the agent finishes" bubble) and is delivered at the next turn boundary — it does not interrupt or restart the agent.
-
-**Composer pills.** The Session view composer shows model · effort · mode pills derived from the harness configuration. Available options depend on the harness; undeclared options are absent.
-
-You cannot approve or reject agent edits from the session view — that happens on the **review page** when the agent requests a verdict. The session view is read-plus-queue, not a decision surface.
-
-#### Reviews open on the review page
-
-A review request shows compactly in the conversation: a "Review requested" marker, the proposal line, the change-set as a reference chip, and one **Open review** button.
-
-You do **not** approve or reject inside the conversation. Click **Open review** to reach the review page, where the artifact view and the full verdict toolbar live. Once you decide, the conversation shows a one-line echo — "✓ Approved by …" — with a quiet **View review** link back. (See the [review page](#review-verdicts) below for the verdict actions.)
-
-#### Quick questions
-
-An agent can ask a quick question inline — a small "?" marker, the question, and neutral answer buttons. Pick one to answer without leaving the conversation.
-
-#### The composer
-
-One text box, one **Send**. The **"+"** button opens a single tools menu — Insert block, Attach file, Mention, Reference item, Format, Emoji. Attachments you add show as draft reference chips above the box; remove one with its ✕. Plain send works today; the richer "+" actions are affordances that route to their tools as those land.
-
-#### Review Verdicts
-
-When you open a review on the review page, you have these actions:
-
-| Action | Shortcut | Effect |
-|--------|----------|--------|
-| **Approve** | `A` | Agent proceeds with the proposed change |
-| **Request Changes** | `R` | Blocks the agent until they revise |
-| **Reject** | `X` | Proposal is dead, agent moves on |
-| **Snooze** | `S` | Revisit later (default 4 hours) |
-| **Comment** | — | Add feedback without a verdict |
-| **Escalate** | — | Flag for deeper review |
-
-Most reviews take 15-30 seconds. The artifact view shows you exactly what changed — code diffs, content previews, before/after comparisons, or action summaries.
-
-**After approving an action.** If the review includes an irreversible action (a refund, a merge/landing, a send), approving triggers it immediately. The `action_operation` card shows a result band below the receipt:
-
-- Green "Executed" band — the action completed; a short receipt identity confirms it (e.g. the merged commit SHA, the refund reference).
-- Red "Execution failed" band — the external tool returned an error; the exact error text is shown untruncated so you can act on it. A failed action is never silently swallowed — if something went wrong, the band says what.
-
-#### assistant Thread
-
-A pinned thread at the top of Conversations. Your assistant agent surfaces cross-product patterns, monthly reflections, and coaching suggestions. This is where strategic conversations happen.
+Everything you do lives in one of three views: **Conversations**, **Work**, and **Knowledge**. This is the walkthrough of each. Concept-level framing lives in [the three views](../../human-interface-layer/the-three-views.md); per-view layout detail in the [information architecture docs](../../information-architecture/index.md). For how these views fit your day and week, see [Running your team](running-your-team.md).
 
 ---
 
-### 2. Work (weekly planning + daily tracking)
+## 1. Conversations — where you spend most of your time
+
+A conversation is a calm, single-column read of the messages you and your agents deliberately send. Humans and agents are equal participants, grouped by author — one avatar, name, and time per run of messages from the same sender. Agents get a green avatar; your own messages carry a quiet "You" label. No bubbles, no badge soup.
+
+### References show inline, not as bare links
+
+When a message points at something — a code artifact, an image, a knowledge doc — it renders as a compact **reference chip** you click to open the real thing. A linked session shows as a quiet "Show session" chip; clicking it opens the **Session view** in a right panel alongside the conversation. Every other reference navigates to its own view. The conversation never renders a viewer in place.
+
+### Session view — watching an agent work
+
+When an agent works on a task, it runs a **session** — a bounded, streaming work run. Clicking a session chip opens a calm, append-only stream in the same column shape as a conversation:
+
+- **Agent prose** — full-width markdown, streaming token-by-token, with a quiet caret on the in-progress turn.
+- **Tool rows** — completed tool calls fold into a single "N steps" aggregate; the header signals failures ("· 1 failed") and the error shows on expand. Only the currently running call stands alone.
+- **Reasoning** — folds to "Thought for Ns" in italic; click to expand.
+- **File diffs** — a "Changed files (N)" panel surfaces every file the agent edited, always reachable even when the edits are folded into the aggregate. Click to open the full diff.
+- **Sub-agent sessions** — a sub-agent tool row carries an "Open session" link into its own session view.
+- **Cost** — the combined session total (`$0.71 · 48.2k tokens`) sits in the session header, not inline per turn.
+
+**Sending mid-session.** You can type and send while the agent works. Your message queues ("Queued · sends when the agent finishes", cancellable with ✕) and is delivered at the next turn boundary — it never interrupts the agent.
+
+**Composer pills.** The Session view composer shows model and option pills derived from the harness's capability descriptor. Available options depend on the harness; undeclared options are simply absent.
+
+The session view is read-plus-queue, not a decision surface. Verdicts happen on the review page.
+
+### Reviews open on the review page
+
+A review request shows compactly in the conversation: a "Review requested" marker, the proposal line, the change-set as a reference chip, and one **Open review** button. You never approve or reject inside the conversation. Once decided, the conversation shows a one-line echo — "✓ Approved by …" — with a quiet **View review** link back.
+
+### Review verdicts
+
+The review page ships five decisions (full grammar in [thread primitive](../../human-interface-layer/thread-primitive.md)):
+
+| Decision | Effect |
+|---|---|
+| **Approve** | Agent proceeds with the proposed change |
+| **Approve with comments** | Proceeds, feedback attached |
+| **Request changes** | Blocks the agent until it revises |
+| **Edit** | You adjust the proposal yourself |
+| **Reject** | Proposal is dead, agent moves on |
+
+Approve is the primary button; approve-with-comments, edit, and reject sit in an overflow menu. There are no verdict keyboard shortcuts — only `Esc` (closes the review). Comments are a conversation section on the review page, not a verdict.
+
+The artifact view shows exactly what changed; its embed shapes are defined in [artifact primitive](../../process-layer/artifact-primitive.md).
+
+**After approving an action.** If the review carries an action (a refund, a merge, a send), approving triggers it immediately, and the action card shows a result band:
+
+- Green **Executed** — completed; a short receipt confirms it (the merged commit SHA, the refund reference).
+- Red **Execution failed** — the external tool errored; the exact error text is shown untruncated. A failed action is never silently swallowed.
+
+### Quick questions
+
+An agent can ask a quick question inline — a small "?" marker, the question, and answer buttons. The buttons render today but answering is not yet wired to the backend.
+
+### The composer
+
+One text box, one **Send**. The **"+"** button opens a tools menu — Insert block, Attach file, Mention, Reference item, Format, Emoji. Attachments show as draft reference chips above the box; remove one with its ✕. Plain send works today; the richer "+" actions route to their tools as those land.
+
+### The assistant
+
+Your assistant is not a pinned conversation — it opens as an overlay from the sidebar. See [The interface](the-interface.md).
+
+---
+
+## 2. Work — planning and tracking
 
 Work is organized in three levels:
 
-**Work overview** — A list of your teams. Each team row shows the team name, how many bets are active, and a status chip (healthy / behind / blocked). Teams sort by urgency: blocked first, then behind, then healthy. Click a row to open that team.
+**Work overview** — a flat list of your teams: name, active-bet count, and a status chip (healthy / behind / blocked). Teams sort by urgency — blocked first, then behind, then healthy. If you have exactly one team, the overview is skipped and Work opens straight on your team's page.
 
-If you only have one team, the Work overview is skipped — clicking Work in the sidebar takes you straight to your team's page.
+**Team page** — burn-vs-capacity metrics, active bets, routines, and agents. **New bet** lives here and on the Work overview header.
 
-**Team** — Each team page shows burn-vs-capacity metrics, active bets, routines, and agents. Click **New bet** here or from the Work overview header to start a bet.
+**Bet detail** — the bet's description (rendered as Blocks), progress, cost tracker, task list, and comment thread. Lifecycle semantics live in [bets](../../process-layer/bets-shape-commit-change-ship.md).
 
-**Bet Detail** — Click a bet to see its full pitch, progress bar, cost tracker, task list, and comment thread.
+### What the task section shows
 
-#### What the task section shows
-
-The Tasks section on a bet detail page shows one of four states:
+The Tasks section on a bet detail page shows one of five states:
 
 | State | What you see | What it means |
 |---|---|---|
 | Tasks present | Task rows with status chips | Agents are working or work is queued |
-| Not committed | "Not committed yet" | The bet is still in draft; commit to start work |
-| Planning | "Planning the work" with a live pulse | The PM agent is breaking the bet into tasks — takes a moment |
-| Blocked — no agent | "No one can take this work" + Add an agent link | The team has no agent eligible to own tasks; add one to proceed |
-| Blocked — failed | "Couldn't plan the work" | The PM turn failed; try committing again after refining the goal |
+| Not committed | "Not committed yet" | The bet is still a draft; commit to start work |
+| Planning | "Planning the work" with a live pulse | An agent is breaking the bet into tasks — takes a moment |
+| Blocked — no agent | "No one can take this work" + Add an agent | No agent on the team can own tasks; add one to proceed |
+| Blocked — failed | "Couldn't plan the work" | Planning failed; refine the goal and commit again |
 
-The "Tasks will appear here once agents start work" placeholder no longer appears on committed bets — either tasks are there, or an honest reason explains why they aren't.
+Either tasks are there, or an honest reason explains why they aren't.
 
-#### Weekly Planning Workflow
-
-1. Open **Work** — you see your teams sorted by urgency
-2. Click a team (or use the Work overview header's **New bet** button)
-3. In **Team View**, click **"New bet"** to create a bet (title, pitch, team, appetite)
-4. Open the bet and click **Commit** — agents immediately begin breaking the bet into tasks
-5. Watch the task section: tasks appear within seconds once the PM agent finishes planning
-6. Review active bets and their progress
+**Committing a bet** immediately triggers decomposition — an agent breaks the bet into tasks, which appear once its turn finishes. Task and session details live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
 
 ---
 
-### 3. Knowledge (weekly curation)
+## 3. Knowledge — your team's shared memory
 
-Knowledge is the factory's institutional memory, organized in five layers:
+Knowledge is one store your whole team — humans and agents — reads and writes. Internally it is organized in five layers; that taxonomy lives in [the five layers](../../knowledge-architecture/the-five-layers.md).
 
-| Layer | Scope | Examples |
-|-------|-------|----------|
-| **L0** | Session | Working context (ephemeral) |
-| **L1** | Task | What was tried, what broke, what differed |
-| **L2** | Product | Briefs, architecture, brand guidelines, decisions |
-| **L3** | Practice | Cross-product patterns and anti-patterns per discipline |
-| **L4** | Factory | Principles, monthly focus, portfolio strategy |
+### Scope pills
 
-#### Three Knowledge Scopes
+The knowledge list filters by four scope pills:
 
-- **Practice** — grouped by discipline (Building, Growth, Product, Ops, Facilitation). Cross-product learnings.
-- **Product** — per-product knowledge (architecture, briefs, decisions).
-- **Factory** — your principles and strategic direction.
+- **All** — everything you can see
+- **Shared** — company-wide and cross-team knowledge
+- **Team** — knowledge belonging to a team
+- **Private** — your own items
 
-#### Browsing and Curating
+### Browsing
 
-The Knowledge view offers five sort modes: By Topic (default), Needs Attention, Recently Created, Most Accessed, and Stale.
+Two tabs: **Triage** (draft items awaiting curation) and **Curated** (items grouped by topic). Sort pills: **relevance** (default), **recency**, **frequency**. Topic health indicators (fresh / some stale / mostly stale) help you spot areas needing attention.
 
-Actions you can take:
-- **Edit** — inline markdown editing with auto-save
-- **Merge** — combine duplicate items
-- **Split** — break an overloaded item into focused pieces
-- **Flag** — mark for review
-- **Archive** — remove stale or superseded items
+### Curating
 
-Topic health indicators (Fresh / Some Stale / Mostly Stale) help you spot areas that need attention.
+- **Edit** — inline markdown editing with auto-save; **Done** when finished.
+- **Archive** — remove stale or superseded items.
 
-#### Weekly Curation Workflow
-
-1. Open **Knowledge**
-2. Select a scope (Practice, Product, or Factory)
-3. Switch to **"Needs Attention"** view
-4. Read, edit, merge, or archive items
-5. Browse **"Recently Created"** to see what agents are learning
+Merge and split exist as API operations but have no UI yet; flagging is an agent operation, not a user action.

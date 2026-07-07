@@ -1,38 +1,47 @@
-## 9. Decisions
+# Architecture Decisions
 
-### Resolved
+Code-verified decision log for the system architecture. Each entry records a settled choice and where it lives in code. Domain depth is never restated here — the owning doc is linked.
 
-- **TOON format specification.** Using the existing TOON spec at [github.com/toon-format/toon](https://github.com/toon-format/toon). ~40% token savings over JSON for structured agent context packs.
-- **Practice "meeting" mechanics.** Three-turn conversation: (1) all agents propose findings, (2) all agents react with context and relevance, (3) Practice Facilitator synthesizes — routing items to practice L3 or product L2 as appropriate. Not all findings become practice knowledge.
-- **Session note quality.** No rigid template. LLMs write good prose; what matters is flight-level guidance on what to write about (goal, outcome, changes, next steps, hazards). The skill package provides defaults; the process layer doesn't parse notes structurally.
-- **Context compaction detection.** Continuous session notes throughout the session (agent writes to `work/session-notes.md` as it works). Pre-compaction trigger where the harness supports it (part of the Harness Adapter contract). Token-counting heuristic as fallback.
-- **Hot-reload for skills.** Next session picks it up. No mid-session propagation needed.
-- **Desktop shell.** Electron. Server embedded in main process (`@hono/node-server`). SQLite via `better-sqlite3`. Auth via auto-generated API key injected by preload bridge. Distributed as signed/notarized DMG via Homebrew cask.
-- **Mobile strategy.** Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
-- **Canvas (bet placement) tech.** Simple symbolic UI — not an actual canvas or drag-and-drop zone. A two-column layout (shaped / committed) with a hard capacity cap, rendered as `BetCard`s. Standard React components, no canvas library needed.
-- **Scheduler architecture.** Single-process (Node.js event loop). API server and Scheduler share one process. Context assembly and session-start calls run as async tasks so the event loop isn't blocked. **Scaling note:** if measured latency degrades under load, extract Scheduler to its own process communicating via Event Bus. Monitor for this.
-- **No external framework integrations in the process layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime layer (Harness Adapters). The process layer stays minimal: SQLite, TypeScript/Node.js, the Knowledge Fabric, and the Hono API. Complex dependencies are avoided as long as possible.
-- **Minimum install.** `brew install --cask hyperidle`. Under 2 minutes from download to rendered Factory shell. SetupFlow guides first-run configuration.
-- **Cross-product routine ownership.** The assistant (individual agent) owns routines that observe patterns across products (e.g., portfolio-level Cost Sentinel).
-- **Knowledge Fabric sync.** Continuous writeback via file watcher is the v1 design — no session-boundary dependency. The file watcher on `knowledge/` and `work/` directories writes back changes incrementally (500ms debounce), with WebSocket push to open Knowledge view tabs. See KNOWLEDGE_ARCHITECTURE.md §5.
-- **Notifications.** TBD during development. Will need some notification adapter; specific technology (ntfy.sh, SMTP, push API) decided at implementation time.
-- **Cost hierarchy: agent < team < factory.** Strictly nested. Each level has a configurable cost cap (default: daily cycle). When a team cap is reached, the team stops. When the factory cap is reached, everything stops. Critical ops tasks finish in-progress sessions but cannot start new ones. Smart defaults: equal splits across agents. See PROCESS_LAYER.md §10.
-- **Autonomy: per-agent-per-skill.** Each agent–skill combination has its own autonomy level (L1–L4). Effectively per-team-per-skill since the same skill in different products needs different oversight. Tracked in `agent_skills` table.
-- **Task dependencies: hold state.** Tasks with unmet upstream dependencies go to `hold`. The Dependency Watcher auto-transitions to `accepted` when upstream clears. Distinct from `blocked` (runtime blocks). See PROCESS_LAYER.md §6.1.
-- **Knowledge layer precedence: L4 > L3 > L2 > L1.** Higher layers are more absolute. Contradictions between layers are flagged at context assembly time. See KNOWLEDGE_ARCHITECTURE.md §6.3.
-- **Edit log for facilitator learning.** Every human edit logged in `knowledge_edit_log`. Serves as training signal for improving facilitator proposals over time.
-- **A2A-inspired handoff protocol.** Structured handoff messages with context IDs, task states (working/completed/failed/canceled), reason codes, and artifact references. JSON format for all inter-agent communication; TOON reserved for context packs. See PROCESS_LAYER.md §8.
-- **Attention scores: notifications and ambient indicators, not Knowledge view.** The Knowledge view provides access to all knowledge. Attention scores drive what triggers notifications and what surfaces via Conversations filter chips — they don't filter the Knowledge view.
-- **Facilitators are not a SPOF.** Practice facilitation is an async self-improvement knowledge loop. It never interferes with normal task execution. If a facilitator is down or slow, agents keep working — they just don't get new practice updates until the next context assembly.
-- **Knowledge misses are acceptable.** Agents will miss relevant knowledge sometimes. This is a feature, not a bug — it's part of how new approaches are discovered. The system optimizes for relevance at context assembly time but doesn't guarantee completeness.
-- **Paused routines when cost cap hit.** When a cost cap is reached, the heartbeat won't trigger for paused routines — they're simply skipped until the budget resets.
-- **PostgreSQL as SQLite alternative.** SQLite is the default. PostgreSQL must be ready as an alternative for deployments that exceed SQLite's comfort zone (~50 concurrent writers, or when WAL mode write throughput becomes a bottleneck). **Scaling threshold:** when the factory has >50 agents with overlapping sessions, or when the Knowledge Fabric's continuous writeback creates sustained >100 writes/sec, switch to PostgreSQL. The same schema applies; the adapter pattern in the Primitive Store extends to `knowledge_items`.
+## Formats & protocols
 
-### Deferred — Decide During Development
+- **TOON for context packs.** The existing TOON spec at [github.com/toon-format/toon](https://github.com/toon-format/toon); ~40% token savings over JSON for structured agent context packs. Codec: `packages/shared/src/toon-codec.ts`. TOON is reserved for context packs — all inter-agent messages use JSON.
+- **A2A-inspired handoff protocol.** Structured handoff messages with context IDs, task states, reason codes, and artifact references — JSON, never TOON (`packages/server/src/services/handoff-protocol.ts`, `POST /tasks/:id/handoff`). Semantics: [handoff and lifecycle propagation](../process-layer/handoff-and-lifecycle-propagation.md).
 
-- **Heartbeat granularity for routines.** Minimum resolution roughly hourly, not sub-minute. Exact granularity determined during implementation.
-- **Daytona Custom Regions.** Parked. Relevant when addressing self-hosted deployment profiles, not before.
+## Sessions & agents
 
----
+- **Session note quality.** No rigid template. LLMs write good prose; what matters is flight-level guidance on what to write about (goal, outcome, changes, next steps, hazards). Notes are stored as prose (`sessions.notes`) — the process layer never parses them structurally.
+- **Context compaction detection.** Continuous session notes throughout the session (the agent writes to `work/session-notes.md` as it works, picked up by continuous writeback). Pre-compaction trigger where the harness supports it — part of the adapter contract ([harness capability descriptor](../agent-layer/harness-capability-descriptor.md)). Token-counting heuristic as fallback.
+- **Hot-reload for skills.** The next session picks changes up. No mid-session propagation.
+- **Cross-team routine ownership.** Routines that observe patterns beyond a single team belong to the assistant (individual agent). The Cost Sentinel is application code registered in `bootstrapFabric` — not a routine row — so it cannot be disabled from data (`packages/fabric/src/services/cost-sentinel.ts:21-26`).
 
-*This document captures how the system is built — the companion REQUIREMENTS.md captures what it must do.*
+## Runtime & process model
+
+- **Scheduler architecture.** Single Node.js process: the API server and the in-process `setInterval` schedulers (`packages/fabric/src/services/routine-scheduler.ts`) share one event loop; context assembly and session-start calls run as async tasks. Extract the scheduler to its own process (communicating via the event bus) only if measured latency degrades under load.
+- **No external framework integrations in the process layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through harness adapters in the agent runtime. The process layer stays minimal: Postgres (PGlite), TypeScript/Node.js, the knowledge fabric, and the Hono API.
+- **Postgres only.** PGlite locally, `postgres-js` against a managed server — one engine, one schema (`packages/db/src/schema.ts` is `pgTable`-only). SQLite is retired entirely. See [the canonical store](../knowledge-architecture/the-canonical-store.md).
+
+## Delivery
+
+- **Desktop shell.** Electron. The Hono server is embedded in the main process (`@hono/node-server`); storage is PGlite at `userData/hyperidle-pg` (`packages/desktop/src/main.ts`); auth via an auto-generated API key injected by the preload bridge. Distributed as a signed/notarized DMG via Homebrew cask. Architecture detail: [system overview](./system-overview.md).
+- **Mobile strategy.** Desktop is the primary form factor; the same web app serves mobile browsers for review triage and agent unblocking. No native app, no offline support. The delivery claim is owned by [system overview](./system-overview.md).
+- **Minimum install.** `brew install --cask hyperidle`; SetupFlow guides first-run configuration. Install steps: [deployment](../deployment/index.md).
+
+## UI
+
+- **Bet placement tech.** Plain React `BetCard` components in a simple symbolic layout with a hard capacity cap — no drawing-canvas or drag-and-drop library. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [bets](../process-layer/bets-shape-commit-change-ship.md).
+- **Attention scores drive notifications and ambient indicators, not the Knowledge view.** The Knowledge view gives access to all knowledge; attention scores decide what notifies and what surfaces via Conversations filter chips — they never filter the Knowledge view. Scoring: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
+
+## Process layer
+
+- **Cost hierarchy: agent < team < factory.** Strictly nested caps (`costCapMinor` on agents and teams, plus `factory_settings`); a breached cap stops that level, in-progress critical sessions finish, and paused routines are simply skipped until the budget resets. Cap grammar: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
+- **Trust gating: approval rate × risk tier.** No fixed autonomy ladder. Surface and mechanism: [review primitive](../human-interface-layer/review-primitive.md).
+- **Task dependencies: hold state.** Tasks with unmet upstream dependencies go to `hold` (`packages/shared/src/types.ts:13`); the Dependency Watcher (`packages/server/src/services/dependency-watcher.ts`) auto-transitions them to `accepted` when upstream clears. Distinct from `blocked` (runtime blocks). Semantics: [tasks and sessions](../process-layer/tasks-and-sessions.md).
+
+## Knowledge
+
+- **Knowledge fabric sync: continuous writeback.** A file watcher on `knowledge/` and `work/` writes back changes incrementally (500ms debounce, `packages/fabric/src/file-watcher.ts:23`) with WebSocket push to open Knowledge view tabs — no session-boundary dependency. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **Layer precedence: L4 > L3 > L2 > L1 > L0.** Taxonomy: [the five layers](../knowledge-architecture/the-five-layers.md); precedence rules: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **Practice "meeting" mechanics.** Three-turn conversation: (1) all agents propose findings, (2) all agents react with context and relevance, (3) the facilitator synthesizes (`packages/fabric/src/services/practice-meeting.ts`). Not all findings become practice knowledge. Facilitator duties: [facilitators](../knowledge-architecture/facilitators.md).
+- **Edit log for facilitator learning.** Every human edit is logged in `knowledge_edit_log` (`packages/db/src/schema.ts:609`) as a training signal for improving facilitator proposals over time.
+- **Facilitators are not a SPOF.** Practice facilitation is an async self-improvement loop that never interferes with task execution; if a facilitator is down, agents keep working and simply miss new practice updates until the next context assembly.
+- **Knowledge misses are acceptable.** Agents will sometimes miss relevant knowledge — a feature, not a bug; it's part of how new approaches get discovered. The system optimizes for relevance at context-assembly time and doesn't guarantee completeness.

@@ -1,22 +1,47 @@
-## 7. Cross-View Navigation Map
+# Cross-View Navigation Map
+
+Every navigation edge in the shipped app, verified against `packages/web/src/router.tsx`. Shell structure (sidebar, routes, shortcuts) is owned by [app-shell-always-present.md](app-shell-always-present.md); per-view layout by the view docs. This map owns only the edges.
+
+## Global edges (available from any view)
 
 | From | To | Trigger |
 |---|---|---|
-| Any view → Conversations | Click Conversations section header in Sidebar | Always available |
-| Any view → Work | Click Work section header in Sidebar | Always available |
-| Any view → Knowledge | Click Knowledge section header in Sidebar | Always available |
-| Thread list → Review thread detail | Click ThreadRow item | Within Conversations |
-| Review thread → Companion layout | Auto-promotes for complex ArtifactView; manual toggle | Within Conversations |
-| Work Overview (team list) → Team View | Click team row | Within Work (Level 1 → 2) |
-| Team View → Bet Detail | Click BetCard | Within Work (Level 2 → 3) |
-| Team View → PitchSelector | Click Add bet (+) button on Canvas | Within Work (overlay on Level 2) |
-| Bet Detail → Team View | Click breadcrumb | Within Work (Level 3 → 2) |
-| Bet Detail → Conversations thread | Click TaskCard row "Open thread" | Cross-view |
-| Knowledge list → Item detail | Click KnowledgeRow | Within Knowledge |
-| Item detail → Knowledge list | Click breadcrumb | Within Knowledge |
-| Knowledge item → Conversations | Not applicable (agent-free view) | — |
-| Sidebar gear → Settings | Click gear icon in Sidebar | Always available |
-| PitchSelector → New Pitch form | Click "New Pitch" in PitchSelector | Within Work (Level 2 overlay) |
-| Bet detail → Sync modal | Click "Sync" button | Within Work |
-| Knowledge item → Related item | Click in related items sidebar | Within Knowledge |
-| Knowledge item → Merge modal | Click "Merge" in action bar | Within Knowledge |
+| Any view | Conversations / Work / Knowledge | Sidebar section item; `⌘/Ctrl+1/2/3` (`useNavShortcuts.ts`) |
+| Any view | Back / Forward in history | `⌘/Ctrl+[` / `⌘/Ctrl+]` (`useNavShortcuts.ts`); NavHistoryCluster |
+| Any view | Thread / Team / Knowledge item | Sidebar fast-nav row → `/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId` |
+| Any view | Settings | Sidebar gear (`Sidebar.tsx:324-361` SettingsFooter) → in-shell settings overlay (`AppShell` `settingsOpen`) — see [app-shell-always-present.md §5](app-shell-always-present.md) |
+
+## Within Conversations
+
+| From | To | Trigger |
+|---|---|---|
+| Thread list | Thread detail | Click ThreadSections row → `/conversations/:threadId` |
+
+## Conversations ↔ Work (cross-view)
+
+| From | To | Trigger |
+|---|---|---|
+| Review Part in a thread | ReviewPage | "Open review" (`ReviewRequestPart.tsx:63`) → `/work/bet/:betId/review/:reviewId` (`router.tsx:88`) |
+| Bet detail TaskSheet | Conversation thread | Navigate `/conversations/chat?thread=…` (`WorkBet.tsx:686-688`); redirects to the canonical thread URL |
+
+## Within Work
+
+| From | To | Trigger |
+|---|---|---|
+| Work overview | Team view | Click team row → `/work/team/:teamId` (`WorkOverview.tsx:186-196`); the 1-team short-circuit skips the overview entirely (`WorkOverview.tsx:194`) |
+| Team view | Bet detail | Click BetRow (`WorkTeam.tsx:767`) → `/work/bet/:betId` |
+| Team view | New bet | "+ bet" → full page `/work/bet/new` (WorkBetCreate, `router.tsx:85`) — not an overlay |
+| Bet detail | Task detail | Click task row → `/work/bet/:betId/task/:taskId` (`router.tsx:87`) |
+| Bet detail | Team view | Breadcrumb (`WorkBet.tsx:926-927`, DS Breadcrumb + NavHistoryCluster) |
+
+## Within Knowledge
+
+| From | To | Trigger |
+|---|---|---|
+| Knowledge list | Item detail | Click KnowledgeRow → `/knowledge/:knowledgeId` (`router.tsx:92`) |
+| Item detail | Knowledge list | Breadcrumb (`KnowledgeDetail.tsx:749-750`) |
+| Item detail | Related item | Related-items sidebar (`structuredRelatedItems`, `KnowledgeDetail.tsx:109,327-328`) |
+
+## Knowledge ↔ Conversations (cross-view)
+
+Knowledge items host threads: HostThreadSection on the item detail page, plus per-block discussion anchored via `messages.block_id` (`db/src/schema.ts:476-483`). Knowledge is not an agent-free view.

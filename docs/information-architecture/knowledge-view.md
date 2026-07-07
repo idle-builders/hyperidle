@@ -1,50 +1,66 @@
-## 4. Knowledge View
+# Knowledge View
 
-**Purpose:** The company's wiki. Agent-free curation.
+**Purpose:** The company's wiki. Humans and agents curate it together — items carry an origin agent, host their own discussion thread, and agent-drafted items land in Triage for human validation.
 
-<!-- @source packages/web/src/pages/KnowledgeList.tsx -->
+**Shell structure:** Sidebar | Main. Three routes (`router.tsx:90-92`):
 
-**Shell structure:** Sidebar | Main (Knowledge Item List or Detail).
+| Route | Page |
+|---|---|
+| `/knowledge` | Item list (Curated / Triage tabs) |
+| `/knowledge/new` | Full-page create |
+| `/knowledge/:knowledgeId` | Item detail |
 
-### 4.1 Submenu (Scope & Topic Browser)
+The Sidebar carries a triage badge — count of items needing attention (draft + `needs_human`), shown when > 0 (`Sidebar.tsx:119`). There is no scope sub-browser in the Sidebar; scope filtering is inline pills on the list page.
 
-| Component | Information | Actions |
-|---|---|---|
-| **Scope selector** | Three options: Practice / Product / Factory | Click to switch scope |
-| **Practice list** (Practice scope) | Building, Growth, Product, Ops, Hardware, Facilitation — each with item count | Click to filter main pane |
-| **Product list** (Product scope) | Ambrovia, Acme, HyperIdle, Pulse — each with item count | Click to filter |
-| **Topic list** | Per topic: name, item count, health indicator (stable/degraded), stale count | Click to filter; multi-select with Cmd |
-| **Quick filter links** | Drafts, Index, Curated, Stale, Archive — with counts | Click to jump to view |
+## 1. Knowledge Item List (`/knowledge`)
 
-### 4.2 Knowledge Item List (in Main)
+Header: page title, Curated/Triage tab control, search field, **+ New** button (navigates to `/knowledge/new`).
 
 | Component | Information | Actions |
 |---|---|---|
-| **View switcher** | Two views: Curated (all active items grouped by topic) and Triage (needs attention + drafts + stale, sorted by attention score). Additional sort options within each view: by date, access count, attention score. | Click to switch view; click sort control to reorder |
-| **Knowledge gap indicator** | Topics with zero active items or no activity in 90+ days, highlighted in topic list | Click to create first item in gap topic |
-| **Topic section header** | Topic name, item count, stale count | Collapse/expand |
-| **KnowledgeRow** (× N) | Title, one-line preview, kind tag, status tag, topic (in cross-topic views), timestamp | Click to open detail |
-| **Kind tag** | Pattern, anti_pattern, decision, failure, brief, principle, reflection, focus — color-coded | Read-only |
-| **Status tag** | Captured, provisional, active, stale, archived — with colored dot | Read-only |
-| **Search bar** | Full-text search within current scope | Type to search; highlighted results |
-| **Filter/sort controls** | Sort by attention score, date, access count | Click to change sort |
-| **Bulk update button** | — | Multi-select items and batch-apply operations |
-| **Curation suggestion card** | Agent-generated suggestion (e.g., "3 JWT items losing relevancy — merge?") | Execute or dismiss |
+| **Tab control** | Two views: **Curated** (active items grouped by topic) and **Triage** (draft + `needs_human` items, ordered by attention score). Tab memory is component state only — never persisted (`KnowledgeList.tsx` @lore J6). | Click to switch |
+| **Scope pills** | All / Shared / Team / Private — static 4-pill row. All = no filter; Shared = factory + practice scopes; Team = team + product scopes; Private = user scope (`utils/scope-labels.ts` SCOPE_PILL_OPTIONS, AD6). Selection lives in the `?scope=` URL param. | Click to filter both tabs |
+| **Sort control** | relevance (default, `signals.relevanceScore`) / recency (`updatedAt`) / frequency (30-day access count) via `?sort=` URL param. Item signals also carry `citationCount` and `attentionScore`. | Click to reorder |
+| **Search bar** | Text filter within the current tab | Type to filter |
+| **Topic section header** (Curated) | Topic name, item count, stale count (archived items), health indicator fresh / some_stale / mostly_stale — derived from the archived ratio (≥ 50% → mostly_stale) | Collapse/expand |
+| **KnowledgeRow** (× N) | Title, one-line preview, status, timestamp; user-scoped items show a "Private" tag (`design-system/src/KnowledgeRow.tsx`) | Click to open detail |
 
-### 4.3 Knowledge Item Detail/Edit (in Main)
+Scoring semantics (relevance, attention, access signals) are owned by [relevance-and-attention](../knowledge-architecture/relevance-and-attention.md).
+
+### Triage tab
+
+Draft and `needs_human` items sorted by `attentionScore` descending (unscored items last); the sort pill applies on top. Keyboard-driven (Y4, ignored while typing in an input):
+
+| Key | Action |
+|---|---|
+| `j` / `↓`, `k` / `↑` | Move focus |
+| `Enter` / `o` | Open focused item |
+| `v` | Validate → status `active` (optimistic) |
+| `x` | Reject → status `archived` (optimistic) |
+| `Esc` | Clear focus |
+
+## 2. Knowledge Item Detail (`/knowledge/:knowledgeId`)
 
 | Component | Information | Actions |
 |---|---|---|
-| **Breadcrumb** | Knowledge → [Practice/Product] → [Topic] → [Item title] | Click to return to list |
-| **Editable title** | Item title, large text | Click to edit inline |
-| **Metadata bar** | Kind, status, topic (dropdown to change), confidence (0-1 bar), last-edited date + editor, access count, origin agent, creation context, evidence links | Read-only except topic |
-| **Action bar** | Flag, Archive, Move, Merge, Split | Click each |
-| **Rich content body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/blocks/`): headings, paragraphs, lists, code, quotes, tables, hr, images. Each block carries a stable, server-computed id; blocks are a *derived* view over `knowledge_items.body` (markdown stays on disk / in the DB column — never a stored dialect). | Click anywhere to edit inline; auto-save (body-level optimistic lock). Per-block discussion (L26) attaches a thread message to a `(host_id, block_id)` anchor. |
-| **Edit toolbar** | Bold, italic, link, image, save | Formatting controls (appears when editing) |
-| **Observation logs** | Read-only comments from facilitator agents | — |
-| **Edit history** | Version timeline: what changed, when, by whom | Collapse/expand; click version to preview |
-| **Related items sidebar** | Auto-suggested related items (by topic, by text similarity) + manually linked items | Click to navigate; "Link item" button to add manual link |
-| **Merge modal** | Triggered from Action bar. Lists similar items in same topic → select target → preview combined result → confirm | Execute merge; source item archived with redirect |
-| **Split modal** | Triggered from Action bar. Select text section → promote to new item in same topic → auto-cross-link both | Execute split; both items linked |
+| **Breadcrumb** | Back to the list (DS `Breadcrumb`, `KnowledgeDetail.tsx:749`) | Click to return |
+| **PageHeader** | Title + metadata subtitle: confidence, 30-day access count, origin agent, topic | Edit button + overflow menu |
+| **Overflow menu** | Archive (POST `/api/knowledge/:id/archive`), scope change | Click |
+| **ScopeChangeDialog** | Move the item to a different scope: scope kind + scope id + required reason; PATCH `/api/knowledge/:id/scope` carries the current `version` so stale mutations are rejected (`pages/knowledge/ScopeChangeDialog.tsx`) | Submit |
+| **Body** | Markdown `knowledge_items.body` rendered as Blocks (derived view, never a stored dialect) — see [docs/blocks/](../blocks/index.md). Per-block discussion anchors thread messages on `messages.block_id` (`db/src/schema.ts`, T5); thread grammar → [thread-primitive](../human-interface-layer/thread-primitive.md). | Edit toggles in-page (state, not a route) |
+| **Edit mode** | `BodyEditor` with auto-save via PATCH `/api/knowledge/:id`; "Saved" indicator; **Done** exits. Optimistic lock rides the `version` column. | Type; auto-saves |
+| **Discussion** | `HostThreadSection` hosts the item's conversation — this replaced the old read-only observation logs (L18) | Reply |
+| **Related items sidebar** | Structured `relatedItems` from the API, rendered as a navigable list | Click to navigate |
 
----
+## 3. Create flows
+
+**Full-page create (`/knowledge/new`, `KnowledgeCreate.tsx`):** bordered header (breadcrumb + editable title input + **Create** button, disabled until title and body have content) over a two-column body — `BodyEditor` left, metadata card right with a scope picker. Create-time scope options: Shared → factory, Team → team, Private → user (`SCOPE_CREATE_OPTIONS`). Human-authored items are created as status `active` immediately (AF13 §1) — no draft detour.
+
+**In-context capture (`KnowledgeCreateDialog`):** the dialog survives for capture from a host object — e.g. "Add knowledge" on a bet detail page opens it with the bet scope locked (`WorkBet.tsx:1090`).
+
+## 4. Data semantics (pointers)
+
+- **Statuses:** `draft | active | archived | needs_human` (`KERNEL_KNOWLEDGE_STATUSES`, `shared/src/types.ts:77`). Lifecycle and promotion → [facilitators](../knowledge-architecture/facilitators.md).
+- **Scope:** `scopeKind` (7-value closed enum) + `scopeId` on the kernel table; enum and store semantics → [the-canonical-store](../knowledge-architecture/the-canonical-store.md).
+- **No kind/layer columns** on `knowledge_items` — strategy fields (layer, kind, scoring) live on the fabric extension table (O2); taxonomy → [the-five-layers](../knowledge-architecture/the-five-layers.md).
+- **Shape:** owned by `packages/db/src/schema.ts` (id, scopeKind/scopeId, topic, title, body, format, status, version, updatedBy, timestamps).

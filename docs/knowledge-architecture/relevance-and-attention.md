@@ -1,88 +1,59 @@
-# Relevance / Attention
+# Relevance, Attention, and Assembly Scoring
 
-Two scores exist; they answer different questions and never collapse into one number.
+Three scoring engines exist. They answer different questions, consume disjoint inputs, and never collapse into one number:
 
-- **`relevanceScore`** — *user-facing*. The Knowledge view ranks rows by this. It answers: "of the items the user could read right now, which are most worth their attention?" Source: server-tracked behavioural signals (recency × frequency × citation). Owned by the data layer, not the facilitator.
-- **`attentionScore`** — *facilitator-facing*. The "needs human" queue uses this. It answers: "of the items in the system, which need human judgement applied?" Source: structural and qualitative signals (novelty, conflict, taste-sensitivity, confidence, repetition). Owned by the facilitators.
+| Engine | Question | Consumer | Code |
+|---|---|---|---|
+| **`relevanceScore`** (L22) | "Of the items a user could read right now, which are most worth their attention?" | Knowledge view ranking (`packages/web/src/pages/KnowledgeList.tsx`) | `packages/fabric/src/relevance-engine.ts` + `services/relevance-service.ts` |
+| **`attentionScore`** | "Which items need human judgement applied?" | needs-human triage queue | `packages/fabric/src/attention-scoring.ts` |
+| **Assembly scoring** | "Which items get loaded into an agent session under the token budget?" | [Knowledge Fabric context assembly](./the-knowledge-fabric-how-knowledge-moves.md) | `packages/fabric/src/relevance-scoring.ts` + `token-budget.ts` |
 
-Both ride on the same `knowledge_items` row. They are separate columns. They derive from disjoint inputs. A high `relevanceScore` does not imply a high `attentionScore` — the most-accessed item in the system may be perfectly settled and need no human input.
+`relevanceScore` and `attentionScore` are separate columns on the `knowledge_strategy_fabric` extension table (`packages/db/src/schema.ts` — O2 moved all strategy signals off `knowledge_items`). A high `relevanceScore` does not imply a high `attentionScore` — the most-accessed item in the system may be perfectly settled and need no human input.
 
-> The data contracts below land in TRACK-L story L22. The spec is L5 (`docs/knowledge-architecture/relevance-and-attention.md`, this section, plus `plans/L5/architecture.md`). Cross-link: `plans/reviews/improvements-knowledge.md` #1.
+---
 
-## `relevanceScore` — three signals, server-tracked
+## `relevanceScore` — behavioural, server-tracked
 
-Every knowledge item carries four behavioural fields, all populated from server-side tracking — never client analytics:
+Each item's signal set is three fields (`relevance-service.ts:27-34`):
 
 | Field | Source | Meaning |
 |---|---|---|
-| `lastValidatedAt` | `knowledge_edit_log` filtered to `editor='facilitator'` OR status transitions into `validated` | When was this last endorsed by a facilitator or a human? |
-| `lastEditedAt` | `knowledge_edit_log` most-recent row, any editor | When was the body last touched at all? |
-| `lastAccessedAt` | `knowledge_access_log` most-recent row | When did anyone (human or agent) last fetch this item via `GET /api/knowledge/:layer/:id`? |
+| `lastActivityAt` | max over `knowledge_access_log` and `knowledge_edit_log` (filtered `editor='human'`) | Most recent access, edit, or human validation |
 | `accessCount30d` | `COUNT(knowledge_access_log)` over the trailing 30 days | How often was it fetched recently? |
+| `citationCount` | always `null` — staged (see below) | Did an agent actually use this knowledge? |
 
-Access tracking is server-side by construction: every `GET /api/knowledge/:layer/:id` 200 response appends one row to `knowledge_access_log`. Detail fetches count; list/search responses do not (the user did not open any specific item). Materialisation by the Knowledge Fabric (the budgeted bulk-load into a session pack) does NOT count — the fabric loads via internal repo calls, not the HTTP route, and would dominate the signal if counted. Self-reported access from agents is forbidden under the same security model that forbids agent-writable `meta.impact`: agents can game the score, so the source of truth is the route handler, not the agent.
+`ageDays` for the recency signal is computed from `knowledge_items.updatedAt`, and only when at least one activity signal exists — a no-data item must not get a recency-only score that looks like real relevance (`relevance-service.ts:152-177`).
 
-The composite is a weighted sum of three signals, each normalised to `[0, 1]`:
+### Access tracking is server-side by construction
 
-```
-relevanceScore =
-    w_recency   * recencySignal
-  + w_frequency * frequencySignal
-  + w_citation  * citationSignal
+Every `GET /api/knowledge/:id` 200 response appends one row to `knowledge_access_log` — best-effort, never breaks the read. The 30-day count is queried BEFORE the insert, so the current page-load is excluded from its own signal (AF13, `packages/server/src/routes/knowledge.ts`). What does NOT count:
 
-  / (w_recency + w_frequency + w_citation_effective)
+- List and search responses — the user did not open any specific item.
+- Knowledge Fabric bulk loads during context assembly — the fabric reads via internal repo calls, not the HTTP route, and would dominate the signal if counted.
+- Agent self-report — forbidden. An agent reporting its own access is gameable, the same security shape as agent-writable `meta.impact` (see the @lore in `attention-scoring.ts`).
 
-where:
-  recencySignal     = exp(-ln(2) * age_days / RECENCY_HALFLIFE_DAYS)
-                      // age_days = days since max(lastValidatedAt, lastEditedAt, lastAccessedAt)
-                      // 1.0 at age 0, 0.5 at the half-life, asymptotic to 0
-  frequencySignal   = clamp01(accessCount30d / FREQUENCY_SATURATION)
-  citationSignal    = if citationCount IS NULL → 0
-                      else clamp01(citationCount / CITATION_SATURATION)
+### The composite formula
 
-  w_citation_effective = w_citation when citationCount IS NOT NULL else 0
-                         // citation is staged (see below); while null, it is dropped
-                         // from the denominator so a row with only recency+frequency
-                         // normalises correctly.
-```
+Lives in code — `relevance-engine.ts:1-17` carries the formula and `computeRelevanceScore` implements it: weighted sum of recency (exponential half-life decay), frequency (saturating 30-day access count), and citation, normalised by the sum of participating weights. The one non-obvious semantic: **when `citationCount` is null, `w_citation` drops out of the denominator** — null-citation items are not penalized against items with `citationCount = 0`; the absent signal simply doesn't participate. This is what makes staged signal rollout possible without retroactive re-weighting.
 
-Numerical defaults (all overridable in DB — see "Configuration" below):
+### Citation is staged with absent values
 
-| Constant | Default | Notes |
-|---|---|---|
-| `RECENCY_HALFLIFE_DAYS` | 14 | Fortnightly cadence; aligns with the weekly Knowledge curation rhythm. |
-| `FREQUENCY_SATURATION` | 5 accesses | After 5 accesses in 30 days the signal saturates. Same shape as the existing `REPETITION_SATURATION` constant. |
-| `FREQUENCY_WINDOW_DAYS` | 30 | The "recent window" length. |
-| `CITATION_SATURATION` | 5 | Placeholder while citation is staged. Tunable when citation ships. |
-| `w_recency` | 0.4 | |
-| `w_frequency` | 0.4 | |
-| `w_citation` | 0.2 | Lowest while staged at zero contribution; ready to grow when citation ships. |
+`citationCount` / `lastCitedAt` columns exist on `knowledge_strategy_fabric` but stay `null` until a trustworthy source ships. Why staged, not shipped:
 
-## Citation: staged with absent values
+1. **No trustworthy source today.** Citation means "the agent actually used this knowledge to produce its output" — a behavioural signal. The fabric knows what it delivered into a session, but delivery is a superset of use.
+2. **Self-report is gameable** — same vulnerability as agent-writable `meta.impact`.
+3. **The two honest paths are research-grade**: (a) a typed harness tool `readKnowledge(id)` recorded server-side, write-restricted to the harness; (b) post-hoc trace analysis attributing knowledge use from agent reasoning. Both need their own track (L23+).
+4. **Forward-compat.** The columns and the composite weight already exist; when a source ships, the value flips from null to populated with no migration churn.
 
-**Decision (architect, L5 plan):** citation does NOT ship in L22. The `citationCount` and `lastCitedAt` columns exist on the row contract but remain `null` until a trustworthy source is wired. While null, the impact column in the Knowledge view renders `—`, never `0` or a fake constant.
+While null, the impact column in the Knowledge view renders `—` (`packages/design-system/src/KnowledgeRow.tsx`).
 
-Why staged, not shipped:
-1. **No trustworthy source today.** Citation means "the agent actually used this knowledge to produce its output" — a behavioural signal, not a delivery signal. The fabric knows what it materialised (delivery), but materialisation is a superset of citation.
-2. **Self-report is gameable.** An agent reporting "I cited X" on session completion is the same security shape as agent-writable `meta.impact` — the existing engine in `packages/fabric/src/attention-scoring.ts` explicitly rejects that pattern with the lore "an agent could trivially inflate the signal to force its own notes into the human queue." Citation self-report would inherit the same vulnerability.
-3. **The two reliable paths are bigger than L22.** (a) Make consulting knowledge a typed harness tool (`readKnowledge(id)` recorded server-side, write-restricted to the harness, not the agent). (b) Post-hoc trace analysis (NLP on the agent's reasoning to attribute knowledge use). Both are research-grade and need their own track.
-4. **Forward-compat.** The data contract already carries the columns. When a future story (label: `L-CITATION`, not yet specced) ships a trustworthy source, the column flips from null to populated, the renderer flips from `—` to a number, the composite weight already exists. No migration churn.
+### Binding anti-fake-zero rule
 
-## Anti-pattern rule (binding)
+Any behavioural signal that is `null` renders `—` in the UI — never `0`, never a default, never a fake constant. An item with all signals null gets `relevanceScore = null`, not a score (fake-zero guard, `relevance-engine.ts:72-88`, tested in `relevance-engine.test.ts`). The per-kind `IMPACT_BY_KIND` constant this rule replaced was deleted in L22; the do-not-reinstate rationale lives as @lore in `attention-scoring.ts` (kind-based priors made items non-comparable and let a low-trust agent influence scores by crafting item kinds).
 
-Until citation data exists, the impact column renders `—`, never a fake number. The current per-kind impact constant in `packages/fabric/src/attention-scoring.ts` (`IMPACT_BY_KIND`: `principle: 1.0`, `pattern: 0.8`, `decision: 0.6`, etc.) is the bug this spec exists to fix. L22 deletes the constant. Until citation ships, agents and the UI both know that impact = absent → `—`, and the composite simply omits citation from the denominator.
+### Configuration: DB, never source
 
-The same rule applies to every behavioural signal: any field that is `null` renders `—` in the UI. Never `0`, never a default, never a fake constant. A row with all signals null reads:
-
-```
-recency: —   frequency: —   impact: —
-```
-
-Tested by the L22 fake-zero-guard.
-
-## Configuration: DB, never source
-
-All seven constants above (three weights + four shape constants) live in the existing `factory_settings` table, under the `relevance.` prefix:
+Seven keys in `factory_settings` under the `relevance.` prefix (`scoring-config.ts:201-211`):
 
 ```
 relevance.weight.recency        = "0.4"
@@ -94,37 +65,75 @@ relevance.frequencyWindowDays   = "30"
 relevance.citationSaturation    = "5"
 ```
 
-This mirrors the established pattern for `attention.weight.*` in `packages/fabric/src/scoring-config.ts`. Same loader shape, same security model, same defense-in-depth defaults-as-fallback-in-source. Tuning takes effect on the next batch — no rebuild, no env vars, no source change.
+Source constants (`DEFAULT_RELEVANCE_CONFIG`) are bootstrap fallback only; invalid values fall back to defaults (defense in depth — a bad write can never silently break the engine). Tuning takes effect on the next batch: no rebuild, no env vars. Rationale for the defaults: the 14-day half-life aligns with the weekly knowledge-curation rhythm; frequency saturates at 5 accesses/30d — same shape as the attention engine's `REPETITION_SATURATION`.
 
-The settings write endpoint MUST reject agent writes to any key under the `relevance.` prefix. This is human-write-only configuration. Source-resident default constants are the bootstrap (so an empty settings table still yields a sane score), not the active tuning. Tuning lives in the table.
+**Known gap:** the spec's mandate that the settings write endpoint reject agent writes to `relevance.*` keys was never implemented. Currently vacuous — no endpoint writes those `factory_settings` keys at all (settings PATCH writes `server_config`) — but the moment one appears, human-write-only must be enforced.
 
 ---
 
-## `attentionScore` — facilitator queue (separate from `relevanceScore`)
+## `attentionScore` — facilitator queue
 
-When an item crosses a threshold on `attentionScore`, it enters a human's queue. The score is a weighted sum of:
+When an item's score crosses the threshold, it enters the needs-human triage surface (`GET /api/knowledge/triage-count`, status `needs_human`). Low score → the [facilitator](./facilitators.md) handles it autonomously. The score is a weighted sum (`scoreAttention`, `attention-scoring.ts`; default weights `DEFAULT_ATTENTION_WEIGHTS` in `scoring-config.ts:112-121`, tunable via `factory_settings` `attention.weight.*`):
 
-| Signal | Why it matters | Weight |
-|--------|----------------|--------|
-| **Novelty** | Have we seen this pattern before? New patterns carry more information. | high |
-| **Impact** | If wrong, how many agents/products would be affected? | high |
-| **Conflict** | Does this contradict something we already believe? Contradictions force choice. | high |
-| **Repetition** | Has this shown up multiple times independently? (Auto-validates without human.) | reduces need |
-| **Confidence** | How sure are we? Based on outcome data, agent uncertainty, agreement. | reduces need |
-| **Taste sensitivity** | Is this the kind of thing that needs human judgment? (Brand voice, aesthetics, strategic framing, customer intuition — things agents can't generate.) | high |
-| **Recency of review** | Has a human looked at this part of the system recently? | medium |
-| **Usage frequency** | Is this actually being used, or just sitting there? | medium |
+| Signal | Why it matters | Default weight |
+|---|---|---|
+| **Novelty** | Have we seen this pattern before? New patterns carry more information. Cohort of 10+ identical (layer, scope, topic, kind) items → novelty saturates at 0. | 0.20 |
+| **Impact** | If wrong, how much is affected? **Hardcoded 0 since L22** (per-kind priors deleted); the weight remains for a future trustworthy source. | 0.20 |
+| **Conflict** | Open `knowledge_conflicts` row → contradiction forces a choice. | 0.15 |
+| **Repetition** | Shown up independently in 5+ other scopes → saturates; reduces need for human review. | 0.10 |
+| **Confidence** | High confidence reduces need. | 0.10 |
+| **Taste sensitivity** | Brand voice, aesthetics, strategic framing — things agents can't generate. | 0.15 |
+| **Recency of review** | Human edit within 7 days → 0; 90+ days without → 1. | 0.05 |
+| **Usage frequency** | **Hardcoded 0 until a trustworthy reference-count source exists** (L23+). | 0.05 |
 
-`attentionScore` is the existing engine (`packages/fabric/src/attention-scoring.ts`); it is unchanged by L5. The "Recency of review" signal it consumes overlaps with `relevanceScore`'s recency input (both ultimately read `knowledge_edit_log`), but the two scores are computed and stored separately because they answer different questions and have different consumers.
+Both scores read `knowledge_edit_log`, but they are computed and stored separately because they answer different questions and have different consumers.
 
-Low score → the facilitator handles it autonomously. High score → it surfaces in the Knowledge view's "needs attention" list. The facilitator also chooses *what kind* of feedback to ask for:
+The facilitator also chooses *what kind* of feedback to ask for:
 
 | Signal | Question to ask |
-|--------|-----------------|
+|---|---|
 | Novelty + high impact | "Is this pattern real? Should we make it a rule?" (validation) |
 | Conflict | "A and B contradict. Which applies when?" (resolution) |
 | Stale but popular | "This is old but still referenced. Still true?" (refresh) |
 | Taste-sensitive | "Does this feel right for our brand/customer?" (judgment) |
-| Cross-layer promotion | "Should this practice become a factory principle?" (elevation) |
+| Cross-layer promotion | "Should this practice become a team-wide principle?" (elevation) |
 
-This last column is the real point. Most agent systems either dump everything on humans (inbox hell) or auto-act on everything (drift). The facilitator's job is to ask the *right kind of question* about the *right item* at the *right time*. That's the work that converts information into knowledge.
+This last column is the real point. Most agent systems either dump everything on humans (inbox hell) or auto-act on everything (drift). The facilitator's job is to ask the *right kind of question* about the *right item* at the *right time* — that's the work that converts information into knowledge.
+
+---
+
+## Assembly scoring and the context budget
+
+Not all knowledge loads into every session. The [Knowledge Fabric](./the-knowledge-fabric-how-knowledge-moves.md) scores candidate items per session and enforces a token budget.
+
+### Scoring factors
+
+Default weights (`DEFAULT_WEIGHTS`, `scoring-config.ts:24-31`; overridable per-key via `factory_settings` `scoring.weight.*`):
+
+| Factor | Default weight | Semantics |
+|---|---|---|
+| Tag match | 0.35 | Item tags vs task tags |
+| Role match | 0.15 | Item role vs agent role |
+| Recency | 0.15 | 30-day linear decay from `updatedAt` |
+| Confidence | 0.10 | Stored `confidence` in [0,1] |
+| Layer proximity | 0.15 | session (L0) 1.0 → L1 0.9 → L2 0.7 → L3 0.5 → L4 0.3 — layer definitions in [the-five-layers](./the-five-layers.md) |
+| attentionScore | 0.10 | Feeds the attention engine's output in; null → neutral 0.5 |
+
+Score is normalised to 0–100 (`scoreItem`, `relevance-scoring.ts`). Note the factor set is distinct from the L22 relevanceScore signals — usage frequency is NOT an assembly factor.
+
+### Budget enforcement
+
+Constants in `scoring-config.ts:33-44`:
+
+```
+CONTEXT_WINDOW_TOKENS      = 200,000
+KNOWLEDGE_ALLOCATION_RATIO = 0.2   → DEFAULT_KNOWLEDGE_BUDGET = 40,000 tokens
+
+BUDGET_ALLOCATION:
+  task     0.4   (tool calls, reasoning, code)
+  session  0.3   (task state, handoffs, bet context)
+  general  0.2   (L2+L3 practices, product docs)
+  factory  0.1   (L4 context)
+```
+
+`enforceBudget` (`token-budget.ts:30-71`) fills greedily by score descending — with one exception: **L4 items are always included first, non-negotiable, even over budget**. The budget is generous by design; the real filter is relevance. The cap exists to prevent degenerate cases (a scope with thousands of items) from blowing up session costs.

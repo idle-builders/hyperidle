@@ -1,29 +1,28 @@
-## Work Packages
+# Work Packages
 
-Stories are defined in `.pipeline/work-packages/TRACK-*.md` files (A through J). Each track has numbered stories with acceptance criteria. Implementation follows TDD:
+Work packages are the unit of delivery. Specs live in `.pipeline/work-packages/` as per-track files (`TRACK-R.md`–`TRACK-Z.md`, `TRACK-AA.md`–`TRACK-AV.md`) plus `pipeline-manifest.yaml`. Each work package carries acceptance criteria; per-WP progress lands in `.pipeline/progress/<id>.json`, retro observations in `.pipeline/retro-log/<id>.jsonl`.
 
-1. Read the acceptance criteria from the track file
-2. Write failing tests (red)
-3. Implement until tests pass (green)
-4. Simplify (refactor)
-5. Verify: `npm run check && npm run lint && npm run test`
+Pipeline phases, skill routing, and orchestration mechanics are owned by [.claude/rules/skill-discovery.md](../../../.claude/rules/skill-discovery.md) — this page only orients a developer.
 
-## Design lifecycle and the human-review gate
+## Build flow
 
-A UI workpackage runs through `/design` → `/design-critique` before the build phases. Two facts matter for contributors:
+TDD, always: red tests from the acceptance criteria → implement to green → refactor → verify. The full validation doctrine (which criterion gets a test vs a lint rule, verify commands) is in the repo root [CLAUDE.md](../../../CLAUDE.md).
 
-- **Variants are TSX, not mockups.** `/design` authors each variant as an isolated `.stories.tsx` story; a data-fed surface mounts via the [isolation harness](./design-system.md#rendering-data-fed-surfaces-in-isolation). The approved story flows straight into `/architecture` + `/write-code` — there is no HTML-to-TSX rebuild step.
-- **`/human-design-review` is a conditional phase** that runs after `/design-critique`, gated purely on **stakes** — never on whether a human is present. It fires only when the design is high-stakes, read from the `DESIGN-CLASS` line `/design` already emits:
+## Design phase
 
-  | `DESIGN-CLASS` | `/human-design-review` |
-  |---|---|
-  | `novel` (large redesign or new essential/base component) | **Runs** (or parks — see below) |
-  | `routine` / `routine-low-conf` | Skipped — pipeline proceeds to build |
+A UI work package runs `/pipeline:design` → `/pipeline:design-critique` before any build phase. Variants are TSX, not mockups: each variant is an isolated `.stories.tsx` story — the story IS the design artifact, and the approved story flows straight into architecture and write-code with no HTML-to-TSX rebuild. Data-fed surfaces mount via the [isolation harness](./design-system.md#rendering-data-fed-surfaces-in-isolation).
 
-  The mapping is the unit-tested `designReviewDecision()` helper in `@hyperidle/shared` (`novel → "run"`, everything else → `"skip"`); the gate reads `DESIGN-CLASS`, it never re-classifies and never adds a presence check.
+## Human concept review
 
-When it fires, the founder opens the rendered variant in the viewer (`npm run ds:serve`, `:8098`), attaches element-anchored feedback over MCP (a standalone annotation tool wired via `claude mcp add` — never a HyperIdle dependency), and the designer agent revises the TSX until the founder approves.
+`/pipeline:human-concept-review` is a conditional, stakes-gated phase after the critiques. It fires when **either** signal is high-stakes:
 
-**Park, don't auto-ship.** A `novel` design in an autonomous run does **not** ship unreviewed — the pipeline writes `status: "awaiting-human-design-review"` to `.pipeline/progress/<id>.json` and stops that workpackage (siblings proceed). This is a distinct status, not `blocked` (which means something failed); the resolution is the founder running the review, not a bugfix. High-stakes design is not autonomously shippable — the one place the pipeline yields to stakes rather than presence.
+| Signal | Emitted by | High-stakes value |
+|---|---|---|
+| `DESIGN-CLASS` | `/pipeline:design` | `novel` (large redesign or new essential primitive) |
+| `DOC-CLASS` | `/pipeline:refine` | `significant` (new or heavily rewritten user/dev-guide page) |
 
-**Planning-time forecast.** `/work-planning` (and `/concept` where it runs) records a highlighted **Human design review.** field (`Yes | No`) on every workpackage spec, forecasting whether the WP will park. It is advisory only — `/design`'s `DESIGN-CLASS` at design time is authoritative. A `No` forecast does not suppress review if `/design` later classifies the design `novel`.
+The founder reviews the user/dev-guide draft and the rendered variant, and the planner revises code + draft to approval. The gate reads the emitted class lines verbatim — it never re-classifies and never checks whether a human is present.
+
+**Park, don't auto-ship.** A high-stakes work package in an autonomous run does not ship unreviewed: the pipeline parks it (writes a park status to its progress file) and stops that work package; sibling work packages proceed. Parked is distinct from `blocked` (something failed) — the resolution is a founder review, not a bugfix.
+
+**Planning-time forecast.** WP specs carry an advisory **Human design review.** `Yes | No` field (see track files, e.g. `TRACK-AP.md`). It forecasts whether the WP will park; the design-time classification is authoritative and overrides a `No` forecast.

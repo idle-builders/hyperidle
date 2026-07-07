@@ -8,7 +8,7 @@ This is the only local run path as of AQ1. The code noun `Sandbox*` (`SandboxAda
 
 ```
 spawn    → mkdir working dir under $HYPERIDLE_WORKSPACES_DIR
-         → AN2 provisioning applies held connections into the dir
+         → AN2 provisioning applies held connections into the dir (see [connection-model](connection-model.md))
          → harness starts as a host child process (cwd = working dir, env = PATH/HOME/LANG from host)
 session  → agent reads/writes the working dir; inherited tools available via real $HOME
 destroy  → rm -rf working dir

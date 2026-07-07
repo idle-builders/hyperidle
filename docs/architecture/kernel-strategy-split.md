@@ -1,6 +1,6 @@
 # Kernel ↔ Strategy split
 
-**Status:** Authoritative (founder-aligned 2026-06-14; boundary **refined** 2026-06-15 — see §2a "Agents are knowledge"). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. It **supersedes** the older "kernel = stable / fabric = volatile" framing scattered in other docs (e.g. `technology-summary.md`'s package table) — that framing is rejected. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
+**Status:** Authoritative (founder-aligned 2026-06-14; boundary **refined** 2026-06-15 — see §2a "Agents are knowledge"). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 
 Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md` (both tracked under `plans/AK/`). Build track: `.pipeline/work-packages/TRACK-AK.md`.
 
@@ -23,7 +23,7 @@ Consequence: **knowledge *editing* is Kernel** (a person editing a doc is an app
 
 Strategy is the full knowledge-management loop:
 
-1. **Context assembly (in).** At session start, decide what knowledge + memory to assemble into the agent's context window. (Industry: *context assembly* under *context engineering*. Today: `assemble context` + `assemblePrompt`.)
+1. **Context assembly (in).** At session start, decide what knowledge + memory to assemble into the agent's context window. (Industry: *context assembly* under *context engineering*. Today: `assembleContext` + `assemblePrompt`.)
 2. **Learning ingestion (out).** After a session, capture/score what was produced and write it back into the knowledge base.
 3. **Autonomous knowledge work (background).** Routines and Strategy-spawned agents that run *across the whole knowledge base* to improve it over time — the "improvement" class the industry is circling (Claude's *dreaming*, Hermes' *automatic skill generation*). In HyperIdle this is realised by the **Fabric's deeply-researched knowledge-management design (out of scope to change).** These run on the Kernel's agent-running runtime but are *directed by* the Strategy.
 
@@ -56,16 +56,14 @@ The original boundary put "running a PM agent" and agent selection on the Kernel
 - **AK3-as-built (kernel-side default PM, round-robin assignment) becomes the Minimal Strategy's default fallback** — the simplest possible response, not the Kernel's permanent decomposition path.
 - This matches the doc's own event pattern for Strategy responsibility 3 (§2: the Strategy "subscribes to events… the Kernel does not call it; it runs alongside"). Decomposition and selection join that pattern.
 
-**This is a class of surfaces, not just decomposition.** A codebase sweep (`plans/AK/agent-decision-surfaces.md`, 2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts make the seam absent today:
+**This is a class of surfaces, not just decomposition.** A codebase sweep (`plans/AK/agent-decision-surfaces.md`, 2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts made the seam absent at the time of the sweep:
 
-- **Entity creation emits no events.** Team / agent / user creation happen *inline in routes* — there is no `team_created` / `agent_added` / `user_created` event — so there is no place for a Strategy to attach and own "what agent gets created." The "what" (roster, personas, the assistant's system prompt) is hard-coded Kernel-side.
-- **Selection is knowledge-blind.** Which agent takes a unit of work is role-eligibility + round-robin + pre-set owner, with zero Strategy/knowledge input. The only skill-aware selection anywhere is routine delegation (`findDelegate`).
+- **Entity creation emitted no events.** Team / agent / user creation happened *inline in routes* — there was no `team_created` / `agent_added` / `user_created` event — so there was no place for a Strategy to attach and own "what agent gets created." The "what" (roster, personas, the assistant's system prompt) was hard-coded Kernel-side.
+- **Selection was knowledge-blind.** Which agent took a unit of work was role-eligibility + round-robin + pre-set owner, with zero Strategy/knowledge input. The only skill-aware selection anywhere was routine delegation (`findDelegate`).
 
-So AK6's first job is to **emit the creation triggers as events / a creation seam** (without it there is nothing to own), and AK7's is to **make selection consult the Strategy** (generalizing the lone `findDelegate` precedent).
+So AK6's first job was to **emit the creation triggers as events / a creation seam** (without it there is nothing to own), and AK7's to **make selection consult the Strategy** (generalizing the lone `findDelegate` precedent).
 
-The build-out is **TRACK-AK / AK6 → AK7 → AK8** (agent-creation behind the Strategy + creation events → selection seam + work events → event-driven decomposition). AK6 covers *all* creation surfaces above; AK7 covers *all* selection surfaces; AK8 (decomposition) is one application of both. Full inventory + file:line citations: `plans/AK/agent-decision-surfaces.md`.
-
-> **Status update:** Both structural gaps described above are now closed. AK6 (§3a) closed the creation gap — `team_created` / `agent_added` / `user_created` events exist and creation routes through `scaffoldAgents`. AK7 (§3b) closed the selection gap — all bet-side selection routes through `selectAgent` via `selectOwner`; routine delegation routes through `selectAgentFabric`. What remains for AK8: the *decomposition trigger* (moving `runBetDecomposition` from the Kernel-side subscriber to a Strategy-handled event).
+> **Status:** All three structural gaps are closed. AK6 (§3a) — `team_created` / `agent_added` / `user_created` events + `scaffoldAgents`. AK7 (§3b) — all bet-side selection through `selectAgent` via `selectOwner`; routine delegation through `selectAgentFabric`. AK8 (§3c, shipped 2026-06-22) — `runBetDecomposition` calls `getActiveStrategy().decomposeBet(...)`; Kernel-side PM turn is the Minimal Strategy's default fallback.
 
 ---
 
@@ -75,12 +73,16 @@ The seam described in §2 is now real in code. Pre-AK2, `session-provisioning.ts
 
 ### The Strategy Port contract
 
-Defined in `packages/shared/src/strategy-port.ts` (exported from `@hyperidle/shared`). Two methods:
+Defined in `packages/shared/src/strategy-port.ts` (exported from `@hyperidle/shared`). AK2 shipped the first two methods; later work packages grew the port to **six**:
 
 ```ts
 interface Strategy<TDb> {
   assembleContext(req: ContextAssemblyRequest<TDb>): Promise<ContextAssemblyOutcome>;
   beginLearningIngestion(req: IngestionRequest<TDb>): IngestionHandle;
+  scaffoldAgents(req: ScaffoldRequest<TDb>): Promise<readonly AgentScaffoldSpec[]>;   // AK6 — §3a
+  selectAgent(req: SelectAgentRequest<TDb>): Promise<SelectAgentOutcome>;            // AK7 — §3b
+  decomposeBet(req: DecomposeBetRequest<TDb>): Promise<DecompositionPlan>;           // AK8 — §3c
+  formAssistant(req: AssistantFormationRequest<TDb>): Promise<AssistantFormation>;   // AR4b — §3d
 }
 ```
 
@@ -96,7 +98,7 @@ interface Strategy<TDb> {
 
 ### Strategy registry
 
-`packages/server/src/services/strategy-registry.ts` — a lean module-scope variable, same idiom as `provision-registry.ts`. Three exports: `setActiveStrategy`, `getActiveStrategy`, `clearActiveStrategy` (test teardown only).
+`packages/server/src/services/strategy-registry.ts` — a lean module-scope variable, same idiom as `provision-registry.ts`. Four exports: `setActiveStrategy`, `getActiveStrategy`, `getActiveStrategyOrNull` (test fixtures), `clearActiveStrategy` (test teardown only).
 
 `getActiveStrategy()` throws immediately if no Strategy is registered — a missing registration is a boot bug, not a recoverable state. Boot always calls `setActiveStrategy` exactly once.
 
@@ -135,9 +137,9 @@ The scaffold and empty manifest are written even though no context is assembled 
 
 This enforces "the Kernel imports no concrete Strategy" statically. Both `session-provisioning.ts` and `session-lifecycle.ts` (the two independent provisioning paths) are clean against this guard.
 
-### What AK2 does NOT move (deferred to AK2b)
+### What AK2 does NOT move (deferred to AK9)
 
-Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`) are conceptually Kernel but **physically still live in `packages/fabric`**. The Kernel imports them directly — this is not banned by the AK2 guard (those symbols are not behind the port). Moving them out of `packages/fabric` into `packages/server` or a new `packages/kernel` is the scope of a follow-up workpackage (AK2b / kernel package extraction). The runtime seam is real; physical packaging is pending.
+Cost enforcement, context-assembly, and session-context DB reads (`cost-cap.ts`, `context-assembly-prompt.ts`, `session-context.ts`) are conceptually Kernel but **physically still live in `packages/fabric`**. The Kernel imports them directly — this is not banned by the AK2 guard (those symbols are not behind the port). Moving them out of `packages/fabric` into `packages/server` or a new `packages/kernel` is the scope of **AK9** (Kernel package extraction, registered in `.pipeline/work-packages/TRACK-AK.md`; AK9's audit found the mislocated Kernel set is larger than these three files). The runtime seam is real; physical packaging is pending.
 
 ---
 
@@ -207,7 +209,7 @@ const minimalFactoryRoster: FactoryRosterSpec;   // { facilitators: [], systemAs
 | Team scaffold | 1 plain builder agent, `systemPrompt: null` | Today's full role roster, template-sourced `systemPrompt` — unchanged |
 | Add agent | 1 plain agent for the given role, `systemPrompt: null` | 1 template-sourced agent |
 | User assistant | 1 plain assistant, `systemPrompt: null`, `idHint: ast-${userId}` | 1 assistant with the Fabric persona, same `ast-` id hint |
-| Factory bootstrap (value seam) | `minimalFactoryRoster` — no facilitators, no system-assistant | `defaultFactoryRoster` — all `seed-agent-pf-*` + `seed-agent-cos` unchanged |
+| Factory bootstrap (value seam) | `minimalFactoryRoster` — no facilitators, no system-assistant | `defaultFactoryRoster` — all `seed-agent-*` rows unchanged |
 
 ### Static guard (T10)
 
@@ -261,12 +263,12 @@ Steps inside `selectOwner`:
 3. `getActiveStrategy().selectAgent(req)` — the decision.
 4. Load-and-validate the returned `agentId`: if null, missing row, `kind !== "ai"`, or `status !== "active"` → return null. Off-team-but-valid → returned as-is. **This is the unattachable-session guard** (concept §3): selection can never produce an unattachable session; failure surfaces as "no agent available," identical to the pre-AK7 empty-eligible-list behaviour.
 
-### Selection surfaces wired
+### Selection surfaces wired (as-built AK7)
 
 | Surface | Before AK7 | After AK7 |
 |---|---|---|
 | `bet_task` per-task owner (`insertProposedBetTasks`) | `eligible[i % eligible.length]` inline | `selectOwner({ surface: 'bet_task', spreadIndex: i })` |
-| `bet_decomposer` PM pick (`runBetDecomposition`) | `eligible.find(role==='product_manager') ?? eligible[0]` inline | `selectOwner({ surface: 'bet_decomposer', roleHint: 'product_manager' })` |
+| `bet_decomposer` PM pick (`runBetDecomposition`) | `eligible.find(role==='product_manager') ?? eligible[0]` inline | `selectOwner({ surface: 'bet_decomposer', roleHint: 'product_manager' })` — **superseded by AK8**: this call site was removed; `bet_decomposer` has no production caller (see §3c) |
 | `routine_delegate` (`routine-scheduler.ts`) | `findDelegate(db, skillId, ownerAgentId)` directly | `selectAgentFabric({ surface: 'routine_delegate', … })` — same query, byte-identical |
 
 ### Strategy behaviour: Minimal vs Fabric
@@ -283,7 +285,7 @@ Steps inside `selectOwner`:
 1. **AC1 absence guard** — bans `% <expr>.length` (round-robin pattern) across `packages/server/src/services/**`, allowlisting only `select-agent.ts`. Proven non-vacuous: fires on `arr[i%len]` in `bet-decomposition.ts` if reintroduced.
 2. **AC2 persona guard** — bans `systemPrompt` / `AGENTS.md` literal reads inside `select-agent.ts`. The Kernel's selection helper must never inspect a persona.
 
-### What AK7 does NOT move (deferred to AK8)
+### What AK7 does NOT move (done by AK8)
 
 **AK8** rewires the *decomposition trigger* — moving `runBetDecomposition`'s subscriber from the Kernel-side `registerBetDecomposition` handler to "a Strategy response to a Kernel event." That is the event-driven trigger (concept §1 AK8 scope). AK7 leaves `runBetDecomposition` Kernel-driven; only its per-task selection sub-steps route through the seam.
 
@@ -348,11 +350,35 @@ Branch 3 runs `runRealPmTurn` (`bet-decomposition.ts:546`). Four things are true
 
 **Does NOT go through `provisionSession`.** `runRealPmTurn` calls `deps.adapterPool.select()` directly — it is a scratch-sandbox PM turn, not a task session. Driving `provisionSession` here would prove "a real agent ran a session," not "a real agent decomposed a bet." They are different seams and must not be unified.
 
-**CLI harnesses receive bet context via AGENTS.md and CLAUDE.md.** Before spawning the adapter, `runRealPmTurn` writes the full system prompt (base + bet goal + done condition) to both `<scratchSandboxPath>/AGENTS.md` and `<scratchSandboxPath>/CLAUDE.md`. The adapter spawns all CLI harnesses (codex, claude, opencode) with `cwd: config.sandboxPath` pointing at the scratch sandbox, so each harness reads its own project-context file on startup. All three harnesses receive identical bet context by this mechanism — there is no harness-specific truncation or fallback.
+**CLI harnesses receive bet context via AGENTS.md and CLAUDE.md.** Before spawning the adapter, `runRealPmTurn` writes the **bet context only** — bet goal + done condition + the JSON-output instruction — to both `<scratchSandboxPath>/AGENTS.md` and `<scratchSandboxPath>/CLAUDE.md`. The persona/base prompt is **explicitly excluded** from these files: agent identity belongs to the Strategy, and copying the Kernel's default PM string into the sandbox filesystem would widen the persona-leak violation (`@lore AR5 / AK6`, `bet-decomposition.ts:575-590`). The adapter spawns all CLI harnesses (codex, claude, opencode) with `cwd: config.sandboxPath` pointing at the scratch sandbox, so each harness reads its own project-context file on startup. All three harnesses receive identical bet context by this mechanism — there is no harness-specific truncation or fallback.
 
 **`drainForCompletion` returns the LAST non-empty completion.** CLI adapters emit multiple completion events during a session: init/system events map to empty strings, intermediate blocks carry partial text, and the final event carries the full response. `drainForCompletion` collects the last non-empty completion text across the full stream. Returning on the first completion would capture an empty init event and cause `blocked/empty` on every real CLI run.
 
 **JSON code fences are stripped before `JSON.parse`.** Models often wrap their response in ` ```json … ``` ` fences even when instructed not to. `runRealPmTurn` strips leading ` ``` ` or ` ```json ` and trailing ` ``` ` before parsing. Malformed JSON after stripping → empty list → `blocked/empty` (fail-closed; no partial parse).
+
+**Known live contract violation.** The Kernel's SessionConfig path still carries a default `"You are a product manager…"` literal — a single-location pre-existing default that violates "Kernel hard-codes no persona." Its removal (de-roling `runRealPmTurn`/`pmAgentId`, moving the decomposer instruction to the Strategy) is registered as **AK10** in `.pipeline/work-packages/TRACK-AK.md`.
+
+---
+
+## 3d. As-built — AR4b: the formation seam (sixth port method)
+
+The Assistant turn is the last agent surface where the Kernel used to hard-code persona + tool surface (`BUILTIN_SYSTEM_PROMPT` constant, direct `buildAssistantDraftRegistry` call). AR4b routes both through the port.
+
+### The Strategy Port: sixth method
+
+```ts
+formAssistant(req: AssistantFormationRequest<TDb>): Promise<AssistantFormation>;
+```
+
+- **Turn-time consultation, not creation-time.** The Kernel calls `getActiveStrategy().formAssistant({ db, userId, threadId })` once per assistant turn, before `provisionSession` (`assistant-turn.ts:558`). Switching the active Strategy changes the assistant's form for the *next* turn — no DB row update.
+- **`AssistantFormation` = `{ persona: string | null, assistantDraftSurface: "standard" }`.** `persona: null` means "use the agent row's `systemPrompt` as-is"; a non-null value overrides it for this turn's assembled prompt only (carried via `systemPromptOverride` to `provisionSession` — never persisted to the users row).
+- **`assistantDraftSurface` is a server-interpretable marker, not a `ToolRegistry`** — `@hyperidle/shared` stays db-agnostic (a `ToolRegistry` is a server type; carrying it would invert the dependency direction). The Kernel maps `"standard"` to `buildAssistantDraftRegistry` — the canonical 2-tool surface (`create_bet` + `edit_bet`).
+- **Boundary rule (founder-locked):** the formation answer MUST NOT set `harnessType` or `modelId` — those are Kernel/Settings. Formation carries only persona + tool surface (the WHO), never the HOW.
+- **MUST NOT throw** — a formation failure leaves the turn without a persona/surface.
+
+### Strategy behaviour: Minimal vs Fabric
+
+Both v1 implementations return `{ persona: null, assistantDraftSurface: "standard" }` — preserving pre-AR4b behavior. `persona: null` is the Minimal pattern mirroring `systemPrompt: null` on `AgentScaffoldSpec` ("no formation knowledge, use Kernel defaults"); the Fabric's enrichment (persona shaped from team/user context) is a future concern awaiting real eval data — the seam is in place.
 
 ---
 
@@ -424,7 +450,7 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Concept | Canonical term | Drop |
 |---|---|---|
 | Structure around the model | **harness** (harness adapter) | — |
-| Agent behaviour instruction | **system prompt** | ~~old term~~ (zero industry use) |
+| Agent behaviour instruction | **system prompt** | ~~soul~~ (homegrown; zero industry use) |
 | Project/agent instruction file | **AGENTS.md** (Linux-Foundation cross-vendor standard) | — |
 | Host working directory where an agent runs | **sandbox** (sandbox adapter), cwd = per-session dir under `HYPERIDLE_WORKSPACES_DIR` | ~~workspace~~ as the unit |
 | One run of agent work | **session** | — |
@@ -432,7 +458,7 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Packaged procedural know-how | **Skill** (Agent Skill) | part of ~~tools~~ |
 | Lifecycle interceptor | **hook** | — |
 | Delegated isolated worker | **subagent** | — |
-| Assembling knowledge into context | **context assembly** (under **context engineering**) | ~~context assembly~~, ~~context assembly~~ |
+| Assembling knowledge into context | **context assembly** (under **context engineering**) | ~~materialization~~, ~~context hydration~~ |
 | The knowledge/context layer | **Strategy** (kept); current impl = **Fabric** (one impl) | — |
 | Agent memory | **short-term / long-term**, episodic/semantic/procedural | — |
 

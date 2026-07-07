@@ -1,50 +1,57 @@
-## Agents
+# Agents
 
-### Your Assistant
+How you work with the agents on your team: your personal Assistant, the agent categories you'll encounter, and what happens when agents run. For agent identity, composition, and lifecycle in depth, see [agent-layer/agent-model.md](../../agent-layer/agent-model.md).
 
-Every HyperIdle user has a personal **Assistant** — a permanent conversation thread in the overlay at the bottom of the sidebar. The Assistant is a personal operator scoped to you: it sees what you can see and acts on your behalf.
+## Your Assistant
 
-**Starting work by talking.** The most natural way to create a bet is to describe your idea in the Assistant thread and let it draft the bet for you:
+Every HyperIdle user has a personal **Assistant** (role `assistant`, category `individual`) — created for you at registration, one per human. It lives in a persistent conversation thread in an overlay anchored to the bottom-right of the window, opened from the **Assistant button in the top row of the sidebar** (next to the search field). The Assistant is scoped to you: it sees what you can see and acts on your behalf.
 
-1. Open the Assistant overlay (click the assistant button in the sidebar, or press `Cmd+.`).
+### Starting work by talking
+
+The most natural way to create a bet is to describe your idea in the Assistant thread and let it draft the bet for you:
+
+1. Open the Assistant overlay by clicking the **Assistant button** in the top row of the sidebar, next to the search field. (There is no keyboard shortcut for the overlay.)
 2. Describe your idea in natural language. For example: "I want to add a waitlist page with email capture and a confirmation email."
 3. The Assistant replies with context questions or clarifications, then drafts a bet — a goal and a concept body — derived from the conversation.
-4. The draft appears as a **BetCard** below the Assistant's reply. Click it to open the bet in the authoring surface.
+4. The draft appears as a **BetCard** below the Assistant's reply. Click it to open the bet at `/work/bets/:betId`.
 5. Review and edit the description, done condition, and hypothesis. The draft is fully editable.
-6. When the bet looks right, commit it. Committing starts work — the team picks up the bet and begins planning tasks.
+6. When the bet looks right, commit it. Committing moves the bet from `draft` to `active` — the team picks up the bet and decomposes it into tasks.
 
-**Iterating the draft conversationally.** If the draft isn't quite right, keep talking:
+### Iterating the draft conversationally
+
+If the draft isn't quite right, keep talking:
 
 - "Narrow the scope to just the waitlist form — skip the confirmation email for now."
-- "Change the appetite to two weeks."
 - "Add a done condition: the signup rate from the landing page is tracked in analytics."
 
-Each reply updates the same draft in place. The BetCard in the thread updates on the next turn.
+Each reply updates the same draft in place — the Assistant is bound to your current draft bet, so edits never fork a new one. The BetCard in the thread updates on the next turn.
 
-**What the Assistant never does.** The Assistant drafts and refines but never commits on your behalf. Committing is always your action — it's the moment you decide work starts. The Assistant also cannot create teams, add agents, or take any administrative action from the thread.
+The Assistant edits three fields: description, done condition, hypothesis. A bet's appetite is a **cost appetite** (money, not duration) and is not editable from the Assistant — set it on the bet itself. See [running-your-team.md](./running-your-team.md) for cost caps.
 
----
+### What the Assistant never does
 
-### Agent Types
+The Assistant's drafting tools are exactly two: `create_bet` and `edit_bet`. It drafts and refines but never commits on your behalf — committing is always your action, the moment you decide work starts. Once a bet leaves `draft` status, the Assistant can no longer edit it. The Assistant also cannot create teams, add agents, or take any administrative action from the thread.
 
-**Your personal agent:**
-- **Assistant** — your personal operator. Converses in its own persistent thread. Can draft bets from conversation, answer questions, and help you navigate the factory.
+## Agent categories
 
-**Product team agents** (one set per team):
-- **Product Manager** (team lead) — shapes, decomposes bets into tasks, coordinates
-- **Builder(s)** — implementation (code, tests, deployments)
-- **Growth Agent** — analytics, experiments, marketing
-- **Ops Agent** — deployment, monitoring, incident response
+Three categories — `team`, `strategy`, `individual`:
 
-**Strategy agents** (knowledge-scoped, mostly background):
-- **Practice Facilitators** (one per discipline: Building, Growth, Product, Ops, Facilitation) — synthesize cross-team patterns into knowledge; surface items for your attention
+**Team agents** — do the work on a bet. A team's roster is derived from its functions (development, design, product, marketing, sales, support, operations, research), so you only get the roles your team needs. The full catalog: Builder, Designer, Product Manager (team lead — shapes and decomposes bets), QA Engineer, Growth, Brand Voice, Ops, Support, Sales, Content Writer, Data Analyst.
 
-### How Agents Work
+**Strategy agents** — knowledge-scoped, mostly background:
+
+- **Facilitators** — five, one per community (build, product, growth, ops, facilitation). They synthesize cross-team patterns into knowledge and surface items for your attention. See [knowledge-architecture/facilitators.md](../../knowledge-architecture/facilitators.md).
+- **Scout, Infra, Platform** — market analysis, shared infrastructure, and shared tooling respectively.
+
+**Individual agents** — your Assistant (above). Scoped to one user, not a team.
+
+## How agents work
 
 Agents run in **sessions** — bounded work units on a specific task. Each session:
+
 1. Gets context assembled from the task, the bet, and relevant knowledge
-2. Works in a sandbox toward the task's done condition
-3. Creates review items when they need your approval
+2. Works in a sandbox working directory toward the task's done condition
+3. Creates review items when it needs your approval
 4. Finishes and captures learnings back into the knowledge layer
 
-You don't manage sessions directly. Agents pick up work from committed bets, run sessions, and surface results through Conversations.
+You don't manage sessions directly. Agents pick up work from committed bets, run sessions, and surface results through Conversations. See [three-core-views.md](./three-core-views.md) for where sessions appear, and [process-layer/tasks-and-sessions.md](../../process-layer/tasks-and-sessions.md) for the underlying lifecycle.

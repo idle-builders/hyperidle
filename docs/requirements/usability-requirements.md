@@ -1,109 +1,71 @@
-## 2. Usability Requirements
+# Usability Requirements
 
-### UX-1: One App, One Door
+Behavioral UX requirements for the human interface. Shell structure and page layouts live in [information-architecture](../information-architecture/index.md); primitive semantics live in [human-interface-layer](../human-interface-layer/index.md). Requirements here are testable outcome statements.
 
-The human interface ships as a single native macOS desktop application ("the Factory"). The human never decides "which app do I open." They open the Factory and the Factory presents the right thing.
+## UX-1: One App, One Door
 
-**UX-1.1** Desktop is a single Electron window with two persistent zones: a **Sidebar** (left, 200px, view switching with triage badge) and a **Main** pane (active content — Conversations, Work, or Knowledge). Ambient state is embedded within each view via filter chips, health indicators, and badges — there is no top-bar bell or global toast stream.
+**UX-1.1** The desktop app is a single Electron window with two persistent zones: a Sidebar (left, 200px fixed width, three labeled sections — Conversations, Work, Knowledge — `packages/web/src/shell/Sidebar.tsx`) and a Main pane showing the active view. Exactly three views exist: `conversations | work | knowledge` (`shell-types.ts:4`). Shell layout detail: [app-shell](../information-architecture/app-shell-always-present.md).
 
-**UX-1.2** Desktop is the primary form factor. The same web app is accessible from mobile browsers for review triage and agent unblocking. No native mobile app. No offline support.
+**UX-1.2** Ambient state is embedded within each view — filter chips, health indicators, badges. Notification inbox is a Sidebar-anchored popover (`packages/web/src/shell/NotificationPopover.tsx`: unseen dots clear on open, per-type mute, dismiss); there is no top-bar bell or global toast stream. Ambient indicators may change color, count, or animate — they cannot demand attention. Anything that needs attention routes to Conversations.
 
-**UX-1.3** First-run experience: SetupFlow page guides profile creation (name, email), first product setup, and optional API key configuration. Contextual hints (5 total) appear at key moments for first-time interactions (e.g., first empty bet view, first review thread).
+**UX-1.3** First run: the SetupFlow page guides profile creation and setup (`packages/web/src/pages/SetupFlow.tsx`, `FirstRunRedirect.tsx`); contextual hints (`packages/shared/src/hint.ts`) appear at key first-time moments.
 
-**UX-1.4** One codebase. Electron bundles the Hono API server in-process with the React renderer.
+**UX-1.4** Delivery posture (desktop-first, no native mobile, no offline): see [architecture/system-overview](../architecture/system-overview.md).
 
-### UX-2: One Interaction Grammar
+## UX-2: One Interaction Grammar
 
-**UX-2.1** The threading UI is built once and reused for review items, chat items, the assistant thread, and agent-to-agent threads the human is copied on. One component, written once.
+**UX-2.1** The threading UI is built once and reused across every host — review items, chat items, the assistant thread, agent-to-agent threads the human is copied on (`packages/web/src/components/ConversationSurface.tsx`).
 
-**UX-2.2** Review threads use a streamlined verdict model. Primary actions: approve, request changes, reject, snooze — always visible with keyboard shortcuts (A, R, X, S). Secondary actions in overflow menu: edit, escalate, delegate, comment only. Inline comments on specific artifact parts.
+**UX-2.2** Review verdicts use the five-decision grammar — approve, approve-with-comments, request-changes, edit, reject (`packages/shared/src/thread.ts:34-40`). Full grammar: [thread-primitive](../human-interface-layer/thread-primitive.md).
 
-**UX-2.3** Chat threads support reply, start-a-task, close, and escalate.
+**UX-2.3** The assistant is just another agent — communicated with through normal threads, no special UI surface beyond the overlay entry point.
 
-**UX-2.4** The assistant is just another agent — communicated with through normal threads, no special UI surface (beyond the overlay entry point).
+**UX-2.4** Every thread item can carry visible `reasoning` — why the agent surfaced this (`packages/db/src/schema.ts:504`). Non-negotiable for trust.
 
-**UX-2.5** Every thread item carries visible `reasoning` — why the agent surfaced this. Non-negotiable for trust.
+## UX-3: Notification Discipline
 
-### UX-3: Notification Discipline
+Primitive semantics: [notification-primitive](../human-interface-layer/notification-primitive.md).
 
-**UX-3.1** Push notifications fire only for blocking review items (risk ≥ medium) and chat items the agent explicitly flagged as urgent. Everything else is silent.
+**UX-3.1** Push notifications fire for high-risk items (`riskTier === "high"`) or any `skill_change` item regardless of risk tier (`packages/fabric/src/services/policy-engine.ts:97-100`). Everything else is silent.
 
-**UX-3.2** Non-urgent items batch into a daily digest.
+**UX-3.2** Non-urgent items batch into a daily digest (`packages/fabric/src/services/daily-digest.ts`).
 
-**UX-3.3** Quiet hours and silence modes are per-human and per-product. A founder can mute one product without going dark on others.
+**UX-3.3** Notification mute is per-type, global per factory (`packages/fabric/src/services/notifications/mute.ts`). Per-human / per-product quiet hours are not built (future AF15).
 
-**UX-3.4** Per-agent notification preferences allow dialing down a noisy agent without system-wide changes.
+## UX-4: Work View
 
-### UX-4: Ambient Awareness
+**UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Bet Detail → Task → session jump-out with outcome, cost, and token chips (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkBet.tsx` → `WorkTask.tsx`; TaskSheet session section). Breadcrumbs navigate back up.
 
-**UX-4.1** Ambient state is embedded within each view rather than in a dedicated sidebar. Conversations filter chips surface triage state (blocked, needs review, unread). WorkTeam AgentRow health indicators show agent status. The Sidebar triage badge shows unread count.
+**UX-4.2** Bet statuses are `draft | active | completed | killed` (`packages/shared/src/types.ts:92`; `at_risk` boolean replaces the old behind sub-state). Lifecycle semantics: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
 
-**UX-4.2** Ambient indicators can change colors, show counters, animate status indicators. They cannot demand attention. If something needs attention, it goes to Conversations.
+**UX-4.3** Bet creation is a page (`packages/web/src/pages/WorkBetCreate.tsx`).
 
-**UX-4.3** WorkTeam burn-vs-cap section shows: cost actual vs. cost cap per team, capacity, and active bet count.
+**UX-4.4** Team burn is visible in the Team view: cost actual vs. cap and active bets vs. capacity (`WorkTeam.tsx:329`). Cap grammar: [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md).
 
-**UX-4.4** Keyboard-first interaction: arrow keys to move, enter to act, no mouse required.
+**UX-4.5** No backlog. Work is a continuous flow — no backlog surface or table exists anywhere.
 
-### UX-5: Work View
+**UX-4.6** The task view is list-only. Canvas and Kanban surfaces are removed and will not be added (`packages/web/src/shell/TaskSheet.tsx:39-40` — `@lore` U9: Canvas and Kanban components removed).
 
-**UX-5.1** The Work view has a five-level drill-down hierarchy: Portfolio (all products), Product (= Team — canvas + task list), Bet Detail (pitch as styled blocks + tasks + artifacts + thread), Task, and Session (jump-out to harness). Navigation drills down; breadcrumbs navigate back up.
+## UX-5: Knowledge View
 
-**UX-5.2** Portfolio Overview shows product status cards (with velocity sparklines), portfolio-level metrics, and continuous bet tracking (active bet count, decisions required, cost burn rate, and cost variance per shipped bet).
+**UX-5.1** The Knowledge view has two main surfaces: Curated (active items) and Triage (needs attention, sorted by attention score — [relevance-and-attention](../knowledge-architecture/relevance-and-attention.md)). Items are scoped; the scope enum is owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md).
 
-**UX-5.3** Team View has two areas: a bet canvas (top, showing committed bets with capacity indicator) and a task kanban (bottom, showing all tasks across current bets in four columns: Planned, In Progress, Blocked, Done).
+**UX-5.2** Supported curation actions: merge, split, archive, inline edit. Merge combines bodies, archives the source, and logs the edit (`packages/server/src/routes/knowledge.ts:684+`, `knowledge_edit_log`). Split promotes a section to a new item.
 
-**UX-5.4** Pitches are only visible when the founder clicks "Add bet (+)" on the canvas. This opens a pitch selector overlay that replaces the task kanban temporarily. The founder can browse, expand, commit, reshape, kill, or create new pitches. Closing the selector returns to the task kanban.
+**UX-5.3** Every knowledge item shows provenance and confidence on its detail page (KnowledgeDetail metadata).
 
-**UX-5.5** Capacity is a hard limit on the bet canvas. The commit action on a pitch card enforces it. Cards that exceed capacity cannot be committed. Founders can also create new bets with markdown pitches via BetCreateDialog ("+" button on Canvas).
+## UX-6: Trust & Cost Transparency
 
-**UX-5.6** No backlog. Pitches not picked drift off unless reshaped — the Canvas is a continuous flow, not a time-boxed cycle.
+**UX-6.1** Reasoning is visible by default on every surfaced item (UX-2.4).
 
-**UX-5.7** Bet status lifecycle: shaped → committed → in-progress → behind → blocked → paused → shipped → killed. Terminal states (shipped, killed) persist in completed bets archive accessible from the portfolio.
+**UX-6.2** Trust is earned, not assigned: routing uses approval-rate from verdict history × riskTier (AD4, `packages/fabric/src/services/policy-engine.ts`). Surface: [review-primitive](../human-interface-layer/review-primitive.md).
 
-**UX-5.8** Portfolio UI: portfolio metrics bar (active bet count, decisions required, cost burn), past bet summaries with cost variance (actual vs. appetite per shipped bet).
+**UX-6.3** Cost transparency: per-routine cost (`costMinor`), per-session cost and token chips, team burn, and cost-sentinel warning/breach events keep spend visible at every level.
 
-**UX-5.9** Pitch creation happens in-app via the pitch selector: a "New Pitch" form (title, appetite, problem, solution sketch, rabbit holes, done condition). No external tooling required.
+## UX-7: App Shell & Navigation
 
-**UX-5.10** Work view is accessible on desktop (primary) and from mobile browsers. Tasks are agent-owned — humans do not drag or move tasks between states. State changes are requested via thread conversations. Bet-level actions (pause, stop, adjust appetite) show consequence previews before execution.
+**UX-7.1** Global search (⌘K) with results grouped by type — Threads, Bets, Knowledge (`packages/web/src/hooks/useCommandK.ts`, `GlobalSearchPanel.tsx`).
 
-### UX-6: Knowledge View
+**UX-7.2** Keyboard shortcuts: ⌘K (search), ⌘[ / ⌘] (history back/forward), ⌘1/2/3 pinned to Conversations/Work/Knowledge. None fire while focus is in an input, textarea, or contentEditable element (`packages/web/src/hooks/useNavShortcuts.ts`).
 
-**UX-6.1** The Knowledge view supports three scopes (practice, product, factory) selectable via scope selector. Two main views: Curated (all active items grouped by topic) and Triage (needs attention + drafts + stale, sorted by attention score). Additional sort options within each view.
-
-**UX-6.2** Supports: nudge priority, flag items, merge duplicates, split overloaded topics, rename, archive, and inline edit.
-
-**UX-6.3** Merge workflow: select target item from same-topic list → preview combined result → confirm. Source item archived with redirect. Split workflow: select text section → promote to new item → auto-cross-link both.
-
-**UX-6.4** Every knowledge item shows provenance: origin agent, creation context, evidence links. Related items sidebar shows auto-suggested and manually linked items.
-
-**UX-6.5** Knowledge gap detection: topics with zero active items or no activity in 90+ days are highlighted in the topic browser.
-
-**UX-6.6** Desktop is the primary form factor. Mobile browsers are supported for triage and unblocking workflows.
-
-### UX-7: Trust-Building Mechanisms
-
-**UX-7.1** Reasoning visible by default on every item.
-
-**UX-7.2** Cost transparency: every action shows token spend. Daily burn rate is always accessible.
-
-**UX-7.3** Reversibility cues: items tagged "reversible" or "irreversible." Reversible items approve with lower friction.
-
-**UX-7.4** Graduated autonomy per agent per skill, ranging from L1 (every action approved) to L4 (autonomous unless blocked). Levels are per-agent-per-skill (effectively per-team-per-skill, since the same skill in different products needs different oversight) and move up over time as the success rate justifies it.
-
-### UX-8: App Shell & Navigation
-
-**UX-8.1** Global search (⌘K) searches across all views. Results grouped by type: Threads, Bets/Tasks, Knowledge Items. Keyboard navigation through results (arrow keys, Enter to open, Escape to close).
-
-**UX-8.2** No dedicated notification panel in the top bar. Triage state is surfaced via Conversations filter chips and the Sidebar triage badge. Push notifications (UX-3) route to Conversations, not a separate panel.
-
-**UX-8.3** Settings accessible via gear icon in the Sidebar. Opens as an overlay (Main shows active section, Escape to close). Sections: Profile, Org Chart, Credentials, Notifications, Appearance, Products, Backend.
-
-**UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘[ (back in history), ⌘] (forward in history), ⌘1 (Conversations), ⌘2 (Work), ⌘3 (Knowledge), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help). History shortcuts (⌘[/]) do not fire while focus is in a text input, textarea, or contentEditable element. View shortcuts (⌘1/2/3) are pinned: 1 always = Conversations, 2 always = Work, 3 always = Knowledge.
-
-**UX-8.5** Thread filtering in Conversations submenu: filter by product, agent, type (review/chat), status (blocking/open/snoozed/resolved). Thread state actions: snooze with timer, archive, mute.
-
-**UX-8.6** Estimated review time displayed on thread list items. Agent-estimated complexity tag helps triage without opening each thread.
-
-**UX-8.7** Agent confidence indicator visible in review thread headers. Helps founder calibrate scrutiny level for complex decisions.
-
----
+**UX-7.3** Settings is a stacked single page — all sections visible in one scrollable page, no section sidebar (`packages/web/src/pages/SettingsPage.tsx`). Section inventory: [app-shell](../information-architecture/app-shell-always-present.md).

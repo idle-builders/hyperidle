@@ -2,6 +2,8 @@
 
 Every agent turn that completes normally must invoke one of three return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
+Test-side honesty (the four-harness matrix, locked test models, lint guard) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md).
+
 ---
 
 ## 1. The Accepted-Return Set
@@ -16,7 +18,7 @@ Three tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `
 
 The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName)` is an O(1) lookup and the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 
-**MCP-namespace stripping (AR2 W1 fix):** CLI harnesses route tool calls through the MCP bridge. The MCP protocol namespaces tool names with the server prefix (`mcp__<server>__<tool>`, e.g. `mcp__hyperidle__submit_review`). Before AR2, `isReturnAction` received the raw namespaced name and returned `false` — causing CLI-harness turns that called a return action to be recorded as `not_returned`. `stripMcpNamespace(toolName)` in `packages/shared/src/harness/return-actions.ts` strips the `mcp__<server>__` prefix before the membership check. `isReturnAction` now calls `stripMcpNamespace` internally so all callers get correct behaviour without knowing the transport layer.
+**Dialect-prefix stripping (AR2 W1 fix):** CLI harnesses route tool calls through the MCP bridge, and each dialect decorates the tool name. The MCP protocol namespaces with the server prefix (`mcp__<server>__<tool>`, e.g. `mcp__hyperidle__submit_review`); OpenCode exposes tools as `<server>_<bare-name>` (e.g. `hyperidle_submit_review`). Before AR2, `isReturnAction` received the raw decorated name and returned `false` — causing CLI-harness turns that called a return action to be recorded as `not_returned`. A module-private `stripMcpNamespace(toolName)` in `return-actions.ts` strips both the `mcp__<server>__` prefix and the opencode `hyperidle_` prefix before the membership check. `isReturnAction` calls it internally, so all callers get correct behaviour without knowing the transport layer.
 
 ---
 
@@ -41,7 +43,7 @@ The channel type is defined in `packages/shared/src/harness/harness-adapter.ts` 
 "builtin-loop" | "process-reengage" | "soft-continue" | "none"
 ```
 
-Because the field is non-optional, `npm run check` fails any adapter that doesn't declare a channel — the "uniform across harnesses" guarantee is enforced at the type level.
+`sdk-inprocess` is dead — no adapter declares it since claude-code moved to the CLI adapter and `settings-claude`; it survives only in the type union. Because the field is non-optional, `npm run check` fails any adapter that doesn't declare a channel — the "uniform across harnesses" guarantee is enforced at the type level.
 
 ### Adjudication: `POST /api/mcp/:token/return-status`
 
@@ -54,8 +56,10 @@ Body: {} (ignored)
 
 Response 200 — empty body       → allow stop
 Response 200 — non-empty body   → forceMessage; hook must block
-Response 401                    → token not found (allow stop)
+Response 401                    → Authorization header missing the token
 ```
+
+401 fires only when the `Authorization` header does not contain the token (belt-and-suspenders — the token is already in the URL path). An unknown or already-ended token returns **200 with an empty body** (allow stop — the session drain already recorded the outcome).
 
 The route resolves the bearer token to a `sessionId` via `McpBridgeRegistry.lookup`, then reads the per-session `EnforcementEntry` from the `EnforcementRegistry`. It calls `shouldForceReturn(entry.gate, entry.forceCount)` and, if a force message is returned, increments `entry.forceCount` and returns the message as the response body.
 
@@ -110,13 +114,13 @@ OpenCode has no native blocking Stop hook. Enforcement is via **process wrapper 
 
 Re-engage is bounded by `AL6_MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` counter tracks re-spawns; when the budget is spent, the session ends and the drain-gate floor settles the verdict.
 
-**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "opencode process-reengage PROVEN" spawns the real opencode binary, detects `step_finish` on first turn, fires the re-engage spawn with the forcing message, confirms both turns complete.
+**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — the live process-reengage proof spawns the real opencode binary, detects `step_finish` on the first turn, fires the re-engage spawn with the forcing message, and confirms both turns complete.
 
 ### `builtin` — `builtin-loop`
 
 `provisionReturnHook` is a no-op for `builtin-loop`. The builtin harness (`BuiltinHarnessAdapter`) owns its own loop. At two intercept points — `end_turn`/`stop` in `runExecuteTurn` and end-of-loop break in `runChatTurn` — the adapter calls `shouldForceReturn({ returned: session.returnSeen }, session.forceCount)`. If non-null, it pushes the forcing message as a user message and continues the loop without setting `session.done = true`.
 
-A registry exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
+An exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
 
 ### `cursor-agent` — `soft-continue` (inert)
 
@@ -150,14 +154,14 @@ On **every** harness, a no-return turn is **never recorded `completed`**:
 
 The drain-end `ReturnGate` is the un-bypassable backstop. Even if an agent strips its own hook config file, the drain still evaluates `evaluateReturn(gate, endReason)` at stream-exhaust. An agent can prevent the hook from firing; it cannot prevent the drain-gate verdict from recording `not_returned`.
 
-| Adapter | Native enforcement | Backstop |
-|---|---|---|
-| `sdk-inprocess` (ClaudeAgentSdkAdapter) | SDK Stop closure blocks + re-injects | drain-gate floor |
-| `builtin-loop` (BuiltinHarnessAdapter) | In-process loop intercept + re-injects | drain-gate floor |
-| `settings-claude` (claude-code CLI) | Stop hook exit-2+stderr blocks | drain-gate floor |
-| `settings-codex` (codex CLI) | Stop hook decision:block JSON blocks | drain-gate floor |
-| `process-reengage` (opencode CLI) | Process wrapper re-invokes with forcing message | drain-gate floor |
-| `soft-continue` (cursor-agent) | Inert today | drain-gate floor |
+| Adapter | Channel | Native enforcement | Backstop |
+|---|---|---|---|
+| `BuiltinHarnessAdapter` | `builtin-loop` | In-process loop intercept + re-injects | drain-gate floor |
+| `CliHarnessAdapter` (claude-code) | `settings-claude` | Stop hook exit-2+stderr blocks | drain-gate floor |
+| `CliHarnessAdapter` (codex) | `settings-codex` | Stop hook decision:block JSON blocks | drain-gate floor |
+| `CliHarnessAdapter` (opencode) | `process-reengage` | Process wrapper re-invokes with forcing message | drain-gate floor |
+| `RemoteHarnessAdapter` | `process-reengage` | Re-engage via forcing message | drain-gate floor |
+| cursor-agent | `soft-continue` | Inert today | drain-gate floor |
 
 ---
 
@@ -180,15 +184,15 @@ The gate reference is stored in the enforcement registry entry so the `/return-s
 
 ## 8. `forceReturnCount` on `ProvisionSessionResult`
 
-`forceReturnCount` is read from the enforcement registry at session teardown:
+`computeForceReturnCount` (session-provisioning.ts) **sums two sources** at session teardown:
 
 ```ts
-enforcementRegistry.get(sessionId)?.forceCount ?? 0
+const registryForceCount = enforcementRegistry.get(sessionId)?.forceCount ?? 0;
+const adapterForceCount = harness.getForceReturnCount?.(sessionId) ?? 0;
+return registryForceCount + adapterForceCount;
 ```
 
-Zero when no forcing was needed (agent returned on the first run without any hook firing).
-
-`getForceReturnCount` (optional method on `HarnessAdapter`) is available for adapters that track forcing in-process (builtin); external adapters use the registry directly via the bridge.
+The registry is the primary source (incremented by the `/return-status` route); `getForceReturnCount` (optional method on `HarnessAdapter`) supplements for adapters that maintain their own in-process counter (builtin: `session.forceCount`). Zero when no forcing was needed — and `forceCount = 0` on a `not_returned` outcome is an honest signal that the hook never fired (inspect hook provisioning + endpoint wiring), never a drain fallback.
 
 ---
 
@@ -216,9 +220,9 @@ Four scenarios:
 
 - **`fr-compliant-return-builder`** — agent instructed to call `submit_review`. Judges verify: outcome `completed`, `submit_review` called, `forceReturnCount = 0`.
 
-- **`fr-forced-return-builder`** — agent instructed NOT to call return tools (SDK adapter; in-process enforcement). Judges verify: `forceReturnCount >= 1`, outcome is `completed` or `not_returned`, and the v1 regression (`completed` + `returnVerdict="not_returned"` simultaneously) did not occur.
+- **`fr-forced-return-builder`** — agent instructed NOT to call return tools (in-process enforcement). Judges verify: `forceReturnCount >= 1`, outcome is `completed` or `not_returned`, and the v1 regression (`completed` + `returnVerdict="not_returned"` simultaneously) did not occur.
 
-- **`fr-forced-return-external-compliant`** — agent on a `process-reengage`-shaped harness; first run ends without a return action (natural analysis response). Re-engage fires: second spawn with forcing message. Agent reads forcing message and calls `submit_review`. Judges verify: `forceReturnCount >= 1`, `outcome = completed`, `returnVerdict = returned`. **Scored 1.000** — proves re-engage converts a real external non-Claude agent into returning.
+- **`fr-forced-return-external-compliant`** — agent on a `process-reengage`-shaped harness; first run ends without a return action (natural analysis response). Re-engage fires: second spawn with forcing message. Agent reads the forcing message and calls `submit_review`. Judges verify: `forceReturnCount >= 1`, `outcome = completed`, `returnVerdict = returned` — proves re-engage converts a real external non-Claude agent into returning.
 
 - **`fr-forced-return-external`** — same shape, agent instructed NOT to return. Both re-engage budget rounds spent. Judges verify: `forceReturnCount >= 1`, `outcome = not_returned`. Proves the reject floor holds when the agent won't comply.
 
@@ -228,47 +232,15 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 ## 11. Real-Harness Integration Tests
 
-`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` covers all four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
+`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` covers the four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
 
-Each harness lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
+Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
 
-| Harness | Test | Proof |
-|---|---|---|
-| `claude-code` | "FULL BINARY PROOF (claude)" | `buildCleanEnv` zeroes CC env vars; Stop hook fires; bridge `callCount >= 1` |
-| `codex` | "FULL BINARY PROOF (CODEX_HOME)" | Per-session `.codex-home/`; `CODEX_HOME` injected; Stop hook fires; bridge `callCount >= 1` |
-| `opencode` | "opencode process-reengage PROVEN" | `step_finish` detected; re-engage spawn fires; both turns complete |
-| `builtin` | deterministic CI anchor | `forceCount >= 1` on no-return stub; `outcome = completed` on returning stub |
-| `cursor-agent` | asserted inert | not spawnable; assertion that no session starts |
-
-Local-only tests (require binary + auth). The builtin block is the CI anchor.
-
----
-
-## 12. Key Constants and Exports (`@hyperidle/shared`)
-
-| Symbol | Location | Value / purpose |
-|---|---|---|
-| `RETURN_ACTION_NAMES` | `harness/return-actions.ts` | `["submit_review", "handoff_to", "send_message"]` |
-| `stripMcpNamespace(name)` | `harness/return-actions.ts` | Strips `mcp__<server>__` prefix; called internally by `isReturnAction` |
-| `isReturnAction(name)` | `harness/return-actions.ts` | O(1) membership check; strips MCP namespace first (AR2 W1 fix) |
-| `isInternalExtractionDrain(config)` | `harness/return-actions.ts` | Exemption check (`tools.length === 0`) |
-| `AL6_FORCE_RETURN_MESSAGE` | `harness/return-actions.ts` | The forcing message text |
-| `AL6_MAX_FORCE_RETURNS` | `harness/return-actions.ts` | `2` — budget per session |
-| `shouldForceReturn(gate, count)` | `harness/return-actions.ts` | Pure: returns message or `null` |
-| `ReturnEnforcementChannel` | `harness/harness-adapter.ts` | Union of 7 channel strings (non-optional on `HarnessCapabilities`) |
-| `ReturnHookConfig` | `harness/harness-adapter.ts` | Per-session bridge token + mcpUrl + forceBudget (threaded in `SessionConfig`) |
-| `SessionOutcome` | `events.ts` | `"completed" \| "crashed" \| "stopped" \| "not_returned"` |
-| `SessionNotReturnedEvent` | `events.ts` | Bus event emitted on no-return turns |
-
-### Server-side enforcement modules (`packages/server/src/harness/`)
-
-| Module | Purpose |
+| Harness | Proof |
 |---|---|
-| `provision-return-hook.ts` | `provisionReturnHook` — writes hook artifact for the declared channel |
-| `return-enforcement-registry.ts` | `EnforcementRegistry` — per-session `{ gate, forceCount, exempt }` store |
-| `return-gate.ts` | `createReturnGate()` / `evaluateReturn()` — drain-end observer |
-| `re-engage.ts` | Intentionally empty stub — `rewriteSandboxForcing` deleted in v4 |
+| `claude-code` | "FULL BINARY PROOF (claude)" — `buildCleanEnv` zeroes CC env vars; Stop hook fires; bridge `callCount >= 1` |
+| `codex` | "FULL BINARY PROOF (CODEX_HOME)" — per-session `.codex-home/`; `CODEX_HOME` injected; Stop hook fires; bridge `callCount >= 1` |
+| `opencode` | live process-reengage proof — `step_finish` detected; re-engage spawn fires with forcing message; both turns complete |
+| `builtin` | realbinary block covers provisioning no-op + real route forcing |
 
-### Adjudication route (`packages/server/src/routes/mcp-route.ts`)
-
-`POST /api/mcp/:token/return-status` — mounted before the MCP catch-all. Resolves token → session → enforcement registry → force decision. Returns empty body (allow) or `forceMessage` (block).
+Real-binary tests are local-only (require binary + auth). The deterministic builtin anchor — `forceCount >= 1` on a no-return stub, `outcome = completed` on a returning stub — lives in `AL6-builtin-enforcement.test.ts` (unit test) and runs without any real binary or LLM call.

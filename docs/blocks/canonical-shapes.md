@@ -1,66 +1,52 @@
-# Canonical shapes — Block primitive (L2)
+# Canonical shapes — the Block type contracts
 
-The shape every consumer of structured prose imports. Concept: see the rest of `docs/blocks/`. Hard rule: on-disk format stays GitHub-flavoured markdown — Blocks are derived during ingestion, never stored as a dialect.
+This file is the canonical signature home for the Block primitive — `packages/shared/src/blocks/types.ts:2-3` cites it by path (path frozen, never move). The TypeScript shapes themselves live in `types.ts`; this doc owns the contracts those shapes must honour and the closed kind vocabulary. Concept: [definition.md](./definition.md).
 
-```ts
-// Closed enum: nine content kinds + one `unknown` sentinel = ten total.
-// New kinds require updating docs/blocks/blockkind-the-closed-vocabulary.md
-// first. Body-level metadata (front matter) is NOT a kind — it rides on the
-// sibling `metadata` field below.
-type BlockKind =
-  | 'heading'
-  | 'paragraph'
-  | 'list'
-  | 'quote'
-  | 'code'
-  | 'table'
-  | 'divider'
-  | 'image'
-  | 'html'
-  | 'unknown'
+**Hard rule:** the on-disk format stays plain GitHub-flavoured markdown. Blocks are derived at read time and never stored — no dialect, no blocks table (`packages/db/src/schema.ts` stores bodies as markdown).
 
-// Stable id derived from normalised content + outline path. Algorithm:
-// docs/blocks/contracts.md § 8.4. Format: hex-encoded 128-bit cryptographic
-// hash of (version || kind || outlinePath || normalisedPayload).
-type BlockId = string  // opaque
+## 1. The shapes (owned by code)
 
-// The anchor IS the primitive's own affordance — no separate linking primitive.
-// Threads attach via { kind: 'block', blockId, hostKind, hostId } per L1.
-// L1's closed attachment-kind enum is bet | task | knowledge_item | artifact |
-// agent | user; L2 extends it by adding `block` as the seventh kind (see
-// docs/blocks/composition.md / docs/blocks/contracts.md § 8.5 hard rule 4).
-type BlockAnchor = { blockId: BlockId }
+`packages/shared/src/blocks/types.ts` defines `BlockKind`, `BlockHostKind`, `BlockId`, `BlockAnchor`, `BlockPayload`, `Block`, and `BlockDerivationResult`. Do not restate them here or anywhere else in `docs/` — this section records only the contracts behind them:
 
-// `hostKind` is the closed L1 host enum — no `string` escape hatch. This file
-// is single-source-of-truth for the canonical block-type signatures, not a
-// place where one story can quietly weaken another's closure.
-type BlockHostKind = 'bet' | 'task' | 'knowledge_item' | 'artifact' | 'agent' | 'user'
+- **`BlockId`** — hex-encoded 128-bit blake2s of `blk:v1 ‖ kind ‖ outlinePath ‖ normalisedPayload` (`packages/shared/src/blocks/block-id.ts:19-23`, dkLen 16, bytesToHex). Algorithm and normalisation rules: [contracts.md](./contracts.md).
+- **`BlockHostKind`** — closed, six kinds: `bet | task | knowledge_item | artifact | agent | user`. No `string` escape hatch.
+- **`Block.order`** — informational only, never used for identity.
+- **The anchor IS the primitive's own affordance** — `BlockAnchor { blockId }`; there is no separate linking primitive in the codebase.
 
-type Block = {
-  id: BlockId
-  kind: BlockKind
-  source: { hostKind: BlockHostKind; hostId: string; bodyDigest: string; range: { start: number; end: number } }
-  payload: BlockPayload  // discriminated by kind; see docs/blocks/blockkind-the-closed-vocabulary.md
-  anchor: BlockAnchor
-  order: number          // informational only — never used for identity
-}
+## 2. How anchoring shipped
 
-// Pure, deterministic. No I/O, no clock, no DB. Same input -> same output.
-// Lives in `packages/shared` and is imported by both server and web — both
-// processes use byte-identical code paths (see docs/blocks/where-derivation-attaches-in-the-pipeline.md).
-//
-// L2 ships without body-level metadata parsing — front matter is treated as
-// markdown by remark and either becomes a `divider` + `paragraph` pair (when
-// the host body uses three-dash fences) or routes to `unknown`. A typed
-// metadata pipeline is deferred until a concrete consumer arrives.
-function deriveBlocks(
-  body: string,
-  host: { kind: BlockHostKind; id: string },
-): { blocks: Block[] }
-```
+Block-anchored discussion is **message-level**, not a thread-attachment kind. Thread `HOST_KINDS` is a closed eight-kind enum (`bet | task | knowledge_item | artifact | agent | user | team | factory` — `packages/shared/src/thread.ts:19-28`) and does **not** contain `block`. Instead a message carries an optional `payload.blockId` (`PlainPayloadWithBlockId`, `thread.ts:480-491`), dual-written to the queryable `messages.block_id` column (`packages/db/src/schema.ts:476-483`). There is no parallel comment table. Thread/Message depth: [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
-Consumer rules (every story below references these, not its own copy):
-- L16 (bet pitch) and L23 (knowledge body) render through `Block[]` derived by the shared `deriveBlocks`. Both round-trip GFM losslessly for the nine content kinds.
-- L26 (per-block discussion on Knowledge) attaches L1 Threads via `BlockAnchor`. There is no parallel comment table; there is no L24 (linking primitive) dependency.
-- The `bodyDigest` field on the source body is the cache key. Re-derivation on body edit is automatic.
-- `unknown` is the safety valve — derivation never throws. New GFM features land before the kind set is updated.
+## 3. BlockKind — the closed vocabulary
+
+`BlockKind` is **closed**: nine content kinds plus an `unknown` sentinel, ten total (`BLOCK_KINDS`, `types.ts:6-18`). Adding a kind is doc-first: update this document, then `types.ts`, then the consumers.
+
+| Kind | Semantics |
+|---|---|
+| `heading` | Section header, level 1–6. Participates in the document outline used for id stability. |
+| `paragraph` | Run of inline text. |
+| `list` | Bullet or ordered list, possibly nested. **The whole list is one block** — list items are payload children (`ListItem`), not separate blocks. |
+| `quote` | Blockquote; nested blocks stay inside its payload. |
+| `code` | Fenced code block with optional language tag; body preserved verbatim. |
+| `table` | GFM table; rows and column alignment in payload. |
+| `divider` | Thematic break (`---` on its own line). |
+| `image` | Block-level image — a paragraph that is solely an image is promoted to an `image` block. |
+| `html` | Raw HTML block GFM permits, rendered as a sanitised region; if the sanitiser strips it, it falls back to `unknown` with reason `sanitiser-stripped`. |
+| `unknown` | Catch-all so derivation **never throws**. Reasons: `parser-unrecognised \| body-too-large \| sanitiser-stripped` (`types.ts:88-92`). Renders the original source. |
+
+`unknown` is the safety valve: new GFM features land before the kind set is updated, and derivation must emit a useful block instead of crashing or dropping content. When `unknown` blocks start appearing in real bodies, that is the signal to update this list.
+
+## 4. Derivation contract
+
+`deriveBlocks(body, host: { kind, id }) → { blocks }` (`packages/shared/src/blocks/derive-blocks.ts:295-298`). Pure and deterministic — no I/O, no clock, no DB; same input, same output. Lives in `packages/shared`.
+
+- **No body-level metadata parsing.** `BlockDerivationResult` has only `blocks` (`types.ts:108-110`); there is no `metadata` sibling field. Three-dash front matter derives as markdown — a `divider` + `paragraph` pair, or `unknown`. A typed metadata pipeline is deferred until a concrete consumer arrives.
+- **Derivation is client-side, per render.** The server does not derive blocks at runtime; where derivation attaches, caching, and render surfaces: [derivation-and-rendering.md](./derivation-and-rendering.md). `bodyDigest` on `Block.source` identifies the source body snapshot — it is not used as a cache key.
+
+## 5. Rendering-layer relationship (AM5 outcome)
+
+`BlockKind` stays its own closed AST vocabulary — it was **not** merged into the shared content-Kind set. Text-family artifact bodies render through the same `deriveBlocks` Block stream (`packages/design-system/src/kinds/compose-artifact-body.tsx:88`); the `data` kind renders its own freeform rows table, not `TablePayload` (its `Record<string,string>[]` rows are not GFM-table compatible — `compose-artifact-body.tsx:38-42`). Artifact embed shapes: [../process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md).
+
+## 6. Consumers
+
+Bet bodies, knowledge bodies, and review canvases all render through `Block[]` derived by the shared `deriveBlocks` (`WorkBet.tsx`, `KnowledgeBody.tsx`, `review-canvas.tsx` in `packages/web`). All round-trip GFM losslessly for the nine content kinds; the `unknown` sentinel ensures derivation never throws for unrecognised GFM features. Block-anchored discussion attaches per §2 — message `blockId`, no comment table.

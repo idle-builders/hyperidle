@@ -1,30 +1,8 @@
-# BLOCKS
+# Blocks
 
-# Block primitive
+Content primitives: the unit a markdown body breaks into when HyperIdle renders it as structured prose — derived at read time, never stored, never written in a custom dialect.
 
-A **Block** is the unit a markdown body breaks into when HyperIdle renders it as structured prose. Blocks are *derived during ingestion*, never stored on disk as a separate artifact, never written by an agent in a custom dialect. Bet pitches (L16), knowledge bodies (L23), and any future structured-prose surface render through Blocks; per-block discussion (L26) attaches to them.
-
-This document is the load-bearing concept for Track L story L2 and the upstream contract for L16, L23, and L26.
-
----
-
----
-
-## Sections
-
-- [Definition](./definition.md)
-- [Essential properties](./essential-properties.md)
-- [What a Block is NOT](./what-a-block-is-not.md)
-- [Composition](./composition.md)
-- [Lifecycle](./lifecycle.md)
-- [BlockKind — the closed vocabulary](./blockkind-the-closed-vocabulary.md)
-- [Vocabulary](./vocabulary.md)
-- [Contracts](./contracts.md)
-- [Where Blocks render](./where-blocks-render.md)
-- [Where derivation attaches in the pipeline](./where-derivation-attaches-in-the-pipeline.md)
-- [Authority](./authority.md)
-- [Rationale](./rationale.md)
-- [Open questions parked for `/design`](./open-questions-parked-for-design.md)
-- [Cross-references](./cross-references.md)
-- [Canonical shapes](./canonical-shapes.md)
-
+- [definition.md](./definition.md) — what a Block is: derived/addressable/renderable, source shape, six rejections, term table, no-dialect rationale, sole-producer/blk:v1 authority, derive-render-discard lifecycle.
+- [canonical-shapes.md](./canonical-shapes.md) — **path frozen** (cited by `types.ts:2-3`): all Block type contracts + ten-kind closed vocabulary + derivation semantics.
+- [contracts.md](./contracts.md) — cardinality and closure rules, BlockId hash algorithm (single-space separators), outlinePath/ordinal/slug invariants, per-kind normalisation, T4 BlockRef and T5 message blockId rules.
+- [derivation-and-rendering.md](./derivation-and-rendering.md) — client-only per-render derivation, ingestion-free write paths, render-surface table, anchor-vs-reference composition (7 InlineRefKinds).

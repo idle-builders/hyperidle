@@ -1,64 +1,70 @@
-## Settings
+# Settings
 
-Click the **Settings** button in the Sidebar to open Settings. Sections stack vertically in a scrollable page.
+Click the **Settings** button pinned at the bottom of the Sidebar. All sections stack vertically in one scrollable page, in this order:
 
 | Section | What You Configure |
 |---------|-------------------|
-| **Profile** | Your name, email, avatar |
+| **Profile** | Your name and email |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
 | **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
-| **Agents** | Per-agent model and harness, autonomy levels, pause/resume, system prompt |
-| **Assistant** | Your personal AI assistant system prompt and settings |
+| **Agents** | Per-agent model, harness, and system prompt; add new agents |
+| **Filesystems** | Team-registered file sources — code repos and document sets |
+| **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
+| **Connections** | External services your agents can use — see [Connections](connections.md) |
+| **Assistant** | Your personal AI assistant's system prompt |
 | **Appearance** | Theme (light / dark / system) |
 | **Credentials** | Desktop app: saved credentials and API keys |
-| **Notifications** | Per-type toggles, quiet hours |
+| **Notifications** | Per-type notification toggles (on/off per type only — quiet hours, factory silence, digest, and channels have no settings UI yet) |
 | **Worker** | Desktop + shared backend: register this device as a worker node |
 | **Backend** | Shows current backend mode (Web / Local / Shared) |
-| **Connections** | External services your agents can use — token, MCP server, or inherited from your harness |
-| **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
 
-### Org Chart
+## Profile
 
-The **Org chart** section shows reporting lines between humans in your team. You can:
+Name and email, saved via your user record. That's it — there is no avatar field.
+
+## Org Chart
+
+The **Org chart** section shows reporting lines between humans in your team.
 
 - **Add an edge** — click **+ Add Edge**, choose the relationship type:
   - **Direct** — direct reporting line (one human reports to another)
-  - **Function** — role-based relationship (e.g., "Engineering") — works even if you are the only human, useful for describing your own role
-  - **Team** — associated with a named team from your team roster
+  - **Function** — role-based relationship (free text, e.g. "Engineering") — works even if you are the only human, useful for describing your own role
+  - **Team** — associates you with a named team from your team roster
 - **Delete an edge** — click the delete button on any row
 
-If you are the only human in the system, a guidance hint appears above the form. You can still add **Function** edges to describe your role before adding other humans.
+If you are the only human in the system, a guidance hint appears above the form; **Function** is the zero-dependency default for describing your role before other humans join.
 
-**Teams connect automatically.** When you create a team via Setup or the Teams page, a **Team** org edge is created automatically connecting you (the founder) to the new team. You do not need to add that edge manually.
+**Teams connect automatically.** When you create a team via Setup or the Teams page, a **Team** org edge is created connecting you (the founder) to the new team. You never add that edge manually.
 
-### Adding Agents
+## Adding Agents
 
-In **Settings → Agents**, click **+ Add Agent** to create a new agent. The add form asks:
+In **Settings → Agents**, click **+ Add Agent**. The form asks:
 
-- **Team** — which team this agent belongs to. Populated from your existing teams. Select a team before saving; the agent lands in that team immediately.
+- **Team** — which team this agent belongs to, populated from your existing teams (defaults to the first). If no teams exist yet, run Setup first.
 - **Name** — the agent's display name
-- Other configuration (role, harness, model tier, max sessions)
+- **Role** — from the team-category role catalog; the agent's system prompt is pre-filled from the role template
+- **Harness** — from the registered backend list
+- **Model** — from the model catalog
+- **Max concurrent sessions**
 
-The **Team** field is required if you have existing teams. If no teams exist yet, run Setup first to create your initial team.
+## Per-Agent Model and Harness
 
-### Per-Agent Model and Harness
+Each agent can run a different model. Click **Edit** on any agent:
 
-Each agent can run a different model. In **Settings → Agents**, click **Edit** on any agent and select:
-
-- **Model** — the specific Claude model this agent uses (e.g. Sonnet 4.6, Opus 4.8, Haiku 4.5). Defaults to Sonnet 4.6. Overrides the system-level model tier for this agent only.
+- **Model** — one of the closed model catalog: Opus 4.8, Sonnet 4.6 (default), Haiku 4.5, or Fable 5. Overrides the default model for this agent only (independent of the tier selection in Settings → Models).
 - **Harness** — which execution environment runs this agent (e.g. Built-in, Claude Code). Must match one registered on the worker device. Defaults to Built-in.
 
-A warning badge appears next to an agent if its harness type is not currently registered on any available worker.
+An amber warning chip appears next to an agent if its harness type is not currently registered on any available worker.
 
-### Autonomy Levels
+There is no per-agent autonomy dial. How much an agent's work gets reviewed is derived from its verdict history — approval rate crossed with the risk tier of the action. See the [review primitive](../../human-interface-layer/review-primitive.md).
 
-Each agent can have a different autonomy level:
+## Filesystems
 
-- **Manual** — every action needs your approval
-- **Supervised** — most actions approved, some autonomy for low-risk work
-- **Autonomous** — fully autonomous unless blocked
+**Settings → Filesystems** lists the file sources your team has registered — a code repository or a document set where work lives and accrues history (GitHub, Google Drive, Obsidian, or a local folder). Each row shows the source, resource (repo or folder, with branch where relevant), the backing connection (or "Local (no connection)"), and a state chip: **Reachable**, **Needs attention**, or **Attached**.
 
-### Agent Backends
+Register a filesystem once here with **+ Add filesystem**; injecting it into a specific agent happens on that agent's config panel under **Agents**.
+
+## Agent Backends
 
 **Settings → Agent backends** shows all execution environments HyperIdle can use to run agents. HyperIdle detects what is installed on this device and reports each backend's status at a glance.
 
@@ -71,34 +77,38 @@ Each agent can have a different autonomy level:
 | **Codex** | OpenAI Codex CLI | Run `codex login` in a terminal |
 | **OpenCode** | OpenCode CLI | Run `opencode providers login` in a terminal |
 
-Cursor Agent appears as "unavailable" — there is no documented headless CLI surface HyperIdle can drive without the Cursor IDE running.
+Cursor Agent appears as "unavailable" — Cursor does not expose a headless CLI surface HyperIdle can drive without the IDE running.
 
-**Reading the status rows:**
+**Reading the status rows.** Each row shows a colored dot and a short status line:
 
-Each row shows a colored dot and a short status line:
-- Green dot — authenticated and ready to use.
-- Amber dot — installed but not signed in, or install not yet confirmed. An action button appears below the row telling you exactly what to run.
-- Grey dot — not installed, or not available on this machine.
+- Green — authenticated and ready to use
+- Amber — installed but not signed in, or install not yet confirmed; an action zone below the row shows the exact command to run
+- Grey — not installed, or not available on this machine
 
-**Refreshing detection.** HyperIdle probes for backends when it starts. If you install a new CLI or sign in after HyperIdle is already running, click **Refresh** (top-right of the section) to re-probe. The page updates to reflect the new status.
+**Refreshing detection.** HyperIdle probes for backends when it starts. If you install a new CLI or sign in while HyperIdle is running, click **Refresh** (top-right of the section) to re-probe.
 
-**Enabling and disabling backends.** Each row that can be toggled shows a switch on the right. Turning a backend off prevents it from being selected for new agent sessions — useful if you want to keep a CLI installed but route all work through a specific backend. The built-in backend cannot be disabled; it is the always-present fallback.
+**Enabling and disabling backends.** Rows that can be toggled show a switch on the right. Turning a backend off prevents it from being selected for new agent sessions — useful for keeping a CLI installed while routing all work through a specific backend. The built-in backend cannot be disabled; it is the always-present fallback.
 
-**Present but not signed in.** If a backend is detected but not authenticated, the row shows an amber dot and an action zone with the exact sign-in command to run in your terminal. After signing in, click **Refresh** to confirm the new status.
+**Capabilities.** Click **Models** on a ready backend to expand its declared models and, once a first session has run, its confirmed capabilities (file editing, tool use, etc.). Before the first session, the section reads "Capabilities confirmed after first run."
 
-**Capabilities.** Click **Models** on a ready backend to expand its declared models and, once a first session has run, its confirmed capabilities (file editing, tool use, etc.). Before the first session, the capabilities section reads "Capabilities confirmed after first run."
+## Connections
 
----
+External services (tokens, MCP servers, inherited harness auth) live in **Settings → Connections**. Full walkthrough: [Connections](connections.md).
 
-### Backend Mode
+## Notifications
 
-The **Backend** section shows which backend mode HyperIdle is running in:
+Per-notification-type toggles — turn each notification kind on or off. See [The Interface](the-interface.md) for how notifications surface in the app.
+
+## Backend Mode
+
+The **Backend** section shows which mode HyperIdle is running in:
 
 - **Web** — browser-only, no local bridge
 - **Local (laptop)** — Electron desktop app, running sessions locally
 - **Shared (remote)** — Electron desktop app connected to a shared backend server
 
-### Worker Mode
+See [Deployment](deployment.md) for what each profile means.
 
-The **Worker** section is only shown when using the desktop app in **Shared** backend mode. It lets you register this device as a worker node that runs agent sessions on behalf of the team.
+## Worker Mode
 
+The **Worker** section appears only in the desktop app in **Shared** backend mode. It registers this device as a worker node that runs agent sessions on behalf of the team, with a toggle, status display, and pause/resume.

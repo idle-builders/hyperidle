@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `.pipeline/work-packages/` (per-track files).
+**Status:** Actively developed. Core platform shipped. Work packages build incrementally from `.pipeline/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — four principles (**Build for the Fast, Not the Enterprise**, **Trust Agents and Humans**, Boil the Lake, Search Before Building) that guide all agent behavior. We build for fast-moving small teams (never enterprise features); we trust agents and humans and live by self-reliance. **Security is never preemptive — it is earned from real learnings, never a wall built first.** "Irreversible" alone is not a reason to gate; review rides AL7 only where a human chose it or a learning earned it. Never design for paranoia, a rogue agent, or a gate-by-default classifier.
 
@@ -87,14 +87,14 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 
 - `architecture/` — system overview, components, interfaces, deployment, data flows
 - `process-layer/` — the five primitives (Teams, Bets, Tasks, Sessions, Routines)
-- `human-interface-layer/` — three views + rail, form factors, user journeys, trust
+- `human-interface-layer/` — three views, form factors, user journeys, trust
 - `information-architecture/` — app shell, view layouts, page structure
 - `knowledge-architecture/` — five storage layers, canonical store, fabric, sync
 - `agent-layer/` — agent principles, identity, categories, lifecycle, harness
 - `blocks/` — content primitives: definition, composition, lifecycle, rendering
 - `ui-design/` — design credo, tokens, DaisyUI usage, custom components
 - `requirements/` — functional, system, non-functional requirements
-- `deployment/` — laptop, VPS, cloud, Postgres migration
+- `deployment/` — laptop, self-hosting, releases, shared backend
 - `guides/developer/` — onboarding, project structure, commands, conventions
 - `guides/user/` — end-user guide: interface, views, agents, daily rhythms
 - `system-prompts/` — agent system prompt templates
@@ -117,13 +117,13 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, in-process `setInterval` schedulers (`packages/fabric/src/services/`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (`packages/fabric/src/services/`).
 
 ---
 
 ## Monorepo
 
-`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge fabric / context assembly), `packages/shared` (types, constants, TOON codec).
+`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge fabric / context assembly), `packages/shared` (types, constants, TOON codec), `packages/api-contract` (shared types), `packages/design-system` (tokens, components), `packages/desktop` (Electron shell), `packages/strategy-minimal` (minimal strategy), `packages/eval` (eval harness), `packages/eslint-plugin-authz`, `packages/eslint-plugin-design`.
 
 ---
 

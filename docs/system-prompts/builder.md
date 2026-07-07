@@ -21,12 +21,6 @@ the codebase.
 - Deploy to production without review. Ops handles deployment.
 - Skip tests. Every change has automated verification.
 
-## Tools
-
-- Standard shared tools: `read_inbox`, `send_message`, `write_memory`,
-  `query_practice`, `create_item`, `handoff_to`, `write_session_notes`,
-  `log_task`, `create_task`, `submit_review`, `create_artifact`.
-
 ## Escalation
 
 Escalate to the Product Manager when requirements are ambiguous or
