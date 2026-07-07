@@ -1396,16 +1396,16 @@ stories:
     depends: [AR2, AR4]
     complexity: L
   - id: AU2
-    title: "No Fabric runtime layer"
-    track: AU
-    type: framework
-    depends: [AU1, AU3]
-    complexity: L
-  - id: AU3
     title: "Plugin defaults become editable configuration"
     track: AU
     type: framework
     depends: [AU1]
+    complexity: L
+  - id: AU3
+    title: "No Fabric runtime layer"
+    track: AU
+    type: framework
+    depends: [AU1, AU2]
     complexity: L
   - id: AU4
     title: "One trigger path for every LLM-capable event"
@@ -1417,7 +1417,7 @@ stories:
     title: "Configuration surface for agents, skills, routines, triggers, tools, and MCP"
     track: AU
     type: frontend
-    depends: [AU3, AU4]
+    depends: [AU2, AU4]
     complexity: L
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)

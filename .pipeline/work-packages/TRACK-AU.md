@@ -69,64 +69,7 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ---
 
-### AU2 — No Fabric runtime layer
-
-**Work package.** As a maintainer, I want HyperIdle to run with only the core app and the agent layer, so that Knowledge is a normal app domain and agent execution is not hidden behind a separate Fabric/Strategy runtime. When this ships, the current Knowledge, routine, notification, context, writeback, selection, and dispatch behavior still works, but no runtime package or boot path treats Fabric as a layer. A contributor can explain the system as core app domains plus agent layer without learning a third "Strategy/Fabric" concept. Existing user-visible Work, Conversation, Knowledge, Users, and Settings behavior remains intact.
-
-**Why this matters.** The maintainer benefits because the current split is creating duplicate ownership: Fabric is both a knowledge feature bundle and the active Strategy, while server code still imports Fabric services directly. The cost of not building this is continued spaghetti: every future plugin or trigger change has to ask whether it belongs in Kernel, Fabric, Strategy, server, or routes. Removing Fabric as a runtime layer makes the product easier to reason about and stops a dead architecture concept from shaping new work.
-
-**Type.** framework
-
-**What exists today.** The dependency audit shows a process-wide Active Strategy Registry, a shared Strategy contract, a Fabric Strategy Adapter, Fabric bootstrap services, and direct server imports from Fabric for cost, routines, notifications, knowledge routes, git export, task dispatch, and context helpers. The database has canonical Work, Conversation, Knowledge, Users, Routine, Session, Tool/MCP, and service-connection records, plus Fabric-named strategy projection tables. The server already owns routes, events, session provisioning, tools, MCP, harness adapters, and persistence writes. The Fabric package currently mixes knowledge behavior with service-bundle behavior such as schedulers, lifecycle propagation, notifications, scoring, task dispatch, and git export.
-
-**What's genuinely missing.** There is no package/runtime boundary where Knowledge is core app behavior and LLM execution belongs only to the agent layer. Fabric-named services, tables, exports, and boot wiring still make Fabric look like a runtime layer. The missing outcome is a working app with no Fabric/Strategy runtime concept left in code, package dependencies, boot logs, or user-facing labels.
-
-**Depends on.**
-- **AU1** — this work needs the session request boundary first so Fabric-era direct provisioning and subscriber paths can be collapsed without inventing another execution path.
-- **AU3** — final Fabric removal needs built-in and plugin-provided defaults to have an app-owned configuration home before Fabric-era agent, routine, tool, MCP, and prompt defaults can be rehomed.
-
-**Complexity.** L
-
-**Pre-build gates.**
-- **Refinement:** Required — run /refine first (reshapes: core app vs agent layer boundary).
-- **Design:** Not required — backend/framework/package boundary; skip /design.
-
-**Human concept review.** No — backend architecture boundary with no new rendered surface.
-
-**Acceptance criteria.**
-- HyperIdle boots and runs without registering or selecting a Strategy or Fabric runtime layer.
-- Core app domains still expose the existing observable Work, Conversation, Knowledge, Users, Settings, Routine, and notification behavior after Fabric is removed as a runtime concept.
-- The agent layer is the only owner of LLM execution behavior: session request intake, provisioning, harness execution, tool/MCP invocation, context/capture, and lifecycle events.
-- Server/core code has no runtime dependency on a Fabric package or Fabric boot bundle.
-- User-facing and developer-facing runtime vocabulary no longer presents Fabric or Strategy as concepts needed to configure or run the app.
-- Existing Fabric-named durable data remains readable through forward-compatible app concepts, with no data loss for knowledge, task, routine, or session history.
-
-**Validation scenarios.**
-- Given the app starts from an existing database, when boot completes, then Work, Conversation, Knowledge, Users, Settings, routines, notifications, and agent sessions are available without a Fabric/Strategy registration step.
-- Given a knowledge item with existing Fabric-named projection data, when a user opens Knowledge, then the item and its derived signals remain visible under app-owned vocabulary.
-- Given a task, assistant message, or routine causes an agent run, when the run starts, then it goes through the agent layer and not through a Fabric/Strategy runtime object.
-- Given repository dependency checks run, when a core/server module imports a Fabric runtime package, then the check fails.
-
-**Plan calls.** Run /pipeline:refine first to lock the core app versus agent layer boundary against the live dependency audit, then standard architecture pass. This is a foundational cleanup; plan should classify each current Fabric component as core app, agent layer, plugin-seeded config, or deletion, using the as-is graph as the source inventory and the as-should graph as the target dependency shape. Preserve behavior while removing the Fabric/Strategy runtime concept.
-
-**Contracts / constraints.**
-- No new parallel LLM execution path.
-- Existing user-visible behavior is preserved unless explicitly called out as dead/removed during refinement.
-- Knowledge remains a core app domain, not a plugin-only feature.
-- Forward-compatible migration only; no data loss from existing Fabric-named tables or rows.
-- No enterprise plugin governance, marketplace, or trust-tier system.
-
-**Out of scope.**
-- Building the editable plugin/trigger UI; AU5 owns the app surface.
-- Adding third-party plugin distribution or marketplace behavior.
-- Changing the quality of knowledge scoring, context relevance, or agent decomposition.
-- Remote worker scheduling.
-
-**Effort.** L (~5d)
-
----
-
-### AU3 — Plugin defaults become editable configuration
+### AU2 — Plugin defaults become editable configuration
 
 **Work package.** As a maintainer configuring HyperIdle, I want plugins to contribute default agents, skills, routines, triggers, tools, MCP servers, and harness descriptors as app configuration, so that preconfigured behavior is visible and editable instead of hidden in code. When this ships, a plugin can seed configuration, the app can show where a setting came from, and a user edit overrides the plugin default without modifying the plugin. Removing or disabling a plugin leaves user-owned overrides understandable rather than orphaned. This makes plugins a configuration source, not another global brain.
 
@@ -182,6 +125,63 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ---
 
+### AU3 — No Fabric runtime layer
+
+**Work package.** As a maintainer, I want HyperIdle to run with only the core app and the agent layer, so that Knowledge is a normal app domain and agent execution is not hidden behind a separate Fabric/Strategy runtime. When this ships, the current Knowledge, routine, notification, context, writeback, selection, and dispatch behavior still works, but no runtime package or boot path treats Fabric as a layer. A contributor can explain the system as core app domains plus agent layer without learning a third "Strategy/Fabric" concept. Existing user-visible Work, Conversation, Knowledge, Users, and Settings behavior remains intact.
+
+**Why this matters.** The maintainer benefits because the current split is creating duplicate ownership: Fabric is both a knowledge feature bundle and the active Strategy, while server code still imports Fabric services directly. The cost of not building this is continued spaghetti: every future plugin or trigger change has to ask whether it belongs in Kernel, Fabric, Strategy, server, or routes. Removing Fabric as a runtime layer makes the product easier to reason about and stops a dead architecture concept from shaping new work.
+
+**Type.** framework
+
+**What exists today.** The dependency audit shows a process-wide Active Strategy Registry, a shared Strategy contract, a Fabric Strategy Adapter, Fabric bootstrap services, and direct server imports from Fabric for cost, routines, notifications, knowledge routes, git export, task dispatch, and context helpers. The database has canonical Work, Conversation, Knowledge, Users, Routine, Session, Tool/MCP, and service-connection records, plus Fabric-named strategy projection tables. The server already owns routes, events, session provisioning, tools, MCP, harness adapters, and persistence writes. The Fabric package currently mixes knowledge behavior with service-bundle behavior such as schedulers, lifecycle propagation, notifications, scoring, task dispatch, and git export.
+
+**What's genuinely missing.** There is no package/runtime boundary where Knowledge is core app behavior and LLM execution belongs only to the agent layer. Fabric-named services, tables, exports, and boot wiring still make Fabric look like a runtime layer. The missing outcome is a working app with no Fabric/Strategy runtime concept left in code, package dependencies, boot logs, or user-facing labels.
+
+**Depends on.**
+- **AU1** — this work needs the session request boundary first so Fabric-era direct provisioning and subscriber paths can be collapsed without inventing another execution path.
+- **AU2** — final Fabric removal needs built-in and plugin-provided defaults to have an app-owned configuration home before Fabric-era agent, routine, tool, MCP, and prompt defaults can be rehomed.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first (reshapes: core app vs agent layer boundary).
+- **Design:** Not required — backend/framework/package boundary; skip /design.
+
+**Human concept review.** No — backend architecture boundary with no new rendered surface.
+
+**Acceptance criteria.**
+- HyperIdle boots and runs without registering or selecting a Strategy or Fabric runtime layer.
+- Core app domains still expose the existing observable Work, Conversation, Knowledge, Users, Settings, Routine, and notification behavior after Fabric is removed as a runtime concept.
+- The agent layer is the only owner of LLM execution behavior: session request intake, provisioning, harness execution, tool/MCP invocation, context/capture, and lifecycle events.
+- Server/core code has no runtime dependency on a Fabric package or Fabric boot bundle.
+- User-facing and developer-facing runtime vocabulary no longer presents Fabric or Strategy as concepts needed to configure or run the app.
+- Existing Fabric-named durable data remains readable through forward-compatible app concepts, with no data loss for knowledge, task, routine, or session history.
+
+**Validation scenarios.**
+- Given the app starts from an existing database, when boot completes, then Work, Conversation, Knowledge, Users, Settings, routines, notifications, and agent sessions are available without a Fabric/Strategy registration step.
+- Given a knowledge item with existing Fabric-named projection data, when a user opens Knowledge, then the item and its derived signals remain visible under app-owned vocabulary.
+- Given a task, assistant message, or routine causes an agent run, when the run starts, then it goes through the agent layer and not through a Fabric/Strategy runtime object.
+- Given repository dependency checks run, when a core/server module imports a Fabric runtime package, then the check fails.
+
+**Plan calls.** Run /pipeline:refine first to lock the core app versus agent layer boundary against the live dependency audit, then standard architecture pass. This is a foundational cleanup; plan should classify each current Fabric component as core app, agent layer, plugin-seeded config, or deletion, using the as-is graph as the source inventory and the as-should graph as the target dependency shape. Preserve behavior while removing the Fabric/Strategy runtime concept.
+
+**Contracts / constraints.**
+- No new parallel LLM execution path.
+- Existing user-visible behavior is preserved unless explicitly called out as dead/removed during refinement.
+- Knowledge remains a core app domain, not a plugin-only feature.
+- Forward-compatible migration only; no data loss from existing Fabric-named tables or rows.
+- No enterprise plugin governance, marketplace, or trust-tier system.
+
+**Out of scope.**
+- Building the editable plugin/trigger UI; AU5 owns the app surface.
+- Adding third-party plugin distribution or marketplace behavior.
+- Changing the quality of knowledge scoring, context relevance, or agent decomposition.
+- Remote worker scheduling.
+
+**Effort.** L (~5d)
+
+---
+
 ### AU4 — One trigger path for every LLM-capable event
 
 **Work package.** As a maintainer and product operator, I want every event that can call an LLM to resolve through one trigger path, so that "which agent with which prompt works on this event" is data instead of scattered code. When this ships, task acceptance, assistant messages, routine fires, bet decomposition, knowledge actions, and proposed-call re-engagement all use the same trigger resolution rule. If no specific trigger exists, the runtime attaches the default eligible agent with no event-specific prompt. If a user or plugin trigger exists, that trigger supplies the specific agent and prompt.
@@ -195,8 +195,8 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no persisted trigger rule that maps an event to an agent, prompt, and execution action. There is no default attach behavior expressed as core runtime policy. There is no conflict/override model that makes user triggers beat plugin defaults and more specific triggers beat broader defaults.
 
 **Depends on.**
-- **AU2** — trigger migration must run after the Fabric/Strategy runtime layer is gone so there is no hidden fallback path competing with trigger resolution.
-- **AU3** — plugin-provided triggers must arrive as editable configuration with provenance and user override behavior.
+- **AU2** — plugin-provided triggers must arrive as editable configuration with provenance and user override behavior.
+- **AU3** — trigger migration must run after the Fabric/Strategy runtime layer is gone so there is no hidden fallback path competing with trigger resolution.
 
 **Complexity.** L
 
@@ -254,7 +254,7 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no unified settings experience that shows what configuration controls agent behavior across agents, skills, routines, triggers, tools, and MCP. There is no user-facing provenance model for plugin defaults versus user overrides. There is no way to inspect trigger behavior from the app.
 
 **Depends on.**
-- **AU3** — the surface needs plugin-default provenance and editable configuration.
+- **AU2** — the surface needs plugin-default provenance and editable configuration.
 - **AU4** — trigger editing and inspection need the trigger runtime.
 
 **Complexity.** L
