@@ -1,0 +1,41 @@
+{
+	"sha": "0ea607a520fe46255bf2bdac823e88cfb8598947",
+	"srcHash": "8088ff91b3510583d3185e05fa79161bf7689e69cb18eaa526264b1750f47385",
+	"scope": "affected",
+	"status": "passed",
+	"dirty": false,
+	"tools": [
+		"test",
+		"test:integration",
+		"test:e2e"
+	],
+	"allTools": [
+		"test",
+		"test:integration",
+		"test:e2e"
+	],
+	"partial": false,
+	"smartSkipped": [],
+	"agenticExecuted": 86,
+	"agenticSkipped": 0,
+	"agenticExecutedByHarness": {
+		"builtin": {
+			"executed": 18,
+			"skipped": 0
+		},
+		"claude": {
+			"executed": 18,
+			"skipped": 0
+		},
+		"codex": {
+			"executed": 18,
+			"skipped": 0
+		},
+		"opencode": {
+			"executed": 18,
+			"skipped": 0
+		}
+	},
+	"timestamp": "2026-07-07T15:59:40.320Z",
+	"hmac": "e88e586567222421e440654607771f4055e0b593c7393c7dc955ddeae61cc990"
+}
