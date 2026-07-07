@@ -19,6 +19,8 @@
 		"test": "vitest run --changed=origin/main --passWithNoTests",
 		"test:full": "vitest run",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
+		"test:integration:service": "vitest run --config vitest.integration.config.ts --project service",
+		"test:integration:harness": "vitest run --config vitest.integration.config.ts --project harness",
 		"test:all": "npm run test:full && npm run test:integration",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "npm run -w @hyperidle/web test:e2e",

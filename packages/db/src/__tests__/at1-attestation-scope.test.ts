@@ -79,6 +79,20 @@ describe("resolveLegs — full vs affected mode", () => {
 		expect(legs.integration).toContain("vitest.integration.config.ts");
 	});
 
+	// Harness lane is release-gated: the affected (per-merge) integration leg runs
+	// ONLY the service project; the harness project (real binary + real LLM) runs
+	// exclusively in full scope (verify:release), where the agentic floor +
+	// per-harness symmetry enforce it.
+	test("integration leg (affected) restricts to the service project — harness lane excluded", () => {
+		const { legs } = resolveLegs(undefined);
+		expect(legs.integration).toContain("--project service");
+	});
+
+	test("integration leg (full) runs ALL projects — no --project filter", () => {
+		const { legs } = resolveLegs("full");
+		expect(legs.integration).not.toContain("--project");
+	});
+
 	test("e2e leg (full) delegates to test:e2e:full npm script", () => {
 		const { legs } = resolveLegs("full");
 		// Delegates to the web workspace's test:e2e:full (plain playwright test, no filter)
