@@ -2,7 +2,7 @@
  * scope-labels — AD6: Knowledge Cleanup & Scope Simplification.
  *
  * Provides the static scope options for the knowledge list filter pills
- * and the create flow scope picker.
+ * and the create/change flow scope picker.
  *
  * @lore AD6: Scope vocabulary was collapsed from 7 SCOPE_KINDS to 3 user-facing
  * choices. "Shared" maps to factory+practice (org-wide scopes).
@@ -34,7 +34,7 @@ export interface ScopePillOption {
 	filterKinds: ScopeKind[] | null;
 }
 
-/** One entry in the create flow scope picker. */
+/** One entry in the create/change flow scope picker. */
 export interface ScopeCreateOption {
 	/** The label shown on the pill button. */
 	label: string;
@@ -60,11 +60,19 @@ export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
 ];
 
 /**
- * Three options for the knowledge create flow scope picker.
- * Shared → factory | Team → team | Private → user.
+ * Options for the knowledge create/change flow scope picker.
+ * Shared → factory | Team → team | Private → user | Role → practice |
+ * Filesystem → filesystem.
+ *
+ * @lore AV3 A2: AD6 collapsed routine human authoring to three common buckets,
+ * but AV3 made role/filesystem scopes first-class readable names. They must also
+ * be selectable by humans/agents, so the picker exposes them while preserving the
+ * original three bucket labels.
  */
 export const SCOPE_CREATE_OPTIONS: ScopeCreateOption[] = [
 	{ label: "Shared", id: "shared", scopeKind: "factory" },
 	{ label: "Team", id: "team", scopeKind: "team" },
 	{ label: "Private", id: "private", scopeKind: "user" },
+	{ label: "Role", id: "role", scopeKind: "practice" },
+	{ label: "Filesystem", id: "filesystem", scopeKind: "filesystem" },
 ];

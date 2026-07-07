@@ -629,13 +629,15 @@ describe("AD6 — scope-labels utility", () => {
 		expect(labels).toContain("Private");
 	});
 
-	it("SCOPE_CREATE_OPTIONS has exactly 3 items with correct labels", async () => {
+	it("SCOPE_CREATE_OPTIONS includes core buckets plus Role and Filesystem", async () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
-		expect(SCOPE_CREATE_OPTIONS).toHaveLength(3);
+		expect(SCOPE_CREATE_OPTIONS).toHaveLength(5);
 		const labels = SCOPE_CREATE_OPTIONS.map((o) => o.label);
 		expect(labels).toContain("Shared");
 		expect(labels).toContain("Team");
 		expect(labels).toContain("Private");
+		expect(labels).toContain("Role");
+		expect(labels).toContain("Filesystem");
 	});
 
 	it("Shared option maps to factory scopeKind", async () => {
@@ -654,6 +656,14 @@ describe("AD6 — scope-labels utility", () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
 		const team = SCOPE_CREATE_OPTIONS.find((o) => o.label === "Team");
 		expect(team?.scopeKind).toBe("team");
+	});
+
+	it("Role and Filesystem options map to practice/filesystem scopeKinds", async () => {
+		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
+		expect(SCOPE_CREATE_OPTIONS.find((o) => o.label === "Role")?.scopeKind).toBe("practice");
+		expect(SCOPE_CREATE_OPTIONS.find((o) => o.label === "Filesystem")?.scopeKind).toBe(
+			"filesystem",
+		);
 	});
 
 	it("scopeKindToLabel returns Shared for factory", async () => {
