@@ -1389,11 +1389,35 @@ stories:
     depends: [AS1, AS2]
     complexity: L
 
-  # Track AU: Event-Driven Agent Runtime Boundary
+  # Track AU: Runtime Simplification
   - id: AU1
     title: "Event-driven session requests between collaboration domains and the agent runtime"
     track: AU
     depends: [AR2, AR4]
+    complexity: L
+  - id: AU2
+    title: "Plugin defaults become editable configuration"
+    track: AU
+    type: framework
+    depends: [AU1]
+    complexity: L
+  - id: AU3
+    title: "No Fabric runtime layer"
+    track: AU
+    type: framework
+    depends: [AU1, AU2]
+    complexity: L
+  - id: AU4
+    title: "One trigger path for every LLM-capable event"
+    track: AU
+    type: backend
+    depends: [AU2, AU3]
+    complexity: L
+  - id: AU5
+    title: "Configuration surface for agents, skills, routines, triggers, tools, and MCP"
+    track: AU
+    type: frontend
+    depends: [AU2, AU4]
     complexity: L
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
