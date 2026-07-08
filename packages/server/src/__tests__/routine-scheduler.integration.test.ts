@@ -23,6 +23,7 @@ import {
 } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { registerRoutineRequestRuntime } from "./AU1-fixtures.js";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -176,7 +177,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-heartbeat");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 
@@ -215,7 +221,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-calendar");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 
@@ -245,7 +256,7 @@ describe("Routine Scheduler", () => {
 			const sessionsBefore = await db.select().from(sessions);
 			expect(sessionsBefore).toHaveLength(0);
 
-			await registerEventTriggers(db, eventBus);
+			await registerEventTriggers(db, eventBus, registerRoutineRequestRuntime(db));
 
 			eventBus.emit({
 				type: "bet_state_changed",
@@ -309,7 +320,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-delegate");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 			expect(result.delegatedTo).toBe("agent-2");
@@ -384,7 +400,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-silent");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 
@@ -416,7 +437,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-review");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 
@@ -451,7 +477,12 @@ describe("Routine Scheduler", () => {
 			});
 
 			const routine = await getRoutine(db, "r-timestamps");
-			const result = await checkAndFireRoutine(db, eventBus, routine);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine,
+				registerRoutineRequestRuntime(db),
+			);
 
 			expect(result.fired).toBe(true);
 
@@ -492,7 +523,7 @@ describe("Routine Scheduler", () => {
 			});
 
 			// Register while active — a snapshot impl would capture active=true here.
-			const unsub = await registerEventTriggers(db, eventBus);
+			const unsub = await registerEventTriggers(db, eventBus, registerRoutineRequestRuntime(db));
 
 			// PHASE 1 — disable AFTER registration, then emit.
 			await db.update(routines).set({ active: false }).where(eq(routines.id, "r-af6-event"));

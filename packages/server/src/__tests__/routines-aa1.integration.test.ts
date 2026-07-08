@@ -594,8 +594,10 @@ describe("AA1: Routine Visibility API", () => {
 				method: "POST",
 				headers: authHeaders(),
 			});
-			// 201 for non-builtin routines
-			expect(res.status).toBe(201);
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.fired).toBe(true);
+			expect(typeof body.requestId).toBe("string");
 
 			// Verify routine_run was created
 			const runs = await db

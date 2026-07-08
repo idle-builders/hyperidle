@@ -1,13 +1,20 @@
 import {
+	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
 	messages,
+	sessions,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
+import {
+	setAgentSessionRequestConsumerFn,
+	setAgentSessionRequestCreateFn,
+	type TaskDispatcherDeps,
+} from "@hyperidle/fabric";
 import type {
 	AssistantFormation,
 	AssistantFormationRequest,
@@ -21,9 +28,11 @@ import type {
 	Strategy,
 } from "@hyperidle/shared";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
+import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 
 const NOW = "2026-07-08T12:00:00.000Z";
@@ -246,4 +255,46 @@ export async function seedPublicTaskSessionFixture(db: HyperIdleDb) {
 		credentialResolver,
 		sandbox: new LocalSandboxAdapter(),
 	};
+}
+
+export function registerRoutineRequestRuntime(
+	db: HyperIdleDb,
+): Omit<TaskDispatcherDeps, "db" | "eventBus"> {
+	setAgentSessionRequestCreateFn(createAgentSessionRequest);
+	setAgentSessionRequestConsumerFn(async (_deps, request) => {
+		const sessionId = `session-${request.id}`;
+		const now = new Date().toISOString();
+		const sourceCorrelation = JSON.parse(request.sourceCorrelationJson) as {
+			routineId?: string;
+		};
+		await db.insert(sessions).values({
+			id: sessionId,
+			taskId: null,
+			requestId: request.id,
+			sourceKind: request.sourceKind,
+			sourceId: request.sourceId,
+			sourceCorrelationJson: request.sourceCorrelationJson,
+			agentId: request.agentId,
+			modelTier: "workhorse",
+			startedAt: now,
+			state: "active",
+			routineId: sourceCorrelation.routineId ?? null,
+		});
+		await db
+			.update(agentSessionRequests)
+			.set({ status: "completed", sessionId, updatedAt: now })
+			.where(eq(agentSessionRequests.id, request.id));
+		return {
+			sessionId,
+			outcome: "completed",
+			totalCostCents: 0,
+			taskId: null,
+			forceReturnCount: 0,
+		};
+	});
+	return {
+		adapterPool: {},
+		workspace: {},
+		sandboxBasePath: "/tmp/hyperidle-au1-routine-runtime",
+	} as Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }

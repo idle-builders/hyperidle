@@ -180,7 +180,7 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC7: POST /api/routines/:id/trigger — manually trigger for testing
 	describe("AC7: POST /api/routines/:id/trigger — manual trigger", () => {
-		test("creates a session and emits event", async ({ db, app, eventBus }) => {
+		test("creates a session request", async ({ db, app, eventBus }) => {
 			await seedBase(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("session_started", (e) => emitted.push(e));
@@ -189,19 +189,18 @@ describe("Routine Endpoints (E6)", () => {
 				method: "POST",
 				headers: authHeaders(),
 			});
-			expect(res.status).toBe(201);
+			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.agentId).toBe("agent-1");
-			expect(body.state).toBe("active");
+			expect(body.fired).toBe(true);
+			expect(typeof body.requestId).toBe("string");
 
-			// Verify session was created in DB
+			// AU1: without full runtime deps, manual trigger records a request but
+			// does not fabricate a direct session.
 			const allSessions = await db.select().from(sessions);
-			expect(allSessions).toHaveLength(1);
+			expect(allSessions).toHaveLength(0);
 
-			// Verify event emitted
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0]!.type).toBe("session_started");
+			expect(emitted).toHaveLength(0);
 		});
 
 		test("updates routine lastRunAt", async ({ db, app }) => {
