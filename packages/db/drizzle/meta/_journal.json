@@ -309,6 +309,13 @@
 			"when": 1785300000000,
 			"tag": "0043_AU1_agent_session_requests",
 			"breakpoints": true
+		},
+		{
+			"idx": 44,
+			"version": "7",
+			"when": 1785400000000,
+			"tag": "0044_AU2_plugin_configuration",
+			"breakpoints": true
 		}
 	]
 }
