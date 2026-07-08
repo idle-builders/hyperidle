@@ -22,7 +22,7 @@
  */
 
 import { BodyEditor, Dialog, ScopePicker } from "@hyperidle/design-system";
-import type { ScopeKind } from "@hyperidle/shared";
+import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 
@@ -66,17 +66,23 @@ export function KnowledgeCreateDialog({
 	 * Default: Shared (→ factory scopeKind).
 	 */
 	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(INITIAL_SCOPE_OPTION);
+	const [scopeId, setScopeId] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const isLocked = lockedScopeKind !== undefined;
 	const effectiveScopeKind: ScopeKind = isLocked ? lockedScopeKind : selectedScope.scopeKind;
+	const needsScopeId = !isLocked && SCOPES_REQUIRING_ID.has(effectiveScopeKind);
 	// Team pill is disabled when the user has no teamId.
 	// @lore AD6: CurrentUser does not yet include teamId — team feature pending.
 	// Until extended, team scope is always disabled in the dialog.
 	const hasTeam: boolean = false;
 	const isDirty = title.trim().length > 0 || body.trim().length > 0;
-	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
+	const canCreate =
+		title.trim().length > 0 &&
+		body.trim().length > 0 &&
+		(!needsScopeId || scopeId.trim().length > 0) &&
+		!submitting;
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedTitle = title.trim();
@@ -97,6 +103,8 @@ export function KnowledgeCreateDialog({
 		// AD6: scopeId auto-resolved; locked scope passes lockedScopeId if set.
 		if (isLocked && lockedScopeId) {
 			payload.scopeId = lockedScopeId;
+		} else if (needsScopeId) {
+			payload.scopeId = scopeId.trim();
 		}
 
 		const res = await apiFetch("/api/knowledge", {
@@ -117,6 +125,7 @@ export function KnowledgeCreateDialog({
 		setTitle("");
 		setBody("");
 		setSelectedScope(INITIAL_SCOPE_OPTION);
+		setScopeId("");
 		onCreated();
 		onClose();
 	};
@@ -198,7 +207,10 @@ export function KnowledgeCreateDialog({
 							value={selectedScope.id}
 							onChange={(id) => {
 								const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
-								if (next) setSelectedScope(next);
+								if (next) {
+									setSelectedScope(next);
+									setScopeId("");
+								}
 							}}
 							ariaLabel="Scope"
 							testIdPrefix="scope-pill-dialog"
@@ -206,6 +218,20 @@ export function KnowledgeCreateDialog({
 						/>
 					)}
 				</div>
+
+				{needsScopeId && (
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
+						<input
+							type="text"
+							className="input input-bordered input-sm text-base w-full"
+							placeholder={`${selectedScope.label} ID`}
+							value={scopeId}
+							onChange={(e) => setScopeId(e.target.value)}
+							disabled={submitting}
+						/>
+					</label>
+				)}
 
 				{error && (
 					<p role="alert" className="text-xs text-error">

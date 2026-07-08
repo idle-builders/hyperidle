@@ -90,7 +90,20 @@ class CapturingAdapter implements HarnessAdapter {
 	}
 }
 
+const TEST_API_KEY = "test-key-al7-tailored-grant";
 const NOW = new Date().toISOString();
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+beforeEach(() => {
+	vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+});
+
+afterEach(() => {
+	vi.unstubAllEnvs();
+});
 
 async function seedCapturedCall(db: HyperIdleDb): Promise<{
 	agentId: string;
@@ -204,7 +217,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
 		});
 		expect(res.status).toBeLessThan(300);
@@ -245,7 +258,7 @@ describe("AC3: approve verdict composes tailored grant + emits proposed_call_gra
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "request-changes", rationale: "not ready" }),
 		});
 		expect(res.status).toBeLessThan(300);
@@ -332,11 +345,12 @@ describe("AC7/AC8: held Proposed Call never executes", () => {
 	test("AC7: reject verdict leaves PC held and no Outcome row", async ({ db, app }) => {
 		const { threadId, reviewMessageId, proposedCallId } = await seedCapturedCall(db);
 
-		await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
+		const res = await app.request(`/api/threads/${threadId}/messages/${reviewMessageId}/verdict`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: authHeaders(),
 			body: JSON.stringify({ decision: "reject", rationale: "not needed" }),
 		});
+		expect(res.status).toBeLessThan(300);
 
 		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, proposedCallId));
 		expect(pcs[0]?.status).toBe("held");

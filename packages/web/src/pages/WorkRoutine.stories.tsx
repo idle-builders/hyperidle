@@ -36,6 +36,7 @@ const MOCK_DETAIL: RoutineDetail = {
 		costCapPerRun: null,
 		costCapMonthly: null,
 		lastRunSummary: null,
+		silent: false,
 	},
 	budget: {
 		avgCostPerRun: null,

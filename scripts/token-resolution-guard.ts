@@ -134,6 +134,8 @@ const EXCLUDED_DIR_PATTERNS: string[] = [
 	".pipeline",
 	"plans",
 	"docs",
+	// Worktrees — symlinks that cause infinite recursion if walked
+	".worktrees",
 	// Test and story directories
 	"__tests__",
 ];

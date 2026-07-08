@@ -26,8 +26,18 @@ const AFFECTED_UNIT =
 
 const FULL_UNIT = "npx vitest run";
 
+/**
+ * @lore harness-release-gate: the affected (per-merge) integration leg runs ONLY the
+ * `service` vitest project. The `harness` project (real installed binary + real LLM,
+ * 30-90s/file, serial) is release-gated — it runs exclusively in full scope
+ * (verify:release), like e2e's full lane. The floors stay honest on both sides:
+ * scope:"affected" with agenticExecuted=0 is exempted (assertAgenticFloor), while
+ * scope:"full" REQUIRES agenticExecuted>0 + per-harness symmetry, and release-guard
+ * demands --require-scope=full on a version bump — so no release ships without the
+ * harness matrix actually executing.
+ */
 const AFFECTED_INTEGRATION =
-	"npx vitest run --config vitest.integration.config.ts --changed=origin/main --passWithNoTests";
+	"npx vitest run --config vitest.integration.config.ts --project service --changed=origin/main --passWithNoTests";
 
 const FULL_INTEGRATION =
 	"npx vitest run --config vitest.integration.config.ts";

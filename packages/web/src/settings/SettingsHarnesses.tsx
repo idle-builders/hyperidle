@@ -1,26 +1,48 @@
 /**
- * SettingsHarnesses — Agent backends section (AM4, Variant C "Dense List").
+ * SettingsHarnesses — Agent backends section (AV2 SplitView rewrite).
  *
- * Fetches GET /api/harnesses on mount (and after re-detect/toggle).
- * Renders a PROVIDERS-labeled section header with a ghost Refresh button,
- * then ONE bordered container with hairline-divided rows — one per descriptor.
+ * AV2: Converted from HarnessCard list to ItemList/Row + SplitView.
+ * - Left pane: ItemList of harness rows (one Row per descriptor)
+ * - Right pane (destination): builtin → SettingsModels tier rows + CredentialsTab;
+ *   non-builtin configurable → auth/capability detail; empty caps+models → no pane
+ * - SplitView ratio persisted via useUiPreference("settings.backends", 0.42)
  *
- * Actionable-first row order: unauthenticated → installed → ready → missing → unavailable.
+ * Row sort order: actionable states first (unauthenticated → installed → ready → missing → unavailable)
  *
- * @lore AM4: descriptors come from the route handler which stamps discovery.disabled
- * (CHANGE 3, Seam 3). The pool is DB-free; the toggle writes POST /:type/disabled and
- * refreshes from the response (the API returns the fresh list with re-stamped disabled).
+ * @lore AV2: SplitView ratio persistence requires container-owned wiring:
+ *   const [ratio, setRatio] = useUiPreference("settings.backends", 0.42)
+ *   then dividerRatio={ratio} onRatioChange={setRatio}
+ * surfaceKey alone is informational only (SplitView.tsx:45 @lore AM5 T6).
+ *
+ * @lore AV2: hasCaps/models check gates split-open on click — a descriptor with
+ * no caps AND no models does not open a destination pane (AC-4 spec).
  */
 
 // hearth-internal-padding
 
-import { Button, EmptyState, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import type { FoldMode } from "@hyperidle/design-system";
+import {
+	Button,
+	EmptyState,
+	ErrorState,
+	ItemList,
+	Row,
+	SkeletonList,
+	SplitView,
+	StatusChip,
+} from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { CredentialsTab } from "../components/CredentialsTab.js";
+import { useUiPreference } from "../hooks/useUiPreference.js";
 import { apiFetch } from "../services/api-fetch.js";
-import { HarnessCard } from "./HarnessCard.js";
+import { hasCaps, statusLine } from "./harness-presentation.js";
+import { SettingsModels } from "./SettingsModels.js";
 
-// Row sort order: actionable states first
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 const STATE_ORDER: Record<string, number> = {
 	unauthenticated: 0,
 	installed: 1,
@@ -39,12 +61,125 @@ function sortDescriptors(
 	});
 }
 
+/** Returns true if a descriptor has meaningful detail to show in the split pane. */
+function hasDetail(d: HarnessCapabilityDescriptor): boolean {
+	return hasCaps(d) || d.models.length > 0 || d.type === "builtin";
+}
+
+/** Map discovery state to StatusChip status. */
+function discoveryStateToStatus(
+	state: string,
+): "healthy" | "behind" | "paused" | "error" | "unknown" {
+	switch (state) {
+		case "ready":
+			return "healthy";
+		case "unauthenticated":
+		case "installed":
+			return "behind";
+		case "missing":
+			return "error";
+		default:
+			return "unknown";
+	}
+}
+
+// ---------------------------------------------------------------------------
+// BuiltinDetail — tiers + credentials in the split pane
+// ---------------------------------------------------------------------------
+
+function BuiltinDetail(): JSX.Element {
+	return (
+		<div className="flex flex-col gap-[18px] p-[18px] overflow-y-auto h-full">
+			<div>
+				<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[12px]">
+					Model Tiers
+				</p>
+				<SettingsModels />
+			</div>
+			<div>
+				<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[12px]">
+					Credentials
+				</p>
+				<CredentialsTab />
+			</div>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// HarnessDetail — generic harness detail for non-builtin
+// ---------------------------------------------------------------------------
+
+interface HarnessDetailProps {
+	descriptor: HarnessCapabilityDescriptor;
+}
+
+function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
+	const d = descriptor;
+	const sl = statusLine(d);
+	const version = d.discovery.version;
+
+	return (
+		<div className="flex flex-col gap-[12px] p-[18px] overflow-y-auto h-full">
+			{/* Header */}
+			<div className="flex items-center gap-[9px]">
+				<p className="text-[15px] font-[600] text-[var(--text-primary)]">{d.name}</p>
+				{version && (
+					<span className="text-[12px] font-mono text-[var(--text-tertiary)]">v{version}</span>
+				)}
+				<StatusChip status={discoveryStateToStatus(d.discovery.state)} label={sl.text} />
+			</div>
+
+			{/* Models list */}
+			{d.models.length > 0 && (
+				<div>
+					<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]">
+						Models
+					</p>
+					<div className="flex flex-col gap-[6px]">
+						{d.models.map((m) => (
+							<div
+								key={m.id}
+								className="flex items-center justify-between text-[13px] text-[var(--text-secondary)] py-[3px]"
+							>
+								<span className="font-mono text-[12px]">{m.id}</span>
+								{m.label && <span className="text-[var(--text-tertiary)]">{m.label}</span>}
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+
+			{/* Auth action — show login command when kind is native_cli_login */}
+			{d.authAction.kind === "native_cli_login" && d.authAction.command && (
+				<div>
+					<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]">
+						Login
+					</p>
+					<code className="text-[12px] font-mono text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[9px] py-[6px] rounded-[var(--r-subtle)] select-all block">
+						{[...d.authAction.command].join(" ")}
+					</code>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// SettingsHarnesses
+// ---------------------------------------------------------------------------
+
 type LoadState = "loading" | "ready" | "error";
 
 export function SettingsHarnesses(): JSX.Element {
 	const [loadState, setLoadState] = useState<LoadState>("loading");
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [redetecting, setRedetecting] = useState(false);
+
+	// SplitView state
+	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
+	const [ratio, setRatio] = useUiPreference("settings.backends", 0.42);
+	const [selectedType, setSelectedType] = useState<string | null>(null);
 
 	// ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -76,28 +211,23 @@ export function SettingsHarnesses(): JSX.Element {
 			setDescriptors(data);
 			setLoadState("ready");
 		} catch {
-			// On error (e.g. 429 rate-limit) we don't overwrite the current list
+			// On error (e.g. 429 rate-limit) don't overwrite the current list
 		} finally {
 			setRedetecting(false);
 		}
 	}, []);
 
-	// ── Toggle ─────────────────────────────────────────────────────────────────
+	// ── Row click ──────────────────────────────────────────────────────────────
 
-	const handleToggle = useCallback(async (type: string, disabled: boolean): Promise<void> => {
-		try {
-			const res = await apiFetch(`/api/harnesses/${encodeURIComponent(type)}/disabled`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ disabled }),
-			});
-			if (!res.ok) return; // silently fail — state is still correct from last load
-			// API returns fresh descriptor list with discovery.disabled re-stamped
-			const data = (await res.json()) as HarnessCapabilityDescriptor[];
-			setDescriptors(data);
-		} catch {
-			// silently fail — re-load to sync state
-		}
+	const handleRowClick = useCallback((descriptor: HarnessCapabilityDescriptor): void => {
+		if (!hasDetail(descriptor)) return;
+		setSelectedType(descriptor.type);
+		setSplitMode("split");
+	}, []);
+
+	const handleClose = useCallback((): void => {
+		setSelectedType(null);
+		setSplitMode("fold-back");
 	}, []);
 
 	// ── Render ─────────────────────────────────────────────────────────────────
@@ -127,40 +257,109 @@ export function SettingsHarnesses(): JSX.Element {
 	}
 
 	const sorted = sortDescriptors(descriptors);
+	const selectedDescriptor = selectedType
+		? (sorted.find((d) => d.type === selectedType) ?? null)
+		: null;
 
 	return (
-		<div className="flex flex-col gap-[12px]">
-			{/* Section header: "PROVIDERS" label · "Checked just now" · Refresh */}
-			<div className="flex items-center justify-between">
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-					Providers
-				</span>
-				<div className="flex items-center gap-[9px]">
-					<span className="text-[12px] text-[var(--text-tertiary)]">Checked just now</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label="Re-detect backends"
-						onClick={() => void handleRedetect()}
-						disabled={redetecting}
-					>
-						{redetecting ? "Detecting…" : "Refresh"}
-					</Button>
-				</div>
-			</div>
-
-			{/* ONE bordered container with hairline-divided rows */}
-			<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
-				{sorted.map((descriptor, index) => (
-					<div key={descriptor.type}>
-						{index > 0 && <div className="h-px bg-[var(--border-subtle)]" />}
-						<HarnessCard
-							descriptor={descriptor}
-							onToggle={(type, disabled) => void handleToggle(type, disabled)}
-						/>
+		<SplitView
+			surfaceKey="settings.backends"
+			dividerRatio={ratio}
+			onRatioChange={setRatio}
+			mode={splitMode}
+			onModeChange={setSplitMode}
+			origin={
+				<div className="flex flex-col gap-[12px] p-[3px]">
+					{/* Section header */}
+					<div className="flex items-center justify-between">
+						<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+							Providers
+						</span>
+						<div className="flex items-center gap-[9px]">
+							<span className="text-[12px] text-[var(--text-tertiary)]">Checked just now</span>
+							<Button
+								variant="ghost"
+								size="sm"
+								aria-label="Re-detect backends"
+								onClick={() => void handleRedetect()}
+								disabled={redetecting}
+							>
+								{redetecting ? "Detecting…" : "Refresh"}
+							</Button>
+						</div>
 					</div>
-				))}
-			</div>
-		</div>
+
+					{/* Backend rows */}
+					<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+						<ItemList as="ul" isEmpty={sorted.length === 0} variant="flush">
+							{sorted.map((descriptor) => {
+								const sl = statusLine(descriptor);
+								const clickable = hasDetail(descriptor);
+								const dotColor =
+									sl.tone === "healthy"
+										? "var(--status-success)"
+										: sl.tone === "behind"
+											? "var(--status-warning)"
+											: sl.tone === "error" || sl.tone === "blocked"
+												? "var(--status-error)"
+												: "var(--status-info)";
+								const titleNode = (
+									<span className="flex items-center gap-[6px]">
+										<span className="text-[14px] font-[600] text-[var(--text-primary)]">
+											{descriptor.name}
+										</span>
+										{descriptor.discovery.version && (
+											<span className="text-[12px] font-mono text-[var(--text-tertiary)]">
+												v{descriptor.discovery.version}
+											</span>
+										)}
+									</span>
+								);
+								return (
+									<Row
+										key={descriptor.type}
+										as="li"
+										title={titleNode}
+										subtitle={sl.text}
+										lead={
+											<span
+												className="inline-block rounded-full"
+												style={{ width: 6, height: 6, backgroundColor: dotColor }}
+												aria-hidden="true"
+											/>
+										}
+										selected={selectedType === descriptor.type}
+										onClick={clickable ? () => handleRowClick(descriptor) : undefined}
+									/>
+								);
+							})}
+						</ItemList>
+					</div>
+				</div>
+			}
+			destination={
+				selectedDescriptor ? (
+					<div className="flex flex-col h-full">
+						<div className="flex items-center justify-between px-[18px] py-[12px] border-b border-[var(--border-subtle)]">
+							<p className="text-[13px] font-[600] text-[var(--text-primary)]">
+								{selectedDescriptor.name}
+							</p>
+							<Button variant="ghost" size="sm" aria-label="Close detail" onClick={handleClose}>
+								✕
+							</Button>
+						</div>
+						<div className="flex-1 min-h-0 overflow-y-auto">
+							{selectedDescriptor.type === "builtin" ? (
+								<BuiltinDetail />
+							) : (
+								<HarnessDetail descriptor={selectedDescriptor} />
+							)}
+						</div>
+					</div>
+				) : (
+					<></>
+				)
+			}
+		/>
 	);
 }

@@ -151,6 +151,7 @@ describe("git-export routes", () => {
 				fetch: async () => {},
 				checkout: async () => {},
 				restoreStaged: async () => {},
+				currentBranch: async () => null,
 			};
 			const stubFs: FsAdapter = {
 				existsSync: () => true,

@@ -31,6 +31,7 @@ import {
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
 } from "../services/filesystem-reachability.js";
+import { inspectLocalPath } from "../services/inspect-local-path.js";
 import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
@@ -215,6 +216,22 @@ export function createFilesystemRoutes(
 			// @lore AO1 v2: probe on register so the caller gets the real initial state.
 			const probed = await checkAndPersistState(db, inserted, authResolver);
 			return c.json(rowToFilesystem(probed), 201);
+		},
+	);
+
+	// ── POST /api/filesystems/inspect-path — Probe a local path before register ─
+	// Separate route justified by codeRefSchema.branch.min(1): the caller must know
+	// the branch BEFORE registering a `code` fs. Folding into POST / would require
+	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
+	router.post(
+		"/inspect-path",
+		requireBoundary({ kind: "public-data" }),
+		createBodyLimit(FILESYSTEM_BODY_LIMIT),
+		validateBody(z.object({ path: z.string().min(1) })),
+		async (c) => {
+			const { path } = c.req.valid("json");
+			const info = await inspectLocalPath(path);
+			return c.json(info, 200);
 		},
 	);
 

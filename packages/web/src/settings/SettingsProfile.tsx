@@ -15,6 +15,28 @@ import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 
+/**
+ * AV2: backend-aware email hint.
+ * local / no-bridge → "Used for notifications." (no login)
+ * shared / web → "Used for notifications and login."
+ *
+ * @lore AV2: The email hint text is only relevant as a login identifier in
+ * shared/web mode (where the backend authenticates users by email). In local
+ * mode (single-user Electron), email is for notifications only — there is no
+ * login gate to explain.
+ */
+function resolveEmailHint(): string {
+	if (typeof window === "undefined" || window.__HYPERIDLE__ === undefined) {
+		// Web mode (no bridge) — email is used for login
+		return "Used for notifications and login.";
+	}
+	if (window.__HYPERIDLE__.backendMode === "shared") {
+		return "Used for notifications and login.";
+	}
+	// local mode — no login
+	return "Used for notifications.";
+}
+
 export function SettingsProfile(): JSX.Element {
 	const { user, status } = useCurrentUser();
 	const { showToast } = useToast();
@@ -96,7 +118,7 @@ export function SettingsProfile(): JSX.Element {
 				type="email"
 				value={email}
 				onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-				hint="Used for notifications and login."
+				hint={resolveEmailHint()}
 				aria-label="Email"
 			/>
 

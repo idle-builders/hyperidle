@@ -1,3 +1,6 @@
+// ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
+export { scopeKindToLabel } from "./scope-labels.js";
+
 // ── AK3: Bet decomposition types + constants ──
 
 // ── AB1: Agent profile wire types ──
@@ -21,6 +24,7 @@ export {
 	communityForRole,
 	defaultRoster,
 	findRoleCatalogEntry,
+	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
@@ -237,6 +241,8 @@ export {
 	// AL6 v2: forcing constants + helper
 	AL6_FORCE_RETURN_MESSAGE,
 	AL6_MAX_FORCE_RETURNS,
+	// AV1: derive PrimaryHarnessConfig from a HarnessCapabilityDescriptor
+	derivePrimaryHarness,
 	HARNESS_OPTION_CONTROL_KINDS,
 	isHarnessEvent,
 	isInternalExtractionDrain,

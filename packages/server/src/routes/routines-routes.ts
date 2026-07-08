@@ -452,6 +452,8 @@ export function createRoutineRoutes(
 					? { minor: routine.costCapMonthlyMinor, currency: "USD" as CurrencyCode }
 					: null,
 			lastRunSummary: routine.lastRunSummary ?? null,
+			// AV4: silent flag — defaults false for pre-AV4 routines missing the column
+			silent: routine.silent ?? false,
 		};
 
 		const detail: RoutineDetail = {

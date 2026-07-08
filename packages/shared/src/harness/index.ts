@@ -1,3 +1,4 @@
+export { derivePrimaryHarness } from "./derive-primary-harness.js";
 export type {
 	ConversationMessage,
 	HarnessAdapter,

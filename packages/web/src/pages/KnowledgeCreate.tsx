@@ -26,7 +26,7 @@ import {
 	pageTitleClassName,
 	ScopePicker,
 } from "@hyperidle/design-system";
-import type { ScopeKind } from "@hyperidle/shared";
+import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -38,6 +38,7 @@ interface CreateKnowledgePayload {
 	body: string;
 	format: string;
 	scopeKind: ScopeKind;
+	scopeId?: string;
 	updatedBy: string;
 	/** AF13 §1: human-authored items are created as active immediately. */
 	status: "active";
@@ -64,6 +65,7 @@ export function KnowledgeCreate(): JSX.Element {
 		scopeKind: "factory",
 	};
 	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(defaultScope);
+	const [scopeId, setScopeId] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +75,12 @@ export function KnowledgeCreate(): JSX.Element {
 	// pill becomes available as soon as the user joins a team.
 	const hasTeam: boolean = user?.teamId !== undefined;
 
-	const canCreate = title.trim().length > 0 && body.trim().length > 0 && !submitting;
+	const needsScopeId = SCOPES_REQUIRING_ID.has(selectedScope.scopeKind);
+	const canCreate =
+		title.trim().length > 0 &&
+		body.trim().length > 0 &&
+		(!needsScopeId || scopeId.trim().length > 0) &&
+		!submitting;
 
 	const handleCreate = async (): Promise<void> => {
 		const trimmedTitle = title.trim();
@@ -93,6 +100,9 @@ export function KnowledgeCreate(): JSX.Element {
 			// The server honors the requested status; agents omit status and get "draft".
 			status: "active",
 		};
+		if (needsScopeId) {
+			payload.scopeId = scopeId.trim();
+		}
 
 		const res = await apiFetch("/api/knowledge", {
 			method: "POST",
@@ -218,13 +228,31 @@ export function KnowledgeCreate(): JSX.Element {
 									value={selectedScope.id}
 									onChange={(id) => {
 										const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
-										if (next) setSelectedScope(next);
+										if (next) {
+											setSelectedScope(next);
+											setScopeId("");
+										}
 									}}
 									ariaLabel="Scope"
 									testIdPrefix="scope-pill-create"
 									disabledTitle="Join a team to use team-scoped knowledge"
 								/>
 							</div>
+							{needsScopeId && (
+								<label className="flex flex-col gap-[6px]">
+									<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+										Scope ID
+									</span>
+									<input
+										type="text"
+										className="input input-bordered input-sm text-base w-full"
+										placeholder={`${selectedScope.label} ID`}
+										value={scopeId}
+										onChange={(e) => setScopeId(e.target.value)}
+										disabled={submitting}
+									/>
+								</label>
+							)}
 						</div>
 					</aside>
 				</div>

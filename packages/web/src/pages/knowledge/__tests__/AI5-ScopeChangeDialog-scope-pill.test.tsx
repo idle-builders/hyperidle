@@ -36,11 +36,13 @@ describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders 3 scope pills with the scope-pill-change prefix", () => {
+	it("renders scope pills with the scope-pill-change prefix", () => {
 		render(<ScopeChangeDialog {...BASE_PROPS} />);
 		expect(screen.getByTestId("scope-pill-change-shared")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-team")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-private")).toBeInTheDocument();
+		expect(screen.getByTestId("scope-pill-change-role")).toBeInTheDocument();
+		expect(screen.getByTestId("scope-pill-change-filesystem")).toBeInTheDocument();
 	});
 
 	it("does not render a Select combobox (replaced by the pill group)", () => {

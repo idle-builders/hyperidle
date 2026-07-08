@@ -30,6 +30,8 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 	bet: null,
 	team: null,
 	user: null,
+	// @lore AV3 A2: filesystem scope does not participate in the fabric maturity flow.
+	filesystem: null,
 };
 
 export function scopeToLayer(scopeKind: ScopeKind): KnowledgeLayer | null {

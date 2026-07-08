@@ -82,16 +82,16 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 123,
+    "line": 125,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
-    "importerCount": 2,
+    "importerCount": 3,
     "triageHint": "borderline"
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 179,
+    "line": 203,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -100,7 +100,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 185,
+    "line": 209,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

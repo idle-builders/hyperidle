@@ -157,6 +157,75 @@ describe("write_memory tool", () => {
 			expect(row?.format).toBeDefined();
 			expect(row?.status).toBeDefined();
 		});
+
+		test("accepts explicit practice scope with role id", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L3",
+					kind: "pattern",
+					title: "Role memory",
+					body: "Product managers should keep specs small.",
+					scopeKind: "practice",
+					scopeId: "product_manager",
+				},
+				makeContext(db),
+			);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as { knowledgeItemId: string };
+			const [row] = await db
+				.select({ scopeKind: knowledgeItems.scopeKind, scopeId: knowledgeItems.scopeId })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, data.knowledgeItemId));
+			expect(row?.scopeKind).toBe("practice");
+			expect(row?.scopeId).toBe("product_manager");
+		});
+
+		test("accepts explicit filesystem scope", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L2",
+					kind: "decision",
+					title: "Repo memory",
+					body: "This decision belongs to the repo.",
+					scopeKind: "filesystem",
+					scopeId: "fs-main",
+				},
+				makeContext(db),
+			);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as { knowledgeItemId: string };
+			const [row] = await db
+				.select({ scopeKind: knowledgeItems.scopeKind, scopeId: knowledgeItems.scopeId })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, data.knowledgeItemId));
+			expect(row?.scopeKind).toBe("filesystem");
+			expect(row?.scopeId).toBe("fs-main");
+		});
+
+		test("rejects explicit scoped writes without required scopeId", async ({ db }) => {
+			await setupFts(db);
+			await seedFacilitator(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L3",
+					kind: "pattern",
+					title: "Missing role id",
+					body: "No role id.",
+					scopeKind: "practice",
+				},
+				makeContext(db),
+			);
+			expect(result.success).toBe(false);
+			if (result.success) return;
+			expect(result.code).toBe("INVALID_INPUT");
+			expect(result.error).toContain("scopeId is required");
+		});
 	});
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {

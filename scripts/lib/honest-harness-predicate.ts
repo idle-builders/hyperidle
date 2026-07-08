@@ -64,8 +64,15 @@ export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
  * @lore builtin-only-integration-history: Previously contained assistant-turn files (the assistant-turn path was builtin-only
  * before conversational mode). Removed when the 4-lane reply-row test (conversational-reply-row)
  * went green on all 4 harnesses, proving the shared path works end-to-end.
+ *
+ * @lore AV1: AV1-assistant-ready is registered here because `runAssistantTurn` is
+ * structurally builtin-only (no sandbox cwd, no .mcp.json bridge). The test proves the
+ * onboarding assistant stub opens READY (no missing_key/missing_harness notice) via the
+ * real builtin path — it cannot use CLI harnesses regardless of test configuration.
  */
-export const BUILTIN_ONLY_INTEGRATION: readonly string[] = [];
+export const BUILTIN_ONLY_INTEGRATION: readonly string[] = [
+	"__tests__/AV1-assistant-ready.integration.test.ts",
+];
 
 /** Harness-dir integration suffix: `…/harness/__tests__/<anything>.integration.test.ts`. */
 const HARNESS_DIR_INTEGRATION = /\/harness\/__tests__\/[^/]*\.integration\.test\.ts$/;

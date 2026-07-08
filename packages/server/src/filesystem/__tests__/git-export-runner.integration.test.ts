@@ -141,3 +141,47 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 		expect(fs.existsSync(worktreePath)).toBe(false);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// AV1 W2 — createGitRunner().currentBranch() direct unit coverage
+// ---------------------------------------------------------------------------
+
+describe("GitRunner.currentBranch() — committed → branch string; no-commit → null", () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "av1-current-branch-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	it("repo with commits: currentBranch() returns the branch name", async () => {
+		// Init + commit → rev-parse --abbrev-ref HEAD returns the branch name
+		const repoDir = path.join(tmpDir, "committed-repo");
+		fs.mkdirSync(repoDir);
+		const runner = createGitRunner(repoDir);
+		await runner.init("main");
+		fs.writeFileSync(path.join(repoDir, "README.md"), "hello\n");
+		await runner.add([]);
+		await runner.commit("initial commit", "test-bot", "bot@example.com");
+
+		const branch = await runner.currentBranch();
+
+		expect(branch).toBe("main");
+	});
+
+	it("repo with no commits: currentBranch() returns null (empty branch → degrade to doc_set)", async () => {
+		// Init WITHOUT any commit → rev-parse exits non-zero → null
+		const repoDir = path.join(tmpDir, "empty-repo");
+		fs.mkdirSync(repoDir);
+		const runner = createGitRunner(repoDir);
+		await runner.init("main");
+		// No commit — HEAD does not exist yet
+
+		const branch = await runner.currentBranch();
+
+		expect(branch).toBeNull();
+	});
+});
