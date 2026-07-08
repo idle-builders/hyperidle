@@ -1,6 +1,8 @@
+import type { ConfigurationKind, PluginState } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
+	check,
 	index,
 	integer,
 	pgTable,
@@ -1066,6 +1068,79 @@ export const serverConfig = pgTable("server_config", {
 	updatedAt: text("updated_at").notNull(),
 });
 
+// --- AU2: Plugin-seeded editable configuration ---
+
+export const plugins = pgTable(
+	"plugins",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		version: text("version").notNull(),
+		state: text("state").$type<PluginState>().notNull(),
+		installedAt: text("installed_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+		disabledAt: text("disabled_at"),
+		removedAt: text("removed_at"),
+	},
+	(table) => [check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`)],
+);
+
+export const pluginConfigurationDefaults = pgTable(
+	"plugin_configuration_defaults",
+	{
+		id: text("id").primaryKey(),
+		pluginId: text("plugin_id")
+			.notNull()
+			.references(() => plugins.id, { onDelete: "restrict" }),
+		kind: text("kind").$type<ConfigurationKind>().notNull(),
+		key: text("key").notNull(),
+		defaultValueJson: text("default_value_json").notNull(),
+		defaultVersionHash: text("default_version_hash").notNull(),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("plugin_config_defaults_plugin_kind_key_uq").on(
+			table.pluginId,
+			table.kind,
+			table.key,
+		),
+		index("plugin_config_defaults_kind_key_idx").on(table.kind, table.key),
+		check(
+			"plugin_configuration_defaults_kind_ck",
+			sql`${table.kind} IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor')`,
+		),
+	],
+);
+
+export const configurationOverrides = pgTable(
+	"configuration_overrides",
+	{
+		id: text("id").primaryKey(),
+		defaultId: text("default_id").references(() => pluginConfigurationDefaults.id, {
+			onDelete: "set null",
+		}),
+		kind: text("kind").$type<ConfigurationKind>().notNull(),
+		key: text("key").notNull(),
+		userValueJson: text("user_value_json").notNull(),
+		state: text("state").$type<"active" | "deleted">().notNull(),
+		createdByUserId: text("created_by_user_id").references(() => users.id, {
+			onDelete: "set null",
+		}),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("configuration_overrides_kind_key_uq").on(table.kind, table.key),
+		index("configuration_overrides_default_id_idx").on(table.defaultId),
+		check(
+			"configuration_overrides_kind_ck",
+			sql`${table.kind} IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor')`,
+		),
+		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
+	],
+);
+
 // --- P5: First-time hint progress ---
 
 /**
@@ -1329,6 +1404,15 @@ export type NewServerCredential = typeof serverCredentials.$inferInsert;
 
 export type ServerConfigRow = typeof serverConfig.$inferSelect;
 export type NewServerConfigRow = typeof serverConfig.$inferInsert;
+
+export type PluginRow = typeof plugins.$inferSelect;
+export type NewPluginRow = typeof plugins.$inferInsert;
+
+export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
+export type NewPluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferInsert;
+
+export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
+export type NewConfigurationOverrideRow = typeof configurationOverrides.$inferInsert;
 
 export type HintProgressRow = typeof hintProgress.$inferSelect;
 export type NewHintProgressRow = typeof hintProgress.$inferInsert;

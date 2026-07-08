@@ -64,6 +64,21 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+export type {
+	ConfigurationKind,
+	ConfigurationOrigin,
+	ConfigurationOriginType,
+	ConfigurationValueSource,
+	PluginState,
+	ResolvedConfigurationItem,
+} from "./configuration.js";
+export {
+	BUILTIN_PLUGIN_ID,
+	CONFIGURATION_KINDS,
+	isConfigurationKind,
+	isPluginState,
+	PLUGIN_STATES,
+} from "./configuration.js";
 // ── AN1: ServiceConnection types ──
 export type {
 	ConnectionAuthSource,

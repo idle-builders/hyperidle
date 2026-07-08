@@ -39,6 +39,7 @@ import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { resolveModelTier } from "./services/model-gateway.js";
+import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
 import { setActiveStrategy } from "./services/strategy-registry.js";
@@ -255,6 +256,11 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// Seeds anthropic_api_key from env if the DB slot is absent.
 	// No-op when already migrated. Non-fatal: migration skips if no root secret.
 	await migrateCredentialsToStore(db);
+	// AU2: Project existing first-party behavior into the editable configuration
+	// model on production boot. This keeps registered tools, builtin harness
+	// metadata, and legacy rows queryable through the new resolver without moving
+	// runtime ownership away from existing services.
+	await projectProductionConfigurationDefaults(db);
 	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
 	// path so the dispatcher wire can run against a stub pool (no real LLM).
 	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());

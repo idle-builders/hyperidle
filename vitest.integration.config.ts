@@ -31,6 +31,9 @@ const HARNESS_INCLUDE = [
 	// converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
 	"packages/server/src/__tests__/minimal-strategy-session.integration.test.ts",
 	"packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts",
+	// Builtin-only real harness path. It still requires OPENROUTER_API_KEY, so it
+	// belongs in the release-gated harness project, not affected service verify.
+	"packages/server/src/__tests__/AV1-assistant-ready.integration.test.ts",
 ];
 
 export default defineConfig({
