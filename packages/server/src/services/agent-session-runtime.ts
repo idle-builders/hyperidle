@@ -1,17 +1,14 @@
-import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 	ConcurrencyLimitError,
 	CostCapExceededError,
-	type EventBus,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import {
 	type ClaimRequestOptions,
 	claimAgentSessionRequestById,
-	claimNextAgentSessionRequest,
 	markRequestRunning,
 	markRequestTerminal,
 	releaseRequestClaim,
@@ -39,11 +36,6 @@ export interface ConsumeAgentSessionRequestOptions {
 	readonly enforceResolvedModelGuard?: boolean;
 }
 
-export interface ConsumeNextAgentSessionRequestDeps extends ProvisionSessionDeps {
-	readonly db: HyperIdleDb;
-	readonly eventBus: EventBus;
-}
-
 function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorrelation {
 	const parsed = JSON.parse(request.sourceCorrelationJson) as AgentSessionSourceCorrelation;
 	agentSessionRequestInputSchema.parse({
@@ -60,18 +52,6 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 		sourceCorrelation: parsed,
 	});
 	return parsed;
-}
-
-export async function loadAgentSessionRequest(
-	db: HyperIdleDb,
-	requestId: string,
-): Promise<AgentSessionRequest | null> {
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.id, requestId))
-		.limit(1);
-	return request ?? null;
 }
 
 async function ensureClaimedRequest(
@@ -188,15 +168,4 @@ export async function consumeAgentSessionRequest(
 		},
 	};
 	return runClaimedRequest(deps, claimedRequest, provisionParams, options);
-}
-
-export async function claimAndConsumeNextAgentSessionRequest(
-	deps: ConsumeNextAgentSessionRequestDeps,
-	workerId: string,
-	claimOptions: ClaimRequestOptions,
-	consumeOptions: ConsumeAgentSessionRequestOptions,
-): Promise<ProvisionSessionResult | null> {
-	const request = await claimNextAgentSessionRequest(deps.db, workerId, claimOptions);
-	if (!request) return null;
-	return consumeAgentSessionRequest(deps, request, consumeOptions);
 }
