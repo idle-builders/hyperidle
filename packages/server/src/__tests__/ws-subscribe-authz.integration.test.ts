@@ -9,7 +9,7 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
-import { threads as threadsTable } from "@hyperidle/db";
+import { sessions, threads as threadsTable, users } from "@hyperidle/db";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import {
@@ -159,6 +159,83 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		broadcaster.addClient(client, "agent-1");
 
 		expect(await broadcaster.subscribe(client, "evil:thr-1")).toBe("forbidden");
+
+		broadcaster.stop();
+	});
+
+	test("task-free assistant session topic is limited to thread participants", async ({
+		db,
+		eventBus,
+	}) => {
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		broadcaster.start();
+
+		const now = new Date().toISOString();
+		await db.insert(users).values([
+			{
+				id: "u-founder",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "u-outsider",
+				kind: "human",
+				name: "Outsider",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "ast-u-founder",
+				kind: "ai",
+				name: "Assistant",
+				role: "assistant",
+				status: "active",
+				createdAt: now,
+			},
+		]);
+		await db.insert(threadsTable).values({
+			id: "thr-assistant",
+			hostKind: "assistant",
+			hostId: "u-founder",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "ast-u-founder"]),
+			pinned: false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await db.insert(sessions).values({
+			id: "session-task-free-assistant",
+			taskId: null,
+			requestId: "request-assistant",
+			sourceKind: "assistant",
+			sourceId: "msg-1",
+			sourceCorrelationJson: JSON.stringify({
+				threadId: "thr-assistant",
+				messageId: "msg-1",
+				userId: "u-founder",
+				assistantAgentId: "ast-u-founder",
+			}),
+			agentId: "ast-u-founder",
+			modelTier: "workhorse",
+			startedAt: now,
+			state: "active",
+		});
+
+		const participant = createMockClient();
+		const outsider = createMockClient();
+		broadcaster.addClient(participant, "u-founder");
+		broadcaster.addClient(outsider, "u-outsider");
+
+		expect(await broadcaster.subscribe(participant, "session:session-task-free-assistant")).toBe(
+			"ok",
+		);
+		expect(await broadcaster.subscribe(outsider, "session:session-task-free-assistant")).toBe(
+			"forbidden",
+		);
 
 		broadcaster.stop();
 	});

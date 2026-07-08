@@ -1,3 +1,4 @@
+import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
@@ -35,7 +36,11 @@ export interface SessionStartedEvent {
 	streamId: string;
 	sessionId: string;
 	agentId: string;
-	taskId: string;
+	taskId: string | null;
+	requestId?: string;
+	sourceKind?: AgentSessionSourceKind;
+	sourceId?: string;
+	sourceCorrelation?: AgentSessionSourceCorrelation;
 	timestamp: number;
 }
 
@@ -52,7 +57,11 @@ export interface SessionEndedEvent {
 	streamId: string;
 	sessionId: string;
 	agentId: string;
-	taskId: string;
+	taskId: string | null;
+	requestId?: string;
+	sourceKind?: AgentSessionSourceKind;
+	sourceId?: string;
+	sourceCorrelation?: AgentSessionSourceCorrelation;
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
@@ -74,7 +83,11 @@ export interface SessionNotReturnedEvent {
 	readonly streamId: string;
 	readonly sessionId: string;
 	readonly agentId: string;
-	readonly taskId: string;
+	readonly taskId: string | null;
+	readonly requestId?: string;
+	readonly sourceKind?: AgentSessionSourceKind;
+	readonly sourceId?: string;
+	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
 	readonly timestamp: number;
 }
 

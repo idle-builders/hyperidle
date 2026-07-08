@@ -3,12 +3,12 @@
   "title": "Event-driven session requests between collaboration domains and the agent runtime",
   "track": "AU",
   "complexity": "L",
-  "status": "awaiting-human-concept-review",
-  "currentStep": "human_concept_review",
+  "status": "in_progress",
+  "currentStep": "ship",
   "branch": "feat/AU1-human-concept-review",
   "worktree": ".worktrees/AU1-human-concept-review",
   "startedAt": "2026-07-08T09:26:22+02:00",
-  "updatedAt": "2026-07-08T09:35:54+02:00",
+  "updatedAt": "2026-07-08T16:26:00+02:00",
   "artifacts": {
     "requirements": "plans/AU1/requirements.md",
     "architecture": "plans/AU1/architecture.md",
@@ -25,7 +25,94 @@
   },
   "humanConceptReview": {
     "required": true,
-    "reason": "User override after architecture despite TRACK-AU saying no review."
+    "reason": "User override after architecture despite TRACK-AU saying no review.",
+    "approvedAt": "2026-07-08T14:02:29+02:00",
+    "approvalSource": "maintainer chat approval: concept sounds good, continue AU1"
   },
-  "note": "Refine requirements and architecture plan complete only; no implementation. Parked until human concept review approves requirements and architecture. Remaining architecture warning for implementation: split domain input type from persisted AgentSessionRequest row/runtime lifecycle fields."
+  "builderFixPass": {
+    "status": "complete",
+    "summary": "Fixed reviewer NOT DONE gaps for AU1 request/runtime boundary: sessions persist request/source correlation, lifecycle events carry correlation, local runtime consumer claims/consumes requests, task dispatch/assistant/routine/decomposition paths enter through request rows, and stale package-lock metadata churn was removed.",
+    "validation": [
+      "npm run check",
+      "npm run lint",
+      "npm run test -- packages/server/src/__tests__/bet-decomposition.test.ts packages/shared/src/__tests__/session-request-contract.test.ts packages/server/src/services/__tests__/agent-session-requests.test.ts packages/server/src/services/__tests__/agent-session-runtime.test.ts packages/server/src/__tests__/domain-request-boundary.test.ts",
+      "npm run test:integration -- packages/db/src/__tests__/session-requests.integration.test.ts",
+      "npm run test:integration -- packages/server/src/__tests__/AD2-task-dispatcher.integration.test.ts --testTimeout=15000",
+      "npm run test:integration -- packages/server/src/routes/__tests__/routines.routes.integration.test.ts --testTimeout=15000",
+      "npm run test:integration -- packages/server/src/__tests__/bet-decomposition-service.integration.test.ts --testTimeout=15000",
+      "npm run test"
+    ],
+    "knownValidationNote": "packages/server/src/__tests__/session-provisioning.integration.test.ts under vitest.integration.config.ts produced no test output after 120s and was stopped; session-provisioning.test.ts passed under npm run test, and full npm run test passed."
+  },
+  "builderFixPass2": {
+    "status": "complete",
+    "summary": "Fixed second review pass findings only: runtime consumption now claims pending requests and marks running after admission but before runSession; transient capacity/budget admission errors release the claim for dispatcher retry; task dispatcher uses the registered validated request creator instead of direct table inserts; scheduled routines create task-free routine requests with routineRunId correlation; decomposition no longer imports/selects AdapterPool or starts HarnessAdapter directly and terminalizes bets after request runtime consumption/unsupported runtime; WS session subscribe auth scopes task-free sessions by thread/user/team correlation; createAgentSessionRequest handles unique conflicts by returning the existing row; session-provisioning duplicate nested taskId guard removed.",
+    "knowledgeBoundary": "Superseded by builderFixPass3: knowledge flag-for-review can now create a sourceKind=knowledge request without direct provisioning; raw knowledge_updated events still do not silently start sessions.",
+    "validation": [
+      "npm run test -- packages/server/src/services/__tests__/agent-session-requests.test.ts packages/server/src/services/__tests__/agent-session-runtime.test.ts packages/server/src/__tests__/domain-request-boundary.test.ts packages/server/src/__tests__/bet-decomposition.test.ts packages/shared/src/__tests__/session-request-contract.test.ts",
+      "npm run test:integration -- packages/server/src/__tests__/AD2-task-dispatcher.integration.test.ts packages/server/src/routes/__tests__/routines.routes.integration.test.ts packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts --testTimeout=20000",
+      "npm run test:integration -- packages/server/src/__tests__/AD5-routine-scheduler-boot.integration.test.ts --testTimeout=20000",
+      "npm run test:integration -- packages/db/src/__tests__/session-requests.integration.test.ts packages/server/src/__tests__/bet-decomposition-service.integration.test.ts packages/server/src/__tests__/AD5-routine-scheduler-boot.integration.test.ts --testTimeout=20000",
+      "npm run check",
+      "npm run lint",
+      "npm run test -- packages/server/src/__tests__/AR4b-formation-seam.test.ts",
+      "npm run test"
+    ],
+    "knownValidationNote": "npm run test passes with pre-existing noisy React act/localStorage/SettingsOrgChart stderr output; no failing tests."
+  },
+  "builderFixPass3": {
+    "status": "complete",
+    "summary": "Fixed review pass 3 blockers only: public task-backed POST /api/sessions now creates an AgentSessionRequest and consumes it through the claim-before-run runtime path; knowledge flag-for-review can create a sourceKind=knowledge request without direct provisioning; lifecycle optionality needed no change.",
+    "validation": [
+      "npm run check",
+      "npm run lint",
+      "npm run test -- packages/server/src/__tests__/domain-request-boundary.test.ts packages/server/src/services/__tests__/agent-session-runtime.test.ts packages/server/src/services/__tests__/agent-session-requests.test.ts packages/shared/src/__tests__/session-request-contract.test.ts",
+      "npm run test:integration -- packages/db/src/__tests__/session-requests.integration.test.ts packages/server/src/__tests__/R1-wire-agent-execution.integration.test.ts packages/server/src/routes/__tests__/knowledge.q2.integration.test.ts --testTimeout=20000",
+      "npm run test -- packages/server/src/__tests__/bet-decomposition.test.ts packages/server/src/__tests__/AR4b-formation-seam.test.ts && npm run test:integration -- packages/server/src/__tests__/AD2-task-dispatcher.integration.test.ts packages/server/src/__tests__/AD5-routine-scheduler-boot.integration.test.ts packages/server/src/routes/__tests__/routines.routes.integration.test.ts packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts --testTimeout=20000",
+      "npm run test"
+    ]
+  },
+  "builderFixPass4": {
+    "status": "complete",
+    "summary": "Fixed final review blockers only: routine HTTP create and create_routine tool no longer fabricate or return stub tasks; docs/schema lore now describe AU1 task-optional sessions and source correlation; routine/tool tests assert task-free routine creation.",
+    "validation": [
+      "npm run check",
+      "npm run lint",
+      "npm run test -- packages/server/src/services/__tests__/agent-session-requests.test.ts packages/server/src/services/__tests__/agent-session-runtime.test.ts packages/server/src/__tests__/domain-request-boundary.test.ts packages/server/src/__tests__/bet-decomposition.test.ts packages/shared/src/__tests__/session-request-contract.test.ts",
+      "npm run test:integration -- packages/server/src/tools/__tests__/create-routine.integration.test.ts packages/server/src/__tests__/routines-aa2.integration.test.ts packages/server/src/routes/__tests__/routines.routes.integration.test.ts --testTimeout=20000",
+      "npm run test:integration -- packages/server/src/__tests__/AD5-routine-scheduler-boot.integration.test.ts --testTimeout=20000"
+    ],
+    "knownValidationNote": "npm run lint exits 0 with existing Biome warning/info baseline."
+  },
+  "builderFixPass5": {
+    "status": "complete",
+    "summary": "Fixed final remaining review findings only: decomposition runtime success now preserves writeback semantics by marking done when the request runtime creates bet tasks, completed empty runtime stays blocked/empty, create_task can write proposed tasks from decomposition request context without a parent task, and stale comments about stub task/session NOT NULL/generic routine disabled/direct runRealPmTurn paths were removed or updated.",
+    "validation": [
+      "npm run check",
+      "npm run lint",
+      "npm run test -- packages/server/src/__tests__/bet-decomposition.test.ts packages/server/src/tools/__tests__/create-task.integration.test.ts",
+      "npm run test -- packages/server/src/__tests__/domain-request-boundary.test.ts packages/server/src/services/__tests__/agent-session-requests.test.ts packages/server/src/services/__tests__/agent-session-runtime.test.ts packages/shared/src/__tests__/session-request-contract.test.ts packages/server/src/__tests__/bet-decomposition.test.ts packages/server/src/tools/__tests__/AK4-assistant-draft-registry.test.ts packages/server/src/tools/__tests__/create-task.integration.test.ts",
+      "npm run test:integration -- packages/server/src/tools/__tests__/create-task.integration.test.ts --testTimeout=20000",
+      "npm run test:integration -- packages/server/src/__tests__/bet-decomposition-service.integration.test.ts --testTimeout=20000",
+      "npm run test:integration -- packages/db/src/__tests__/session-requests.integration.test.ts packages/server/src/__tests__/AD2-task-dispatcher.integration.test.ts packages/server/src/__tests__/AD5-routine-scheduler-boot.integration.test.ts packages/server/src/routes/__tests__/routines.routes.integration.test.ts packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts --testTimeout=20000",
+      "npm run test"
+    ],
+    "knownValidationNote": "Touched live-harness comment-only tests were attempted with npm run test:integration -- packages/server/src/harness/__tests__/conversational-reply-row.integration.test.ts packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts --testTimeout=120000; both failed at requireHarness because builtin is not configured (OPENROUTER_API_KEY absent). npm run test passes with existing noisy React act/localStorage/SettingsOrgChart stderr output."
+  },
+  "finalDocCommentFix": {
+    "status": "complete",
+    "summary": "Updated final stale AU1 doc/comment blockers only: bet decomposition docs now describe decomposition AgentSessionRequest/runtime consumption/create_task proposed-task writeback, and assistant/task-dispatch/session-route comments no longer imply stub tasks or direct provisionSession paths.",
+    "validation": [
+      "npm run check",
+      "npm run lint",
+      "rg -n \"Kernel runs the PM turn|provisionSession|stub\" docs/process-layer/bets-shape-commit-change-ship.md packages/server/src/services/assistant-turn.ts packages/fabric/src/services/task-dispatcher.ts packages/server/src/routes/sessions-routes.ts"
+    ],
+    "toolContextTaskIdNote": "Observed ToolContext.taskId is typed as string while task-free request contexts use empty-string placeholders. Left unchanged because the requested fix is doc/comment-only and a safe optional type broadening would touch many existing test helpers."
+  },
+  "review": {
+    "status": "DONE",
+    "verdictAt": "2026-07-08T16:23:40+02:00",
+    "summary": "Final focused Phase 4 review found no blocking findings. Prior doc/comment blockers verified fixed; decomposition remains request/runtime mediated with create_task proposed-task writeback; no AU2/AU4/settings/marketplace/new harness/broad Fabric scope creep found."
+  },
+  "note": "Review DONE. Existing accepted AU1 fixes preserved: claim-before-run, routine scheduler, ws auth, idempotent conflict fallback, decomposition guard, task-free routines/assistant/knowledge requests."
 }

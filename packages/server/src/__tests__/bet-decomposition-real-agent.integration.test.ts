@@ -4,16 +4,13 @@
  * Proves a real strategy agent produces the decomposition; tasks/edges
  * are asserted from that real output.
  *
- * Drives `runBetDecomposition`
- * real decomposition turn (`runRealPmTurn`) via `decompositionDepsForLane` — NOT
- * `provisionSession`/`runThroughHarness`. The production decomposition turn
- * does NOT flow through `provisionSession`; `runRealPmTurn` calls
- * `adapterPool.select()` directly. See provision-real-decomposition.ts @lore.
+ * Drives `runBetDecomposition` through the AU1 AgentSessionRequest runtime
+ * boundary via `decompositionDepsForLane`.
  *
  * @lore bet-decomposition-real-agent: This file is the only place in the codebase where a real agent
  * produces a bet decomposition end-to-end. The pinned assertion (below) is
  * MANDATORY and must NOT be softened — a fake/empty model output causes
- * `runRealPmTurn` to return [] → `runBetDecomposition` marks the bet
+ * runtime writeback to produce no tasks → `runBetDecomposition` marks the bet
  * `blocked/empty`, which makes `decompositionStatus === "done"` fail.
  * If a harness cannot produce parseable JSON for a tiny bet, that is a real
  * production-prompt fragility finding, not a reason to loosen the assert.
@@ -21,7 +18,7 @@
  * @lore bet-decomposition-real-agent: Uses the real `minimalStrategy` from @hyperidle/strategy-minimal.
  * minimalStrategy.decomposeBet picks `candidates.find(c => c.role ===
  * "product_manager") ?? candidates[0]` — with a seeded PM agent it returns a
- * valid decomposerAgentId and the Kernel reaches real decomposition turn (runRealPmTurn).
+ * valid decomposerAgentId and the Kernel reaches the runtime decomposition request.
  * The earlier belief that minimalStrategy returns null was FALSE — it only returns
  * null when candidates is empty, which cannot happen with a seeded eligible PM agent.
  */
@@ -63,14 +60,12 @@ const NOW = "2026-06-15T00:00:00.000Z";
  * Seed a minimal team + eligible PM agent + bet for the given lane.
  *
  * The PM agent's harnessType and modelProvider are set from `decompositionLaneMeta(lane)`
- * so that `adapterPool.select({ harnessType, modelProviders })` in `runRealPmTurn`
- * matches the adapter registered by `decompositionDepsForLane`.
+ * so the runtime request can select the adapter registered by `decompositionDepsForLane`.
  *
- * @lore bet-decomposition-real-agent: Without explicit harnessType/modelProvider on the PM agent, `runRealPmTurn`
- * defaults to `harnessType: "builtin"` + `modelProvider: "anthropic"`. The per-lane
- * pool registers adapters with `type: "builtin"/"claude"/"codex"/"opencode"` and matching
- * `modelProviders`. A harnessType mismatch → `adapterPool.select()` returns null →
- * "No eligible harness adapter" → blocked/failed → `decompositionStatus !== "done"`.
+ * @lore bet-decomposition-real-agent: Without explicit harnessType/modelProvider on the PM agent,
+ * the runtime can select the wrong harness lane. The per-lane pool registers adapters
+ * with `type: "builtin"/"claude"/"codex"/"opencode"` and matching providers.
+ * A harnessType mismatch → no eligible runtime adapter → blocked/failed.
  *
  * @lore bet-decomposition-real-agent: The PM agent must have `role: "product_manager"` so that
  * minimalStrategy.decomposeBet's role-match (`candidates.find(c => c.role ===
@@ -102,7 +97,7 @@ async function seedDecompositionDomain(
 		formedAt: NOW,
 	});
 	// PM agent — eligible, kind=ai, agentCategory=team, role=product_manager.
-	// harnessType/modelProvider set per-lane so adapterPool.select() finds the adapter.
+	// harnessType/modelProvider set per-lane so runtime selection finds the adapter.
 	// role=product_manager ensures minimalStrategy.decomposeBet returns this agent
 	// via candidates.find(c => c.role === "product_manager").
 	await db.insert(users).values({
@@ -180,13 +175,13 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 	//   tasks.length >= 1
 	//   tasks.every(t => t.title.trim().length >= 3)
 	//
-	// Fail-closed: a fake/empty/non-array model output → runRealPmTurn returns []
-	// → real-turn empty-guard → decompositionStatus "blocked"/"empty", so BOTH
+	// Fail-closed: a fake/empty/non-array model output → no task writeback
+	// → decompositionStatus "blocked"/"empty", so BOTH
 	// asserts below fail. This test cannot pass on fake/empty agent output.
 	//
 	// minimalStrategy.decomposeBet: candidates.find(c => c.role === "product_manager")
 	// returns the seeded PM agent → decomposerAgentId is non-null → Kernel reaches
-	// real decomposition turn (runRealPmTurn) → real harness produces the task list.
+	// runtime decomposition request → real harness produces the task list.
 	test("real agent decomposes a real bet — ≥1 persisted task with non-trivial title, bet done", async ({
 		db,
 		eventBus,

@@ -1,20 +1,11 @@
 /**
  * AR5 — extractable test-support helper for harness integration tests that
- * drive a real agent through the production `runBetDecomposition` Branch 3
- * (`runRealPmTurn`).
+ * drive a real agent through the production `runBetDecomposition` runtime path.
  *
- * @lore AR5 — This helper builds `BetDecompositionDeps` and drives
- * `runBetDecomposition` **Branch 3** (`runRealPmTurn`), NOT
- * `provisionSession`/`runThroughHarness`. The production decomposition turn
- * does NOT flow through `provisionSession` — `runRealPmTurn`
- * (bet-decomposition.ts:522) calls `adapterPool.select()` directly on a
- * scratch `tools:[]` PM turn. Driving `provisionSession` here would prove
- * "a real agent ran a *session*," not "a real agent *decomposed a bet*" —
- * the exact false-adjacency Track AR exists to kill. Do NOT collapse this
- * into `runThroughHarness`; that would silently weaken the proof to the
- * wrong seam. The AK2 session-completion files correctly DO use
- * `runThroughHarness` because there the thing under test genuinely is a
- * session running to completion.
+ * @lore AR5/AU1 — This helper builds `BetDecompositionDeps` for the
+ * AgentSessionRequest runtime path. The proof stays anchored at
+ * `runBetDecomposition`: request creation, runtime consumption, task writeback,
+ * and terminal bet status must all happen there.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -55,8 +46,8 @@ export interface DecompositionRunCtx {
 /**
  * Build a `BetDecompositionDeps` object for the given harness lane, wiring a
  * real `AdapterPool` with the lane's adapter and performing per-harness auth
- * prep. Omits `runDecompositionTurn` so `runBetDecomposition` falls through to
- * Branch 3 (`runRealPmTurn`) — the real PM agent decomposes the bet.
+ * prep. Omits `runDecompositionTurn` so `runBetDecomposition` enters the
+ * runtime request path — the real PM agent decomposes the bet.
  *
  * Per-harness adapter setup mirrors `SUPPORTED_HARNESS_LANES` in
  * `provision-real-session.ts` but returns `BetDecompositionDeps` (not
@@ -84,7 +75,7 @@ export function decompositionDepsForLane(
 		sandbox: new LocalSandboxAdapter(),
 		sandboxBasePath: ctx.tmpDir,
 		resolveModel,
-		// Deliberately no runDecompositionTurn override → forces Branch 3 (runRealPmTurn).
+		// Deliberately no runDecompositionTurn override → use runtime request path.
 		// @lore AR5: prepSandbox provisions CLI harness config into the SCRATCH sandbox
 		// (decomp-<betId>/) AFTER it is created by runBetDecomposition. CLI harnesses
 		// (claude/codex/opencode) need config files (.mcp.json, .codex-home/, etc.)
@@ -119,11 +110,9 @@ interface PoolSetup {
  * The PM agent's harnessType/modelProvider columns must match the adapter
  * registration so `adapterPool.select(harnessType, modelProviders)` finds it.
  *
- * @lore AR5: `runRealPmTurn` calls `adapterPool.select({ harnessType: pm.harnessType ?? "builtin",
- * modelProviders: [pm.modelProvider ?? "anthropic"] })`. The adapter registered in the pool
- * must carry the matching `type` and `modelProviders` or `select` returns null → "No eligible
- * harness adapter" → blocked/failed. Seed the PM agent with these values so the select
- * matches the lane's adapter.
+ * @lore AR5/AU1: The runtime adapter selected for the PM agent must match the
+ * lane's registered adapter metadata. Seed the PM agent with these values so
+ * the request runs on the intended lane.
  */
 export interface DecompositionLaneMeta {
 	/** Value to store in `users.harnessType` for the PM agent. */
@@ -134,7 +123,7 @@ export interface DecompositionLaneMeta {
 
 /**
  * Returns the harnessType and modelProvider the PM agent must carry for the
- * given lane so that `adapterPool.select` finds the lane's adapter.
+ * given lane so runtime selection finds the lane's adapter.
  */
 export function decompositionLaneMeta(lane: HarnessLane): DecompositionLaneMeta {
 	switch (lane.harnessName) {
@@ -160,7 +149,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("builtin-local", adapter, {
 				name: "builtin-local",
 				kind: "local",
-				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				// type must match pm.harnessType so runtime selection finds this adapter.
 				type: "builtin",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 1,
@@ -184,7 +173,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-claude", adapter, {
 				name: "local-claude",
 				kind: "local",
-				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				// type must match pm.harnessType so runtime selection finds this adapter.
 				type: "claude",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 4,
@@ -213,7 +202,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-codex", adapter, {
 				name: "local-codex",
 				kind: "local",
-				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				// type must match pm.harnessType so runtime selection finds this adapter.
 				type: "codex",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,
@@ -246,7 +235,7 @@ function buildPoolForLane(lane: HarnessLane, sandboxDir: string): PoolSetup {
 			pool.register("local-opencode", adapter, {
 				name: "local-opencode",
 				kind: "local",
-				// type must match pm.harnessType so adapterPool.select() finds this adapter.
+				// type must match pm.harnessType so runtime selection finds this adapter.
 				type: "opencode",
 				modelProviders: ["openai-compatible"],
 				maxConcurrent: 2,

@@ -19,11 +19,12 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { createAgentSessionRequest } from "../services/agent-session-requests.js";
+import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveAgentModel, resolveModelTier } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
-import { startSessionProvision } from "../services/session-provisioning.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
@@ -57,9 +58,9 @@ const updateSessionSchema = z.object({
 });
 
 /**
- * Optional dependency injection for session route provisioning (R1).
+ * Optional dependency injection for session route runtime execution (R1/AU1).
  * When `adapterPool` and `workspaceAdapter` are both present, POST /sessions
- * routes through `provisionSession` instead of a bare DB insert.
+ * creates and consumes an AgentSessionRequest instead of a bare DB insert.
  *
  * @lore R1: The adapters are injected via this interface rather than being
  * constructed inside the route handler so tests can supply scripted mocks
@@ -191,7 +192,7 @@ async function applyStateChangePatch(
  *
  * @param activityBuffer - Optional in-memory ring buffer for session activity
  *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
- * @param deps - Optional adapter deps for full provisionSession path (R1).
+ * @param deps - Optional adapter deps for request-mediated runtime path (R1/AU1).
  */
 export function createSessionRoutes(
 	db: HyperIdleDb,
@@ -228,10 +229,10 @@ export function createSessionRoutes(
 		return c.json(result);
 	});
 
-	// @lore R1: When `deps.harnessAdapter` and `deps.workspaceAdapter` are both
-	// present, the route runs the full 11-phase `provisionSession` orchestrator
-	// (credential pre-flight → sandbox → context assembly → harness → teardown) and
-	// returns 200 with the completed session row. When adapters are absent it
+	// @lore R1/AU1: When `deps.adapterPool` and `deps.workspaceAdapter` are both
+	// present, the route creates a task-backed AgentSessionRequest and consumes it
+	// through the runtime (credential pre-flight → sandbox → context assembly →
+	// harness → teardown). When adapters are absent it
 	// falls back to the legacy bare DB insert returning 201 — this preserves
 	// backward compat for tests and deployments that haven't wired the harness.
 	router.post(
@@ -241,7 +242,7 @@ export function createSessionRoutes(
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 
-			// ── Full provisionSession path (adapters present) ─────────────────────
+			// ── Full request-mediated runtime path (adapters present) ─────────────
 			if (deps?.adapterPool && deps.workspaceAdapter) {
 				// AH2: Load agent first so resolveAgentModel can pick per-agent model
 				// over the tier fallback. Agent lookup happens before DB writes.
@@ -316,7 +317,22 @@ export function createSessionRoutes(
 					// session row is committed. All admission failures (cost 422 /
 					// concurrency 429 / missing credential 500) throw from admit BEFORE the
 					// row insert, so they still map to HTTP status here, not the tail.
-					const result = await startSessionProvision(
+					const request = await createAgentSessionRequest(db, {
+						sourceKind: "task",
+						sourceId: body.taskId,
+						streamId: `task:${body.taskId}`,
+						taskId: body.taskId,
+						agentId: body.agentId,
+						teamId: task.teamId,
+						promptMode: "task",
+						idempotencyKey: `session-route:${crypto.randomUUID()}`,
+						sourceCorrelation: {
+							taskId: body.taskId,
+							teamId: task.teamId,
+						},
+					});
+
+					const result = await consumeAgentSessionRequest(
 						{
 							db,
 							eventBus,
@@ -329,17 +345,14 @@ export function createSessionRoutes(
 							// AO2: pass through the mounter if present.
 							...(deps.mounter ? { mounter: deps.mounter } : {}),
 						},
+						request,
 						{
-							agentId: body.agentId,
-							taskId: body.taskId,
-							// @lore U1: `teamId` replaces `productId` (tasks.productId column dropped).
-							productId: task.teamId,
-							modelTier: body.modelTier,
 							sandboxBasePath,
-							// X4: Pass resolved model so adapter uses the correct provider.
+							modelTier: body.modelTier,
 							resolvedModel,
-							// X6: Pass resolved fast-tier model for builtin harness summarization.
 							resolvedFastModel,
+							detachAfterAdmission: true,
+							enforceResolvedModelGuard: true,
 						},
 					);
 

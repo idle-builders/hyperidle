@@ -4,7 +4,7 @@
  * RED phase: these tests will fail until create-routine.ts is implemented.
  */
 
-import { routines, teamMembers, teams, users } from "@hyperidle/db";
+import { routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -41,7 +41,7 @@ async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<
 }
 
 describe("create_routine tool", () => {
-	test("inserts a routines row and creates a stub task", async ({ db }) => {
+	test("inserts a task-free routines row", async ({ db }) => {
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -57,9 +57,10 @@ describe("create_routine tool", () => {
 		expect(result.success).toBe(true);
 		if (!result.success) return;
 
-		const data = result.data as { routineId: string; name: string; stubTaskId: string };
+		const data = result.data as { routineId: string; name: string; nextRunAt: string };
 		expect(data.name).toBe("Daily standup");
-		expect(typeof data.stubTaskId).toBe("string");
+		expect(typeof data.nextRunAt).toBe("string");
+		expect(data).not.toHaveProperty("stubTaskId");
 
 		const routineRows = await db.select().from(routines).where(eq(routines.id, data.routineId));
 		expect(routineRows).toHaveLength(1);
@@ -68,11 +69,11 @@ describe("create_routine tool", () => {
 		expect(routine!.teamId).toBe(teamId);
 		expect(routine!.ownerAgentId).toBe(agentId);
 		expect(routine!.triggerConfig).toBe(JSON.stringify({ cron: "0 9 * * 1-5" }));
-		// stub task must be set
-		expect(routine!.stubTaskId).toBe(data.stubTaskId);
+		expect(routine!.stubTaskId).toBeNull();
+		expect(await db.select().from(tasks)).toHaveLength(0);
 	});
 
-	test("returns ok({ routineId, name, stubTaskId })", async ({ db }) => {
+	test("returns ok({ routineId, name, nextRunAt })", async ({ db }) => {
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -88,10 +89,11 @@ describe("create_routine tool", () => {
 		expect(result.success).toBe(true);
 		if (!result.success) return;
 
-		const data = result.data as { routineId: string; name: string; stubTaskId: string };
+		const data = result.data as { routineId: string; name: string; nextRunAt: string };
 		expect(typeof data.routineId).toBe("string");
 		expect(data.name).toBe("Weekly sync");
-		expect(typeof data.stubTaskId).toBe("string");
+		expect(typeof data.nextRunAt).toBe("string");
+		expect(data).not.toHaveProperty("stubTaskId");
 	});
 
 	test("NOT_FOUND for nonexistent teamId", async ({ db }) => {

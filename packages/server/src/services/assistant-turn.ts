@@ -1,23 +1,18 @@
 /**
  * AR4a: runAssistantTurn — harness-agnostic conversational turn service.
  *
- * Handles one complete message→reply cycle by delegating to the shared
- * `provisionSession` path in CONVERSATIONAL MODE (the third assembly branch,
- * beside task and routine). This replaces the builtin-only path (AH3) that
- * hardwired harnessType:"builtin" and bypassed the harness machinery.
+ * Handles one complete message→reply cycle by creating a task-free runtime
+ * request and consuming it through the shared conversational provisioning path.
  *
  * AR4a changes:
  *   - Removed: `setSessionToolRegistry` coupling (builtin-only concrete class method)
  *   - Removed: `sandboxPath:""` no-mode SessionConfig
  *   - Removed: parallel adapter selection + drain logic (now in runSession)
- *   - Added: provisionSession(conversational mode) — real sandbox, MCP bridge, 4 harnesses
+ *   - Added: request-mediated conversational mode — real sandbox, MCP bridge, 4 harnesses
  *   - Added: conversationalReply field on result → persisted reply row
  *   - Kept: persistTurnFailure, never-silent, lazy-create, inFlight guard
  *
  * NEVER silent: every branch ends in a persisted reply or a persisted notice.
- *
- * @lore AR4a: The stub `taskId` (sessions.taskId NOT NULL FK) is meaningless in
- * conversational mode — this caller ignores it. Mirror the routine path (@lore AA2).
  *
  * @lore AH3 §1.7: The in-memory inFlight set prevents concurrent stacked turns
  * within one process lifetime. After a crash it is empty → a user-initiated Retry
@@ -25,7 +20,7 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
-import { bets, type HyperIdleDb, messages, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, users } from "@hyperidle/db";
 import {
 	type ConversationMessage,
 	createLogger,
@@ -52,7 +47,6 @@ import {
 } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
-import { provisionSession } from "../services/session-provisioning.js";
 import { getActiveStrategy } from "../services/strategy-registry.js";
 import {
 	buildAssistantDraftRegistry,
@@ -60,6 +54,8 @@ import {
 	resolveDraftTeamId,
 } from "../tools/assistant-draft-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
+import { createAgentSessionRequest } from "./agent-session-requests.js";
+import { consumeAgentSessionRequest } from "./agent-session-runtime.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -74,7 +70,7 @@ const BUILTIN_SYSTEM_PROMPT =
  * Dependencies for the assistant turn service.
  *
  * @lore AH3: runTurn is a test-injectable override that replaces the full turn
- * logic with a stub. When present, the trigger fires but no real LLM call is made.
+ * logic with a fake. When present, the trigger fires but no real LLM call is made.
  * This satisfies the integration test's need to assert the trigger fires without
  * a real provider. turnTimeoutMs overrides the constant for fast-timeout hung-provider tests.
  *
@@ -275,101 +271,6 @@ export async function persistTurnFailure(
 }
 
 /**
- * Create an ephemeral conversational stub task to satisfy sessions.taskId NOT NULL FK.
- *
- * sessions.taskId → tasks.betId → bets.teamId must all reference real rows.
- * This mirrors the create-routine.ts AA2 pattern exactly: find any existing bet,
- * fall back to any bet in the DB, fall back to creating a system team+bet.
- *
- * @lore AR4a: Mirrors create-routine.ts AA2 pattern (stubTaskId). The stub task is
- * invisible in task lists (title prefix "conv-stub-" identifies system-generated tasks).
- * The per-turn unique task id prevents session FK collisions across concurrent turns.
- * Finding an existing bet (rather than always creating a system one) avoids polluting
- * the bets table in environments where bets already exist (e.g. test fixtures that
- * assert on bets.length).
- */
-async function createConversationalStubTask(
-	db: HyperIdleDb,
-	opts: {
-		taskId: string;
-		agentId: string;
-		now: string;
-	},
-): Promise<void> {
-	const { taskId, agentId, now } = opts;
-	const SYSTEM_TEAM_ID = "conv-stub-team";
-	const SYSTEM_BET_ID = "conv-stub-bet";
-
-	// Find any existing bet (same pattern as create-routine.ts:90-92)
-	const [anyBet] = await db.select({ id: bets.id, teamId: bets.teamId }).from(bets).limit(1);
-
-	let stubBetId: string;
-	let stubTeamId: string;
-
-	if (anyBet) {
-		// Reuse an existing bet — the stub task is invisible in task lists so this is safe.
-		// @lore AR4a: Reusing an existing bet avoids polluting the bets table (same as routine path).
-		stubBetId = anyBet.id;
-		stubTeamId = anyBet.teamId;
-	} else {
-		// No bet exists at all — create a system team + bet (same as create-routine.ts:94-115).
-		// @lore AR4a: "conv-stub-team" / "conv-stub-bet" are created once and reused across all
-		// conversational turns. They are system rows invisible in team/bet lists.
-		const [existingTeam] = await db
-			.select({ id: teams.id })
-			.from(teams)
-			.where(eq(teams.id, SYSTEM_TEAM_ID))
-			.limit(1);
-		if (!existingTeam) {
-			try {
-				await db.insert(teams).values({
-					id: SYSTEM_TEAM_ID,
-					name: "Conversational Sessions (system)",
-					phase: "discovery",
-					createdAt: now,
-				});
-			} catch {
-				// Concurrent insert race — team was created by another turn, continue
-			}
-		}
-
-		const [existingBet] = await db
-			.select({ id: bets.id })
-			.from(bets)
-			.where(eq(bets.id, SYSTEM_BET_ID))
-			.limit(1);
-		if (!existingBet) {
-			try {
-				await db.insert(bets).values({
-					id: SYSTEM_BET_ID,
-					teamId: SYSTEM_TEAM_ID,
-					description: "Conversational Sessions (system)",
-					status: "active",
-					createdAt: now,
-				});
-			} catch {
-				// Concurrent insert race — bet was created by another turn, continue
-			}
-		}
-
-		stubBetId = SYSTEM_BET_ID;
-		stubTeamId = SYSTEM_TEAM_ID;
-	}
-
-	// Insert the per-turn stub task (unique task id per turn)
-	await db.insert(tasks).values({
-		id: taskId,
-		betId: stubBetId,
-		teamId: stubTeamId,
-		title: "Conversational turn (stub)",
-		state: "accepted",
-		ownerAgentId: agentId,
-		createdAt: now,
-		updatedAt: now,
-	});
-}
-
-/**
  * Run one assistant conversational turn.
  *
  * Resolves without throwing — all errors are mapped to persisted notices.
@@ -421,7 +322,7 @@ async function runTurnInternal(
 	adapterPool: AdapterPool,
 	userId: string,
 	threadId: string,
-	_triggerMessageId: string,
+	triggerMessageId: string,
 	deps: AssistantTurnDeps,
 ): Promise<void> {
 	const assistantAgentId = `ast-${userId}`;
@@ -554,7 +455,7 @@ async function runTurnInternal(
 	//
 	// @lore AR4b: The formation answer is a per-turn decision, NOT persisted to the users row.
 	// persona:null means "Minimal strategy: no override, use agent row's systemPrompt."
-	// The systemPromptOverride field on params.conversational carries it to provisionSession.
+	// The systemPromptOverride field on conversational runtime params carries it to prompt assembly.
 	const formation = await getActiveStrategy().formAssistant({
 		db,
 		userId,
@@ -570,7 +471,7 @@ async function runTurnInternal(
 	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId);
 
 	// Synthetic tool context for building the draft registry — sessionId/taskId/sandboxPath
-	// are placeholders (the shared path provisions real values; the draft registry only needs
+	// are placeholders (the draft registry only needs
 	// db/eventBus/agentId for its handlers).
 	const syntheticSessionId = crypto.randomUUID();
 	const toolCtx: ToolContext = {
@@ -578,7 +479,7 @@ async function runTurnInternal(
 		eventBus,
 		agentId: assistantAgentId,
 		sessionId: syntheticSessionId,
-		taskId: "", // placeholder — shared path creates real task via stub
+		taskId: "", // placeholder — assistant draft tools do not need a task
 		sandboxPath: "", // placeholder — shared path creates real sandbox
 		ingestion: {
 			dispose: () => {
@@ -597,17 +498,14 @@ async function runTurnInternal(
 			? buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId })
 			: buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId }); // future: other surfaces
 
-	// --- Step 5: Delegate to provisionSession (conversational mode) ---
+	// --- Step 5: Delegate through the AU1 runtime request boundary ---
 	//
-	// AR4a: This is the key change — replace the builtin-only parallel path with a
-	// real provisionSession run. The conversational mode:
+	// AR4a/AU1: replace the builtin-only parallel path with a request-mediated
+	// conversational run. The conversational mode:
 	//   - Provisions a real sandbox (CLI harnesses need cwd + .mcp.json)
 	//   - Builds the MCP bridge (CLI harnesses receive tools via MCP)
 	//   - Assembles the transcript into AGENTS.md (every harness reads it)
 	//   - Returns the reply via conversationalReply on the result
-	//
-	// The stub taskId ("conv-stub-<time>") satisfies the sessions.taskId NOT NULL FK.
-	// This caller ignores the result's taskId (AR4a @lore stub-taskId).
 	//
 	// @lore AR4a: Coupling #1 (setSessionToolRegistry on BuiltinHarnessAdapter) is
 	// removed — the shared path's Phase 8.5a does this for the builtin lane.
@@ -617,24 +515,26 @@ async function runTurnInternal(
 
 	const sandboxBasePath = deps.sandboxBasePath ?? (await import("node:os")).default.tmpdir();
 
-	const convStubTaskId = `conv-stub-task-${crypto.randomUUID()}`;
-	const now = new Date().toISOString();
-
-	// Create an ephemeral stub task to satisfy the sessions.taskId NOT NULL FK.
-	// sessions.taskId → tasks.betId → bets.teamId must all reference real rows.
-	// @lore AR4a: Mirrors the routine stub-task pattern (create-routine.ts, AA2 lore).
-	// createConversationalStubTask reuses any existing bet (avoiding bets table pollution).
-	await createConversationalStubTask(db, {
-		taskId: convStubTaskId,
+	const request = await createAgentSessionRequest(db, {
+		sourceKind: "assistant",
+		sourceId: triggerMessageId,
+		streamId: `thread:${threadId}`,
 		agentId: assistantAgentId,
-		now,
+		userId,
+		promptMode: "conversation",
+		idempotencyKey: `assistant:${triggerMessageId}`,
+		payloadJson: JSON.stringify({
+			threadId,
+			triggerMessageId,
+			systemPromptOverride: formation.persona,
+		}),
+		sourceCorrelation: {
+			threadId,
+			messageId: triggerMessageId,
+			userId,
+			assistantAgentId,
+		},
 	});
-
-	const CONV_STUB_TASK_ID = convStubTaskId;
-	// productId is used as teamId in session row — use a sentinel since conversational
-	// turns are not team-scoped. The stub task's teamId (from createConversationalStubTask)
-	// is the actual FK target; productId is metadata only.
-	const CONV_STUB_PRODUCT_ID = "conv-stub-product";
 
 	const sessionDeps: ProvisionSessionDeps = {
 		db,
@@ -646,10 +546,7 @@ async function runTurnInternal(
 	};
 
 	try {
-		const result = await provisionSession(sessionDeps, {
-			taskId: CONV_STUB_TASK_ID,
-			agentId: assistantAgentId,
-			productId: CONV_STUB_PRODUCT_ID,
+		const result = await consumeAgentSessionRequest(sessionDeps, request, {
 			sandboxBasePath,
 			resolvedModel,
 			resolvedFastModel,
@@ -660,7 +557,7 @@ async function runTurnInternal(
 				messages: conversationMessages,
 				// AR4b: strategy formation persona override — null = "no override; use agent row".
 				// @lore AR4b: systemPromptOverride carries the strategy's per-turn persona decision
-				// to provisionSession, which uses it in composeAssistantPrompt(effectivePersona).
+				// to prompt assembly, which uses it in composeAssistantPrompt(effectivePersona).
 				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
 				systemPromptOverride: formation.persona,
 			},

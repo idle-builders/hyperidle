@@ -13,6 +13,8 @@ import {
 	bootstrapFabric,
 	createGitRunner,
 	fabricStrategy,
+	setAgentSessionRequestConsumerFn,
+	setAgentSessionRequestCreateFn,
 	setProvisionSessionFn,
 } from "@hyperidle/fabric";
 import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
@@ -28,6 +30,8 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { createAgentSessionRequest } from "./services/agent-session-requests.js";
+import { consumeAgentSessionRequest } from "./services/agent-session-runtime.js";
 import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
@@ -284,6 +288,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// (the leaf registry exists precisely for this — provision-registry.ts). Do NOT
 	// add a static import of provisionSession into fabric.
 	setProvisionSessionFn(provisionSession);
+	setAgentSessionRequestCreateFn(createAgentSessionRequest);
+	setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
 
 	// AK2 §6: Register the Fabric as the active Strategy at boot. Default = Fabric
 	// (no behaviour change from pre-AK2). This is the composition root — the ONLY
@@ -308,7 +314,6 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		sandbox: workspaceAdapter,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
-		credentialResolver,
 	});
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
@@ -345,10 +350,9 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		strategyBootstrap: (ctx) =>
 			bootstrapFabric({
 				...ctx,
-				// AF6: production boots the routine scheduler at the default 30s
-				// cadence with canProvision:false (scope iii — built-in auto-fire
-				// only; generic auto-fire is AF7). The periodic reaper is wired
-				// inside bootstrapFabric.
+				// AF6/AU1: production boots the routine scheduler at the default
+				// 30s cadence. Runtime deps are present, so generic routine fires
+				// enter through AgentSessionRequest instead of stub sessions.
 				readAlertPreferences: async () => {
 					const cfg = await readServerConfig(db);
 					return {

@@ -255,9 +255,15 @@ export const sessions = pgTable(
 	"sessions",
 	{
 		id: text("id").primaryKey(),
-		taskId: text("task_id")
-			.notNull()
-			.references(() => tasks.id, { onDelete: "restrict" }),
+		/**
+		 * AU1: nullable because assistant/routine/knowledge/decomposition runs are
+		 * real sessions without fabricated task rows. Task-backed sessions keep the FK.
+		 */
+		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
+		requestId: text("request_id"),
+		sourceKind: text("source_kind"),
+		sourceId: text("source_id"),
+		sourceCorrelationJson: text("source_correlation_json"),
 		agentId: text("agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
@@ -294,9 +300,50 @@ export const sessions = pgTable(
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
+		index("sessions_request_id_idx").on(table.requestId),
+		index("sessions_source_idx").on(table.sourceKind, table.sourceId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
 		index("sessions_routine_id_idx").on(table.routineId),
+	],
+);
+
+export const agentSessionRequests = pgTable(
+	"agent_session_requests",
+	{
+		id: text("id").primaryKey(),
+		sourceKind: text("source_kind").notNull(),
+		sourceId: text("source_id").notNull(),
+		streamId: text("stream_id").notNull(),
+		taskId: text("task_id").references(() => tasks.id, { onDelete: "restrict" }),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
+		userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+		promptMode: text("prompt_mode").notNull(),
+		payloadJson: text("payload_json"),
+		sourceCorrelationJson: text("source_correlation_json").notNull(),
+		idempotencyKey: text("idempotency_key").notNull(),
+		status: text("status").notNull(),
+		claimedBy: text("claimed_by"),
+		claimedAt: text("claimed_at"),
+		claimExpiresAt: text("claim_expires_at"),
+		sessionId: text("session_id"),
+		errorCode: text("error_code"),
+		errorMessage: text("error_message"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("agent_session_requests_idempotency_uq").on(
+			table.sourceKind,
+			table.sourceId,
+			table.idempotencyKey,
+		),
+		index("agent_session_requests_status_created_idx").on(table.status, table.createdAt),
+		index("agent_session_requests_source_idx").on(table.sourceKind, table.sourceId),
+		index("agent_session_requests_claim_expires_idx").on(table.claimExpiresAt),
 	],
 );
 
@@ -370,15 +417,11 @@ export const routines = pgTable(
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
 		createdAt: text("created_at"),
 		/**
-		 * AA2: Dedicated stub task for routine sessions. Created at routine creation.
+		 * AA2 legacy: optional stub task link retained for older routine rows.
 		 *
-		 * @lore AA2: stubTaskId satisfies the sessions.taskId NOT NULL FK constraint
-		 * while allowing routine sessions to use routine context (not task/bet context).
-		 * The stub task is never worked on directly and is invisible in task lists.
-		 * When the routine is soft-deleted, the stub task remains (no orphan on delete
-		 * since we only soft-delete routines in AA2).
-		 * ON DELETE SET NULL: if the stub task is deleted, the routine still exists
-		 * but loses its stub task link (no orphan cascade needed).
+		 * @lore AU1: New routine creation must not fabricate tasks. Routine sessions are
+		 * task-optional and correlate through agent_session_requests.sourceKind/sourceId
+		 * plus routine_runs.id. This column remains nullable for compatibility with AA2 rows.
 		 */
 		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
 	},
@@ -1226,6 +1269,9 @@ export type NewTask = typeof tasks.$inferInsert;
 
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+
+export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
+export type NewAgentSessionRequest = typeof agentSessionRequests.$inferInsert;
 
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;

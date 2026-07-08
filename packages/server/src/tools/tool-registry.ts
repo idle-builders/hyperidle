@@ -1,6 +1,8 @@
 import * as crypto from "node:crypto";
 import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
 import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
 	EventBus,
 	IngestionHandle,
 	Reversibility,
@@ -53,6 +55,12 @@ export interface ToolContext {
 	readonly sessionId: string;
 	readonly taskId: string;
 	readonly teamId?: string;
+	readonly requestContext?: {
+		readonly requestId: string;
+		readonly sourceKind: AgentSessionSourceKind;
+		readonly sourceId: string;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	};
 	readonly sandboxPath: string;
 	/**
 	 * AK2: was `watcher: FileWatcher` (direct Fabric import). Renamed to

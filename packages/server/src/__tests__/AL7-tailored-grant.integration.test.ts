@@ -33,7 +33,8 @@ import {
 import {
 	fabricStrategy,
 	registerTaskDispatcher,
-	setProvisionSessionFn,
+	setAgentSessionRequestConsumerFn,
+	setAgentSessionRequestCreateFn,
 	type TaskDispatcherDeps,
 } from "@hyperidle/fabric";
 import type {
@@ -50,12 +51,14 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import { provisionSession } from "../services/session-provisioning.js";
+import { createAgentSessionRequest } from "../services/agent-session-requests.js";
+import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
-// Wire provisionSession into the fabric registry to avoid circular import.
-setProvisionSessionFn(provisionSession);
+// Wire request runtime into the fabric registry to avoid circular import.
+setAgentSessionRequestCreateFn(createAgentSessionRequest);
+setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minimal capturing harness for dispatcher enqueue test

@@ -24,7 +24,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, type User, users } from "@hyperidle/db";
-import { checkCostCap } from "@hyperidle/fabric";
+import { checkCostCap, getAgentSessionRequestConsumerFn } from "@hyperidle/fabric";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -33,9 +33,8 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import type { CredentialResolver } from "./credential-resolver.js";
+import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
 import { getActiveStrategy } from "./strategy-registry.js";
 import { transitionTask } from "./task-state-machine.js";
@@ -47,14 +46,17 @@ import { transitionTask } from "./task-state-machine.js";
 export interface BetDecompositionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly adapterPool: AdapterPool;
+	/**
+	 * AU1: Kept as an opaque composition-root dependency for the registered runtime
+	 * consumer. Decomposition itself must not select adapters or start harnesses.
+	 */
+	readonly adapterPool?: unknown;
 	/** Renamed from `workspace` per locked harness vocab (AK1). */
 	readonly sandbox: SandboxAdapter;
 	readonly sandboxBasePath: string;
 	readonly resolveModel?: (
 		tier: string,
 	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
-	readonly credentialResolver?: CredentialResolver;
 	/**
 	 * AC6: fast-timeout injection. Mirrors AssistantTurnDeps.turnTimeoutMs.
 	 * Defaults to DECOMPOSITION_TURN_TIMEOUT_MS (120_000 ms).
@@ -65,10 +67,9 @@ export interface BetDecompositionDeps {
 	 * Returns a fixed task list without making an LLM call.
 	 * Mirrors the `runTurn` seam in AssistantTurnDeps (AH3).
 	 *
-	 * @lore AK3: The real PM turn path (model-resolve + assembleContext + harness session)
-	 * is bypassed when this override is present. Tests use it to assert the full
-	 * commit→tasks→accepted→dispatch seam without LLM credentials.
-	 * A future evaluate-quality evals harness exercises the real LLM path.
+	 * @lore AK3/AU1: The runtime PM request path is bypassed when this override
+	 * is present. Tests use it to assert the full commit→tasks→accepted→dispatch
+	 * seam without LLM credentials. Runtime-boundary tests cover request/writeback.
 	 */
 	readonly runDecompositionTurn?: (ctx: {
 		betId: string;
@@ -281,11 +282,11 @@ async function markTerminal(
  *      plan.decomposerAgentId) — proves team-membership + active-AI in one check
  *      (WARNING 1: selectOwner's internal guard no longer runs on this path).
  *   7. Cost pre-flight: checkCostCap on validated decomposer.
- *   8. Scratch sandbox + 3-way turn-source precedence:
+ *   8. Runtime request or scratch sandbox + 3-way turn-source precedence:
  *      a. plan.tasks.length > 0 → persist those tasks (Strategy-authored breakdown).
  *      b. deps.runDecompositionTurn present → call it with plan.decomposerAgentId
  *         (protected-test seam — branch 2, all v1 Strategies + all AK3 tests land here).
- *      c. else → real PM turn (AK3/Minimal default fallback — branch 3).
+ *      c. else → create/consume an AgentSessionRequest; task writeback decides terminal state.
  *   9. taskList empty → blocked/empty. Else insertProposedBetTasks → dispatch.
  *  10. markTerminal('done'). finally: rm scratch sandbox.
  *
@@ -296,7 +297,7 @@ async function markTerminal(
  * Strategy decision (the inverse of what the seam is for). All v1 Strategies
  * return tasks:[] → branch 2 (tests) or branch 3 (production).
  *
- * @lore AK8: []-from-Strategy (plan.tasks) means "Kernel, run your turn"
+ * @lore AK8: []-from-Strategy (plan.tasks) means "Kernel, enter runtime"
  * (turn-source branch 2 or 3). []-from-turn (taskList after branch 3) means
  * blocked/empty. Same [] value, opposite meaning depending on origin. See
  * DecompositionPlan in strategy-port.ts.
@@ -420,6 +421,71 @@ export async function runBetDecomposition(
 		return;
 	}
 
+	// AU1: the real PM turn is requested through the agent runtime boundary.
+	// A completed runtime is useful only if it writes at least one bet task.
+	if (plan.tasks.length === 0 && !deps.runDecompositionTurn) {
+		const request = await createAgentSessionRequest(db, {
+			sourceKind: "decomposition",
+			sourceId: betId,
+			streamId: `bet:${betId}:decomposition`,
+			agentId: pm.id,
+			teamId: bet.teamId,
+			promptMode: "decomposition",
+			idempotencyKey: `decomposition:${betId}:start`,
+			payloadJson: JSON.stringify({
+				betId,
+				betDescription: bet.description,
+				betDoneCondition: bet.doneCondition ?? null,
+			}),
+			sourceCorrelation: {
+				betId,
+				teamId: bet.teamId,
+				decomposerAgentId: pm.id,
+			},
+		});
+		const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
+		if (!(consumeAgentSessionRequest && deps.adapterPool)) {
+			await markTerminal(db, betId, "blocked", "failed");
+			return;
+		}
+		const taskRowsBeforeRuntime = await db
+			.select({ id: tasks.id })
+			.from(tasks)
+			.where(eq(tasks.betId, betId));
+		try {
+			const resolvedModel = deps.resolveModel ? await deps.resolveModel("workhorse") : undefined;
+			const result = await consumeAgentSessionRequest(
+				{
+					db,
+					eventBus,
+					adapterPool: deps.adapterPool,
+					workspace: deps.sandbox,
+				},
+				request,
+				{
+					sandboxBasePath,
+					...(resolvedModel ? { resolvedModel } : {}),
+				},
+			);
+			if (result.outcome !== "completed") {
+				await markTerminal(db, betId, "blocked", "failed");
+				return;
+			}
+			const taskRowsAfterRuntime = await db
+				.select({ id: tasks.id })
+				.from(tasks)
+				.where(eq(tasks.betId, betId));
+			if (taskRowsAfterRuntime.length > taskRowsBeforeRuntime.length) {
+				await markTerminal(db, betId, "done", null);
+			} else {
+				await markTerminal(db, betId, "blocked", "empty");
+			}
+		} catch {
+			await markTerminal(db, betId, "blocked", "failed");
+		}
+		return;
+	}
+
 	// --- 7. Scratch sandbox + 3-way turn-source precedence ---
 	const scratchSandboxPath = path.join(sandboxBasePath, `decomp-${betId}`);
 	try {
@@ -449,7 +515,7 @@ export async function runBetDecomposition(
 		// --- 8. Turn-source precedence (CRITICAL 1) ---
 		// Branch 1: Strategy authored the breakdown (future Fabric path).
 		// Branch 2: Test-injectable override (protected-test seam — all AK3 tests).
-		// Branch 3: Real PM turn (AK3/Minimal default fallback).
+		// Branch 3: Runtime request path was handled above.
 		//
 		// @lore AK8: Branch 1 > branch 2 > branch 3. The override NEVER beats plan.tasks
 		// because that would let a test seam mask a Strategy's authored decision.
@@ -471,35 +537,8 @@ export async function runBetDecomposition(
 				return;
 			}
 		} else {
-			// Branch 3: Real PM turn — scratch sandbox + assembleContext + runRealPmTurn.
-			// @lore AK3: isRoutine=true tells the Strategy "do NOT read task/bet context
-			// off taskId" — the synthetic taskId has no tasks row.
-			try {
-				await getActiveStrategy().assembleContext({
-					db,
-					sandboxPath: scratchSandboxPath,
-					sessionId: `decomp-${betId}`,
-					taskId: `decomp-${betId}`,
-					agentId: pm.id,
-					agentRole: pm.role,
-					teamId: bet.teamId,
-					isRoutine: true,
-				});
-			} catch {
-				// assembleContext MAY throw (strategy-port.ts). A throw → blocked/failed.
-				await markTerminal(db, betId, "blocked", "failed");
-				return;
-			}
-
-			try {
-				taskList = await withTimeout(
-					runRealPmTurn(deps, pm, bet, scratchSandboxPath, timeoutMs),
-					timeoutMs,
-				);
-			} catch {
-				await markTerminal(db, betId, "blocked", "failed");
-				return;
-			}
+			await markTerminal(db, betId, "blocked", "failed");
+			return;
 		}
 
 		// --- 9. Empty task list → blocked/empty ---
@@ -526,199 +565,6 @@ export async function runBetDecomposition(
 			// best-effort — a stale scratch dir is not fatal
 		}
 	}
-}
-
-// -----------------------------------------------------------------------------
-// Real PM turn (non-test path)
-// -----------------------------------------------------------------------------
-
-/**
- * Run the real PM decomposition turn via the harness adapter.
- * tools:[] — no tool surface (AH3 pattern; CRITICAL-2 v1 primary path is server-side insert).
- *
- * @lore AK3: This is the real LLM path; it is NOT called when runDecompositionTurn
- * override is present. Integration tests always use the override. This path is
- * exercised only by evals (real LLM, local-only, out of scope for AK3 ACs).
- *
- * The PM is instructed to return a JSON array of tasks. The response text is
- * parsed as DecompositionTaskInput[]. Malformed JSON → empty list → blocked/empty.
- */
-async function runRealPmTurn(
-	deps: BetDecompositionDeps,
-	pm: User,
-	bet: { id: string; description: string; doneCondition: string | null },
-	scratchSandboxPath: string,
-	timeoutMs: number,
-): Promise<DecompositionTaskInput[]> {
-	if (!(deps.adapterPool && deps.resolveModel)) {
-		throw new Error("adapterPool and resolveModel are required for the real PM turn");
-	}
-
-	const selected = deps.adapterPool.select({
-		harnessType: pm.harnessType ?? "builtin",
-		modelProviders: [pm.modelProvider ?? "anthropic"],
-	});
-	if (!selected) {
-		throw new Error("No eligible harness adapter for PM decomposition");
-	}
-
-	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
-	try {
-		resolvedModel = await deps.resolveModel("workhorse");
-	} catch {
-		throw new Error("Could not resolve model for PM decomposition");
-	}
-	if (!resolvedModel) {
-		throw new Error("No model resolved for PM decomposition");
-	}
-
-	// betContext carries the decomposition instruction — what the agent needs to DO
-	// the job. Written to AGENTS.md and CLAUDE.md so CLI harnesses receive it as
-	// project-context instructions. The PM persona string is NOT written here:
-	// if the selected agent has its own systemPrompt, that is the agent's real
-	// identity and is handled via SessionConfig.systemPromptPath (the kernel's
-	// existing path). The kernel-default "You are a product manager…" literal is
-	// a pre-existing single-location default in the SessionConfig path (AK WP will
-	// remove it) — this write must NOT copy it into these files (AK6: kernel
-	// hard-codes no persona; writing the kernel-default PM string into AGENTS.md/
-	// CLAUDE.md would widen that violation into the scratch sandbox filesystem).
-	//
-	// @lore AR5 / AK6: Do NOT include `pm.systemPrompt ?? "You are a product
-	// manager..."` here. The agent-identity layer (who the agent IS) belongs to
-	// the Strategy; the bet-context layer (what the agent must DO for this bet)
-	// belongs here. Mix them and the kernel leaks its hardcoded PM persona into
-	// every decomposition sandbox on disk.
-	const betContext = [
-		`**Bet goal:** ${bet.description}`,
-		bet.doneCondition ? `**Done condition:** ${bet.doneCondition}` : "",
-		"",
-		"Return a JSON array of task objects. Each object has: title (required, string), description (optional, string), doneCondition (optional, string), ownerRole (optional, string).",
-		"Return ONLY the JSON array, no other text.",
-	]
-		.filter(Boolean)
-		.join("\n");
-
-	// @lore AR5: Each CLI harness reads its project context from a different file:
-	// - codex reads AGENTS.md from the sandbox cwd.
-	// - claude reads CLAUDE.md from the sandbox cwd (not AGENTS.md).
-	// Write AGENTS.md (codex/opencode) and CLAUDE.md (claude/opencode) with the bet
-	// context so CLI harnesses have the decomposition instructions as project-level
-	// context. The builtin adapter ignores these files (it uses SessionConfig.messages).
-	fs.writeFileSync(path.join(scratchSandboxPath, "AGENTS.md"), betContext, "utf-8");
-	fs.writeFileSync(path.join(scratchSandboxPath, "CLAUDE.md"), betContext, "utf-8");
-
-	// @lore AR5: assembledPrompt serves as {{prompt}} (truncated to 200 chars by the adapter)
-	// for CLI harnesses that carry it as a positional argument.
-	// For codex/claude/opencode: bet context is in AGENTS.md/CLAUDE.md; assembledPrompt is just a trigger.
-	// For builtin: assembledPrompt is unused; it uses messages[] with the full betContext.
-	// @lore AR5: opencode DOES read AGENTS.md/CLAUDE.md automatically by traversing up from the
-	// cwd on startup — the same mechanism codex and claude use (https://opencode.ai/docs/rules/,
-	// verified 2026-06-30). The adapter spawns opencode with cwd: config.sandboxPath
-	// (cli-harness-adapter.ts:426), exactly where we write both files above. So opencode
-	// receives the full bet context via AGENTS.md/CLAUDE.md — no gap, no special-casing needed.
-	const assembledPrompt =
-		"Return ONLY a JSON array of tasks for this bet. Each task: {title, description?, doneCondition?, ownerRole?}. No other text.";
-
-	const sessionConfig: import("@hyperidle/shared").SessionConfig = {
-		sessionId: crypto.randomUUID(),
-		assembledPrompt,
-		sandboxPath: scratchSandboxPath,
-		systemPromptPath: "",
-		modelTier: "workhorse",
-		tools: [],
-		resolvedModel,
-		// messages carries the bet context for the builtin adapter's runChatTurn.
-		messages: [{ role: "user", content: betContext }],
-	};
-
-	const handle = await selected.adapter.startSession(sessionConfig);
-	let completionText = "";
-
-	try {
-		const TIMEOUT_SENTINEL = Symbol("TIMEOUT_SENTINEL");
-		const drainResult = await Promise.race([
-			drainForCompletion(selected.adapter, handle),
-			new Promise<typeof TIMEOUT_SENTINEL>((resolve) =>
-				setTimeout(() => resolve(TIMEOUT_SENTINEL), timeoutMs),
-			),
-		]);
-
-		if (drainResult === TIMEOUT_SENTINEL) {
-			throw new Error("PM turn timed out");
-		}
-		completionText = drainResult;
-	} finally {
-		try {
-			await selected.adapter.stopSession(handle);
-		} catch {
-			// best-effort stop
-		}
-		deps.adapterPool.release(selected.id);
-	}
-
-	// Parse the structured task list from the completion text.
-	// @lore AR5: Models often wrap JSON in markdown code fences even when instructed not to.
-	// Strip ``` ... ``` or ```json ... ``` wrappers before parsing.
-	const stripped = completionText
-		.replace(/^```(?:json)?\s*/i, "")
-		.replace(/\s*```\s*$/, "")
-		.trim();
-	try {
-		const parsed = JSON.parse(stripped) as unknown;
-		if (Array.isArray(parsed)) {
-			return parsed as DecompositionTaskInput[];
-		}
-	} catch {
-		// malformed JSON → empty → blocked/empty
-	}
-	return [];
-}
-
-/**
- * AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5.
- *
- * This session run is an internal-extraction drain — exempt from return-gate
- * enforcement — because its SessionConfig.tools is [] (line ~570 above). With
- * no tools the run structurally CANNOT invoke a return action. The drain
- * consumes only completion/error events and returns raw text for JSON.parse;
- * it is platform-internal (not acting on the user's behalf).
- *
- * @lore AL6: Do NOT wire a ReturnGate here. A gate would fire not_returned on
- * every PM decomposition run, because there is no return action to call in a
- * tool-less turn. The exemption is a PROPERTY (concept §1.5 three-property
- * predicate), not a file-list carve-out. Any future tool-less extraction drain
- * is covered by the same predicate.
- *
- * @lore AR5: CLI harnesses (claude/codex/opencode) emit multiple completion events
- * during a session: init/system events pre-map to empty completions, intermediate
- * text blocks emit partial completions, and the final `result` event carries the
- * full response text. Returning on the FIRST completion event would return ""
- * (from an init event), causing blocked/empty. Collect the LAST non-empty
- * completion text across the full stream — that is always the agent's actual
- * response. The builtin adapter emits a single completion event with the full text,
- * so last-non-empty is a no-op for it.
- */
-async function drainForCompletion(
-	adapter: import("@hyperidle/shared").HarnessAdapter,
-	handle: import("@hyperidle/shared").SessionHandle,
-): Promise<string> {
-	const stream = adapter.streamEvents(handle);
-	let lastNonEmpty = "";
-	// AL6-exempt: internal-extraction drain (tools:[]), see concept §1.5
-	for await (const event of stream) {
-		if (event.type === "completion") {
-			// @lore AR5: Accumulate the last non-empty completion text. CLI adapters emit
-			// empty completions from init/system/lifecycle events; the final result event
-			// carries the actual response. Returning on the first completion would catch
-			// an empty init event and return "" → blocked/empty.
-			if (event.text.trim().length > 0) {
-				lastNonEmpty = event.text;
-			}
-		} else if (event.type === "error") {
-			throw new Error(event.message);
-		}
-	}
-	return lastNonEmpty;
 }
 
 // -----------------------------------------------------------------------------

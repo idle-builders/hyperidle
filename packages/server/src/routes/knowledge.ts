@@ -55,6 +55,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 
 // O2: status simplified to draft | active | archived
@@ -261,6 +262,7 @@ const splitSchema = z.object({
 
 const flagSchema = z.object({
 	reason: z.string(),
+	agentId: z.string().optional(),
 });
 
 /**
@@ -1117,6 +1119,21 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
+			if (body.agentId) {
+				const [agent] = await db
+					.select({ id: users.id })
+					.from(users)
+					.where(eq(users.id, body.agentId))
+					.limit(1);
+				if (!agent) {
+					const response: ApiErrorResponse = {
+						error: "Agent not found",
+						code: API_ERROR_CODES.NOT_FOUND,
+					};
+					return c.json(response, 404);
+				}
+			}
+
 			const now = new Date().toISOString();
 			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
 			// Status set to "draft" so flagged items re-enter the review queue.
@@ -1152,6 +1169,23 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				timestamp: Date.now(),
 			};
 			eventBus.emit(flaggedEvent);
+
+			if (body.agentId) {
+				await createAgentSessionRequest(db, {
+					sourceKind: "knowledge",
+					sourceId: `knowledge:${id}`,
+					streamId: `knowledge:${id}`,
+					agentId: body.agentId,
+					promptMode: "knowledge",
+					idempotencyKey: `knowledge:${id}:review:${updated?.version ?? item.version + 1}`,
+					payloadJson: JSON.stringify({ reason: body.reason }),
+					sourceCorrelation: {
+						knowledgeItemId: id,
+						action: "review",
+						...(item.scopeId ? { scopeId: item.scopeId } : {}),
+					},
+				});
+			}
 
 			return c.json(updated);
 		},

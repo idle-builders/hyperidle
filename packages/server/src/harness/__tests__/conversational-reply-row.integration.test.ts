@@ -22,9 +22,8 @@
  * runConversationalTurnThroughHarness (defined below), we assert the persisted
  * DB reply row is non-empty, non-notice, and contains the model's real answer.
  *
- * @lore conversational-reply-row: The stub taskId ("conv-stub-task") is the expected conversational-mode
- * stub. Callers ignore it (conversational-mode note — documented with @lore conversational-reply-row
- * in the implementation). This test does not assert on it.
+ * @lore conversational-reply-row: Conversational turns are task-free after AU1.
+ * This test asserts the reply row, not a task row.
  */
 
 import * as os from "node:os";

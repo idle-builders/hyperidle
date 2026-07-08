@@ -24,8 +24,14 @@
 
 // biome-ignore lint/suspicious/noExplicitAny: runtime injection across package boundary — no shared type without circular dep
 type ProvisionFn = (...args: any[]) => Promise<any>;
+// biome-ignore lint/suspicious/noExplicitAny: runtime injection across package boundary — no shared type without circular dep
+type SessionRequestConsumerFn = (...args: any[]) => Promise<any>;
+// biome-ignore lint/suspicious/noExplicitAny: validated request creator lives in server; fabric receives it at boot.
+type SessionRequestCreateFn = (...args: any[]) => Promise<any>;
 
 let provisionFnStore: ProvisionFn | null = null;
+let sessionRequestConsumerFnStore: SessionRequestConsumerFn | null = null;
+let sessionRequestCreateFnStore: SessionRequestCreateFn | null = null;
 
 /**
  * Register the provisionSession function. Called by the server layer during
@@ -51,4 +57,31 @@ export function getProvisionSessionFn(): ProvisionFn | null {
  */
 export function clearProvisionSessionFn(): void {
 	provisionFnStore = null;
+	sessionRequestConsumerFnStore = null;
+	sessionRequestCreateFnStore = null;
+}
+
+/**
+ * AU1: Register the local runtime request consumer. Collaboration-domain
+ * dispatchers enqueue an AgentSessionRequest, then invoke this runtime hook.
+ * The older provisionSession hook remains for protected pre-AU1 tests.
+ */
+export function setAgentSessionRequestConsumerFn(fn: SessionRequestConsumerFn): void {
+	sessionRequestConsumerFnStore = fn;
+}
+
+export function getAgentSessionRequestConsumerFn(): SessionRequestConsumerFn | null {
+	return sessionRequestConsumerFnStore;
+}
+
+/**
+ * AU1: Register the validated request creation service. Fabric domains must not
+ * insert agent_session_requests directly; this keeps source-kind validation in one place.
+ */
+export function setAgentSessionRequestCreateFn(fn: SessionRequestCreateFn): void {
+	sessionRequestCreateFnStore = fn;
+}
+
+export function getAgentSessionRequestCreateFn(): SessionRequestCreateFn | null {
+	return sessionRequestCreateFnStore;
 }

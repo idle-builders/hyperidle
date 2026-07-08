@@ -381,6 +381,27 @@ export type {
 	ReasoningData,
 	ToolCallData,
 } from "./session-activity.js";
+export type {
+	AgentSessionPromptMode,
+	AgentSessionRequestInput,
+	AgentSessionRequestStatus,
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
+	SessionLifecycleCorrelation,
+} from "./session-request.js";
+export {
+	AGENT_SESSION_PROMPT_MODES,
+	AGENT_SESSION_REQUEST_STATUSES,
+	AGENT_SESSION_SOURCE_KINDS,
+	agentSessionRequestInputSchema,
+	assistantSessionRequestInputSchema,
+	buildSessionLifecycleCorrelation,
+	decompositionSessionRequestInputSchema,
+	knowledgeSessionRequestInputSchema,
+	proposedCallSessionRequestInputSchema,
+	routineSessionRequestInputSchema,
+	taskSessionRequestInputSchema,
+} from "./session-request.js";
 // ── AK2: Strategy Port ──
 // ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
 // ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──

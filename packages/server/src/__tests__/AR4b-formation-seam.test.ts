@@ -4,7 +4,7 @@
  *
  * Verifies AC3: switching the active strategy changes the assistant's form.
  *
- * This is a unit test (*.test.ts) — it mocks provisionSession to capture the
+ * This is a unit test (*.test.ts) — it mocks runSession to capture the
  * conversational parameters (systemPromptOverride + draftRegistry) handed to it
  * by runAssistantTurn after the formation seam consultation.
  *
@@ -13,14 +13,14 @@
  *   - testStrategy (alpha) → persona: "AR4b-test-persona-alpha", surface: "standard" (same tools, different persona)
  *
  * The key observable: runAssistantTurn now calls getActiveStrategy().formAssistant()
- * BEFORE calling provisionSession. The captured systemPromptOverride must differ
+ * BEFORE calling the runtime. The captured systemPromptOverride must differ
  * between strategies, proving the formation seam is consulted at turn time.
  *
- * @lore AR4b: We observe via the provisionSession call-site capture rather than
+ * @lore AR4b: We observe via the runSession call-site capture rather than
  * by reading the DB or the AGENTS.md file on disk, because:
  *   1. The persona lands in the assembled prompt (not the DB row) at turn time.
- *   2. provisionSession receives it as params.conversational.systemPromptOverride.
- *   3. Mocking the whole provisionSession lets us capture that field without
+ *   2. runSession receives it as params.conversational.systemPromptOverride.
+ *   3. Mocking runSession lets us capture that field without
  *      running a real harness (unit test scope).
  */
 
@@ -53,7 +53,7 @@ type CapturedConversational = {
 const capturedConversational: CapturedConversational[] = [];
 
 /**
- * Mock provisionSession to capture the conversational parameters.
+ * Mock runSession to capture the conversational parameters.
  * The mock resolves immediately with a completed outcome + a stub reply
  * so runAssistantTurn persists a reply row (not a notice).
  *
@@ -65,7 +65,26 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
 	return {
 		...original,
-		provisionSession: vi.fn(
+		admitSession: vi.fn(
+			async (
+				_deps: unknown,
+				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+			) => {
+				return {
+					sessionId: "stub-session-ar4b",
+					sessionContext: {
+						sessionId: "stub-session-ar4b",
+						agentId: params.agentId,
+						taskId: params.taskId,
+						sandboxPath: "/tmp/ar4b",
+						ingestion: { dispose: vi.fn() },
+						traceId: "trace-ar4b",
+						requestContext: params.requestContext,
+					},
+				};
+			},
+		),
+		runSession: vi.fn(
 			async (
 				_deps: unknown,
 				params: import("../services/session-provisioning.js").ProvisionSessionParams,
@@ -78,12 +97,11 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 						),
 					});
 				}
-				// Resolve with a completed outcome + stub reply text
 				const stubResult: import("../services/session-provisioning.js").ProvisionSessionResult = {
 					sessionId: "stub-session-ar4b",
 					outcome: "completed",
 					totalCostCents: 0,
-					taskId: "stub-task-ar4b",
+					taskId: null,
 					forceReturnCount: 0,
 					conversationalReply: "AR4b formation seam stub reply",
 				};
@@ -256,12 +274,22 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 
 		capturedConversational.length = 0;
 		clearActiveStrategy();
+		const secondTriggerMessageId = `${TRIGGER_MSG_ID}-second`;
+		await db.insert(messages).values({
+			id: secondTriggerMessageId,
+			threadId: THREAD_ID,
+			senderId: FOUNDER_ID,
+			type: "plain",
+			payload: JSON.stringify({ text: "AR4b formation seam test, second turn" }),
+			clientKey: `ck-${secondTriggerMessageId}`,
+			createdAt: new Date().toISOString(),
+		});
 
 		// Turn 2: alphaStrategy
 		setActiveStrategy(alphaStrategy);
 		await runAssistantTurn(
 			{ db, eventBus, adapterPool: pool, credentialResolver },
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
+			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: secondTriggerMessageId },
 		);
 		const alphaCapture = capturedConversational[0]!;
 

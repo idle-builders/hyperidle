@@ -163,6 +163,7 @@ function makeLaneDescribe(lane: (typeof SUPPORTED_HARNESS_LANES)[number]): void 
 			// the ACTUAL IDs. productId is always "p1" from SUPPORTED_HARNESS_LANES but
 			// we read it dynamically in case lane config changes.
 			onBeforeSession: async (params) => {
+				if (!params.taskId) throw new Error("minimal strategy harness test requires taskId");
 				await seedDomain(db, params.agentId, params.taskId, params.productId);
 			},
 		});

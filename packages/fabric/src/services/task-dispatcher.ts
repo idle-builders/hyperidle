@@ -2,8 +2,8 @@
  * AD2 — Task-to-Session Dispatcher.
  *
  * Subscribes to task_state_changed (toState=accepted) and session_ended events.
- * Maintains an in-memory FIFO queue of dispatchable tasks and calls
- * provisionSession for each entry in order.
+ * Maintains an in-memory FIFO queue of dispatchable tasks, creates a task-backed
+ * AgentSessionRequest for each entry, and consumes it through the runtime.
  *
  * The queue is not durable — the startup sweep re-populates it from DB state
  * on each registration. Source of truth is the tasks table, not this queue.
@@ -14,12 +14,13 @@
  * statically import from @hyperidle/server (which would create a circular dep
  * since server depends on fabric).
  *
- * @lore AD2: provisionSession is resolved via the provision-registry.ts leaf
- * module (a dependency-free singleton). The dynamic import() approach was tried
- * first but fails in Vite SSR tests with a TDZ error due to the circular dep
- * server→fabric→server. The registry pattern breaks the cycle: both server and
- * the test file can import the leaf module and register the function before
- * any dispatch runs. See provision-registry.ts for the full explanation.
+ * @lore AD2/AU1: the runtime request creator/consumer are resolved via the
+ * provision-registry.ts leaf module (a dependency-free singleton). The dynamic
+ * import() approach was tried first but fails in Vite SSR tests with a TDZ error
+ * due to the circular dep server→fabric→server. The registry pattern breaks the
+ * cycle: both server and the test file can import the leaf module and register
+ * the functions before any dispatch runs. See provision-registry.ts for the full
+ * explanation.
  *
  * @lore AD2: getDispatchQueueSnapshot() is module-level (not instance-scoped)
  * because production runs a single dispatcher. Tests that re-register the
@@ -37,7 +38,10 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { getProvisionSessionFn } from "./provision-registry.js";
+import {
+	getAgentSessionRequestConsumerFn,
+	getAgentSessionRequestCreateFn,
+} from "./provision-registry.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available in fabric)
@@ -64,11 +68,11 @@ const logger = {
 
 /**
  * Dependencies for the task dispatcher. Structurally compatible with what
- * provisionSession needs, but defined here so fabric does not statically
+ * runtime consumption needs, but defined here so fabric does not statically
  * import from @hyperidle/server.
  *
  * adapterPool and workspace are typed as `unknown` here; the dispatcher passes
- * them through to provisionSession which knows their concrete types. The
+ * them through to the runtime consumer, which knows their concrete types. The
  * structural typing works because server constructs the real instances and passes
  * them; fabric only stores and forwards them.
  */
@@ -84,10 +88,10 @@ export interface TaskDispatcherDeps {
 	 * Optional: resolve a model tier to a concrete ResolvedModel (provider, model,
 	 * apiKey, baseUrl). Server-factory.ts provides the implementation closing over
 	 * CredentialResolver. When absent (tests without credential setup),
-	 * resolvedModel is omitted from the provisionSession call.
+	 * resolvedModel is omitted from the runtime consume call.
 	 *
 	 * @lore AF7 §1: the return is the full ResolvedModel — it is forwarded opaquely
-	 * as `resolvedModel` to provisionSession, which assigns it to
+	 * as `resolvedModel` to runtime provisioning, which assigns it to
 	 * SessionConfig.resolvedModel. (Earlier this was loosely typed as
 	 * `{provider, modelId, apiKey?}`, which did not match what the value actually
 	 * had to be; AF7 wires the real production resolveModel so the honest type is
@@ -96,18 +100,18 @@ export interface TaskDispatcherDeps {
 	readonly resolveModel?: (
 		modelTier: string,
 	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
-	/** Optional MCP bridge registry (passed through to provisionSession). */
+	/** Optional MCP bridge registry (passed through to runtime provisioning). */
 	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary
 	readonly mcpBridgeRegistry?: any;
-	/** Optional MCP base URL (passed through to provisionSession). */
+	/** Optional MCP base URL (passed through to runtime provisioning). */
 	readonly mcpBaseUrl?: string;
 	/**
-	 * AO2: Optional filesystem mounter (passed through to provisionSession).
+	 * AO2: Optional filesystem mounter (passed through to runtime provisioning).
 	 * When absent, sessions run without filesystem mount (degrade to today's behavior).
 	 */
 	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
 	/**
-	 * AR4: forwarded to provisionSession so a dispatched real agent's sandbox is
+	 * AR4: forwarded to runtime provisioning so a dispatched real agent's sandbox is
 	 * observable via the capture seam (createSandboxCapture). Additive-optional —
 	 * preserves the dispatch API; existing call sites compile unchanged.
 	 * Mirrors the same field on ProvisionSessionDeps (session-provisioning.ts:236).
@@ -129,11 +133,11 @@ export interface DispatchQueueEntry {
 	/**
 	 * AL7 CRITICAL-1: When set, this entry was enqueued by handleProposedCallGranted
 	 * (session 2 re-provision). drainQueue looks up the tailored grant + proposed call
-	 * and derives the grant-bearing sessionWorkflow to pass to provisionSession.
+	 * and derives the grant-bearing sessionWorkflow to pass to runtime provisioning.
 	 *
 	 * @lore AL7 Task 6: sessionWorkflow is derived at drain time (not at enqueue time)
 	 * because the DB import is already available in drainQueue and the RegistrySessionWorkflow
-	 * type is server-side — fabric passes it through opaquely via provisionSession params.
+	 * type is server-side — fabric passes it through opaquely via runtime params.
 	 */
 	readonly proposedCallId?: string;
 }
@@ -167,11 +171,11 @@ let draining = false;
 let currentGeneration = 0;
 
 // ---------------------------------------------------------------------------
-// provisionSession resolution
+// agent session request consumer resolution
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve provisionSession from the registry.
+ * Resolve the local runtime request consumer from the registry.
  *
  * @lore AD2: The original approach used `await import("@hyperidle/server/...")`.
  * This fails in Vite SSR test mode because the dynamic import triggers Vite's
@@ -181,13 +185,26 @@ let currentGeneration = 0;
  * module; the server and test files register the real function before dispatch
  * runs. See provision-registry.ts for the full explanation.
  */
-// biome-ignore lint/suspicious/noExplicitAny: provisionSession type from server not importable here (circular dep)
-function resolveProvisionSession(): (...args: any[]) => Promise<any> {
-	const fn = getProvisionSessionFn();
+// biome-ignore lint/suspicious/noExplicitAny: runtime consumer type from server not importable here (circular dep)
+function resolveRequestConsumer(): (...args: any[]) => Promise<any> {
+	const fn = getAgentSessionRequestConsumerFn();
 	if (!fn) {
 		throw new Error(
-			"[task-dispatcher] provisionSession not registered. " +
-				"Call setProvisionSessionFn(provisionSession) during server bootstrap " +
+			"[task-dispatcher] agent session request consumer not registered. " +
+				"Call setAgentSessionRequestConsumerFn(consumeAgentSessionRequest) during server bootstrap " +
+				"(or in tests before registerTaskDispatcher).",
+		);
+	}
+	return fn;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: validated creator type is runtime-injected from server.
+function resolveRequestCreator(): (...args: any[]) => Promise<any> {
+	const fn = getAgentSessionRequestCreateFn();
+	if (!fn) {
+		throw new Error(
+			"[task-dispatcher] agent session request creator not registered. " +
+				"Call setAgentSessionRequestCreateFn(createAgentSessionRequest) during server bootstrap " +
 				"(or in tests before registerTaskDispatcher).",
 		);
 	}
@@ -208,6 +225,33 @@ async function hasActiveSession(db: HyperIdleDb, taskId: string): Promise<boolea
 		.where(and(eq(sessions.taskId, taskId), eq(sessions.state, "active")))
 		.limit(1);
 	return row !== undefined;
+}
+
+async function createDispatchRequest(
+	db: HyperIdleDb,
+	entry: DispatchQueueEntry,
+	// biome-ignore lint/suspicious/noExplicitAny: request row type comes from the injected server creator.
+): Promise<any> {
+	const createAgentSessionRequest = resolveRequestCreator();
+	const sourceKind = entry.proposedCallId ? "proposed_call" : "task";
+	const sourceId = entry.proposedCallId ?? entry.taskId;
+	const idempotencyKey = entry.proposedCallId
+		? `proposed_call:${entry.proposedCallId}:granted`
+		: `task:${entry.taskId}:accepted`;
+	const sourceCorrelation = entry.proposedCallId
+		? { taskId: entry.taskId, proposedCallId: entry.proposedCallId, grantedAgentId: entry.agentId }
+		: { taskId: entry.taskId, teamId: entry.teamId };
+	return createAgentSessionRequest(db, {
+		sourceKind,
+		sourceId,
+		streamId: `task:${entry.taskId}`,
+		taskId: entry.taskId,
+		agentId: entry.agentId,
+		teamId: entry.teamId,
+		promptMode: entry.proposedCallId ? "proposed_call" : "task",
+		idempotencyKey,
+		sourceCorrelation,
+	});
 }
 
 /**
@@ -242,7 +286,8 @@ async function enqueue(db: HyperIdleDb, entry: DispatchQueueEntry): Promise<void
 // ---------------------------------------------------------------------------
 
 /**
- * Process the queue head-first, calling provisionSession for each entry.
+ * Process the queue head-first, creating and consuming one AgentSessionRequest
+ * for each entry.
  *
  * ConcurrencyLimitError: advance the drain cursor past all entries for this
  * agent (they stay in the queue). On next session_ended trigger, drain retries.
@@ -251,10 +296,10 @@ async function enqueue(db: HyperIdleDb, entry: DispatchQueueEntry): Promise<void
  * Entries remain in queue and will be retried on next capacity-freed event.
  *
  * Credential resolution failure: unrecoverable — remove from queue, log error.
- * Task remains in accepted state (provisionSession never ran).
+ * Task remains in accepted state (runtime provisioning never ran).
  *
- * Other errors: unrecoverable — remove from queue, log error. provisionSession's
- * own revertTaskToAccepted restores the task to accepted state.
+ * Other errors: unrecoverable — remove from queue, log error. Runtime
+ * provisioning restores the task to accepted state when admission reached that far.
  *
  * @lore AD2: Fire-and-forget pattern (void drainQueue().catch()) matches
  * routine-scheduler.ts. The drain-in-progress guard prevents thundering herd
@@ -270,7 +315,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 	draining = true;
 
 	try {
-		const provisionSession = resolveProvisionSession();
+		const consumeAgentSessionRequest = resolveRequestConsumer();
 
 		// Track agents blocked by ConcurrencyLimitError in this drain pass
 		const concurrencyBlockedAgents = new Set<string>();
@@ -380,7 +425,8 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 					}
 				}
 
-				await provisionSession(
+				const request = await createDispatchRequest(deps.db, entry);
+				await consumeAgentSessionRequest(
 					{
 						db: deps.db,
 						eventBus: deps.eventBus,
@@ -392,10 +438,8 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 						...(deps.mounter ? { mounter: deps.mounter } : {}),
 						...(deps.onBeforeTeardown ? { onBeforeTeardown: deps.onBeforeTeardown } : {}),
 					},
+					request,
 					{
-						taskId: entry.taskId,
-						agentId: entry.agentId,
-						productId: entry.teamId,
 						sandboxBasePath: deps.sandboxBasePath,
 						resolvedModel,
 						...(sessionWorkflow ? { sessionWorkflow } : {}),
@@ -430,7 +474,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 				}
 
 				// Unrecoverable error (adapter unavailable, task not found, etc.)
-				// provisionSession's own revertTaskToAccepted restores task state
+				// Runtime provisioning restores task state when admission reached that far.
 				logger.error("dispatch failed (unrecoverable); removing task from queue", {
 					taskId: entry.taskId,
 					error: err instanceof Error ? err.message : String(err),
@@ -574,7 +618,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 	const handleSessionEnded = (event: SessionEndedEvent): void => {
 		void (async () => {
 			// Case 1: Handoff re-dispatch — task is in_progress but ownerAgentId changed
-			// @lore AD2: session_ended fires from provisionSession's teardown path
+			// @lore AD2: session_ended fires from the runtime teardown path
 			// (endSession/crashSession), NOT from handoff-protocol directly. The handoff
 			// commits ownerAgentId=agentB to the DB before the harness stream ends, so
 			// by the time session_ended fires, ownerAgentId is already agentB. Safe.

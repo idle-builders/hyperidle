@@ -14,26 +14,34 @@
  *   - packages/server/src/services/bet-decomposition-subscriber.ts exports registerBetDecomposition
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import {
+	type AgentSessionRequest,
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
+import { clearProvisionSessionFn, setAgentSessionRequestConsumerFn } from "@hyperidle/fabric";
+import {
+	type AgentSessionSourceKind,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
 	type DecompositionStatus,
 	type DecompositionTaskInput,
-	type HarnessCapabilities,
 	type ResolvedModel,
 	type SelectAgentOutcome,
 	type SelectAgentRequest,
-	type SessionConfig,
-	type SessionHandle,
-	type SessionResult,
 } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+import { createTaskTool } from "../tools/create-task.js";
 
 // ---------------------------------------------------------------------------
 // Shared seed helpers (used by AC5)
@@ -214,21 +222,10 @@ describe("Bet decomposition — DecompositionTaskInput type", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC5: User Sovereignty — no tool surface
-//
-// This describe block uses a config-capturing stub object to observe what the
-// production code builds (SessionConfig.tools:[]). The stub is a structural
-// inline object with no guard-detectable stub pattern — it is NOT a class
-// implementing HarnessAdapter. The test is a service-fixture test (real DB +
-// eventBus; no real harness binary), confirming a STATIC behavioral property
-// of runRealPmTurn — that it always passes tools:[] to startSession.
-//
-// Moved here from bet-decomposition-service.integration.test.ts per W-5 mandate:
-// a config-capturing harness double is not a real integration point and must
-// not live in a *.integration.test.ts file. The assertion is verbatim.
+// AU1: Decomposition domain boundary
 // ---------------------------------------------------------------------------
 
-describe("bet decomposition real agent turn runs with no tools", () => {
+describe("bet decomposition enters the agent runtime through requests", () => {
 	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
 	// and the PM pick (bet_decomposer) returns the seeded agent.
 	// runBetDecomposition now routes the PM pick through selectOwner →
@@ -243,65 +240,23 @@ describe("bet decomposition real agent turn runs with no tools", () => {
 
 	afterEach(() => {
 		clearActiveStrategy();
+		clearProvisionSessionFn();
 	});
 
-	test("SessionConfig passed to startSession carries tools:[] (no tool surface for decomposition LLM)", async ({
+	test("records a decomposition request and does not select/start a harness in domain code", async ({
 		db,
 		eventBus,
 	}) => {
 		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-ac5" });
 		await db.insert(bets).values(makeBet("bet-ac5", teamId, "active"));
 
-		// Capture the SessionConfig that runRealPmTurn passes to startSession.
-		// The config-capturing object is a structural stub — NOT a class implementing
-		// HarnessAdapter. It yields no completion text so the bet resolves to
-		// blocked/empty; we only care that tools:[] appears in the captured config.
-		const capturedConfigs: SessionConfig[] = [];
-
-		const configCapturer = {
-			async startSession(config: SessionConfig): Promise<SessionHandle> {
-				capturedConfigs.push(config);
-				return { sessionId: "ac5-capture-session" };
-			},
-			// biome-ignore lint/suspicious/useAwait: async generator stub — must satisfy structural interface
-			async *streamEvents(_handle: SessionHandle): AsyncGenerator<never> {
-				// Yield nothing — drainForCompletion returns "" → JSON.parse fails → empty list → blocked/empty
-			},
-			async stopSession(_handle: SessionHandle): Promise<SessionResult> {
-				return {
-					outcome: "completed",
-					cost: { minor: 0, currency: "USD" },
-					tokenUsage: { byTier: { workhorse: { prompt: 0, completion: 0 } } },
-				};
-			},
-			getCapabilities(): HarnessCapabilities {
-				return {
-					preCompactionTrigger: false,
-					subAgents: false,
-					modelProviders: ["anthropic"],
-					mcpSupport: false,
-					returnEnforcement: "none",
-				};
-			},
-		};
-
-		// Minimal structural adapterPool: select() returns a SelectedEntry wrapping the capturer.
-		// release() is a no-op. No real AdapterPool instantiated.
-		// @lore bet decomposition: We use a structural mock here (not an AdapterPool instance) because
-		// AdapterPool.register() requires AdapterMeta fields we don't care about in this test.
-		// The BetDecompositionDeps type expects AdapterPool but uses only select() + release().
+		const select = vi.fn();
 		const mockAdapterPool = {
-			select(_req?: unknown): SelectedEntry | null {
-				return {
-					id: "ac5-capturer",
-					adapter: configCapturer,
-					meta: {} as SelectedEntry["meta"],
-				};
-			},
+			select,
 			release(_id: string): void {
 				/* no-op */
 			},
-		} as unknown as AdapterPool;
+		};
 
 		const mockResolveModel = vi.fn().mockResolvedValue({
 			provider: "openrouter",
@@ -325,11 +280,128 @@ describe("bet decomposition real agent turn runs with no tools", () => {
 
 		await runBetDecomposition(deps, "bet-ac5");
 
-		// The real PM path must have called startSession.
-		expect(capturedConfigs.length).toBeGreaterThanOrEqual(1);
-		// AC5: every SessionConfig sent to the harness must carry tools:[] (no tool surface).
-		for (const cfg of capturedConfigs) {
-			expect(cfg.tools).toEqual([]);
-		}
+		expect(select).not.toHaveBeenCalled();
+		const requests = await db.select().from(agentSessionRequests);
+		expect(requests).toHaveLength(1);
+		expect(requests[0]).toMatchObject({
+			sourceKind: "decomposition",
+			sourceId: "bet-ac5",
+			taskId: null,
+			promptMode: "decomposition",
+		});
+		const [bet] = await db.select().from(bets);
+		expect(bet?.decompositionStatus).toBe("blocked");
+	});
+
+	test("successful runtime request writeback creates proposed tasks and marks bet done", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-runtime-writeback" });
+		await db.insert(bets).values(makeBet("bet-runtime-writeback", teamId, "active"));
+
+		setAgentSessionRequestConsumerFn(async (_deps: unknown, request: AgentSessionRequest) => {
+			const result = await createTaskTool.handler(
+				{ title: "Runtime proposed task" },
+				{
+					db,
+					eventBus,
+					agentId: request.agentId,
+					sessionId: "session-runtime-writeback",
+					taskId: "",
+					teamId: request.teamId ?? undefined,
+					requestContext: {
+						requestId: request.id,
+						sourceKind: request.sourceKind as AgentSessionSourceKind,
+						sourceId: request.sourceId,
+						sourceCorrelation: JSON.parse(request.sourceCorrelationJson),
+					},
+					sandboxPath: "/tmp/ac5-test",
+					ingestion: { dispose: vi.fn() },
+				},
+			);
+			expect(result.success).toBe(true);
+			return {
+				sessionId: "session-runtime-writeback",
+				outcome: "completed",
+				totalCostCents: 0,
+				taskId: null,
+				forceReturnCount: 0,
+			};
+		});
+
+		const select = vi.fn();
+		const deps: BetDecompositionDeps = {
+			db,
+			eventBus,
+			adapterPool: {
+				select,
+				release(_id: string): void {
+					/* no-op */
+				},
+			},
+			sandbox: {
+				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
+				destroy: vi.fn(),
+			} as unknown as BetDecompositionDeps["sandbox"],
+			sandboxBasePath: "/tmp/ac5-test",
+			resolveModel: vi.fn().mockResolvedValue({
+				provider: "openrouter",
+				model: "deepseek/deepseek-v4-flash",
+				apiKey: "test-key",
+				baseUrl: "https://openrouter.ai/api",
+			} satisfies ResolvedModel),
+		};
+
+		await runBetDecomposition(deps, "bet-runtime-writeback");
+
+		expect(select).not.toHaveBeenCalled();
+		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-runtime-writeback"));
+		expect(taskRows).toHaveLength(1);
+		expect(taskRows[0]).toMatchObject({
+			title: "Runtime proposed task",
+			state: "proposed",
+			betId: "bet-runtime-writeback",
+			teamId,
+		});
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-runtime-writeback")).limit(1);
+		expect(bet?.decompositionStatus).toBe("done");
+		expect(bet?.decompositionBlockerReason).toBeNull();
+	});
+
+	test("completed runtime request with no task writeback marks bet blocked empty", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-runtime-empty" });
+		await db.insert(bets).values(makeBet("bet-runtime-empty", teamId, "active"));
+
+		setAgentSessionRequestConsumerFn(async () => ({
+			sessionId: "session-runtime-empty",
+			outcome: "completed",
+			totalCostCents: 0,
+			taskId: null,
+			forceReturnCount: 0,
+		}));
+
+		await runBetDecomposition(
+			{
+				db,
+				eventBus,
+				adapterPool: {},
+				sandbox: {
+					create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
+					destroy: vi.fn(),
+				} as unknown as BetDecompositionDeps["sandbox"],
+				sandboxBasePath: "/tmp/ac5-test",
+			},
+			"bet-runtime-empty",
+		);
+
+		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-runtime-empty"));
+		expect(taskRows).toHaveLength(0);
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-runtime-empty")).limit(1);
+		expect(bet?.decompositionStatus).toBe("blocked");
+		expect(bet?.decompositionBlockerReason).toBe("empty");
 	});
 });

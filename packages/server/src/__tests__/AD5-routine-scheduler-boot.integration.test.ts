@@ -11,6 +11,7 @@
  */
 
 import {
+	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
 	routineRuns,
@@ -21,9 +22,16 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { bootstrapFabric, startRoutineScheduler } from "@hyperidle/fabric";
+import {
+	bootstrapFabric,
+	clearProvisionSessionFn,
+	setAgentSessionRequestConsumerFn,
+	setAgentSessionRequestCreateFn,
+	startRoutineScheduler,
+} from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { test } from "../test-fixtures.js";
 
 const POLL_INTERVAL_MS = 50; // fast polling for tests
@@ -107,6 +115,44 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
+function registerSchedulerRuntime(db: HyperIdleDb) {
+	setAgentSessionRequestCreateFn(createAgentSessionRequest);
+	setAgentSessionRequestConsumerFn(async (_deps, request) => {
+		const sessionId = `session-${request.id}`;
+		const now = new Date().toISOString();
+		const sourceCorrelation = JSON.parse(request.sourceCorrelationJson) as { routineId: string };
+		await db.insert(sessions).values({
+			id: sessionId,
+			taskId: null,
+			requestId: request.id,
+			sourceKind: request.sourceKind,
+			sourceId: request.sourceId,
+			sourceCorrelationJson: request.sourceCorrelationJson,
+			agentId: request.agentId,
+			modelTier: "workhorse",
+			startedAt: now,
+			state: "active",
+			routineId: sourceCorrelation.routineId,
+		});
+		await db
+			.update(agentSessionRequests)
+			.set({ status: "completed", sessionId, updatedAt: now })
+			.where(eq(agentSessionRequests.id, request.id));
+		return {
+			sessionId,
+			outcome: "completed",
+			totalCostCents: 0,
+			taskId: null,
+			forceReturnCount: 0,
+		};
+	});
+	return {
+		adapterPool: {},
+		workspace: {},
+		sandboxBasePath: "/tmp/ad5-routine-scheduler",
+	};
+}
+
 describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 	test("fires a routine with nextRunAt in the past and creates a session", async ({
 		db,
@@ -131,12 +177,11 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 			nextRunAt: pastTime,
 		});
 
-		// AF6: generic (taskId) routines only auto-fire when canProvision is true.
-		// This direct-call harness has no real dispatcher, so the stub session is
-		// harmless — pass canProvision:true to exercise the generic fire path.
+		const runtimeDeps = registerSchedulerRuntime(db);
 		const scheduler = await startRoutineScheduler(db, eventBus, {
 			pollIntervalMs: POLL_INTERVAL_MS,
 			canProvision: true,
+			runtimeDeps,
 		});
 
 		// Wait for the scheduler to poll and fire
@@ -147,6 +192,7 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 		const [routine] = await db.select().from(routines).where(eq(routines.id, "routine-ad5-due"));
 		expect(routine?.lastRunAt).not.toBeNull();
 		expect(routine?.lastRunAt).not.toBeUndefined();
+		clearProvisionSessionFn();
 	});
 
 	test("creates a session row when a due routine fires", async ({ db, eventBus }) => {
@@ -168,20 +214,25 @@ describe("AD5 — AC-1: Routine Scheduler Auto-Fire", () => {
 			nextRunAt: pastTime,
 		});
 
+		const runtimeDeps = registerSchedulerRuntime(db);
 		const scheduler = await startRoutineScheduler(db, eventBus, {
 			pollIntervalMs: POLL_INTERVAL_MS,
 			canProvision: true,
+			runtimeDeps,
 		});
 
 		await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS * 3));
 		scheduler.stop();
 
-		// A session should have been created for the task
+		// A task-free routine session should have been created through a request.
 		const createdSessions = await db
 			.select()
 			.from(sessions)
-			.where(eq(sessions.taskId, "task-ad5-sched"));
+			.where(eq(sessions.routineId, "routine-ad5-session"));
 		expect(createdSessions.length).toBeGreaterThan(0);
+		expect(createdSessions[0]?.taskId).toBeNull();
+		expect(createdSessions[0]?.sourceKind).toBe("routine");
+		clearProvisionSessionFn();
 	});
 
 	test("does NOT fire a routine with nextRunAt in the future", async ({ db, eventBus }) => {
