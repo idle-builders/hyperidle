@@ -19,7 +19,7 @@ import {
 } from "./provision-registry.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
-const schedulerLog = createLogger({ pkg: "fabric" });
+const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });
 
 // --- Types ---
 
@@ -32,8 +32,8 @@ export interface FireResult {
 
 /**
  * Periodic reaper hook (AF6 §4, WARNING 2). Injected by the boot wiring so the
- * scheduler can run an in-process stale-session sweep without fabric importing
- * the server layer. Returns the number of sessions reaped.
+ * scheduler can run an in-process stale-session sweep without coupling to
+ * session provisioning. Returns the number of sessions reaped.
  */
 export type ReapStaleSessions = () => Promise<number>;
 

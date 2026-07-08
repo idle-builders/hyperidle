@@ -462,19 +462,11 @@ export {
 export type { ScoredItem } from "./token-budget.js";
 export { countItemTokens, countTokens, enforceBudget } from "./token-budget.js";
 export type {
-	AutonomyLevel,
-	KnowledgeAccessorKind,
 	KnowledgeKind,
 	KnowledgeLayer,
-	KnowledgeRelevanceSignals,
-	KnowledgeScope,
-	KnowledgeSortOption,
 	KnowledgeStatus,
-	KnowledgeTopicHealth,
 	PropagationLevel,
-	PropagationResult,
 	PropagationStatus,
-	RiskTier,
 } from "./types.js";
 export {
 	KNOWLEDGE_LAYERS,

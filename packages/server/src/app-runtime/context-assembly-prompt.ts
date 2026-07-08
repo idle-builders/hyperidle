@@ -27,7 +27,7 @@ import { communityForRole } from "./role-community-map.js";
 import type { RoutineSessionContextData, SessionContextData } from "./session-context.js";
 import { countTokens } from "./token-budget.js";
 
-const logger = createLogger({ pkg: "fabric.context-assembly-prompt" });
+const logger = createLogger({ pkg: "server.agent-context-prompt" });
 
 /** Input to context assembly. All fields come from prior provisioning phases. */
 export interface PromptCompositionInput {

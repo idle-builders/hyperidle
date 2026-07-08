@@ -51,8 +51,48 @@ import { afterEach, describe, expect, vi } from "vitest";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { findEligibleTeamAgents, runBetDecomposition } from "../services/bet-decomposition.js";
 import { registerBetDecomposition } from "../services/bet-decomposition-subscriber.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+
+interface AK8StrategyStub {
+	selectAgent(input: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome>;
+	decomposeBet(input: DecomposeBetRequest<HyperIdleDb>): Promise<DecompositionPlan>;
+}
+
+const resolverState = vi.hoisted(() => ({
+	selectAgent: null as null | ((input: unknown) => unknown),
+	decomposeBet: null as null | ((input: unknown) => unknown),
+}));
+
+vi.mock("../services/agent-defaults/resolvers.js", () => ({
+	resolveAgentScaffoldSpecs: async () => [],
+	resolveAgentSelection: async (input: unknown) => {
+		if (!resolverState.selectAgent) return { agentId: null };
+		return resolverState.selectAgent(input);
+	},
+	resolveAssistantFormation: async () => ({
+		persona: null,
+		assistantDraftSurface: "standard",
+	}),
+	resolveDecompositionPlan: async (input: {
+		candidates?: ReadonlyArray<{ agentId: string; role: string }>;
+	}) => {
+		if (resolverState.decomposeBet) return resolverState.decomposeBet(input);
+		const candidates = input.candidates ?? [];
+		const pm =
+			candidates.find((candidate) => candidate.role === "product_manager") ?? candidates[0];
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
+}));
+
+function setActiveStrategy(strategy: AK8StrategyStub): void {
+	resolverState.selectAgent = strategy.selectAgent.bind(strategy) as (input: unknown) => unknown;
+	resolverState.decomposeBet = strategy.decomposeBet.bind(strategy) as (input: unknown) => unknown;
+}
+
+function clearActiveStrategy(): void {
+	resolverState.selectAgent = null;
+	resolverState.decomposeBet = null;
+}
 
 // ---------------------------------------------------------------------------
 // Seed helpers

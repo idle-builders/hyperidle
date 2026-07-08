@@ -29,13 +29,59 @@ import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 import { addAgentTool } from "../tools/add-agent.js";
 import { createTeamTool } from "../tools/create-team.js";
 
 const TEST_API_KEY = "test-key-AK6";
 const NOW = new Date().toISOString();
+
+const resolverState = vi.hoisted(() => ({
+	scaffoldAgents: null as null | ((input: unknown) => unknown),
+}));
+
+vi.mock("../services/agent-defaults/resolvers.js", () => ({
+	resolveAgentScaffoldSpecs: async (input: unknown) => {
+		if (!resolverState.scaffoldAgents) return [];
+		return resolverState.scaffoldAgents(input);
+	},
+	resolveAgentSelection: async (input: {
+		candidates?: ReadonlyArray<{ agentId: string; role: string }>;
+		roleHint?: string | null;
+		spreadIndex?: number | null;
+	}) => {
+		const candidates = input.candidates ?? [];
+		const byRole = input.roleHint
+			? candidates.find((candidate) => candidate.role === input.roleHint)
+			: undefined;
+		const chosen = byRole ?? candidates[(input.spreadIndex ?? 0) % Math.max(candidates.length, 1)];
+		return { agentId: chosen?.agentId ?? null };
+	},
+	resolveAssistantFormation: async () => ({
+		persona: null,
+		assistantDraftSurface: "standard",
+	}),
+	resolveDecompositionPlan: async (input: {
+		candidates?: ReadonlyArray<{ agentId: string; role: string }>;
+	}) => {
+		const candidates = input.candidates ?? [];
+		const pm =
+			candidates.find((candidate) => candidate.role === "product_manager") ?? candidates[0];
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
+}));
+
+function setActiveStrategy(strategy: {
+	scaffoldAgents(input: ScaffoldRequest<unknown>): Promise<readonly AgentScaffoldSpec[]>;
+}): void {
+	resolverState.scaffoldAgents = strategy.scaffoldAgents.bind(strategy) as (
+		input: unknown,
+	) => unknown;
+}
+
+function clearActiveStrategy(): void {
+	resolverState.scaffoldAgents = null;
+}
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };

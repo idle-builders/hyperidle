@@ -699,7 +699,7 @@ async function runPortfolioRetro(
 
 // --- Knowledge Promotion ---
 
-const promotionLog = createLogger({ pkg: "fabric" });
+const promotionLog = createLogger({ pkg: "server.knowledge-promotion" });
 
 /**
  * Sweep provisional items for auto-promotion, then recompute attention scores

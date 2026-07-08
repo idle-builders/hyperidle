@@ -2,7 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { createRelevanceService } from "./relevance-service.js";
 
-const listenerLog = createLogger({ pkg: "fabric" });
+const listenerLog = createLogger({ pkg: "server.knowledge-relevance" });
 
 /**
  * Subscribe to `knowledge_accessed` events and recompute the relevance score
@@ -22,7 +22,7 @@ const listenerLog = createLogger({ pkg: "fabric" });
  *
  * @lore AF9 CRITIQUE SUGGESTION: viewing an item via GET /api/knowledge/:id
  * now materialises a `knowledgeAppProjection` row as a side effect of the
- * live read path — `recomputeScores` upserts a minimal fabric row when none
+ * live read path — `recomputeScores` upserts a minimal projection row when none
  * exists. This is existing `recomputeScores` behaviour, but AF9 is the first
  * thing that triggers it on the live read path (not just in tests).
  */

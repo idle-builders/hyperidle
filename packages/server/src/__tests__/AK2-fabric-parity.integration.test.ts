@@ -42,22 +42,17 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { create as createKnowledgeItem, fabricStrategy } from "@hyperidle/fabric";
 import type {
-	ContextAssemblyOutcome,
-	ContextAssemblyRequest,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
-	IngestionHandle,
-	IngestionRequest,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-	Strategy,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { create as createKnowledgeItem } from "../app-runtime/knowledge-repository.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import {
@@ -65,81 +60,73 @@ import {
 	type ProvisionSessionParams,
 	provisionSession,
 } from "../services/session-provisioning.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Manifest capture spy — wraps fabricStrategy to read .fabric/manifest.json
-// immediately after assembleContext completes (before sandbox is deleted).
+// Manifest capture spy — wraps the app-owned context provider to read
+// .fabric/manifest.json immediately after assembleContext completes.
 // ---------------------------------------------------------------------------
 
 interface CapturedManifest {
-	// biome-ignore lint/suspicious/noExplicitAny: manifest JSON shape is dynamic
-	raw: Record<string, any>;
+	raw: Record<string, unknown>;
 	itemCount: number;
 }
 
-class FabricStrategySpy implements Strategy<HyperIdleDb> {
-	public assembleContextOutcome: ContextAssemblyOutcome | null = null;
-	public capturedManifest: CapturedManifest | null = null;
-	public assembleContextCallCount = 0;
-	public ingestionDisposeCallCount = 0;
+const contextSpy = vi.hoisted(() => ({
+	assembleContextOutcome: null as null | {
+		itemCount: number;
+		durationMs: number;
+		manifestPath: string;
+	},
+	capturedManifest: null as CapturedManifest | null,
+	assembleContextCallCount: 0,
+	ingestionDisposeCallCount: 0,
+}));
 
-	async assembleContext(req: ContextAssemblyRequest<HyperIdleDb>): Promise<ContextAssemblyOutcome> {
-		this.assembleContextCallCount++;
-		const outcome = await fabricStrategy.assembleContext(req);
-		this.assembleContextOutcome = outcome;
+vi.mock("../services/agent-context/assemble-context.js", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../services/agent-context/assemble-context.js")>();
+	const fsModule = await import("node:fs");
+	const pathModule = await import("node:path");
 
-		// Capture the manifest immediately after assembly — before sandbox cleanup.
-		const manifestPath = path.join(req.sandboxPath, ".fabric", "manifest.json");
-		if (fs.existsSync(manifestPath)) {
-			const raw = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as Record<string, unknown>;
-			// biome-ignore lint/suspicious/noExplicitAny: manifest items is a dynamic shape
-			this.capturedManifest = { raw: raw as Record<string, any>, itemCount: outcome.itemCount };
-		}
+	return {
+		...actual,
+		assembleAgentContext: async (
+			input: Parameters<typeof actual.assembleAgentContext>[0],
+		): Promise<
+			ReturnType<typeof actual.assembleAgentContext> extends Promise<infer T> ? T : never
+		> => {
+			contextSpy.assembleContextCallCount++;
+			const outcome = await actual.assembleAgentContext(input);
+			contextSpy.assembleContextOutcome = outcome;
 
-		return outcome;
-	}
+			const manifestPath = pathModule.join(input.sandboxPath, ".fabric", "manifest.json");
+			if (fsModule.existsSync(manifestPath)) {
+				const raw = JSON.parse(fsModule.readFileSync(manifestPath, "utf-8")) as Record<
+					string,
+					unknown
+				>;
+				contextSpy.capturedManifest = {
+					raw,
+					itemCount: outcome.itemCount,
+				};
+			}
 
-	beginLearningIngestion(req: IngestionRequest<HyperIdleDb>): IngestionHandle {
-		const handle = fabricStrategy.beginLearningIngestion(req);
-		const spy = this;
-		return {
-			dispose(): void {
-				handle.dispose();
-				spy.ingestionDisposeCallCount++;
-			},
-		};
-	}
-
-	// AK6: scaffoldAgents stub — FabricStrategySpy test is not about agent creation.
-	async scaffoldAgents(
-		_req: import("@hyperidle/shared").ScaffoldRequest<HyperIdleDb>,
-	): Promise<readonly import("@hyperidle/shared").AgentScaffoldSpec[]> {
-		return [];
-	}
-
-	// AK7: selectAgent stub — FabricStrategySpy test is not about agent selection.
-	async selectAgent(
-		_req: import("@hyperidle/shared").SelectAgentRequest<HyperIdleDb>,
-	): Promise<import("@hyperidle/shared").SelectAgentOutcome> {
-		return { agentId: null };
-	}
-
-	// AK8: decomposeBet stub — FabricStrategySpy test is not about decomposition.
-	async decomposeBet(
-		_req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>,
-	): Promise<import("@hyperidle/shared").DecompositionPlan> {
-		return { decomposerAgentId: null, tasks: [] };
-	}
-
-	// AR4b: formAssistant stub — FabricStrategySpy test is not about assistant formation.
-	async formAssistant(
-		_req: import("@hyperidle/shared").AssistantFormationRequest<HyperIdleDb>,
-	): Promise<import("@hyperidle/shared").AssistantFormation> {
-		return { persona: null, assistantDraftSurface: "standard" };
-	}
-}
+			return outcome;
+		},
+		beginAgentWriteback: (
+			input: Parameters<typeof actual.beginAgentWriteback>[0],
+		): ReturnType<typeof actual.beginAgentWriteback> => {
+			const handle = actual.beginAgentWriteback(input);
+			return {
+				dispose(): void {
+					handle.dispose();
+					contextSpy.ingestionDisposeCallCount++;
+				},
+			};
+		},
+	};
+});
 
 // ---------------------------------------------------------------------------
 // Echo harness — completes immediately with zero cost, no file writes
@@ -258,16 +245,16 @@ function baseParams(basePath: string): ProvisionSessionParams {
 
 describe("AK2 — Fabric parity: fabricStrategy produces session-boundary artifacts unchanged", () => {
 	let tmpDir: string;
-	let spy: FabricStrategySpy;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ak2-parity-"));
-		spy = new FabricStrategySpy();
-		setActiveStrategy(spy);
+		contextSpy.assembleContextOutcome = null;
+		contextSpy.capturedManifest = null;
+		contextSpy.assembleContextCallCount = 0;
+		contextSpy.ingestionDisposeCallCount = 0;
 	});
 
 	afterEach(() => {
-		clearActiveStrategy();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -295,9 +282,9 @@ describe("AK2 — Fabric parity: fabricStrategy produces session-boundary artifa
 		expect(session?.outcome).toBe("completed");
 
 		// assembleContext was called exactly once through the seam
-		expect(spy.assembleContextCallCount).toBe(1);
+		expect(contextSpy.assembleContextCallCount).toBe(1);
 		// The seeded L4 knowledge item was assembled (itemCount > 0)
-		expect(spy.assembleContextOutcome?.itemCount).toBeGreaterThan(0);
+		expect(contextSpy.assembleContextOutcome?.itemCount).toBeGreaterThan(0);
 	});
 
 	// §9 observation 1: .fabric/manifest.json shape — session_id, assembled_at, items.
@@ -317,8 +304,8 @@ describe("AK2 — Fabric parity: fabricStrategy produces session-boundary artifa
 		const result = await provisionSession(deps, baseParams(tmpDir));
 
 		// Manifest was captured in-memory during assembly
-		expect(spy.capturedManifest).not.toBeNull();
-		const manifest = spy.capturedManifest!.raw;
+		expect(contextSpy.capturedManifest).not.toBeNull();
+		const manifest = contextSpy.capturedManifest!.raw;
 
 		// session_id matches the provisioned session
 		expect(manifest["session_id"]).toBe(result.sessionId);
@@ -329,7 +316,7 @@ describe("AK2 — Fabric parity: fabricStrategy produces session-boundary artifa
 		expect(manifest["items"]).toBeDefined();
 		const items = manifest["items"] as Record<string, unknown>;
 		const itemKeys = Object.keys(items);
-		expect(itemKeys.length).toBe(spy.capturedManifest!.itemCount);
+		expect(itemKeys.length).toBe(contextSpy.capturedManifest!.itemCount);
 		expect(itemKeys.length).toBeGreaterThan(0);
 		// Each item has version, source_path, format — same shape as context-assembly.integration.test.ts pins
 		for (const key of itemKeys) {
@@ -362,7 +349,7 @@ describe("AK2 — Fabric parity: fabricStrategy produces session-boundary artifa
 		await provisionSession(deps, baseParams(tmpDir));
 
 		// ingestion.dispose() was called (watcher flushed on session end)
-		expect(spy.ingestionDisposeCallCount).toBe(1);
+		expect(contextSpy.ingestionDisposeCallCount).toBe(1);
 
 		// No new knowledge_items rows — echo harness wrote no knowledge/ files
 		const afterRows = await db.select().from(knowledgeItems);

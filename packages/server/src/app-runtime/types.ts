@@ -1,14 +1,14 @@
 /**
- * Strategy types — fabric's knowledge taxonomy, scoring, and propagation types.
+ * App runtime knowledge taxonomy, scoring, and propagation types.
  *
  * @lore O1: these types were moved from @hyperidle/shared as part of the
- * kernel/strategy separation. Kernel code imports from @hyperidle/shared;
- * strategy/UI code that needs these imports from @hyperidle/fabric.
+ * runtime split. Shared UI code imports public app vocabulary from
+ * @hyperidle/shared; server app runtime keeps its local compatibility types here.
  */
 
 import type { ScopeKind } from "@hyperidle/shared";
 
-// --- Knowledge taxonomy (fabric's classification system) ---
+// --- Knowledge taxonomy ---
 
 export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
 export const KNOWLEDGE_LAYERS: readonly KnowledgeLayer[] = ["L0", "L1", "L2", "L3", "L4"] as const;
@@ -17,10 +17,8 @@ export const KNOWLEDGE_LAYERS: readonly KnowledgeLayer[] = ["L0", "L1", "L2", "L
  * Maps scope kinds that participate in the L0-L4 maturity flow to their
  * default layer. Returns null for scope kinds outside the maturity flow.
  *
- * @lore Q2: layer assignment is fabric's job. The creation flow does NOT
- * set layer. This function is called inline in the knowledge route handlers
- * (pragmatic: the fabric event listener may not exist yet) and will be
- * moved to a fabric listener in a follow-up workpackage.
+ * @lore Q2: layer assignment is the projection service's job. The creation flow does NOT
+ * set layer. This function is called inline in the knowledge route handlers.
  */
 export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> = {
 	factory: "L4",
@@ -30,7 +28,7 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 	bet: null,
 	team: null,
 	user: null,
-	// @lore AV3 A2: filesystem scope does not participate in the fabric maturity flow.
+	// @lore AV3 A2: filesystem scope does not participate in the maturity flow.
 	filesystem: null,
 };
 
@@ -53,8 +51,7 @@ export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 /**
  * AI4 Note A2: Human-readable labels for each KnowledgeStatus. Lives in
- * @hyperidle/fabric (not shared) because KnowledgeStatus is fabric-owned
- * post-O1 type split. Exhaustive `Record` — adding a new KnowledgeStatus is
+ * server app runtime. Exhaustive `Record` — adding a new KnowledgeStatus is
  * a TS error until labelled here.
  *
  * @lore AI4: archived→"Stale" is a deliberate copy choice (not a bug).
@@ -112,7 +109,7 @@ export interface KnowledgeRelevanceSignals {
 export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
 export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];
 
-// --- Strategy-specific types ---
+// --- Planning policy types ---
 
 export type RiskTier = "low" | "medium" | "high";
 export type AutonomyLevel = 1 | 2 | 3 | 4;

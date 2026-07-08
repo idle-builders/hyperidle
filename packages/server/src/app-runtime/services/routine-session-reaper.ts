@@ -2,7 +2,7 @@ import { type HyperIdleDb, routineRuns, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
 
-const reaperLog = createLogger({ pkg: "fabric" });
+const reaperLog = createLogger({ pkg: "server.routine-reaper" });
 
 export interface ReapStaleRoutineSessionsOpts {
 	/** A routine session active longer than this (ms) is considered stale/hung. */
@@ -24,9 +24,8 @@ export interface ReapStaleRoutineSessionsOpts {
  * live SessionContext / harness to tear down — the process that owned it is gone.
  * For an in-process hang there is likewise nothing in-memory worth draining.
  *
- * @lore AF6: pure-DB (db + eventBus only) so it can live in fabric and be
- * injected into the scheduler poll loop without fabric importing the server
- * layer. Re-exported from packages/server for callers that boot the one-shot.
+ * @lore AF6: pure-DB (db + eventBus only) so it can live in app runtime and be
+ * injected into the scheduler poll loop without coupling to session provisioning.
  */
 export async function reapStaleRoutineSessions(
 	db: HyperIdleDb,

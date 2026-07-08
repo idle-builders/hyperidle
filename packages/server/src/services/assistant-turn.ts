@@ -453,9 +453,9 @@ async function runTurnInternal(
 
 	// --- Step 4: Resolve draft tool binding ---
 	// @lore AK4: resolve team + draft binding BEFORE the session. Both are cheap single-row DB lookups.
-	// @lore AR4b: draftRegistry source is now the strategy formation answer (§3b seam rerouted).
+	// @lore AR4b: draftRegistry source is now the app formation answer (§3b seam rerouted).
 	// formation.assistantDraftSurface === "standard" → buildAssistantDraftRegistry (the canonical 2-tool builder).
-	// A future Fabric strategy returning a different surface marker maps to a different builder here.
+	// A future app formation response returning a different surface marker maps to a different builder here.
 	const resolvedTeamId = await resolveDraftTeamId(db, userId);
 	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId);
 
@@ -479,7 +479,7 @@ async function runTurnInternal(
 
 	// @lore AK4 CRITICAL-2: NEVER inject buildToolRegistry(ctx,{role:'assistant'}) here —
 	// the dedicated 2-tool builder is the authority boundary (AC3b).
-	// @lore AR4b: §3b seam rerouted — source is now the strategy's formation answer.
+	// @lore AR4b: §3b seam rerouted — source is now the app formation answer.
 	// "standard" maps to the canonical buildAssistantDraftRegistry; other markers (future)
 	// would map to their respective builders.
 	const draftRegistry =
@@ -544,8 +544,8 @@ async function runTurnInternal(
 				assistantAgentId,
 				draftRegistry,
 				messages: conversationMessages,
-				// AR4b: strategy formation persona override — null = "no override; use agent row".
-				// @lore AR4b: systemPromptOverride carries the strategy's per-turn persona decision
+				// AR4b: app formation persona override — null = "no override; use agent row".
+				// @lore AR4b: systemPromptOverride carries the per-turn persona decision
 				// to prompt assembly, which uses it in composeAssistantPrompt(effectivePersona).
 				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
 				systemPromptOverride: formation.persona,
