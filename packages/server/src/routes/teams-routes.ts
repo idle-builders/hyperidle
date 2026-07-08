@@ -810,7 +810,7 @@ export function createTeamRoutes(
 					string,
 					Array<{
 						id: string;
-						taskId: string;
+						taskId: string | null;
 						startedAt: string;
 						endedAt: string | null;
 						state: string | null;
@@ -833,7 +833,7 @@ export function createTeamRoutes(
 					let activeTaskTitle: string | null = null;
 					let activeTaskId: string | null = null;
 					let activeBetId: string | null = null;
-					if (activeSession) {
+					if (activeSession?.taskId) {
 						const [taskRow] = await db
 							.select({ title: tasks.title, betId: tasks.betId })
 							.from(tasks)

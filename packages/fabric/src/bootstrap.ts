@@ -164,7 +164,8 @@ export function bootstrapFabric(ctx: {
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
 	const schedulerPromise = startRoutineScheduler(db, eventBus, {
 		pollIntervalMs,
-		canProvision: ctx.canProvision ?? false,
+		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+		...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
 		// Non-optional periodic reaper sweep (WARNING 2): catches in-process hangs.
 		reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
 		reaperCadenceMs: ctx.reaperCadenceMs,

@@ -70,7 +70,7 @@ Each human gets exactly one assistant: a personal operator scoped to that user. 
 
 The conversational tool loop runs with a bounded registry of exactly two tools: `create_bet` and `edit_bet` (`packages/server/src/tools/assistant-draft-registry.ts`). No other tools exist in this path — the Assistant cannot create teams, add agents, or submit reviews from the thread. The team for any draft is resolved server-side and hard-injected; `edit_bet` is forced to the current draft; the model cannot redirect either. This is the User Sovereignty line drawn in code.
 
-**Turn lifecycle (AR4a).** The conversational turn (`runAssistantTurn`) delegates to real `provisionSession` in conversational mode — real sandbox, real MCP bridge, all harnesses, with an ephemeral stub task (`conv-stub-task-*`) satisfying the session's task FK (`packages/server/src/services/assistant-turn.ts`). The loop is capped at `MAX_TOOL_ITERATIONS=3` and always persists a reply — never silent, even on cap exhaustion.
+**Turn lifecycle (AR4a/AU1).** The conversational turn (`runAssistantTurn`) delegates through the shared session-request/runtime path in conversational mode — real sandbox, real MCP bridge, all harnesses, task-free source correlation. The loop is capped at `MAX_TOOL_ITERATIONS=3` and always persists a reply — never silent, even on cap exhaustion.
 
 ### 3.4 Category is not role
 

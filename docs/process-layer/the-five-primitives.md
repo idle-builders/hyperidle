@@ -92,17 +92,18 @@ The thread on a task is optional. Most tasks don't need one; threads exist *when
 
 ### 3.3 Session
 
-A single agent's bounded run on a task. A task can have many sessions over its lifetime — one agent works, hands back, another picks up later. This is resumability without locking into a single long-running process: agent memory persists between sessions through the knowledge layers, not the process.
+A single agent's bounded run. Most sessions work a task, but AU1 made `taskId` optional so task-free sources — assistant turns, routine runs, and knowledge review requests — can enter the same runtime without fabricating work. Task-backed sessions still give resumability across a task's lifetime: one agent works, hands back, another picks up later. Agent memory persists between sessions through the knowledge layers, not the process.
 
 Shipped shape (`schema.ts:245`):
 
-- `taskId`, `agentId`
+- `taskId` — nullable; task-free sessions carry source correlation instead of a fabricated task
+- `agentId`
 - `modelTier` — required; tier vocabulary owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md)
 - `state` — **`active | paused | done | crashed`** (`SessionState`, `packages/shared/src/types.ts`)
 - `outcome` — **`completed | crashed | stopped | not_returned`** (`SessionOutcome`, `packages/shared/src/events.ts:48`)
 - `sandboxSnapshot` — pointer to sandbox state at session start
 - `notes` — what the agent did, in its own words
-- `routineId` — set when the routine scheduler created the session
+- `routineId` — set when the routine scheduler created the session; routine request/run correlation is also recorded in `agent_session_requests`
 - `effectivenessScore` (+ recorded-at/by) — AC1 grading
 - `startedAt` / `endedAt` — telemetry only; their delta is never a budget
 
@@ -127,7 +128,7 @@ Shipped shape (`schema.ts:294`):
 - `delegationAllowed`, `humanReview`, `silent` booleans
 - `state` — `active | paused | error`
 - Per-routine cost caps: `costCapPerRunMinor`, `costCapMonthlyMinor`; `costActualMinor` accumulates per run
-- `stubTaskId` — dedicated stub task so routine sessions satisfy the `sessions.taskId` FK
+- `stubTaskId` — legacy nullable column for older routines; new routine creation is task-free and correlates runs through `agent_session_requests`
 - `lastRunAt` / `nextRunAt`; history in the `routine_runs` audit log (`schema.ts:391`)
 
 Delegation semantics: the **owner holds the thread of memory** across runs. If the owner is overloaded and `delegationAllowed` is true, a skilled teammate can pick the run up and write back into the owner's state — muscle memory preserved, execution flexes. Builtins, triggers, and the retro loop: [routines-and-retros.md](routines-and-retros.md).

@@ -570,10 +570,8 @@ describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet co
 			triggerMessageId: trigger1,
 		});
 
-		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
-		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
 		const allBetsAfterTurn1 = await db.select().from(bets);
-		const userBetsAfterTurn1 = allBetsAfterTurn1.filter((b) => b.id !== "conv-stub-bet");
+		const userBetsAfterTurn1 = allBetsAfterTurn1;
 		expect(userBetsAfterTurn1).toHaveLength(1);
 		const originalBetId = userBetsAfterTurn1[0]!.id;
 
@@ -603,9 +601,8 @@ describe("AK4 AC4 (demoted): second turn edit_bet → same betId mutated, bet co
 			triggerMessageId: trigger2,
 		});
 
-		// @lore AR4a: filter out the system stub bet (same as turn 1 filter above).
 		const allBetsAfterTurn2 = await db.select().from(bets);
-		const userBetsAfterTurn2 = allBetsAfterTurn2.filter((b) => b.id !== "conv-stub-bet");
+		const userBetsAfterTurn2 = allBetsAfterTurn2;
 		expect(userBetsAfterTurn2).toHaveLength(1);
 		const mutatedBet = userBetsAfterTurn2[0]!;
 		expect(mutatedBet.id).toBe(originalBetId);
@@ -653,10 +650,8 @@ describe("AK4 AC4-loop-bound (demoted): tool-use cap at MAX_TOOL_ITERATIONS=3, n
 		});
 
 		// (a) loop was capped: ≤ MAX_TOOL_ITERATIONS (3) bets created
-		// @lore AR4a: filter out the system stub bet (conv-stub-bet) created by
-		// createConversationalStubTask for the sessions.taskId FK — not a user bet.
 		const allBets = await db.select().from(bets);
-		const userBets = allBets.filter((b) => b.id !== "conv-stub-bet");
+		const userBets = allBets;
 		expect(userBets.length).toBeLessThanOrEqual(3);
 
 		// (b) a plain reply IS persisted (never-silent invariant)

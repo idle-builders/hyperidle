@@ -35,6 +35,7 @@ import {
 } from "../services/session-lifecycle.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
+import { registerRoutineRequestRuntime } from "./AU1-fixtures.js";
 
 const TEST_API_KEY = "test-key-aa3";
 
@@ -373,7 +374,12 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 			const eventBus = new EventBus();
 			// biome-ignore lint/style/noNonNullAssertion: seeded above
-			const result = await checkAndFireRoutine(db, eventBus, routine!);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine!,
+				registerRoutineRequestRuntime(db),
+			);
 
 			// AA3: should return fired:false when monthly cap exceeded
 			expect(result.fired).toBe(false);
@@ -519,7 +525,12 @@ describe("AA3: Routine Cost & Appetite Model", () => {
 
 			const eventBus = new EventBus();
 			// biome-ignore lint/style/noNonNullAssertion: seeded above
-			const result = await checkAndFireRoutine(db, eventBus, routine!);
+			const result = await checkAndFireRoutine(
+				db,
+				eventBus,
+				routine!,
+				registerRoutineRequestRuntime(db),
+			);
 
 			// Should fire (not blocked by monthly cap)
 			expect(result.fired).toBe(true);

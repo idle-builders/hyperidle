@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { tasks } from "@hyperidle/db";
+import { bets, tasks } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -17,8 +17,9 @@ type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 /**
  * Create a new task under the current session's bet.
  *
- * Derives betId and teamId from the session's parent task so the
- * agent cannot create tasks on an arbitrary bet. ownerAgentId is set to the
+ * Derives betId and teamId from the session's parent task, or from a
+ * decomposition session request context for task-free PM decomposition runs.
+ * The agent cannot create tasks on an arbitrary bet. ownerAgentId is set to the
  * calling agent. New tasks start in "proposed" state.
  *
  * @lore R5 D1: betId is derived from ctx.taskId (not accepted as agent input)
@@ -33,10 +34,29 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 	}
 	const input = parsed.data;
 
-	// 1. Look up parent task to derive betId and teamId.
-	const [parentTask] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
-	if (!parentTask) {
-		return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+	let parent: { betId: string; teamId: string };
+	if (ctx.taskId) {
+		const [parentTask] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
+		if (!parentTask) {
+			return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+		}
+		parent = { betId: parentTask.betId, teamId: parentTask.teamId };
+	} else if (ctx.requestContext?.sourceKind === "decomposition") {
+		const { betId, teamId } = ctx.requestContext.sourceCorrelation as {
+			readonly betId: string;
+			readonly teamId: string;
+		};
+		const [bet] = await ctx.db
+			.select({ id: bets.id })
+			.from(bets)
+			.where(eq(bets.id, betId))
+			.limit(1);
+		if (!bet) {
+			return err("NOT_FOUND", `Bet not found: ${betId}`);
+		}
+		parent = { betId, teamId };
+	} else {
+		return err("NOT_FOUND", "Parent task not found");
 	}
 
 	// 2. Insert new task in "proposed" state.
@@ -45,8 +65,8 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 	const now = new Date().toISOString();
 	await ctx.db.insert(tasks).values({
 		id: taskId,
-		betId: parentTask.betId,
-		teamId: parentTask.teamId,
+		betId: parent.betId,
+		teamId: parent.teamId,
 		ownerAgentId: ctx.agentId,
 		title: input.title,
 		description: input.description ?? null,
@@ -67,13 +87,13 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 	};
 	ctx.eventBus.emit(event);
 
-	return ok({ taskId, betId: parentTask.betId });
+	return ok({ taskId, betId: parent.betId });
 }
 
 export const createTaskTool: ToolDefinition<CreateTaskInput> = {
 	name: "create_task",
 	description:
-		"Create a new task under the current bet. Derives betId, productId, and teamId from the session's parent task. The new task starts in 'proposed' state.",
+		"Create a new task under the current bet. Derives betId and teamId from the session context. The new task starts in 'proposed' state.",
 	inputSchema: createTaskInputSchema,
 	handler,
 };

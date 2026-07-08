@@ -7,7 +7,17 @@
  * POST  /api/routines/:id/trigger — manually trigger routine
  */
 
-import { bets, type HyperIdleDb, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	routineRuns,
+	routines,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { runBuiltinRoutine } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -179,16 +189,29 @@ describe("routines routes", () => {
 	});
 
 	describe("POST /api/routines/:id/trigger", () => {
-		test("returns 201 with created session on manual trigger", async ({ db, app }) => {
+		test("returns 200 with created task-free session request on manual trigger", async ({
+			db,
+			app,
+		}) => {
 			const { routineId } = await seedRoutine(db);
 			const res = await app.request(`/api/routines/${routineId}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
-			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; agentId: string };
-			expect(typeof body.id).toBe("string");
-			expect(body.agentId).toBe("agent-1");
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { routineId: string; requestId: string; fired: boolean };
+			expect(body).toMatchObject({ routineId, fired: true });
+
+			const [request] = await db
+				.select()
+				.from(agentSessionRequests)
+				.where(eq(agentSessionRequests.id, body.requestId));
+			expect(request).toMatchObject({
+				sourceKind: "routine",
+				taskId: null,
+				agentId: "agent-1",
+				promptMode: "routine",
+			});
 		});
 
 		test("returns 404 for non-existent routine", async ({ app }) => {
@@ -215,7 +238,11 @@ describe("routines routes", () => {
 			expect(res.status).toBe(403);
 		});
 
-		test("emits session_started event on eventBus", async ({ db, app, eventBus }) => {
+		test("records routine run intent without emitting a fake session_started event", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
 			const { routineId } = await seedRoutine(db);
 			const emittedEvents: unknown[] = [];
 			eventBus.on("session_started", (e) => {
@@ -227,7 +254,10 @@ describe("routines routes", () => {
 				headers: authHeaders(),
 			});
 
-			expect(emittedEvents).toHaveLength(1);
+			expect(emittedEvents).toHaveLength(0);
+			const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			expect(runs).toHaveLength(1);
+			expect(runs[0]?.outcome).toBe("running");
 		});
 	});
 

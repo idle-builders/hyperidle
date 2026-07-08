@@ -8,6 +8,7 @@ import {
 	type EventBus,
 	type IngestionHandle,
 	type ModelTier,
+	type SessionLifecycleCorrelation,
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
@@ -26,7 +27,7 @@ export interface CreateSessionParams {
 export interface SessionContext {
 	sessionId: string;
 	agentId: string;
-	taskId: string;
+	taskId: string | null;
 	sandboxPath: string;
 	/**
 	 * AK2: was `watcher: FileWatcher` (direct Fabric import). Renamed to
@@ -38,6 +39,7 @@ export interface SessionContext {
 	ingestion: IngestionHandle;
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
+	readonly requestContext?: SessionLifecycleCorrelation;
 	/**
 	 * AA2: When set, this session belongs to a routine. Used by endSession/crashSession
 	 * to update routine_runs outcome and routines.lastRunSummary on completion.
@@ -308,6 +310,14 @@ export async function endSession(
 			sessionId: context.sessionId,
 			agentId: context.agentId,
 			taskId: context.taskId,
+			...(context.requestContext
+				? {
+						requestId: context.requestContext.requestId,
+						sourceKind: context.requestContext.sourceKind,
+						sourceId: context.requestContext.sourceId,
+						sourceCorrelation: context.requestContext.sourceCorrelation,
+					}
+				: {}),
 			timestamp: Date.now(),
 			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
@@ -391,6 +401,14 @@ export async function crashSession(
 			sessionId: context.sessionId,
 			agentId: context.agentId,
 			taskId: context.taskId,
+			...(context.requestContext
+				? {
+						requestId: context.requestContext.requestId,
+						sourceKind: context.requestContext.sourceKind,
+						sourceId: context.requestContext.sourceId,
+						sourceCorrelation: context.requestContext.sourceCorrelation,
+					}
+				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
 		});

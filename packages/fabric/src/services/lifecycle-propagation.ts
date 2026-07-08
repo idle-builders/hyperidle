@@ -748,6 +748,7 @@ export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus
 	// Explicit event type annotation ensures the on<T> overload resolves correctly.
 	const unsubSessionEnded = eventBus.on("session_ended", (event: SessionEndedEvent) => {
 		void (async () => {
+			if (!event.taskId) return;
 			await propagateSessionToTask(db, eventBus, event.sessionId, event.taskId, event.outcome);
 		})();
 	});

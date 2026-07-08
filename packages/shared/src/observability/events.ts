@@ -34,13 +34,13 @@ interface ObservabilityEventBase {
 interface SessionStartedObservabilityEvent extends ObservabilityEventBase {
 	readonly kind: "session_started";
 	readonly agentId: string;
-	readonly taskId: string;
+	readonly taskId: string | null;
 }
 
 interface SessionEndedObservabilityEvent extends ObservabilityEventBase {
 	readonly kind: "session_ended";
 	readonly agentId: string;
-	readonly taskId: string;
+	readonly taskId: string | null;
 	readonly outcome: SessionOutcome;
 }
 

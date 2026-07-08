@@ -32,6 +32,7 @@ import {
 	type SendResult,
 } from "@hyperidle/fabric";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { registerRoutineRequestRuntime } from "../AU1-fixtures.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -159,7 +160,12 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 		// Fire the routine — emits routine_fired on success.
 		const [routine] = await db.select().from(routines);
 		if (!routine) throw new Error("fixture missing routine");
-		const result = await checkAndFireRoutine(db, eventBus, routine);
+		const result = await checkAndFireRoutine(
+			db,
+			eventBus,
+			routine,
+			registerRoutineRequestRuntime(db),
+		);
 		expect(result.fired).toBe(true);
 
 		// The dispatcher's routine_fired handler runs asynchronously via

@@ -23,6 +23,8 @@ import {
 	writeSandboxAgentsMd,
 } from "@hyperidle/fabric";
 import {
+	type AgentSessionSourceCorrelation,
+	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
 	ConcurrencyLimitError,
 	type ConversationMessage,
@@ -413,7 +415,7 @@ export interface ProvisionSessionDeps {
 }
 
 export interface ProvisionSessionParams {
-	readonly taskId: string;
+	readonly taskId: string | null;
 	readonly agentId: string;
 	/** @lore U1: field name kept for backward compat; value is now a teams.id (formerly products.id). */
 	readonly productId: string;
@@ -438,6 +440,12 @@ export interface ProvisionSessionParams {
 	 * calls including summarization (slightly higher cost, functionally equivalent).
 	 */
 	readonly resolvedFastModel?: import("@hyperidle/shared").ResolvedModel;
+	readonly requestContext?: {
+		readonly requestId: string;
+		readonly sourceKind: AgentSessionSourceKind;
+		readonly sourceId: string;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	};
 	/**
 	 * AA2: When set, this session is a routine session. The provisioning orchestrator
 	 * will use routine context (buildRoutineSessionContextData + composeRoutinePrompt)
@@ -445,8 +453,8 @@ export interface ProvisionSessionParams {
 	 *
 	 * @lore AA2: routineId is optional — normal task sessions omit it. When present,
 	 * context assembly switches to the routine path which reads from the routines
-	 * table rather than tasks/bets. The stub taskId is still required to satisfy
-	 * the sessions.taskId NOT NULL FK.
+	 * table rather than tasks/bets. AU1 made sessions.taskId nullable, so routine
+	 * sessions no longer fabricate task rows.
 	 */
 	readonly routineId?: string;
 	/**
@@ -470,8 +478,7 @@ export interface ProvisionSessionParams {
 	 * AR4a: When set, this session is a CONVERSATIONAL-mode turn (the assistant
 	 * replying to a thread message). Context assembly switches to the conversation
 	 * branch — thread transcript is delivered via the assembled prompt / AGENTS.md
-	 * so every harness receives it. The stub `taskId` satisfies the sessions.taskId
-	 * NOT NULL FK but is ignored by the caller (mirrors the `routineId` precedent).
+	 * so every harness receives it. AU1 made these task-free sessions first-class.
 	 *
 	 * `draftRegistry` is the caller-supplied draft tool surface (AR4a↔AR4b seam —
 	 * §3b). AR4a's caller (`runAssistantTurn`) populates it directly from
@@ -479,9 +486,9 @@ export interface ProvisionSessionParams {
 	 * strategy formation answer. `provisionSession` forwards it to `buildToolRegistry`
 	 * without reaching into the builder — the seam is isolated to the caller.
 	 *
-	 * @lore AR4a: The result's stub `taskId` is meaningless in conversational mode —
-	 * the caller (`runAssistantTurn`) ignores it and reads only `conversationalReply`
-	 * + `sessionId` + `outcome` for notice mapping. Mirror the routine `@lore AA2`.
+	 * @lore AR4a: The result's null `taskId` is expected in conversational mode —
+	 * the caller (`runAssistantTurn`) reads `conversationalReply` + `sessionId`
+	 * + `outcome` for notice mapping.
 	 *
 	 * @lore AR4a NIT-4: `messages` in the builtin sessionStartConfig is load-bearing
 	 * for the builtin path — builtin routes to `runChatTurn` only when `messages` is
@@ -528,7 +535,7 @@ export interface ProvisionSessionResult {
 	/** AA3: widened to include "budget_exhausted" for per-run cap enforcement. */
 	readonly outcome: SessionOutcome | "budget_exhausted";
 	readonly totalCostCents: number;
-	readonly taskId: string;
+	readonly taskId: string | null;
 	/**
 	 * AL6: Return-gate verdict for this session run. Present on all task-session
 	 * outcomes ("returned" | "not_returned"). Absent (undefined) on assistant
@@ -760,13 +767,15 @@ export async function admitSession(
 	// @lore AD2: The guard is additive — normal callers (sessions-routes) always
 	// start from accepted, so the SELECT adds negligible overhead. The safety
 	// barrier is the hasActiveSession check in the dispatcher, not this guard.
-	const [taskForTransition] = await db
-		.select({ state: tasks.state })
-		.from(tasks)
-		.where(eq(tasks.id, params.taskId))
-		.limit(1);
-	if (taskForTransition && taskForTransition.state !== "in_progress") {
-		await transitionTask(db, eventBus, params.taskId, "in_progress");
+	if (params.taskId) {
+		const [taskForTransition] = await db
+			.select({ state: tasks.state })
+			.from(tasks)
+			.where(eq(tasks.id, params.taskId))
+			.limit(1);
+		if (taskForTransition && taskForTransition.state !== "in_progress") {
+			await transitionTask(db, eventBus, params.taskId, "in_progress");
+		}
 	}
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
@@ -790,6 +799,14 @@ export async function admitSession(
 		await db.insert(sessions).values({
 			id: sessionId,
 			taskId: params.taskId,
+			...(params.requestContext
+				? {
+						requestId: params.requestContext.requestId,
+						sourceKind: params.requestContext.sourceKind,
+						sourceId: params.requestContext.sourceId,
+						sourceCorrelationJson: JSON.stringify(params.requestContext.sourceCorrelation),
+					}
+				: {}),
 			agentId: params.agentId,
 			modelTier,
 			startedAt,
@@ -820,16 +837,18 @@ export async function admitSession(
 		// is preserved exactly — assembleContext may throw; revertTaskToAccepted
 		// runs and the error propagates.
 		const strategy = getActiveStrategy();
-		await strategy.assembleContext({
-			db,
-			sandboxPath,
-			sessionId,
-			taskId: params.taskId,
-			agentId: params.agentId,
-			agentRole,
-			teamId: params.productId,
-			isRoutine: !!params.routineId,
-		});
+		if (params.taskId) {
+			await strategy.assembleContext({
+				db,
+				sandboxPath,
+				sessionId,
+				taskId: params.taskId,
+				agentId: params.agentId,
+				agentRole,
+				teamId: params.productId,
+				isRoutine: !!params.routineId,
+			});
+		}
 
 		// ── Phase 7: begin learning ingestion (via Strategy Port).
 		// @lore AK2 §5a: was `startWatcher(watcherConfig)` returning FileWatcher.
@@ -845,7 +864,9 @@ export async function admitSession(
 		});
 	} catch (err) {
 		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;
-		await revertTaskToAccepted(db, eventBus, params.taskId, reason);
+		if (params.taskId) {
+			await revertTaskToAccepted(db, eventBus, params.taskId, reason);
+		}
 		throw err;
 	}
 
@@ -856,6 +877,14 @@ export async function admitSession(
 		sessionId,
 		agentId: params.agentId,
 		taskId: params.taskId,
+		...(params.requestContext
+			? {
+					requestId: params.requestContext.requestId,
+					sourceKind: params.requestContext.sourceKind,
+					sourceId: params.requestContext.sourceId,
+					sourceCorrelation: params.requestContext.sourceCorrelation,
+				}
+			: {}),
 		timestamp: Date.now(),
 	});
 
@@ -863,6 +892,7 @@ export async function admitSession(
 		sessionId,
 		agentId: params.agentId,
 		taskId: params.taskId,
+		...(params.requestContext ? { requestContext: params.requestContext } : {}),
 		sandboxPath,
 		ingestion,
 		// @lore AF4/§5: traceId correlates observability events for this session
@@ -978,8 +1008,9 @@ export async function runSession(
 		eventBus,
 		agentId: params.agentId,
 		sessionId,
-		taskId: params.taskId,
+		taskId: params.taskId ?? "",
 		teamId,
+		...(params.requestContext ? { requestContext: params.requestContext } : {}),
 		sandboxPath,
 		ingestion,
 		// AL7 Task 6: inject abort callback so the workflow router can end session 1
@@ -1057,7 +1088,7 @@ export async function runSession(
 	//
 	// @lore AA2: When params.routineId is set, use routine context assembly
 	// (buildRoutineSessionContextData + composeRoutinePrompt) instead of task/bet
-	// context. The stub taskId satisfies the FK but is NOT used for context.
+	// context. No task row is required.
 
 	const toolSummaries: ToolSummary[] = toolsForRole(agentRole).map((d) => ({
 		name: d.name,
@@ -1120,6 +1151,9 @@ export async function runSession(
 		}));
 	} else {
 		// Normal task session: read task + bet + agent + team context.
+		if (!params.taskId) {
+			throw new Error("Task session provisioning requires taskId");
+		}
 		const sessionContextData = await buildSessionContextData(db, {
 			sessionId,
 			taskId: params.taskId,
@@ -1515,7 +1549,7 @@ export async function runSession(
 							currency,
 							agentId: params.agentId,
 							teamId,
-							taskId: params.taskId,
+							...(params.taskId ? { taskId: params.taskId } : {}),
 							factoryCap: params.factoryCap,
 							factorySpend: params.factorySpend,
 							reviewThreadId: params.reviewThreadId,
@@ -1652,7 +1686,9 @@ export async function runSession(
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
-		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		if (params.taskId) {
+			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		}
 		// AL6: crashed → exempt from return enforcement (agent was prevented from
 		// finishing, not refusing to return). evaluateReturn maps "crashed" → "returned".
 		const returnVerdict = evaluateReturn(returnGate, "crashed");
@@ -1677,7 +1713,9 @@ export async function runSession(
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, "budget_exhausted");
-		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		if (params.taskId) {
+			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		}
 		await workspace.destroy(sandboxHandle);
 		// AL6: budget_exhausted → exempt from return enforcement.
 		const returnVerdict = evaluateReturn(returnGate, "budget_exhausted");
@@ -1719,6 +1757,14 @@ export async function runSession(
 			sessionId,
 			agentId: params.agentId,
 			taskId: params.taskId,
+			...(params.requestContext
+				? {
+						requestId: params.requestContext.requestId,
+						sourceKind: params.requestContext.sourceKind,
+						sourceId: params.requestContext.sourceId,
+						sourceCorrelation: params.requestContext.sourceCorrelation,
+					}
+				: {}),
 			timestamp: Date.now(),
 		});
 
@@ -1732,7 +1778,9 @@ export async function runSession(
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
 		await endSession(db, eventBus, sessionContext, totalCostCents, 0, undefined, "not_returned");
-		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		if (params.taskId) {
+			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+		}
 		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		enforcementRegistry.unregister(sessionId);
@@ -1752,7 +1800,9 @@ export async function runSession(
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
 	await endSession(db, eventBus, sessionContext, totalCostCents, 0);
-	await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+	if (params.taskId) {
+		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens);
+	}
 	// Also destroy the workspace via the adapter to keep its internal map
 	// consistent. `rm({ force: true })` is a no-op on the already-removed
 	// directory, so no additional error handling is needed.
@@ -1844,6 +1894,9 @@ export async function startSessionProvision(
 
 	await started;
 
+	if (!admitted.sessionContext.taskId) {
+		throw new Error("startSessionProvision requires a task-backed session");
+	}
 	return { sessionId: admitted.sessionId, taskId: admitted.sessionContext.taskId };
 }
 

@@ -450,7 +450,7 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Concept | Canonical term | Drop |
 |---|---|---|
 | Structure around the model | **harness** (harness adapter) | — |
-| Agent behaviour instruction | **system prompt** | ~~soul~~ (homegrown; zero industry use) |
+| Agent behaviour instruction | **system prompt** | Deprecated homegrown term removed |
 | Project/agent instruction file | **AGENTS.md** (Linux-Foundation cross-vendor standard) | — |
 | Host working directory where an agent runs | **sandbox** (sandbox adapter), cwd = per-session dir under `HYPERIDLE_WORKSPACES_DIR` | ~~workspace~~ as the unit |
 | One run of agent work | **session** | — |
@@ -458,7 +458,7 @@ Adopt current agent-harness nouns; drop homegrown terms. The rollout is **TRACK-
 | Packaged procedural know-how | **Skill** (Agent Skill) | part of ~~tools~~ |
 | Lifecycle interceptor | **hook** | — |
 | Delegated isolated worker | **subagent** | — |
-| Assembling knowledge into context | **context assembly** (under **context engineering**) | ~~materialization~~, ~~context hydration~~ |
+| Assembling knowledge into context | **context assembly** (under **context engineering**) | Deprecated context-loading terms removed |
 | The knowledge/context layer | **Strategy** (kept); current impl = **Fabric** (one impl) | — |
 | Agent memory | **short-term / long-term**, episodic/semantic/procedural | — |
 

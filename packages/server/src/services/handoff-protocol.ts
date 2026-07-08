@@ -73,6 +73,9 @@ export async function handoff(
 	// Pre-transaction reads + validation (safe to do outside the tx: these
 	// reads do not mutate state, and the tx callback below re-reads any row
 	// it updates to avoid stale snapshots on concurrent handoffs).
+	if (!sessionContext.taskId) {
+		throw new Error("Handoff requires a task-backed session");
+	}
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);

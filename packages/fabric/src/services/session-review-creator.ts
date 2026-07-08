@@ -26,7 +26,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 				.from(sessions)
 				.where(eq(sessions.id, event.sessionId))
 				.limit(1);
-			if (!session) return;
+			if (!session?.taskId) return;
 
 			// Look up task
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, session.taskId)).limit(1);

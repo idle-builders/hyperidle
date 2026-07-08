@@ -13,6 +13,11 @@ import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { isAgentAtWipLimit, selectAgentFabric } from "./agent-selection.js";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
+import {
+	getAgentSessionRequestConsumerFn,
+	getAgentSessionRequestCreateFn,
+} from "./provision-registry.js";
+import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "fabric" });
 
@@ -35,12 +40,12 @@ export type ReapStaleSessions = () => Promise<number>;
 export interface RoutineSchedulerConfig {
 	pollIntervalMs: number;
 	/**
-	 * AF6 scope (iii): when false (production default), generic (taskId) routines
-	 * are NOT auto-fired — the production dispatcher is unregistered, so a generic
-	 * fire would create a zombie session. Built-ins (no session) always fire. AF7
-	 * flips this true once the dispatcher is wired. Default false.
+	 * When false, generic routines do not auto-fire. Production wires runtimeDeps
+	 * through bootstrap, so generic routine fires enter via AgentSessionRequest.
+	 * Built-ins (no session) always fire. Default false for tests without runtime.
 	 */
 	canProvision?: boolean;
+	readonly runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	/**
 	 * AF6 §4 (WARNING 2): non-optional in-process periodic reaper. When provided,
 	 * the poll loop invokes it on a ~5-min cadence (guarded by a last-reaped
@@ -68,7 +73,7 @@ interface TriggerConfig {
 	intervalSeconds?: number;
 	cron?: string;
 	eventType?: string;
-	taskId: string;
+	taskId?: string;
 }
 
 // --- Cron parsing ---
@@ -228,40 +233,6 @@ async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
 // continues to work byte-identically. findDelegate is replaced by selectAgentFabric
 // at the call site (architecture §5.3 / concept §3a carve-out).
 
-// --- Session creation (lightweight, no workspace/watcher) ---
-
-async function createRoutineSession(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	agentId: string,
-	taskId: string,
-): Promise<string> {
-	const sessionId = crypto.randomUUID();
-	const now = new Date().toISOString();
-
-	// @lore AF3 C8: `sessions` table has no `cost` column (cost lives on the
-	// costCap table). Removing the stale `cost: 0` field that caused TS2769.
-	await db.insert(sessions).values({
-		id: sessionId,
-		taskId,
-		agentId,
-		modelTier: "workhorse",
-		startedAt: now,
-		state: "active",
-	});
-
-	eventBus.emit({
-		type: "session_started",
-		streamId: sessionId,
-		sessionId,
-		agentId,
-		taskId,
-		timestamp: Date.now(),
-	});
-
-	return sessionId;
-}
-
 // --- Review item creation ---
 
 async function createReviewItem(
@@ -374,14 +345,9 @@ export async function checkAndFireRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
+	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
 ): Promise<FireResult> {
 	const now = new Date();
-	const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
-	const taskId = config.taskId;
-
-	if (!taskId) {
-		return { fired: false, reason: "no taskId in trigger config" };
-	}
 
 	// Check factory cost cap
 	if (await isFactoryCostCapReached(db)) {
@@ -445,8 +411,73 @@ export async function checkAndFireRoutine(
 		}
 	}
 
-	// Create session
-	const sessionId = await createRoutineSession(db, eventBus, targetAgentId, taskId);
+	const createAgentSessionRequest = getAgentSessionRequestCreateFn();
+	const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
+	if (!(createAgentSessionRequest && consumeAgentSessionRequest && runtimeDeps)) {
+		return { fired: false, reason: "agent session request runtime unavailable" };
+	}
+
+	const runId = crypto.randomUUID();
+	await db.insert(routineRuns).values({
+		id: runId,
+		routineId: routine.id,
+		startedAt: now.toISOString(),
+		outcome: "running",
+	});
+
+	const request = await createAgentSessionRequest(db, {
+		sourceKind: "routine",
+		sourceId: runId,
+		streamId: `routine:${routine.id}`,
+		taskId: null,
+		agentId: targetAgentId,
+		teamId: routine.teamId,
+		promptMode: "routine",
+		idempotencyKey: `routine:${runId}`,
+		payloadJson: JSON.stringify({ routineId: routine.id, routineRunId: runId }),
+		sourceCorrelation: {
+			routineId: routine.id,
+			routineRunId: runId,
+			teamId: routine.teamId,
+		},
+	});
+
+	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
+	if (runtimeDeps.resolveModel) {
+		resolvedModel = await runtimeDeps.resolveModel("workhorse");
+	}
+
+	let sessionId: string;
+	try {
+		const result = await consumeAgentSessionRequest(
+			{
+				db,
+				eventBus,
+				adapterPool: runtimeDeps.adapterPool,
+				workspace: runtimeDeps.workspace,
+				mcpBridgeRegistry: runtimeDeps.mcpBridgeRegistry,
+				mcpBaseUrl: runtimeDeps.mcpBaseUrl,
+				...(runtimeDeps.mounter ? { mounter: runtimeDeps.mounter } : {}),
+				...(runtimeDeps.onBeforeTeardown ? { onBeforeTeardown: runtimeDeps.onBeforeTeardown } : {}),
+			},
+			request,
+			{
+				sandboxBasePath: runtimeDeps.sandboxBasePath,
+				...(resolvedModel ? { resolvedModel } : {}),
+			},
+		);
+		sessionId = result.sessionId;
+	} catch (err) {
+		await db
+			.update(routineRuns)
+			.set({
+				outcome: "error",
+				endedAt: new Date().toISOString(),
+				errorMessage: err instanceof Error ? err.message : String(err),
+			})
+			.where(eq(routineRuns.id, runId));
+		throw err;
+	}
 
 	// Handle human_review
 	if (routine.humanReview) {
@@ -485,6 +516,7 @@ export async function checkAndFireRoutine(
 export async function registerEventTriggers(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
 ): Promise<() => void> {
 	const eventRoutines = await db
 		.select()
@@ -509,7 +541,7 @@ export async function registerEventTriggers(
 				if (current?.active) {
 					// @lore I6: .catch() prevents unhandled promise rejection from crashing
 					// the event-bus handler chain. Errors are logged, not propagated.
-					checkAndFireRoutine(db, eventBus, current).catch(() => {
+					checkAndFireRoutine(db, eventBus, current, runtimeDeps).catch(() => {
 						/* fire-and-forget: checkAndFireRoutine is resilient internally */
 					});
 				}
@@ -615,11 +647,10 @@ export async function startRoutineScheduler(
 						/* runBuiltinRoutine writes its own terminal run row (§3a) */
 					});
 				} else {
-					// AF6 scope (iii): generic routines are NOT auto-fired unless the
-					// dispatcher is wired (canProvision). Production passes false → skip,
-					// preventing the zombie stub-session path.
+					// Generic routines require runtime wiring; when absent, skip instead
+					// of creating an unconsumable request.
 					if (!canProvision) continue;
-					checkAndFireRoutine(db, eventBus, routine).catch(() => {
+					checkAndFireRoutine(db, eventBus, routine, config.runtimeDeps).catch(() => {
 						/* fire-and-forget: errors do not block subsequent routines */
 					});
 				}
@@ -628,7 +659,7 @@ export async function startRoutineScheduler(
 	}, config.pollIntervalMs);
 
 	// Register event triggers
-	const unsubEvents = await registerEventTriggers(db, eventBus);
+	const unsubEvents = await registerEventTriggers(db, eventBus, config.runtimeDeps);
 
 	schedulerLog.info("routine scheduler started", {
 		pollIntervalMs: config.pollIntervalMs,

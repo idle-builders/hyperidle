@@ -251,7 +251,7 @@ export async function handleAgentProfile(
 	// @lore AB1 M1: The bet route expects betId, not taskId. We JOIN tasks to get betId.
 	const activeSessionRow = allSessions.find((s) => s.state === "active") ?? null;
 	let activeSession: AgentActiveSession | null = null;
-	if (activeSessionRow) {
+	if (activeSessionRow?.taskId) {
 		const [activeTaskRow] = await db
 			.select({ betId: tasks.betId })
 			.from(tasks)
@@ -271,13 +271,16 @@ export async function handleAgentProfile(
 	const recentSessionRows = allSessions.slice(0, 10);
 	let recentSessions: AgentSessionSummary[] = [];
 	if (recentSessionRows.length > 0) {
-		const taskIds = recentSessionRows.map((s) => s.taskId);
+		const taskBackedSessionRows = recentSessionRows.flatMap((s) =>
+			s.taskId ? [{ ...s, taskId: s.taskId }] : [],
+		);
+		const taskIds = taskBackedSessionRows.map((s) => s.taskId);
 		const taskTitleRows = await db
 			.select({ id: tasks.id, title: tasks.title })
 			.from(tasks)
 			.where(inArray(tasks.id, taskIds));
 		const taskTitleMap = new Map(taskTitleRows.map((t) => [t.id, t.title]));
-		recentSessions = recentSessionRows.map((s) => ({
+		recentSessions = taskBackedSessionRows.map((s) => ({
 			sessionId: s.id,
 			taskId: s.taskId,
 			taskTitle: taskTitleMap.get(s.taskId) ?? s.taskId,

@@ -129,9 +129,9 @@ export interface RoutineSessionContextConfig {
  * Context data for a routine session (AA2).
  * Contains routine + agent + team — no task or bet fields.
  *
- * @lore AA2: Routine sessions MUST NOT read task/bet context — the stub task
- * exists only to satisfy the sessions.taskId NOT NULL FK, not to provide context.
- * buildRoutineSessionContextData reads directly from the routines table.
+ * @lore AA2/AU1: Routine sessions MUST NOT read task/bet context. They are
+ * task-free sessions; buildRoutineSessionContextData reads directly from the
+ * routines table.
  */
 export interface RoutineSessionContextData {
 	routine: {

@@ -1,5 +1,5 @@
-import { type HyperIdleDb, sessions, tasks, threads } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import { type HyperIdleDb, sessions, tasks, teamMembers, threads, users } from "@hyperidle/db";
+import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
 /**
@@ -219,6 +219,48 @@ export class WsBroadcaster {
  */
 export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
 	const GLOBAL_TOPICS = new Set(["conversations", "work"]);
+	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
+		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		if (!row) return false;
+		try {
+			const parts = JSON.parse(row.participants);
+			return Array.isArray(parts) && parts.includes(senderId);
+		} catch {
+			return false;
+		}
+	}
+	async function senderInTeam(senderId: string, teamId: string): Promise<boolean> {
+		const [sender] = await db
+			.select({ teamMemberId: users.teamId })
+			.from(users)
+			.where(eq(users.id, senderId))
+			.limit(1);
+		if (!sender?.teamMemberId) return false;
+		const [membership] = await db
+			.select({ teamId: teamMembers.teamId })
+			.from(teamMembers)
+			.where(eq(teamMembers.id, sender.teamMemberId))
+			.limit(1);
+		return membership?.teamId === teamId;
+	}
+	async function canSubscribeToTaskFreeSession(
+		senderId: string,
+		sessionRow: typeof sessions.$inferSelect,
+	): Promise<boolean> {
+		if (!(sessionRow.sourceKind && sessionRow.sourceCorrelationJson)) return false;
+		let correlation: AgentSessionSourceCorrelation;
+		try {
+			correlation = JSON.parse(sessionRow.sourceCorrelationJson) as AgentSessionSourceCorrelation;
+		} catch {
+			return false;
+		}
+		if ("userId" in correlation && correlation.userId === senderId) return true;
+		if ("threadId" in correlation) return senderInThread(senderId, correlation.threadId);
+		if ("teamId" in correlation && correlation.teamId) {
+			return senderInTeam(senderId, correlation.teamId);
+		}
+		return false;
+	}
 	return {
 		async canSubscribe(senderId: string, topic: string): Promise<boolean> {
 			if (GLOBAL_TOPICS.has(topic)) return true;
@@ -242,6 +284,7 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 					.where(eq(sessions.id, sessionId))
 					.limit(1);
 				if (!sessionRow) return false;
+				if (!sessionRow.taskId) return canSubscribeToTaskFreeSession(senderId, sessionRow);
 
 				// Resolve the task host to verify it exists and confirm host-scope
 				const [taskRow] = await db
@@ -255,14 +298,7 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 			if (!topic.startsWith("thread:")) return false;
 			const threadId = topic.slice("thread:".length);
 			if (!threadId) return false;
-			const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
-			if (!row) return false;
-			try {
-				const parts = JSON.parse(row.participants);
-				return Array.isArray(parts) && parts.includes(senderId);
-			} catch {
-				return false;
-			}
+			return senderInThread(senderId, threadId);
 		},
 	};
 }

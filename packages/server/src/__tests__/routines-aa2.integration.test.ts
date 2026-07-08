@@ -277,7 +277,7 @@ describe("AA2: Routine Management API", () => {
 			expect(found).toBeDefined();
 		});
 
-		test("creates a stub task stored as stubTaskId", async ({ db, app }) => {
+		test("creates no stub task for the routine", async ({ db, app }) => {
 			await seedBase(db);
 			const payload = {
 				name: "Stub task routine",
@@ -297,11 +297,13 @@ describe("AA2: Routine Management API", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const routineId = body.id as string;
 
-			// Verify the routine has a stubTaskId set
 			const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 			expect(row).toBeDefined();
-			expect(row!.stubTaskId).not.toBeNull();
-			expect(typeof row!.stubTaskId).toBe("string");
+			expect(row!.stubTaskId).toBeNull();
+
+			const teamTasks = await db.select().from(tasks).where(eq(tasks.teamId, "team-aa2"));
+			expect(teamTasks).toHaveLength(1);
+			expect(teamTasks[0]?.id).toBe("task-aa2");
 		});
 	});
 
@@ -634,7 +636,7 @@ describe("AA2: Routine Management API", () => {
 				headers: authHeaders(),
 			});
 
-			expect(res.status).toBe(201);
+			expect(res.status).toBe(200);
 		});
 	});
 

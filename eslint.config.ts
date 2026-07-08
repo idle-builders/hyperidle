@@ -982,6 +982,51 @@ export default [
 		},
 	},
 
+	// AU1 — decomposition is a collaboration-domain entry point. It may create an
+	// AgentSessionRequest, but runtime start belongs to agent-session-runtime /
+	// session-provisioning. Keep adapter selection and harness starts out of this file.
+	{
+		files: ["packages/server/src/services/bet-decomposition.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "../harness/adapter-pool.js",
+							message:
+								"AU1: decomposition must enqueue/consume AgentSessionRequest, not select AdapterPool directly.",
+						},
+						{
+							name: "@hyperidle/shared",
+							importNames: ["HarnessAdapter"],
+							message:
+								"AU1: decomposition must not type against HarnessAdapter; runtime owns harness start.",
+						},
+					],
+					patterns: [
+						{
+							group: ["**/harness/adapter-pool", "**/harness/adapter-pool.js"],
+							message:
+								"AU1: decomposition must enqueue/consume AgentSessionRequest, not select AdapterPool directly.",
+						},
+					],
+				},
+			],
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "CallExpression[callee.property.name='startSession']",
+					message:
+						"AU1: decomposition must not start harness sessions directly; route through AgentSessionRequest runtime.",
+				},
+			],
+		},
+	},
+
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
 	// `OpenTarget` vocabulary (@hyperidle/shared). They must NEVER import a

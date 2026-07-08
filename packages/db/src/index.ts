@@ -25,7 +25,9 @@ export {
 } from "./profiles.js";
 export * as schema from "./schema.js";
 export {
+	type AgentSessionRequest,
 	type ArtifactRow,
+	agentSessionRequests,
 	artifacts,
 	type Bet,
 	bets,
@@ -57,6 +59,7 @@ export {
 	loginSessions,
 	type Message,
 	messages,
+	type NewAgentSessionRequest,
 	type NewArtifactRow,
 	type NewBet,
 	type NewFactorySetting,
