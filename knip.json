@@ -17,6 +17,7 @@
 		"packages/server/src/harness/__tests__/require-harness.ts",
 		"packages/server/src/harness/__tests__/provision-real-session.ts",
 		"packages/server/src/harness/__tests__/provision-real-decomposition.ts",
+		"packages/server/src/__tests__/AU1-fixtures.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
