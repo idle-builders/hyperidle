@@ -1,0 +1,31 @@
+{
+  "id": "AU1",
+  "title": "Event-driven session requests between collaboration domains and the agent runtime",
+  "track": "AU",
+  "complexity": "L",
+  "status": "awaiting-human-concept-review",
+  "currentStep": "human_concept_review",
+  "branch": "feat/AU1-human-concept-review",
+  "worktree": ".worktrees/AU1-human-concept-review",
+  "startedAt": "2026-07-08T09:26:22+02:00",
+  "updatedAt": "2026-07-08T09:35:54+02:00",
+  "artifacts": {
+    "requirements": "plans/AU1/requirements.md",
+    "architecture": "plans/AU1/architecture.md",
+    "pipelineArchitecture": ".pipeline/plans/AU1.md"
+  },
+  "refineCritique": {
+    "score": 9,
+    "rounds": 2
+  },
+  "architectureCritique": {
+    "score": 8,
+    "rounds": 2,
+    "scoreLine": "SA:9 LI:8 AC:8 DM:8 N:8 MD:8 FMC:8 S:8 V:9"
+  },
+  "humanConceptReview": {
+    "required": true,
+    "reason": "User override after architecture despite TRACK-AU saying no review."
+  },
+  "note": "Refine requirements and architecture plan complete only; no implementation. Parked until human concept review approves requirements and architecture. Remaining architecture warning for implementation: split domain input type from persisted AgentSessionRequest row/runtime lifecycle fields."
+}
