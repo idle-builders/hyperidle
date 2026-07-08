@@ -14,14 +14,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { fabricStrategy } from "@hyperidle/fabric";
 import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
 import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
 import { CliHarnessAdapter } from "@hyperidle/server/harness/cli-harness-adapter";
 import { callLlm } from "@hyperidle/server/harness/llm-client";
 import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
 import { provisionSession } from "@hyperidle/server/services/session-provisioning";
-import { setActiveStrategy } from "@hyperidle/server/services/strategy-registry";
 import type {
 	EventBus,
 	HarnessAdapter,
@@ -277,11 +275,6 @@ export async function runEvalSession(
 		readonly harnessKind?: "builtin" | "external";
 	},
 ): Promise<TriggerResult> {
-	// @lore X7 AL6: setActiveStrategy must be called before provisionSession.
-	// The eval harness boots without a server process, so no boot-time strategy
-	// registration happens. Set fabricStrategy here (the production default).
-	setActiveStrategy(fabricStrategy);
-
 	const workspace = new LocalSandboxAdapter();
 	const pool = new AdapterPool();
 
