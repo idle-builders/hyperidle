@@ -24,7 +24,7 @@ export async function createAgentSessionRequest(
 	db: HyperIdleDb,
 	input: AgentSessionRequestInput,
 ): Promise<AgentSessionRequest> {
-	const parsed = agentSessionRequestInputSchema.parse(input) as AgentSessionRequestInput;
+	const parsed: AgentSessionRequestInput = agentSessionRequestInputSchema.parse(input);
 	const existing = await db
 		.select()
 		.from(agentSessionRequests)
@@ -45,9 +45,9 @@ export async function createAgentSessionRequest(
 		sourceKind: parsed.sourceKind,
 		sourceId: parsed.sourceId,
 		streamId: parsed.streamId,
-		taskId: "taskId" in parsed ? (parsed.taskId ?? null) : null,
+		taskId: parsed.taskId ?? null,
 		agentId: parsed.agentId,
-		teamId: "teamId" in parsed ? (parsed.teamId ?? null) : null,
+		teamId: parsed.teamId ?? null,
 		userId: parsed.userId ?? null,
 		promptMode: parsed.promptMode,
 		payloadJson: parsed.payloadJson ?? null,

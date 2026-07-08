@@ -47,13 +47,13 @@ import {
 } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import {
 	buildAssistantDraftRegistry,
 	resolveCurrentDraftBetId,
 	resolveDraftTeamId,
 } from "../tools/assistant-draft-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
+import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { consumeAgentSessionRequest } from "./agent-session-runtime.js";
 
@@ -443,20 +443,9 @@ async function runTurnInternal(
 	const transcriptRows = await loadRawTranscript(db, threadId);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
 
-	// --- Step 3.5: Formation seam — consult the active strategy for persona + draft surface ---
-	// @lore AR4b: The formation seam is the missing piece this step adds. Before AR4b,
-	// runAssistantTurn read BUILTIN_SYSTEM_PROMPT as a hardcoded constant and called
-	// buildAssistantDraftRegistry directly. After AR4b, both come from the active strategy's
-	// formAssistant() answer — AC3: switching the strategy changes the assistant's form.
-	//
-	// @lore AR4b: We call getActiveStrategy() at TURN TIME (not at boot/creation). This is the
-	// correct moment for the formation seam: the active strategy may change between turns, and
-	// the turn's assembled prompt must reflect the strategy active AT THAT MOMENT.
-	//
-	// @lore AR4b: The formation answer is a per-turn decision, NOT persisted to the users row.
-	// persona:null means "Minimal strategy: no override, use agent row's systemPrompt."
-	// The systemPromptOverride field on conversational runtime params carries it to prompt assembly.
-	const formation = await getActiveStrategy().formAssistant({
+	// --- Step 3.5: Formation seam — resolve persona + draft surface ---
+	// The formation answer is a per-turn decision, NOT persisted to the users row.
+	const formation = await resolveAssistantFormation({
 		db,
 		userId,
 		threadId,

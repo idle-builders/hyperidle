@@ -9,17 +9,16 @@ import {
 	type HyperIdleDb,
 	resolveProfile,
 } from "@hyperidle/db";
-import {
-	bootstrapFabric,
-	createGitRunner,
-	fabricStrategy,
-	setAgentSessionRequestConsumerFn,
-	setAgentSessionRequestCreateFn,
-	setProvisionSessionFn,
-} from "@hyperidle/fabric";
 import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
+import { bootstrapAppRuntime } from "./app-runtime/bootstrap.js";
+import { createGitRunner } from "./app-runtime/services/git-export-runner.js";
+import {
+	setAgentSessionRequestConsumerFn,
+	setAgentSessionRequestCreateFn,
+	setProvisionSessionFn,
+} from "./app-runtime/services/provision-registry.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
@@ -42,7 +41,6 @@ import { resolveModelTier } from "./services/model-gateway.js";
 import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
-import { setActiveStrategy } from "./services/strategy-registry.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -288,22 +286,10 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		db,
 	});
 
-	// AF7 §1 (Z8-004 / dispatch-half of Z8-010): register provisionSession into the
-	// runtime registry so the task dispatcher can resolve it across the
-	// fabric→server boundary. This is the only legal way to cross that boundary
-	// (the leaf registry exists precisely for this — provision-registry.ts). Do NOT
-	// add a static import of provisionSession into fabric.
+	// AF7/AU3: register app-owned session request consumers for dispatcher paths.
 	setProvisionSessionFn(provisionSession);
 	setAgentSessionRequestCreateFn(createAgentSessionRequest);
 	setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
-
-	// AK2 §6: Register the Fabric as the active Strategy at boot. Default = Fabric
-	// (no behaviour change from pre-AK2). This is the composition root — the ONLY
-	// place in Kernel code permitted to import a concrete Strategy implementation
-	// (see ESLint no-restricted-imports guard in eslint.config.ts, AC4).
-	// To select a different Strategy: swap this one line (e.g. minimalStrategy for
-	// Kernel-only testing). No other Kernel code changes are required (AC4).
-	setActiveStrategy(fabricStrategy);
 
 	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
 	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
@@ -347,14 +333,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		db,
 		eventBus,
 		assistantTurnDeps,
-		/**
-		 * @lore R8: Wrap bootstrapFabric to inject readAlertPreferences from
-		 * server-config. bootstrapFabric is in the fabric package and cannot depend
-		 * on the server package — the implementation is provided here and closes
-		 * over the db reference. This satisfies F-01 from the R8 review.
-		 */
-		strategyBootstrap: (ctx) =>
-			bootstrapFabric({
+		serviceBootstrap: (ctx) =>
+			bootstrapAppRuntime({
 				...ctx,
 				// AF6/AU1: production boots the routine scheduler at the default
 				// 30s cadence. Runtime deps are present, so generic routine fires
@@ -370,7 +350,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 						quietHoursEnd: cfg.notifications.quietHoursEnd,
 					};
 				},
-				// AF7 §1: feed the task dispatcher's injection seam. bootstrapFabric
+				// AF7 §1: feed the task dispatcher's injection seam. App runtime bootstrap
 				// forwards this to registerTaskDispatcher; without it the dispatcher
 				// never registers and a ready task never gets a session (Z8-004).
 				// The TaskDispatcherDeps fields already exist — no fabric type change.

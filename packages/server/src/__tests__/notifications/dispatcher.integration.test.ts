@@ -74,8 +74,8 @@ describe("H2 Dispatcher integration via createApp", () => {
 			db,
 			eventBus,
 			// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
-			// Use strategyBootstrap to wire the dispatcher with the fake adapter.
-			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+			// Use serviceBootstrap to wire the dispatcher with the fake adapter.
+			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
 				}),
@@ -128,7 +128,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		const app = await createApp({
 			db,
 			eventBus,
-			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
 				}),
@@ -163,7 +163,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		const app = await createApp({
 			db,
 			eventBus,
-			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
 				}),

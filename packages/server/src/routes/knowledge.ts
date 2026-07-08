@@ -3,7 +3,7 @@
  * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
  *     PATCH /:id/scope endpoint added for scope mutation with version tracking.
  *     User-scoped items filtered by userId at GET / and GET /:id.
- *     Fabric layer assigned (via knowledgeStrategyFabric) on creation and scope change.
+ *     App projection layer assigned (via knowledgeAppProjection) on creation and scope change.
  *
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
@@ -13,12 +13,12 @@
  * @lore O2: The layer-based URL scheme was a strategy concern embedded in
  * the kernel API. Removing it (along with layer/scopeId/kind columns on
  * knowledgeItems) keeps the kernel pure. Strategy layers compute their
- * signals in the fabric and write to knowledgeStrategyFabric.
+ * signals in the projection and write to knowledgeAppProjection.
  *
  * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every item
- * knows where it belongs, regardless of which strategy fabric is active.
- * scopeToLayer() from @hyperidle/fabric maps scope_kind → layer for fabric assignment.
- * The assignment is done inline (not via event) so the fabric row is immediately
+ * knows where it belongs, regardless of which strategy app projection is used.
+ * scopeToLayer() from @hyperidle/shared maps scope_kind to projection layer.
+ * The assignment is done inline (not via event) so the projection row is immediately
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 import {
@@ -26,16 +26,15 @@ import {
 	filesystems,
 	type HyperIdleDb,
 	knowledgeAccessLog,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	tasks,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import { scopeToLayer } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	API_ERROR_CODES,
@@ -48,6 +47,7 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeKindToLabel,
+	scopeToLayer,
 } from "@hyperidle/shared";
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -278,16 +278,16 @@ const changeScopeSchema = z.object({
 });
 
 /**
- * Write or upsert a knowledgeStrategyFabric row for the given knowledge item.
- * If a fabric row already exists, updates the layer column.
- * If no fabric row exists and layer is non-null, creates one.
+ * Write or upsert a knowledgeAppProjection row for the given knowledge item.
+ * If a projection row already exists, updates the layer column.
+ * If no projection row exists and layer is non-null, creates one.
  *
- * @lore Q2: Inline fabric assignment is a pragmatic boundary compromise. The
- * caller sees the fabric row immediately without waiting for an event handler.
- * If layer is null (bet/team/user scope), we still create the fabric row but
+ * @lore Q2: Inline app projection assignment is a pragmatic boundary compromise. The
+ * caller sees the projection row immediately without waiting for an event handler.
+ * If layer is null (bet/team/user scope), we still create the projection row but
  * leave layer null — this is consistent with the O2 seed pattern.
  */
-async function upsertFabricLayer(
+async function upsertProjectionLayer(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 	scopeKind: string,
@@ -299,17 +299,17 @@ async function upsertFabricLayer(
 
 	const [existing] = await db
 		.select()
-		.from(knowledgeStrategyFabric)
-		.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+		.from(knowledgeAppProjection)
+		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
 		.limit(1);
 
 	if (existing) {
 		await db
-			.update(knowledgeStrategyFabric)
+			.update(knowledgeAppProjection)
 			.set({ layer })
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId));
+			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
 	} else {
-		await db.insert(knowledgeStrategyFabric).values({
+		await db.insert(knowledgeAppProjection).values({
 			id: crypto.randomUUID(),
 			knowledgeItemId,
 			layer,
@@ -361,11 +361,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json({ results });
 	});
 
-	// GET / — list all items with LEFT JOIN to knowledgeStrategyFabric for pre-computed signals.
+	// GET / — list all items with LEFT JOIN to knowledgeAppProjection for pre-computed signals.
 	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.
 	// Q2: user-scoped items filtered: only visible to their author (updatedBy = userId).
-	// @lore O2: Kernel route queries strategy extension + access-log tables —
-	// pragmatic boundary compromise to avoid a second round-trip from the fabric.
+	// @lore O2: Kernel route queries app projection + access-log tables —
+	// pragmatic boundary compromise to avoid a second round-trip from the projection.
 	// @lore Q2: The filter is: include item if scope_kind != 'user' OR updatedBy = userId.
 	// Using 404 (not 403) for unauthorized access prevents leaking existence.
 	// @lore AV3: scopeName is NOT resolved here — detail endpoint only (GET /:id). Intentional
@@ -377,13 +377,13 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const rawItems = await db
 			.select({
 				item: knowledgeItems,
-				relevanceScore: knowledgeStrategyFabric.relevanceScore,
-				attentionScore: knowledgeStrategyFabric.attentionScore,
+				relevanceScore: knowledgeAppProjection.relevanceScore,
+				attentionScore: knowledgeAppProjection.attentionScore,
 			})
 			.from(knowledgeItems)
 			.leftJoin(
-				knowledgeStrategyFabric,
-				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
 			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)));
 
@@ -466,16 +466,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const [row] = await db
 			.select({
 				item: knowledgeItems,
-				kind: knowledgeStrategyFabric.kind,
-				layer: knowledgeStrategyFabric.layer,
-				confidence: knowledgeStrategyFabric.confidence,
-				relevanceScore: knowledgeStrategyFabric.relevanceScore,
-				attentionScore: knowledgeStrategyFabric.attentionScore,
+				kind: knowledgeAppProjection.kind,
+				layer: knowledgeAppProjection.layer,
+				confidence: knowledgeAppProjection.confidence,
+				relevanceScore: knowledgeAppProjection.relevanceScore,
+				attentionScore: knowledgeAppProjection.attentionScore,
 			})
 			.from(knowledgeItems)
 			.leftJoin(
-				knowledgeStrategyFabric,
-				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
 			.where(eq(knowledgeItems.id, id))
 			.limit(1);
@@ -580,7 +580,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Q2: scopeKind required. scopeId required for product/practice/team/bet/task.
 	//     factory and user scopes need no external scopeId.
 	//     user scope auto-fills scopeId from userId.
-	//     Fabric layer assigned inline on creation.
+	//     App projection layer assigned inline on creation.
 	router.post(
 		"/",
 		requireBoundary({ kind: "public-data" }),
@@ -621,8 +621,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				updatedAt: now,
 			});
 
-			// Q2: assign fabric layer inline on creation.
-			await upsertFabricLayer(db, id, body.scopeKind);
+			// Q2: assign app projection layer inline on creation.
+			await upsertProjectionLayer(db, id, body.scopeKind);
 
 			const [created] = await db
 				.select()
@@ -644,7 +644,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	);
 
 	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
-	// Bumps version, logs change in knowledgeEditLog, updates fabric layer.
+	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
 	router.patch(
 		"/:id/scope",
 		requireBoundary({ kind: "public-data" }),
@@ -728,8 +728,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				})
 				.where(eq(knowledgeItems.id, id));
 
-			// Q2: update fabric layer for new scope
-			await upsertFabricLayer(db, id, body.scopeKind);
+			// Q2: update app projection layer for new scope
+			await upsertProjectionLayer(db, id, body.scopeKind);
 
 			const [updated] = await db
 				.select()
@@ -995,8 +995,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					updatedAt: now,
 				});
 
-				// Q2: assign fabric layer for split items (inherits parent scope)
-				await upsertFabricLayer(db, newId, original.scopeKind);
+				// Q2: assign app projection layer for split items (inherits parent scope)
+				await upsertProjectionLayer(db, newId, original.scopeKind);
 
 				const [created] = await db
 					.select()

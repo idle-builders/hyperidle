@@ -1,4 +1,4 @@
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/fabric/types";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";

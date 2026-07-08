@@ -413,7 +413,7 @@ Model tier selection: explicit param → agent `modelTierPreference` → `"workh
 
 ### Cost sentinel
 
-Application code, not a routine row — extracted in AD8c and registered in `bootstrapFabric` precisely so it cannot be disabled from data (`packages/fabric/src/services/cost-sentinel.ts:21-26`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
+Application code, not a routine row — extracted in AD8c and registered by the server app-runtime bootstrap precisely so it cannot be disabled from data (`packages/server/src/app-runtime/services/cost-sentinel.ts`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
 
 ### Knowledge fabric
 
@@ -421,7 +421,7 @@ See the L2 Knowledge Domain paragraph above; full design in [knowledge-architect
 
 ### API layer
 
-Hono on Node, all routes under `/api` (`packages/server/src/app.ts:609`), single process hosting API + fabric schedulers (`bootstrapFabric` wired in `server-factory.ts`). Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, git-export, credentials, connections, hint-progress, dispatch-queue, search, settings, ws.
+Hono on Node, all routes under `/api` (`packages/server/src/app.ts`), single process hosting API + app-owned schedulers (`bootstrapAppRuntime` wired in `server-factory.ts`). Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, git-export, credentials, connections, hint-progress, dispatch-queue, search, settings, ws.
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`middleware/auth.ts`, `services/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 

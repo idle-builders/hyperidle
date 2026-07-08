@@ -244,8 +244,8 @@ export function AgentDetailPane({
 					>
 						{isStrategy
 							? configVisible
-								? "Hide configuration (managed by strategy)"
-								: "Show configuration (managed by strategy)"
+								? "Hide configuration (app-managed)"
+								: "Show configuration (app-managed)"
 							: configVisible
 								? "Hide configuration"
 								: "Show configuration"}

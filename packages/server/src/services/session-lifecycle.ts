@@ -2,7 +2,6 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyperidle/db";
-import { releaseSessionDedup } from "@hyperidle/fabric";
 import {
 	ConcurrencyLimitError,
 	type EventBus,
@@ -12,7 +11,8 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { getActiveStrategy } from "./strategy-registry.js";
+import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
+import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 
 export interface CreateSessionParams {
 	taskId: string;
@@ -30,11 +30,10 @@ export interface SessionContext {
 	taskId: string | null;
 	sandboxPath: string;
 	/**
-	 * AK2: was `watcher: FileWatcher` (direct Fabric import). Renamed to
-	 * `ingestion: IngestionHandle` as part of the Strategy port decoupling.
+	 * AU3: was `watcher: FileWatcher`. Renamed to
+	 * `ingestion: IngestionHandle` during runtime boundary simplification.
 	 * The IngestionHandle.dispose() replaces FileWatcher.stop() at every
-	 * teardown site (endSession + crashSession). The Fabric adapter's
-	 * beginLearningIngestion delegates to startWatcher byte-identically (AC3).
+	 * teardown site (endSession + crashSession).
 	 */
 	ingestion: IngestionHandle;
 	/** Correlates every observability event for this session (H3). */
@@ -135,18 +134,15 @@ async function updateRoutineRunOnSessionEnd(
  * Create a new agent session: check concurrency, set up workspace,
  * assemble context, start ingestion, emit event.
  *
- * @lore AK2 §5b: This is the second Kernel provisioning path identified in
- * the architecture critique. `createSession` was hard-importing assembleContext,
- * startWatcher, FileWatcher, FileWatcherConfig from @hyperidle/fabric (lines 5–11
- * pre-AK2). It is now fully decoupled via the Strategy Port: getActiveStrategy()
- * replaces the direct Fabric imports for context assembly (P6) and ingestion (P7).
+ * @lore AU3: This legacy provisioning helper now uses app-owned agent context
+ * services for context assembly and writeback.
  *
  * createSession has no production caller (sessions-routes.ts uses the unrelated
  * createSessionRoutes). It is exercised only by integration tests
  * (session-lifecycle.integration.test.ts, routines-aa2.integration.test.ts,
  * AA3-routine-cost.integration.test.ts). It is migrated — not deleted — because
  * the integration tests still exercise it as a Kernel-isolation path and it is
- * subject to the AC4 ESLint static guard.
+ * subject to the AU3 ESLint static guard.
  */
 export async function createSession(
 	db: HyperIdleDb,
@@ -190,13 +186,8 @@ export async function createSession(
 		sandboxSnapshot: sandboxPath,
 	});
 
-	// 4. Assemble context into sandbox (via Strategy Port).
-	// @lore AK2 §5b: was `await assembleContext(db, {...})` hard-imported from
-	// @hyperidle/fabric. Replaced by Strategy Port to satisfy AC4 (Kernel imports
-	// no specific Strategy). isRoutine is false — createSession has no routine flag
-	// in its params (no production routine caller for this path).
-	const strategy = getActiveStrategy();
-	await strategy.assembleContext({
+	// 4. Assemble context into sandbox through the app-owned agent context service.
+	await assembleAgentContext({
 		db,
 		sandboxPath,
 		sessionId,
@@ -207,12 +198,9 @@ export async function createSession(
 		isRoutine: false,
 	});
 
-	// 5. Begin learning ingestion (via Strategy Port).
-	// @lore AK2 §5b: was `startWatcher(watcherConfig)` returning FileWatcher.
-	// Replaced by beginLearningIngestion → IngestionHandle. The field is named
-	// `ingestion` (was `watcher`) throughout SessionContext, endSession, crashSession.
+	// 5. Begin writeback ingestion through the app-owned agent context service.
 	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-	const ingestion = strategy.beginLearningIngestion({
+	const ingestion = beginAgentWriteback({
 		db,
 		sandboxPath,
 		sessionId,
@@ -268,7 +256,7 @@ export async function endSession(
 ): Promise<void> {
 	// 1. Dispose ingestion handle (final flush).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
-	// as part of Strategy port decoupling. dispose() must not throw (port contract).
+	// dispose() must not throw during teardown.
 	context.ingestion.dispose();
 
 	// 2. Update session row.

@@ -4,8 +4,13 @@ import {
 	type Status,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric/types";
-import { BET_STATUSES, TASK_STATES, type TaskState } from "@hyperidle/shared";
+import {
+	BET_STATUSES,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeStatus,
+	TASK_STATES,
+	type TaskState,
+} from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */

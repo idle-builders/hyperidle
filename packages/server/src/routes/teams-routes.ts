@@ -32,7 +32,6 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { enqueueNotification, provisionTeamRoutines } from "@hyperidle/fabric";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -55,14 +54,16 @@ import {
 } from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { provisionTeamRoutines } from "../app-runtime/services/builtin-routines.js";
+import { enqueueNotification } from "../app-runtime/services/notifications/dispatcher.js";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import {
@@ -357,9 +358,8 @@ export function createTeamRoutes(
 		return c.json({ teams: result });
 	});
 
-	// POST / — create a new team with a team_members row and default agents
-	// AK6: Rewritten to route through Strategy port (scaffoldAgents + persistScaffoldedAgents).
-	// The active Strategy decides the roster — no inline defaultRoster() call here.
+	// POST / — create a new team with a team_members row and default agents.
+	// AU3: app-owned scaffolding produces specs; persistScaffoldedAgents remains the writer.
 	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// Best-effort welcome message: failure does not roll back team creation.
 	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -421,8 +421,8 @@ export function createTeamRoutes(
 			formedAt: now,
 		});
 
-		// AK6: Route through Strategy port — the active Strategy decides the roster.
-		const specs = await getActiveStrategy().scaffoldAgents({
+		// AU3: route through app-owned scaffolding for the default roster.
+		const specs = await resolveAgentScaffoldSpecs({
 			db,
 			trigger: "team_scaffold",
 			teamId,
@@ -435,7 +435,7 @@ export function createTeamRoutes(
 			ownerUserName: null,
 		});
 
-		// AE2 AC-1h: If the Strategy returns zero specs (e.g. unknown functions with no
+		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
 		// catalog matches), reject with 400 — a team with no agents is invalid.
 		// Roll back the already-inserted team + teamMembers rows.
 		if (specs.length === 0) {
@@ -602,7 +602,7 @@ export function createTeamRoutes(
 				}
 
 				// Build agent names list for welcome message text.
-				// Use the persisted roster from DB (Strategy-decided set).
+				// Use the persisted roster from DB (app-decided set).
 				const agentRows = await db
 					.select({ role: users.role })
 					.from(users)
@@ -638,9 +638,8 @@ export function createTeamRoutes(
 		return c.json(result, 201);
 	});
 
-	// POST /:teamId/agents — add an agent to an existing team via the Strategy port.
-	// AK6 T7: This route replaces the add_agent tool's inline logic, routing through
-	// scaffoldAgents + persistScaffoldedAgents, and emitting agent_added.
+	// POST /:teamId/agents — add an agent to an existing team via app scaffolding.
+	// AU3: This route uses app-owned scaffold specs, persistScaffoldedAgents, and emits agent_added.
 	router.post("/:teamId/agents", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
@@ -676,8 +675,8 @@ export function createTeamRoutes(
 			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
 		}
 
-		// AK6: Route through Strategy port for agent_added.
-		const specs = await getActiveStrategy().scaffoldAgents({
+		// AU3: route through app-owned scaffolding for agent_added.
+		const specs = await resolveAgentScaffoldSpecs({
 			db,
 			trigger: "agent_added",
 			teamId,

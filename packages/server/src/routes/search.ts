@@ -23,8 +23,8 @@
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	messages,
 	teams,
 	threads,
@@ -283,7 +283,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// ── 3. Knowledge items ──────────────────────────────────────────────────
 		//
 		// Find knowledge items where title OR body LIKE-matches the query.
-		// LEFT JOIN knowledgeStrategyFabric for layer/kind.
+		// LEFT JOIN knowledgeAppProjection for layer/kind.
 		//
 		// Auth boundary: scope_kind != 'user' OR updated_by = userId.
 		// (user-scoped items are private to their author)
@@ -294,13 +294,13 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 				title: knowledgeItems.title,
 				status: knowledgeItems.status,
 				updatedAt: knowledgeItems.updatedAt,
-				layer: knowledgeStrategyFabric.layer,
-				kind: knowledgeStrategyFabric.kind,
+				layer: knowledgeAppProjection.layer,
+				kind: knowledgeAppProjection.kind,
 			})
 			.from(knowledgeItems)
 			.leftJoin(
-				knowledgeStrategyFabric,
-				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
 			.where(
 				and(

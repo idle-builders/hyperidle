@@ -791,6 +791,15 @@ export const taskStrategyFabric = pgTable(
 	(table) => [index("tsf_task_id_idx").on(table.taskId)],
 );
 
+// AU3 compatibility aliases: production callers use app-owned names while the
+// physical table names remain unchanged for existing databases.
+export const knowledgeAppProjection = knowledgeStrategyFabric;
+export const taskPlanningSignals = taskStrategyFabric;
+export type KnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferSelect;
+export type NewKnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferInsert;
+export type TaskPlanningSignalRow = typeof taskPlanningSignals.$inferSelect;
+export type NewTaskPlanningSignalRow = typeof taskPlanningSignals.$inferInsert;
+
 // --- Notification queue (H2) ---
 
 export const notificationQueue = pgTable(

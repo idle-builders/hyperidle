@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { items, threads, users } from "@hyperidle/db";
-import { resolveReviewRecipients, routeItem } from "@hyperidle/fabric";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { routeItem } from "../app-runtime/services/item-router.js";
+import { resolveReviewRecipients } from "../app-runtime/services/org-routing.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

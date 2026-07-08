@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
-import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric";
-import { KERNEL_KNOWLEDGE_STATUSES, type KernelKnowledgeStatus } from "@hyperidle/shared";
+import {
+	KERNEL_KNOWLEDGE_STATUSES,
+	type KernelKnowledgeStatus,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeStatus,
+} from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";

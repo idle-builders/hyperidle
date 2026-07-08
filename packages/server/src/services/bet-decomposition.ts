@@ -7,7 +7,7 @@
  * path picks up automatically (no second provisioning route).
  *
  * Architecture decisions (see plans/AK3/architecture.md):
- * - CRITICAL-1: PM context via Strategy port (assembleContext on a synthetic request).
+ * - CRITICAL-1: PM context enters through the agent session request path.
  * - CRITICAL-2: v1 inserts tasks server-side (no session-less tool call);
  *   runDecompositionTurn override is test-injectable (AH3 idiom).
  * - CRITICAL-3: resolveOrphanedDecompositions boot-time sweep closes crash-orphan hole.
@@ -24,7 +24,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, type User, users } from "@hyperidle/db";
-import { checkCostCap, getAgentSessionRequestConsumerFn } from "@hyperidle/fabric";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -33,10 +32,12 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { checkCostCap } from "../app-runtime/services/cost-cap.js";
+import { getAgentSessionRequestConsumerFn } from "../app-runtime/services/provision-registry.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
+import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
-import { getActiveStrategy } from "./strategy-registry.js";
 import { transitionTask } from "./task-state-machine.js";
 
 // -----------------------------------------------------------------------------
@@ -136,9 +137,8 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
  * and transition each to 'accepted' so task_state_changed(accepted) fires
  * and the existing task-dispatcher picks it up.
  *
- * Owner assignment (AK7): routed through selectOwner (the single Kernel selection
- * caller). selectOwner enumerates eligible candidates, emits work_selection_requested,
- * calls the active Strategy's selectAgent, and validates the result (AC1/AC2/AC4).
+ * Owner assignment is routed through selectOwner. selectOwner enumerates eligible
+ * candidates, emits work_selection_requested, resolves an owner, and validates it.
  *
  * betId is bound from the bet argument, NEVER from task input (cross-bet injection
  * prevention — mirrors create-task R5 D1).
@@ -151,10 +151,9 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
  * (keeping the insert logic in one place).
  *
  * @lore AK7: _eligible is kept as a param so existing callers compile unchanged.
- * selectOwner (not _eligible) is the authoritative candidate source for AK7.
- * The AK3 round-robin spread is preserved: selectOwner passes spreadIndex:i to the
- * Strategy, and the Fabric impl reproduces `candidates[i % len]` byte-identically
- * (concept §6.3). The role short-circuit (roleHint exact match) is also preserved.
+ * selectOwner (not _eligible) is the authoritative candidate source. The AK3
+ * round-robin spread is preserved: selectOwner passes spreadIndex:i and the
+ * resolver reproduces `candidates[i % len]`. The role short-circuit is preserved.
  */
 export async function insertProposedBetTasks(
 	deps: { db: HyperIdleDb; eventBus: EventBus },
@@ -169,9 +168,8 @@ export async function insertProposedBetTasks(
 		const input = taskInputs[i];
 		if (!input) continue;
 
-		// Resolve owner: route through the selection seam (AK7 — AC1/AC2/AC4).
-		// selectOwner: enumerates eligible team candidates (orderBy users.id), emits
-		// work_selection_requested, calls Strategy.selectAgent, validates the result.
+		// Resolve owner through the selection helper. It enumerates eligible team
+		// candidates (orderBy users.id), emits work_selection_requested, and validates the result.
 		// spreadIndex:i preserves the AK3 round-robin spread on the mismatch branch
 		// (concept §6.3 — without it all null-role tasks collapse to candidates[0]).
 		const ownerAgentId = await selectOwner(
@@ -266,7 +264,7 @@ async function markTerminal(
  * Run the full bet decomposition pipeline for a single bet.
  *
  * AK8 rewire: delegates "who decomposes + what the breakdown is" to the
- * active Strategy's decomposeBet method, then applies 3-way turn-source
+ * app-owned decomposition resolver, then applies 3-way turn-source
  * precedence to produce the final task list.
  *
  * Steps:
@@ -275,7 +273,7 @@ async function markTerminal(
  *   2. findEligibleTeamAgents → none → blocked/no_eligible_agent.
  *   3. Emit work_decompose_requested (AC1 observable occasion). Post-CAS,
  *      post-eligible-check — only the CAS winner emits.
- *   4. enumerateTeamCandidates → getActiveStrategy().decomposeBet(...).
+ *   4. enumerateTeamCandidates -> resolveDecompositionPlan(...).
  *      Wrapped in try/catch: throw → blocked/failed (no false promise).
  *   5. plan.decomposerAgentId null → blocked/no_eligible_agent.
  *   6. Inline-validate decomposerAgentId: candidates.some(c => c.agentId ===
@@ -283,7 +281,7 @@ async function markTerminal(
  *      (WARNING 1: selectOwner's internal guard no longer runs on this path).
  *   7. Cost pre-flight: checkCostCap on validated decomposer.
  *   8. Runtime request or scratch sandbox + 3-way turn-source precedence:
- *      a. plan.tasks.length > 0 → persist those tasks (Strategy-authored breakdown).
+ *      a. plan.tasks.length > 0 → persist those tasks (resolver-authored breakdown).
  *      b. deps.runDecompositionTurn present → call it with plan.decomposerAgentId
  *         (protected-test seam — branch 2, all v1 Strategies + all AK3 tests land here).
  *      c. else → create/consume an AgentSessionRequest; task writeback decides terminal state.
@@ -294,10 +292,10 @@ async function markTerminal(
  *
  * @lore AK8: Turn-source precedence: plan.tasks → override → real turn.
  * The override NEVER beats plan.tasks — that would let a test seam mask a
- * Strategy decision (the inverse of what the seam is for). All v1 Strategies
+ * resolver decision (the inverse of what the seam is for). Current defaults
  * return tasks:[] → branch 2 (tests) or branch 3 (production).
  *
- * @lore AK8: []-from-Strategy (plan.tasks) means "Kernel, enter runtime"
+ * @lore AK8: []-from-resolver (plan.tasks) means "enter runtime"
  * (turn-source branch 2 or 3). []-from-turn (taskList after branch 3) means
  * blocked/empty. Same [] value, opposite meaning depending on origin. See
  * DecompositionPlan in strategy-port.ts.
@@ -305,7 +303,7 @@ async function markTerminal(
  * @lore AK8: The inline decomposerAgentId validation (step 6) replaces the
  * selectOwner(bet_decomposer) call removed from the AK7 path. selectOwner's
  * internal guard (active AI + kind=ai + status=active) no longer runs here;
- * candidates.some() is the net-new inline equivalent. A third-party Strategy
+ * candidates.some() is the net-new inline equivalent. An invalid resolver
  * returning an off-team/inactive id → blocked/no_eligible_agent.
  */
 export async function runBetDecomposition(
@@ -360,14 +358,11 @@ export async function runBetDecomposition(
 		at: new Date().toISOString(),
 	});
 
-	// --- 3. Ask the active Strategy for a decomposition plan ---
-	// enumerateTeamCandidates → decomposeBet({ candidates, betId, ... }).
-	// Wrapped in try/catch: Strategy throw → blocked/failed (no false promise,
-	// mirrors the assembleContext catch in AK3).
+	// --- 3. Resolve the decomposition plan from app-owned defaults ---
 	const candidates = await enumerateTeamCandidates(db, bet.teamId);
 	let plan: import("@hyperidle/shared").DecompositionPlan;
 	try {
-		plan = await getActiveStrategy().decomposeBet({
+		plan = await resolveDecompositionPlan({
 			db,
 			teamId: bet.teamId,
 			betId,
@@ -376,7 +371,7 @@ export async function runBetDecomposition(
 			candidates,
 		});
 	} catch {
-		// Strategy threw — blocked/failed (no false promise).
+		// Resolver threw — blocked/failed (no false promise).
 		await markTerminal(db, betId, "blocked", "failed");
 		return;
 	}
@@ -394,7 +389,7 @@ export async function runBetDecomposition(
 	// this is its net-new inline replacement.
 	//
 	// @lore AK8: candidates.some(c => c.agentId === plan.decomposerAgentId) is the
-	// cheapest correct form of the unattachable-session guard. A third-party Strategy
+	// cheapest correct form of the unattachable-session guard. An invalid resolver
 	// returning an off-team/inactive/non-existent id hits this guard → blocked/no_eligible_agent.
 	const decomposerIsValid = candidates.some((c) => c.agentId === plan.decomposerAgentId);
 	if (!decomposerIsValid) {
@@ -411,7 +406,7 @@ export async function runBetDecomposition(
 
 	// --- 6. Cost pre-flight ---
 	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
-	// Kernel-side — Strategy never enforces cost (strategy-port.ts hard rule).
+	// Cost is enforced before entering the agent runtime.
 	const capResult = await checkCostCap(db, eventBus, {
 		agentId: pm.id,
 		teamId: bet.teamId,
@@ -513,20 +508,20 @@ export async function runBetDecomposition(
 		let taskList: DecompositionTaskInput[];
 
 		// --- 8. Turn-source precedence (CRITICAL 1) ---
-		// Branch 1: Strategy authored the breakdown (future Fabric path).
+		// Branch 1: resolver authored the breakdown.
 		// Branch 2: Test-injectable override (protected-test seam — all AK3 tests).
 		// Branch 3: Runtime request path was handled above.
 		//
 		// @lore AK8: Branch 1 > branch 2 > branch 3. The override NEVER beats plan.tasks
-		// because that would let a test seam mask a Strategy's authored decision.
-		// All v1 Strategies (Minimal, Fabric) return tasks:[] → branch 2 or 3.
+		// because that would let a test seam mask a resolver-authored decision.
+		// Current defaults return tasks:[] -> branch 2 or 3.
 		if (plan.tasks.length > 0) {
-			// Branch 1: Strategy-authored breakdown. Skip assembleContext + turn entirely.
+			// Branch 1: resolver-authored breakdown. Skip runtime turn entirely.
 			taskList = [...plan.tasks];
 		} else if (deps.runDecompositionTurn) {
 			// Branch 2: Test-injectable override (no real LLM call).
-			// Supply the Strategy-chosen decomposerAgentId as pmAgentId so that
-			// test assertions on "which agent decomposes" reflect the Strategy's choice.
+			// Supply the resolver-chosen decomposerAgentId as pmAgentId so tests on
+			// "which agent decomposes" reflect the chosen owner.
 			try {
 				taskList = await withTimeout(
 					deps.runDecompositionTurn({ betId, pmAgentId: pm.id }),

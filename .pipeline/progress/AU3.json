@@ -1,0 +1,22 @@
+{
+  "id": "AU3",
+  "status": "in_progress",
+  "currentStep": "shipped",
+  "startedAt": "2026-07-08T22:15:46Z",
+  "updatedAt": "2026-07-08T23:12:00Z",
+  "phase2": {
+    "round": 2,
+    "verdict": "pass"
+  },
+  "phase3": {
+    "verdict": "pass",
+    "verify": "green"
+  },
+  "phase4": {
+    "round": 1,
+    "verdict": "done"
+  },
+  "phase5": {
+    "verdict": "complete"
+  }
+}

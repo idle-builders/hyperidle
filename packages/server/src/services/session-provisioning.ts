@@ -12,17 +12,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
-	assemblePrompt,
-	assembleRoutinePrompt,
-	buildRoutineSessionContextData,
-	buildSessionContextData,
-	checkCostCap,
-	composeAssistantPrompt,
-	recordCostAndCheck,
-	type ToolSummary,
-	writeSandboxAgentsMd,
-} from "@hyperidle/fabric";
-import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
@@ -50,6 +39,17 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, inArray as drizzleInArray, eq, sql } from "drizzle-orm";
+import {
+	assemblePrompt,
+	assembleRoutinePrompt,
+	buildRoutineSessionContextData,
+	buildSessionContextData,
+	checkCostCap,
+	composeAssistantPrompt,
+	recordCostAndCheck,
+	type ToolSummary,
+	writeSandboxAgentsMd,
+} from "../app-runtime/index.js";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
@@ -67,11 +67,11 @@ import {
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
+import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import { getActiveStrategy } from "./strategy-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -830,15 +830,9 @@ export async function admitSession(
 			);
 		}
 
-		// ── Phase 6: assemble context into the sandbox (via Strategy Port).
-		// @lore AK2 §5a: was `assembleContext(db, {...})` hard-imported from
-		// @hyperidle/fabric. Now routed through the Strategy Port so the Kernel
-		// is decoupled from any concrete Strategy. The try/catch revert behaviour
-		// is preserved exactly — assembleContext may throw; revertTaskToAccepted
-		// runs and the error propagates.
-		const strategy = getActiveStrategy();
+		// ── Phase 6: assemble context into the sandbox through the agent layer.
 		if (params.taskId) {
-			await strategy.assembleContext({
+			await assembleAgentContext({
 				db,
 				sandboxPath,
 				sessionId,
@@ -850,13 +844,9 @@ export async function admitSession(
 			});
 		}
 
-		// ── Phase 7: begin learning ingestion (via Strategy Port).
-		// @lore AK2 §5a: was `startWatcher(watcherConfig)` returning FileWatcher.
-		// Now calls beginLearningIngestion → IngestionHandle. The handle's dispose()
-		// replaces watcher.stop() at every teardown site. The Fabric adapter's
-		// beginLearningIngestion delegates to startWatcher byte-identically (AC3).
+		// ── Phase 7: begin writeback ingestion.
 		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-		ingestion = strategy.beginLearningIngestion({
+		ingestion = beginAgentWriteback({
 			db,
 			sandboxPath,
 			sessionId,

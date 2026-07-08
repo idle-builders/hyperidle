@@ -1,21 +1,21 @@
 import { teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
 /**
  * `add_agent` — Add a new AI agent to an existing team with the specified role.
- * Routes through the active Strategy's scaffoldAgents port to decide the persona.
+ * Routes through app-owned scaffold specs to decide the persona.
  *
  * @lore AE3: Cross-team scope is intentional. See create-team.ts @lore AE3 comment.
  *
- * @lore AK6 T7: Rewritten to route through the Strategy port (scaffoldAgents +
+ * @lore AU3: Rewritten to route through app-owned scaffold specs +
  * persistScaffoldedAgents). The caller-supplied name is passed through as
- * ScaffoldRequest.name (Strategy passes it through unchanged for agent_added).
- * Persona (systemPrompt) is now Strategy-owned — not read from factorySettings inline.
+ * ScaffoldRequest.name for agent_added.
+ * Persona (systemPrompt) is app-owned — not read from factorySettings inline.
  */
 const addAgentInputSchema = z.object({
 	teamId: z.string().min(1),
@@ -60,10 +60,9 @@ async function handler(
 		return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 	}
 
-	// AK6 T7: Route through Strategy port — the active Strategy decides the persona.
-	// The caller-supplied name is passed as ScaffoldRequest.name (Strategy passes it through).
-	// If a caller-supplied systemPrompt is provided, it overrides the Strategy's spec.
-	const specs = await getActiveStrategy().scaffoldAgents({
+	// AU3: route through app-owned scaffold specs for the persona.
+	// If a caller-supplied systemPrompt is provided, it overrides the app spec.
+	const specs = await resolveAgentScaffoldSpecs({
 		db: ctx.db,
 		trigger: "agent_added",
 		teamId: input.teamId,
@@ -76,7 +75,7 @@ async function handler(
 		ownerUserName: null,
 	});
 
-	// If caller explicitly provided a systemPrompt, override the Strategy's spec.
+	// If caller explicitly provided a systemPrompt, override the app spec.
 	// This preserves the existing tool contract: callers can pass systemPrompt directly.
 	const finalSpecs =
 		input.systemPrompt !== undefined
@@ -86,7 +85,7 @@ async function handler(
 	const { agentIds } = await persistScaffoldedAgents(ctx.db, memberGroup.id, finalSpecs);
 	const agentId = agentIds[0];
 	if (!agentId) {
-		return err("INTERNAL_ERROR", "Strategy returned no specs for agent_added trigger");
+		return err("INTERNAL_ERROR", "App defaults returned no specs for agent_added trigger");
 	}
 
 	// AK6 P4 WARNING-1: emit agent_added from the tool path so async subscribers
@@ -113,7 +112,7 @@ async function handler(
 export const addAgentTool: ToolDefinition<AddAgentInput> = {
 	name: "add_agent",
 	description:
-		"Add a new AI agent to an existing team with the specified role. The active Strategy determines the persona. If systemPrompt is provided, it overrides the Strategy's default.",
+		"Add a new AI agent to an existing team with the specified role. App defaults determine the persona. If systemPrompt is provided, it overrides the default.",
 	inputSchema: addAgentInputSchema,
 	handler,
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".

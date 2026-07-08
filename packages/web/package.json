@@ -15,7 +15,6 @@
 	},
 	"dependencies": {
 		"@hyperidle/design-system": "*",
-		"@hyperidle/fabric": "*",
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
 		"hono": "^4.12.27",

@@ -1205,9 +1205,9 @@ describe("createApp -> git-export wiring (AC1 production path)", () => {
 		const app = await createApp({
 			db,
 			eventBus,
-			// O3: gitRunnerFactory moved out of AppOptions. Use strategyBootstrap
+			// O3: gitRunnerFactory moved out of AppOptions. Use serviceBootstrap
 			// to inject a custom runner factory for this test.
-			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => {
+			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => {
 				const disposers: Array<() => void> = [];
 				disposers.push(
 					registerGitExportHandler(testDb, testBus, {

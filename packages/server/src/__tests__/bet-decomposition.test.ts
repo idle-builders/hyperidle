@@ -24,7 +24,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { clearProvisionSessionFn, setAgentSessionRequestConsumerFn } from "@hyperidle/fabric";
 import {
 	type AgentSessionSourceKind,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -32,14 +31,15 @@ import {
 	type DecompositionStatus,
 	type DecompositionTaskInput,
 	type ResolvedModel,
-	type SelectAgentOutcome,
-	type SelectAgentRequest,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
+import {
+	clearProvisionSessionFn,
+	setAgentSessionRequestConsumerFn,
+} from "../app-runtime/services/provision-registry.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 
@@ -110,58 +110,6 @@ async function seedTeamWithAgent(
 	return { teamId, membershipId, agentId };
 }
 
-// Fabric-equivalent strategy fixture (mirrors integration test setup)
-function makeFabricLikeStrategy() {
-	return {
-		assembleContext: vi.fn().mockResolvedValue({ itemCount: 0, durationMs: 0 }),
-		beginLearningIngestion: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-		scaffoldAgents: vi.fn().mockResolvedValue([]),
-		selectAgent: vi.fn(
-			async (req: SelectAgentRequest<HyperIdleDb>): Promise<SelectAgentOutcome> => {
-				if (req.surface === "bet_task") {
-					const byRole = req.roleHint
-						? req.candidates.find((c) => c.role === req.roleHint)
-						: undefined;
-					if (byRole) return { agentId: byRole.agentId };
-					const len = req.candidates.length;
-					if (len === 0) return { agentId: null };
-					const idx = (req.spreadIndex ?? 0) % len;
-					return { agentId: req.candidates[idx]?.agentId ?? null };
-				}
-				if (req.surface === "bet_decomposer") {
-					const byRole = req.roleHint
-						? req.candidates.find((c) => c.role === req.roleHint)
-						: undefined;
-					const chosen = byRole ?? req.candidates[0];
-					return { agentId: chosen?.agentId ?? null };
-				}
-				return { agentId: null };
-			},
-		),
-		/**
-		 * decomposeBet added to satisfy Strategy<TDb> 5-method interface.
-		 * Returns role-match PM and tasks:[] so tests land on override branch
-		 * (turn-source precedence branch 2 — protected assertions stay byte-identical).
-		 *
-		 * @lore: fixture shape grows; frozen assertions byte-identical.
-		 */
-		decomposeBet: vi.fn(
-			async (
-				req: import("@hyperidle/shared").DecomposeBetRequest<HyperIdleDb>,
-			): Promise<import("@hyperidle/shared").DecompositionPlan> => {
-				const pm =
-					req.candidates.find(
-						(c: import("@hyperidle/shared").SelectionCandidate) => c.role === "product_manager",
-					) ?? req.candidates[0];
-				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
-			},
-		),
-		formAssistant: vi.fn(async (): Promise<import("@hyperidle/shared").AssistantFormation> => {
-			return { persona: null, assistantDraftSurface: "standard" };
-		}),
-	};
-}
-
 // ---------------------------------------------------------------------------
 // Type-level / pure-logic tests (no DB needed)
 // ---------------------------------------------------------------------------
@@ -226,20 +174,7 @@ describe("Bet decomposition — DecompositionTaskInput type", () => {
 // ---------------------------------------------------------------------------
 
 describe("bet decomposition enters the agent runtime through requests", () => {
-	// Register a Fabric-equivalent Strategy so getActiveStrategy() doesn't throw
-	// and the PM pick (bet_decomposer) returns the seeded agent.
-	// runBetDecomposition now routes the PM pick through selectOwner →
-	// getActiveStrategy(). A null return from selectAgent → blocked/no_eligible_agent
-	// (never reaches startSession). Use makeFabricLikeStrategy() so the PM pick
-	// resolves to the first eligible candidate (builder-ac5) and the real PM path runs.
-	// @lore bet decomposition: The real PM turn path is only reached when selectOwner resolves a PM.
-	// selectAgent(bet_decomposer) must return a non-null agentId here.
-	beforeEach(() => {
-		setActiveStrategy(makeFabricLikeStrategy());
-	});
-
 	afterEach(() => {
-		clearActiveStrategy();
 		clearProvisionSessionFn();
 	});
 

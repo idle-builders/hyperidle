@@ -1,13 +1,15 @@
 import { tasks, users } from "@hyperidle/db";
 import {
-	create as createKnowledgeItem,
 	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
 	type KnowledgeLayer,
-} from "@hyperidle/fabric";
-import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
+	type ScopeKind,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { create as createKnowledgeItem } from "../app-runtime/knowledge-repository.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

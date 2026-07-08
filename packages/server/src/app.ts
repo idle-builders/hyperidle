@@ -1,8 +1,11 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { defaultNotificationAdapterFactory, registerAssistantDispatcher } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
+import { registerAssistantDispatcher } from "./app-runtime/services/assistant-dispatcher.js";
+import { defaultNotificationAdapterFactory } from "./app-runtime/services/notifications/adapter-factory.js";
+import type { NotificationConfig } from "./app-runtime/services/notifications/config.js";
+import type { NotificationAdapter } from "./app-runtime/services/notifications/types.js";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
@@ -69,37 +72,17 @@ import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
-	/**
-	 * Strategy-layer bootstrap function. When provided, `createApp` calls it
-	 * with `{ db, eventBus }` and pushes the returned disposers into the app's
-	 * disposer bag. When omitted (or undefined), the app boots in kernel-only
-	 * mode — no strategy event handlers are registered.
-	 *
-	 * Production entry point passes `bootstrapFabric` from `@hyperidle/fabric`.
-	 * Tests that need kernel-only mode pass `undefined` (or simply omit the field).
-	 * Tests that need custom strategy wiring pass a custom function.
-	 *
-	 * @lore O3: This replaces 7 hardwired `register*` calls in app.ts, enforcing
-	 * the kernel/strategy boundary via the package dependency graph.
-	 */
-	strategyBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
+	serviceBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
 	/**
 	 * Optional override for the notification adapter factory used by the
 	 * HTTP `/notifications/test`, `/notifications/flush`, and
 	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
 	 * records every send.
 	 *
-	 * NOTE: This does NOT affect the strategy-layer dispatcher (registered via
-	 * `strategyBootstrap`). The dispatcher uses its own factory (internalized
-	 * in `bootstrapFabric`). This option is purely for the HTTP route layer.
-	 *
-	 * @lore O3: Kept on AppOptions (HTTP route concern) even though the
-	 * dispatcher factory was internalized in bootstrapFabric. Removing it
-	 * would require restructuring notification route tests to not use createApp.
+	 * NOTE: This does NOT affect the app-level notification dispatcher. This
+	 * option is purely for the HTTP route layer.
 	 */
-	notificationAdapterFactory?: (
-		cfg: import("@hyperidle/fabric").NotificationConfig,
-	) => import("@hyperidle/fabric").NotificationAdapter;
+	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
@@ -480,7 +463,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// AD2: Dispatch queue observer — GET /api/dispatch-queue
 		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/search", createSearchRoutes(options.db, eventBus));
-		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		api.route(
 			"/notifications",
@@ -553,12 +535,8 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 
 		const disposers: Array<() => void> = [];
 
-		// O3: strategy-layer services are wired via strategyBootstrap (if provided).
-		// Kernel-only mode (strategyBootstrap: undefined) skips all strategy handlers.
-		// @lore O3: This replaces 7 hardwired register* calls; the kernel/strategy
-		// boundary is now enforced by the package dependency graph.
-		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
-		disposers.push(...strategyDisposers);
+		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus }) ?? [];
+		disposers.push(...serviceDisposers);
 
 		// AD8b AC-3: Register assistant dispatcher — listens for thread_message_appended
 		// from human users in user-hosted threads and triggers the assistant agent.

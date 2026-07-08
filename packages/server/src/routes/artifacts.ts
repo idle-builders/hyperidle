@@ -4,7 +4,6 @@
 
 import * as crypto from "node:crypto";
 import { artifacts, type HyperIdleDb, tasks, users } from "@hyperidle/db";
-import { recordCostAndCheck } from "@hyperidle/fabric";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
@@ -17,6 +16,7 @@ import {
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { recordCostAndCheck } from "../app-runtime/services/cost-cap.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";

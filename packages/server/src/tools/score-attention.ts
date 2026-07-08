@@ -1,7 +1,7 @@
-import { items, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
-import { buildAttentionService } from "@hyperidle/fabric";
+import { items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { buildAttentionService } from "../app-runtime/services/attention-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -106,20 +106,20 @@ async function handler(
 		if (!row) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
-		// @lore O2: attentionScore moved from knowledgeItems to knowledgeStrategyFabric.
-		// Upsert: create fabric row if none exists (kernel items created before fabric).
+		// @lore O2: attentionScore moved from knowledgeItems to knowledgeAppProjection.
+		// Upsert: create projection row if none exists (kernel items created before fabric).
 		const [existingFabric] = await ctx.db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id))
 			.limit(1);
 		if (existingFabric) {
 			await ctx.db
-				.update(knowledgeStrategyFabric)
+				.update(knowledgeAppProjection)
 				.set({ attentionScore: String(score) })
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		} else {
-			await ctx.db.insert(knowledgeStrategyFabric).values({
+			await ctx.db.insert(knowledgeAppProjection).values({
 				id: `ksf-${id}`,
 				knowledgeItemId: id,
 				attentionScore: String(score),
