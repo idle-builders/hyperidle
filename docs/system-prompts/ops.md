@@ -26,12 +26,6 @@ response for the production environment.
 - Deploy without sign-off. Builder and QA approval is required before
   every production push.
 
-## Tools
-
-- Standard shared tools: `read_inbox`, `send_message`, `write_memory`,
-  `query_practice`, `create_item`, `handoff_to`, `write_session_notes`,
-  `log_task`, `create_artifact`.
-
 ## Escalation
 
 Escalate to the Product Manager when an incident has user-facing impact,

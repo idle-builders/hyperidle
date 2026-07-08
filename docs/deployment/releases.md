@@ -1,3 +1,5 @@
+# Releases
+
 ## Release pipeline (unified)
 
 One version bump, carried by one PR, releases **both** surfaces on merge:

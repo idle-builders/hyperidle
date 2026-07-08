@@ -1,86 +1,67 @@
-## 3. The Canonical Store
+# The Canonical Store
 
-Everything lives in SQLite. One database per factory instance. The store is split into **kernel** (structural, stable) and **strategy** (fabric-computed, evolving).
+All knowledge lives in one Postgres database — **PGlite embedded locally (laptop/test), postgres-js on a server (VPS/cloud)**. Both drivers satisfy the same Drizzle `HyperIdleDb` type, so callers are driver-agnostic (`packages/db/src/connection.ts:1-16`). PGlite is the deliberate default: a zero-ops embedded Postgres — no separate process, one data directory, laptop-first — with the identical schema running unchanged on server Postgres when a deployment outgrows a single machine.
 
-### Kernel table — `knowledge_items`
+The store is split into **kernel** (structural, stable) and **strategy** (fabric-computed, evolving). This is the store-level face of the system-wide split — see [kernel-strategy-split](../architecture/kernel-strategy-split.md).
 
-The kernel carries identity, content, scope, and concurrency control. No strategy signals — those live in the fabric extension.
+## Kernel table — `knowledge_items`
 
-```sql
-knowledge_items (
-  id              TEXT PRIMARY KEY,
-  scope_kind      TEXT NOT NULL,        -- 'factory','product','practice','team','bet','task','user'
-  scope_id        TEXT,                 -- which entity (null for factory — there's only one)
-  topic           TEXT,                 -- grouping within a scope: 'auth','deployment','onboarding',...
-  title           TEXT,
-  body            TEXT,                 -- markdown
-  format          TEXT DEFAULT 'markdown',  -- 'markdown','toon'
-  status          TEXT DEFAULT 'captured',  -- captured/provisional/validated/active/stale/archived
-  version         INTEGER DEFAULT 1,    -- optimistic concurrency control
-  updated_by      TEXT,                 -- agent_id or user_id
-  created_at      TEXT,
-  updated_at      TEXT
-)
-```
+The kernel carries identity, content, scope, and concurrency control: `id`, `scope_kind` (default `factory`), `scope_id`, `topic`, `title`, `body` (markdown), `format` (`markdown` | `toon`), `status`, `version` (optimistic concurrency), `updated_by`, `created_at`, `updated_at`. No strategy signals — those live in the fabric extension. The authoritative shape is `packages/db/src/schema.ts:580-607`; this doc never mirrors it.
 
-**Scope (kernel).** Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it:
+`status` is the 7-value taxonomy `captured` / `provisional` / `validated` / `active` / `stale` / `archived` / **`needs_human`** (`packages/fabric/src/types.ts` `KNOWLEDGE_STATUSES`). `needs_human` marks items a human must resolve before they can progress — it is a pre-validation state, never exported.
 
-- `factory` — strategic decisions, principles, constraints across all products. `scope_id` null.
-- `product` — product-specific context, architecture decisions. `scope_id` = product id.
+### Scope (kernel)
+
+Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it. `SCOPE_KINDS` is a closed 7-value enum (`packages/shared/src/types.ts:171-181`):
+
+- `factory` — strategic decisions, principles, constraints across all products. No `scope_id`.
+- `product` — product-specific context and architecture decisions. `scope_id` = product id.
 - `practice` — cross-product learning for a discipline. `scope_id` = practice community id.
 - `team` — team-level knowledge. `scope_id` = team id.
 - `bet` — conceptual context for a specific bet. `scope_id` = bet id.
 - `task` — notes, findings, failures for a specific task. `scope_id` = task id.
-- `user` — personal notes, private scratch. `scope_id` = user id.
+- `user` — personal notes, private scratch. No `scope_id`.
 
-`scope_kind` is a closed enum. Adding a scope kind requires a concept-doc update first.
+`factory` and `user` are the two scopes that never need an id (`SCOPES_REQUIRING_ID`). Adding a scope kind requires a concept-doc update first — the enum is closed by contract (@lore Q2, `packages/shared/src/types.ts:164-169`).
 
-Scope is mutable — a user can change an item's scope (e.g., `user` → `product` to share a private note). Scope changes are tracked in version history.
+Scope is mutable — a user can change an item's scope (e.g., `user` → `product` to share a private note) via the scope-change dialog. Every field edit, including scope changes, lands in `knowledge_edit_log` (`packages/db/src/schema.ts:609-624`), which deliberately outlives its subject (RESTRICT, not cascade — an agent can never wipe its own authored history).
 
-> **Read-side projection.** `knowledge_items.body` is plain markdown. The Block primitive is derived from this body during rendering — see `docs/blocks/`. There is no `blocks` table, no per-block row, no on-disk dialect. Blocks emerge only when a UI surface renders the body.
+## Strategy extension — `knowledge_strategy_fabric`
 
-### Strategy extension — `knowledge_strategy_fabric`
+Strategy signals computed by the Knowledge Fabric live in a separate table, 1:1 with the kernel by `knowledge_item_id` (unique, cascade delete): `layer`, `scope_id`, `kind`, `attention_score`, `relevance_score`, `confidence`, `citation_count`, `last_cited_at`, `meta` (`packages/db/src/schema.ts:690-713`). The O2 migration moved these off the kernel table; no `strategy` discriminator column exists, so multiple strategies can coexist.
 
-Strategy signals computed by the Knowledge Fabric. Joined to kernel by `knowledge_item_id`. See `packages/db/src/schema.ts` for the current column set (layer, kind, attention_score, relevance_score, citation_count, confidence, meta).
+### Layer (strategy)
 
-**Layer (strategy).** The fabric assigns an L0-L4 layer to items that participate in the maturity flow. Layer is *optional* — not every scope maps to a layer:
+The fabric assigns a layer to items that participate in the maturity flow — layer definitions live in [the-five-layers](the-five-layers.md). Layer is **optional**; the mapping is `SCOPE_TO_LAYER` (`packages/fabric/src/types.ts:25-33`):
 
-| Scope kind | Default layer mapping | Notes |
-|---|---|---|
-| factory | L4 | Monthly rhythm, human-owned |
-| product | L2 | Per-cycle, human-readable + agent-native |
-| practice | L3 | Weekly, cross-product learning |
-| task | L1 | Per-task, failures first-class |
-| session | L0 | Ephemeral, rebuilt every session |
-| bet | — | No layer. Attached to bet lifecycle. |
-| team | — | No layer. Between L2 and L3. |
-| user | — | No layer. Private, below fabric concern. |
+| Scope kind | Layer |
+|---|---|
+| factory | L4 |
+| product | L2 |
+| practice | L3 |
+| task | L1 |
+| bet | — |
+| team | — |
+| user | — |
 
-Items without a layer assignment are not assembled by the fabric into agent sessions unless explicitly promoted (scope change to a layer-mapped scope kind).
+There is no `session` scope kind — L0 is the ephemeral per-session pack, never a `knowledge_items` row. Layer assignment is the fabric's job; the creation flow never sets it.
 
-### Kernel vs. strategy — the separation
+Items without a layer are invisible to context assembly — the fabric assembles only L4/L2/L3 items into agent sessions (`packages/fabric/src/context-assembly.ts:217-219`). Promoting a layer-less item means changing its scope to a layer-mapped scope kind.
 
-The O2 migration moved strategy signals (`layer`, `kind`, `attention_score`, `confidence`, etc.) off the kernel table into the fabric extension. This concept formalizes the reason: **scope is structural (where does this item live?), layer is strategic (what maturity flow does it follow?)**. They are different axes. Scope is mandatory and kernel-level. Layer is optional and strategy-level.
+## The axis rule
 
-### Why one table, not many?
+**Scope is structural (where does this item live?) — kernel-level and mandatory. Layer is strategic (what maturity flow does it follow?) — fabric-level and optional.** They are different axes; the O2 split formalizes that in the schema (@lore O2, `packages/db/src/schema.ts:576-578, 684-688`).
 
-Because the Knowledge Fabric needs to project arbitrary slices of knowledge into agent workspaces. A query like "give me all practices relevant to building + all product decisions from the last cycle + the factory principles" is one SQL query against one table with a join to the strategy extension. With multiple databases and file trees, that same query is a multi-source join with file I/O — slow, fragile, hard to version.
+## Why one table, not many?
 
-The existing process primitives (bets, tasks, sessions, teams, routines) stay in their own tables in the Primitive Store. `knowledge_items` is specifically for knowledge artifacts.
+The Knowledge Fabric projects arbitrary slices of knowledge into agent sandboxes. "All practices relevant to building + all product decisions from the last cycle + the factory principles" is one SQL query against one table with a join to the strategy extension (`knowledge-repository.ts` inner-joins on strategy filters). Multiple databases or file trees would turn that into a multi-source join with file I/O — slow, fragile, hard to version.
 
-### Indexes
+The process primitives (bets, tasks, sessions, teams, routines) stay in their own tables. `knowledge_items` is for knowledge artifacts only.
 
-```sql
-CREATE INDEX idx_ki_scope ON knowledge_items(scope_kind, scope_id);
-CREATE INDEX idx_ki_topic ON knowledge_items(topic);
-CREATE INDEX idx_ki_status ON knowledge_items(status);
-CREATE INDEX idx_ki_updated ON knowledge_items(updated_at DESC);
-```
+## Blocks are projections
 
-Strategy-layer indexes (layer, kind, attention_score) live on the `knowledge_strategy_fabric` table.
+`knowledge_items.body` is plain markdown. The Block primitive is derived from the body at render time — there is no `blocks` table, no per-block row, no on-disk dialect. Blocks exist only while a UI surface renders the body. See [docs/blocks/](../blocks/index.md).
 
-### What about the markdown files in Git?
+## Git is an export, never the source of truth
 
-The human-authored files (L2: `BRIEF.md`, `ARCHITECTURE.md`, `BRAND.md`, `PRINCIPLES.md`; L4: `PRINCIPLES.md`, `FOCUS.md`, `PORTFOLIO.md`) become **exports** from SQLite, not the source of truth. A routine runs after human edits to re-export them to the Git repo for version history and human reading outside the app. Git is the backup and audit trail, not the canonical store.
-
----
+The human-readable markdown files in the Git repo are **exports from the database**, produced by the git-export service — only `active`/`validated` items ship; drafts (`captured`, `provisional`, `needs_human`) and `archived` tombstones stay out (`packages/fabric/src/services/git-export.ts`). Git is the backup and audit trail; the database is canonical. Export structure and triggers are owned by [facilitators](facilitators.md).

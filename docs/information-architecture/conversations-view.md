@@ -1,112 +1,73 @@
-## 2. Conversations View
+# Conversations View
 
-> **Reframe note (added with TRACK-L L1, the Thread primitive).** This section uses "Review Thread Detail" / "Chat Thread Detail" as a UI shorthand. Per `HUMAN_INTERFACE_LAYER.md §4.5`, there is one Thread primitive and the differences live on the *messages* (review / questionnaire / plain) and on the thread's *configuration*. "Review Thread Detail" reads as "the detail surface when the thread contains a review message"; "Chat Thread Detail" reads as "the detail surface when the thread does not (yet) contain a review or questionnaire message". The two converge to a single detail surface in TRACK-L L9.
+Messaging surface. One single, shape-agnostic thread detail surface (L9/AM1) — the detail pane adapts to the messages in the selected thread; it is one surface, not two routes. Reviews are *read* here but *decided* on the ReviewPage (see [Reviews relocate](#reviews-are-not-decided-here)).
 
-**Purpose:** Messaging and reviews. The founder spends ~90% of their time here.
+## Routes and page states
 
-<!-- @source packages/web/src/pages/Conversations.tsx -->
-
-**Shell structure:** Sidebar | Main (Thread Detail). The detail pane adapts to the messages in the selected thread; it is one surface, not two routes.
-
-### 2.1 Submenu (Thread List)
-
-The founder's inbox. Answers: "What needs me right now?"
-
-| Component | Information | Actions |
-|---|---|---|
-| **Search/jump bar** | Input with "Jump to..." placeholder | Type to filter threads |
-| **Filter bar** | Filters: product, agent, type (review/chat), status (blocking/open/snoozed/resolved) | Click filters; multi-select; clear all |
-| **Pinned section header** | "Pinned" label | — |
-| **assistant thread item** | Name, first-line preview, unread badge | Click to open thread |
-| **Active threads section header** | "Active Threads" label | — |
-| **Thread list item (review)** | Sender (agent name + role), product tag, subject line, timestamp, review indicator, blocking indicator (if agent paused), estimated review time | Click to open in main pane |
-| **Thread list item (chat)** | Sender, subject line, timestamp | Click to open in main pane |
-| **Thread state actions** | — | Right-click or swipe: Snooze (with timer), Archive, Mute |
-| **Estimated review time** | Agent-estimated complexity tag ("~2 min", "~15 min") shown on each thread item | Read-only; helps triage |
-| **Bulk actions button** | — | Click to show batch operations (approve-similar, snooze-all, mark-read) |
-
-**Ordering:** assistant pinned at top → blocking reviews → non-blocking reviews → chats → resolved.
-
-### 2.2 Main Pane: Review Thread Detail
-
-A review thread = reasoning → artifact → verdict. The structure is always the same; the ArtifactView varies by shape.
-
-| Component | Information | Actions |
-|---|---|---|
-| **Thread header** | Thread title, agent name, timestamp, thread type badge | — |
-| **Agent reasoning block** [^reasoning-block-vs-primitive] | Agent's explanation of why this action is proposed. Always visible, always first. Confidence indicator (e.g., 'High confidence' / '62% confident'). | Collapsible (but expanded by default) |
-
-[^reasoning-block-vs-primitive]: The "agent reasoning block" is a UI element that renders the agent's reasoning inline in the conversation surface. It is NOT the `Block` content primitive defined in [`BLOCKS.md`](BLOCKS.md); it shares the English word "block" and nothing else.
-| **ArtifactView** | Content varies by type (text_diff, content_preview, visual_comparison, action_summary, data_metrics) — see §2.3 | Inline comments, scroll, zoom |
-| **Conversation history** | Chronological messages: agent proposal, founder comments, agent revisions. Each: sender, avatar, timestamp, content | Reply |
-| **Verdict action bar** | Primary: Approve, Request Changes, Reject, Snooze. Overflow menu (⋮): Edit, Escalate, Delegate, Comment Only | Click primary button or use keyboard shortcuts (A, R, X, S). Overflow for less-common actions. |
-| **Linked threads indicator** | Related threads addressing the same issue (e.g., hardware change + firmware workaround) | Click to navigate to linked thread |
-| **Inline comment input** | Text input on specific artifact parts (diff lines, paragraphs, plan steps) | Type and submit |
-| **Comment input** | Thread-level reply input at bottom | Type and send |
-
-### 2.3 ArtifactView Shapes (5 types)
-
-Each review thread carries exactly one ArtifactView shape:
-
-**text_diff** (code, config, schemas, hardware design files):
-
-| Component | Information | Actions |
-|---|---|---|
-| **File header** | File path, change summary | — |
-| **Diff viewer** | Side-by-side or inline: line numbers, additions (green), deletions (red), context lines | Inline comment on specific lines |
-| **Check results** | Tests passed/failed, lint, security scan, DRC results | Read-only |
-
-**content_preview** (blog posts, emails, CRM sequences, product manuals):
-
-| Component | Information | Actions |
-|---|---|---|
-| **Rendered output** | Content as the reader will see it — formatted text, not markdown source | Inline comment on paragraphs |
-| **Email sequence cards** | Per email: subject, body preview, send timing, audience segment, sentiment tag | Expand individual emails |
-| **Metadata sidebar** | Word count, target audience, publish date, SEO keywords | Read-only |
-
-**visual_comparison** (UI mockups, CAD renders, PCB layouts, enclosure designs):
-
-| Component | Information | Actions |
-|---|---|---|
-| **Before/after viewer** | Side-by-side images with labels (Rev B / Rev C) | Drag slider to compare |
-| **Annotation overlays** | Numbered circles/rectangles highlighting changed regions | Hover for callout detail |
-| **Annotation legend** | Numbered list of changes with descriptions | Scroll, click to highlight |
-| **Zoom controls** | Current zoom level, zoom in/out | Click/scroll to zoom |
-
-**action_summary** (deploys, ops changes, procurement, vendor config):
-
-| Component | Information | Actions |
-|---|---|---|
-| **Summary card** | What's changing, why, expected impact, rollback plan, checks passed, timeline, cost | Read-only; comment on whole proposal |
-
-**data_metrics** (performance reports, A/B tests, acoustic measurements):
-
-| Component | Information | Actions |
-|---|---|---|
-| **Headline metrics** | Key numbers with trend indicators (up/down arrows) | — |
-| **Charts** | Line, bar, frequency response — inline SVG with axis labels, legend | Hover for values; export button |
-| **Narrative insights** | Agent's text analysis of the data | Inline comment |
-| **Recommendations** | Agent's proposed next actions | Comment on specific recommendations |
-
-### 2.4 ReviewHeader & Companion Layout (Complex Artifacts)
-
-**ReviewHeader:** The approve/request-changes/reject bar that anchors the verdict actions.
-
-When an ArtifactView is complex, the main pane splits into companion layout:
-
-| Zone | Content |
+| Route | Behavior |
 |---|---|
-| **Left: conversation** | Thread messages, reasoning, ReviewHeader (verdict actions) |
-| **Right: artifact** | Full ArtifactView (multi-file diff, full page preview, detailed dashboard, PCB layout) |
-| **Toggle** | Button to switch between inline and companion layout |
+| `/conversations` | Queue — thread list, or empty state when no threads exist |
+| `/conversations/:threadId` | Thread detail (states B–E) |
+| `/conversations/review?id=` · `/conversations/chat?thread=` | Legacy redirects → canonical routes, `replace: true` (`router.tsx:58-72`) |
 
-### 2.5 Chat Thread Detail
+Exactly five page states A–E (`Conversations.tsx:24-25`). State E ("Thread not found") mounts no `ConversationSurface` — no message list, no composer.
 
-| Component | Information | Actions |
+Shell structure (Sidebar | Main), badges, and the N-shortcut → RecipientPicker flow are owned by [app-shell-always-present.md](app-shell-always-present.md).
+
+## Thread list (queue)
+
+`ThreadSections` (`packages/web/src/components/ThreadSections.tsx`) renders the queue.
+
+- **Live mode is flat** — the `/conversations` page mounts `groupBySection={false}` (`Conversations.tsx:717`): one chronological list sorted by `lastActiveAt` DESC. Filter chips were removed (AF14 AC4) — they never matched real state; the `blocking`/`unread` fields stay on `ThreadItem` for forward-compat (AF7).
+- **Sectioned mode** (`groupBySection=true`, component default) groups into three sections — Blocking / Active / Resolved · 24h (`ThreadSections.tsx:101-108`). Classification ladder: resolved within 24h → Resolved; else blocking → Blocking; else Active (`ThreadSections.tsx:113-123`). Sorts: Active = pinned desc → hasUnresolvedReview desc → id asc (`ThreadSections.tsx:132-136`); Resolved = resolvedAt desc. Blocking gets a sticky header, danger tint, and a 3px left danger accent; Blocking and Resolved are silently absent when empty.
+- **Filter vocabulary** `ConversationsFilter = all | blocking | async` (`ThreadSections.tsx:68`). `predicateFor` is the single filter predicate, shared between ThreadSections sectioning and the AppShell blocking-count badge so list and badge cannot drift. Filter state lives in AppShell and arrives via OutletContext (U6 AC-16).
+
+Header: page title + "New thread" button (opens RecipientPicker via AppShell context). Empty queue renders a centered EmptyState with a "Start a thread" action. New threads appear in the list; updates arrive live over WebSocket.
+
+## Thread detail — Part-based surface
+
+The populated state renders `<ConversationSurface>`: thread header · author-grouped Part column (sender, avatar, timestamp) · unified-"+" composer at the bottom. The page derives `Part[]` via `derivePartsFromMessages` (the only Message-aware seam) and routes references through `createOpenHandler` (the OpenTarget → navigate seam) — see [../human-interface-layer/open-contract.md](../human-interface-layer/open-contract.md).
+
+Part renderers (`packages/web/src/components/parts/`):
+
+| Part | Rendering |
+|---|---|
+| prose | Answer prose |
+| reasoning | **Collapsed by default** to "Thought for Ns"; expands to quiet prose under a left rule (`ReasoningPart.tsx`) |
+| tool | Tool call row |
+| questionnaire | Questionnaire |
+| review-request | Unresolved review — "Open review" link only |
+| review-resolved | Resolved-review echo |
+| unknown | Fallback |
+
+Part-model depth (kinds, derivation, contracts) is owned by [../human-interface-layer/part-model.md](../human-interface-layer/part-model.md).
+
+## Reviews are NOT decided here
+
+AM1 relocated the decision UI: the conversation no longer takes a verdict — no verdict POST is reachable from this surface. An unresolved review renders as a `review` Part with a single "Open review" hook → the ReviewPage at `/work/bet/:betId/review/:reviewId` (`router.tsx:88`); a resolved review echoes back as a `resolved` Part (`Conversations.tsx:16-22`). Verdict semantics (Message type, payload, decision set) are unchanged — only the UI moved; they are owned by [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
+
+The 5 `ARTIFACT_VIEW_SHAPES` (`packages/shared/src/thread.ts:48-55`) — `text_diff`, `content_preview`, `visual_comparison`, `action_summary`, `data_metrics` — describe how a review-message embed previews; owned by [../process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). These are distinct from: (1) the L3 Artifact primitive kind, and (2) the 9 AL2 review canvas kinds (`web/src/pages/review/canvas-registry.ts:20-30`: `outcome_summary`, `field_change_set`, `action_operation`, `rendered_in_context`, `metrics_moved`, `visual_diff`, `code_diff`, `batch`, `browser_preview`; unknown input falls back to `ReviewUnknownCanvas`).
+
+## Session dial-in
+
+A task-hosted thread with an active session shows a "Dial In" button (secondary style, pulsing live dot). Pressing **D** (outside text inputs) toggles dial-in against the thread's single active session — there is no session picker (`Conversations.tsx:313-315`).
+
+Dialed in, the page renders a companion split: `ConversationSurface` on the left, `SessionActivityPanel` on the right.
+
+`SessionActivityPanel` (`packages/web/src/components/SessionActivityPanel.tsx`):
+
+- Read-only activity stream — tool calls, reasoning excerpts, cost ticks; no input affordances; `aside` landmark.
+- Filter tabs: **All | Tools | Reasoning | Cost**.
+- States: streaming (live entries), ended (summary), error (retry). Auto-scroll pauses when the user scrolls up, resumes at the bottom.
+- Closes via its close button or **D** again — no Escape binding.
+
+## Companion split layouts
+
+Two splits exist, both on `SplitView` with per-surface ratio persistence (AM5 T6):
+
+| Trigger | Surface key | Right pane |
 |---|---|---|
-| **Message list** | Chronological messages, each with sender avatar, name, timestamp, content | Scroll |
-| **Agent reasoning** | Collapsible reasoning on agent messages | Expand/collapse |
-| **Reply input** | Text input at bottom | Type and send |
-| **Action buttons** | Start a task, Close, Escalate | Click |
+| Dial-in (D / button) | `conversation.dial-in` | `SessionActivityPanel` (`Conversations.tsx:461`) |
+| Opened session-reference embed (AM3) | `conversation.session` | Session view (`Conversations.tsx:496`) |
 
----
+The page owns placement; a `fold-back` mode change closes the split.

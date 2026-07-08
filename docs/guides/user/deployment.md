@@ -1,62 +1,19 @@
-## Deployment
+# Deployment
 
-Three profiles for different environments:
+Most users run HyperIdle as the desktop app — a signed Electron build distributed as a versioned DMG (also via Homebrew cask). See [releases](../../deployment/releases.md).
 
-| Profile | Database | Best For |
+For running HyperIdle yourself, there are three profiles (`packages/db/src/profiles.ts`):
+
+| Profile | Database | Best for |
 |---------|----------|----------|
-| **Laptop** | SQLite | Local development, trying things out |
-| **VPS** | PostgreSQL (Docker Compose) | Self-hosted, single server |
-| **Cloud** | Managed PostgreSQL | Production, scalable |
+| **Laptop** | PGlite (embedded Postgres, data dir `./hyperidle-pg`) | Local use, trying things out |
+| **VPS** | PostgreSQL via Docker Compose | Self-hosted, single server |
+| **Cloud** | Managed PostgreSQL via `DATABASE_URL` | Production, scalable |
 
-### Laptop Setup
+`npm run setup -- --profile <laptop|vps|cloud>` selects a profile (or set `HYPERIDLE_PROFILE`; default is laptop) and applies migrations itself. All profiles serve on ports 3001 (server) and 5173 (web).
 
-```bash
-npm install
-npm run setup --profile laptop
-export HYPERIDLE_API_KEY=your-secret-key
-npm run dev                              # development mode (terminal stays open)
-```
+Full recipes live in [docs/deployment/](../../deployment/index.md):
 
-#### Running as a Background Service (macOS)
-
-To keep HyperIdle running after you close the terminal — and across reboots:
-
-```bash
-export HYPERIDLE_API_KEY=your-secret-key
-bin/service install
-```
-
-This builds the frontend, installs a macOS LaunchAgent, and starts the server. HyperIdle will be available at [http://localhost:3001](http://localhost:3001) and will restart automatically on login.
-
-| Command | What it does |
-|---------|-------------|
-| `bin/service install` | Build, install, and start the service |
-| `bin/service stop` | Stop the server |
-| `bin/service start` | Start the server |
-| `bin/service restart` | Stop, rebuild if needed, and start |
-| `bin/service status` | Check if the server is running |
-| `bin/service logs` | Tail the server log |
-| `bin/service uninstall` | Stop and remove the service |
-| `bin/service rebuild` | Rebuild the frontend after code changes |
-
-### VPS Setup
-
-```bash
-cp .env.example .env
-# Edit .env — set POSTGRES_PASSWORD at minimum
-npm run setup --profile vps
-docker compose up -d
-npm run db:migrate:pg
-npm run db:seed:pg
-```
-
-### Cloud Setup
-
-```bash
-export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
-npm run setup --profile cloud
-npm run db:migrate:pg
-npm run db:seed:pg
-```
-
-See `docs/deployment/index.md` for full details.
+- [Laptop](../../deployment/laptop.md) — local setup and the macOS `bin/service` background service (LaunchAgent)
+- [Self-hosting](../../deployment/self-hosting.md) — VPS Docker Compose stack and cloud profile
+- [Releases](../../deployment/releases.md) — desktop app versions and release flow

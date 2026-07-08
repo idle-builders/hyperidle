@@ -1,23 +1,9 @@
-# INFORMATION ARCHITECTURE
+# Information Architecture
 
-# Information Architecture & Component Tree
+Structure and layout of the three views — what lives where, how the shell is composed, and how the user navigates. Concept depth lives in [human-interface-layer](../human-interface-layer/index.md); day-to-day walkthrough in [guides/user](../guides/user/index.md).
 
-What information lives where, which components render it, and how the user navigates between them. Derived from the Stitch design mockups and the architecture docs.
-
-This document serves three purposes: (1) define every component the app needs, (2) map what information each component shows, (3) trace the user journeys through the screens.
-
----
-
----
-
-## Sections
-
-- [App Shell (Always Present)](./app-shell-always-present.md)
-- [Conversations View](./conversations-view.md)
-- [Work View](./work-view.md)
-- [Knowledge View](./knowledge-view.md)
-- [User Journeys](./user-journeys.md)
-- [Component Tree Summary](./component-tree-summary.md)
-- [Tier System (Canonical)](./tier-system-canonical.md)
-- [Cross-View Navigation Map](./cross-view-navigation-map.md)
-
+- [app-shell-always-present.md](./app-shell-always-present.md) — owns the fixed two-column shell: SidebarV2, nav grammar, routes, shortcuts, settings overlay, badges, and AssistantOverlay.
+- [conversations-view.md](./conversations-view.md) — part-based thread detail surface, ThreadSections, ReviewPage relocation, and session dial-in UI.
+- [work-view.md](./work-view.md) — three-level drill (team list → team → bet), Work Overview, Bet Detail, kill dialog, and task/review/routine sub-pages.
+- [knowledge-view.md](./knowledge-view.md) — Curated/Triage surfaces, scope pills, sort options, and knowledge-item detail anatomy.
+- [cross-view-navigation-map.md](./cross-view-navigation-map.md) — verified list of every navigation edge in the shipped app (global, per-view, and deep-link).

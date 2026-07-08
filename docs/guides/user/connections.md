@@ -2,7 +2,7 @@
 
 Your agents can use external services — GitHub, Stripe, Figma, databases, or any tool that exposes an MCP server. **Settings → Connections** is where you see and manage what's connected.
 
-Open it: Settings → Connections.
+How connections work under the hood (held vs inherited, spawn-time provisioning) is covered in [Connection model](../../architecture/connection-model.md).
 
 ---
 
@@ -12,7 +12,7 @@ Three groups in fixed order:
 
 **Inherited from your environment** — services your harness or PATH-level CLIs are already logged into. These appear automatically. HyperIdle stores nothing for them; the auth lives where you set it up (Claude Code, a CLI login, your OS keychain). You cannot add or remove these here — manage them in the relevant tool.
 
-**Connected with a token** — an API key or PAT you pasted. Stored encrypted on the server. Your agents' tools use it to authenticate; it is never shown back in this UI.
+**Connected with a token** — an API key or PAT you pasted. Stored encrypted on the server and resolved server-side. Your agents' tools use it to authenticate; it is never shown back in this UI.
 
 **Connected via an MCP server** — a remote MCP server you pointed at. The server owns its own sign-in. HyperIdle never appears on a consent screen.
 
@@ -29,7 +29,7 @@ Each row shows:
 3. Enter the service name (e.g. `Stripe`) and paste your token.
 4. Click **Add**.
 
-The token is encrypted immediately. A Needs-attention chip appears until you validate. Click **⋯ → Validate** on the row to confirm the key is working — the chip flips to Working.
+The token is encrypted immediately. A new token connection starts with a **Needs attention** chip — it hasn't been validated yet. There is currently no Validate action in the UI to clear it; the chip is informational and will stay until a validate UI is surfaced in a future release.
 
 **Where to get your token:**
 
@@ -46,7 +46,7 @@ The token is encrypted immediately. A Needs-attention chip appears until you val
 3. Paste the server URL (`https://mcp.example.com`). The service name fills from the URL; override it if you prefer.
 4. Click **Add**.
 
-The server must be reachable over HTTPS. The server owns auth — your agents send requests to it, and the server handles sign-in with the external service. HyperIdle registers no app and never handles a callback.
+The server must be reachable over HTTPS (URLs pointing at private addresses are rejected). The server owns auth — your agents send requests to it, and the server handles sign-in with the external service. HyperIdle registers no app and never handles a callback.
 
 ---
 
@@ -66,7 +66,7 @@ After changing a harness's configuration, click **Refresh** in Settings → Agen
 
 ## Remove a connection
 
-Click **⋯** on any held connection (token or MCP) and select **Remove**. Confirm when prompted. The connection disappears and agents lose access immediately.
+Click **⋯** on any held connection (token or MCP) and select **Remove**. Confirm inline when prompted. The connection disappears and agents lose access immediately.
 
 Inherited connections cannot be removed here — remove them from the harness.
 
@@ -75,7 +75,7 @@ Inherited connections cannot be removed here — remove them from the harness.
 ## Security notes
 
 - Tokens are stored AES-256-GCM encrypted at rest. HyperIdle never returns a stored token in any API response.
-- Your agents use the token server-side to authenticate their tools. The token is injected into the agent's sandbox at session start (not into any response the browser sees).
+- Your agents use the token server-side to authenticate their tools. At session start the token is injected into the agent's session working directory (env vars per service, or an MCP bearer entry) — never into any response the browser sees.
 - HyperIdle never runs an OAuth flow on your behalf and never registers as an OAuth app on any external service. OAuth-protected services (Google, Microsoft) arrive inherited from your harness.
 
 ---

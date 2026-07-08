@@ -1,22 +1,22 @@
-## Getting Started
+# Getting Started
 
-You'll go from zero to HyperIdle running locally, with a Team, a Bet, and agents producing output. This guide uses the embedded PGlite database — no external database required.
+From zero to HyperIdle running locally, with a Team, a Bet, and agents producing output. This guide uses the embedded PGlite database — no external database required.
 
-**Time: 10 minutes.** By the end you'll see an agent session respond to a task you defined.
+**Time: 10 minutes.** By the end you'll see an agent session respond to a bet you defined.
 
 ---
 
-### Prerequisites
+## Prerequisites
 
 - **Node.js 24 or later** — check with `node --version`. Install from [nodejs.org](https://nodejs.org).
 - **Git** — check with `git --version`.
-- **Anthropic API key** — agents use the Claude API. Get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit it to version control.
+- **Anthropic API key** — get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit it to version control.
 
-> Without an API key you can still install and explore the interface. Agents won't produce output until the key is provided.
+> An API key is required to complete first-run setup — the setup form won't submit without one.
 
 ---
 
-### 1. Clone and install
+## 1. Clone and install
 
 ```bash
 git clone https://github.com/ambrovia/hyperidle.git
@@ -24,15 +24,11 @@ cd hyperidle
 npm install
 ```
 
-**Expected:** npm installs all workspace dependencies. No errors. Last line: `added N packages`.
-
-**Troubleshooting:**
-- `command not found: npm` — Node.js is not on your PATH.
-- Network errors — check your connection; if behind a proxy, set `npm config set proxy`.
+**Expected:** npm installs dependencies for every package in the monorepo. No errors. Last line: `added N packages`.
 
 ---
 
-### 2. Set up the database
+## 2. Set up the database
 
 ```bash
 npm run setup -- --profile laptop
@@ -48,7 +44,7 @@ The `--` before `--profile` is required — it separates npm's flags from the se
 [setup] Next: run `npm run dev` to start the server and web app.
 ```
 
-This creates a `hyperidle-pg/` data directory, runs all schema migrations, and applies the factory bootstrap (system agents, facilitators, and factory settings). To start with a demo team pre-populated, add `--demo` (creates an example "Acme" team with assistant, Product Manager, and Builder agents).
+This creates a `hyperidle-pg/` data directory, runs all schema migrations, and applies the factory bootstrap — the system assistant agent, roster-driven facilitators, and factory settings are created here, on every install. To start with a demo team pre-populated, add `--demo`: it seeds an example team with a set of pre-configured agents.
 
 **Troubleshooting:**
 - `--db-path must not contain '..' segments` — specify an absolute path: `npm run setup -- --profile laptop --db-path /Users/you/hyperidle-data`.
@@ -57,7 +53,7 @@ This creates a `hyperidle-pg/` data directory, runs all schema migrations, and a
 
 ---
 
-### 3. Start HyperIdle
+## 3. Start HyperIdle
 
 ```bash
 npm run dev
@@ -67,47 +63,47 @@ npm run dev
 
 ```
   ➜  Local:   http://localhost:5173/
-server listening on http://localhost:3001
+Server running on http://localhost:3001
 ```
 
 The web app is at [http://localhost:5173](http://localhost:5173). The API runs on port 3001.
 
 **Troubleshooting:**
-- `EADDRINUSE: port 3001` — another process is using that port. Stop it, or find the port setting in `packages/server/src/index.ts`.
-- `EADDRINUSE: port 5173` — Vite auto-tries port 5174 and shows the alternative URL.
+- `EADDRINUSE: port 3001` — another process is using that port. Set the `PORT` environment variable, or see `packages/server/src/index.ts`.
+- Port 5173 busy — Vite auto-tries the next port and shows the alternative URL.
 
 ---
 
-### 4. Complete first-run setup
+## 4. Complete first-run setup
 
 Open [http://localhost:5173](http://localhost:5173). HyperIdle detects a fresh install and redirects to `/setup`.
 
-Fill in the three fields:
+Fill in the four fields:
 
 1. **Your name** (required) — for example, `Sam Chen`.
-2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint reads "Your key stays on this device."
+2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint reads "Required. Your key stays on this device."
 3. **Project folder** (optional) — a local git repository path for agents to work in, for example `/Users/sam/projects/my-app`. Leave blank for now.
+4. **What are you building?** — pick a team type. The default preset is **software**; each preset determines which agent roles your team starts with. Picking **custom** requires selecting at least one function.
 
-Click **Start HyperIdle**. A user record and Team are created; you land on **Work** (your team page, since you have one team).
+Click **Start HyperIdle**. A user record and Team are created; you land on **Work** (your team page — with one team, the Work overview skips the list and takes you straight there).
 
-#### Check your agent backends
+### Check your agent backends
 
-After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. You'll see a row for each in-scope backend (Built-in, Claude Code, Codex, OpenCode) with a colored dot showing its current status.
+After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. Each backend (Built-in, Claude Code, Codex, OpenCode, Cursor) gets a row with a status dot, version, and status line.
 
-- **Built-in** shows **green** if your Anthropic API key was accepted. This is sufficient to run agents immediately.
-- Other backends (Claude Code, Codex, OpenCode) show **amber** if their CLI is not signed in. The row shows the sign-in command to run in a terminal. After signing in, click **Refresh** at the top of the section.
+- **Built-in** shows ready once a gateway credential is accepted — an Anthropic key, an OpenAI-compatible key, or an OpenRouter key all work. This is sufficient to run agents immediately.
+- CLI backends (Claude Code, Codex, OpenCode) show a warning state if the CLI is present but not signed in; the row shows the sign-in command to run in a terminal (for example `codex login`). After signing in, click **Refresh** to re-run detection.
+- **Cursor** appears as unavailable — it has no headless CLI.
 
-You do not need to enable additional backends to get started — the Built-in backend is always available and handles all Claude model calls. The other backends become useful when you want to route specific agents through a locally-authenticated CLI.
+You do not need to enable additional backends to get started. The other backends become useful when you want to route specific agents through a locally-authenticated CLI. See [Connections](./connections.md) for the full credential and backend walkthrough.
 
 **Troubleshooting:**
 - `Failed to create user` — the server isn't running. Check that `npm run dev` is still active.
 - Form stays visible after clicking Start — check the browser console for error details.
 
-#### API key in browser mode
+### API key via environment variable
 
-The Settings > Credentials panel is only available in the desktop app. In the browser it shows "Credential storage is available in the desktop app only."
-
-To supply the API key when running the server directly, set it as an environment variable before starting:
+**Settings → Credentials** works in all environments (browser and desktop) via the credentials API. Alternatively, supply the key as an environment variable before starting the server:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -118,46 +114,47 @@ The server reads `ANTHROPIC_API_KEY` and passes it to agents. Use a `.env` file 
 
 ---
 
-### 5. Orient yourself
+## 5. Orient yourself
 
-After setup you land on **Work** (your team page — with one team, the Work overview skips the list and takes you straight there). Take 60 seconds to orient.
+Take 60 seconds to look around. Top to bottom in the **sidebar**:
 
-**Sidebar (left panel)** — top to bottom:
-- **Search field** at the very top, with an **Assistant button** (robot icon) to its right.
-- **Three section buttons: Conversations / Work / Knowledge** — click to switch views. The active section's icon is brighter.
-- **Fast-nav list** (below a separator) — shows the head of the active section's items: threads, teams, or knowledge items. Updates when you switch sections.
+- **Search field** in the top row, with the **Assistant button** (robot icon) to its right.
+- **Three sections: Conversations / Work / Knowledge** — click to switch views.
+- **Fast-nav list** below — the head of the active section's items: threads, teams, or knowledge items.
 - **Settings** pinned at the bottom.
 
-**Main pane** — shows your team. No bets yet means an empty state with a **New bet** button.
+The **main pane** shows your team. No bets yet means an empty state with a **New bet** button.
+
+Full walkthrough of the shell, shortcuts, and search: [The Interface](./the-interface.md). What each view is for: [Three Core Views](./three-core-views.md).
 
 ---
 
-### 6. Create your first Bet
+## 6. Create your first Bet
 
 A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute. There are two ways to create one.
 
 **Option A — Talk to the Assistant (recommended for first-timers):**
 
-1. Click the Assistant button at the bottom of the sidebar to open the overlay.
+1. Click the Assistant button in the top row of the sidebar (next to search) to open the overlay.
 2. Describe your idea in plain language. For example: "I want to build a landing page with email signup."
-3. The Assistant replies and drafts a bet derived from the conversation. A **BetCard** appears below the reply.
-4. Click the card to open the draft bet in the authoring surface. Review, edit as needed, and commit.
+3. The Assistant replies and drafts a bet from the conversation. A **BetCard** appears below the reply.
+4. Click the card to open the draft bet. Review, edit as needed, and commit.
 
 This is the conversation-first path — you iterate with the Assistant until the bet looks right, then commit.
 
 **Option B — Hand-type the bet:**
 
-1. Click **New bet** in the Work overview header or in the team header (or in the empty-state centre if no bets exist yet).
+1. Click **New bet** in the Work overview header or the team header (or in the empty-state centre if no bets exist yet).
 2. A full-page authoring surface opens with:
-   - **Description editor** (required) — write the bet's pitch using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
-   - **Title preview** — auto-derived from the first heading in your description.
-   - **Team** select (in the Commitments aside) — shown only when you have more than one team; the single team is used automatically otherwise.
-   - **Appetite** (optional) — set a cost budget for this bet.
+   - **Description editor** (required) — describe the work using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
+   - **Title preview** — auto-derived from the first line of your description (heading markers stripped).
+   - **Team** select — shown only when you have more than one team; the single team is used automatically otherwise.
+   - **Appetite** (optional) — set a cost budget for this bet. See [Running Your Team](./running-your-team.md) for cost controls.
 3. Click **Create**.
 
 **Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
 
-To start agents, open the Bet and click **Commit**. The status flips from `draft` to `active`, and the team immediately begins planning tasks. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
+To start agents, open the Bet and click **Commit**. The status flips from `draft` to `active`, and the team breaks it into tasks. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.
@@ -165,44 +162,38 @@ To start agents, open the Bet and click **Commit**. The status flips from `draft
 
 ---
 
-### 7. Watch an agent session
+## 7. Watch an agent session
 
-Once a Bet is active, the agents assigned to your Team pick up Tasks. This requires a valid Anthropic API key (see [API key in browser mode](#api-key-in-browser-mode) if not yet set).
-
-After the key is set and a Bet is active, the Builder agent detects the Bet and starts a Session. When the agent needs your approval — for a code change, a deployment action, or similar — a review item appears in **Conversations**.
-
-**Expected in Conversations:** An artifact card showing exactly what the agent produced (code diff, file listing, or written deliverable) with an action bar: Approve / Request Changes / Reject.
+Once a Bet is active, the agents on your Team pick up its tasks and start sessions. When an agent's work needs your decision, a review thread appears in **Conversations**.
 
 **Troubleshooting — no session starts after activating a Bet:**
-- Confirm `ANTHROPIC_API_KEY` is set and the server was restarted after setting it.
+- Confirm your API key is set (Settings → Credentials or `ANTHROPIC_API_KEY`) and the server was restarted if you changed the environment.
 - Check server terminal output for `no API key` or `401 Unauthorized`.
 - Confirm Bet status is `active`, not `draft`.
 
 ---
 
-### 8. Review the output
+## 8. Review the output
 
-Click **Conversations** in the Sidebar. The queue shows all items waiting for your decision.
+Click **Conversations** in the sidebar. Threads with an unresolved review sort to the top.
 
-Each item has:
-- A thread title describing what is being reviewed.
-- An artifact view showing the exact change or output.
-- A verdict toolbar.
+An unresolved review shows in the conversation as a review card with an **Open review** link. Click it to open the review page, which shows exactly what the agent produced and the decision actions:
 
-**Approve** work that looks correct. **Request changes** if something is wrong — add a comment describing the fix. The agent resumes automatically after your verdict. Most reviews take 15–30 seconds.
+- **Approve** and **Request changes** are the primary buttons.
+- **Approve with comments**, **Edit**, and **Reject** live in the overflow menu.
 
-The **assistant** thread (pinned at the top) surfaces cross-Team patterns and coaching suggestions. Check it weekly.
+Approve work that looks correct. Request changes if something is wrong — add a comment describing the fix. The agent resumes automatically after your verdict. The full decision grammar: [Three Core Views](./three-core-views.md).
 
 ---
 
-### What's next
+## What's next
 
 | Goal | Where to go |
 |------|-------------|
 | Understand how agents work | [Agents](./agents.md) |
-| Daily review rhythm | [Daily Rhythms](./daily-rhythms.md) |
-| Knowledge layer | [Three Core Views](./three-core-views.md) § Knowledge |
+| Daily rhythm, troubleshooting, cost controls | [Running Your Team](./running-your-team.md) |
+| Knowledge layer | [Three Core Views](./three-core-views.md) |
 | Interface reference | [The Interface](./the-interface.md) |
-| Cost controls | [Cost Management](./cost-management.md) |
+| Connect backends and credentials | [Connections](./connections.md) |
 | Deploy to a server | [Deployment](./deployment.md) |
-| Configure agent autonomy | [Settings](./settings.md) |
+| Settings reference | [Settings](./settings.md) |

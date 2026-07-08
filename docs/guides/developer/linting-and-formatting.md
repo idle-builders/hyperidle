@@ -1,43 +1,28 @@
-## Linting & Formatting
+# Linting & Formatting
 
-```bash
-npm run lint                     # biome + eslint (read-only)
-npm run lint:biome               # biome only
-npm run lint:eslint              # eslint only
-npm run lint:fix                 # biome auto-fix
-npm run check                    # TypeScript type checking
-```
+Lint/typecheck commands: detailed reference is [commands.md](commands.md). Note `npm run check` runs a fan-out gate (`scripts/typecheck-gate.ts`), not bare `tsc`.
 
-**Biome** is the primary linter/formatter (tabs, 100-char line width). **ESLint** covers gaps: React Compiler safety, React Hooks rules, and Drizzle ORM safety (`enforce-delete-with-where`, `enforce-update-with-where`).
+## Biome + ESLint split
 
-### Domain-specific static gates
+**Biome** is the primary linter/formatter — tabs, 100-char line width (`biome.json`). **ESLint** covers what Biome can't:
 
-Beyond the general linter, some workpackages add committed scripts that enforce invariants the linter cannot catch (e.g. DaisyUI alias classes that pass the arbitrary-value regex but are still forbidden in certain contexts).
+- React Hooks rules (`react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`) and React Compiler safety (`react-compiler/react-compiler`) — `eslint.config.ts:38-44`
+- Drizzle ORM safety on `packages/db` + `packages/server`: `drizzle/enforce-delete-with-where` and `drizzle/enforce-update-with-where` with `drizzleObjectName: "db"` — `eslint.config.ts:58-59`
 
-| Script | `npm run` command | What it guards |
-|---|---|---|
-| `scripts/ag7-no-divergent-classes.ts` | `check:ag7-consistency` (chained into `lint`) | Settings files must use design-system primitives only — no raw DaisyUI control classes, no off-grid spacing aliases, no DaisyUI color aliases. See [`docs/ui-design/settings-consistency.md`](../../ui-design/settings-consistency.md). |
+## Lint-chained guards
 
-These scripts exit non-zero and print `file:line  matched-token` on violation. They run as part of `npm run lint`.
+`npm run lint` chains **three** domain guard scripts after biome + eslint (`package.json` `lint`):
 
-### CI Gate
+| Script | What it guards |
+|---|---|
+| `scripts/ag7-no-divergent-classes.ts` (also `npm run check:ag7-consistency`) | Settings files use design-system primitives only — no raw DaisyUI control classes, no off-grid spacing aliases, no DaisyUI color aliases. Exists because eslint-plugin-design only flags *arbitrary-value* utilities (`gap-[16px]`); the divergent *alias* utilities (`gap-4`) pass it. Exits non-zero printing `file:line token`. Subject matter: [settings-consistency](../../ui-design/settings-consistency.md). |
+| `scripts/honest-harness-guard.ts --check` | Fails the build when a harness-facing integration test stubs/scripts/mocks the harness it should exercise against the real binary, or gates itself with `skipIf`-on-absent. |
+| `scripts/test-naming-guard.ts --check` | Fails the build when a test filename or describe/test/it string contains a workpackage identifier (`AF10-`, `"X3 — …"`) — behavior names outlive tickets. |
 
-All three checks must pass before merging to `main`:
+## eslint-plugin-design — AI7 page-anatomy rules
 
-```bash
-npm run check   # zero type errors
-npm run lint    # zero lint errors
-npm run test    # all tests green
-```
+`packages/eslint-plugin-design` houses custom design-system enforcement rules, registered in `eslint.config.ts` and run via `npm run lint:eslint`. Two rules enforce the page-anatomy standard:
 
-Branch protection on `main` requires the CI status check to pass.
+**`design/no-handrolled-page-header`** — error on `packages/web/src/pages/**` (`eslint.config.ts:195-196`; `SettingsPage.tsx` and `SetupFlow.tsx` exempt pending their own migration, `eslint.config.ts:184-185`). Flags the literal class combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any JSX element that is not `PageHeader`. Pages with an editable title `<input>` compose `pageTitleClassName` (from `@hyperidle/design-system`) as an identifier reference — compliant because the rule inspects only string literals (`rules/no-handrolled-page-header.ts:21-24,64`).
 
-### eslint-plugin-design — UI gates
-
-`packages/eslint-plugin-design` houses custom design-system enforcement rules. They are registered in `eslint.config.ts` and run as part of `npm run lint:eslint`.
-
-Two rules enforce the page-anatomy standard (AI7):
-
-**`design/no-handrolled-page-header`** — Error on `packages/web/src/pages/**` (SettingsPage.tsx and SetupFlow.tsx are exempt, pending their own migration). Flags the literal class combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any JSX element that is not `PageHeader`. Pages with an editable title `<input>` must compose `pageTitleClassName` (imported from `@hyperidle/design-system`) as a className reference — that is compliant because the rule inspects only string literals, not identifier expressions.
-
-**`design/no-undefined-font-heading`** — Error on `packages/web/src/pages/**`, warn on the rest of `packages/web/src/**`. Flags two things: `font-heading` (an undefined Tailwind utility that silently does nothing) and `tracking-wider` inside `pages/**` (Tailwind's 0.05em default is off the Hearth caps scale — use `SectionLabel` which applies `tracking-[var(--tracking-caps-sm)]` = 0.06em).
+**`design/no-undefined-font-heading`** — error on `packages/web/src/pages/**`, warn on the rest of `packages/web/src/**` (`eslint.config.ts:222`). Flags two things: `font-heading` (an undefined Tailwind utility that silently does nothing) and `tracking-wider` inside `pages/**` (Tailwind's 0.05em default is off the Hearth caps scale — use `SectionLabel`, which applies `tracking-[var(--tracking-caps-sm)]` = 0.06em).

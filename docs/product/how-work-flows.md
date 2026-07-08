@@ -5,10 +5,12 @@ HyperIdle has five process primitives. Everything else is mechanics on top of th
 | Primitive | What it is | Lifespan |
 |-----------|-----------|----------|
 | **Team** | Agents bound to a product | Life of the product |
-| **Bet** | Shaped work with a done condition and money appetite | Until shipped or killed |
+| **Bet** | Shaped work with a done condition and money appetite | Until completed or killed |
 | **Task** | One agent's unit of work within a bet | Until done or killed |
 | **Session** | One bounded run of an agent on a task | One context window |
 | **Routine** | Recurring trigger with persistent memory | Until retired |
+
+All five are implemented as tables in `packages/db/src/schema.ts`. Spec depth lives in [the five primitives](../process-layer/the-five-primitives.md).
 
 ---
 
@@ -20,31 +22,31 @@ This is the biggest departure from agent frameworks. CrewAI forms a crew per tas
 
 The Acme Builder that shipped auth in January ships payments in March. It has read every Acme decision, failure, and architecture document. That context is why the tenth bet is faster than the first.
 
-A typical team: a Product Manager (team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase. Agents belong to exactly one team. An agent needed on a new product must finish its current work and transfer cleanly.
+A typical team: a Product Manager (team lead), one or more Builders, a Growth Agent, and an Ops Agent. The roster flexes with the product's lifecycle phase. Agents belong to exactly one team — a single `users.teamId` FK. An agent needed on a new product must finish its current work and transfer cleanly.
+
+Depth: [Teams](../process-layer/teams.md).
 
 ---
 
 ## Bets carry a money appetite, not a deadline
 
-Work comes in as bets. A bet is a shaped, committed piece of work with an explicit done condition and a cost cap in real currency (e.g., $800 USD).
+Work comes in as bets. A bet is a shaped piece of work with an explicit done condition and a cost appetite in real currency (e.g., $800 USD).
 
-**Shape first.** The Product Manager writes a pitch: the problem, what success looks like, rough scope, explicit no-gos, rabbit holes to watch for. The pitch lands on the Work view canvas as a shaped card. No tasks yet.
+**Draft first.** The Product Manager writes the bet's description: the problem, what success looks like, rough scope, explicit no-gos, rabbit holes to watch for. The bet sits in `draft` on the Work view. No tasks yet.
 
-**Then commit.** The founder moves a pitch from shaped to committed. At that moment, a done condition is drafted and the team begins. A bet is not in progress until it has a done condition. Vague done conditions are the most common reason bets drift.
+**Then activate.** A bet's lifecycle is `draft | active | completed | killed`. The founder moves a draft to active and the team begins. Vague done conditions are the most common reason bets drift.
 
-**Money is the budget axis.** No deadlines or sprint lengths. The `created_at` and `shipped_at` dates are recorded for retros — their delta is informational. This forces honest trade-offs: if the work costs more than the appetite allows, something changes.
+**Money is the budget axis.** No deadlines or sprint lengths. The created and completed timestamps are recorded for retros — their delta is informational. This forces honest trade-offs: if the work costs more than the appetite allows, something changes. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
 
-**Changes go through review.** Done conditions can be revised. Hypotheses can be updated. But the Product Manager drafts the revision and the founder approves, requests changes, or rejects. Every change is logged with timestamp and reasoning.
+**Changes go through review.** Done conditions can be revised. Hypotheses can be updated. Every change appends to the bet's revision log, and a done-condition change surfaces as a review item for the human.
 
-**No backlog.** Shaped pitches not committed in two cycles expire. There is no "later" pile. An idea not worth committing to now either needs reshaping or should not be done.
+Depth: [Bets — shape, commit, change, ship](../process-layer/bets-shape-commit-change-ship.md).
 
 ---
 
-## Tasks: agents decompose their own work
+## Tasks: one decomposer proposes, the team refines
 
-Once a bet is committed, each team member decomposes their part. This is decentralized by design.
-
-The Builder looks at the pitch and done condition, queries its practice knowledge, and proposes the tasks it will own. The Growth Agent does the same for its work stream. The Product Manager reviews the assembled list, deduplicates, identifies gaps, and accepts or asks for revision. No human review at this stage.
+When a bet activates, one decomposer agent — the Product Manager where one exists — runs a decomposition turn and proposes the full task list (`runBetDecomposition`; `decompositionStatus` on the bet tracks it). Proposed tasks are then reviewed and refined. No human review at this stage.
 
 Each task has:
 - An owner (the responsible agent)
@@ -58,7 +60,9 @@ Each task has:
 
 Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes landing page copy produces a content artifact. The bet aggregates these; it does not own them.
 
-**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher handles this automatically.
+**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher (`packages/server/src/services/dependency-watcher.ts`) handles this automatically.
+
+Depth: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
 
 ---
 
@@ -68,42 +72,33 @@ A session is one agent's bounded run on a task. When an agent picks up a task, i
 
 A task can span many sessions. Mika works a session on Acme payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
 
-The agent's memory persists between sessions through product knowledge (L2) and practice knowledge (L3). Sessions give resumability without locking the model into a single long-running process.
+The agent's memory persists between sessions through product knowledge (L2) and practice knowledge (L3) — see [the five layers](../knowledge-architecture/the-five-layers.md). Sessions give resumability without locking the model into a single long-running process.
 
 ---
 
 ## Handoffs: agents decide when to transfer work
 
-There is no pre-wired routing. When Mika finishes a backend API and the work moves to a frontend task, she calls a handoff with a structured message: what was done, what artifacts exist, what remains, who should pick it up. The handoff can specify an agent by ID or a role ("builder with frontend skills").
+There is no pre-wired routing. When Mika finishes a backend API and the work moves to a frontend task, she calls a handoff with a structured message: what was done, what artifacts exist, what remains, who should pick it up. Exactly one of `toAgent`, `toRole`, or `toHuman` names the recipient — an agent by ID, or a role ("builder with frontend skills").
 
-Handoffs to humans work the same way. When an agent hits something it cannot resolve — a product decision, an approval for a risky action — it creates a handoff with `to: human` and `reason: blocked`. The task moves to blocked. The human replies; the task resumes.
+Handoffs to humans work the same way. When an agent hits something it cannot resolve — a product decision, an approval it wants — it hands off `toHuman` with a structured reason. The task moves to blocked. The human replies; the task resumes.
 
-**Cross-team work** uses the same mechanism. The Acme team needs a platform endpoint. The Acme PM opens a chat thread to the Platform PM. They agree on a cross-team task. It lives on the Acme bet for tracking but the work happens inside the platform team's rhythm.
+Depth: [Handoff and lifecycle propagation](../process-layer/handoff-and-lifecycle-propagation.md).
 
 ---
 
 ## Routines: recurring work with persistent memory
 
-A routine is a recurring trigger attached to a named agent, with state that persists across runs. Three trigger shapes:
+A routine is a recurring trigger attached to a named agent, with state that persists across runs. Three trigger shapes used by builtin routines:
 
 - **Calendar** — every Monday at 9am
 - **Event** — every time a landing page ships, run brand-voice review
 - **Heartbeat** — every hour, check cost burn
 
-Every routine has a named owner who holds the thread of memory. Helena (the Practice Facilitator for Growth) owns "weekly growth metrics review." Every Monday she checks what campaigns shipped, compares conversion numbers against practice benchmarks, and posts a summary. When she found Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it for the founder.
+Every routine has a named owner who holds the thread of memory. Helena (the Facilitator for Growth) owns "weekly growth metrics review." Every Monday she checks what campaigns shipped, compares conversion numbers against practice benchmarks, and posts a summary. When she found Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it for the founder.
 
-Adding a routine is always a human review item. A misconfigured routine burns cost silently. Routines that stop producing actionable output are candidates for retirement.
+Routines can opt in to per-run human review. Routines that stop producing actionable output are candidates for retirement.
 
----
-
-## Deliberate absences
-
-| What HyperIdle does not have | Why |
-|------------------------------|-----|
-| Workflows or DAGs | Task dependencies create sequencing. Content is decided by the team, not a pre-wired graph. |
-| Duration caps | Money is the budget axis. "Is the cost within appetite?" not "has a calendar date passed?" |
-| Central planner agent | The PM coordinates. Each agent decomposes its own work. Orchestration emerges from dependencies. |
-| Crew-per-task model | Teams form per product and persist. Context does not evaporate after one bet. |
+Depth: [Routines and retros](../process-layer/routines-and-retros.md).
 
 ---
 

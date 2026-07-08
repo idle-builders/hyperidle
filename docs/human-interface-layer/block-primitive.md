@@ -1,25 +1,29 @@
-## Block primitive
+# Block Primitive (HIL Pointer)
 
-Cross-reference: `docs/blocks/` is the long-form concept doc. This section is a pointer for readers of HIL.
+The Block primitive is owned by [`docs/blocks/`](../blocks/index.md) — definition, the closed kind vocabulary, BlockId stability, and consumer contracts all live there. Type contracts: [`docs/blocks/canonical-shapes.md`](../blocks/canonical-shapes.md). This page keeps only what a reader of the human-interface layer needs.
 
-**A Block is a derived, addressable, renderable region of a markdown body.** Every structured-prose surface in the human interface layer renders through Blocks: the bet pitch on Bet detail (L16), the knowledge body on Knowledge/Detail (L23), and any future surface that wants to show prose. Conversations does NOT use Blocks — chat messages, review messages, and questionnaire messages are L1 message shapes, not Blocks.
+## What it is, in one line
 
-The on-disk format remains GitHub-flavoured markdown. Agents writing into the materialised workspace continue writing GFM. The Knowledge Fabric continues watching plain markdown files. There is no HyperIdle-specific markdown dialect, no fenced JSON, no `<block>` tag. Blocks are *derived* during ingestion — the moment the markdown body becomes a thing the UI renders.
+A Block is a **derived, addressable, renderable region of a markdown body**. Bodies stay plain GitHub-flavoured markdown on disk — no HyperIdle dialect, no fenced JSON, no `<block>` tag. Blocks are derived at render time on the client (pure `deriveBlocks`, see `packages/web/src/pages/knowledge/KnowledgeBody.tsx`), never stored. Full derivation model: [`docs/blocks/derivation-and-rendering.md`](../blocks/derivation-and-rendering.md).
 
-**Where Blocks render today:**
+## Where Blocks render in this layer
 
-| Surface | Source body | Story |
-|---|---|---|
-| Bet pitch (`WorkBet`, replaces the `<pre>` fallback) | `bets.pitch` markdown | L16 |
-| Knowledge body (`KnowledgeDetail`, replaces the `<pre>` block) | `knowledge_items.body` markdown | L23 |
-| Per-block discussion on Knowledge | (anchored on L23's blocks) | L26 |
+| Surface | Source body |
+|---|---|
+| Bet description (`WorkBet.tsx`) | `bets.description` markdown |
+| Knowledge body (`KnowledgeBody.tsx`) | `knowledge_items.body` markdown |
+| Review canvas artifact bodies (`review-canvas.tsx:79`) | artifact body markdown |
+| Per-block discussion | threads anchored on the surfaces above |
 
-**Anchors and discussion.** Each Block exposes a `BlockAnchor` — its own `{ blockId }` reference — as the attachment key any other primitive uses to reference it. Per-block discussion (L26) attaches an L1 Thread to a Block via this anchor; there is no separate linking primitive (L24, deferred) involved, and no parallel "block comment" entity. Anchored threads survive the deletion of their target block as a "block deleted" indicator.
+Conversations does **not** use Blocks — chat, review, and questionnaire messages are message shapes on the Thread primitive ([thread-primitive.md](thread-primitive.md)), not Blocks.
 
-**Disambiguation.** "Block" with a capital B in this layer always means the content primitive defined in BLOCKS.md. Do not confuse with:
-- the verb / state "blocked" / "blocking" (workflow states from `PROCESS_LAYER.md` — task on hold or blocked, blocking review threads);
-- "Tier 2 — Blocks" above (a tier of design-system *components* like ThreadRow and BetCard — these are React widgets, not Block primitives, and the renderer components that materialise a Block on screen are named `*BlockView`).
+## Anchors and discussion
 
-For the kind set, the BlockId stability algorithm, the rejection list, and the contracts every consumer must respect, see `docs/blocks/`. The shared type signatures live in `docs/blocks/canonical-shapes.md`.
+Each Block exposes a `BlockAnchor` — `{ blockId }` (`packages/shared/src/blocks/types.ts:47`) — as the sole attachment key other primitives use to reference it. Per-block discussion attaches a Thread to a Block via this anchor; there is no separate "block comment" entity. What happens when an anchored block disappears is a consumer contract owned by [`docs/blocks/contracts.md`](../blocks/contracts.md).
 
-See UI_DESIGN.md v0.2 for the full component tree and build order.
+## Naming disambiguation
+
+Capital-B **Block** in this layer always means the content primitive from `docs/blocks/`. Do not confuse with:
+
+- **blocked / blocking** — workflow states from the process layer (task on hold or blocked, blocking review threads);
+- **design-system components** — Tier-2 React widgets like ThreadRow and BetCard. The renderer for the primitive is the `<Block />` component from `@hyperidle/design-system`. Component-tier naming (`*Payload` components + `<Block />`) is owned by [`docs/ui-design/our-components.md`](../ui-design/our-components.md).

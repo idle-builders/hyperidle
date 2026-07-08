@@ -1,25 +1,8 @@
-# REQUIREMENTS
+# Requirements
 
-# HyperIdle — Requirements Document
+Testable outcome statements for HyperIdle — what it does, how it must behave, and what platform constraints it must respect. Mechanism depth lives in the owning layer docs (linked per section); shapes are owned by `packages/db/src/schema.ts`.
 
-Version 0.3 — April 2026
-
-HyperIdle is an OS for your agent factory. It turns AI agents into persistent team members organized in product teams, with structured knowledge management and a human interface designed for flat teams in AI-first companies. The process layer (Kernel + Fabric) sits between agent harnesses and the human interface, managing structure without calling models or executing tools.
-
-This document captures the usability requirements (what the experience must feel like), the functional requirements (what the platform must do), the system requirements (what the infrastructure must support), and the non-functional requirements (how well it must do all of the above).
-
-Derived from: `AGENT_LAYER.md`, `KNOWLEDGE_ARCHITECTURE.md`, `PROCESS_LAYER.md`, `HUMAN_INTERFACE_LAYER.md`, `RESEARCH_EXECUTION_LAYER.md`, `INFORMATION_ARCHITECTURE.md`, `DESIGN_REVIEW.md`.
-
----
-
----
-
-## Sections
-
-- [Users and Their Modes of Engagement](./users-and-their-modes-of-engagement.md)
-- [Usability Requirements](./usability-requirements.md)
-- [Functional Requirements](./functional-requirements.md)
-- [System Requirements](./system-requirements.md)
-- [Non-Functional Requirements](./non-functional-requirements.md)
-- [Decisions](./decisions.md)
-
+- [users-and-their-modes-of-engagement.md](./users-and-their-modes-of-engagement.md) — `users.kind` model, six human interaction modes, agent engagement model, scope levels, and session dial-in.
+- [functional-requirements.md](./functional-requirements.md) — outcome-level requirements for agents, bets, tasks, knowledge, items, sessions, and notifications; links to owning layer docs.
+- [system-requirements.md](./system-requirements.md) — platform constraints and standing decisions: Electron + PGlite desktop, thread/verdict grammar, TOON codec, git-export backup, localhost auth. Architecture decisions log lives at [../architecture/decisions.md](../architecture/decisions.md).
+- [usability-requirements.md](./usability-requirements.md) — behavioral UX requirements: three-view shell, keyboard shortcuts, drill-down navigation, notification digest, approval-rate trust, and cost transparency.

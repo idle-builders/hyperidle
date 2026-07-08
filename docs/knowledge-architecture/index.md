@@ -1,36 +1,10 @@
-# KNOWLEDGE ARCHITECTURE
+# Knowledge Architecture
 
-# The Factory Knowledge System
+How HyperIdle stores, syncs, scores, and surfaces knowledge — one canonical store, two projection layers, facilitator agents keeping it alive.
 
-A knowledge layer for an agentic company. Five layers, each with its own rhythm, its own scope, and its own human moment.
-
-The core move: **separate what humans read from what agents process, and optimize each for its reader.** Most agent systems dump everything into markdown files and hope for the best. Markdown is for humans. Agents work better with structured data they can query. We present the same knowledge differently to each — through the **Knowledge Fabric** (§4–7 below), which projects one canonical SQLite store into rich web UI for humans and file-based workspaces for agents.
-
-For how the human interface is designed — views, navigation, interaction grammar — see `HUMAN_INTERFACE_LAYER.md`. This document covers: the five knowledge layers, the canonical store, the sync protocol, conflict resolution, context assembly, the facilitator agents, and design trade-offs.
-
----
-
----
-
-## Sections
-
-- [The Five Layers](./the-five-layers.md)
-- [The Storage Split, at a Glance](./the-storage-split-at-a-glance.md)
-- [The Canonical Store](./the-canonical-store.md)
-- [The Knowledge Fabric: How Knowledge Moves](./the-knowledge-fabric-how-knowledge-moves.md)
-- [The Sync Protocol](./the-sync-protocol.md)
-- [Outcome](./outcome.md)
-- [Learned](./learned.md)
-- [Proposed](./proposed.md)
-- [Conflict Resolution](./conflict-resolution.md)
-- [The Context Assembly Budget](./the-context-assembly-budget.md)
-- [Future Upgrade: Real-Time Co-Editing](./future-upgrade-real-time-co-editing.md)
-- [The Facilitators — the most undervalued role in the factory](./the-facilitators-the-most-undervalued-role-in-the-factory.md)
-- [The Facilitator Stack in Action](./the-facilitator-stack-in-action.md)
-- [Design Decisions and Trade-offs](./design-decisions-and-trade-offs.md)
-- [Implementation Sequence](./implementation-sequence.md)
-- [Summary](./summary.md)
-- [Inspirations](./inspirations.md)
-- [Canonical shapes](./canonical-shapes.md)
-- [Relevance and Attention](./relevance-and-attention.md)
-
+- [the-five-layers.md](./the-five-layers.md) — L0–L4 maturity taxonomy: layer names, rhythms, actor ownership, and the five provenance one-liners (sole home of inspiration credits).
+- [the-canonical-store.md](./the-canonical-store.md) — Store semantics: kernel/strategy split, 7-scope enum, `needs_human` flag, blocks-as-projections, git-export pointer, PGlite-locally / postgres-js-server line.
+- [the-knowledge-fabric-how-knowledge-moves.md](./the-knowledge-fabric-how-knowledge-moves.md) — Projection model: three-zone sandbox layout, manifest, context-assembly selection, TOON reality, human-readable principle.
+- [sync-and-conflict-resolution.md](./sync-and-conflict-resolution.md) — The full write flow: two-phase sync, `fs.watch` + 500 ms debounce + polling fallback, writeback rules, LWW vs escalation, layer precedence.
+- [relevance-and-attention.md](./relevance-and-attention.md) — Three scoring engines: `relevanceScore` (L22 ranking), attention score (needs-human triage), assembly scoring + 40 K token budget.
+- [facilitators.md](./facilitators.md) — Facilitator roster, 7-state lifecycle, auto-promotion pipeline, flat-org rule, git-export structure. Load-bearing: `promotion-pipeline.ts:17-24` and `git-export.ts:36-42` embed content from this doc (code comments still reference the old `KNOWLEDGE_ARCHITECTURE.md` monolith path — update them when renaming).

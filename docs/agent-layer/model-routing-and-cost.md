@@ -1,47 +1,42 @@
-## 6. Model Routing and Cost
+# Model Routing and Cost
 
-Each agent has a **per-agent model** (`modelId` + `modelProvider`) set in Settings → Agents. When a session starts, the gateway resolves the agent's configured model first; only when the agent has no model configured does it fall back to the system-level tier. This means two agents can run different models even during the same bet — a PM on Opus while a builder runs Sonnet.
+How a session gets its model: per-agent model first, tier fallback second. This doc owns the **ModelTier vocabulary** (`reasoning | workhorse | fast`).
 
-The **model tier** (`reasoning | workhorse | fast`) is now a cost-posture and fallback mechanism, not the primary model selector. It determines which model new, unconfigured, or migrated agents use, and it remains the axis for the cost-downgrade logic in §6.3. Token accounting in `TokenUsage.byTier` still uses the tier vocabulary so spend lines up with the routing decision.
+## 1. Per-agent model
 
-### 6.1 Model tiers
+Each agent can have a **per-agent model** (`users.modelId` + `users.modelProvider`, `packages/db/src/schema.ts:79-87`), set in Settings → Agents (options come from `MODEL_CATALOG`). Two agents can run different models during the same bet — a PM on Opus while a builder runs Sonnet.
 
-| Tier | When to use | Default mapping (June 2026) |
-|------|-------------|-----------------------------|
-| **Reasoning** | Complex analysis, code generation, product decisions, skill execution for high-risk tasks | `claude-opus-4-8` |
+Resolution order (`resolveAgentModel`, `packages/server/src/services/model-gateway.ts:188-206`):
+
+1. **Per-agent path** — if the agent has `modelId` set, resolve it directly using `modelProvider` for the credential lookup. Supported providers: `anthropic`, `openrouter`. `openai-compatible` throws `UnsupportedAgentProviderError` — configure it at the tier level instead.
+2. **Tier fallback** — no `modelId` → `resolveModelTier()` applies the tier → model mapping from Settings → Models. Session provisioning computes the tier as `params.modelTier ?? agent tier preference ?? "workhorse"` (`packages/server/src/services/session-provisioning.ts:670-673`).
+
+Default per-agent model for new agents: `DEFAULT_AGENT_MODEL_ID = "claude-sonnet-4-6"` (`packages/shared/src/model-gateway.ts`).
+
+## 2. Model tiers
+
+The tier is a fallback and cost vocabulary, not the primary model selector. The vocabulary is **closed**: `MODEL_TIERS = ["reasoning", "workhorse", "fast"]` (`packages/shared/src/types.ts:116`).
+
+| Tier | When to use | Default mapping |
+|------|-------------|-----------------|
+| **Reasoning** | Complex analysis, code generation, product decisions | `claude-opus-4-8` |
 | **Workhorse** | Standard task execution, content creation, routine code, most sessions | `claude-sonnet-4-6` |
-| **Fast** | Formatting, classification, bulk processing, context compaction, summarization, sleep-time routine runs | `claude-haiku-4-5` |
+| **Fast** | Formatting, classification, bulk processing, summarization | `claude-haiku-4-5` |
 
-The system model catalog (`MODEL_CATALOG` in `packages/shared/src/model-gateway.ts`) is the closed set of supported models. The current catalog: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `claude-fable-5`. Any model id outside this set is rejected at the API boundary.
+The default mapping is `BUILT_IN_GATEWAY_CONFIG` (`packages/server/src/services/model-gateway.ts:57-59`). The deployer reconfigures it per tier in Settings → Models (`ModelTierConfig`: provider + model + optional `baseUrl`, `packages/shared/src/model-gateway.ts:22-40`) — a solo builder might map all three tiers to Sonnet; another team maps Fast to a local OpenAI-compatible endpoint. The process layer cares about the tier, not the model behind it.
 
-### 6.2 Routing logic
+Handling of a tier name outside the closed enum (coerce-and-flag, `ModelTierUnknownWarning`) is owned by [`docs/process-layer/canonical-shapes.md`](../process-layer/canonical-shapes.md).
 
-Resolution order when provisioning a session:
+## 3. Model catalog
 
-1. **Per-agent model** — if the agent has `modelId` set, `resolveAgentModel()` resolves it directly (using `modelProvider` for the credential lookup). Supported providers: `anthropic`, `openrouter`. The `openai-compatible` provider is not supported per-agent (configure it at the tier level instead).
-2. **Tier fallback** — if the agent has no `modelId`, `resolveModelTier()` applies the factory's tier → model mapping from Settings → Models.
+`MODEL_CATALOG` (`packages/shared/src/model-gateway.ts:81-90`) is the closed set of supported Anthropic models:
 
-The Scheduler (see `ARCHITECTURE.md` §2.3) picks the model tier when starting a session (used as the tier fallback above):
+`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `claude-fable-5`
 
-- **Risk tier high** → Reasoning tier.
-- **Risk tier medium** → Workhorse tier.
-- **Risk tier low** → Workhorse tier (default), Fast tier if the skill declares it.
-- **Sleep-time routines** → Fast tier (they're memory-only, no artifact production).
-- **Context compaction / session note writing** → Fast tier.
-- **Facilitator synthesis** → Workhorse or Reasoning, depending on scope (portfolio-level retros → Reasoning; weekly practice meeting → Workhorse).
+An anthropic `modelId` outside the catalog is rejected at the agents API boundary (`UNKNOWN_MODEL`, `packages/server/src/routes/agents.ts:139-144`).
 
-### 6.3 Cost posture
+## 4. Cost
 
-The factory has a daily **Money ceiling** and an optional daily **TokenUsage ceiling** (see `docs/process-layer/wip-and-cost-limits.md` §10.3). Money and TokenUsage shapes are defined in `docs/process-layer/canonical-shapes.md`. When burn against either ceiling approaches the threshold:
+Token accounting uses the same tier vocabulary: `TokenUsage.byTier` is keyed by `ModelTier` (`packages/shared/src/types/money.ts:66`), so a session's reported spend lines up with the routing decision that produced it.
 
-1. New sessions that would use Reasoning tier are downgraded to Workhorse.
-2. Low-priority routines are deferred.
-3. If either ceiling is breached, non-essential work pauses and a review thread fires to the founder.
-
-There is no duration ceiling. Wall-clock time is informational only — see `docs/process-layer/wip-and-cost-limits.md` §10.6 for the rationale and §10.7 for the anti-pattern rule that rejects any duration-shaped budget axis.
-
-The model tier is a suggestion, not a hard contract — the deployer configures which actual model each tier maps to. A solo builder on a laptop might map all three tiers to Claude Sonnet. A funded team might map Reasoning to Claude Opus and Fast to a local Llama model. The process layer doesn't care which model it is; it cares about the tier. The tier vocabulary (`reasoning | workhorse | fast`) is the same vocabulary that `TokenUsage.byTier` uses, so a session's reported token spend lines up directly with the routing decision that produced it.
-
-The tier vocabulary is **closed**. Adding a new tier (for example `local`, `frontier`, or a provider-specific tier name a future harness might emit) requires an explicit concept-doc update to this section AND to `docs/process-layer/canonical-shapes.md` Money/TokenUsage entry, in the same change. If a harness reports tokens against a tier name outside the closed enum, the Harness Adapter is contractually required to *coerce-and-flag* (bucket the spend into the closest known tier per the adapter's mapping and emit a `ModelTierUnknownWarning` so the deployer can update the mapping) — never silently drop tokens, never widen the enum at runtime. See `docs/process-layer/canonical-shapes.md` for the rule.
-
----
+Cost caps — the Money-only agent < team < factory hierarchy, the no-duration rule, and the recorded gaps — are owned by [`docs/process-layer/wip-and-cost-limits.md`](../process-layer/wip-and-cost-limits.md). A breach throws `CostCapExceededError` before provisioning (`session-provisioning.ts:676-692`) — the session is rejected outright, not paused and routed to a review thread.

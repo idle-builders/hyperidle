@@ -1,32 +1,14 @@
-# ARCHITECTURE
+# Architecture
 
-# HyperIdle — Architecture Document
+Technical ground truth for how HyperIdle is built — three-layer framing, code-level domain map, data flows, and every load-bearing boundary decision. Companion to [docs/requirements/](../requirements/index.md).
 
-Version 0.2 — April 2026
-
-This document describes the parts of HyperIdle, how they interface with each other, and the technologies underneath them. It is the companion to REQUIREMENTS.md (what the system must do) — this document captures how.
-
----
-
----
-
-## Sections
-
-- [System Overview](./system-overview.md)
-- [Components](./components.md)
-- [The Human Interface: The Factory](./the-human-interface-the-factory.md)
-- [Key Interfaces Between Components](./key-interfaces-between-components.md)
-- [Technology Summary](./technology-summary.md)
-- [Kernel ↔ Strategy split](./kernel-strategy-split.md) — boundary contract + AS-BUILT (AK2): Strategy Port, registry, Fabric adapter, minimal reference Strategy, ESLint guard; AS-BUILT (AK3): decomposition seam, boot wiring, decompositionStatus on bets; AS-BUILT (AK6): creation seam, scaffoldAgents port method, creation events; AS-BUILT (AK7): selection seam, selectAgent port method, work_selection_requested; AS-BUILT (AK8): decomposeBet port method, work_decompose_requested, Strategy-owned decomposer choice, AK3 path demoted to Minimal fallback
-- [Deployment Architecture](./deployment-architecture.md)
-- [Data Flow Examples](./data-flow-examples.md)
-- [What This Architecture Does Not Include](./what-this-architecture-does-not-include.md)
-- [System Boundary — HyperIdle vs. git-host / CI / deploy](./system-boundary.md) — ride the git substrate (local-first), integrate CI/registries/SSO via API/MCP, replace the human-centric collaboration layer (review/planning/knowledge); the trigger-not-executor seam
-- [Decisions](./decisions.md)
-- [Event bus guarantees](./event-bus-guarantees.md)
-- [WebSocket push contract](./websocket-push-contract.md)
-- [Authorization model](./authorization-model.md)
-- [Credential model](./credential-model.md)
-- [Connection model](./connection-model.md) — per-user service connections (held vs inherited), `ServiceConnection*` types, `service_connections` table, resolver, `inheritedTools` descriptor extension (AN1)
-- [Run-unit model](./run-unit-model.md) — as-built (AQ1): host working directory, no isolation, two axes (scheduling/distribution vs isolation/sandbox), `LocalSandboxAdapter` + `DisabledSandboxAdapter`; AQ2 adds opt-in isolation; AQ3 completes remote transport
-
+- [system-overview.md](./system-overview.md) — three-layer framing, corrected stack + 12-package map, desktop-shell posture, non-goals, delivery/mobile claim
+- [as-implemented-domain-architecture.md](./as-implemented-domain-architecture.md) — verified component inventory, MCP surface, session flow, item-routing pipeline, EventBus + WS contract
+- [data-flow-examples.md](./data-flow-examples.md) — five end-to-end flows traced to real services, tables, and columns
+- [kernel-strategy-split.md](./kernel-strategy-split.md) — the canonical kernel/strategy boundary, port interface, and harness-engineering vocabulary
+- [run-unit-model.md](./run-unit-model.md) — agents run as host child processes (AQ1), working-directory abstraction, capture seam
+- [system-boundary.md](./system-boundary.md) — where HyperIdle ends and git-host/CI/deploy begin; trigger-not-executor seam
+- [authorization-model.md](./authorization-model.md) — load-bearing access-boundary contract (cites `access-boundary.ts`), WS subscribe authorization
+- [credential-model.md](./credential-model.md) — infra-secret storage, AES-GCM encryption, runtime resolution, user visibility
+- [connection-model.md](./connection-model.md) — held vs inherited Connection split, `service_connections` table, resolver, descriptor extension
+- [decisions.md](./decisions.md) — code-verified architecture decision log

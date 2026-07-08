@@ -16,9 +16,9 @@ Every Connection has one of three auth sources. This is the load-bearing distinc
 | `mcp` | The MCP server | Figma MCP, a self-hosted server | Server URL only |
 | `inherited` | The harness / environment | Claude Code's GitHub connector, `gh` CLI login | Nothing |
 
-**Held connections** (`token`, `mcp`) are DB rows. The user creates and removes them. HyperIdle resolves and injects them into the agent's sandbox at spawn (AN2).
+**Held connections** (`token`, `mcp`) are DB rows. The user creates and removes them. HyperIdle resolves and injects them into the session working directory at spawn (AN2).
 
-**Inherited connections** are not DB rows. They are live projections from the [harness capability descriptor](#am2-descriptor-extension-inheritedtools), reflecting what the harness or PATH-level environment is already configured with. The user does not create or remove them in HyperIdle — that is managed in the harness. HyperIdle holds no auth material for them; the token stays in the OS keychain, never extracted.
+**Inherited connections** are not DB rows. They are live projections from the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md), reflecting what the harness or PATH-level environment is already configured with. The user does not create or remove them in HyperIdle — that is managed in the harness. HyperIdle holds no auth material for them; the token stays in the OS keychain, never extracted.
 
 This is the concrete meaning of "ride the harness": OAuth-protected services arrive inherited because the harness already holds the auth. HyperIdle never runs a 3-legged OAuth dance and registers no per-service OAuth app.
 
@@ -26,52 +26,23 @@ This is the concrete meaning of "ride the harness": OAuth-protected services arr
 
 ## Connection properties
 
-```
-Connection {
-  id:         sc-<uuid>          (held)  |  inherited:<harness>:<name>  (projected)
-  service:    display name of the service, e.g. "Stripe", "GitHub"
-  via:        server-constructed description of where tools come from
-  authSource: "token" | "mcp" | "inherited"    — closed set
-  health:     "working" | "needs-attention"     — closed set
-  removable:  true (held) | false (inherited)
-}
-```
+The view shape and its closed sets live in `packages/shared/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
 
-`via` is always server-constructed — never a raw URL or secret echo:
+- **id** — `sc-<uuid>` for held rows; `inherited:<harness>:<name>` for projections.
+- **authSource** — closed set `token | mcp | inherited`.
+- **health** — closed 2-set `working | needs-attention`. Starts as `needs-attention` on create (unvalidated); the validate endpoint updates it. A token that stops working becomes `needs-attention` — there is no "expired" state.
+- **removable** — `true` for held, `false` for inherited.
+- **via** — always server-constructed, never a raw URL or secret echo: `token` → `"API key · stored encrypted"`, `mcp` → hostname of the MCP server URL, `inherited` → `"<harness> · <name>"`.
 
-- `token` → `"API key · stored encrypted"`
-- `mcp` → hostname of the MCP server URL
-- `inherited` → `"<harness> · <name>"`
-
-`health` starts as `needs-attention` on create (unvalidated). The validate endpoint updates it. A token that stops working becomes `needs-attention` — there is no "expired" state; the 2-set is closed.
+There is no `trustTier` field. ETHOS §2 — security is earned from real learnings, never a preemptive wall.
 
 ---
 
-## AM2 descriptor extension — `inheritedTools`
+## The descriptor seam — where inherited connections come from
 
-The [harness capability descriptor](../agent-layer/harness-capability-descriptor.md) (AM2) now carries:
+Inherited connections project from `HarnessCapabilityDescriptor.inheritedTools?` (optional, default `[]`). Each `InheritedToolDescriptor` carries identity only — `name`, `kind` (`mcp-server | cli`), `harness` (`claude-code | codex | opencode | environment`), `health | "unknown"`. The type has no secret field: no code path can copy an env var, command, keychain value, or token into it — the invariant is enforced at the type level.
 
-```ts
-interface HarnessCapabilityDescriptor {
-  // … existing fields …
-  inheritedTools: readonly InheritedToolDescriptor[];
-}
-
-interface InheritedToolDescriptor {
-  name:    string;                             // e.g. "github", "linear"
-  kind:    "mcp-server" | "cli";
-  harness: string;                             // "claude-code" | "codex" | "environment"
-  health:  ConnectionHealth | "unknown";
-}
-```
-
-`inheritedTools` is populated by `discoverLocalHarnesses()` at probe time:
-
-- **claude-code**: `claude mcp list` — parses `<name>: <rest> - <status>`, maps `✓ Connected` → `working`, anything else → `needs-attention`/`unknown`.
-- **codex**: `codex mcp list`; falls back to reading `[mcp_servers.<name>]` keys in `~/.codex/config.toml`. Health is `unknown` (list shows config, not live status).
-- **environment**: `gh auth status --json hosts` (never `--show-token`) — if any host has an account, emits `{ name: "github", kind: "cli", harness: "environment", health: "working" }`.
-
-**Evidence-first contract**: probes read only names and liveness. No code path copies an env var, command, keychain value, or token into an `InheritedToolDescriptor` — the type has no secret field.
+`discoverLocalHarnesses()` populates it via four probes — claude-code, codex, **opencode**, and the `gh`-CLI environment. Probe mechanics are owned by the [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) doc.
 
 ---
 
@@ -84,69 +55,44 @@ DELETE /api/connections/:id    → 204 | 404
 POST   /api/connections/:id/validate → { health }
 ```
 
-`GET` returns inherited projections first, then held rows. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
+`GET` returns inherited projections first, then held rows. It reads **cached** descriptors (`pool.listCapabilityDescriptors()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
 
-POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. Inherited connections are never created via the API; they appear automatically from harness discovery.
+POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) returns 409. Inherited connections are never created via the API; they appear automatically from harness discovery.
 
 Rate limits: POST/DELETE 20 req/min; validate 3 req/min.
 
 ---
 
-## Shared types (`packages/shared/src/connection.ts`)
+## Storage
 
-```ts
-export const CONNECTION_AUTH_SOURCES = ["token", "mcp", "inherited"] as const;
-export type ConnectionAuthSource = (typeof CONNECTION_AUTH_SOURCES)[number];
+`service_connections` pgTable in `packages/db/src/schema.ts` — one row per (userId, service, authSource), enforced by a unique index. Two storage invariants:
 
-export const CONNECTION_HEALTH = ["working", "needs-attention"] as const;
-export type ConnectionHealth = (typeof CONNECTION_HEALTH)[number];
+1. `inherited` is never a DB row — the column accepts only `token | mcp`.
+2. The token column is ciphertext (AES-GCM), nullable, present only for `token` rows; `mcp` rows store a server URL only.
 
-export const HELD_AUTH_SOURCES = ["token", "mcp"] as const;
-export type HeldAuthSource = (typeof HELD_AUTH_SOURCES)[number];
-
-export interface ServiceConnectionView {
-  id: string;
-  service: string;
-  via: string;
-  authSource: ConnectionAuthSource;
-  health: ConnectionHealth;
-  removable: boolean;
-}
-```
-
-No `trustTier` field exists. ETHOS §2 — security is earned from real learnings, never a preemptive wall.
-
----
-
-## DB schema (`packages/db/src/schema.ts`)
-
-`service_connections` pgTable — one row per (userId, service, authSource). `inherited` is never a DB row.
-
-Key columns: `id` (sc-\<uuid\>), `userId` (FK → users.id, cascade), `service`, `authSource` ("token" | "mcp" — never "inherited"), `encryptedToken` (nullable, AES-GCM), `serverUrl` (nullable, mcp only), `health`, `lastValidatedAt`.
-
-Unique index on (userId, service, authSource). Per-user index on userId.
+Column details belong to the schema file, not this doc.
 
 ---
 
 ## Resolver (`ServiceConnectionResolver`)
 
-`packages/server/src/services/service-connection-resolver.ts` — the only path that returns a decrypted token. Wired exclusively to sandbox injection (AN2); never to a route response or logger.
+`packages/server/src/services/service-connection-resolver.ts` — the only path that returns a decrypted token. Two consumers: session provisioning injection (AN2) and filesystem reachability probes (AO1, via `ServiceConnectionResolverAdapter` in `filesystem-reachability.ts`). Both consume the plaintext internally; **the invariant is that plaintext never reaches a route response or a log line** — not that the resolver has a single caller.
 
 - Queries scoped on `AND(id, userId)` — cross-user lookup returns `null`, never leaks existence.
-- Returns `null` for: cross-user, non-existent, mcp rows (no stored token), missing server secret, decryption failure.
+- Returns `null` for: cross-user, non-existent, mcp rows (no stored token), missing server secret, decryption failure. Never throws.
 - Reuses `decryptCredentialValue` from `credential-encryption.ts` — no forked crypto.
 
 ---
 
 ## Projection (`ServiceConnectionProjection`)
 
-`packages/server/src/services/service-connection-projection.ts` — projects `descriptors[].inheritedTools` into `ServiceConnectionView[]` at GET time. No DB access, no child-process spawn. Deduplicates by service name across harnesses (first wins).
+`packages/server/src/services/service-connection-projection.ts` — projects `descriptors[].inheritedTools` into `ServiceConnectionView[]` at GET time. Pure function over the cached descriptors: no DB access, no child-process spawn. Deduplicates by service name across harnesses (first wins). Descriptor health `unknown` displays as `working` (`service-connection-projection.ts:50-51`) — inherited tools are auto-detected and expected-healthy; `needs-attention` is reserved for explicit probe failures.
 
 ---
 
 ## Hard rules
 
-1. **A stored secret is never returned to a display or log surface** — but it is resolvable server-side for injection into the agent sandbox. A secret appearing in any GET response, UI field, or log line is a defect.
+1. **Plaintext never reaches a route response, UI field, or log line.** A stored secret is resolvable server-side for injection and probes, but any appearance in a display or log surface is a defect.
 2. **HyperIdle runs no 3-legged OAuth and registers no per-service OAuth app.** Held auth is only a simple secret or an MCP pointer. OAuth services arrive inherited.
 3. **Per-user isolation.** One user's connection (held or inherited) is never resolvable, listable, or usable from another user's session. Cross-user reads return 404/null — never 403, never leaking existence.
 4. **Inherited connections store no auth material.** A token or keychain value copied into a HyperIdle record is a defect.
@@ -166,4 +112,4 @@ Unique index on (userId, service, authSource). Per-user index on userId.
 
 ---
 
-See also: [Credential model](./credential-model.md) — infra-secret catalog, shared AES-GCM primitive. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — AM2 descriptor, `inheritedTools` source. [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.
+See also: [Credential model](./credential-model.md) — infra-secret catalog, shared AES-GCM primitive. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — descriptor shape, `inheritedTools`, discovery probes. [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.

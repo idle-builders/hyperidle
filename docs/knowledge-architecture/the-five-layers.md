@@ -1,4 +1,6 @@
-## 1. The Five Layers
+# The Five Layers
+
+Knowledge in HyperIdle lives on a five-layer maturity ladder. The layers are live in code: `KNOWLEDGE_LAYERS` (`packages/fabric/src/types.ts:13-14`).
 
 ```
 L4  FACTORY        monthly        humans write & read, agents propose
@@ -8,86 +10,78 @@ L1  TASK           per task       agents own, humans sample
 L0  SESSION        minutes        pure agent memory
 ```
 
-The lower you go, the more agent-native. The higher you go, the more human-native. Knowledge flows up through promotion (L1 discoveries become L3 practices become L4 principles) and down through loading (the factory's rules shape what products do).
+The lower you go, the more agent-native. The higher you go, the more human-native. Knowledge flows up through promotion (L1 discoveries become L3 practices become L4 principles) and down through loading (factory rules shape what products do). The cadence words are design intent, not code-enforced schedules.
 
-### L0: Session — the working set
+## Scope determines layer
+
+Layer is assigned by the fabric from an item's scope — `SCOPE_TO_LAYER` (`packages/fabric/src/types.ts:25-33`):
+
+| Scope kind | Layer |
+|---|---|
+| `factory` | L4 |
+| `practice` | L3 |
+| `product` | L2 |
+| `task` | L1 |
+| `bet`, `team`, `user` | none — outside the maturity flow |
+
+Layer is a strategy signal: it lives on the `knowledge_strategy_fabric` extension table, not on `knowledge_items` (O2 kernel/strategy split). Store semantics — scopes, statuses, the kernel/strategy table split — are owned by [the canonical store](the-canonical-store.md).
+
+## L0: Session — the working set
 
 An agent spinning up for a specific task. Minutes to hours.
 
-Borrows from how Letta/MemGPT treats the context window like RAM in an operating system — the agent explicitly manages what's in its working set rather than stuffing everything in upfront. We don't need to implement Letta; we take the idea: **load what you need, nothing more.**
-
-- **Storage**: ephemeral. Rebuilt every session by the Knowledge Fabric's context assembly engine (§5).
-- **Format**: TOON-style compact pack loaded from L1/L2/L3. TOON gives ~40% fewer tokens than JSON for structured data with minimal parsing loss. This is the difference between an agent that can hold a whole product's context vs. one that burns its window on boilerplate.
-- **Context assembly budget**: the Knowledge Fabric applies relevance scoring and a token budget to decide what gets loaded. Not everything — just what this task needs (§7).
+- **Storage**: ephemeral. Rebuilt every session by context assembly, which writes `context/session.toon` into the sandbox (`packages/fabric/src/context-assembly.ts:275-283`).
+- **What loads**: all L4, product-scoped L2, and community-scoped L3 (`context-assembly.ts:216-219`), filtered through relevance scoring and a token budget — see [relevance and attention](relevance-and-attention.md). Load what the task needs, nothing more.
+- **Format**: TOON pack (`context/session.toon`) — see [the knowledge fabric](the-knowledge-fabric-how-knowledge-moves.md) for the projection model and sandbox layout.
 - **Human touch**: none.
 
-### L1: Task — the unit of work
+## L1: Task — the unit of work
 
-A task is a tiny experiment. It has an expected outcome. When reality differs, that's the signal worth capturing.
+A task is a tiny experiment with an expected outcome. When reality differs, that is the signal worth capturing.
 
-Inspired by Toyota Kata's "every piece of work is learning" — but we're not writing hypothesis documents. A task row is just: what we tried, what happened, what was different, what broke. Four fields. No ritual.
+- **Outcome capture**: on the task row itself — `tasks.outcomeVerdict` is a closed enum `met | met_with_rework | partially_met | not_met`, plus `notes` and `auditTrail` (`packages/db/src/schema.ts:204-243`).
+- **Failures are first-class** — as knowledge items of kind `failure` (`packages/fabric/src/types.ts:74-82`), written back from the sandbox's `failures/` directory (`packages/fabric/src/writeback.ts:163-167`). There is no separate failures table.
+- **How agents write**: server tools (`packages/server/src/tools/write-memory.ts`) and sandbox writeback — there is no task-logging CLI.
+- **Human touch**: sampling only, through the Work view. Humans never read raw task rows. Task and session mechanics live in [tasks and sessions](../process-layer/tasks-and-sessions.md).
 
-- **Storage**: **SQLite.** Not markdown. A task is structured data — id, parent bet, type, state, expected, actual, failures[], links. Google's Always-On Memory Agent (open-sourced late 2025) made the same call: for structured agent state, SQLite beats vector DBs. Queryable, fast, zero ops.
-- **Format for agents**: direct SQL or a thin CLI wrapper — `factory task log TASK-42 "5MB chunks → OOM on Coolify"`.
-- **Failures are first-class**. Not buried in logs. A dedicated `failures` table linked to tasks. This is what makes "learning from failures" actually work — it's data, not lore.
-- **Human touch**: sampling only. Humans don't read the task DB. They see generated views when something matters (via L2).
+## L2: Product — the department
 
-### L2: Product — the department
+A product runs for months. Its knowledge splits by artifact type.
 
-A product runs for months. Some things about it are for humans to read and shape (the brief, the brand, the architecture). Some things are state that only agents care about (task graph, decision links, handoffs).
+**The human-readable part** — the product's core identity: `BRIEF`, `ARCHITECTURE`, `BRAND`, `PRINCIPLES`. These are knowledge items whose active/validated versions are exported to git as `products/<scopeId>/<KIND>.md`. The database is canonical; the markdown files are projections. Export structure and lifecycle are owned by [facilitators](facilitators.md).
 
-Don't force either into the wrong format.
+**The agent-native part** — process state. Tasks and bets are their own primitive tables, never `knowledge_items` rows (see [the canonical store](the-canonical-store.md)). Decisions are knowledge items of kind `decision` — lightweight rows, not two-page ADRs.
 
-**The human-readable part** (markdown files in the product repo):
+**Capture happens inline with the work**: when an agent learns something during a session, it lands via writeback, not a separate documentation pass — see [sync and conflict resolution](sync-and-conflict-resolution.md).
 
-These are beautiful, short, and stable. A human authors them. An agent reads them.
+## L3: Practice — cross-product learning
 
-- `BRIEF.md` — what the product is, who it's for, why it exists
-- `ARCHITECTURE.md` — how it's built and why
-- `BRAND.md` — voice, positioning
-- `PRINCIPLES.md` — the hard rules for this product, distilled over time from what works
+**The highest-leverage layer.** Most agent systems skip this entirely. The core behavior: before solving a problem from scratch, check whether someone already solved it — *reuse before create*.
 
-These are the product's **core identity**. If the files disappear, the product doesn't know who it is.
+- **Storage**: knowledge items at `practice` scope, one community per discipline: `building`, `product`, `growth`, `ops` (`packages/shared/src/agent-roles.ts`, `communityForRole` with fallback `ops`). All builders across all products share the `building` community — knowledge that emerges in one product is available to every other immediately.
+- **Grouping**: `topic` is a first-class column (`packages/db/src/schema.ts:591`); tags and evidence live in the fabric extension's `meta` JSON (`schema.ts:706`).
+- **Anti-patterns are first-class**: `anti_pattern` is its own knowledge kind, searchable alongside patterns. The promotion pipeline has a dedicated path: a `failure` item that accumulates repetition cross-scope can be promoted directly to `anti_pattern` kind (`packages/fabric/src/promotion-pipeline.ts`).
+- **Human touch**: weekly curation through the [Knowledge view](../information-architecture/knowledge-view.md) and the builtin `practice-meeting` routine (`packages/fabric/src/services/builtin-routines.ts`). Sharpen wording, retire stale items, add the tacit knowledge agents can't generate — customer taste, market intuition.
 
-**The agent-native part** (rows in `knowledge_items` with `layer='L2'` and `scope_id` = product name):
+## L4: Factory — the meta
 
-- `tasks` (L1 lives here)
-- `decisions` — lightweight rows: topic, choice, why, alternatives, outcome, links. Not 2-page ADRs. A decision is a row. The "decisions become wisdom" bit comes from their *connections*, not their prose.
-- `handoffs` — what each agent session left for the next
-- `cycles` — bet cycles, with start/end, intent, reality, reflection
-- `bets` — active and historical
+The company's own brain. What we believe, what we're aiming at, which products get energy now.
 
-Agents read and write this directly. Humans only see it through generated views.
+- **Storage**: knowledge items at `factory` scope — kinds include `principle`, `focus`, `reflection` (`packages/fabric/src/types.ts:74-82`). Exported to git as `factory/PRINCIPLES.md`, `factory/FOCUS.md`, `factory/PORTFOLIO.md`, and `factory/REFLECTIONS/<topic>.md` — again projections; the database is canonical, git is the history (see [facilitators](facilitators.md)).
+- **Human touch**: humans write and read; agents propose changes for human approval. If an L4 item is hard to read, the architecture is wrong.
 
-**The SECI bit, in practice:** SECI (knowledge converting between tacit and explicit) is a nice theory but we're not running SECI rituals. We just take the essence: **when an agent learns something, capture it inline with the work, not in a separate docs pass.** The capture happens automatically through the task outcome. Promotion to a reusable practice (L3) happens when the same learning shows up twice.
+## How knowledge moves
 
-### L3: Practice — cross-product learning
+- **Up — promotion**: the same finding with the same `(layer, topic, kind)` signature across 5+ distinct scopes auto-promotes to `validated` (`AUTO_PROMOTION_REPETITION_THRESHOLD`, `packages/fabric/src/promotion-pipeline.ts:27`); active items unused for 90 days become stale candidates (`promotion-pipeline.ts:34`). The full lifecycle is owned by [facilitators](facilitators.md).
+- **Down — loading**: context assembly pulls L4 + L2 + L3 into every L0 session pack (above).
+- **Write flow**: watcher, writeback, and conflict handling are owned by [sync and conflict resolution](sync-and-conflict-resolution.md).
 
-**The highest-leverage layer.** Most agent systems skip this entirely.
+## Provenance
 
-Inspired by Knowledge-Centered Service (how good support teams work): before solving a problem from scratch, check if someone already solved it. That single behavior — *reuse before create* — is worth more than any other knowledge management practice.
+The ideas this taxonomy borrowed (sole home of these credits):
 
-- **Storage**: unified `knowledge_items` table (§3), `layer='L3'`, scoped by `scope_id` per community of practice (building, product, growth, ops). `topic` is a first-class column for grouping items (e.g. 'auth', 'deployment'). Additional fields in `meta` JSON: summary, what_works, anti_patterns, evidence_task_ids, last_used, tags.
-- **Loading into sessions**: TOON-formatted packs, loaded JIT when an agent queries. A practice pack for "file handling" is maybe 200 tokens instead of a 3KB markdown file.
-- **Anti-patterns are first-class**. When a task fails in L1, the failure promotes to a candidate anti-pattern. The agent that wrote it or a later reviewer confirms, and it becomes searchable: "don't do X because Y (see TASK-042)."
-- **Human touch**: the Knowledge view in the Factory app (see `HUMAN_INTERFACE_LAYER.md` §4.4). Humans review new/updated practices weekly. Sharpen wording. Retire stale ones. Add tacit knowledge agents can't generate — customer taste, market intuition.
-
-This is where Communities of Practice comes in as an inspiration, not a label: all Builders across all products share the same practice community (`layer='L3'`, `scope_id='building'` in `knowledge_items`). Knowledge that emerges in Acme is available to HyperIdle immediately. No copy-paste. No "did you know Ambrovia already solved this?" moments.
-
-### L4: Factory — the meta
-
-The company's own brain. What we believe. What we're trying to get to. Which products get energy right now.
-
-- **Storage**: **human-readable markdown only.** This is where humans live. If a file in L4 is hard to read, the architecture is wrong.
-
-Four files:
-- `PRINCIPLES.md` — the short list of hard rules (5–10 lines, slow-changing)
-- `FOCUS.md` — what we're trying to improve this month (the current target)
-- `PORTFOLIO.md` — which products get energy this cycle, and why
-- `REFLECTIONS/` — monthly notes from assistant conversations (one file per month)
-
-The assistant agent proposes changes to these files. Humans approve, edit, or reject. Git is the history.
-
-The inspiration is double-loop learning (question the rules, not just the work) and the Kata improvement cycle (explicit target, explicit current state, explicit next experiment). We're not naming them anywhere in the interface. We're just structuring the monthly conversation around those bones.
-
----
+- **Letta/MemGPT** — memory tiered like an OS; the agent manages its own working set (L0-L4 tiering).
+- **Google's Always-On Memory Agent** — a structured store beats a vector DB for agent state; that instinct now lives in PGlite/Postgres.
+- **TOON format** — ~40% fewer tokens than JSON for structured context packs (L0 loading).
+- **KCS (Knowledge-Centered Service)** — reuse before create, the single highest-leverage knowledge behavior (L3).
+- **Shape Up** — bets over backlog as the work model the knowledge layers feed.
