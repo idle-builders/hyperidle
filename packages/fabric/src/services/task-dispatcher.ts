@@ -242,11 +242,13 @@ async function createDispatchRequest(
 		? { taskId: entry.taskId, proposedCallId: entry.proposedCallId, grantedAgentId: entry.agentId }
 		: { taskId: entry.taskId, teamId: entry.teamId };
 	return createAgentSessionRequest(db, {
+		eventType: entry.proposedCallId ? "proposed_call.granted" : "task.accepted",
 		sourceKind,
 		sourceId,
 		streamId: `task:${entry.taskId}`,
 		taskId: entry.taskId,
 		agentId: entry.agentId,
+		defaultAgentId: entry.agentId,
 		teamId: entry.teamId,
 		promptMode: entry.proposedCallId ? "proposed_call" : "task",
 		idempotencyKey,

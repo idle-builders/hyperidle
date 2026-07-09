@@ -59,8 +59,8 @@ describe("plugin configuration service", () => {
 				expect.objectContaining({
 					kind,
 					key: `${kind}.alpha`,
-					activeValue: { label: `${kind} alpha` },
-					defaultValue: { label: `${kind} alpha` },
+					activeValue: expectedValue(kind, `${kind} alpha`),
+					defaultValue: expectedValue(kind, `${kind} alpha`),
 					userValue: null,
 					valueSource: "default",
 					active: true,
@@ -87,7 +87,7 @@ describe("plugin configuration service", () => {
 			await setConfigurationOverride(handle.db, {
 				kind,
 				key: `${kind}.alpha`,
-				value: { label: `${kind} user` },
+				value: expectedValue(kind, `${kind} user`),
 				now: "2026-07-08T10:01:00.000Z",
 			});
 		}
@@ -104,9 +104,9 @@ describe("plugin configuration service", () => {
 				expect.objectContaining({
 					kind,
 					key: `${kind}.alpha`,
-					activeValue: { label: `${kind} user` },
-					defaultValue: { label: `${kind} v2` },
-					userValue: { label: `${kind} user` },
+					activeValue: expectedValue(kind, `${kind} user`),
+					defaultValue: expectedValue(kind, `${kind} v2`),
+					userValue: expectedValue(kind, `${kind} user`),
 					valueSource: "user_override",
 					active: true,
 					origin: expect.objectContaining({
@@ -386,8 +386,22 @@ function seed(
 	return {
 		kind,
 		key,
-		value: { label: `${kind} ${labelSuffix}` },
+		value: expectedValue(kind, `${kind} ${labelSuffix}`),
 	};
+}
+
+function expectedValue(kind: ConfigurationKind, label: string): Record<string, unknown> {
+	if (kind === "trigger") {
+		return {
+			eventType: "routine.fire",
+			sourceKind: "routine",
+			scope: { sourceId: label, teamId: "team-1" },
+			agentId: "agent-1",
+			prompt: label,
+			label,
+		};
+	}
+	return { label };
 }
 
 async function seedLegacyData(handle: TestDbHandle): Promise<void> {

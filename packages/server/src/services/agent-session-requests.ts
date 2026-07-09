@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import {
+	type AgentSessionRequest,
+	agentSessionRequests,
+	type HyperIdleDb,
+	triggerResolutionHistory,
+} from "@hyperidle/db";
 import {
 	type AgentSessionRequestInput,
 	type AgentSessionRequestStatus,
@@ -181,6 +186,10 @@ export async function markRequestRunning(
 			updatedAt: nowIso(),
 		})
 		.where(eq(agentSessionRequests.id, requestId));
+	await db
+		.update(triggerResolutionHistory)
+		.set({ sessionId })
+		.where(eq(triggerResolutionHistory.requestId, requestId));
 }
 
 export async function releaseRequestClaim(db: HyperIdleDb, requestId: string): Promise<void> {

@@ -36,9 +36,9 @@ import { checkCostCap } from "../app-runtime/services/cost-cap.js";
 import { getAgentSessionRequestConsumerFn } from "../app-runtime/services/provision-registry.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
-import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
 import { transitionTask } from "./task-state-machine.js";
+import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -279,12 +279,13 @@ async function markTerminal(
  *   6. Inline-validate decomposerAgentId: candidates.some(c => c.agentId ===
  *      plan.decomposerAgentId) — proves team-membership + active-AI in one check
  *      (WARNING 1: selectOwner's internal guard no longer runs on this path).
- *   7. Cost pre-flight: checkCostCap on validated decomposer.
- *   8. Runtime request or scratch sandbox + 3-way turn-source precedence:
+ *   7. Create trigger-backed AgentSessionRequest.
+ *   8. Cost pre-flight: checkCostCap on requested agent.
+ *   9. Runtime request or scratch sandbox + 3-way turn-source precedence:
  *      a. plan.tasks.length > 0 → persist those tasks (resolver-authored breakdown).
- *      b. deps.runDecompositionTurn present → call it with plan.decomposerAgentId
- *         (protected-test seam — branch 2, all v1 Strategies + all AK3 tests land here).
- *      c. else → create/consume an AgentSessionRequest; task writeback decides terminal state.
+ *      b. deps.runDecompositionTurn present → call it with requested agent
+ *         (protected-test seam).
+ *      c. else → consume the AgentSessionRequest; task writeback decides terminal state.
  *   9. taskList empty → blocked/empty. Else insertProposedBetTasks → dispatch.
  *  10. markTerminal('done'). finally: rm scratch sandbox.
  *
@@ -404,11 +405,36 @@ export async function runBetDecomposition(
 		return;
 	}
 
+	const { request } = await createTriggeredAgentSessionRequest(db, {
+		eventType: "work.decompose_requested",
+		sourceKind: "decomposition",
+		sourceId: betId,
+		streamId: `bet:${betId}:decomposition`,
+		defaultAgentId: pm.id,
+		teamId: bet.teamId,
+		idempotencyKey: `decomposition:${betId}:start`,
+		payload: {
+			betId,
+			betDescription: bet.description,
+			betDoneCondition: bet.doneCondition ?? null,
+		},
+		sourceCorrelation: {
+			betId,
+			teamId: bet.teamId,
+			decomposerAgentId: pm.id,
+		},
+		buildSourceCorrelation: (resolution) => ({
+			betId,
+			teamId: bet.teamId,
+			decomposerAgentId: resolution.chosenAgentId ?? pm.id,
+		}),
+	});
+
 	// --- 6. Cost pre-flight ---
 	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
 	// Cost is enforced before entering the agent runtime.
 	const capResult = await checkCostCap(db, eventBus, {
-		agentId: pm.id,
+		agentId: request.agentId,
 		teamId: bet.teamId,
 	});
 	if (!capResult.allowed) {
@@ -419,25 +445,6 @@ export async function runBetDecomposition(
 	// AU1: the real PM turn is requested through the agent runtime boundary.
 	// A completed runtime is useful only if it writes at least one bet task.
 	if (plan.tasks.length === 0 && !deps.runDecompositionTurn) {
-		const request = await createAgentSessionRequest(db, {
-			sourceKind: "decomposition",
-			sourceId: betId,
-			streamId: `bet:${betId}:decomposition`,
-			agentId: pm.id,
-			teamId: bet.teamId,
-			promptMode: "decomposition",
-			idempotencyKey: `decomposition:${betId}:start`,
-			payloadJson: JSON.stringify({
-				betId,
-				betDescription: bet.description,
-				betDoneCondition: bet.doneCondition ?? null,
-			}),
-			sourceCorrelation: {
-				betId,
-				teamId: bet.teamId,
-				decomposerAgentId: pm.id,
-			},
-		});
 		const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
 		if (!(consumeAgentSessionRequest && deps.adapterPool)) {
 			await markTerminal(db, betId, "blocked", "failed");
@@ -508,15 +515,14 @@ export async function runBetDecomposition(
 		let taskList: DecompositionTaskInput[];
 
 		// --- 8. Turn-source precedence (CRITICAL 1) ---
-		// Branch 1: resolver authored the breakdown.
+		// Branch 1: Resolver-authored breakdown, after trigger request/history exists.
 		// Branch 2: Test-injectable override (protected-test seam — all AK3 tests).
 		// Branch 3: Runtime request path was handled above.
 		//
-		// @lore AK8: Branch 1 > branch 2 > branch 3. The override NEVER beats plan.tasks
-		// because that would let a test seam mask a resolver-authored decision.
-		// Current defaults return tasks:[] -> branch 2 or 3.
+		// @lore AU4: decomposition always creates a trigger-backed AgentSessionRequest
+		// before any decomposition work. Resolver-authored task lists no longer bypass
+		// the agent-layer request boundary.
 		if (plan.tasks.length > 0) {
-			// Branch 1: resolver-authored breakdown. Skip runtime turn entirely.
 			taskList = [...plan.tasks];
 		} else if (deps.runDecompositionTurn) {
 			// Branch 2: Test-injectable override (no real LLM call).
@@ -524,7 +530,7 @@ export async function runBetDecomposition(
 			// "which agent decomposes" reflect the chosen owner.
 			try {
 				taskList = await withTimeout(
-					deps.runDecompositionTurn({ betId, pmAgentId: pm.id }),
+					deps.runDecompositionTurn({ betId, pmAgentId: request.agentId }),
 					timeoutMs,
 				);
 			} catch {

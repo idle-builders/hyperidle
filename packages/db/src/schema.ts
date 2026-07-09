@@ -349,6 +349,33 @@ export const agentSessionRequests = pgTable(
 	],
 );
 
+export const triggerResolutionHistory = pgTable(
+	"trigger_resolution_history",
+	{
+		id: text("id").primaryKey(),
+		sourceKind: text("source_kind").notNull(),
+		sourceId: text("source_id").notNull(),
+		streamId: text("stream_id").notNull(),
+		eventType: text("event_type").notNull(),
+		result: text("result").notNull(),
+		triggerKey: text("trigger_key"),
+		triggerSource: text("trigger_source").notNull(),
+		chosenAgentId: text("chosen_agent_id").references(() => users.id, { onDelete: "restrict" }),
+		promptSource: text("prompt_source"),
+		requestId: text("request_id").references(() => agentSessionRequests.id, {
+			onDelete: "restrict",
+		}),
+		sessionId: text("session_id"),
+		resolutionJson: text("resolution_json").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("trigger_resolution_history_source_idx").on(table.sourceKind, table.sourceId),
+		index("trigger_resolution_history_request_idx").on(table.requestId),
+		index("trigger_resolution_history_session_idx").on(table.sessionId),
+	],
+);
+
 export const routines = pgTable(
 	"routines",
 	{
@@ -1356,6 +1383,9 @@ export type NewSession = typeof sessions.$inferInsert;
 
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 export type NewAgentSessionRequest = typeof agentSessionRequests.$inferInsert;
+
+export type TriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferSelect;
+export type NewTriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferInsert;
 
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;

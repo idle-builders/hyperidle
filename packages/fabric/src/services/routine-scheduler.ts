@@ -426,11 +426,13 @@ export async function checkAndFireRoutine(
 	});
 
 	const request = await createAgentSessionRequest(db, {
+		eventType: "routine.fire",
 		sourceKind: "routine",
-		sourceId: runId,
+		sourceId: routine.id,
 		streamId: `routine:${routine.id}`,
 		taskId: null,
 		agentId: targetAgentId,
+		defaultAgentId: targetAgentId,
 		teamId: routine.teamId,
 		promptMode: "routine",
 		idempotencyKey: `routine:${runId}`,

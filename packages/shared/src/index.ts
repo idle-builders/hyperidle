@@ -101,7 +101,6 @@ export {
 	CREDENTIAL_STATES,
 	isCredentialName,
 } from "./credential.js";
-
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
@@ -528,6 +527,18 @@ export {
 } from "./thread.js";
 export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
+export type {
+	TriggerEventType,
+	TriggerResolutionResult,
+	TriggerResultState,
+	TriggerRuleValue,
+} from "./trigger.js";
+export {
+	isTriggerEventType,
+	TRIGGER_EVENT_TYPES,
+	TRIGGER_RESULT_STATES,
+	TriggerRuleValueSchema,
+} from "./trigger.js";
 export type {
 	Artifact,
 	ArtifactCostFromSession,

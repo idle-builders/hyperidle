@@ -11,12 +11,10 @@ import {
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { createTriggeredAgentSessionRequest } from "../../services/trigger-resolution.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
-import {
-	getAgentSessionRequestConsumerFn,
-	getAgentSessionRequestCreateFn,
-} from "./provision-registry.js";
+import { getAgentSessionRequestConsumerFn } from "./provision-registry.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });
@@ -411,9 +409,8 @@ export async function checkAndFireRoutine(
 		}
 	}
 
-	const createAgentSessionRequest = getAgentSessionRequestCreateFn();
 	const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
-	if (!(createAgentSessionRequest && consumeAgentSessionRequest && runtimeDeps)) {
+	if (!(consumeAgentSessionRequest && runtimeDeps)) {
 		return { fired: false, reason: "agent session request runtime unavailable" };
 	}
 
@@ -425,16 +422,16 @@ export async function checkAndFireRoutine(
 		outcome: "running",
 	});
 
-	const request = await createAgentSessionRequest(db, {
+	const { request } = await createTriggeredAgentSessionRequest(db, {
+		eventType: "routine.fire",
 		sourceKind: "routine",
-		sourceId: runId,
+		sourceId: routine.id,
 		streamId: `routine:${routine.id}`,
 		taskId: null,
-		agentId: targetAgentId,
+		defaultAgentId: targetAgentId,
 		teamId: routine.teamId,
-		promptMode: "routine",
 		idempotencyKey: `routine:${runId}`,
-		payloadJson: JSON.stringify({ routineId: routine.id, routineRunId: runId }),
+		payload: { routineId: routine.id, routineRunId: runId },
 		sourceCorrelation: {
 			routineId: routine.id,
 			routineRunId: runId,

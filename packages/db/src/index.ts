@@ -104,6 +104,7 @@ export {
 	// @lore U1: NewTeamMember (formerly NewTeam) is the agent-membership insert type.
 	type NewTeamMember,
 	type NewThread,
+	type NewTriggerResolutionHistoryRow,
 	type NewUser,
 	type NewUserSkill,
 	type NotificationQueueRow,
@@ -141,6 +142,7 @@ export {
 	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
 	type TeamMember,
 	type Thread,
+	type TriggerResolutionHistoryRow,
 	tailoredGrants,
 	taskPlanningSignals,
 	taskStrategyFabric,
@@ -150,6 +152,7 @@ export {
 	// @lore U1: teams table (formerly products table).
 	teams,
 	threads,
+	triggerResolutionHistory,
 	type User,
 	type UserSkill,
 	userSkills,

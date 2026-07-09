@@ -54,6 +54,16 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 	return parsed;
 }
 
+function parseTriggerPrompt(request: AgentSessionRequest): string | null {
+	if (!request.payloadJson) return null;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("trigger" in payload)) return null;
+	const trigger = (payload as { trigger?: unknown }).trigger;
+	if (!trigger || typeof trigger !== "object") return null;
+	const prompt = (trigger as { prompt?: unknown }).prompt;
+	return typeof prompt === "string" && prompt.length > 0 ? prompt : null;
+}
+
 async function ensureClaimedRequest(
 	db: HyperIdleDb,
 	request: AgentSessionRequest,
@@ -147,6 +157,7 @@ export async function consumeAgentSessionRequest(
 ): Promise<ProvisionSessionResult> {
 	const claimedRequest = await ensureClaimedRequest(deps.db, request, options);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
+	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
 	const provisionParams: ProvisionSessionParams = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -165,6 +176,7 @@ export async function consumeAgentSessionRequest(
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,
 			sourceId: claimedRequest.sourceId,
 			sourceCorrelation,
+			...(triggerPromptOverride ? { triggerPromptOverride } : {}),
 		},
 	};
 	return runClaimedRequest(deps, claimedRequest, provisionParams, options);

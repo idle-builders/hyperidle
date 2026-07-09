@@ -19,13 +19,13 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveAgentModel, resolveModelTier } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
+import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -317,14 +317,14 @@ export function createSessionRoutes(
 					// session row is committed. All admission failures (cost 422 /
 					// concurrency 429 / missing credential 500) throw from admit BEFORE the
 					// row insert, so they still map to HTTP status here, not the tail.
-					const request = await createAgentSessionRequest(db, {
+					const { request } = await createTriggeredAgentSessionRequest(db, {
+						eventType: "task.accepted",
 						sourceKind: "task",
 						sourceId: body.taskId,
 						streamId: `task:${body.taskId}`,
 						taskId: body.taskId,
-						agentId: body.agentId,
+						defaultAgentId: body.agentId,
 						teamId: task.teamId,
-						promptMode: "task",
 						idempotencyKey: `session-route:${crypto.randomUUID()}`,
 						sourceCorrelation: {
 							taskId: body.taskId,
