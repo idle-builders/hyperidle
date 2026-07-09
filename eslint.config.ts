@@ -1149,7 +1149,6 @@ export default [
 			"packages/**/*.integration.test.{ts,tsx}",
 			"packages/**/*.spec.{ts,tsx}",
 			"packages/**/*.stories.tsx",
-			"packages/server/src/app-runtime/**",
 			"packages/server/src/services/strategy-registry.ts",
 			"packages/shared/src/strategy-port.ts",
 		],

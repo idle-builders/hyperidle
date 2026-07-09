@@ -51,11 +51,11 @@ export function isAssistantThread(thread: ThreadLike): boolean {
 
 const logger = {
 	info: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: strategy-layer dispatcher
+		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher
 		console.info(`[assistant-dispatcher] ${msg}`, ctx ?? "");
 	},
 	error: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: strategy-layer dispatcher
+		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher
 		console.error(`[assistant-dispatcher] ${msg}`, ctx ?? "");
 	},
 };

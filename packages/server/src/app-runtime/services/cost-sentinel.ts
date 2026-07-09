@@ -19,7 +19,7 @@ import { eq } from "drizzle-orm";
  * test sentinel flag); real state lives in `factory_settings`.
  *
  * @lore AD8c: extracted from builtin-routines.ts. Cost sentinel is now
- * application code registered in bootstrapFabric, not a routine row.
+ * application code registered in bootstrapAppRuntime, not a routine row.
  * This prevents operators from disabling cost monitoring by flipping the
  * `active` flag on a routine row.
  */
@@ -169,7 +169,7 @@ export async function runCostSentinelCheck(
  * Start the cost sentinel on a 15-minute interval.
  * Returns a cleanup function that clears the interval.
  *
- * Called by bootstrapFabric so the sentinel runs unconditionally as
+ * Called by bootstrapAppRuntime so the sentinel runs unconditionally as
  * application code rather than via a routine row that operators could disable.
  *
  * @lore AD8c: the interval resets on every server restart — worst case is a

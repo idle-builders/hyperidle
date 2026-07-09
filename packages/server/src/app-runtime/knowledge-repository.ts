@@ -1,12 +1,12 @@
 /**
- * @lore O2: knowledge-repository updated for kernel/strategy separation.
+ * @lore O2: knowledge-repository split canonical item rows from app projection rows.
  * - knowledgeItems table no longer has layer, scopeId, kind, attentionScore,
  *   relevanceScore, citationCount, lastCitedAt, confidence, meta columns.
  * - These fields are now stored in knowledgeAppProjection (extension table).
  * - create() inserts into both tables; update() updates both tables;
- *   list() JOINs against extension table for filter/sort on strategy fields.
- * - KnowledgeItem type is augmented with optional strategy fields from the
- *   extension table via KnowledgeItemWithFabric.
+ *   list() JOINs against extension table for filter/sort on projection fields.
+ * - KnowledgeItem type is augmented with optional projection fields from the
+ *   extension table via KnowledgeItemWithProjection.
  */
 import {
 	type HyperIdleDb,
@@ -39,9 +39,8 @@ export interface CreateKnowledgeItemInput {
 	/**
 	 * @lore R7: widened to `KnowledgeStatus | KernelKnowledgeStatus` so
 	 * agent-created items (write_memory) can be created with status="draft"
-	 * (a kernel status) without polluting the fabric's 7-state promotion
-	 * pipeline enum. "draft" items are triage items that live on the kernel
-	 * until promoted to fabric statuses (active/captured/...) by a facilitator.
+	 * without polluting the app-runtime promotion-state enum. "draft" items are
+	 * triage items until promoted to active/captured/... by a facilitator.
 	 */
 	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
@@ -75,14 +74,14 @@ export interface ListFilters {
 }
 
 /**
- * Augments the kernel KnowledgeItem with strategy-layer fields from the
+ * Augments the kernel KnowledgeItem with app-runtime fields from the
  * knowledgeAppProjection extension table.
  *
  * @lore AF3: Do NOT redeclare fields already on KnowledgeItem (scopeId, etc.) —
  * TS2430 fires if an optional override conflicts with a required base property.
  * Only declare NEW fields from knowledgeAppProjection here.
  */
-export interface KnowledgeItemWithFabric extends KnowledgeItem {
+export interface KnowledgeItemWithProjection extends KnowledgeItem {
 	layer?: string | null;
 	kind?: string | null;
 	attentionScore?: string | null;
@@ -99,9 +98,9 @@ function now(): string {
 }
 
 /**
- * Fetch the fabric extension row for a knowledge item, or null if not found.
+ * Fetch the app projection row for a knowledge item, or null if not found.
  */
-async function getFabricRow(
+async function getProjectionRow(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): Promise<typeof knowledgeAppProjection.$inferSelect | null> {
@@ -114,32 +113,32 @@ async function getFabricRow(
 }
 
 /**
- * Merge kernel item with its strategy fabric extension row.
+ * Merge canonical item fields with app projection fields.
  */
-function mergeWithFabric(
+function mergeWithProjection(
 	item: KnowledgeItem,
-	fabric: typeof knowledgeAppProjection.$inferSelect | null,
-): KnowledgeItemWithFabric {
-	if (!fabric) return item;
+	projection: typeof knowledgeAppProjection.$inferSelect | null,
+): KnowledgeItemWithProjection {
+	if (!projection) return item;
 	return {
 		...item,
-		layer: fabric.layer,
-		scopeId: fabric.scopeId,
-		kind: fabric.kind,
-		attentionScore: fabric.attentionScore,
-		confidence: fabric.confidence,
-		meta: fabric.meta,
+		layer: projection.layer,
+		scopeId: projection.scopeId,
+		kind: projection.kind,
+		attentionScore: projection.attentionScore,
+		confidence: projection.confidence,
+		meta: projection.meta,
 	};
 }
 
 export async function create(
 	db: HyperIdleDb,
 	input: CreateKnowledgeItemInput,
-): Promise<KnowledgeItemWithFabric> {
+): Promise<KnowledgeItemWithProjection> {
 	const id = generateId();
 	const timestamp = now();
 
-	// Insert into kernel table (strategy fields excluded, except scopeKind/scopeId
+	// Insert into canonical table (projection fields excluded, except scopeKind/scopeId
 	// which live on the kernel for efficient scope queries without a JOIN)
 	await db.insert(knowledgeItems).values({
 		id,
@@ -156,7 +155,7 @@ export async function create(
 		updatedAt: timestamp,
 	});
 
-	// Insert into strategy extension table
+	// Insert into app projection table.
 	await db.insert(knowledgeAppProjection).values({
 		id: generateId(),
 		knowledgeItemId: id,
@@ -195,28 +194,28 @@ export async function create(
 	if (!created) {
 		throw new Error(`Failed to read back created knowledge item ${id}`);
 	}
-	const fabricRow = await getFabricRow(db, id);
-	return mergeWithFabric(created, fabricRow);
+	const projectionRow = await getProjectionRow(db, id);
+	return mergeWithProjection(created, projectionRow);
 }
 
 export async function getById(
 	db: HyperIdleDb,
 	id: string,
-): Promise<KnowledgeItemWithFabric | null> {
+): Promise<KnowledgeItemWithProjection | null> {
 	const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 	if (!item) return null;
-	const fabricRow = await getFabricRow(db, id);
-	return mergeWithFabric(item, fabricRow);
+	const projectionRow = await getProjectionRow(db, id);
+	return mergeWithProjection(item, projectionRow);
 }
 
 /**
  * Allow-list of caller-mutable fields for the kernel table.
- * @lore O2: Strategy fields (layer, scopeId, kind, attentionScore, confidence, meta)
- * are removed from the kernel EDITABLE_FIELDS and written to the extension table instead.
+ * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
+ * are removed from canonical EDITABLE_FIELDS and written to the extension table instead.
  */
 const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
 
-const FABRIC_EDITABLE_FIELDS = [
+const PROJECTION_EDITABLE_FIELDS = [
 	"layer",
 	"scopeId",
 	"kind",
@@ -227,20 +226,20 @@ const FABRIC_EDITABLE_FIELDS = [
 
 interface DiffResult {
 	readonly kernelChanges: Record<string, unknown>;
-	readonly fabricChanges: Record<string, unknown>;
+	readonly projectionChanges: Record<string, unknown>;
 	readonly editLogEntries: ReadonlyArray<typeof knowledgeEditLog.$inferInsert>;
 }
 
 /** Build the safe-changes payload + per-field edit-log rows. */
 function buildDiff(
 	itemId: string,
-	existing: KnowledgeItemWithFabric,
+	existing: KnowledgeItemWithProjection,
 	changes: UpdateKnowledgeItemInput,
 	timestamp: string,
 ): DiffResult {
 	const editLogEntries: Array<typeof knowledgeEditLog.$inferInsert> = [];
 	const kernelChanges: Record<string, unknown> = {};
-	const fabricChanges: Record<string, unknown> = {};
+	const projectionChanges: Record<string, unknown> = {};
 
 	for (const field of KERNEL_EDITABLE_FIELDS) {
 		if (!(field in changes) || changes[field] === undefined) continue;
@@ -260,12 +259,12 @@ function buildDiff(
 		});
 	}
 
-	for (const field of FABRIC_EDITABLE_FIELDS) {
+	for (const field of PROJECTION_EDITABLE_FIELDS) {
 		if (!(field in changes) || changes[field] === undefined) continue;
 		const oldVal = existing[field];
 		const newVal = changes[field];
 		// Store numeric fields as strings in the extension table
-		fabricChanges[field] =
+		projectionChanges[field] =
 			field === "attentionScore" || field === "confidence"
 				? newVal != null
 					? String(newVal)
@@ -284,7 +283,7 @@ function buildDiff(
 		});
 	}
 
-	return { kernelChanges, fabricChanges, editLogEntries };
+	return { kernelChanges, projectionChanges, editLogEntries };
 }
 
 export async function update(
@@ -292,11 +291,11 @@ export async function update(
 	id: string,
 	changes: UpdateKnowledgeItemInput,
 	expectedVersion: number,
-): Promise<KnowledgeItemWithFabric> {
+): Promise<KnowledgeItemWithProjection> {
 	// @lore N1/O2: PGlite uses async transactions. The transaction callback must
 	// be async. All inner DB calls are awaited.
 	const result = await db.transaction(
-		async (tx): Promise<{ updated: KnowledgeItemWithFabric; newVersion: number }> => {
+		async (tx): Promise<{ updated: KnowledgeItemWithProjection; newVersion: number }> => {
 			const [existing] = await tx
 				.select()
 				.from(knowledgeItems)
@@ -310,18 +309,18 @@ export async function update(
 				throw new VersionConflictError(id, existing.version);
 			}
 
-			const [fabricRow] = await tx
+			const [projectionRow] = await tx
 				.select()
 				.from(knowledgeAppProjection)
 				.where(eq(knowledgeAppProjection.knowledgeItemId, id))
 				.limit(1);
-			const existingWithFabric = mergeWithFabric(existing, fabricRow ?? null);
+			const existingWithProjection = mergeWithProjection(existing, projectionRow ?? null);
 
 			const timestamp = now();
 			const newVersion = existing.version + 1;
-			const { kernelChanges, fabricChanges, editLogEntries } = buildDiff(
+			const { kernelChanges, projectionChanges, editLogEntries } = buildDiff(
 				id,
-				existingWithFabric,
+				existingWithProjection,
 				changes,
 				timestamp,
 			);
@@ -346,24 +345,24 @@ export async function update(
 				throw new VersionConflictError(id, current.version);
 			}
 
-			// Update extension table if there are fabric changes
-			if (Object.keys(fabricChanges).length > 0) {
-				const [existingFabric] = await tx
+			// Update extension table if there are projection changes.
+			if (Object.keys(projectionChanges).length > 0) {
+				const [existingProjection] = await tx
 					.select({ id: knowledgeAppProjection.id })
 					.from(knowledgeAppProjection)
 					.where(eq(knowledgeAppProjection.knowledgeItemId, id))
 					.limit(1);
-				if (existingFabric) {
+				if (existingProjection) {
 					await tx
 						.update(knowledgeAppProjection)
-						.set(fabricChanges)
+						.set(projectionChanges)
 						.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 				} else {
 					// Create extension row if it doesn't exist
 					await tx.insert(knowledgeAppProjection).values({
 						id: generateId(),
 						knowledgeItemId: id,
-						...fabricChanges,
+						...projectionChanges,
 					});
 				}
 			}
@@ -381,12 +380,12 @@ export async function update(
 			if (!updated) {
 				throw new Error(`Failed to read back updated knowledge item ${id}`);
 			}
-			const [updatedFabric] = await tx
+			const [updatedProjection] = await tx
 				.select()
 				.from(knowledgeAppProjection)
 				.where(eq(knowledgeAppProjection.knowledgeItemId, id))
 				.limit(1);
-			return { updated: mergeWithFabric(updated, updatedFabric ?? null), newVersion };
+			return { updated: mergeWithProjection(updated, updatedProjection ?? null), newVersion };
 		},
 	);
 
@@ -403,17 +402,17 @@ export async function update(
 export async function list(
 	db: HyperIdleDb,
 	filters: ListFilters = {},
-): Promise<KnowledgeItemWithFabric[]> {
-	// For filters on strategy fields (layer, scopeId, kind), we need to JOIN with
+): Promise<KnowledgeItemWithProjection[]> {
+	// For filters on projection fields (layer, scopeId, kind), we need to JOIN with
 	// the extension table. Start with a base query that always includes the JOIN.
-	const hasStrategyFilter =
+	const hasProjectionFilter =
 		filters.layer !== undefined || filters.scopeId !== undefined || filters.kind !== undefined;
 
 	const limit = filters.limit ?? 50;
 	const offset = filters.offset ?? 0;
 
-	if (!hasStrategyFilter) {
-		// Simple case: no strategy filters — just query kernel table
+	if (!hasProjectionFilter) {
+		// Simple case: no projection filters — just query canonical table.
 		const kernelConditions = [];
 		if (filters.topic !== undefined) {
 			kernelConditions.push(eq(knowledgeItems.topic, filters.topic));
@@ -425,17 +424,17 @@ export async function list(
 		}
 		const rows = await query.limit(limit).offset(offset);
 
-		const result: KnowledgeItemWithFabric[] = [];
+		const result: KnowledgeItemWithProjection[] = [];
 		for (const item of rows) {
-			const fabric = await getFabricRow(db, item.id);
-			result.push(mergeWithFabric(item, fabric));
+			const projection = await getProjectionRow(db, item.id);
+			result.push(mergeWithProjection(item, projection));
 		}
 		return result;
 	}
 
-	// Strategy filters: JOIN with extension table
-	// @lore O2: strategy filter queries must JOIN with knowledgeAppProjection.
-	// The JOIN is INNER (not LEFT) when strategy fields are required filters,
+	// Projection filters: JOIN with extension table.
+	// @lore O2: projection filter queries must JOIN with knowledgeAppProjection.
+	// The JOIN is INNER (not LEFT) when projection fields are required filters,
 	// so items without extension rows are excluded from filtered results.
 	const conditions: ReturnType<typeof eq>[] = [];
 
@@ -453,7 +452,7 @@ export async function list(
 	}
 
 	const rows = await db
-		.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
+		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 		.from(knowledgeItems)
 		.innerJoin(
 			knowledgeAppProjection,
@@ -463,26 +462,26 @@ export async function list(
 		.limit(limit)
 		.offset(offset);
 
-	return rows.map(({ item, fabric }) => mergeWithFabric(item, fabric));
+	return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 }
 
 export async function search(
 	db: HyperIdleDb,
 	query: string,
 	options: FtsSearchOptions = {},
-): Promise<KnowledgeItemWithFabric[]> {
+): Promise<KnowledgeItemWithProjection[]> {
 	const ids = await ftsSearch(db, query, options);
 	if (ids.length === 0) {
 		return [];
 	}
 
 	// Fetch items in the order returned by FTS (ranked by relevance)
-	const items: KnowledgeItemWithFabric[] = [];
+	const items: KnowledgeItemWithProjection[] = [];
 	for (const id of ids) {
 		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 		if (item) {
-			const fabric = await getFabricRow(db, id);
-			items.push(mergeWithFabric(item, fabric));
+			const projection = await getProjectionRow(db, id);
+			items.push(mergeWithProjection(item, projection));
 		}
 	}
 

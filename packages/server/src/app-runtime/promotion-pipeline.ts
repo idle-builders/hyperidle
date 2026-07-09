@@ -9,7 +9,7 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
-import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 // --- Constants ---
 
@@ -125,12 +125,12 @@ function parseMeta(raw: string | null): ParsedMeta {
  * behavior, add it as an explicit option rather than flipping the
  * default back.
  *
- * @lore O2: layer and kind are now in the fabric extension table; the
- * function accepts KnowledgeItemWithFabric (optional strategy fields).
- * Items missing a fabric row have layer=null and kind=null, meaning
+ * @lore O2: layer and kind are now in the projection table; the
+ * function accepts KnowledgeItemWithProjection (optional projection fields).
+ * Items missing a projection row have layer=null and kind=null, meaning
  * they form their own degenerate signature group.
  */
-function signatureFor(item: Pick<KnowledgeItemWithFabric, "layer" | "topic" | "kind">): {
+function signatureFor(item: Pick<KnowledgeItemWithProjection, "layer" | "topic" | "kind">): {
 	layer: string | null;
 	topic: string | null;
 	kind: string | null;
@@ -169,8 +169,8 @@ export async function checkAutoPromotion(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): Promise<AutoPromotionResult> {
-	// @lore O2: strategy fields (layer, kind, scopeId) are in knowledgeAppProjection.
-	// We LEFT JOIN to get both kernel and fabric columns together.
+	// @lore O2: projection fields (layer, kind, scopeId) are in knowledgeAppProjection.
+	// We LEFT JOIN to get both kernel and projection columns together.
 	const [subjectRow] = await db
 		.select({
 			item: knowledgeItems,
@@ -184,7 +184,7 @@ export async function checkAutoPromotion(
 		return { shouldPromote: false, reason: "NOT_FOUND", distinctScopes: 0 };
 	}
 
-	const subject: KnowledgeItemWithFabric = {
+	const subject: KnowledgeItemWithProjection = {
 		...subjectRow.item,
 		layer: subjectRow.fabric?.layer ?? null,
 		scopeId: subjectRow.fabric?.scopeId ?? null,
@@ -295,7 +295,7 @@ export async function detectLayerContradiction(
 	const subjectTopic = subjectRow.item.topic;
 
 	// Find L4 principles on the same topic.
-	// @lore O2: JOIN with fabric to filter by layer and kind from the extension table.
+	// @lore O2: JOIN with app projection to filter by layer and kind from the extension table.
 	const principleRows = await db
 		.select({
 			item: knowledgeItems,
@@ -560,7 +560,7 @@ export async function runStaleSweep(
  *
  * @lore G3 gate parity: this function duplicates the gate logic from
  * `packages/server/src/tools/promote-knowledge.ts` intentionally —
- * promote-knowledge is a server-layer tool and the fabric layer must not
+ * promote-knowledge is a server-layer tool and the app-runtime layer must not
  * import from server. The transaction shape and CONFLICT_OPEN gate must
  * stay in lockstep; any change to one requires the corresponding change
  * here.

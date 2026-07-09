@@ -1,4 +1,4 @@
-import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { communityForRole } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { enforceBudget, type ScoredItem } from "./token-budget.js";
@@ -9,9 +9,9 @@ const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 /**
  * Extract tags from a knowledge item's topic and JSON meta.tags fields.
  *
- * @lore O2: meta field moved to knowledgeAppProjection; accepts KnowledgeItemWithFabric.
+ * @lore O2: meta field moved to knowledgeAppProjection; accepts KnowledgeItemWithProjection.
  */
-function extractItemTags(item: KnowledgeItemWithFabric): string[] {
+function extractItemTags(item: KnowledgeItemWithProjection): string[] {
 	const tags: string[] = [];
 	if (item.topic) {
 		tags.push(item.topic.toLowerCase());
@@ -41,7 +41,7 @@ function extractItemTags(item: KnowledgeItemWithFabric): string[] {
  * Compute tag match factor (0-1).
  * Compares taskTags against item topic and meta.tags.
  */
-function computeTagMatch(item: KnowledgeItemWithFabric, taskTags: string[]): number {
+function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]): number {
 	if (taskTags.length === 0) {
 		return 0;
 	}
@@ -66,7 +66,7 @@ function computeTagMatch(item: KnowledgeItemWithFabric, taskTags: string[]): num
 }
 
 /** Compute role match factor (0 or 1). */
-function computeRoleMatch(item: KnowledgeItemWithFabric, agentRole: string): number {
+function computeRoleMatch(item: KnowledgeItemWithProjection, agentRole: string): number {
 	const community = communityForRole(agentRole);
 	const scopeId = item.scopeId ?? null;
 	if (scopeId === community) {
@@ -80,7 +80,7 @@ function computeRoleMatch(item: KnowledgeItemWithFabric, agentRole: string): num
 }
 
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
-function computeRecency(item: KnowledgeItemWithFabric, now: number): number {
+function computeRecency(item: KnowledgeItemWithProjection, now: number): number {
 	const updatedAt = new Date(item.updatedAt).getTime();
 	const age = now - updatedAt;
 
@@ -94,8 +94,8 @@ function computeRecency(item: KnowledgeItemWithFabric, now: number): number {
 	return 1 - age / RECENCY_WINDOW_MS;
 }
 
-/** Compute confidence factor (0-1). Confidence stored as string in fabric table. */
-function computeConfidence(item: KnowledgeItemWithFabric): number {
+/** Compute confidence factor (0-1). Confidence stored as string in projection table. */
+function computeConfidence(item: KnowledgeItemWithProjection): number {
 	// @lore O2: confidence moved to knowledgeAppProjection as text column.
 	// Parse to float; clamp to [0,1].
 	if (item.confidence == null) {
@@ -116,9 +116,9 @@ function computeConfidence(item: KnowledgeItemWithFabric): number {
  * Items closer to task context (lower layers) score higher for task work.
  * L0 (session) and L1 (task) are closest, L4 (factory) is furthest but always included.
  *
- * @lore O2: layer field is now optional (from fabric extension table).
+ * @lore O2: layer field is now optional (from projection table).
  */
-function computeLayerProximity(item: KnowledgeItemWithFabric): number {
+function computeLayerProximity(item: KnowledgeItemWithProjection): number {
 	const layerScores: Record<string, number> = {
 		L0: 1.0,
 		L1: 0.9,
@@ -129,8 +129,8 @@ function computeLayerProximity(item: KnowledgeItemWithFabric): number {
 	return layerScores[item.layer ?? ""] ?? 0;
 }
 
-/** Compute attention score factor (0-1). attentionScore stored as string in fabric table. */
-function computeAttentionScore(item: KnowledgeItemWithFabric): number {
+/** Compute attention score factor (0-1). attentionScore stored as string in projection table. */
+function computeAttentionScore(item: KnowledgeItemWithProjection): number {
 	// @lore O2: attentionScore moved to knowledgeAppProjection as text column.
 	if (item.attentionScore == null) {
 		return 0.5; // neutral default
@@ -146,7 +146,7 @@ function computeAttentionScore(item: KnowledgeItemWithFabric): number {
 
 /** Score a single knowledge item against the given context. Returns 0-100. */
 export function scoreItem(
-	item: KnowledgeItemWithFabric,
+	item: KnowledgeItemWithProjection,
 	context: ScoringContext,
 	weights: ScoringWeights,
 	now?: number,
@@ -190,16 +190,16 @@ export function scoreItem(
  * Returns the top-scoring items that fit within the budget.
  */
 export function rankAndBudget(
-	items: KnowledgeItemWithFabric[],
+	items: KnowledgeItemWithProjection[],
 	context: ScoringContext,
 	weights: ScoringWeights,
 	budgetTokens: number,
 	now?: number,
-): KnowledgeItemWithFabric[] {
+): KnowledgeItemWithProjection[] {
 	const scored: ScoredItem[] = items.map((item) => ({
 		item,
 		score: scoreItem(item, context, weights, now),
 	}));
 
-	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithFabric[];
+	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithProjection[];
 }

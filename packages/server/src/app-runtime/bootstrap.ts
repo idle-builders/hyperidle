@@ -34,20 +34,20 @@ const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 
 /**
- * Wire all strategy-layer event-bus handlers and return their disposers.
+ * Wire all app-runtime event-bus handlers and return their disposers.
  *
  * Called by the production entry point via
- * `createApp({ strategyBootstrap: bootstrapFabric })`.
- * Kernel-only tests pass `strategyBootstrap: undefined` to skip strategy
+ * `createApp({ appBootstrap: bootstrapAppRuntime })`.
+ * App-lite tests pass `appBootstrap: undefined` to skip app-runtime
  * wiring entirely.
  *
  * @lore O3: The notification adapter factory and git runner factory are
  * internalized here with defaults (read from factory_settings at runtime).
- * Tests that need custom adapters construct their own strategyBootstrap
+ * Tests that need custom adapters construct their own appBootstrap
  * function that calls individual register* functions with custom factories.
  *
  * @lore R8: readAlertPreferences is injected from the server layer via the
- * bootstrap context so fabric does not depend on server. Server-factory.ts
+ * bootstrap context so app-runtime services do not read server config directly. Server-factory.ts
  * provides the implementation backed by readServerConfig(db). Fail-open: if
  * not provided, the dispatcher defaults to all-alerts-ON.
  */
@@ -61,12 +61,12 @@ export function bootstrapAppRuntime(ctx: {
 	 *
 	 * Contains the adapter pool, workspace adapter, workspace base path, and
 	 * optional resolveModel callback. These are omitted from the context type
-	 * here (passed as-is) to avoid fabric depending on server types.
+	 * here (passed as-is) to avoid app-runtime depending on server harness types.
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	/**
 	 * AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s.
-	 * Tests pass a small value. Does NOT widen the strategyBootstrap type —
+	 * Tests pass a small value. Does NOT widen the appBootstrap type —
 	 * server-factory constructs the ctx inline.
 	 */
 	readonly routinePollIntervalMs?: number;
@@ -93,7 +93,7 @@ export function bootstrapAppRuntime(ctx: {
 	});
 
 	// AF9 Task 1: wire the access→relevance subscriber.
-	// @lore AF9: viewing a knowledge item now materialises a fabric row as a
+	// @lore AF9: viewing a knowledge item now materialises a projection row as a
 	// side effect of the GET — this is the first time recomputeScores runs on
 	// the live read path (not just in tests). The subscriber is async
 	// fire-and-forget; the synchronous event bus invokes the handler wrapper
@@ -141,7 +141,7 @@ export function bootstrapAppRuntime(ctx: {
 		// AF7 §6 (Z8-039): TTL workspace reaper. Reclaims terminal/orphan workspace
 		// dirs older than the TTL, preserving active dirs and the crash post-mortem
 		// window. sandboxBasePath comes from dispatcherDeps (already in scope at
-		// the boot path) — fabric takes it as data, not a server fs import.
+		// the boot path) — app-runtime takes it as data, not a server fs import.
 		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
 	}
 

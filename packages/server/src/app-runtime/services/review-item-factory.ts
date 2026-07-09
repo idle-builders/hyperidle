@@ -8,7 +8,7 @@ export const ATTENTION_REVIEW_SOURCE = "attention_engine";
 /** Input for creating a review `items` row tied to a knowledge item. */
 export interface CreateReviewItemForKnowledgeInput {
 	readonly knowledgeItemId: string;
-	/** @lore O2: layer comes from knowledgeAppProjection and may be null when no fabric row exists. */
+	/** @lore O2: layer comes from knowledgeAppProjection and may be null when no projection row exists. */
 	readonly layer: string | null;
 	readonly title: string;
 	readonly body: string;

@@ -1,5 +1,12 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { IngestionHandle, UserRole } from "@hyperidle/shared";
+import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
+	IngestionHandle,
+	UserRole,
+} from "@hyperidle/shared";
 import { assembleContext } from "../../app-runtime/context-assembly.js";
 import { startWatcher } from "../../app-runtime/file-watcher.js";
 
@@ -12,6 +19,9 @@ export interface AssembleAgentContextInput {
 	readonly agentRole: UserRole;
 	readonly teamId: string | null;
 	readonly isRoutine: boolean;
+	readonly sourceKind: AgentSessionSourceKind | null;
+	readonly sourceId: string | null;
+	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 }
 
 export interface AgentContextAssemblyOutcome {
@@ -27,11 +37,37 @@ export interface AgentWritebackHandle {
 export async function assembleAgentContext(
 	input: AssembleAgentContextInput,
 ): Promise<AgentContextAssemblyOutcome> {
+	const manifestPath = path.join(input.sandboxPath, ".fabric/manifest.json");
 	if (!input.taskId) {
+		fs.mkdirSync(path.join(input.sandboxPath, ".fabric"), { recursive: true });
+		fs.mkdirSync(path.join(input.sandboxPath, "context"), { recursive: true });
+		fs.writeFileSync(
+			path.join(input.sandboxPath, "context/session.toon"),
+			[
+				`session_id: ${input.sessionId}`,
+				`source_kind: ${input.sourceKind ?? "task-free"}`,
+				`source_id: ${input.sourceId ?? ""}`,
+				`agent_id: ${input.agentId}`,
+				`team_id: ${input.teamId ?? ""}`,
+				`correlation_json: ${JSON.stringify(input.sourceCorrelation ?? {})}`,
+			].join("\n"),
+		);
+		fs.writeFileSync(
+			manifestPath,
+			JSON.stringify(
+				{
+					session_id: input.sessionId,
+					assembled_at: new Date().toISOString(),
+					items: {},
+				},
+				null,
+				2,
+			),
+		);
 		return {
 			itemCount: 0,
 			durationMs: 0,
-			manifestPath: `${input.sandboxPath}/.fabric/manifest.json`,
+			manifestPath,
 		};
 	}
 	const result = await assembleContext(input.db, {
@@ -45,7 +81,7 @@ export async function assembleAgentContext(
 	return {
 		itemCount: result.itemCount,
 		durationMs: result.durationMs,
-		manifestPath: `${input.sandboxPath}/.fabric/manifest.json`,
+		manifestPath,
 	};
 }
 

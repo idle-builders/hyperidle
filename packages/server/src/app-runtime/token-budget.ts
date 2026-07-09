@@ -1,5 +1,5 @@
 import type { KnowledgeItem } from "@hyperidle/db";
-import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 /** Approximate token count via whitespace split. */
 export function countTokens(text: string): number {
@@ -15,7 +15,7 @@ export function countItemTokens(item: KnowledgeItem): number {
 }
 
 export interface ScoredItem {
-	item: KnowledgeItemWithFabric;
+	item: KnowledgeItemWithProjection;
 	score: number;
 }
 
@@ -24,20 +24,20 @@ export interface ScoredItem {
  * L4 (factory) items are always included first as non-negotiable context.
  * Returns items sorted by score descending, within budget.
  *
- * @lore O2: layer moved to knowledgeAppProjection; items without a fabric row
+ * @lore O2: layer moved to knowledgeAppProjection; items without a projection row
  * have layer=undefined/null and are treated as non-L4 (not always included).
  */
 export function enforceBudget(
 	scoredItems: ScoredItem[],
 	maxTokens: number,
-): KnowledgeItemWithFabric[] {
+): KnowledgeItemWithProjection[] {
 	// Separate L4 items (non-negotiable) from the rest
 	const l4Items: ScoredItem[] = [];
 	const otherItems: ScoredItem[] = [];
 
 	for (const si of scoredItems) {
-		// @lore O2: layer is optional on KnowledgeItemWithFabric
-		if ((si.item as KnowledgeItemWithFabric).layer === "L4") {
+		// @lore O2: layer is optional on KnowledgeItemWithProjection
+		if ((si.item as KnowledgeItemWithProjection).layer === "L4") {
 			l4Items.push(si);
 		} else {
 			otherItems.push(si);
@@ -48,7 +48,7 @@ export function enforceBudget(
 	l4Items.sort((a, b) => b.score - a.score);
 	otherItems.sort((a, b) => b.score - a.score);
 
-	const result: KnowledgeItemWithFabric[] = [];
+	const result: KnowledgeItemWithProjection[] = [];
 	let usedTokens = 0;
 
 	// Include all L4 items first (non-negotiable)

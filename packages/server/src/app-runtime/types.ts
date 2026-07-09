@@ -83,7 +83,7 @@ export type KnowledgeKind =
 /**
  * @deprecated Q2: Use `ScopeKind` from `@hyperidle/shared` instead. `KnowledgeScope`
  * predates the Q2 scope model and covers only three of the seven scope kinds.
- * Kept for backwards compatibility with pre-Q2 fabric code; do not use in new code.
+ * Kept for backwards compatibility with pre-AU3 runtime code; do not use in new code.
  */
 export const KNOWLEDGE_SCOPES = ["practice", "product", "factory"] as const;
 /** @deprecated Use `ScopeKind` from `@hyperidle/shared`. See `KNOWLEDGE_SCOPES`. */

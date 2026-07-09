@@ -8,16 +8,15 @@
  * The queue is not durable — the startup sweep re-populates it from DB state
  * on each registration. Source of truth is the tasks table, not this queue.
  *
- * @lore AD2: Lives in @hyperidle/fabric (strategy layer) following the pattern
+ * @lore AD2: Lives in legacy runtime package (app runtime) following the pattern
  * of lifecycle-propagation, session-review-creator, and notification-dispatcher.
- * The dispatcher defines its own TaskDispatcherDeps interface so fabric does not
- * statically import from @hyperidle/server (which would create a circular dep
- * since server depends on fabric).
+ * The dispatcher defines its own TaskDispatcherDeps interface so the service
+ * stays decoupled from concrete server harness types.
  *
  * @lore AD2/AU1: the runtime request creator/consumer are resolved via the
  * provision-registry.ts leaf module (a dependency-free singleton). The dynamic
  * import() approach was tried first but fails in Vite SSR tests with a TDZ error
- * due to the circular dep server→fabric→server. The registry pattern breaks the
+ * due to module initialization order. The registry pattern breaks the
  * cycle: both server and the test file can import the leaf module and register
  * the functions before any dispatch runs. See provision-registry.ts for the full
  * explanation.
@@ -44,20 +43,20 @@ import {
 } from "./provision-registry.js";
 
 // ---------------------------------------------------------------------------
-// Simple inline logger (observability adapter not yet available in fabric)
+// Simple inline logger (observability adapter not yet available here)
 // ---------------------------------------------------------------------------
 
 const logger = {
 	info: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: strategy-layer dispatcher, observability adapter not yet stood up
+		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
 		console.info(`[task-dispatcher] ${msg}`, ctx ?? "");
 	},
 	error: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: strategy-layer dispatcher, observability adapter not yet stood up
+		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
 		console.error(`[task-dispatcher] ${msg}`, ctx ?? "");
 	},
 	warn: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: strategy-layer dispatcher, observability adapter not yet stood up
+		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
 		console.warn(`[task-dispatcher] ${msg}`, ctx ?? "");
 	},
 };
@@ -68,20 +67,19 @@ const logger = {
 
 /**
  * Dependencies for the task dispatcher. Structurally compatible with what
- * runtime consumption needs, but defined here so fabric does not statically
- * import from @hyperidle/server.
+ * runtime consumption needs, while avoiding concrete harness imports here.
  *
  * adapterPool and workspace are typed as `unknown` here; the dispatcher passes
  * them through to the runtime consumer, which knows their concrete types. The
  * structural typing works because server constructs the real instances and passes
- * them; fabric only stores and forwards them.
+ * them; the dispatcher only stores and forwards them.
  */
 export interface TaskDispatcherDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary — fabric cannot statically depend on server types
+	// biome-ignore lint/suspicious/noExplicitAny: structural typing keeps dispatcher decoupled from server harness types
 	readonly adapterPool: any;
-	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary — fabric cannot statically depend on server types
+	// biome-ignore lint/suspicious/noExplicitAny: structural typing keeps dispatcher decoupled from server harness types
 	readonly workspace: any;
 	readonly sandboxBasePath: string;
 	/**
@@ -120,7 +118,7 @@ export interface TaskDispatcherDeps {
 	 * the load-bearing artifact proof for the dispatch→provision real-agent AC2 test.
 	 * Observer fires BEFORE teardown deletes the sandbox (not disabling teardown).
 	 */
-	// biome-ignore lint/suspicious/noExplicitAny: BeforeTeardownContext type lives in server — fabric passes opaquely
+	// biome-ignore lint/suspicious/noExplicitAny: BeforeTeardownContext type lives in server; dispatcher passes opaquely
 	readonly onBeforeTeardown?: (ctx: any) => Promise<void>;
 }
 
@@ -137,7 +135,7 @@ export interface DispatchQueueEntry {
 	 *
 	 * @lore AL7 Task 6: sessionWorkflow is derived at drain time (not at enqueue time)
 	 * because the DB import is already available in drainQueue and the RegistrySessionWorkflow
-	 * type is server-side — fabric passes it through opaquely via runtime params.
+	 * type is server-side; dispatcher passes it through opaquely via runtime params.
 	 */
 	readonly proposedCallId?: string;
 }
@@ -180,7 +178,7 @@ let currentGeneration = 0;
  * @lore AD2: The original approach used `await import("@hyperidle/server/...")`.
  * This fails in Vite SSR test mode because the dynamic import triggers Vite's
  * module transform pipeline, which creates a TDZ circular reference when
- * session-provisioning imports @hyperidle/fabric back. The registry pattern
+ * session-provisioning imports legacy runtime package back. The registry pattern
  * (provision-registry.ts) breaks the cycle: task-dispatcher imports a leaf
  * module; the server and test files register the real function before dispatch
  * runs. See provision-registry.ts for the full explanation.

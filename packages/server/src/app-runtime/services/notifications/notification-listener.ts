@@ -17,7 +17,7 @@
  * If item.threadId is null, we fall back to "/conversations" (queue) rather than
  * emitting a broken link.
  *
- * @lore AF8: The listener is registered in bootstrapFabric alongside the existing
+ * @lore AF8: The listener is registered in bootstrapAppRuntime alongside the existing
  * registerNotificationDispatcher. Both subscribe to "notification" but serve
  * different purposes: the dispatcher handles egress delivery (push/email); the
  * listener populates the in-app notification store (typeKey/urgency/sourceLink).

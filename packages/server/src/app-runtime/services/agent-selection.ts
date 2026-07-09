@@ -1,8 +1,7 @@
 /**
- * AK7: Fabric-side selection implementation.
+ * AK7: app-owned selection implementation.
  *
- * selectAgentFabric is the Fabric's implementation of the Strategy Port's
- * selectAgent method, delegated from fabricStrategy.selectAgent.
+ * selectAgentByAppDefaults implements app-owned agent selection defaults.
  *
  * Per-surface behaviour (architecture §6.2):
  *   bet_decomposer  — role-match PM on candidates; else candidates[0]; else null.
@@ -12,7 +11,7 @@
  *                      userSkills-scoped query verbatim (concept §3a carve-out):
  *                      same population, same order, same WIP fallback.
  *
- * @lore AK7: selectAgentFabric is a pure function for bet_* surfaces (takes
+ * @lore AK7: selectAgentByAppDefaults is a pure function for bet_* surfaces (takes
  * candidates + spreadIndex; no DB query). For routine_delegate it queries DB.
  * The candidate source is surface-specific by design (concept §3a): bet_* picks
  * from a Kernel-enumerated team roster; routine_delegate runs its own system-wide
@@ -45,7 +44,7 @@ async function getActiveSessionCount(db: HyperIdleDb, agentId: string): Promise<
  * Exported so routine-scheduler.ts can continue to call isAgentAtWipLimit via this module.
  *
  * @lore AK7: This is the verbatim body of the private isAgentAtWipLimit in
- * routine-scheduler.ts — relocated here so selectAgentFabric owns the routine_delegate
+ * routine-scheduler.ts — relocated here so selectAgentByAppDefaults owns the routine_delegate
  * branch without a circular import.
  */
 export async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promise<boolean> {
@@ -66,7 +65,7 @@ export async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promi
  * Returns the first non-owner, non-WIP candidate's userId; else null.
  *
  * @lore AK7 §5.3 / concept §3a: This is byte-identical to the pre-AK7 findDelegate
- * in routine-scheduler.ts:245-263. The function MOVED here (caller→Fabric selectAgent)
+ * in routine-scheduler.ts:245-263. The function moved here behind app-owned selection
  * but did NOT CHANGE. The population, order, WIP-fallback, and null-on-none semantics
  * are preserved exactly. routine_delegate ignores `candidates` entirely.
  */
@@ -91,16 +90,16 @@ async function findDelegateVerbatim(
 }
 
 // ---------------------------------------------------------------------------
-// selectAgentFabric — the Strategy Port implementation
+// selectAgentByAppDefaults — the app defaults contract implementation
 // ---------------------------------------------------------------------------
 
 /**
- * AK7: Fabric-side selection. Delegated from fabricStrategy.selectAgent.
+ * AK7: app-owned selection.
  *
  * Never throws for missing candidates — returns { agentId: null } to signal
  * "no agent" (the Kernel takes the no-agent path).
  */
-export async function selectAgentFabric(
+export async function selectAgentByAppDefaults(
 	req: SelectAgentRequest<HyperIdleDb>,
 ): Promise<SelectAgentOutcome> {
 	switch (req.surface) {
@@ -132,7 +131,7 @@ export async function selectAgentFabric(
 
 		case "routine_delegate": {
 			// Ignores candidates (always []). Runs findDelegate's exact userSkills query.
-			// @lore AK7 §5.3: routine_delegate is Fabric-internal. The call site
+			// @lore AK7 §5.3: routine_delegate is owned by app-runtime. The call site
 			// (routine-scheduler.ts) passes skillId and excludeAgentId; teamId is null.
 			if (!(req.skillId && req.excludeAgentId)) {
 				return { agentId: null };

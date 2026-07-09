@@ -132,9 +132,9 @@ export interface DispatcherDeps {
 	 * throws, the dispatcher defaults to all-alerts-ON.
 	 *
 	 * @lore R8: Option A from the architecture plan — inject readAlertPreferences
-	 * via DispatcherDeps so fabric does not read server_config directly (avoiding
+	 * via DispatcherDeps so app-runtime does not read server_config directly (avoiding
 	 * a dependency inversion violation). The server package provides the
-	 * implementation in bootstrapFabric via readServerConfig(db).
+	 * implementation in bootstrapAppRuntime via readServerConfig(db).
 	 */
 	readAlertPreferences?: () => Promise<AlertPreferences>;
 }

@@ -82,7 +82,7 @@ const VALID_TASK_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
  * Transition a task to a new state with DB update and event emission.
  *
  * @lore O3: This is an inlined copy of transitionTask from task-state-machine.ts
- * (kernel). It cannot be imported from the kernel package because fabric must
+ * (kernel). It cannot be imported from the kernel package because app-runtime must
  * never import from the server kernel package. The logic is identical; any future
  * changes to the kernel transitionTask must be mirrored here.
  * See architecture-critique.md CRITICAL finding.

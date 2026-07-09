@@ -1,46 +1,67 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
 	agentSessionRequests,
 	bets,
 	messages,
+	routines,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
+import {
+	type AgentSessionRequestInput,
+	type DomainEvent,
+	EventBus,
+	type HarnessAdapter,
+	type HarnessCapabilities,
+	type HarnessEvent,
+	type SessionConfig,
+	type SessionHandle,
+	type SessionResult,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
-import type { AdapterPool } from "../../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../../harness/sandbox-adapter.js";
+import { afterEach, describe, expect } from "vitest";
+import { AdapterPool } from "../../harness/adapter-pool.js";
+import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
+import { test as fixtureTest } from "../../test-fixtures.js";
 import { createAgentSessionRequest } from "../agent-session-requests.js";
 import { consumeAgentSessionRequest } from "../agent-session-runtime.js";
+import type { ProvisionSessionDeps } from "../session-provisioning.js";
 
-vi.mock("../session-provisioning.js", () => ({
-	admitSession: vi.fn(async (_deps, params) => ({
-		sessionId: `session-${params.requestContext.sourceKind}`,
-		sessionContext: {
-			sessionId: `session-${params.requestContext.sourceKind}`,
-			agentId: params.agentId,
-			taskId: params.taskId,
-			sandboxPath: "/tmp/au3-agent-layer",
-			ingestion: { dispose: vi.fn() },
-			traceId: `trace-${params.requestContext.sourceKind}`,
-			requestContext: params.requestContext,
-		},
-	})),
-	runSession: vi.fn(async (_deps, params) => ({
-		sessionId: `session-${params.requestContext?.sourceKind ?? "direct"}`,
-		outcome: "completed",
-		totalCostCents: 0,
-		taskId: params.taskId,
-		forceReturnCount: 0,
-		conversationalReply: params.conversational ? "reply" : undefined,
-	})),
-}));
+class RecordingHarnessAdapter implements HarnessAdapter {
+	readonly configs: SessionConfig[] = [];
 
-import { test as fixtureTest } from "../../test-fixtures.js";
-import { admitSession, runSession } from "../session-provisioning.js";
+	async startSession(config: SessionConfig): Promise<SessionHandle> {
+		this.configs.push(config);
+		return { sessionId: config.sessionId };
+	}
+
+	async *streamEvents(_handle: SessionHandle): AsyncIterable<HarnessEvent> {
+		yield { type: "completion", text: "done" };
+	}
+
+	async stopSession(_handle: SessionHandle): Promise<SessionResult> {
+		return {
+			outcome: "completed",
+			cost: { minor: 0, currency: "USD" },
+			tokenUsage: { byTier: {} },
+		};
+	}
+
+	getCapabilities(): HarnessCapabilities {
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			modelProviders: ["test"],
+			mcpSupport: false,
+			returnEnforcement: "none",
+		};
+	}
+}
 
 async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Promise<void> {
 	const now = new Date().toISOString();
@@ -58,6 +79,8 @@ async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Pr
 			role: "builder",
 			status: "active",
 			teamId: "tm-au3-agent",
+			harnessType: "recording",
+			modelProvider: "test",
 			createdAt: now,
 		},
 		{
@@ -73,6 +96,7 @@ async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Pr
 		id: "bet-au3-agent",
 		teamId: "team-au3-agent",
 		description: "Agent layer execution",
+		doneCondition: "Tasks exist",
 		status: "active",
 		createdAt: now,
 	});
@@ -85,6 +109,14 @@ async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Pr
 		ownerAgentId: "agent-au3-agent",
 		createdAt: now,
 		updatedAt: now,
+	});
+	await db.insert(routines).values({
+		id: "routine-au3-agent",
+		name: "AU3 routine",
+		ownerAgentId: "agent-au3-agent",
+		teamId: "team-au3-agent",
+		triggerType: "manual",
+		createdAt: now,
 	});
 	await db.insert(threads).values({
 		id: "thread-au3-agent",
@@ -107,36 +139,71 @@ async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Pr
 }
 
 describe("agent session request sources", () => {
-	fixtureTest("all execution sources enter the agent session request consumer", async ({ db }) => {
+	const tmpDirs: string[] = [];
+
+	afterEach(() => {
+		for (const dir of tmpDirs.splice(0)) {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
 		await seedWork(db);
 		const eventBus = new EventBus();
-		const deps = {
+		const events: DomainEvent[] = [];
+		eventBus.on("*", (event) => {
+			events.push(event);
+		});
+		const adapter = new RecordingHarnessAdapter();
+		const adapterPool = new AdapterPool();
+		const capturedContext = new Map<
+			string,
+			{ readonly manifestExists: boolean; readonly sessionContext: string }
+		>();
+		adapterPool.register("recording", adapter, {
+			name: "Recording",
+			kind: "local",
+			type: "recording",
+			modelProviders: ["test"],
+			maxConcurrent: 8,
+		});
+		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "au3-agent-layer-"));
+		tmpDirs.push(sandboxBasePath);
+		const deps: ProvisionSessionDeps = {
 			db,
 			eventBus,
-			adapterPool: {} as AdapterPool,
-			workspace: {} as SandboxAdapter,
+			adapterPool,
+			workspace: new LocalSandboxAdapter(),
+			onBeforeTeardown: async ({ sessionId, sandboxPath }) => {
+				const manifestPath = path.join(sandboxPath, ".fabric", "manifest.json");
+				const contextPath = path.join(sandboxPath, "context", "session.toon");
+				capturedContext.set(sessionId, {
+					manifestExists: fs.existsSync(manifestPath),
+					sessionContext: fs.existsSync(contextPath) ? fs.readFileSync(contextPath, "utf8") : "",
+				});
+			},
 		};
 
 		const sources: AgentSessionRequestInput[] = [
 			{
-				sourceKind: "task" as const,
+				sourceKind: "task",
 				sourceId: "task-au3-agent",
 				streamId: "task:task-au3-agent",
 				taskId: "task-au3-agent",
 				agentId: "agent-au3-agent",
 				teamId: "team-au3-agent",
-				promptMode: "task" as const,
+				promptMode: "task",
 				idempotencyKey: "au3:task",
 				sourceCorrelation: { taskId: "task-au3-agent", teamId: "team-au3-agent" },
 			},
 			{
-				sourceKind: "decomposition" as const,
+				sourceKind: "decomposition",
 				sourceId: "bet-au3-agent",
 				streamId: "bet:bet-au3-agent:decomposition",
 				taskId: null,
 				agentId: "agent-au3-agent",
 				teamId: "team-au3-agent",
-				promptMode: "decomposition" as const,
+				promptMode: "decomposition",
 				idempotencyKey: "au3:decomposition",
 				sourceCorrelation: {
 					betId: "bet-au3-agent",
@@ -145,13 +212,13 @@ describe("agent session request sources", () => {
 				},
 			},
 			{
-				sourceKind: "routine" as const,
+				sourceKind: "routine",
 				sourceId: "routine-run-au3-agent",
 				streamId: "routine:routine-au3-agent",
 				taskId: null,
 				agentId: "agent-au3-agent",
 				teamId: "team-au3-agent",
-				promptMode: "routine" as const,
+				promptMode: "routine",
 				idempotencyKey: "au3:routine",
 				sourceCorrelation: {
 					routineId: "routine-au3-agent",
@@ -160,14 +227,14 @@ describe("agent session request sources", () => {
 				},
 			},
 			{
-				sourceKind: "assistant" as const,
+				sourceKind: "assistant",
 				sourceId: "msg-au3-agent",
 				streamId: "thread:thread-au3-agent",
 				taskId: null,
 				agentId: "agent-au3-agent",
 				teamId: "team-au3-agent",
 				userId: "u-au3-agent",
-				promptMode: "conversation" as const,
+				promptMode: "conversation",
 				idempotencyKey: "au3:assistant",
 				sourceCorrelation: {
 					threadId: "thread-au3-agent",
@@ -180,11 +247,26 @@ describe("agent session request sources", () => {
 
 		for (const source of sources) {
 			const request = await createAgentSessionRequest(db, source);
-			await consumeAgentSessionRequest(deps, request, { sandboxBasePath: "/tmp/au3-agent-layer" });
+			await consumeAgentSessionRequest(deps, request, { sandboxBasePath });
 		}
 
-		expect(admitSession).toHaveBeenCalledTimes(4);
-		expect(runSession).toHaveBeenCalledTimes(4);
+		expect(adapter.configs).toHaveLength(4);
+		const decompositionConfig = adapter.configs.find((config) =>
+			config.assembledPrompt.includes("## Bet decomposition"),
+		);
+		expect(decompositionConfig?.assembledPrompt).toContain("Agent layer execution");
+		expect(decompositionConfig?.assembledPrompt).toContain("Tasks exist");
+		const decompositionContext = capturedContext.get(decompositionConfig?.sessionId ?? "");
+		expect(decompositionContext?.manifestExists).toBe(true);
+		expect(decompositionContext?.sessionContext).toContain("source_kind: decomposition");
+		expect(decompositionContext?.sessionContext).toContain('"betId":"bet-au3-agent"');
+		const started = events.filter((event) => event.type === "session_started");
+		const ended = events.filter((event) => event.type === "session_ended");
+		expect(started).toHaveLength(4);
+		expect(ended).toHaveLength(4);
+		expect(started.some((event) => event.sourceKind === "decomposition")).toBe(true);
+		expect(ended.some((event) => event.sourceKind === "decomposition")).toBe(true);
+
 		const rows = await db.select().from(agentSessionRequests);
 		expect(rows.map((row) => row.status).sort()).toEqual([
 			"completed",
@@ -197,7 +279,7 @@ describe("agent session request sources", () => {
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, row.id));
-			expect(stored?.sessionId).toBe(`session-${row.sourceKind}`);
+			expect(stored?.sessionId).toBeTruthy();
 		}
 	});
 });

@@ -11,7 +11,7 @@ import {
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { isAgentAtWipLimit, selectAgentFabric } from "./agent-selection.js";
+import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
 import {
 	getAgentSessionRequestConsumerFn,
@@ -228,9 +228,9 @@ async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
 
 // --- WIP check + Delegation ---
 // @lore AK7 §8: isAgentAtWipLimit and the findDelegate body have moved to
-// packages/fabric/src/services/agent-selection.ts (selectAgentFabric's routine_delegate
+// packages/server/src/app-runtime/services/agent-selection.ts (selectAgentByAppDefaults's routine_delegate
 // branch). isAgentAtWipLimit is imported from there so the owner-WIP check below
-// continues to work byte-identically. findDelegate is replaced by selectAgentFabric
+// continues to work byte-identically. findDelegate is replaced by selectAgentByAppDefaults
 // at the call site (architecture §5.3 / concept §3a carve-out).
 
 // --- Review item creation ---
@@ -380,12 +380,12 @@ export async function checkAndFireRoutine(
 
 	if (await isAgentAtWipLimit(db, targetAgentId)) {
 		if (routine.delegationAllowed && routine.skillId) {
-			// AK7 §8: selectAgentFabric's routine_delegate branch runs findDelegate's
+			// AK7 §8: selectAgentByAppDefaults's routine_delegate branch runs findDelegate's
 			// exact userSkills-scoped query verbatim (concept §3a carve-out):
 			// system-wide-by-skill, userSkills insertion order, WIP fallback.
 			// No teamId — routine delegation has no team scope (call site has no teamId).
 			// candidates: [] — routine_delegate ignores candidates (its own query).
-			const { agentId: delegate } = await selectAgentFabric({
+			const { agentId: delegate } = await selectAgentByAppDefaults({
 				db,
 				surface: "routine_delegate",
 				teamId: null,

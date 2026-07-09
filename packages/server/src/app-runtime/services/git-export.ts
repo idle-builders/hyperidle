@@ -121,11 +121,11 @@ export function buildCommitMessage(entries: ExportPlanEntry[], trigger: GitExpor
 /**
  * @lore O2: layer/kind/scopeId are now in knowledgeAppProjection, not
  * knowledgeItems. mapRowToEntry takes a combined row with both item and
- * fabric fields so the caller can do one JOIN query and pass results here.
+ * projection fields so the caller can do one JOIN query and pass results here.
  */
 interface JoinedExportRow {
 	item: typeof knowledgeItems.$inferSelect;
-	fabric: typeof knowledgeAppProjection.$inferSelect | null;
+	projection: typeof knowledgeAppProjection.$inferSelect | null;
 }
 
 /**
@@ -137,16 +137,16 @@ interface JoinedExportRow {
 function mapRowToEntry(
 	joined: JoinedExportRow,
 ): ExportPlanEntry | { rejected: true; reason: string } | null {
-	const { item, fabric } = joined;
-	const layer = fabric?.layer ?? null;
+	const { item, projection } = joined;
+	const layer = projection?.layer ?? null;
 	if (!isExportedLayer(layer ?? "")) return null;
 	const exportLayer = layer as "L2" | "L4";
-	const rawKind = fabric?.kind ?? null;
+	const rawKind = projection?.kind ?? null;
 	if (!rawKind) return null;
 	const kind = rawKind.toUpperCase();
 	if (!EXPORTED_KINDS.has(kind)) return null;
 
-	const scopeId = fabric?.scopeId ?? null;
+	const scopeId = projection?.scopeId ?? null;
 
 	let relPath: string;
 	if (exportLayer === "L4") {
@@ -197,19 +197,19 @@ function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
  * only L2/L4 rows with non-archived/non-draft status hit our code.
  *
  * @lore O2: layer/kind/scopeId are now in knowledgeAppProjection. The
- * kernel-layer filter (status) is still on knowledgeItems. The strategy
- * filter (layer=L2|L4) is on the fabric table via an INNER JOIN so items
- * without a fabric row (no layer assigned) are automatically excluded.
+ * kernel-layer filter (status) is still on knowledgeItems. The projection
+ * filter (layer=L2|L4) is on the projection table via an INNER JOIN so items
+ * without a projection row (no layer assigned) are automatically excluded.
  * The status filter is on the kernel table as before.
  */
 export async function computeExportPlan(db: HyperIdleDb): Promise<ExportPlan> {
 	// @lore O2: INNER JOIN with knowledgeAppProjection so only items that
-	// have a fabric row (and thus a layer assignment) are included. Items
-	// without a fabric row have no layer and are not exportable.
+	// have a projection row (and thus a layer assignment) are included. Items
+	// without a projection row have no layer and are not exportable.
 	const rows = await db
 		.select({
 			item: knowledgeItems,
-			fabric: knowledgeAppProjection,
+			projection: knowledgeAppProjection,
 		})
 		.from(knowledgeItems)
 		.innerJoin(
@@ -554,10 +554,10 @@ export function registerGitExportHandler(
 	const handler = (event: KnowledgeUpdatedEvent): void => {
 		if (disposed) return;
 		// @lore O2: layer/kind are in knowledgeAppProjection. LEFT JOIN to
-		// get fabric fields for the updated item; skip if no fabric row.
+		// get projection fields for the updated item; skip if no projection row.
 		void (async () => {
 			const [row] = await db
-				.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
+				.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 				.from(knowledgeItems)
 				.leftJoin(
 					knowledgeAppProjection,
@@ -566,10 +566,10 @@ export function registerGitExportHandler(
 				.where(eq(knowledgeItems.id, event.itemId))
 				.limit(1);
 			if (!row) return;
-			const fabricLayer = row.fabric?.layer ?? null;
-			const fabricKind = row.fabric?.kind ?? null;
-			if (!isExportedLayer(fabricLayer ?? "")) return;
-			if (!(fabricKind && EXPORTED_KINDS.has(fabricKind.toUpperCase()))) return;
+			const projectionLayer = row.projection?.layer ?? null;
+			const projectionKind = row.projection?.kind ?? null;
+			if (!isExportedLayer(projectionLayer ?? "")) return;
+			if (!(projectionKind && EXPORTED_KINDS.has(projectionKind.toUpperCase()))) return;
 
 			const cfg = await loadGitExportConfig(db);
 			if (!cfg) return;

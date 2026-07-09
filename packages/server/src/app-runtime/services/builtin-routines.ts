@@ -18,7 +18,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, gte, inArray, like } from "drizzle-orm";
 // @lore AF6: import runStaleSweep from its source module, NOT from the package
-// index (@hyperidle/fabric). routine-scheduler.ts now imports this module, so an
+// index (legacy runtime package). routine-scheduler.ts now imports this module, so an
 // index round-trip would form a circular import (scheduler→builtin→index→scheduler).
 // @lore AF9: same reasoning applies to runAutoPromotionSweep — import from the
 // source module, not the index, to avoid the circular import chain.
@@ -44,8 +44,8 @@ import { nextCronMatch, parseCron } from "./routine-scheduler.js";
  * this prefix requires updating `routes/routines-routes.ts` and the seed.
  *
  * @lore AD8c: `builtin:cost-sentinel` removed. Cost sentinel is now application
- * code registered in bootstrapFabric via `startCostSentinel` in
- * packages/fabric/src/services/cost-sentinel.ts. There are now 5 builtin IDs.
+ * code registered in bootstrapAppRuntime via `startCostSentinel` in
+ * packages/server/src/app-runtime/services/cost-sentinel.ts. There are now 5 builtin IDs.
  * @lore AF9: `builtin:knowledge-promotion` added — daily 03:00 UTC sweep that
  * auto-promotes provisional items meeting the repetition threshold.
  */
@@ -476,9 +476,9 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 }
 
 // @lore AD8c: Cost Sentinel code removed from this file. See
-// packages/fabric/src/services/cost-sentinel.ts for the extracted module.
+// packages/server/src/app-runtime/services/cost-sentinel.ts for the extracted module.
 // The cost sentinel is now registered as an application-level scheduled job
-// via startCostSentinel in bootstrapFabric.
+// via startCostSentinel in bootstrapAppRuntime.
 
 // --- Practice Meeting routine ---
 

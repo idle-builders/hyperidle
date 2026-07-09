@@ -185,7 +185,7 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 			}
 
 			// @lore O2: relevanceScore moved from knowledgeItems to knowledgeAppProjection.
-			// Upsert: update if fabric row exists, otherwise insert a minimal row.
+			// Upsert: update if projection row exists, otherwise insert a minimal row.
 			const [existingFabric] = await db
 				.select()
 				.from(knowledgeAppProjection)

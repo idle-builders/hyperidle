@@ -120,7 +120,7 @@ function tryRecordDedupKey(
  * Sum session costs for an agent.
  *
  * @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
- * the kernel sessions table as part of kernel/strategy separation. Cost is now
+ * the kernel sessions table as part of canonical/projection split. Cost is now
  * accumulated on users.costActual (integer minor units). This column is the
  * authoritative running total for an agent's spend within the current cycle.
  */
@@ -520,7 +520,7 @@ export async function resetCosts(
 	// @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
 	// the kernel sessions table. resetCosts no longer zeroes session cost columns;
 	// it only resets agent/team running cost counters. Cost aggregation is now a
-	// strategy/fabric concern.
+	// app-runtime concern.
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");

@@ -180,8 +180,8 @@ export async function createPracticeMeeting(
 		title: input.title,
 		turnsCompleted: [],
 	};
-	// @lore O2: kernel/strategy separation. Insert identity+content into
-	// knowledgeItems; strategy fields (layer, kind, scopeId, meta) go to
+	// @lore O2: canonical/projection split. Insert identity+content into
+	// knowledgeItems; projection fields (layer, kind, scopeId, meta) go to
 	// knowledgeAppProjection. The anchor meta includes the meeting state
 	// so the practice-meeting service can track turn progress.
 	await db.insert(knowledgeItems).values({
@@ -304,7 +304,7 @@ export async function runPracticeMeetingTurn(
 				});
 			}
 			// @lore O2: anchor meta and scopeId are in knowledgeAppProjection.
-			// Read the fabric row inside the same transaction for atomic meta
+			// Read the projection row inside the same transaction for atomic meta
 			// pinning on the conditional UPDATE.
 			const [anchorFabric] = await tx
 				.select()
@@ -376,7 +376,7 @@ export async function runPracticeMeetingTurn(
 			const oldSerialized = serializeTurnsCompleted(turnsCompleted);
 			// @lore G3 meta not-null invariant: `createPracticeMeeting`
 			// writes a JSON object into `meta` in knowledgeAppProjection so
-			// the fabric row always has a non-null meta we can pin here. If
+			// the projection row always has a non-null meta we can pin here. If
 			// that invariant is ever broken the `eq` below will no-op and
 			// the caller will see CONCURRENT_MODIFICATION — safe default.
 			const pinMeta = anchorFabric?.meta ?? "";
@@ -462,8 +462,8 @@ async function runTurn1(
 	const createdIds: string[] = [];
 	for (const p of proposals) {
 		const id = randomUUID();
-		// @lore O2: kernel/strategy separation. Kernel row: identity + content.
-		// Strategy row: layer, kind, scopeId, meta (meeting state).
+		// @lore O2: canonical/projection split. Kernel row: identity + content.
+		// Projection row: layer, kind, scopeId, meta (meeting state).
 		await tx.insert(knowledgeItems).values({
 			id,
 			topic: p.topic ?? null,
@@ -514,7 +514,7 @@ async function runTurn2(
 	const createdIds: string[] = [];
 	for (const r of reactions) {
 		const id = randomUUID();
-		// @lore O2: kernel/strategy separation.
+		// @lore O2: canonical/projection split.
 		await tx.insert(knowledgeItems).values({
 			id,
 			topic: "practice_meeting_reaction",
@@ -573,8 +573,8 @@ async function runTurn3(
 	// Find all proposal + reaction intermediates for this meeting.
 	// @lore G3 meeting intermediates: the meeting linkage lives inside
 	// `meta` JSON on knowledgeAppProjection (O2: meta moved from kernel table).
-	// To keep the candidate set small we JOIN with fabric and filter on
-	// `status = 'captured'` AND `scope_id = <anchor scope>` from the fabric row;
+	// To keep the candidate set small we JOIN with app projection and filter on
+	// `status = 'captured'` AND `scope_id = <anchor scope>` from the projection row;
 	// the final filter on `meta.meetingId` + `meta.meetingPhase` is done in JS.
 	// `anchorScopeId` is nullable; `eq(col, null)` renders `col = NULL` which
 	// never matches in SQL three-valued logic, so we branch on `isNull`.
@@ -606,7 +606,7 @@ async function runTurn3(
 	});
 
 	// Insert synthesis items as provisional.
-	// @lore O2: kernel/strategy separation.
+	// @lore O2: canonical/projection split.
 	for (const s of synthesis) {
 		const id = randomUUID();
 		await tx.insert(knowledgeItems).values({

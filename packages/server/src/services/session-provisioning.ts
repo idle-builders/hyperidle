@@ -135,6 +135,44 @@ async function revertTaskToAccepted(
 	});
 }
 
+async function assembleTaskFreePrompt(
+	db: HyperIdleDb,
+	params: ProvisionSessionParams,
+	systemPromptText: string,
+	toolSummaries: readonly ToolSummary[],
+): Promise<string> {
+	const sourceKind = params.requestContext?.sourceKind ?? "unknown";
+	const toolSection =
+		toolSummaries.length > 0
+			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
+			: "";
+	if (sourceKind === "decomposition") {
+		const betId =
+			params.requestContext?.sourceCorrelation &&
+			"betId" in params.requestContext.sourceCorrelation &&
+			typeof params.requestContext.sourceCorrelation.betId === "string"
+				? params.requestContext.sourceCorrelation.betId
+				: params.requestContext?.sourceId;
+		const [bet] = betId ? await db.select().from(bets).where(eq(bets.id, betId)).limit(1) : [];
+		return [
+			systemPromptText,
+			"## Bet decomposition",
+			"Turn this bet into concrete proposed tasks. Use the available task-creation tool when task creation is needed; do not invent another execution path.",
+			`Bet ID: ${betId ?? "unknown"}`,
+			`Goal: ${bet?.description ?? ""}`,
+			`Done condition: ${bet?.doneCondition ?? ""}`,
+			toolSection,
+		]
+			.filter(Boolean)
+			.join("\n\n");
+	}
+
+	const sourceSection = params.requestContext
+		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
+		: "## Session request\nTask-free session request";
+	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
+}
+
 /**
  * Merge the session's accumulated token counts into bets.tokensActualJson.
  *
@@ -841,6 +879,23 @@ export async function admitSession(
 				agentRole,
 				teamId: params.productId,
 				isRoutine: !!params.routineId,
+				sourceKind: params.requestContext?.sourceKind ?? null,
+				sourceId: params.requestContext?.sourceId ?? null,
+				sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
+			});
+		} else if (params.requestContext) {
+			await assembleAgentContext({
+				db,
+				sandboxPath,
+				sessionId,
+				taskId: null,
+				agentId: params.agentId,
+				agentRole,
+				teamId: params.productId,
+				isRoutine: !!params.routineId,
+				sourceKind: params.requestContext.sourceKind,
+				sourceId: params.requestContext.sourceId,
+				sourceCorrelation: params.requestContext.sourceCorrelation,
 			});
 		}
 
@@ -1139,6 +1194,8 @@ export async function runSession(
 			tools: toolSummaries,
 			sandboxPath,
 		}));
+	} else if (params.requestContext) {
+		assembledPrompt = await assembleTaskFreePrompt(db, params, systemPromptText, toolSummaries);
 	} else {
 		// Normal task session: read task + bet + agent + team context.
 		if (!params.taskId) {

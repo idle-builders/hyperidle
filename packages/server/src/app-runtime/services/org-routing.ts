@@ -24,7 +24,7 @@ export interface ReviewRoutingContext {
  *  4. Union the fromUserId values (deduplicated via Set)
  *  5. If result set is empty, return all human user IDs
  *
- * @lore P2: This is the kernel-level routing query. The strategy layer
+ * @lore P2: This is the kernel-level routing query. The app runtime
  * (founder-router.ts) will eventually be replaced by this, but that wiring
  * is out of P2 scope. When no org edges exist (or none match), falls back
  * to ALL human users — ensuring every review always reaches someone.

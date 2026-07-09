@@ -10,7 +10,7 @@ import type {
 	SelectAgentRequest,
 } from "@hyperidle/shared";
 import { composeRoster } from "../../app-runtime/roster.js";
-import { selectAgentFabric } from "../../app-runtime/services/agent-selection.js";
+import { selectAgentByAppDefaults } from "../../app-runtime/services/agent-selection.js";
 
 export type ResolveAgentScaffoldSpecsInput = ScaffoldRequest<HyperIdleDb>;
 export type ResolveAgentSelectionInput = SelectAgentRequest<HyperIdleDb>;
@@ -26,7 +26,7 @@ export async function resolveAgentScaffoldSpecs(
 export async function resolveAgentSelection(
 	input: ResolveAgentSelectionInput,
 ): Promise<SelectAgentOutcome> {
-	return selectAgentFabric(input);
+	return selectAgentByAppDefaults(input);
 }
 
 export async function resolveAssistantFormation(

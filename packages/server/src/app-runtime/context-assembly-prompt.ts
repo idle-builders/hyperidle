@@ -107,7 +107,7 @@ export function buildTemplateVariables(context: SessionContextData): Record<stri
  * Keeps the first heading and first paragraph after it.
  * If no heading is found, keeps the first 500 tokens.
  *
- * @lore X1 critique: truncation strategy specified as: find the first line
+ * @lore X1 critique: truncation method specified as: find the first line
  * matching /^#/ and the first blank line after it. Keep everything from start
  * through that blank line. If no heading, keep first 500 tokens.
  */
@@ -262,7 +262,7 @@ export async function assemblePrompt(
  *
  * @lore AK1: Renamed from writeWorkspaceCLAUDEmd (AK1 harness-vocab rename).
  * Dual-write (DEFAULT): writes AGENTS.md (Linux-Foundation cross-vendor standard,
- * per kernel-strategy-split.md §4) AND CLAUDE.md (current harness auto-discovery
+ * per runtime-simplification.md §4) AND CLAUDE.md (current harness auto-discovery
  * for Claude Agent SDK + Aider/Goose/OpenCode). Both files contain identical content.
  *
  * Rationale for dual-write: no adapter positively verified to read AGENTS.md today;

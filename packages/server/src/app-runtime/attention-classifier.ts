@@ -1,5 +1,5 @@
 import type { KnowledgeItem } from "@hyperidle/db";
-import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 /**
  * Topics that imply human judgment / taste. Hard-coded here as an opinionated
@@ -25,14 +25,14 @@ const TASTE_TOPICS: ReadonlySet<string> = new Set([
  * human voice, brand, or aesthetics and should preferentially surface to the
  * founders for review. Pure classifier; no DB access.
  *
- * @lore O2: accepts KnowledgeItemWithFabric since kind and scopeId moved to
- * the strategy extension table. KnowledgeItem is still accepted for backward
+ * @lore O2: accepts KnowledgeItemWithProjection since kind and scopeId moved to
+ * the app projection table. KnowledgeItem is still accepted for backward
  * compat (type intersection).
  */
-export function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithFabric): boolean {
-	// @lore O2: kind and scopeId are optional on KnowledgeItemWithFabric (from fabric extension).
-	const kind = (item as KnowledgeItemWithFabric).kind ?? null;
-	const scopeId = (item as KnowledgeItemWithFabric).scopeId ?? null;
+export function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithProjection): boolean {
+	// @lore O2: kind and scopeId are optional on KnowledgeItemWithProjection (from app projection).
+	const kind = (item as KnowledgeItemWithProjection).kind ?? null;
+	const scopeId = (item as KnowledgeItemWithProjection).scopeId ?? null;
 
 	// 1. kind gate — briefs and principles are always human-authored voice.
 	if (kind === "brief" || kind === "principle") {

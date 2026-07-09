@@ -59,10 +59,10 @@ flowchart TB
 
   subgraph Knowledge["Knowledge Domain"]
     KnowledgeItem["Knowledge items"]
-    FabricExtension["Fabric metadata\nlayer, kind, scores"]
+    KnowledgeProjection["Knowledge projection\nlayer, kind, scores"]
     Relevance["Relevance and attention"]
     Writeback["Sandbox writeback"]
-    KnowledgeAPI["Interface\nknowledge/search APIs\nstrategy repository interface\nknowledge events"]
+    KnowledgeAPI["Interface\nknowledge/search APIs\nprojection repository interface\nknowledge events"]
   end
 
   subgraph Session["Agent Session Domain"]
@@ -102,7 +102,7 @@ flowchart LR
   SessionRequest["Session Request\nagent id\nwork or conversation context\nmodel tier\nmode\ncost/concurrency inputs"]
   SessionEvents["Session Events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"]
   HarnessContract["HarnessAdapter\nstartSession(config)\nstreamEvents(handle)\nstopSession(handle)\ngetCapabilities()"]
-  StrategyContract["Strategy Port\nassembleContext\nbeginLearningIngestion\nscaffoldAgents\nselectAgent\ndecomposeBet\nformAssistant"]
+  AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\ndecomposeBet\nformAssistant"]
   ToolContract["Tool Invocation\nregistry.invoke(name, rawArgs)\nsession context bound at registry construction\noptional MCP exposure"]
   MountContract["Filesystem Mount\nregistered filesystems\nagent injection\nsession capture"]
   EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\ncost, notification events"]
@@ -111,7 +111,7 @@ flowchart LR
   Conversation["Conversation"] -- "creates" --> SessionRequest
   SessionRequest --> Session["Agent session"]
   Session -- "emits" --> SessionEvents
-  Session -- "calls" --> StrategyContract
+  Session -- "calls" --> AgentLayerContract
   Session -- "calls" --> HarnessContract
   Session -- "calls" --> ToolContract
   Session -- "calls" --> MountContract
@@ -124,7 +124,7 @@ flowchart LR
 Contract anchors:
 
 - `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `packages/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
-- Strategy port = assembleContext/beginLearningIngestion/scaffoldAgents/selectAgent/decomposeBet/formAssistant — `packages/shared/src/strategy-port.ts:378`. Two implementations ship: `packages/fabric` (FabricStrategy) and `packages/strategy-minimal`. Boundary rationale: [Kernel/Strategy split](./kernel-strategy-split.md).
+- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/decomposeBet/formAssistant. Current production ownership lives in server app-runtime and agent services; legacy compatibility packages remain for historical tests/exports while AU3/AU4 retire the old package boundary.
 - Tool invocation = `registry.invoke(name, rawArgs)` — `packages/server/src/tools/tool-registry.ts:584`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
 - Session events verified in `packages/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
 
@@ -203,21 +203,21 @@ Thread/Message primitive (HOST_KINDS, MESSAGE_TYPES, verdict grammar, idempotenc
 ```mermaid
 flowchart TB
   KnowledgeItem["Knowledge item\ncanonical content and scope"]
-  FabricMeta["Fabric extension\nlayer, kind, confidence,\nrelevance, attention"]
+  KnowledgeProjection["Knowledge projection\nlayer, kind, confidence,\nrelevance, attention"]
   EditLog["Edit log"]
   AccessLog["Access log"]
   Conflict["Conflict"]
 
-  KnowledgeItem --> FabricMeta
+  KnowledgeItem --> KnowledgeProjection
   KnowledgeItem --> EditLog
   KnowledgeItem --> AccessLog
   KnowledgeItem --> Conflict
 
   Repository["Knowledge repository"] --> KnowledgeItem
-  Repository --> FabricMeta
+  Repository --> KnowledgeProjection
   Search["Search"] --> Repository
-  Relevance["Relevance service"] --> FabricMeta
-  Attention["Attention service"] --> FabricMeta
+  Relevance["Relevance service"] --> KnowledgeProjection
+  Attention["Attention service"] --> KnowledgeProjection
   Attention --> ReviewItem["Review item"]
   Writeback["Sandbox writeback"] --> Repository
   Promotion["Promotion pipeline"] --> Repository
@@ -227,7 +227,7 @@ flowchart TB
   Repository -- "knowledge_created/updated/accessed/archived" --> Events["EventBus"]
 ```
 
-Fabric internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: the fabric projects the canonical store into a human-facing API and per-session agent sandboxes — `assembleContext` writes the sandbox zones `context/` (read-only 0o444), `knowledge/`, `work/` with a version manifest (`packages/fabric/src/context-assembly.ts`); a file watcher plus writeback with optimistic concurrency (`version` column, `knowledge_conflicts` table) carries agent edits back (`packages/fabric/src/file-watcher.ts`, `writeback.ts`); relevance and attention scoring filter what each session loads (`relevance-service.ts`, `attention-service.ts`).
+Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: app-runtime projects the canonical store into a human-facing API and per-session agent workspaces — `assembleAgentContext` writes prompt/context artifacts with a version manifest (`packages/server/src/services/agent-context/assemble-context.ts`); app-runtime writeback uses optimistic concurrency (`version` column, `knowledge_conflicts` table); relevance and attention scoring filter what each session loads (`packages/server/src/app-runtime/services/relevance-service.ts`, `packages/server/src/app-runtime/services/attention-service.ts`).
 
 ## L2 - Agent Session Domain
 
@@ -246,7 +246,7 @@ flowchart TB
   Terminal --> Writeback["Writeback and capture"]
   Terminal --> SessionEvents["Session events"]
 
-  StrategyInterface["Strategy interface"] --> Context
+  AgentLayerInterface["Agent layer interface"] --> Context
   HarnessInterface["Harness interface"] --> HarnessRun
   ToolInterface["Tool interface"] --> ToolInvocation
   MountInterface["Mount/capture interface"] --> Workspace
@@ -283,23 +283,19 @@ flowchart TB
 
 Harness event types match `packages/shared/src/harness/harness-events.ts:6-57` exactly (token_usage, tool_call, completion, error, cost_update, pre_compaction). The pool does least-loaded selection with load tracking (`packages/server/src/harness/adapter-pool.ts:187-235`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
-## L2 - Strategy/Fabric Domain
+## L2 - App Runtime And Agent Services
 
 ```mermaid
 flowchart TB
-  StrategyPort["Strategy port"]
-  FabricStrategy["Fabric strategy"]
-  MinimalStrategy["Minimal strategy"]
+  AppRuntime["Server app-runtime"]
+  AgentServices["Agent services"]
 
-  StrategyPort --> FabricStrategy
-  StrategyPort --> MinimalStrategy
-
-  FabricStrategy --> ContextAssembly["Context assembly"]
-  FabricStrategy --> LearningIngestion["Learning ingestion"]
-  FabricStrategy --> AgentScaffold["Agent scaffold"]
-  FabricStrategy --> AgentSelection["Agent selection"]
-  FabricStrategy --> BetDecompose["Bet decomposition plan"]
-  FabricStrategy --> AssistantForm["Assistant formation"]
+  AppRuntime --> ContextAssembly["Context assembly"]
+  AppRuntime --> LearningIngestion["Learning ingestion"]
+  AppRuntime --> AgentDefaults["Agent defaults"]
+  AgentServices --> AgentSelection["Agent selection"]
+  AgentServices --> BetDecompose["Bet decomposition request"]
+  AgentServices --> AssistantForm["Assistant formation"]
 
   ContextAssembly --> KnowledgeRepo["Knowledge repository"]
   ContextAssembly --> PromptFiles["Prompt/context files"]
@@ -394,7 +390,7 @@ Verified against code 2026-07-07. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`packages/db/src/connection.ts`). Tables (all shapes owned by `packages/db/src/schema.ts`): teams, team_members, users (humans and agents, `kind` human|ai), bets, tasks, sessions, routines, routine_runs, threads, messages, items, user_skills, org_edges (:548), factory_settings, knowledge_items (:580) + knowledge_strategy_fabric extension (:690, the [kernel/strategy split](./kernel-strategy-split.md)) + knowledge_edit_log (:609) + knowledge_access_log (:641) + knowledge_conflicts (:659), propagation_log (:808), notification_queue, artifacts, filesystems (+injections/captures), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`packages/db/src/connection.ts`). Tables (all shapes owned by `packages/db/src/schema.ts`): teams, team_members, users (humans and agents, `kind` human|ai), bets, tasks, sessions, routines, routine_runs, threads, messages, items, user_skills, org_edges (:548), factory_settings, knowledge_items (:580) + app projection extension (:690, historical table name `knowledge_strategy_fabric`) + knowledge_edit_log (:609) + knowledge_access_log (:641) + knowledge_conflicts (:659), propagation_log (:808), notification_queue, artifacts, filesystems (+injections/captures), credential/config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
@@ -403,11 +399,11 @@ Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified 
 
 ### Item router
 
-Pure function `routeItem` at `packages/fabric/src/services/item-router.ts` returning a target view; `routeToFounder` at `founder-router.ts` picks the recipient by agent role. Item shape and routing rules are owned by [items and routing](../human-interface-layer/items-and-routing.md). Notification policy is not the router's output — it lives in the notification services (`silence-policy.ts`, `notifications/dispatcher.ts`).
+Pure function `routeItem` at `packages/server/src/app-runtime/services/item-router.ts` returning a target view; `routeToFounder` at `founder-router.ts` picks the recipient by agent role. Item shape and routing rules are owned by [items and routing](../human-interface-layer/items-and-routing.md). Notification policy is not the router's output — it lives in the notification services (`silence-policy.ts`, `notifications/dispatcher.ts`).
 
 ### Schedulers
 
-In-process `setInterval` services, no external workflow engine. Routine scheduler (`packages/fabric/src/services/routine-scheduler.ts`) fires cron/event/heartbeat triggers, honors silent routines; task dispatcher (`fabric/src/services/task-dispatcher.ts`) starts sessions; dependency watcher (`packages/server/src/services/dependency-watcher.ts`) emits `dependency_met`. The scheduler never calls models — it reads the store and emits events.
+In-process `setInterval` services, no external workflow engine. Routine scheduler (`packages/server/src/app-runtime/services/routine-scheduler.ts`) fires cron/event/heartbeat triggers, honors silent routines; task dispatcher (`packages/server/src/app-runtime/services/task-dispatcher.ts`) starts sessions; dependency watcher (`packages/server/src/services/dependency-watcher.ts`) emits `dependency_met`. The scheduler never calls models — it reads the store and emits events.
 
 Model tier selection: explicit param → agent `modelTierPreference` → `"workhorse"` (`session-provisioning.ts:663-673`); tier→model resolution via the model gateway. Vocabulary and catalog: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
@@ -415,9 +411,9 @@ Model tier selection: explicit param → agent `modelTierPreference` → `"workh
 
 Application code, not a routine row — extracted in AD8c and registered by the server app-runtime bootstrap precisely so it cannot be disabled from data (`packages/server/src/app-runtime/services/cost-sentinel.ts`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
 
-### Knowledge fabric
+### Knowledge Services
 
-See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Fabric exports: `assembleContext`, `writeback`, `promote`, `scoreAttention`, `resolveConflict` (`packages/fabric/src/index.ts`). Search is escaped case-insensitive LIKE SQL (`routes/search.ts`) — no FTS5, no pgvector.
+See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). App-runtime exports context assembly, writeback, promotion, attention scoring, and conflict resolution from `packages/server/src/app-runtime/` and `packages/server/src/services/agent-context/`. Search is escaped case-insensitive LIKE SQL (`routes/search.ts`) — no FTS5, no pgvector.
 
 ### API layer
 
@@ -435,7 +431,7 @@ Per-session working directory under `HYPERIDLE_WORKSPACES_DIR` (`server-factory.
 
 ### Notifications
 
-`packages/fabric/src/services/notifications/`: ntfy, SMTP, and console adapters behind `adapter-factory.ts`; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`dispatcher.ts` → `runDailyDigest`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
+`packages/server/src/app-runtime/services/notifications/`: ntfy, SMTP, and console adapters behind `adapter-factory.ts`; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`dispatcher.ts` -> `runDailyDigest`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
 
 ### Observability
 
@@ -452,7 +448,7 @@ The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/
 Triggers: routine fired, dependency cleared, or an inbox/assistant message. Then:
 
 1. Model tier resolved (explicit param → agent preference → workhorse), model via gateway.
-2. Context assembly (fabric, TOON pack) writes prompt + context files.
+2. Context assembly writes TOON prompt + context files.
 3. `LocalSandboxAdapter` provisions the per-session working directory; filesystem mounts applied.
 4. Harness spawned; agent works via MCP tools.
 5. Session notes written before context compaction (`tools/write-session-notes.ts`; fallback notes file `work/task-notes.md`).

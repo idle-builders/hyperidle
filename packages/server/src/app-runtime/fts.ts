@@ -51,7 +51,7 @@ export const FTS_MAX_TOKENS = 64;
 /**
  * Sanitise a user-supplied query string for Postgres tsquery.
  *
- * Strategy: whitelist word-chars + internal `-`, `_`; emit each
+ * Tokenization: whitelist word-chars + internal `-`, `_`; emit each
  * surviving token joined with `&` (AND). A trailing `*` on a token is
  * preserved as the Postgres prefix-match operator (:*). Returns `""`
  * when all tokens are stripped — callers MUST short-circuit to `[]`.

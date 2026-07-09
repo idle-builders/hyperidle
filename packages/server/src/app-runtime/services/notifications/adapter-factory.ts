@@ -3,8 +3,8 @@
  *
  * @lore O3: This function was moved from packages/server/src/app.ts to
  * fabric because all its dependencies (adapter constructors, config types)
- * moved to fabric in O3. The server app.ts now imports this from
- * @hyperidle/fabric for the notification HTTP routes.
+ * moved to app-runtime in O3. The server app.ts now imports this from
+ * legacy runtime package for the notification HTTP routes.
  */
 import type { NotificationConfig } from "./config.js";
 import { createConsoleAdapter } from "./console-adapter.js";

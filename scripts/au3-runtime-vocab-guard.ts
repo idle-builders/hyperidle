@@ -34,7 +34,6 @@ const SOURCE_EXCLUDES = [
 	".spec.ts",
 	".spec.tsx",
 	".stories.tsx",
-	"packages/server/src/app-runtime/",
 	"packages/server/src/services/strategy-registry.ts",
 	"packages/shared/src/strategy-port.ts",
 ] as const;
@@ -107,7 +106,11 @@ for (const root of SOURCE_ROOTS) {
 		if (/from\s+["'][^"']*strategy-registry(?:\.js)?["']/.test(text)) {
 			add(file, "production import from strategy-registry is banned by AU3");
 		}
-		if (/\b(setActiveStrategy|getActiveStrategy|fabricStrategy|bootstrapFabric)\b/.test(text)) {
+		if (
+			/\b(setActiveStrategy|getActiveStrategy|fabricStrategy|bootstrapFabric|FABRIC_ASSISTANT_SYSTEM_PROMPT|KnowledgeItemWithFabric)\b/.test(
+				text,
+			)
+		) {
 			add(file, "production Strategy/Fabric runtime symbol is banned by AU3");
 		}
 		if (
@@ -119,6 +122,14 @@ for (const root of SOURCE_ROOTS) {
 		if (/\bmanaged by strategy\b/i.test(text) || /\bstrategy agent\b/i.test(text)) {
 			add(file, "user-facing Strategy runtime vocabulary is banned by AU3");
 		}
+		if (
+			file.includes("packages/server/src/app-runtime/") &&
+			/\b(Strategy types|strategy fields|strategy filter|strategy fabric|skip strategy|Fabric's implementation|Fabric-internal|Fabric-owned|fabric row|fabric table|fabric projects|fabric must|fabric does not|depends on fabric|packages\/fabric|kernel\/strategy|strategy\/fabric)\b/i.test(
+				text,
+			)
+		) {
+			add(file, "app-runtime must use app-owned projection/defaults vocabulary");
+		}
 	}
 }
 
@@ -126,7 +137,11 @@ for (const doc of CURRENT_DOCS) {
 	const abs = join(ROOT, doc);
 	if (!existsSync(abs)) continue;
 	const text = readFileSync(abs, "utf8");
-	if (/\b(active Strategy|Strategy runtime|Fabric runtime|bootstrapFabric|fabricStrategy)\b/.test(text)) {
+	if (
+		/\b(active Strategy|Strategy runtime|Fabric runtime|Knowledge Fabric|Knowledge fabric|Fabric metadata|Strategy fields|Strategy interface|strategy repository|managed by the Knowledge Fabric|fabric projects|packages\/fabric|bootstrapFabric|fabricStrategy)\b/.test(
+			text,
+		)
+	) {
 		add(doc, "current-state docs must not present Fabric/Strategy as runtime boundaries");
 	}
 }

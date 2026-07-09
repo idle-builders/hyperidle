@@ -7,7 +7,7 @@ import {
 } from "@hyperidle/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { isTasteSensitive } from "./attention-classifier.js";
-import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import type { AttentionWeights } from "./scoring-config.js";
 
 /**
@@ -84,14 +84,14 @@ function round6(x: number): number {
 	return Math.round(x * 1_000_000) / 1_000_000;
 }
 
-function computeNovelty(item: KnowledgeItemWithFabric, ctx: AttentionScoringContext): number {
+function computeNovelty(item: KnowledgeItemWithProjection, ctx: AttentionScoringContext): number {
 	const key = cohortKey(item.layer ?? null, item.scopeId ?? null, item.topic, item.kind ?? null);
 	const size = ctx.cohortSizeByKey.get(key) ?? 1;
 	return clamp01(1 - size / COHORT_NOVELTY_CEILING);
 }
 
 function computeRepetitionSignal(
-	item: KnowledgeItemWithFabric,
+	item: KnowledgeItemWithProjection,
 	ctx: AttentionScoringContext,
 ): number {
 	const key = crossScopeKey(item.layer ?? null, item.topic, item.kind ?? null);
@@ -100,7 +100,7 @@ function computeRepetitionSignal(
 	return clamp01((nScopes - 1) / REPETITION_SATURATION);
 }
 
-function computeConfidenceValue(item: KnowledgeItemWithFabric): number {
+function computeConfidenceValue(item: KnowledgeItemWithProjection): number {
 	// @lore O2: confidence stored as string in knowledgeAppProjection; parse to number.
 	if (item.confidence == null) return 0.5;
 	const val =
@@ -108,7 +108,7 @@ function computeConfidenceValue(item: KnowledgeItemWithFabric): number {
 	return clamp01(Number.isFinite(val) ? val : 0.5);
 }
 
-function computeRecency(item: KnowledgeItemWithFabric, ctx: AttentionScoringContext): number {
+function computeRecency(item: KnowledgeItemWithProjection, ctx: AttentionScoringContext): number {
 	// Recency = "how STALE is this in terms of human attention".
 	// If recently human-edited → 0 (low need to look again).
 	// Otherwise grow with time since last edit, saturating at 90 days.
@@ -124,7 +124,7 @@ function computeRecency(item: KnowledgeItemWithFabric, ctx: AttentionScoringCont
 	return clamp01(age / REVIEW_RECENCY_SATURATION_MS);
 }
 
-function computeTasteSensitivity(item: KnowledgeItemWithFabric): number {
+function computeTasteSensitivity(item: KnowledgeItemWithProjection): number {
 	return isTasteSensitive(item) ? 1 : 0;
 }
 
@@ -132,11 +132,11 @@ function computeTasteSensitivity(item: KnowledgeItemWithFabric): number {
  * Score a single knowledge item. Pure. Returns a value in [0, 1] rounded to
  * six decimals.
  *
- * @lore O2: accepts KnowledgeItemWithFabric since strategy fields (layer, kind,
+ * @lore O2: accepts KnowledgeItemWithProjection since projection fields (layer, kind,
  * scopeId, attentionScore, confidence) moved to the extension table.
  */
 export function scoreAttention(
-	item: KnowledgeItemWithFabric,
+	item: KnowledgeItemWithProjection,
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
 ): number {
@@ -177,13 +177,13 @@ export function scoreAttention(
 
 /** Score a batch of items sharing a context. Output order matches input order. */
 export function scoreAttentionBatch(
-	items: readonly KnowledgeItemWithFabric[],
+	items: readonly KnowledgeItemWithProjection[],
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
 ): ReadonlyArray<{ id: string; score: number; prior: number | null }> {
 	const out: Array<{ id: string; score: number; prior: number | null }> = [];
 	for (const item of items) {
-		// @lore O2: attentionScore stored as string in fabric extension table; parse to number.
+		// @lore O2: attentionScore stored as string in the projection table; parse to number.
 		const priorRaw = item.attentionScore;
 		const prior =
 			priorRaw == null
@@ -206,9 +206,9 @@ export function scoreAttentionBatch(
  * O(items) — which is what makes the 1000-item AC6 budget achievable.
  *
  * @lore O2: cohort/cross-scope counts are now computed by JOINing
- * knowledge_items with knowledge_strategy_fabric. The items passed in must
- * be KnowledgeItemWithFabric (strategy fields are optional — items without
- * a fabric row contribute null layer/kind/scopeId to the cohort keys).
+ * knowledge_items with the app projection extension table. The items passed in must
+ * be KnowledgeItemWithProjection (projection fields are optional — items without
+ * a projection row contribute null layer/kind/scopeId to the cohort keys).
  *
  * @lore Confidence correctness over raw SQL: Drizzle's composite-key IN
  * support varies; we filter in-app rather than risk adapter quirks. The
@@ -216,7 +216,7 @@ export function scoreAttentionBatch(
  */
 export async function buildAttentionContext(
 	db: HyperIdleDb,
-	items: readonly KnowledgeItemWithFabric[],
+	items: readonly KnowledgeItemWithProjection[],
 	now?: number,
 ): Promise<AttentionScoringContext> {
 	const nowMs = now ?? Date.now();
@@ -251,10 +251,10 @@ export async function buildAttentionContext(
 		.where(and(eq(knowledgeConflicts.status, "open"), inArray(knowledgeConflicts.itemId, ids)));
 	const conflictedIds = new Set<string>(conflictRows.map((r) => r.itemId));
 
-	// 2) Cohort sizes — JOIN with strategy fabric to get layer/kind/scopeId.
-	//    @lore O2: strategy fields (layer, kind, scopeId) moved to
-	//    knowledgeAppProjection. We LEFT JOIN so kernel-only items (no fabric
-	//    row) still appear in the result with null strategy fields.
+	// 2) Cohort sizes — JOIN with app projection to get layer/kind/scopeId.
+	//    @lore O2: projection fields (layer, kind, scopeId) moved to
+	//    knowledgeAppProjection. We LEFT JOIN so canonical-only items (no projection
+	//    row) still appear in the result with null projection fields.
 	const distinctLayers = new Set<string>(
 		items.map((i) => i.layer).filter((l): l is string => l != null),
 	);

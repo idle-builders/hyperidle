@@ -1,11 +1,11 @@
 # Routines and Retros
 
 <!-- @source packages/db/src/schema.ts -->
-<!-- @source packages/fabric/src/services/routine-scheduler.ts -->
-<!-- @source packages/fabric/src/services/builtin-routines.ts -->
-<!-- @source packages/fabric/src/services/practice-meeting.ts -->
+<!-- @source packages/server/src/app-runtime/services/routine-scheduler.ts -->
+<!-- @source packages/server/src/app-runtime/services/builtin-routines.ts -->
+<!-- @source packages/server/src/app-runtime/services/practice-meeting.ts -->
 
-Routines attach recurring work to a team: "weekly practice meeting," "retro every time a bet closes," "monthly portfolio review." They live in the `routines` table (`packages/db/src/schema.ts:294`) and fire from the in-process scheduler (`packages/fabric/src/services/routine-scheduler.ts`). Retros are not a separate mechanism — **every retro is a built-in routine**, seeded per team from the same specs as everything else (`packages/fabric/src/services/builtin-routines.ts`).
+Routines attach recurring work to a team: "weekly practice meeting," "retro every time a bet closes," "monthly portfolio review." They live in the `routines` table (`packages/db/src/schema.ts:294`) and fire from the in-process scheduler (`packages/server/src/app-runtime/services/routine-scheduler.ts`). Retros are not a separate mechanism — **every retro is a built-in routine**, seeded per team from the same specs as everything else (`packages/server/src/app-runtime/services/builtin-routines.ts`).
 
 For the Routine primitive's place among the five, see [The five primitives](./the-five-primitives.md).
 
@@ -17,7 +17,7 @@ The scheduler handles four `triggerType` values (`routine-scheduler.ts:313`, `:5
 - **Event** — fires when a matching event type is emitted, e.g. `bet_state_changed` triggers the post-bet retro.
 - **Heartbeat** / **continuous** — low-frequency interval loops; the scheduler treats the two values identically.
 
-Cost-burn checking is **not** a routine: `builtin:cost-sentinel` was removed and the sentinel is plain application code (AD8c, `packages/fabric/src/services/cost-sentinel.ts`) — see [WIP and cost limits](./wip-and-cost-limits.md).
+Cost-burn checking is **not** a routine: `builtin:cost-sentinel` was removed and the sentinel is plain application code (AD8c, `packages/server/src/app-runtime/services/cost-sentinel.ts`) — see [WIP and cost limits](./wip-and-cost-limits.md).
 
 ## 2. Ownership, memory, delegation
 
@@ -27,7 +27,7 @@ Every routine has a NOT-NULL owner agent and a NOT-NULL team (`schema.ts:302`, `
 
 ## 3. Silent runs
 
-A routine can run memory-only: `routines.silent` (`schema.ts:334`, policy in `packages/fabric/src/services/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The knowledge-decay builtin runs silent — a daily sweep would otherwise flood the surface. Knowledge-promotion deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage and git-export consumers need.
+A routine can run memory-only: `routines.silent` (`schema.ts:334`, policy in `packages/server/src/app-runtime/services/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The knowledge-decay builtin runs silent — a daily sweep would otherwise flood the surface. Knowledge-promotion deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage and git-export consumers need.
 
 ## 4. Human review is per-run and opt-in
 
@@ -67,13 +67,13 @@ When a bet reaches `completed` or `killed` (lifecycle owned by [Bets](./bets-sha
 
 ### 7.3 Practice contribution loop — continuous, agent-driven
 
-The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. `builtin:practice-meeting` (facilitator-owned, weekly) runs the three-turn workflow implemented in `packages/fabric/src/services/practice-meeting.ts`:
+The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. `builtin:practice-meeting` (facilitator-owned, weekly) runs the three-turn workflow implemented in `packages/server/src/app-runtime/services/practice-meeting.ts`:
 
 1. **Turn 1 — Propose.** Every agent in the practice posts findings accumulated since the last session — each a candidate knowledge item.
 2. **Turn 2 — React.** All agents comment on the full proposal set with their own context: "same thing showed up for us," "this contradicts last month," "this is product-specific."
 3. **Turn 3 — Synthesize.** The facilitator decides which findings become practice knowledge (L3), which route to product knowledge (L2), which are noise, and writes the results to `knowledge_items`. Layer taxonomy: [The five layers](../knowledge-architecture/the-five-layers.md).
 
-The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — `context/product/` and `context/practices/` — with no broadcast notification needed. See [The knowledge fabric](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
+The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — `context/product/` and `context/practices/` — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
 
 Item lifecycle (captured → active) and the promotion pipeline are owned by [Facilitators](../knowledge-architecture/facilitators.md).
 

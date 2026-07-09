@@ -11,7 +11,7 @@
  * @lore AF8: The interface intentionally omits `userId` — AF15 adds it when it
  * swaps the implementation. The drain and listener call `isTypeMuted(typeKey)`
  * and will not change when AF15 extends the signature to
- * `isTypeMuted(typeKey, userId)` — just swap the implementation in bootstrapFabric.
+ * `isTypeMuted(typeKey, userId)` — just swap the implementation in bootstrapAppRuntime.
  */
 
 import { factorySettings, type HyperIdleDb } from "@hyperidle/db";

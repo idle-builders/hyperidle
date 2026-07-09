@@ -1,6 +1,9 @@
 import { type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
-import type { KnowledgeItemWithFabric, UpdateKnowledgeItemInput } from "./knowledge-repository.js";
+import type {
+	KnowledgeItemWithProjection,
+	UpdateKnowledgeItemInput,
+} from "./knowledge-repository.js";
 import * as repo from "./knowledge-repository.js";
 import type { KnowledgeKind, KnowledgeStatus } from "./types.js";
 
@@ -39,7 +42,7 @@ export interface ConflictResult {
 	/** Field-level conflicts that were auto-resolved or escalated. */
 	conflicts: FieldConflict[];
 	/** The updated item after resolution (if merged). */
-	item: KnowledgeItemWithFabric | null;
+	item: KnowledgeItemWithProjection | null;
 }
 
 // --- Helpers ---
@@ -129,8 +132,8 @@ export async function resolveConflict(
 		throw new Error(`Knowledge item ${itemId} not found`);
 	}
 
-	// @lore O2: kind is now optional on KnowledgeItemWithFabric (from fabric extension).
-	// Items without a fabric row have kind=undefined/null → treated as unstructured.
+	// @lore O2: kind is now optional on KnowledgeItemWithProjection (from app projection).
+	// Items without a projection row have kind=undefined/null -> treated as unstructured.
 	if (item.kind != null && isStructuredKind(item.kind)) {
 		return resolveStructured(db, item, edits);
 	}
@@ -139,14 +142,14 @@ export async function resolveConflict(
 
 async function resolveStructured(
 	db: HyperIdleDb,
-	item: KnowledgeItemWithFabric,
+	item: KnowledgeItemWithProjection,
 	edits: ConcurrentEdit[],
 ): Promise<ConflictResult> {
 	const existing: Record<string, unknown> = {
 		title: item.title,
 		body: item.body,
 		topic: item.topic,
-		// @lore O2: meta is from the fabric extension table (optional)
+		// @lore O2: meta is from the app projection table (optional).
 		meta: item.meta ?? null,
 		status: item.status,
 	};
@@ -185,7 +188,7 @@ async function resolveStructured(
 
 async function resolveProse(
 	db: HyperIdleDb,
-	item: KnowledgeItemWithFabric,
+	item: KnowledgeItemWithProjection,
 	edits: ConcurrentEdit[],
 ): Promise<ConflictResult> {
 	// Sort by timestamp ascending - older first
@@ -261,7 +264,7 @@ export async function promote(
 	db: HyperIdleDb,
 	itemId: string,
 	targetStatus: KnowledgeStatus,
-): Promise<KnowledgeItemWithFabric> {
+): Promise<KnowledgeItemWithProjection> {
 	if (!(await canPromote(db, itemId))) {
 		throw new Error(`Cannot promote item ${itemId}: open conflict(s) exist`);
 	}

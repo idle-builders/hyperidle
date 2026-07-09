@@ -1,15 +1,15 @@
 /**
- * AK6 — Fabric Strategy: roster composition for scaffoldAgents.
+ * AK6 — app runtime: roster composition for scaffoldAgents.
  *
  * `composeRoster` maps the three server-side creation triggers to
- * `AgentScaffoldSpec[]`. The Fabric reads `systemPrompt` from the
+ * `AgentScaffoldSpec[]`. App runtime reads `systemPrompt` from the
  * `factorySettings.system_template:<role>` rows that applyFactoryBootstrap
- * seeds — the Strategy owns the persona, the Kernel doesn't hard-code it.
+ * seeds, so creation surfaces do not hard-code personas.
  *
  * factory_bootstrap is NOT a trigger here (it runs at the leaf/desktop layer
  * with no registry — see Phase 3a, FactoryRosterSpec injection seam).
  *
- * @lore AK6: The Fabric's `scaffoldAgents` is the preservation-critical path.
+ * @lore AK6: app-runtime `scaffoldAgents` is the preservation-critical path.
  * It must reproduce today's agents + personas UNCHANGED (AC4 golden). The
  * pre-AK6 route read `defaultRoster(functions)` → per role, read
  * `factorySettings.system_template:<role>`. This implementation faithfully
@@ -17,7 +17,7 @@
  *
  * @lore AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT moved here from
  * packages/server/src/routes/users.ts and assistant.ts. The persona content
- * is now Strategy-owned (concept hard-rule #1). The Kernel creation surfaces
+ * is now app-owned runtime data. The creation surfaces
  * no longer hard-code it.
  */
 
@@ -28,15 +28,15 @@ import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
 /**
- * The Fabric-owned assistant persona.
+ * The app-owned assistant persona.
  * Moved here from packages/server/src/routes/users.ts and assistant.ts.
- * This is the Strategy's knowledge — the Kernel must not hard-code it.
+ * This prompt belongs to app-runtime composition, not route handlers.
  *
  * @lore AK6: R5 verification: runAssistantTurn reads the row's `systemPrompt`
  * value (not this const). Moving the const here keeps the persisted value
- * identical under the Fabric Strategy.
+ * identical under the app runtime.
  */
-export const FABRIC_ASSISTANT_SYSTEM_PROMPT =
+export const APP_ASSISTANT_SYSTEM_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 /**
@@ -108,8 +108,8 @@ export async function composeRoster(
 					role: "assistant",
 					name: req.ownerUserName ? `${req.ownerUserName}'s Assistant` : "Assistant",
 					agentCategory: "individual",
-					// Fabric supplies the builtin assistant persona (moved from Kernel const).
-					systemPrompt: FABRIC_ASSISTANT_SYSTEM_PROMPT,
+					// App runtime supplies the builtin assistant persona.
+					systemPrompt: APP_ASSISTANT_SYSTEM_PROMPT,
 					idHint: req.ownerUserId ? `ast-${req.ownerUserId}` : undefined,
 				},
 			];

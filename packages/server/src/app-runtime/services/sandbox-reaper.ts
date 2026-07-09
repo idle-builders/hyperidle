@@ -3,7 +3,7 @@
  *
  * `crashSession` preserves a crashed session's workspace by design (post-mortem
  * window). Nothing ever reclaimed it, so HYPERIDLE_WORKSPACES_DIR accumulated
- * dead trees forever. This strategy-layer TTL sweep reclaims terminal-session and
+ * dead trees forever. This app-runtime TTL sweep reclaims terminal-session and
  * orphan workspace dirs older than the TTL, while preserving:
  *   - active-session workspaces (never touched),
  *   - terminal workspaces YOUNGER than the TTL (the crash post-mortem window),
@@ -21,7 +21,7 @@
  * deterministic pass (used by bootstrap's interval and by tests).
  *
  * @lore AF7 §6: this service takes `sandboxBasePath` as DATA (a string), never
- * as a server import — fabric must not depend on server fs paths. The base path
+ * as a server import — app-runtime must not depend on server fs paths. The base path
  * is threaded through the bootstrap context (it is already in scope at the boot
  * path via dispatcherDeps.sandboxBasePath).
  *

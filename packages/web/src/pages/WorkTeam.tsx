@@ -561,7 +561,7 @@ function WorkTeamLoaded({
 
 							const categoryLabel =
 								member.agentCategory === "strategy"
-									? "Strategy"
+									? "App-managed"
 									: member.agentCategory === "individual"
 										? "Individual"
 										: (member.agentCategory ?? "");

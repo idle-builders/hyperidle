@@ -196,6 +196,9 @@ export async function createSession(
 		agentRole: params.agentRole,
 		teamId: params.productId,
 		isRoutine: false,
+		sourceKind: null,
+		sourceId: null,
+		sourceCorrelation: null,
 	});
 
 	// 5. Begin writeback ingestion through the app-owned agent context service.

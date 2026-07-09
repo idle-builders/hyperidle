@@ -9,7 +9,7 @@ import {
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, like } from "drizzle-orm";
 import { buildAttentionContext, scoreAttentionBatch } from "../attention-scoring.js";
-import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
+import type { KnowledgeItemWithProjection } from "../knowledge-repository.js";
 import {
 	ATTENTION_THRESHOLD,
 	type AttentionWeights,
@@ -120,7 +120,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	): Promise<ReadonlyArray<AttentionRecomputeResult>> {
 		if (ids.length === 0) return [];
 
-		// @lore O2: JOIN with knowledgeAppProjection to get strategy fields
+		// @lore O2: JOIN with knowledgeAppProjection to get projection fields
 		// (layer, scopeId, kind, attentionScore, confidence) needed for scoring.
 		const rows = await db
 			.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
@@ -133,8 +133,8 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 
 		if (rows.length === 0) return [];
 
-		// Merge kernel + fabric into KnowledgeItemWithFabric
-		const loadedItems: KnowledgeItemWithFabric[] = rows.map(({ item, fabric }) => ({
+		// Merge canonical item row + projection row into KnowledgeItemWithProjection.
+		const loadedItems: KnowledgeItemWithProjection[] = rows.map(({ item, fabric }) => ({
 			...item,
 			layer: fabric?.layer ?? null,
 			scopeId: fabric?.scopeId ?? null,
@@ -176,7 +176,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	 * by attention recomputes — only content edits bump knowledgeItems.updatedAt.
 	 */
 	async function applyRecomputeForItem(
-		item: KnowledgeItemWithFabric,
+		item: KnowledgeItemWithProjection,
 		currentScore: number,
 		nowMs: number,
 	): Promise<AttentionRecomputeResult> {
@@ -239,7 +239,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 
 						await createReviewItemForKnowledge(tx, eventBus, {
 							knowledgeItemId: item.id,
-							// @lore O2: layer comes from the fabric item (may be null)
+							// @lore O2: layer comes from the projection item (may be null)
 							layer: item.layer ?? null,
 							title: `Knowledge item needs attention: ${item.title}`,
 							body: bodySummary,
@@ -289,12 +289,13 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	async function recomputeScope(
 		filter: AttentionServiceFilter,
 	): Promise<AttentionRecomputeScopeResult> {
-		// @lore O2: strategy fields (layer, scopeId, kind) are in knowledgeAppProjection.
-		// Kernel fields (status, topic, ids) are on knowledgeItems.
-		// When strategy filters are present we JOIN; otherwise we query kernel only.
-		const hasFabricFilter = !!(filter.layer || filter.scopeId || filter.kind);
+		// @lore O2: projection fields (layer, scopeId, kind) are in knowledgeAppProjection.
+		// Canonical fields (status, topic, ids) are on knowledgeItems.
+		// When projection filters are present we JOIN; otherwise we query canonical rows only.
+		const hasProjectionFilter = !!(filter.layer || filter.scopeId || filter.kind);
 		const hasAnyFilter =
-			hasFabricFilter || !!(filter.status || filter.topic || (filter.ids && filter.ids.length > 0));
+			hasProjectionFilter ||
+			!!(filter.status || filter.topic || (filter.ids && filter.ids.length > 0));
 
 		if (!hasAnyFilter) {
 			return {
@@ -308,22 +309,24 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 		}
 
 		const kernelConditions = [];
-		const fabricConditions = [];
+		const projectionConditions = [];
 
 		if (filter.status) kernelConditions.push(eq(knowledgeItems.status, filter.status));
 		if (filter.topic) kernelConditions.push(eq(knowledgeItems.topic, filter.topic));
 		if (filter.ids && filter.ids.length > 0) {
 			kernelConditions.push(inArray(knowledgeItems.id, Array.from(filter.ids)));
 		}
-		if (filter.layer) fabricConditions.push(eq(knowledgeAppProjection.layer, filter.layer));
-		if (filter.scopeId) fabricConditions.push(eq(knowledgeAppProjection.scopeId, filter.scopeId));
-		if (filter.kind) fabricConditions.push(eq(knowledgeAppProjection.kind, filter.kind));
+		if (filter.layer) projectionConditions.push(eq(knowledgeAppProjection.layer, filter.layer));
+		if (filter.scopeId) {
+			projectionConditions.push(eq(knowledgeAppProjection.scopeId, filter.scopeId));
+		}
+		if (filter.kind) projectionConditions.push(eq(knowledgeAppProjection.kind, filter.kind));
 
 		let rows: Array<{ id: string }>;
 
-		if (hasFabricFilter) {
-			// Need JOIN when filtering by strategy fields
-			const allConditions = [...kernelConditions, ...fabricConditions];
+		if (hasProjectionFilter) {
+			// Need JOIN when filtering by projection fields.
+			const allConditions = [...kernelConditions, ...projectionConditions];
 			rows = await db
 				.select({ id: knowledgeItems.id })
 				.from(knowledgeItems)

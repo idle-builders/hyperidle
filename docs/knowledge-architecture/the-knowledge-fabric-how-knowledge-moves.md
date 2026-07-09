@@ -1,4 +1,4 @@
-# The Knowledge Fabric: How Knowledge Moves
+# Knowledge Movement
 
 The system has two kinds of client. Humans interact through a rich web UI — inline editing, cards, scope pills. Agents interact through files in a session sandbox — markdown they can read, grep, and write, plus one TOON pack.
 
@@ -8,16 +8,16 @@ The right model is **projection, not collaboration**. One canonical store. Two p
 
 ## 1. The storage split at a glance
 
-One canonical store: the `knowledge_items` table (`packages/db/src/schema.ts:580`) — Postgres, via embedded PGlite locally or postgres-js on a server. Strategy fields (layer, kind, scores) live on the companion `knowledge_strategy_fabric` extension table, not the kernel table; store semantics are owned by [the-canonical-store.md](the-canonical-store.md).
+One canonical store: the `knowledge_items` table (`packages/db/src/schema.ts:580`) — Postgres, via embedded PGlite locally or postgres-js on a server. Projection fields (layer, kind, scores) live on the companion `knowledge_strategy_fabric` extension table, not the kernel table; store semantics are owned by [the-canonical-store.md](the-canonical-store.md).
 
-The fabric projects the same rows two ways:
+App-runtime projects the same rows two ways:
 
 | Reader | Projection |
 |---|---|
 | Agents | Plain files in the session sandbox (`context/factory`, `context/product`, `context/practices`) + one TOON pack (`context/session.toon`) |
 | Humans | Knowledge and Work views in the web UI |
 
-Scope maps to layer via `SCOPE_TO_LAYER` (`packages/fabric/src/types.ts:25-33`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
+Scope maps to layer via `SCOPE_TO_LAYER` (`packages/shared/src/knowledge.ts:25-33`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise. Agent-only session state ships as TOON; human-curated knowledge ships as markdown.
 
@@ -43,7 +43,7 @@ Human edits an item in the Knowledge view
 
 ## 3. Projection for agents (session sandbox)
 
-At session provisioning, the fabric assembles a slice of the store into real files in the agent's sandbox (`ContextAssemblyConfig.sandboxPath`, `packages/fabric/src/context-assembly.ts:18`).
+At session provisioning, the agent layer assembles a slice of the store into real files in the agent's sandbox (`AssembleAgentContextInput.sandboxPath`, `packages/server/src/services/agent-context/assemble-context.ts:18`).
 
 **Sandbox layout** (exact — `CONTEXT_ASSEMBLY_DIRS`, `context-assembly.ts:102-110`):
 

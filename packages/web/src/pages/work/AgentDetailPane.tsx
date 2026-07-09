@@ -205,8 +205,8 @@ export function AgentDetailPane({
 							style={{ background: "rgba(217,119,6,0.06)" }}
 						>
 							<p className="text-[12px] text-[var(--text-secondary)]">
-								This agent is managed by your strategy. Your system prompt edits are preserved, but
-								operational configuration may be refreshed on strategy updates.
+								This agent is managed by app defaults. Your system prompt edits are preserved, but
+								operational configuration may refresh when defaults change.
 							</p>
 						</div>
 					)}
