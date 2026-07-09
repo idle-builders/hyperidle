@@ -1,25 +1,23 @@
 /**
- * AK7 — Kernel selection helper. The SINGLE caller of getActiveStrategy().selectAgent.
+ * AK7 — app selection helper.
  *
- * Handles bet_* surfaces only. routine_delegate is Fabric-internal (concept §3a / §5.3):
- * it calls selectAgentFabric directly from routine-scheduler.ts with no Kernel enumeration.
+ * Handles bet_* surfaces only. routine_delegate is owned by the routine scheduler.
  *
  * Steps:
  *   1. enumerateTeamCandidates — eligible team candidates (bet_* only, role-only,
  *      orderBy users.id). This is the membership-group join (mechanism, not knowledge).
  *   2. Emit work_selection_requested (observable occasion — audit-only in AK7).
- *   3. Call the active Strategy's selectAgent (the decision — knowledge).
+ *   3. Resolve agent selection through app-owned defaults.
  *   4. Resolve + validate the returned id (guard: active AI user-id → null on failure).
  *
  * Returns the chosen users.id or null. null → caller takes its no-agent path.
  * NEVER spawns a session, NEVER reads a persona, NEVER enforces cost.
  *
- * @lore AK7: selectOwner is the single Kernel caller for bet_* selection. All
- * bet_* selection surfaces call selectOwner; routine_delegate is Fabric-internal
- * (calls selectAgentFabric directly — concept §3a / §5.3 carve-out).
+ * @lore AK7: selectOwner is the single caller for bet_* selection. All
+ * bet_* selection surfaces call selectOwner.
  *
  * @lore AK7: Off-team valid agents: the Kernel attaches to any valid active user-id
- * the Strategy returns. team-membership is the Strategy's concern, not an
+ * the resolver returns. team-membership is the resolver's concern, not an
  * Execution-side veto (concept §3 case 2). Out-of-scope now but noted for future
  * invariant if team-scoped cost attribution is added.
  */
@@ -32,7 +30,7 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
-import { getActiveStrategy } from "./strategy-registry.js";
+import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.
@@ -87,14 +85,12 @@ export async function enumerateTeamCandidates(
 }
 
 /**
- * AK7 — Kernel selection helper. The SINGLE caller of getActiveStrategy().selectAgent
- * for bet_* surfaces.
+ * AK7 — app selection helper for bet_* surfaces.
  *
  * Returns the chosen users.id or null. null → caller takes its no-agent path.
  *
  * @lore AK8: "bet_decomposer" is production-dead post-AK8. AK8 removed the only
- * production caller (runBetDecomposition now calls getActiveStrategy().decomposeBet
- * directly; selectOwner is no longer called for decomposer selection). The surface
+ * production caller. The surface
  * value is retained in the union — not pruned — to avoid churning AK7's protected
  * union tests and the closed surface set. A future dead-code sweep may remove it
  * once AK7 test fixtures are updated. See AK8 plan §Key design decisions.
@@ -114,8 +110,8 @@ export async function selectOwner(
 	// Step 1: Enumerate eligible team candidates (mechanism, not knowledge).
 	const candidates = await enumerateTeamCandidates(db, occasion.teamId);
 
-	// Step 2: Emit work_selection_requested BEFORE the port call (emit-then-call ordering).
-	// The event is the observable occasion (audit-only in AK7); the port call is the reply.
+	// Step 2: Emit work_selection_requested BEFORE resolving (emit-then-call ordering).
+	// The event is the observable occasion (audit-only in AK7); the resolver call is the reply.
 	// @lore AK7: Idempotency — a crash between emit and ownerAgentId write leaves only an
 	// orphan audit record; re-running re-emits and existing CAS/owner-already-set guards
 	// prevent double-assignment.
@@ -129,8 +125,8 @@ export async function selectOwner(
 		at: new Date().toISOString(),
 	});
 
-	// Step 3: Call the active Strategy's selectAgent (the decision — knowledge).
-	const { agentId } = await getActiveStrategy().selectAgent({
+	// Step 3: Resolve the agent decision.
+	const { agentId } = await resolveAgentSelection({
 		db,
 		surface: occasion.surface,
 		teamId: occasion.teamId,

@@ -12,17 +12,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import {
-	assemblePrompt,
-	assembleRoutinePrompt,
-	buildRoutineSessionContextData,
-	buildSessionContextData,
-	checkCostCap,
-	composeAssistantPrompt,
-	recordCostAndCheck,
-	type ToolSummary,
-	writeSandboxAgentsMd,
-} from "@hyperidle/fabric";
-import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
@@ -50,6 +39,17 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, inArray as drizzleInArray, eq, sql } from "drizzle-orm";
+import {
+	assemblePrompt,
+	assembleRoutinePrompt,
+	buildRoutineSessionContextData,
+	buildSessionContextData,
+	checkCostCap,
+	composeAssistantPrompt,
+	recordCostAndCheck,
+	type ToolSummary,
+	writeSandboxAgentsMd,
+} from "../app-runtime/index.js";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
@@ -67,11 +67,11 @@ import {
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
+import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import { getActiveStrategy } from "./strategy-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -133,6 +133,44 @@ async function revertTaskToAccepted(
 		toState,
 		timestamp: Date.now(),
 	});
+}
+
+async function assembleTaskFreePrompt(
+	db: HyperIdleDb,
+	params: ProvisionSessionParams,
+	systemPromptText: string,
+	toolSummaries: readonly ToolSummary[],
+): Promise<string> {
+	const sourceKind = params.requestContext?.sourceKind ?? "unknown";
+	const toolSection =
+		toolSummaries.length > 0
+			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
+			: "";
+	if (sourceKind === "decomposition") {
+		const betId =
+			params.requestContext?.sourceCorrelation &&
+			"betId" in params.requestContext.sourceCorrelation &&
+			typeof params.requestContext.sourceCorrelation.betId === "string"
+				? params.requestContext.sourceCorrelation.betId
+				: params.requestContext?.sourceId;
+		const [bet] = betId ? await db.select().from(bets).where(eq(bets.id, betId)).limit(1) : [];
+		return [
+			systemPromptText,
+			"## Bet decomposition",
+			"Turn this bet into concrete proposed tasks. Use the available task-creation tool when task creation is needed; do not invent another execution path.",
+			`Bet ID: ${betId ?? "unknown"}`,
+			`Goal: ${bet?.description ?? ""}`,
+			`Done condition: ${bet?.doneCondition ?? ""}`,
+			toolSection,
+		]
+			.filter(Boolean)
+			.join("\n\n");
+	}
+
+	const sourceSection = params.requestContext
+		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
+		: "## Session request\nTask-free session request";
+	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
 }
 
 /**
@@ -830,15 +868,9 @@ export async function admitSession(
 			);
 		}
 
-		// ── Phase 6: assemble context into the sandbox (via Strategy Port).
-		// @lore AK2 §5a: was `assembleContext(db, {...})` hard-imported from
-		// @hyperidle/fabric. Now routed through the Strategy Port so the Kernel
-		// is decoupled from any concrete Strategy. The try/catch revert behaviour
-		// is preserved exactly — assembleContext may throw; revertTaskToAccepted
-		// runs and the error propagates.
-		const strategy = getActiveStrategy();
+		// ── Phase 6: assemble context into the sandbox through the agent layer.
 		if (params.taskId) {
-			await strategy.assembleContext({
+			await assembleAgentContext({
 				db,
 				sandboxPath,
 				sessionId,
@@ -847,16 +879,29 @@ export async function admitSession(
 				agentRole,
 				teamId: params.productId,
 				isRoutine: !!params.routineId,
+				sourceKind: params.requestContext?.sourceKind ?? null,
+				sourceId: params.requestContext?.sourceId ?? null,
+				sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
+			});
+		} else if (params.requestContext) {
+			await assembleAgentContext({
+				db,
+				sandboxPath,
+				sessionId,
+				taskId: null,
+				agentId: params.agentId,
+				agentRole,
+				teamId: params.productId,
+				isRoutine: !!params.routineId,
+				sourceKind: params.requestContext.sourceKind,
+				sourceId: params.requestContext.sourceId,
+				sourceCorrelation: params.requestContext.sourceCorrelation,
 			});
 		}
 
-		// ── Phase 7: begin learning ingestion (via Strategy Port).
-		// @lore AK2 §5a: was `startWatcher(watcherConfig)` returning FileWatcher.
-		// Now calls beginLearningIngestion → IngestionHandle. The handle's dispose()
-		// replaces watcher.stop() at every teardown site. The Fabric adapter's
-		// beginLearningIngestion delegates to startWatcher byte-identically (AC3).
+		// ── Phase 7: begin writeback ingestion.
 		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-		ingestion = strategy.beginLearningIngestion({
+		ingestion = beginAgentWriteback({
 			db,
 			sandboxPath,
 			sessionId,
@@ -1149,6 +1194,8 @@ export async function runSession(
 			tools: toolSummaries,
 			sandboxPath,
 		}));
+	} else if (params.requestContext) {
+		assembledPrompt = await assembleTaskFreePrompt(db, params, systemPromptText, toolSummaries);
 	} else {
 		// Normal task session: read task + bet + agent + team context.
 		if (!params.taskId) {

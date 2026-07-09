@@ -232,7 +232,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 										<Tag
 											label={
 												data.agentCategory === "strategy"
-													? "Strategy"
+													? "App-managed"
 													: data.agentCategory === "individual"
 														? "Individual"
 														: data.agentCategory

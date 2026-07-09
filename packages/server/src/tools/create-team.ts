@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { teamMembers, teams, users } from "@hyperidle/db";
-import { provisionTeamRoutines } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { provisionTeamRoutines } from "../app-runtime/services/builtin-routines.js";
+import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
 /**
  * `create_team` — Create a new team with the specified functions and auto-generate
- * an agent roster using the active Strategy.
+ * an agent roster using app-owned defaults.
  *
  * @lore AE3: The teams.functions column was never written to by any existing route.
  * This tool is the first writer. The column is `text` (nullable), and we store a
@@ -21,9 +21,8 @@ import { err, ok, type ToolResult } from "./tool-result.js";
  * No cross-team restriction is applied. The authorization boundary is role-based
  * ("only individual-category agents can use management tools"), not team-scoped.
  *
- * @lore AK6 T7: Rewritten to route through the Strategy port (scaffoldAgents +
- * persistScaffoldedAgents). No inline defaultRoster() call — the active Strategy
- * decides the roster composition.
+ * @lore AU3: Rewritten to route through app-owned scaffold specs +
+ * persistScaffoldedAgents. No inline defaultRoster() call here.
  */
 const createTeamInputSchema = z.object({
 	name: z.string().min(1).max(200),
@@ -74,8 +73,8 @@ async function handler(
 		formedAt: now,
 	});
 
-	// AK6 T7: Route through Strategy port — the active Strategy decides the roster.
-	const specs = await getActiveStrategy().scaffoldAgents({
+	// AU3: Route through app-owned scaffold specs for the default roster.
+	const specs = await resolveAgentScaffoldSpecs({
 		db: ctx.db,
 		trigger: "team_scaffold",
 		teamId,
@@ -88,7 +87,7 @@ async function handler(
 		ownerUserName: null,
 	});
 
-	// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
+	// AK6: persistScaffoldedAgents is the single writer, assigning ids and mechanism fields.
 	const { agentIds, leadAgentId } = await persistScaffoldedAgents(ctx.db, teamMembersId, specs);
 
 	// Build roster summary from the inserted rows.
@@ -154,7 +153,7 @@ async function handler(
 export const createTeamTool: ToolDefinition<CreateTeamInput> = {
 	name: "create_team",
 	description:
-		"Create a new team with the specified functions. Automatically generates an agent roster based on the active Strategy. Each agent is created with appropriate system prompt templates.",
+		"Create a new team with the specified functions. Automatically generates an app-default agent roster with appropriate system prompt templates.",
 	inputSchema: createTeamInputSchema,
 	handler,
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".

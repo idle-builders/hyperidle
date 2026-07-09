@@ -29,15 +29,15 @@ import {
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-// AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona moves to the Fabric Strategy.
+// AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
-// now call the Strategy port (scaffoldAgents) + persistScaffoldedAgents, identical
+// now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
@@ -303,11 +303,11 @@ export function createAssistantSoulRoutes(
 		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 
 		if (!agentRow) {
-			// @lore AK6 T8: Lazy-create routes through the Strategy port (identical to POST /api/users).
+			// @lore AU3: Lazy-create routes through app defaults (identical to POST /api/users).
 			// @lore AH3 N2: Lazy-create handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 			// persistScaffoldedAgents is the single writer of agent user rows (AK6 hard-rule).
-			const specs = await getActiveStrategy().scaffoldAgents({
+			const specs = await resolveAgentScaffoldSpecs({
 				db,
 				trigger: "user_assistant",
 				teamId: null,
@@ -420,10 +420,10 @@ export function createAssistantSoulRoutes(
 		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
 
 		if (!agentRow) {
-			// @lore AK6 T8: Lazy-create (PATCH path) routes through the Strategy port (same as GET path).
+			// @lore AU3: Lazy-create (PATCH path) routes through app defaults (same as GET path).
 			// @lore AH3 N2: Lazy-create (PATCH path) handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			const specs = await getActiveStrategy().scaffoldAgents({
+			const specs = await resolveAgentScaffoldSpecs({
 				db,
 				trigger: "user_assistant",
 				teamId: null,

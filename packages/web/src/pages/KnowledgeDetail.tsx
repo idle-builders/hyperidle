@@ -10,11 +10,6 @@ import {
 	SectionLabel,
 	StatusChip,
 } from "@hyperidle/design-system";
-import {
-	KNOWLEDGE_STATUSES,
-	type KnowledgeScope,
-	type KnowledgeStatus,
-} from "@hyperidle/fabric/types";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -57,7 +52,14 @@ import {
  * (TipTap fires onChange with initial content on mount).
  */
 import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
-import { absoluteDateTime, isRedactedPayload, SCOPE_KINDS } from "@hyperidle/shared";
+import {
+	absoluteDateTime,
+	isRedactedPayload,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeScope,
+	type KnowledgeStatus,
+	SCOPE_KINDS,
+} from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";

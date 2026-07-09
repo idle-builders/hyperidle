@@ -20,10 +20,10 @@ HyperIdle is an OS for your agent factory. Its process layer sits between agent 
 └───────────────────────────┼──────────────────────────────────────┘
                             │
 ┌───────────────────────────┼──────────────────────────────────────┐
-│                     META LAYER (Kernel + Fabric)                  │
+│                     CORE APP + AGENT LAYER                        │
 │                                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ Item routing │  │ Scheduler    │  │ Knowledge Fabric       │  │
+│  │ Item routing │  │ Scheduler    │  │ Knowledge Services     │  │
 │  │              │  │              │  │                        │  │
 │  │ Items →      │  │ Routines,    │  │ L0 Session (TOON)      │  │
 │  │ Views        │  │ dependency   │  │  …                     │  │
@@ -55,9 +55,9 @@ HyperIdle is an OS for your agent factory. Its process layer sits between agent 
 
 The layering is strict. Arrows point down (dependency direction). The Human Interface depends on the Meta Layer; the Meta Layer depends on the Agent Runtime adapters. No layer reaches past its neighbor.
 
-The Meta Layer is split at the code level into **Kernel** (routing, persistence, events — the application and agent-runtime contract) and **Strategy** (the knowledge/context layer — scoring, propagation, notifications; `packages/fabric`, plus `packages/strategy-minimal` as the minimal implementation). The cut is by function, not stability — see [Kernel/Strategy Split](./kernel-strategy-split.md). Fabric subscribes to kernel events via the EventBus; the server composition root wires fabric in (`packages/server/src/server-factory.ts`).
+The Meta Layer is split at the code level into **core app domains** and the **agent layer**. Core app domains own Work, Conversation, Knowledge, Users, Settings, Routines, notifications, durable records, and domain events. The agent layer owns every LLM-capable run: session requests, admission, provisioning, harness execution, tools/MCP, context assembly, capture, writeback, and lifecycle events. Former knowledge and automation helpers now run as app-owned server services, not as a separate runtime layer.
 
-Knowledge inside the fabric moves through five maturity layers L0–L4 (`packages/fabric/src/types.ts:14`); L0 is per-session context serialized as TOON. The taxonomy is owned by [The Five Layers](../knowledge-architecture/the-five-layers.md).
+Knowledge moves through five maturity layers L0–L4 (`packages/shared/src/knowledge.ts`); L0 is per-session context serialized as TOON. The taxonomy is owned by [The Five Layers](../knowledge-architecture/the-five-layers.md).
 
 Agents run as host processes in a local working directory — there is no isolation layer by default; opt-in sandboxing is a planned follow-up (AQ2). See [Run-Unit Model](./run-unit-model.md).
 
@@ -66,17 +66,17 @@ Agents run as host processes in a local working directory — there is no isolat
 | Component | Default Technology | Scale Alternative |
 |-----------|--------------------|-------------------|
 | Primitive Store | PGlite (embedded Postgres, `@electric-sql/pglite`) via Drizzle `pgTable` | Real Postgres (`bootstrap-pg.ts`, `pg-ssl.ts`) |
-| Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`packages/fabric/src/fts.ts`) | Same |
+| Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`packages/server/src/app-runtime/fts.ts`) | Same |
 | Knowledge exports (human-readable) | Git repo (markdown exports) | Same |
 | Session context | TOON format (`packages/shared/src/toon-codec.ts`) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
-| Scheduler | `setInterval` services in `packages/fabric/src/services/` | _Future candidate:_ external queue (cloud profile only) |
+| Scheduler | `setInterval` services in `packages/server/src/app-runtime/services/` | _Future candidate:_ external queue (cloud profile only) |
 | Harnesses | builtin (OpenRouter) + CLI adapters (claude/codex/opencode) + remote worker, pooled via `harness/adapter-pool.ts` | — |
 | Sandbox (default) | `LocalSandboxAdapter` (host working dir); `DisabledSandboxAdapter` | Opt-in isolation planned (AQ2) |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64, DMG) | — |
-| Notifications | ntfy.sh / SMTP adapters (`packages/fabric/src/services/notifications/`) | APNs, Firebase |
+| Notifications | ntfy.sh / SMTP adapters (`packages/server/src/app-runtime/services/notifications/`) | APNs, Firebase |
 | Observability | `console` \| `noop` channels (`packages/server/src/services/observability/`) — OpenTelemetry explicitly future | — |
 | Auth | Auto-generated API key (`X-API-Key` header) | OAuth / passkeys |
 | Credentials | Electron safeStorage (desktop) / AES-256-GCM server-side — see [Credential Model](./credential-model.md) | — |
@@ -84,7 +84,7 @@ Agents run as host processes in a local working directory — there is no isolat
 
 ### Language choices
 
-**TypeScript** for the entire stack. The process layer (API, scheduler, adapters, knowledge fabric) runs on **Node.js** with **Hono** as the HTTP framework: single language across the monorepo, Drizzle ORM for type-safe queries against the embedded Postgres store.
+**TypeScript** for the entire stack. The process layer (API, scheduler, adapters, knowledge services) runs on **Node.js** with **Hono** as the HTTP framework: single language across the monorepo, Drizzle ORM for type-safe queries against the embedded Postgres store.
 
 **TypeScript + React** for the Factory app: Tailwind + DaisyUI compose cleanly with React, sharing types with the server eliminates API contract drift, and Electron bundles the renderer natively.
 
@@ -92,11 +92,11 @@ Agents run as host processes in a local working directory — there is no isolat
 
 | Package | Layer | Purpose |
 |---------|-------|---------|
-| `shared` | Kernel | Types, constants, TOON codec |
-| `db` | Kernel | Schema (Drizzle ORM), migrations |
-| `server` | Kernel | Hono API routes, middleware, WebSocket, kernel services |
-| `fabric` | Strategy | Scoring, routing, propagation, notifications, built-in routines |
-| `strategy-minimal` | Strategy | Minimal Strategy implementation (no fabric heuristics) |
+| `shared` | Shared | Types, constants, TOON codec |
+| `db` | Core app | Schema (Drizzle ORM), migrations |
+| `server` | Core app + agent layer | Hono API routes, middleware, WebSocket, domain services, agent runtime services |
+| `fabric` | Legacy compatibility | Historical package retained for old tests/exports; not a production runtime dependency |
+| `strategy-minimal` | Legacy compatibility | Historical package retained for old tests/exports; not a production runtime dependency |
 | `web` | Interface | React SPA (Vite) |
 | `desktop` | Interface | Electron main process, preload bridge |
 | `design-system` | Interface | React components + stories |
@@ -141,7 +141,7 @@ User submits a verdict
   → POST /api/threads/:id/messages (verdict-type message)
   → API writes Message to Primitive Store
   → Event emitted via EventBus
-  → Fabric subscribers react: harness adapter unblocks agent, attention scores update
+  → App subscribers react: harness adapter unblocks agent, attention scores update
   → Thread list refreshes via WebSocket push
 
 User creates a bet
@@ -149,7 +149,7 @@ User creates a bet
 
 User creates knowledge
   → POST /api/knowledge (scope_kind + scope_id + markdown body)
-  → fabric assigns the item to the correct knowledge layer
+  → app-runtime assigns the item to the correct knowledge layer
 ```
 
 WebSocket subscribe authorization is owned by the [Authorization Model](./authorization-model.md); full end-to-end flows live in [Data Flow Examples](./data-flow-examples.md).

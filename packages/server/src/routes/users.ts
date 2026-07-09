@@ -8,9 +8,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
-// AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona moves to the Fabric Strategy (T8).
+// AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
-// persistScaffoldedAgents now writes systemPrompt from the Strategy's AgentScaffoldSpec.
+// persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -20,10 +20,10 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
+import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getActiveStrategy } from "../services/strategy-registry.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
@@ -137,11 +137,11 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 			createdAt: now,
 		});
 
-		// AC-1 AD8b: Create a per-user assistant agent at registration via Strategy port.
-		// AK6 T8: Route through scaffoldAgents — the active Strategy decides the persona.
+		// AC-1 AD8b: Create a per-user assistant agent at registration via app defaults.
+		// AK6 T8: Route through scaffoldAgents — app defaults decide the persona.
 		// The Kernel persists via persistScaffoldedAgents (single writer, idHint=ast-${id}).
-		// BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona is now Strategy-owned.
-		const specs = await getActiveStrategy().scaffoldAgents({
+		// BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona is now app-owned.
+		const specs = await resolveAgentScaffoldSpecs({
 			db,
 			trigger: "user_assistant",
 			teamId: null,

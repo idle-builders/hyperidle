@@ -3,17 +3,17 @@
  *
  * `FactoryRosterSpec` is a PURE VALUE (not a port call) injected into
  * `applyFactoryBootstrap` so the db leaf + desktop can seed facilitators
- * without the server/Strategy registry. The default IS the Fabric's roster
+ * without the server roster registry. The default preserves the app roster
  * (preservation).
  *
  * @lore AK6: This is the "registry-free roster injection" seam. The db leaf
- * (`packages/db`) cannot import `getActiveStrategy()` from `packages/server`
- * (inverts `db→server`). Instead, `applyFactoryBootstrap(db, roster?)` takes
+ * (`packages/db`) cannot import server-owned runtime services (inverts
+ * `db→server`). Instead, `applyFactoryBootstrap(db, roster?)` takes
  * this value as an optional param, defaulting to `defaultFactoryRoster`.
  *
  * @lore AK6: `defaultFactoryRoster` lives in `@hyperidle/shared` (the contract
- * layer) so both `packages/db` (the bootstrap writer) and `packages/fabric`
- * (the active Strategy at runtime) can reference the same canonical seed.
+ * layer) so both `packages/db` (the bootstrap writer) and server-owned
+ * app defaults can reference the same canonical seed.
  * The `db→shared` import direction is valid (`packages/db/package.json`
  * already depends on `@hyperidle/shared`).
  *
@@ -84,8 +84,8 @@ export interface FactoryRosterSpec {
  *
  * All four registry-less boot paths (desktop + 3 leaf CLIs) rely on this default.
  *
- * @lore AK6: The Fabric, as the active Strategy at runtime, owns the *evolving*
- * persona via its knowledge mechanism. This seed value is the *initial state*
+ * @lore AU3: App-owned defaults carry the initial persona seed. This value is
+ * the *initial state*
  * placed in the DB by bootstrap; post-creation evolution is out of AK6 scope.
  */
 export const defaultFactoryRoster: FactoryRosterSpec = {

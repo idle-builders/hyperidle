@@ -16,8 +16,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { GitConfigInjection } from "@hyperidle/fabric";
 import type { MountResult } from "@hyperidle/shared";
+import type { GitConfigInjection } from "../app-runtime/services/git-export-runner.js";
 import type {
 	AdapterCaptureResult,
 	CaptureContext,

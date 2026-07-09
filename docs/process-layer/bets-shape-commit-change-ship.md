@@ -41,7 +41,7 @@ Captured knowledge can seed a bet directly without retyping. From a knowledge it
 The founder commits from the bet detail view. At that moment:
 
 1. The bet moves `draft → active`.
-2. The Kernel emits `work_decompose_requested` and asks the active Strategy which agent decomposes the bet and whether it provides a pre-computed task breakdown.
+2. The Work service emits `work_decompose_requested`, resolves the decomposer from app-owned defaults/configuration, and creates an agent-layer decomposition request when a PM turn is needed.
 3. The bet's task section shows "Planning the work" while decomposition runs; tasks appear as soon as it finishes.
 
 Commit is a **human verdict that obliges the system to start work**. After commit, every active bet has either a task breakdown or an explicit, visible reason why one couldn't be produced — no "work will start eventually" limbo.
@@ -50,9 +50,9 @@ The `done_condition` (`schema.ts:140`) guides what decomposition produces. It is
 
 ## 5. Decompose (v1: centralized PM turn)
 
-**As-built:** on `draft → active` the Kernel emits `work_decompose_requested` and calls the active Strategy's `decomposeBet` port method (AK8, `packages/shared/src/strategy-port.ts:254`), which returns the decomposer agent id and an optional task list. Minimal and Fabric Strategies return `tasks: []`, so the Kernel creates a `decomposition` `AgentSessionRequest`; the agent runtime consumes that request as a task-free PM session where the agent reads the bet's goal and done condition. Writeback happens through the normal `create_task` tool, which derives bet/team from the decomposition request context and creates proposed tasks. Created tasks remain `proposed` until the normal task acceptance flow accepts and dispatches them (see [tasks-and-sessions.md](./tasks-and-sessions.md)). No human approves the initial breakdown before it is proposed; the founder sees it on the bet surface after the fact.
+**As-built:** on `draft → active` the Work service emits `work_decompose_requested` and resolves a decomposition plan from app-owned defaults/configuration. If the plan contains no precomputed tasks, it creates a `decomposition` `AgentSessionRequest`; the agent runtime consumes that request as a task-free PM session where the agent reads the bet's goal and done condition. Writeback happens through the normal `create_task` tool, which derives bet/team from the decomposition request context and creates proposed tasks. Created tasks remain `proposed` until the normal task acceptance flow accepts and dispatches them (see [tasks-and-sessions.md](./tasks-and-sessions.md)). No human approves the initial breakdown before it is proposed; the founder sees it on the bet surface after the fact.
 
-The PM agent's context comes through the Strategy port (`assembleContext`). Under the Minimal Strategy the PM decomposes from the bet alone; under the Fabric it receives practice context. A richer Strategy may return a pre-computed task list from `decomposeBet.tasks` directly, skipping the PM turn.
+The PM agent's context comes through the agent-layer context provider. A default plan can return a pre-computed task list directly, skipping the PM turn.
 
 **Terminal outcomes — a closed set:**
 

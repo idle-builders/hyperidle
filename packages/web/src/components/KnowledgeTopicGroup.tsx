@@ -11,7 +11,7 @@
  * Health dot and stale badge kept for accessibility/tests but visually hidden
  * (sr-only). The mockup shows no collapse chevron or health indicators.
  */
-import type { KnowledgeTopicHealth } from "@hyperidle/fabric/types";
+import type { KnowledgeTopicHealth } from "@hyperidle/shared";
 import { type JSX, type ReactNode, useState } from "react";
 
 export interface KnowledgeTopicGroupProps {

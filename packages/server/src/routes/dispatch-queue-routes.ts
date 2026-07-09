@@ -7,8 +7,8 @@
  * Use this to observe which tasks are waiting for agent capacity.
  */
 
-import { getDispatchQueueSnapshot } from "@hyperidle/fabric";
 import { Hono } from "hono";
+import { getDispatchQueueSnapshot } from "../app-runtime/services/task-dispatcher.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**

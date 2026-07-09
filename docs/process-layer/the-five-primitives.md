@@ -16,7 +16,7 @@ The middle path this layer implements: **decentralized handoffs over a shared su
 Three commitments distinguish it, all implemented:
 
 1. **Teams persist.** A team is the durable unit, not a per-task crew. Product merged 1:1 into Team (U1: the `teams` table is the former `products` table). Successive bets pass through the same team and it accumulates muscle memory. See [teams.md](teams.md).
-2. **Decomposition is decentralized and pluggable.** No central planner service. Each bet is decomposed via a pluggable strategy (`packages/server/src/services/bet-decomposition.ts`) — the fabric strategy is knowledge-aware (practice = L3); the kernel minimal strategy is the knowledge-free floor. See [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
+2. **Decomposition is decentralized and pluggable.** No central planner service. Each bet enters the agent-session request flow through `packages/server/src/services/bet-decomposition.ts`; app-owned defaults and knowledge services assemble the context before the chosen harness runs it. See [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
 3. **Change is first-class, not exceptional.** Bets are meant to change as the team learns. Revisions flow through the same review-thread mechanism humans use to approve anything else, with an audit trail.
 
 ---
@@ -27,7 +27,7 @@ Knowledge in a healthy flat company doesn't flow one way. The founders set direc
 
 ### 2.1 Top-down: vision and focus, not assignments
 
-- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. `git-export.ts` exports them to the team's git repo (`EXPORTED_KINDS`, `packages/fabric/src/services/git-export.ts:30-31`); context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox (`packages/fabric/src/context-assembly.ts`). Edited by humans through the assistant thread and approved through Conversations.
+- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. App-runtime git export writes them to the team's git repo; context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox. Edited by humans through the assistant thread and approved through Conversations.
 - **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant; the assistant distills it into proposed updates that loop back through Conversations for approval.
 - **Committing a bet in the Work view** — a direct top-down signal: "this is what we're doing for the next cycle."
 

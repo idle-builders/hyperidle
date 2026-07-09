@@ -15,7 +15,7 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 6. Router: risk_tier ≥ medium → Conversations + push notification
    (notification_queue + dispatcher)
 7. Router: product scope → route to CPO
-   (routeToFounder, packages/fabric/src/services/founder-router.ts)
+   (routeToFounder, packages/server/src/app-runtime/services/founder-router.ts)
 8. Notification adapter: push to CPO's phone
 9. CPO opens thread, reads summary, approves
 10. Verdict recorded → bet status → "completed"
@@ -45,7 +45,7 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
 1. A Builder discovers chunked upload >10MB works better
 2. Builder logs the finding to task notes at session end (before compaction)
 3. At the next weekly practice-meeting routine (facilitator role,
-   packages/fabric/src/services/practice-meeting.ts):
+   packages/server/src/app-runtime/services/practice-meeting.ts):
    a. Facilitator collects findings from all Builders
    b. Builders and facilitator discuss — is this worth keeping?
    c. Facilitator creates knowledge item: "chunked upload for files >10MB"

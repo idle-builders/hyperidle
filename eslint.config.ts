@@ -1134,6 +1134,75 @@ export default [
 		},
 	},
 
+	// AU3 — production runtime must not import Fabric/Strategy package seams.
+	{
+		files: [
+			"packages/server/src/**/*.ts",
+			"packages/shared/src/**/*.ts",
+			"packages/api-contract/src/**/*.ts",
+			"packages/web/src/**/*.{ts,tsx}",
+			"packages/design-system/src/**/*.{ts,tsx}",
+		],
+		ignores: [
+			"packages/**/src/**/__tests__/**",
+			"packages/**/*.test.{ts,tsx}",
+			"packages/**/*.integration.test.{ts,tsx}",
+			"packages/**/*.spec.{ts,tsx}",
+			"packages/**/*.stories.tsx",
+			"packages/server/src/services/strategy-registry.ts",
+			"packages/shared/src/strategy-port.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/fabric",
+							message:
+								"AU3: production runtime imports must use app/server-owned modules, not @hyperidle/fabric.",
+						},
+						{
+							name: "@hyperidle/fabric/types",
+							message:
+								"AU3: knowledge vocabulary must come from @hyperidle/shared or app-owned modules.",
+						},
+						{
+							name: "@hyperidle/strategy-minimal",
+							message: "AU3: production boot has no Strategy package dependency.",
+						},
+						{
+							name: "@hyperidle/db",
+							importNames: ["knowledgeStrategyFabric", "taskStrategyFabric"],
+							message:
+								"AU3: production code must import app-owned projection aliases, not Fabric-named table exports.",
+						},
+					],
+					patterns: [
+						{
+							group: ["**/strategy-registry", "**/strategy-registry.js"],
+							message: "AU3: production code must call app-owned resolvers, not strategy-registry.",
+						},
+					],
+				},
+			],
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector:
+						"Identifier[name=/^(setActiveStrategy|getActiveStrategy|fabricStrategy|bootstrapFabric)$/]",
+					message: "AU3: Strategy/Fabric runtime symbols are banned from production code.",
+				},
+			],
+		},
+	},
+
 	// AM5 H1 — no hand-rolled navigate to a viewer route outside the open contract.
 	//
 	// All route navigation must go through `createOpenHandler` (open-handler.ts).

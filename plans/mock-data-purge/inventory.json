@@ -1,5 +1,23 @@
 [
   {
+    "path": "packages/server/src/app-runtime/services/lifecycle-propagation.ts",
+    "line": 540,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/app-runtime/services/lifecycle-propagation.ts",
+    "line": 542,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
     "path": "packages/server/src/middleware/auth.ts",
     "line": 168,
     "symbol": "u-founder",
@@ -73,7 +91,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 65,
+    "line": 67,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -82,7 +100,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 125,
+    "line": 127,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -91,7 +109,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 203,
+    "line": 205,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -100,7 +118,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 209,
+    "line": 211,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

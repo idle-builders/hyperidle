@@ -1,20 +1,16 @@
 /**
  * AR4b — Formation seam: the assistant's persona + tool surface are decided by
- * the active strategy at turn time, NOT read from a hardcoded constant.
+ * the app-owned formation resolver at turn time, NOT read from a hardcoded constant.
  *
- * Verifies AC3: switching the active strategy changes the assistant's form.
+ * Verifies AC3: changing the resolver response changes the assistant's form.
  *
  * This is a unit test (*.test.ts) — it mocks runSession to capture the
  * conversational parameters (systemPromptOverride + draftRegistry) handed to it
  * by runAssistantTurn after the formation seam consultation.
  *
- * Two strategies are exercised:
- *   - minimalStrategy     → persona: null (no override), surface: "standard"
- *   - testStrategy (alpha) → persona: "AR4b-test-persona-alpha", surface: "standard" (same tools, different persona)
- *
- * The key observable: runAssistantTurn now calls getActiveStrategy().formAssistant()
- * BEFORE calling the runtime. The captured systemPromptOverride must differ
- * between strategies, proving the formation seam is consulted at turn time.
+ * The key observable: runAssistantTurn calls resolveAssistantFormation()
+ * BEFORE calling the runtime. The captured systemPromptOverride must reflect
+ * the current resolver response, proving the formation seam is consulted at turn time.
  *
  * @lore AR4b: We observe via the runSession call-site capture rather than
  * by reading the DB or the AGENTS.md file on disk, because:
@@ -25,15 +21,12 @@
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import type { AssistantFormation, AssistantFormationRequest, Strategy } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
-import { minimalStrategy } from "@hyperidle/strategy-minimal";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { runAssistantTurn } from "../services/assistant-turn.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -42,6 +35,13 @@ const FOUNDER_ID = "founder-ar4b-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
 const THREAD_ID = "thread-ar4b-formation";
 const TRIGGER_MSG_ID = "msg-trigger-ar4b-formation";
+const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assistant.";
+
+const formationState = vi.hoisted(() => ({
+	persona: null as string | null,
+	assistantDraftSurface: "standard" as const,
+	calls: [] as Array<{ userId: string; threadId: string }>,
+}));
 
 // ─── Captured provisionSession calls ─────────────────────────────────────────
 
@@ -58,7 +58,7 @@ const capturedConversational: CapturedConversational[] = [];
  * so runAssistantTurn persists a reply row (not a notice).
  *
  * @lore AR4b: We capture params.conversational.systemPromptOverride to prove the
- * formation seam consulted the active strategy at turn time. The mock never runs
+ * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
 vi.mock("../services/session-provisioning.js", async (importOriginal) => {
@@ -111,23 +111,24 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 	};
 });
 
-// ─── Test strategy (alpha) — different persona ────────────────────────────────
+vi.mock("../services/agent-defaults/resolvers.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../services/agent-defaults/resolvers.js")>();
+	return {
+		...original,
+		resolveAssistantFormation: vi.fn(async (input: { userId: string; threadId: string }) => {
+			formationState.calls.push({ userId: input.userId, threadId: input.threadId });
+			return {
+				persona: formationState.persona,
+				assistantDraftSurface: formationState.assistantDraftSurface,
+			};
+		}),
+	};
+});
 
-const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assistant.";
-
-/**
- * Alpha test strategy: returns a distinct persona for formAssistant.
- * All other methods delegate to minimalStrategy.
- */
-const alphaStrategy: Strategy<HyperIdleDb> = {
-	...minimalStrategy,
-	formAssistant(_req: AssistantFormationRequest<HyperIdleDb>): Promise<AssistantFormation> {
-		return Promise.resolve({
-			persona: ALPHA_PERSONA,
-			assistantDraftSurface: "standard",
-		});
-	},
-};
+function setFormationPersona(persona: string | null): void {
+	formationState.persona = persona;
+	formationState.assistantDraftSurface = "standard";
+}
 
 // ─── Credential resolver ──────────────────────────────────────────────────────
 
@@ -199,18 +200,15 @@ function makeAdapterPool(): AdapterPool {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("AR4b: formation seam — active strategy decides persona + tools at turn time", () => {
+describe("AR4b: formation seam — app resolver decides persona + tools at turn time", () => {
 	beforeEach(() => {
 		capturedConversational.length = 0;
+		formationState.calls.length = 0;
+		setFormationPersona(null);
 		vi.clearAllMocks();
 	});
 
-	afterEach(() => {
-		clearActiveStrategy();
-	});
-
-	test("minimalStrategy formAssistant: persona is null (no override)", async ({ db }) => {
-		setActiveStrategy(minimalStrategy);
+	test("default app assistant formation leaves persona unset", async ({ db }) => {
 		await seedFixtures(db);
 
 		const eventBus = new EventBus();
@@ -226,18 +224,16 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 
 		expect(capturedConversational).toHaveLength(1);
 		const captured = capturedConversational[0]!;
-		// minimalStrategy.formAssistant returns persona: null → no override
 		expect(captured.systemPromptOverride).toBeNull();
 		// Draft surface is "standard" → two draft tools present
 		expect(captured.draftRegistryToolNames).toEqual(
 			expect.arrayContaining(["create_bet", "edit_bet"]),
 		);
+		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID, threadId: THREAD_ID }]);
 	});
 
-	test("alphaStrategy formAssistant: persona is the strategy's persona (distinct from minimal)", async ({
-		db,
-	}) => {
-		setActiveStrategy(alphaStrategy);
+	test("app assistant formation persona is applied to the runtime turn", async ({ db }) => {
+		setFormationPersona(ALPHA_PERSONA);
 		await seedFixtures(db);
 
 		const eventBus = new EventBus();
@@ -253,19 +249,16 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 
 		expect(capturedConversational).toHaveLength(1);
 		const captured = capturedConversational[0]!;
-		// alphaStrategy.formAssistant returns persona: ALPHA_PERSONA → override present
 		expect(captured.systemPromptOverride).toBe(ALPHA_PERSONA);
 	});
 
-	test("switching strategy changes the assistant's form (AC3): persona differs between strategies", async ({
-		db,
-	}) => {
+	test("changing formation response changes the assistant's form (AC3)", async ({ db }) => {
 		await seedFixtures(db);
 		const eventBus = new EventBus();
 		const pool = makeAdapterPool();
 
-		// Turn 1: minimalStrategy
-		setActiveStrategy(minimalStrategy);
+		// Turn 1: default app formation.
+		setFormationPersona(null);
 		await runAssistantTurn(
 			{ db, eventBus, adapterPool: pool, credentialResolver },
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
@@ -273,7 +266,6 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 		const minimalCapture = capturedConversational[0]!;
 
 		capturedConversational.length = 0;
-		clearActiveStrategy();
 		const secondTriggerMessageId = `${TRIGGER_MSG_ID}-second`;
 		await db.insert(messages).values({
 			id: secondTriggerMessageId,
@@ -285,26 +277,23 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 			createdAt: new Date().toISOString(),
 		});
 
-		// Turn 2: alphaStrategy
-		setActiveStrategy(alphaStrategy);
+		// Turn 2: resolver returns a persona override.
+		setFormationPersona(ALPHA_PERSONA);
 		await runAssistantTurn(
 			{ db, eventBus, adapterPool: pool, credentialResolver },
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: secondTriggerMessageId },
 		);
 		const alphaCapture = capturedConversational[0]!;
 
-		// The key assertion: switching the strategy changed the persona (AC3)
 		expect(minimalCapture.systemPromptOverride).toBeNull();
 		expect(alphaCapture.systemPromptOverride).toBe(ALPHA_PERSONA);
 		expect(minimalCapture.systemPromptOverride).not.toBe(alphaCapture.systemPromptOverride);
 	});
 
-	test("runAssistantTurn calls getActiveStrategy() at turn time (not a hardcoded constant)", async ({
-		db,
-	}) => {
-		// Set strategy AFTER seeding but BEFORE runAssistantTurn — verifies turn-time consultation
+	test("runAssistantTurn calls the formation resolver at turn time", async ({ db }) => {
+		// Set resolver response AFTER seeding but BEFORE runAssistantTurn — verifies turn-time consultation.
 		await seedFixtures(db);
-		setActiveStrategy(alphaStrategy);
+		setFormationPersona(ALPHA_PERSONA);
 
 		const eventBus = new EventBus();
 		await runAssistantTurn(
@@ -312,8 +301,8 @@ describe("AR4b: formation seam — active strategy decides persona + tools at tu
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
 		);
 
-		// The active strategy at TURN TIME was alphaStrategy → persona must be ALPHA_PERSONA
 		expect(capturedConversational).toHaveLength(1);
 		expect(capturedConversational[0]!.systemPromptOverride).toBe(ALPHA_PERSONA);
+		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID, threadId: THREAD_ID }]);
 	});
 });

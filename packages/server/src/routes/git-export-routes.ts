@@ -1,25 +1,26 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
+import { Hono } from "hono";
+import z from "zod";
 import {
-	createGitRunner,
 	createNodeFsAdapter,
 	type FsAdapter,
+	runGitExport,
+} from "../app-runtime/services/git-export.js";
+import {
 	type GitExportConfig,
-	type GitRunner,
 	getLastExportMeta,
 	readGitExportConfig,
 	redactRemoteUrl,
-	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 	updateGitExportConfig,
-} from "@hyperidle/fabric";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { Hono } from "hono";
-import z from "zod";
+} from "../app-runtime/services/git-export-config.js";
+import { createGitRunner, type GitRunner } from "../app-runtime/services/git-export-runner.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 

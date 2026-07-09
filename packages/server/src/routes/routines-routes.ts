@@ -1,14 +1,5 @@
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
-	extractBuiltinKind,
-	getRoutineMonthlySpend,
-	isBuiltinRoutineId,
-	type PostBetRetroArgs,
-	parseCron,
-	runBuiltinRoutine,
-	shouldCoalesce,
-} from "@hyperidle/fabric";
-import {
 	API_ERROR_CODES,
 	type CurrencyCode,
 	type EventBus,
@@ -22,6 +13,18 @@ import {
 import { and, avg, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import {
+	extractBuiltinKind,
+	isBuiltinRoutineId,
+	type PostBetRetroArgs,
+	runBuiltinRoutine,
+} from "../app-runtime/services/builtin-routines.js";
+import {
+	getRoutineMonthlySpend,
+	nextCronMatch,
+	parseCron,
+	shouldCoalesce,
+} from "../app-runtime/services/routine-scheduler.js";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -160,7 +163,6 @@ export function createRoutineRoutes(
 			const now = new Date().toISOString();
 
 			// Compute nextRunAt from the cron expression
-			const { nextCronMatch } = await import("@hyperidle/fabric");
 			let nextRunAt: string | null = null;
 			try {
 				const cron = parseCron(triggerConfigParsed.cron);

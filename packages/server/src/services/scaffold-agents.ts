@@ -64,7 +64,7 @@ async function resolveAgentId(db: HyperIdleDb, idHint: string | undefined): Prom
  *
  * @param db             - The database handle.
  * @param teamMembersId  - teamMembers.id to set as users.teamId (null for non-team-scoped agents).
- * @param specs          - The agent specs returned by the active Strategy's scaffoldAgents().
+ * @param specs          - The app-owned agent specs to persist.
  * @param primaryHarness - Optional. When supplied, all agents use this harness/model instead
  *                         of the builtin/sonnet-4-6 default. Used by onboarding (B3) to wire
  *                         the user's chosen harness into every created agent.

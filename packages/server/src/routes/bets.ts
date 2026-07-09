@@ -2,8 +2,8 @@ import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	messages,
 	sessions,
 	tasks,
@@ -464,7 +464,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
 		// @lore O2: stripped strategy columns (durability, riskTier, attentionScore,
 		// crossTeam) removed from select. Session cost/token/harness columns also
-		// stripped — those are strategy concerns now in the fabric layer.
+		// stripped — those are strategy concerns now in the app projection layer.
 		// @lore U1: tasks.teamId now references `teams` (formerly `products`). No more productId.
 		const betTasks = await db
 			.select({
@@ -997,7 +997,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	//
 	// @lore AC2: Single endpoint wraps both the outcome write and the knowledge item
 	// creation in one transaction to prevent the partial-failure mode (outcome saved
-	// but knowledge failed). The hypothesis snapshot is stored in the fabric meta at
+	// but knowledge failed). The hypothesis snapshot is stored in the projection meta at
 	// creation time and never updated by subsequent retro calls (immutability by convention).
 	router.post(
 		"/:id/retro",
@@ -1059,19 +1059,19 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const kiTitle = `Retro: ${betTitle}`;
 
 			// Find existing retro knowledge item for this bet (upsert pattern)
-			// Query: knowledge_items scoped to this bet + fabric kind='reflection'
+			// Query: knowledge_items scoped to this bet + projection kind='reflection'
 			const existingKiRows = await db
 				.select({ id: knowledgeItems.id, version: knowledgeItems.version })
 				.from(knowledgeItems)
 				.innerJoin(
-					knowledgeStrategyFabric,
-					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+					knowledgeAppProjection,
+					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 				)
 				.where(
 					and(
 						eq(knowledgeItems.scopeKind, "bet"),
 						eq(knowledgeItems.scopeId, betId),
-						eq(knowledgeStrategyFabric.kind, "reflection"),
+						eq(knowledgeAppProjection.kind, "reflection"),
 					),
 				)
 				.limit(1);
@@ -1115,11 +1115,11 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 						})
 						.where(eq(knowledgeItems.id, existingKi.id));
 
-					// Update fabric meta (verdict changes; hypothesis snapshot stays from first write)
+					// Update projection meta (verdict changes; hypothesis snapshot stays from first write)
 					const existingFabricRows = await tx
 						.select()
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id))
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, existingKi.id))
 						.limit(1);
 					const existingFabric = existingFabricRows[0];
 					if (existingFabric) {
@@ -1134,12 +1134,12 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 							validatedBy: actor ?? null,
 						};
 						await tx
-							.update(knowledgeStrategyFabric)
+							.update(knowledgeAppProjection)
 							.set({ meta: JSON.stringify(updatedMeta) })
-							.where(eq(knowledgeStrategyFabric.knowledgeItemId, existingKi.id));
+							.where(eq(knowledgeAppProjection.knowledgeItemId, existingKi.id));
 					}
 				} else {
-					// Insert: create new knowledge item + fabric row
+					// Insert: create new knowledge item + projection row
 					const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
 
 					await tx.insert(knowledgeItems).values({
@@ -1165,7 +1165,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 						validatedBy: actor ?? null,
 					};
 
-					await tx.insert(knowledgeStrategyFabric).values({
+					await tx.insert(knowledgeAppProjection).values({
 						id: crypto.randomUUID(),
 						knowledgeItemId: retroKnowledgeItemId,
 						layer: null,

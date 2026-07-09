@@ -1,14 +1,14 @@
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	bootstrapFabric,
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	recordCostAndCheck,
-} from "@hyperidle/fabric";
 import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
+import { bootstrapAppRuntime } from "../app-runtime/bootstrap.js";
+import {
+	clearDeduplicationCache,
+	getDedupCacheSize,
+	recordCostAndCheck,
+} from "../app-runtime/services/cost-cap.js";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions";
@@ -30,7 +30,7 @@ describe("Session Endpoints (E6)", () => {
 	describe("AC10: POST /api/sessions — create session", () => {
 		test("creates a session and emits event", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				// Seed required data
 				await db.insert(teams).values({
@@ -102,7 +102,7 @@ describe("Session Endpoints (E6)", () => {
 		});
 
 		test("returns 400 for invalid modelTier", async ({ db, eventBus }) => {
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await db.insert(teams).values({
 					id: "prod-1",
@@ -159,7 +159,7 @@ describe("Session Endpoints (E6)", () => {
 		});
 
 		test("returns 400 for missing required fields", async ({ db, eventBus }) => {
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				const res = await app.request("/api/sessions", {
 					method: "POST",
@@ -218,7 +218,7 @@ describe("Session Endpoints (E6)", () => {
 
 		test("ends a session with state=done", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await seedData(db);
 
@@ -259,7 +259,7 @@ describe("Session Endpoints (E6)", () => {
 
 		test("crashes a session with state=crashed", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await seedData(db);
 
@@ -291,7 +291,7 @@ describe("Session Endpoints (E6)", () => {
 		});
 
 		test("returns 404 for unknown session", async ({ db, eventBus }) => {
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				const res = await app.request("/api/sessions/nonexistent", {
 					method: "PATCH",
@@ -311,7 +311,7 @@ describe("Session Endpoints (E6)", () => {
 		// `session_ended` regardless of which path emitted it.
 		test("PATCH state=done releases the cost-cap dedup entry", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await seedData(db);
 
@@ -354,7 +354,7 @@ describe("Session Endpoints (E6)", () => {
 
 		test("PATCH state=crashed releases the cost-cap dedup entry", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await seedData(db);
 
@@ -394,7 +394,7 @@ describe("Session Endpoints (E6)", () => {
 
 		test("returns 400 for invalid state", async ({ db, eventBus }) => {
 			clearDeduplicationCache();
-			const app = await createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+			const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
 			try {
 				await seedData(db);
 

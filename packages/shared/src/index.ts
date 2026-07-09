@@ -282,6 +282,31 @@ export type { OldKindMapping } from "./kinds/old-kind-map.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // getKindDefinition and isRegisteredKind exported via types/artifact.ts re-export from registry
 export { getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
+export type {
+	AutonomyLevel,
+	KnowledgeAccessorKind,
+	KnowledgeKind,
+	KnowledgeLayer,
+	KnowledgeRelevanceSignals,
+	KnowledgeScope,
+	KnowledgeSortOption,
+	KnowledgeStatus,
+	KnowledgeTopicHealth,
+	PropagationLevel,
+	PropagationResult,
+	PropagationStatus,
+	RiskTier,
+} from "./knowledge.js";
+export {
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_SCOPES,
+	KNOWLEDGE_SORT_OPTIONS,
+	KNOWLEDGE_STATUS_LABEL,
+	KNOWLEDGE_STATUSES,
+	KNOWLEDGE_TOPIC_HEALTHS,
+	SCOPE_TO_LAYER,
+	scopeToLayer,
+} from "./knowledge.js";
 export { createLogger, type Logger } from "./logger.js";
 // ── AE5: Mention parsing utilities ──
 export type {

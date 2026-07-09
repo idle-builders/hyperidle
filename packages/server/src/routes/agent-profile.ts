@@ -20,7 +20,6 @@
  */
 
 import { factorySettings, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { computeApprovalRate } from "@hyperidle/fabric";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -34,6 +33,7 @@ import type {
 } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
+import { computeApprovalRate } from "../app-runtime/services/approval-rate.js";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 

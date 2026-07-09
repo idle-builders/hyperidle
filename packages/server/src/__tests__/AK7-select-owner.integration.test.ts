@@ -39,10 +39,41 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { insertProposedBetTasks } from "../services/bet-decomposition.js";
 // Import the function that does not exist yet — intentional red-phase failure.
 import { selectOwner } from "../services/select-agent.js";
-import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 type AK7StrategyStub = Strategy<HyperIdleDb>;
+
+const resolverState = vi.hoisted(() => ({
+	selectAgent: null as null | ((input: unknown) => unknown),
+}));
+
+vi.mock("../services/agent-defaults/resolvers.js", () => ({
+	resolveAgentScaffoldSpecs: async () => [],
+	resolveAgentSelection: async (input: unknown) => {
+		if (!resolverState.selectAgent) return { agentId: null };
+		return resolverState.selectAgent(input);
+	},
+	resolveAssistantFormation: async () => ({
+		persona: null,
+		assistantDraftSurface: "standard",
+	}),
+	resolveDecompositionPlan: async (input: {
+		candidates?: ReadonlyArray<{ agentId: string; role: string }>;
+	}) => {
+		const candidates = input.candidates ?? [];
+		const pm =
+			candidates.find((candidate) => candidate.role === "product_manager") ?? candidates[0];
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
+}));
+
+function setActiveStrategy(strategy: AK7StrategyStub): void {
+	resolverState.selectAgent = strategy.selectAgent.bind(strategy) as (input: unknown) => unknown;
+}
+
+function clearActiveStrategy(): void {
+	resolverState.selectAgent = null;
+}
 
 // ---------------------------------------------------------------------------
 // Seed helpers

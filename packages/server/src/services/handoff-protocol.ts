@@ -9,9 +9,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { releaseSessionDedup } from "@hyperidle/fabric";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
 import type { SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";

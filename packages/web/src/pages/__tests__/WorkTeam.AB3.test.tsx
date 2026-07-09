@@ -4,7 +4,7 @@
  * AC coverage:
  * AC-1: Agent cards show name, role description, and category tag for non-team agents.
  * AC-2: Clicking agent card opens edit dialog pre-filled with system prompt textarea.
- * AC-3: Edit dialog respects category — strategy agents show note + disabled config.
+ * AC-3: Edit dialog respects category — app-managed agents show note + disabled config.
  * AC-4: Config section save calls PATCH /api/agents/:id with updated values.
  * AC-5: "+ Add agent" button opens create dialog; Create calls POST /api/agents.
  * AC-6: First-time hint banner with data-testid="hint-review-agents" is visible.
@@ -221,13 +221,13 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 	});
 
-	it("strategy agent card shows a 'Strategy' category tag", async () => {
+	it("app-managed agent card shows an 'App-managed' category tag", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
 			const tags = screen.getAllByTestId("agent-card-category");
 			const tagTexts = tags.map((t) => t.textContent ?? "");
-			expect(tagTexts.some((t) => t.includes("Strategy"))).toBe(true);
+			expect(tagTexts.some((t) => t.includes("App-managed"))).toBe(true);
 		});
 	});
 
@@ -378,7 +378,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("strategy agent dialog shows strategy management note", async () => {
+	it("app-managed agent dialog shows app defaults management note", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -386,7 +386,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		// Click the strategy agent (Scout Agent — index 1) Customize button
+		// Click the app-managed agent (Scout Agent — index 1) Customize button
 		const rows = screen.getAllByTestId("agent-row");
 		const scoutRow = rows.find((c) => c.textContent?.includes("Scout Agent"));
 		const scoutBtn = scoutRow?.querySelector('[data-testid="agent-customize-btn"]');
@@ -394,12 +394,12 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		await user.click((scoutBtn as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
-			expect(screen.getByText(/managed by your strategy/i)).toBeInTheDocument();
+			expect(screen.getByText(/managed by app defaults/i)).toBeInTheDocument();
 		});
 	});
 
-	// @lore AV4: team agent pane (no dialog) does NOT show strategy note.
-	it("team agent pane does NOT show strategy management note", async () => {
+	// @lore AV4: team agent pane (no dialog) does NOT show app-managed note.
+	it("team agent pane does NOT show app defaults management note", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -419,11 +419,11 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
 		});
 
-		expect(screen.queryByText(/managed by your strategy/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/managed by app defaults/i)).not.toBeInTheDocument();
 	});
 
-	// @lore AV4: strategy agent config fields in pane (no dialog).
-	it("strategy agent config fields are disabled when config section is expanded", async () => {
+	// @lore AV4: app-managed agent config fields in pane (no dialog).
+	it("app-managed agent config fields are disabled when config section is expanded", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -447,7 +447,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		const configToggle = screen.getByRole("button", { name: /show configuration/i });
 		await user.click(configToggle);
 
-		// All config inputs should be disabled for strategy agents
+		// All config inputs should be disabled for app-managed agents
 		await waitFor(() => {
 			const harnessInput = screen.getByLabelText(/harness/i);
 			expect(harnessInput).toBeDisabled();

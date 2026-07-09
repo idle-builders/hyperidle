@@ -4,8 +4,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createGitRunner } from "@hyperidle/fabric";
 import type { FilesystemAuth, FilesystemAuthResolver, FilesystemState } from "@hyperidle/shared";
+import { createGitRunner } from "../app-runtime/services/git-export-runner.js";
 import type { ServiceConnectionResolver } from "./service-connection-resolver.js";
 
 // ─── NoopAuthResolver ────────────────────────────────────────────────────────

@@ -1,19 +1,16 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { notificationQueue } from "@hyperidle/db";
+import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { desc, eq, isNull } from "drizzle-orm";
+import { Hono } from "hono";
+import z from "zod";
 import {
-	type AdapterFactory,
-	defaultMutePreferenceWriter,
-	dispatchDigest,
-	flushQueue,
-	getMutedTypeKeys,
 	loadNotificationConfig,
-	type Notification,
-	type NotificationChannel,
 	type NotificationConfigPatch,
 	pickRecipient,
 	readNotificationConfig,
 	redactNotificationConfig,
-	type SendResult,
 	sanitizeCron,
 	sanitizeEmail,
 	sanitizeNtfyUrl,
@@ -21,12 +18,21 @@ import {
 	sanitizeSmtpHost,
 	sanitizeTopic,
 	updateNotificationConfig,
-} from "@hyperidle/fabric";
-import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
-import { desc, eq, isNull } from "drizzle-orm";
-import { Hono } from "hono";
-import z from "zod";
+} from "../app-runtime/services/notifications/config.js";
+import {
+	type AdapterFactory,
+	dispatchDigest,
+	flushQueue,
+} from "../app-runtime/services/notifications/dispatcher.js";
+import {
+	defaultMutePreferenceWriter,
+	getMutedTypeKeys,
+} from "../app-runtime/services/notifications/mute.js";
+import type {
+	Notification,
+	NotificationChannel,
+	SendResult,
+} from "../app-runtime/services/notifications/types.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 

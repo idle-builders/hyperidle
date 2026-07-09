@@ -1,8 +1,8 @@
-import type { KnowledgeStatus } from "@hyperidle/fabric/types";
 import type {
 	AgentOperationalStatus,
 	BetOutcomeVerdict,
 	BetStatus,
+	KnowledgeStatus,
 	RoutineState,
 	SessionOutcome,
 	TaskOutcomeVerdict,

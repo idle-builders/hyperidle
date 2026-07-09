@@ -1,10 +1,11 @@
 import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
-import { getDailyDigest, REDACTED } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { getDailyDigest } from "../app-runtime/services/daily-digest.js";
+import { REDACTED } from "../app-runtime/services/notifications/config.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 
