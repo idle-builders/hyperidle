@@ -19,6 +19,7 @@ import {
 	type ConfigurationOrigin,
 	type PluginState,
 	type ResolvedConfigurationItem,
+	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -174,7 +175,7 @@ const ConfigurationValueSchemas = {
 	agent: ConfigurationObjectSchema,
 	skill: ConfigurationObjectSchema,
 	routine: ConfigurationObjectSchema,
-	trigger: ConfigurationObjectSchema,
+	trigger: TriggerRuleValueSchema,
 	tool: ConfigurationObjectSchema,
 	mcp_server: McpServerConfigurationSchema,
 	harness_descriptor: ConfigurationObjectSchema,
@@ -425,9 +426,13 @@ export async function backfillLegacyConfigurationDefaults(
 			kind: "trigger",
 			key: `trigger.${routine.id}`,
 			value: {
-				routineId: routine.id,
-				triggerType: routine.triggerType,
-				triggerConfig: parseNullableJson(routine.triggerConfig),
+				eventType: "routine.fire",
+				sourceKind: "routine",
+				scope: {
+					sourceId: routine.id,
+					teamId: routine.teamId,
+				},
+				agentId: routine.ownerAgentId,
 			},
 		});
 	}

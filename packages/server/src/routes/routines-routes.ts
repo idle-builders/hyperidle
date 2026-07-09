@@ -29,11 +29,11 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
+import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 /**
  * AA2: Optional dependency injection for routine trigger provisioning.
@@ -554,16 +554,16 @@ export function createRoutineRoutes(
 		});
 		await db.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
 
-		const request = await createAgentSessionRequest(db, {
+		const { request } = await createTriggeredAgentSessionRequest(db, {
+			eventType: "routine.fire",
 			sourceKind: "routine",
-			sourceId: runId,
+			sourceId: routineId,
 			streamId: `routine:${routineId}`,
 			taskId: null,
-			agentId: routine.ownerAgentId,
+			defaultAgentId: routine.ownerAgentId,
 			teamId: routine.teamId,
-			promptMode: "routine",
 			idempotencyKey: `routine:${runId}`,
-			payloadJson: JSON.stringify({ routineId, runId }),
+			payload: { routineId, runId },
 			sourceCorrelation: {
 				routineId,
 				routineRunId: runId,

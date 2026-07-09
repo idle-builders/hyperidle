@@ -41,6 +41,7 @@ import { resolveModelTier } from "./services/model-gateway.js";
 import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { provisionSession } from "./services/session-provisioning.js";
+import { createTriggeredAgentSessionRequest } from "./services/trigger-resolution.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -288,7 +289,13 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 
 	// AF7/AU3: register app-owned session request consumers for dispatcher paths.
 	setProvisionSessionFn(provisionSession);
-	setAgentSessionRequestCreateFn(createAgentSessionRequest);
+	setAgentSessionRequestCreateFn(async (requestDb, input) => {
+		if ("eventType" in input && "defaultAgentId" in input) {
+			const { request } = await createTriggeredAgentSessionRequest(requestDb, input);
+			return request;
+		}
+		return createAgentSessionRequest(requestDb, input);
+	});
 	setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
 
 	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a

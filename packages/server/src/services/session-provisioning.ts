@@ -483,6 +483,7 @@ export interface ProvisionSessionParams {
 		readonly sourceKind: AgentSessionSourceKind;
 		readonly sourceId: string;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+		readonly triggerPromptOverride?: string;
 	};
 	/**
 	 * AA2: When set, this session is a routine session. The provisioning orchestrator
@@ -1145,6 +1146,9 @@ export async function runSession(
 	/** AR4a NIT-4: messages for the builtin chat path (load-bearing for builtin). */
 	let conversationalMessages: ConversationMessage[] | undefined;
 
+	const effectiveSystemPromptText =
+		params.requestContext?.triggerPromptOverride ?? systemPromptText;
+
 	let assembledPrompt: string;
 	if (params.conversational) {
 		// AR4a: Conversational mode — assemble thread transcript as the system prompt.
@@ -1166,7 +1170,7 @@ export async function runSession(
 			params.conversational.systemPromptOverride !== undefined &&
 			params.conversational.systemPromptOverride !== null
 				? params.conversational.systemPromptOverride
-				: systemPromptText;
+				: effectiveSystemPromptText;
 		const { composedPrompt } = composeAssistantPrompt(effectivePersona);
 		// Use the caller-supplied messages (already loaded from DB by runAssistantTurn)
 		conversationalMessages = params.conversational.messages;
@@ -1189,13 +1193,18 @@ export async function runSession(
 			teamId: params.productId,
 		});
 		({ assembledPrompt } = await assembleRoutinePrompt({
-			systemPromptText,
+			systemPromptText: effectiveSystemPromptText,
 			context: routineContextData,
 			tools: toolSummaries,
 			sandboxPath,
 		}));
 	} else if (params.requestContext) {
-		assembledPrompt = await assembleTaskFreePrompt(db, params, systemPromptText, toolSummaries);
+		assembledPrompt = await assembleTaskFreePrompt(
+			db,
+			params,
+			effectiveSystemPromptText,
+			toolSummaries,
+		);
 	} else {
 		// Normal task session: read task + bet + agent + team context.
 		if (!params.taskId) {
@@ -1209,7 +1218,7 @@ export async function runSession(
 			productId: params.productId,
 		});
 		({ assembledPrompt } = await assemblePrompt({
-			systemPromptText,
+			systemPromptText: effectiveSystemPromptText,
 			context: sessionContextData,
 			tools: toolSummaries,
 			sandboxPath,

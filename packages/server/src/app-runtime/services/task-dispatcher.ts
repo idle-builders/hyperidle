@@ -37,10 +37,8 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
-import {
-	getAgentSessionRequestConsumerFn,
-	getAgentSessionRequestCreateFn,
-} from "./provision-registry.js";
+import { createTriggeredAgentSessionRequest } from "../../services/trigger-resolution.js";
+import { getAgentSessionRequestConsumerFn } from "./provision-registry.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)
@@ -197,18 +195,6 @@ function resolveRequestConsumer(): (...args: any[]) => Promise<any> {
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: validated creator type is runtime-injected from server.
-function resolveRequestCreator(): (...args: any[]) => Promise<any> {
-	const fn = getAgentSessionRequestCreateFn();
-	if (!fn) {
-		throw new Error(
-			"[task-dispatcher] agent session request creator not registered. " +
-				"Call setAgentSessionRequestCreateFn(createAgentSessionRequest) during server bootstrap " +
-				"(or in tests before registerTaskDispatcher).",
-		);
-	}
-	return fn;
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -230,7 +216,6 @@ async function createDispatchRequest(
 	entry: DispatchQueueEntry,
 	// biome-ignore lint/suspicious/noExplicitAny: request row type comes from the injected server creator.
 ): Promise<any> {
-	const createAgentSessionRequest = resolveRequestCreator();
 	const sourceKind = entry.proposedCallId ? "proposed_call" : "task";
 	const sourceId = entry.proposedCallId ?? entry.taskId;
 	const idempotencyKey = entry.proposedCallId
@@ -239,17 +224,18 @@ async function createDispatchRequest(
 	const sourceCorrelation = entry.proposedCallId
 		? { taskId: entry.taskId, proposedCallId: entry.proposedCallId, grantedAgentId: entry.agentId }
 		: { taskId: entry.taskId, teamId: entry.teamId };
-	return createAgentSessionRequest(db, {
+	const { request } = await createTriggeredAgentSessionRequest(db, {
+		eventType: entry.proposedCallId ? "proposed_call.granted" : "task.accepted",
 		sourceKind,
 		sourceId,
 		streamId: `task:${entry.taskId}`,
 		taskId: entry.taskId,
-		agentId: entry.agentId,
+		defaultAgentId: entry.agentId,
 		teamId: entry.teamId,
-		promptMode: entry.proposedCallId ? "proposed_call" : "task",
 		idempotencyKey,
 		sourceCorrelation,
 	});
+	return request;
 }
 
 /**

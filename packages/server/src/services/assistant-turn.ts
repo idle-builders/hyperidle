@@ -54,8 +54,8 @@ import {
 } from "../tools/assistant-draft-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
-import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { consumeAgentSessionRequest } from "./agent-session-runtime.js";
+import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -504,19 +504,19 @@ async function runTurnInternal(
 
 	const sandboxBasePath = deps.sandboxBasePath ?? (await import("node:os")).default.tmpdir();
 
-	const request = await createAgentSessionRequest(db, {
+	const { request, resolution: triggerResolution } = await createTriggeredAgentSessionRequest(db, {
+		eventType: "assistant.message",
 		sourceKind: "assistant",
 		sourceId: triggerMessageId,
 		streamId: `thread:${threadId}`,
-		agentId: assistantAgentId,
+		defaultAgentId: assistantAgentId,
 		userId,
-		promptMode: "conversation",
 		idempotencyKey: `assistant:${triggerMessageId}`,
-		payloadJson: JSON.stringify({
+		payload: {
 			threadId,
 			triggerMessageId,
 			systemPromptOverride: formation.persona,
-		}),
+		},
 		sourceCorrelation: {
 			threadId,
 			messageId: triggerMessageId,
@@ -548,7 +548,7 @@ async function runTurnInternal(
 				// @lore AR4b: systemPromptOverride carries the per-turn persona decision
 				// to prompt assembly, which uses it in composeAssistantPrompt(effectivePersona).
 				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
-				systemPromptOverride: formation.persona,
+				systemPromptOverride: triggerResolution.prompt ?? formation.persona,
 			},
 		});
 

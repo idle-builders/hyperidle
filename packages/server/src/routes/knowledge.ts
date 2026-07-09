@@ -55,8 +55,8 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -1171,17 +1171,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			eventBus.emit(flaggedEvent);
 
 			if (body.agentId) {
-				await createAgentSessionRequest(db, {
+				await createTriggeredAgentSessionRequest(db, {
+					eventType: "knowledge.action",
 					sourceKind: "knowledge",
 					sourceId: `knowledge:${id}`,
 					streamId: `knowledge:${id}`,
-					agentId: body.agentId,
-					promptMode: "knowledge",
+					defaultAgentId: body.agentId,
 					idempotencyKey: `knowledge:${id}:review:${updated?.version ?? item.version + 1}`,
-					payloadJson: JSON.stringify({ reason: body.reason }),
+					payload: { reason: body.reason },
 					sourceCorrelation: {
 						knowledgeItemId: id,
 						action: "review",
+						...(item.scopeKind === "team" && item.scopeId ? { teamId: item.scopeId } : {}),
 						...(item.scopeId ? { scopeId: item.scopeId } : {}),
 					},
 				});
