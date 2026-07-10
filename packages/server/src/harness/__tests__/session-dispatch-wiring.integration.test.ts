@@ -57,10 +57,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { clearProvisionSessionFn } from "@hyperidle/fabric";
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { clearProvisionSessionFn } from "../../../../fabric/src/services/provision-registry.js";
 import { createServer } from "../../server-factory.js";
 import { encryptCredentialValue } from "../../services/credential-encryption.js";
 import { clearActiveStrategy, setActiveStrategy } from "../../services/strategy-registry.js";

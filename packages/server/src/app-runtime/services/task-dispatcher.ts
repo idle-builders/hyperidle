@@ -37,8 +37,8 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
+import { executeAgentRunRequest } from "../../services/agent-run-boundary.js";
 import { createTriggeredAgentSessionRequest } from "../../services/trigger-resolution.js";
-import { getAgentSessionRequestConsumerFn } from "./provision-registry.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)
@@ -167,35 +167,6 @@ let draining = false;
 let currentGeneration = 0;
 
 // ---------------------------------------------------------------------------
-// agent session request consumer resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve the local runtime request consumer from the registry.
- *
- * @lore AD2: The original approach used `await import("@hyperidle/server/...")`.
- * This fails in Vite SSR test mode because the dynamic import triggers Vite's
- * module transform pipeline, which creates a TDZ circular reference when
- * session-provisioning imports legacy runtime package back. The registry pattern
- * (provision-registry.ts) breaks the cycle: task-dispatcher imports a leaf
- * module; the server and test files register the real function before dispatch
- * runs. See provision-registry.ts for the full explanation.
- */
-// biome-ignore lint/suspicious/noExplicitAny: runtime consumer type from server not importable here (circular dep)
-function resolveRequestConsumer(): (...args: any[]) => Promise<any> {
-	const fn = getAgentSessionRequestConsumerFn();
-	if (!fn) {
-		throw new Error(
-			"[task-dispatcher] agent session request consumer not registered. " +
-				"Call setAgentSessionRequestConsumerFn(executeAgentRunRequest) during server bootstrap " +
-				"(or in tests before registerTaskDispatcher).",
-		);
-	}
-	return fn;
-}
-
-// biome-ignore lint/suspicious/noExplicitAny: validated creator type is runtime-injected from server.
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -299,8 +270,6 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 	draining = true;
 
 	try {
-		const consumeAgentSessionRequest = resolveRequestConsumer();
-
 		// Track agents blocked by ConcurrencyLimitError in this drain pass
 		const concurrencyBlockedAgents = new Set<string>();
 
@@ -410,7 +379,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 				}
 
 				const request = await createDispatchRequest(deps.db, entry);
-				await consumeAgentSessionRequest(
+				await executeAgentRunRequest(
 					{
 						db: deps.db,
 						eventBus: deps.eventBus,

@@ -13,10 +13,7 @@ import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { isAgentAtWipLimit, selectAgentFabric } from "./agent-selection.js";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
-import {
-	getAgentSessionRequestConsumerFn,
-	getAgentSessionRequestCreateFn,
-} from "./provision-registry.js";
+import { getAgentSessionRequestCreateFn } from "./provision-registry.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "fabric" });
@@ -412,8 +409,7 @@ export async function checkAndFireRoutine(
 	}
 
 	const createAgentSessionRequest = getAgentSessionRequestCreateFn();
-	const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
-	if (!(createAgentSessionRequest && consumeAgentSessionRequest && runtimeDeps)) {
+	if (!(createAgentSessionRequest && runtimeDeps?.executeAgentRunRequest)) {
 		return { fired: false, reason: "agent session request runtime unavailable" };
 	}
 
@@ -451,7 +447,7 @@ export async function checkAndFireRoutine(
 
 	let sessionId: string;
 	try {
-		const result = await consumeAgentSessionRequest(
+		const result = await runtimeDeps.executeAgentRunRequest(
 			{
 				db,
 				eventBus,

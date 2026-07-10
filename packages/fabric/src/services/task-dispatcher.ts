@@ -38,10 +38,7 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
-import {
-	getAgentSessionRequestConsumerFn,
-	getAgentSessionRequestCreateFn,
-} from "./provision-registry.js";
+import { getAgentSessionRequestCreateFn } from "./provision-registry.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available in fabric)
@@ -122,6 +119,12 @@ export interface TaskDispatcherDeps {
 	 */
 	// biome-ignore lint/suspicious/noExplicitAny: BeforeTeardownContext type lives in server — fabric passes opaquely
 	readonly onBeforeTeardown?: (ctx: any) => Promise<void>;
+	/**
+	 * AU6: legacy Fabric callers may inject the agent-layer boundary explicitly.
+	 * Production server runtime no longer uses this Fabric service.
+	 */
+	// biome-ignore lint/suspicious/noExplicitAny: boundary function is injected structurally to avoid a server import
+	readonly executeAgentRunRequest?: (...args: any[]) => Promise<any>;
 }
 
 /** A single entry in the dispatch queue. */
@@ -169,34 +172,6 @@ let draining = false;
  * The generation counter is the simplest correct fix.
  */
 let currentGeneration = 0;
-
-// ---------------------------------------------------------------------------
-// agent session request consumer resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve the local runtime request consumer from the registry.
- *
- * @lore AD2: The original approach used `await import("@hyperidle/server/...")`.
- * This fails in Vite SSR test mode because the dynamic import triggers Vite's
- * module transform pipeline, which creates a TDZ circular reference when
- * session-provisioning imports @hyperidle/fabric back. The registry pattern
- * (provision-registry.ts) breaks the cycle: task-dispatcher imports a leaf
- * module; the server and test files register the real function before dispatch
- * runs. See provision-registry.ts for the full explanation.
- */
-// biome-ignore lint/suspicious/noExplicitAny: runtime consumer type from server not importable here (circular dep)
-function resolveRequestConsumer(): (...args: any[]) => Promise<any> {
-	const fn = getAgentSessionRequestConsumerFn();
-	if (!fn) {
-		throw new Error(
-			"[task-dispatcher] agent session request consumer not registered. " +
-				"Call setAgentSessionRequestConsumerFn(executeAgentRunRequest) during server bootstrap " +
-				"(or in tests before registerTaskDispatcher).",
-		);
-	}
-	return fn;
-}
 
 // biome-ignore lint/suspicious/noExplicitAny: validated creator type is runtime-injected from server.
 function resolveRequestCreator(): (...args: any[]) => Promise<any> {
@@ -317,7 +292,11 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 	draining = true;
 
 	try {
-		const consumeAgentSessionRequest = resolveRequestConsumer();
+		const executeAgentRunRequest = deps.executeAgentRunRequest;
+		if (!executeAgentRunRequest) {
+			logger.warn("legacy Fabric dispatcher has no agent-layer boundary executor", {});
+			return;
+		}
 
 		// Track agents blocked by ConcurrencyLimitError in this drain pass
 		const concurrencyBlockedAgents = new Set<string>();
@@ -428,7 +407,7 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
 				}
 
 				const request = await createDispatchRequest(deps.db, entry);
-				await consumeAgentSessionRequest(
+				await executeAgentRunRequest(
 					{
 						db: deps.db,
 						eventBus: deps.eventBus,

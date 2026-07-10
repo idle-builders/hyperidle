@@ -11,6 +11,7 @@
  */
 
 import {
+	type AgentSessionRequest,
 	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
@@ -22,15 +23,13 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import {
-	bootstrapFabric,
-	clearProvisionSessionFn,
-	setAgentSessionRequestConsumerFn,
-	setAgentSessionRequestCreateFn,
-	startRoutineScheduler,
-} from "@hyperidle/fabric";
+import { bootstrapFabric, startRoutineScheduler } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	clearProvisionSessionFn,
+	setAgentSessionRequestCreateFn,
+} from "../../../fabric/src/services/provision-registry.js";
 import { createAgentSessionRequest } from "../services/agent-session-requests.js";
 import { test } from "../test-fixtures.js";
 
@@ -117,7 +116,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 function registerSchedulerRuntime(db: HyperIdleDb) {
 	setAgentSessionRequestCreateFn(createAgentSessionRequest);
-	setAgentSessionRequestConsumerFn(async (_deps, request) => {
+	const executeAgentRunRequest = async (_deps: unknown, request: AgentSessionRequest) => {
 		const sessionId = `session-${request.id}`;
 		const now = new Date().toISOString();
 		const sourceCorrelation = JSON.parse(request.sourceCorrelationJson) as { routineId: string };
@@ -145,11 +144,12 @@ function registerSchedulerRuntime(db: HyperIdleDb) {
 			taskId: null,
 			forceReturnCount: 0,
 		};
-	});
+	};
 	return {
 		adapterPool: {},
 		workspace: {},
 		sandboxBasePath: "/tmp/ad5-routine-scheduler",
+		executeAgentRunRequest,
 	};
 }
 

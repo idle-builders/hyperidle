@@ -1,4 +1,5 @@
 import {
+	type AgentSessionRequest,
 	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
@@ -10,11 +11,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	setAgentSessionRequestConsumerFn,
-	setAgentSessionRequestCreateFn,
-	type TaskDispatcherDeps,
-} from "@hyperidle/fabric";
+import type { TaskDispatcherDeps } from "@hyperidle/fabric";
 import type {
 	AssistantFormation,
 	AssistantFormationRequest,
@@ -30,6 +27,7 @@ import type {
 import { minimalStrategy } from "@hyperidle/strategy-minimal";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { setAgentSessionRequestCreateFn } from "../../../fabric/src/services/provision-registry.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import { createAgentSessionRequest } from "../services/agent-session-requests.js";
@@ -261,7 +259,7 @@ export function registerRoutineRequestRuntime(
 	db: HyperIdleDb,
 ): Omit<TaskDispatcherDeps, "db" | "eventBus"> {
 	setAgentSessionRequestCreateFn(createAgentSessionRequest);
-	setAgentSessionRequestConsumerFn(async (_deps, request) => {
+	const executeAgentRunRequest = async (_deps: unknown, request: AgentSessionRequest) => {
 		const sessionId = `session-${request.id}`;
 		const now = new Date().toISOString();
 		const sourceCorrelation = JSON.parse(request.sourceCorrelationJson) as {
@@ -291,10 +289,11 @@ export function registerRoutineRequestRuntime(
 			taskId: null,
 			forceReturnCount: 0,
 		};
-	});
+	};
 	return {
 		adapterPool: {},
 		workspace: {},
 		sandboxBasePath: "/tmp/hyperidle-au1-routine-runtime",
+		executeAgentRunRequest,
 	} as Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }

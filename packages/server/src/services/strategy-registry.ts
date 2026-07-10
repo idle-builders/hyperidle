@@ -9,8 +9,7 @@
  * regression where the Fabric should be active instead. Boot always registers
  * exactly one Strategy (server-factory.ts composition root).
  *
- * Follows the same idiom as provision-registry.ts (setProvisionSessionFn /
- * getProvisionSessionFn) — a lean module-scope variable with explicit
+ * Follows the same idiom as registry leaf modules: a lean module-scope variable with explicit
  * set/get/clear. clearActiveStrategy is test teardown only.
  */
 
