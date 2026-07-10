@@ -29,7 +29,7 @@ export async function createAgentSessionRequest(
 	db: HyperIdleDb,
 	input: AgentSessionRequestInput,
 ): Promise<AgentSessionRequest> {
-	const parsed: AgentSessionRequestInput = agentSessionRequestInputSchema.parse(input);
+	const parsed = agentSessionRequestInputSchema.parse(input) as AgentSessionRequestInput;
 	const existing = await db
 		.select()
 		.from(agentSessionRequests)
